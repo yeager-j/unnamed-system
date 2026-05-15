@@ -2,6 +2,24 @@
 
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `/Users/jackson/Obsidian/Persona System/` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 
+## Code Style
+
+> *Perfection is lots of little things done well*
+>
+>
+> — Marco Pierre White
+>
+
+
+1. **Keep it simple; don't get clever.** As the great Brian Kernighan said, *"Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it?"*
+2. **Give functions clear names and purposes.** Each function should have one job and do it well. Avoid side effects where possible. Pure, single-purpose functions are easy to test and maintain.
+3. **Avoid inline comments.** If your code needs a comment to be understood, try refactoring it by extracting variables or creating functions. Barring some unusual techniques for performance reasons, your code should read like a sentence. Again, as the great Brian Kernighan said, *“Don’t comment bad code — rewrite it!”* However, always write documentation (e.g. JSDocs).
+4. **Resist premature abstraction.** Just because two pieces of code look similar doesn't mean they should be combined. Every abstraction introduces coupling, creating dependencies that make future changes more difficult.
+5. **Favor composition over inheritance.** This creates more flexible code with fewer hidden dependencies. Inheritance expects you to bundle common behavior into a parent type, but as soon as you find an exception to the commonality, an expensive refactor is required. If you think your inheritance structure is perfect, remember that change is the enemy of perfect design.
+6. **Avoid nesting the Happy Path.** If your Happy Path is nested within a bunch of conditionals, try inverting the conditions and using early return statements. If the conditionals are complex, it might be worth extracting them into their own bite-sized functions.
+7. **Write tests to enable confident refactoring.** Tests aren't just about verifying code works today, they're about maintaining the freedom to improve it tomorrow. Good tests let you iterate on implementation details while ensuring behavior remains consistent, turning what would be hours of debugging into seconds of test runs.
+
+
 ## Repo Structure
 
 Turborepo monorepo with npm workspaces:
