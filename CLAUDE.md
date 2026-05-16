@@ -57,65 +57,9 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 
 Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database.
 
-## Game Rules the App Must Understand
+## Game Rules
 
-The full rules are in the Obsidian vault. What follows is the subset the app enforces or computes.
-
-### Stats
-
-**Attributes** (Strength, Magic, Agility, Luck): set entirely by the active Archetype's stat block. Not accumulated via leveling. Hard cap ±7. Apply in priority order: active Archetype score + permanent Mastery bonuses + equipped item bonuses. Clamp result to ±7.
-
-**Virtues** (Expression, Empathy, Wisdom, Focus): Rank 0–7 each. Separate from Attributes; used for social/exploration checks. Created with +2 to one Virtue, +1 to two others, 0 to the fourth.
-
-**HP/SP**: Determined by path choice at creation:
-- Health-Focused: d12 Hit Die / d8 Skill Die, starting 24 HP / 40 SP
-- Balanced: d10 / d10, starting 20 HP / 50 SP
-- Skill-Focused: d8 / d12, starting 16 HP / 60 SP
-
-Max HP = path starting HP + sum of Hit Die results on level-up + permanent HP bonuses (Mastery, equipment). MVP uses averages only (no player-rolled dice for level-up HP gain — the app accepts a player-entered roll result for Respite/Partial Rest die spending).
-
-**Affinities** (11 damage types: Slash, Pierce, Strike, Fire, Ice, Wind, Elec, Aether, Psy, Light, Dark; plus Almighty): Priority order highest→lowest: Drain > Repel > Null > Resist > Neutral > Weak. Display the highest-priority source that applies. Sources: active Archetype's chart → equipment overrides → Skill overrides in the active Archetype's Inheritance Slots.
-
-### Archetypes
-
-Jobs/classes. One active at a time; switch only at a Respite. Each Archetype has Ranks 1–5. Mastering (Rank 5) grants a **permanent** bonus (specific to that Archetype) that persists even when inactive — but Attribute cap still applies. Each Archetype has a fixed number of Inheritance Slots (initiate tier = 2); slots hold a Skill from any other unlocked Archetype's available Skills at the character's current Rank in that source Archetype. Synthesis Skills cannot be inherited.
-
-Origin Archetype: the one chosen at creation. Sets Rank 2 and unlocks Ranks 1–2 Skills. Also determines which Paragon Archetype is eventually unlockable (display-only at MVP).
-
-Archetype Ranks are gained from leveling (+2 per level). They can be spent to rank up any unlocked Archetype or saved.
-
-MVP ships four Archetypes: **Warrior, Knight, Mage, Healer**.
-
-### Skill Casting
-
-Each Skill costs either flat SP or a percentage of max HP. Resolve percentage costs against current max HP at display time (show concrete numbers). Disable Cast button if the character can't pay: current SP < SP cost, or current HP ≤ HP cost (can't drop to 0 HP by casting). On cast: deduct the resolved cost from the appropriate pool. Log the action (last 10, undoable). The app never rolls damage or applies effects to targets.
-
-### Leveling
-
-Victories threshold: 7 (Heroic Victory = 2; overflow carries forward). On level-up:
-1. +1 Hit Die + +2 Skill Dice (player enters result or takes average; add to max HP and max SP)
-2. +2 Archetype Ranks (spendable now or saved)
-3. Victories decremented by 7; overflow carries
-
-Max level: 30.
-
-### Sparks & Virtue Rank-Up
-
-Spark log holds 0–7 Sparks, each tagged with a Virtue. At 7 Sparks, surface a "Rank up" CTA. Eligible Virtues are those represented at least once in the current log. On rank-up: chosen Virtue +1 Rank, log clears entirely.
-
-### Resting
-
-- **Full Rest**: restore HP and SP to max, restore all spent dice, Exhaustion −1
-- **Partial Rest**: restore HP to max; player chooses Skill Dice to spend for SP (app accepts player-entered result per die, deducts the dice)
-- **Respite**: player chooses Hit Dice to spend for HP (same model); no SP recovery
-
-### Prisma
-
-Each character carries a Prisma flask. Default max 2 charges. "Use Prisma" decrements by 1. Player rolls and adjusts HP manually. Refills to max on Full Rest. Upgrade tree is deferred (rules are also TODO).
-
-### Combat State (tracked, not computed)
-
-Current ailment (one at a time; 13 possible), Battle Conditions (Attack/Defense/Hit-Evasion each: neutral/increased/decreased with stack counts), Charged toggle, Concentrating toggle, Exhaustion level. A "Clear combat state" button wipes all after combat.
+When you need to read about the rules of the game, first check the `CLAUDE.md` index file located in the Obsidian vault. If you need further clarification, read the full rule text.
 
 ## Data Model (Key Entities)
 
