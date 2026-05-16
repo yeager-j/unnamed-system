@@ -5,7 +5,6 @@ export const agi = {
   key: "agi",
   name: "Agi",
   description: "Deals weak fire damage to one enemy.",
-  archetypeKey: "mage",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

@@ -5,7 +5,6 @@ export const dia = {
   key: "dia",
   name: "Dia",
   description: "Weak HP recovery for one ally.",
-  archetypeKey: "healer",
   isSynthesis: false,
   cost: { kind: "sp", amount: 3 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

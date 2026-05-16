@@ -6,7 +6,6 @@ export const shieldArts = {
   name: "Shield Arts",
   description:
     "Deals weak physical Strike damage to one enemy. Potentially decreases their Hit/Evasion for 3 turns.",
-  archetypeKey: "knight",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 15 },
   range: { kind: "known", value: "engaged" },

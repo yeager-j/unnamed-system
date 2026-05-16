@@ -6,7 +6,6 @@ export const elementalApocalypse = {
   name: "Elemental Apocalypse",
   description:
     "Deals medium Fire, Ice, Elec, and Wind damage to all enemies in a Zone.",
-  archetypeKey: "mage",
   isSynthesis: true,
   cost: { kind: "sp", amount: 16 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

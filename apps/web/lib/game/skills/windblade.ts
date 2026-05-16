@@ -5,7 +5,6 @@ export const windblade = {
   key: "windblade",
   name: "Windblade",
   description: "Deals weak wind damage to one enemy.",
-  archetypeKey: "warrior",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "engaged" },

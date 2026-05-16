@@ -12,7 +12,6 @@ export const hammerOfJustice = {
   name: "Hammer of Justice",
   description:
     "Deals heavy Pierce damage to all Engaged enemies. If an enemy took damage, their affinity to Pierce changes to Weak for once instance of Pierce damage.",
-  archetypeKey: "knight",
   isSynthesis: true,
   cost: { kind: "sp", amount: 18 },
   range: { kind: "known", value: "all-engaged" },

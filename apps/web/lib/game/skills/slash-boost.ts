@@ -5,6 +5,5 @@ export const slashBoost = {
   key: "slash-boost",
   name: "Slash Boost",
   description: "+2 to Attack Rolls that deal Slash damage.",
-  archetypeKey: "warrior",
   isSynthesis: false,
 } satisfies Skill

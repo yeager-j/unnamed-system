@@ -53,11 +53,10 @@ describe("archetype cross-references", () => {
     }
   })
 
-  it("marks each Archetype's synthesis Skill as synthesis and owned", () => {
+  it("marks each Archetype's synthesis Skill as synthesis", () => {
     for (const archetype of ARCHETYPES) {
       const synthesis = getSkill(archetype.synthesisSkill.skill)
       expect(synthesis?.isSynthesis).toBe(true)
-      expect(synthesis?.archetypeKey).toBe(archetype.key)
     }
   })
 

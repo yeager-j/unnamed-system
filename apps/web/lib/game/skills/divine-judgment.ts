@@ -10,7 +10,6 @@ export const divineJudgment = {
   key: "divine-judgment",
   name: "Divine Judgment",
   description: "Deals severe Light damage to all enemies and applies Lumina.",
-  archetypeKey: "healer",
   isSynthesis: true,
   cost: { kind: "sp", amount: 20 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

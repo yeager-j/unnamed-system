@@ -6,7 +6,6 @@ export const criticalStrike = {
   name: "Critical Strike",
   description:
     "A weak slashing attack targeting a single enemy with a high chance to crit.",
-  archetypeKey: "warrior",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 10 },
   range: { kind: "known", value: "engaged" },

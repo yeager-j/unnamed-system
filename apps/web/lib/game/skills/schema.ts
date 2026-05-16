@@ -70,8 +70,6 @@ const baseFields = {
   key: skillKey,
   name: z.string().min(1),
   description: z.string().min(1),
-  /** The Archetype that grants this Skill natively (Inheritance source). */
-  archetypeKey: skillKey.optional(),
   /** Synthesis Skills are never inheritable; the picker excludes them. */
   isSynthesis: z.boolean(),
   /**

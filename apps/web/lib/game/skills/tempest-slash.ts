@@ -5,7 +5,6 @@ export const tempestSlash = {
   key: "tempest-slash",
   name: "Tempest Slash",
   description: "A series of slashing attacks targeting one enemy.",
-  archetypeKey: "warrior",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 15 },
   range: { kind: "known", value: "engaged" },

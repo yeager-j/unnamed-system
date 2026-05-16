@@ -5,7 +5,6 @@ export const bufu = {
   key: "bufu",
   name: "Bufu",
   description: "Deals weak ice damage to one enemy.",
-  archetypeKey: "mage",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

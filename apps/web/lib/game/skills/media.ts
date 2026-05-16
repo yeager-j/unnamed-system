@@ -10,7 +10,6 @@ export const media = {
   key: "media",
   name: "Media",
   description: "Weak HP recovery for all allies in a Zone.",
-  archetypeKey: "healer",
   isSynthesis: false,
   cost: { kind: "sp", amount: 7 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

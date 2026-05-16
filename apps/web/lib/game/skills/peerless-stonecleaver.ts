@@ -5,7 +5,6 @@ export const peerlessStonecleaver = {
   key: "peerless-stonecleaver",
   name: "Peerless Stonecleaver",
   description: "Deals severe slash damage to one enemy.",
-  archetypeKey: "warrior",
   isSynthesis: true,
   cost: { kind: "hp-percent", amount: 20 },
   range: { kind: "known", value: "engaged" },

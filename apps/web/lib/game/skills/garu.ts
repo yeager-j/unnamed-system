@@ -5,7 +5,6 @@ export const garu = {
   key: "garu",
   name: "Garu",
   description: "Deals weak wind damage to one enemy.",
-  archetypeKey: "mage",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },

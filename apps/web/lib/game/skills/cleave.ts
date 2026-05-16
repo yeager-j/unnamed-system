@@ -5,7 +5,6 @@ export const cleave = {
   key: "cleave",
   name: "Cleave",
   description: "A weak slashing attack targeting a single enemy.",
-  archetypeKey: "warrior",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 5 },
   range: { kind: "known", value: "engaged" },

@@ -5,7 +5,6 @@ export const skewer = {
   key: "skewer",
   name: "Skewer",
   description: "A weak piercing attack targeting a single enemy.",
-  archetypeKey: "knight",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 5 },
   range: { kind: "known", value: "engaged" },

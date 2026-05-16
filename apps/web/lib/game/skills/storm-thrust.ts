@@ -5,7 +5,6 @@ export const stormThrust = {
   key: "storm-thrust",
   name: "Storm Thrust",
   description: "Deals weak elec damage to one enemy.",
-  archetypeKey: "knight",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "engaged" },

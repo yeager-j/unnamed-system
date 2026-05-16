@@ -5,6 +5,5 @@ export const autoRakukaja = {
   key: "auto-rakukaja",
   name: "Auto-Rakukaja",
   description: "Increases your Defense for 3 turns at the start of combat.",
-  archetypeKey: "knight",
   isSynthesis: false,
 } satisfies Skill

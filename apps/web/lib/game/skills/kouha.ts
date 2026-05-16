@@ -5,7 +5,6 @@ export const kouha = {
   key: "kouha",
   name: "Kouha",
   description: "Deals weak light damage to one enemy.",
-  archetypeKey: "healer",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
