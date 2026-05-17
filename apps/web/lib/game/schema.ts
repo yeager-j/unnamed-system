@@ -72,6 +72,8 @@ export type DamageType = (typeof DAMAGE_TYPES)[number]
 export type AffinityDamageType = (typeof AFFINITY_DAMAGE_TYPES)[number]
 export type Affinity = (typeof AFFINITIES)[number]
 export type ArchetypeTier = (typeof ARCHETYPE_TIERS)[number]
+/** Alias for {@link ArchetypeTier}; the rules call this simply a Tier. */
+export type Tier = ArchetypeTier
 export type Lineage = (typeof LINEAGES)[number]
 export type AttributeKey = (typeof ATTRIBUTE_KEYS)[number]
 
@@ -140,7 +142,11 @@ export const archetypeSchema = z.object({
   }),
   affinities: affinityChartSchema,
   skills: z.array(skillReferenceSchema),
-  synthesisSkill: skillReferenceSchema,
+  /**
+   * The Archetype's Rank-5 Synthesis Skill. Synthesis Skills cannot be
+   * inherited. Optional because not every Archetype lists one.
+   */
+  synthesisSkill: skillReferenceSchema.optional(),
 })
 
 export type SkillReference = z.infer<typeof skillReferenceSchema>

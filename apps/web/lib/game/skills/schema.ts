@@ -135,3 +135,15 @@ export type HealSkill = z.infer<typeof healSkillSchema>
 export type SupportSkill = z.infer<typeof supportSkillSchema>
 export type PassiveSkill = z.infer<typeof passiveSkillSchema>
 export type Skill = z.infer<typeof skillSchema>
+
+/**
+ * A Skill flagged as a Synthesis Skill. Synthesis Skills are cooperative
+ * Rank-5 Skills that can never be inherited; the Inheritance picker excludes
+ * them. Structurally a {@link Skill} narrowed to `isSynthesis: true`.
+ */
+export type SynthesisSkill = Skill & { isSynthesis: true }
+
+export const synthesisSkillSchema = skillSchema.refine(
+  (skill) => skill.isSynthesis,
+  { message: "A Synthesis Skill must have isSynthesis: true" }
+)
