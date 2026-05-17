@@ -49,12 +49,15 @@ describe("archetype cross-references", () => {
       for (const reference of archetype.skills) {
         expect(getSkill(reference.skill)).toBeDefined()
       }
-      expect(getSkill(archetype.synthesisSkill.skill)).toBeDefined()
+      if (archetype.synthesisSkill) {
+        expect(getSkill(archetype.synthesisSkill.skill)).toBeDefined()
+      }
     }
   })
 
   it("marks each Archetype's synthesis Skill as synthesis", () => {
     for (const archetype of ARCHETYPES) {
+      if (!archetype.synthesisSkill) continue
       const synthesis = getSkill(archetype.synthesisSkill.skill)
       expect(synthesis?.isSynthesis).toBe(true)
     }

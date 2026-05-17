@@ -40,6 +40,22 @@ export const BATTLE_CONDITION_STATES = [
 export type BattleConditionState = (typeof BATTLE_CONDITION_STATES)[number]
 
 /**
+ * The five Battle Conditions (rulebook 3.8). Keys match the field names of
+ * {@link battleConditionsSchema}, which tracks their live state on a
+ * character; `attack`/`defense`/`hitEvasion` are tri-state axes,
+ * `charged`/`concentrating` are single-use flags. Effect math is hardcoded in
+ * game logic, not modelled as data.
+ */
+export const BATTLE_CONDITION_KEYS = [
+  "attack",
+  "defense",
+  "hitEvasion",
+  "charged",
+  "concentrating",
+] as const
+export type BattleConditionKey = (typeof BATTLE_CONDITION_KEYS)[number]
+
+/**
  * Keys an equipment Attribute effect or permanent bonus can target: the four
  * Attributes plus the HP and SP pools.
  */
@@ -135,9 +151,9 @@ export type IdentityList = z.infer<typeof identityListSchema>
  * Active Ailments, by key. Intentionally permissive: the app stores whatever
  * Ailments the player records and neither caps the count nor enforces
  * co-existence — the "one Ailment at a time (Downed may co-exist)" rule is
- * the DM's call at the table, not the app's. The 13-ailment value set lives
- * in hardcoded game data (added with the ailments module); entries are plain
- * strings until then.
+ * the DM's call at the table, not the app's. The canonical 12-ailment value
+ * set lives in hardcoded game data (`./ailments`, keyed by `AilmentKey`);
+ * this column stays plain strings so the app never rejects a DM's call.
  */
 export const ailmentsSchema = z.array(z.string())
 export type Ailments = z.infer<typeof ailmentsSchema>
