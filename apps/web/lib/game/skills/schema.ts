@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod/v4"
 import { DAMAGE_TYPES } from "../schema"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)
