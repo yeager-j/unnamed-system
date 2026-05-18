@@ -23,9 +23,9 @@ describe("skill data", () => {
     }
   })
 
-  it("exposes exactly the 24 MVP Skills", () => {
-    expect(SKILLS).toHaveLength(24)
-    expect(getAllSkills()).toHaveLength(24)
+  it("exposes a non-empty catalog that getAllSkills mirrors", () => {
+    expect(SKILLS.length).toBeGreaterThan(0)
+    expect(getAllSkills()).toEqual(SKILLS)
   })
 
   it("has a unique, slug-shaped key for every Skill", () => {

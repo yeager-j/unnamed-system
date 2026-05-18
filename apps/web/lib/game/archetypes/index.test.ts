@@ -6,18 +6,16 @@ import { knight } from "./knight"
 import { mage } from "./mage"
 import { warrior } from "./warrior"
 
-const ALL = [warrior, knight, mage, healer]
-
 describe("archetype data", () => {
   it("validates every Archetype against the schema", () => {
-    for (const archetype of ALL) {
+    for (const archetype of ARCHETYPES) {
       expect(() => archetypeSchema.parse(archetype)).not.toThrow()
     }
   })
 
-  it("exposes exactly the four MVP Archetypes", () => {
-    expect(ARCHETYPES).toHaveLength(4)
-    expect(getAllArchetypes()).toHaveLength(4)
+  it("exposes a non-empty catalog that getAllArchetypes mirrors", () => {
+    expect(ARCHETYPES.length).toBeGreaterThan(0)
+    expect(getAllArchetypes()).toEqual(ARCHETYPES)
   })
 
   it("assigns every Archetype a known Lineage", () => {

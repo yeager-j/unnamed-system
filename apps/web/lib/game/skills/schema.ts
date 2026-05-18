@@ -1,39 +1,8 @@
 import { z } from "zod/v4"
+import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
 import { DAMAGE_TYPES } from "../schema"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)
-
-/**
- * Damage delivery printed in parentheses after the damage type, e.g. the
- * "(Magical)" in "Fire (Magical)".
- */
-export const DELIVERIES = ["physical", "magical"] as const
-export type Delivery = (typeof DELIVERIES)[number]
-
-/**
- * The attribute added to an Attack Roll. "st-or-ma" is the documented
- * either-or variant used by a handful of Skills.
- */
-export const ATTACK_ATTRIBUTES = ["st", "ma", "ag", "st-or-ma"] as const
-export type AttackAttribute = (typeof ATTACK_ATTRIBUTES)[number]
-
-/**
- * Known Range values. Skills outside this set carry an explicit string via
- * the {@link rangeSchema} escape hatch so unusual ranges never block
- * transcription.
- */
-export const RANGES = [
-  "engaged",
-  "all-engaged",
-  "same-zone",
-  "same-or-adjacent-zone",
-] as const
-export type Range = (typeof RANGES)[number]
-
-const rangeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("known"), value: z.enum(RANGES) }),
-  z.object({ kind: z.literal("explicit"), value: z.string().min(1) }),
-])
 
 const costSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("sp"), amount: z.number().int().positive() }),
@@ -48,23 +17,6 @@ const costSchema = z.discriminatedUnion("kind", [
  * (e.g. Elemental Apocalypse hits Fire/Ice/Elec/Wind on one card).
  */
 const damageTypeSchema = z.enum([...DAMAGE_TYPES, "special"])
-
-/**
- * One row of the Attack Roll table. `band` is free-form ("1-10", "16+",
- * "11-15"…) because the rulebook does not fix the boundaries.
- * `sideEffects` is ordered because a single band can carry several
- * (Shield Arts 20+ applies Sukunda *and* Critical).
- */
-const attackTierSchema = z.object({
-  band: z.string().min(1),
-  formula: z.string().min(1),
-  sideEffects: z.array(z.string().min(1)),
-})
-
-const attackRollSchema = z.object({
-  attribute: z.enum(ATTACK_ATTRIBUTES),
-  tiers: z.array(attackTierSchema),
-})
 
 const baseFields = {
   key: skillKey,
@@ -128,8 +80,6 @@ export const skillSchema = z.discriminatedUnion("kind", [
 ])
 
 export type SkillCost = z.infer<typeof costSchema>
-export type SkillRange = z.infer<typeof rangeSchema>
-export type AttackTier = z.infer<typeof attackTierSchema>
 export type AttackSkill = z.infer<typeof attackSkillSchema>
 export type HealSkill = z.infer<typeof healSkillSchema>
 export type SupportSkill = z.infer<typeof supportSkillSchema>

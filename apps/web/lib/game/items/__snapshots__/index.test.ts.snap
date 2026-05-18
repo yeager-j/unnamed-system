@@ -1,0 +1,40 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Longsword transcription (PRD §6.2) > matches the Longsword snapshot end-to-end 1`] = `
+{
+  "description": "A standard one-handed blade.",
+  "intrinsicAttack": {
+    "attackRoll": {
+      "attribute": "st",
+      "tiers": [
+        {
+          "band": "1-10",
+          "formula": "1 + St",
+          "sideEffects": [],
+        },
+        {
+          "band": "11-19",
+          "formula": "1d6 + St",
+          "sideEffects": [],
+        },
+        {
+          "band": "20+",
+          "formula": "1d6 + St",
+          "sideEffects": [
+            "Critical",
+          ],
+        },
+      ],
+    },
+    "damageType": "slash",
+    "delivery": "physical",
+    "range": {
+      "kind": "known",
+      "value": "engaged",
+    },
+  },
+  "key": "longsword",
+  "name": "Longsword",
+  "slot": "weapon",
+}
+`;
