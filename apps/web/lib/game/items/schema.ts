@@ -1,39 +1,15 @@
 import { z } from "zod/v4"
-import {
-  AFFINITIES,
-  AFFINITY_DAMAGE_TYPES,
-  DAMAGE_TYPES,
-} from "../affinity"
+import { DAMAGE_TYPES } from "../affinity"
 import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
+import {
+  affinityEffectSchema,
+  type AffinityEffect,
+  attributeEffectSchema,
+  type AttributeEffect,
+} from "../effects"
 import type { SkillKey } from "../skills"
 
 const itemKeySchema = z.string().regex(/^[a-z0-9-]+$/)
-
-/**
- * Keys an equipment Attribute effect can target: the four Attributes plus the
- * HP and SP pools.
- */
-export const BONUS_TARGET_KEYS = [
-  "hp",
-  "sp",
-  "strength",
-  "magic",
-  "agility",
-  "luck",
-] as const
-export type BonusTargetKey = (typeof BONUS_TARGET_KEYS)[number]
-
-const affinityEffectSchema = z.object({
-  type: z.literal("affinity"),
-  damageTypes: z.array(z.enum(AFFINITY_DAMAGE_TYPES)).min(1),
-  affinity: z.enum(AFFINITIES),
-})
-
-const attributeEffectSchema = z.object({
-  type: z.literal("attribute"),
-  target: z.enum(BONUS_TARGET_KEYS),
-  amount: z.number().int(),
-})
 
 const skillEffectSchema = z.object({
   type: z.literal("skill"),
@@ -49,8 +25,6 @@ export const itemEffectsSchema = z.array(
   ])
 )
 
-type AffinityEffect = z.infer<typeof affinityEffectSchema>
-type AttributeEffect = z.infer<typeof attributeEffectSchema>
 type SkillEffect = Omit<z.infer<typeof skillEffectSchema>, "skillKey"> & {
   skillKey: SkillKey
 }

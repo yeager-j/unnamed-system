@@ -15,14 +15,14 @@ import {
   battleConditionsSchema,
   identityListSchema,
   inheritanceSlotsSchema,
-  permanentBonusesSchema,
+  manualBonusesSchema,
   sparkLogSchema,
   type Ailments,
   type BattleConditions,
   type IdentityList,
   type InheritanceSlots,
+  type ManualBonuses,
   type PathChoice,
-  type PermanentBonuses,
   type SparkLog,
 } from "../game/character"
 
@@ -95,7 +95,7 @@ export const verificationTokens = pgTable(
 /**
  * The character sheet. Denormalized onto one row: in-session and progression
  * state lives here directly, with JSON columns for the structured bits
- * (permanent bonuses, Spark log, Ailments, Battle Conditions, identity
+ * (manual bonuses, Spark log, Ailments, Battle Conditions, identity
  * lists). Computed
  * values (displayed Attributes, Affinity chart, max HP/SP) are never stored —
  * they are derived from this row plus hardcoded game data.
@@ -119,8 +119,8 @@ export const characters = pgTable("character", {
   maxSP: integer("maxSP").notNull(),
   hitDiceRemaining: integer("hitDiceRemaining").notNull().default(0),
   skillDiceRemaining: integer("skillDiceRemaining").notNull().default(0),
-  permanentBonuses: jsonb("permanentBonuses")
-    .$type<PermanentBonuses>()
+  manualBonuses: jsonb("manualBonuses")
+    .$type<ManualBonuses>()
     .notNull()
     .default({}),
   virtueExpression: integer("virtueExpression").notNull().default(0),
@@ -267,7 +267,7 @@ export const insertUserSchema = createInsertSchema(users)
 export const selectUserSchema = createSelectSchema(users)
 
 export const insertCharacterSchema = createInsertSchema(characters, {
-  permanentBonuses: permanentBonusesSchema,
+  manualBonuses: manualBonusesSchema,
   sparkLog: sparkLogSchema,
   ailments: ailmentsSchema,
   battleConditions: battleConditionsSchema,
