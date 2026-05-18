@@ -40,3 +40,4 @@ npm-debug.log*
 *.pem
 .idea
 .env*.local
+apps/web/next-env.d.ts

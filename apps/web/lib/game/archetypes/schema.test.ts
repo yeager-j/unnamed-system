@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { archetypeSchema, type Archetype, type Tier } from "./schema"
+import { archetypeSchema, type Archetype, type ArchetypeTier } from "./schema"
 
-const TIER: Tier = "initiate"
+const TIER: ArchetypeTier = "initiate"
 
 const SAMPLE_ARCHETYPE: Archetype = {
   key: "sample-archetype",
@@ -15,10 +15,10 @@ const SAMPLE_ARCHETYPE: Archetype = {
   attributes: { strength: 2, magic: -1, agility: 1, luck: 0 },
   affinities: { fire: "resist", ice: "weak" },
   skills: [
-    { rank: 1, skill: "sample-skill-one" },
-    { rank: 3, skill: "sample-skill-two" },
+    { rank: 1, skill: "cleave" },
+    { rank: 3, skill: "tempest-slash" },
   ],
-  synthesisSkill: { rank: 5, skill: "sample-synthesis" },
+  synthesisSkill: { rank: 5, skill: "peerless-stonecleaver" },
 }
 
 describe("archetypeSchema", () => {

@@ -1,4 +1,4 @@
-import type { Archetype } from "../schema"
+import type { Archetype } from "./schema"
 
 export const mage = {
   key: "mage",
@@ -7,7 +7,7 @@ export const mage = {
   tier: "initiate",
   prerequisites: [],
   inheritanceSlots: 2,
-  talents: ["Arcana", "Alchemy", "Enchant"],
+  talents: ["arcana", "alchemy", "enchant"],
   mastery: { kind: "sp", amount: 20 },
   attributes: { strength: -1, magic: 2, agility: 1, luck: 1 },
   affinities: { pierce: "weak", ice: "resist" },

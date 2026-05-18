@@ -1,39 +1,11 @@
 import { z } from "zod/v4"
-
-/**
- * The eleven damage types that appear on an Archetype's Affinity chart.
- * Almighty is intentionally excluded here because it cannot be resisted and
- * therefore never has an Affinity chart entry.
- */
-export const AFFINITY_DAMAGE_TYPES = [
-  "slash",
-  "pierce",
-  "strike",
-  "fire",
-  "ice",
-  "wind",
-  "elec",
-  "aether",
-  "psy",
-  "light",
-  "dark",
-] as const
-
-/**
- * Every damage type a Skill can deal, including Almighty. Reused by downstream
- * game-data modules (e.g. Skills); the Affinity chart only keys off
- * {@link AFFINITY_DAMAGE_TYPES}.
- */
-export const DAMAGE_TYPES = [...AFFINITY_DAMAGE_TYPES, "almighty"] as const
-
-export const AFFINITIES = [
-  "weak",
-  "resist",
-  "null",
-  "repel",
-  "drain",
-  "neutral",
-] as const
+import {
+  AFFINITIES,
+  type Affinity,
+  type DamageType,
+} from "../affinity"
+import type { SkillKey } from "../skills"
+import type { TalentKey } from "../talents"
 
 /**
  * Archetype tiers. Only "initiate" ships at MVP; the full set is kept because
@@ -68,12 +40,7 @@ export const LINEAGES = [
 
 export const ATTRIBUTE_KEYS = ["strength", "magic", "agility", "luck"] as const
 
-export type DamageType = (typeof DAMAGE_TYPES)[number]
-export type AffinityDamageType = (typeof AFFINITY_DAMAGE_TYPES)[number]
-export type Affinity = (typeof AFFINITIES)[number]
 export type ArchetypeTier = (typeof ARCHETYPE_TIERS)[number]
-/** Alias for {@link ArchetypeTier}; the rules call this simply a Tier. */
-export type Tier = ArchetypeTier
 export type Lineage = (typeof LINEAGES)[number]
 export type AttributeKey = (typeof ATTRIBUTE_KEYS)[number]
 
@@ -149,10 +116,29 @@ export const archetypeSchema = z.object({
   synthesisSkill: skillReferenceSchema.optional(),
 })
 
-export type SkillReference = z.infer<typeof skillReferenceSchema>
+export type SkillReference = Omit<
+  z.infer<typeof skillReferenceSchema>,
+  "skill"
+> & { skill: SkillKey }
 export type ArchetypePrerequisite = z.infer<typeof archetypePrerequisiteSchema>
 export type Mastery = z.infer<typeof masterySchema>
-export type Archetype = z.infer<typeof archetypeSchema>
+
+/**
+ * The Archetype shape with cross-references narrowed to keys that exist in the
+ * shipped catalog: `skills`/`synthesisSkill` to {@link SkillKey}, `talents` to
+ * {@link TalentKey}. The Zod schema stays structural (plain strings); the
+ * narrowing is enforced at compile time on the hardcoded data
+ * (`satisfies Archetype`) and at load time by the index validator.
+ * `prerequisites` stays loose — it may reference Archetypes not shipped at MVP.
+ */
+export type Archetype = Omit<
+  z.infer<typeof archetypeSchema>,
+  "skills" | "synthesisSkill" | "talents"
+> & {
+  skills: SkillReference[]
+  synthesisSkill?: SkillReference
+  talents: TalentKey[]
+}
 
 /**
  * Resolves the effective Affinity an Archetype has to a damage type. Damage

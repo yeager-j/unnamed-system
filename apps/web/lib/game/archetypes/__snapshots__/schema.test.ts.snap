@@ -30,16 +30,16 @@ exports[`archetypeSchema > matches the sample Archetype snapshot 1`] = `
   "skills": [
     {
       "rank": 1,
-      "skill": "sample-skill-one",
+      "skill": "cleave",
     },
     {
       "rank": 3,
-      "skill": "sample-skill-two",
+      "skill": "tempest-slash",
     },
   ],
   "synthesisSkill": {
     "rank": 5,
-    "skill": "sample-synthesis",
+    "skill": "peerless-stonecleaver",
   },
   "talents": [
     "athletics",

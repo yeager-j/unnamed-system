@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { archetypeSchema, LINEAGES, resolveAffinity } from "../schema"
+import { getTalent } from "../talents"
+import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
 import { ARCHETYPES, getAllArchetypes, getArchetype } from "./index"
 import { healer } from "./healer"
 import { knight } from "./knight"
@@ -88,6 +89,16 @@ describe("transcription spot-checks", () => {
       rank: 5,
       skill: "divine-judgment",
     })
+  })
+})
+
+describe("talent cross-references", () => {
+  it("resolves every Talent referenced by an Archetype", () => {
+    for (const archetype of ARCHETYPES) {
+      for (const talent of archetype.talents) {
+        expect(getTalent(talent)).toBeDefined()
+      }
+    }
   })
 })
 

@@ -1,4 +1,4 @@
-import type { Archetype } from "../schema"
+import type { Archetype } from "./schema"
 
 export const healer = {
   key: "healer",
@@ -7,7 +7,7 @@ export const healer = {
   tier: "initiate",
   prerequisites: [],
   inheritanceSlots: 2,
-  talents: ["Medicine", "Nature", "Monsters"],
+  talents: ["medicine", "nature", "monsters"],
   mastery: { kind: "sp", amount: 20 },
   attributes: { strength: -1, magic: 1, agility: 1, luck: 2 },
   affinities: { strike: "weak", light: "resist", dark: "weak" },

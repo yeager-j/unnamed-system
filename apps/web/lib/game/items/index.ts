@@ -1,3 +1,4 @@
+import { getSkill } from "../skills"
 import {
   equippableItemSchema,
   type Accessory,
@@ -6,8 +7,22 @@ import {
 } from "./schema"
 import { longsword } from "./longsword"
 
+/**
+ * Structurally validates an item, then asserts every granted-Skill effect
+ * resolves to a real Skill so a typo in the catalog fails the import rather
+ * than a downstream lookup.
+ */
 function validate<T extends Weapon | Armor | Accessory>(item: T): T {
   equippableItemSchema.parse(item)
+
+  for (const effect of item.effects ?? []) {
+    if (effect.type === "skill" && !getSkill(effect.skillKey)) {
+      throw new Error(
+        `Item "${item.key}" references unknown skill "${effect.skillKey}"`
+      )
+    }
+  }
+
   return item
 }
 
