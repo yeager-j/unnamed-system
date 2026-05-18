@@ -50,10 +50,12 @@ export const BATTLE_CONDITION_KEYS = [
 export type BattleConditionKey = (typeof BATTLE_CONDITION_KEYS)[number]
 
 /**
- * Permanent, source-agnostic bonuses (currently only Mastery at MVP). Sparse:
- * absent keys mean no bonus.
+ * Manual, source-agnostic bonuses entered directly on the sheet (e.g. a bonus
+ * granted by a Background or DM ruling). Mastery is NOT stored here — it is
+ * derived from Archetype Rank at compute time and summed on top of these.
+ * Sparse: absent keys mean no bonus.
  */
-export const permanentBonusesSchema = z.object({
+export const manualBonusesSchema = z.object({
   hp: z.number().int().optional(),
   sp: z.number().int().optional(),
   strength: z.number().int().optional(),
@@ -61,7 +63,7 @@ export const permanentBonusesSchema = z.object({
   agility: z.number().int().optional(),
   luck: z.number().int().optional(),
 })
-export type PermanentBonuses = z.infer<typeof permanentBonusesSchema>
+export type ManualBonuses = z.infer<typeof manualBonusesSchema>
 
 /** Ordered Spark log, each entry tagged with the Virtue that produced it. */
 export const sparkLogSchema = z.array(z.enum(VIRTUE_KEYS)).max(7)

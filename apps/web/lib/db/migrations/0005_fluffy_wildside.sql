@@ -1,0 +1,1 @@
+ALTER TABLE "character" RENAME COLUMN "permanentBonuses" TO "manualBonuses";

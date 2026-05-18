@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
 import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
 import { DAMAGE_TYPES } from "../affinity"
+import { affinityEffectSchema, attributeEffectSchema } from "../effects"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)
 
@@ -67,9 +68,22 @@ const supportSkillSchema = z.object({
   targets: z.string().min(1).optional(),
 })
 
+/**
+ * A passive Skill's structured, always-on modifiers, summed by the
+ * derived-value engine while the Skill is one of the active Archetype's
+ * unlocked or inherited Skills. Distinct from the freeform `effect` prose
+ * (human-readable) — this is the machine-readable form. Only passive Skills
+ * carry these; an attack Skill that changes a target's Affinity is a combat
+ * action, not an always-on modifier.
+ */
+const passiveEffectsSchema = z.array(
+  z.discriminatedUnion("type", [affinityEffectSchema, attributeEffectSchema])
+)
+
 const passiveSkillSchema = z.object({
   kind: z.literal("passive"),
   ...baseFields,
+  effects: passiveEffectsSchema.optional(),
 })
 
 export const skillSchema = z.discriminatedUnion("kind", [

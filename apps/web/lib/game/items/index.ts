@@ -3,6 +3,7 @@ import {
   equippableItemSchema,
   type Accessory,
   type Armor,
+  type EquippableItem,
   type Weapon,
 } from "./schema"
 import { longsword } from "./longsword"
@@ -52,4 +53,19 @@ export function getWeapon(key: string): Weapon | undefined {
 /** Returns every hardcoded Weapon. */
 export function getAllWeapons(): readonly Weapon[] {
   return WEAPONS
+}
+
+/**
+ * Looks up any equippable catalog item by its slug key, across every slot.
+ * Armor and accessory catalogs ship empty at MVP so this resolves Weapons
+ * today, but equipped-item resolution should go through this rather than
+ * {@link getWeapon} so non-weapon slots work once those catalogs gain content.
+ * Returns `undefined` when no item matches.
+ */
+export function getEquippableItem(key: string): EquippableItem | undefined {
+  return (
+    getWeapon(key) ??
+    ARMOR.find((item) => item.key === key) ??
+    ACCESSORIES.find((item) => item.key === key)
+  )
 }
