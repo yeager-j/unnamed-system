@@ -28,12 +28,6 @@ import { characters } from "./schema"
  */
 export type RestPersistenceError = RestError | "character-not-found"
 
-async function loadRestingCharacter(
-  characterId: string
-): Promise<RestingCharacter | null> {
-  return loadHydratedCharacter(characterId)
-}
-
 /**
  * Resolves a Full Rest and persists the restored HP/SP, refilled Hit/Skill
  * Dice, decremented Exhaustion, and refilled Prisma charges in one single-row
@@ -42,7 +36,7 @@ async function loadRestingCharacter(
 export async function applyFullRestForCharacter(
   characterId: string
 ): Promise<Result<RestingCharacter, "character-not-found">> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const updated = applyFullRest(character)
@@ -72,7 +66,7 @@ export async function applyPartialRestForCharacter(
   characterId: string,
   input: PartialRestInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const result = applyPartialRest(character, input)
@@ -99,7 +93,7 @@ export async function applyRespiteForCharacter(
   characterId: string,
   input: RespiteInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const result = applyRespite(character, input)
