@@ -1,19 +1,21 @@
 import { and, eq } from "drizzle-orm"
+import type { CastingCharacter } from "../game/skill-cost"
 import { buildStatComputationCharacter } from "../game/stat-character"
-import type { StatComputationCharacter } from "../game/stats"
 import { db } from "./index"
 import { characterArchetypes, characters, inventoryItems } from "./schema"
 
 /**
- * Loads a character's persisted state and assembles the pure
- * {@link StatComputationCharacter} the derived-value engine consumes. The
- * Rank/inheritance Skill selection and catalog resolution are done by the pure
- * {@link buildStatComputationCharacter}; this wrapper only supplies the rows.
- * Returns `null` when no character has that id.
+ * Loads a character's persisted state and assembles the
+ * {@link CastingCharacter} the derived-value engine and cast pre-check
+ * consume: the pure derived-value view plus the live `currentHP`/`currentSP`
+ * pools. The Rank/inheritance Skill selection and catalog resolution are done
+ * by the pure {@link buildStatComputationCharacter}; this wrapper supplies the
+ * rows and attaches the tracked pools. Returns `null` when no character has
+ * that id.
  */
 export async function loadStatComputationCharacter(
   characterId: string
-): Promise<StatComputationCharacter | null> {
+): Promise<CastingCharacter | null> {
   const [character] = await db
     .select()
     .from(characters)
@@ -38,19 +40,23 @@ export async function loadStatComputationCharacter(
       ),
   ])
 
-  return buildStatComputationCharacter(
-    {
-      pathChoice: character.pathChoice,
-      level: character.level,
-      manualBonuses: character.manualBonuses,
-      activeCharacterArchetypeId: character.activeArchetypeId,
-    },
-    archetypeRows.map((row) => ({
-      id: row.id,
-      archetypeKey: row.archetypeKey,
-      rank: row.rank,
-      inheritanceSlots: row.inheritanceSlots,
-    })),
-    equippedRows.map((row) => row.catalogItemKey)
-  )
+  return {
+    ...buildStatComputationCharacter(
+      {
+        pathChoice: character.pathChoice,
+        level: character.level,
+        manualBonuses: character.manualBonuses,
+        activeCharacterArchetypeId: character.activeArchetypeId,
+      },
+      archetypeRows.map((row) => ({
+        id: row.id,
+        archetypeKey: row.archetypeKey,
+        rank: row.rank,
+        inheritanceSlots: row.inheritanceSlots,
+      })),
+      equippedRows.map((row) => row.catalogItemKey)
+    ),
+    currentHP: character.currentHP,
+    currentSP: character.currentSP,
+  }
 }
