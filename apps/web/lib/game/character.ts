@@ -2,11 +2,12 @@ import { z } from "zod/v4"
 import { AFFINITIES, AFFINITY_DAMAGE_TYPES } from "./schema"
 
 /**
- * Character-domain vocabulary and the value schemas for the structured
- * (JSON) parts of a character's persisted state. Kept out of the database
+ * Character-domain vocabulary and value schemas for the structured (JSON)
+ * parts of a character's persisted state, plus the shared item-effect
+ * vocabulary the game-data item catalog builds on. Kept out of the database
  * schema file so that module stays purely table/column definitions; the
- * `character*` tables import these for column typing and Server Action
- * validation.
+ * `character*` tables and the item catalog import these for typing and
+ * Server Action validation.
  */
 
 /**
@@ -26,10 +27,6 @@ export const PATH_CHOICES = [
   "skill-focused",
 ] as const
 export type PathChoice = (typeof PATH_CHOICES)[number]
-
-/** The three equip slots plus a catch-all for unequippable items. */
-export const ITEM_KINDS = ["weapon", "armor", "accessory", "other"] as const
-export type ItemKind = (typeof ITEM_KINDS)[number]
 
 /** Per-axis Battle Condition state (Attack / Defense / Hit-Evasion). */
 export const BATTLE_CONDITION_STATES = [

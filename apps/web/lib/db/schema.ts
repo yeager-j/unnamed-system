@@ -15,15 +15,12 @@ import {
   battleConditionsSchema,
   identityListSchema,
   inheritanceSlotsSchema,
-  itemEffectsSchema,
   permanentBonusesSchema,
   sparkLogSchema,
   type Ailments,
   type BattleConditions,
   type IdentityList,
   type InheritanceSlots,
-  type ItemEffects,
-  type ItemKind,
   type PathChoice,
   type PermanentBonuses,
   type SparkLog,
@@ -228,10 +225,10 @@ export const characterTalents = pgTable("characterTalent", {
 })
 
 /**
- * Inventory. At MVP items are user-defined (PRD §5.11): the player supplies
- * `name`, `kind`, and `effects`. `itemKey` is an optional reference to a
- * hardcoded item catalog (PRD §15, not built at MVP) and is null for
- * user-defined items.
+ * Inventory. Items are hardcoded catalog entries (PRD §6.2/§8): the row only
+ * references the catalog by `catalogItemKey` and tracks whether it is
+ * `equipped`. The item's name, description, slot, intrinsic attack, and
+ * effects come from the catalog entry, not this row.
  */
 export const inventoryItems = pgTable("inventoryItem", {
   id: text("id")
@@ -240,11 +237,7 @@ export const inventoryItems = pgTable("inventoryItem", {
   characterId: text("characterId")
     .notNull()
     .references(() => characters.id, { onDelete: "cascade" }),
-  itemKey: text("itemKey"),
-  name: text("name").notNull(),
-  description: text("description"),
-  kind: text("kind").$type<ItemKind>().notNull(),
-  effects: jsonb("effects").$type<ItemEffects>().notNull().default([]),
+  catalogItemKey: text("catalogItemKey").notNull(),
   equipped: boolean("equipped").notNull().default(false),
 })
 
@@ -301,9 +294,7 @@ export const selectCharacterChainSchema = createSelectSchema(characterChains)
 export const insertCharacterTalentSchema = createInsertSchema(characterTalents)
 export const selectCharacterTalentSchema = createSelectSchema(characterTalents)
 
-export const insertInventoryItemSchema = createInsertSchema(inventoryItems, {
-  effects: itemEffectsSchema,
-})
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems)
 export const selectInventoryItemSchema = createSelectSchema(inventoryItems)
 
 export const insertActionLogEntrySchema = createInsertSchema(actionLogEntries)
