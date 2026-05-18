@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { err, ok, type Result } from "../game/result"
 import {
   applyFullRest,
@@ -9,16 +9,16 @@ import {
   type RestError,
   type RestingCharacter,
 } from "../game/rest"
-import { buildStatComputationCharacter } from "../game/stat-character"
 import { db } from "./index"
-import { characterArchetypes, characters, inventoryItems } from "./schema"
+import { loadHydratedCharacter } from "./load-character"
+import { characters } from "./schema"
 
 /**
- * Persistence for the pure rest engine: hydrate the character (the same
- * Archetype/inheritance/equipment resolution `db/character.ts` does, since max
- * HP/SP are derived from it), run the pure transition, and on success write
- * back only the pool columns that rest changes. Each write is a single-row
- * `UPDATE`, so `neon-http`'s lack of interactive transactions is irrelevant.
+ * Persistence for the pure rest engine: hydrate the character via the neutral
+ * {@link loadHydratedCharacter} (max HP/SP are derived from that view), run the
+ * pure transition, and on success write back only the pool columns that rest
+ * changes. Each write is a single-row `UPDATE`, so `neon-http`'s lack of
+ * interactive transactions is irrelevant.
  */
 
 /**
@@ -28,59 +28,6 @@ import { characterArchetypes, characters, inventoryItems } from "./schema"
  */
 export type RestPersistenceError = RestError | "character-not-found"
 
-async function loadRestingCharacter(
-  characterId: string
-): Promise<RestingCharacter | null> {
-  const [character] = await db
-    .select()
-    .from(characters)
-    .where(eq(characters.id, characterId))
-    .limit(1)
-
-  if (!character) return null
-
-  const [archetypeRows, equippedRows] = await Promise.all([
-    db
-      .select()
-      .from(characterArchetypes)
-      .where(eq(characterArchetypes.characterId, characterId)),
-    db
-      .select({ catalogItemKey: inventoryItems.catalogItemKey })
-      .from(inventoryItems)
-      .where(
-        and(
-          eq(inventoryItems.characterId, characterId),
-          eq(inventoryItems.equipped, true)
-        )
-      ),
-  ])
-
-  return {
-    ...buildStatComputationCharacter(
-      {
-        pathChoice: character.pathChoice,
-        level: character.level,
-        manualBonuses: character.manualBonuses,
-        activeCharacterArchetypeId: character.activeArchetypeId,
-      },
-      archetypeRows.map((row) => ({
-        id: row.id,
-        archetypeKey: row.archetypeKey,
-        rank: row.rank,
-        inheritanceSlots: row.inheritanceSlots,
-      })),
-      equippedRows.map((row) => row.catalogItemKey)
-    ),
-    currentHP: character.currentHP,
-    currentSP: character.currentSP,
-    hitDiceRemaining: character.hitDiceRemaining,
-    skillDiceRemaining: character.skillDiceRemaining,
-    exhaustion: character.exhaustion,
-    prismaCharges: character.prismaCharges,
-    prismaMaxCharges: character.prismaMaxCharges,
-  }
-}
-
 /**
  * Resolves a Full Rest and persists the restored HP/SP, refilled Hit/Skill
  * Dice, decremented Exhaustion, and refilled Prisma charges in one single-row
@@ -89,7 +36,7 @@ async function loadRestingCharacter(
 export async function applyFullRestForCharacter(
   characterId: string
 ): Promise<Result<RestingCharacter, "character-not-found">> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const updated = applyFullRest(character)
@@ -119,7 +66,7 @@ export async function applyPartialRestForCharacter(
   characterId: string,
   input: PartialRestInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const result = applyPartialRest(character, input)
@@ -146,7 +93,7 @@ export async function applyRespiteForCharacter(
   characterId: string,
   input: RespiteInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadRestingCharacter(characterId)
+  const character = await loadHydratedCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const result = applyRespite(character, input)
