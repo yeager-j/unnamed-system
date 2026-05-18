@@ -1,13 +1,10 @@
 import { z } from "zod/v4"
-import { AFFINITIES, AFFINITY_DAMAGE_TYPES } from "./schema"
 
 /**
  * Character-domain vocabulary and value schemas for the structured (JSON)
- * parts of a character's persisted state, plus the shared item-effect
- * vocabulary the game-data item catalog builds on. Kept out of the database
- * schema file so that module stays purely table/column definitions; the
- * `character*` tables and the item catalog import these for typing and
- * Server Action validation.
+ * parts of a character's persisted state. Kept out of the database schema
+ * file so that module stays purely table/column definitions; the
+ * `character*` tables import these for typing and Server Action validation.
  */
 
 /**
@@ -51,20 +48,6 @@ export const BATTLE_CONDITION_KEYS = [
   "concentrating",
 ] as const
 export type BattleConditionKey = (typeof BATTLE_CONDITION_KEYS)[number]
-
-/**
- * Keys an equipment Attribute effect or permanent bonus can target: the four
- * Attributes plus the HP and SP pools.
- */
-export const BONUS_TARGET_KEYS = [
-  "hp",
-  "sp",
-  "strength",
-  "magic",
-  "agility",
-  "luck",
-] as const
-export type BonusTargetKey = (typeof BONUS_TARGET_KEYS)[number]
 
 /**
  * Permanent, source-agnostic bonuses (currently only Mastery at MVP). Sparse:
@@ -112,33 +95,6 @@ export const inheritanceSlotsSchema = z.array(
   })
 )
 export type InheritanceSlots = z.infer<typeof inheritanceSlotsSchema>
-
-const affinityEffectSchema = z.object({
-  type: z.literal("affinity"),
-  damageTypes: z.array(z.enum(AFFINITY_DAMAGE_TYPES)).min(1),
-  affinity: z.enum(AFFINITIES),
-})
-
-const attributeEffectSchema = z.object({
-  type: z.literal("attribute"),
-  target: z.enum(BONUS_TARGET_KEYS),
-  amount: z.number().int(),
-})
-
-const skillEffectSchema = z.object({
-  type: z.literal("skill"),
-  skillKey: z.string().min(1),
-})
-
-/** Any combination of Affinity / Attribute / Skill effects on an item. */
-export const itemEffectsSchema = z.array(
-  z.discriminatedUnion("type", [
-    affinityEffectSchema,
-    attributeEffectSchema,
-    skillEffectSchema,
-  ])
-)
-export type ItemEffects = z.infer<typeof itemEffectsSchema>
 
 /** Advisory-length identity lists (Personality Traits, Hopes, Fears, Secrets). */
 export const identityListSchema = z.array(z.string())

@@ -1,13 +1,70 @@
 import { z } from "zod/v4"
+import {
+  AFFINITIES,
+  AFFINITY_DAMAGE_TYPES,
+  DAMAGE_TYPES,
+} from "../affinity"
 import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
-import { itemEffectsSchema } from "../character"
-import { DAMAGE_TYPES } from "../schema"
+import type { SkillKey } from "../skills"
 
 const itemKeySchema = z.string().regex(/^[a-z0-9-]+$/)
 
 /**
- * Fields shared by every equippable item regardless of slot. `effects` reuses
- * the canonical {@link itemEffectsSchema} (Attribute / Affinity / Skill); it is
+ * Keys an equipment Attribute effect can target: the four Attributes plus the
+ * HP and SP pools.
+ */
+export const BONUS_TARGET_KEYS = [
+  "hp",
+  "sp",
+  "strength",
+  "magic",
+  "agility",
+  "luck",
+] as const
+export type BonusTargetKey = (typeof BONUS_TARGET_KEYS)[number]
+
+const affinityEffectSchema = z.object({
+  type: z.literal("affinity"),
+  damageTypes: z.array(z.enum(AFFINITY_DAMAGE_TYPES)).min(1),
+  affinity: z.enum(AFFINITIES),
+})
+
+const attributeEffectSchema = z.object({
+  type: z.literal("attribute"),
+  target: z.enum(BONUS_TARGET_KEYS),
+  amount: z.number().int(),
+})
+
+const skillEffectSchema = z.object({
+  type: z.literal("skill"),
+  skillKey: z.string().min(1),
+})
+
+/** Any combination of Affinity / Attribute / Skill effects on an item. */
+export const itemEffectsSchema = z.array(
+  z.discriminatedUnion("type", [
+    affinityEffectSchema,
+    attributeEffectSchema,
+    skillEffectSchema,
+  ])
+)
+
+type AffinityEffect = z.infer<typeof affinityEffectSchema>
+type AttributeEffect = z.infer<typeof attributeEffectSchema>
+type SkillEffect = Omit<z.infer<typeof skillEffectSchema>, "skillKey"> & {
+  skillKey: SkillKey
+}
+
+/**
+ * One item effect, with the granted-Skill reference narrowed to
+ * {@link SkillKey}. The Zod schema stays structural; existence is enforced by
+ * the items index validator at load time.
+ */
+export type ItemEffect = AffinityEffect | AttributeEffect | SkillEffect
+export type ItemEffects = ItemEffect[]
+
+/**
+ * Fields shared by every equippable item regardless of slot. `effects` is
  * optional because most catalog items carry none.
  */
 const baseFields = {

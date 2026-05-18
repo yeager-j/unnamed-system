@@ -1,4 +1,4 @@
-import type { Archetype } from "../schema"
+import type { Archetype } from "./schema"
 
 export const warrior = {
   key: "warrior",
@@ -7,7 +7,7 @@ export const warrior = {
   tier: "initiate",
   prerequisites: [],
   inheritanceSlots: 2,
-  talents: ["Climb", "Lift", "Athletics"],
+  talents: ["climb", "lift", "athletics"],
   mastery: { kind: "hp", amount: 20 },
   attributes: { strength: 2, magic: -1, agility: 1, luck: 1 },
   affinities: { fire: "resist", wind: "weak" },

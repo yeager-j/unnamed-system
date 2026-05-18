@@ -1,4 +1,4 @@
-import type { Archetype } from "../schema"
+import type { Archetype } from "./schema"
 
 export const knight = {
   key: "knight",
@@ -7,7 +7,7 @@ export const knight = {
   tier: "initiate",
   prerequisites: [],
   inheritanceSlots: 2,
-  talents: ["Lift", "Culture", "History"],
+  talents: ["lift", "culture", "history"],
   mastery: { kind: "hp", amount: 20 },
   attributes: { strength: 2, magic: -1, agility: 0, luck: 2 },
   affinities: { slash: "resist", fire: "weak" },

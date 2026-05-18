@@ -1,11 +1,42 @@
-import { archetypeSchema, type Archetype } from "../schema"
+import { getSkill } from "../skills"
+import { getTalent } from "../talents"
+import { archetypeSchema, type Archetype } from "./schema"
 import { healer } from "./healer"
 import { knight } from "./knight"
 import { mage } from "./mage"
 import { warrior } from "./warrior"
 
+/**
+ * Structurally validates an Archetype, then asserts every cross-reference
+ * resolves to a real catalog entry. The schema only checks shape; this is
+ * where archetype → Skill / Talent referential integrity is enforced at load
+ * time so a typo fails the import, not a downstream lookup.
+ */
 function validate(archetype: Archetype): Archetype {
   archetypeSchema.parse(archetype)
+
+  for (const { skill } of archetype.skills) {
+    if (!getSkill(skill)) {
+      throw new Error(
+        `Archetype "${archetype.key}" references unknown skill "${skill}"`
+      )
+    }
+  }
+
+  if (archetype.synthesisSkill && !getSkill(archetype.synthesisSkill.skill)) {
+    throw new Error(
+      `Archetype "${archetype.key}" references unknown synthesis skill "${archetype.synthesisSkill.skill}"`
+    )
+  }
+
+  for (const talent of archetype.talents) {
+    if (!getTalent(talent)) {
+      throw new Error(
+        `Archetype "${archetype.key}" references unknown talent "${talent}"`
+      )
+    }
+  }
+
   return archetype
 }
 
