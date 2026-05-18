@@ -195,6 +195,24 @@ export function computeMaxSP(character: StatComputationCharacter): number {
 }
 
 /**
+ * Total Hit Dice a character of `level` has: 2 at Level 1, +1 per level
+ * thereafter (rulebook 1.1). Like max HP/SP this is derived from level and
+ * never stored; only the consumable `hitDiceRemaining` pool is tracked.
+ */
+export function computeMaxHitDice(level: number): number {
+  return level + 1
+}
+
+/**
+ * Total Skill Dice a character of `level` has: 5 at Level 1, +2 per level
+ * thereafter (rulebook 1.1). Derived from level and never stored; only the
+ * consumable `skillDiceRemaining` pool is tracked.
+ */
+export function computeMaxSkillDice(level: number): number {
+  return 2 * level + 3
+}
+
+/**
  * Priority used to pick a winner when several equipment or passive-Skill
  * effects touch the same damage type. Higher wins:
  * Drain > Repel > Null > Resist > Neutral > Weak.

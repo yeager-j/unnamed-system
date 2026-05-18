@@ -114,9 +114,7 @@ export const characters = pgTable("character", {
   level: integer("level").notNull().default(1),
   pathChoice: text("pathChoice").$type<PathChoice>().notNull(),
   currentHP: integer("currentHP").notNull(),
-  maxHP: integer("maxHP").notNull(),
   currentSP: integer("currentSP").notNull(),
-  maxSP: integer("maxSP").notNull(),
   hitDiceRemaining: integer("hitDiceRemaining").notNull().default(0),
   skillDiceRemaining: integer("skillDiceRemaining").notNull().default(0),
   manualBonuses: jsonb("manualBonuses")
