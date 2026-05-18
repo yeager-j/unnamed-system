@@ -4,6 +4,7 @@ import {
   ACCESSORIES,
   ARMOR,
   getAllWeapons,
+  getEquippableItem,
   getWeapon,
   WEAPONS,
 } from "./index"
@@ -33,9 +34,10 @@ describe("item catalog data", () => {
     }
   })
 
-  it("ships empty Armor and Accessory catalogs at MVP", () => {
-    expect(ARMOR).toEqual([])
-    expect(ACCESSORIES).toEqual([])
+  it("resolves every catalog item by its own key across all slots", () => {
+    for (const item of CATALOG) {
+      expect(getEquippableItem(item.key)).toBe(item)
+    }
   })
 
   it("resolves every granted-Skill effect to a real Skill", () => {

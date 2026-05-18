@@ -6,7 +6,10 @@ import {
   type EquippableItem,
   type Weapon,
 } from "./schema"
+import { bladeturnMail } from "./bladeturn-mail"
 import { longsword } from "./longsword"
+import { runedCane } from "./runed-cane"
+import { zephyrBand } from "./zephyr-band"
 
 /**
  * Structurally validates an item, then asserts every granted-Skill effect
@@ -29,18 +32,24 @@ function validate<T extends Weapon | Armor | Accessory>(item: T): T {
 
 const WEAPONS_BY_KEY = {
   longsword: validate(longsword),
+  "runed-cane": validate(runedCane),
 } as const satisfies Record<string, Weapon>
 
+const ARMOR_BY_KEY = {
+  "bladeturn-mail": validate(bladeturnMail),
+} as const satisfies Record<string, Armor>
+
+const ACCESSORIES_BY_KEY = {
+  "zephyr-band": validate(zephyrBand),
+} as const satisfies Record<string, Accessory>
+
 export type WeaponKey = keyof typeof WEAPONS_BY_KEY
+export type ArmorKey = keyof typeof ARMOR_BY_KEY
+export type AccessoryKey = keyof typeof ACCESSORIES_BY_KEY
 
 export const WEAPONS: readonly Weapon[] = Object.values(WEAPONS_BY_KEY)
-
-/**
- * Armor and accessory catalogs are structurally supported but ship empty at
- * MVP (PRD §9). Typed so callers can iterate them without narrowing.
- */
-export const ARMOR: readonly Armor[] = []
-export const ACCESSORIES: readonly Accessory[] = []
+export const ARMOR: readonly Armor[] = Object.values(ARMOR_BY_KEY)
+export const ACCESSORIES: readonly Accessory[] = Object.values(ACCESSORIES_BY_KEY)
 
 /**
  * Looks up a hardcoded Weapon by its slug key. Returns `undefined` when no
@@ -57,10 +66,9 @@ export function getAllWeapons(): readonly Weapon[] {
 
 /**
  * Looks up any equippable catalog item by its slug key, across every slot.
- * Armor and accessory catalogs ship empty at MVP so this resolves Weapons
- * today, but equipped-item resolution should go through this rather than
- * {@link getWeapon} so non-weapon slots work once those catalogs gain content.
- * Returns `undefined` when no item matches.
+ * Equipped-item resolution should go through this rather than
+ * {@link getWeapon} so weapons, armor, and accessories all resolve. Returns
+ * `undefined` when no item matches.
  */
 export function getEquippableItem(key: string): EquippableItem | undefined {
   return (

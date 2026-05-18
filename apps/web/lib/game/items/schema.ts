@@ -89,7 +89,22 @@ export const equippableItemSchema = z.discriminatedUnion("slot", [
 ])
 
 export type IntrinsicAttack = z.infer<typeof intrinsicAttackSchema>
-export type Weapon = z.infer<typeof weaponSchema>
-export type Armor = z.infer<typeof armorSchema>
-export type Accessory = z.infer<typeof accessorySchema>
-export type EquippableItem = z.infer<typeof equippableItemSchema>
+
+/**
+ * The item shapes with `effects` narrowed to {@link ItemEffect}, so a
+ * granted-Skill effect's `skillKey` must be a real {@link SkillKey}. The Zod
+ * schema stays structural (plain strings); the narrowing is enforced at compile
+ * time on the hardcoded catalog (`satisfies Weapon`/`Armor`/`Accessory`) and at
+ * load time by the items index validator — mirroring how Archetypes narrow
+ * their Skill references.
+ */
+export type Weapon = Omit<z.infer<typeof weaponSchema>, "effects"> & {
+  effects?: ItemEffects
+}
+export type Armor = Omit<z.infer<typeof armorSchema>, "effects"> & {
+  effects?: ItemEffects
+}
+export type Accessory = Omit<z.infer<typeof accessorySchema>, "effects"> & {
+  effects?: ItemEffects
+}
+export type EquippableItem = Weapon | Armor | Accessory
