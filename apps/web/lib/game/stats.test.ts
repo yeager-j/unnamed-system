@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 import {
   computeAffinityChart,
   computeAttributes,
+  computeMaxHitDice,
   computeMaxHP,
+  computeMaxSkillDice,
   computeMaxSP,
   type StatComputationCharacter,
 } from "./stats"
@@ -198,6 +200,23 @@ describe("computeMaxHP / computeMaxSP", () => {
       activeSkills: [reservesSkill],
     })
     expect(computeMaxSP(character)).toBe(50 + 30)
+  })
+})
+
+describe("computeMaxHitDice / computeMaxSkillDice", () => {
+  it("derives 2 Hit / 5 Skill Dice at Level 1 (rulebook 1.1)", () => {
+    expect(computeMaxHitDice(1)).toBe(2)
+    expect(computeMaxSkillDice(1)).toBe(5)
+  })
+
+  it("gains 1 Hit / 2 Skill Dice per level", () => {
+    expect(computeMaxHitDice(2)).toBe(3)
+    expect(computeMaxSkillDice(2)).toBe(7)
+  })
+
+  it("scales to the level cap", () => {
+    expect(computeMaxHitDice(30)).toBe(31)
+    expect(computeMaxSkillDice(30)).toBe(63)
   })
 })
 
