@@ -6,6 +6,7 @@ import {
 } from "../game/leveling"
 import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
+import { loadCharacterRow } from "./load-character"
 import { characters } from "./schema"
 
 /**
@@ -26,19 +27,23 @@ export type LevelingPersistenceError = LevelingError | "character-not-found"
 async function loadLevelingCharacter(
   characterId: string
 ): Promise<LevelingCharacter | null> {
-  const [row] = await db
-    .select({
-      level: characters.level,
-      victories: characters.victories,
-      savedArchetypeRanks: characters.savedArchetypeRanks,
-      hitDiceRemaining: characters.hitDiceRemaining,
-      skillDiceRemaining: characters.skillDiceRemaining,
-    })
-    .from(characters)
-    .where(eq(characters.id, characterId))
-    .limit(1)
+  const row = await loadCharacterRow(characterId)
+  if (!row) return null
 
-  return row ?? null
+  const {
+    level,
+    victories,
+    savedArchetypeRanks,
+    hitDiceRemaining,
+    skillDiceRemaining,
+  } = row
+  return {
+    level,
+    victories,
+    savedArchetypeRanks,
+    hitDiceRemaining,
+    skillDiceRemaining,
+  }
 }
 
 /**
