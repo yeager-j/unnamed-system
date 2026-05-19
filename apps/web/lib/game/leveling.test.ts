@@ -31,9 +31,9 @@ describe("canLevelUp", () => {
   })
 
   it("is false at the level cap regardless of Victories", () => {
-    expect(
-      canLevelUp(makeCharacter({ level: MAX_LEVEL, victories: 99 }))
-    ).toBe(false)
+    expect(canLevelUp(makeCharacter({ level: MAX_LEVEL, victories: 99 }))).toBe(
+      false
+    )
   })
 })
 

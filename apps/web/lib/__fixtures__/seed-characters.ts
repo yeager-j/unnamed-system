@@ -258,7 +258,10 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
       "Gentle with the frightened",
       "Haunted",
     ],
-    hopes: ["Find one squire worth the Order's oath", "Forgive herself for Vell"],
+    hopes: [
+      "Find one squire worth the Order's oath",
+      "Forgive herself for Vell",
+    ],
     fears: ["Dying with the Order's debts unpaid", "Becoming what she fights"],
     secrets: [
       "She gave the retreat order at Vell",
@@ -299,6 +302,52 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 0,
     ailments: [],
     battleConditions: null,
+  },
+  {
+    slug: "fallen",
+    shortId: "seed-fallen",
+    name: "Halvard Crowe",
+    pronouns: "he/him",
+    level: 30,
+    pathChoice: "health-focused",
+    activeArchetypeKey: "warrior",
+    archetypes: [{ archetypeKey: "warrior", rank: 5 }],
+    manualBonuses: {},
+    ancestryText: "Last of the shield-line of Greyfen.",
+    backgroundText: "Warlord turned lone bulwark.",
+    backstoryText:
+      "Halvard outlived every banner he ever raised. At the Gate of Ash he stood alone so the column could pass; the column passed, and he did not rise.",
+    dreams: "To be remembered for the line that held, not the line that broke.",
+    notes:
+      "Reduced to 0 HP holding the Gate of Ash. Hit/Skill Dice nearly spent, Prisma untouched — he never got the chance.",
+    personalityTraits: ["Immovable", "Spare with words", "Last to retreat"],
+    hopes: ["That the column reached the pass", "To be buried facing the gate"],
+    fears: ["Outliving another banner", "Being remembered as the one who fell"],
+    secrets: [
+      "He gave the order that cost the first banner",
+      "He chose the Gate of Ash to settle that debt",
+    ],
+    knives: [
+      {
+        title: "The Gate of Ash",
+        description: "Where he chose to stop. It chose back.",
+      },
+    ],
+    chains: [
+      {
+        title: "The column he covered",
+        description: "Faces he never saw again. He counts them still.",
+      },
+    ],
+    talents: ["athletics", "lift", "climb"],
+    items: [{ catalogItemKey: "longsword", equipped: true }],
+    victories: 0,
+    virtues: { expression: 3, empathy: 4, wisdom: 6, focus: 7 },
+    sparkLog: [],
+    exhaustion: 3,
+    ailments: [],
+    battleConditions: null,
+    damage: { hp: 0, sp: 0, hitDiceSpent: 25, skillDiceSpent: 50 },
   },
 ]
 

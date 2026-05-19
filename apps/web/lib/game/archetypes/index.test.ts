@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { getTalent } from "../talents"
 import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
-import { ARCHETYPES, getAllArchetypes, getArchetype } from "./index"
+import {
+  archetypeDisplayName,
+  ARCHETYPES,
+  getAllArchetypes,
+  getArchetype,
+} from "./index"
 import { healer } from "./healer"
 import { knight } from "./knight"
 import { mage } from "./mage"
@@ -67,6 +72,18 @@ describe("getArchetype", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getArchetype("nope")).toBeUndefined()
+  })
+})
+
+describe("archetypeDisplayName", () => {
+  it("returns the matching Archetype's name by key", () => {
+    expect(archetypeDisplayName("warrior")).toBe(warrior.name)
+    expect(archetypeDisplayName("mage")).toBe(mage.name)
+  })
+
+  it("falls back to Adventurer for null or an unknown key", () => {
+    expect(archetypeDisplayName(null)).toBe("Adventurer")
+    expect(archetypeDisplayName("nope")).toBe("Adventurer")
   })
 })
 

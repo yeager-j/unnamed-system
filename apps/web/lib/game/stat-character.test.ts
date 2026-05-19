@@ -88,7 +88,11 @@ describe("buildStatComputationCharacter", () => {
         warriorRow({
           rank: 1,
           inheritanceSlots: [
-            { slotIndex: 0, sourceCharacterArchetypeId: "ca-mage", skillKey: "zio" },
+            {
+              slotIndex: 0,
+              sourceCharacterArchetypeId: "ca-mage",
+              skillKey: "zio",
+            },
             { slotIndex: 1, sourceCharacterArchetypeId: null, skillKey: null },
           ],
         }),

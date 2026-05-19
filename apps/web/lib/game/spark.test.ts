@@ -72,9 +72,9 @@ describe("addSpark", () => {
   })
 
   it("rejects a Spark once the log is full", () => {
-    expect(addSpark(makeCharacter({ sparkLog: CANONICAL_LOG }), "wisdom")).toEqual(
-      { ok: false, error: "log-full" }
-    )
+    expect(
+      addSpark(makeCharacter({ sparkLog: CANONICAL_LOG }), "wisdom")
+    ).toEqual({ ok: false, error: "log-full" })
   })
 
   it("does not mutate the input character or its log", () => {

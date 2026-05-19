@@ -112,12 +112,12 @@ describe("computeMaxHP / computeMaxSP", () => {
   it("returns the path's starting values at level 1", () => {
     expect(computeMaxHP(makeCharacter({ pathChoice: "balanced" }))).toBe(20)
     expect(computeMaxSP(makeCharacter({ pathChoice: "balanced" }))).toBe(50)
-    expect(
-      computeMaxHP(makeCharacter({ pathChoice: "health-focused" }))
-    ).toBe(24)
-    expect(
-      computeMaxSP(makeCharacter({ pathChoice: "health-focused" }))
-    ).toBe(40)
+    expect(computeMaxHP(makeCharacter({ pathChoice: "health-focused" }))).toBe(
+      24
+    )
+    expect(computeMaxSP(makeCharacter({ pathChoice: "health-focused" }))).toBe(
+      40
+    )
     expect(computeMaxHP(makeCharacter({ pathChoice: "skill-focused" }))).toBe(
       16
     )

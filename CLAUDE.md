@@ -31,6 +31,7 @@ A Next.js web app for creating and managing characters in the Persona System tab
 ### Habits
 
 - User has enabled the "Auto-fix CI & address comments" setting. If things are nominal, reply briefly that there is nothing actionable. Only elaborate if there is a problem. For example, "Both comments are routine; disregarding."
+- When doing UI work, run the dev server and view the result in the browser before reporting done. Treat the first render as a draft: iterate on the design, and feel free to experiment with several approaches and pick the best one rather than shipping the first thing that works.
 
 ## Repo Structure
 
