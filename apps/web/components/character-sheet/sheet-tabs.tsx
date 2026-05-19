@@ -68,7 +68,7 @@ export function SheetTabs({
 
   return (
     <Tabs value={value} onValueChange={handleValueChange} className="gap-6">
-      <TabsList className="w-full overflow-x-auto">
+      <TabsList className="w-full">
         {TABS.map(({ key, label, Icon }) => (
           <TabsTrigger key={key} value={key} aria-label={label}>
             <Icon weight="bold" aria-hidden />
