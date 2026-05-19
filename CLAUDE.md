@@ -2,6 +2,11 @@
 
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `/Users/jackson/Obsidian/Persona System/` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 
+## PRD Considerations
+
+- The rules in the Obsidian vault are the source of truth for the game mechanics. If they conflict with the PRD, update the PRD.
+- If technical decisions are made that conflict with the PRD, update the PRD.
+
 ## Code Style
 
 > *Perfection is lots of little things done well*
@@ -9,7 +14,6 @@ A Next.js web app for creating and managing characters in the Persona System tab
 >
 > — Marco Pierre White
 >
-
 
 1. **Keep it simple; don't get clever.** As the great Brian Kernighan said, *"Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it?"*
 2. **Give functions and files clear names and purposes.** Each function should have one job and do it well. Avoid side effects where possible. Pure, single-purpose functions are easy to test and maintain. The same principle applies to files; each file should do one thing well.
@@ -23,6 +27,10 @@ A Next.js web app for creating and managing characters in the Persona System tab
 
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/my-feature`.
 - Reuse existing `Result` utility where appropriate.
+
+### Habits
+
+- User has enabled the "Auto-fix CI & address comments" setting. If things are nominal, reply briefly that there is nothing actionable. Only elaborate if there is a problem. For example, "Both comments are routine; disregarding."
 
 ## Repo Structure
 

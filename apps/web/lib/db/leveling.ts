@@ -6,7 +6,7 @@ import {
 } from "../game/leveling"
 import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
-import { loadCharacterRow } from "./load-character"
+import { loadCharacterRowById } from "./load-character"
 import { characters } from "./schema"
 
 /**
@@ -27,7 +27,7 @@ export type LevelingPersistenceError = LevelingError | "character-not-found"
 async function loadLevelingCharacter(
   characterId: string
 ): Promise<LevelingCharacter | null> {
-  const row = await loadCharacterRow(characterId)
+  const row = await loadCharacterRowById(characterId)
   if (!row) return null
 
   const {
