@@ -78,3 +78,22 @@ export function getEquippableItem(key: string): EquippableItem | undefined {
     ACCESSORIES.find((item) => item.key === key)
   )
 }
+
+/**
+ * Returns the equipped Weapon from a character's hydrated inventory, or `null`
+ * when no weapon is equipped. A character may equip only one weapon at a time;
+ * if the persisted state ever contains more than one, the first match wins.
+ * Accepts a structural slice so the helper can stay in `lib/game/` without
+ * importing from `lib/db/`.
+ */
+export function getEquippedWeapon(
+  inventory: readonly {
+    row: { equipped: boolean }
+    item: EquippableItem | undefined
+  }[]
+): Weapon | null {
+  const entry = inventory.find(
+    (e) => e.row.equipped && e.item?.slot === "weapon"
+  )
+  return entry?.item?.slot === "weapon" ? entry.item : null
+}

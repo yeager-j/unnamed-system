@@ -2,12 +2,14 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
+import { CharacterProvider } from "@/components/character-sheet/character-context"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import {
   SHEET_TAB_KEYS,
   type SheetTabKey,
 } from "@/components/character-sheet/sheet-tab-keys"
 import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
+import { Skills } from "@/components/character-sheet/skills"
 import { Virtues } from "@/components/character-sheet/virtues"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
@@ -70,12 +72,7 @@ function Placeholder({ name }: { name: string }) {
   )
 }
 
-const COMBAT_PLACEHOLDERS = [
-  "Skills",
-  "Synthesis Skills",
-  "Equipped",
-  "Combat State",
-] as const
+const COMBAT_PLACEHOLDERS = ["Equipped", "Combat State"] as const
 const EXPLORE_PLACEHOLDERS = ["Talents", "Identity", "Notes"] as const
 
 function resolveTab(tab: string | undefined): SheetTabKey {
@@ -100,31 +97,36 @@ export default async function CharacterSheetPage({
     <main className="mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
       <SheetHeader character={character} />
 
-      <SheetTabs
-        defaultTab={resolveTab(tab)}
-        combat={
-          <>
-            <section aria-label="Affinities">
-              <Affinities character={character} />
-            </section>
-            {COMBAT_PLACEHOLDERS.map((name) => (
-              <Placeholder key={name} name={name} />
-            ))}
-          </>
-        }
-        explore={
-          <>
-            <section aria-label="Virtues">
-              <Virtues character={character} />
-            </section>
-            {EXPLORE_PLACEHOLDERS.map((name) => (
-              <Placeholder key={name} name={name} />
-            ))}
-          </>
-        }
-        inventory={<Placeholder name="Inventory" />}
-        archetypes={<Placeholder name="Archetypes" />}
-      />
+      <CharacterProvider character={character}>
+        <SheetTabs
+          defaultTab={resolveTab(tab)}
+          combat={
+            <>
+              <section aria-label="Affinities">
+                <Affinities character={character} />
+              </section>
+              <section aria-label="Skills">
+                <Skills character={character} />
+              </section>
+              {COMBAT_PLACEHOLDERS.map((name) => (
+                <Placeholder key={name} name={name} />
+              ))}
+            </>
+          }
+          explore={
+            <>
+              <section aria-label="Virtues">
+                <Virtues character={character} />
+              </section>
+              {EXPLORE_PLACEHOLDERS.map((name) => (
+                <Placeholder key={name} name={name} />
+              ))}
+            </>
+          }
+          inventory={<Placeholder name="Inventory" />}
+          archetypes={<Placeholder name="Archetypes" />}
+        />
+      </CharacterProvider>
     </main>
   )
 }
