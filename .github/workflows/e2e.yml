@@ -1,16 +1,38 @@
 name: E2E
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
+
+run-name: E2E - ${{ github.event.client_payload.project.name }} (${{ github.event.client_payload.git.ref }})
+
+# Rapid pushes to a PR produce multiple preview deploys -> multiple dispatches.
+# All target the same shared preview/<branch> Neon branch; serialize so two runs
+# never migrate/seed it concurrently. Only the latest deploy's run matters - its
+# status posts for the head SHA that branch protection gates on.
+concurrency:
+  group: e2e-${{ github.event.client_payload.git.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
+    # Only preview deployments have a preview/<branch> Neon branch; never seed production.
+    if: github.event.client_payload.environment == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      actions: read
+      statuses: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout deployed commit
+        uses: vercel/repository-dispatch/actions/checkout@v1
+
+      - name: Report e2e status on the deployed commit
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: e2e
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
@@ -20,24 +42,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
-      # The sheet routes are DB-backed, so e2e needs a real, seeded database.
-      # An ephemeral Neon branch per run is created here and deleted in the
-      # always() teardown below so it can never accumulate against the branch
-      # cap.
-      - name: Create Neon branch
-        id: neon
-        uses: neondatabase/create-branch-action@v5
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch_name: ci-e2e/${{ github.run_id }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-
-      - name: Expose DATABASE_URL
-        run: echo "DATABASE_URL=${{ steps.neon.outputs.db_url }}" >> "$GITHUB_ENV"
+      - name: Resolve preview Neon branch connection string
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          set -euo pipefail
+          REF='${{ github.event.client_payload.git.ref }}'
+          DB_URL=$(npx -y neonctl connection-string "preview/${REF}" \
+            --project-id "${{ vars.NEON_PROJECT_ID }}" \
+            --api-key "$NEON_API_KEY")
+          echo "::add-mask::$DB_URL"
+          echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
 
       - name: Apply migrations
         working-directory: apps/web
@@ -48,7 +73,10 @@ jobs:
         run: npm run db:seed
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        working-directory: apps/web
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ github.event.client_payload.url }}
 
       - name: Upload Playwright report
         if: failure()
@@ -57,11 +85,3 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
-
-      - name: Delete Neon branch
-        if: always()
-        uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          branch: ci-e2e/${{ github.run_id }}
-          api_key: ${{ secrets.NEON_API_KEY }}
