@@ -60,10 +60,11 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 - **Unit (Vitest):** pure game mechanics in `apps/web/lib/game` — no DB, no network.
 - **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database.
 
-**E2E database — current vs. target:**
+**E2E database:**
 
-- *Now:* the `e2e` workflow provisions a self-cleaning ephemeral Neon branch per run (migrate + seed, deleted in an `always()` teardown), so it adds zero net branches against the cap.
-- *Target (tracked in Linear → Foundation):* trigger Playwright on Vercel's `vercel.deployment.success` `repository_dispatch`, run against the preview `BASE_URL`, and migrate+seed that deployment's `preview/<branch>` Neon branch — no extra branch, no deploy/timing race. Migration also needs `playwright.config.ts` to read `BASE_URL` (local `webServer` only when unset) and the dispatched run wired as a fail-closed required check.
+E2E runs against the **Vercel preview deployment**, triggered by Vercel's `vercel.deployment.success` `repository_dispatch` (`.github/workflows/e2e.yml`). The workflow checks out `client_payload.git.sha`, resolves the deployment's `preview/<branch>` Neon branch connection string via `neonctl`, migrates + seeds that branch, then runs Playwright against `client_payload.url`. No extra Neon branch is created and there is no deploy/timing race — the deployment and its branch already exist when the dispatch fires. The job only runs for `environment == 'preview'`; production deploys are never seeded. The `e2e` commit status is a fail-closed required check on `main`: no preview deploy ⇒ no dispatch ⇒ status never reported ⇒ the PR cannot merge. `preview/<branch>` is deleted on PR close by `.github/workflows/neon.yml`.
+
+Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, preserving the inner loop.
 
 **Write-path E2E (cast / heal / rest / level-up / spark):**
 

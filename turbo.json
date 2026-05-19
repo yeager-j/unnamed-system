@@ -21,7 +21,8 @@
       "dependsOn": ["^test"]
     },
     "test:e2e": {
-      "cache": false
+      "cache": false,
+      "env": ["BASE_URL", "CI"]
     },
     "dev": {
       "cache": false,
