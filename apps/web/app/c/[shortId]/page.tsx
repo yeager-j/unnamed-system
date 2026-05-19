@@ -3,22 +3,29 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
+import {
+  SHEET_TAB_KEYS,
+  type SheetTabKey,
+} from "@/components/character-sheet/sheet-tab-keys"
+import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
 import { Virtues } from "@/components/character-sheet/virtues"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 /**
  * The public, read-only character sheet at `/c/{shortId}`. UNN-143 landed the
- * route, the single typed data spine ({@link loadHydratedCharacterByShortId}),
- * and graceful 404s; UNN-145 fills the Header + Vitals, and UNN-146 the
- * always-visible Attributes (in the header) plus the Virtues and Affinities
- * sections. The remaining PRD §6 sections are still dashed placeholders, filled
- * in by the sibling tickets, each reading what it needs off the hydrated
- * character.
+ * route + typed data spine ({@link loadHydratedCharacterByShortId}); UNN-145/146
+ * filled the persistent header (identity, HP/SP, Attributes, Victories). UNN-154
+ * organizes the body into four play-context tabs (Combat / Explore / Inventory /
+ * Archetypes) above which the header stays fixed. Sections not yet built are
+ * dashed placeholders within their tab, filled in by sibling tickets, each
+ * reading what it needs off the hydrated character. The active tab is
+ * `?tab=`-addressable so a specific view is shareable.
  */
 
 interface PageProps {
   params: Promise<{ shortId: string }>
+  searchParams: Promise<{ tab?: string }>
 }
 
 /**
@@ -51,20 +58,38 @@ export async function generateMetadata({
   }
 }
 
-const PLACEHOLDER_SECTIONS = [
-  "Archetypes",
+/** Sections not yet built — a labelled dashed box, filled by sibling tickets. */
+function Placeholder({ name }: { name: string }) {
+  return (
+    <section
+      aria-label={name}
+      className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground"
+    >
+      {name}
+    </section>
+  )
+}
+
+const COMBAT_PLACEHOLDERS = [
   "Skills",
   "Synthesis Skills",
-  "Talents",
-  "Equipment",
-  "Identity",
-  "Progression",
+  "Equipped",
   "Combat State",
-  "Notes",
 ] as const
+const EXPLORE_PLACEHOLDERS = ["Talents", "Identity", "Notes"] as const
 
-export default async function CharacterSheetPage({ params }: PageProps) {
+function resolveTab(tab: string | undefined): SheetTabKey {
+  return tab && (SHEET_TAB_KEYS as readonly string[]).includes(tab)
+    ? (tab as SheetTabKey)
+    : "combat"
+}
+
+export default async function CharacterSheetPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { shortId } = await params
+  const { tab } = await searchParams
   const character = await getCharacter(shortId)
 
   if (!character) {
@@ -75,24 +100,31 @@ export default async function CharacterSheetPage({ params }: PageProps) {
     <main className="mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
       <SheetHeader character={character} />
 
-      <div className="flex flex-col gap-4">
-        <section aria-label="Virtues">
-          <Virtues character={character} />
-        </section>
-        <section aria-label="Affinities">
-          <Affinities character={character} />
-        </section>
-
-        {PLACEHOLDER_SECTIONS.map((section) => (
-          <section
-            key={section}
-            aria-label={section}
-            className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground"
-          >
-            {section}
-          </section>
-        ))}
-      </div>
+      <SheetTabs
+        defaultTab={resolveTab(tab)}
+        combat={
+          <>
+            <section aria-label="Affinities">
+              <Affinities character={character} />
+            </section>
+            {COMBAT_PLACEHOLDERS.map((name) => (
+              <Placeholder key={name} name={name} />
+            ))}
+          </>
+        }
+        explore={
+          <>
+            <section aria-label="Virtues">
+              <Virtues character={character} />
+            </section>
+            {EXPLORE_PLACEHOLDERS.map((name) => (
+              <Placeholder key={name} name={name} />
+            ))}
+          </>
+        }
+        inventory={<Placeholder name="Inventory" />}
+        archetypes={<Placeholder name="Archetypes" />}
+      />
     </main>
   )
 }

@@ -7,17 +7,20 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import type { HydratedCharacter } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
+import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
 import { Attributes } from "./attributes"
 import { Vitals } from "./vitals"
 
 /**
- * The read-only top-of-sheet summary (PRD §6.1 Header + Vitals): identity
- * (portrait, name, pronouns, level, active Archetype, currency) on the left,
- * and a glance block on the right with {@link Vitals} (HP/SP) above
- * {@link Attributes}. Side by side on wide screens, stacked on narrow ones.
- * Attributes ride here, not in a section, because they matter in every
- * encounter context. A `Fallen` badge surfaces when current HP has reached 0.
- * No controls; the public sheet never mutates state.
+ * The read-only top-of-sheet summary, persistent above the tabs (PRD §6.1
+ * Header): identity (portrait, name, pronouns, `Level · Archetype · Victories
+ * x/7`, currency) on the left, and a glance block on the right with
+ * {@link Vitals} (HP/SP) above {@link Attributes}. Side by side on wide screens,
+ * stacked on narrow ones. Attributes and Victories ride here, not in a tab,
+ * because they matter in every encounter context — Victories is progress
+ * toward the next level, shown read-only (the award/level-up controls are a
+ * separate owner-mode ticket). A `Fallen` badge surfaces when current HP has
+ * reached 0. No controls; the public sheet never mutates state.
  */
 export function SheetHeader({ character }: { character: HydratedCharacter }) {
   const fallen = character.currentHP <= 0
@@ -53,7 +56,8 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
 
             <p className="text-sm text-muted-foreground">
               Level {character.level} ·{" "}
-              {archetypeDisplayName(character.activeArchetypeKey)}
+              {archetypeDisplayName(character.activeArchetypeKey)} · Victories{" "}
+              {character.victories}/{VICTORIES_PER_LEVEL}
             </p>
 
             <p className="text-sm text-muted-foreground">

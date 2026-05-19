@@ -14,8 +14,10 @@ test("public character sheet renders for a seeded character", async ({
   expect(response?.ok()).toBeTruthy()
   await expect(page.getByRole("heading", { name: "Brann Holt" })).toBeVisible()
 
-  // Header: level, active Archetype, currency with unit, portrait placeholder.
+  // Header (persistent, above the tabs): level, active Archetype, Victories
+  // progress, currency with unit, portrait placeholder.
   await expect(page.getByText(/Level 1 · Warrior/)).toBeVisible()
+  await expect(page.getByText(/Victories 0\/7/)).toBeVisible()
   await expect(page.getByText("0 gp")).toBeVisible()
   await expect(page.getByText("BH")).toBeVisible()
 
@@ -25,21 +27,16 @@ test("public character sheet renders for a seeded character", async ({
   await expect(page.getByText("HP", { exact: true })).toBeVisible()
   await expect(page.getByText("SP", { exact: true })).toBeVisible()
 
-  // Attributes: Warrior R1 base, no Mastery, longsword has no stat effects —
-  // displayed scores are the Archetype block with a true minus on Magic.
+  // Attributes: in the persistent header (not a tab). Warrior R1 base, no
+  // Mastery, longsword has no stat effects — the Archetype block, minus on Magic.
   const attributes = page.getByRole("region", { name: "Attributes" })
   await expect(attributes.getByText("Strength")).toBeVisible()
   await expect(attributes.getByText("+2")).toBeVisible()
   await expect(attributes.getByText("Magic")).toBeVisible()
   await expect(attributes.getByText("−1")).toBeVisible()
 
-  // Virtues: ranks render and, with an empty Spark log, the count shows 0 / 7
-  // and the per-Virtue breakdown line is suppressed (no "×n" anywhere).
-  const virtues = page.getByRole("region", { name: "Virtues" })
-  await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
-  await expect(virtues.getByText(/×/)).toHaveCount(0)
-
-  // Affinities: all 11 damage types present; Almighty is never charted.
+  // Combat is the default tab: Affinities is mounted. All 11 damage types
+  // present; Almighty is never charted.
   const affinities = page.getByRole("region", { name: "Affinities" })
   for (const damageType of [
     "Slash",
@@ -59,6 +56,13 @@ test("public character sheet renders for a seeded character", async ({
     ).toBeVisible()
   }
   await expect(affinities.getByText("Almighty")).toHaveCount(0)
+
+  // Virtues lives on the Explore tab — switch to it (Radix unmounts inactive
+  // panels). Empty Spark log ⇒ count 0/7 and no "×n" breakdown.
+  await page.getByRole("tab", { name: "Explore" }).click()
+  const virtues = page.getByRole("region", { name: "Virtues" })
+  await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
+  await expect(virtues.getByText(/×/)).toHaveCount(0)
 
   // AC: no console errors or React hydration warnings on a fresh seed sheet.
   expect(consoleErrors).toEqual([])
@@ -83,6 +87,7 @@ test("a Fallen, max-level character is marked Fallen and reads level 30", async 
 
   // AC: level reads the bare number, no "/ 30" progression implication.
   await expect(page.getByText(/Level 30 · Warrior/)).toBeVisible()
+  await expect(page.getByText(/Victories 0\/7/)).toBeVisible()
   await expect(page.getByText(/30\s*\/\s*30/)).toHaveCount(0)
 
   // AC: visibly marked Fallen (text label, not just an empty bar) and HP 0/max.
@@ -97,13 +102,48 @@ test("Virtues Spark breakdown reflects the seeded log", async ({ page }) => {
   const response = await page.goto("/c/seed-mage")
   expect(response?.ok()).toBeTruthy()
 
-  // seed-mage log is [wisdom, focus, wisdom, expression]: 4 / 7, and the
-  // breakdown is ordered count-desc then Virtue order.
+  // Victories progress shows in the persistent header.
+  await expect(page.getByText(/Victories 3\/7/)).toBeVisible()
+
+  // Virtues is on the Explore tab. seed-mage log [wisdom, focus, wisdom,
+  // expression]: 4 / 7, breakdown ordered count-desc then Virtue order.
+  await page.getByRole("tab", { name: "Explore" }).click()
   const virtues = page.getByRole("region", { name: "Virtues" })
   await expect(virtues.getByText(/Sparks:\s*4\s*\/\s*7/)).toBeVisible()
   await expect(
     virtues.getByText("Wisdom ×2, Expression ×1, Focus ×1")
   ).toBeVisible()
+})
+
+test("sheet tabs: default Combat, switching mirrors to ?tab=, deep-linkable", async ({
+  page,
+}) => {
+  await page.goto("/c/seed-warrior")
+
+  for (const name of ["Combat", "Explore", "Inventory", "Archetypes"]) {
+    await expect(page.getByRole("tab", { name })).toBeVisible()
+  }
+
+  // Default tab is Combat: its trigger is selected and Affinities is mounted.
+  await expect(page.getByRole("tab", { name: "Combat" })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
+  await expect(page.getByRole("region", { name: "Affinities" })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Virtues" })).toHaveCount(0)
+
+  // Switching mirrors to ?tab= and swaps the mounted panel.
+  await page.getByRole("tab", { name: "Explore" }).click()
+  await expect(page).toHaveURL(/\?tab=explore/)
+  await expect(page.getByRole("region", { name: "Virtues" })).toBeVisible()
+  await expect(page.getByRole("region", { name: "Affinities" })).toHaveCount(0)
+
+  // Deep link opens directly on the requested tab.
+  await page.goto("/c/seed-warrior?tab=archetypes")
+  await expect(page.getByRole("tab", { name: "Archetypes" })).toHaveAttribute(
+    "aria-selected",
+    "true"
+  )
 })
 
 test("unknown shortId returns a 404 not-found page", async ({ page }) => {
