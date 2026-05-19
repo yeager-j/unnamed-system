@@ -26,9 +26,9 @@ import {
  * rows are deleted then re-inserted — so a second run neither duplicates rows
  * nor changes any public `/c/{shortId}` URL.
  *
- * `db/env.ts` parses `DATABASE_URL` at import time, so `.env.local` is loaded
- * (when `DATABASE_URL` is not already in the environment) before the db module
- * is dynamically imported.
+ * The db client reads `DATABASE_URL` lazily on first query, so `.env.local`
+ * is loaded (when `DATABASE_URL` is not already in the environment) before any
+ * database call below.
  *
  * Run with: `cd apps/web && npm run db:seed`
  */

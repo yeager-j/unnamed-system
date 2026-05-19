@@ -24,6 +24,29 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
+      # The sheet routes are DB-backed, so e2e needs a real, seeded database.
+      # An ephemeral Neon branch per run is created here and deleted in the
+      # always() teardown below so it can never accumulate against the branch
+      # cap.
+      - name: Create Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@v5
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch_name: ci-e2e/${{ github.run_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Expose DATABASE_URL
+        run: echo "DATABASE_URL=${{ steps.neon.outputs.db_url }}" >> "$GITHUB_ENV"
+
+      - name: Apply migrations
+        working-directory: apps/web
+        run: npm run db:migrate
+
+      - name: Seed database
+        working-directory: apps/web
+        run: npm run db:seed
+
       - name: Run E2E tests
         run: npm run test:e2e
 
@@ -34,3 +57,11 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report/
           retention-days: 7
+
+      - name: Delete Neon branch
+        if: always()
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          branch: ci-e2e/${{ github.run_id }}
+          api_key: ${{ secrets.NEON_API_KEY }}
