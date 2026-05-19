@@ -22,8 +22,8 @@ test("public character sheet renders for a seeded character", async ({
   // Vitals: HP + SP each render a bar (Hit/Skill Dice and Prisma are
   // intentionally not surfaced in the header).
   await expect(page.getByRole("progressbar")).toHaveCount(2)
-  await expect(page.getByText("HP")).toBeVisible()
-  await expect(page.getByText("SP")).toBeVisible()
+  await expect(page.getByText("HP", { exact: true })).toBeVisible()
+  await expect(page.getByText("SP", { exact: true })).toBeVisible()
 
   // Attributes: Warrior R1 base, no Mastery, longsword has no stat effects —
   // displayed scores are the Archetype block with a true minus on Magic.
