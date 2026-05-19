@@ -1,4 +1,4 @@
-import type { SparkLog, VirtueKey } from "./character"
+import { VIRTUE_KEYS, type SparkLog, type VirtueKey } from "./character"
 import { err, ok, type Result } from "./result"
 
 /**
@@ -85,4 +85,24 @@ export function rankUpVirtue(
     virtues: { ...character.virtues, [virtue]: character.virtues[virtue] + 1 },
     sparkLog: [],
   })
+}
+
+/**
+ * The per-Virtue tally of a Spark log, for the sheet's "Wisdom ×2, Empathy ×1"
+ * breakdown line. One entry per Virtue that appears at least once, ordered by
+ * count descending then {@link VIRTUE_KEYS} order for ties (the stable sort over
+ * a `VIRTUE_KEYS`-ordered base preserves that tiebreak). An empty log yields an
+ * empty array so the caller can suppress the line entirely.
+ */
+export function sparkLogBreakdown(
+  log: SparkLog
+): ReadonlyArray<{ virtue: VirtueKey; count: number }> {
+  const counts = new Map<VirtueKey, number>()
+  for (const virtue of log) {
+    counts.set(virtue, (counts.get(virtue) ?? 0) + 1)
+  }
+
+  return VIRTUE_KEYS.filter((virtue) => counts.has(virtue))
+    .map((virtue) => ({ virtue, count: counts.get(virtue)! }))
+    .sort((a, b) => b.count - a.count)
 }

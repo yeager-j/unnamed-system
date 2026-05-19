@@ -2,12 +2,14 @@ import { Progress } from "@workspace/ui/components/progress"
 import type { HydratedCharacter } from "@/lib/db/load-character"
 
 /**
- * The read-only Vitals block (PRD §6.1 Vitals + §7.6 Prisma): current/max HP
- * and SP with bars that reflect the ratio, Hit Die and Skill Dice remaining,
- * and Prisma charges. Max values come pre-resolved off the hydrated character
- * (Mastery + equipment already folded in by the engine). No controls; the
- * public sheet never mutates state. Rendered as the right column of the
- * top-of-sheet summary ({@link SheetHeader}), so no card wrapper of its own.
+ * The read-only Vitals block (PRD §6.1 Vitals): current/max HP and SP with bars
+ * that reflect the ratio — the two pools a player checks constantly. Max values
+ * come pre-resolved off the hydrated character (Mastery + equipment already
+ * folded in by the engine). Hit/Skill Dice and Prisma are intentionally not
+ * shown here: Dice only matter when resting and Prisma is a consumable item,
+ * not an at-a-glance statistic — they belong on a rest/combat surface, not the
+ * header. No controls; the public sheet never mutates state. Rendered as part
+ * of the top-of-sheet summary ({@link SheetHeader}), so no card wrapper.
  */
 export function Vitals({ character }: { character: HydratedCharacter }) {
   const fallen = character.currentHP <= 0
@@ -36,30 +38,6 @@ export function Vitals({ character }: { character: HydratedCharacter }) {
         </div>
         <Progress value={percent(character.currentSP, character.maxSP)} />
       </div>
-
-      <dl className="flex flex-col gap-1.5">
-        <Stat
-          label="Hit Die"
-          value={`${character.hitDiceRemaining} / ${character.maxHitDice}`}
-        />
-        <Stat
-          label="Skill Dice"
-          value={`${character.skillDiceRemaining} / ${character.maxSkillDice}`}
-        />
-        <Stat
-          label="Prisma"
-          value={`${character.prismaCharges} / ${character.prismaMaxCharges}`}
-        />
-      </dl>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-2">
-      <dt className="font-medium">{label}</dt>
-      <dd className="text-muted-foreground tabular-nums">{value}</dd>
     </div>
   )
 }
