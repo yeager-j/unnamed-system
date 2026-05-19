@@ -2,7 +2,6 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
-import { Attributes } from "@/components/character-sheet/attributes"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import { Virtues } from "@/components/character-sheet/virtues"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
@@ -11,10 +10,11 @@ import { archetypeDisplayName } from "@/lib/game/archetypes"
 /**
  * The public, read-only character sheet at `/c/{shortId}`. UNN-143 landed the
  * route, the single typed data spine ({@link loadHydratedCharacterByShortId}),
- * and graceful 404s; UNN-145 fills the Header + Vitals sections and UNN-146 the
- * Attributes / Virtues / Affinities sections. The remaining PRD §6 sections are
- * still dashed placeholders, filled in by the sibling tickets, each reading
- * what it needs off the hydrated character.
+ * and graceful 404s; UNN-145 fills the Header + Vitals, and UNN-146 the
+ * always-visible Attributes (in the header) plus the Virtues and Affinities
+ * sections. The remaining PRD §6 sections are still dashed placeholders, filled
+ * in by the sibling tickets, each reading what it needs off the hydrated
+ * character.
  */
 
 interface PageProps {
@@ -76,9 +76,6 @@ export default async function CharacterSheetPage({ params }: PageProps) {
       <SheetHeader character={character} />
 
       <div className="flex flex-col gap-4">
-        <section aria-label="Attributes">
-          <Attributes character={character} />
-        </section>
         <section aria-label="Virtues">
           <Virtues character={character} />
         </section>

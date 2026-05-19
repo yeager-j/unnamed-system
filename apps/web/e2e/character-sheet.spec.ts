@@ -19,11 +19,11 @@ test("public character sheet renders for a seeded character", async ({
   await expect(page.getByText("0 gp")).toBeVisible()
   await expect(page.getByText("BH")).toBeVisible()
 
-  // Vitals: HP + SP each render a bar; Prisma shows current / max.
+  // Vitals: HP + SP each render a bar (Hit/Skill Dice and Prisma are
+  // intentionally not surfaced in the header).
   await expect(page.getByRole("progressbar")).toHaveCount(2)
   await expect(page.getByText("HP")).toBeVisible()
   await expect(page.getByText("SP")).toBeVisible()
-  await expect(page.locator('dt:has-text("Prisma") ~ dd')).toHaveText("2 / 2")
 
   // Attributes: Warrior R1 base, no Mastery, longsword has no stat effects —
   // displayed scores are the Archetype block with a true minus on Magic.

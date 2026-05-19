@@ -7,15 +7,17 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 import type { HydratedCharacter } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
+import { Attributes } from "./attributes"
 import { Vitals } from "./vitals"
 
 /**
  * The read-only top-of-sheet summary (PRD §6.1 Header + Vitals): identity
- * (portrait, name, pronouns, level, active Archetype, currency) on the left and
- * {@link Vitals} (HP/SP, dice, Prisma) on the right — what a player checks at a
- * glance, side by side on wide screens and stacked on narrow ones. A `Fallen`
- * badge surfaces when current HP has reached 0. No controls; the public sheet
- * never mutates state.
+ * (portrait, name, pronouns, level, active Archetype, currency) on the left,
+ * and a glance block on the right with {@link Vitals} (HP/SP) above
+ * {@link Attributes}. Side by side on wide screens, stacked on narrow ones.
+ * Attributes ride here, not in a section, because they matter in every
+ * encounter context. A `Fallen` badge surfaces when current HP has reached 0.
+ * No controls; the public sheet never mutates state.
  */
 export function SheetHeader({ character }: { character: HydratedCharacter }) {
   const fallen = character.currentHP <= 0
@@ -60,8 +62,11 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
           </div>
         </div>
 
-        <div className="border-t border-border pt-6 md:w-80 md:border-t-0 md:border-l md:pt-0 md:pl-6">
+        <div className="flex flex-col gap-4 border-t border-border pt-6 md:w-80 md:border-t-0 md:border-l md:pt-0 md:pl-6">
           <Vitals character={character} />
+          <section aria-label="Attributes">
+            <Attributes character={character} />
+          </section>
         </div>
       </CardContent>
     </Card>
