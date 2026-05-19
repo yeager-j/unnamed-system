@@ -25,6 +25,41 @@ test("public character sheet renders for a seeded character", async ({
   await expect(page.getByText("SP")).toBeVisible()
   await expect(page.locator('dt:has-text("Prisma") ~ dd')).toHaveText("2 / 2")
 
+  // Attributes: Warrior R1 base, no Mastery, longsword has no stat effects —
+  // displayed scores are the Archetype block with a true minus on Magic.
+  const attributes = page.getByRole("region", { name: "Attributes" })
+  await expect(attributes.getByText("Strength")).toBeVisible()
+  await expect(attributes.getByText("+2")).toBeVisible()
+  await expect(attributes.getByText("Magic")).toBeVisible()
+  await expect(attributes.getByText("−1")).toBeVisible()
+
+  // Virtues: ranks render and, with an empty Spark log, the count shows 0 / 7
+  // and the per-Virtue breakdown line is suppressed (no "×n" anywhere).
+  const virtues = page.getByRole("region", { name: "Virtues" })
+  await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
+  await expect(virtues.getByText(/×/)).toHaveCount(0)
+
+  // Affinities: all 11 damage types present; Almighty is never charted.
+  const affinities = page.getByRole("region", { name: "Affinities" })
+  for (const damageType of [
+    "Slash",
+    "Pierce",
+    "Strike",
+    "Fire",
+    "Ice",
+    "Wind",
+    "Elec",
+    "Aether",
+    "Psy",
+    "Light",
+    "Dark",
+  ]) {
+    await expect(
+      affinities.getByText(damageType, { exact: true })
+    ).toBeVisible()
+  }
+  await expect(affinities.getByText("Almighty")).toHaveCount(0)
+
   // AC: no console errors or React hydration warnings on a fresh seed sheet.
   expect(consoleErrors).toEqual([])
   expect(pageErrors).toEqual([])
@@ -56,6 +91,19 @@ test("a Fallen, max-level character is marked Fallen and reads level 30", async 
 
   expect(consoleErrors).toEqual([])
   expect(pageErrors).toEqual([])
+})
+
+test("Virtues Spark breakdown reflects the seeded log", async ({ page }) => {
+  const response = await page.goto("/c/seed-mage")
+  expect(response?.ok()).toBeTruthy()
+
+  // seed-mage log is [wisdom, focus, wisdom, expression]: 4 / 7, and the
+  // breakdown is ordered count-desc then Virtue order.
+  const virtues = page.getByRole("region", { name: "Virtues" })
+  await expect(virtues.getByText(/Sparks:\s*4\s*\/\s*7/)).toBeVisible()
+  await expect(
+    virtues.getByText("Wisdom ×2, Expression ×1, Focus ×1")
+  ).toBeVisible()
 })
 
 test("unknown shortId returns a 404 not-found page", async ({ page }) => {

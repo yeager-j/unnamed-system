@@ -4,6 +4,7 @@ import {
   addSpark,
   eligibleVirtuesForRankUp,
   rankUpVirtue,
+  sparkLogBreakdown,
   type SparkCharacter,
 } from "./spark"
 
@@ -99,6 +100,36 @@ describe("eligibleVirtuesForRankUp", () => {
     expect(eligibleVirtuesForRankUp(character)).toEqual(
       new Set<VirtueKey>(["focus"])
     )
+  })
+})
+
+describe("sparkLogBreakdown", () => {
+  it("returns an empty array for an empty log", () => {
+    expect(sparkLogBreakdown([])).toEqual([])
+  })
+
+  it("tallies a single Virtue", () => {
+    expect(sparkLogBreakdown(["focus", "focus"])).toEqual([
+      { virtue: "focus", count: 2 },
+    ])
+  })
+
+  it("orders by count descending", () => {
+    expect(sparkLogBreakdown(CANONICAL_LOG)).toEqual([
+      { virtue: "wisdom", count: 4 },
+      { virtue: "empathy", count: 2 },
+      { virtue: "focus", count: 1 },
+    ])
+  })
+
+  it("breaks count ties by VIRTUE_KEYS order", () => {
+    expect(
+      sparkLogBreakdown(["wisdom", "focus", "wisdom", "expression"])
+    ).toEqual([
+      { virtue: "wisdom", count: 2 },
+      { virtue: "expression", count: 1 },
+      { virtue: "focus", count: 1 },
+    ])
   })
 })
 
