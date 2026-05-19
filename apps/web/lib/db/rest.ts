@@ -10,16 +10,37 @@ import {
   type RestingCharacter,
 } from "../game/rest"
 import { db } from "./index"
-import { loadHydratedCharacter } from "./load-character"
+import {
+  loadHydratedCharacterById,
+  toStatComputationCharacter,
+  type HydratedCharacter,
+} from "./load-character"
 import { characters } from "./schema"
 
 /**
- * Persistence for the pure rest engine: hydrate the character via the neutral
- * {@link loadHydratedCharacter} (max HP/SP are derived from that view), run the
- * pure transition, and on success write back only the pool columns that rest
+ * Persistence for the pure rest engine: hydrate the character via
+ * {@link loadHydratedCharacterById} (max HP/SP are derived from its view),
+ * project it onto the engine's {@link RestingCharacter} input, run the pure
+ * transition, and on success write back only the pool columns that rest
  * changes. Each write is a single-row `UPDATE`, so `neon-http`'s lack of
  * interactive transactions is irrelevant.
  */
+
+/** Projects a hydrated character onto the pure rest engine's input. */
+function toRestingCharacter(
+  character: HydratedCharacter
+): RestingCharacter {
+  return {
+    ...toStatComputationCharacter(character),
+    currentHP: character.currentHP,
+    currentSP: character.currentSP,
+    hitDiceRemaining: character.hitDiceRemaining,
+    skillDiceRemaining: character.skillDiceRemaining,
+    exhaustion: character.exhaustion,
+    prismaCharges: character.prismaCharges,
+    prismaMaxCharges: character.prismaMaxCharges,
+  }
+}
 
 /**
  * The pure engine's failures plus the one this layer adds: the id matched no
@@ -36,10 +57,10 @@ export type RestPersistenceError = RestError | "character-not-found"
 export async function applyFullRestForCharacter(
   characterId: string
 ): Promise<Result<RestingCharacter, "character-not-found">> {
-  const character = await loadHydratedCharacter(characterId)
+  const character = await loadHydratedCharacterById(characterId)
   if (!character) return err("character-not-found")
 
-  const updated = applyFullRest(character)
+  const updated = applyFullRest(toRestingCharacter(character))
 
   await db
     .update(characters)
@@ -66,10 +87,10 @@ export async function applyPartialRestForCharacter(
   characterId: string,
   input: PartialRestInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadHydratedCharacter(characterId)
+  const character = await loadHydratedCharacterById(characterId)
   if (!character) return err("character-not-found")
 
-  const result = applyPartialRest(character, input)
+  const result = applyPartialRest(toRestingCharacter(character), input)
   if (!result.ok) return result
 
   await db
@@ -93,10 +114,10 @@ export async function applyRespiteForCharacter(
   characterId: string,
   input: RespiteInput
 ): Promise<Result<RestingCharacter, RestPersistenceError>> {
-  const character = await loadHydratedCharacter(characterId)
+  const character = await loadHydratedCharacterById(characterId)
   if (!character) return err("character-not-found")
 
-  const result = applyRespite(character, input)
+  const result = applyRespite(toRestingCharacter(character), input)
   if (!result.ok) return result
 
   await db
