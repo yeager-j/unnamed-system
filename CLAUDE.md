@@ -55,6 +55,22 @@ npm run format     # Prettier across all packages
 
 Run app-specific commands from the package directory (e.g., `cd apps/web && npm run dev`).
 
+## Testing
+
+- **Unit (Vitest):** pure game mechanics in `apps/web/lib/game` — no DB, no network.
+- **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database.
+
+**E2E database — current vs. target:**
+
+- *Now:* the `e2e` workflow provisions a self-cleaning ephemeral Neon branch per run (migrate + seed, deleted in an `always()` teardown), so it adds zero net branches against the cap.
+- *Target (tracked in Linear → Foundation):* trigger Playwright on Vercel's `vercel.deployment.success` `repository_dispatch`, run against the preview `BASE_URL`, and migrate+seed that deployment's `preview/<branch>` Neon branch — no extra branch, no deploy/timing race. Migration also needs `playwright.config.ts` to read `BASE_URL` (local `webServer` only when unset) and the dispatched run wired as a fail-closed required check.
+
+**Write-path E2E (cast / heal / rest / level-up / spark):**
+
+- Re-seed before *every* run. `db:seed` is idempotent and resets the character + archetype/knife/chain/talent/inventory rows, but **not** `actionLogEntries` — a spec that logs actions must clear its own log (or the seed must be extended to truncate it).
+- Give each write spec its **own dedicated seed character** (or serialize write specs). Playwright is `fullyParallel`; two specs mutating the same seed row will flake. This is a test-design constraint, not an infra one.
+- Writes stay within `seed-user`'s `seed-*` rows; mutating the shared preview DB is acceptable for the showcase roster given the per-run re-seed.
+
 ## Tech Stack
 
 - **Framework**: Next.js 16, App Router, React Server Components, Server Actions
@@ -65,7 +81,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 - **Validation**: Zod + react-hook-form; same Zod schemas validate Server Action inputs
 - **Short IDs**: nanoid (8-char URL-safe) for public character URLs `/c/{shortId}`
 - **Hosting**: Vercel + Neon + Vercel Blob
-- **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop)
+- **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 
 Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database.
 
