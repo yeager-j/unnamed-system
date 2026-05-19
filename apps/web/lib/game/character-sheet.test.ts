@@ -134,17 +134,13 @@ describe("seed roster covers every sheet section (UNN-144)", () => {
   it("has a character mid-combat (Ailment + Battle Conditions + Exhaustion)", () => {
     const match = SEED_CHARACTERS.some(
       (c) =>
-        c.ailments.length > 0 &&
-        c.battleConditions !== null &&
-        c.exhaustion > 0
+        c.ailments.length > 0 && c.battleConditions !== null && c.exhaustion > 0
     )
     expect(match).toBe(true)
   })
 
   it("has Sparks logged across multiple Virtues", () => {
-    const match = SEED_CHARACTERS.some(
-      (c) => new Set(c.sparkLog).size >= 2
-    )
+    const match = SEED_CHARACTERS.some((c) => new Set(c.sparkLog).size >= 2)
     expect(match).toBe(true)
     for (const c of SEED_CHARACTERS) {
       for (const virtue of c.sparkLog) {
@@ -235,9 +231,7 @@ describe("derived stats — Knight (near-max, Mastery + inheritance)", () => {
   it("isolates the Runed Cane's +1 Magic from the rest of the build", () => {
     const withCane = computeAttributes(buildSeedStatCharacter(knight)).magic
     const withoutCane = variant(knight, (draft) => {
-      draft.items = draft.items.filter(
-        (i) => i.catalogItemKey !== "runed-cane"
-      )
+      draft.items = draft.items.filter((i) => i.catalogItemKey !== "runed-cane")
     })
     expect(
       withCane - computeAttributes(buildSeedStatCharacter(withoutCane)).magic

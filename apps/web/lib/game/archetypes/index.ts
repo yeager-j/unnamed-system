@@ -63,3 +63,13 @@ export function getArchetype(key: string): Archetype | undefined {
 export function getAllArchetypes(): readonly Archetype[] {
   return ARCHETYPES
 }
+
+/**
+ * The active Archetype's display name, or `"Adventurer"` when the character
+ * has no active Archetype (`null`) or the key resolves to no Archetype. Shared
+ * by the public sheet, its header, and the route's `generateMetadata` so the
+ * fallback can't drift between surfaces.
+ */
+export function archetypeDisplayName(key: string | null): string {
+  return (key ? getArchetype(key)?.name : undefined) ?? "Adventurer"
+}

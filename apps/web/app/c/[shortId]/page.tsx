@@ -1,15 +1,16 @@
 import { cache } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
-import { getArchetype } from "@/lib/game/archetypes"
+import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 /**
- * The public, read-only character sheet at `/c/{shortId}`. This ticket
- * (UNN-143) lands the route, the single typed data spine
- * ({@link loadHydratedCharacterByShortId}), graceful 404s, and a scaffold; the
- * PRD §6 section UIs are filled in by the tickets this one blocks
- * (UNN-145..151), each reading what it needs off the hydrated character.
+ * The public, read-only character sheet at `/c/{shortId}`. UNN-143 landed the
+ * route, the single typed data spine ({@link loadHydratedCharacterByShortId}),
+ * and graceful 404s; UNN-145 fills the Header + Vitals sections. The remaining
+ * PRD §6 sections are still dashed placeholders, filled in by the sibling
+ * tickets, each reading what it needs off the hydrated character.
  */
 
 interface PageProps {
@@ -24,13 +25,6 @@ const getCharacter = cache((shortId: string) =>
   loadHydratedCharacterByShortId(shortId)
 )
 
-function archetypeName(activeArchetypeKey: string | null): string {
-  return (
-    (activeArchetypeKey ? getArchetype(activeArchetypeKey)?.name : undefined) ??
-    "Adventurer"
-  )
-}
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -42,7 +36,7 @@ export async function generateMetadata({
   }
 
   const title = `${character.name} — Unnamed System`
-  const description = `Level ${character.level} ${archetypeName(
+  const description = `Level ${character.level} ${archetypeDisplayName(
     character.activeArchetypeKey
   )} — ${character.name}'s character sheet for the Unnamed System.`
 
@@ -54,8 +48,6 @@ export async function generateMetadata({
 }
 
 const SHEET_SECTIONS = [
-  "Header",
-  "Vitals",
   "Attributes",
   "Virtues",
   "Affinities",
@@ -80,15 +72,7 @@ export default async function CharacterSheetPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
-      <header>
-        <h1 className="text-3xl font-semibold">{character.name}</h1>
-        {character.pronouns ? (
-          <p className="text-sm text-muted-foreground">{character.pronouns}</p>
-        ) : null}
-        <p className="mt-1 text-sm text-muted-foreground">
-          Level {character.level} {archetypeName(character.activeArchetypeKey)}
-        </p>
-      </header>
+      <SheetHeader character={character} />
 
       <div className="flex flex-col gap-4">
         {SHEET_SECTIONS.map((section) => (

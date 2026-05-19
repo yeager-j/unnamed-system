@@ -1,0 +1,80 @@
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
+import { Badge } from "@workspace/ui/components/badge"
+import { Card, CardContent } from "@workspace/ui/components/card"
+import type { HydratedCharacter } from "@/lib/db/load-character"
+import { archetypeDisplayName } from "@/lib/game/archetypes"
+import { Vitals } from "./vitals"
+
+/**
+ * The read-only top-of-sheet summary (PRD §6.1 Header + Vitals): identity
+ * (portrait, name, pronouns, level, active Archetype, currency) on the left and
+ * {@link Vitals} (HP/SP, dice, Prisma) on the right — what a player checks at a
+ * glance, side by side on wide screens and stacked on narrow ones. A `Fallen`
+ * badge surfaces when current HP has reached 0. No controls; the public sheet
+ * never mutates state.
+ */
+export function SheetHeader({ character }: { character: HydratedCharacter }) {
+  const fallen = character.currentHP <= 0
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-6 md:flex-row md:items-start">
+        <div className="flex items-start gap-4 md:flex-1">
+          <Avatar className="size-20 rounded-none">
+            <AvatarImage
+              src={character.portraitUrl ?? undefined}
+              alt={`${character.name}'s portrait`}
+              className="rounded-none"
+            />
+            <AvatarFallback className="rounded-none text-lg">
+              {initials(character.name)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-heading text-2xl font-semibold">
+                {character.name}
+              </h1>
+              {fallen ? <Badge variant="destructive">Fallen</Badge> : null}
+            </div>
+
+            {character.pronouns ? (
+              <p className="text-sm text-muted-foreground">
+                {character.pronouns}
+              </p>
+            ) : null}
+
+            <p className="text-sm text-muted-foreground">
+              Level {character.level} ·{" "}
+              {archetypeDisplayName(character.activeArchetypeKey)}
+            </p>
+
+            <p className="text-sm text-muted-foreground">
+              {character.currency} gp
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-border pt-6 md:w-80 md:border-t-0 md:border-l md:pt-0 md:pl-6">
+          <Vitals character={character} />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Up to two uppercase initials from the character's name, for the portrait
+ * placeholder when no portrait is set. */
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join("")
+}

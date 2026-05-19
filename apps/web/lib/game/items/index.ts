@@ -49,7 +49,8 @@ export type AccessoryKey = keyof typeof ACCESSORIES_BY_KEY
 
 export const WEAPONS: readonly Weapon[] = Object.values(WEAPONS_BY_KEY)
 export const ARMOR: readonly Armor[] = Object.values(ARMOR_BY_KEY)
-export const ACCESSORIES: readonly Accessory[] = Object.values(ACCESSORIES_BY_KEY)
+export const ACCESSORIES: readonly Accessory[] =
+  Object.values(ACCESSORIES_BY_KEY)
 
 /**
  * Looks up a hardcoded Weapon by its slug key. Returns `undefined` when no

@@ -96,7 +96,11 @@ describe("applyPartialRest", () => {
 
   it("does not restore Hit Dice or reduce Exhaustion", () => {
     const result = applyPartialRest(
-      makeCharacter({ hitDiceRemaining: 1, exhaustion: 2, skillDiceRemaining: 2 }),
+      makeCharacter({
+        hitDiceRemaining: 1,
+        exhaustion: 2,
+        skillDiceRemaining: 2,
+      }),
       { skillDiceSpent: 1, spRecovered: 0 }
     )
 
@@ -107,10 +111,10 @@ describe("applyPartialRest", () => {
   })
 
   it("fails when spending more Skill Dice than remaining", () => {
-    const result = applyPartialRest(
-      makeCharacter({ skillDiceRemaining: 2 }),
-      { skillDiceSpent: 3, spRecovered: 0 }
-    )
+    const result = applyPartialRest(makeCharacter({ skillDiceRemaining: 2 }), {
+      skillDiceSpent: 3,
+      spRecovered: 0,
+    })
 
     expect(result).toEqual({ ok: false, error: "insufficient-skill-dice" })
   })
@@ -160,10 +164,10 @@ describe("applyRespite", () => {
   })
 
   it("fails when spending more Hit Dice than remaining", () => {
-    const result = applyRespite(
-      makeCharacter({ hitDiceRemaining: 1 }),
-      { hitDiceSpent: 2, hpRecovered: 0 }
-    )
+    const result = applyRespite(makeCharacter({ hitDiceRemaining: 1 }), {
+      hitDiceSpent: 2,
+      hpRecovered: 0,
+    })
 
     expect(result).toEqual({ ok: false, error: "insufficient-hit-dice" })
   })

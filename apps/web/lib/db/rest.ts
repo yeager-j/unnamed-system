@@ -27,9 +27,7 @@ import { characters } from "./schema"
  */
 
 /** Projects a hydrated character onto the pure rest engine's input. */
-function toRestingCharacter(
-  character: HydratedCharacter
-): RestingCharacter {
+function toRestingCharacter(character: HydratedCharacter): RestingCharacter {
   return {
     ...toStatComputationCharacter(character),
     currentHP: character.currentHP,
