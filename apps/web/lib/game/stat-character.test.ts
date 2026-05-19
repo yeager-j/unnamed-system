@@ -113,4 +113,36 @@ describe("buildStatComputationCharacter", () => {
     )
     expect(result.equippedItems.map((item) => item.key)).toEqual(["longsword"])
   })
+
+  it("includes Skills granted by equipped item effects", () => {
+    const result = buildStatComputationCharacter(
+      baseCharacter,
+      [warriorRow({ rank: 1 })],
+      ["zephyr-band"]
+    )
+    const keys = result.activeSkills.map((skill) => skill.key)
+    expect(keys).toContain("garu")
+    expect(keys).toContain("cleave")
+  })
+
+  it("does not duplicate an equipment-granted Skill the Archetype already provides", () => {
+    const result = buildStatComputationCharacter(
+      baseCharacter,
+      [
+        warriorRow({
+          rank: 1,
+          inheritanceSlots: [
+            {
+              slotIndex: 0,
+              sourceCharacterArchetypeId: "ca-mage",
+              skillKey: "garu",
+            },
+          ],
+        }),
+      ],
+      ["zephyr-band"]
+    )
+    const garuKeys = result.activeSkills.filter((skill) => skill.key === "garu")
+    expect(garuKeys).toHaveLength(1)
+  })
 })

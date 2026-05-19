@@ -1,6 +1,7 @@
 import { getArchetype } from "./archetypes"
 import type { InheritanceSlots, ManualBonuses, PathChoice } from "./character"
 import { getEquippableItem } from "./items"
+import type { EquippableItem } from "./items/schema"
 import { getSkill } from "./skills"
 import type { StatComputationCharacter } from "./stats"
 
@@ -35,7 +36,8 @@ export interface PersistedArchetypeState {
 }
 
 function activeSkillsFor(
-  active: PersistedArchetypeState
+  active: PersistedArchetypeState,
+  equippedItems: readonly EquippableItem[]
 ): StatComputationCharacter["activeSkills"] {
   const archetype = getArchetype(active.archetypeKey)
   if (!archetype) return []
@@ -54,6 +56,11 @@ function activeSkillsFor(
   for (const slot of active.inheritanceSlots) {
     if (slot.skillKey) keys.add(slot.skillKey)
   }
+  for (const item of equippedItems) {
+    for (const effect of item.effects ?? []) {
+      if (effect.type === "skill") keys.add(effect.skillKey)
+    }
+  }
 
   return [...keys]
     .map((key) => getSkill(key))
@@ -69,15 +76,17 @@ export function buildStatComputationCharacter(
     (a) => a.id === character.activeCharacterArchetypeId
   )
 
+  const equippedItems = equippedItemKeys
+    .map((key) => getEquippableItem(key))
+    .filter((item) => item !== undefined)
+
   return {
     pathChoice: character.pathChoice,
     level: character.level,
     manualBonuses: character.manualBonuses,
     activeArchetypeKey: active?.archetypeKey ?? null,
     archetypes: archetypes.map((a) => ({ key: a.archetypeKey, rank: a.rank })),
-    equippedItems: equippedItemKeys
-      .map((key) => getEquippableItem(key))
-      .filter((item) => item !== undefined),
-    activeSkills: active ? activeSkillsFor(active) : [],
+    equippedItems,
+    activeSkills: active ? activeSkillsFor(active, equippedItems) : [],
   }
 }

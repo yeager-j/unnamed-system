@@ -5,10 +5,13 @@ import {
   ARMOR,
   getAllWeapons,
   getEquippableItem,
+  getEquippedWeapon,
   getWeapon,
   WEAPONS,
 } from "./index"
+import { bladeturnMail } from "./bladeturn-mail"
 import { longsword } from "./longsword"
+import { runedCane } from "./runed-cane"
 import { equippableItemSchema } from "./schema"
 
 const CATALOG = [...WEAPONS, ...ARMOR, ...ACCESSORIES]
@@ -58,6 +61,45 @@ describe("getWeapon", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getWeapon("nope")).toBeUndefined()
+  })
+})
+
+describe("getEquippedWeapon", () => {
+  it("returns the equipped Weapon when one is equipped", () => {
+    const inventory = [
+      { row: { equipped: false }, item: bladeturnMail },
+      { row: { equipped: true }, item: longsword },
+    ]
+    expect(getEquippedWeapon(inventory)).toBe(longsword)
+  })
+
+  it("returns null when no item is equipped", () => {
+    const inventory = [
+      { row: { equipped: false }, item: longsword },
+      { row: { equipped: false }, item: bladeturnMail },
+    ]
+    expect(getEquippedWeapon(inventory)).toBeNull()
+  })
+
+  it("returns null when the only equipped item is not a weapon", () => {
+    const inventory = [
+      { row: { equipped: true }, item: bladeturnMail },
+      { row: { equipped: false }, item: longsword },
+    ]
+    expect(getEquippedWeapon(inventory)).toBeNull()
+  })
+
+  it("ignores unequipped weapons in favor of the equipped one", () => {
+    const inventory = [
+      { row: { equipped: false }, item: longsword },
+      { row: { equipped: true }, item: runedCane },
+    ]
+    expect(getEquippedWeapon(inventory)).toBe(runedCane)
+  })
+
+  it("returns null when the entry's catalog item is undefined", () => {
+    const inventory = [{ row: { equipped: true }, item: undefined }]
+    expect(getEquippedWeapon(inventory)).toBeNull()
   })
 })
 
