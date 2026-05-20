@@ -37,11 +37,18 @@ export interface MechanicEffectContext {
 }
 
 export interface MechanicDefinition<TState> {
-  /** Unique kebab-case identifier matching the Archetype's `mechanic.kind`. */
+  /** Unique kebab-case identifier matching the Archetype's `mechanic` key. */
   kind: string
 
   /** Human-readable title shown in the widget header and info card. */
   displayName: string
+
+  /** Single-sentence summary shown on the Combat-tab widget where space is
+   *  tight. */
+  tagline: string
+
+  /** Full prose used on the Archetypes-tab info card. */
+  description: string
 
   /** Zod validator for the mechanic's persisted state shape. */
   schema: z.ZodType<TState>

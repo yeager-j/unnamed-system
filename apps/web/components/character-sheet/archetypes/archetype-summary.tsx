@@ -23,6 +23,7 @@ import {
   hasMasteryBonus,
   hasUnlockedRank,
 } from "@/lib/game/archetypes/schema"
+import { getMechanic } from "@/lib/game/mechanics"
 import { Prose } from "../prose"
 import { DetailSection } from "./detail-section"
 import {
@@ -58,6 +59,7 @@ export function ArchetypeSummary({
   detail: React.ReactNode
 }) {
   const { archetype, row, isActive } = entry
+  const mechanic = archetype.mechanic ? getMechanic(archetype.mechanic) : null
   const unlockedSkills = entry.ranks.filter((ranked) =>
     hasUnlockedRank(row.rank, ranked.rank)
   )
@@ -76,18 +78,18 @@ export function ArchetypeSummary({
       <div className="flex w-full flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span className="text-sm font-medium">{archetype.name}</span>
-          {archetype.mechanic ? (
+          {mechanic ? (
             <Tooltip>
               <TooltipTrigger
                 render={
                   <Badge variant="outline" className="cursor-help">
-                    {archetype.mechanic.displayName}
+                    {mechanic.displayName}
                   </Badge>
                 }
               />
               <TooltipContent side="top" className="max-w-sm">
                 <Prose inverted className="prose-xs whitespace-normal">
-                  {archetype.mechanic.description}
+                  {mechanic.description}
                 </Prose>
               </TooltipContent>
             </Tooltip>

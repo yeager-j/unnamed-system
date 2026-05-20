@@ -38,9 +38,9 @@ function validate(archetype: Archetype): Archetype {
     }
   }
 
-  if (archetype.mechanic && !getMechanic(archetype.mechanic.kind)) {
+  if (archetype.mechanic && !getMechanic(archetype.mechanic)) {
     throw new Error(
-      `Archetype "${archetype.key}" references unknown mechanic "${archetype.mechanic.kind}"`
+      `Archetype "${archetype.key}" references unknown mechanic "${archetype.mechanic}"`
     )
   }
 

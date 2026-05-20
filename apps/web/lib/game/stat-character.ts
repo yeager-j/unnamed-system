@@ -87,11 +87,11 @@ function activeMechanicFor(
   const archetype = getArchetype(active.archetypeKey)
   if (!archetype?.mechanic) return null
 
-  const mechanic = getMechanic(archetype.mechanic.kind)
+  const mechanic = getMechanic(archetype.mechanic)
   if (!mechanic) return null
 
   const state = active.mechanicState ?? mechanic.initialState()
-  return { kind: archetype.mechanic.kind, state }
+  return { kind: archetype.mechanic, state }
 }
 
 export function buildStatComputationCharacter(
