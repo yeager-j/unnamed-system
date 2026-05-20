@@ -12,6 +12,7 @@ import {
   hasUnlockedRank,
   type Archetype,
 } from "@/lib/game/archetypes/schema"
+import { getMechanic } from "@/lib/game/mechanics"
 import { Prose } from "../prose"
 import { SkillRow } from "../skill-row"
 import { DetailSection } from "./detail-section"
@@ -37,6 +38,7 @@ import {
  */
 export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
   const { archetype, row } = entry
+  const mechanic = archetype.mechanic ? getMechanic(archetype.mechanic) : null
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -46,14 +48,12 @@ export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
 
       <ArchetypeTalents archetype={archetype} />
 
-      {archetype.mechanic ? (
+      {mechanic ? (
         <>
           <Separator />
           <section className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold">
-              {archetype.mechanic.displayName}
-            </h3>
-            <Prose>{archetype.mechanic.description}</Prose>
+            <h3 className="text-sm font-semibold">{mechanic.displayName}</h3>
+            <Prose>{mechanic.description}</Prose>
           </section>
         </>
       ) : null}

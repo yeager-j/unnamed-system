@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { getArchetype } from "@/lib/game/archetypes"
+import { getMechanic } from "@/lib/game/mechanics"
 import { useCharacter } from "../character-context"
 import { renderMechanicWidget } from "./widget-registry"
 
@@ -31,8 +32,8 @@ export function MechanicWidget() {
   const archetype = character.activeArchetypeKey
     ? getArchetype(character.activeArchetypeKey)
     : undefined
-  const mechanic = archetype?.mechanic
-  if (!mechanic) return null
+  const mechanic = archetype?.mechanic ? getMechanic(archetype.mechanic) : null
+  if (!archetype || !mechanic) return null
 
   return (
     <Card>
