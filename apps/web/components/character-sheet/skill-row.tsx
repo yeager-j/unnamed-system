@@ -15,16 +15,11 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import type { DamageType } from "@/lib/game/affinity"
+import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
-import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import type { Skill } from "@/lib/game/skills/schema"
 import { IntrinsicAttackCard, SkillCard } from "./skill-card"
 import { SkillCostBadge } from "./skill-cost-badge"
-
-/** Skill view shape consumed by {@link SkillRow}: a Skill spread flat with
- *  the engine-resolved cost on `resolvedCost`. Matches {@link HydratedSkill}
- *  and the archetype-tab's {@link ResolvedSkill}. */
-type SkillWithCost = Skill & { resolvedCost: ResolvedSkillCost | null }
 
 /**
  * The damage type slot in the row reuses the {@link Skill} schema's
@@ -34,7 +29,7 @@ type SkillWithCost = Skill & { resolvedCost: ResolvedSkillCost | null }
 type SkillRowDamageType = DamageType | "special"
 
 interface SkillRowProps {
-  skill: SkillWithCost
+  skill: HydratedSkill
 }
 
 /**

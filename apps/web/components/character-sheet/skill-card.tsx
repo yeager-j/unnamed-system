@@ -1,6 +1,7 @@
 import { Badge } from "@workspace/ui/components/badge"
 import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { DamageType } from "@/lib/game/affinity"
+import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import {
@@ -19,7 +20,7 @@ import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"
 
 interface SkillCardProps {
-  skill: Skill & { resolvedCost: ResolvedSkillCost | null }
+  skill: HydratedSkill
 }
 
 /**
