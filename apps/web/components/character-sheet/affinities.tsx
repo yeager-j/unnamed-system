@@ -4,7 +4,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,

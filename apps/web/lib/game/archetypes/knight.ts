@@ -19,4 +19,12 @@ export const knight = {
     { rank: 5, skill: "auto-rakukaja" },
   ],
   synthesisSkill: { rank: 5, skill: "hammer-of-justice" },
+  mechanic: {
+    kind: "valor",
+    displayName: "Valor",
+    tagline:
+      "Build a 0–7 Valor counter by acting as the bulwark of your party.",
+    description:
+      "Build a 0–7 Valor counter by acting as the bulwark of your party. Thresholds unlock passive benefits: opportunity-attack lockdown (1+), Disengage denial (2+), physical Resist (3+), Down immunity (4+), and Downing crits (5+).",
+  },
 } satisfies Archetype

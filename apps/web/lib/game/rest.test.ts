@@ -22,6 +22,7 @@ function makeCharacter(
     archetypes: [],
     equippedItems: [],
     activeSkills: [],
+    activeMechanic: null,
     currentHP: 5,
     currentSP: 5,
     hitDiceRemaining: 0,

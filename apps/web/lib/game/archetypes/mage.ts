@@ -19,4 +19,12 @@ export const mage = {
     { rank: 5, skill: "magic-circle" },
   ],
   synthesisSkill: { rank: 5, skill: "elemental-apocalypse" },
+  mechanic: {
+    kind: "stains",
+    displayName: "Stains",
+    tagline:
+      "Elemental Skills leave Stains behind that later Skills consume for bonus effects.",
+    description:
+      "Elemental Skills leave a Stain (Fire/Ice/Elec/Wind/Light) behind, up to four at once. Future Skills automatically consume matching Stains for bonus effects.",
+  },
 } satisfies Archetype
