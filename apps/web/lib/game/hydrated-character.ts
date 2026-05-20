@@ -24,16 +24,20 @@ import type {
  * they're inferred from Drizzle tables — they're type-imported here.
  */
 
-/** An inventory row paired with its resolved catalog entry (or `undefined`). */
-export interface HydratedInventoryItem {
-  row: InventoryItemRow
+/** An inventory row spread flat, with the resolved catalog entry alongside
+ *  (or `undefined` when the persisted `catalogItemKey` no longer exists in
+ *  the shipped data). */
+export type HydratedInventoryItem = InventoryItemRow & {
   item: EquippableItem | undefined
 }
 
-/** A character's active Skill alongside its concrete, payable cost. */
-export interface HydratedSkill {
-  skill: Skill
-  cost: ResolvedSkillCost | null
+/** A character's active Skill spread flat, with its concrete payable cost
+ *  alongside (or `null` for cost-free Skills). The catalog's raw `cost`
+ *  field stays on the Skill; the engine-derived value lives on
+ *  `resolvedCost` so the two are distinguishable when both happen to be in
+ *  scope. */
+export type HydratedSkill = Skill & {
+  resolvedCost: ResolvedSkillCost | null
 }
 
 /**

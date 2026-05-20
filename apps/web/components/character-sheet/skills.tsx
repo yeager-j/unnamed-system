@@ -23,10 +23,10 @@ export function Skills({ character }: { character: HydratedCharacter }) {
   const equippedWeapon = getEquippedWeapon(character.inventory)
 
   const sorted = [...character.skills].sort((a, b) =>
-    a.skill.name.localeCompare(b.skill.name)
+    a.name.localeCompare(b.name)
   )
-  const regular = sorted.filter((entry) => !entry.skill.isSynthesis)
-  const synthesis = sorted.filter((entry) => entry.skill.isSynthesis)
+  const regular = sorted.filter((entry) => !entry.isSynthesis)
+  const synthesis = sorted.filter((entry) => entry.isSynthesis)
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,11 +49,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {regular.length > 0 ? (
             <ItemGroup className="gap-0">
               {regular.map((entry) => (
-                <SkillRow
-                  key={entry.skill.key}
-                  skill={entry.skill}
-                  cost={entry.cost}
-                />
+                <SkillRow key={entry.key} skill={entry} />
               ))}
             </ItemGroup>
           ) : (
@@ -70,11 +66,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {synthesis.length > 0 ? (
             <ItemGroup className="gap-0">
               {synthesis.map((entry) => (
-                <SkillRow
-                  key={entry.skill.key}
-                  skill={entry.skill}
-                  cost={entry.cost}
-                />
+                <SkillRow key={entry.key} skill={entry} />
               ))}
             </ItemGroup>
           ) : (

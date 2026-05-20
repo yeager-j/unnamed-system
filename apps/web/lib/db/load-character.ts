@@ -86,7 +86,7 @@ export function toStatComputationCharacter(
   return statComputationCharacter(
     character,
     character.archetypeRows,
-    character.inventory.map((entry) => entry.row)
+    character.inventory
   )
 }
 
@@ -130,9 +130,9 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     knives,
     chains,
     talents,
-    inventory: inventoryRows.map((item) => ({
-      row: item,
-      item: getEquippableItem(item.catalogItemKey),
+    inventory: inventoryRows.map((inventoryRow) => ({
+      ...inventoryRow,
+      item: getEquippableItem(inventoryRow.catalogItemKey),
     })),
     activeArchetypeKey: stats.activeArchetypeKey,
     attributes: computeAttributes(stats),
@@ -144,8 +144,8 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     attackRollBonus: computeAttackRollBonus(stats),
     activeMechanic: stats.activeMechanic,
     skills: stats.activeSkills.map((skill) => ({
-      skill,
-      cost: resolveSkillCost(skill, casting),
+      ...skill,
+      resolvedCost: resolveSkillCost(skill, casting),
     })),
   }
 }

@@ -95,7 +95,7 @@ function InventoryList({
       (entry): entry is HydratedInventoryItem & { item: EquippableItem } =>
         Boolean(entry.item)
     )
-    .map((entry) => ({ item: entry.item, equipped: entry.row.equipped }))
+    .map((entry) => ({ item: entry.item, equipped: entry.equipped }))
 
   return (
     <Card>

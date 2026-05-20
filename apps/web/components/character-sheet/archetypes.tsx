@@ -7,14 +7,17 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
+import {
+  buildArchetypeEntries,
+  groupByLineage,
+  type ArchetypeEntry,
+} from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
-import { buildArchetypeEntries, groupByLineage } from "./archetypes/entries"
 import { formatMasteryDescription } from "./archetypes/format"
 import { LINEAGE_LABELS } from "./archetypes/lineage-labels"
-import type { ArchetypeEntry } from "./archetypes/types"
 
 /**
  * The Archetypes tab body (PRD §6.1 Archetypes tab; PRD §7.8 Inheritance

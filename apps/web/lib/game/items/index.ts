@@ -81,7 +81,7 @@ export function getEquippableItem(key: string): EquippableItem | undefined {
 
 /** Structural inventory slice that the slot helpers accept. */
 type InventorySlice = readonly {
-  row: { equipped: boolean }
+  equipped: boolean
   item: EquippableItem | undefined
 }[]
 
@@ -105,7 +105,7 @@ export function getEquippedItem<S extends EquippableItem["slot"]>(
   inventory: InventorySlice,
   slot: S
 ): ItemForSlot<S> | null {
-  const entry = inventory.find((e) => e.row.equipped && e.item?.slot === slot)
+  const entry = inventory.find((e) => e.equipped && e.item?.slot === slot)
   return entry?.item?.slot === slot ? (entry.item as ItemForSlot<S>) : null
 }
 
