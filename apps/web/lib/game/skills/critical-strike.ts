@@ -4,8 +4,9 @@ export const criticalStrike = {
   kind: "attack",
   key: "critical-strike",
   name: "Critical Strike",
+  tagline: "Weak single-target Slash with a high Critical chance (16+).",
   description:
-    "A weak slashing attack targeting a single enemy with a high chance to crit.",
+    "A weak **Slash** attack targeting a single enemy with a high chance to **Critical**.",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 10 },
   range: { kind: "known", value: "engaged" },
@@ -19,5 +20,6 @@ export const criticalStrike = {
       { band: "16+", formula: "1d8 + St", sideEffects: ["Critical"] },
     ],
   },
-  effect: "(Warrior Only) If you land a Critical, your Perfection becomes S.",
+  effect:
+    "**(Warrior Only)** If you land a **Critical**, your **Perfection** becomes S.",
 } satisfies Skill

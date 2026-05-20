@@ -4,8 +4,9 @@ export const shieldArts = {
   kind: "attack",
   key: "shield-arts",
   name: "Shield Arts",
+  tagline: "Weak Strike vs. one enemy; may apply Sukunda for 3 turns.",
   description:
-    "Deals weak physical Strike damage to one enemy. Potentially decreases their Hit/Evasion for 3 turns.",
+    "Deals weak physical **Strike** damage to one enemy. Potentially decreases their Hit/Evasion for 3 turns.",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 15 },
   range: { kind: "known", value: "engaged" },
@@ -24,5 +25,5 @@ export const shieldArts = {
     ],
   },
   effect:
-    "(Knight Only) Before making your Attack Roll, you can spend 3 Valor to change this Skill's Range to All Engaged for this turn.",
+    "**(Knight Only)** Before making your Attack Roll, you can spend 3 **Valor** to change this Skill's Range to **All Engaged** for this turn.",
 } satisfies Skill

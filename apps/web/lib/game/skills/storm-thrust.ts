@@ -4,7 +4,8 @@ export const stormThrust = {
   kind: "attack",
   key: "storm-thrust",
   name: "Storm Thrust",
-  description: "Deals weak elec damage to one enemy.",
+  tagline: "Weak physical Elec vs. one enemy. Shocks on a 20+.",
+  description: "Deals weak **Elec** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "engaged" },
@@ -19,5 +20,5 @@ export const stormThrust = {
     ],
   },
   effect:
-    "(Knight Only) If you Down an enemy due to hitting its Weakness, you gain 1 Valor.",
+    "**(Knight Only)** If you **Down** an enemy due to hitting its **Weakness**, you gain 1 **Valor**.",
 } satisfies Skill

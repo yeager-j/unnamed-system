@@ -86,6 +86,7 @@ export const nullElecSkill = {
   kind: "passive",
   key: "fixture-null-elec",
   name: "Fixture Null Elec",
+  tagline: "Test-only: Nulls Elec.",
   description: "Test-only: Nulls Elec.",
   isSynthesis: false,
   effects: [{ type: "affinity", damageTypes: ["elec"], affinity: "null" }],
@@ -96,6 +97,7 @@ export const reservesSkill = {
   kind: "passive",
   key: "fixture-reserves",
   name: "Fixture Reserves",
+  tagline: "Test-only: +30 SP and +2 Magic.",
   description: "Test-only: +30 SP and +2 Magic.",
   isSynthesis: false,
   effects: [

@@ -4,7 +4,8 @@ export const tempestSlash = {
   kind: "attack",
   key: "tempest-slash",
   name: "Tempest Slash",
-  description: "A series of slashing attacks targeting one enemy.",
+  tagline: "Three Slash hits on one enemy. Crits on a 20+.",
+  description: "A series of **Slash** attacks targeting one enemy.",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 15 },
   range: { kind: "known", value: "engaged" },
@@ -20,5 +21,5 @@ export const tempestSlash = {
     ],
   },
   effect:
-    "(Warrior Only) If your Perfection is S, each hit deals an additional 1d4 Slash damage.",
+    "**(Warrior Only)** If your **Perfection** is S, each hit deals an additional `1d4` **Slash** damage.",
 } satisfies Skill

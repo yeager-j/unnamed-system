@@ -38,6 +38,7 @@ A Next.js web app for creating and managing characters in the Persona System tab
 - Similarly, include a design proposal (can be pure text; image mockups are not necessary) in the Plan when Plan Mode is enabled.
 - As this is a personal project and low-stakes, commiting important files (like CLAUDE.md) that you didn't touch is fine. You should still avoid committing files that are completely unrelated to the PR.
 - When building UI components, see if there is a shadcn/ui component that already does what you need.
+- User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
 
 ## Repo Structure
 

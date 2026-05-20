@@ -59,7 +59,7 @@ export function SkillRow({ skill, cost }: SkillRowProps) {
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{skill.name}</ItemTitle>
-          <ItemDescription>{skill.description}</ItemDescription>
+          <ItemDescription>{skill.tagline}</ItemDescription>
         </ItemContent>
         <ItemActions className="w-16 justify-center">
           <CostBadge cost={cost} />

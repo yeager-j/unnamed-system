@@ -15,6 +15,7 @@ import type {
   AttributeScores,
 } from "@/lib/game/stats"
 import { useCharacter } from "@/components/character-sheet/character-context"
+import { SkillText } from "./skill-text"
 
 interface SkillCardProps {
   skill: Skill
@@ -34,12 +35,16 @@ export function SkillCard({ skill, cost }: SkillCardProps) {
 
   return (
     <CardShell title={skill.name} kindLabel={SKILL_KIND_LABELS[skill.kind]}>
-      <p className="text-sm leading-relaxed">{skill.description}</p>
+      <SkillText>{skill.description}</SkillText>
       <StatsGrid rows={skillStatRows(skill, cost, attributes)} />
       {"attackRoll" in skill && skill.attackRoll ? (
         <AttackRollTable roll={skill.attackRoll} />
       ) : null}
-      {skill.effect ? <EffectProse effect={skill.effect} /> : null}
+      {skill.effect ? (
+        <SkillText className="border-t border-border pt-2">
+          {skill.effect}
+        </SkillText>
+      ) : null}
     </CardShell>
   )
 }
@@ -62,7 +67,7 @@ export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
       kindLabel="Attack"
       subtitle="Equipped weapon"
     >
-      <p className="text-sm leading-relaxed">Intrinsic weapon attack.</p>
+      <SkillText>Intrinsic weapon attack.</SkillText>
       <StatsGrid rows={intrinsicAttackStatRows(attack)} />
       <AttackRollTable roll={attack.attackRoll} />
     </CardShell>
@@ -279,14 +284,6 @@ const ATTACK_ATTRIBUTE_LABELS = {
   ag: "Agility",
   "st-or-ma": "Strength or Magic",
 } as const satisfies Record<AttackRoll["attribute"], string>
-
-function EffectProse({ effect }: { effect: string }) {
-  return (
-    <p className="border-t border-border pt-2 text-sm leading-relaxed">
-      {effect}
-    </p>
-  )
-}
 
 function costLabel(cost: ResolvedSkillCost): string {
   return cost.kind === "sp" ? `${cost.amount} SP` : `${cost.amount} HP`

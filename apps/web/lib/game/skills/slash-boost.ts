@@ -4,6 +4,7 @@ export const slashBoost = {
   kind: "passive",
   key: "slash-boost",
   name: "Slash Boost",
-  description: "+2 to Attack Rolls that deal Slash damage.",
+  tagline: "+2 to Slash Attack Rolls.",
+  description: "**+2** to Attack Rolls that deal **Slash** damage.",
   isSynthesis: false,
 } satisfies Skill
