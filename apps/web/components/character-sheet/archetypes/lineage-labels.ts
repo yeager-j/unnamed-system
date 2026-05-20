@@ -35,7 +35,7 @@ export const TIER_LABELS: Record<ArchetypeTier, string> = {
 
 /**
  * Ranking of a {@link Lineage} for sort order — matches the rulebook's
- * declaration order in `archetypes/schema.ts`. Used so the Unlocked
+ * declaration order in `archetypes/user.ts`. Used so the Unlocked
  * Archetypes list groups appear in the canonical order regardless of which
  * Lineages the character happens to have unlocked.
  */

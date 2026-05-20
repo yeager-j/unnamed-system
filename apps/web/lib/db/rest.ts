@@ -14,7 +14,7 @@ import {
   loadHydratedCharacterById,
   toStatComputationCharacter,
 } from "./load-character"
-import { characters } from "./schema"
+import { characters } from "./schema/character"
 import { HydratedCharacter } from "../game/hydrated-character"
 
 /**

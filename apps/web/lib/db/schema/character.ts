@@ -4,12 +4,11 @@ import {
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   unique,
 } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
+import { users } from "./user"
 import {
   ailmentsSchema,
   battleConditionsSchema,
@@ -24,74 +23,9 @@ import {
   type ManualBonuses,
   type PathChoice,
   type SparkLog,
-} from "../game/character"
-import type { MechanicState } from "../game/mechanics"
-
-/**
- * Tables below follow the canonical `@auth/drizzle-adapter` Postgres schema
- * so the Auth.js adapter is drop-in when authentication is wired up. The
- * adapter is not installed yet; only the table shapes are defined here.
- *
- * PRD §8 `User` maps onto this Auth.js shape: `displayName` → `name`,
- * `avatarUrl` → `image`, and `googleId` lives in `accounts` as
- * `provider = "google"` + `providerAccountId`.
- */
-export const users = pgTable("user", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  name: text("name"),
-  email: text("email").notNull().unique(),
-  emailVerified: timestamp("emailVerified", { mode: "date" }),
-  image: text("image"),
-  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-})
-
-export const accounts = pgTable(
-  "account",
-  {
-    userId: text("userId")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("providerAccountId").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
-    scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
-  },
-  (account) => [
-    primaryKey({
-      columns: [account.provider, account.providerAccountId],
-    }),
-  ]
-)
-
-export const sessions = pgTable("session", {
-  sessionToken: text("sessionToken").primaryKey(),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date" }).notNull(),
-})
-
-export const verificationTokens = pgTable(
-  "verificationToken",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
-  },
-  (verificationToken) => [
-    primaryKey({
-      columns: [verificationToken.identifier, verificationToken.token],
-    }),
-  ]
-)
+} from "../../game/character"
+import { MechanicState } from "@/lib/game/mechanics"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
 /**
  * The character sheet. Denormalized onto one row: in-session and progression
@@ -263,13 +197,6 @@ export const actionLogEntries = pgTable("actionLogEntry", {
   payload: jsonb("payload").$type<unknown>(),
   undoableUntil: timestamp("undoableUntil", { mode: "date" }),
 })
-
-/**
- * Runtime Zod schemas for Server Action input validation. JSON columns are
- * refined with their structural schemas so validation is real, not `any`.
- */
-export const insertUserSchema = createInsertSchema(users)
-export const selectUserSchema = createSelectSchema(users)
 
 export const insertCharacterSchema = createInsertSchema(characters, {
   manualBonuses: manualBonusesSchema,

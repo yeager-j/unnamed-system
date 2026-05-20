@@ -21,7 +21,7 @@ import {
   characterTalents,
   characters,
   inventoryItems,
-} from "./schema"
+} from "./schema/character"
 
 /**
  * The full character-sheet loader. It owns the character query (by `id` or

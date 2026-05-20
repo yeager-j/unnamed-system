@@ -8,7 +8,7 @@ import {
   type SparkError,
 } from "../game/spark"
 import { db } from "./index"
-import { characters } from "./schema"
+import { characters } from "./schema/character"
 
 /**
  * Persistence for the pure Spark engine: load the row, run the (pure)

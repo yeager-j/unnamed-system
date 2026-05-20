@@ -7,7 +7,7 @@ import {
 import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
 import { loadCharacterRowById } from "./load-character"
-import { characters } from "./schema"
+import { characters } from "./schema/character"
 
 /**
  * Persistence for the pure leveling engine: load the row, run the (pure)

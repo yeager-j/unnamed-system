@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http"
 import { getDbEnv } from "./env"
-import * as schema from "./schema"
+import * as schema from "./schema/user"
 
 type Database = NeonHttpDatabase<typeof schema>
 
@@ -34,4 +34,5 @@ export const db: Database = new Proxy({} as Database, {
   },
 })
 
-export * from "./schema"
+export * from "./schema/user"
+export * from "./schema/character"
