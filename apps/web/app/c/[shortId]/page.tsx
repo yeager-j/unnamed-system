@@ -3,10 +3,14 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
+import { Background } from "@/components/character-sheet/background"
 import { CharacterProvider } from "@/components/character-sheet/character-context"
 import { CombatState } from "@/components/character-sheet/combat-state"
+import { Identity } from "@/components/character-sheet/identity"
 import { Inventory } from "@/components/character-sheet/inventory"
+import { KnivesChains } from "@/components/character-sheet/knives-chains"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
+import { Notes } from "@/components/character-sheet/notes"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import {
   SHEET_TAB_KEYS,
@@ -14,6 +18,7 @@ import {
 } from "@/components/character-sheet/sheet-tab-keys"
 import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
 import { Skills } from "@/components/character-sheet/skills"
+import { Talents } from "@/components/character-sheet/talents"
 import { Virtues } from "@/components/character-sheet/virtues"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
@@ -64,20 +69,6 @@ export async function generateMetadata({
   }
 }
 
-/** Sections not yet built — a labelled dashed box, filled by sibling tickets. */
-function Placeholder({ name }: { name: string }) {
-  return (
-    <section
-      aria-label={name}
-      className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground"
-    >
-      {name}
-    </section>
-  )
-}
-
-const EXPLORE_PLACEHOLDERS = ["Talents", "Identity", "Notes"] as const
-
 function resolveTab(tab: string | undefined): SheetTabKey {
   return tab && (SHEET_TAB_KEYS as readonly string[]).includes(tab)
     ? (tab as SheetTabKey)
@@ -125,12 +116,26 @@ export default async function CharacterSheetPage({
           }
           explore={
             <>
-              <section aria-label="Virtues">
-                <Virtues character={character} />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <section aria-label="Virtues">
+                  <Virtues character={character} />
+                </section>
+                <section aria-label="Talents">
+                  <Talents character={character} />
+                </section>
+              </div>
+              <section aria-label="Identity">
+                <Identity character={character} />
               </section>
-              {EXPLORE_PLACEHOLDERS.map((name) => (
-                <Placeholder key={name} name={name} />
-              ))}
+              <section aria-label="Knives & Chains">
+                <KnivesChains character={character} />
+              </section>
+              <section aria-label="Background">
+                <Background character={character} />
+              </section>
+              <section aria-label="Notes">
+                <Notes character={character} />
+              </section>
             </>
           }
           inventory={<Inventory character={character} />}

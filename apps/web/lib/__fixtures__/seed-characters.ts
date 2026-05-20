@@ -55,7 +55,7 @@ export interface SeedCharacter {
   ancestryText: string
   backgroundText: string
   backstoryText: string
-  dreams: string
+  dreams: string[]
   notes: string
   personalityTraits: string[]
   hopes: string[]
@@ -106,7 +106,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Caravan guard turned sellsword.",
     backstoryText:
       "Brann took up the blade to pay off his family's debt to the salt barons and never put it down.",
-    dreams: "To own a quiet inn far from any battlefield.",
+    dreams: ["To own a quiet inn far from any battlefield."],
     notes: "Newly recruited. Still figuring out the party's pace.",
     personalityTraits: ["Blunt", "Dependable", "Slow to anger"],
     hopes: ["Earn enough to free his sister from indenture"],
@@ -160,7 +160,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Cloister-trained field medic.",
     backstoryText:
       "Raised by the Lantern Order, Yune left the cloister to tend the wounded the war left behind.",
-    dreams: "To found a free infirmary in the lower city.",
+    dreams: ["To found a free infirmary in the lower city."],
     notes: "Conserving SP until she learns the party's rhythm.",
     personalityTraits: ["Patient", "Quietly stubborn", "Observant"],
     hopes: ["Find the family that left her at the temple gate"],
@@ -215,7 +215,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Disgraced academy adept.",
     backstoryText:
       "Expelled from the Conservatory for an unsanctioned summoning, Calliope now sells her spellwork to whoever asks no questions.",
-    dreams: "To prove the Conservatory wrong and be reinstated with honors.",
+    dreams: ["To prove the Conservatory wrong and be reinstated with honors."],
     notes:
       "Mid-fight: took a Burn off a trapped door, pushed her offense, dropped her guard.",
     personalityTraits: ["Sharp-tongued", "Proud", "Relentlessly curious"],
@@ -295,8 +295,9 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Oathbound knight-errant, last of her order.",
     backstoryText:
       "Ortensia outlived her order at the Siege of Vell. She keeps its vows alone now, carrying three disciplines so no ally falls the way her brothers did.",
-    dreams:
+    dreams: [
       "To see the Order's banner raised honestly again, by someone worthy.",
+    ],
     notes:
       "Banked 8 Victories — ready to level. Mastered Knight; dabbles in Warrior and Mage.",
     personalityTraits: [
@@ -369,7 +370,9 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Warlord turned lone bulwark.",
     backstoryText:
       "Halvard outlived every banner he ever raised. At the Gate of Ash he stood alone so the column could pass; the column passed, and he did not rise.",
-    dreams: "To be remembered for the line that held, not the line that broke.",
+    dreams: [
+      "To be remembered for the line that held, not the line that broke.",
+    ],
     notes:
       "Reduced to 0 HP holding the Gate of Ash. Hit/Skill Dice nearly spent, Prisma untouched — he never got the chance.",
     personalityTraits: ["Immovable", "Spare with words", "Last to retreat"],
@@ -400,6 +403,96 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     ailments: [],
     battleConditions: null,
     damage: { hp: 0, sp: 0, hitDiceSpent: 25, skillDiceSpent: 50 },
+  },
+  {
+    slug: "scribe",
+    shortId: "seed-scribe",
+    name: "Isolde Maren",
+    pronouns: "she/her",
+    level: 7,
+    pathChoice: "balanced",
+    activeArchetypeKey: "mage",
+    archetypes: [
+      {
+        archetypeKey: "mage",
+        rank: 2,
+        mechanicState: {
+          kind: "stains",
+          tokens: ["ice", null, null, null],
+        },
+      },
+      {
+        archetypeKey: "healer",
+        rank: 1,
+        mechanicState: {
+          kind: "path-of-dawn",
+          dawnMode: false,
+          enemies: [],
+        },
+      },
+    ],
+    manualBonuses: {},
+    ancestryText:
+      "Born to a line of **lantern-keepers** on the *Cinderwatch coast* — a clan that lights the cliffside beacons every dusk so ships do not founder. They are quiet people, and *they read everything*.",
+    backgroundText:
+      "Trained as an **archivist** at the Conservatory's outer cloister, then took to the road when the cloister's catalogue stopped including books she had personally returned. She keeps **three commonplace books**:\n\n1. *Field* — observations, sketches, names.\n2. *Ledger* — debts owed and owing.\n3. *Cipher* — the things she does not write plainly.",
+    backstoryText:
+      'Isolde left the Conservatory the night she found a `restricted-access` ledger entry with her own name inside it. She has been **walking ever since**, copying what she can, burning what she must.\n\n> *"A book is the only honest witness. It does not flinch and it does not forget."* — marginalia in her Field book, attributed to no one.\n\nShe takes contracts from anyone who needs ~~mercenaries~~ **researchers**, and she always — *always* — leaves with a transcript.',
+    dreams: [
+      "To assemble a *complete* **Cinderwatch Concordance** before the Conservatory rewrites it.",
+      "To one day walk back into the outer cloister carrying the book they took.",
+    ],
+    notes:
+      "Active research threads:\n\n- **Stain residue** in coastal beacon-oil — *anomalous*, possibly Conservatory provenance.\n- The ~~missing~~ misfiled Cinderwatch Concordance, vol. **III**.\n- Three names in the cloister ledger, all crossed out, none explained.\n\n| Lead | Status | Next step |\n| --- | --- | --- |\n| Beacon-oil | Sampling | Compare to vault stock |\n| Concordance III | Cold | Press Prior Aldous |\n| Crossed names | Open | Identify before they hear |\n\n> Reminder: **never** carry the cipher book and the field book in the same satchel.",
+    personalityTraits: [
+      "**Methodical** to the point of slowness — she will read the *footnotes*.",
+      "Quietly *funny*, in marginalia and rarely out loud.",
+      "Trusts **ink** more than people; trusts *people who keep receipts* most of all.",
+    ],
+    hopes: [
+      "To find the **author** of the marginalia in her Field book.",
+      "To publish — *under her own name* — the Concordance the cloister suppressed.",
+    ],
+    fears: [
+      "That her **Cipher** book will be read by someone who can decode it.",
+      "That she has already met the person who crossed out the three names.",
+    ],
+    secrets: [
+      "She **copied** a forbidden chapter of the Concordance before leaving; it is sewn into the lining of her coat.",
+      "She suspects *Prior Aldous* — Sister Yune's mentor — knows what happened to volume **III**, and has not asked him yet because she is *afraid of the answer*.",
+    ],
+    knives: [
+      {
+        title: "The Conservatory",
+        description:
+          "They took the book. They took the **name on the spine**. They have not asked for either back.\n\n- Outer cloister: complicit by silence.\n- Inner cloister: complicit by *signature*.\n- Whoever crossed out the three names: complicit by **deed**.",
+      },
+      {
+        title: "Whoever crossed out the three names",
+        description:
+          "Three entries in the ledger, three lines through them, *no explanation*.\n\n> She does not yet know if they are dead, exiled, or simply **unwritten**. She intends to find out.",
+      },
+    ],
+    chains: [
+      {
+        title: "Master Vellum, her teacher",
+        description:
+          "The only archivist who told her *which* shelves to avoid — and **why**. She writes to him every new moon.\n\n- He taught her to **read margins first**.\n- He gave her the Cipher book.\n- He has not written back in *seventy-three days*.",
+      },
+      {
+        title: "The unnamed copyist (marginalia)",
+        description:
+          "Whoever annotated her Field book before she ever owned it. *Same hand, three colors of ink, four languages.*\n\nShe is not sure she wants to meet them — only that she **must**.",
+      },
+    ],
+    talents: ["arcana", "history", "investigate", "culture", "sense"],
+    items: [],
+    victories: 2,
+    virtues: { expression: 1, empathy: 2, wisdom: 3, focus: 2 },
+    sparkLog: ["wisdom", "wisdom", "focus"],
+    exhaustion: 0,
+    ailments: [],
+    battleConditions: null,
   },
 ]
 
