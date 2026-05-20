@@ -175,13 +175,13 @@ export function ArchetypeSummary({
       {unlockedSkills.length > 0 || synthesisVisible ? (
         <DetailSection inline title="Skills">
           {unlockedSkills.map((ranked) => (
-            <Badge key={ranked.skill.key} variant="outline">
-              {ranked.skill.name}
+            <Badge key={ranked.key} variant="outline">
+              {ranked.name}
             </Badge>
           ))}
           {synthesisVisible && entry.synthesis ? (
             <Badge variant="outline" className="border-primary">
-              Synthesis: {entry.synthesis.skill.name}
+              Synthesis: {entry.synthesis.name}
             </Badge>
           ) : null}
         </DetailSection>

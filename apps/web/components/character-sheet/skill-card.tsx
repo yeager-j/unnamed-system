@@ -19,8 +19,7 @@ import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"
 
 interface SkillCardProps {
-  skill: Skill
-  cost: ResolvedSkillCost | null
+  skill: Skill & { resolvedCost: ResolvedSkillCost | null }
 }
 
 /**
@@ -31,13 +30,13 @@ interface SkillCardProps {
  * character's resolved attribute scores so the player sees `+ 4` instead of
  * `+ Ma`.
  */
-export function SkillCard({ skill, cost }: SkillCardProps) {
+export function SkillCard({ skill }: SkillCardProps) {
   const { attributes } = useCharacter()
 
   return (
     <CardShell title={skill.name} kindLabel={SKILL_KIND_LABELS[skill.kind]}>
       <SkillText>{skill.description}</SkillText>
-      <StatsGrid rows={skillStatRows(skill, cost, attributes)} />
+      <StatsGrid rows={skillStatRows(skill, skill.resolvedCost, attributes)} />
       {"attackRoll" in skill && skill.attackRoll ? (
         <AttackRollTable roll={skill.attackRoll} />
       ) : null}

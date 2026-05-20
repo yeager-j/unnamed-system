@@ -61,10 +61,7 @@ export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
       {entry.synthesis && hasUnlockedRank(row.rank, entry.synthesis.rank) ? (
         <DetailSection title="Synthesis Skill">
           <ItemGroup className="gap-0">
-            <SkillRow
-              skill={entry.synthesis.skill}
-              cost={entry.synthesis.cost}
-            />
+            <SkillRow skill={entry.synthesis} />
           </ItemGroup>
         </DetailSection>
       ) : null}
@@ -180,22 +177,18 @@ function ArchetypeRankedSkills({ entry }: { entry: ArchetypeEntry }) {
             {unlocked ? (
               <ItemGroup className="gap-0">
                 {skills.map((ranked) => (
-                  <SkillRow
-                    key={ranked.skill.key}
-                    skill={ranked.skill}
-                    cost={ranked.cost}
-                  />
+                  <SkillRow key={ranked.key} skill={ranked} />
                 ))}
               </ItemGroup>
             ) : (
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((ranked) => (
                   <Badge
-                    key={ranked.skill.key}
+                    key={ranked.key}
                     variant="outline"
                     className="text-muted-foreground"
                   >
-                    {ranked.skill.name}
+                    {ranked.name}
                   </Badge>
                 ))}
               </div>
@@ -241,10 +234,7 @@ function ArchetypeInheritanceSlots({ entry }: { entry: ArchetypeEntry }) {
                       : null}
                   </p>
                   <ItemGroup className="gap-0">
-                    <SkillRow
-                      skill={slot.resolved.skill}
-                      cost={slot.resolved.cost}
-                    />
+                    <SkillRow skill={slot.resolved} />
                   </ItemGroup>
                 </div>
               ) : (

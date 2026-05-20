@@ -39,7 +39,7 @@ export function buildArchetypeEntries(
   function resolveSkillByKey(key: string): ResolvedSkill | null {
     const skill = getSkill(key)
     if (!skill) return null
-    return { skill, cost: resolveSkillCost(skill, casting) }
+    return { ...skill, resolvedCost: resolveSkillCost(skill, casting) }
   }
 
   return character.archetypeRows.flatMap((row) => {
@@ -49,7 +49,7 @@ export function buildArchetypeEntries(
     const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
       const resolved = resolveSkillByKey(reference.skill)
       if (!resolved) return []
-      return [{ rank: reference.rank, ...resolved }]
+      return [{ ...resolved, rank: reference.rank }]
     })
 
     const synthesisReference = archetype.synthesisSkill
@@ -58,7 +58,7 @@ export function buildArchetypeEntries(
       : null
     const synthesis: RankedSkill | null =
       synthesisReference && synthesisResolved
-        ? { rank: synthesisReference.rank, ...synthesisResolved }
+        ? { ...synthesisResolved, rank: synthesisReference.rank }
         : null
 
     const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(

@@ -49,11 +49,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {regular.length > 0 ? (
             <ItemGroup className="gap-0">
               {regular.map((entry) => (
-                <SkillRow
-                  key={entry.key}
-                  skill={entry}
-                  cost={entry.resolvedCost}
-                />
+                <SkillRow key={entry.key} skill={entry} />
               ))}
             </ItemGroup>
           ) : (
@@ -70,11 +66,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {synthesis.length > 0 ? (
             <ItemGroup className="gap-0">
               {synthesis.map((entry) => (
-                <SkillRow
-                  key={entry.key}
-                  skill={entry}
-                  cost={entry.resolvedCost}
-                />
+                <SkillRow key={entry.key} skill={entry} />
               ))}
             </ItemGroup>
           ) : (

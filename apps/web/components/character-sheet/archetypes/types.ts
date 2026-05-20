@@ -4,19 +4,18 @@ import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import type { Skill } from "@/lib/game/skills/schema"
 
 /**
- * A Skill paired with the character's currently-resolvable cost — what the
- * shared {@link SkillRow} primitive consumes. Used for both an Archetype's
- * Rank-keyed Skills and any inherited Skill filling one of its slots.
+ * A Skill spread flat, with the character's currently-resolvable cost on
+ * `resolvedCost` — what the shared {@link SkillRow} primitive consumes. Used
+ * for both an Archetype's Rank-keyed Skills and any inherited Skill filling
+ * one of its slots. Mirrors the {@link HydratedSkill} shape so callers read
+ * `entry.name` / `entry.resolvedCost` directly.
  */
-export interface ResolvedSkill {
-  skill: Skill
-  cost: ResolvedSkillCost | null
+export type ResolvedSkill = Skill & {
+  resolvedCost: ResolvedSkillCost | null
 }
 
 /** A {@link ResolvedSkill} tagged with the Archetype Rank it unlocks at. */
-export interface RankedSkill extends ResolvedSkill {
-  rank: number
-}
+export type RankedSkill = ResolvedSkill & { rank: number }
 
 /**
  * An Inheritance Slot resolved against the character's other Archetype rows:
