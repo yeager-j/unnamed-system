@@ -57,8 +57,8 @@ test("public character sheet renders for a seeded character", async ({
   }
   await expect(affinities.getByText("Almighty")).toHaveCount(0)
 
-  // Virtues lives on the Explore tab — switch to it (Radix unmounts inactive
-  // panels). Empty Spark log ⇒ count 0/7 and no "×n" breakdown.
+  // Virtues lives on the Explore tab — switch to it (Base UI unmounts inactive
+  // panels by default). Empty Spark log ⇒ count 0/7 and no "×n" breakdown.
   await page.getByRole("tab", { name: "Explore" }).click()
   const virtues = page.getByRole("region", { name: "Virtues" })
   await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()

@@ -39,7 +39,8 @@ export interface SheetTabsProps {
  * (not the Next router, which would re-render the route and reset the tabs) so
  * a view stays shareable by `?tab=`. The initial tab comes from the server via
  * {@link SheetTabsProps.defaultTab}, so a deep link opens the right tab.
- * Inactive panels are unmounted (Radix default). Triggers collapse to
+ * Inactive panels are unmounted (the Base UI default with `keepMounted` off),
+ * so a switch fully tears down the previous tab's tree. Triggers collapse to
  * icon-only below `sm`.
  */
 export function SheetTabs({

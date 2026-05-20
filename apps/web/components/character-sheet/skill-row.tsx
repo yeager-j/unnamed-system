@@ -35,28 +35,30 @@ interface SkillRowProps {
 export function SkillRow({ skill, cost }: SkillRowProps) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
-        >
-          <DamageTypeSlot
-            damageType={skill.kind === "attack" ? skill.damageType : null}
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
           />
-          <span className="shrink-0 text-sm font-medium">{skill.name}</span>
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-            {skill.description}
-          </span>
-          <span className="w-16 shrink-0 text-center">
-            <CostBadge cost={cost} />
-          </span>
-        </button>
+        }
+      >
+        <DamageTypeSlot
+          damageType={skill.kind === "attack" ? skill.damageType : null}
+        />
+        <span className="shrink-0 text-sm font-medium">{skill.name}</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          {skill.description}
+        </span>
+        <span className="w-16 shrink-0 text-center">
+          <CostBadge cost={cost} />
+        </span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={6}
         className="w-80"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        initialFocus={false}
       >
         <SkillCard skill={skill} cost={cost} />
       </PopoverContent>
@@ -72,23 +74,25 @@ export function SkillRow({ skill, cost }: SkillRowProps) {
 export function IntrinsicAttackRow({ weapon }: { weapon: Weapon }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
-        >
-          <DamageTypeSlot damageType={weapon.intrinsicAttack.damageType} />
-          <span className="shrink-0 text-sm font-medium">{weapon.name}</span>
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-            Intrinsic weapon attack.
-          </span>
-        </button>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+          />
+        }
+      >
+        <DamageTypeSlot damageType={weapon.intrinsicAttack.damageType} />
+        <span className="shrink-0 text-sm font-medium">{weapon.name}</span>
+        <span className="min-w-0 flex-1 truncate text-muted-foreground">
+          Intrinsic weapon attack.
+        </span>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         sideOffset={6}
         className="w-80"
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        initialFocus={false}
       >
         <IntrinsicAttackCard weapon={weapon} />
       </PopoverContent>
