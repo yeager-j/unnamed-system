@@ -35,7 +35,7 @@ import {
   formatTalentLabel,
 } from "./format"
 import { LINEAGE_LABELS, TIER_LABELS } from "./lineage-labels"
-import type { ArchetypeEntry } from "./types"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 
 /**
  * One Archetype's compact row in the Lineage-grouped list. Built on the
@@ -177,13 +177,13 @@ export function ArchetypeSummary({
       {unlockedSkills.length > 0 || synthesisVisible ? (
         <DetailSection inline title="Skills">
           {unlockedSkills.map((ranked) => (
-            <Badge key={ranked.skill.key} variant="outline">
-              {ranked.skill.name}
+            <Badge key={ranked.key} variant="outline">
+              {ranked.name}
             </Badge>
           ))}
           {synthesisVisible && entry.synthesis ? (
             <Badge variant="outline" className="border-primary">
-              Synthesis: {entry.synthesis.skill.name}
+              Synthesis: {entry.synthesis.name}
             </Badge>
           ) : null}
         </DetailSection>

@@ -15,8 +15,8 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 import type { DamageType } from "@/lib/game/affinity"
+import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
-import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import type { Skill } from "@/lib/game/skills/schema"
 import { IntrinsicAttackCard, SkillCard } from "./skill-card"
 import { SkillCostBadge } from "./skill-cost-badge"
@@ -29,8 +29,7 @@ import { SkillCostBadge } from "./skill-cost-badge"
 type SkillRowDamageType = DamageType | "special"
 
 interface SkillRowProps {
-  skill: Skill
-  cost: ResolvedSkillCost | null
+  skill: HydratedSkill
 }
 
 /**
@@ -42,7 +41,7 @@ interface SkillRowProps {
  * formulas like `"1d8 + Ma"` to `"1d8 + 4"`. Built on the shadcn {@link Item}
  * primitive shared with the Inventory list.
  */
-export function SkillRow({ skill, cost }: SkillRowProps) {
+export function SkillRow({ skill }: SkillRowProps) {
   return (
     <Popover>
       <PopoverTrigger
@@ -63,7 +62,7 @@ export function SkillRow({ skill, cost }: SkillRowProps) {
           <ItemDescription>{skill.tagline}</ItemDescription>
         </ItemContent>
         <ItemActions className="w-16 justify-center">
-          <SkillCostBadge cost={cost} className="w-full" />
+          <SkillCostBadge cost={skill.resolvedCost} className="w-full" />
         </ItemActions>
       </PopoverTrigger>
       <PopoverContent
@@ -72,7 +71,7 @@ export function SkillRow({ skill, cost }: SkillRowProps) {
         className="w-80"
         initialFocus={false}
       >
-        <SkillCard skill={skill} cost={cost} />
+        <SkillCard skill={skill} />
       </PopoverContent>
     </Popover>
   )
