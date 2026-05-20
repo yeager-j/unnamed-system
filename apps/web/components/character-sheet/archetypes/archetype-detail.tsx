@@ -6,7 +6,12 @@ import {
   type Affinity,
   type AffinityDamageType,
 } from "@/lib/game/affinity"
-import { ATTRIBUTE_KEYS, hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import type { ArchetypeEntry, RankedSkill } from "@/lib/game/archetypes/entries"
+import {
+  ATTRIBUTE_KEYS,
+  hasUnlockedRank,
+  type Archetype,
+} from "@/lib/game/archetypes/schema"
 import { Prose } from "../prose"
 import { SkillRow } from "../skill-row"
 import { DetailSection } from "./detail-section"
@@ -17,7 +22,6 @@ import {
   formatModifier,
   formatTalentLabel,
 } from "./format"
-import type { ArchetypeEntry, RankedSkill } from "./types"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on
@@ -71,11 +75,7 @@ export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
   )
 }
 
-function ArchetypeAttributes({
-  archetype,
-}: {
-  archetype: ArchetypeEntry["archetype"]
-}) {
+function ArchetypeAttributes({ archetype }: { archetype: Archetype }) {
   return (
     <DetailSection title="Attributes">
       <dl className="grid grid-cols-4 gap-2 text-center">
@@ -97,11 +97,7 @@ function ArchetypeAttributes({
   )
 }
 
-function ArchetypeAffinities({
-  archetype,
-}: {
-  archetype: ArchetypeEntry["archetype"]
-}) {
+function ArchetypeAffinities({ archetype }: { archetype: Archetype }) {
   const chips = AFFINITY_DAMAGE_TYPES.flatMap((type) => {
     const affinity = archetype.affinities[type]
     if (!affinity || affinity === "neutral") return []
@@ -128,11 +124,7 @@ function ArchetypeAffinities({
   )
 }
 
-function ArchetypeTalents({
-  archetype,
-}: {
-  archetype: ArchetypeEntry["archetype"]
-}) {
+function ArchetypeTalents({ archetype }: { archetype: Archetype }) {
   if (archetype.talents.length === 0) return null
   return (
     <DetailSection title="Talents">
@@ -229,8 +221,8 @@ function ArchetypeInheritanceSlots({ entry }: { entry: ArchetypeEntry }) {
                 <div className="flex flex-col gap-1">
                   <p className="text-xs text-muted-foreground">
                     Slot {slotIndex + 1}
-                    {slot.sourceArchetypeName
-                      ? ` · from ${slot.sourceArchetypeName}`
+                    {slot.sourceArchetype
+                      ? ` · from ${slot.sourceArchetype.name}`
                       : null}
                   </p>
                   <ItemGroup className="gap-0">

@@ -34,7 +34,7 @@ import {
   formatTalentLabel,
 } from "./format"
 import { LINEAGE_LABELS, TIER_LABELS } from "./lineage-labels"
-import type { ArchetypeEntry } from "./types"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 
 /**
  * One Archetype's compact row in the Lineage-grouped list. Built on the
