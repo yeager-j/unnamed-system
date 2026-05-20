@@ -2,6 +2,14 @@
 
 import { Badge } from "@workspace/ui/components/badge"
 import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -30,29 +38,32 @@ interface SkillRowProps {
  * dismisses. Hover is deliberately not wired — it would interfere with the
  * Cast button planned for this row in a later ticket. The character's
  * attribute scores come from {@link useCharacter} so the popover can hydrate
- * formulas like `"1d8 + Ma"` to `"1d8 + 4"`.
+ * formulas like `"1d8 + Ma"` to `"1d8 + 4"`. Built on the shadcn {@link Item}
+ * primitive shared with the Inventory list.
  */
 export function SkillRow({ skill, cost }: SkillRowProps) {
   return (
     <Popover>
       <PopoverTrigger
         render={
-          <button
-            type="button"
-            className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+          <Item
+            render={<button type="button" />}
+            className="cursor-pointer hover:bg-muted/60"
           />
         }
       >
-        <DamageTypeSlot
-          damageType={skill.kind === "attack" ? skill.damageType : null}
-        />
-        <span className="shrink-0 text-sm font-medium">{skill.name}</span>
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          {skill.description}
-        </span>
-        <span className="w-16 shrink-0 text-center">
+        <ItemMedia className="w-20">
+          <DamageTypeSlot
+            damageType={skill.kind === "attack" ? skill.damageType : null}
+          />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{skill.name}</ItemTitle>
+          <ItemDescription>{skill.description}</ItemDescription>
+        </ItemContent>
+        <ItemActions className="w-16 justify-center">
           <CostBadge cost={cost} />
-        </span>
+        </ItemActions>
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -76,17 +87,19 @@ export function IntrinsicAttackRow({ weapon }: { weapon: Weapon }) {
     <Popover>
       <PopoverTrigger
         render={
-          <button
-            type="button"
-            className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none"
+          <Item
+            render={<button type="button" />}
+            className="cursor-pointer hover:bg-muted/60"
           />
         }
       >
-        <DamageTypeSlot damageType={weapon.intrinsicAttack.damageType} />
-        <span className="shrink-0 text-sm font-medium">{weapon.name}</span>
-        <span className="min-w-0 flex-1 truncate text-muted-foreground">
-          Intrinsic weapon attack.
-        </span>
+        <ItemMedia className="w-20">
+          <DamageTypeSlot damageType={weapon.intrinsicAttack.damageType} />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{weapon.name}</ItemTitle>
+          <ItemDescription>Intrinsic weapon attack.</ItemDescription>
+        </ItemContent>
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -126,7 +139,7 @@ function DamageTypeSlot({
   damageType: SkillRowDamageType | null
 }) {
   return (
-    <span className="w-20 shrink-0 text-center">
+    <span className="w-full text-center">
       {damageType ? (
         <DamageTypeBadge damageType={damageType} />
       ) : (

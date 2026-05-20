@@ -79,21 +79,41 @@ export function getEquippableItem(key: string): EquippableItem | undefined {
   )
 }
 
+/** Structural inventory slice that the slot helpers accept. */
+type InventorySlice = readonly {
+  row: { equipped: boolean }
+  item: EquippableItem | undefined
+}[]
+
 /**
- * Returns the equipped Weapon from a character's hydrated inventory, or `null`
- * when no weapon is equipped. A character may equip only one weapon at a time;
- * if the persisted state ever contains more than one, the first match wins.
- * Accepts a structural slice so the helper can stay in `lib/game/` without
- * importing from `lib/db/`.
+ * Maps an item's slot tag to its concrete catalog type, so a caller asking
+ * for `"weapon"` gets back `Weapon | null` rather than the broader union.
  */
-export function getEquippedWeapon(
-  inventory: readonly {
-    row: { equipped: boolean }
-    item: EquippableItem | undefined
-  }[]
-): Weapon | null {
-  const entry = inventory.find(
-    (e) => e.row.equipped && e.item?.slot === "weapon"
-  )
-  return entry?.item?.slot === "weapon" ? entry.item : null
+type ItemForSlot<S extends EquippableItem["slot"]> = Extract<
+  EquippableItem,
+  { slot: S }
+>
+
+/**
+ * Returns the equipped item in `slot` from a character's hydrated inventory,
+ * narrowed to the concrete slot type, or `null` when nothing is equipped. A
+ * character may equip only one item per slot; if the persisted state ever
+ * contains more than one, the first match wins. Accepts a structural slice so
+ * the helper can stay in `lib/game/` without importing from `lib/db/`.
+ */
+export function getEquippedItem<S extends EquippableItem["slot"]>(
+  inventory: InventorySlice,
+  slot: S
+): ItemForSlot<S> | null {
+  const entry = inventory.find((e) => e.row.equipped && e.item?.slot === slot)
+  return entry?.item?.slot === slot ? (entry.item as ItemForSlot<S>) : null
+}
+
+/**
+ * Returns the equipped Weapon from a character's hydrated inventory, or
+ * `null` when no weapon is equipped. Thin sugar over {@link getEquippedItem}
+ * so the Combat tab's weapon-attack card keeps its single-purpose call site.
+ */
+export function getEquippedWeapon(inventory: InventorySlice): Weapon | null {
+  return getEquippedItem(inventory, "weapon")
 }
