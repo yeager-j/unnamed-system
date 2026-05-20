@@ -9,11 +9,14 @@ import {
 } from "./archetypes/schema"
 import {
   type AffinityEffect,
+  type AttackRollEffect,
   type AttributeEffect,
   BONUS_TARGET_KEYS,
   type BonusTargetKey,
 } from "./effects"
 import type { EquippableItem } from "./items/schema"
+import { mechanicEffectsFor } from "./mechanics"
+import type { MechanicEffect, MechanicKind, MechanicState } from "./mechanics"
 import type { Skill } from "./skills/schema"
 
 /**
@@ -33,6 +36,17 @@ import type { Skill } from "./skills/schema"
  * referenced by key because the Archetype catalog is the canonical,
  * test-usable source of their intrinsic data.
  */
+/**
+ * The active Archetype's unique mechanic, paired with its persisted state.
+ * Null when the active Archetype has no declared mechanic. Mechanics from
+ * inactive Archetypes contribute nothing to derived values — their state is
+ * still persisted per row but only the active one drives the engine.
+ */
+export interface ActiveMechanic {
+  kind: MechanicKind
+  state: MechanicState
+}
+
 export interface StatComputationCharacter {
   pathChoice: PathChoice
   /** Character level (1–30). Level 1 is the starting value, no Hit/Skill Dice. */
@@ -52,6 +66,8 @@ export interface StatComputationCharacter {
    * inactive Archetypes contribute nothing.
    */
   activeSkills: readonly Skill[]
+  /** The active Archetype's unique mechanic + state, or null when absent. */
+  activeMechanic: ActiveMechanic | null
 }
 
 export type AttributeScores = Record<AttributeKey, number>
@@ -98,6 +114,20 @@ function activePassiveEffects(
 }
 
 /**
+ * Effects emitted by the active Archetype's unique mechanic given its current
+ * persisted state. Returns an empty array when no mechanic is active or when
+ * the mechanic has no `effects` method (e.g. display-only mechanics like
+ * Path of Dawn and Stains in MVP).
+ */
+function activeMechanicEffects(
+  character: StatComputationCharacter
+): MechanicEffect[] {
+  const active = character.activeMechanic
+  if (!active) return []
+  return mechanicEffectsFor(active.kind, active.state, { stats: character })
+}
+
+/**
  * Sums every permanent, source-agnostic bonus: derived Mastery (any Archetype
  * at or above its Mastery Rank, active or not), equipped-item Attribute
  * effects, the active Archetype's passive-Skill Attribute effects, and the
@@ -132,6 +162,10 @@ function accumulatedBonuses(character: StatComputationCharacter): BonusPool {
   }
 
   for (const effect of activePassiveEffects(character)) {
+    if (effect.type === "attribute") pool[effect.target] += effect.amount
+  }
+
+  for (const effect of activeMechanicEffects(character)) {
     if (effect.type === "attribute") pool[effect.target] += effect.amount
   }
 
@@ -213,6 +247,45 @@ export function computeMaxSkillDice(level: number): number {
 }
 
 /**
+ * One labelled contributor to a derived Attack Roll bonus. Surfaced to the UI
+ * so the Skill card can render `Magic (4) + Perfection (+2)` instead of an
+ * opaque `+6`.
+ */
+export interface AttackRollSource {
+  source: string
+  amount: number
+}
+
+export interface AttackRollBonus {
+  /** Sum of every `attackRoll` effect on the character. */
+  total: number
+  /** Per-source breakdown, in collection order. */
+  sources: AttackRollSource[]
+}
+
+/**
+ * Total cross-Skill Attack Roll bonus the character gets from mechanics (and,
+ * later, any item or passive Skill that emits an {@link AttackRollEffect}).
+ * Returns 0 with an empty `sources` list when nothing contributes.
+ */
+export function computeAttackRollBonus(
+  character: StatComputationCharacter
+): AttackRollBonus {
+  const sources: AttackRollSource[] = []
+  let total = 0
+  for (const effect of activeMechanicEffects(character)) {
+    if (effect.type !== "attackRoll") continue
+    const labelled: AttackRollEffect = effect
+    total += labelled.amount
+    sources.push({
+      source: labelled.source ?? "Bonus",
+      amount: labelled.amount,
+    })
+  }
+  return { total, sources }
+}
+
+/**
  * Priority used to pick a winner when several equipment or passive-Skill
  * effects touch the same damage type. Higher wins:
  * Drain > Repel > Null > Resist > Neutral > Weak.
@@ -277,6 +350,13 @@ export function computeAffinityChart(
   }
 
   for (const effect of activePassiveEffects(character)) {
+    if (effect.type !== "affinity") continue
+    for (const damageType of effect.damageTypes) {
+      addCandidate(damageType, effect.affinity)
+    }
+  }
+
+  for (const effect of activeMechanicEffects(character)) {
     if (effect.type !== "affinity") continue
     for (const damageType of effect.damageTypes) {
       addCandidate(damageType, effect.affinity)

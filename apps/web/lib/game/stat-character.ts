@@ -2,8 +2,10 @@ import { getArchetype } from "./archetypes"
 import type { InheritanceSlots, ManualBonuses, PathChoice } from "./character"
 import { getEquippableItem } from "./items"
 import type { EquippableItem } from "./items/schema"
+import { getMechanic } from "./mechanics"
+import type { MechanicState } from "./mechanics/schema"
 import { getSkill } from "./skills"
-import type { StatComputationCharacter } from "./stats"
+import type { ActiveMechanic, StatComputationCharacter } from "./stats"
 
 /**
  * Assembles the pure {@link StatComputationCharacter} the derived-value engine
@@ -33,6 +35,9 @@ export interface PersistedArchetypeState {
   archetypeKey: string
   rank: number
   inheritanceSlots: InheritanceSlots
+  /** Per-row state for the Archetype's unique mechanic (e.g. Perfection rank).
+   *  Null when the player has never set state on this Archetype's mechanic. */
+  mechanicState: MechanicState | null
 }
 
 function activeSkillsFor(
@@ -67,6 +72,27 @@ function activeSkillsFor(
     .filter((skill) => skill !== undefined)
 }
 
+/**
+ * Resolves the active Archetype's mechanic state, falling back to the
+ * mechanic's `initialState` when the row's `mechanicState` is null and the
+ * Archetype has a declared mechanic. Returns null when there is no active
+ * Archetype or the Archetype has no mechanic.
+ */
+function activeMechanicFor(
+  active: PersistedArchetypeState | undefined
+): ActiveMechanic | null {
+  if (!active) return null
+
+  const archetype = getArchetype(active.archetypeKey)
+  if (!archetype?.mechanic) return null
+
+  const mechanic = getMechanic(archetype.mechanic.kind)
+  if (!mechanic) return null
+
+  const state = active.mechanicState ?? mechanic.initialState()
+  return { kind: archetype.mechanic.kind, state }
+}
+
 export function buildStatComputationCharacter(
   character: PersistedCharacterState,
   archetypes: readonly PersistedArchetypeState[],
@@ -88,5 +114,6 @@ export function buildStatComputationCharacter(
     archetypes: archetypes.map((a) => ({ key: a.archetypeKey, rank: a.rank })),
     equippedItems,
     activeSkills: active ? activeSkillsFor(active, equippedItems) : [],
+    activeMechanic: activeMechanicFor(active),
   }
 }

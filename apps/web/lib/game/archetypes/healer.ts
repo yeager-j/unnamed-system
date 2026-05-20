@@ -19,4 +19,12 @@ export const healer = {
     { rank: 5, skill: "healers-insight" },
   ],
   synthesisSkill: { rank: 5, skill: "divine-judgment" },
+  mechanic: {
+    kind: "path-of-dawn",
+    displayName: "Path of Dawn",
+    tagline:
+      "Light-damage Skills enter Dawn Mode and apply Lumina counters to struck enemies.",
+    description:
+      "Light-damage Skills enter Dawn Mode and apply Lumina to struck enemies (max per enemy = your Luck). HP-restoring or Ailment-curing Skills consume Lumina for 1d4 Light damage each, refunding SP and exiting Dawn Mode.",
+  },
 } satisfies Archetype

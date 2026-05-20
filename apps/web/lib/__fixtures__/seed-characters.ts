@@ -4,6 +4,7 @@ import type {
   PathChoice,
   SparkLog,
 } from "../game/character"
+import type { MechanicState } from "../game/mechanics/schema"
 import { buildStatComputationCharacter } from "../game/stat-character"
 import type { StatComputationCharacter } from "../game/stats"
 
@@ -30,6 +31,9 @@ interface SeedArchetype {
   archetypeKey: string
   rank: number
   inheritanceSlots?: SeedInheritanceSlot[]
+  /** Persisted mechanic state for this Archetype's unique mechanic. Optional
+   *  on the spec; null in the DB and post-Effect state when omitted. */
+  mechanicState?: MechanicState
 }
 
 interface SeedItem {
@@ -90,7 +94,13 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 1,
     pathChoice: "health-focused",
     activeArchetypeKey: "warrior",
-    archetypes: [{ archetypeKey: "warrior", rank: 1 }],
+    archetypes: [
+      {
+        archetypeKey: "warrior",
+        rank: 1,
+        mechanicState: { kind: "perfection", rank: 3 },
+      },
+    ],
     manualBonuses: {},
     ancestryText: "Hill-clan stock, raised on the northern marches.",
     backgroundText: "Caravan guard turned sellsword.",
@@ -131,7 +141,20 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 1,
     pathChoice: "skill-focused",
     activeArchetypeKey: "healer",
-    archetypes: [{ archetypeKey: "healer", rank: 1 }],
+    archetypes: [
+      {
+        archetypeKey: "healer",
+        rank: 1,
+        mechanicState: {
+          kind: "path-of-dawn",
+          dawnMode: true,
+          enemies: [
+            { id: "skeleton-a", name: "Charred Skeleton", lumina: 2 },
+            { id: "wraith-b", name: "Salt Wraith", lumina: 1 },
+          ],
+        },
+      },
+    ],
     manualBonuses: {},
     ancestryText: "Temple foundling, lineage unknown.",
     backgroundText: "Cloister-trained field medic.",
@@ -173,8 +196,19 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     pathChoice: "balanced",
     activeArchetypeKey: "mage",
     archetypes: [
-      { archetypeKey: "mage", rank: 4 },
-      { archetypeKey: "warrior", rank: 2 },
+      {
+        archetypeKey: "mage",
+        rank: 4,
+        mechanicState: {
+          kind: "stains",
+          tokens: ["fire", "ice", null, null],
+        },
+      },
+      {
+        archetypeKey: "warrior",
+        rank: 2,
+        mechanicState: { kind: "perfection", rank: 1 },
+      },
     ],
     manualBonuses: { magic: 1 },
     ancestryText: "Old river-city merchant blood.",
@@ -240,9 +274,21 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
           { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
           { slotIndex: 1, sourceArchetypeKey: "warrior", skillKey: "cleave" },
         ],
+        mechanicState: { kind: "valor", value: 3 },
       },
-      { archetypeKey: "warrior", rank: 4 },
-      { archetypeKey: "mage", rank: 3 },
+      {
+        archetypeKey: "warrior",
+        rank: 4,
+        mechanicState: { kind: "perfection", rank: 2 },
+      },
+      {
+        archetypeKey: "mage",
+        rank: 3,
+        mechanicState: {
+          kind: "stains",
+          tokens: ["light", null, null, null],
+        },
+      },
     ],
     manualBonuses: { luck: 1 },
     ancestryText: "Cadet branch of a fallen marcher house.",
@@ -311,7 +357,13 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 30,
     pathChoice: "health-focused",
     activeArchetypeKey: "warrior",
-    archetypes: [{ archetypeKey: "warrior", rank: 5 }],
+    archetypes: [
+      {
+        archetypeKey: "warrior",
+        rank: 5,
+        mechanicState: { kind: "perfection", rank: 4 },
+      },
+    ],
     manualBonuses: {},
     ancestryText: "Last of the shield-line of Greyfen.",
     backgroundText: "Warlord turned lone bulwark.",
@@ -392,6 +444,7 @@ export function buildSeedStatCharacter(
         ),
         skillKey: slot.skillKey,
       })),
+      mechanicState: archetype.mechanicState ?? null,
     })),
     character.items
       .filter((item) => item.equipped)

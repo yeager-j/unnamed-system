@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
-import type { HydratedCharacter } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { getEquippedWeapon } from "@/lib/game/items"
 import { IntrinsicAttackRow, SkillRow } from "./skill-row"
 

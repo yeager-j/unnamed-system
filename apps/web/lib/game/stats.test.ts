@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   computeAffinityChart,
+  computeAttackRollBonus,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
@@ -32,6 +33,7 @@ function makeCharacter(
     archetypes: [{ key: "warrior", rank: 2 }],
     equippedItems: [],
     activeSkills: [],
+    activeMechanic: null,
     ...overrides,
   }
 }
@@ -322,5 +324,75 @@ describe("purity", () => {
 describe("transcription guard", () => {
   it("keeps the Mage SP Mastery wired through max SP", () => {
     expect(mage.mastery).toEqual({ kind: "sp", amount: 20 })
+  })
+})
+
+describe("computeAttackRollBonus", () => {
+  it("reports zero with no sources when no mechanic is active", () => {
+    const character = makeCharacter()
+    expect(computeAttackRollBonus(character)).toEqual({
+      total: 0,
+      sources: [],
+    })
+  })
+
+  it("sums Perfection's contribution and surfaces a labelled source", () => {
+    const character = makeCharacter({
+      activeMechanic: {
+        kind: "perfection",
+        state: { kind: "perfection", rank: 3 },
+      },
+    })
+    expect(computeAttackRollBonus(character)).toEqual({
+      total: 3,
+      sources: [{ source: "Perfection (A)", amount: 3 }],
+    })
+  })
+
+  it("ignores non-attackRoll mechanic effects (Valor's affinity change)", () => {
+    const character = makeCharacter({
+      activeArchetypeKey: "knight",
+      archetypes: [{ key: "knight", rank: 5 }],
+      activeMechanic: { kind: "valor", state: { kind: "valor", value: 5 } },
+    })
+    expect(computeAttackRollBonus(character).total).toBe(0)
+    expect(computeAttackRollBonus(character).sources).toEqual([])
+  })
+
+  it("applies the rank-S +4 endpoint", () => {
+    const character = makeCharacter({
+      activeMechanic: {
+        kind: "perfection",
+        state: { kind: "perfection", rank: 4 },
+      },
+    })
+    expect(computeAttackRollBonus(character).total).toBe(4)
+  })
+})
+
+describe("mechanic Effects flow through the existing pipeline", () => {
+  it("applies Valor's stage-3+ Resist to Slash / Pierce / Strike via the Affinity chart", () => {
+    const character = makeCharacter({
+      activeArchetypeKey: "knight",
+      archetypes: [{ key: "knight", rank: 5 }],
+      activeMechanic: { kind: "valor", state: { kind: "valor", value: 3 } },
+    })
+    const chart = computeAffinityChart(character)
+    expect(chart.slash).toBe("resist")
+    expect(chart.pierce).toBe("resist")
+    expect(chart.strike).toBe("resist")
+  })
+
+  it("does not apply Valor's affinity Effect below value 3", () => {
+    const character = makeCharacter({
+      activeArchetypeKey: "knight",
+      archetypes: [{ key: "knight", rank: 5 }],
+      activeMechanic: { kind: "valor", state: { kind: "valor", value: 2 } },
+    })
+    // Knight's base Slash affinity is Resist; we only assert Pierce/Strike to
+    // isolate the mechanic's contribution.
+    const chart = computeAffinityChart(character)
+    expect(chart.pierce).toBe("neutral")
+    expect(chart.strike).toBe("neutral")
   })
 })

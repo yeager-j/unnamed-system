@@ -13,9 +13,9 @@ import { db } from "./index"
 import {
   loadHydratedCharacterById,
   toStatComputationCharacter,
-  type HydratedCharacter,
 } from "./load-character"
 import { characters } from "./schema"
+import { HydratedCharacter } from "../game/hydrated-character"
 
 /**
  * Persistence for the pure rest engine: hydrate the character via

@@ -21,6 +21,7 @@ function makeCharacter(
     archetypes: [{ key: "warrior", rank: 2 }],
     equippedItems: [],
     activeSkills: [],
+    activeMechanic: null,
     currentHP: 100,
     currentSP: 100,
     ...overrides,

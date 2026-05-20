@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext } from "react"
-import type { HydratedCharacter } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**
  * Supplies the hydrated character to every client component below it,

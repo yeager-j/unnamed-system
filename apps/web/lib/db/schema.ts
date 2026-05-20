@@ -25,6 +25,7 @@ import {
   type PathChoice,
   type SparkLog,
 } from "../game/character"
+import type { MechanicState } from "../game/mechanics"
 
 /**
  * Tables below follow the canonical `@auth/drizzle-adapter` Postgres schema
@@ -179,6 +180,12 @@ export const characterArchetypes = pgTable(
       .$type<InheritanceSlots>()
       .notNull()
       .default([]),
+    /**
+     * The Archetype's unique-mechanic state (e.g. Warrior's Perfection rank,
+     * Mage's Stains slots). Null when the character has never set state on
+     * this Archetype's mechanic — read paths coerce to `initialState()`.
+     */
+    mechanicState: jsonb("mechanicState").$type<MechanicState | null>(),
   },
   (characterArchetype) => [
     unique().on(

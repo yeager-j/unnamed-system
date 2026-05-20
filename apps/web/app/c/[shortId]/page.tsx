@@ -2,8 +2,10 @@ import { cache } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
+import { Archetypes } from "@/components/character-sheet/archetypes"
 import { CharacterProvider } from "@/components/character-sheet/character-context"
 import { Inventory } from "@/components/character-sheet/inventory"
+import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import {
   SHEET_TAB_KEYS,
@@ -73,7 +75,6 @@ function Placeholder({ name }: { name: string }) {
   )
 }
 
-const COMBAT_PLACEHOLDERS = ["Combat State"] as const
 const EXPLORE_PLACEHOLDERS = ["Talents", "Identity", "Notes"] as const
 
 function resolveTab(tab: string | undefined): SheetTabKey {
@@ -106,12 +107,17 @@ export default async function CharacterSheetPage({
               <section aria-label="Affinities">
                 <Affinities character={character} />
               </section>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {character.activeMechanic ? (
+                  <section aria-label="Archetype Mechanic">
+                    <MechanicWidget />
+                  </section>
+                ) : null}
+                <Placeholder name="Combat State" />
+              </div>
               <section aria-label="Skills">
                 <Skills character={character} />
               </section>
-              {COMBAT_PLACEHOLDERS.map((name) => (
-                <Placeholder key={name} name={name} />
-              ))}
             </>
           }
           explore={
@@ -125,7 +131,7 @@ export default async function CharacterSheetPage({
             </>
           }
           inventory={<Inventory character={character} />}
-          archetypes={<Placeholder name="Archetypes" />}
+          archetypes={<Archetypes character={character} />}
         />
       </CharacterProvider>
     </main>

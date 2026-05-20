@@ -152,6 +152,7 @@ async function seedCharacter(character: SeedCharacter): Promise<void> {
         ),
         skillKey: slot.skillKey,
       })),
+      mechanicState: archetype.mechanicState ?? null,
     }))
   )
 

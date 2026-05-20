@@ -1,4 +1,4 @@
-import type { HydratedCharacter } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { ATTRIBUTE_KEYS, type AttributeKey } from "@/lib/game/archetypes/schema"
 
 /**

@@ -1,5 +1,6 @@
 import { z } from "zod/v4"
 import { AFFINITIES, type Affinity, type DamageType } from "../affinity"
+import type { MechanicKind } from "../mechanics/schema"
 import type { SkillKey } from "../skills"
 import type { TalentKey } from "../talents"
 
@@ -88,6 +89,24 @@ const masterySchema = z.discriminatedUnion("kind", [
   }),
 ])
 
+/**
+ * The unique mechanic an Archetype owns (e.g. Warrior's Perfection). Display
+ * fields only; transition rules, thresholds, and emitted Effects live in the
+ * per-mechanic module under `lib/game/mechanics/`. `kind` is a kebab-case
+ * identifier matching one of the registered mechanics; cross-reference
+ * integrity is enforced at load time by the archetype index validator.
+ *
+ * `tagline` is a single-sentence summary shown on the Combat-tab widget where
+ * space is tight; `description` is the full prose used on the Archetypes-tab
+ * info card.
+ */
+const archetypeMechanicSchema = z.object({
+  kind: z.string().regex(/^[a-z0-9-]+$/),
+  displayName: z.string().min(1),
+  tagline: z.string().min(1),
+  description: z.string().min(1),
+})
+
 export const archetypeSchema = z.object({
   key: archetypeKey,
   name: z.string().min(1),
@@ -110,6 +129,11 @@ export const archetypeSchema = z.object({
    * inherited. Optional because not every Archetype lists one.
    */
   synthesisSkill: skillReferenceSchema.optional(),
+  /**
+   * The Archetype's unique mechanic, if any. Optional because future
+   * Archetypes ship without one until their mechanic is designed.
+   */
+  mechanic: archetypeMechanicSchema.optional(),
 })
 
 export type SkillReference = Omit<
@@ -118,22 +142,28 @@ export type SkillReference = Omit<
 > & { skill: SkillKey }
 export type ArchetypePrerequisite = z.infer<typeof archetypePrerequisiteSchema>
 export type Mastery = z.infer<typeof masterySchema>
+export type ArchetypeMechanic = Omit<
+  z.infer<typeof archetypeMechanicSchema>,
+  "kind"
+> & { kind: MechanicKind }
 
 /**
  * The Archetype shape with cross-references narrowed to keys that exist in the
  * shipped catalog: `skills`/`synthesisSkill` to {@link SkillKey}, `talents` to
- * {@link TalentKey}. The Zod schema stays structural (plain strings); the
- * narrowing is enforced at compile time on the hardcoded data
- * (`satisfies Archetype`) and at load time by the index validator.
- * `prerequisites` stays loose — it may reference Archetypes not shipped at MVP.
+ * {@link TalentKey}, `mechanic.kind` to {@link MechanicKind}. The Zod schema
+ * stays structural (plain strings); the narrowing is enforced at compile time
+ * on the hardcoded data (`satisfies Archetype`) and at load time by the index
+ * validator. `prerequisites` stays loose — it may reference Archetypes not
+ * shipped at MVP.
  */
 export type Archetype = Omit<
   z.infer<typeof archetypeSchema>,
-  "skills" | "synthesisSkill" | "talents"
+  "skills" | "synthesisSkill" | "talents" | "mechanic"
 > & {
   skills: SkillReference[]
   synthesisSkill?: SkillReference
   talents: TalentKey[]
+  mechanic?: ArchetypeMechanic
 }
 
 /**

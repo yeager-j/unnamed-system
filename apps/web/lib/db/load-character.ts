@@ -1,22 +1,16 @@
 import { asc, eq } from "drizzle-orm"
-import type { Affinity, DamageType } from "../game/affinity"
+import type { HydratedCharacter } from "../game/hydrated-character"
 import { getEquippableItem } from "../game/items"
-import type { EquippableItem } from "../game/items/schema"
-import {
-  resolveSkillCost,
-  type CastingCharacter,
-  type ResolvedSkillCost,
-} from "../game/skill-cost"
-import type { Skill } from "../game/skills/schema"
+import { resolveSkillCost, type CastingCharacter } from "../game/skill-cost"
 import { buildStatComputationCharacter } from "../game/stat-character"
 import {
   computeAffinityChart,
+  computeAttackRollBonus,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  type AttributeScores,
   type StatComputationCharacter,
 } from "../game/stats"
 import { db } from "./index"
@@ -36,55 +30,20 @@ import {
  * resolution — so the public sheet and every per-domain db wrapper share one
  * source of truth and a new effect/bonus source can no longer drift between
  * surfaces. Nothing here imports another db domain.
+ *
+ * The view types ({@link HydratedCharacter} and friends) live in
+ * `lib/game/hydrated-character.ts` so game-layer code can consume them
+ * without crossing into persistence; the assembly stays here.
  */
 
-/** A `characters` table row, as returned by `select()`. */
+/** Row shapes inferred from the Drizzle schema. The Hydrated* view types
+ *  reference these via type-only imports from `lib/game/`. */
 export type CharacterRow = typeof characters.$inferSelect
 export type CharacterArchetypeRow = typeof characterArchetypes.$inferSelect
 export type CharacterKnifeRow = typeof characterKnives.$inferSelect
 export type CharacterChainRow = typeof characterChains.$inferSelect
 export type CharacterTalentRow = typeof characterTalents.$inferSelect
 export type InventoryItemRow = typeof inventoryItems.$inferSelect
-
-/** An inventory row paired with its resolved catalog entry (or `undefined`). */
-export interface HydratedInventoryItem {
-  row: InventoryItemRow
-  item: EquippableItem | undefined
-}
-
-/** A character's active Skill alongside its concrete, payable cost. */
-export interface HydratedSkill {
-  skill: Skill
-  cost: ResolvedSkillCost | null
-}
-
-/**
- * The complete sheet view: every persisted `characters` column (spread flat),
- * the character's child rows, and the engine-derived values every PRD §6
- * section needs — each datum present exactly once. The pure
- * {@link StatComputationCharacter} is intentionally *not* embedded: it
- * re-bundles `level`/`pathChoice`/`manualBonuses`, so storing it here would
- * duplicate them. Engine callers reconstruct it on demand via
- * {@link toStatComputationCharacter}.
- */
-export type HydratedCharacter = CharacterRow & {
-  archetypeRows: CharacterArchetypeRow[]
-  knives: CharacterKnifeRow[]
-  chains: CharacterChainRow[]
-  talents: CharacterTalentRow[]
-  /** Full inventory (equipped and not); only equipped items apply effects. */
-  inventory: HydratedInventoryItem[]
-  /** Resolved slug of the active Archetype, or `null` when none is set. */
-  activeArchetypeKey: string | null
-  attributes: AttributeScores
-  maxHP: number
-  maxSP: number
-  maxHitDice: number
-  maxSkillDice: number
-  affinityChart: Record<DamageType, Affinity>
-  /** The active Archetype's in-effect Skills with concrete resolved costs. */
-  skills: HydratedSkill[]
-}
 
 /**
  * Projects the persisted state onto the pure engine input. Only equipped
@@ -108,6 +67,7 @@ function statComputationCharacter(
       archetypeKey: archetype.archetypeKey,
       rank: archetype.rank,
       inheritanceSlots: archetype.inheritanceSlots,
+      mechanicState: archetype.mechanicState,
     })),
     inventoryRows
       .filter((item) => item.equipped)
@@ -181,6 +141,8 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     maxHitDice: computeMaxHitDice(row.level),
     maxSkillDice: computeMaxSkillDice(row.level),
     affinityChart: computeAffinityChart(stats),
+    attackRollBonus: computeAttackRollBonus(stats),
+    activeMechanic: stats.activeMechanic,
     skills: stats.activeSkills.map((skill) => ({
       skill,
       cost: resolveSkillCost(skill, casting),

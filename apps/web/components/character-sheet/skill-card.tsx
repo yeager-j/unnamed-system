@@ -1,15 +1,19 @@
 import { Badge } from "@workspace/ui/components/badge"
-import type {
-  AttackAttribute,
-  AttackRange,
-  AttackRoll,
-  Range,
-} from "@/lib/game/attack"
+import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { DamageType } from "@/lib/game/affinity"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
+import {
+  formatSignedBonus,
+  hydrateFormula,
+  resolveAttackAttribute,
+} from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
-import type { AttributeScores } from "@/lib/game/stats"
+import type {
+  AttackRollBonus,
+  AttackRollSource,
+  AttributeScores,
+} from "@/lib/game/stats"
 import { useCharacter } from "@/components/character-sheet/character-context"
 
 interface SkillCardProps {
@@ -203,13 +207,20 @@ function intrinsicAttackStatRows(attack: IntrinsicAttack): StatRow[] {
 }
 
 function AttackRollTable({ roll }: { roll: AttackRoll }) {
-  const { attributes } = useCharacter()
-  const headerBonus = resolveAttackAttribute(roll.attribute, attributes)
+  const { attributes, attackRollBonus } = useCharacter()
+  const attributeLabel = ATTACK_ATTRIBUTE_LABELS[roll.attribute]
+  const attributeBonus = resolveAttackAttribute(roll.attribute, attributes)
+  const total = attributeBonus + attackRollBonus.total
   return (
     <section className="border-t border-border pt-3">
       <h4 className="mb-1.5 text-xs font-semibold tracking-wide uppercase">
-        Attack Roll {formatSignedBonus(headerBonus)}
+        Attack Roll {formatSignedBonus(total)}
       </h4>
+      <AttackRollBreakdown
+        attributeLabel={attributeLabel}
+        attributeBonus={attributeBonus}
+        bonus={attackRollBonus}
+      />
       <ul className="flex flex-col gap-1.5 text-sm">
         {roll.tiers.map((tier) => (
           <li
@@ -233,6 +244,41 @@ function AttackRollTable({ roll }: { roll: AttackRoll }) {
     </section>
   )
 }
+
+/**
+ * Inline attribution row under the Attack Roll header. Hidden when only the
+ * attribute contributes (the header alone is already complete in that case);
+ * surfaces every mechanic-supplied contributor when one or more is active.
+ */
+function AttackRollBreakdown({
+  attributeLabel,
+  attributeBonus,
+  bonus,
+}: {
+  attributeLabel: string
+  attributeBonus: number
+  bonus: AttackRollBonus
+}) {
+  if (bonus.sources.length === 0) return null
+  const parts: AttackRollSource[] = [
+    { source: attributeLabel, amount: attributeBonus },
+    ...bonus.sources,
+  ]
+  return (
+    <p className="mb-2 font-mono text-xs text-muted-foreground">
+      {parts
+        .map((part) => `${part.source} ${formatSignedBonus(part.amount)}`)
+        .join("  ")}
+    </p>
+  )
+}
+
+const ATTACK_ATTRIBUTE_LABELS = {
+  st: "Strength",
+  ma: "Magic",
+  ag: "Agility",
+  "st-or-ma": "Strength or Magic",
+} as const satisfies Record<AttackRoll["attribute"], string>
 
 function EffectProse({ effect }: { effect: string }) {
   return (
@@ -283,54 +329,4 @@ const SKILL_KIND_LABELS: Record<Skill["kind"], string> = {
   heal: "Healing",
   support: "Support",
   passive: "Passive",
-}
-
-/**
- * Resolves an {@link AttackAttribute} symbol to the character's concrete
- * score. "st-or-ma" picks the higher of Strength and Magic per the rulebook
- * convention — the engine doesn't expose a separate "either" stat.
- */
-function resolveAttackAttribute(
-  attr: AttackAttribute,
-  attributes: AttributeScores
-): number {
-  switch (attr) {
-    case "st":
-      return attributes.strength
-    case "ma":
-      return attributes.magic
-    case "ag":
-      return attributes.agility
-    case "st-or-ma":
-      return Math.max(attributes.strength, attributes.magic)
-  }
-}
-
-/**
- * Substitutes attribute abbreviations in a damage / healing / tier formula
- * with the character's concrete scores so authored strings like `"1d8 + Ma"`
- * render as `"1d8 + 4"`. Handles a leading `+` / `-` operator so a negative
- * score renders as `"− 1"` instead of `"+ -1"`. The longer "St or Ma" pattern
- * is replaced first to avoid the bare "St" / "Ma" rules matching it twice.
- */
-function hydrateFormula(formula: string, attributes: AttributeScores): string {
-  return formula.replace(
-    /\s*([+−-])\s*(St or Ma|St|Ma|Ag)\b/g,
-    (_match, op: string, name: string) => {
-      const base =
-        name === "St or Ma"
-          ? Math.max(attributes.strength, attributes.magic)
-          : name === "St"
-            ? attributes.strength
-            : name === "Ma"
-              ? attributes.magic
-              : attributes.agility
-      const signed = op === "+" ? base : -base
-      return ` ${formatSignedBonus(signed)}`
-    }
-  )
-}
-
-function formatSignedBonus(value: number): string {
-  return value < 0 ? `− ${Math.abs(value)}` : `+ ${value}`
 }

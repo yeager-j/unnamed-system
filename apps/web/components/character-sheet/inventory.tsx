@@ -9,7 +9,7 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import type {
   HydratedCharacter,
   HydratedInventoryItem,
-} from "@/lib/db/load-character"
+} from "@/lib/game/hydrated-character"
 import { getEquippedItem } from "@/lib/game/items"
 import type { EquippableItem } from "@/lib/game/items/schema"
 import { EquippedSlot } from "./equipped-slot"

@@ -4,7 +4,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VIRTUE_KEYS, type VirtueKey } from "@/lib/game/character"
 import { SPARK_LOG_CAPACITY, sparkLogBreakdown } from "@/lib/game/spark"
 

@@ -1,0 +1,1 @@
+ALTER TABLE "characterArchetype" ADD COLUMN "mechanicState" jsonb;

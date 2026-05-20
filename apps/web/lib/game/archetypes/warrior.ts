@@ -19,4 +19,12 @@ export const warrior = {
     { rank: 5, skill: "slash-boost" },
   ],
   synthesisSkill: { rank: 5, skill: "peerless-stonecleaver" },
+  mechanic: {
+    kind: "perfection",
+    displayName: "Perfection",
+    tagline:
+      "Land Attack Rolls to climb the chain D → C → B → A → S, adding +1 to your Attack Rolls per step.",
+    description:
+      "Land Attack Rolls to climb the chain D → C → B → A → S. Each step above D adds +1 to your Attack Rolls; resets when you are Downed or the encounter ends.",
+  },
 } satisfies Archetype

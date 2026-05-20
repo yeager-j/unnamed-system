@@ -21,6 +21,7 @@ function warriorRow(
     archetypeKey: "warrior",
     rank: 2,
     inheritanceSlots: [],
+    mechanicState: null,
     ...overrides,
   }
 }
@@ -43,7 +44,13 @@ describe("buildStatComputationCharacter", () => {
       baseCharacter,
       [
         warriorRow(),
-        { id: "ca-mage", archetypeKey: "mage", rank: 5, inheritanceSlots: [] },
+        {
+          id: "ca-mage",
+          archetypeKey: "mage",
+          rank: 5,
+          inheritanceSlots: [],
+          mechanicState: null,
+        },
       ],
       []
     )
@@ -144,5 +151,63 @@ describe("buildStatComputationCharacter", () => {
     )
     const garuKeys = result.activeSkills.filter((skill) => skill.key === "garu")
     expect(garuKeys).toHaveLength(1)
+  })
+
+  describe("active mechanic", () => {
+    it("populates activeMechanic from the active row's mechanicState", () => {
+      const result = buildStatComputationCharacter(
+        baseCharacter,
+        [warriorRow({ mechanicState: { kind: "perfection", rank: 3 } })],
+        []
+      )
+      expect(result.activeMechanic).toEqual({
+        kind: "perfection",
+        state: { kind: "perfection", rank: 3 },
+      })
+    })
+
+    it("coerces a null mechanicState to the mechanic's initialState", () => {
+      const result = buildStatComputationCharacter(
+        baseCharacter,
+        [warriorRow({ mechanicState: null })],
+        []
+      )
+      expect(result.activeMechanic).toEqual({
+        kind: "perfection",
+        state: { kind: "perfection", rank: 0 },
+      })
+    })
+
+    it("returns null when no Archetype is active", () => {
+      const result = buildStatComputationCharacter(
+        { ...baseCharacter, activeCharacterArchetypeId: null },
+        [warriorRow()],
+        []
+      )
+      expect(result.activeMechanic).toBeNull()
+    })
+
+    it("returns null when the active Archetype has no declared mechanic", () => {
+      // No Archetype in the shipped catalog omits `mechanic` today, so this
+      // case is guarded by an unknown archetypeKey — exercises the same
+      // null-on-missing-mechanic branch.
+      const result = buildStatComputationCharacter(
+        {
+          ...baseCharacter,
+          activeCharacterArchetypeId: "ca-unknown",
+        },
+        [
+          {
+            id: "ca-unknown",
+            archetypeKey: "not-a-real-archetype",
+            rank: 1,
+            inheritanceSlots: [],
+            mechanicState: null,
+          },
+        ],
+        []
+      )
+      expect(result.activeMechanic).toBeNull()
+    })
   })
 })

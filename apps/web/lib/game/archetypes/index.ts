@@ -1,3 +1,4 @@
+import { getMechanic } from "../mechanics"
 import { getSkill } from "../skills"
 import { getTalent } from "../talents"
 import { archetypeSchema, type Archetype } from "./schema"
@@ -35,6 +36,12 @@ function validate(archetype: Archetype): Archetype {
         `Archetype "${archetype.key}" references unknown talent "${talent}"`
       )
     }
+  }
+
+  if (archetype.mechanic && !getMechanic(archetype.mechanic.kind)) {
+    throw new Error(
+      `Archetype "${archetype.key}" references unknown mechanic "${archetype.mechanic.kind}"`
+    )
   }
 
   return archetype
