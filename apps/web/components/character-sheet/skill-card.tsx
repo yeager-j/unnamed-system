@@ -15,6 +15,7 @@ import type {
   AttributeScores,
 } from "@/lib/game/stats"
 import { useCharacter } from "@/components/character-sheet/character-context"
+import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"
 
 interface SkillCardProps {
@@ -130,7 +131,7 @@ function skillStatRows(
   const rows: StatRow[] = []
 
   if (cost) {
-    rows.push({ label: "Cost", value: <Badge>{costLabel(cost)}</Badge> })
+    rows.push({ label: "Cost", value: <SkillCostBadge cost={cost} /> })
   }
 
   if ("range" in skill) {
@@ -284,10 +285,6 @@ const ATTACK_ATTRIBUTE_LABELS = {
   ag: "Agility",
   "st-or-ma": "Strength or Magic",
 } as const satisfies Record<AttackRoll["attribute"], string>
-
-function costLabel(cost: ResolvedSkillCost): string {
-  return cost.kind === "sp" ? `${cost.amount} SP` : `${cost.amount} HP`
-}
 
 function rangeLabel(range: AttackRange): string {
   return range.kind === "known" ? KNOWN_RANGE_LABELS[range.value] : range.value
