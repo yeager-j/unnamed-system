@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { CharacterProvider } from "@/components/character-sheet/character-context"
+import { Inventory } from "@/components/character-sheet/inventory"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import {
   SHEET_TAB_KEYS,
@@ -72,7 +73,7 @@ function Placeholder({ name }: { name: string }) {
   )
 }
 
-const COMBAT_PLACEHOLDERS = ["Equipped", "Combat State"] as const
+const COMBAT_PLACEHOLDERS = ["Combat State"] as const
 const EXPLORE_PLACEHOLDERS = ["Talents", "Identity", "Notes"] as const
 
 function resolveTab(tab: string | undefined): SheetTabKey {
@@ -123,7 +124,7 @@ export default async function CharacterSheetPage({
               ))}
             </>
           }
-          inventory={<Placeholder name="Inventory" />}
+          inventory={<Inventory character={character} />}
           archetypes={<Placeholder name="Archetypes" />}
         />
       </CharacterProvider>

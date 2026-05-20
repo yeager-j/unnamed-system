@@ -4,6 +4,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { ItemGroup } from "@workspace/ui/components/item"
 import type { HydratedCharacter } from "@/lib/db/load-character"
 import { getEquippedWeapon } from "@/lib/game/items"
 import { IntrinsicAttackRow, SkillRow } from "./skill-row"
@@ -46,13 +47,15 @@ export function Skills({ character }: { character: HydratedCharacter }) {
         </CardHeader>
         <CardContent>
           {regular.length > 0 ? (
-            <ul className="flex flex-col">
+            <ItemGroup className="gap-0">
               {regular.map((entry) => (
-                <li key={entry.skill.key}>
-                  <SkillRow skill={entry.skill} cost={entry.cost} />
-                </li>
+                <SkillRow
+                  key={entry.skill.key}
+                  skill={entry.skill}
+                  cost={entry.cost}
+                />
               ))}
-            </ul>
+            </ItemGroup>
           ) : (
             <EmptyState message="No Skills available. Set an active Archetype to populate this list." />
           )}
@@ -65,13 +68,15 @@ export function Skills({ character }: { character: HydratedCharacter }) {
         </CardHeader>
         <CardContent>
           {synthesis.length > 0 ? (
-            <ul className="flex flex-col">
+            <ItemGroup className="gap-0">
               {synthesis.map((entry) => (
-                <li key={entry.skill.key}>
-                  <SkillRow skill={entry.skill} cost={entry.cost} />
-                </li>
+                <SkillRow
+                  key={entry.skill.key}
+                  skill={entry.skill}
+                  cost={entry.cost}
+                />
               ))}
-            </ul>
+            </ItemGroup>
           ) : (
             <EmptyState message="No Synthesis Skill yet — reach the required Rank on your active Archetype to unlock it." />
           )}
