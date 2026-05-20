@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
 import { CharacterProvider } from "@/components/character-sheet/character-context"
+import { CombatState } from "@/components/character-sheet/combat-state"
 import { Inventory } from "@/components/character-sheet/inventory"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
@@ -113,7 +114,9 @@ export default async function CharacterSheetPage({
                     <MechanicWidget />
                   </section>
                 ) : null}
-                <Placeholder name="Combat State" />
+                <section aria-label="Combat State">
+                  <CombatState character={character} />
+                </section>
               </div>
               <section aria-label="Skills">
                 <Skills character={character} />
