@@ -1,7 +1,10 @@
 import { toStatComputationCharacter } from "@/lib/db/load-character"
 import { getArchetype } from "@/lib/game/archetypes"
 import type { Archetype, Lineage } from "@/lib/game/archetypes/schema"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type {
+  HydratedCharacter,
+  HydratedSkill,
+} from "@/lib/game/hydrated-character"
 import { resolveSkillCost, type CastingCharacter } from "@/lib/game/skill-cost"
 import { getSkill } from "@/lib/game/skills"
 import { LINEAGE_ORDER, TIER_ORDER } from "./lineage-labels"
@@ -9,7 +12,6 @@ import type {
   ArchetypeEntry,
   RankedSkill,
   ResolvedInheritanceSlot,
-  ResolvedSkill,
 } from "./types"
 
 /**
@@ -36,7 +38,7 @@ export function buildArchetypeEntries(
     if (archetype) archetypeByRowId.set(row.id, archetype)
   }
 
-  function resolveSkillByKey(key: string): ResolvedSkill | null {
+  function resolveSkillByKey(key: string): HydratedSkill | null {
     const skill = getSkill(key)
     if (!skill) return null
     return { ...skill, resolvedCost: resolveSkillCost(skill, casting) }
