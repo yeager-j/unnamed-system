@@ -115,6 +115,42 @@ test("Virtues Spark breakdown reflects the seeded log", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("Combat State reflects seeded ailment, conditions, flags, and exhaustion", async ({
+  page,
+}) => {
+  // seed-mage seeds the most interesting combat state: Burn ailment, Attack
+  // increased, Defense decreased, Hit/Evasion neutral, Concentrating on,
+  // Charged off, Exhaustion 2.
+  await page.goto("/c/seed-mage")
+  const combat = page.getByRole("region", { name: "Combat State" })
+
+  await expect(combat.getByText("Burn", { exact: true })).toBeVisible()
+  await expect(
+    combat.getByText("Loses 10% of max HP at the end of each turn.")
+  ).toBeVisible()
+
+  await expect(combat.getByText("Increased")).toBeVisible()
+  await expect(combat.getByText("Decreased")).toBeVisible()
+  await expect(combat.getByText("Neutral")).toBeVisible()
+
+  await expect(combat.getByText("Concentrating")).toBeVisible()
+  await expect(combat.getByText("Charged")).toHaveCount(0)
+
+  await expect(combat.getByText("Exhaustion")).toBeVisible()
+  await expect(combat.getByText("2", { exact: true })).toBeVisible()
+
+  // seed-warrior has no ailments, all-neutral conditions, no flags, zero
+  // Exhaustion — the clean empty state.
+  await page.goto("/c/seed-warrior")
+  const empty = page.getByRole("region", { name: "Combat State" })
+  await expect(empty.getByLabel("No ailment")).toBeVisible()
+  await expect(empty.getByText("Neutral")).toHaveCount(3)
+  await expect(empty.getByText("Charged")).toHaveCount(0)
+  await expect(empty.getByText("Concentrating")).toHaveCount(0)
+  await expect(empty.getByText("Exhaustion")).toBeVisible()
+  await expect(empty.getByText("0", { exact: true })).toBeVisible()
+})
+
 test("sheet tabs: default Combat, switching mirrors to ?tab=, deep-linkable", async ({
   page,
 }) => {

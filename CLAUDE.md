@@ -27,13 +27,17 @@ A Next.js web app for creating and managing characters in the Persona System tab
 
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/my-feature`.
 - Reuse existing `Result` utility where appropriate.
+- Avoid prop-drilling. `HydratedCharacter` is supplied via `useCharacter()`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
+- Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `apps/web/lib/game/mechanics`.
 
 ### Habits
 
+- Default to direct, targeted reads (grep + Read on the specific files) over launching Explore or parallel subagents. Only fan out to multiple agents when the codebase scope is genuinely unknown and broad.
 - User has enabled the "Auto-fix CI & address comments" setting. If things are nominal, reply briefly that there is nothing actionable. Only elaborate if there is a problem. For example, "Both comments are routine; disregarding."
-- When doing UI work, run the dev server and view the result in the browser before reporting done. Treat the first render as a draft: iterate on the design, and feel free to experiment with several approaches and pick the best one rather than shipping the first thing that works.
+- When doing UI work, run the dev server and view the result in the browser before reporting done. Treat the first render as a draft: iterate on the design, and experiment with several approaches and pick the best one rather than shipping the first thing that works.
 - Similarly, include a design proposal (can be pure text; image mockups are not necessary) in the Plan when Plan Mode is enabled.
 - As this is a personal project and low-stakes, commiting important files (like CLAUDE.md) that you didn't touch is fine. You should still avoid committing files that are completely unrelated to the PR.
+- When building UI components, see if there is a shadcn/ui component that already does what you need.
 
 ## Repo Structure
 
@@ -54,6 +58,8 @@ npm run build      # Production build
 npm run typecheck  # tsc --noEmit across all packages
 npm run lint       # ESLint across all packages
 npm run format     # Prettier across all packages
+npm run test       # Vitest across all packages
+npm run test:e2e   # Playwright across all packages
 ```
 
 Run app-specific commands from the package directory (e.g., `cd apps/web && npm run dev`).
