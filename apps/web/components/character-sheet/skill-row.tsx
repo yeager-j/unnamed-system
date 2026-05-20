@@ -19,6 +19,7 @@ import type { Weapon } from "@/lib/game/items/schema"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import type { Skill } from "@/lib/game/skills/schema"
 import { IntrinsicAttackCard, SkillCard } from "./skill-card"
+import { SkillCostBadge } from "./skill-cost-badge"
 
 /**
  * The damage type slot in the row reuses the {@link Skill} schema's
@@ -62,7 +63,7 @@ export function SkillRow({ skill, cost }: SkillRowProps) {
           <ItemDescription>{skill.tagline}</ItemDescription>
         </ItemContent>
         <ItemActions className="w-16 justify-center">
-          <CostBadge cost={cost} />
+          <SkillCostBadge cost={cost} className="w-full" />
         </ItemActions>
       </PopoverTrigger>
       <PopoverContent
@@ -110,21 +111,6 @@ export function IntrinsicAttackRow({ weapon }: { weapon: Weapon }) {
         <IntrinsicAttackCard weapon={weapon} />
       </PopoverContent>
     </Popover>
-  )
-}
-
-function CostBadge({ cost }: { cost: ResolvedSkillCost | null }) {
-  if (!cost) {
-    return (
-      <Badge variant="outline" className="w-full text-muted-foreground">
-        —
-      </Badge>
-    )
-  }
-  return (
-    <Badge className="w-full">
-      {cost.kind === "sp" ? `${cost.amount} SP` : `${cost.amount} HP`}
-    </Badge>
   )
 }
 
