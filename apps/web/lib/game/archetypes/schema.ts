@@ -196,3 +196,17 @@ export const MASTERY_RANK = 5
 export function hasMasteryBonus(rank: number): boolean {
   return rank >= MASTERY_RANK
 }
+
+/**
+ * Whether an Archetype at `currentRank` has unlocked something the catalog
+ * declares at `requiredRank` — a Rank-keyed Skill, the Synthesis Skill, or any
+ * future Rank-gated feature. Centralizes the "you have it at Rank N if your
+ * Archetype Rank ≥ N" rule so the engine and every read-side surface use the
+ * same predicate.
+ */
+export function hasUnlockedRank(
+  currentRank: number,
+  requiredRank: number
+): boolean {
+  return currentRank >= requiredRank
+}
