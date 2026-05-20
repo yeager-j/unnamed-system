@@ -147,7 +147,7 @@ export const characters = pgTable("character", {
     .notNull()
     .default([]),
   hopes: jsonb("hopes").$type<IdentityList>().notNull().default([]),
-  dreams: text("dreams"),
+  dreams: jsonb("dreams").$type<IdentityList>().notNull().default([]),
   fears: jsonb("fears").$type<IdentityList>().notNull().default([]),
   secrets: jsonb("secrets").$type<IdentityList>().notNull().default([]),
   notes: text("notes"),
@@ -278,6 +278,7 @@ export const insertCharacterSchema = createInsertSchema(characters, {
   battleConditions: battleConditionsSchema,
   personalityTraits: identityListSchema,
   hopes: identityListSchema,
+  dreams: identityListSchema,
   fears: identityListSchema,
   secrets: identityListSchema,
 })

@@ -73,7 +73,6 @@ describe("seed roster structural invariants", () => {
         c.ancestryText,
         c.backgroundText,
         c.backstoryText,
-        c.dreams,
         c.notes,
       ]) {
         expect(text.trim().length).toBeGreaterThan(0)
@@ -81,6 +80,7 @@ describe("seed roster structural invariants", () => {
       for (const list of [
         c.personalityTraits,
         c.hopes,
+        c.dreams,
         c.fears,
         c.secrets,
         c.knives,
