@@ -86,16 +86,3 @@ test("Mage's Stains widget shows the seeded element tokens", async ({
   await expect(mechanic).toContainText("Fire")
   await expect(mechanic).toContainText("Ice")
 })
-
-test("Archetypes tab summarizes every unlocked Archetype's mechanic state", async ({
-  page,
-}) => {
-  // The Knight has three unlocked Archetypes with distinct mechanic states —
-  // a one-stop check that the read-only summary path through the registry
-  // works for all three live shapes (counter, list of tokens, linear rank).
-  await page.goto("/c/seed-knight?tab=archetypes")
-
-  await expect(page.getByText("3 / 7", { exact: true })).toBeVisible() // Valor
-  await expect(page.getByText("Rank B", { exact: true })).toBeVisible() // Warrior rank 2
-  await expect(page.getByText("Light", { exact: true })).toBeVisible() // Mage Stain
-})

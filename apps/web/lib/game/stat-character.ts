@@ -1,4 +1,5 @@
 import { getArchetype } from "./archetypes"
+import { hasUnlockedRank } from "./archetypes/schema"
 import type { InheritanceSlots, ManualBonuses, PathChoice } from "./character"
 import { getEquippableItem } from "./items"
 import type { EquippableItem } from "./items/schema"
@@ -50,11 +51,11 @@ function activeSkillsFor(
   const keys = new Set<string>()
 
   for (const ref of archetype.skills) {
-    if (ref.rank <= active.rank) keys.add(ref.skill)
+    if (hasUnlockedRank(active.rank, ref.rank)) keys.add(ref.skill)
   }
   if (
     archetype.synthesisSkill &&
-    active.rank >= archetype.synthesisSkill.rank
+    hasUnlockedRank(active.rank, archetype.synthesisSkill.rank)
   ) {
     keys.add(archetype.synthesisSkill.skill)
   }
