@@ -4,7 +4,8 @@ export const cleave = {
   kind: "attack",
   key: "cleave",
   name: "Cleave",
-  description: "A weak slashing attack targeting a single enemy.",
+  tagline: "Weak single-target Slash. Crits on a 20+.",
+  description: "A weak **Slash** attack targeting a single enemy.",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 5 },
   range: { kind: "known", value: "engaged" },
@@ -19,5 +20,5 @@ export const cleave = {
     ],
   },
   effect:
-    "(Warrior Only) If your Perfection is D and the enemy takes damage, your Perfection increases by 1 additional rank.",
+    "**(Warrior Only)** If your **Perfection** is D and the enemy takes damage, your **Perfection** increases by 1 additional rank.",
 } satisfies Skill

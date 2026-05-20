@@ -4,7 +4,8 @@ export const garu = {
   kind: "attack",
   key: "garu",
   name: "Garu",
-  description: "Deals weak wind damage to one enemy.",
+  tagline: "Weak Wind magic vs. one enemy. Dizzy on a 20+.",
+  description: "Deals weak **Wind** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
@@ -19,5 +20,5 @@ export const garu = {
     ],
   },
   effect:
-    "(Mage Only) Produces 1 Wind Stain. Consumes 1 Fire Stain to deal an extra 1d4 Wind damage.",
+    "**(Mage Only)** Produces 1 **Wind Stain**. Consumes 1 **Fire Stain** to deal an extra `1d4` **Wind** damage.",
 } satisfies Skill

@@ -22,12 +22,23 @@ const damageTypeSchema = z.enum([...DAMAGE_TYPES, "special"])
 const baseFields = {
   key: skillKey,
   name: z.string().min(1),
+  /**
+   * Short, at-a-glance summary shown in the SkillRow preview slot
+   * (line-clamped to 2 lines). Plain text only — no Markdown.
+   */
+  tagline: z.string().min(1),
+  /**
+   * Full description shown in the SkillCard popover. Rendered as Markdown
+   * via {@link SkillText} — light formatting (bold, italic, inline code,
+   * lists, line breaks) is supported; raw HTML is not.
+   */
   description: z.string().min(1),
   /** Synthesis Skills are never inheritable; the picker excludes them. */
   isSynthesis: z.boolean(),
   /**
    * The Skill's Effect block, if any. Archetype-scoped effects are folded
    * inline with a "(Mage Only) …" prefix; multiple blocks are newline-joined.
+   * Rendered as Markdown via {@link SkillText} on the character sheet.
    */
   effect: z.string().min(1).optional(),
 }

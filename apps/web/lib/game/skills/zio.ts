@@ -4,7 +4,8 @@ export const zio = {
   kind: "attack",
   key: "zio",
   name: "Zio",
-  description: "Deals weak elec damage to one enemy.",
+  tagline: "Weak Elec magic vs. one enemy. Shocks on a 20+.",
+  description: "Deals weak **Elec** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
@@ -19,5 +20,5 @@ export const zio = {
     ],
   },
   effect:
-    "(Mage Only) Produces 1 Elec Stain. Consumes 1 Wind Stain to deal an extra 1d4 Elec damage.",
+    "**(Mage Only)** Produces 1 **Elec Stain**. Consumes 1 **Wind Stain** to deal an extra `1d4` **Elec** damage.",
 } satisfies Skill

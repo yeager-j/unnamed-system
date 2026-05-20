@@ -4,7 +4,8 @@ export const agi = {
   kind: "attack",
   key: "agi",
   name: "Agi",
-  description: "Deals weak fire damage to one enemy.",
+  tagline: "Weak Fire magic vs. one enemy. Burns on a 20+.",
+  description: "Deals weak **Fire** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
@@ -19,5 +20,5 @@ export const agi = {
     ],
   },
   effect:
-    "(Mage Only) Produces 1 Fire Stain. Consumes 1 Ice Stain to deal an extra 1d4 Fire damage.",
+    "**(Mage Only)** Produces 1 **Fire Stain**. Consumes 1 **Ice Stain** to deal an extra `1d4` **Fire** damage.",
 } satisfies Skill

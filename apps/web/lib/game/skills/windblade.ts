@@ -4,7 +4,8 @@ export const windblade = {
   kind: "attack",
   key: "windblade",
   name: "Windblade",
-  description: "Deals weak wind damage to one enemy.",
+  tagline: "Weak physical Wind vs. one enemy. Dizzy on a 20+.",
+  description: "Deals weak **Wind** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "engaged" },
@@ -18,5 +19,6 @@ export const windblade = {
       { band: "20+", formula: "1d10 + St", sideEffects: ["Dizzy"] },
     ],
   },
-  effect: "(Warrior Only) If your Perfection is B, Range becomes All Engaged.",
+  effect:
+    "**(Warrior Only)** If your **Perfection** is B, Range becomes **All Engaged**.",
 } satisfies Skill

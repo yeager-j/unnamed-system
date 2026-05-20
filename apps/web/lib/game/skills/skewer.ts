@@ -4,7 +4,8 @@ export const skewer = {
   kind: "attack",
   key: "skewer",
   name: "Skewer",
-  description: "A weak piercing attack targeting a single enemy.",
+  tagline: "Weak single-target Pierce. Crits on a 20+.",
+  description: "A weak **Pierce** attack targeting a single enemy.",
   isSynthesis: false,
   cost: { kind: "hp-percent", amount: 5 },
   range: { kind: "known", value: "engaged" },
@@ -19,5 +20,5 @@ export const skewer = {
     ],
   },
   effect:
-    "(Knight Only) You can spend 2 Valor to turn Critical into Auto-Critical. You can choose to spend the Valor after seeing the result of your Attack Roll, but you must do so before the DM determines if the Critical lands.",
+    "**(Knight Only)** You can spend 2 **Valor** to turn **Critical** into **Auto-Critical**. You can choose to spend the **Valor** after seeing the result of your Attack Roll, but you must do so before the DM determines if the **Critical** lands.",
 } satisfies Skill

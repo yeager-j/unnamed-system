@@ -4,7 +4,8 @@ export const bufu = {
   kind: "attack",
   key: "bufu",
   name: "Bufu",
-  description: "Deals weak ice damage to one enemy.",
+  tagline: "Weak Ice magic vs. one enemy. Freezes on a 20+.",
+  description: "Deals weak **Ice** damage to one enemy.",
   isSynthesis: false,
   cost: { kind: "sp", amount: 4 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
@@ -19,5 +20,5 @@ export const bufu = {
     ],
   },
   effect:
-    "(Mage Only) Produces 1 Ice Stain. Consumes 1 Elec Stain to deal an extra 1d4 Ice damage.",
+    "**(Mage Only)** Produces 1 **Ice Stain**. Consumes 1 **Elec Stain** to deal an extra `1d4` **Ice** damage.",
 } satisfies Skill
