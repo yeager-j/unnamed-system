@@ -16,7 +16,7 @@ export const windblade = {
     tiers: [
       { band: "1-10", formula: "1d6 + St", sideEffects: [] },
       { band: "11-19", formula: "1d10 + St", sideEffects: [] },
-      { band: "20+", formula: "1d10 + St", sideEffects: ["Dizzy"] },
+      { band: "20+", formula: "1d10 + St", sideEffects: ["dizzy"] },
     ],
   },
   effect:

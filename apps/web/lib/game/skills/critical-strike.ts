@@ -17,7 +17,7 @@ export const criticalStrike = {
     tiers: [
       { band: "1-10", formula: "1d4 + St", sideEffects: [] },
       { band: "11-15", formula: "1d8 + St", sideEffects: [] },
-      { band: "16+", formula: "1d8 + St", sideEffects: ["Critical"] },
+      { band: "16+", formula: "1d8 + St", sideEffects: ["critical"] },
     ],
   },
   effect:

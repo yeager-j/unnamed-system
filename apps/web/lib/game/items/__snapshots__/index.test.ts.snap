@@ -21,7 +21,7 @@ exports[`Longsword transcription (PRD §6.2) > matches the Longsword snapshot en
           "band": "20+",
           "formula": "1d6 + St",
           "sideEffects": [
-            "Critical",
+            "critical",
           ],
         },
       ],
