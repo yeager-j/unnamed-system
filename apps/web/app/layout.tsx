@@ -5,6 +5,7 @@ import "@workspace/ui/globals.css"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { SiteHeader } from "@/components/site-header"
 import { ThemeProvider } from "@/components/theme-provider"
 
 const fontSans = Geist({
@@ -35,7 +36,10 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <SiteHeader />
+            {children}
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>
