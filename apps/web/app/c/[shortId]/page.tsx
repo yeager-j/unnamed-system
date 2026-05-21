@@ -21,6 +21,8 @@ import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
 import { Skills } from "@/components/character-sheet/skills"
 import { Talents } from "@/components/character-sheet/talents"
 import { Virtues } from "@/components/character-sheet/virtues"
+import { ViewerRoleProvider } from "@/components/viewer-role"
+import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 
@@ -88,61 +90,65 @@ export default async function CharacterSheetPage({
     notFound()
   }
 
+  const role = await getViewerRole(character)
+
   return (
     <main className="mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
-      <SheetHeader character={character} />
+      <ViewerRoleProvider role={role}>
+        <SheetHeader character={character} />
 
-      <CharacterProvider character={character}>
-        <SheetTabs
-          defaultTab={resolveTab(tab)}
-          combat={
-            <>
-              <section aria-label="Affinities">
-                <Affinities character={character} />
-              </section>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {character.activeMechanic ? (
-                  <section aria-label="Archetype Mechanic">
-                    <MechanicWidget />
+        <CharacterProvider character={character}>
+          <SheetTabs
+            defaultTab={resolveTab(tab)}
+            combat={
+              <>
+                <section aria-label="Affinities">
+                  <Affinities character={character} />
+                </section>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {character.activeMechanic ? (
+                    <section aria-label="Archetype Mechanic">
+                      <MechanicWidget />
+                    </section>
+                  ) : null}
+                  <section aria-label="Combat State">
+                    <CombatState character={character} />
                   </section>
-                ) : null}
-                <section aria-label="Combat State">
-                  <CombatState character={character} />
+                </div>
+                <section aria-label="Skills">
+                  <Skills character={character} />
                 </section>
-              </div>
-              <section aria-label="Skills">
-                <Skills character={character} />
-              </section>
-            </>
-          }
-          explore={
-            <>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <section aria-label="Virtues">
-                  <Virtues character={character} />
+              </>
+            }
+            explore={
+              <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <section aria-label="Virtues">
+                    <Virtues character={character} />
+                  </section>
+                  <section aria-label="Talents">
+                    <Talents character={character} />
+                  </section>
+                </div>
+                <section aria-label="Identity">
+                  <Identity character={character} />
                 </section>
-                <section aria-label="Talents">
-                  <Talents character={character} />
+                <section aria-label="Knives & Chains">
+                  <KnivesChains character={character} />
                 </section>
-              </div>
-              <section aria-label="Identity">
-                <Identity character={character} />
-              </section>
-              <section aria-label="Knives & Chains">
-                <KnivesChains character={character} />
-              </section>
-              <section aria-label="Background">
-                <Background character={character} />
-              </section>
-              <section aria-label="Notes">
-                <Notes character={character} />
-              </section>
-            </>
-          }
-          inventory={<Inventory character={character} />}
-          archetypes={<Archetypes character={character} />}
-        />
-      </CharacterProvider>
+                <section aria-label="Background">
+                  <Background character={character} />
+                </section>
+                <section aria-label="Notes">
+                  <Notes character={character} />
+                </section>
+              </>
+            }
+            inventory={<Inventory character={character} />}
+            archetypes={<Archetypes character={character} />}
+          />
+        </CharacterProvider>
+      </ViewerRoleProvider>
     </main>
   )
 }

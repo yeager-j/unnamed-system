@@ -72,6 +72,50 @@ const DEV_USER = {
 } as const
 
 /**
+ * A minimal character owned by {@link DEV_USER} so the Playwright auth fixture
+ * (which signs in as Claude) has a sheet it owns to assert owner-mode chrome
+ * against. UNN-176 added this so the {@link OwnerControlsSlot} E2E case has a
+ * deterministic URL — the showcase {@link SEED_CHARACTERS} roster stays
+ * SEED_USER-owned and continues to serve as the signed-in-non-owner case.
+ */
+const DEV_USER_CHARACTER: SeedCharacter = {
+  slug: "claude",
+  shortId: "claude-1",
+  name: "Iris Vey",
+  pronouns: "she/her",
+  level: 1,
+  pathChoice: "balanced",
+  activeArchetypeKey: "warrior",
+  archetypes: [
+    {
+      archetypeKey: "warrior",
+      rank: 1,
+      mechanicState: { kind: "perfection", rank: 0 },
+    },
+  ],
+  manualBonuses: {},
+  ancestryText: "",
+  backgroundText: "",
+  backstoryText: "",
+  personalityTraits: [],
+  hopes: [],
+  dreams: [],
+  fears: [],
+  secrets: [],
+  notes: "",
+  knives: [],
+  chains: [],
+  talents: [],
+  items: [],
+  victories: 0,
+  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
+  sparkLog: [],
+  exhaustion: 0,
+  ailments: [],
+  battleConditions: null,
+}
+
+/**
  * The character's full max HP/SP, derived through the production stat engine so
  * a Mastered Archetype's bonus (and equipped-item bonuses) land in the
  * persisted pools exactly as the sheet will display them.
@@ -81,7 +125,10 @@ function deriveMaxPools(character: SeedCharacter): { hp: number; sp: number } {
   return { hp: computeMaxHP(stats), sp: computeMaxSP(stats) }
 }
 
-async function seedCharacter(character: SeedCharacter): Promise<void> {
+async function seedCharacter(
+  character: SeedCharacter,
+  ownerId: string
+): Promise<void> {
   const characterId = `seed-char-${character.slug}`
   const max = deriveMaxPools(character)
   const currentHP = character.damage ? character.damage.hp : max.hp
@@ -98,7 +145,7 @@ async function seedCharacter(character: SeedCharacter): Promise<void> {
   const row = {
     id: characterId,
     shortId: character.shortId,
-    ownerId: SEED_USER.id,
+    ownerId,
     name: character.name,
     pronouns: character.pronouns,
     level: character.level,
@@ -246,11 +293,13 @@ async function seed(): Promise<void> {
     .onConflictDoUpdate({ target: users.id, set: DEV_USER })
 
   for (const character of SEED_CHARACTERS) {
-    await seedCharacter(character)
+    await seedCharacter(character, SEED_USER.id)
   }
 
+  await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
+
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length} characters and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 1} characters and 1 dev user.`
   )
 }
 
