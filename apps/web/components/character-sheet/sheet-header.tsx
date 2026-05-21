@@ -6,11 +6,13 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
+import { OwnerOnly } from "@/components/viewer-role"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
 
 import { Attributes } from "./attributes"
+import { OwnerControlsSlot } from "./owner-controls-slot"
 import { Vitals } from "./vitals"
 
 /**
@@ -22,7 +24,11 @@ import { Vitals } from "./vitals"
  * because they matter in every encounter context — Victories is progress
  * toward the next level, shown read-only (the award/level-up controls are a
  * separate owner-mode ticket). A `Fallen` badge surfaces when current HP has
- * reached 0. No controls; the public sheet never mutates state.
+ * reached 0. No controls inline; the owner-mode actions affordance lives in
+ * an empty {@link OwnerControlsSlot} placeholder wrapped in {@link OwnerOnly},
+ * so it only renders when the surrounding {@link ViewerRoleProvider} reports
+ * the viewer is the owner. Subsequent tickets drop their controls into the
+ * slot without restructuring this layout (PRD §6.1).
  */
 export function SheetHeader({ character }: { character: HydratedCharacter }) {
   const fallen = character.currentHP <= 0
@@ -65,6 +71,12 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
             <p className="text-sm text-muted-foreground">
               {character.currency} gp
             </p>
+
+            <OwnerOnly>
+              <div className="mt-2">
+                <OwnerControlsSlot />
+              </div>
+            </OwnerOnly>
           </div>
         </div>
 
