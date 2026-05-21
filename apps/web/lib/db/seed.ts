@@ -27,15 +27,19 @@ import {
  * rows are deleted then re-inserted — so a second run neither duplicates rows
  * nor changes any public `/c/{shortId}` URL.
  *
- * The db client reads `DATABASE_URL` lazily on first query, so `.env.local`
- * is loaded (when `DATABASE_URL` is not already in the environment) before any
- * database call below.
+ * The db client reads `DATABASE_URL` lazily on first query, so the repo-root
+ * `.env.local` is loaded (when `DATABASE_URL` is not already in the
+ * environment) before any database call below. The root is the single source
+ * of truth — `next.config.ts` and `drizzle.config.ts` follow the same
+ * convention.
  *
  * Run with: `cd apps/web && npm run db:seed`
  */
 
 if (!process.env.DATABASE_URL) {
-  const envPath = fileURLToPath(new URL("../../.env.local", import.meta.url))
+  const envPath = fileURLToPath(
+    new URL("../../../../.env.local", import.meta.url)
+  )
   if (existsSync(envPath)) process.loadEnvFile(envPath)
 }
 
@@ -54,6 +58,17 @@ const SEED_USER = {
   id: "seed-user",
   email: "seed@persona.local",
   name: "Persona System Seed",
+} as const
+
+/**
+ * Dev-only sign-in target (UNN-185). Has no `account` row, so the only path to
+ * a session is via `POST /api/dev/sign-in` (locally) or Playwright's
+ * `globalSetup` (in CI). Never used by the prod OAuth flow.
+ */
+const DEV_USER = {
+  id: "dev-user-claude",
+  email: "claude@unnamed-system.local",
+  name: "Claude",
 } as const
 
 /**
@@ -225,11 +240,18 @@ async function seed(): Promise<void> {
     .values(SEED_USER)
     .onConflictDoUpdate({ target: users.id, set: SEED_USER })
 
+  await db
+    .insert(users)
+    .values(DEV_USER)
+    .onConflictDoUpdate({ target: users.id, set: DEV_USER })
+
   for (const character of SEED_CHARACTERS) {
     await seedCharacter(character)
   }
 
-  console.log(`Done. Seeded ${SEED_CHARACTERS.length} characters.`)
+  console.log(
+    `Done. Seeded ${SEED_CHARACTERS.length} characters and 1 dev user.`
+  )
 }
 
 await seed()

@@ -18,9 +18,10 @@ let cached: AuthEnv | undefined
  * touching the OAuth flow; only an actual sign-in (or `auth()` reading the
  * cookie) hits validation.
  *
- * `AUTH_REDIRECT_PROXY_URL` is only set on Vercel preview deployments — it
- * forwards OAuth callbacks through the production host so Google only needs
- * one redirect URI registered.
+ * `AUTH_REDIRECT_PROXY_URL` is set on both Vercel Production and Preview
+ * (same value, pointing at the production URL); Auth.js detects proxy-mode
+ * by comparing the current request origin to this URL. Forwards OAuth
+ * callbacks through prod so Google only needs one redirect URI registered.
  */
 export function getAuthEnv(): AuthEnv {
   cached ??= envSchema.parse({
