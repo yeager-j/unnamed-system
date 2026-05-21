@@ -16,6 +16,7 @@ node_modules
 coverage
 /apps/web/test-results/
 /apps/web/playwright-report/
+/apps/web/.playwright/
 /apps/web/blob-report/
 /apps/web/playwright/.cache/
 

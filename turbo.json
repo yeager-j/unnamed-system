@@ -10,7 +10,9 @@
     "AUTH_TRUST_HOST",
     "AUTH_REDIRECT_PROXY_URL",
     "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET"
+    "GOOGLE_CLIENT_SECRET",
+    "DEV_AUTH_EMAIL",
+    "DEV_AUTH_PASSWORD"
   ],
   "tasks": {
     "build": {

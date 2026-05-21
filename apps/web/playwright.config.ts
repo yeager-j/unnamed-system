@@ -15,6 +15,7 @@ const extraHTTPHeaders = bypassSecret
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/auth.setup.ts",
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

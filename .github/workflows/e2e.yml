@@ -72,6 +72,10 @@ jobs:
         working-directory: apps/web
         run: npm run db:seed
 
+      # Playwright's globalSetup (e2e/auth.setup.ts) inherits DATABASE_URL from
+      # the job env (set above via $GITHUB_ENV) to land a session row for the
+      # seeded claude@unnamed-system.local user and write the storage-state
+      # cookie that authenticated specs opt into. No new secrets required.
       - name: Run E2E tests
         working-directory: apps/web
         run: npx playwright test
