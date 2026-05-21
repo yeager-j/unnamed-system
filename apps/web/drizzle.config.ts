@@ -1,9 +1,10 @@
-import { dirname } from "node:path"
+import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { loadEnvConfig } from "@next/env"
 import { defineConfig } from "drizzle-kit"
 
-loadEnvConfig(dirname(fileURLToPath(import.meta.url)))
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
+loadEnvConfig(repoRoot)
 
 const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL
 

@@ -1,26 +1,34 @@
-import { neon } from "@neondatabase/serverless"
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http"
+import { Pool } from "@neondatabase/serverless"
+import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless"
 
 import { getDbEnv } from "./env"
 import * as schema from "./schema/user"
 
-type Database = NeonHttpDatabase<typeof schema>
+type Database = NeonDatabase<typeof schema>
 
 let cached: Database | undefined
 
-function getDb(): Database {
+/**
+ * Returns the lazily-initialized Drizzle client. Prefer importing {@link db}
+ * (the auto-resolving Proxy) for normal queries; reach for this helper when
+ * you need the underlying instance for libraries that runtime-check the
+ * Drizzle entity kind (e.g. `@auth/drizzle-adapter`'s `is(db, PgDatabase)`),
+ * which a Proxy can't satisfy without prototype-chain trickery.
+ */
+export function getDb(): Database {
   if (!cached) {
-    cached = drizzle(neon(getDbEnv().DATABASE_URL), { schema })
+    const pool = new Pool({ connectionString: getDbEnv().DATABASE_URL })
+    cached = drizzle(pool, { schema })
   }
   return cached
 }
 
 /**
- * Drizzle client backed by Neon's serverless HTTP driver. Suitable for React
- * Server Components and Server Actions. Multi-statement interactive
- * transactions are not supported by `neon-http` — use `db.batch` for atomic
- * groups, or switch to `drizzle-orm/neon-serverless` if transactions become a
- * hard requirement.
+ * Drizzle client backed by Neon's serverless WebSocket driver. Suitable for
+ * React Server Components, route handlers, and Server Actions, and supports
+ * interactive transactions (`db.transaction(...)`) — required by
+ * `@auth/drizzle-adapter`'s `linkAccount` path and by future concurrency-safe
+ * character writes (UNN-140).
  *
  * The underlying client is created lazily on first use (via {@link getDb}) so
  * importing this module never requires `DATABASE_URL` — that keeps
