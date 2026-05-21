@@ -1,4 +1,7 @@
 import { getSkill } from "../skills"
+import { bladeturnMail } from "./bladeturn-mail"
+import { longsword } from "./longsword"
+import { runedCane } from "./runed-cane"
 import {
   equippableItemSchema,
   type Accessory,
@@ -6,9 +9,6 @@ import {
   type EquippableItem,
   type Weapon,
 } from "./schema"
-import { bladeturnMail } from "./bladeturn-mail"
-import { longsword } from "./longsword"
-import { runedCane } from "./runed-cane"
 import { zephyrBand } from "./zephyr-band"
 
 /**

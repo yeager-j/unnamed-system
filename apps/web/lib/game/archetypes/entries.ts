@@ -1,5 +1,8 @@
-import { toStatComputationCharacter } from "@/lib/db/load-character"
-import type { CharacterArchetypeRow } from "@/lib/db/load-character"
+import {
+  toStatComputationCharacter,
+  type CharacterArchetypeRow,
+} from "@/lib/db/load-character"
+
 import type { HydratedCharacter, HydratedSkill } from "../hydrated-character"
 import { resolveSkillCost, type CastingCharacter } from "../skill-cost"
 import { getSkill } from "../skills"

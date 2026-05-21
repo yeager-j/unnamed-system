@@ -6,12 +6,14 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
+
 import type {
   HydratedCharacter,
   HydratedInventoryItem,
 } from "@/lib/game/hydrated-character"
 import { getEquippedItem } from "@/lib/game/items"
 import type { EquippableItem } from "@/lib/game/items/schema"
+
 import { EquippedSlot } from "./equipped-slot"
 import { InventoryRow } from "./inventory-row"
 

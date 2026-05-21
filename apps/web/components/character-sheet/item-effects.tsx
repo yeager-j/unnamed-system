@@ -1,8 +1,9 @@
 import { Badge } from "@workspace/ui/components/badge"
+
 import type { Affinity, AffinityDamageType } from "@/lib/game/affinity"
 import type { BonusTargetKey } from "@/lib/game/effects"
-import { getSkill } from "@/lib/game/skills"
 import type { ItemEffect } from "@/lib/game/items/schema"
+import { getSkill } from "@/lib/game/skills"
 
 /**
  * Renders an equippable item's effect list as inline badges. Shared by the

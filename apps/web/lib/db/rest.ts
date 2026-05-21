@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm"
-import { err, ok, type Result } from "../game/result"
+
+import { HydratedCharacter } from "../game/hydrated-character"
 import {
   applyFullRest,
   applyPartialRest,
@@ -9,13 +10,13 @@ import {
   type RestError,
   type RestingCharacter,
 } from "../game/rest"
+import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
 import {
   loadHydratedCharacterById,
   toStatComputationCharacter,
 } from "./load-character"
 import { characters } from "./schema/character"
-import { HydratedCharacter } from "../game/hydrated-character"
 
 /**
  * Persistence for the pure rest engine: hydrate the character via

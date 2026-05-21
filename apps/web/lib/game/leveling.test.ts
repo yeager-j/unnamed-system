@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest"
+
 import {
   applyLevelUp,
   canLevelUp,
-  type LevelingCharacter,
   MAX_LEVEL,
+  type LevelingCharacter,
 } from "./leveling"
 
 /** Default: a fresh Level 1 character with no banked Victories. */

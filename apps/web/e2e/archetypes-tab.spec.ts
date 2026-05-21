@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
 /**
  * End-to-end checks for the public Archetypes tab (UNN-147 / PRD §6.1 / §7.8).

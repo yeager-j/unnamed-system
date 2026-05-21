@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest"
+
+import { warrior } from "./archetypes/warrior"
 import {
   buildStatComputationCharacter,
   type PersistedArchetypeState,
   type PersistedCharacterState,
 } from "./stat-character"
-import { warrior } from "./archetypes/warrior"
 
 const baseCharacter: PersistedCharacterState = {
   pathChoice: "balanced",

@@ -1,8 +1,9 @@
 import { z } from "zod/v4"
-import { perfectionStateSchema, type PerfectionState } from "./perfection"
-import { valorStateSchema, type ValorState } from "./valor"
+
 import { pathOfDawnStateSchema, type PathOfDawnState } from "./path-of-dawn"
+import { perfectionStateSchema, type PerfectionState } from "./perfection"
 import { stainsStateSchema, type StainsState } from "./stains"
+import { valorStateSchema, type ValorState } from "./valor"
 
 /**
  * Discriminated union of every mechanic state shape. The registry in

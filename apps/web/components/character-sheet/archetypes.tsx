@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
+
 import {
   buildArchetypeEntries,
   groupByLineage,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
 import { formatMasteryDescription } from "./archetypes/format"

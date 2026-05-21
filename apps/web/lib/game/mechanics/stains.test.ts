@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { STAIN_ELEMENTS, STAIN_SLOT_COUNT, stains } from "./stains"
+
 import { mechanicStateSchema } from "./schema"
+import { STAIN_ELEMENTS, STAIN_SLOT_COUNT, stains } from "./stains"
 
 describe("stains", () => {
   it("starts with four empty slots", () => {

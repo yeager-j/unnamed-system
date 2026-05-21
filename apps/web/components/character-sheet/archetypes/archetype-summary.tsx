@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -17,13 +18,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+
 import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import {
   ATTRIBUTE_KEYS,
   hasMasteryBonus,
   hasUnlockedRank,
 } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
+
 import { Prose } from "../prose"
 import { DetailSection } from "./detail-section"
 import {
@@ -35,7 +39,6 @@ import {
   formatTalentLabel,
 } from "./format"
 import { LINEAGE_LABELS, TIER_LABELS } from "./lineage-labels"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 
 /**
  * One Archetype's compact row in the Lineage-grouped list. Built on the

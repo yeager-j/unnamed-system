@@ -1,5 +1,6 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
+
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 
 interface SkillCostBadgeProps {

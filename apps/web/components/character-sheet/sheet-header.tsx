@@ -5,9 +5,11 @@ import {
 } from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import { archetypeDisplayName } from "@/lib/game/archetypes"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
+
 import { Attributes } from "./attributes"
 import { Vitals } from "./vitals"
 

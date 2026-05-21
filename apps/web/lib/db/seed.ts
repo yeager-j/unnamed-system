@@ -1,18 +1,19 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 import { eq } from "drizzle-orm"
-import {
-  computeMaxHitDice,
-  computeMaxHP,
-  computeMaxSkillDice,
-  computeMaxSP,
-} from "../game/stats"
+
 import {
   archetypeId,
   buildSeedStatCharacter,
   SEED_CHARACTERS,
   type SeedCharacter,
 } from "../__fixtures__/seed-characters"
+import {
+  computeMaxHitDice,
+  computeMaxHP,
+  computeMaxSkillDice,
+  computeMaxSP,
+} from "../game/stats"
 
 /**
  * Idempotent database seed. Persists the {@link SEED_CHARACTERS} roster so the

@@ -1,6 +1,7 @@
-import { cache } from "react"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
+import { cache } from "react"
+
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
 import { Background } from "@/components/character-sheet/background"

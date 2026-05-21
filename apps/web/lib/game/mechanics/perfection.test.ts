@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+
+import type { StatComputationCharacter } from "../stats"
 import {
   attackBonusForRank,
   perfection,
@@ -6,7 +8,6 @@ import {
   PERFECTION_RANK_LABELS,
   rankLabel,
 } from "./perfection"
-import type { StatComputationCharacter } from "../stats"
 
 const baseStats: StatComputationCharacter = {
   pathChoice: "balanced",

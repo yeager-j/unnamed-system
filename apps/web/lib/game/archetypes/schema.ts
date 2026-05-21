@@ -1,4 +1,5 @@
 import { z } from "zod/v4"
+
 import { AFFINITIES, type Affinity, type DamageType } from "../affinity"
 import type { MechanicKind } from "../mechanics/schema"
 import type { SkillKey } from "../skills"

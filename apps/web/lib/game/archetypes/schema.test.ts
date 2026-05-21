@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+
 import { archetypeSchema, type Archetype, type ArchetypeTier } from "./schema"
 
 const TIER: ArchetypeTier = "initiate"

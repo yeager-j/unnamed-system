@@ -1,8 +1,3 @@
-import type { Affinity, DamageType } from "./affinity"
-import type { EquippableItem } from "./items/schema"
-import type { ResolvedSkillCost } from "./skill-cost"
-import type { Skill } from "./skills/schema"
-import type { ActiveMechanic, AttackRollBonus, AttributeScores } from "./stats"
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
@@ -11,6 +6,11 @@ import type {
   CharacterTalentRow,
   InventoryItemRow,
 } from "../db/load-character"
+import type { Affinity, DamageType } from "./affinity"
+import type { EquippableItem } from "./items/schema"
+import type { ResolvedSkillCost } from "./skill-cost"
+import type { Skill } from "./skills/schema"
+import type { ActiveMechanic, AttackRollBonus, AttributeScores } from "./stats"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every

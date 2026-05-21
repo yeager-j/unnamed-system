@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest"
+
 import { getTalent } from "../talents"
-import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
+import { healer } from "./healer"
 import {
   archetypeDisplayName,
   ARCHETYPES,
   getAllArchetypes,
   getArchetype,
 } from "./index"
-import { healer } from "./healer"
 import { knight } from "./knight"
 import { mage } from "./mage"
+import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
 import { warrior } from "./warrior"
 
 describe("archetype data", () => {

@@ -6,8 +6,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+
 import { getArchetype } from "@/lib/game/archetypes"
 import { getMechanic } from "@/lib/game/mechanics"
+
 import { useCharacter } from "../character-context"
 import { renderMechanicWidget } from "./widget-registry"
 

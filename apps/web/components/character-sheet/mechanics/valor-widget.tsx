@@ -1,7 +1,7 @@
 import {
   VALOR_MAX,
-  VALOR_THRESHOLDS,
   VALOR_THRESHOLD_DESCRIPTIONS,
+  VALOR_THRESHOLDS,
   type ValorState,
 } from "@/lib/game/mechanics/valor"
 
