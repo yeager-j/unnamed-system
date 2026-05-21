@@ -1,4 +1,5 @@
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
+
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -6,12 +7,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import { getAilment } from "@/lib/game/ailments"
 import type {
   BattleConditions,
   BattleConditionState,
 } from "@/lib/game/character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**
  * The read-only Combat State block (PRD §6.1 Combat tab > Combat State): the

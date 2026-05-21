@@ -1,22 +1,26 @@
-import { type Affinity, DAMAGE_TYPES, type DamageType } from "./affinity"
-import type { ManualBonuses, PathChoice } from "./character"
+import { DAMAGE_TYPES, type Affinity, type DamageType } from "./affinity"
 import { getArchetype } from "./archetypes"
 import {
   ATTRIBUTE_KEYS,
-  type AttributeKey,
   hasMasteryBonus,
   resolveAffinity,
+  type AttributeKey,
 } from "./archetypes/schema"
+import type { ManualBonuses, PathChoice } from "./character"
 import {
+  BONUS_TARGET_KEYS,
   type AffinityEffect,
   type AttackRollEffect,
   type AttributeEffect,
-  BONUS_TARGET_KEYS,
   type BonusTargetKey,
 } from "./effects"
 import type { EquippableItem } from "./items/schema"
-import { mechanicEffectsFor } from "./mechanics"
-import type { MechanicEffect, MechanicKind, MechanicState } from "./mechanics"
+import {
+  mechanicEffectsFor,
+  type MechanicEffect,
+  type MechanicKind,
+  type MechanicState,
+} from "./mechanics"
 import type { Skill } from "./skills/schema"
 
 /**

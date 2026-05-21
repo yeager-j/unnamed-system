@@ -1,4 +1,5 @@
 import { Progress } from "@workspace/ui/components/progress"
+
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**

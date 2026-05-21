@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
-import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
+
 import { DAMAGE_TYPES } from "../affinity"
+import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
 import { affinityEffectSchema, attributeEffectSchema } from "../effects"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)

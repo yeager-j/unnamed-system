@@ -1,5 +1,5 @@
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { ATTRIBUTE_KEYS, type AttributeKey } from "@/lib/game/archetypes/schema"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**
  * The read-only Attributes block (PRD §6.1 / §7.1): Strength, Magic, Agility,

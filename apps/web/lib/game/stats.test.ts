@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest"
-import {
-  computeAffinityChart,
-  computeAttackRollBonus,
-  computeAttributes,
-  computeMaxHitDice,
-  computeMaxHP,
-  computeMaxSkillDice,
-  computeMaxSP,
-  type StatComputationCharacter,
-} from "./stats"
+
+import { mage } from "./archetypes/mage"
+import { warrior } from "./archetypes/warrior"
 import {
   accessoryWithEffects,
   magicAccessory,
@@ -19,8 +12,16 @@ import {
   weaknessArmor,
 } from "./fixtures"
 import { cleave } from "./skills/cleave"
-import { mage } from "./archetypes/mage"
-import { warrior } from "./archetypes/warrior"
+import {
+  computeAffinityChart,
+  computeAttackRollBonus,
+  computeAttributes,
+  computeMaxHitDice,
+  computeMaxHP,
+  computeMaxSkillDice,
+  computeMaxSP,
+  type StatComputationCharacter,
+} from "./stats"
 
 function makeCharacter(
   overrides: Partial<StatComputationCharacter> = {}

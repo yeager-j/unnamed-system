@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import { valor, VALOR_MAX, VALOR_THRESHOLDS } from "./valor"
+
 import type { StatComputationCharacter } from "../stats"
+import { valor, VALOR_MAX, VALOR_THRESHOLDS } from "./valor"
 
 const baseStats: StatComputationCharacter = {
   pathChoice: "balanced",

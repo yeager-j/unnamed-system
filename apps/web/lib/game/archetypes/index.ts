@@ -1,10 +1,10 @@
 import { getMechanic } from "../mechanics"
 import { getSkill } from "../skills"
 import { getTalent } from "../talents"
-import { archetypeSchema, type Archetype } from "./schema"
 import { healer } from "./healer"
 import { knight } from "./knight"
 import { mage } from "./mage"
+import { archetypeSchema, type Archetype } from "./schema"
 import { warrior } from "./warrior"
 
 /**

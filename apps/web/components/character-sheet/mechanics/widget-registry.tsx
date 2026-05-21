@@ -1,8 +1,10 @@
 import { type ReactNode } from "react"
+
 import { rankLabel } from "@/lib/game/mechanics/perfection"
 import type { MechanicKind, MechanicState } from "@/lib/game/mechanics/schema"
 import { STAIN_ELEMENT_LABELS } from "@/lib/game/mechanics/stains"
 import { VALOR_MAX } from "@/lib/game/mechanics/valor"
+
 import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PerfectionWidget } from "./perfection-widget"
 import { StainsWidget } from "./stains-widget"

@@ -14,10 +14,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
+
 import type { DamageType } from "@/lib/game/affinity"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { Skill } from "@/lib/game/skills/schema"
+
 import { IntrinsicAttackCard, SkillCard } from "./skill-card"
 import { SkillCostBadge } from "./skill-cost-badge"
 

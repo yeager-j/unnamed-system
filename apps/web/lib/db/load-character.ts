@@ -1,4 +1,5 @@
 import { asc, eq } from "drizzle-orm"
+
 import type { HydratedCharacter } from "../game/hydrated-character"
 import { getEquippableItem } from "../game/items"
 import { resolveSkillCost, type CastingCharacter } from "../game/skill-cost"
@@ -18,8 +19,8 @@ import {
   characterArchetypes,
   characterChains,
   characterKnives,
-  characterTalents,
   characters,
+  characterTalents,
   inventoryItems,
 } from "./schema/character"
 

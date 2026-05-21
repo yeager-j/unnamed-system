@@ -1,10 +1,11 @@
 import { z } from "zod/v4"
+
 import { DAMAGE_TYPES } from "../affinity"
 import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
 import {
   affinityEffectSchema,
-  type AffinityEffect,
   attributeEffectSchema,
+  type AffinityEffect,
   type AttributeEffect,
 } from "../effects"
 import type { SkillKey } from "../skills"

@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext } from "react"
+
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**

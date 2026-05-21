@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 
 /**
  * End-to-end checks for the per-Archetype mechanic engine. These assertions

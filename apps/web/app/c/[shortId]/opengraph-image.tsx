@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og"
+
 import { loadCharacterRowByShortId } from "@/lib/db/load-character"
 
 /**

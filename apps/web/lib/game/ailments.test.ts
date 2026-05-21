@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
+
 import {
-  ailmentSchema,
   AILMENT_KEYS,
   AILMENTS,
+  ailmentSchema,
   getAilment,
   getAllAilments,
 } from "./ailments"

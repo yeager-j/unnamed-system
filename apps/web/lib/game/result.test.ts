@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+
 import { err, ok } from "./result"
 
 describe("Result constructors", () => {

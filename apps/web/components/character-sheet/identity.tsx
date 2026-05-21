@@ -4,8 +4,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import type { IdentityList } from "@/lib/game/character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import { Prose } from "./prose"
 
 /**

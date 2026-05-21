@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, type ReactNode } from "react"
 import { type Icon } from "@phosphor-icons/react"
 import {
   BackpackIcon,
@@ -8,12 +7,15 @@ import {
   CompassIcon,
   SwordIcon,
 } from "@phosphor-icons/react/dist/ssr"
+import { useState, type ReactNode } from "react"
+
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
+
 import { type SheetTabKey } from "./sheet-tab-keys"
 
 const TABS: ReadonlyArray<{ key: SheetTabKey; label: string; Icon: Icon }> = [

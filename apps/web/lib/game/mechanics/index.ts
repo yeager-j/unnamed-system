@@ -1,13 +1,13 @@
-import { perfection } from "./perfection"
-import { valor } from "./valor"
 import { pathOfDawn } from "./path-of-dawn"
-import { stains } from "./stains"
+import { perfection } from "./perfection"
 import type { MechanicKind, MechanicState } from "./schema"
+import { stains } from "./stains"
 import type {
   MechanicDefinition,
   MechanicEffect,
   MechanicEffectContext,
 } from "./types"
+import { valor } from "./valor"
 
 /**
  * The Archetype-mechanic registry. Each module owns its own state shape,

@@ -4,11 +4,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+
 import { Prose } from "./prose"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow

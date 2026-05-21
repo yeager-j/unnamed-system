@@ -1,4 +1,5 @@
 import { z } from "zod/v4"
+
 import { AFFINITIES, AFFINITY_DAMAGE_TYPES } from "./affinity"
 
 /**

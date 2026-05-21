@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { SKILLS } from "./skills"
+
 import { getAllWeapons } from "./items"
 import {
   getAllSideEffects,
@@ -8,6 +8,7 @@ import {
   SIDE_EFFECTS,
   sideEffectSchema,
 } from "./side-effects"
+import { SKILLS } from "./skills"
 
 describe("side-effect data", () => {
   it("validates every Side Effect against the schema", () => {

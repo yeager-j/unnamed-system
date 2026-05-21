@@ -4,8 +4,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
+
+import { useCharacter } from "@/components/character-sheet/character-context"
 import type { DamageType } from "@/lib/game/affinity"
+import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
@@ -21,7 +23,7 @@ import type {
   AttackRollSource,
   AttributeScores,
 } from "@/lib/game/stats"
-import { useCharacter } from "@/components/character-sheet/character-context"
+
 import { Prose } from "./prose"
 import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"

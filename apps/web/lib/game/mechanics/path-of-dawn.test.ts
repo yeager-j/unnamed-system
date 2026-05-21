@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+
 import { luminaCapFor, pathOfDawn } from "./path-of-dawn"
 
 describe("path of dawn", () => {

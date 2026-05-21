@@ -1,8 +1,9 @@
 import { z } from "zod/v4"
+
 import { err, ok, type Result } from "./result"
 import {
-  computeMaxHP,
   computeMaxHitDice,
+  computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
   type StatComputationCharacter,

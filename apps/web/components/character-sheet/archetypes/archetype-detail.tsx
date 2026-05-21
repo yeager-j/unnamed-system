@@ -1,6 +1,7 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
+
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
@@ -13,6 +14,7 @@ import {
   type Archetype,
 } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
+
 import { Prose } from "../prose"
 import { SkillRow } from "../skill-row"
 import { DetailSection } from "./detail-section"

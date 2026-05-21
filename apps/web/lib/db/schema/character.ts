@@ -1,5 +1,4 @@
 import {
-  type AnyPgColumn,
   boolean,
   integer,
   jsonb,
@@ -7,8 +6,12 @@ import {
   text,
   timestamp,
   unique,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core"
-import { users } from "./user"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
+
+import { MechanicState } from "@/lib/game/mechanics"
+
 import {
   ailmentsSchema,
   battleConditionsSchema,
@@ -24,8 +27,7 @@ import {
   type PathChoice,
   type SparkLog,
 } from "../../game/character"
-import { MechanicState } from "@/lib/game/mechanics"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
+import { users } from "./user"
 
 /**
  * The character sheet. Denormalized onto one row: in-session and progression
