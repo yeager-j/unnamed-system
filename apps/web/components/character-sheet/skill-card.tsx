@@ -1,8 +1,14 @@
 import { Badge } from "@workspace/ui/components/badge"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { DamageType } from "@/lib/game/affinity"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
+import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import {
   formatSignedBonus,
@@ -16,6 +22,7 @@ import type {
   AttributeScores,
 } from "@/lib/game/stats"
 import { useCharacter } from "@/components/character-sheet/character-context"
+import { Prose } from "./prose"
 import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"
 
@@ -231,7 +238,7 @@ function AttackRollTable({ roll }: { roll: AttackRoll }) {
         {roll.tiers.map((tier) => (
           <li
             key={tier.band}
-            className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1"
           >
             <Badge variant="outline" className="w-14 font-mono">
               {tier.band}
@@ -239,15 +246,43 @@ function AttackRollTable({ roll }: { roll: AttackRoll }) {
             <span className="font-mono text-sm">
               {hydrateFormula(tier.formula, attributes)}
             </span>
-            {tier.sideEffects.length > 0 ? (
-              <span className="text-muted-foreground italic">
-                — {tier.sideEffects.join(", ")}
-              </span>
-            ) : null}
+            {tier.sideEffects.map((key) => (
+              <SideEffectBadge key={key} sideEffectKey={key} />
+            ))}
           </li>
         ))}
       </ul>
     </section>
+  )
+}
+
+/**
+ * One Side Effect chip in an Attack Roll tier row. The Badge shows the canonical
+ * name (e.g. "Critical", "Insta-Kill (Light)") and the tooltip renders the
+ * side effect's rule description from the registry. Unknown keys are skipped —
+ * the schema rejects them at parse time, but this guards against bad
+ * persisted data slipping through.
+ */
+function SideEffectBadge({ sideEffectKey }: { sideEffectKey: SideEffectKey }) {
+  const sideEffect = getSideEffect(sideEffectKey)
+  if (!sideEffect) return null
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Badge variant="secondary" className="cursor-help">
+            {sideEffect.name}
+          </Badge>
+        }
+      />
+      {sideEffect.description ? (
+        <TooltipContent side="top" className="max-w-sm">
+          <Prose inverted className="prose-xs whitespace-normal">
+            {sideEffect.description}
+          </Prose>
+        </TooltipContent>
+      ) : null}
+    </Tooltip>
   )
 }
 

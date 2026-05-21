@@ -1,4 +1,5 @@
 import { z } from "zod/v4"
+import { SIDE_EFFECT_KEYS } from "./side-effects"
 
 /**
  * The Attack Roll mechanic (rulebook 3.3) is identical for Skills and weapons:
@@ -42,12 +43,13 @@ export const rangeSchema = z.discriminatedUnion("kind", [
  * One row of the Attack Roll table. `band` is free-form ("1-10", "16+",
  * "11-15"…) because the rulebook does not fix the boundaries.
  * `sideEffects` is ordered because a single band can carry several
- * (Shield Arts 20+ applies Sukunda *and* Critical).
+ * (Shield Arts 20+ applies Sukunda *and* Critical), and each entry is a key
+ * into the canonical Side Effect registry in {@link ./side-effects}.
  */
 export const attackTierSchema = z.object({
   band: z.string().min(1),
   formula: z.string().min(1),
-  sideEffects: z.array(z.string().min(1)),
+  sideEffects: z.array(z.enum(SIDE_EFFECT_KEYS)),
 })
 
 export const attackRollSchema = z.object({

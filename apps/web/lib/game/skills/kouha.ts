@@ -16,7 +16,7 @@ export const kouha = {
     tiers: [
       { band: "1-10", formula: "1d4 + Ma", sideEffects: [] },
       { band: "11-19", formula: "1d8 + Ma", sideEffects: [] },
-      { band: "20+", formula: "1d8 + Ma", sideEffects: ["Insta-Kill (Light)"] },
+      { band: "20+", formula: "1d8 + Ma", sideEffects: ["insta-kill-light"] },
     ],
   },
 } satisfies Skill

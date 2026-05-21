@@ -120,7 +120,7 @@ describe("Longsword transcription (PRD §6.2)", () => {
     expect(longsword.intrinsicAttack.attackRoll.tiers).toEqual([
       { band: "1-10", formula: "1 + St", sideEffects: [] },
       { band: "11-19", formula: "1d6 + St", sideEffects: [] },
-      { band: "20+", formula: "1d6 + St", sideEffects: ["Critical"] },
+      { band: "20+", formula: "1d6 + St", sideEffects: ["critical"] },
     ])
   })
 })

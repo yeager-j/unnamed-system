@@ -16,7 +16,7 @@ export const zio = {
     tiers: [
       { band: "1-10", formula: "1d4 + Ma", sideEffects: [] },
       { band: "11-19", formula: "1d8 + Ma", sideEffects: [] },
-      { band: "20+", formula: "1d8 + Ma", sideEffects: ["Shock"] },
+      { band: "20+", formula: "1d8 + Ma", sideEffects: ["shock"] },
     ],
   },
   effect:

@@ -16,11 +16,11 @@ export const shieldArts = {
     attribute: "st",
     tiers: [
       { band: "1-10", formula: "1d4 + St", sideEffects: [] },
-      { band: "11-19", formula: "1d8 + St", sideEffects: ["Applies Sukunda"] },
+      { band: "11-19", formula: "1d8 + St", sideEffects: ["sukunda"] },
       {
         band: "20+",
         formula: "1d8 + St",
-        sideEffects: ["Applies Sukunda", "Critical"],
+        sideEffects: ["sukunda", "critical"],
       },
     ],
   },
