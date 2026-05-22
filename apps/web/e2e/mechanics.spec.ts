@@ -12,7 +12,10 @@ import { expect, test } from "@playwright/test"
  *  - seed-warrior:  Perfection rank A (3) on active Warrior
  *  - seed-knight:   Valor 3 on active Knight
  *  - seed-healer:   Dawn Mode + two Illuminated enemies on active Healer
- *  - seed-mage:     Stains [fire, ice, null, null] on active Mage
+ *  - seed-mage:     Stains [fire, ice, null, null] on active Mage Rank 5;
+ *                   partyComposition { mage: 2, warlock: 1 }; equips
+ *                   Warlock's Pact (grants Ailment Boost) + Shadow Charm
+ *                   (grants Evil Touch)
  *  - seed-fallen:   Perfection rank S (4) on active Warrior
  */
 
@@ -46,6 +49,57 @@ test("Warrior at Perfection S + Slash Boost + Strength +2 reads Cleave Attack Ro
   await expect(card).toContainText(/Attack Roll\s*\+\s*8/)
   await expect(card).toContainText("Perfection (S)")
   await expect(card).toContainText("Slash Boost")
+})
+
+test("Mage at Rank 5 with 2 Mage allies reads Bufu Attack Roll with Magic Circle +2", async ({
+  page,
+}) => {
+  await page.goto("/c/seed-mage")
+
+  // Bufu is Ice + Magical: Magic Circle's `deliveries: ["magical"]` filter
+  // matches, and its perPartyLineage scaler resolves against partyComposition
+  // `{ mage: 2 }` (includesSelf=true) for +2. Calliope's Magic is +4
+  // (Mage base +2, manual +1, Runed Cane +1) — total Attack Roll +6.
+  await page.getByRole("button", { name: /Bufu/ }).click()
+  const card = page.getByRole("dialog")
+  await expect(card).toContainText(/Attack Roll\s*\+\s*6/)
+  await expect(card).toContainText("Magic")
+  await expect(card).toContainText("Magic Circle")
+})
+
+test("Magic Circle is filtered out on Physical-delivery Attack Rolls", async ({
+  page,
+}) => {
+  await page.goto("/c/seed-mage")
+
+  // The Runed Cane intrinsic attack is Strike + Physical, attribute Strength.
+  // Magic Circle's `deliveries: ["magical"]` filter should reject it, leaving
+  // only the rolling Attribute as a contributor — Mage Strength is −1, so the
+  // total reads "Attack Roll − 1" with no Magic Circle source anywhere on the
+  // card. (The breakdown line itself is suppressed when only the Attribute
+  // contributes — a single-source readout is already complete in the header.)
+  await page.getByRole("button", { name: /Runed Cane/ }).click()
+  const card = page.getByRole("dialog")
+  await expect(card).toContainText(/Attack Roll\s*−\s*1/)
+  await expect(card.getByText("Magic Circle")).toHaveCount(0)
+})
+
+test("Mage with Warlock's Pact reads Evil Touch Attack Roll with Ailment Boost +2", async ({
+  page,
+}) => {
+  await page.goto("/c/seed-mage")
+
+  // Evil Touch is an Ailment Skill (kind: "ailment", rolls on Luck). Ailment
+  // Boost's `skillKinds: ["ailment"]` filter matches, and its perPartyLineage
+  // scaler resolves against `{ warlock: 1 }` for +2. Calliope's Luck is +1,
+  // so the readout is Luck (+1) + Ailment Boost (+2) = +3 — proving the
+  // skillKinds filter plus a Skill-granted-via-accessory passive (Warlock's
+  // Pact grants Ailment Boost) both reach the Skill card.
+  await page.getByRole("button", { name: /Evil Touch/ }).click()
+  const card = page.getByRole("dialog")
+  await expect(card).toContainText(/Attack Roll\s*\+\s*3/)
+  await expect(card).toContainText("Luck")
+  await expect(card).toContainText("Ailment Boost")
 })
 
 test("Knight at Valor 3 has Resist on every physical damage type", async ({

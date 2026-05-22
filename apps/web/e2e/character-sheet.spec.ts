@@ -116,9 +116,13 @@ test("Combat State reflects seeded ailment, conditions, flags, and exhaustion", 
   await expect(combat.getByText("Charged")).toHaveCount(0)
 
   // seed-mage carries a non-null partyComposition (Mage:2, Warlock:1) so the
-  // read-only Party sub-block has data; both Lineages are listed.
-  await expect(combat.getByText("Mage Lineage")).toBeVisible()
-  await expect(combat.getByText("Warlock Lineage")).toBeVisible()
+  // read-only Party sub-block has data; both Lineages are listed with their
+  // counts. Each entry is `<Label>` + tabular count, so we scope to the
+  // <li> row to pin the count to its Lineage.
+  const mageRow = combat.locator("li", { hasText: "Mage Lineage" })
+  await expect(mageRow).toContainText("2")
+  const warlockRow = combat.locator("li", { hasText: "Warlock Lineage" })
+  await expect(warlockRow).toContainText("1")
 
   await expect(combat.getByText("Exhaustion")).toBeVisible()
 
