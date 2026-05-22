@@ -7,6 +7,7 @@ import { criticalStrike } from "./critical-strike"
 import { dia } from "./dia"
 import { divineJudgment } from "./divine-judgment"
 import { elementalApocalypse } from "./elemental-apocalypse"
+import { evilTouch } from "./evil-touch"
 import { garu } from "./garu"
 import { hammerOfJustice } from "./hammer-of-justice"
 import { healersInsight } from "./healers-insight"
@@ -49,6 +50,7 @@ const SKILLS_BY_KEY = {
   "amrita-drop": amritaDrop,
   "healers-insight": healersInsight,
   "divine-judgment": divineJudgment,
+  "evil-touch": evilTouch,
 } as const satisfies Record<string, Skill>
 
 export type SkillKey = keyof typeof SKILLS_BY_KEY

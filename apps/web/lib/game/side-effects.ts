@@ -16,16 +16,32 @@ import { z } from "zod/v4"
  */
 export const SIDE_EFFECT_KEYS = [
   "critical",
+  "auto-critical",
   "burn",
   "freeze",
   "shock",
   "dizzy",
+  "fear",
+  "sleep",
+  "confuse",
+  "despair",
+  "rage",
+  "brainwash",
+  "auto-fear",
+  "auto-sleep",
+  "auto-confuse",
+  "auto-despair",
+  "auto-rage",
+  "auto-brainwash",
   "insta-kill-light",
   "sukunda",
 ] as const
 
 const ailmentDescription = (ailment: string) =>
   `Compare your Luck with the target's Luck. If yours is higher, ${ailment} is inflicted.`
+
+const autoAilmentDescription = (ailment: string) =>
+  `${ailment} is inflicted automatically; no Luck comparison.`
 
 export type SideEffectKey = (typeof SIDE_EFFECT_KEYS)[number]
 
@@ -43,6 +59,12 @@ const SIDE_EFFECTS_BY_KEY = {
     name: "Critical",
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, damage dealt is doubled and the target receives the Downed Ailment.",
+  },
+  "auto-critical": {
+    key: "auto-critical",
+    name: "Auto-Critical",
+    description:
+      "Damage dealt is doubled and the target receives the Downed Ailment; no Luck comparison.",
   },
   burn: {
     key: "burn",
@@ -63,6 +85,66 @@ const SIDE_EFFECTS_BY_KEY = {
     key: "dizzy",
     name: "Dizzy",
     description: ailmentDescription("Dizzy"),
+  },
+  fear: {
+    key: "fear",
+    name: "Fear",
+    description: ailmentDescription("Fear"),
+  },
+  sleep: {
+    key: "sleep",
+    name: "Sleep",
+    description: ailmentDescription("Sleep"),
+  },
+  confuse: {
+    key: "confuse",
+    name: "Confuse",
+    description: ailmentDescription("Confuse"),
+  },
+  despair: {
+    key: "despair",
+    name: "Despair",
+    description: ailmentDescription("Despair"),
+  },
+  rage: {
+    key: "rage",
+    name: "Rage",
+    description: ailmentDescription("Rage"),
+  },
+  brainwash: {
+    key: "brainwash",
+    name: "Brainwash",
+    description: ailmentDescription("Brainwash"),
+  },
+  "auto-fear": {
+    key: "auto-fear",
+    name: "Auto-Fear",
+    description: autoAilmentDescription("Fear"),
+  },
+  "auto-sleep": {
+    key: "auto-sleep",
+    name: "Auto-Sleep",
+    description: autoAilmentDescription("Sleep"),
+  },
+  "auto-confuse": {
+    key: "auto-confuse",
+    name: "Auto-Confuse",
+    description: autoAilmentDescription("Confuse"),
+  },
+  "auto-despair": {
+    key: "auto-despair",
+    name: "Auto-Despair",
+    description: autoAilmentDescription("Despair"),
+  },
+  "auto-rage": {
+    key: "auto-rage",
+    name: "Auto-Rage",
+    description: autoAilmentDescription("Rage"),
+  },
+  "auto-brainwash": {
+    key: "auto-brainwash",
+    name: "Auto-Brainwash",
+    description: autoAilmentDescription("Brainwash"),
   },
   "insta-kill-light": {
     key: "insta-kill-light",

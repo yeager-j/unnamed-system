@@ -9,6 +9,7 @@ import {
   type EquippableItem,
   type Weapon,
 } from "./schema"
+import { shadowCharm } from "./shadow-charm"
 import { zephyrBand } from "./zephyr-band"
 
 /**
@@ -41,6 +42,7 @@ const ARMOR_BY_KEY = {
 
 const ACCESSORIES_BY_KEY = {
   "zephyr-band": validate(zephyrBand),
+  "shadow-charm": validate(shadowCharm),
 } as const satisfies Record<string, Accessory>
 
 export type WeaponKey = keyof typeof WEAPONS_BY_KEY

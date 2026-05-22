@@ -21,6 +21,10 @@ describe("resolveAttackAttribute", () => {
     expect(resolveAttackAttribute("ag", attributes)).toBe(-1)
   })
 
+  it("looks up Luck for Ailment Skills", () => {
+    expect(resolveAttackAttribute("lu", attributes)).toBe(2)
+  })
+
   it("picks the higher of Strength or Magic for st-or-ma", () => {
     expect(resolveAttackAttribute("st-or-ma", attributes)).toBe(4)
   })
@@ -41,6 +45,10 @@ describe("hydrateFormula", () => {
 
   it("renders a leading minus operator as a subtraction", () => {
     expect(hydrateFormula("1d4 - Ma", attributes)).toBe("1d4 − 4")
+  })
+
+  it("substitutes the Lu attribute with the character's Luck score", () => {
+    expect(hydrateFormula("1d6 + Lu", attributes)).toBe("1d6 + 2")
   })
 })
 

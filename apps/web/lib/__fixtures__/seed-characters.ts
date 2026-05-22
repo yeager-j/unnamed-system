@@ -243,7 +243,10 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
       },
     ],
     talents: ["arcana", "alchemy", "enchant", "lift"],
-    items: [{ catalogItemKey: "runed-cane", equipped: true }],
+    items: [
+      { catalogItemKey: "runed-cane", equipped: true },
+      { catalogItemKey: "shadow-charm", equipped: true },
+    ],
     victories: 3,
     virtues: { expression: 2, empathy: 1, wisdom: 5, focus: 3 },
     sparkLog: ["wisdom", "focus", "wisdom", "expression"],

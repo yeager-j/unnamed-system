@@ -19,7 +19,7 @@ export type Delivery = (typeof DELIVERIES)[number]
  * The attribute added to an Attack Roll. "st-or-ma" is the documented
  * either-or variant used by a handful of Skills and weapons.
  */
-export const ATTACK_ATTRIBUTES = ["st", "ma", "ag", "st-or-ma"] as const
+export const ATTACK_ATTRIBUTES = ["st", "ma", "ag", "lu", "st-or-ma"] as const
 export type AttackAttribute = (typeof ATTACK_ATTRIBUTES)[number]
 
 /**
@@ -46,10 +46,12 @@ export const rangeSchema = z.discriminatedUnion("kind", [
  * `sideEffects` is ordered because a single band can carry several
  * (Shield Arts 20+ applies Sukunda *and* Critical), and each entry is a key
  * into the canonical Side Effect registry in {@link ./side-effects}.
+ * `formula` is optional: damage-Skill tiers author one, but Ailment-Skill
+ * tiers carry side effects only and have nothing to compute.
  */
 export const attackTierSchema = z.object({
   band: z.string().min(1),
-  formula: z.string().min(1),
+  formula: z.string().min(1).optional(),
   sideEffects: z.array(z.enum(SIDE_EFFECT_KEYS)),
 })
 

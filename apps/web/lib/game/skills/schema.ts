@@ -58,7 +58,7 @@ const baseFields = {
   effects: skillEffectsSchema.optional(),
 }
 
-const attackSkillSchema = z.object({
+export const attackSkillSchema = z.object({
   kind: z.literal("attack"),
   ...baseFields,
   cost: costSchema,
@@ -71,6 +71,21 @@ const attackSkillSchema = z.object({
   damage: z.string().min(1).optional(),
   /** Absent on severe Skills that deal flat inline damage with no roll. */
   attackRoll: attackRollSchema.optional(),
+  targets: z.string().min(1).optional(),
+})
+
+/**
+ * An Ailment Skill (e.g. Evil Touch) makes an Attack Roll but deals no damage —
+ * each tier carries only Side Effects. Structurally an attack Skill minus
+ * `damageType`, `delivery`, `damage`, and `hits`; `attackRoll` is required
+ * because a tier-less Ailment Skill has nothing to apply.
+ */
+export const ailmentSkillSchema = z.object({
+  kind: z.literal("ailment"),
+  ...baseFields,
+  cost: costSchema,
+  range: rangeSchema,
+  attackRoll: attackRollSchema,
   targets: z.string().min(1).optional(),
 })
 
@@ -104,6 +119,7 @@ export const skillSchema = z.discriminatedUnion("kind", [
   healSkillSchema,
   supportSkillSchema,
   passiveSkillSchema,
+  ailmentSkillSchema,
 ])
 
 export type SkillCost = z.infer<typeof costSchema>
@@ -111,6 +127,7 @@ export type AttackSkill = z.infer<typeof attackSkillSchema>
 export type HealSkill = z.infer<typeof healSkillSchema>
 export type SupportSkill = z.infer<typeof supportSkillSchema>
 export type PassiveSkill = z.infer<typeof passiveSkillSchema>
+export type AilmentSkill = z.infer<typeof ailmentSkillSchema>
 export type Skill = z.infer<typeof skillSchema>
 
 /**
