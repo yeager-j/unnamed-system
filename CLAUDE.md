@@ -1,6 +1,11 @@
 # Persona System — Character Sheet App
 
-A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `/Users/jackson/Obsidian/Persona System/` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
+A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
+
+## Installation & Running the App
+This is a Turborepo project, so most commands are run from the root directory. To install dependencies, run `npm install`. To start the dev server, run `npm run dev` from the root directory.
+
+shadcn/ui primitives should be installed from the `packages/ui` directory, not the root. Similarly, when installing dependencies to the `apps/web` directory, run `npm install` from there (not the root).
 
 ## PRD Considerations
 
@@ -50,6 +55,7 @@ apps/web/          Next.js 16 app (App Router, RSC, Server Actions)
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
+packages/rules/     Obsidian vault with game mechanics rules
 ```
 
 ## Commands
@@ -128,4 +134,4 @@ See PRD §8 for the full field list.
 
 ## Rulebook Reference
 
-The full rules are indexed in `/Users/jackson/Obsidian/Persona System/CLAUDE.md`. When in doubt about a mechanic, read the relevant file from that vault rather than guessing.
+The full rules are indexed in `packages/rules/CLAUDE.md`. When in doubt about a mechanic, read the relevant file from that vault rather than guessing.

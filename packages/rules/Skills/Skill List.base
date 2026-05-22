@@ -1,0 +1,38 @@
+filters:
+  and:
+    - |-
+      file.path.startsWith("Skills/
+      ")
+    - file.ext == "md"
+properties:
+  note.description:
+    displayName: Description
+  note.damage:
+    displayName: Damage
+  note.accuracy:
+    displayName: Accuracy
+  note.ailment:
+    displayName: Ailment
+  note.cost:
+    displayName: Cost
+  note.damage_type:
+    displayName: Damage Type
+views:
+  - type: table
+    name: Table
+    groupBy:
+      property: type
+      direction: ASC
+    order:
+      - file.name
+      - damage
+      - ailment
+      - cost
+      - description
+    sort:
+      - property: damage
+        direction: ASC
+    columnSize:
+      note.cost: 78
+  - type: table
+    name: Cards
