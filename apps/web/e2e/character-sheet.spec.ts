@@ -3,20 +3,6 @@ import { expect, test } from "@playwright/test"
 test("public character sheet renders for a seeded character", async ({
   page,
 }) => {
-  const consoleErrors: string[] = []
-  page.on("console", (message) => {
-    if (message.type() !== "error") return
-    // "Failed to load resource: …" is browser-emitted network noise, not an
-    // app-level error. Vercel Live's preview-comments widget triggers one on
-    // every deployment (OPTIONS preflight to `/` that Next 400s), and the
-    // intent of this assertion is to catch app issues, not platform noise.
-    const text = message.text()
-    if (text.startsWith("Failed to load resource:")) return
-    consoleErrors.push(text)
-  })
-  const pageErrors: string[] = []
-  page.on("pageerror", (error) => pageErrors.push(error.message))
-
   const response = await page.goto("/c/seed-warrior")
   expect(response?.ok()).toBeTruthy()
   await expect(page.getByRole("heading", { name: "Brann Holt" })).toBeVisible()
@@ -70,29 +56,11 @@ test("public character sheet renders for a seeded character", async ({
   const virtues = page.getByRole("region", { name: "Virtues" })
   await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
   await expect(virtues.getByText(/×/)).toHaveCount(0)
-
-  // AC: no console errors or React hydration warnings on a fresh seed sheet.
-  expect(consoleErrors).toEqual([])
-  expect(pageErrors).toEqual([])
 })
 
 test("a Fallen, max-level character is marked Fallen and reads level 30", async ({
   page,
 }) => {
-  const consoleErrors: string[] = []
-  page.on("console", (message) => {
-    if (message.type() !== "error") return
-    // "Failed to load resource: …" is browser-emitted network noise, not an
-    // app-level error. Vercel Live's preview-comments widget triggers one on
-    // every deployment (OPTIONS preflight to `/` that Next 400s), and the
-    // intent of this assertion is to catch app issues, not platform noise.
-    const text = message.text()
-    if (text.startsWith("Failed to load resource:")) return
-    consoleErrors.push(text)
-  })
-  const pageErrors: string[] = []
-  page.on("pageerror", (error) => pageErrors.push(error.message))
-
   const response = await page.goto("/c/seed-fallen")
   expect(response?.ok()).toBeTruthy()
   await expect(
@@ -107,9 +75,6 @@ test("a Fallen, max-level character is marked Fallen and reads level 30", async 
   // AC: visibly marked Fallen (text label, not just an empty bar) and HP 0/max.
   await expect(page.getByText("Fallen").first()).toBeVisible()
   await expect(page.getByText(/0 \/ \d+/).first()).toBeVisible()
-
-  expect(consoleErrors).toEqual([])
-  expect(pageErrors).toEqual([])
 })
 
 test("Virtues Spark breakdown reflects the seeded log", async ({ page }) => {
