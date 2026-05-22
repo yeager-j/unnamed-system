@@ -1,5 +1,7 @@
 "use client"
 
+import Link from "next/link"
+
 import {
   Avatar,
   AvatarFallback,
@@ -62,6 +64,10 @@ export function AccountMenu({ user }: AccountMenuProps) {
             </div>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem render={<Link href="/" />}>
+          My Characters
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOutAction}>
           <DropdownMenuItem

@@ -39,6 +39,7 @@ A Next.js web app for creating and managing characters in the Persona System tab
 - As this is a personal project and low-stakes, commiting important files (like CLAUDE.md) that you didn't touch is fine. You should still avoid committing files that are completely unrelated to the PR.
 - When building UI components, see if there is a shadcn/ui component that already does what you need.
 - User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
+- When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
 
 ## Repo Structure
 
