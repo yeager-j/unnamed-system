@@ -1,0 +1,33 @@
+filters:
+  and:
+    - file.inFolder("Archetypes")
+    - file.ext == "md"
+properties:
+  note.lineage:
+    displayName: Lineage
+  note.tier:
+    displayName: Tier
+views:
+  - type: cards
+    name: Cards
+    groupBy:
+      property: lineage
+      direction: ASC
+    order:
+      - file.name
+      - tier
+    sort:
+      - property: tier
+        direction: ASC
+    cardSize: 200
+  - type: table
+    name: Table
+    groupBy:
+      property: lineage
+      direction: ASC
+    order:
+      - file.name
+      - tier
+    sort:
+      - property: tier
+        direction: ASC
