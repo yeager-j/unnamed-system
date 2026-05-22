@@ -46,44 +46,40 @@ export const talentSchema = z.object({
 
 export type Talent = z.infer<typeof talentSchema>
 
-function validate(talent: Talent): Talent {
-  talentSchema.parse(talent)
-  return talent
+const TALENT_NAMES: Record<TalentKey, string> = {
+  alchemy: "Alchemy",
+  cook: "Cook",
+  enchant: "Enchant",
+  craft: "Craft",
+  climb: "Climb",
+  swim: "Swim",
+  lift: "Lift",
+  athletics: "Athletics",
+  medicine: "Medicine",
+  "handle-animal": "Handle Animal",
+  persuade: "Persuade",
+  lie: "Lie",
+  intimidate: "Intimidate",
+  flirt: "Flirt",
+  perform: "Perform",
+  interrogate: "Interrogate",
+  sneak: "Sneak",
+  lockpick: "Lockpick",
+  demolish: "Demolish",
+  "sleight-of-hand": "Sleight of Hand",
+  track: "Track",
+  sense: "Sense",
+  investigate: "Investigate",
+  culture: "Culture",
+  history: "History",
+  arcana: "Arcana",
+  nature: "Nature",
+  monsters: "Monsters",
 }
 
-const TALENTS_BY_KEY = {
-  alchemy: validate({ key: "alchemy", name: "Alchemy" }),
-  cook: validate({ key: "cook", name: "Cook" }),
-  enchant: validate({ key: "enchant", name: "Enchant" }),
-  craft: validate({ key: "craft", name: "Craft" }),
-  climb: validate({ key: "climb", name: "Climb" }),
-  swim: validate({ key: "swim", name: "Swim" }),
-  lift: validate({ key: "lift", name: "Lift" }),
-  athletics: validate({ key: "athletics", name: "Athletics" }),
-  medicine: validate({ key: "medicine", name: "Medicine" }),
-  "handle-animal": validate({ key: "handle-animal", name: "Handle Animal" }),
-  persuade: validate({ key: "persuade", name: "Persuade" }),
-  lie: validate({ key: "lie", name: "Lie" }),
-  intimidate: validate({ key: "intimidate", name: "Intimidate" }),
-  flirt: validate({ key: "flirt", name: "Flirt" }),
-  perform: validate({ key: "perform", name: "Perform" }),
-  interrogate: validate({ key: "interrogate", name: "Interrogate" }),
-  sneak: validate({ key: "sneak", name: "Sneak" }),
-  lockpick: validate({ key: "lockpick", name: "Lockpick" }),
-  demolish: validate({ key: "demolish", name: "Demolish" }),
-  "sleight-of-hand": validate({
-    key: "sleight-of-hand",
-    name: "Sleight of Hand",
-  }),
-  track: validate({ key: "track", name: "Track" }),
-  sense: validate({ key: "sense", name: "Sense" }),
-  investigate: validate({ key: "investigate", name: "Investigate" }),
-  culture: validate({ key: "culture", name: "Culture" }),
-  history: validate({ key: "history", name: "History" }),
-  arcana: validate({ key: "arcana", name: "Arcana" }),
-  nature: validate({ key: "nature", name: "Nature" }),
-  monsters: validate({ key: "monsters", name: "Monsters" }),
-} as const satisfies Record<TalentKey, Talent>
+const TALENTS_BY_KEY = Object.fromEntries(
+  TALENT_KEYS.map((key) => [key, { key, name: TALENT_NAMES[key] }])
+) as Record<TalentKey, Talent>
 
 export const TALENTS: readonly Talent[] = Object.values(TALENTS_BY_KEY)
 
