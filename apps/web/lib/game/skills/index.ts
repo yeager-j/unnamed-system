@@ -67,8 +67,3 @@ export const SKILLS: readonly Skill[] = Object.values(SKILLS_BY_KEY)
 export function getSkill(key: string): Skill | undefined {
   return (SKILLS_BY_KEY as Record<string, Skill>)[key]
 }
-
-/** Returns every hardcoded Skill. */
-export function getAllSkills(): readonly Skill[] {
-  return SKILLS
-}

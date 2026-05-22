@@ -48,7 +48,7 @@ export function canLevelUp(character: LevelingCharacter): boolean {
  * Spends {@link VICTORIES_PER_LEVEL} Victories to gain a level: +1 level, +2
  * saved Archetype Ranks, and the Hit/Skill Dice pools refilled to the new
  * level's totals. Victory overflow carries forward (8 banked leaves 1) since,
- * unlike Sparks, Virtues accumulate — a Heroic Victory can push past 7. Fails
+ * unlike Sparks, Victories accumulate — a Heroic Victory can push past 7. Fails
  * — without mutating — when the character is already at {@link MAX_LEVEL}
  * (`max-level`) or has fewer than {@link VICTORIES_PER_LEVEL} Victories
  * (`insufficient-victories`).

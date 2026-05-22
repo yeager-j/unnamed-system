@@ -20,6 +20,18 @@ const costSchema = z.discriminatedUnion("kind", [
  */
 const damageTypeSchema = z.enum([...DAMAGE_TYPES, "special"])
 
+/**
+ * A Skill's structured, machine-readable modifiers. Summed by the derived-value
+ * engine for passive Skills while they are one of the active Archetype's
+ * unlocked or inherited Skills; available on every Skill kind for forward
+ * compatibility (e.g. a future heal/support Skill that wants to declare a
+ * structured Affinity grant). Distinct from the freeform `effect` prose, which
+ * is human-readable.
+ */
+const skillEffectsSchema = z.array(
+  z.discriminatedUnion("type", [affinityEffectSchema, attributeEffectSchema])
+)
+
 const baseFields = {
   key: skillKey,
   name: z.string().min(1),
@@ -42,6 +54,8 @@ const baseFields = {
    * Rendered as Markdown via {@link SkillText} on the character sheet.
    */
   effect: z.string().min(1).optional(),
+  /** Structured, machine-readable modifiers — see {@link skillEffectsSchema}. */
+  effects: skillEffectsSchema.optional(),
 }
 
 const attackSkillSchema = z.object({
@@ -66,7 +80,7 @@ const healSkillSchema = z.object({
   cost: costSchema,
   range: rangeSchema,
   /** Heal amount formula; absent on cure-only Skills (Amrita Drop). */
-  damage: z.string().min(1).optional(),
+  formula: z.string().min(1).optional(),
   targets: z.string().min(1).optional(),
 })
 
@@ -80,22 +94,9 @@ const supportSkillSchema = z.object({
   targets: z.string().min(1).optional(),
 })
 
-/**
- * A passive Skill's structured, always-on modifiers, summed by the
- * derived-value engine while the Skill is one of the active Archetype's
- * unlocked or inherited Skills. Distinct from the freeform `effect` prose
- * (human-readable) — this is the machine-readable form. Only passive Skills
- * carry these; an attack Skill that changes a target's Affinity is a combat
- * action, not an always-on modifier.
- */
-const passiveEffectsSchema = z.array(
-  z.discriminatedUnion("type", [affinityEffectSchema, attributeEffectSchema])
-)
-
 const passiveSkillSchema = z.object({
   kind: z.literal("passive"),
   ...baseFields,
-  effects: passiveEffectsSchema.optional(),
 })
 
 export const skillSchema = z.discriminatedUnion("kind", [

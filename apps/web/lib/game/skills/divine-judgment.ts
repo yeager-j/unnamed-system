@@ -1,10 +1,5 @@
 import type { Skill } from "./schema"
 
-/**
- * Source-data discrepancy: the vault frontmatter tags `range: All`, but the
- * card body's "Same/Adjacent Zone" is correct per the product owner. The
- * frontmatter is wrong; pending a source fix (UNN-38 follow-up).
- */
 export const divineJudgment = {
   kind: "attack",
   key: "divine-judgment",

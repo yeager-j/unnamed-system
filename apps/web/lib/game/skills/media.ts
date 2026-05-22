@@ -14,6 +14,6 @@ export const media = {
   isSynthesis: false,
   cost: { kind: "sp", amount: 7 },
   range: { kind: "known", value: "same-or-adjacent-zone" },
-  damage: "2d8 + Ma",
+  formula: "2d8 + Ma",
   targets: "All Allies",
 } satisfies Skill

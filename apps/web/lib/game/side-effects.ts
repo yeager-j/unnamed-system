@@ -25,14 +25,14 @@ export const SIDE_EFFECT_KEYS = [
 ] as const
 
 const ailmentDescription = (ailment: string) =>
-  `Compare your Luck with the target’s Luck. If yours is higher, ${ailment} is inflicted.`
+  `Compare your Luck with the target's Luck. If yours is higher, ${ailment} is inflicted.`
 
 export type SideEffectKey = (typeof SIDE_EFFECT_KEYS)[number]
 
 export const sideEffectSchema = z.object({
   key: z.enum(SIDE_EFFECT_KEYS),
   name: z.string().min(1),
-  description: z.string(),
+  description: z.string().min(1),
 })
 
 export type SideEffect = z.infer<typeof sideEffectSchema>
@@ -47,7 +47,7 @@ const SIDE_EFFECTS_BY_KEY = {
     key: "critical",
     name: "Critical",
     description:
-      "Compare your Luck with the target’s Luck. If your Luck is higher, damage dealt is doubled and the target receives the Downed Ailment.",
+      "Compare your Luck with the target's Luck. If your Luck is higher, damage dealt is doubled and the target receives the Downed Ailment.",
   }),
   burn: validate({
     key: "burn",
@@ -92,9 +92,4 @@ export const SIDE_EFFECTS: readonly SideEffect[] =
  */
 export function getSideEffect(key: string): SideEffect | undefined {
   return (SIDE_EFFECTS_BY_KEY as Record<string, SideEffect>)[key]
-}
-
-/** Returns every canonical Side Effect. */
-export function getAllSideEffects(): readonly SideEffect[] {
-  return SIDE_EFFECTS
 }

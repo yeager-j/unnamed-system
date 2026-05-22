@@ -42,3 +42,6 @@ npm-debug.log*
 .idea
 .env*.local
 apps/web/next-env.d.ts
+
+# Obsidian vault local state
+packages/rules/.obsidian/

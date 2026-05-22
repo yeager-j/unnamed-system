@@ -94,8 +94,3 @@ export const TALENTS: readonly Talent[] = Object.values(TALENTS_BY_KEY)
 export function getTalent(key: string): Talent | undefined {
   return (TALENTS_BY_KEY as Record<string, Talent>)[key]
 }
-
-/** Returns every canonical Talent. */
-export function getAllTalents(): readonly Talent[] {
-  return TALENTS
-}

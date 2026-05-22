@@ -1,25 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { getAllWeapons } from "./items"
-import {
-  getAllSideEffects,
-  getSideEffect,
-  SIDE_EFFECT_KEYS,
-  SIDE_EFFECTS,
-  sideEffectSchema,
-} from "./side-effects"
+import { WEAPONS } from "./items"
+import { getSideEffect, SIDE_EFFECT_KEYS, SIDE_EFFECTS } from "./side-effects"
 import { SKILLS } from "./skills"
 
 describe("side-effect data", () => {
-  it("validates every Side Effect against the schema", () => {
-    for (const sideEffect of SIDE_EFFECTS) {
-      expect(() => sideEffectSchema.parse(sideEffect)).not.toThrow()
-    }
-  })
-
-  it("exposes a non-empty registry that getAllSideEffects mirrors", () => {
+  it("exposes a non-empty registry", () => {
     expect(SIDE_EFFECTS.length).toBeGreaterThan(0)
-    expect(getAllSideEffects()).toEqual(SIDE_EFFECTS)
     expect(SIDE_EFFECT_KEYS.length).toBe(SIDE_EFFECTS.length)
   })
 
@@ -57,7 +44,7 @@ describe("side-effect cross-references", () => {
   })
 
   it("resolves every weapon intrinsic-attack side effect from the registry", () => {
-    for (const weapon of getAllWeapons()) {
+    for (const weapon of WEAPONS) {
       for (const tier of weapon.intrinsicAttack.attackRoll.tiers) {
         for (const key of tier.sideEffects) {
           expect(getSideEffect(key)).toBeDefined()
