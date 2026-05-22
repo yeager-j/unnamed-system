@@ -10,6 +10,7 @@ import type { ManualBonuses, PathChoice } from "./character"
 import {
   BONUS_TARGET_KEYS,
   type AffinityEffect,
+  type AttackRollEffect,
   type AttributeEffect,
   type BonusTargetKey,
 } from "./effects"
@@ -107,8 +108,8 @@ type BonusPool = Record<BonusTargetKey, number>
  */
 function activePassiveEffects(
   character: StatComputationCharacter
-): Array<AffinityEffect | AttributeEffect> {
-  const effects: Array<AffinityEffect | AttributeEffect> = []
+): Array<AffinityEffect | AttributeEffect | AttackRollEffect> {
+  const effects: Array<AffinityEffect | AttributeEffect | AttackRollEffect> = []
   for (const skill of character.activeSkills) {
     if (skill.kind !== "passive") continue
     for (const effect of skill.effects ?? []) effects.push(effect)
@@ -247,44 +248,6 @@ export function computeMaxHitDice(level: number): number {
  */
 export function computeMaxSkillDice(level: number): number {
   return 2 * level + 3
-}
-
-/**
- * One labelled contributor to a derived Attack Roll bonus. Surfaced to the UI
- * so the Skill card can render `Magic (4) + Perfection (+2)` instead of an
- * opaque `+6`.
- */
-export interface AttackRollSource {
-  source: string
-  amount: number
-}
-
-export interface AttackRollBonus {
-  /** Sum of every `attackRoll` effect on the character. */
-  total: number
-  /** Per-source breakdown, in collection order. */
-  sources: AttackRollSource[]
-}
-
-/**
- * Total cross-Skill Attack Roll bonus the character gets from mechanics (and,
- * later, any item or passive Skill that emits an {@link AttackRollEffect}).
- * Returns 0 with an empty `sources` list when nothing contributes.
- */
-export function computeAttackRollBonus(
-  character: StatComputationCharacter
-): AttackRollBonus {
-  const sources: AttackRollSource[] = []
-  let total = 0
-  for (const effect of activeMechanicEffects(character)) {
-    if (effect.type !== "attackRoll") continue
-    total += effect.amount
-    sources.push({
-      source: effect.source ?? "Bonus",
-      amount: effect.amount,
-    })
-  }
-  return { total, sources }
 }
 
 /**

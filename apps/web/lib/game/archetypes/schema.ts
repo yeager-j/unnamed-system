@@ -1,9 +1,12 @@
 import { z } from "zod/v4"
 
 import { AFFINITIES, type Affinity, type DamageType } from "../affinity"
+import { LINEAGES, type Lineage } from "../lineage"
 import type { MechanicKind } from "../mechanics/schema"
 import type { SkillKey } from "../skills"
 import type { TalentKey } from "../talents"
+
+export { LINEAGES, type Lineage }
 
 /**
  * Archetype tiers. Only "initiate" ships at MVP; the full set is kept because
@@ -16,30 +19,9 @@ export const ARCHETYPE_TIERS = [
   "paragon",
 ] as const
 
-/**
- * The tree-like Lineages that group Archetypes. Every Archetype belongs to
- * exactly one Lineage; higher-tier Archetypes share their Lineage with the
- * lower-tier Archetype they advance from.
- */
-export const LINEAGES = [
-  "warrior",
-  "mage",
-  "brawler",
-  "knight",
-  "healer",
-  "thief",
-  "berserker",
-  "bard",
-  "shapechanger",
-  "hunter",
-  "warlock",
-  "summoner",
-] as const
-
 export const ATTRIBUTE_KEYS = ["strength", "magic", "agility", "luck"] as const
 
 export type ArchetypeTier = (typeof ARCHETYPE_TIERS)[number]
-export type Lineage = (typeof LINEAGES)[number]
 export type AttributeKey = (typeof ATTRIBUTE_KEYS)[number]
 
 const attributeScore = z.number().int().min(-7).max(7)

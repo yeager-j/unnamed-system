@@ -7,10 +7,11 @@ import type {
   InventoryItemRow,
 } from "../db/load-character"
 import type { Affinity, DamageType } from "./affinity"
+import type { ResolvedAttackRoll } from "./attack-roll"
 import type { EquippableItem } from "./items/schema"
 import type { ResolvedSkillCost } from "./skill-cost"
 import type { Skill } from "./skills/schema"
-import type { ActiveMechanic, AttackRollBonus, AttributeScores } from "./stats"
+import type { ActiveMechanic, AttributeScores } from "./stats"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every
@@ -32,12 +33,17 @@ export type HydratedInventoryItem = InventoryItemRow & {
 }
 
 /** A character's active Skill spread flat, with its concrete payable cost
- *  alongside (or `null` for cost-free Skills). The catalog's raw `cost`
- *  field stays on the Skill; the engine-derived value lives on
- *  `resolvedCost` so the two are distinguishable when both happen to be in
- *  scope. */
+ *  alongside (or `null` for cost-free Skills) and its resolved per-Skill
+ *  Attack Roll bonus. The catalog's raw `cost` field stays on the Skill; the
+ *  engine-derived values live on `resolvedCost` and `attackRollBonus` so the
+ *  pair is distinguishable when both happen to be in scope. `attackRollBonus`
+ *  is `{ total: 0, sources: [] }` on Skills that make no Attack Roll. */
 export type HydratedSkill = Skill & {
   resolvedCost: ResolvedSkillCost | null
+  /** Pre-resolved Attack Roll readout — null on Skill kinds that make no
+   *  Attack Roll (passive / heal / support) or on attack Skills that ship
+   *  with no `attackRoll` table (severe flat-damage Skills). */
+  resolvedAttackRoll: ResolvedAttackRoll | null
 }
 
 /**
@@ -65,13 +71,13 @@ export type HydratedCharacter = CharacterRow & {
   maxSkillDice: number
   affinityChart: Record<DamageType, Affinity>
   /**
-   * Total cross-Skill Attack Roll bonus from the active Archetype's unique
-   * mechanic (e.g. Warrior's Perfection rank). Surfaced here so every Skill
-   * card reads a single resolved number with attribution rather than
-   * re-deriving it; future Effect kinds (damage modifiers etc.) follow the
-   * same shape.
+   * Per-Skill Attack Roll readouts live on each {@link HydratedSkill}; this
+   * field carries the resolved readout for the equipped weapon's intrinsic
+   * attack (mechanically identical to a Skill's Attack Roll). Null when no
+   * weapon is equipped. Pre-resolved here so the read-only sheet does not
+   * need to re-derive it client-side.
    */
-  attackRollBonus: AttackRollBonus
+  weaponAttackRoll: ResolvedAttackRoll | null
   /**
    * The active Archetype's unique mechanic + its persisted state, with the
    * mechanic's `initialState` filled in when the row is null. Null when no

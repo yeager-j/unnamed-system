@@ -1,5 +1,7 @@
 import { z } from "zod/v4"
 
+import { LINEAGES } from "./lineage"
+
 /**
  * Character-domain vocabulary and value schemas for the structured (JSON)
  * parts of a character's persisted state. Kept out of the database schema
@@ -83,6 +85,25 @@ export const battleConditionsSchema = z.object({
   concentrating: z.boolean(),
 })
 export type BattleConditions = z.infer<typeof battleConditionsSchema>
+
+/**
+ * Manual, sparse count of allied Lineages present in the current combat
+ * encounter — including the character themselves. Read by the
+ * `perPartyLineage` Attack Roll scaler (Magic Circle, Ailment Boost) when a
+ * passive Skill needs per-party context to resolve its bonus.
+ *
+ * Sparse on purpose: missing keys mean "no allies of that Lineage". Player-
+ * maintained today (no party tracking elsewhere in the app); the "Clear
+ * combat state" mutator should reset this alongside {@link battleConditions}
+ * when that mutator lands, and once an initiative tracker exists the value
+ * should migrate to that authoritative source — the data shape does not need
+ * to change.
+ */
+export const partyCompositionSchema = z.partialRecord(
+  z.enum(LINEAGES),
+  z.number().int().positive()
+)
+export type PartyComposition = z.infer<typeof partyCompositionSchema>
 
 /**
  * Inheritance Slot configuration for one Archetype. `sourceCharacterArchetypeId`
