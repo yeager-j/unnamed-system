@@ -11,15 +11,10 @@
             "id": "1f136955f92d1ae2",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "CLAUDE.md",
-                "mode": "source",
-                "source": false,
-                "backlinks": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "CLAUDE"
+              "title": "New tab"
             }
           }
         ]
@@ -197,9 +192,43 @@
       "obsidian-git:Open Git source control": false
     }
   },
-  "active": "1f136955f92d1ae2",
+  "active": "9bce09545714c771",
   "lastOpenFiles": [
-    "README.md",
-    "Idea Board.md"
+    "publish.css",
+    "package.json",
+    "Tasks.md",
+    "Skills/Wind/Windblade.md",
+    "Skills/Wind/Garu.md",
+    "Skills/Wind",
+    "Skills/Support/Tarunda.md",
+    "Skills/Support/Tarukaja.md",
+    "Skills/Support/Sukunda.md",
+    "Skills/Support/Stagnant Air.md",
+    "Skills/Support/Rebellion.md",
+    "Skills/Support/Rakunda.md",
+    "Skills/Support/Rakukaja.md",
+    "Skills/Support/Pulpina.md",
+    "Skills/Support/Makajam.md",
+    "Skills/Support/Knight's Proclamation.md",
+    "Skills/Support/Evil Touch.md",
+    "Skills/Support",
+    "Skills/Strike/Shield Arts.md",
+    "Skills/Strike/Lucky Punch.md",
+    "Skills/Strike",
+    "Skills/Slash/Tempest Slash.md",
+    "Skills/Slash/Peerless Stonecleaver.md",
+    "Skills/Slash/Critical Strike.md",
+    "Skills/Slash/Cleave.md",
+    "Skills/Slash/Brave Blade.md",
+    "Skills/Slash",
+    "Skills/Skill List.base",
+    "Skills/Psy/Psi.md",
+    "Skills/Psy",
+    "Skills/Pierce/Hammer of Justice.md",
+    "Skills/Pierce/Skewer.md",
+    "Skills/Pierce",
+    "Skills/Passive/Slash Boost.md",
+    "Skills/Passive",
+    "Skills/Mechanics"
   ]
 }

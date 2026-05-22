@@ -2,6 +2,11 @@
 
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 
+## Installation & Running the App
+This is a Turborepo project, so most commands are run from the root directory. To install dependencies, run `npm install`. To start the dev server, run `npm run dev` from the root directory.
+
+shadcn/ui primitives should be installed from the `packages/ui` directory, not the root. Similarly, when installing dependencies to the `apps/web` directory, run `npm install` from there (not the root).
+
 ## PRD Considerations
 
 - The rules in the Obsidian vault are the source of truth for the game mechanics. If they conflict with the PRD, update the PRD.
