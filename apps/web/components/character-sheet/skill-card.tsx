@@ -8,21 +8,14 @@ import {
 import { useCharacter } from "@/components/character-sheet/character-context"
 import type { DamageType } from "@/lib/game/affinity"
 import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
+import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
-import {
-  formatSignedBonus,
-  hydrateFormula,
-  resolveAttackAttribute,
-} from "@/lib/game/skill-display"
+import { formatSignedBonus, hydrateFormula } from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
-import type {
-  AttackRollBonus,
-  AttackRollSource,
-  AttributeScores,
-} from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/stats"
 
 import { Prose } from "./prose"
 import { SkillCostBadge } from "./skill-cost-badge"
@@ -47,8 +40,12 @@ export function SkillCard({ skill }: SkillCardProps) {
     <CardShell title={skill.name} kindLabel={SKILL_KIND_LABELS[skill.kind]}>
       <SkillText>{skill.description}</SkillText>
       <StatsGrid rows={skillStatRows(skill, skill.resolvedCost, attributes)} />
-      {"attackRoll" in skill && skill.attackRoll ? (
-        <AttackRollTable roll={skill.attackRoll} />
+      {"attackRoll" in skill && skill.attackRoll && skill.resolvedAttackRoll ? (
+        <AttackRollTable
+          roll={skill.attackRoll}
+          resolved={skill.resolvedAttackRoll}
+          attributes={attributes}
+        />
       ) : null}
       {skill.effect ? (
         <SkillText className="border-t border-border pt-2">
@@ -71,6 +68,8 @@ interface IntrinsicAttackCardProps {
  */
 export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
   const attack = weapon.intrinsicAttack
+  const { weaponAttackRoll, attributes } = useCharacter()
+  if (!weaponAttackRoll) return null
   return (
     <CardShell
       title={weapon.name}
@@ -79,7 +78,11 @@ export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
     >
       <SkillText>Intrinsic weapon attack.</SkillText>
       <StatsGrid rows={intrinsicAttackStatRows(attack)} />
-      <AttackRollTable roll={attack.attackRoll} />
+      <AttackRollTable
+        roll={attack.attackRoll}
+        resolved={weaponAttackRoll}
+        attributes={attributes}
+      />
     </CardShell>
   )
 }
@@ -221,21 +224,21 @@ function intrinsicAttackStatRows(attack: IntrinsicAttack): StatRow[] {
   ]
 }
 
-function AttackRollTable({ roll }: { roll: AttackRoll }) {
-  const { attributes, attackRollBonus } = useCharacter()
-  const attributeLabel = ATTACK_ATTRIBUTE_LABELS[roll.attribute]
-  const attributeBonus = resolveAttackAttribute(roll.attribute, attributes)
-  const total = attributeBonus + attackRollBonus.total
+function AttackRollTable({
+  roll,
+  resolved,
+  attributes,
+}: {
+  roll: AttackRoll
+  resolved: ResolvedAttackRoll
+  attributes: AttributeScores
+}) {
   return (
     <section className="border-t border-border pt-3">
       <h4 className="mb-1.5 text-xs font-semibold tracking-wide uppercase">
-        Attack Roll {formatSignedBonus(total)}
+        Attack Roll {formatSignedBonus(resolved.total)}
       </h4>
-      <AttackRollBreakdown
-        attributeLabel={attributeLabel}
-        attributeBonus={attributeBonus}
-        bonus={attackRollBonus}
-      />
+      <AttackRollBreakdown resolved={resolved} />
       <ul className="flex flex-col gap-1.5 text-sm">
         {roll.tiers.map((tier) => (
           <li
@@ -292,39 +295,20 @@ function SideEffectBadge({ sideEffectKey }: { sideEffectKey: SideEffectKey }) {
 
 /**
  * Inline attribution row under the Attack Roll header. Hidden when only the
- * attribute contributes (the header alone is already complete in that case);
- * surfaces every mechanic-supplied contributor when one or more is active.
+ * rolling Attribute contributes (the header alone is already complete in
+ * that case); surfaces every mechanic- or passive-Skill-supplied contributor
+ * when one or more is active.
  */
-function AttackRollBreakdown({
-  attributeLabel,
-  attributeBonus,
-  bonus,
-}: {
-  attributeLabel: string
-  attributeBonus: number
-  bonus: AttackRollBonus
-}) {
-  if (bonus.sources.length === 0) return null
-  const parts: AttackRollSource[] = [
-    { source: attributeLabel, amount: attributeBonus },
-    ...bonus.sources,
-  ]
+function AttackRollBreakdown({ resolved }: { resolved: ResolvedAttackRoll }) {
+  if (resolved.sources.length <= 1) return null
   return (
     <p className="mb-2 font-mono text-xs text-muted-foreground">
-      {parts
+      {resolved.sources
         .map((part) => `${part.source} ${formatSignedBonus(part.amount)}`)
         .join("  ")}
     </p>
   )
 }
-
-const ATTACK_ATTRIBUTE_LABELS = {
-  st: "Strength",
-  ma: "Magic",
-  ag: "Agility",
-  lu: "Luck",
-  "st-or-ma": "Strength or Magic",
-} as const satisfies Record<AttackRoll["attribute"], string>
 
 function rangeLabel(range: AttackRange): string {
   return range.kind === "known" ? KNOWN_RANGE_LABELS[range.value] : range.value

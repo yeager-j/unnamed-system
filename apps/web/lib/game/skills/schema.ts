@@ -2,7 +2,11 @@ import { z } from "zod/v4"
 
 import { DAMAGE_TYPES } from "../affinity"
 import { attackRollSchema, DELIVERIES, rangeSchema } from "../attack"
-import { affinityEffectSchema, attributeEffectSchema } from "../effects"
+import {
+  affinityEffectSchema,
+  attackRollEffectSchema,
+  attributeEffectSchema,
+} from "../effects"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)
 
@@ -29,7 +33,7 @@ const damageTypeSchema = z.enum([...DAMAGE_TYPES, "special"])
  * is human-readable.
  */
 const skillEffectsSchema = z.array(
-  z.discriminatedUnion("type", [affinityEffectSchema, attributeEffectSchema])
+  z.union([affinityEffectSchema, attributeEffectSchema, attackRollEffectSchema])
 )
 
 const baseFields = {

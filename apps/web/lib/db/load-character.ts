@@ -1,12 +1,17 @@
 import { asc, eq } from "drizzle-orm"
 
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type AttackRollContext,
+} from "../game/attack-roll"
 import type { HydratedCharacter } from "../game/hydrated-character"
-import { getEquippableItem } from "../game/items"
+import { getEquippableItem, getEquippedItem } from "../game/items"
+import type { IntrinsicAttack } from "../game/items/schema"
 import { resolveSkillCost, type CastingCharacter } from "../game/skill-cost"
 import { buildStatComputationCharacter } from "../game/stat-character"
 import {
   computeAffinityChart,
-  computeAttackRollBonus,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
@@ -125,16 +130,27 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     currentSP: row.currentSP,
   }
 
+  const inventory = inventoryRows.map((inventoryRow) => ({
+    ...inventoryRow,
+    item: getEquippableItem(inventoryRow.catalogItemKey),
+  }))
+
+  const weapon = getEquippedItem(inventory, "weapon")
+  const weaponAttackRoll = weapon
+    ? resolveAttackRoll(
+        weaponAttackContext(weapon.intrinsicAttack),
+        stats,
+        row.partyComposition
+      )
+    : null
+
   return {
     ...row,
     archetypeRows,
     knives,
     chains,
     talents,
-    inventory: inventoryRows.map((inventoryRow) => ({
-      ...inventoryRow,
-      item: getEquippableItem(inventoryRow.catalogItemKey),
-    })),
+    inventory,
     activeArchetypeKey: stats.activeArchetypeKey,
     attributes: computeAttributes(stats),
     maxHP: computeMaxHP(stats),
@@ -142,12 +158,27 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     maxHitDice: computeMaxHitDice(row.level),
     maxSkillDice: computeMaxSkillDice(row.level),
     affinityChart: computeAffinityChart(stats),
-    attackRollBonus: computeAttackRollBonus(stats),
+    weaponAttackRoll,
     activeMechanic: stats.activeMechanic,
-    skills: stats.activeSkills.map((skill) => ({
-      ...skill,
-      resolvedCost: resolveSkillCost(skill, casting),
-    })),
+    skills: stats.activeSkills.map((skill) => {
+      const context = skillAttackRollContext(skill)
+      return {
+        ...skill,
+        resolvedCost: resolveSkillCost(skill, casting),
+        resolvedAttackRoll: context
+          ? resolveAttackRoll(context, stats, row.partyComposition)
+          : null,
+      }
+    }),
+  }
+}
+
+function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
+  return {
+    kind: "attack",
+    damageType: attack.damageType,
+    delivery: attack.delivery,
+    attribute: attack.attackRoll.attribute,
   }
 }
 

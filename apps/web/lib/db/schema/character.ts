@@ -18,12 +18,14 @@ import {
   identityListSchema,
   inheritanceSlotsSchema,
   manualBonusesSchema,
+  partyCompositionSchema,
   sparkLogSchema,
   type Ailments,
   type BattleConditions,
   type IdentityList,
   type InheritanceSlots,
   type ManualBonuses,
+  type PartyComposition,
   type PathChoice,
   type SparkLog,
 } from "../../game/character"
@@ -70,6 +72,7 @@ export const characters = pgTable("character", {
   exhaustion: integer("exhaustion").notNull().default(0),
   ailments: jsonb("ailments").$type<Ailments>().notNull().default([]),
   battleConditions: jsonb("battleConditions").$type<BattleConditions>(),
+  partyComposition: jsonb("partyComposition").$type<PartyComposition>(),
   activeArchetypeId: text("activeArchetypeId").references(
     (): AnyPgColumn => characterArchetypes.id,
     { onDelete: "set null" }
@@ -205,6 +208,7 @@ export const insertCharacterSchema = createInsertSchema(characters, {
   sparkLog: sparkLogSchema,
   ailments: ailmentsSchema,
   battleConditions: battleConditionsSchema,
+  partyComposition: partyCompositionSchema,
   personalityTraits: identityListSchema,
   hopes: identityListSchema,
   dreams: identityListSchema,

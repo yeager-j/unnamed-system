@@ -1,6 +1,9 @@
 import { z } from "zod/v4"
 
-import { AFFINITIES, AFFINITY_DAMAGE_TYPES } from "./affinity"
+import { AFFINITIES, AFFINITY_DAMAGE_TYPES, DAMAGE_TYPES } from "./affinity"
+import { DELIVERIES } from "./attack"
+import { LINEAGES } from "./lineage"
+import { SKILL_KINDS } from "./skill-kind"
 
 /**
  * Static, always-on effect primitives shared by equippable items, passive
@@ -44,17 +47,62 @@ export const attributeEffectSchema = z.object({
 })
 
 /**
- * A flat +/- bonus added to every Attack Roll the character makes. Emitted by
- * Archetype mechanics (e.g. Warrior's Perfection grants +1/+2/+3/+4 at C/B/A/S).
- * No item or passive Skill carries this kind today; it is reserved for
- * mechanics until a non-mechanic source needs it.
+ * Optional gate restricting when an Attack Roll effect applies. Each axis is
+ * a positive list: an axis matches when it is omitted, or when the
+ * contextual value is one of the listed values. Multiple axes intersect
+ * (all must match). An empty filter matches every Attack Roll.
  */
-export const attackRollEffectSchema = z.object({
-  type: z.literal("attackRoll"),
-  amount: z.number().int(),
-  source: z.string().optional(),
+export const attackRollFilterSchema = z.object({
+  damageTypes: z.array(z.enum(DAMAGE_TYPES)).min(1).optional(),
+  deliveries: z.array(z.enum(DELIVERIES)).min(1).optional(),
+  skillKinds: z.array(z.enum(SKILL_KINDS)).min(1).optional(),
 })
+
+/**
+ * Dynamic amount resolution for an Attack Roll effect. Today only the
+ * `perPartyLineage` scaler exists (Magic Circle, Ailment Boost); the kind
+ * field reserves a discriminator for future scaler shapes.
+ *
+ * `amount` is per-ally; the resolver multiplies by the partyComposition count
+ * for `lineage`, optionally subtracting 1 if `includesSelf` is false and the
+ * character's active Archetype shares the Lineage.
+ */
+export const attackRollScalerSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("perPartyLineage"),
+    lineage: z.enum(LINEAGES),
+    amount: z.number().int(),
+    includesSelf: z.boolean(),
+  }),
+])
+
+/**
+ * A +/- bonus added to an Attack Roll. Today emitted by Archetype mechanics
+ * (Perfection's flat +1..+4) and by passive Skills (Slash Boost's damage-type
+ * filter, Magic Circle's delivery filter with a party-lineage scaler, Ailment
+ * Boost's skill-kind filter with the same scaler).
+ *
+ * `when` filters when the bonus applies (per-Skill / per-weapon); `amount`
+ * and `scaler` are mutually exclusive — exactly one must be present.
+ */
+export const attackRollEffectSchema = z
+  .object({
+    type: z.literal("attackRoll"),
+    when: attackRollFilterSchema.optional(),
+    amount: z.number().int().optional(),
+    scaler: attackRollScalerSchema.optional(),
+    source: z.string().optional(),
+  })
+  .refine(
+    (effect) => (effect.amount !== undefined) !== (effect.scaler !== undefined),
+    {
+      message:
+        "AttackRollEffect must have exactly one of `amount` or `scaler`.",
+    }
+  )
 
 export type AffinityEffect = z.infer<typeof affinityEffectSchema>
 export type AttributeEffect = z.infer<typeof attributeEffectSchema>
+export type AttackRollFilter = z.infer<typeof attackRollFilterSchema>
+export type AttackRollScaler = z.infer<typeof attackRollScalerSchema>
 export type AttackRollEffect = z.infer<typeof attackRollEffectSchema>

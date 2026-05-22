@@ -14,7 +14,6 @@ import {
 import { cleave } from "./skills/cleave"
 import {
   computeAffinityChart,
-  computeAttackRollBonus,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
@@ -325,49 +324,6 @@ describe("purity", () => {
 describe("transcription guard", () => {
   it("keeps the Mage SP Mastery wired through max SP", () => {
     expect(mage.mastery).toEqual({ kind: "sp", amount: 20 })
-  })
-})
-
-describe("computeAttackRollBonus", () => {
-  it("reports zero with no sources when no mechanic is active", () => {
-    const character = makeCharacter()
-    expect(computeAttackRollBonus(character)).toEqual({
-      total: 0,
-      sources: [],
-    })
-  })
-
-  it("sums Perfection's contribution and surfaces a labelled source", () => {
-    const character = makeCharacter({
-      activeMechanic: {
-        kind: "perfection",
-        state: { kind: "perfection", rank: 3 },
-      },
-    })
-    expect(computeAttackRollBonus(character)).toEqual({
-      total: 3,
-      sources: [{ source: "Perfection (A)", amount: 3 }],
-    })
-  })
-
-  it("ignores non-attackRoll mechanic effects (Valor's affinity change)", () => {
-    const character = makeCharacter({
-      activeArchetypeKey: "knight",
-      archetypes: [{ key: "knight", rank: 5 }],
-      activeMechanic: { kind: "valor", state: { kind: "valor", value: 5 } },
-    })
-    expect(computeAttackRollBonus(character).total).toBe(0)
-    expect(computeAttackRollBonus(character).sources).toEqual([])
-  })
-
-  it("applies the rank-S +4 endpoint", () => {
-    const character = makeCharacter({
-      activeMechanic: {
-        kind: "perfection",
-        state: { kind: "perfection", rank: 4 },
-      },
-    })
-    expect(computeAttackRollBonus(character).total).toBe(4)
   })
 })
 

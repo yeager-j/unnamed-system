@@ -113,6 +113,7 @@ const DEV_USER_CHARACTER: SeedCharacter = {
   exhaustion: 0,
   ailments: [],
   battleConditions: null,
+  partyComposition: null,
 }
 
 /**
@@ -164,6 +165,7 @@ async function seedCharacter(
     exhaustion: character.exhaustion,
     ailments: character.ailments,
     battleConditions: character.battleConditions,
+    partyComposition: character.partyComposition,
     // FK to a characterArchetype row; set after those rows exist.
     activeArchetypeId: null,
     ancestryText: character.ancestryText,

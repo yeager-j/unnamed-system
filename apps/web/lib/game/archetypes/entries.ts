@@ -3,9 +3,16 @@ import {
   type CharacterArchetypeRow,
 } from "@/lib/db/load-character"
 
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type ResolvedAttackRoll,
+} from "../attack-roll"
 import type { HydratedCharacter, HydratedSkill } from "../hydrated-character"
 import { resolveSkillCost, type CastingCharacter } from "../skill-cost"
 import { getSkill } from "../skills"
+import type { Skill } from "../skills/schema"
+import type { StatComputationCharacter } from "../stats"
 import { getArchetype } from "./index"
 import {
   ARCHETYPE_TIERS,
@@ -65,6 +72,16 @@ export interface ArchetypeEntry {
   slots: ResolvedInheritanceSlot[]
 }
 
+function resolveAttackRollForSkill(
+  skill: Skill,
+  stats: StatComputationCharacter,
+  partyComposition: HydratedCharacter["partyComposition"]
+): ResolvedAttackRoll | null {
+  const context = skillAttackRollContext(skill)
+  if (!context) return null
+  return resolveAttackRoll(context, stats, partyComposition)
+}
+
 /**
  * Resolves the hydrated character's Archetype rows into pre-resolved
  * {@link ArchetypeEntry} bundles — Skill catalog lookups, Skill-cost
@@ -92,7 +109,15 @@ export function buildArchetypeEntries(
   function resolveSkillByKey(key: string): HydratedSkill | null {
     const skill = getSkill(key)
     if (!skill) return null
-    return { ...skill, resolvedCost: resolveSkillCost(skill, casting) }
+    return {
+      ...skill,
+      resolvedCost: resolveSkillCost(skill, casting),
+      resolvedAttackRoll: resolveAttackRollForSkill(
+        skill,
+        stats,
+        character.partyComposition
+      ),
+    }
   }
 
   return character.archetypeRows.flatMap((row) => {

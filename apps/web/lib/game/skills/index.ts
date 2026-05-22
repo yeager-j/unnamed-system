@@ -1,4 +1,5 @@
 import { agi } from "./agi"
+import { ailmentBoost } from "./ailment-boost"
 import { amritaDrop } from "./amrita-drop"
 import { autoRakukaja } from "./auto-rakukaja"
 import { bufu } from "./bufu"
@@ -51,6 +52,7 @@ const SKILLS_BY_KEY = {
   "healers-insight": healersInsight,
   "divine-judgment": divineJudgment,
   "evil-touch": evilTouch,
+  "ailment-boost": ailmentBoost,
 } as const satisfies Record<string, Skill>
 
 export type SkillKey = keyof typeof SKILLS_BY_KEY

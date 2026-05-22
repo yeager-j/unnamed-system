@@ -1,6 +1,7 @@
 import type {
   BattleConditions,
   ManualBonuses,
+  PartyComposition,
   PathChoice,
   SparkLog,
 } from "../game/character"
@@ -76,6 +77,7 @@ export interface SeedCharacter {
   exhaustion: number
   ailments: string[]
   battleConditions: BattleConditions | null
+  partyComposition: PartyComposition | null
   /** Spent (below max) when the character should look mid-combat; else full. */
   damage?: {
     hp: number
@@ -132,6 +134,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 0,
     ailments: [],
     battleConditions: null,
+    partyComposition: null,
   },
   {
     slug: "healer",
@@ -186,6 +189,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 0,
     ailments: [],
     battleConditions: null,
+    partyComposition: null,
   },
   {
     slug: "mage",
@@ -198,7 +202,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     archetypes: [
       {
         archetypeKey: "mage",
-        rank: 4,
+        rank: 5,
         mechanicState: {
           kind: "stains",
           tokens: ["fire", "ice", null, null],
@@ -246,6 +250,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     items: [
       { catalogItemKey: "runed-cane", equipped: true },
       { catalogItemKey: "shadow-charm", equipped: true },
+      { catalogItemKey: "warlock-pact", equipped: true },
     ],
     victories: 3,
     virtues: { expression: 2, empathy: 1, wisdom: 5, focus: 3 },
@@ -259,6 +264,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
       charged: false,
       concentrating: true,
     },
+    partyComposition: { mage: 2, warlock: 1 },
     damage: { hp: 22, sp: 35, hitDiceSpent: 4, skillDiceSpent: 9 },
   },
   {
@@ -352,6 +358,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 0,
     ailments: [],
     battleConditions: null,
+    partyComposition: null,
   },
   {
     slug: "fallen",
@@ -405,6 +412,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 3,
     ailments: [],
     battleConditions: null,
+    partyComposition: null,
     damage: { hp: 0, sp: 0, hitDiceSpent: 25, skillDiceSpent: 50 },
   },
   {
@@ -496,6 +504,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 0,
     ailments: [],
     battleConditions: null,
+    partyComposition: null,
   },
 ]
 

@@ -31,17 +31,21 @@ test("Warrior at Perfection A + Strength +2 reads Cleave Attack Roll +5", async 
   await expect(card).toContainText("Perfection (A)")
 })
 
-test("Warrior at Perfection S + Strength +2 reads Cleave Attack Roll +6", async ({
+test("Warrior at Perfection S + Slash Boost + Strength +2 reads Cleave Attack Roll +8", async ({
   page,
 }) => {
   await page.goto("/c/seed-fallen")
 
-  // Endpoint demo: rank S adds +4, sum is +6. Confirms the rank→bonus table
-  // and that the engine path reaches the Skill card unchanged at the top end.
+  // Endpoint demo: Strength (+2) + Perfection S (+4) + Slash Boost (+2) = +8.
+  // Slash Boost is Warrior Rank 5; seed-fallen is Rank 5 so the passive is
+  // active and its damageType filter matches Cleave's Slash damage. Confirms
+  // both the rank→bonus table and the per-Skill filter pipeline reach the
+  // Skill card with attribution intact.
   await page.getByRole("button", { name: /Cleave/ }).click()
   const card = page.getByRole("dialog")
-  await expect(card).toContainText(/Attack Roll\s*\+\s*6/)
+  await expect(card).toContainText(/Attack Roll\s*\+\s*8/)
   await expect(card).toContainText("Perfection (S)")
+  await expect(card).toContainText("Slash Boost")
 })
 
 test("Knight at Valor 3 has Resist on every physical damage type", async ({

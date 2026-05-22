@@ -7,6 +7,7 @@ import {
 } from "../__fixtures__/seed-characters"
 import { getArchetype } from "./archetypes"
 import { hasMasteryBonus } from "./archetypes/schema"
+import { resolveAttackRoll } from "./attack-roll"
 import { VIRTUE_KEYS } from "./character"
 import { getEquippableItem } from "./items"
 import { getSkill } from "./skills"
@@ -192,9 +193,10 @@ describe("derived stats — level 1 baselines (path table, no bonuses)", () => {
 describe("derived stats — Mage (mid-level, equipment + manual bonus)", () => {
   it("scales pools by level on the balanced path", () => {
     const stats = buildSeedStatCharacter(bySlug("mage"))
-    // balanced: 20 + (13-1)*6 HP; 50 + (13-1)*11 SP; no Mastery at Ranks 4/2.
+    // balanced: 20 + (13-1)*6 HP; 50 + (13-1)*11 SP; Mage Mastery at Rank 5
+    // adds +20 SP.
     expect(computeMaxHP(stats)).toBe(92)
-    expect(computeMaxSP(stats)).toBe(182)
+    expect(computeMaxSP(stats)).toBe(202)
   })
 
   it("sums the Runed Cane (+1 Magic) and the manual +1 Magic", () => {
@@ -244,6 +246,72 @@ describe("derived stats — Knight (near-max, Mastery + inheritance)", () => {
     const activeKeys = stats.activeSkills.map((s) => s.key)
     expect(activeKeys).toContain("agi")
     expect(activeKeys).toContain("cleave")
+  })
+})
+
+describe("derived stats — party-scaled Attack Roll bonuses (Magic Circle)", () => {
+  // The seeded Mage (Calliope) is Mage Rank 5 with Magic Circle active — the
+  // catalog passive that scales +1 to Magical Attack Rolls per Mage Lineage
+  // ally including self. These integration cases exercise that pipeline
+  // end-to-end against the seeded data, varying only the partyComposition.
+  const mage = bySlug("mage")
+
+  function withParty(composition: SeedCharacter["partyComposition"]) {
+    return variant(mage, (draft) => {
+      draft.partyComposition = composition
+    })
+  }
+
+  it("Magic Circle contributes +N to Magical Attack Rolls per Mage Lineage in the party", () => {
+    const stats = buildSeedStatCharacter(withParty({ mage: 3 }))
+    const resolved = resolveAttackRoll(
+      {
+        kind: "attack",
+        damageType: "fire",
+        delivery: "magical",
+        attribute: "ma",
+      },
+      stats,
+      { mage: 3 }
+    )
+    expect(resolved.sources).toContainEqual({
+      source: "Magic Circle",
+      amount: 3,
+    })
+  })
+
+  it("Magic Circle contributes 0 when no Mages are in the party", () => {
+    const stats = buildSeedStatCharacter(withParty(null))
+    const resolved = resolveAttackRoll(
+      {
+        kind: "attack",
+        damageType: "fire",
+        delivery: "magical",
+        attribute: "ma",
+      },
+      stats,
+      null
+    )
+    expect(
+      resolved.sources.some((source) => source.source === "Magic Circle")
+    ).toBe(false)
+  })
+
+  it("Magic Circle does not affect Physical-delivery Attack Rolls", () => {
+    const stats = buildSeedStatCharacter(withParty({ mage: 3 }))
+    const resolved = resolveAttackRoll(
+      {
+        kind: "attack",
+        damageType: "slash",
+        delivery: "physical",
+        attribute: "st",
+      },
+      stats,
+      { mage: 3 }
+    )
+    expect(
+      resolved.sources.some((source) => source.source === "Magic Circle")
+    ).toBe(false)
   })
 })
 

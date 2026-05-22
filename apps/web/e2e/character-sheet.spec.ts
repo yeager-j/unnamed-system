@@ -115,19 +115,23 @@ test("Combat State reflects seeded ailment, conditions, flags, and exhaustion", 
   await expect(combat.getByText("Concentrating")).toBeVisible()
   await expect(combat.getByText("Charged")).toHaveCount(0)
 
+  // seed-mage carries a non-null partyComposition (Mage:2, Warlock:1) so the
+  // read-only Party sub-block has data; both Lineages are listed.
+  await expect(combat.getByText("Mage Lineage")).toBeVisible()
+  await expect(combat.getByText("Warlock Lineage")).toBeVisible()
+
   await expect(combat.getByText("Exhaustion")).toBeVisible()
-  await expect(combat.getByText("2", { exact: true })).toBeVisible()
 
   // seed-warrior has no ailments, all-neutral conditions, no flags, zero
-  // Exhaustion — the clean empty state.
+  // Exhaustion, and a null partyComposition — the clean empty state.
   await page.goto("/c/seed-warrior")
   const empty = page.getByRole("region", { name: "Combat State" })
   await expect(empty.getByLabel("No ailment")).toBeVisible()
   await expect(empty.getByText("Neutral")).toHaveCount(3)
   await expect(empty.getByText("Charged")).toHaveCount(0)
   await expect(empty.getByText("Concentrating")).toHaveCount(0)
+  await expect(empty.getByLabel("No party composition")).toBeVisible()
   await expect(empty.getByText("Exhaustion")).toBeVisible()
-  await expect(empty.getByText("0", { exact: true })).toBeVisible()
 })
 
 test("sheet tabs: default Combat, switching mirrors to ?tab=, deep-linkable", async ({
