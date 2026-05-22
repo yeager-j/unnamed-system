@@ -34,7 +34,7 @@ export default function RootLayout({
         jetbrainsMono.variable
       )}
     >
-      <body>
+      <body className="flex min-h-svh flex-col">
         <ThemeProvider>
           <TooltipProvider>
             <SiteHeader />

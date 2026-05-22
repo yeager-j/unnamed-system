@@ -1,9 +1,73 @@
 import { expect, test } from "@playwright/test"
 
-test("index page loads", async ({ page }) => {
-  const response = await page.goto("/")
-  expect(response?.ok()).toBeTruthy()
-  await expect(
-    page.getByRole("heading", { name: "Project ready!" })
-  ).toBeVisible()
+import { STORAGE_STATE } from "./auth.setup"
+
+test.describe("signed-out", () => {
+  test("renders the sign-in landing, not the project scaffolding", async ({
+    page,
+  }) => {
+    const response = await page.goto("/")
+    expect(response?.ok()).toBeTruthy()
+
+    await expect(
+      page.getByText("Sign in to manage your characters")
+    ).toBeVisible()
+    await expect(
+      page
+        .getByRole("main")
+        .getByRole("button", { name: "Sign in with Google" })
+    ).toBeVisible()
+  })
+})
+
+test.describe("signed-in", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test("renders the roster, the disabled Create CTA, and the account-menu entry", async ({
+    page,
+  }) => {
+    const response = await page.goto("/")
+    expect(response?.ok()).toBeTruthy()
+
+    await expect(
+      page.getByRole("heading", { name: "My Characters" })
+    ).toBeVisible()
+
+    const irisCard = page
+      .locator('[data-slot="item"]')
+      .filter({ hasText: "Iris Vey" })
+    await expect(irisCard).toBeVisible()
+    await expect(irisCard.getByText(/Level 1 ·/)).toBeVisible()
+    await expect(irisCard.getByRole("link", { name: "Open" })).toHaveAttribute(
+      "href",
+      "/c/claude-1"
+    )
+
+    const createCta = page.getByRole("button", {
+      name: "Create new character",
+    })
+    await expect(createCta).toBeDisabled()
+
+    await page.getByRole("button", { name: "Open account menu" }).click()
+    await expect(
+      page.getByRole("menuitem", { name: "My Characters" })
+    ).toBeVisible()
+  })
+
+  test("split-button dropdown shows every action, all disabled", async ({
+    page,
+  }) => {
+    await page.goto("/")
+
+    const irisCard = page
+      .locator('[data-slot="item"]')
+      .filter({ hasText: "Iris Vey" })
+    await irisCard.getByRole("button", { name: "Actions for Iris Vey" }).click()
+
+    for (const label of ["Edit", "Duplicate", "Share", "Delete"]) {
+      const item = page.getByRole("menuitem", { name: label })
+      await expect(item).toBeVisible()
+      await expect(item).toHaveAttribute("data-disabled", "")
+    }
+  })
 })

@@ -93,7 +93,7 @@ export default async function CharacterSheetPage({
   const role = await getViewerRole(character)
 
   return (
-    <main className="mx-auto flex min-h-svh max-w-5xl flex-col gap-8 p-6">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
         <SheetHeader character={character} />
 
