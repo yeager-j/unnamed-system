@@ -7,7 +7,7 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-import { getEquippedWeapon } from "@/lib/game/items"
+import { getEquippedItem } from "@/lib/game/items"
 
 import { IntrinsicAttackRow, SkillRow } from "./skill-row"
 
@@ -22,7 +22,7 @@ import { IntrinsicAttackRow, SkillRow } from "./skill-row"
  * rulebook detail.
  */
 export function Skills({ character }: { character: HydratedCharacter }) {
-  const equippedWeapon = getEquippedWeapon(character.inventory)
+  const equippedWeapon = getEquippedItem(character.inventory, "weapon")
 
   const sorted = [...character.skills].sort((a, b) =>
     a.name.localeCompare(b.name)

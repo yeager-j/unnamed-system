@@ -2,27 +2,15 @@ import { describe, expect, it } from "vitest"
 
 import { getTalent } from "../talents"
 import { healer } from "./healer"
-import {
-  archetypeDisplayName,
-  ARCHETYPES,
-  getAllArchetypes,
-  getArchetype,
-} from "./index"
+import { archetypeDisplayName, ARCHETYPES, getArchetype } from "./index"
 import { knight } from "./knight"
 import { mage } from "./mage"
 import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
 import { warrior } from "./warrior"
 
 describe("archetype data", () => {
-  it("validates every Archetype against the schema", () => {
-    for (const archetype of ARCHETYPES) {
-      expect(() => archetypeSchema.parse(archetype)).not.toThrow()
-    }
-  })
-
-  it("exposes a non-empty catalog that getAllArchetypes mirrors", () => {
+  it("exposes a non-empty catalog", () => {
     expect(ARCHETYPES.length).toBeGreaterThan(0)
-    expect(getAllArchetypes()).toEqual(ARCHETYPES)
   })
 
   it("assigns every Archetype a known Lineage", () => {

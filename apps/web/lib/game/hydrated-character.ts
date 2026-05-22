@@ -47,7 +47,7 @@ export type HydratedSkill = Skill & {
  * `StatComputationCharacter` is intentionally *not* embedded: it re-bundles
  * `level` / `pathChoice` / `manualBonuses`, so storing it here would
  * duplicate them. Engine callers reconstruct it on demand via
- * `toStatComputationCharacter` in [lib/db/load-character.ts](../db/load-character.ts).
+ * `buildStatComputationCharacter` in [lib/game/stat-character.ts](./stat-character.ts).
  */
 export type HydratedCharacter = CharacterRow & {
   archetypeRows: CharacterArchetypeRow[]

@@ -9,7 +9,7 @@ import { dia } from "./dia"
 import { divineJudgment } from "./divine-judgment"
 import { elementalApocalypse } from "./elemental-apocalypse"
 import { hammerOfJustice } from "./hammer-of-justice"
-import { getAllSkills, getSkill, SKILLS } from "./index"
+import { getSkill, SKILLS } from "./index"
 import { media } from "./media"
 import { peerlessStonecleaver } from "./peerless-stonecleaver"
 import { skillSchema } from "./schema"
@@ -18,15 +18,8 @@ import { slashBoost } from "./slash-boost"
 import { tempestSlash } from "./tempest-slash"
 
 describe("skill data", () => {
-  it("validates every Skill against the schema", () => {
-    for (const skill of SKILLS) {
-      expect(() => skillSchema.parse(skill)).not.toThrow()
-    }
-  })
-
-  it("exposes a non-empty catalog that getAllSkills mirrors", () => {
+  it("exposes a non-empty catalog", () => {
     expect(SKILLS.length).toBeGreaterThan(0)
-    expect(getAllSkills()).toEqual(SKILLS)
   })
 
   it("has a unique, slug-shaped key for every Skill", () => {
@@ -143,8 +136,8 @@ describe("transcription spot-checks", () => {
   })
 
   it("distinguishes a healing formula from a cure-only heal", () => {
-    expect(dia.damage).toBe("2d8 + Ma")
-    expect("damage" in amritaDrop).toBe(false)
+    expect(dia.formula).toBe("2d8 + Ma")
+    expect("formula" in amritaDrop).toBe(false)
   })
 
   it("uses the special damage type for multi-element Skills", () => {

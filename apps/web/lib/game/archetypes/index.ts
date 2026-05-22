@@ -66,11 +66,6 @@ export function getArchetype(key: string): Archetype | undefined {
   return (ARCHETYPES_BY_KEY as Record<string, Archetype>)[key]
 }
 
-/** Returns every hardcoded Archetype. */
-export function getAllArchetypes(): readonly Archetype[] {
-  return ARCHETYPES
-}
-
 /**
  * The active Archetype's display name, or `"Adventurer"` when the character
  * has no active Archetype (`null`) or the key resolves to no Archetype. Shared

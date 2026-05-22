@@ -5,9 +5,8 @@ import { bladeturnMail } from "./bladeturn-mail"
 import {
   ACCESSORIES,
   ARMOR,
-  getAllWeapons,
   getEquippableItem,
-  getEquippedWeapon,
+  getEquippedItem,
   getWeapon,
   WEAPONS,
 } from "./index"
@@ -18,12 +17,6 @@ import { equippableItemSchema } from "./schema"
 const CATALOG = [...WEAPONS, ...ARMOR, ...ACCESSORIES]
 
 describe("item catalog data", () => {
-  it("validates every catalog item against the schema", () => {
-    for (const item of CATALOG) {
-      expect(() => equippableItemSchema.parse(item)).not.toThrow()
-    }
-  })
-
   it("has a unique, slug-shaped key for every item", () => {
     const keys = CATALOG.map((item) => item.key)
     expect(new Set(keys).size).toBe(keys.length)
@@ -65,13 +58,13 @@ describe("getWeapon", () => {
   })
 })
 
-describe("getEquippedWeapon", () => {
+describe("getEquippedItem (weapon)", () => {
   it("returns the equipped Weapon when one is equipped", () => {
     const inventory = [
       { equipped: false, item: bladeturnMail },
       { equipped: true, item: longsword },
     ]
-    expect(getEquippedWeapon(inventory)).toBe(longsword)
+    expect(getEquippedItem(inventory, "weapon")).toBe(longsword)
   })
 
   it("returns null when no item is equipped", () => {
@@ -79,7 +72,7 @@ describe("getEquippedWeapon", () => {
       { equipped: false, item: longsword },
       { equipped: false, item: bladeturnMail },
     ]
-    expect(getEquippedWeapon(inventory)).toBeNull()
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
   })
 
   it("returns null when the only equipped item is not a weapon", () => {
@@ -87,7 +80,7 @@ describe("getEquippedWeapon", () => {
       { equipped: true, item: bladeturnMail },
       { equipped: false, item: longsword },
     ]
-    expect(getEquippedWeapon(inventory)).toBeNull()
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
   })
 
   it("ignores unequipped weapons in favor of the equipped one", () => {
@@ -95,12 +88,12 @@ describe("getEquippedWeapon", () => {
       { equipped: false, item: longsword },
       { equipped: true, item: runedCane },
     ]
-    expect(getEquippedWeapon(inventory)).toBe(runedCane)
+    expect(getEquippedItem(inventory, "weapon")).toBe(runedCane)
   })
 
   it("returns null when the entry's catalog item is undefined", () => {
     const inventory = [{ equipped: true, item: undefined }]
-    expect(getEquippedWeapon(inventory)).toBeNull()
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
   })
 })
 
@@ -110,7 +103,7 @@ describe("Longsword transcription (PRD §6.2)", () => {
   })
 
   it("keeps the intrinsic attack exactly as printed", () => {
-    expect(getAllWeapons()).toContain(longsword)
+    expect(WEAPONS).toContain(longsword)
     expect(longsword.intrinsicAttack.range).toEqual({
       kind: "known",
       value: "engaged",

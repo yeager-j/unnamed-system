@@ -10,7 +10,6 @@ import type { ManualBonuses, PathChoice } from "./character"
 import {
   BONUS_TARGET_KEYS,
   type AffinityEffect,
-  type AttackRollEffect,
   type AttributeEffect,
   type BonusTargetKey,
 } from "./effects"
@@ -31,16 +30,6 @@ import type { Skill } from "./skills/schema"
  */
 
 /**
- * The minimal, persistence-agnostic view of a character these computations
- * need. Callers hydrate this from the `characters` row, its
- * `characterArchetypes`, and the resolved catalog entries of equipped
- * `inventoryItems`. Equipped items and the active Archetype's in-effect Skills
- * arrive already resolved (not as catalog keys) so these functions own no
- * catalog lookup and stay pure and trivially testable; Archetypes are
- * referenced by key because the Archetype catalog is the canonical,
- * test-usable source of their intrinsic data.
- */
-/**
  * The active Archetype's unique mechanic, paired with its persisted state.
  * Null when the active Archetype has no declared mechanic. Mechanics from
  * inactive Archetypes contribute nothing to derived values — their state is
@@ -51,6 +40,16 @@ export interface ActiveMechanic {
   state: MechanicState
 }
 
+/**
+ * The minimal, persistence-agnostic view of a character these computations
+ * need. Callers hydrate this from the `characters` row, its
+ * `characterArchetypes`, and the resolved catalog entries of equipped
+ * `inventoryItems`. Equipped items and the active Archetype's in-effect Skills
+ * arrive already resolved (not as catalog keys) so these functions own no
+ * catalog lookup and stay pure and trivially testable; Archetypes are
+ * referenced by key because the Archetype catalog is the canonical,
+ * test-usable source of their intrinsic data.
+ */
 export interface StatComputationCharacter {
   pathChoice: PathChoice
   /** Character level (1–30). Level 1 is the starting value, no Hit/Skill Dice. */
@@ -279,11 +278,10 @@ export function computeAttackRollBonus(
   let total = 0
   for (const effect of activeMechanicEffects(character)) {
     if (effect.type !== "attackRoll") continue
-    const labelled: AttackRollEffect = effect
-    total += labelled.amount
+    total += effect.amount
     sources.push({
-      source: labelled.source ?? "Bonus",
-      amount: labelled.amount,
+      source: effect.source ?? "Bonus",
+      amount: effect.amount,
     })
   }
   return { total, sources }

@@ -157,12 +157,12 @@ function skillStatRows(
     }
   }
 
-  if (skill.kind === "heal" && skill.damage) {
+  if (skill.kind === "heal" && skill.formula) {
     rows.push({
       label: "Healing",
       value: (
         <Badge variant="secondary">
-          {hydrateFormula(skill.damage, attributes)}
+          {hydrateFormula(skill.formula, attributes)}
         </Badge>
       ),
     })

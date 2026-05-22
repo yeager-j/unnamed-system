@@ -118,8 +118,3 @@ export const AILMENTS: readonly Ailment[] = Object.values(AILMENTS_BY_KEY)
 export function getAilment(key: string): Ailment | undefined {
   return (AILMENTS_BY_KEY as Record<string, Ailment>)[key]
 }
-
-/** Returns every canonical Ailment. */
-export function getAllAilments(): readonly Ailment[] {
-  return AILMENTS
-}

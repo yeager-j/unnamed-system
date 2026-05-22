@@ -8,9 +8,9 @@ import type { Skill } from "./skills/schema"
  * without polluting `items/index.ts` — nothing here is ever imported by app or
  * catalog code, and these keys never reach the loader's integrity checks.
  *
- * Scoped to equippable-item fixtures today; intended to grow Skill and
- * Archetype fixtures as the Mechanics Engine tickets that need them land. Split
- * into a folder if/when that volume warrants it.
+ * Holds equippable-item and Skill fixtures today; intended to grow Archetype
+ * fixtures as the Mechanics Engine tickets that need them land. Split into a
+ * folder if/when that volume warrants it.
  */
 
 /**

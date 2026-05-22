@@ -60,9 +60,10 @@ export function getWeapon(key: string): Weapon | undefined {
   return (WEAPONS_BY_KEY as Record<string, Weapon>)[key]
 }
 
-/** Returns every hardcoded Weapon. */
-export function getAllWeapons(): readonly Weapon[] {
-  return WEAPONS
+const EQUIPPABLE_ITEMS_BY_KEY: Record<string, EquippableItem> = {
+  ...WEAPONS_BY_KEY,
+  ...ARMOR_BY_KEY,
+  ...ACCESSORIES_BY_KEY,
 }
 
 /**
@@ -72,11 +73,7 @@ export function getAllWeapons(): readonly Weapon[] {
  * `undefined` when no item matches.
  */
 export function getEquippableItem(key: string): EquippableItem | undefined {
-  return (
-    getWeapon(key) ??
-    ARMOR.find((item) => item.key === key) ??
-    ACCESSORIES.find((item) => item.key === key)
-  )
+  return EQUIPPABLE_ITEMS_BY_KEY[key]
 }
 
 /** Structural inventory slice that the slot helpers accept. */
@@ -107,13 +104,4 @@ export function getEquippedItem<S extends EquippableItem["slot"]>(
 ): ItemForSlot<S> | null {
   const entry = inventory.find((e) => e.equipped && e.item?.slot === slot)
   return entry?.item?.slot === slot ? (entry.item as ItemForSlot<S>) : null
-}
-
-/**
- * Returns the equipped Weapon from a character's hydrated inventory, or
- * `null` when no weapon is equipped. Thin sugar over {@link getEquippedItem}
- * so the Combat tab's weapon-attack card keeps its single-purpose call site.
- */
-export function getEquippedWeapon(inventory: InventorySlice): Weapon | null {
-  return getEquippedItem(inventory, "weapon")
 }

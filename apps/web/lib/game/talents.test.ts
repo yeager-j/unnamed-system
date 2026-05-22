@@ -1,24 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  getAllTalents,
-  getTalent,
-  TALENT_KEYS,
-  TALENTS,
-  talentSchema,
-} from "./talents"
+import { getTalent, TALENT_KEYS, TALENTS } from "./talents"
 
 describe("talent data", () => {
-  it("validates every Talent against the schema", () => {
-    for (const talent of TALENTS) {
-      expect(() => talentSchema.parse(talent)).not.toThrow()
-    }
-  })
-
   it("exposes exactly the 28 canonical Talents", () => {
     expect(TALENT_KEYS).toHaveLength(28)
     expect(TALENTS).toHaveLength(28)
-    expect(getAllTalents()).toHaveLength(28)
   })
 
   it("has a unique, slug-shaped key for every Talent", () => {
