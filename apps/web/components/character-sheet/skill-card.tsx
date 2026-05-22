@@ -245,9 +245,11 @@ function AttackRollTable({ roll }: { roll: AttackRoll }) {
             <Badge variant="outline" className="w-14 font-mono">
               {tier.band}
             </Badge>
-            <span className="font-mono text-sm">
-              {hydrateFormula(tier.formula, attributes)}
-            </span>
+            {tier.formula ? (
+              <span className="font-mono text-sm">
+                {hydrateFormula(tier.formula, attributes)}
+              </span>
+            ) : null}
             {tier.sideEffects.map((key) => (
               <SideEffectBadge key={key} sideEffectKey={key} />
             ))}
@@ -320,6 +322,7 @@ const ATTACK_ATTRIBUTE_LABELS = {
   st: "Strength",
   ma: "Magic",
   ag: "Agility",
+  lu: "Luck",
   "st-or-ma": "Strength or Magic",
 } as const satisfies Record<AttackRoll["attribute"], string>
 
@@ -360,4 +363,5 @@ const SKILL_KIND_LABELS: Record<Skill["kind"], string> = {
   heal: "Healing",
   support: "Support",
   passive: "Passive",
+  ailment: "Ailment",
 }

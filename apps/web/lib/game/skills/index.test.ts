@@ -8,11 +8,12 @@ import { criticalStrike } from "./critical-strike"
 import { dia } from "./dia"
 import { divineJudgment } from "./divine-judgment"
 import { elementalApocalypse } from "./elemental-apocalypse"
+import { evilTouch } from "./evil-touch"
 import { hammerOfJustice } from "./hammer-of-justice"
 import { getSkill, SKILLS } from "./index"
 import { media } from "./media"
 import { peerlessStonecleaver } from "./peerless-stonecleaver"
-import { skillSchema } from "./schema"
+import { ailmentSkillSchema, attackSkillSchema, skillSchema } from "./schema"
 import { shieldArts } from "./shield-arts"
 import { slashBoost } from "./slash-boost"
 import { tempestSlash } from "./tempest-slash"
@@ -147,6 +148,33 @@ describe("transcription spot-checks", () => {
   it("keeps Tempest Slash's hit count and attack attribute", () => {
     expect(tempestSlash.hits).toBe(3)
     expect(tempestSlash.attackRoll.attribute).toBe("st")
+  })
+})
+
+describe("ailment skill schema", () => {
+  it("accepts Evil Touch as a valid Ailment Skill", () => {
+    expect(() => ailmentSkillSchema.parse(evilTouch)).not.toThrow()
+  })
+
+  it("rejects an Ailment Skill missing its attackRoll table", () => {
+    const { attackRoll: _attackRoll, ...withoutRoll } = evilTouch
+    expect(() => ailmentSkillSchema.parse(withoutRoll)).toThrow()
+  })
+
+  it("accepts Luck as an Attack Roll attribute", () => {
+    expect(evilTouch.attackRoll.attribute).toBe("lu")
+  })
+})
+
+describe("attack skill schema regression", () => {
+  it("continues to require damageType on attack Skills", () => {
+    const { damageType: _damageType, ...withoutDamageType } = agi
+    expect(() => attackSkillSchema.parse(withoutDamageType)).toThrow()
+  })
+
+  it("continues to require delivery on attack Skills", () => {
+    const { delivery: _delivery, ...withoutDelivery } = agi
+    expect(() => attackSkillSchema.parse(withoutDelivery)).toThrow()
   })
 })
 
