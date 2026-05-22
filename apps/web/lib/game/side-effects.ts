@@ -37,50 +37,45 @@ export const sideEffectSchema = z.object({
 
 export type SideEffect = z.infer<typeof sideEffectSchema>
 
-function validate(sideEffect: SideEffect): SideEffect {
-  sideEffectSchema.parse(sideEffect)
-  return sideEffect
-}
-
 const SIDE_EFFECTS_BY_KEY = {
-  critical: validate({
+  critical: {
     key: "critical",
     name: "Critical",
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, damage dealt is doubled and the target receives the Downed Ailment.",
-  }),
-  burn: validate({
+  },
+  burn: {
     key: "burn",
     name: "Burn",
     description: ailmentDescription("Burn"),
-  }),
-  freeze: validate({
+  },
+  freeze: {
     key: "freeze",
     name: "Freeze",
     description: ailmentDescription("Freeze"),
-  }),
-  shock: validate({
+  },
+  shock: {
     key: "shock",
     name: "Shock",
     description: ailmentDescription("Shock"),
-  }),
-  dizzy: validate({
+  },
+  dizzy: {
     key: "dizzy",
     name: "Dizzy",
     description: ailmentDescription("Dizzy"),
-  }),
-  "insta-kill-light": validate({
+  },
+  "insta-kill-light": {
     key: "insta-kill-light",
     name: "Insta-Kill (Light)",
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, the target drops to 0 Hit Points. If the target is weak to Light, the Luck comparison is skipped. Targets of equal or higher level are immune.",
-  }),
-  sukunda: validate({
+  },
+  sukunda: {
     key: "sukunda",
     name: "Sukunda",
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, the target's Hit/Evasion is lowered for 3 turns.",
-  }),
+  },
 } as const satisfies Record<SideEffectKey, SideEffect>
 
 export const SIDE_EFFECTS: readonly SideEffect[] =
