@@ -11,8 +11,7 @@
     "AUTH_REDIRECT_PROXY_URL",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
-    "DEV_AUTH_EMAIL",
-    "DEV_AUTH_PASSWORD"
+    "DEV_AUTH_EMAIL"
   ],
   "tasks": {
     "build": {

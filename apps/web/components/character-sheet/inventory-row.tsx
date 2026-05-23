@@ -1,6 +1,5 @@
-"use client"
-
 import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import {
   Item,
   ItemActions,
@@ -14,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import type { EquippableItem } from "@/lib/game/items/schema"
 
 import { ItemEffects } from "./item-effects"
@@ -26,13 +26,22 @@ import { ItemEffects } from "./item-effects"
  * heading, so the row carries no slot badge; the only per-row tag is
  * "Equipped" when applicable. Built on the shadcn {@link Item} primitive so
  * the list inherits consistent typography and focus-visible styling.
+ *
+ * **Owner-mode (UNN-180)**: the popover gains an Equip / Unequip button at
+ * the bottom. Non-owners and signed-out viewers never see it.
  */
 export function InventoryRow({
   item,
   equipped,
+  pending,
+  onEquip,
+  onUnequip,
 }: {
   item: EquippableItem
   equipped: boolean
+  pending?: boolean
+  onEquip?: () => void
+  onUnequip?: () => void
 }) {
   return (
     <Popover>
@@ -60,13 +69,31 @@ export function InventoryRow({
         className="w-80"
         initialFocus={false}
       >
-        <InventoryItemCard item={item} />
+        <InventoryItemCard
+          item={item}
+          equipped={equipped}
+          pending={pending}
+          onEquip={onEquip}
+          onUnequip={onUnequip}
+        />
       </PopoverContent>
     </Popover>
   )
 }
 
-function InventoryItemCard({ item }: { item: EquippableItem }) {
+function InventoryItemCard({
+  item,
+  equipped,
+  pending,
+  onEquip,
+  onUnequip,
+}: {
+  item: EquippableItem
+  equipped: boolean
+  pending?: boolean
+  onEquip?: () => void
+  onUnequip?: () => void
+}) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
@@ -84,6 +111,24 @@ function InventoryItemCard({ item }: { item: EquippableItem }) {
           <ItemEffects effects={item.effects} />
         </div>
       ) : null}
+      <OwnerOnly>
+        <div className="flex justify-end border-t border-border pt-3">
+          {equipped ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending || !onUnequip}
+              onClick={onUnequip}
+            >
+              Unequip
+            </Button>
+          ) : (
+            <Button size="sm" disabled={pending || !onEquip} onClick={onEquip}>
+              Equip
+            </Button>
+          )}
+        </div>
+      </OwnerOnly>
     </div>
   )
 }

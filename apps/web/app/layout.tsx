@@ -2,6 +2,7 @@ import { Geist, JetBrains_Mono } from "next/font/google"
 
 import "@workspace/ui/globals.css"
 
+import { Toaster } from "@workspace/ui/components/sonner"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -39,6 +40,7 @@ export default function RootLayout({
           <TooltipProvider>
             <SiteHeader />
             {children}
+            <Toaster richColors closeButton position="bottom-right" />
           </TooltipProvider>
         </ThemeProvider>
       </body>

@@ -17,6 +17,12 @@ import { getDb, sessions } from "@/lib/db"
  * boundary semantics. The symmetric `POST /api/dev/sign-out` ends the
  * session.
  *
+ * **No request body.** The route always signs in as the user identified by
+ * `DEV_AUTH_EMAIL`, gated by the production-mode and localhost-host guards.
+ * The earlier password requirement was belt-and-suspenders the guards
+ * already covered, and it forced automation callers to launder credentials
+ * through tool calls; dropping it removes that friction.
+ *
  * On success: inserts a `session` row via the same table the Drizzle adapter
  * writes to (so `auth()` honours it), sets the `authjs.session-token` cookie,
  * AND returns the `sessionToken` and `cookieName` in the JSON body so an
@@ -30,25 +36,13 @@ import { getDb, sessions } from "@/lib/db"
  *
  * @example Sign in from the Preview MCP browser (cookie lands automatically)
  *
- *   await fetch("/api/dev/sign-in", {
- *     method: "POST",
- *     headers: { "Content-Type": "application/json" },
- *     body: JSON.stringify({ email: "…", password: "…" }),
- *   })
+ *   await fetch("/api/dev/sign-in", { method: "POST" })
  *   // Subsequent requests in this browser context are now authenticated.
  *
- * @example Sign in from a shell, inject into the Preview browser
+ * @example Sign in from a shell
  *
- *   # Strip wrapping quotes that .env.local may carry; dotenv strips them
- *   # at runtime, but shell extraction does not.
- *   EMAIL=$(grep '^DEV_AUTH_EMAIL=' .env.local | cut -d= -f2- | sed 's/^"\(.*\)"$/\1/')
- *   PASSWORD=$(grep '^DEV_AUTH_PASSWORD=' .env.local | cut -d= -f2- | sed 's/^"\(.*\)"$/\1/')
- *   curl -s -X POST -H "Content-Type: application/json" \
- *     -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
- *     http://localhost:3000/api/dev/sign-in
+ *   curl -s -X POST http://localhost:3000/api/dev/sign-in
  *   # → { "ok": true, "sessionToken": "…", "cookieName": "authjs.session-token" }
- *   # Then in the preview browser:
- *   #   document.cookie = `${cookieName}=${sessionToken}; path=/`
  *
  * Tracked in UNN-185; UNN-176 added the in-body session token + agent
  * recipe; UNN-177 extracted the shared guard chain and added the symmetric
