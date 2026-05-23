@@ -22,8 +22,8 @@ export function ItemEffects({
   if (!effects || effects.length === 0) return null
   return (
     <ul className="flex flex-wrap gap-1.5">
-      {effects.map((effect, index) => (
-        <li key={index}>
+      {effects.map((effect) => (
+        <li key={effectKey(effect)}>
           <Badge variant="secondary" className="font-normal">
             {effectLabel(effect)}
           </Badge>
@@ -31,6 +31,17 @@ export function ItemEffects({
       ))}
     </ul>
   )
+}
+
+function effectKey(effect: ItemEffect): string {
+  switch (effect.type) {
+    case "attribute":
+      return `attribute-${effect.target}`
+    case "affinity":
+      return `affinity-${effect.affinity}-${effect.damageTypes.join(",")}`
+    case "skill":
+      return `skill-${effect.skillKey}`
+  }
 }
 
 function effectLabel(effect: ItemEffect): string {
