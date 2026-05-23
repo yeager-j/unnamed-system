@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import type { Result } from "@/lib/game/result"
@@ -9,23 +9,43 @@ import type { Result } from "@/lib/game/result"
  * Debounced auto-save lifecycle for a free-text owner-mode field. Every
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
  * per-knife/chain titles, …) needs the same plumbing: a local draft state,
- * a debounce timeout, an in-flight guard so the debounce-then-blur pattern
- * doesn't double-fire with the same `expectedUpdatedAt`, a `lastSavedRef`
- * to skip no-op edits, and an `updatedAtRef` with two convergent writers
- * (own-action success + prop sync) so sibling components don't leave us
- * with a stale version token. This hook is the one place those rules live.
+ * a debounce timeout, a serialized save queue so the debounce-then-blur
+ * pattern doesn't double-fire with the same `expectedUpdatedAt`, a
+ * `lastSavedRef` to skip no-op edits, and an `updatedAtRef` with two
+ * convergent writers (own-action success + prop sync) so sibling components
+ * don't leave us with a stale version token. This hook is the one place
+ * those rules live.
  *
  * **Concurrency contract.** The `save` callback receives the current value
  * *and* the latest known `updatedAt` — the hook does not let the consumer
  * thread the token itself, because every place I've seen consumers do that
- * has eventually drifted from the prop. On success, the hook updates the
- * ref from `result.value.updatedAt` immediately, so a rapid follow-up save
- * doesn't have to wait for React commit + effect to propagate the prop.
+ * has eventually drifted from the prop. Saves are serialized via a single
+ * promise chain (`saveQueueRef`): when a save is dispatched while another
+ * is in flight, it chains behind the in-flight one and reads the *fresh*
+ * `updatedAtRef.current` (just written by the prior save's success branch)
+ * before its own request goes out. That closes both the same-value and
+ * different-value debounce+blur races.
+ *
+ * On success, the hook updates the ref from `result.value.updatedAt`
+ * immediately, so a rapid follow-up save doesn't have to wait for React
+ * commit + effect to propagate the prop.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
- * hook only checks reference equality for in-flight / last-saved skips, so
- * a consumer that trims (`name`) should trim before comparing against
- * the server's stored value too. Use `isEqual` to override.
+ * hook only checks reference equality for last-saved skips, so a consumer
+ * that trims (`name`) should trim before comparing against the server's
+ * stored value too. Use `isEqual` to override.
+ *
+ * **Empty values.** When `isEmpty(value)` is true the hook will not
+ * dispatch a save. On `flush` (blur) or unmount, if the draft is empty
+ * *and* differs from the last saved value, the draft is reverted to the
+ * last saved value — the input visibly snaps back, no toast, no validation
+ * UI. Mid-keystroke (the debounce path) the empty value is preserved so
+ * the user can keep typing. Override `isEmpty` to opt out.
+ *
+ * **Unmount.** On unmount, if there's a dirty non-empty draft, the hook
+ * fires a final fire-and-forget save (chained through the same queue) so
+ * a client-side nav during the debounce window doesn't silently lose what
+ * was typed.
  *
  * On failure: rolls the draft back to the last-saved value and surfaces a
  * Sonner toast — `"stale"` gets a refresh-prompt, anything else gets a
@@ -45,10 +65,10 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   ) => Promise<Result<{ value: TValue; updatedAt: Date }, TError>>
   /** Defaults to 500ms — the Notion-feel sweet spot. */
   debounceMs?: number
-  /** Skip the save when this returns true. Default: never skip. */
+  /** Skip the save when this returns true (and on flush, revert the draft
+   *  to the last-saved value). Default: never skip. */
   isEmpty?: (value: TValue) => boolean
-  /** Used for `value === lastSaved` and `value === inFlight` short-circuits.
-   *  Default: reference equality. */
+  /** Used for `value === lastSaved` short-circuits. Default: `Object.is`. */
   isEqual?: (a: TValue, b: TValue) => boolean
   /** Override the default Sonner toast. */
   onError?: (error: TError) => void
@@ -85,65 +105,58 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
   const lastSavedRef = useRef(serverValue)
-  const inFlightRef = useRef<TValue | null>(null)
   const updatedAtRef = useRef(serverUpdatedAt)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
-  useEffect(() => {
-    updatedAtRef.current = serverUpdatedAt
-  }, [serverUpdatedAt])
+  function performSave(next: TValue): Promise<void> {
+    const queued = saveQueueRef.current.then(async () => {
+      if (isEqual(next, lastSavedRef.current)) return
 
-  useEffect(() => {
-    if (focusedRef.current) return
-    setLocalValue(serverValue)
-    lastSavedRef.current = serverValue
-  }, [serverValue])
+      try {
+        const result = await save(next, updatedAtRef.current)
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    },
-    []
-  )
+        if (result.ok) {
+          lastSavedRef.current = result.value.value
+          updatedAtRef.current = result.value.updatedAt
+          return
+        }
 
-  async function performSave(next: TValue): Promise<void> {
-    if (isEmpty(next)) return
-    if (isEqual(next, lastSavedRef.current)) return
-    if (inFlightRef.current !== null && isEqual(next, inFlightRef.current)) {
-      return
-    }
+        setLocalValue(lastSavedRef.current)
 
-    inFlightRef.current = next
-    try {
-      const result = await save(next, updatedAtRef.current)
-
-      if (result.ok) {
-        lastSavedRef.current = result.value.value
-        updatedAtRef.current = result.value.updatedAt
-        return
-      }
-
-      setLocalValue(lastSavedRef.current)
-
-      if (onError) {
-        onError(result.error)
-      } else if (result.error === "stale") {
-        toast.error(
-          "Someone else updated this character — refresh to see the latest."
-        )
-      } else {
+        if (onError) {
+          onError(result.error)
+        } else if (result.error === "stale") {
+          toast.error(
+            "Someone else updated this character — refresh to see the latest."
+          )
+        } else {
+          toast.error("Couldn't save. Try again.")
+        }
+      } catch (error) {
+        // `save` threw (network drop, server crash, auth interrupt) or our
+        // own error branch threw. Roll back, surface a generic toast, and
+        // let the queue keep flowing. Throws aren't routed through `onError`
+        // because that's typed `TError` — expected failures should return
+        // `Result.err`, not throw.
+        console.error("[useDebouncedAutoSave] save threw", error)
+        setLocalValue(lastSavedRef.current)
         toast.error("Couldn't save. Try again.")
       }
-    } finally {
-      if (inFlightRef.current !== null && isEqual(inFlightRef.current, next)) {
-        inFlightRef.current = null
-      }
-    }
+    })
+    // Safety net: even if the inner try/catch itself somehow rejects (a
+    // throw from `setLocalValue` or `toast`, an unhandled error in
+    // microtask scheduling), keep the queue resolved so the next save —
+    // including the unmount flush — still dispatches.
+    saveQueueRef.current = queued.catch(() => {})
+    return queued
   }
 
   function setValue(next: TValue): void {
     setLocalValue(next)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      debounceRef.current = null
+      if (isEmpty(next)) return
       void performSave(next)
     }, debounceMs)
   }
@@ -152,6 +165,12 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
       debounceRef.current = null
+    }
+    if (isEmpty(value)) {
+      if (!isEqual(value, lastSavedRef.current)) {
+        setLocalValue(lastSavedRef.current)
+      }
+      return
     }
     void performSave(value)
   }
@@ -168,6 +187,34 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     focusedRef.current = focused
     if (!focused) flush()
   }
+
+  // useEffectEvent (React 19.2) sees the latest props/state without being
+  // listed in deps — lets the prop-sync effect fire on primitive timestamp
+  // changes only, and lets the unmount cleanup read fresh `value`,
+  // `isEmpty`, `isEqual`, and `performSave` without re-running every render.
+  const syncFromServer = useEffectEvent(() => {
+    if (!focusedRef.current) {
+      setLocalValue(serverValue)
+      lastSavedRef.current = serverValue
+    }
+    updatedAtRef.current = serverUpdatedAt
+  })
+  const flushOnUnmount = useEffectEvent(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    if (!isEqual(value, lastSavedRef.current) && !isEmpty(value)) {
+      void performSave(value)
+    }
+  })
+
+  const serverUpdatedAtMs = serverUpdatedAt.getTime()
+  useEffect(() => {
+    syncFromServer()
+  }, [serverValue, serverUpdatedAtMs])
+
+  useEffect(() => () => flushOnUnmount(), [])
 
   return { value, setValue, flush, revert, onFocusChange }
 }
