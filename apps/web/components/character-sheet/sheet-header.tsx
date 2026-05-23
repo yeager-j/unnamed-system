@@ -6,7 +6,7 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
-import { OwnerOnly } from "@/components/viewer-role"
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"

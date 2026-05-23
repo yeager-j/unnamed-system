@@ -5,8 +5,8 @@ import "@workspace/ui/globals.css"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { SiteHeader } from "@/components/site-header"
-import { ThemeProvider } from "@/components/theme-provider"
+import { SiteHeader } from "@/components/shell/site-header"
+import { ThemeProvider } from "@/components/shell/theme-provider"
 
 const fontSans = Geist({
   subsets: ["latin"],
