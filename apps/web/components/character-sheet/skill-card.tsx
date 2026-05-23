@@ -1,18 +1,11 @@
 import { Badge } from "@workspace/ui/components/badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 
 import { useCharacter } from "@/hooks/use-character"
-import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
-import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
+import type { AttackRange, Range } from "@/lib/game/attack"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
-import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
-import { formatSignedBonus, hydrateFormula } from "@/lib/game/skill-display"
+import { hydrateFormula } from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
 import type { AttributeScores } from "@/lib/game/stats"
 import {
@@ -21,7 +14,9 @@ import {
   SKILL_KIND_LABELS,
 } from "@/lib/ui/labels"
 
-import { Prose } from "./prose"
+import { AttackRollTable } from "./shared/attack-roll-table"
+import { CardShell } from "./shared/card-shell"
+import { StatsGrid, type StatRow } from "./shared/stats-grid"
 import { SkillCostBadge } from "./skill-cost-badge"
 import { SkillText } from "./skill-text"
 
@@ -88,54 +83,6 @@ export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
         attributes={attributes}
       />
     </CardShell>
-  )
-}
-
-function CardShell({
-  title,
-  subtitle,
-  kindLabel,
-  children,
-}: {
-  title: string
-  subtitle?: string
-  kindLabel: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col">
-          <h3 className="text-base leading-tight font-semibold">{title}</h3>
-          {subtitle ? (
-            <span className="text-xs text-muted-foreground">{subtitle}</span>
-          ) : null}
-        </div>
-        <Badge variant="outline" className="shrink-0">
-          {kindLabel}
-        </Badge>
-      </div>
-      {children}
-    </div>
-  )
-}
-
-interface StatRow {
-  label: string
-  value: React.ReactNode
-}
-
-function StatsGrid({ rows }: { rows: StatRow[] }) {
-  if (rows.length === 0) return null
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-      {rows.map((row) => (
-        <div key={row.label} className="contents">
-          <dt className="text-muted-foreground">{row.label}</dt>
-          <dd className="flex flex-wrap items-center gap-1.5">{row.value}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }
 
@@ -226,92 +173,6 @@ function intrinsicAttackStatRows(attack: IntrinsicAttack): StatRow[] {
       ),
     },
   ]
-}
-
-function AttackRollTable({
-  roll,
-  resolved,
-  attributes,
-}: {
-  roll: AttackRoll
-  resolved: ResolvedAttackRoll
-  attributes: AttributeScores
-}) {
-  return (
-    <section className="border-t border-border pt-3">
-      <h4 className="mb-1.5 text-xs font-semibold tracking-wide uppercase">
-        Attack Roll {formatSignedBonus(resolved.total)}
-      </h4>
-      <AttackRollBreakdown resolved={resolved} />
-      <ul className="flex flex-col gap-1.5 text-sm">
-        {roll.tiers.map((tier) => (
-          <li
-            key={tier.band}
-            className="flex flex-wrap items-center gap-x-2 gap-y-1"
-          >
-            <Badge variant="outline" className="w-14 font-mono">
-              {tier.band}
-            </Badge>
-            {tier.formula ? (
-              <span className="font-mono text-sm">
-                {hydrateFormula(tier.formula, attributes)}
-              </span>
-            ) : null}
-            {tier.sideEffects.map((key) => (
-              <SideEffectBadge key={key} sideEffectKey={key} />
-            ))}
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-/**
- * One Side Effect chip in an Attack Roll tier row. The Badge shows the canonical
- * name (e.g. "Critical", "Insta-Kill (Light)") and the tooltip renders the
- * side effect's rule description from the registry. Unknown keys are skipped —
- * the schema rejects them at parse time, but this guards against bad
- * persisted data slipping through.
- */
-function SideEffectBadge({ sideEffectKey }: { sideEffectKey: SideEffectKey }) {
-  const sideEffect = getSideEffect(sideEffectKey)
-  if (!sideEffect) return null
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Badge variant="secondary" className="cursor-help">
-            {sideEffect.name}
-          </Badge>
-        }
-      />
-      {sideEffect.description ? (
-        <TooltipContent side="top" className="max-w-sm">
-          <Prose inverted className="prose-xs whitespace-normal">
-            {sideEffect.description}
-          </Prose>
-        </TooltipContent>
-      ) : null}
-    </Tooltip>
-  )
-}
-
-/**
- * Inline attribution row under the Attack Roll header. Hidden when only the
- * rolling Attribute contributes (the header alone is already complete in
- * that case); surfaces every mechanic- or passive-Skill-supplied contributor
- * when one or more is active.
- */
-function AttackRollBreakdown({ resolved }: { resolved: ResolvedAttackRoll }) {
-  if (resolved.sources.length <= 1) return null
-  return (
-    <p className="mb-2 font-mono text-xs text-muted-foreground">
-      {resolved.sources
-        .map((part) => `${part.source} ${formatSignedBonus(part.amount)}`)
-        .join("  ")}
-    </p>
-  )
 }
 
 function rangeLabel(range: AttackRange): string {
