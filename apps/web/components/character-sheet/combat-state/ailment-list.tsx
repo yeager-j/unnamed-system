@@ -6,7 +6,7 @@ export function AilmentList({
   ailmentKeys: readonly string[]
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="col-span-2 flex flex-col gap-1.5">
       <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         Ailment
       </p>

@@ -10,7 +10,7 @@ import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 import { AilmentList } from "./combat-state/ailment-list"
 import { BattleConditionRow } from "./combat-state/battle-condition-row"
-import { ExhaustionRow } from "./combat-state/exhaustion-row"
+import { Exhaustion } from "./combat-state/exhaustion"
 import { FlagRow } from "./combat-state/flag-row"
 import { PartyCompositionRow } from "./combat-state/party-composition-row"
 
@@ -43,14 +43,16 @@ export function CombatState({ character }: { character: HydratedCharacter }) {
         <CardTitle>Combat State</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <AilmentList ailmentKeys={character.ailments} />
+        <div className="grid grid-cols-3 items-start gap-x-2">
+          <AilmentList ailmentKeys={character.ailments} />
+          <Exhaustion exhaustion={character.exhaustion} />
+        </div>
         <BattleConditionRow conditions={conditions} />
         <FlagRow
           charged={conditions.charged}
           concentrating={conditions.concentrating}
         />
         <PartyCompositionRow composition={character.partyComposition} />
-        <ExhaustionRow exhaustion={character.exhaustion} />
       </CardContent>
     </Card>
   )

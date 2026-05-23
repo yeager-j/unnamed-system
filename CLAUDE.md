@@ -34,6 +34,9 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - Reuse existing `Result` utility where appropriate.
 - Avoid prop-drilling. `HydratedCharacter` is supplied via `useCharacter()`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
 - Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `apps/web/lib/game/mechanics`.
+- **Display labels live in `apps/web/lib/ui/labels.ts`.** Any `Record<X, string>` map that turns a domain key into a human-readable string (damage types, attributes, lineages, ranges, etc.) goes there — don't redefine inline, even for a one-off consumer.
+- **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `lib/game/<domain>/` (e.g. `resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
+- Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
 
 ### Habits
 
@@ -56,6 +59,23 @@ packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
 packages/rules/     Obsidian vault with game mechanics rules
+```
+
+Inside `apps/web/`:
+
+```
+apps/web/
+├── app/                       Next routes
+├── components/
+│   ├── shell/                 App chrome (site header, auth, theme)
+│   ├── character-sheet/       Sheet feature; nested shared/ for reusable helpers
+│   └── my-characters/
+├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
+└── lib/
+    ├── game/                  Game data + per-domain helpers and display shaping
+    ├── ui/                    Cross-cutting UI utilities (labels)
+    ├── db/                    Drizzle schema and loaders
+    └── auth/                  Auth.js
 ```
 
 ## Commands
