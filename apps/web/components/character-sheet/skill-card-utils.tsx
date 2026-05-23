@@ -12,8 +12,8 @@ import {
   KNOWN_RANGE_LABELS,
 } from "@/lib/ui/labels"
 
+import { SkillCostBadge } from "./shared/skill-cost-badge"
 import { type StatRow } from "./shared/stats-grid"
-import { SkillCostBadge } from "./skill-cost-badge"
 
 /**
  * Builds the rows for the Skill popover's stats grid, including only the

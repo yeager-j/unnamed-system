@@ -4,8 +4,8 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import type { ArchetypeEntry, RankedSkill } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
 
+import { DetailSection } from "../../shared/detail-section"
 import { SkillRow } from "../../skill-row"
-import { DetailSection } from "../detail-section"
 
 export function ArchetypeRankedSkills({ entry }: { entry: ArchetypeEntry }) {
   const { ranks, row } = entry

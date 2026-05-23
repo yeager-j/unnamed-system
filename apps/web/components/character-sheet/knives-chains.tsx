@@ -11,7 +11,7 @@ import type {
 } from "@/lib/db/load-character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
-import { Prose } from "./prose"
+import { Prose } from "./shared/prose"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow
 

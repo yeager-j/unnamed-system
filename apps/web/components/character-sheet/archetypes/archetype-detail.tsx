@@ -5,14 +5,14 @@ import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
 
-import { Prose } from "../prose"
+import { DetailSection } from "../shared/detail-section"
+import { Prose } from "../shared/prose"
 import { SkillRow } from "../skill-row"
 import { ArchetypeAffinities } from "./archetype-detail/affinities"
 import { ArchetypeAttributes } from "./archetype-detail/attributes"
 import { ArchetypeInheritanceSlots } from "./archetype-detail/inheritance-slots"
 import { ArchetypeRankedSkills } from "./archetype-detail/ranked-skills"
 import { ArchetypeTalents } from "./archetype-detail/talents"
-import { DetailSection } from "./detail-section"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on

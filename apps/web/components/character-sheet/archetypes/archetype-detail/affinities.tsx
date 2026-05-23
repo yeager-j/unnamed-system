@@ -8,7 +8,7 @@ import {
 import type { Archetype } from "@/lib/game/archetypes/schema"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
-import { DetailSection } from "../detail-section"
+import { DetailSection } from "../../shared/detail-section"
 
 export function ArchetypeAffinities({ archetype }: { archetype: Archetype }) {
   const chips = AFFINITY_DAMAGE_TYPES.flatMap((type) => {

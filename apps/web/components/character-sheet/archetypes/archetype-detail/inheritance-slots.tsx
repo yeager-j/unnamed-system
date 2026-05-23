@@ -2,8 +2,8 @@ import { ItemGroup } from "@workspace/ui/components/item"
 
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 
+import { DetailSection } from "../../shared/detail-section"
 import { SkillRow } from "../../skill-row"
-import { DetailSection } from "../detail-section"
 
 export function ArchetypeInheritanceSlots({
   entry,

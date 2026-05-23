@@ -7,7 +7,7 @@ import {
 
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
-import { Prose } from "./prose"
+import { Prose } from "./shared/prose"
 
 /**
  * Read-only Notes block (PRD §6.1 Explore tab). Renders the player's free

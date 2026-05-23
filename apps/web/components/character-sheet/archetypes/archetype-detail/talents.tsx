@@ -2,7 +2,7 @@ import { Badge } from "@workspace/ui/components/badge"
 
 import type { Archetype } from "@/lib/game/archetypes/schema"
 
-import { DetailSection } from "../detail-section"
+import { DetailSection } from "../../shared/detail-section"
 import { formatTalentLabel } from "../format"
 
 export function ArchetypeTalents({ archetype }: { archetype: Archetype }) {

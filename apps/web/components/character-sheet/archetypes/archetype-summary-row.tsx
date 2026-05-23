@@ -21,8 +21,8 @@ import {
   TIER_LABELS,
 } from "@/lib/ui/labels"
 
-import { Prose } from "../prose"
-import { DetailSection } from "./detail-section"
+import { DetailSection } from "../shared/detail-section"
+import { Prose } from "../shared/prose"
 import {
   formatMasteryDescription,
   formatModifier,

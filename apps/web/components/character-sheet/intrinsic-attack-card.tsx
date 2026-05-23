@@ -3,9 +3,9 @@ import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 
 import { AttackRollTable } from "./shared/attack-roll-table"
 import { PopoverCardShell } from "./shared/popover-card-shell"
+import { SkillText } from "./shared/skill-text"
 import { StatsGrid } from "./shared/stats-grid"
 import { intrinsicAttackStatRows } from "./skill-card-utils"
-import { SkillText } from "./skill-text"
 
 interface IntrinsicAttackCardProps {
   weapon: Weapon

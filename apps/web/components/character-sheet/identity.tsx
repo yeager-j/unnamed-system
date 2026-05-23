@@ -8,7 +8,7 @@ import {
 import type { IdentityList } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
-import { Prose } from "./prose"
+import { Prose } from "./shared/prose"
 
 /**
  * Read-only Identity block (PRD §6.1 Explore tab). Renders the five Identity

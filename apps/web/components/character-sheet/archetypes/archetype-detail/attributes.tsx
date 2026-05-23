@@ -1,7 +1,7 @@
 import { ATTRIBUTE_KEYS, type Archetype } from "@/lib/game/archetypes/schema"
 import { ATTRIBUTE_SHORT_LABELS } from "@/lib/ui/labels"
 
-import { DetailSection } from "../detail-section"
+import { DetailSection } from "../../shared/detail-section"
 import { formatModifier } from "../format"
 
 export function ArchetypeAttributes({ archetype }: { archetype: Archetype }) {

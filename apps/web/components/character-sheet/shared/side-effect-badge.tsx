@@ -7,7 +7,7 @@ import {
 
 import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
 
-import { Prose } from "../prose"
+import { Prose } from "./prose"
 
 /**
  * One Side Effect chip in an Attack Roll tier row. The Badge shows the canonical
