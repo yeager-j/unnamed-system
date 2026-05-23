@@ -54,7 +54,7 @@ test.describe("signed-in", () => {
     ).toBeVisible()
   })
 
-  test("split-button dropdown shows every action, all disabled", async ({
+  test("split-button dropdown disables the pre-MVP actions and enables Delete", async ({
     page,
   }) => {
     await page.goto("/")
@@ -64,10 +64,20 @@ test.describe("signed-in", () => {
       .filter({ hasText: "Iris Vey" })
     await irisCard.getByRole("button", { name: "Actions for Iris Vey" }).click()
 
-    for (const label of ["Edit", "Duplicate", "Share", "Delete"]) {
+    for (const label of ["Edit", "Duplicate", "Share"]) {
       const item = page.getByRole("menuitem", { name: label })
       await expect(item).toBeVisible()
       await expect(item).toHaveAttribute("data-disabled", "")
     }
+    const deleteItem = page.getByRole("menuitem", { name: "Delete" })
+    await expect(deleteItem).toBeVisible()
+    await expect(deleteItem).not.toHaveAttribute("data-disabled", "")
+
+    await deleteItem.click()
+    await expect(
+      page.getByRole("alertdialog", { name: /Delete Iris Vey/ })
+    ).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("alertdialog")).toHaveCount(0)
   })
 })

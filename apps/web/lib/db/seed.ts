@@ -127,6 +127,51 @@ const DEV_USER_CHARACTER: SeedCharacter = {
 }
 
 /**
+ * Dedicated target for `e2e/delete-character.spec.ts`. Owned by
+ * {@link DEV_USER}. Sized just large enough to prove CASCADE: one archetype,
+ * one inventory item, one knife/chain/talent. Lives in its own row because
+ * the happy-path test removes it — `npm run db:seed` runs at the start of
+ * every E2E invocation and re-inserts it via the same deterministic upsert.
+ */
+const DELETE_TEST_CHARACTER: SeedCharacter = {
+  slug: "delete-target",
+  shortId: "delete-target",
+  name: "Wren Halloway",
+  pronouns: "they/them",
+  level: 1,
+  pathChoice: "balanced",
+  activeArchetypeKey: "warrior",
+  archetypes: [
+    {
+      archetypeKey: "warrior",
+      rank: 1,
+      mechanicState: { kind: "perfection", rank: 0 },
+    },
+  ],
+  manualBonuses: {},
+  ancestryText: "",
+  backgroundText: "",
+  backstoryText: "",
+  personalityTraits: [],
+  hopes: [],
+  dreams: [],
+  fears: [],
+  secrets: [],
+  notes: "",
+  knives: [],
+  chains: [],
+  talents: [],
+  items: [{ catalogItemKey: "longsword", equipped: false }],
+  victories: 0,
+  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
+  sparkLog: [],
+  exhaustion: 0,
+  ailments: [],
+  battleConditions: null,
+  partyComposition: null,
+}
+
+/**
  * Dedicated write-target for `e2e/write-pattern.spec.ts`. Owned by
  * {@link DEV_USER} so the existing auth fixture can drive it; carries the
  * three inventory items the equip tests need; mirrors Iris Vey's archetype
@@ -360,9 +405,10 @@ async function seed(): Promise<void> {
 
   await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
   await seedCharacter(WRITE_TEST_CHARACTER, DEV_USER.id)
+  await seedCharacter(DELETE_TEST_CHARACTER, DEV_USER.id)
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 2} characters and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 3} characters and 1 dev user.`
   )
 }
 

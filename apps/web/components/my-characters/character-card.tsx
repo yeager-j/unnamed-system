@@ -45,6 +45,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
       </ItemContent>
       <ItemActions>
         <CharacterCardActions
+          characterId={character.id}
           shortId={character.shortId}
           name={character.name}
         />
