@@ -241,6 +241,87 @@ test.describe("owner-mode write pattern", () => {
     await expectNoToast(page)
   })
 
+  test("different-value race: B dispatched mid-A picks up A's fresh updatedAt", async ({
+    page,
+  }) => {
+    // UNN-202 issue 1: before the serialization fix, typing "A", waiting past
+    // the 500ms debounce so save("A", T0) was in flight, then typing "B" before
+    // A returned would dispatch save("B", T0) with the same stale token. When
+    // A's commit advanced the server to T1, B's WHERE missed and the user got
+    // a "Someone else updated this character" toast on a normal edit. The
+    // serialized save queue closes that window by chaining B behind A so it
+    // reads the post-A `updatedAtRef.current` (T1) before its request goes out.
+    await page.route(/\/c\/write-target/, async (route) => {
+      if (route.request().method() === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 800))
+      }
+      await route.continue()
+    })
+
+    await page.goto(CHARACTER_URL)
+    const input = page.getByRole("textbox", { name: NAME_INPUT })
+    await input.fill("Race A")
+    // Wait past the 500ms debounce so save("Race A") is in flight (held open
+    // by the route delay above).
+    await page.waitForTimeout(600)
+    await input.fill("Race B")
+    await page.waitForTimeout(600)
+    await input.blur()
+    // Both saves resolve serially: A first (~800ms), then B (~800ms more).
+    // Wait well past both round trips but inside Sonner's 4s auto-dismiss.
+    await page.waitForTimeout(2500)
+    await expectNoToast(page)
+    await page.unroute(/\/c\/write-target/)
+    await page.reload()
+    await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
+      "Race B"
+    )
+  })
+
+  test("emptying the name input reverts to the last-saved value on blur", async ({
+    page,
+  }) => {
+    // UNN-202 issue 2: previously, clearing the input would leave the draft
+    // visually empty while the server still held the old name, with no signal
+    // that nothing had saved. The hook now snaps the draft back to
+    // `lastSavedRef.current` on blur when `isEmpty(value)` is true.
+    await page.goto(CHARACTER_URL)
+    const input = page.getByRole("textbox", { name: NAME_INPUT })
+    await input.fill("Mira the Steady")
+    await input.blur()
+    await page.waitForLoadState("networkidle")
+
+    await input.fill("")
+    await input.blur()
+    await expect(input).toHaveValue("Mira the Steady")
+    await expectNoToast(page)
+  })
+
+  test("client-side nav before debounce fires still persists the typed value", async ({
+    page,
+  }) => {
+    // UNN-202 issue 3: typing inside the 500ms debounce window and then
+    // navigating away (client-side, so `blur` may not fire) used to drop the
+    // typed text on the floor. The unmount cleanup now flushes the pending
+    // draft fire-and-forget through the same serialized queue.
+    await page.goto(CHARACTER_URL)
+    const input = page.getByRole("textbox", { name: NAME_INPUT })
+    await input.fill("Mira the Vanisher")
+    // Click the persistent header link to client-side navigate to `/`
+    // *before* the 500ms debounce elapses. The cleanup is the only path
+    // that can persist the value.
+    await page.getByRole("link", { name: "Unnamed System" }).click()
+    await expect(page).toHaveURL("/")
+    // Wait for the fire-and-forget POST to land before reading back.
+    await page.waitForLoadState("networkidle")
+
+    await page.goto(CHARACTER_URL)
+    await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
+      "Mira the Vanisher"
+    )
+    await expectNoToast(page)
+  })
+
   test("equip then immediately edit name does not stale", async ({ page }) => {
     // Both writes mutate `characters.updatedAt`. The first version of the
     // implementation cached the token in component-local state, so the
