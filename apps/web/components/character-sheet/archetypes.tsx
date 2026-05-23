@@ -87,11 +87,7 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
                   </h3>
                   <ItemGroup>
                     {groupEntries.map((entry) => (
-                      <ArchetypeSummary
-                        key={entry.row.id}
-                        entry={entry}
-                        detail={<ArchetypeDetail entry={entry} />}
-                      />
+                      <ArchetypeSummary key={entry.row.id} entry={entry} />
                     ))}
                   </ItemGroup>
                 </section>
