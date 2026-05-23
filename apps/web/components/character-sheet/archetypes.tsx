@@ -50,13 +50,6 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-end gap-2 text-xs">
-        <span className="text-muted-foreground">Saved Archetype Ranks</span>
-        <span className="font-semibold tabular-nums">
-          {character.savedArchetypeRanks}
-        </span>
-      </header>
-
       {activeEntry ? (
         <ActiveArchetypeCard entry={activeEntry} />
       ) : (
@@ -64,7 +57,15 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
       )}
 
       <section className="flex flex-col gap-4" aria-label="Unlocked Archetypes">
-        <h2 className="text-lg font-semibold">Unlocked Archetypes</h2>
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Unlocked Archetypes</h2>
+          <p className="flex items-baseline gap-2 text-xs">
+            <span className="text-muted-foreground">Saved Archetype Ranks</span>
+            <span className="font-semibold tabular-nums">
+              {character.savedArchetypeRanks}
+            </span>
+          </p>
+        </div>
         {unlockedCount === 0 ? (
           <p className="text-sm text-muted-foreground">
             No Archetypes unlocked yet.
