@@ -3,7 +3,7 @@ import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
 
 import { AttackRollTable } from "./shared/attack-roll-table"
-import { CardShell } from "./shared/card-shell"
+import { PopoverCardShell } from "./shared/popover-card-shell"
 import { StatsGrid } from "./shared/stats-grid"
 import { skillStatRows } from "./skill-card-utils"
 import { SkillText } from "./skill-text"
@@ -24,7 +24,10 @@ export function SkillCard({ skill }: SkillCardProps) {
   const { attributes } = useCharacter()
 
   return (
-    <CardShell title={skill.name} kindLabel={SKILL_KIND_LABELS[skill.kind]}>
+    <PopoverCardShell
+      title={skill.name}
+      kindLabel={SKILL_KIND_LABELS[skill.kind]}
+    >
       <SkillText>{skill.description}</SkillText>
       <StatsGrid rows={skillStatRows(skill, skill.resolvedCost, attributes)} />
       {"attackRoll" in skill && skill.attackRoll && skill.resolvedAttackRoll ? (
@@ -39,6 +42,6 @@ export function SkillCard({ skill }: SkillCardProps) {
           {skill.effect}
         </SkillText>
       ) : null}
-    </CardShell>
+    </PopoverCardShell>
   )
 }

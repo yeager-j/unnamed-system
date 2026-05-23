@@ -2,7 +2,7 @@ import { useCharacter } from "@/hooks/use-character"
 import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
 
 import { AttackRollTable } from "./shared/attack-roll-table"
-import { CardShell } from "./shared/card-shell"
+import { PopoverCardShell } from "./shared/popover-card-shell"
 import { StatsGrid } from "./shared/stats-grid"
 import { intrinsicAttackStatRows } from "./skill-card-utils"
 import { SkillText } from "./skill-text"
@@ -22,7 +22,7 @@ export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
   const { weaponAttackRoll, attributes } = useCharacter()
   if (!weaponAttackRoll) return null
   return (
-    <CardShell
+    <PopoverCardShell
       title={weapon.name}
       kindLabel="Attack"
       subtitle="Equipped weapon"
@@ -34,6 +34,6 @@ export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
         resolved={weaponAttackRoll}
         attributes={attributes}
       />
-    </CardShell>
+    </PopoverCardShell>
   )
 }
