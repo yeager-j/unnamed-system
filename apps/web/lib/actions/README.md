@@ -1,55 +1,67 @@
 # Server Actions — the owner-mode write pattern
 
 Every write that mutates a character row in owner mode lives here. The shape
-is non-negotiable: same five steps, every file. Downstream tickets that need a
+is non-negotiable: same plumbing, every file. Downstream tickets that need a
 write surface should add to `lib/actions/` rather than inventing a new path
 (API route, ad-hoc server function, etc.). If a use case doesn't fit, raise
 it.
 
 ## The pattern
 
-```ts
-"use server"
+The Zod schema lives in `<domain>.schema.ts` alongside the action. A
+`"use server"` module can only export async functions, so any client
+component that wants to pre-validate (or any code outside the action that
+references the input type) imports from the `.schema.ts` file directly.
 
-import { revalidatePath } from "next/cache"
+```ts
+// lib/actions/<domain>.schema.ts
 import { z } from "zod/v4"
 
-import { requireOwner } from "@/lib/auth/viewer-role"
-import { dbWrite } from "@/lib/db/<domain>"
-import { type Result } from "@/lib/game/result"
-
-// 1. Zod schema for the input. Kept module-private (a "use server" file can
-//    only export async functions).
-const InputSchema = z.object({
+export const SomeWriteSchema = z.object({
   characterId: z.string().min(1),
   // ... the actual fields ...
   expectedUpdatedAt: z.coerce.date(), // the optimistic-concurrency token
 })
 
-type Input = z.input<typeof InputSchema>
-type ActionError = "invalid-input" | DbError
+export type SomeWriteInput = z.input<typeof SomeWriteSchema>
+export type SomeWriteError = "invalid-input" | DbError
+```
+
+```ts
+// lib/actions/<domain>.ts
+"use server"
+
+import { requireOwner } from "@/lib/auth/viewer-role"
+import { dbWrite } from "@/lib/db/<domain>"
+import { type Result } from "@/lib/game/result"
+
+import { revalidateCharacter } from "./revalidate"
+import {
+  SomeWriteSchema,
+  type SomeWriteError,
+  type SomeWriteInput,
+} from "./<domain>.schema"
 
 export async function someWriteAction(
-  input: Input
-): Promise<Result<SuccessValue, ActionError>> {
-  // 2. Parse input — never trust the wire.
-  const parsed = InputSchema.safeParse(input)
+  input: SomeWriteInput
+): Promise<Result<SuccessValue, SomeWriteError>> {
+  // 1. Parse input — never trust the wire.
+  const parsed = SomeWriteSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "invalid-input" }
 
-  // 3. Authorize — the only sanctioned gate. Trips `forbidden()` (HTTP 403)
+  // 2. Authorize — the only sanctioned gate. Trips `forbidden()` (HTTP 403)
   //    on missing session, missing character, or wrong owner. Returns the
   //    loaded CharacterRow so we don't re-query.
   const character = await requireOwner(parsed.data.characterId)
 
-  // 4. Persistence wrapper does the load → optional pure engine transition →
+  // 3. Persistence wrapper does the load → optional pure engine transition →
   //    conditional UPDATE (see Concurrency below).
   const result = await dbWrite(character.id, parsed.data, /* ... */)
 
-  // 5. Revalidate the sheet route so derived stats (attributes, affinities,
-  //    weapon attack roll, etc.) re-render with the new state.
-  if (result.ok) {
-    revalidatePath(`/c/${character.shortId}`)
-  }
+  // 4. Revalidate the sheet route via the shared helper so derived stats
+  //    (attributes, affinities, weapon attack roll, etc.) re-render with
+  //    the new state.
+  if (result.ok) revalidateCharacter(character)
 
   return result
 }
@@ -81,14 +93,20 @@ across every wrapper. The `"stale"` error code is the contract that lets it.
 Two shapes prove the pattern (UNN-180):
 
 ### 1. Debounced auto-save on a free-text field
-`components/character-sheet/editable-character-name.tsx`
 
-The user types into a controlled input. Local input state *is* the optimistic
-value — no `useOptimistic` needed. Saves fire on a 500ms debounce and
-unconditionally on blur. Escape reverts to the last server value. No
-success indicator: the typed value staying in the input is the
+Use `useDebouncedAutoSave` (`hooks/use-debounced-auto-save.ts`). It owns
+the whole lifecycle: draft state, debounce, in-flight guard against the
+debounce + blur double-fire, `lastSavedRef` for skipping no-op edits,
+`updatedAtRef` with the prop-sync + on-success dual-writer, Escape-to-
+revert, and the failure-rollback + Sonner toast. The component just
+renders the input and forwards `onFocus`/`onBlur` so the hook knows when
+to pause draft-from-prop sync.
+
+Example: `components/character-sheet/editable-character-name.tsx`.
+
+No success indicator: the typed value staying in the input is the
 confirmation, and a routine-save channel that stays quiet means a real
-error (Sonner toast + local rollback) reads as one.
+error reads as one.
 
 ### 2. Optimistic toggle on a click action
 `components/character-sheet/inventory.tsx`

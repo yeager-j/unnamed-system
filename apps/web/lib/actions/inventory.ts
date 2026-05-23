@@ -1,37 +1,29 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
-import { z } from "zod/v4"
-
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   equipInventoryItem,
   unequipInventoryItem,
   type InventoryPersistenceError,
 } from "@/lib/db/inventory"
-import type { InventoryItemState } from "@/lib/game/items/equip"
 import { type Result } from "@/lib/game/result"
+
+import {
+  EquipInventoryItemSchema,
+  type EquipActionError,
+  type EquipActionSuccess,
+  type EquipInventoryItemInput,
+} from "./inventory.schema"
+import { revalidateCharacter } from "./revalidate"
 
 /**
  * The engine-touching Server Action: equipping or unequipping an item flows
  * through the pure {@link equipItem}/{@link unequipItem} engine and the
  * transactional persistence wrapper. After a successful write,
- * `revalidatePath` re-derives every stat that depends on equipped effects
- * (attributes, affinities, weapon attack roll). See `lib/actions/README.md`
- * for the canonical pattern.
+ * `revalidateCharacter` re-derives every stat that depends on equipped
+ * effects (attributes, affinities, weapon attack roll). See
+ * `lib/actions/README.md` for the canonical pattern.
  */
-
-const EquipInventoryItemSchema = z.object({
-  characterId: z.string().min(1),
-  itemId: z.string().min(1),
-  expectedUpdatedAt: z.coerce.date(),
-})
-
-type EquipInventoryItemInput = z.input<typeof EquipInventoryItemSchema>
-
-type EquipActionError = "invalid-input" | InventoryPersistenceError
-
-type EquipActionSuccess = { items: InventoryItemState[]; updatedAt: Date }
 
 async function runEquipAction(
   input: EquipInventoryItemInput,
@@ -52,9 +44,7 @@ async function runEquipAction(
     parsed.data.expectedUpdatedAt
   )
 
-  if (result.ok) {
-    revalidatePath(`/c/${character.shortId}`)
-  }
+  if (result.ok) revalidateCharacter(character)
 
   return result
 }
