@@ -12,10 +12,10 @@ import {
 
 import { useDrawerDirection } from "@/hooks/use-drawer-direction"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
+import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetype-detail"
 import { ArchetypeSummaryRow } from "./archetype-summary-row"
-import { LINEAGE_LABELS, TIER_LABELS } from "./lineage-labels"
 
 /**
  * One Archetype's compact entry in the Lineage-grouped list, wrapped with the

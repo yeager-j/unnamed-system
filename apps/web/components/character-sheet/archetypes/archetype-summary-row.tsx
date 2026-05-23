@@ -18,6 +18,7 @@ import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   AFFINITY_LABELS,
   ATTRIBUTE_LABELS,
+  TIER_LABELS,
 } from "@/lib/ui/labels"
 
 import { Prose } from "../prose"
@@ -27,7 +28,6 @@ import {
   formatModifier,
   formatTalentLabel,
 } from "./format"
-import { TIER_LABELS } from "./lineage-labels"
 
 /**
  * The compact row presentation for one Archetype inside the Lineage-grouped

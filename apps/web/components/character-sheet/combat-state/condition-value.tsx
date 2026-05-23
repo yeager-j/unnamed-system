@@ -1,12 +1,7 @@
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
 
 import type { BattleConditionState } from "@/lib/game/character"
-
-const CONDITION_LABEL: Record<BattleConditionState, string> = {
-  neutral: "Neutral",
-  increased: "Increased",
-  decreased: "Decreased",
-}
+import { BATTLE_CONDITION_LABELS } from "@/lib/ui/labels"
 
 export function ConditionValue({ state }: { state: BattleConditionState }) {
   if (state === "neutral") {
@@ -17,7 +12,7 @@ export function ConditionValue({ state }: { state: BattleConditionState }) {
     state === "increased" ? "font-medium" : "font-medium text-destructive"
   return (
     <span className={`inline-flex items-center gap-1 ${tone}`}>
-      {CONDITION_LABEL[state]}
+      {BATTLE_CONDITION_LABELS[state]}
       <Icon weight="bold" aria-hidden className="size-3.5" />
     </span>
   )

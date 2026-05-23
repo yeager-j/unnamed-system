@@ -1,7 +1,6 @@
 import type { Lineage } from "@/lib/game/archetypes/schema"
 import type { PartyComposition } from "@/lib/game/character"
-
-import { LINEAGE_LABELS } from "../archetypes/lineage-labels"
+import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**
  * Read-only display of the allied Lineage counts present in the current

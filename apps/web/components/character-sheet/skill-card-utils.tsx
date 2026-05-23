@@ -1,12 +1,16 @@
 import { Badge } from "@workspace/ui/components/badge"
 
-import type { AttackRange, Range } from "@/lib/game/attack"
+import type { AttackRange } from "@/lib/game/attack"
 import type { IntrinsicAttack } from "@/lib/game/items/schema"
 import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import { hydrateFormula } from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
 import type { AttributeScores } from "@/lib/game/stats"
-import { DAMAGE_TYPE_LABELS, DELIVERY_LABELS } from "@/lib/ui/labels"
+import {
+  DAMAGE_TYPE_LABELS,
+  DELIVERY_LABELS,
+  KNOWN_RANGE_LABELS,
+} from "@/lib/ui/labels"
 
 import { type StatRow } from "./shared/stats-grid"
 import { SkillCostBadge } from "./skill-cost-badge"
@@ -110,11 +114,4 @@ export function intrinsicAttackStatRows(attack: IntrinsicAttack): StatRow[] {
 
 export function rangeLabel(range: AttackRange): string {
   return range.kind === "known" ? KNOWN_RANGE_LABELS[range.value] : range.value
-}
-
-const KNOWN_RANGE_LABELS: Record<Range, string> = {
-  engaged: "Engaged",
-  "all-engaged": "All Engaged",
-  "same-zone": "Same Zone",
-  "same-or-adjacent-zone": "Same/Adjacent Zone",
 }

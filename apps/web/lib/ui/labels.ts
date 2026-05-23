@@ -3,9 +3,13 @@ import type {
   AffinityDamageType,
   DamageType,
 } from "@/lib/game/affinity"
-import type { AttributeKey } from "@/lib/game/archetypes/schema"
-import type { Delivery } from "@/lib/game/attack"
-import type { VirtueKey } from "@/lib/game/character"
+import type {
+  ArchetypeTier,
+  AttributeKey,
+  Lineage,
+} from "@/lib/game/archetypes/schema"
+import type { Delivery, Range } from "@/lib/game/attack"
+import type { BattleConditionState, VirtueKey } from "@/lib/game/character"
 import type { BonusTargetKey } from "@/lib/game/effects"
 import type { SkillKind } from "@/lib/game/skill-kind"
 
@@ -106,4 +110,47 @@ export const VIRTUE_LABELS: Record<VirtueKey, string> = {
   empathy: "Empathy",
   wisdom: "Wisdom",
   focus: "Focus",
+}
+
+/** The twelve Lineages. */
+export const LINEAGE_LABELS: Record<Lineage, string> = {
+  warrior: "Warrior Lineage",
+  mage: "Mage Lineage",
+  brawler: "Brawler Lineage",
+  knight: "Knight Lineage",
+  healer: "Healer Lineage",
+  thief: "Thief Lineage",
+  berserker: "Berserker Lineage",
+  bard: "Bard Lineage",
+  shapechanger: "Shapechanger Lineage",
+  hunter: "Hunter Lineage",
+  warlock: "Warlock Lineage",
+  summoner: "Summoner Lineage",
+}
+
+/** The four Archetype Tiers. */
+export const TIER_LABELS: Record<ArchetypeTier, string> = {
+  initiate: "Initiate",
+  adept: "Adept",
+  elite: "Elite",
+  paragon: "Paragon",
+}
+
+/** Per-axis Battle Condition state for the Combat State block. */
+export const BATTLE_CONDITION_LABELS: Record<BattleConditionState, string> = {
+  neutral: "Neutral",
+  increased: "Increased",
+  decreased: "Decreased",
+}
+
+/**
+ * Known range labels used in the Skill / intrinsic-attack popovers. Skills
+ * with a non-canonical range carry an explicit string instead and never go
+ * through this map.
+ */
+export const KNOWN_RANGE_LABELS: Record<Range, string> = {
+  engaged: "Engaged",
+  "all-engaged": "All Engaged",
+  "same-zone": "Same Zone",
+  "same-or-adjacent-zone": "Same/Adjacent Zone",
 }
