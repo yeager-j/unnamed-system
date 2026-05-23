@@ -54,6 +54,19 @@ async function openItemPopover(page: Page, descriptionFragment: string) {
     .click()
 }
 
+/**
+ * Snapshot-check that no Sonner toast is currently rendered. The default
+ * `await expect(...).toHaveCount(0)` polls for 5s; Sonner's default toast
+ * duration is 4s, so a stale toast that briefly flashed up would dismiss
+ * inside the poll window and the assertion would still pass. This helper
+ * does a single read instead, so any toast that fired during the
+ * surrounding wait is caught.
+ */
+async function expectNoToast(page: Page): Promise<void> {
+  const count = await page.locator("[data-sonner-toast]").count()
+  expect(count).toBe(0)
+}
+
 test.describe("owner affordances are gated", () => {
   test("signed-out viewer sees a static heading and no equip controls", async ({
     browser,
@@ -135,7 +148,7 @@ test.describe("owner-mode write pattern", () => {
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Persistent"
     )
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
   })
 
   test("debounce + blur double-fire does not produce a stale toast", async ({
@@ -148,16 +161,31 @@ test.describe("owner-mode write pattern", () => {
     // character" toast on a perfectly normal edit. The in-flight guard in
     // `editable-character-name.tsx` closes the window; this test holds it
     // closed.
+    //
+    // The race window is sensitive to network speed — on a fast localhost
+    // the action can complete in <50ms and accidentally close the window
+    // before blur fires. Route-delay the action POST so the in-flight window
+    // is reliably wide enough for blur to land inside it.
+    await page.route(/\/c\/write-target/, async (route) => {
+      if (route.request().method() === "POST") {
+        await new Promise((resolve) => setTimeout(resolve, 800))
+      }
+      await route.continue()
+    })
+
     await page.goto(CHARACTER_URL)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Race-Free")
-    // Wait *past* the 500ms debounce so the save is actively in flight, then
-    // blur — exactly the timing the bug needed.
-    await page.waitForTimeout(550)
+    // Wait past the 500ms debounce so the action is firing; blur lands while
+    // it's still mid-flight thanks to the route delay above.
+    await page.waitForTimeout(600)
     await input.blur()
-    // Give the page time to surface a toast if the regression returned.
+    // Wait long enough for both saves to resolve and for a toast to surface
+    // (~1.5s round-trip), but well inside Sonner's default 4s auto-dismiss
+    // — `expectNoToast` snapshots, so a toast that flashes here is caught.
     await page.waitForTimeout(2000)
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
+    await page.unroute(/\/c\/write-target/)
     await page.reload()
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Race-Free"
@@ -186,7 +214,7 @@ test.describe("owner-mode write pattern", () => {
 
     await page.getByRole("tab", { name: "Combat" }).click()
     await expect(slashRow).toHaveText("Resist")
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
   })
 
   test("unequipping armor restores the Neutral affinity", async ({ page }) => {
@@ -210,7 +238,7 @@ test.describe("owner-mode write pattern", () => {
       .getByRole("region", { name: "Affinities" })
       .locator('div:has(> dt:text-is("Slash")) > dd')
     await expect(slashRow).toHaveText("—")
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
   })
 
   test("equip then immediately edit name does not stale", async ({ page }) => {
@@ -234,7 +262,7 @@ test.describe("owner-mode write pattern", () => {
     // the moment between fill() and the debounced POST.
     await page.waitForTimeout(1500)
 
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
     await page.reload()
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Combo"
@@ -255,7 +283,7 @@ test.describe("owner-mode write pattern", () => {
     await page.getByRole("button", { name: "Equip", exact: true }).click()
     await page.waitForTimeout(1500)
 
-    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0)
+    await expectNoToast(page)
     await page.reload()
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Reverse"
