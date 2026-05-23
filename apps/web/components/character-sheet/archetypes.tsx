@@ -8,18 +8,15 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import {
-  buildArchetypeEntries,
-  groupByLineage,
-  type ArchetypeEntry,
-} from "@/lib/game/archetypes/entries"
+import { getArchetypeDisplay } from "@/lib/game/archetypes/display"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
 import { formatMasteryDescription } from "./archetypes/format"
-import { LINEAGE_LABELS } from "./archetypes/lineage-labels"
 
 /**
  * The Archetypes tab body (PRD §6.1 Archetypes tab; PRD §7.8 Inheritance
@@ -47,20 +44,12 @@ import { LINEAGE_LABELS } from "./archetypes/lineage-labels"
  * concerns live elsewhere.
  */
 export function Archetypes({ character }: { character: HydratedCharacter }) {
-  const entries = buildArchetypeEntries(character)
-  const activeEntry = entries.find((entry) => entry.isActive) ?? null
-  const lineageGroups = groupByLineage(entries)
-  const otherCount = entries.length - (activeEntry ? 1 : 0)
+  const { activeEntry, lineageGroups, unlockedCount } =
+    getArchetypeDisplay(character)
+  const otherCount = unlockedCount - (activeEntry ? 1 : 0)
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-end gap-2 text-xs">
-        <span className="text-muted-foreground">Saved Archetype Ranks</span>
-        <span className="font-semibold tabular-nums">
-          {character.savedArchetypeRanks}
-        </span>
-      </header>
-
       {activeEntry ? (
         <ActiveArchetypeCard entry={activeEntry} />
       ) : (
@@ -68,8 +57,16 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
       )}
 
       <section className="flex flex-col gap-4" aria-label="Unlocked Archetypes">
-        <h2 className="text-lg font-semibold">Unlocked Archetypes</h2>
-        {entries.length === 0 ? (
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Unlocked Archetypes</h2>
+          <p className="flex items-baseline gap-2 text-xs">
+            <span className="text-muted-foreground">Saved Archetype Ranks</span>
+            <span className="font-semibold tabular-nums">
+              {character.savedArchetypeRanks}
+            </span>
+          </p>
+        </div>
+        {unlockedCount === 0 ? (
           <p className="text-sm text-muted-foreground">
             No Archetypes unlocked yet.
           </p>
@@ -87,11 +84,7 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
                   </h3>
                   <ItemGroup>
                     {groupEntries.map((entry) => (
-                      <ArchetypeSummary
-                        key={entry.row.id}
-                        entry={entry}
-                        detail={<ArchetypeDetail entry={entry} />}
-                      />
+                      <ArchetypeSummary key={entry.row.id} entry={entry} />
                     ))}
                   </ItemGroup>
                 </section>

@@ -6,7 +6,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 
-import { SignInButton } from "@/components/sign-in-button"
+import { SignInButton } from "@/components/shell/sign-in-button"
 
 /**
  * The signed-out home view. Per UNN-177, the minimum bar is "doesn't error

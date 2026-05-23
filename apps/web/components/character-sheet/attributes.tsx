@@ -1,5 +1,6 @@
-import { ATTRIBUTE_KEYS, type AttributeKey } from "@/lib/game/archetypes/schema"
+import { ATTRIBUTE_KEYS } from "@/lib/game/archetypes/schema"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
 /**
  * The read-only Attributes block (PRD §6.1 / §7.1): Strength, Magic, Agility,
@@ -27,13 +28,6 @@ export function Attributes({ character }: { character: HydratedCharacter }) {
       ))}
     </dl>
   )
-}
-
-const ATTRIBUTE_LABELS: Record<AttributeKey, string> = {
-  strength: "Strength",
-  magic: "Magic",
-  agility: "Agility",
-  luck: "Luck",
 }
 
 /** Signed modifier with a true Unicode minus for negatives: `+4`, `0`, `−3`. */

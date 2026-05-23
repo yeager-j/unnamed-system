@@ -133,3 +133,8 @@ export type IdentityList = z.infer<typeof identityListSchema>
  */
 export const ailmentsSchema = z.array(z.string())
 export type Ailments = z.infer<typeof ailmentsSchema>
+
+/** A character is Fallen when their current HP has reached or dropped below 0. */
+export function isFallen(currentHP: number): boolean {
+  return currentHP <= 0
+}

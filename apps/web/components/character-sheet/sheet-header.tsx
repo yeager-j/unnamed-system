@@ -6,8 +6,9 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
-import { OwnerOnly } from "@/components/viewer-role"
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
+import { isFallen } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
 
@@ -31,7 +32,7 @@ import { Vitals } from "./vitals"
  * slot without restructuring this layout (PRD §6.1).
  */
 export function SheetHeader({ character }: { character: HydratedCharacter }) {
-  const fallen = character.currentHP <= 0
+  const fallen = isFallen(character.currentHP)
 
   return (
     <Card>

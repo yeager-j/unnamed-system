@@ -16,6 +16,8 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
 
+import { useTabUrlSync } from "@/hooks/use-tab-url-sync"
+
 import { type SheetTabKey } from "./sheet-tab-keys"
 
 const TABS: ReadonlyArray<{ key: SheetTabKey; label: string; Icon: Icon }> = [
@@ -53,6 +55,7 @@ export function SheetTabs({
   archetypes,
 }: SheetTabsProps) {
   const [value, setValue] = useState<SheetTabKey>(defaultTab)
+  useTabUrlSync(value)
   const panels: Record<SheetTabKey, ReactNode> = {
     combat,
     explore,
@@ -60,17 +63,12 @@ export function SheetTabs({
     archetypes,
   }
 
-  function handleValueChange(next: string) {
-    setValue(next as SheetTabKey)
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}?tab=${next}`
-    )
-  }
-
   return (
-    <Tabs value={value} onValueChange={handleValueChange} className="gap-6">
+    <Tabs
+      value={value}
+      onValueChange={(next) => setValue(next as SheetTabKey)}
+      className="gap-6"
+    >
       <TabsList className="w-full">
         {TABS.map(({ key, label, Icon }) => (
           <TabsTrigger key={key} value={key} aria-label={label}>

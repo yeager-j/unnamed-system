@@ -7,11 +7,11 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import type {
-  HydratedCharacter,
-  HydratedInventoryItem,
-} from "@/lib/game/hydrated-character"
-import { getEquippedItem } from "@/lib/game/items"
+import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import {
+  resolveInventory,
+  type ResolvedInventory,
+} from "@/lib/game/items/resolve-inventory"
 import type { EquippableItem } from "@/lib/game/items/schema"
 
 import { EquippedSlot } from "./equipped-slot"
@@ -35,22 +35,16 @@ import { InventoryRow } from "./inventory-row"
  * controls (those are owner-mode tickets).
  */
 export function Inventory({ character }: { character: HydratedCharacter }) {
+  const resolved = resolveInventory(character.inventory)
   return (
     <div className="flex flex-col gap-4">
-      <EquippedSection inventory={character.inventory} />
-      <InventoryList
-        inventory={character.inventory}
-        currency={character.currency}
-      />
+      <EquippedSection resolved={resolved} />
+      <InventoryList resolved={resolved} currency={character.currency} />
     </div>
   )
 }
 
-function EquippedSection({
-  inventory,
-}: {
-  inventory: HydratedInventoryItem[]
-}) {
+function EquippedSection({ resolved }: { resolved: ResolvedInventory }) {
   return (
     <Card>
       <CardHeader>
@@ -58,46 +52,30 @@ function EquippedSection({
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-5 md:grid-cols-3 md:gap-0">
         <div className="md:pr-6">
-          <EquippedSlot
-            label="Weapon"
-            item={getEquippedItem(inventory, "weapon")}
-          />
+          <EquippedSlot label="Weapon" item={resolved.equippedWeapon} />
         </div>
         <div className="md:border-l md:border-border md:px-6">
-          <EquippedSlot
-            label="Armor"
-            item={getEquippedItem(inventory, "armor")}
-          />
+          <EquippedSlot label="Armor" item={resolved.equippedArmor} />
         </div>
         <div className="md:border-l md:border-border md:pl-6">
-          <EquippedSlot
-            label="Accessory"
-            item={getEquippedItem(inventory, "accessory")}
-          />
+          <EquippedSlot label="Accessory" item={resolved.equippedAccessory} />
         </div>
       </CardContent>
     </Card>
   )
 }
 
-interface ResolvedInventoryEntry {
-  item: EquippableItem
-  equipped: boolean
-}
-
 function InventoryList({
-  inventory,
+  resolved,
   currency,
 }: {
-  inventory: HydratedInventoryItem[]
+  resolved: ResolvedInventory
   currency: number
 }) {
-  const resolved: ResolvedInventoryEntry[] = inventory
-    .filter(
-      (entry): entry is HydratedInventoryItem & { item: EquippableItem } =>
-        Boolean(entry.item)
-    )
-    .map((entry) => ({ item: entry.item, equipped: entry.equipped }))
+  const totalCount =
+    resolved.itemsBySlot.weapon.length +
+    resolved.itemsBySlot.armor.length +
+    resolved.itemsBySlot.accessory.length
 
   return (
     <Card>
@@ -110,7 +88,7 @@ function InventoryList({
         </CardAction>
       </CardHeader>
       <CardContent>
-        {resolved.length === 0 ? (
+        {totalCount === 0 ? (
           <p className="text-sm text-muted-foreground">
             No items yet — you&rsquo;ll see weapons, armor, and accessories here
             once you add them.
@@ -118,9 +96,7 @@ function InventoryList({
         ) : (
           <div className="flex flex-col gap-5">
             {SLOT_GROUPS.map((group) => {
-              const entries = resolved
-                .filter((entry) => entry.item.slot === group.slot)
-                .sort((a, b) => a.item.name.localeCompare(b.item.name))
+              const entries = resolved.itemsBySlot[group.slot]
               if (entries.length === 0) return null
               return (
                 <section key={group.slot} className="flex flex-col gap-2">

@@ -1,25 +1,7 @@
 "use client"
 
-import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes"
+import { useTheme } from "next-themes"
 import * as React from "react"
-
-function ThemeProvider({
-  children,
-  ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return (
-    <NextThemesProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-      {...props}
-    >
-      <ThemeHotkey />
-      {children}
-    </NextThemesProvider>
-  )
-}
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -34,7 +16,12 @@ function isTypingTarget(target: EventTarget | null) {
   )
 }
 
-function ThemeHotkey() {
+/**
+ * Global "d" keyboard shortcut that toggles between light and dark mode.
+ * Renders nothing — pure side-effect component mounted alongside the theme
+ * provider so the listener lives for the lifetime of the app.
+ */
+export function ThemeHotkey() {
   const { resolvedTheme, setTheme } = useTheme()
 
   React.useEffect(() => {
@@ -67,5 +54,3 @@ function ThemeHotkey() {
 
   return null
 }
-
-export { ThemeProvider }

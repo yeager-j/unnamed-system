@@ -1,5 +1,6 @@
 import { Progress } from "@workspace/ui/components/progress"
 
+import { isFallen } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 /**
@@ -13,7 +14,7 @@ import type { HydratedCharacter } from "@/lib/game/hydrated-character"
  * of the top-of-sheet summary ({@link SheetHeader}), so no card wrapper.
  */
 export function Vitals({ character }: { character: HydratedCharacter }) {
-  const fallen = character.currentHP <= 0
+  const fallen = isFallen(character.currentHP)
 
   return (
     <div className="flex flex-col gap-4">

@@ -1,45 +1,5 @@
-import type { Affinity, AffinityDamageType } from "@/lib/game/affinity"
-import type { AttributeKey, Mastery } from "@/lib/game/archetypes/schema"
-
-/** Short Attribute labels for the per-Archetype mini-grid (`St`, `Ma`, …). */
-export const ATTRIBUTE_SHORT_LABELS: Record<AttributeKey, string> = {
-  strength: "St",
-  magic: "Ma",
-  agility: "Ag",
-  luck: "Lu",
-}
-
-/** Full Attribute names used in Mastery description sentences. */
-export const ATTRIBUTE_FULL_LABELS: Record<AttributeKey, string> = {
-  strength: "Strength",
-  magic: "Magic",
-  agility: "Agility",
-  luck: "Luck",
-}
-
-/** Affinity word labels (Neutral intentionally absent — never charted). */
-export const AFFINITY_LABELS: Record<Exclude<Affinity, "neutral">, string> = {
-  weak: "Weak",
-  resist: "Resist",
-  null: "Null",
-  repel: "Repel",
-  drain: "Drain",
-}
-
-/** Damage-type column labels for the simplified affinity chips. */
-export const DAMAGE_TYPE_LABELS: Record<AffinityDamageType, string> = {
-  slash: "Slash",
-  pierce: "Pierce",
-  strike: "Strike",
-  fire: "Fire",
-  ice: "Ice",
-  wind: "Wind",
-  elec: "Elec",
-  aether: "Aether",
-  psy: "Psy",
-  light: "Light",
-  dark: "Dark",
-}
+import type { Mastery } from "@/lib/game/archetypes/schema"
+import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
 /** Signed Attribute modifier with a true Unicode minus: `+4`, `0`, `−3`. */
 export function formatModifier(value: number): string {
@@ -65,5 +25,5 @@ export function formatMasteryDescription(mastery: Mastery): string {
     mastery.amount >= 0 ? `+${mastery.amount}` : `−${Math.abs(mastery.amount)}`
   if (mastery.kind === "hp") return `${signedAmount} HP`
   if (mastery.kind === "sp") return `${signedAmount} SP`
-  return `${signedAmount} ${ATTRIBUTE_FULL_LABELS[mastery.attribute]}`
+  return `${signedAmount} ${ATTRIBUTE_LABELS[mastery.attribute]}`
 }

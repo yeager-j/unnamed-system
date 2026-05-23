@@ -31,7 +31,9 @@ export const RANGES = [
   "engaged",
   "all-engaged",
   "same-zone",
+  "adjacent-zone",
   "same-or-adjacent-zone",
+  "all",
 ] as const
 export type Range = (typeof RANGES)[number]
 
