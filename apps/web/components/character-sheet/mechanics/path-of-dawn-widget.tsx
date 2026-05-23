@@ -1,11 +1,10 @@
 "use client"
 
+import { useCharacter } from "@/hooks/use-character"
 import {
   luminaCapFor,
   type PathOfDawnState,
 } from "@/lib/game/mechanics/path-of-dawn"
-
-import { useCharacter } from "../character-context"
 
 /**
  * Healer — Path of Dawn rendering. Dawn-mode indicator on top, then the list

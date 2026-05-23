@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useCharacter } from "@/components/character-sheet/character-context"
+import { useCharacter } from "@/hooks/use-character"
 import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"

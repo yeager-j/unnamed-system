@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect, useState } from "react"
-
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -19,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
+import { useDrawerDirection } from "@/hooks/use-drawer-direction"
 import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import {
@@ -193,24 +192,4 @@ export function ArchetypeSummary({
       ) : null}
     </Item>
   )
-}
-
-/**
- * Picks the Drawer side based on viewport width. On mobile a bottom sheet has
- * native ergonomics (swipe-to-dismiss, full-width readable); on desktop a
- * bottom sheet eats the whole screen so we slide in from the right (Vaul's
- * right-side direction caps at `sm:max-w-sm`, ~384px). SSR defaults to the
- * mobile choice since the Drawer is closed at first render — by the time a
- * user opens it the post-hydration effect has set the desktop direction.
- */
-function useDrawerDirection(): "bottom" | "right" {
-  const [direction, setDirection] = useState<"bottom" | "right">("bottom")
-  useEffect(() => {
-    const mql = window.matchMedia("(min-width: 768px)")
-    const update = () => setDirection(mql.matches ? "right" : "bottom")
-    update()
-    mql.addEventListener("change", update)
-    return () => mql.removeEventListener("change", update)
-  }, [])
-  return direction
 }
