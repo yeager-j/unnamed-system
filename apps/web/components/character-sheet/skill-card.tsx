@@ -6,7 +6,6 @@ import {
 } from "@workspace/ui/components/tooltip"
 
 import { useCharacter } from "@/components/character-sheet/character-context"
-import type { DamageType } from "@/lib/game/affinity"
 import type { AttackRange, AttackRoll, Range } from "@/lib/game/attack"
 import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
@@ -16,6 +15,11 @@ import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
 import { formatSignedBonus, hydrateFormula } from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
 import type { AttributeScores } from "@/lib/game/stats"
+import {
+  DAMAGE_TYPE_LABELS,
+  DELIVERY_LABELS,
+  SKILL_KIND_LABELS,
+} from "@/lib/ui/labels"
 
 import { Prose } from "./prose"
 import { SkillCostBadge } from "./skill-cost-badge"
@@ -319,33 +323,4 @@ const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "all-engaged": "All Engaged",
   "same-zone": "Same Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
-}
-
-const DAMAGE_TYPE_LABELS: Record<DamageType | "special", string> = {
-  slash: "Slash",
-  pierce: "Pierce",
-  strike: "Strike",
-  fire: "Fire",
-  ice: "Ice",
-  wind: "Wind",
-  elec: "Elec",
-  aether: "Aether",
-  psy: "Psy",
-  light: "Light",
-  dark: "Dark",
-  almighty: "Almighty",
-  special: "Special",
-}
-
-const DELIVERY_LABELS: Record<"physical" | "magical", string> = {
-  physical: "Physical",
-  magical: "Magical",
-}
-
-const SKILL_KIND_LABELS: Record<Skill["kind"], string> = {
-  attack: "Attack",
-  heal: "Healing",
-  support: "Support",
-  passive: "Passive",
-  ailment: "Ailment",
 }

@@ -14,17 +14,16 @@ import {
   type Archetype,
 } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
+import {
+  AFFINITY_DAMAGE_TYPE_LABELS,
+  AFFINITY_LABELS,
+  ATTRIBUTE_SHORT_LABELS,
+} from "@/lib/ui/labels"
 
 import { Prose } from "../prose"
 import { SkillRow } from "../skill-row"
 import { DetailSection } from "./detail-section"
-import {
-  AFFINITY_LABELS,
-  ATTRIBUTE_SHORT_LABELS,
-  DAMAGE_TYPE_LABELS,
-  formatModifier,
-  formatTalentLabel,
-} from "./format"
+import { formatModifier, formatTalentLabel } from "./format"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on
@@ -263,7 +262,7 @@ function AffinityChip({
         affinity === "weak" ? "border-destructive/30 text-destructive" : ""
       }
     >
-      {DAMAGE_TYPE_LABELS[type]} {AFFINITY_LABELS[affinity]}
+      {AFFINITY_DAMAGE_TYPE_LABELS[type]} {AFFINITY_LABELS[affinity]}
     </Badge>
   )
 }

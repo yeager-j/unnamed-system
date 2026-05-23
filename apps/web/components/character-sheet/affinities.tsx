@@ -5,14 +5,9 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import {
-  AFFINITY_DAMAGE_TYPES,
-  type Affinity,
-  type AffinityDamageType,
-} from "@/lib/game/affinity"
+import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-
-type ChartedAffinity = Exclude<Affinity, "neutral">
+import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
 /**
  * The read-only Affinity chart (PRD §6.1 / §7.1): all 11 damage types with
@@ -38,7 +33,7 @@ export function Affinities({ character }: { character: HydratedCharacter }) {
             return (
               <div key={type} className="flex flex-col gap-0.5">
                 <dt className="text-muted-foreground">
-                  {DAMAGE_TYPE_LABELS[type]}
+                  {AFFINITY_DAMAGE_TYPE_LABELS[type]}
                 </dt>
                 <dd>
                   {affinity === "neutral" ? (
@@ -67,26 +62,4 @@ export function Affinities({ character }: { character: HydratedCharacter }) {
       </CardContent>
     </Card>
   )
-}
-
-const DAMAGE_TYPE_LABELS: Record<AffinityDamageType, string> = {
-  slash: "Slash",
-  pierce: "Pierce",
-  strike: "Strike",
-  fire: "Fire",
-  ice: "Ice",
-  wind: "Wind",
-  elec: "Elec",
-  aether: "Aether",
-  psy: "Psy",
-  light: "Light",
-  dark: "Dark",
-}
-
-const AFFINITY_LABELS: Record<ChartedAffinity, string> = {
-  weak: "Weak",
-  resist: "Resist",
-  null: "Null",
-  repel: "Repel",
-  drain: "Drain",
 }

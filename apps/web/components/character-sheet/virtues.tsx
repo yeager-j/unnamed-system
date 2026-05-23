@@ -8,6 +8,7 @@ import {
 import { VIRTUE_KEYS, type VirtueKey } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { SPARK_LOG_CAPACITY, sparkLogBreakdown } from "@/lib/game/spark"
+import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**
  * The read-only Virtues block (PRD §6.1 / §7.5): Expression, Empathy, Wisdom,
@@ -66,11 +67,4 @@ export function Virtues({ character }: { character: HydratedCharacter }) {
       </CardContent>
     </Card>
   )
-}
-
-const VIRTUE_LABELS: Record<VirtueKey, string> = {
-  expression: "Expression",
-  empathy: "Empathy",
-  wisdom: "Wisdom",
-  focus: "Focus",
 }

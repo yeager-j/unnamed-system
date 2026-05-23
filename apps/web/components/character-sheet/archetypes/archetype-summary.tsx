@@ -27,13 +27,15 @@ import {
   hasUnlockedRank,
 } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
+import {
+  AFFINITY_DAMAGE_TYPE_LABELS,
+  AFFINITY_LABELS,
+  ATTRIBUTE_LABELS,
+} from "@/lib/ui/labels"
 
 import { Prose } from "../prose"
 import { DetailSection } from "./detail-section"
 import {
-  AFFINITY_LABELS,
-  ATTRIBUTE_FULL_LABELS,
-  DAMAGE_TYPE_LABELS,
   formatMasteryDescription,
   formatModifier,
   formatTalentLabel,
@@ -138,9 +140,7 @@ export function ArchetypeSummary({
         <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
           {ATTRIBUTE_KEYS.map((key) => (
             <div key={key} className="flex items-baseline gap-1">
-              <dt className="text-muted-foreground">
-                {ATTRIBUTE_FULL_LABELS[key]}
-              </dt>
+              <dt className="text-muted-foreground">{ATTRIBUTE_LABELS[key]}</dt>
               <dd className="font-medium tabular-nums">
                 {formatModifier(archetype.attributes[key])}
               </dd>
@@ -161,7 +161,7 @@ export function ArchetypeSummary({
                   : ""
               }
             >
-              {DAMAGE_TYPE_LABELS[type]} {AFFINITY_LABELS[affinity]}
+              {AFFINITY_DAMAGE_TYPE_LABELS[type]} {AFFINITY_LABELS[affinity]}
             </Badge>
           ))}
         </DetailSection>

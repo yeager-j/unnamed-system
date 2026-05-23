@@ -19,6 +19,7 @@ import type { DamageType } from "@/lib/game/affinity"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { Skill } from "@/lib/game/skills/schema"
+import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
 
 import { IntrinsicAttackCard, SkillCard } from "./skill-card"
 import { SkillCostBadge } from "./skill-cost-badge"
@@ -144,22 +145,6 @@ function DamageTypeBadge({ damageType }: { damageType: SkillRowDamageType }) {
       {DAMAGE_TYPE_LABELS[damageType]}
     </Badge>
   )
-}
-
-const DAMAGE_TYPE_LABELS: Record<SkillRowDamageType, string> = {
-  slash: "Slash",
-  pierce: "Pierce",
-  strike: "Strike",
-  fire: "Fire",
-  ice: "Ice",
-  wind: "Wind",
-  elec: "Elec",
-  aether: "Aether",
-  psy: "Psy",
-  light: "Light",
-  dark: "Dark",
-  almighty: "Almighty",
-  special: "Special",
 }
 
 /**
