@@ -6,13 +6,14 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
-import { OwnerOnly } from "@/components/shell/viewer-role"
+import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 import { isFallen } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
 
 import { Attributes } from "./attributes"
+import { EditableCharacterName } from "./editable-character-name"
 import { OwnerControlsSlot } from "./owner-controls-slot"
 import { Vitals } from "./vitals"
 
@@ -51,9 +52,18 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
 
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="font-heading text-2xl font-semibold">
-                {character.name}
-              </h1>
+              <OwnerOnly>
+                <EditableCharacterName
+                  characterId={character.id}
+                  name={character.name}
+                  updatedAt={character.updatedAt}
+                />
+              </OwnerOnly>
+              <NonOwner>
+                <h1 className="font-heading text-2xl font-semibold">
+                  {character.name}
+                </h1>
+              </NonOwner>
               {fallen ? <Badge variant="destructive">Fallen</Badge> : null}
             </div>
 

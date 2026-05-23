@@ -14,10 +14,9 @@ import { getDb, sessions } from "@/lib/db"
  * reverse-engineering the Auth.js CSRF flow (`GET /api/auth/csrf` then `POST
  * /api/auth/signout` with `csrfToken` + `json=true`).
  *
- * Same fail-closed guard chain as sign-in (see
- * `lib/auth/dev-auth.ts#validateDevAuthRequest`) — guarding sign-out behind
- * the same dev credentials means a misbehaving page can't silently log the
- * agent out mid-session.
+ * **No request body.** Same fail-closed guard chain as sign-in (production
+ * mode → 404, missing `DEV_AUTH_EMAIL` → 404, non-localhost host → 404); see
+ * `lib/auth/dev-auth.ts#validateDevAuthRequest`.
  *
  * On success: deletes every `session` row owned by the `DEV_AUTH_EMAIL`
  * user (a single user in practice, so the blast radius equals the agent's
@@ -26,11 +25,7 @@ import { getDb, sessions } from "@/lib/db"
  *
  * @example Sign out from the Preview MCP browser
  *
- *   await fetch("/api/dev/sign-out", {
- *     method: "POST",
- *     headers: { "Content-Type": "application/json" },
- *     body: JSON.stringify({ email: "…", password: "…" }),
- *   })
+ *   await fetch("/api/dev/sign-out", { method: "POST" })
  *   // Subsequent requests in this browser context are now signed out.
  *
  * Added in UNN-177 alongside the My Characters home page, where the

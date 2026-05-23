@@ -1,3 +1,8 @@
+"use client"
+
+import { useEffect, useOptimistic, useRef, useTransition } from "react"
+import { toast } from "sonner"
+
 import {
   Card,
   CardAction,
@@ -7,7 +12,19 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import {
+  equipInventoryItemAction,
+  unequipInventoryItemAction,
+} from "@/lib/actions/inventory"
+import type {
+  HydratedCharacter,
+  HydratedInventoryItem,
+} from "@/lib/game/hydrated-character"
+import {
+  equipItem,
+  unequipItem,
+  type InventoryItemState,
+} from "@/lib/game/items/equip"
 import {
   resolveInventory,
   type ResolvedInventory,
@@ -28,18 +45,100 @@ import { InventoryRow } from "./inventory-row"
  *    right-aligned in this card's header (also shown in the persistent sheet
  *    header) so a deep-linked `?tab=inventory` view is self-contained
  *    without a dedicated single-line Wallet card. Each row shows name +
- *    brief description; clicking reveals full effects in a popover. Empty
- *    roster ⇒ a single "No items yet" placeholder.
+ *    brief description; clicking reveals full effects in a popover.
  *
- * Display-only; no equip/unequip, add-to-inventory, or add/spend-currency
- * controls (those are owner-mode tickets).
+ * **Owner-mode (UNN-180)**: an Equip / Unequip button lives at the bottom of
+ * each row's popover. Clicks flow through the pure {@link equipItem}
+ * /{@link unequipItem} engine for the optimistic frame, then the Server
+ * Action persists. After the server revalidates, attributes, affinities, and
+ * the weapon attack roll re-derive automatically.
  */
+type EquipMutation =
+  | { kind: "equip"; itemId: string }
+  | { kind: "unequip"; itemId: string }
+
 export function Inventory({ character }: { character: HydratedCharacter }) {
-  const resolved = resolveInventory(character.inventory)
+  const [pending, startTransition] = useTransition()
+  // The version token is held in a ref with two writers: every successful
+  // save updates it from the action's return value (so a rapid follow-up
+  // sees the new token without waiting for the prop to propagate through
+  // React commit + effects), and a `useEffect` mirrors the prop (so a
+  // sibling component — e.g. the name editor — bumping the token lands in
+  // our ref too).
+  const updatedAtRef = useRef(character.updatedAt)
+  useEffect(() => {
+    updatedAtRef.current = character.updatedAt
+  }, [character.updatedAt])
+
+  const [optimisticInventory, applyOptimistic] = useOptimistic(
+    character.inventory,
+    (current: HydratedInventoryItem[], mutation: EquipMutation) => {
+      const projection: InventoryItemState[] = current.map((entry) => ({
+        id: entry.id,
+        catalogItemKey: entry.catalogItemKey,
+        equipped: entry.equipped,
+      }))
+
+      const result =
+        mutation.kind === "equip"
+          ? equipItem(projection, mutation.itemId)
+          : unequipItem(projection, mutation.itemId)
+
+      if (!result.ok) return current
+
+      const equippedById = new Map(
+        result.value.map((entry) => [entry.id, entry.equipped])
+      )
+      return current.map((entry) => ({
+        ...entry,
+        equipped: equippedById.get(entry.id) ?? entry.equipped,
+      }))
+    }
+  )
+
+  const resolved = resolveInventory(optimisticInventory)
+
+  function handleMutation(mutation: EquipMutation) {
+    startTransition(async () => {
+      applyOptimistic(mutation)
+      const action =
+        mutation.kind === "equip"
+          ? equipInventoryItemAction
+          : unequipInventoryItemAction
+      const result = await action({
+        characterId: character.id,
+        itemId: mutation.itemId,
+        expectedUpdatedAt: updatedAtRef.current,
+      })
+
+      if (result.ok) {
+        updatedAtRef.current = result.value.updatedAt
+        return
+      }
+
+      if (result.error === "stale") {
+        toast.error(
+          "Someone else updated this character — refresh to see the latest."
+        )
+      } else {
+        toast.error("Couldn't update equipment. Try again.")
+      }
+    })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <EquippedSection resolved={resolved} />
-      <InventoryList resolved={resolved} currency={character.currency} />
+      <InventoryList
+        resolved={resolved}
+        currency={character.currency}
+        pending={pending}
+        onEquip={(itemId) => handleMutation({ kind: "equip", itemId })}
+        onUnequip={(itemId) => handleMutation({ kind: "unequip", itemId })}
+        itemIdByCatalogKey={Object.fromEntries(
+          optimisticInventory.map((entry) => [entry.catalogItemKey, entry.id])
+        )}
+      />
     </div>
   )
 }
@@ -68,9 +167,17 @@ function EquippedSection({ resolved }: { resolved: ResolvedInventory }) {
 function InventoryList({
   resolved,
   currency,
+  pending,
+  onEquip,
+  onUnequip,
+  itemIdByCatalogKey,
 }: {
   resolved: ResolvedInventory
   currency: number
+  pending: boolean
+  onEquip: (itemId: string) => void
+  onUnequip: (itemId: string) => void
+  itemIdByCatalogKey: Record<string, string>
 }) {
   const totalCount =
     resolved.itemsBySlot.weapon.length +
@@ -104,13 +211,21 @@ function InventoryList({
                     {group.heading}
                   </h3>
                   <ItemGroup className="gap-0">
-                    {entries.map((entry) => (
-                      <InventoryRow
-                        key={entry.item.key}
-                        item={entry.item}
-                        equipped={entry.equipped}
-                      />
-                    ))}
+                    {entries.map((entry) => {
+                      const itemId = itemIdByCatalogKey[entry.item.key]
+                      return (
+                        <InventoryRow
+                          key={entry.item.key}
+                          item={entry.item}
+                          equipped={entry.equipped}
+                          pending={pending}
+                          onEquip={itemId ? () => onEquip(itemId) : undefined}
+                          onUnequip={
+                            itemId ? () => onUnequip(itemId) : undefined
+                          }
+                        />
+                      )
+                    })}
                   </ItemGroup>
                 </section>
               )

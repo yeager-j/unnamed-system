@@ -77,6 +77,12 @@ const DEV_USER = {
  * against. UNN-176 added this so the {@link OwnerControlsSlot} E2E case has a
  * deterministic URL — the showcase {@link SEED_CHARACTERS} roster stays
  * SEED_USER-owned and continues to serve as the signed-in-non-owner case.
+ *
+ * **Do not target this character from write-path E2E specs.** Read-only specs
+ * (`home`, `owner-controls-slot`, `authenticated`) assert against its stable
+ * name "Iris Vey"; a write spec that mutates the name flakes them by
+ * Playwright's fullyParallel default. Write specs use
+ * {@link WRITE_TEST_CHARACTER} instead.
  */
 const DEV_USER_CHARACTER: SeedCharacter = {
   slug: "claude",
@@ -106,7 +112,61 @@ const DEV_USER_CHARACTER: SeedCharacter = {
   knives: [],
   chains: [],
   talents: [],
-  items: [],
+  items: [
+    { catalogItemKey: "longsword", equipped: false },
+    { catalogItemKey: "bladeturn-mail", equipped: false },
+    { catalogItemKey: "zephyr-band", equipped: false },
+  ],
+  victories: 0,
+  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
+  sparkLog: [],
+  exhaustion: 0,
+  ailments: [],
+  battleConditions: null,
+  partyComposition: null,
+}
+
+/**
+ * Dedicated write-target for `e2e/write-pattern.spec.ts`. Owned by
+ * {@link DEV_USER} so the existing auth fixture can drive it; carries the
+ * three inventory items the equip tests need; mirrors Iris Vey's archetype
+ * so the Slash-affinity assertions read the same baseline. Lives in its own
+ * row so write specs can mutate freely without flaking the read-only specs
+ * that pin Iris Vey's name and inventory.
+ */
+const WRITE_TEST_CHARACTER: SeedCharacter = {
+  slug: "write-target",
+  shortId: "write-target",
+  name: "Mira Solberg",
+  pronouns: "they/them",
+  level: 1,
+  pathChoice: "balanced",
+  activeArchetypeKey: "warrior",
+  archetypes: [
+    {
+      archetypeKey: "warrior",
+      rank: 1,
+      mechanicState: { kind: "perfection", rank: 0 },
+    },
+  ],
+  manualBonuses: {},
+  ancestryText: "",
+  backgroundText: "",
+  backstoryText: "",
+  personalityTraits: [],
+  hopes: [],
+  dreams: [],
+  fears: [],
+  secrets: [],
+  notes: "",
+  knives: [],
+  chains: [],
+  talents: [],
+  items: [
+    { catalogItemKey: "longsword", equipped: false },
+    { catalogItemKey: "bladeturn-mail", equipped: false },
+    { catalogItemKey: "zephyr-band", equipped: false },
+  ],
   victories: 0,
   virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
   sparkLog: [],
@@ -299,9 +359,10 @@ async function seed(): Promise<void> {
   }
 
   await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
+  await seedCharacter(WRITE_TEST_CHARACTER, DEV_USER.id)
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 1} characters and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 2} characters and 1 dev user.`
   )
 }
 
