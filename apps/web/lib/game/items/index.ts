@@ -39,12 +39,12 @@ const WEAPONS_BY_KEY = {
 
 const ARMOR_BY_KEY = {
   "bladeturn-mail": validate(bladeturnMail),
+  "warlock-pact": validate(warlockPact),
 } as const satisfies Record<string, Armor>
 
 const ACCESSORIES_BY_KEY = {
   "zephyr-band": validate(zephyrBand),
   "shadow-charm": validate(shadowCharm),
-  "warlock-pact": validate(warlockPact),
 } as const satisfies Record<string, Accessory>
 
 export type WeaponKey = keyof typeof WEAPONS_BY_KEY
