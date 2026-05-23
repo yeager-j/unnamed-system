@@ -152,5 +152,7 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   engaged: "Engaged",
   "all-engaged": "All Engaged",
   "same-zone": "Same Zone",
+  "adjacent-zone": "Adjacent Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
+  all: "All",
 }
