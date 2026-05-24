@@ -427,16 +427,21 @@ test.describe("UNN-203: stale is self-healing", () => {
   test("cross-tab broadcast: edit in tab A updates tab B without reload", async ({
     browser,
   }) => {
-    // Two browser contexts, both signed in to the same owner, both on the
-    // same character. A write in tab A posts on the per-character
-    // BroadcastChannel; tab B's listener (`useCharacterVersionBroadcast`
-    // inside `CharacterProvider`) calls `router.refresh()`, which re-runs
-    // the RSC, which re-renders the name input with the new server value.
-    const contextA = await browser.newContext({ storageState: STORAGE_STATE })
-    const contextB = await browser.newContext({ storageState: STORAGE_STATE })
+    // Two pages in the *same* `BrowserContext` — i.e. two tabs of the same
+    // browser session, which is the real-world scenario (`BroadcastChannel`
+    // is scoped to a browsing context group; Playwright's
+    // `browser.newContext()` creates fully isolated contexts that don't
+    // share channels by design, so a two-context setup would silently
+    // fail to deliver the message).
+    //
+    // A write in pageA posts on the per-character `BroadcastChannel`;
+    // pageB's listener (`useCharacterVersionBroadcast` inside
+    // `CharacterProvider`) calls `router.refresh()`, which re-runs the
+    // RSC, which re-renders the name input with the new server value.
+    const context = await browser.newContext({ storageState: STORAGE_STATE })
     try {
-      const pageA = await contextA.newPage()
-      const pageB = await contextB.newPage()
+      const pageA = await context.newPage()
+      const pageB = await context.newPage()
       await pageA.goto(CHARACTER_URL)
       await pageB.goto(CHARACTER_URL)
       await pageA.waitForLoadState("networkidle")
@@ -448,15 +453,14 @@ test.describe("UNN-203: stale is self-healing", () => {
       await inputA.blur()
       await pageA.waitForTimeout(1500)
 
-      // Tab B's input should converge to the new value without a manual
+      // pageB's input should converge to the new value without a manual
       // reload. The default 5s assertion poll covers the broadcast +
       // router.refresh round-trip.
       await expect(
         pageB.getByRole("textbox", { name: NAME_INPUT })
       ).toHaveValue(newName)
     } finally {
-      await contextA.close()
-      await contextB.close()
+      await context.close()
     }
   })
 })
