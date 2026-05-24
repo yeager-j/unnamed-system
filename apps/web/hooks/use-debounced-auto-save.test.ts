@@ -8,8 +8,8 @@ import { useDebouncedAutoSave } from "./use-debounced-auto-save"
 
 type SaveCall = {
   value: string
-  expectedUpdatedAt: Date
-  resolve: (result: Result<{ value: string; updatedAt: Date }, string>) => void
+  expectedVersion: number
+  resolve: (result: Result<{ value: string; version: number }, string>) => void
 }
 
 /**
@@ -21,15 +21,15 @@ type SaveCall = {
 function makeControlledSave(): {
   save: (
     value: string,
-    expectedUpdatedAt: Date
-  ) => Promise<Result<{ value: string; updatedAt: Date }, string>>
+    expectedVersion: number
+  ) => Promise<Result<{ value: string; version: number }, string>>
   calls: SaveCall[]
 } {
   const calls: SaveCall[] = []
-  const save = (value: string, expectedUpdatedAt: Date) =>
-    new Promise<Result<{ value: string; updatedAt: Date }, string>>(
+  const save = (value: string, expectedVersion: number) =>
+    new Promise<Result<{ value: string; version: number }, string>>(
       (resolve) => {
-        calls.push({ value, expectedUpdatedAt, resolve })
+        calls.push({ value, expectedVersion, resolve })
       }
     )
   return { save, calls }
@@ -55,26 +55,24 @@ describe("useDebouncedAutoSave", () => {
     vi.useRealTimers()
   })
 
-  it("serializes a follow-up save: B reads the post-A updatedAt", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
-    const T1 = new Date("2026-01-01T00:00:01Z")
+  it("serializes a follow-up save: B reads the post-A version", async () => {
     const { save, calls } = makeControlledSave()
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
       })
     )
 
-    // Type "A" → wait for debounce → save("A", T0) dispatched.
+    // Type "A" → wait for debounce → save("A", 0) dispatched.
     act(() => result.current.setValue("A"))
     act(() => vi.advanceTimersByTime(500))
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     expect(calls[0]!.value).toBe("A")
-    expect(calls[0]!.expectedUpdatedAt).toBe(T0)
+    expect(calls[0]!.expectedVersion).toBe(0)
 
     // Type "B" mid-flight → its save chains; nothing dispatched yet.
     act(() => result.current.setValue("B"))
@@ -82,27 +80,25 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
 
-    // A returns at T1. Drain microtasks so the chained B fires.
+    // A returns at version 1. Drain microtasks so the chained B fires.
     await act(async () => {
-      calls[0]!.resolve(ok({ value: "A", updatedAt: T1 }))
+      calls[0]!.resolve(ok({ value: "A", version: 1 }))
     })
     await flushMicrotasks()
 
     expect(calls).toHaveLength(2)
     expect(calls[1]!.value).toBe("B")
-    // The whole point: B picked up the fresh post-A token, not the stale T0.
-    expect(calls[1]!.expectedUpdatedAt).toBe(T1)
+    // The whole point: B picked up the fresh post-A version, not the stale 0.
+    expect(calls[1]!.expectedVersion).toBe(1)
   })
 
   it("on flush, reverts to last-saved when the draft is empty", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
-    const T1 = new Date("2026-01-01T00:00:01Z")
     const { save, calls } = makeControlledSave()
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -114,7 +110,7 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(ok({ value: "Iris", updatedAt: T1 }))
+      calls[0]!.resolve(ok({ value: "Iris", version: 1 }))
     })
     await flushMicrotasks()
     expect(result.current.value).toBe("Iris")
@@ -132,13 +128,12 @@ describe("useDebouncedAutoSave", () => {
   })
 
   it("on unmount, dispatches a fire-and-forget save when the draft is dirty", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
     const { save, calls } = makeControlledSave()
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
       })
     )
@@ -152,17 +147,16 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     expect(calls[0]!.value).toBe("dirty")
-    expect(calls[0]!.expectedUpdatedAt).toBe(T0)
+    expect(calls[0]!.expectedVersion).toBe(0)
   })
 
   it("on unmount, skips the save when the draft is empty", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
     const { save, calls } = makeControlledSave()
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -175,17 +169,15 @@ describe("useDebouncedAutoSave", () => {
   })
 
   it("when save throws, rolls back the draft and keeps the queue alive", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
-    const T1 = new Date("2026-01-01T00:00:01Z")
     const onError = vi.fn()
     // First call throws, second resolves — proves the queue isn't poisoned.
     const consoleErr = vi.spyOn(console, "error").mockImplementation(() => {})
     const calls: SaveCall[] = []
     let callIndex = 0
-    const save = (value: string, expectedUpdatedAt: Date) =>
-      new Promise<Result<{ value: string; updatedAt: Date }, string>>(
+    const save = (value: string, expectedVersion: number) =>
+      new Promise<Result<{ value: string; version: number }, string>>(
         (resolve, reject) => {
-          calls.push({ value, expectedUpdatedAt, resolve })
+          calls.push({ value, expectedVersion, resolve })
           const thisIndex = callIndex++
           // Defer to next microtask so the test can interleave.
           queueMicrotask(() => {
@@ -197,7 +189,7 @@ describe("useDebouncedAutoSave", () => {
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
         onError,
       })
@@ -217,7 +209,7 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(2)
     await act(async () => {
-      calls[1]!.resolve(ok({ value: "Iris", updatedAt: T1 }))
+      calls[1]!.resolve(ok({ value: "Iris", version: 1 }))
     })
     await flushMicrotasks()
     expect(result.current.value).toBe("Iris")
@@ -226,14 +218,13 @@ describe("useDebouncedAutoSave", () => {
   })
 
   it("on failure, rolls the draft back to the last-saved value", async () => {
-    const T0 = new Date("2026-01-01T00:00:00Z")
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         serverValue: "Mira",
-        serverUpdatedAt: T0,
+        serverVersion: 0,
         save,
         onError,
       })

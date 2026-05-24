@@ -30,7 +30,7 @@ async function runEquipAction(
   operation: (
     characterId: string,
     itemId: string,
-    expectedUpdatedAt: Date
+    expectedVersion: number
   ) => Promise<Result<EquipActionSuccess, InventoryPersistenceError>>
 ): Promise<Result<EquipActionSuccess, EquipActionError>> {
   const parsed = EquipInventoryItemSchema.safeParse(input)
@@ -41,7 +41,7 @@ async function runEquipAction(
   const result = await operation(
     character.id,
     parsed.data.itemId,
-    parsed.data.expectedUpdatedAt
+    parsed.data.expectedVersion
   )
 
   if (result.ok) revalidateCharacter(character)

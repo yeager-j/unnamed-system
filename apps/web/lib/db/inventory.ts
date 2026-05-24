@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 
 import {
   equipItem,
@@ -8,19 +8,18 @@ import {
 } from "../game/items/equip"
 import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
+import { characterExists } from "./load-character"
 import { characters, inventoryItems } from "./schema/character"
 
 /**
  * Persistence for the pure equip engine: load the inventory rows, run the
  * (pure) transition, then — only on engine success — open a transaction that
- * bumps `characters.updatedAt` conditionally on the caller-supplied
- * `expectedUpdatedAt` and writes the changed inventory rows. Running the
- * engine before the transaction means engine failures cost no tx; running the
- * conditional bump first inside the tx means it takes the row lock on
- * `characters` so a concurrent writer either blocks or causes our bump's
- * `WHERE` to miss. The shared row's `updatedAt` is the optimistic-concurrency
- * token for the whole sheet — including child rows like inventory — so a
- * concurrent edit anywhere on the character causes the version match to fail.
+ * conditionally bumps `inventoryVersion` first (so the row lock either blocks
+ * a concurrent writer or causes our WHERE to miss with no child rows
+ * touched), then writes the changed inventory rows. Per-write-class
+ * versioning is the UNN-140 baseline (`identityVersion`, `vitalsVersion`,
+ * `inventoryVersion`, `progressionVersion`); an independent edit in another
+ * class bumps a different column and does not race with this save.
  */
 
 /**
@@ -32,14 +31,14 @@ export type InventoryPersistenceError =
   | "character-not-found"
   | "stale"
 
-interface EquipPersistenceSuccess {
+export interface EquipPersistenceSuccess {
   items: InventoryItemState[]
-  updatedAt: Date
+  version: number
 }
 
 async function equipPersist(
   characterId: string,
-  expectedUpdatedAt: Date,
+  expectedVersion: number,
   transition: (
     items: InventoryItemState[]
   ) => Result<InventoryItemState[], EquipError>
@@ -62,35 +61,23 @@ async function equipPersist(
   })
 
   return db.transaction(async (tx) => {
-    // Use a JS Date (millisecond precision) rather than `sql\`now()\``
-    // (Postgres microsecond precision). The column round-trips through
-    // Drizzle's `{ mode: "date" }`, which truncates to milliseconds — if we
-    // wrote microseconds, the client's next `expectedUpdatedAt` (a
-    // millisecond-precision Date) would never match the stored value and
-    // every follow-up save would return `"stale"`. Drizzle's `$onUpdate`
-    // also uses `new Date()`, so this stays consistent across wrappers.
-    const now = new Date()
     const [bumped] = await tx
       .update(characters)
-      .set({ updatedAt: now })
+      .set({
+        inventoryVersion: sql`${characters.inventoryVersion} + 1`,
+      })
       .where(
         and(
           eq(characters.id, characterId),
-          eq(characters.updatedAt, expectedUpdatedAt)
+          eq(characters.inventoryVersion, expectedVersion)
         )
       )
-      .returning({ updatedAt: characters.updatedAt })
+      .returning({ inventoryVersion: characters.inventoryVersion })
 
     if (!bumped) {
-      const stillExists = await tx
-        .select({ id: characters.id })
-        .from(characters)
-        .where(eq(characters.id, characterId))
-        .limit(1)
-
-      return stillExists.length === 0
-        ? err("character-not-found")
-        : err("stale")
+      return (await characterExists(characterId))
+        ? err("stale")
+        : err("character-not-found")
     }
 
     for (const row of changed) {
@@ -100,21 +87,21 @@ async function equipPersist(
         .where(eq(inventoryItems.id, row.id))
     }
 
-    return ok({ items: result.value, updatedAt: bumped.updatedAt })
+    return ok({ items: result.value, version: bumped.inventoryVersion })
   })
 }
 
 /**
  * Equips the inventory item with `itemId`, auto-unequipping any current
- * occupant of its slot. Returns the new inventory state and the row's new
- * `updatedAt` so the client can chain follow-up saves.
+ * occupant of its slot. Returns the new inventory state and the bumped
+ * `inventoryVersion` so the client can chain follow-up saves.
  */
 export async function equipInventoryItem(
   characterId: string,
   itemId: string,
-  expectedUpdatedAt: Date
+  expectedVersion: number
 ): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
-  return equipPersist(characterId, expectedUpdatedAt, (items) =>
+  return equipPersist(characterId, expectedVersion, (items) =>
     equipItem(items, itemId)
   )
 }
@@ -126,9 +113,9 @@ export async function equipInventoryItem(
 export async function unequipInventoryItem(
   characterId: string,
   itemId: string,
-  expectedUpdatedAt: Date
+  expectedVersion: number
 ): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
-  return equipPersist(characterId, expectedUpdatedAt, (items) =>
+  return equipPersist(characterId, expectedVersion, (items) =>
     unequipItem(items, itemId)
   )
 }

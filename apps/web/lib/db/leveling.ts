@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 
 import {
   applyLevelUp,
@@ -7,23 +7,51 @@ import {
 } from "../game/leveling"
 import { err, ok, type Result } from "../game/result"
 import { db } from "./index"
-import { loadCharacterRowById } from "./load-character"
+import { characterExists, loadCharacterRowById } from "./load-character"
 import { characters } from "./schema/character"
 
 /**
  * Persistence for the pure leveling engine: load the row, run the (pure)
- * transition, write back only on success. Awarding Victories is a trivial
- * counter bump with no engine counterpart and lives here directly. Each write
- * is a single-row `UPDATE`, so `neon-http`'s lack of interactive transactions
- * is irrelevant.
+ * transition, then write back with a single-row `UPDATE` conditioned on the
+ * relevant per-write-class versions (UNN-140). Awarding Victories is a
+ * trivial counter bump with no engine counterpart and lives here directly.
+ *
+ * `awardVictoriesForCharacter` is progression-class only. `applyLevelUp`
+ * straddles two classes — it touches `victories`/`savedArchetypeRanks`
+ * (progression) AND `hitDiceRemaining`/`skillDiceRemaining` (vitals) — so it
+ * conditions on both expected versions and bumps both. Level-up is rare and
+ * structurally a large mutation that should coordinate with both surfaces.
  */
 
 /**
- * The pure engine's failures plus the one this layer adds: the id matched no
- * character. Kept off {@link LevelingError} because a missing row is a
- * persistence concern the pure engine never encounters.
+ * The pure engine's failures plus the persistence-layer ones this wrapper
+ * surfaces: the id matched no character, or one of the row's versions no
+ * longer equals the caller's expected token because a concurrent same-class
+ * write landed first.
  */
-export type LevelingPersistenceError = LevelingError | "character-not-found"
+export type LevelingPersistenceError =
+  | LevelingError
+  | "character-not-found"
+  | "stale"
+
+export interface AwardVictoriesPersistenceSuccess {
+  character: LevelingCharacter
+  version: number
+}
+
+export interface LevelUpPersistenceSuccess {
+  character: LevelingCharacter
+  versions: { progression: number; vitals: number }
+}
+
+/**
+ * Expected per-write-class version tokens for the joint progression + vitals
+ * write that level-up performs.
+ */
+export interface LevelUpExpectedVersions {
+  progression: number
+  vitals: number
+}
 
 async function loadLevelingCharacter(
   characterId: string
@@ -50,45 +78,66 @@ async function loadLevelingCharacter(
 /**
  * Adds `amount` Victories (1 for a standard Victory, 2 for a Heroic Victory —
  * Heroic accounting is the caller's concern) and persists the new total.
- * Returns `character-not-found` when the id matches no character.
+ * Returns `character-not-found` when the id matches no character, or
+ * `"stale"` when a concurrent progression-class write bumped
+ * `progressionVersion` past `expectedVersion`.
  */
 export async function awardVictoriesForCharacter(
   characterId: string,
-  amount: number
-): Promise<Result<LevelingCharacter, LevelingPersistenceError>> {
+  amount: number,
+  expectedVersion: number
+): Promise<Result<AwardVictoriesPersistenceSuccess, LevelingPersistenceError>> {
   const character = await loadLevelingCharacter(characterId)
   if (!character) return err("character-not-found")
 
-  const updated = {
+  const next = {
     ...character,
     victories: character.victories + amount,
   }
 
-  await db
+  const updated = await db
     .update(characters)
-    .set({ victories: updated.victories })
-    .where(eq(characters.id, characterId))
+    .set({
+      victories: next.victories,
+      progressionVersion: sql`${characters.progressionVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.progressionVersion, expectedVersion)
+      )
+    )
+    .returning({ progressionVersion: characters.progressionVersion })
 
-  return ok(updated)
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({ character: next, version: updated[0]!.progressionVersion })
 }
 
 /**
  * Resolves a level-up and persists the new level, carried-over Victories,
  * accumulated saved Archetype Ranks, and refilled Hit/Skill Dice pools in one
- * atomic single-row update. Returns the engine's failure result unwritten on
- * any validation failure, or `character-not-found` when the id matches no
- * character.
+ * single-row update. Conditions on both `progressionVersion` and
+ * `vitalsVersion` and bumps both — see the file header for the rationale.
+ * Returns the engine's failure result unwritten on any validation failure,
+ * `character-not-found` when the id matches no character, or `"stale"` when
+ * either expected version no longer matches.
  */
 export async function applyLevelUpForCharacter(
-  characterId: string
-): Promise<Result<LevelingCharacter, LevelingPersistenceError>> {
+  characterId: string,
+  expectedVersions: LevelUpExpectedVersions
+): Promise<Result<LevelUpPersistenceSuccess, LevelingPersistenceError>> {
   const character = await loadLevelingCharacter(characterId)
   if (!character) return err("character-not-found")
 
   const result = applyLevelUp(character)
   if (!result.ok) return result
 
-  await db
+  const updated = await db
     .update(characters)
     .set({
       level: result.value.level,
@@ -96,8 +145,32 @@ export async function applyLevelUpForCharacter(
       savedArchetypeRanks: result.value.savedArchetypeRanks,
       hitDiceRemaining: result.value.hitDiceRemaining,
       skillDiceRemaining: result.value.skillDiceRemaining,
+      progressionVersion: sql`${characters.progressionVersion} + 1`,
+      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
     })
-    .where(eq(characters.id, characterId))
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.progressionVersion, expectedVersions.progression),
+        eq(characters.vitalsVersion, expectedVersions.vitals)
+      )
+    )
+    .returning({
+      progressionVersion: characters.progressionVersion,
+      vitalsVersion: characters.vitalsVersion,
+    })
 
-  return result
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({
+    character: result.value,
+    versions: {
+      progression: updated[0]!.progressionVersion,
+      vitals: updated[0]!.vitalsVersion,
+    },
+  })
 }

@@ -13,7 +13,7 @@ import type { InventoryItemState } from "@/lib/game/items/equip"
 export const EquipInventoryItemSchema = z.object({
   characterId: z.string().min(1),
   itemId: z.string().min(1),
-  expectedUpdatedAt: z.coerce.date(),
+  expectedVersion: z.number().int().nonnegative(),
 })
 
 export type EquipInventoryItemInput = z.input<typeof EquipInventoryItemSchema>
@@ -22,5 +22,5 @@ export type EquipActionError = "invalid-input" | InventoryPersistenceError
 
 export type EquipActionSuccess = {
   items: InventoryItemState[]
-  updatedAt: Date
+  version: number
 }

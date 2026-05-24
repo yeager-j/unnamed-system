@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useOptimistic, useRef, useTransition } from "react"
+import { useOptimistic, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
   equipInventoryItemAction,
   unequipInventoryItemAction,
@@ -59,16 +60,13 @@ type EquipMutation =
 
 export function Inventory({ character }: { character: HydratedCharacter }) {
   const [pending, startTransition] = useTransition()
-  // The version token is held in a ref with two writers: every successful
-  // save updates it from the action's return value (so a rapid follow-up
-  // sees the new token without waiting for the prop to propagate through
-  // React commit + effects), and a `useEffect` mirrors the prop (so a
-  // sibling component — e.g. the name editor — bumping the token lands in
-  // our ref too).
-  const updatedAtRef = useRef(character.updatedAt)
-  useEffect(() => {
-    updatedAtRef.current = character.updatedAt
-  }, [character.updatedAt])
+  // The per-write-class token (inventoryVersion, UNN-140) lives in a ref so
+  // a rapid follow-up click reads the value just written by the prior
+  // save's success branch — without waiting for React commit + effect to
+  // propagate the new prop. Per-class scoping means an unrelated
+  // identity/vitals/progression edit bumps a different column and doesn't
+  // race with us.
+  const versionRef = useCharacterTokenRef(character.inventoryVersion)
 
   const [optimisticInventory, applyOptimistic] = useOptimistic(
     character.inventory,
@@ -108,11 +106,11 @@ export function Inventory({ character }: { character: HydratedCharacter }) {
       const result = await action({
         characterId: character.id,
         itemId: mutation.itemId,
-        expectedUpdatedAt: updatedAtRef.current,
+        expectedVersion: versionRef.current,
       })
 
       if (result.ok) {
-        updatedAtRef.current = result.value.updatedAt
+        versionRef.current = result.value.version
         return
       }
 

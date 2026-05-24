@@ -20,7 +20,7 @@ import { z } from "zod/v4"
 export const SomeWriteSchema = z.object({
   characterId: z.string().min(1),
   // ... the actual fields ...
-  expectedUpdatedAt: z.coerce.date(), // the optimistic-concurrency token
+  expectedVersion: z.number().int().nonnegative(), // per-class version token
 })
 
 export type SomeWriteInput = z.input<typeof SomeWriteSchema>
@@ -69,24 +69,45 @@ export async function someWriteAction(
 
 ## Concurrency
 
-Every DB wrapper here is built on **optimistic concurrency via
-`characters.updatedAt`**:
+Every DB wrapper here is built on **per-write-class optimistic concurrency**
+(UNN-140). One integer counter per logical edit-surface group lives on the
+`character` row:
 
-- The Drizzle schema column carries `$onUpdate(() => new Date())` so an
-  `UPDATE` automatically bumps the timestamp.
-- Every write conditions on `WHERE id = ? AND "updatedAt" = ?` and returns
-  `Result.err("stale")` when the row count is zero.
-- The client tracks the last-known `updatedAt` (returned in every success
-  result) and passes it back as `expectedUpdatedAt` on the next save.
-- Child-table writes (e.g. inventory items) run inside a `db.transaction` and
-  bump `characters.updatedAt` conditionally **first**, so the row lock either
-  blocks a concurrent writer or causes the conditional `WHERE` to miss with no
-  child rows touched.
+| Column | Wrappers that bump it |
+|---|---|
+| `identityVersion` | `character-name` (and future notes / identity-list / knife-title / chain-title editors) |
+| `vitalsVersion` | `rest` (full/partial/respite); shared with `leveling` (level-up) |
+| `inventoryVersion` | `inventory` (equip / unequip; add / remove when those land) |
+| `progressionVersion` | `spark`, `award-victory`; shared with `leveling` (level-up) |
 
-**This is the UNN-180 baseline, not the final word.** UNN-140 owns the
-cross-cutting concurrency policy and may replace this strategy (numeric
-version counters, serializable transactions, automatic refetch + retry, etc.)
-across every wrapper. The `"stale"` error code is the contract that lets it.
+The shape of every wrapper:
+
+- Conditions the `UPDATE` on `WHERE id = ? AND <class>Version = ?`.
+- Increments `<class>Version` atomically in the same `SET` clause
+  (`sql\`${characters.<class>Version} + 1\``).
+- Returns `Result.err("stale")` when the row count is zero (and
+  `"character-not-found"` if the row was deleted, disambiguated by a
+  follow-up `characterExists` check).
+- Returns the new `version` in the success value so the client can chain
+  follow-up saves without a re-fetch.
+- Cross-class writes (currently only `leveling.applyLevelUp`, which touches
+  vitals + progression) condition on *both* expected versions and bump both.
+
+Per-class scoping is the load-bearing property: a debounced notes save in
+flight does not get falsely staled by a blur on an unrelated vitals counter.
+Two writes in the *same* class still race (correctly — that's the point).
+
+Child-table writes (e.g. inventory items) run inside a `db.transaction` and
+bump `<class>Version` conditionally **first**, so the row lock either blocks
+a concurrent writer or causes the conditional `WHERE` to miss with no child
+rows touched.
+
+The `"stale"` error code is the consumer-facing seam; swapping the
+underlying strategy later (serializable transactions, automatic refetch +
+retry, finer per-class partitioning) won't touch action call sites.
+
+`characters.updatedAt` is still on the row as a "last touched" display
+column but is no longer the concurrency token.
 
 ## Client patterns
 
