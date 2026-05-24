@@ -1,30 +1,43 @@
 "use client"
 
 import { PlusIcon } from "@phosphor-icons/react/dist/ssr"
+import { useRouter } from "next/navigation"
+import { useTransition } from "react"
+import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { Spinner } from "@workspace/ui/components/spinner"
+
+import { FIRST_STEP_SLUG } from "@/components/builder/builder-steps"
+import { startCharacterDraftAction } from "@/lib/actions/start-character-draft"
 
 /**
- * The "Create new character" CTA. Disabled until the Character Builder ships
- * (PRD §5). A tooltip explains *why* so the affordance does not look broken;
- * a Base UI `Tooltip` will not anchor to a disabled button, so the trigger
- * wraps the button in a `<span>` that retains hover/focus targets.
+ * The "Create new character" CTA. Each click spins up a brand-new draft
+ * row (multiple drafts per user is intentional — a player exploring two
+ * concepts shouldn't have to throw one away to try the other) and routes
+ * to the first step of the wizard. While the action is in flight the
+ * button disables and shows a spinner so the user gets feedback that
+ * something is happening before the redirect lands.
  */
 export function CreateCharacterButton({ className }: { className?: string }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+
+  function onClick() {
+    startTransition(async () => {
+      const result = await startCharacterDraftAction()
+      if (!result.ok) {
+        toast.error("Couldn't start a new character. Try again.")
+        return
+      }
+      router.push(`/builder/${result.value.shortId}/${FIRST_STEP_SLUG}`)
+    })
+  }
+
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className={className} tabIndex={0} />}>
-        <Button disabled>
-          <PlusIcon weight="bold" />
-          Create new character
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>Character Builder coming soon</TooltipContent>
-    </Tooltip>
+    <Button onClick={onClick} disabled={isPending} className={className}>
+      {isPending ? <Spinner /> : <PlusIcon weight="bold" />}
+      Create new character
+    </Button>
   )
 }

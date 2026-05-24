@@ -23,7 +23,7 @@ test.describe("signed-out", () => {
 test.describe("signed-in", () => {
   test.use({ storageState: STORAGE_STATE })
 
-  test("renders the roster, the disabled Create CTA, and the account-menu entry", async ({
+  test("renders the roster, the Create CTA, and the account-menu entry", async ({
     page,
   }) => {
     const response = await page.goto("/")
@@ -43,10 +43,16 @@ test.describe("signed-in", () => {
       "/c/claude-1"
     )
 
+    // UNN-204 enabled the Create CTA. It now spins up a draft via
+    // `startCharacterDraftAction` and routes the user into the builder;
+    // here we just verify the button is mounted and enabled. The full
+    // create + auto-save + advance flow lives in `builder.spec.ts`
+    // (forthcoming) to keep this read-only home check fast.
     const createCta = page.getByRole("button", {
       name: "Create new character",
     })
-    await expect(createCta).toBeDisabled()
+    await expect(createCta).toBeVisible()
+    await expect(createCta).toBeEnabled()
 
     await page.getByRole("button", { name: "Open account menu" }).click()
     await expect(

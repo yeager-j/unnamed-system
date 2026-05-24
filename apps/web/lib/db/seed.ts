@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
-import { eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import {
   archetypeId,
@@ -251,6 +251,10 @@ async function seedCharacter(
     id: characterId,
     shortId: character.shortId,
     ownerId,
+    // Seed fixtures predate the builder wizard (UNN-204) and are always
+    // shipped finalized — they need to round-trip through the My Characters
+    // grid and the public sheet, neither of which surface drafts.
+    status: "finalized" as const,
     name: character.name,
     pronouns: character.pronouns,
     level: character.level,
@@ -385,6 +389,20 @@ async function seed(): Promise<void> {
     .insert(users)
     .values(DEV_USER)
     .onConflictDoUpdate({ target: users.id, set: DEV_USER })
+
+  // Wipe any drafts left behind by previous runs (UNN-204). Builder drafts
+  // get random `shortId`s the per-character upserts below can't reach, so
+  // they'd accumulate forever otherwise. Seed characters are always
+  // finalized, so scoping by `status='draft'` keeps the showcase roster
+  // intact.
+  await db
+    .delete(characters)
+    .where(
+      and(
+        inArray(characters.ownerId, [SEED_USER.id, DEV_USER.id]),
+        eq(characters.status, "draft")
+      )
+    )
 
   for (const character of SEED_CHARACTERS) {
     await seedCharacter(character, SEED_USER.id)

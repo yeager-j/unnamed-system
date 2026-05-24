@@ -52,15 +52,19 @@ A linear, savable flow. The player can back up to a previous step at any time; p
 
 ### 5.1 Steps
 
-1. **Name & Pronouns.** Character name, pronouns (free text), optional portrait/avatar upload.
-2. **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60).
-3. **Origin Archetype.** Pick one Archetype as the character's Origin. The app should not gate Archetypes at MVP — present all of them, grouped by Lineage. Show each Archetype's stat block (Attribute scores, Affinities, Skills at Ranks 1–5, Synthesis Skill, Talents, Mastery bonus). Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
-4. **Virtue Allocation.** All four Virtues (Expression, Empathy, Wisdom, Focus) start at Rank 0. Player assigns +2 to one Virtue and +1 to two others. Enforce: exactly one +2 pick, exactly two +1 picks (all to different Virtues).
-5. **Ancestry & Background (free text).** Two long-text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses, Talents, or features granted by these are added by the player in the relevant section, not parsed from the text.
-6. **Backstory.** Long-text field. Brief in-context guidance: "Tell us who your character was before the adventure begins."
-7. **Knives.** Repeating list of short entries (title + optional description). Suggest ~7 Knives; warn at <4 or >12 but allow it.
-8. **Chains.** Repeating list of short entries (title + optional description). At least one Chain.
-9. **Identity Traits.** Five sub-fields, presented after Knives/Chains so the player has material to draw from:
+The builder is five steps. Several rulebook concepts that share a screen of player work are grouped per-step rather than split into their own steps.
+
+1. **Basic info.** Character name, pronouns (free text), optional portrait/avatar upload.
+2. **Path & Archetype.**
+   - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60).
+   - **Origin Archetype.** Pick one Archetype as the character's Origin. The app should not gate Archetypes at MVP — present all of them, grouped by Lineage. Show each Archetype's stat block (Attribute scores, Affinities, Skills at Ranks 1–5, Synthesis Skill, Talents, Mastery bonus). Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
+3. **Background.** A single screen covering everything that grounds the character in the world.
+   - **Virtue Allocation.** All four Virtues (Expression, Empathy, Wisdom, Focus) start at Rank 0. Player assigns +2 to one Virtue and +1 to two others. Enforce: exactly one +2 pick, exactly two +1 picks (all to different Virtues).
+   - **Ancestry & Background (free text).** Two long-text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
+   - **Backstory.** Long-text field. Brief in-context guidance: "Tell us who your character was before the adventure begins."
+   - **Knives.** Repeating list of short entries (title + optional description). Suggest ~7 Knives; warn at <4 or >12 but allow it.
+   - **Chains.** Repeating list of short entries (title + optional description). At least one Chain.
+4. **Identity Traits.** Five sub-fields, presented after Knives/Chains so the player has material to draw from:
    - Personality Traits (2–4 short entries)
    - Hopes (1–2 entries)
    - Dreams (1 entry)
@@ -68,17 +72,16 @@ A linear, savable flow. The player can back up to a previous step at any time; p
    - Secrets (1–2 entries)
    
    The "minimum/maximum" counts are advisory, not enforced.
-10. **Talents.** Pre-filled with the Talents granted by the Origin Archetype. Player can add more from the canonical Talent list (Alchemy, Cook, Enchant, etc.) or type a custom Talent name (e.g., one granted by their Background).
-11. **Equipment.** Browse the weapon catalog to add items to inventory and optionally equip a starting weapon. Inventory has no size limit; only one weapon may be equipped at a time. The armor and accessory catalogs are empty at MVP, so those slots remain unequipped at creation.
-12. **Review & Confirm.** Read-only summary of all choices. "Create character" finalizes and routes to the sheet.
+5. **Review & Confirm.** Read-only summary of all choices. "Create character" finalizes the character. Finalization seeds the character with the Talents granted by their Origin Archetype and equips the Lineage's starting weapon — the player does not pick these in the builder.
 
 ### 5.2 Rules the Builder Enforces
 
 - Attributes are determined entirely by the Origin Archetype — not entered by the player.
-- Virtue allocation rules (5.4) are validated before allowing the player to leave that step.
+- Virtue allocation rules are validated before allowing the player to leave the Background step.
 - HP/SP path determines starting HP/SP and Hit/Skill Die for future leveling.
 - Origin Archetype determines which Paragon Archetype is eventually available (informational only at MVP, since gating isn't enforced).
 - Required: name, HP/SP path, Origin, Virtue allocation. Everything else is optional but encouraged with non-blocking guidance.
+- **Talents and Equipment are not chosen in the builder.** The active Archetype contributes its granted Talents; additional Talents are picked up post-creation through downtime activities (rulebook 2.1). The starting weapon is the canonical weapon for the character's Origin Lineage. Both can be customized from the live sheet after creation.
 
 ## 6. Character Sheet (Living)
 

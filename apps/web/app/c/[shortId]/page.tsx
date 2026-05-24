@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { cache } from "react"
 
+import { slugForStepIndex } from "@/components/builder/builder-steps"
+import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
 import { Background } from "@/components/character-sheet/background"
@@ -60,6 +62,12 @@ export async function generateMetadata({
     return { title: "Character not found — Unnamed System" }
   }
 
+  // Drafts never get a real page rendered — give crawlers a neutral title
+  // and skip the OG block so a shared WIP URL doesn't leak the draft name.
+  if (character.status === "draft") {
+    return { title: "Character in progress — Unnamed System" }
+  }
+
   const title = `${character.name} — Unnamed System`
   const description = `Level ${character.level} ${archetypeDisplayName(
     character.activeArchetypeKey
@@ -91,6 +99,17 @@ export default async function CharacterSheetPage({
   }
 
   const role = await getViewerRole(character)
+
+  // Drafts (UNN-204) are scoped to their owner. The owner shouldn't be
+  // staring at a half-built sheet — route them into the builder. Everyone
+  // else sees a non-dismissable "not ready" dialog; the URL is shareable
+  // from the moment a draft exists, but the WIP state never leaks.
+  if (character.status === "draft") {
+    if (role === "owner") {
+      redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+    }
+    return <DraftInProgressDialog />
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">

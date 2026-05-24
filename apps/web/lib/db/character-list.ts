@@ -1,13 +1,21 @@
 import { asc, eq } from "drizzle-orm"
 
 import { db } from "./index"
-import { characterArchetypes, characters } from "./schema/character"
+import {
+  characterArchetypes,
+  characters,
+  type CharacterStatus,
+} from "./schema/character"
 
 /**
  * Summary view of a character for the My Characters home page: just the
  * columns the card grid renders. Distinct from {@link HydratedCharacter} so
  * the list query can stay a single round-trip and never pulls JSON columns,
  * child rows, or derived stats it would not display.
+ *
+ * Drafts (UNN-204) appear here alongside finalized characters but the card
+ * renders a distinct draft affordance; `status` and `builderStep` drive
+ * that branch.
  */
 export interface CharacterSummary {
   id: string
@@ -16,6 +24,8 @@ export interface CharacterSummary {
   level: number
   portraitUrl: string | null
   activeArchetypeKey: string | null
+  status: CharacterStatus
+  builderStep: number
 }
 
 /**
@@ -35,6 +45,8 @@ export async function loadOwnedCharacterSummaries(
       level: characters.level,
       portraitUrl: characters.portraitUrl,
       activeArchetypeKey: characterArchetypes.archetypeKey,
+      status: characters.status,
+      builderStep: characters.builderStep,
     })
     .from(characters)
     .leftJoin(

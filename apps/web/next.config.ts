@@ -27,7 +27,13 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
   },
   images: {
-    remotePatterns: [new URL("https://avatar.vercel.sh/**")],
+    remotePatterns: [
+      new URL("https://avatar.vercel.sh/**"),
+      // Uploaded character portraits (UNN-204). Each Vercel Blob store gets
+      // its own `*.public.blob.vercel-storage.com` subdomain, so the host
+      // pattern is a wildcard rather than the literal store hostname.
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+    ],
   },
 }
 
