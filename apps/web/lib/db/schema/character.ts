@@ -40,6 +40,16 @@ import { users } from "./user"
  * values (displayed Attributes, Affinity chart, max HP/SP) are never stored —
  * they are derived from this row plus hardcoded game data.
  */
+/**
+ * A character is either a `draft` (under construction in the wizard, hidden
+ * from the public sheet and rendered with a draft affordance on the owner's
+ * roster) or `finalized` (a normal, shareable character). The builder
+ * (UNN-204+) flips this to `"finalized"` once the player completes the
+ * Review step; until then, public `/c/{shortId}` requests return the WIP
+ * dialog for non-owners and redirect the owner into the builder.
+ */
+export type CharacterStatus = "draft" | "finalized"
+
 export const characters = pgTable("character", {
   id: text("id")
     .primaryKey()
@@ -48,6 +58,19 @@ export const characters = pgTable("character", {
   ownerId: text("ownerId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  /**
+   * Wizard lifecycle gate (UNN-204). New rows start as `"draft"`; the Review
+   * step in UNN-206 flips this to `"finalized"`. Reads outside the builder
+   * (My Characters list, public sheet) filter on this.
+   */
+  status: text("status").$type<CharacterStatus>().notNull().default("draft"),
+  /**
+   * Highest wizard step the player has reached, indexed into the shared
+   * `BUILDER_STEPS` array. Used so the "Resume building" CTA on a draft card
+   * deep-links to the right step. Stays at the final step's index after
+   * finalization; no consumer reads it for finalized characters.
+   */
+  builderStep: integer("builderStep").notNull().default(0),
   name: text("name").notNull(),
   pronouns: text("pronouns"),
   portraitUrl: text("portraitUrl"),

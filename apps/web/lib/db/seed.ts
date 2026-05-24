@@ -251,6 +251,10 @@ async function seedCharacter(
     id: characterId,
     shortId: character.shortId,
     ownerId,
+    // Seed fixtures predate the builder wizard (UNN-204) and are always
+    // shipped finalized — they need to round-trip through the My Characters
+    // grid and the public sheet, neither of which surface drafts.
+    status: "finalized" as const,
     name: character.name,
     pronouns: character.pronouns,
     level: character.level,

@@ -2,6 +2,8 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 
+import type { CharacterStatus } from "@/lib/db/schema/character"
+
 /**
  * Centralized cache invalidation for the character sheet route. Every
  * owner-mode write should call this on success so derived stats
@@ -9,7 +11,18 @@ import { revalidatePath } from "next/cache"
  * new state. Knowing the URL structure is now this module's job — if
  * `/c/{shortId}` ever moves (locale prefix, route restructure), the change
  * is one-touch instead of N actions.
+ *
+ * For drafts (UNN-204) we also revalidate the builder route subtree so
+ * the wizard's server-rendered props (name, pronouns, portraitUrl,
+ * builderStep) stay current — the Next button's required-field gate reads
+ * from those props.
  */
-export function revalidateCharacter(character: { shortId: string }): void {
+export function revalidateCharacter(character: {
+  shortId: string
+  status: CharacterStatus
+}): void {
   revalidatePath(`/c/${character.shortId}`)
+  if (character.status === "draft") {
+    revalidatePath(`/builder/${character.shortId}`, "layout")
+  }
 }

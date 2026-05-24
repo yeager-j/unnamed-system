@@ -18,22 +18,30 @@ import { DeleteCharacterDialog } from "./delete-character-dialog"
 
 interface CharacterCardActionsProps {
   characterId: string
-  shortId: string
   name: string
+  /**
+   * Primary-button destination. Finalized characters point at the public
+   * sheet (`/c/{shortId}`); drafts point at the builder so the player
+   * resumes mid-flow.
+   */
+  href: string
+  /** Primary-button label — typically "Open" or "Resume building". */
+  primaryLabel: string
 }
 
 /**
  * The split button on a character card. The primary half routes to the
- * character sheet (owner-edit + public view share `/c/{shortId}`; the sheet
- * itself decides what the viewer can do). The trailing half opens a menu
- * with Edit / Duplicate / Share / Delete. Edit, Duplicate, and Share remain
+ * caller-supplied `href` (the sheet for finalized rows, the builder for
+ * drafts; the card computes which). The trailing half opens a menu with
+ * Edit / Duplicate / Share / Delete. Edit, Duplicate, and Share remain
  * disabled until their per-action tickets land; Delete opens the
  * type-to-confirm {@link DeleteCharacterDialog} (UNN-181).
  */
 export function CharacterCardActions({
   characterId,
-  shortId,
   name,
+  href,
+  primaryLabel,
 }: CharacterCardActionsProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
 
@@ -41,11 +49,11 @@ export function CharacterCardActions({
     <>
       <ButtonGroup>
         <Link
-          href={`/c/${shortId}`}
+          href={href}
           data-slot="button"
           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
         >
-          Open
+          {primaryLabel}
         </Link>
         <DropdownMenu>
           <DropdownMenuTrigger
