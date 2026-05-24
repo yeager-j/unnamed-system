@@ -9,6 +9,7 @@ import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-s
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import type { AttributeScores } from "@/lib/game/stats"
 
 import { DetailSection } from "../shared/detail-section"
 import { SkillRow } from "../skill-row"
@@ -22,8 +23,16 @@ import { SkillRow } from "../skill-row"
  *
  * `entry` arrives pre-resolved by the tab parent so this block (and the
  * compact summary alongside it) never re-do cross-Archetype lookups.
+ * `attributes` flows in from the parent (the Archetypes tab reads the active
+ * character's resolved attributes once and passes down).
  */
-export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
+export function ArchetypeDetail({
+  entry,
+  attributes,
+}: {
+  entry: ArchetypeEntry
+  attributes: AttributeScores
+}) {
   const { archetype, row } = entry
   return (
     <div className="flex flex-col gap-6">
@@ -38,17 +47,21 @@ export function ArchetypeDetail({ entry }: { entry: ArchetypeEntry }) {
 
       <Separator />
 
-      <ArchetypeRankedSkills ranks={entry.ranks} currentRank={row.rank} />
+      <ArchetypeRankedSkills
+        ranks={entry.ranks}
+        currentRank={row.rank}
+        attributes={attributes}
+      />
 
       {entry.synthesis && hasUnlockedRank(row.rank, entry.synthesis.rank) ? (
         <DetailSection title="Synthesis Skill">
           <ItemGroup className="gap-0">
-            <SkillRow skill={entry.synthesis} />
+            <SkillRow skill={entry.synthesis} attributes={attributes} />
           </ItemGroup>
         </DetailSection>
       ) : null}
 
-      <ArchetypeInheritanceSlots entry={entry} />
+      <ArchetypeInheritanceSlots entry={entry} attributes={attributes} />
     </div>
   )
 }

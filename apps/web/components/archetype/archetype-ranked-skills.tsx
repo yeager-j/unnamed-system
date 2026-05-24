@@ -15,8 +15,9 @@ import { SkillRow } from "../character-sheet/skill-row"
  * (`SkillRow` with the full popover); ranks above render as muted name-only
  * Badges. When `currentRank` is omitted (catalog preview — builder Origin
  * picker), every rank renders unlocked. `attributes` flows through to
- * `SkillRow` so the popover's formulas can hydrate against a chosen
- * Archetype's stats even in catalog-only contexts (no `CharacterProvider`).
+ * `SkillRow` so the popover's formulas can hydrate against the caller's
+ * choice of scores — the live sheet passes the active character's resolved
+ * attributes, the builder passes the previewed Archetype's intrinsic ones.
  */
 export function ArchetypeRankedSkills({
   ranks,
@@ -25,7 +26,7 @@ export function ArchetypeRankedSkills({
 }: {
   ranks: RankedSkill[]
   currentRank?: number
-  attributes?: AttributeScores
+  attributes: AttributeScores
 }) {
   if (ranks.length === 0) return null
 

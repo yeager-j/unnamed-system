@@ -1,6 +1,7 @@
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
+import type { AttributeScores } from "@/lib/game/stats"
 
 import { DetailSection } from "../character-sheet/shared/detail-section"
 import { SkillRow } from "../character-sheet/skill-row"
@@ -9,12 +10,15 @@ import { SkillRow } from "../character-sheet/skill-row"
  * Per-row Inheritance Slot block — fillers resolved against the character's
  * other Archetype rows by {@link buildArchetypeEntries}. Character-context
  * only; the builder's catalog preview never renders this surface (a draft
- * has no other unlocked Archetypes to inherit from).
+ * has no other unlocked Archetypes to inherit from). `attributes` flows
+ * through to the inherited Skill's popover.
  */
 export function ArchetypeInheritanceSlots({
   entry,
+  attributes,
 }: {
   entry: ArchetypeEntry
+  attributes: AttributeScores
 }) {
   const { archetype, slots } = entry
   if (archetype.inheritanceSlots === 0) return null
@@ -49,7 +53,7 @@ export function ArchetypeInheritanceSlots({
                       : null}
                   </p>
                   <ItemGroup className="gap-0">
-                    <SkillRow skill={slot.resolved} />
+                    <SkillRow skill={slot.resolved} attributes={attributes} />
                   </ItemGroup>
                 </div>
               ) : (

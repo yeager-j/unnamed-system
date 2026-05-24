@@ -14,6 +14,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { AttributeScores } from "@/lib/game/stats"
@@ -26,14 +27,12 @@ import { SkillCard } from "./skill-card"
 interface SkillRowProps {
   skill: HydratedSkill
   /**
-   * Optional attribute scores used to hydrate formulas in the popover card.
-   * When provided, the popover skips the {@link useCharacter} context lookup
-   * and hydrates against these scores instead — the shape catalog-preview
-   * surfaces (e.g. the builder's Origin Archetype picker) use, where there is
-   * no `CharacterProvider` in scope. Live-sheet callers omit it and inherit
-   * the active character's resolved attributes from context.
+   * Attribute scores used to hydrate the popover's formulas. Required so the
+   * leaf component stays prop-driven — every caller (live-sheet Skills tab,
+   * the Archetype detail surface, the builder's Origin picker) sources the
+   * scores from its own context and passes them in explicitly.
    */
-  attributes?: AttributeScores
+  attributes: AttributeScores
 }
 
 /**
@@ -42,9 +41,6 @@ interface SkillRowProps {
  * dismisses. Hover is deliberately not wired — it would interfere with the
  * Cast button planned for this row in a later ticket. Built on the shadcn
  * {@link Item} primitive shared with the Inventory list.
- *
- * Cost badge falls through to the raw catalog cost when `resolvedCost` is
- * null so catalog-only surfaces still show percentage-HP costs.
  */
 export function SkillRow({ skill, attributes }: SkillRowProps) {
   return (
@@ -82,12 +78,28 @@ export function SkillRow({ skill, attributes }: SkillRowProps) {
   )
 }
 
+interface IntrinsicAttackRowProps {
+  weapon: Weapon
+  /** Same passing-in contract as {@link SkillRowProps.attributes}. */
+  attributes: AttributeScores
+  /**
+   * The character-resolved Attack Roll for this weapon. Pre-resolved at
+   * hydration time on the live sheet; passed through here so the popover
+   * stays a leaf component with no context reads.
+   */
+  weaponAttackRoll: ResolvedAttackRoll
+}
+
 /**
  * The equipped weapon's intrinsic attack as a click-to-open row. Used inside
  * the dedicated Weapon Attack card so the intrinsic attack stays visually
  * separate from granted Skills.
  */
-export function IntrinsicAttackRow({ weapon }: { weapon: Weapon }) {
+export function IntrinsicAttackRow({
+  weapon,
+  attributes,
+  weaponAttackRoll,
+}: IntrinsicAttackRowProps) {
   return (
     <Popover>
       <PopoverTrigger
@@ -112,7 +124,11 @@ export function IntrinsicAttackRow({ weapon }: { weapon: Weapon }) {
         className="w-80"
         initialFocus={false}
       >
-        <IntrinsicAttackCard weapon={weapon} />
+        <IntrinsicAttackCard
+          weapon={weapon}
+          attributes={attributes}
+          weaponAttackRoll={weaponAttackRoll}
+        />
       </PopoverContent>
     </Popover>
   )
