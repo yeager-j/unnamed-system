@@ -1,14 +1,33 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import type { ArchetypeEntry, RankedSkill } from "@/lib/game/archetypes/entries"
+import type { RankedSkill } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import type { AttributeScores } from "@/lib/game/stats"
 
-import { DetailSection } from "../../shared/detail-section"
-import { SkillRow } from "../../skill-row"
+import { DetailSection } from "../character-sheet/shared/detail-section"
+import { SkillRow } from "../character-sheet/skill-row"
 
-export function ArchetypeRankedSkills({ entry }: { entry: ArchetypeEntry }) {
-  const { ranks, row } = entry
+/**
+ * Per-rank Skill list shared by every Archetype detail surface.
+ *
+ * When `currentRank` is provided, ranks at-or-below it render unlocked
+ * (`SkillRow` with the full popover); ranks above render as muted name-only
+ * Badges. When `currentRank` is omitted (catalog preview — builder Origin
+ * picker), every rank renders unlocked. `attributes` flows through to
+ * `SkillRow` so the popover's formulas can hydrate against the caller's
+ * choice of scores — the live sheet passes the active character's resolved
+ * attributes, the builder passes the previewed Archetype's intrinsic ones.
+ */
+export function ArchetypeRankedSkills({
+  ranks,
+  currentRank,
+  attributes,
+}: {
+  ranks: RankedSkill[]
+  currentRank?: number
+  attributes: AttributeScores
+}) {
   if (ranks.length === 0) return null
 
   const grouped = new Map<number, RankedSkill[]>()
@@ -22,7 +41,10 @@ export function ArchetypeRankedSkills({ entry }: { entry: ArchetypeEntry }) {
   return (
     <DetailSection title="Skills" className="gap-3">
       {sortedRanks.map((rankNumber) => {
-        const unlocked = hasUnlockedRank(row.rank, rankNumber)
+        const unlocked =
+          currentRank === undefined
+            ? true
+            : hasUnlockedRank(currentRank, rankNumber)
         const skills = grouped.get(rankNumber) ?? []
         return (
           <div key={rankNumber} className="flex flex-col gap-1.5">
@@ -37,7 +59,11 @@ export function ArchetypeRankedSkills({ entry }: { entry: ArchetypeEntry }) {
             {unlocked ? (
               <ItemGroup className="gap-0">
                 {skills.map((ranked) => (
-                  <SkillRow key={ranked.key} skill={ranked} />
+                  <SkillRow
+                    key={ranked.key}
+                    skill={ranked}
+                    attributes={attributes}
+                  />
                 ))}
               </ItemGroup>
             ) : (

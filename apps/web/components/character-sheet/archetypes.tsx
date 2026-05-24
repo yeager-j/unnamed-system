@@ -8,15 +8,16 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { formatMasteryDescription } from "@/components/archetype/format"
 import { getArchetypeDisplay } from "@/lib/game/archetypes/display"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { AttributeScores } from "@/lib/game/stats"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
-import { formatMasteryDescription } from "./archetypes/format"
 
 /**
  * The Archetypes tab body (PRD §6.1 Archetypes tab; PRD §7.8 Inheritance
@@ -47,11 +48,15 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
   const { activeEntry, lineageGroups, unlockedCount } =
     getArchetypeDisplay(character)
   const otherCount = unlockedCount - (activeEntry ? 1 : 0)
+  // The Archetypes tab is the single source of attributes for every Skill
+  // popover beneath it (Active card, drawer-launched detail block, inheritance
+  // slots). Read once at the top, pass down — leaves stay context-free.
+  const { attributes } = character
 
   return (
     <div className="flex flex-col gap-6">
       {activeEntry ? (
-        <ActiveArchetypeCard entry={activeEntry} />
+        <ActiveArchetypeCard entry={activeEntry} attributes={attributes} />
       ) : (
         <NoActiveArchetypeCard />
       )}
@@ -84,7 +89,11 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
                   </h3>
                   <ItemGroup>
                     {groupEntries.map((entry) => (
-                      <ArchetypeSummary key={entry.row.id} entry={entry} />
+                      <ArchetypeSummary
+                        key={entry.row.id}
+                        entry={entry}
+                        attributes={attributes}
+                      />
                     ))}
                   </ItemGroup>
                 </section>
@@ -102,7 +111,13 @@ export function Archetypes({ character }: { character: HydratedCharacter }) {
   )
 }
 
-function ActiveArchetypeCard({ entry }: { entry: ArchetypeEntry }) {
+function ActiveArchetypeCard({
+  entry,
+  attributes,
+}: {
+  entry: ArchetypeEntry
+  attributes: AttributeScores
+}) {
   const { archetype, row } = entry
   return (
     <Card>
@@ -125,7 +140,7 @@ function ActiveArchetypeCard({ entry }: { entry: ArchetypeEntry }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <ArchetypeDetail entry={entry} />
+        <ArchetypeDetail entry={entry} attributes={attributes} />
       </CardContent>
     </Card>
   )

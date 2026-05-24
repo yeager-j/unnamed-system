@@ -23,6 +23,7 @@ import { IntrinsicAttackRow, SkillRow } from "./skill-row"
  */
 export function Skills({ character }: { character: HydratedCharacter }) {
   const equippedWeapon = getEquippedItem(character.inventory, "weapon")
+  const { attributes, weaponAttackRoll } = character
 
   const sorted = [...character.skills].sort((a, b) =>
     a.name.localeCompare(b.name)
@@ -32,13 +33,17 @@ export function Skills({ character }: { character: HydratedCharacter }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {equippedWeapon ? (
+      {equippedWeapon && weaponAttackRoll ? (
         <Card>
           <CardHeader>
             <CardTitle>Weapon Attack</CardTitle>
           </CardHeader>
           <CardContent>
-            <IntrinsicAttackRow weapon={equippedWeapon} />
+            <IntrinsicAttackRow
+              weapon={equippedWeapon}
+              attributes={attributes}
+              weaponAttackRoll={weaponAttackRoll}
+            />
           </CardContent>
         </Card>
       ) : null}
@@ -51,7 +56,11 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {regular.length > 0 ? (
             <ItemGroup className="gap-0">
               {regular.map((entry) => (
-                <SkillRow key={entry.key} skill={entry} />
+                <SkillRow
+                  key={entry.key}
+                  skill={entry}
+                  attributes={attributes}
+                />
               ))}
             </ItemGroup>
           ) : (
@@ -68,7 +77,11 @@ export function Skills({ character }: { character: HydratedCharacter }) {
           {synthesis.length > 0 ? (
             <ItemGroup className="gap-0">
               {synthesis.map((entry) => (
-                <SkillRow key={entry.key} skill={entry} />
+                <SkillRow
+                  key={entry.key}
+                  skill={entry}
+                  attributes={attributes}
+                />
               ))}
             </ItemGroup>
           ) : (

@@ -25,8 +25,11 @@ export interface CastingCharacter extends StatComputationCharacter {
 /**
  * Resolves a Skill's cost for display and affordability checks. A flat SP cost
  * passes through unchanged; an HP-percentage cost resolves against the
- * character's current (derived) max HP, rounded down (PRD §7.2, rulebook
- * `3.3 On Your Turn` "Skill Costs"). Returns `null` for Skills with no cost
+ * character's current (derived) max HP, rounded down to an integer with a
+ * floor of 1 (PRD §7.2, rulebook `3.3 On Your Turn` "Skill Costs"). The
+ * floor-at-1 stops a Skill that declares a non-zero `hp-percent` cost from
+ * resolving to a free cast at very low max HP — a Skill defined to cost HP
+ * should always charge at least 1. Returns `null` for Skills with no cost
  * (passive Skills carry none), meaning there is nothing to pay.
  */
 export function resolveSkillCost(
@@ -39,7 +42,8 @@ export function resolveSkillCost(
   if (cost.kind === "sp") return { kind: "sp", amount: cost.amount }
 
   const maxHP = computeMaxHP(character)
-  return { kind: "hp", amount: Math.floor((maxHP * cost.amount) / 100) }
+  const amount = Math.max(1, Math.floor((maxHP * cost.amount) / 100))
+  return { kind: "hp", amount }
 }
 
 /**

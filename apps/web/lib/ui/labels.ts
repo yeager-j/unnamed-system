@@ -9,7 +9,11 @@ import type {
   Lineage,
 } from "@/lib/game/archetypes/schema"
 import type { Delivery, Range } from "@/lib/game/attack"
-import type { BattleConditionState, VirtueKey } from "@/lib/game/character"
+import type {
+  BattleConditionState,
+  PathChoice,
+  VirtueKey,
+} from "@/lib/game/character"
 import type { BonusTargetKey } from "@/lib/game/effects"
 import type { SkillKind } from "@/lib/game/skill-kind"
 
@@ -102,6 +106,13 @@ export const SKILL_KIND_LABELS: Record<SkillKind, string> = {
   support: "Support",
   passive: "Passive",
   ailment: "Ailment",
+}
+
+/** The three HP/SP paths (PRD §5.1). */
+export const PATH_CHOICE_LABELS: Record<PathChoice, string> = {
+  "health-focused": "Health-Focused",
+  balanced: "Balanced",
+  "skill-focused": "Skill-Focused",
 }
 
 /** The four Virtues. */

@@ -12,6 +12,7 @@ import {
 
 import { useDrawerDirection } from "@/hooks/use-drawer-direction"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
+import type { AttributeScores } from "@/lib/game/stats"
 import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetype-detail"
@@ -26,8 +27,17 @@ import { ArchetypeSummaryRow } from "./archetype-summary-row"
  * Used for *every* unlocked Archetype; the active one carries an `Active`
  * badge so the Lineage grid stays coherent while the featured Active card
  * above provides the spotlight view.
+ *
+ * `attributes` flows through to the drawer body so the Skill popovers there
+ * hydrate against the active character's scores.
  */
-export function ArchetypeSummary({ entry }: { entry: ArchetypeEntry }) {
+export function ArchetypeSummary({
+  entry,
+  attributes,
+}: {
+  entry: ArchetypeEntry
+  attributes: AttributeScores
+}) {
   const { archetype, row, isActive } = entry
   const drawerDirection = useDrawerDirection()
 
@@ -57,7 +67,7 @@ export function ArchetypeSummary({ entry }: { entry: ArchetypeEntry }) {
           </DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 pb-8">
-          <ArchetypeDetail entry={entry} />
+          <ArchetypeDetail entry={entry} attributes={attributes} />
         </div>
       </DrawerContent>
     </Drawer>

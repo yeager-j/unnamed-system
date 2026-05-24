@@ -28,13 +28,7 @@ export function SkillCostBadge({ cost, className }: SkillCostBadgeProps) {
     )
   }
   return (
-    <Badge
-      className={cn(
-        "border-transparent text-neutral-900",
-        COST_KIND_CLASSES[cost.kind],
-        className
-      )}
-    >
+    <Badge variant={cost.kind}>
       {cost.amount} {COST_KIND_LABELS[cost.kind]}
     </Badge>
   )
@@ -43,9 +37,4 @@ export function SkillCostBadge({ cost, className }: SkillCostBadgeProps) {
 const COST_KIND_LABELS: Record<ResolvedSkillCost["kind"], string> = {
   sp: "SP",
   hp: "HP",
-}
-
-const COST_KIND_CLASSES: Record<ResolvedSkillCost["kind"], string> = {
-  sp: "bg-blue-200",
-  hp: "bg-green-200",
 }

@@ -1,5 +1,6 @@
-import { useCharacter } from "@/hooks/use-character"
-import type { IntrinsicAttack, Weapon } from "@/lib/game/items/schema"
+import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
+import type { Weapon } from "@/lib/game/items/schema"
+import type { AttributeScores } from "@/lib/game/stats"
 
 import { AttackRollTable } from "./shared/attack-roll-table"
 import { PopoverCardShell } from "./shared/popover-card-shell"
@@ -9,6 +10,13 @@ import { intrinsicAttackStatRows } from "./skill-card-utils"
 
 interface IntrinsicAttackCardProps {
   weapon: Weapon
+  /**
+   * Attribute scores used to hydrate the Attack Roll formulas. The caller
+   * (the live-sheet Skills tab) sources them from the active character.
+   */
+  attributes: AttributeScores
+  /** Pre-resolved Attack Roll for this weapon, computed at hydration time. */
+  weaponAttackRoll: ResolvedAttackRoll
 }
 
 /**
@@ -17,10 +25,12 @@ interface IntrinsicAttackCardProps {
  * cost row, no description prose, no Effect block. The intrinsic attack is
  * always an attack, so the kind badge is fixed.
  */
-export function IntrinsicAttackCard({ weapon }: IntrinsicAttackCardProps) {
+export function IntrinsicAttackCard({
+  weapon,
+  attributes,
+  weaponAttackRoll,
+}: IntrinsicAttackCardProps) {
   const attack = weapon.intrinsicAttack
-  const { weaponAttackRoll, attributes } = useCharacter()
-  if (!weaponAttackRoll) return null
   return (
     <PopoverCardShell
       title={weapon.name}

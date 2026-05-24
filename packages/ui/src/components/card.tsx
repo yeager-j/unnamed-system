@@ -5,14 +5,25 @@ import { cn } from "@workspace/ui/lib/utils"
 function Card({
   className,
   size = "default",
+  selected = false,
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm"
+  /**
+   * Marks the card as the user's current pick in a selection list (Origin
+   * Archetype picker, future inheritance-slot pickers, etc.). Strengthens the
+   * ring and tints it with the primary color so the chosen card reads from
+   * across the page.
+   */
+  selected?: boolean
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
+      data-selected={selected ? "true" : undefined}
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden rounded-none bg-card py-4 text-xs/relaxed text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-2 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-none *:[img:last-child]:rounded-none",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-none bg-card py-4 text-xs/relaxed text-card-foreground ring-1 ring-foreground/10 has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[selected=true]:ring-2 data-[selected=true]:ring-primary data-[size=sm]:gap-2 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-none *:[img:last-child]:rounded-none",
         className
       )}
       {...props}

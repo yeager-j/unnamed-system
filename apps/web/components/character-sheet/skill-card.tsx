@@ -1,5 +1,5 @@
-import { useCharacter } from "@/hooks/use-character"
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
+import type { AttributeScores } from "@/lib/game/stats"
 import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
 
 import { AttackRollTable } from "./shared/attack-roll-table"
@@ -10,19 +10,24 @@ import { skillStatRows } from "./skill-card-utils"
 
 interface SkillCardProps {
   skill: HydratedSkill
+  /**
+   * Attribute scores used to hydrate `+ Ma` / `+ St` formula placeholders in
+   * the popover. The caller is the source of truth — the live sheet pulls
+   * from the active character's resolved attributes, the builder's Origin
+   * picker passes the previewed Archetype's intrinsic scores — so this leaf
+   * component never reaches into context.
+   */
+  attributes: AttributeScores
 }
 
 /**
  * The popover body for a Skill row. Renders the Skill's name, kind tag,
  * description, an applicable-fields-only stats grid, the Attack Roll table
  * (for Skills that have one), and any freeform Effect prose. Damage and
- * healing formulas and the Attack Roll header are hydrated with the
- * character's resolved attribute scores so the player sees `+ 4` instead of
- * `+ Ma`.
+ * healing formulas and the Attack Roll header hydrate with the passed-in
+ * attribute scores.
  */
-export function SkillCard({ skill }: SkillCardProps) {
-  const { attributes } = useCharacter()
-
+export function SkillCard({ skill, attributes }: SkillCardProps) {
   return (
     <PopoverCardShell
       title={skill.name}

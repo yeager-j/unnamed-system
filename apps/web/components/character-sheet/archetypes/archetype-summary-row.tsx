@@ -1,42 +1,50 @@
 import { Badge } from "@workspace/ui/components/badge"
-import { Item } from "@workspace/ui/components/item"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
+import { hasNonNeutralAffinities } from "@/components/archetype/archetype-affinities"
+import { ArchetypeAffinityChips } from "@/components/archetype/archetype-affinity-chips"
+import { ArchetypeAttributesInline } from "@/components/archetype/archetype-attributes-inline"
+import {
+  ArchetypeSkillChips,
+  ArchetypeSynthesisChip,
+} from "@/components/archetype/archetype-skill-chips"
+import { ArchetypeTalentChips } from "@/components/archetype/archetype-talents"
+import {
+  formatMasteryDescription,
+  formatTalentLabel,
+} from "@/components/archetype/format"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
-import {
-  ATTRIBUTE_KEYS,
-  hasMasteryBonus,
-  hasUnlockedRank,
-} from "@/lib/game/archetypes/schema"
+import { hasMasteryBonus, hasUnlockedRank } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
-import {
-  AFFINITY_DAMAGE_TYPE_LABELS,
-  AFFINITY_LABELS,
-  ATTRIBUTE_LABELS,
-  TIER_LABELS,
-} from "@/lib/ui/labels"
+import { TIER_LABELS } from "@/lib/ui/labels"
 
 import { DetailSection } from "../shared/detail-section"
 import { Prose } from "../shared/prose"
-import {
-  formatMasteryDescription,
-  formatModifier,
-  formatTalentLabel,
-} from "./format"
+
+// formatTalentLabel re-export retained for any callers still depending on it.
+export { formatTalentLabel }
 
 /**
- * The compact row presentation for one Archetype inside the Lineage-grouped
+ * The compact card presentation for one Archetype inside the Lineage-grouped
  * list. Surfaces the at-a-glance facts a player skims for — Rank/Tier,
- * simplified Affinities, Attributes, Talents, and the Skills unlocked at the
- * current Rank (plus the Synthesis Skill when it's at-or-below current Rank).
- * Receives `trigger` as the right-aligned slot so the parent can place a
- * Drawer trigger (or any other affordance) without this component knowing
- * about the drawer surface.
+ * simplified Affinities, Attributes, Talents, the Skills unlocked at the
+ * current Rank, and the Synthesis Skill when it's at-or-below current Rank.
+ * Receives `trigger` so the parent can place a Drawer trigger (or any other
+ * affordance) in the card footer without this component knowing about the
+ * drawer surface.
  */
 export function ArchetypeSummaryRow({
   entry,
@@ -52,17 +60,13 @@ export function ArchetypeSummaryRow({
   )
   const synthesisVisible =
     entry.synthesis !== null && hasUnlockedRank(row.rank, entry.synthesis.rank)
-  const affinityChips = AFFINITY_DAMAGE_TYPES.flatMap((type) => {
-    const affinity = archetype.affinities[type]
-    if (!affinity || affinity === "neutral") return []
-    return [{ type, affinity }]
-  })
+  const mastered = hasMasteryBonus(row.rank)
 
   return (
-    <Item variant="outline" className="flex-col items-stretch gap-2 p-4">
-      <div className="flex w-full flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-sm font-medium">{archetype.name}</span>
+    <Card selected={isActive}>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span>{archetype.name}</span>
           {mechanic ? (
             <Tooltip>
               <TooltipTrigger
@@ -79,76 +83,53 @@ export function ArchetypeSummaryRow({
               </TooltipContent>
             </Tooltip>
           ) : null}
-          <span className="text-xs text-muted-foreground">
-            Rank {row.rank}/5 · {TIER_LABELS[archetype.tier]}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {isActive ? <Badge>Active</Badge> : null}
-          {hasMasteryBonus(row.rank) ? (
-            <Badge variant="secondary">
-              Mastery: {formatMasteryDescription(archetype.mastery)}
-            </Badge>
-          ) : null}
-          {trigger}
-        </div>
-      </div>
+        </CardTitle>
+        <CardDescription>
+          Rank {row.rank}/5 · {TIER_LABELS[archetype.tier]}
+        </CardDescription>
+        {isActive || mastered ? (
+          <CardAction className="flex flex-wrap items-center gap-1.5">
+            {isActive ? <Badge>Active</Badge> : null}
+            {mastered ? (
+              <Badge variant="secondary">
+                Mastery: {formatMasteryDescription(archetype.mastery)}
+              </Badge>
+            ) : null}
+          </CardAction>
+        ) : null}
+      </CardHeader>
 
-      <DetailSection inline title="Attributes">
-        <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
-          {ATTRIBUTE_KEYS.map((key) => (
-            <div key={key} className="flex items-baseline gap-1">
-              <dt className="text-muted-foreground">{ATTRIBUTE_LABELS[key]}</dt>
-              <dd className="font-medium tabular-nums">
-                {formatModifier(archetype.attributes[key])}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </DetailSection>
+      <CardContent className="flex flex-col gap-2">
+        <ArchetypeAttributesInline archetype={archetype} />
 
-      {affinityChips.length > 0 ? (
-        <DetailSection inline title="Affinities">
-          {affinityChips.map(({ type, affinity }) => (
-            <Badge
-              key={type}
-              variant="outline"
-              className={
-                affinity === "weak"
-                  ? "border-destructive/30 text-destructive"
-                  : ""
-              }
-            >
-              {AFFINITY_DAMAGE_TYPE_LABELS[type]} {AFFINITY_LABELS[affinity]}
-            </Badge>
-          ))}
-        </DetailSection>
+        {hasNonNeutralAffinities(archetype) ? (
+          <DetailSection inline title="Affinities">
+            <ArchetypeAffinityChips archetype={archetype} />
+          </DetailSection>
+        ) : null}
+
+        {archetype.talents.length > 0 ? (
+          <DetailSection inline title="Talents">
+            <ArchetypeTalentChips archetype={archetype} />
+          </DetailSection>
+        ) : null}
+
+        {unlockedSkills.length > 0 ? (
+          <DetailSection inline title="Skills">
+            <ArchetypeSkillChips skills={unlockedSkills} />
+          </DetailSection>
+        ) : null}
+
+        {synthesisVisible && entry.synthesis ? (
+          <DetailSection inline title="Synthesis">
+            <ArchetypeSynthesisChip synthesis={entry.synthesis} />
+          </DetailSection>
+        ) : null}
+      </CardContent>
+
+      {trigger ? (
+        <CardFooter className="justify-end gap-2">{trigger}</CardFooter>
       ) : null}
-
-      {archetype.talents.length > 0 ? (
-        <DetailSection inline title="Talents">
-          {archetype.talents.map((talent) => (
-            <Badge key={talent} variant="secondary">
-              {formatTalentLabel(talent)}
-            </Badge>
-          ))}
-        </DetailSection>
-      ) : null}
-
-      {unlockedSkills.length > 0 || synthesisVisible ? (
-        <DetailSection inline title="Skills">
-          {unlockedSkills.map((ranked) => (
-            <Badge key={ranked.key} variant="outline">
-              {ranked.name}
-            </Badge>
-          ))}
-          {synthesisVisible && entry.synthesis ? (
-            <Badge variant="outline" className="border-primary">
-              Synthesis: {entry.synthesis.name}
-            </Badge>
-          ) : null}
-        </DetailSection>
-      ) : null}
-    </Item>
+    </Card>
   )
 }
