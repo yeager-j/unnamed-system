@@ -86,13 +86,27 @@ const ATTRIBUTE_MAX = 7
  * rulebook `1.1 HP and SP`. Encoded as the published per-path totals rather
  * than re-derived from die size.
  */
-const PATH_STATS: Record<
-  PathChoice,
-  { startHP: number; startSP: number; hpPerLevel: number; spPerLevel: number }
-> = {
+export interface PathStats {
+  startHP: number
+  startSP: number
+  hpPerLevel: number
+  spPerLevel: number
+}
+
+const PATH_STATS: Record<PathChoice, PathStats> = {
   "health-focused": { startHP: 24, startSP: 40, hpPerLevel: 7, spPerLevel: 9 },
   balanced: { startHP: 20, startSP: 50, hpPerLevel: 6, spPerLevel: 11 },
   "skill-focused": { startHP: 16, startSP: 60, hpPerLevel: 5, spPerLevel: 13 },
+}
+
+/**
+ * Path-stats lookup for display surfaces (the builder's HP/SP path picker, any
+ * future level-up walkthrough). The same source of truth the {@link computeMaxHP}
+ * / {@link computeMaxSP} math reads from, so a path's published numbers can't
+ * drift between the engine and the UI.
+ */
+export function getPathStats(pathChoice: PathChoice): PathStats {
+  return PATH_STATS[pathChoice]
 }
 
 function clamp(value: number, min: number, max: number): number {

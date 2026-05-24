@@ -8,6 +8,7 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { formatMasteryDescription } from "@/components/archetype/format"
 import { getArchetypeDisplay } from "@/lib/game/archetypes/display"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
@@ -16,7 +17,6 @@ import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
-import { formatMasteryDescription } from "./archetypes/format"
 
 /**
  * The Archetypes tab body (PRD §6.1 Archetypes tab; PRD §7.8 Inheritance

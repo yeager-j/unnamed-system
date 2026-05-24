@@ -1,0 +1,32 @@
+import { ATTRIBUTE_KEYS, type Archetype } from "@/lib/game/archetypes/schema"
+import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
+
+import { DetailSection } from "../character-sheet/shared/detail-section"
+import { formatModifier } from "./format"
+
+/**
+ * Compact horizontal dl-style Attributes list used inside the per-row
+ * summary card. Surfaces the same four scores as
+ * {@link ArchetypeAttributesGrid} but optimised for at-a-glance scanning in a
+ * dense list, not for the spotlight detail block.
+ */
+export function ArchetypeAttributesInline({
+  archetype,
+}: {
+  archetype: Archetype
+}) {
+  return (
+    <DetailSection inline title="Attributes">
+      <dl className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+        {ATTRIBUTE_KEYS.map((key) => (
+          <div key={key} className="flex items-baseline gap-1">
+            <dt className="text-muted-foreground">{ATTRIBUTE_LABELS[key]}</dt>
+            <dd className="font-medium tabular-nums">
+              {formatModifier(archetype.attributes[key])}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </DetailSection>
+  )
+}

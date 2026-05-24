@@ -55,6 +55,14 @@ describe("resolveSkillCost", () => {
     expect(resolveSkillCost(cleave, withMaxHP(194))?.amount).toBe(9)
   })
 
+  it("floors the resolved HP cost at 1, never 0", () => {
+    // 5% of 16 max HP floors to 0 arithmetically, but a Skill that declares an
+    // HP cost should always charge at least 1 HP.
+    expect(resolveSkillCost(cleave, withMaxHP(16))?.amount).toBe(1)
+    // Even at very low max HP the floor still kicks in.
+    expect(resolveSkillCost(cleave, withMaxHP(5))?.amount).toBe(1)
+  })
+
   it("resolves against current max HP, not current HP", () => {
     const character = withMaxHP(100, { currentHP: 12 })
     expect(resolveSkillCost(cleave, character)?.amount).toBe(5)

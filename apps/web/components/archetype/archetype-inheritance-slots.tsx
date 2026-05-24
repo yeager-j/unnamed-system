@@ -2,9 +2,15 @@ import { ItemGroup } from "@workspace/ui/components/item"
 
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 
-import { DetailSection } from "../../shared/detail-section"
-import { SkillRow } from "../../skill-row"
+import { DetailSection } from "../character-sheet/shared/detail-section"
+import { SkillRow } from "../character-sheet/skill-row"
 
+/**
+ * Per-row Inheritance Slot block — fillers resolved against the character's
+ * other Archetype rows by {@link buildArchetypeEntries}. Character-context
+ * only; the builder's catalog preview never renders this surface (a draft
+ * has no other unlocked Archetypes to inherit from).
+ */
 export function ArchetypeInheritanceSlots({
   entry,
 }: {

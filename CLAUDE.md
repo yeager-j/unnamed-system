@@ -40,7 +40,7 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 
 ### Habits
 
-- Default to direct, targeted reads (grep + Read on the specific files) over launching Explore or parallel subagents. Only fan out to multiple agents when the codebase scope is genuinely unknown and broad.
+- Default to direct, targeted reads (grep + Read on the specific files) over launching Explore or parallel subagents. Token count explodes when parallel subagents are involved, so ask the user before spawning them.
 - User has enabled the "Auto-fix CI & address comments" setting. If things are nominal, reply briefly that there is nothing actionable. Only elaborate if there is a problem. For example, "Both comments are routine; disregarding."
 - When doing UI work, run the dev server and view the result in the browser before reporting done. Treat the first render as a draft: iterate on the design, and experiment with several approaches and pick the best one rather than shipping the first thing that works.
 - Similarly, include a design proposal (can be pure text; image mockups are not necessary) in the Plan when Plan Mode is enabled.
@@ -48,6 +48,7 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - When building UI components, see if there is a shadcn/ui component that already does what you need.
 - User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
 - When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
+- When you create new folders, add them to this document's **Repo Structure** section. Ensuring this section is up-to-date allows future Claude instances to know where relevant code is without having to dig through the repo.
 
 ## Repo Structure
 
@@ -67,14 +68,17 @@ Inside `apps/web/`:
 apps/web/
 ├── app/                       Next routes
 ├── components/
+│   ├── builder/               Character builder components and steps
 │   ├── shell/                 App chrome (site header, auth, theme)
 │   ├── character-sheet/       Sheet feature; nested shared/ for reusable helpers
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 └── lib/
+    ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── game/                  Game data + per-domain helpers and display shaping
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── db/                    Drizzle schema and loaders
+    ├── storage/               Vercel Blob storage
     └── auth/                  Auth.js
 ```
 

@@ -18,7 +18,7 @@ import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast
  * `router.refresh()` in this tab — without that, two tabs on the same
  * character drift apart silently until a manual reload.
  */
-const CharacterContext = createContext<HydratedCharacter | null>(null)
+export const CharacterContext = createContext<HydratedCharacter | null>(null)
 
 export function CharacterProvider({
   character,

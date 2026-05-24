@@ -60,7 +60,7 @@ The builder is five steps. Several rulebook concepts that share a screen of play
    - **Origin Archetype.** Pick one Archetype as the character's Origin. The app should not gate Archetypes at MVP — present all of them, grouped by Lineage. Show each Archetype's stat block (Attribute scores, Affinities, Skills at Ranks 1–5, Synthesis Skill, Talents, Mastery bonus). Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
 3. **Background.** A single screen covering everything that grounds the character in the world.
    - **Virtue Allocation.** All four Virtues (Expression, Empathy, Wisdom, Focus) start at Rank 0. Player assigns +2 to one Virtue and +1 to two others. Enforce: exactly one +2 pick, exactly two +1 picks (all to different Virtues).
-   - **Ancestry & Background (free text).** Two long-text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
+   - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
    - **Backstory.** Long-text field. Brief in-context guidance: "Tell us who your character was before the adventure begins."
    - **Knives.** Repeating list of short entries (title + optional description). Suggest ~7 Knives; warn at <4 or >12 but allow it.
    - **Chains.** Repeating list of short entries (title + optional description). At least one Chain.
