@@ -19,13 +19,13 @@ import {
   computeMaxSP,
   type StatComputationCharacter,
 } from "../game/stats"
+import { resolveTalents } from "../game/talents/resolve"
 import { db } from "./index"
 import {
   characterArchetypes,
   characterChains,
   characterKnives,
   characters,
-  characterTalents,
   inventoryItems,
 } from "./schema/character"
 
@@ -48,7 +48,6 @@ export type CharacterRow = typeof characters.$inferSelect
 export type CharacterArchetypeRow = typeof characterArchetypes.$inferSelect
 export type CharacterKnifeRow = typeof characterKnives.$inferSelect
 export type CharacterChainRow = typeof characterChains.$inferSelect
-export type CharacterTalentRow = typeof characterTalents.$inferSelect
 export type InventoryItemRow = typeof inventoryItems.$inferSelect
 
 /**
@@ -97,31 +96,26 @@ export function toStatComputationCharacter(
 }
 
 async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
-  const [archetypeRows, inventoryRows, knives, chains, talents] =
-    await Promise.all([
-      db
-        .select()
-        .from(characterArchetypes)
-        .where(eq(characterArchetypes.characterId, row.id)),
-      db
-        .select()
-        .from(inventoryItems)
-        .where(eq(inventoryItems.characterId, row.id)),
-      db
-        .select()
-        .from(characterKnives)
-        .where(eq(characterKnives.characterId, row.id))
-        .orderBy(asc(characterKnives.order)),
-      db
-        .select()
-        .from(characterChains)
-        .where(eq(characterChains.characterId, row.id))
-        .orderBy(asc(characterChains.order)),
-      db
-        .select()
-        .from(characterTalents)
-        .where(eq(characterTalents.characterId, row.id)),
-    ])
+  const [archetypeRows, inventoryRows, knives, chains] = await Promise.all([
+    db
+      .select()
+      .from(characterArchetypes)
+      .where(eq(characterArchetypes.characterId, row.id)),
+    db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.characterId, row.id)),
+    db
+      .select()
+      .from(characterKnives)
+      .where(eq(characterKnives.characterId, row.id))
+      .orderBy(asc(characterKnives.order)),
+    db
+      .select()
+      .from(characterChains)
+      .where(eq(characterChains.characterId, row.id))
+      .orderBy(asc(characterChains.order)),
+  ])
 
   const stats = statComputationCharacter(row, archetypeRows, inventoryRows)
   const casting: CastingCharacter = {
@@ -149,7 +143,7 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     archetypeRows,
     knives,
     chains,
-    talents,
+    talents: resolveTalents(row.gainedTalents, stats.activeArchetypeKey),
     inventory,
     activeArchetypeKey: stats.activeArchetypeKey,
     attributes: computeAttributes(stats),

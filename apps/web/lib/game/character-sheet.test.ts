@@ -17,6 +17,7 @@ import {
   computeMaxHP,
   computeMaxSP,
 } from "./stats"
+import { resolveTalents } from "./talents/resolve"
 
 /**
  * Integration coverage for the derived-value pipeline over the real seed
@@ -87,7 +88,7 @@ describe("seed roster structural invariants", () => {
         c.secrets,
         c.knives,
         c.chains,
-        c.talents,
+        resolveTalents(c.gainedTalents, c.activeArchetypeKey),
       ]) {
         expect(list.length).toBeGreaterThan(0)
       }

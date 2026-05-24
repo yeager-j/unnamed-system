@@ -90,3 +90,12 @@ export const TALENTS: readonly Talent[] = Object.values(TALENTS_BY_KEY)
 export function getTalent(key: string): Talent | undefined {
   return (TALENTS_BY_KEY as Record<string, Talent>)[key]
 }
+
+/**
+ * Zod schema for the `characters.gainedTalents` JSONB column: an array of
+ * canonical Talent keys. Background- and downtime-gained Talents live here;
+ * active-Archetype Talents are derived at hydration, not persisted. The
+ * `resolveTalents` helper that performs that derivation lives in `./resolve`
+ * — imported directly to avoid a circular load with `../archetypes`.
+ */
+export const gainedTalentsSchema = z.array(z.enum(TALENT_KEYS))

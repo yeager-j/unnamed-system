@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { getTalent, TALENT_KEYS, TALENTS } from "./talents"
+import { getTalent, TALENT_KEYS, TALENTS } from "."
 
 describe("talent data", () => {
   it("exposes exactly the 28 canonical Talents", () => {
