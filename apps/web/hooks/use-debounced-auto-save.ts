@@ -5,6 +5,9 @@ import { toast } from "sonner"
 
 import type { Result } from "@/lib/game/result"
 
+import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
+import type { VersionClass } from "./use-character-versions-broadcast"
+
 /**
  * Debounced auto-save lifecycle for a free-text owner-mode field. Every
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
@@ -26,9 +29,17 @@ import type { Result } from "@/lib/game/result"
  * save's success branch) before its own request goes out. That closes both
  * the same-value and different-value debounce+blur races.
  *
- * On success, the hook updates the ref from `result.value.version`
- * immediately, so a rapid follow-up save doesn't have to wait for React
- * commit + effect to propagate the prop.
+ * On success, the ref is updated from `result.value.version` immediately,
+ * so a rapid follow-up save doesn't have to wait for React commit + effect
+ * to propagate the prop.
+ *
+ * **Silent stale retry + cross-tab broadcast** (UNN-203). Every save flows
+ * through {@link dispatchCharacterWriteWithRetry}, which on `"stale"`
+ * refetches the current per-class version and re-dispatches once before
+ * the consumer's error path runs, and on success broadcasts the
+ * invalidation to sibling tabs. The hook's failure branch therefore only
+ * fires when a write stales *twice in a row* — a real conflict, not a
+ * sibling-component race.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
  * hook only checks reference equality for last-saved skips, so a consumer
@@ -60,6 +71,13 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    *  column that matches this field's write class — e.g. `identityVersion`
    *  for name/notes/identity-list editors. */
   serverVersion: number
+  /** Owning character — used by the silent-retry path to refetch the
+   *  fresh per-class version after a `"stale"` and by the broadcast
+   *  pipeline to notify sibling tabs. */
+  characterId: string
+  /** Which per-write-class bucket this editor mutates — drives both the
+   *  refetch field and the broadcast tag. */
+  characterClass: VersionClass
   /** Persists `value`, conditioned on `expectedVersion`. */
   save: (
     value: TValue,
@@ -94,6 +112,8 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
   serverVersion,
+  characterId,
+  characterClass,
   save,
   debounceMs = 500,
   isEmpty = () => false,
@@ -115,11 +135,15 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       if (isEqual(next, lastSavedRef.current)) return
 
       try {
-        const result = await save(next, versionRef.current)
+        const result = await dispatchCharacterWriteWithRetry({
+          characterId,
+          characterClass,
+          versionRef,
+          action: (expectedVersion) => save(next, expectedVersion),
+        })
 
         if (result.ok) {
           lastSavedRef.current = result.value.value
-          versionRef.current = result.value.version
           return
         }
 
@@ -128,9 +152,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
         if (onError) {
           onError(result.error)
         } else if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
+          toast.error("Couldn't sync — refresh to see the latest changes.")
         } else {
           toast.error("Couldn't save. Try again.")
         }

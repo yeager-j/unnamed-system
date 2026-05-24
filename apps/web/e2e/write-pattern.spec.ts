@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import { characters, getDb, inventoryItems } from "@/lib/db"
 
@@ -46,6 +46,21 @@ async function resetCharacter(): Promise<void> {
     .update(inventoryItems)
     .set({ equipped: false })
     .where(eq(inventoryItems.characterId, CHARACTER_ID))
+}
+
+/**
+ * Bumps `identityVersion` on the seed character by 1 directly via the DB —
+ * simulates "a sibling tab / another writer landed an identity-class write
+ * between the page load and the user's edit." The next save from the page
+ * will see its `expectedVersion` mismatch and `"stale"` will surface from
+ * the wrapper, exercising the UNN-203 silent-retry path.
+ */
+async function bumpIdentityVersionForCharacter(): Promise<void> {
+  const db = getDb()
+  await db
+    .update(characters)
+    .set({ identityVersion: sql`${characters.identityVersion} + 1` })
+    .where(eq(characters.id, CHARACTER_ID))
 }
 
 async function openItemPopover(page: Page, descriptionFragment: string) {
@@ -371,5 +386,81 @@ test.describe("owner-mode write pattern", () => {
       "Mira the Reverse"
     )
     await expect(page.getByText("Bladeturn Mail").first()).toBeVisible()
+  })
+})
+
+test.describe("UNN-203: stale is self-healing", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(async () => {
+    await resetCharacter()
+  })
+
+  test("silent refetch + retry: first-attempt stale becomes invisible", async ({
+    page,
+  }) => {
+    // The page loads with `identityVersion = N`. We bump the server to `N+1`
+    // before the user types, so the first save POSTs `expectedVersion = N`
+    // and the wrapper returns `"stale"`. The UNN-203 helper should refetch
+    // the fresh version (`N+1`), update the ref, retry the save — and the
+    // retry should succeed (`N+1` matches now) without surfacing a toast.
+    await page.goto(CHARACTER_URL)
+    await page.waitForLoadState("networkidle")
+
+    // Concurrent identity-class write lands between load and edit.
+    await bumpIdentityVersionForCharacter()
+
+    const input = page.getByRole("textbox", { name: NAME_INPUT })
+    await input.fill("Mira the Healed")
+    await input.blur()
+    // Cover debounce + initial stale + refetch + retry. The retry burns
+    // ~3 round-trips, so give it more time than the single-write case.
+    await page.waitForTimeout(2500)
+
+    await expectNoToast(page)
+    await page.reload()
+    await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
+      "Mira the Healed"
+    )
+  })
+
+  test("cross-tab broadcast: edit in tab A updates tab B without reload", async ({
+    browser,
+  }) => {
+    // Two pages in the *same* `BrowserContext` — i.e. two tabs of the same
+    // browser session, which is the real-world scenario (`BroadcastChannel`
+    // is scoped to a browsing context group; Playwright's
+    // `browser.newContext()` creates fully isolated contexts that don't
+    // share channels by design, so a two-context setup would silently
+    // fail to deliver the message).
+    //
+    // A write in pageA posts on the per-character `BroadcastChannel`;
+    // pageB's listener (`useCharacterVersionBroadcast` inside
+    // `CharacterProvider`) calls `router.refresh()`, which re-runs the
+    // RSC, which re-renders the name input with the new server value.
+    const context = await browser.newContext({ storageState: STORAGE_STATE })
+    try {
+      const pageA = await context.newPage()
+      const pageB = await context.newPage()
+      await pageA.goto(CHARACTER_URL)
+      await pageB.goto(CHARACTER_URL)
+      await pageA.waitForLoadState("networkidle")
+      await pageB.waitForLoadState("networkidle")
+
+      const newName = "Mira the Broadcast"
+      const inputA = pageA.getByRole("textbox", { name: NAME_INPUT })
+      await inputA.fill(newName)
+      await inputA.blur()
+      await pageA.waitForTimeout(1500)
+
+      // pageB's input should converge to the new value without a manual
+      // reload. The default 5s assertion poll covers the broadcast +
+      // router.refresh round-trip.
+      await expect(
+        pageB.getByRole("textbox", { name: NAME_INPUT })
+      ).toHaveValue(newName)
+    } finally {
+      await context.close()
+    }
   })
 })

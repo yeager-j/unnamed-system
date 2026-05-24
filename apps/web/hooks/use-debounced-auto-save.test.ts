@@ -3,8 +3,17 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import { getCharacterVersionsAction } from "../lib/actions/character-versions"
 import { err, ok, type Result } from "../lib/game/result"
 import { useDebouncedAutoSave } from "./use-debounced-auto-save"
+
+vi.mock("../lib/actions/character-versions", () => ({
+  getCharacterVersionsAction: vi.fn(),
+}))
+
+vi.mock("./use-character-versions-broadcast", () => ({
+  broadcastCharacterVersion: vi.fn(),
+}))
 
 type SaveCall = {
   value: string
@@ -46,9 +55,15 @@ async function flushMicrotasks(): Promise<void> {
   })
 }
 
+const FIXED_ARGS = {
+  characterId: "char-test",
+  characterClass: "identity" as const,
+}
+
 describe("useDebouncedAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.mocked(getCharacterVersionsAction).mockReset()
   })
 
   afterEach(() => {
@@ -60,6 +75,7 @@ describe("useDebouncedAutoSave", () => {
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "",
         serverVersion: 0,
         save,
@@ -97,6 +113,7 @@ describe("useDebouncedAutoSave", () => {
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "Mira",
         serverVersion: 0,
         save,
@@ -132,6 +149,7 @@ describe("useDebouncedAutoSave", () => {
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "",
         serverVersion: 0,
         save,
@@ -155,6 +173,7 @@ describe("useDebouncedAutoSave", () => {
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "Mira",
         serverVersion: 0,
         save,
@@ -188,6 +207,7 @@ describe("useDebouncedAutoSave", () => {
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "Mira",
         serverVersion: 0,
         save,
@@ -217,12 +237,105 @@ describe("useDebouncedAutoSave", () => {
     consoleErr.mockRestore()
   })
 
+  it("on first-attempt stale, silently refetches + retries before surfacing an error", async () => {
+    const { save, calls } = makeControlledSave()
+    const onError = vi.fn()
+    vi.mocked(getCharacterVersionsAction).mockResolvedValue(
+      ok({
+        identityVersion: 5,
+        vitalsVersion: 0,
+        inventoryVersion: 0,
+        progressionVersion: 0,
+      })
+    )
+
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "Mira",
+        serverVersion: 0,
+        save,
+        onError,
+      })
+    )
+
+    // Type "Iris", flush — first save dispatched with stale version 0.
+    act(() => result.current.setValue("Iris"))
+    act(() => result.current.flush())
+    await flushMicrotasks()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.expectedVersion).toBe(0)
+
+    // Server says stale → helper refetches and retries with fresh version 5.
+    await act(async () => {
+      calls[0]!.resolve(err("stale"))
+    })
+    await flushMicrotasks()
+    await flushMicrotasks()
+
+    expect(getCharacterVersionsAction).toHaveBeenCalledOnce()
+    expect(calls).toHaveLength(2)
+    expect(calls[1]!.expectedVersion).toBe(5)
+
+    // Retry succeeds → draft sticks, no error surfaced.
+    await act(async () => {
+      calls[1]!.resolve(ok({ value: "Iris", version: 6 }))
+    })
+    await flushMicrotasks()
+
+    expect(result.current.value).toBe("Iris")
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it("on second stale (retry also fails), rolls back and surfaces the error", async () => {
+    const { save, calls } = makeControlledSave()
+    const onError = vi.fn()
+    vi.mocked(getCharacterVersionsAction).mockResolvedValue(
+      ok({
+        identityVersion: 5,
+        vitalsVersion: 0,
+        inventoryVersion: 0,
+        progressionVersion: 0,
+      })
+    )
+
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "Mira",
+        serverVersion: 0,
+        save,
+        onError,
+      })
+    )
+
+    act(() => result.current.setValue("Iris"))
+    act(() => result.current.flush())
+    await flushMicrotasks()
+    await act(async () => {
+      calls[0]!.resolve(err("stale"))
+    })
+    await flushMicrotasks()
+    await flushMicrotasks()
+    expect(calls).toHaveLength(2)
+
+    // Second stale → fall through to error path.
+    await act(async () => {
+      calls[1]!.resolve(err("stale"))
+    })
+    await flushMicrotasks()
+
+    expect(result.current.value).toBe("Mira")
+    expect(onError).toHaveBeenCalledWith("stale")
+  })
+
   it("on failure, rolls the draft back to the last-saved value", async () => {
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
+        ...FIXED_ARGS,
         serverValue: "Mira",
         serverVersion: 0,
         save,
@@ -235,11 +348,11 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     expect(calls).toHaveLength(1)
     await act(async () => {
-      calls[0]!.resolve(err("stale"))
+      calls[0]!.resolve(err("invalid-input"))
     })
     await flushMicrotasks()
 
     expect(result.current.value).toBe("Mira")
-    expect(onError).toHaveBeenCalledWith("stale")
+    expect(onError).toHaveBeenCalledWith("invalid-input")
   })
 })
