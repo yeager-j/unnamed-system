@@ -8,8 +8,8 @@ import { characters } from "./schema/character"
  * Persistence for permanent character deletion. A single
  * `DELETE FROM character WHERE id = ?` removes the row; every dependent
  * table (`characterArchetype`, `characterKnife`, `characterChain`,
- * `characterTalent`, `inventoryItem`, `actionLogEntry`) declares
- * `onDelete: "cascade"` on its `characterId` FK, so Postgres handles the
+ * `inventoryItem`, `actionLogEntry`) declares `onDelete: "cascade"` on its
+ * `characterId` FK, so Postgres handles the
  * dependent-row cleanup atomically as part of the same statement — no
  * orphans, no manual transaction.
  *

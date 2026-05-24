@@ -3,7 +3,6 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
   CharacterRow,
-  CharacterTalentRow,
   InventoryItemRow,
 } from "../db/load-character"
 import type { Affinity, DamageType } from "./affinity"
@@ -12,6 +11,7 @@ import type { EquippableItem } from "./items/schema"
 import type { ResolvedSkillCost } from "./skill-cost"
 import type { Skill } from "./skills/schema"
 import type { ActiveMechanic, AttributeScores } from "./stats"
+import type { TalentKey } from "./talents"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every
@@ -59,7 +59,12 @@ export type HydratedCharacter = CharacterRow & {
   archetypeRows: CharacterArchetypeRow[]
   knives: CharacterKnifeRow[]
   chains: CharacterChainRow[]
-  talents: CharacterTalentRow[]
+  /**
+   * The character's full Talent roster — the deduplicated, alphabetized union
+   * of the persisted `gainedTalents` (Background + downtime) and the active
+   * Archetype's Talents (resolved via `resolveTalents`).
+   */
+  talents: TalentKey[]
   /** Full inventory (equipped and not); only equipped items apply effects. */
   inventory: HydratedInventoryItem[]
   /** Resolved slug of the active Archetype, or `null` when none is set. */

@@ -10,16 +10,15 @@ import { getTalent } from "@/lib/game/talents"
 
 /**
  * Read-only Talents block (PRD §6.1 Explore tab). Lists every Talent the
- * character knows, resolving the stored slug to its display name via the
- * canonical Talent table. Empty roster shows a single muted line instead of
- * an empty card body — the tab-level "clean character renders coherently"
- * requirement. No Add/Remove controls; mutations are owner-mode and out of
- * scope.
+ * character knows — the deduplicated union of `gainedTalents` and the active
+ * Archetype's Talents, pre-sorted by `resolveTalents` — resolving each slug
+ * to its display name via the canonical Talent table. Empty roster shows a
+ * single muted line instead of an empty card body — the tab-level "clean
+ * character renders coherently" requirement. No Add/Remove controls;
+ * mutations are owner-mode and out of scope.
  */
 export function Talents({ character }: { character: HydratedCharacter }) {
-  const names = character.talents
-    .map((row) => getTalent(row.name)?.name ?? row.name)
-    .sort((a, b) => a.localeCompare(b))
+  const names = character.talents.map((key) => getTalent(key)?.name ?? key)
 
   return (
     <Card>

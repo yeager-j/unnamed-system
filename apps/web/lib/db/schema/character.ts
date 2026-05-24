@@ -29,6 +29,7 @@ import {
   type PathChoice,
   type SparkLog,
 } from "../../game/character"
+import { gainedTalentsSchema, type TalentKey } from "../../game/talents"
 import { users } from "./user"
 
 /**
@@ -89,6 +90,16 @@ export const characters = pgTable("character", {
   dreams: jsonb("dreams").$type<IdentityList>().notNull().default([]),
   fears: jsonb("fears").$type<IdentityList>().notNull().default([]),
   secrets: jsonb("secrets").$type<IdentityList>().notNull().default([]),
+  /**
+   * Talents the character has picked up via Background or downtime learning
+   * (rulebook 2.1). The active Archetype's Talents are derived at hydration
+   * via {@link resolveTalents} and never stored here — switching Archetypes at
+   * Respite naturally swaps which derived Talents apply.
+   */
+  gainedTalents: jsonb("gainedTalents")
+    .$type<TalentKey[]>()
+    .notNull()
+    .default([]),
   notes: text("notes"),
   /**
    * Per-write-class optimistic-concurrency tokens (UNN-140). One integer
@@ -171,16 +182,6 @@ export const characterChains = pgTable("characterChain", {
   order: integer("order").notNull().default(0),
 })
 
-export const characterTalents = pgTable("characterTalent", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  characterId: text("characterId")
-    .notNull()
-    .references(() => characters.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-})
-
 /**
  * Inventory. Items are hardcoded catalog entries (PRD §6.2/§8): the row only
  * references the catalog by `catalogItemKey` and tracks whether it is
@@ -227,6 +228,7 @@ export const insertCharacterSchema = createInsertSchema(characters, {
   dreams: identityListSchema,
   fears: identityListSchema,
   secrets: identityListSchema,
+  gainedTalents: gainedTalentsSchema,
 })
 export const selectCharacterSchema = createSelectSchema(characters)
 
@@ -242,9 +244,6 @@ export const selectCharacterKnifeSchema = createSelectSchema(characterKnives)
 
 export const insertCharacterChainSchema = createInsertSchema(characterChains)
 export const selectCharacterChainSchema = createSelectSchema(characterChains)
-
-export const insertCharacterTalentSchema = createInsertSchema(characterTalents)
-export const selectCharacterTalentSchema = createSelectSchema(characterTalents)
 
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems)
 export const selectInventoryItemSchema = createSelectSchema(inventoryItems)

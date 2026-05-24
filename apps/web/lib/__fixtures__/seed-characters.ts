@@ -8,6 +8,7 @@ import type {
 import type { MechanicState } from "../game/mechanics/schema"
 import { buildStatComputationCharacter } from "../game/stat-character"
 import type { StatComputationCharacter } from "../game/stats"
+import type { TalentKey } from "../game/talents"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The
@@ -64,7 +65,11 @@ export interface SeedCharacter {
   secrets: string[]
   knives: { title: string; description: string }[]
   chains: { title: string; description: string }[]
-  talents: string[]
+  /**
+   * Background- and downtime-gained Talents only. Active-Archetype Talents
+   * are added at hydration by `resolveTalents` — do not duplicate them here.
+   */
+  gainedTalents: TalentKey[]
   items: SeedItem[]
   victories: number
   virtues: {
@@ -126,7 +131,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         description: "Indentured to the same barons. He fights to buy her out.",
       },
     ],
-    talents: ["climb", "lift", "athletics"],
+    gainedTalents: [],
     items: [{ catalogItemKey: "longsword", equipped: true }],
     victories: 0,
     virtues: { expression: 0, empathy: 1, wisdom: 0, focus: 0 },
@@ -181,7 +186,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         description: "Her mentor. She still writes to him, unsure why.",
       },
     ],
-    talents: ["medicine", "nature", "monsters"],
+    gainedTalents: [],
     items: [],
     victories: 1,
     virtues: { expression: 0, empathy: 2, wisdom: 1, focus: 0 },
@@ -246,7 +251,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
           "Confiscated as evidence. She wants it back more than vindication.",
       },
     ],
-    talents: ["arcana", "alchemy", "enchant", "lift"],
+    gainedTalents: ["lift"],
     items: [
       { catalogItemKey: "runed-cane", equipped: true },
       { catalogItemKey: "shadow-charm", equipped: true },
@@ -345,7 +350,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         description: "Too young, too eager. She trains him and dreads it.",
       },
     ],
-    talents: ["lift", "culture", "history", "climb", "athletics", "arcana"],
+    gainedTalents: ["climb", "athletics", "arcana"],
     items: [
       { catalogItemKey: "bladeturn-mail", equipped: true },
       { catalogItemKey: "runed-cane", equipped: true },
@@ -404,7 +409,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         description: "Faces he never saw again. He counts them still.",
       },
     ],
-    talents: ["athletics", "lift", "climb"],
+    gainedTalents: [],
     items: [{ catalogItemKey: "longsword", equipped: true }],
     victories: 0,
     virtues: { expression: 3, empathy: 4, wisdom: 6, focus: 7 },
@@ -496,7 +501,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
           "Whoever annotated her Field book before she ever owned it. *Same hand, three colors of ink, four languages.*\n\nShe is not sure she wants to meet them — only that she **must**.",
       },
     ],
-    talents: ["arcana", "history", "investigate", "culture", "sense"],
+    gainedTalents: ["history", "investigate", "culture", "sense"],
     items: [],
     victories: 2,
     virtues: { expression: 1, empathy: 2, wisdom: 3, focus: 2 },

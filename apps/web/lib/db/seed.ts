@@ -50,7 +50,6 @@ const {
   characterArchetypes,
   characterKnives,
   characterChains,
-  characterTalents,
   inventoryItems,
 } = await import("./index")
 
@@ -111,7 +110,7 @@ const DEV_USER_CHARACTER: SeedCharacter = {
   notes: "",
   knives: [],
   chains: [],
-  talents: [],
+  gainedTalents: [],
   items: [
     { catalogItemKey: "longsword", equipped: false },
     { catalogItemKey: "bladeturn-mail", equipped: false },
@@ -129,7 +128,7 @@ const DEV_USER_CHARACTER: SeedCharacter = {
 /**
  * Dedicated target for `e2e/delete-character.spec.ts`. Owned by
  * {@link DEV_USER}. Sized just large enough to prove CASCADE: one archetype,
- * one inventory item, one knife/chain/talent. Lives in its own row because
+ * one inventory item, one knife/chain. Lives in its own row because
  * the happy-path test removes it — `npm run db:seed` runs at the start of
  * every E2E invocation and re-inserts it via the same deterministic upsert.
  */
@@ -160,7 +159,7 @@ const DELETE_TEST_CHARACTER: SeedCharacter = {
   notes: "",
   knives: [],
   chains: [],
-  talents: [],
+  gainedTalents: [],
   items: [{ catalogItemKey: "longsword", equipped: false }],
   victories: 0,
   virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
@@ -206,7 +205,7 @@ const WRITE_TEST_CHARACTER: SeedCharacter = {
   notes: "",
   knives: [],
   chains: [],
-  talents: [],
+  gainedTalents: [],
   items: [
     { catalogItemKey: "longsword", equipped: false },
     { catalogItemKey: "bladeturn-mail", equipped: false },
@@ -281,6 +280,7 @@ async function seedCharacter(
     dreams: character.dreams,
     fears: character.fears,
     secrets: character.secrets,
+    gainedTalents: character.gainedTalents,
     notes: character.notes,
   }
 
@@ -301,9 +301,6 @@ async function seedCharacter(
   await db
     .delete(characterChains)
     .where(eq(characterChains.characterId, characterId))
-  await db
-    .delete(characterTalents)
-    .where(eq(characterTalents.characterId, characterId))
   await db
     .delete(inventoryItems)
     .where(eq(inventoryItems.characterId, characterId))
@@ -346,16 +343,6 @@ async function seedCharacter(
         title: chain.title,
         description: chain.description,
         order: index,
-      }))
-    )
-  }
-
-  if (character.talents.length > 0) {
-    await db.insert(characterTalents).values(
-      character.talents.map((name, index) => ({
-        id: `seed-talent-${character.slug}-${index}`,
-        characterId,
-        name,
       }))
     )
   }
