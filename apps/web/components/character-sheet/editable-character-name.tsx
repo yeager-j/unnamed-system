@@ -34,6 +34,8 @@ export function EditableCharacterName({
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue: name,
     serverVersion: identityVersion,
+    characterId,
+    characterClass: "identity",
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
     save: async (next, expectedVersion) => {

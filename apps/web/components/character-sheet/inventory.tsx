@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
   equipInventoryItemAction,
@@ -103,21 +104,22 @@ export function Inventory({ character }: { character: HydratedCharacter }) {
         mutation.kind === "equip"
           ? equipInventoryItemAction
           : unequipInventoryItemAction
-      const result = await action({
+      const result = await dispatchCharacterWriteWithRetry({
         characterId: character.id,
-        itemId: mutation.itemId,
-        expectedVersion: versionRef.current,
+        characterClass: "inventory",
+        versionRef,
+        action: (expectedVersion) =>
+          action({
+            characterId: character.id,
+            itemId: mutation.itemId,
+            expectedVersion,
+          }),
       })
 
-      if (result.ok) {
-        versionRef.current = result.value.version
-        return
-      }
+      if (result.ok) return
 
       if (result.error === "stale") {
-        toast.error(
-          "Someone else updated this character — refresh to see the latest."
-        )
+        toast.error("Couldn't sync inventory — refresh to see the latest.")
       } else {
         toast.error("Couldn't update equipment. Try again.")
       }
