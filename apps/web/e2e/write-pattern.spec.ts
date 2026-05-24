@@ -390,6 +390,12 @@ test.describe("owner-mode write pattern", () => {
 })
 
 test.describe("UNN-203: stale is self-healing", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(async () => {
+    await resetCharacter()
+  })
+
   test("silent refetch + retry: first-attempt stale becomes invisible", async ({
     page,
   }) => {
