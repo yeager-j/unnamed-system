@@ -156,7 +156,7 @@ test.describe("owner-mode write pattern", () => {
   }) => {
     // The original UNN-180 regression: the debounced save fired at ~500ms,
     // then `flushSave` on blur fired a *second* save for the same value with
-    // the same `expectedUpdatedAt` before the first had returned — the
+    // the same `expectedVersion` before the first had returned — the
     // second's WHERE missed and the user saw a "Someone else updated this
     // character" toast on a perfectly normal edit. The in-flight guard in
     // `editable-character-name.tsx` closes the window; this test holds it
@@ -241,16 +241,16 @@ test.describe("owner-mode write pattern", () => {
     await expectNoToast(page)
   })
 
-  test("different-value race: B dispatched mid-A picks up A's fresh updatedAt", async ({
+  test("different-value race: B dispatched mid-A picks up A's fresh version", async ({
     page,
   }) => {
     // UNN-202 issue 1: before the serialization fix, typing "A", waiting past
-    // the 500ms debounce so save("A", T0) was in flight, then typing "B" before
-    // A returned would dispatch save("B", T0) with the same stale token. When
-    // A's commit advanced the server to T1, B's WHERE missed and the user got
+    // the 500ms debounce so save("A", v0) was in flight, then typing "B" before
+    // A returned would dispatch save("B", v0) with the same stale token. When
+    // A's commit advanced the server to v1, B's WHERE missed and the user got
     // a "Someone else updated this character" toast on a normal edit. The
     // serialized save queue closes that window by chaining B behind A so it
-    // reads the post-A `updatedAtRef.current` (T1) before its request goes out.
+    // reads the post-A `versionRef.current` (v1) before its request goes out.
     await page.route(/\/c\/write-target/, async (route) => {
       if (route.request().method() === "POST") {
         await new Promise((resolve) => setTimeout(resolve, 800))
@@ -323,12 +323,13 @@ test.describe("owner-mode write pattern", () => {
   })
 
   test("equip then immediately edit name does not stale", async ({ page }) => {
-    // Both writes mutate `characters.updatedAt`. The first version of the
-    // implementation cached the token in component-local state, so the
-    // name editor never saw the equip's bump — every cross-component
-    // sequence returned `Result.err("stale")` and toasted. The current
-    // implementation refs the token + dual-writes from both prop changes
-    // and own-action success; this test exercises that.
+    // After UNN-140 these writes touch *different* per-write-class version
+    // columns (`inventoryVersion` vs `identityVersion`), so they're
+    // structurally decoupled — no cross-component synchronization needed.
+    // Before per-class scoping both writes bumped the shared
+    // `characters.updatedAt` and the cross-component dual-writer ref was
+    // what made this case work; this test now proves the stronger
+    // decoupling holds.
     await page.goto(`${CHARACTER_URL}?tab=inventory`)
     await openItemPopover(page, "Overlapping scales")
     await page.getByRole("button", { name: "Equip", exact: true }).click()

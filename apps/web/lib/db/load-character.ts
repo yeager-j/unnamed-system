@@ -195,6 +195,22 @@ export async function loadCharacterRowById(
   return row ?? null
 }
 
+/**
+ * Cheap existence check used by every optimistic-concurrency write wrapper to
+ * disambiguate a zero-row `UPDATE` between `"character-not-found"` (the row
+ * was deleted) and `"stale"` (the row exists but its `updatedAt` no longer
+ * matches the caller's token). Selects only `id` so the read is index-only.
+ */
+export async function characterExists(characterId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: characters.id })
+    .from(characters)
+    .where(eq(characters.id, characterId))
+    .limit(1)
+
+  return row !== undefined
+}
+
 /** The raw `characters` row by public `shortId`, or `null` when none matches. */
 export async function loadCharacterRowByShortId(
   shortId: string

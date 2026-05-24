@@ -14,7 +14,7 @@ import type { CharacterNamePersistenceError } from "@/lib/db/character-name"
 export const UpdateCharacterNameSchema = z.object({
   characterId: z.string().min(1),
   name: z.string().trim().min(1, "Name is required").max(64),
-  expectedUpdatedAt: z.coerce.date(),
+  expectedVersion: z.number().int().nonnegative(),
 })
 
 export type UpdateCharacterNameInput = z.input<typeof UpdateCharacterNameSchema>

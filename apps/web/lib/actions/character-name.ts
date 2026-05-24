@@ -1,7 +1,10 @@
 "use server"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
-import { updateCharacterName } from "@/lib/db/character-name"
+import {
+  updateCharacterName,
+  type CharacterNamePersistenceSuccess,
+} from "@/lib/db/character-name"
 import { type Result } from "@/lib/game/result"
 
 import {
@@ -24,9 +27,7 @@ import { revalidateCharacter } from "./revalidate"
  */
 export async function updateCharacterNameAction(
   input: UpdateCharacterNameInput
-): Promise<
-  Result<{ name: string; updatedAt: Date }, UpdateCharacterNameError>
-> {
+): Promise<Result<CharacterNamePersistenceSuccess, UpdateCharacterNameError>> {
   const parsed = UpdateCharacterNameSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "invalid-input" }
 
@@ -35,7 +36,7 @@ export async function updateCharacterNameAction(
   const result = await updateCharacterName(
     character.id,
     parsed.data.name,
-    parsed.data.expectedUpdatedAt
+    parsed.data.expectedVersion
   )
 
   if (result.ok) revalidateCharacter(character)

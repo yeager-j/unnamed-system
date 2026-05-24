@@ -56,7 +56,7 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
                 <EditableCharacterName
                   characterId={character.id}
                   name={character.name}
-                  updatedAt={character.updatedAt}
+                  identityVersion={character.identityVersion}
                 />
               </OwnerOnly>
               <NonOwner>

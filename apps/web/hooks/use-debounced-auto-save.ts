@@ -10,23 +10,23 @@ import type { Result } from "@/lib/game/result"
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
  * per-knife/chain titles, …) needs the same plumbing: a local draft state,
  * a debounce timeout, a serialized save queue so the debounce-then-blur
- * pattern doesn't double-fire with the same `expectedUpdatedAt`, a
- * `lastSavedRef` to skip no-op edits, and an `updatedAtRef` with two
+ * pattern doesn't double-fire with the same `expectedVersion`, a
+ * `lastSavedRef` to skip no-op edits, and a `versionRef` with two
  * convergent writers (own-action success + prop sync) so sibling components
  * don't leave us with a stale version token. This hook is the one place
  * those rules live.
  *
  * **Concurrency contract.** The `save` callback receives the current value
- * *and* the latest known `updatedAt` — the hook does not let the consumer
- * thread the token itself, because every place I've seen consumers do that
- * has eventually drifted from the prop. Saves are serialized via a single
- * promise chain (`saveQueueRef`): when a save is dispatched while another
- * is in flight, it chains behind the in-flight one and reads the *fresh*
- * `updatedAtRef.current` (just written by the prior save's success branch)
- * before its own request goes out. That closes both the same-value and
- * different-value debounce+blur races.
+ * *and* the latest known per-write-class `version` (UNN-140) — the hook
+ * does not let the consumer thread the token itself, because every place
+ * I've seen consumers do that has eventually drifted from the prop. Saves
+ * are serialized via a single promise chain (`saveQueueRef`): when a save
+ * is dispatched while another is in flight, it chains behind the in-flight
+ * one and reads the *fresh* `versionRef.current` (just written by the prior
+ * save's success branch) before its own request goes out. That closes both
+ * the same-value and different-value debounce+blur races.
  *
- * On success, the hook updates the ref from `result.value.updatedAt`
+ * On success, the hook updates the ref from `result.value.version`
  * immediately, so a rapid follow-up save doesn't have to wait for React
  * commit + effect to propagate the prop.
  *
@@ -56,13 +56,15 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   /** The current value from the server. Drives the initial draft and the
    *  rollback target on failure. */
   serverValue: TValue
-  /** The version token from the server. */
-  serverUpdatedAt: Date
-  /** Persists `value`, conditioned on `expectedUpdatedAt`. */
+  /** The per-write-class version token from the server (UNN-140). Pass the
+   *  column that matches this field's write class — e.g. `identityVersion`
+   *  for name/notes/identity-list editors. */
+  serverVersion: number
+  /** Persists `value`, conditioned on `expectedVersion`. */
   save: (
     value: TValue,
-    expectedUpdatedAt: Date
-  ) => Promise<Result<{ value: TValue; updatedAt: Date }, TError>>
+    expectedVersion: number
+  ) => Promise<Result<{ value: TValue; version: number }, TError>>
   /** Defaults to 500ms — the Notion-feel sweet spot. */
   debounceMs?: number
   /** Skip the save when this returns true (and on flush, revert the draft
@@ -91,7 +93,7 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
-  serverUpdatedAt,
+  serverVersion,
   save,
   debounceMs = 500,
   isEmpty = () => false,
@@ -105,7 +107,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
   const lastSavedRef = useRef(serverValue)
-  const updatedAtRef = useRef(serverUpdatedAt)
+  const versionRef = useRef(serverVersion)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   function performSave(next: TValue): Promise<void> {
@@ -113,11 +115,11 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       if (isEqual(next, lastSavedRef.current)) return
 
       try {
-        const result = await save(next, updatedAtRef.current)
+        const result = await save(next, versionRef.current)
 
         if (result.ok) {
           lastSavedRef.current = result.value.value
-          updatedAtRef.current = result.value.updatedAt
+          versionRef.current = result.value.version
           return
         }
 
@@ -189,15 +191,15 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   }
 
   // useEffectEvent (React 19.2) sees the latest props/state without being
-  // listed in deps — lets the prop-sync effect fire on primitive timestamp
-  // changes only, and lets the unmount cleanup read fresh `value`,
-  // `isEmpty`, `isEqual`, and `performSave` without re-running every render.
+  // listed in deps — lets the prop-sync effect fire on version-bump only,
+  // and lets the unmount cleanup read fresh `value`, `isEmpty`, `isEqual`,
+  // and `performSave` without re-running every render.
   const syncFromServer = useEffectEvent(() => {
     if (!focusedRef.current) {
       setLocalValue(serverValue)
       lastSavedRef.current = serverValue
     }
-    updatedAtRef.current = serverUpdatedAt
+    versionRef.current = serverVersion
   })
   const flushOnUnmount = useEffectEvent(() => {
     if (debounceRef.current) {
@@ -209,10 +211,9 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     }
   })
 
-  const serverUpdatedAtMs = serverUpdatedAt.getTime()
   useEffect(() => {
     syncFromServer()
-  }, [serverValue, serverUpdatedAtMs])
+  }, [serverValue, serverVersion])
 
   useEffect(() => () => flushOnUnmount(), [])
 

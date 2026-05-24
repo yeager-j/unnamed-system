@@ -18,36 +18,36 @@ const MAX_LENGTH = 64
  * routine-save channel stays quiet and a real error reads as one.
  *
  * All the concurrency + lifecycle plumbing (debounce, in-flight guard,
- * `updatedAt` dual-writer ref, last-saved tracking, focused-prop sync,
+ * `identityVersion` dual-writer ref, last-saved tracking, focused-prop sync,
  * rollback) lives in {@link useDebouncedAutoSave}. This component is just
  * the rendered input + the keybindings.
  */
 export function EditableCharacterName({
   characterId,
   name,
-  updatedAt,
+  identityVersion,
 }: {
   characterId: string
   name: string
-  updatedAt: Date
+  identityVersion: number
 }) {
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue: name,
-    serverUpdatedAt: updatedAt,
+    serverVersion: identityVersion,
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, expectedUpdatedAt) => {
+    save: async (next, expectedVersion) => {
       const result = await updateCharacterNameAction({
         characterId,
         name: next.trim(),
-        expectedUpdatedAt,
+        expectedVersion,
       })
       if (result.ok) {
         return {
           ok: true,
           value: {
             value: result.value.name,
-            updatedAt: result.value.updatedAt,
+            version: result.value.version,
           },
         }
       }

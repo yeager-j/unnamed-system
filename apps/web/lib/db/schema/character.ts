@@ -90,6 +90,19 @@ export const characters = pgTable("character", {
   fears: jsonb("fears").$type<IdentityList>().notNull().default([]),
   secrets: jsonb("secrets").$type<IdentityList>().notNull().default([]),
   notes: text("notes"),
+  /**
+   * Per-write-class optimistic-concurrency tokens (UNN-140). One integer
+   * counter per logical edit-surface group, conditioned on by the matching
+   * `lib/db/*` wrapper and incremented in the same UPDATE. Decoupling
+   * independent edit surfaces (identity vs vitals vs inventory vs
+   * progression) prevents a blur in one field from falsely staling a
+   * debounced save in flight on another. `updatedAt` stays as a "last
+   * touched" display column but is no longer the concurrency token.
+   */
+  identityVersion: integer("identityVersion").notNull().default(0),
+  vitalsVersion: integer("vitalsVersion").notNull().default(0),
+  inventoryVersion: integer("inventoryVersion").notNull().default(0),
+  progressionVersion: integer("progressionVersion").notNull().default(0),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" })
     .notNull()
