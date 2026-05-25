@@ -138,7 +138,7 @@ function EntryEditForm({
       if (result.ok) {
         return {
           ok: true,
-          value: { value: next, version: result.value.version },
+          value: { value: next.trim(), version: result.value.version },
         }
       }
       return result

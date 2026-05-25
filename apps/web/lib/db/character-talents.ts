@@ -1,7 +1,11 @@
 import { and, eq, sql } from "drizzle-orm"
 
 import { err, ok, type Result } from "../game/result"
-import { TALENT_KEYS, type TalentKey } from "../game/talents"
+import {
+  MAX_PLAYER_ADDED_TALENTS,
+  TALENT_KEYS,
+  type TalentKey,
+} from "../game/talents"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characters } from "./schema/character"
@@ -32,13 +36,6 @@ export interface CharacterTalentPersistenceSuccess {
   version: number
   gainedTalents: TalentKey[]
 }
-
-/**
- * Max player-added Talents at character creation, per PRD §5.2. The hardcoded
- * archetype Talents that resolve at hydration are *additive* on top of this
- * cap — the limit applies only to entries the player explicitly picked.
- */
-export const MAX_PLAYER_ADDED_TALENTS = 2
 
 const TALENT_KEY_SET = new Set<string>(TALENT_KEYS)
 

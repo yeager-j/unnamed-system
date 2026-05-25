@@ -1,6 +1,8 @@
 import { and, eq, sql } from "drizzle-orm"
 
+import { getArchetype } from "../game/archetypes"
 import { err, ok, type Result } from "../game/result"
+import type { TalentKey } from "../game/talents"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characterArchetypes, characters } from "./schema/character"
@@ -82,7 +84,33 @@ export async function setOriginArchetype(
       })
       .returning({ id: characterArchetypes.id })
 
-    // 4. Point the character at the new row.
+    // 4. Drop any player-added Talents the new Origin now grants. A Talent
+    //    granted by the active Archetype is resolved at hydration; keeping
+    //    it in `gainedTalents` would (a) over-count against the §5.2 cap
+    //    (`MAX_PLAYER_ADDED_TALENTS`), and (b) leave the picker's "Background
+    //    Talents N/MAX" counter out of step with the visible chips, which
+    //    already filter out Origin-granted keys. Same transaction as the
+    //    identity bump, so a concurrent `addGainedTalent` either sees the
+    //    pruned column or fails the stale check.
+    const newOriginTalents = getArchetype(archetypeKey)?.talents ?? []
+    if (newOriginTalents.length > 0) {
+      const [row] = await tx
+        .select({ gainedTalents: characters.gainedTalents })
+        .from(characters)
+        .where(eq(characters.id, characterId))
+
+      const current = row?.gainedTalents ?? []
+      const originSet = new Set<TalentKey>(newOriginTalents)
+      const pruned = current.filter((key) => !originSet.has(key))
+      if (pruned.length !== current.length) {
+        await tx
+          .update(characters)
+          .set({ gainedTalents: pruned })
+          .where(eq(characters.id, characterId))
+      }
+    }
+
+    // 5. Point the character at the new row.
     await tx
       .update(characters)
       .set({ activeArchetypeId: inserted!.id })

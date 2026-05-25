@@ -29,9 +29,13 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
-import { MAX_PLAYER_ADDED_TALENTS } from "@/lib/db/character-talents"
 import { getArchetype } from "@/lib/game/archetypes"
-import { getTalent, TALENT_KEYS, type TalentKey } from "@/lib/game/talents"
+import {
+  getTalent,
+  MAX_PLAYER_ADDED_TALENTS,
+  TALENT_KEYS,
+  type TalentKey,
+} from "@/lib/game/talents"
 
 const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
 
@@ -113,7 +117,7 @@ export function TalentsPicker({
               `You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`
             )
           } else if (result.error === "duplicate-talent") {
-            // Cross-tab race; the optimistic frame already reflects it.
+            // Cross-tab race; the next prop sync will reflect it.
           } else if (result.error === "stale") {
             toast.error(
               "Someone else updated this character — refresh to see the latest."
