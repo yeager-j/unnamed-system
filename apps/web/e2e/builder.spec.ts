@@ -287,7 +287,7 @@ test.describe("character builder", () => {
     ).toBeVisible()
   })
 
-  // ─── Step 3 — Background (UNN-207) ───────────────────────────────────────────
+  // ─── Step 3 — Character Origins (UNN-207) ──────────────────────────────────
 
   /**
    * Walks Steps 1 + 2's required fields so the suite can land on Step 3
@@ -304,7 +304,7 @@ test.describe("character builder", () => {
     await page.waitForLoadState("networkidle")
 
     await page.getByRole("button", { name: /^Next$/ }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/background`)
+    await expect(page).toHaveURL(`/builder/${shortId}/character-origins`)
     return shortId
   }
 
@@ -388,7 +388,7 @@ test.describe("character builder", () => {
     const nextBtn = page.getByRole("button", { name: /^Next$/ })
 
     // Skip the UI churn of 4 sequential adds — the gate's wired up via
-    // `nextGateForStep("background")` and we just need the row count to
+    // `nextGateForStep("character-origins")` and we just need the row count to
     // satisfy the >=4 check. Seed the Knives directly through Drizzle and
     // reload; the chain add stays on the UI path because that's what the
     // test is actually verifying.

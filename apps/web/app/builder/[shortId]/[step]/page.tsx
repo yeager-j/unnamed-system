@@ -4,8 +4,8 @@ import { BuilderNav } from "@/components/builder/builder-nav"
 import { BuilderShell } from "@/components/builder/builder-shell"
 import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
 import { StepPlaceholder } from "@/components/builder/step-placeholder"
-import { BackgroundStep } from "@/components/builder/steps/background"
 import { BasicInfoStep } from "@/components/builder/steps/basic-info"
+import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
 import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
 import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
 import { isValidCreationAllocation } from "@/lib/game/virtues/allocation"
@@ -100,7 +100,7 @@ function nextGateForStep(
       }
       return { canAdvance: true }
     }
-    case "background": {
+    case "character-origins": {
       // Three independent hard requirements per PRD §5.2 + UNN-207 AC:
       // virtue allocation, 4 Knives, 1 Chain. The narrative free-text fields
       // and Talents picker are encouraged but non-blocking. Reasons are
@@ -167,9 +167,9 @@ function renderStepBody({
           identityVersion={character.identityVersion}
         />
       )
-    case "background":
+    case "character-origins":
       return (
-        <BackgroundStep
+        <CharacterOriginsStep
           characterId={character.id}
           identityVersion={character.identityVersion}
           serverVirtueAllocation={{

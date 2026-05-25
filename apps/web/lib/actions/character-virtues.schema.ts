@@ -12,9 +12,10 @@ import type { CharacterVirtuesPersistenceError } from "@/lib/db/character-virtue
  * enforced here — the wizard auto-saves intermediate states as the player
  * picks one Virtue at a time, and rejecting partial allocations would
  * silently drop every save until the player happens to hit the final shape.
- * The Background-step Next-button gate (`nextGateForStep("background")`) is
- * the canonical completeness check; this layer just keeps the row in a
- * non-pathological state until then.
+ * The Character-Origins-step Next-button gate
+ * (`nextGateForStep("character-origins")`) is the canonical completeness
+ * check; this layer just keeps the row in a non-pathological state until
+ * then.
  */
 const rankSchema = z.union([z.literal(0), z.literal(1), z.literal(2)])
 

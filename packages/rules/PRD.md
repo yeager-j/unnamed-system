@@ -58,7 +58,7 @@ The builder is five steps. Several rulebook concepts that share a screen of play
 2. **Path & Archetype.**
    - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60).
    - **Origin Archetype.** Pick one Archetype as the character's Origin. The app should not gate Archetypes at MVP — present all of them, grouped by Lineage. Show each Archetype's stat block (Attribute scores, Affinities, Skills at Ranks 1–5, Synthesis Skill, Talents, Mastery bonus). Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
-3. **Background.** A single screen covering everything that grounds the character in the world.
+3. **Character Origins.** A single screen covering everything that grounds the character in the world — matches the rulebook section name (§1.4).
    - **Virtue Allocation.** All four Virtues (Expression, Empathy, Wisdom, Focus) start at Rank 0. Player assigns +2 to one Virtue and +1 to two others. Enforce: exactly one +2 pick, exactly two +1 picks (all to different Virtues).
    - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
    - **Backstory.** Long-text field. Brief in-context guidance: "Tell us who your character was before the adventure begins."
@@ -78,10 +78,10 @@ The builder is five steps. Several rulebook concepts that share a screen of play
 ### 5.2 Rules the Builder Enforces
 
 - Attributes are determined entirely by the Origin Archetype — not entered by the player.
-- Virtue allocation rules are validated before allowing the player to leave the Background step.
+- Virtue allocation rules are validated before allowing the player to leave the Character Origins step.
 - HP/SP path determines starting HP/SP and Hit/Skill Die for future leveling.
 - Origin Archetype determines which Paragon Archetype is eventually available (informational only at MVP, since gating isn't enforced).
-- Required to leave the Background step: Virtue allocation valid, at least 4 Knives, at least 1 Chain (in addition to the cross-step requirements: name, HP/SP path, Origin).
+- Required to leave the Character Origins step: Virtue allocation valid, at least 4 Knives, at least 1 Chain (in addition to the cross-step requirements: name, HP/SP path, Origin).
 - Other narrative fields (Ancestry, Background, Backstory, Talent picks) are optional but encouraged with non-blocking guidance.
 - **Equipment is not chosen in the builder.** The starting weapon is the canonical weapon for the character's Origin Lineage; it can be customized from the live sheet after creation.
 - **Talents are partially chosen in the builder.** The active Archetype contributes its granted Talents automatically. The player may also pick up to two additional Talents from the canonical list at creation (Background-granted training). Further Talents are picked up post-creation through downtime activities (rulebook 2.1).

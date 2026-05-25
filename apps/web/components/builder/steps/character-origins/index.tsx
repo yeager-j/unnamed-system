@@ -24,7 +24,7 @@ import { VirtueAllocationPicker } from "./virtue-allocation"
  * Auto-saves throughout — no "Save" button. The Next button's gate lives
  * on the route (`app/builder/[shortId]/[step]/page.tsx`).
  */
-export function BackgroundStep({
+export function CharacterOriginsStep({
   characterId,
   identityVersion,
   serverVirtueAllocation,

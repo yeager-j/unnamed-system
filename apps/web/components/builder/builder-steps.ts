@@ -8,7 +8,7 @@
  *
  * - `basic-info` → UNN-204 (shipped)
  * - `path-and-archetype` → UNN-205 (shipped)
- * - `background` → UNN-207 (shipped)
+ * - `character-origins` → UNN-207 (shipped)
  * - `identity` → UNN-208
  * - `review` → UNN-206
  */
@@ -39,8 +39,8 @@ export const BUILDER_STEPS = [
       "Choose your HP / SP path and your Origin Archetype. The Archetype sets your Attributes, Affinities, and starting Skills.",
   },
   {
-    slug: "background",
-    label: "Background",
+    slug: "character-origins",
+    label: "Character Origins",
     blurb:
       "Assign your starting Virtues and write the prose that grounds your character — Ancestry, Background, Backstory, Knives, and Chains.",
   },
