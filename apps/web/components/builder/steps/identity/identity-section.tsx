@@ -10,10 +10,10 @@ import {
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
-import { updateCharacterIdentityListAction } from "@/lib/actions/character-identity-lists"
-import type { IdentityListField } from "@/lib/db/character-identity-lists"
+import { updateCharacterIdentityTraitAction } from "@/lib/actions/character-identity-traits"
+import type { IdentityTraitField } from "@/lib/db/character-identity-traits"
 
-import { IDENTITY_LIST_MESSAGES } from "./messages"
+import { IDENTITY_TRAIT_MESSAGES } from "./messages"
 
 /**
  * One Step-4 Identity section — a labeled `FieldSet` wrapping a single
@@ -31,10 +31,10 @@ export function IdentitySection({
 }: {
   characterId: string
   identityVersion: number
-  field: IdentityListField
+  field: IdentityTraitField
   serverValue: string | null
 }) {
-  const messages = IDENTITY_LIST_MESSAGES[field]
+  const messages = IDENTITY_TRAIT_MESSAGES[field]
 
   const { value, setValue, onFocusChange } = useDebouncedAutoSave({
     serverValue: serverValue ?? "",
@@ -44,7 +44,7 @@ export function IdentitySection({
     isEqual: (a, b) => a.trim() === b.trim(),
     onError: () => toast.error(`Couldn't save your ${messages.label}.`),
     save: async (next, expectedVersion) => {
-      const result = await updateCharacterIdentityListAction({
+      const result = await updateCharacterIdentityTraitAction({
         characterId,
         field,
         text: next,

@@ -16,15 +16,15 @@ import { characters } from "./schema/character"
  * "set vs. unset" rather than mixing nulls and empty strings downstream.
  */
 
-export type CharacterIdentityListPersistenceError =
+export type CharacterIdentityTraitPersistenceError =
   | "character-not-found"
   | "stale"
 
-export interface CharacterIdentityListPersistenceSuccess {
+export interface CharacterIdentityTraitPersistenceSuccess {
   version: number
 }
 
-export const IDENTITY_LIST_FIELDS = [
+export const IDENTITY_TRAIT_FIELDS = [
   "personality",
   "hope",
   "dream",
@@ -32,7 +32,7 @@ export const IDENTITY_LIST_FIELDS = [
   "secret",
 ] as const
 
-export type IdentityListField = (typeof IDENTITY_LIST_FIELDS)[number]
+export type IdentityTraitField = (typeof IDENTITY_TRAIT_FIELDS)[number]
 
 const COLUMN_FOR_FIELD = {
   personality: "personalityTraits",
@@ -41,19 +41,19 @@ const COLUMN_FOR_FIELD = {
   fear: "fears",
   secret: "secrets",
 } as const satisfies Record<
-  IdentityListField,
+  IdentityTraitField,
   keyof typeof characters.$inferInsert
 >
 
-export async function updateCharacterIdentityList(
+export async function updateCharacterIdentityTrait(
   characterId: string,
-  field: IdentityListField,
+  field: IdentityTraitField,
   text: string,
   expectedVersion: number
 ): Promise<
   Result<
-    CharacterIdentityListPersistenceSuccess,
-    CharacterIdentityListPersistenceError
+    CharacterIdentityTraitPersistenceSuccess,
+    CharacterIdentityTraitPersistenceError
   >
 > {
   const normalized = text.trim().length === 0 ? null : text

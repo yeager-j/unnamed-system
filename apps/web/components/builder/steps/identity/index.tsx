@@ -1,7 +1,7 @@
 import { Separator } from "@workspace/ui/components/separator"
 
 import { IdentitySection } from "./identity-section"
-import { IDENTITY_LIST_ORDER } from "./messages"
+import { IDENTITY_TRAIT_ORDER } from "./messages"
 
 /**
  * Step 4 of the builder (PRD §5.1, rulebook 1.5) — the five Identity
@@ -41,7 +41,7 @@ export function IdentityStep({
 
   return (
     <div className="flex flex-col gap-6">
-      {IDENTITY_LIST_ORDER.map((field, index) => (
+      {IDENTITY_TRAIT_ORDER.map((field, index) => (
         <div key={field} className="flex flex-col gap-6">
           {index > 0 ? <Separator /> : null}
           <IdentitySection

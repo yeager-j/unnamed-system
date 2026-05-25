@@ -7,7 +7,7 @@ import { StepPlaceholder } from "@/components/builder/step-placeholder"
 import { BasicInfoStep } from "@/components/builder/steps/basic-info"
 import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
 import { IdentityStep } from "@/components/builder/steps/identity"
-import { IDENTITY_LIST_MESSAGES } from "@/components/builder/steps/identity/messages"
+import { IDENTITY_TRAIT_MESSAGES } from "@/components/builder/steps/identity/messages"
 import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
 import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
 import { isValidCreationAllocation } from "@/lib/game/virtues/allocation"
@@ -160,7 +160,7 @@ function nextGateForStep(
       if (firstEmpty) {
         return {
           canAdvance: false,
-          reason: IDENTITY_LIST_MESSAGES[firstEmpty.field].emptyReason,
+          reason: IDENTITY_TRAIT_MESSAGES[firstEmpty.field].emptyReason,
         }
       }
       return { canAdvance: true }

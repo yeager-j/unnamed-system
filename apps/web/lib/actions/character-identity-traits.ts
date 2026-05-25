@@ -2,16 +2,16 @@
 
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
-  updateCharacterIdentityList,
-  type CharacterIdentityListPersistenceSuccess,
-} from "@/lib/db/character-identity-lists"
+  updateCharacterIdentityTrait,
+  type CharacterIdentityTraitPersistenceSuccess,
+} from "@/lib/db/character-identity-traits"
 import { err, type Result } from "@/lib/game/result"
 
 import {
-  UpdateCharacterIdentityListSchema,
-  type UpdateCharacterIdentityListError,
-  type UpdateCharacterIdentityListInput,
-} from "./character-identity-lists.schema"
+  UpdateCharacterIdentityTraitSchema,
+  type UpdateCharacterIdentityTraitError,
+  type UpdateCharacterIdentityTraitInput,
+} from "./character-identity-traits.schema"
 import { revalidateCharacter } from "./revalidate"
 
 /**
@@ -21,20 +21,20 @@ import { revalidateCharacter } from "./revalidate"
  * flight at the same time correctly race (the loser is silently retried by
  * {@link useDebouncedAutoSave}'s pipeline).
  */
-export async function updateCharacterIdentityListAction(
-  input: UpdateCharacterIdentityListInput
+export async function updateCharacterIdentityTraitAction(
+  input: UpdateCharacterIdentityTraitInput
 ): Promise<
   Result<
-    CharacterIdentityListPersistenceSuccess,
-    UpdateCharacterIdentityListError
+    CharacterIdentityTraitPersistenceSuccess,
+    UpdateCharacterIdentityTraitError
   >
 > {
-  const parsed = UpdateCharacterIdentityListSchema.safeParse(input)
+  const parsed = UpdateCharacterIdentityTraitSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
   const character = await requireOwner(parsed.data.characterId)
 
-  const result = await updateCharacterIdentityList(
+  const result = await updateCharacterIdentityTrait(
     character.id,
     parsed.data.field,
     parsed.data.text,

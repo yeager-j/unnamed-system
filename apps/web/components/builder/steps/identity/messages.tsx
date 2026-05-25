@@ -1,4 +1,4 @@
-import type { IdentityListField } from "@/lib/db/character-identity-lists"
+import type { IdentityTraitField } from "@/lib/db/character-identity-traits"
 
 /**
  * Per-kind copy for the five Step-4 Identity sections. Pulled into its own
@@ -7,7 +7,7 @@ import type { IdentityListField } from "@/lib/db/character-identity-lists"
  * domain → display strings. Order here is the order rendered in the
  * builder step.
  */
-export interface IdentityListMessages {
+export interface IdentityTraitMessages {
   label: string
   description: string
   placeholder: string
@@ -15,7 +15,7 @@ export interface IdentityListMessages {
   emptyReason: string
 }
 
-export const IDENTITY_LIST_ORDER: readonly IdentityListField[] = [
+export const IDENTITY_TRAIT_ORDER: readonly IdentityTraitField[] = [
   "personality",
   "hope",
   "dream",
@@ -23,9 +23,9 @@ export const IDENTITY_LIST_ORDER: readonly IdentityListField[] = [
   "secret",
 ] as const
 
-export const IDENTITY_LIST_MESSAGES: Record<
-  IdentityListField,
-  IdentityListMessages
+export const IDENTITY_TRAIT_MESSAGES: Record<
+  IdentityTraitField,
+  IdentityTraitMessages
 > = {
   personality: {
     label: "Personality Traits",
