@@ -9,6 +9,7 @@ import { CharacterOriginsStep } from "@/components/builder/steps/character-origi
 import { IdentityStep } from "@/components/builder/steps/identity"
 import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
 import { ReviewStep } from "@/components/builder/steps/review"
+import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 
@@ -90,12 +91,12 @@ function renderStepBody({
         <CharacterOriginsStep
           characterId={character.id}
           identityVersion={character.identityVersion}
-          serverVirtueAllocation={{
+          serverVirtueAllocation={coerceVirtueAllocation({
             expression: character.virtueExpression,
             empathy: character.virtueEmpathy,
             wisdom: character.virtueWisdom,
             focus: character.virtueFocus,
-          }}
+          })}
           ancestryText={character.ancestryText}
           backgroundText={character.backgroundText}
           backstoryText={character.backstoryText}

@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import type { VirtueKey } from "../game/character"
 import { err, ok, type Result } from "../game/result"
+import type { VirtueAllocation } from "../game/virtues/allocation"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characters } from "./schema/character"
@@ -19,8 +19,6 @@ export type CharacterVirtuesPersistenceError = "character-not-found" | "stale"
 export interface CharacterVirtuesPersistenceSuccess {
   version: number
 }
-
-export type VirtueAllocation = Record<VirtueKey, number>
 
 export async function setCharacterVirtues(
   characterId: string,

@@ -72,10 +72,10 @@ export function VirtueAllocationPicker({
         action: (expectedVersion) =>
           setCharacterVirtuesAction({
             characterId,
-            expression: next.expression as 0 | 1 | 2,
-            empathy: next.empathy as 0 | 1 | 2,
-            wisdom: next.wisdom as 0 | 1 | 2,
-            focus: next.focus as 0 | 1 | 2,
+            expression: next.expression,
+            empathy: next.empathy,
+            wisdom: next.wisdom,
+            focus: next.focus,
             expectedVersion,
           }),
       })

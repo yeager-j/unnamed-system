@@ -132,6 +132,13 @@ export function EntryListEditor({
   const [pendingMutation, startTransition] = useTransition()
   const [openEntryId, setOpenEntryId] = useState<string | null>(null)
 
+  // Skip the prop→state sync while a mutation is in flight: optimistic
+  // updates (handleAdd / handleRemove) drive `items` ahead of the server, and
+  // `initialEntries` won't reflect those edits until the action resolves and
+  // `revalidatePath` re-renders. Applying the stale prop here would clobber
+  // the optimistic snapshot the user can see — they'd watch a row they just
+  // added disappear and then reappear. Once the transition settles, the next
+  // prop change is picked up cleanly.
   if (initialEntries !== syncedFrom && !pendingMutation) {
     setSyncedFrom(initialEntries)
     setItems(initialEntries)

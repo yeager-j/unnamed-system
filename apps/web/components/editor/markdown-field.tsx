@@ -43,6 +43,7 @@ export function MarkdownField({
   onBlur,
   placeholder,
   ariaLabel,
+  ariaLabelledBy,
   className,
 }: {
   value: string
@@ -51,6 +52,12 @@ export function MarkdownField({
   onBlur?: () => void
   placeholder?: string
   ariaLabel: string
+  /**
+   * Optional id of a labeling element. When set, the editor's contenteditable
+   * surface is wired with `aria-labelledby` alongside `aria-label`, so users
+   * navigating by labels jump to this field when the label is selected.
+   */
+  ariaLabelledBy?: string
   className?: string
 }) {
   // Stash the latest callbacks in refs so the Tiptap editor — which is a
@@ -91,6 +98,7 @@ export function MarkdownField({
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,
+        ...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {}),
         // Mirror the shadcn Textarea's content-area metrics (`min-h-16`,
         // `px-2.5 py-2`, `outline-none`) so a player switching between an
         // Input, a Textarea, and a MarkdownField sees a consistent surface.

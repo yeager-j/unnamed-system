@@ -84,7 +84,7 @@ export function NarrativeFields({
         identityVersion={identityVersion}
       />
       <Field>
-        <FieldLabel htmlFor="character-backstory">Backstory</FieldLabel>
+        <FieldLabel id="character-backstory-label">Backstory</FieldLabel>
         <FieldDescription>
           Tell us who your character was before the adventure began — what
           shaped them, what they carry forward. Use Markdown shortcuts (`#
@@ -92,6 +92,7 @@ export function NarrativeFields({
         </FieldDescription>
         <MarkdownField
           ariaLabel="Backstory"
+          ariaLabelledBy="character-backstory-label"
           placeholder="Tell us about your character's life before the adventure…"
           value={backstory.value}
           onChange={backstory.setValue}

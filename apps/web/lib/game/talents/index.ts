@@ -39,6 +39,13 @@ export const TALENT_KEYS = [
 
 export type TalentKey = (typeof TALENT_KEYS)[number]
 
+/**
+ * Max player-added Talents at character creation, per PRD §5.2. The hardcoded
+ * archetype Talents that resolve at hydration are *additive* on top of this
+ * cap — the limit applies only to entries the player explicitly picked.
+ */
+export const MAX_PLAYER_ADDED_TALENTS = 2
+
 export const talentSchema = z.object({
   key: z.enum(TALENT_KEYS),
   name: z.string().min(1),
