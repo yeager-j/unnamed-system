@@ -119,10 +119,6 @@ export const inheritanceSlotsSchema = z.array(
 )
 export type InheritanceSlots = z.infer<typeof inheritanceSlotsSchema>
 
-/** Advisory-length identity lists (Personality Traits, Hopes, Fears, Secrets). */
-export const identityListSchema = z.array(z.string())
-export type IdentityList = z.infer<typeof identityListSchema>
-
 /**
  * Active Ailments, by key. Intentionally permissive: the app stores whatever
  * Ailments the player records and neither caps the count nor enforces

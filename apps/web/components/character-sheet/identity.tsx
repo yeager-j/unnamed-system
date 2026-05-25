@@ -5,26 +5,25 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import type { IdentityList } from "@/lib/game/character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 
 import { Prose } from "./shared/prose"
 
 /**
- * Read-only Identity block (PRD §6.1 Explore tab). Renders the five Identity
- * lists in a fixed order so the section reads the same on every character;
- * each list's items pass through {@link Prose} so a player can use light
- * Markdown (line breaks, emphasis, links) in any entry. Empty lists render
- * one muted "None recorded." line under their label rather than disappearing,
- * keeping the block scannable on a clean character. No edit affordances.
+ * Read-only Identity block (PRD §6.1 Explore tab). Renders the five
+ * Identity sections in fixed order so the section reads the same on every
+ * character. Each section is one Markdown blob (UNN-208), passed through
+ * {@link Prose} — Markdown lists in the source render as bulleted lists
+ * here. Empty sections render one muted "None recorded." line rather than
+ * disappearing, keeping the block scannable on a clean character.
  */
 export function Identity({ character }: { character: HydratedCharacter }) {
-  const sections: ReadonlyArray<{ label: string; items: IdentityList }> = [
-    { label: "Personality Traits", items: character.personalityTraits },
-    { label: "Hopes", items: character.hopes },
-    { label: "Dreams", items: character.dreams },
-    { label: "Fears", items: character.fears },
-    { label: "Secrets", items: character.secrets },
+  const sections: ReadonlyArray<{ label: string; body: string | null }> = [
+    { label: "Personality Traits", body: character.personalityTraits },
+    { label: "Hopes", body: character.hopes },
+    { label: "Dreams", body: character.dreams },
+    { label: "Fears", body: character.fears },
+    { label: "Secrets", body: character.secrets },
   ]
 
   return (
@@ -33,8 +32,8 @@ export function Identity({ character }: { character: HydratedCharacter }) {
         <CardTitle>Identity</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {sections.map(({ label, items }) => (
-          <IdentitySection key={label} label={label} items={items} />
+        {sections.map(({ label, body }) => (
+          <IdentitySection key={label} label={label} body={body} />
         ))}
       </CardContent>
     </Card>
@@ -43,26 +42,21 @@ export function Identity({ character }: { character: HydratedCharacter }) {
 
 function IdentitySection({
   label,
-  items,
+  body,
 }: {
   label: string
-  items: IdentityList
+  body: string | null
 }) {
+  const trimmed = body?.trim() ?? ""
   return (
     <div className="flex flex-col gap-1">
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {label}
       </h3>
-      {items.length === 0 ? (
+      {trimmed.length === 0 ? (
         <p className="text-sm text-muted-foreground">None recorded.</p>
       ) : (
-        <ul className="ml-5 list-disc text-sm marker:text-muted-foreground">
-          {items.map((item, index) => (
-            <li key={index}>
-              <Prose className="prose-p:my-0">{item}</Prose>
-            </li>
-          ))}
-        </ul>
+        <Prose className="text-sm prose-p:my-0">{trimmed}</Prose>
       )}
     </div>
   )

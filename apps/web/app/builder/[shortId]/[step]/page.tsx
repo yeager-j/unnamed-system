@@ -6,6 +6,8 @@ import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
 import { StepPlaceholder } from "@/components/builder/step-placeholder"
 import { BasicInfoStep } from "@/components/builder/steps/basic-info"
 import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
+import { IdentityStep } from "@/components/builder/steps/identity"
+import { IDENTITY_LIST_MESSAGES } from "@/components/builder/steps/identity/messages"
 import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
 import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
 import { isValidCreationAllocation } from "@/lib/game/virtues/allocation"
@@ -135,6 +137,34 @@ function nextGateForStep(
       }
       return { canAdvance: true }
     }
+    case "identity": {
+      // PRD §5.2 lists Identity Traits as encouraged; the Step-4 plan
+      // chose "all five sections non-empty" as the soft gate so a draft
+      // can't sleepwalk into Review fully blank. The per-section content
+      // is one Markdown blob — count-based minima (per the original AC)
+      // would require parsing list syntax and would lie about whether
+      // "- " was a bulleted entry or just a stray dash.
+      const sections: ReadonlyArray<{
+        field: "personality" | "hope" | "dream" | "fear" | "secret"
+        value: string | null
+      }> = [
+        { field: "personality", value: character.personalityTraits },
+        { field: "hope", value: character.hopes },
+        { field: "dream", value: character.dreams },
+        { field: "fear", value: character.fears },
+        { field: "secret", value: character.secrets },
+      ]
+      const firstEmpty = sections.find(
+        (section) => (section.value ?? "").trim().length === 0
+      )
+      if (firstEmpty) {
+        return {
+          canAdvance: false,
+          reason: IDENTITY_LIST_MESSAGES[firstEmpty.field].emptyReason,
+        }
+      }
+      return { canAdvance: true }
+    }
     default:
       return { canAdvance: true }
   }
@@ -188,7 +218,17 @@ function renderStepBody({
         />
       )
     case "identity":
-      return <StepPlaceholder stepLabel={labelFor(step)} ticket="UNN-208" />
+      return (
+        <IdentityStep
+          characterId={character.id}
+          identityVersion={character.identityVersion}
+          personalityTraits={character.personalityTraits}
+          hopes={character.hopes}
+          dreams={character.dreams}
+          fears={character.fears}
+          secrets={character.secrets}
+        />
+      )
     case "review":
       return <StepPlaceholder stepLabel={labelFor(step)} ticket="UNN-206" />
     default:

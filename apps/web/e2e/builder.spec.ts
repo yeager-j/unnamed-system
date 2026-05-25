@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { and, eq } from "drizzle-orm"
 
-import { characterKnives, characters, getDb } from "@/lib/db"
+import { characterChains, characterKnives, characters, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 
@@ -598,5 +598,246 @@ test.describe("character builder", () => {
       page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Nature" })
     ).toBeHidden()
     await expect(page.getByText(/Background Talents \(2\/2\)/)).toBeVisible()
+  })
+
+  // ─── Step 4 — Identity Traits (UNN-208) ────────────────────────────────────
+
+  /**
+   * The five Identity sections in PRD order. The label drives both the
+   * `FieldLegend` text and the `aria-label` on the section's MarkdownField,
+   * so a single string anchors both the visual + accessibility tree query.
+   */
+  const IDENTITY_LABELS = [
+    "Personality Traits",
+    "Hopes",
+    "Dreams",
+    "Fears",
+    "Secrets",
+  ] as const
+
+  /**
+   * Seed the four non-target Identity columns directly through Drizzle so
+   * one test isn't re-exercising the auto-save pipeline five times in a
+   * row (those concurrent identity-class writes serialize on
+   * `identityVersion` and the retry-once-only path can drop a save under
+   * dev-server load). Skips whichever section the UI test owns.
+   */
+  async function seedOtherIdentityColumns(
+    shortId: string,
+    skip: (typeof IDENTITY_LABELS)[number]
+  ): Promise<void> {
+    const columnFor = {
+      "Personality Traits": "personalityTraits",
+      Hopes: "hopes",
+      Dreams: "dreams",
+      Fears: "fears",
+      Secrets: "secrets",
+    } as const
+    const patch: Partial<typeof characters.$inferInsert> = {}
+    for (const label of IDENTITY_LABELS) {
+      if (label === skip) continue
+      patch[columnFor[label]] = `Seeded ${label}`
+    }
+    await getDb()
+      .update(characters)
+      .set(patch)
+      .where(eq(characters.shortId, shortId))
+  }
+
+  /**
+   * Walks Steps 1–3 so the suite can land cleanly on Step 4 with the
+   * Step-3 gate (virtues + 4 Knives + 1 Chain) already satisfied. Knives
+   * and Chains are seeded directly through Drizzle — the Step-3 tests
+   * already cover the UI write path; this helper only cares about
+   * satisfying the gate so we can step forward.
+   */
+  async function advanceToStep4(page: Page): Promise<string> {
+    const shortId = await advanceToStep3(page)
+    await allocateVirtues(page)
+
+    const [row] = await getDb()
+      .select({ id: characters.id })
+      .from(characters)
+      .where(eq(characters.shortId, shortId))
+    if (!row) throw new Error(`Could not find character ${shortId}`)
+    await getDb()
+      .insert(characterKnives)
+      .values(
+        [0, 1, 2, 3].map((order) => ({
+          characterId: row.id,
+          title: `Seeded Knife ${order + 1}`,
+          order,
+        }))
+      )
+    await getDb().insert(characterChains).values({
+      characterId: row.id,
+      title: "Seeded Chain",
+      order: 0,
+    })
+
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    await page.getByRole("button", { name: /^Next$/ }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/identity`)
+    return shortId
+  }
+
+  /**
+   * Types into one Identity section's Markdown editor and flushes its
+   * debounced auto-save by blurring the contenteditable. The
+   * `MarkdownField` is a Tiptap contenteditable `<div>` rather than a real
+   * textbox, so we address it by aria-label (same pattern as the Knife
+   * description editor on Step 3).
+   *
+   * Confirms the typed text is visible in the editor before returning so
+   * the caller can trust the in-memory + persisted state is up to date.
+   */
+  async function fillIdentitySection(
+    page: Page,
+    label: (typeof IDENTITY_LABELS)[number],
+    text: string
+  ): Promise<void> {
+    const editor = page.getByLabel(label, { exact: true })
+    await editor.click()
+    await page.keyboard.type(text)
+    // Wait for the auto-save Server Action POST + its revalidation RSC
+    // round-trip. Plain `networkidle` resolves too early under back-to-
+    // back saves on the same write-class — we need to anchor on the
+    // specific Server Action request the auto-save dispatches on blur.
+    // Filtering on the `next-action` request header avoids matching
+    // unrelated HMR / analytics POSTs.
+    const responsePromise = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === "POST" &&
+        resp.url().includes("/builder/") &&
+        !!resp.request().headers()["next-action"],
+      { timeout: 10000 }
+    )
+    // Click the step heading to force focus loss; ProseMirror's blur
+    // transaction fires only on a real focus shift, so `Locator.blur()`
+    // and `keyboard.press("Escape")` don't reliably trigger the auto-
+    // save's flush path. The heading is a non-editable, focus-safe target.
+    await page.getByRole("heading", { name: "Identity Traits" }).click()
+    await responsePromise
+    // The Server Action returns once the row is updated, but the RSC
+    // re-render that flips `canAdvance` lands as a follow-up GET. Wait
+    // for networkidle so the new prop reaches the page before the caller
+    // makes any assertions on the Next button.
+    await page.waitForLoadState("networkidle")
+    await expect(editor).toContainText(text, { timeout: 5000 })
+  }
+
+  test("Step 4: typing into a section auto-saves; reload preserves the value and enables Next once every section has content", async ({
+    page,
+  }) => {
+    const shortId = await advanceToStep4(page)
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+    // Fresh draft lands here with all five columns null → gate engaged.
+    await expect(nextBtn).toBeDisabled()
+
+    // Seed the four other columns through Drizzle so the UI test is
+    // verifying *one* end-to-end auto-save round-trip rather than five
+    // racing identity-class writes — that race trips the silent-retry
+    // budget under dev-server load and isn't what this test is about.
+    await seedOtherIdentityColumns(shortId, "Hopes")
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    // Hopes is still blank → gate still engaged.
+    await expect(nextBtn).toBeDisabled()
+
+    const hopesText = "Find the sister who left at the temple gate"
+    await fillIdentitySection(page, "Hopes", hopesText)
+
+    // Next enables once the Server Action lands; allow a generous window
+    // for the in-place revalidation under load.
+    await expect(nextBtn).toBeEnabled({ timeout: 10000 })
+
+    // Reload — the typed value survives the round-trip in its matching
+    // column (a write to the wrong field would surface as the
+    // contribution appearing under a different label).
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+    await expect(page.getByLabel("Hopes", { exact: true })).toContainText(
+      hopesText
+    )
+
+    // Advancing into Review proves the gate actually unlocks navigation,
+    // not just the disabled prop.
+    await page.getByRole("button", { name: /^Next$/ }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/review`)
+  })
+
+  test("Step 4: an empty section keeps Next disabled even when every other section has content", async ({
+    page,
+  }) => {
+    const shortId = await advanceToStep4(page)
+
+    // Seed every section except Dreams. The gate scans in PRD order so
+    // "first empty" → Dreams, which exercises the per-kind reason copy.
+    await seedOtherIdentityColumns(shortId, "Dreams")
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+    await expect(nextBtn).toBeDisabled()
+
+    // Sanity: only Dreams is blank — the others render their seeded
+    // values, so the disable cause is the empty Dreams column and not a
+    // regression in the loader.
+    for (const label of IDENTITY_LABELS) {
+      if (label === "Dreams") continue
+      await expect(page.getByLabel(label, { exact: true })).toContainText(
+        `Seeded ${label}`
+      )
+    }
+    await expect(page.getByLabel("Dreams", { exact: true })).toHaveText(/^\s*$/)
+
+    // Filling Dreams flips the gate — the empty section was the only
+    // blocker, and the Server Action's revalidation re-renders Next.
+    await fillIdentitySection(page, "Dreams", "End the long war")
+    await expect(nextBtn).toBeEnabled({ timeout: 10000 })
+  })
+
+  test("Step 4: clearing a previously-filled section re-engages the gate", async ({
+    page,
+  }) => {
+    const shortId = await advanceToStep4(page)
+
+    // Seed all five (including the UI test's target column) so the gate
+    // starts open. Then the test clears one section through the UI and
+    // verifies the gate re-engages — exercising the action's empty-
+    // string → null normalization path that re-disables `canAdvance`.
+    await seedOtherIdentityColumns(shortId, "Hopes")
+    await getDb()
+      .update(characters)
+      .set({ hopes: "Seeded Hopes" })
+      .where(eq(characters.shortId, shortId))
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+    await expect(nextBtn).toBeEnabled()
+
+    // Clear Hopes through the UI: select all + delete, then click off so
+    // the auto-save's blur flush dispatches the empty-text save.
+    const hopes = page.getByLabel("Hopes", { exact: true })
+    await hopes.click()
+    await page.keyboard.press("ControlOrMeta+A")
+    await page.keyboard.press("Delete")
+    const responsePromise = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === "POST" &&
+        resp.url().includes("/builder/") &&
+        !!resp.request().headers()["next-action"],
+      { timeout: 10000 }
+    )
+    await page.getByRole("heading", { name: "Identity Traits" }).click()
+    await responsePromise
+    await page.waitForLoadState("networkidle")
+
+    await expect(nextBtn).toBeDisabled({ timeout: 10000 })
   })
 })
