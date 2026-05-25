@@ -46,62 +46,63 @@
 
 - [ ] Warrior — Fighter equivalent. Basic sword melee.
 	- [x] Warrior
-	- [ ] Swordmaster
-	- [ ] Samurai
-	- [ ] Psionic Warrior
+		- [ ] Swordmaster
+			- [ ] Samurai
+			- [ ] Psionic Warrior
 - [ ] Mage — Wizard equivalent. Casts Fire, Ice, Elec, and Wind.
 	- [x] Mage
-	- [ ] Wizard
-	- [ ] Elemental Master
+		- [ ] Wizard
+			- [ ] Elemental Master
 - [ ] Brawler — Monk equivalent. Attacks with fists
 	- [x] Stance mechanic.
 		- [ ] Gotta add Stance effects to a handful of Skills
 	- [ ] Brawler
-	- [ ] Pugilist
-	- [ ] Martial Artist
-	- [ ] Soul Fist
+		- [ ] Pugilist
+			- [ ] Martial Artist
+			- [ ] Soul Fist
 - [x] Knight — Tank class. Draws aggression, controls enemies with op attacks
 	- [x] Knight
-	- [ ] Lancer
-	- [ ] Paladin
-	- [ ] Dark Knight
+		- [ ] Lancer
+			- [ ] Dragonrider
+		- [ ] Paladin
+			- [ ] Holy Avenger
 - [ ] Healer — Cleric equivalent. Healing and light skills.
 	- [x] Healer
-	- [ ] Cleric
-	- [ ] Savior
+		- [ ] Cleric
+			- [ ] Savior
 - [ ] Thief — Rogue equivalent. Faster movement
 	- [ ] Thief
-	- [ ] Assassin
-	- [ ] Ninja
+		- [ ] Assassin
+			- [ ] Ninja
 - [ ] Berserker — Barbarian equivalent. Rage dice that build up from taking damage?
 	- [ ] Berserker
-	- [ ] Gladiator
-	- [ ] Destroyer
+		- [ ] Gladiator
+			- [ ] Destroyer
 - [ ] Bard — Yeah. Buff/debuff allies/enemies. Battlefield control
 	- [ ] Bard
-	- [ ] Siren
-	- [ ] Muse
+		- [ ] Siren
+			- [ ] Muse
 - [ ] Shapechanger — Druid equivalent. Transform into creatures, gaining new skills and affinities
 	- [ ] Shapechanger
-	- [ ] Animist
-	- [ ] Protean — fully transform
-	- [ ] Chimera — body arguments
-	- [ ] Dragoner
+		- [ ] Animist — fully transform
+			- [ ] Protean
+		- [ ] Chimera — body arguments
+			- [ ] Dragoner
 - [ ] Hunter — Fights at range with powerful Pierce skills.
 	- [ ] Hunter
-	- [ ] Ranger
-	- [ ] Dragoon
-	- [ ] Gunner
-	- [ ] Sniper
+		- [ ] Ranger
+			- [ ] Sniper
+		- [ ] Gunner
+			- [ ] Dragoon
 - [x] Warlock — Dark skills and ailments
 	- [x] Foretell mechanic. Ailments applies Foretell, Dark consumes for more damage.
 	- [ ] Warlock
-	- [ ] Sorcerer
-	- [ ] Necromancer
+		- [ ] Sorcerer
+			- [ ] Necromancer
 - [ ] Summoner — Blue mage.
 	- [ ] Summoner
-	- [ ] Conjurer
-	- [ ] Evoker
+		- [ ] Conjurer
+			- [ ] Evoker
 
 ## Skills
 

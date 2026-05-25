@@ -1,5 +1,6 @@
 import { getSkill } from "../skills"
 import { bladeturnMail } from "./bladeturn-mail"
+import { censer } from "./censer"
 import { longsword } from "./longsword"
 import { runedCane } from "./runed-cane"
 import {
@@ -10,6 +11,8 @@ import {
   type Weapon,
 } from "./schema"
 import { shadowCharm } from "./shadow-charm"
+import { spear } from "./spear"
+import { staff } from "./staff"
 import { warlockPact } from "./warlock-pact"
 import { zephyrBand } from "./zephyr-band"
 
@@ -35,6 +38,9 @@ function validate<T extends Weapon | Armor | Accessory>(item: T): T {
 const WEAPONS_BY_KEY = {
   longsword: validate(longsword),
   "runed-cane": validate(runedCane),
+  spear: validate(spear),
+  censer: validate(censer),
+  staff: validate(staff),
 } as const satisfies Record<string, Weapon>
 
 const ARMOR_BY_KEY = {

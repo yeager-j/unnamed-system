@@ -72,8 +72,8 @@ The builder is five steps. Several rulebook concepts that share a screen of play
    - Fears (1–2 entries)
    - Secrets (1–2 entries)
    
-   The "minimum/maximum" counts are advisory, not enforced.
-5. **Review & Confirm.** Read-only summary of all choices. "Create character" finalizes the character. Finalization seeds the character with the Talents granted by their Origin Archetype and equips the Lineage's starting weapon — the player does not pick these in the builder.
+   The maximum counts are advisory, not enforced. The minimum counts **are** enforced.
+1. **Review & Confirm.** Read-only summary of all choices. "Create character" finalizes the character. Finalization seeds the character with the Talents granted by their Origin Archetype and equips the Lineage's starting weapon — the player does not pick these in the builder.
 
 ### 5.2 Rules the Builder Enforces
 
