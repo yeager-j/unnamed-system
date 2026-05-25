@@ -9,10 +9,11 @@ import {
 } from "@workspace/ui/components/empty"
 
 /**
- * Stand-in body for builder steps that haven't been implemented yet — used
- * by every wizard step except `basic-info` in this ticket. The
- * `ticket` prop renders the upcoming Linear issue so a reviewer can trace
- * which ticket fills the gap without grepping for the slug.
+ * Stand-in body for builder movements that haven't been implemented yet.
+ * UNN-214 lands the shell with placeholders for every movement; the
+ * per-movement tickets (UNN-215 → UNN-218) replace each placeholder with
+ * real content. The `ticket` prop names the upcoming Linear issue so a
+ * reviewer can trace which ticket fills the gap.
  */
 export function StepPlaceholder({
   stepLabel,
@@ -29,8 +30,8 @@ export function StepPlaceholder({
         </EmptyMedia>
         <EmptyTitle>{stepLabel} is coming soon</EmptyTitle>
         <EmptyDescription>
-          This step ships in {ticket}. Use Back to return to a step that&apos;s
-          ready, or jump to it from the step indicator above.
+          This movement ships in {ticket}. Use the named back-link below, or tap
+          a progress dot, to revisit an earlier movement.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

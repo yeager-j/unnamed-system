@@ -11,7 +11,6 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import type { GatedStepSlug } from "../../builder-step-gates"
 import { BUILDER_STEPS } from "../../builder-steps"
 
 /**
@@ -29,7 +28,7 @@ export function ReviewCard({
 }: {
   title: string
   description?: string
-  editStepSlug: GatedStepSlug
+  editStepSlug: string
   shortId: string
   children: React.ReactNode
 }) {
@@ -60,7 +59,7 @@ export function ReviewCard({
   )
 }
 
-function labelFor(slug: GatedStepSlug): string {
+function labelFor(slug: string): string {
   return BUILDER_STEPS.find((step) => step.slug === slug)?.label ?? slug
 }
 
