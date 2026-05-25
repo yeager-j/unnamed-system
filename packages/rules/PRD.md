@@ -40,7 +40,7 @@ Players sign in with Google, build characters through a guided flow that enforce
 The app has four top-level surfaces:
 
 - **Home / My Characters** — list of the signed-in user's characters with a "Create new character" button. Each row links to the sheet.
-- **Character Builder** — multi-step flow for creating a new Level 1 character. Step indicator at top.
+- **Character Builder** — four-movement guided flow for creating a new Level 1 character. Progress dots at the bottom of each movement let the player jump back to any visited movement.
 - **Character Sheet (edit)** — the owner's editable view: a persistent header plus four play-context tabs (Combat / Explore / Inventory / Archetypes). See §6.1.
 - **Character Sheet (public)** — the same header + tabs, read-only, at a stable URL like `/c/{shortId}`. The active tab is URL-addressable (`?tab=`) so a specific view is shareable.
 
@@ -48,43 +48,65 @@ Signed-out users can view public sheets but get a "Sign in to create your own" C
 
 ## 5. Character Builder
 
-A linear, savable flow. The player can back up to a previous step at any time; partial drafts are persisted automatically. Order mirrors the rulebook (Chapter 1).
+A four-movement guided flow, savable, with progress dots that let the player jump back to any visited movement. Partial drafts auto-save. Each movement is a named chapter, not a numbered form step. Order roughly mirrors the rulebook (Chapter 1) but groups choices by head-space rather than by rulebook section.
 
-### 5.1 Steps
+Full design rationale and rejected alternatives live in a Linear document: [ADR-002: Character Builder Design Direction](https://linear.app/unnamed-system/document/adr-002-character-builder-design-direction-6734f0238ceb).
 
-The builder is five steps. Several rulebook concepts that share a screen of player work are grouped per-step rather than split into their own steps.
+### 5.1 Movements
 
-1. **Basic info.** Character name, pronouns (free text), optional portrait/avatar upload.
-2. **Path & Archetype.**
-   - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60).
-   - **Origin Archetype.** Pick one Archetype as the character's Origin. The app should not gate Archetypes at MVP — present all of them, grouped by Lineage. Show each Archetype's stat block (Attribute scores, Affinities, Skills at Ranks 1–5, Synthesis Skill, Talents, Mastery bonus). Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
-3. **Character Origins.** A single screen covering everything that grounds the character in the world — matches the rulebook section name (§1.4).
-   - **Virtue Allocation.** All four Virtues (Expression, Empathy, Wisdom, Focus) start at Rank 0. Player assigns +2 to one Virtue and +1 to two others. Enforce: exactly one +2 pick, exactly two +1 picks (all to different Virtues).
-   - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance from the rules. Player types whatever their DM has provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
-   - **Backstory.** Long-text field. Brief in-context guidance: "Tell us who your character was before the adventure begins."
-   - **Knives.** Repeating list of short entries (title + optional Markdown description). Suggest ~7 Knives; require at least 4 (hard minimum, enforced before leaving the step); warn above 12.
-   - **Chains.** Repeating list of short entries (title + optional Markdown description). At least one Chain (hard minimum, enforced); warn above 3.
-   - **Talents.** The active Origin Archetype's Talents are shown as read-only chips. The player may pick up to two additional Talents from the canonical list, representing Background-granted training. Both blocks remain editable later from the live sheet.
-4. **Identity Traits.** Five sub-fields, presented after Knives/Chains so the player has material to draw from:
-   - Personality Traits (2–4 short entries)
-   - Hopes (1–2 entries)
-   - Dreams (1 entry)
-   - Fears (1–2 entries)
-   - Secrets (1–2 entries)
-   
-   The maximum counts are advisory, not enforced. The minimum counts **are** enforced.
-1. **Review & Confirm.** Read-only summary of all choices. "Create character" finalizes the character. Finalization seeds the character with the Talents granted by their Origin Archetype and equips the Lineage's starting weapon — the player does not pick these in the builder.
+1. **The Body.** The mechanical character. ~5 minutes.
+   - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60). **Picked first** because it sorts the Archetype grid downstream.
+   - **Origin Archetype.** Pick one from a 3×4 grid of all 12 Lineages. The grid sorts by fit with the chosen Path: Health-Focused → HP-matched archetypes first, then Balanced, then Skill-matched; Balanced → Balanced first; Skill-Focused → Skill-matched first. Each Lineage carries a `suggestedPath` attribute that drives the sort; nothing is gated or hidden. Each card shows the Lineage name, its Mechanic name + one-line description, the attribute row, and one Resist + one Weak affinity. Click a card to expand inline to the full archetype detail (full Affinities, Talents, Skills at Ranks 1–5, Synthesis Skill); commit via a "Choose [Lineage] as Origin" button sticky at the bottom of the expanded card. The app does not gate Archetypes at MVP. Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
+   - **Narrative-light toggle** at the top of this movement: *"Skip the Knives, Chains, and Identity work — our group uses level-gate advancement."* Off by default. If on, Movement 3 is hidden entirely and Movement 2 sheds the Backstory field. Honors the rulebook's "Opting Out of Narrative Advancement" alternative (rules 1.3).
 
-### 5.2 Rules the Builder Enforces
+2. **The Past.** Who they were before the adventure. ~10–15 minutes. Two-column layout, fits one viewport on desktop.
+   - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance. Setting-defined per the rules; the player types what their DM provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
+   - **Virtue Allocation.** Single-column picker with four rows (Expression, Empathy, Wisdom, Focus), each a three-state segmented control (○ +1 +2). Budget enforcement inline: exactly one +2, exactly two +1s, no overlap. Framing copy uses rules-cited logic: *"Pick the one your character most embodies, then two more that are also strong."*
+
+3. **The Story.** The text-heavy movement. ~15–30 minutes, returnable across sessions. Rendered as the [UNN-211](https://linear.app/unnamed-system/issue/UNN-211) writer view: collapsible sidebar (Backstory / Knives / Chains / Identity Traits) on the left, full-width MarkdownField on the right. Clicking a sidebar entry loads it as the active document.
+   - **Backstory.** Long-form Markdown. Brief in-context guidance.
+   - **Knives.** One sidebar entry per Knife (title + Markdown description). Counter reads *"N / 7 — your DM is hungry for more"*. Require at least 4; soft-warn above 12.
+   - **Chains.** Same shape. At least one Chain; soft-warn above 3.
+   - **Identity Traits.** Five sub-entries (Personality, Hopes, Dreams, Fears, Secrets), each its own sidebar entry. Counts: Personality 2–4, Hopes 1–2, Dreams 1, Fears 1–2, Secrets 1–2. Minimum counts are enforced; maximums are advisory. **Fears** prompt suggests "often tied to a Knife or Chain" (the sidebar IS the cross-reference). **Secrets** display a small lock icon: "share with your DM in private."
+   - Each entry has a per-section "share with DM" copy/share affordance.
+
+4. **The Person.** Final, sparse, vertical center composition.
+   - **Portrait.** Center-top, larger than the prior wizard; a quiet placeholder until uploaded.
+   - **Pronouns.** Small field above the name.
+   - **Name.** The visual climax — serif, ~28–32px, no field chrome. **Last** input in the builder.
+   - **"Finalize character"** button. The commit moment. Lands on the editable sheet at `/c/{shortId}` on click.
+
+   *Name-last because naming a character with no other context is the hardest decision in the builder, and character names are usually informed by who the character is. By Movement 4 the player has the material to name from.*
+
+### 5.2 Chrome
+
+Each movement uses the same shared shell:
+
+- **Header.** Roman numeral (small mono), movement title (large serif), framing line (italic serif).
+- **Footer.** Named back/continue links (e.g. "← The Body / Continue to The Past →") and four progress dots indicating position. Visited dots are clickable to revisit prior movements.
+- Movement 3 has its own internal sidebar (the writer view); the other movements use the bare shell.
+
+### 5.3 Talents
+
+Talents are *not* picked in the builder. The active Origin Archetype's Talents are granted automatically; additional Talents come from post-creation downtime activities (rulebook 2.1), surfaced from the live sheet. (The previous builder's "Background Talents" pick is folded into post-creation editing.)
+
+### 5.4 Rules the Builder Enforces
 
 - Attributes are determined entirely by the Origin Archetype — not entered by the player.
-- Virtue allocation rules are validated before allowing the player to leave the Character Origins step.
+- Virtue allocation rules are validated within Movement 2 (exactly one +2, exactly two +1s, all different).
 - HP/SP path determines starting HP/SP and Hit/Skill Die for future leveling.
 - Origin Archetype determines which Paragon Archetype is eventually available (informational only at MVP, since gating isn't enforced).
-- Required to leave the Character Origins step: Virtue allocation valid, at least 4 Knives, at least 1 Chain (in addition to the cross-step requirements: name, HP/SP path, Origin).
-- Other narrative fields (Ancestry, Background, Backstory, Talent picks) are optional but encouraged with non-blocking guidance.
+- To finalize in narrative mode: name, HP/SP path, Origin Archetype, valid Virtue allocation, at least 4 Knives, at least 1 Chain, minimum Identity Trait counts.
+- To finalize in narrative-light mode: name, HP/SP path, Origin Archetype, valid Virtue allocation only.
+- Other narrative fields (Ancestry, Background, Backstory) are optional but encouraged with non-blocking guidance.
 - **Equipment is not chosen in the builder.** The starting weapon is the canonical weapon for the character's Origin Lineage; it can be customized from the live sheet after creation.
-- **Talents are partially chosen in the builder.** The active Archetype contributes its granted Talents automatically. The player may also pick up to two additional Talents from the canonical list at creation (Background-granted training). Further Talents are picked up post-creation through downtime activities (rulebook 2.1).
+
+### 5.5 Draft handling
+
+Each in-progress character is a draft until "Finalize character" is pressed in Movement 4. The `name` field is empty until that point.
+
+- **Roster cards** for drafts synthesize a quiet placeholder label from what's known (e.g. *"Stains Mage draft"*, *"Started 3:14pm"*, *"New draft"*). The literal string "Untitled character" is not displayed anywhere.
+- **Delete flow is two-tier by name presence.** A draft (`name` is null/empty) is deleted via a simple *"Discard this draft?"* confirm — same energy as dismissing an unsent email. A finalized (named) character keeps the existing type-the-name confirmation.
 
 ## 6. Character Sheet (Living)
 
@@ -241,7 +263,7 @@ Game data (Archetypes, Skills, Talents) is hardcoded as static data the app refe
 
 The app ships with the canonical Unnamed System rules data transcribed from this vault. The MVP scope of game data:
 
-- **Archetypes.** Four Archetypes at MVP: **Warrior, Knight, Mage, Healer**. (Thief and higher-tier Archetypes are deferred until their rules data is complete.) Each Archetype includes: Lineage, Tier, prerequisites (display-only), Inheritance Slot count, Talents granted, Mastery bonus, Attribute scores, Affinity chart, Skills by Rank (1–5), Synthesis Skill (Rank 5).
+- **Archetypes.** Four Archetypes at MVP: **Warrior, Knight, Mage, Healer**. (Thief and higher-tier Archetypes are deferred until their rules data is complete.) Each Archetype includes: Lineage, Tier, prerequisites (display-only), Inheritance Slot count, Talents granted, Mastery bonus, Attribute scores, Affinity chart, Skills by Rank (1–5), Synthesis Skill (Rank 5), and a `suggestedPath` (`'health'` | `'balanced'` | `'skill'`) used by the Character Builder's Movement 1 grid sort (§5.1). The `suggestedPath` has no mechanical effect at runtime.
 - **Skills.** Every Skill referenced by the four MVP Archetypes. Each Skill includes: name, type (damage type or category), cost (either a flat SP value or an HP percentage), range, one-line description, full card text (for the popover), and structured side-effect info if simple enough.
 - **Weapons.** A starter catalog of weapons. Each Weapon includes: name, description, slot (always `weapon`), intrinsic attack (Range, Damage type, Attack Roll attribute, and result thresholds — structured like a Skill), and optional effects (Attribute bonuses, Affinity changes, granted Skill keys).
 - **Armor & Accessories.** Type definitions exist parallel to Weapons but without an intrinsic attack — only optional effects. The MVP catalog for both is empty; content is added post-MVP.
@@ -262,7 +284,7 @@ The sheet's URL is shown on the owner's sheet with a Copy button.
 
 - **Responsive equally.** Both desktop and mobile are first-class. Desktop uses a sidebar + main pane; mobile uses tabs. Hover popovers on desktop become tap-to-open popovers on mobile.
 - **Tone.** Match the rulebook: clear, prose-leaning, minimally formatted. Avoid table-heavy layouts where a clean inline summary works.
-- **In-context guidance.** Each builder step includes a short blurb explaining what the player is choosing and why. Link to the relevant rulebook concept when helpful (but don't require the player to read it).
+- **In-context guidance.** Each builder movement opens with a short framing line explaining what the player is choosing and why. Per-field guidance lives as ghost text on inputs and as empty-state prompts in the Movement 3 writer view. Link to the relevant rulebook concept when helpful (but don't require the player to read it).
 - **No dice.** Anywhere the rules call for a roll the player makes (Hit Die on rest, level-up HP gain, Prisma healing), the app accepts a numeric input from the player. The app never rolls on its own behalf.
 
 ## 12. Non-Functional Requirements
