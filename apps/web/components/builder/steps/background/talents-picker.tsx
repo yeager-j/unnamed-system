@@ -33,6 +33,8 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@/lib/db/character-talents"
 import { getArchetype } from "@/lib/game/archetypes"
 import { getTalent, TALENT_KEYS, type TalentKey } from "@/lib/game/talents"
 
+const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
+
 /**
  * Talents picker for Step 3 (rulebook 2.1, PRD §5.2 — updated by UNN-207
  * to allow up to {@link MAX_PLAYER_ADDED_TALENTS} player-picked Talents at
@@ -168,7 +170,7 @@ export function TalentsPicker({
                   className="gap-1 py-1 pr-2.5 pl-2"
                 >
                   <LockIcon weight="bold" className="size-3 opacity-70" />
-                  {getTalent(key)?.name ?? key}
+                  {labelFor(key)}
                 </Badge>
               ))}
             </div>
@@ -186,18 +188,14 @@ export function TalentsPicker({
             items={items}
             value={gainedTalents}
             onValueChange={(next) => handleChange(next as TalentKey[])}
-            itemToStringLabel={(key) =>
-              getTalent(key as TalentKey)?.name ?? String(key)
-            }
+            itemToStringLabel={(key) => labelFor(key as TalentKey)}
           >
             <ComboboxChips ref={anchor}>
               <ComboboxValue>
                 {(values: TalentKey[]) => (
                   <Fragment>
                     {values.map((key) => (
-                      <ComboboxChip key={key}>
-                        {getTalent(key)?.name ?? key}
-                      </ComboboxChip>
+                      <ComboboxChip key={key}>{labelFor(key)}</ComboboxChip>
                     ))}
                     <ComboboxChipsInput
                       placeholder={
@@ -217,7 +215,7 @@ export function TalentsPicker({
               <ComboboxList>
                 {(key: TalentKey) => (
                   <ComboboxItem key={key} value={key}>
-                    {getTalent(key)?.name ?? key}
+                    {labelFor(key)}
                   </ComboboxItem>
                 )}
               </ComboboxList>

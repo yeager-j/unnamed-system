@@ -3,11 +3,16 @@
 import {
   addCharacterChainAction,
   removeCharacterChainAction,
-  updateCharacterChainAction,
+  updateCharacterChainDescriptionAction,
+  updateCharacterChainTitleAction,
 } from "@/lib/actions/character-chains"
 import type { CharacterChainRow } from "@/lib/db/load-character"
 
-import { EntryListEditor, type EntryRow } from "./entry-list-editor"
+import {
+  EntryListEditor,
+  type EntryActions,
+  type EntryRow,
+} from "./entry-list-editor"
 
 /**
  * Chains editor (rulebook 1.4, PRD §5.1 step 3). Internal limitations —
@@ -33,11 +38,64 @@ export function ChainsEditor({
     description: c.description,
   }))
 
+  const actions: EntryActions = {
+    add: async (title, expectedVersion) => {
+      const result = await addCharacterChainAction({
+        characterId,
+        title,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return {
+          ok: true,
+          value: { id: result.value.id, version: result.value.version },
+        }
+      }
+      return result
+    },
+    updateTitle: async (chainId, title, expectedVersion) => {
+      const result = await updateCharacterChainTitleAction({
+        characterId,
+        chainId,
+        title,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+    updateDescription: async (chainId, description, expectedVersion) => {
+      const result = await updateCharacterChainDescriptionAction({
+        characterId,
+        chainId,
+        description: description ?? "",
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+    remove: async (chainId, expectedVersion) => {
+      const result = await removeCharacterChainAction({
+        characterId,
+        chainId,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+  }
+
   return (
     <EntryListEditor
       characterId={characterId}
       identityVersion={identityVersion}
       initialEntries={entries}
+      actions={actions}
       messages={{
         label: "Chains",
         description:
@@ -53,44 +111,6 @@ export function ChainsEditor({
         softMax: CHAIN_SOFT_MAX,
         recommendedMin: CHAIN_MIN,
         saveError: "Couldn't save the Chain. Try again.",
-      }}
-      addEntry={async (title, expectedVersion) => {
-        const result = await addCharacterChainAction({
-          characterId,
-          title,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return {
-            ok: true,
-            value: { id: result.value.id, version: result.value.version },
-          }
-        }
-        return result
-      }}
-      updateEntry={async (chainId, title, description, expectedVersion) => {
-        const result = await updateCharacterChainAction({
-          characterId,
-          chainId,
-          title,
-          description: description ?? undefined,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return { ok: true, value: { version: result.value.version } }
-        }
-        return result
-      }}
-      removeEntry={async (chainId, expectedVersion) => {
-        const result = await removeCharacterChainAction({
-          characterId,
-          chainId,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return { ok: true, value: { version: result.value.version } }
-        }
-        return result
       }}
     />
   )

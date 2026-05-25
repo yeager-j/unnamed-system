@@ -4,7 +4,8 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addCharacterKnife,
   removeCharacterKnife,
-  updateCharacterKnife,
+  updateCharacterKnifeDescription,
+  updateCharacterKnifeTitle,
   type AddKnifeSuccess,
   type CharacterKnifePersistenceSuccess,
 } from "@/lib/db/character-knives"
@@ -13,19 +14,21 @@ import { err, type Result } from "@/lib/game/result"
 import {
   AddKnifeSchema,
   RemoveKnifeSchema,
-  UpdateKnifeSchema,
+  UpdateKnifeDescriptionSchema,
+  UpdateKnifeTitleSchema,
   type AddKnifeInput,
   type KnifeActionError,
   type RemoveKnifeInput,
-  type UpdateKnifeInput,
+  type UpdateKnifeDescriptionInput,
+  type UpdateKnifeTitleInput,
 } from "./character-knives.schema"
 import { revalidateCharacter } from "./revalidate"
 
 /**
- * Add / update / remove Knives on a character draft. All three are
- * identity-class — they share `identityVersion` with name/pronouns/narrative
- * edits, so a debounced description blur racing the Backstory save correctly
- * stales and is silently retried by the UNN-203 pipeline.
+ * Add / update title / update description / remove Knives on a character
+ * draft. All four are identity-class. Title + description are separate
+ * actions so the editor's two debounced auto-saves don't write each other's
+ * stale snapshots — see schema header for the race rationale.
  */
 
 export async function addCharacterKnifeAction(
@@ -48,19 +51,38 @@ export async function addCharacterKnifeAction(
   return result
 }
 
-export async function updateCharacterKnifeAction(
-  input: UpdateKnifeInput
+export async function updateCharacterKnifeTitleAction(
+  input: UpdateKnifeTitleInput
 ): Promise<Result<CharacterKnifePersistenceSuccess, KnifeActionError>> {
-  const parsed = UpdateKnifeSchema.safeParse(input)
+  const parsed = UpdateKnifeTitleSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
   const character = await requireOwner(parsed.data.characterId)
 
-  const result = await updateCharacterKnife(
+  const result = await updateCharacterKnifeTitle(
     character.id,
     parsed.data.knifeId,
     parsed.data.title,
-    parsed.data.description ?? null,
+    parsed.data.expectedVersion
+  )
+
+  if (result.ok) revalidateCharacter(character)
+
+  return result
+}
+
+export async function updateCharacterKnifeDescriptionAction(
+  input: UpdateKnifeDescriptionInput
+): Promise<Result<CharacterKnifePersistenceSuccess, KnifeActionError>> {
+  const parsed = UpdateKnifeDescriptionSchema.safeParse(input)
+  if (!parsed.success) return err("invalid-input")
+
+  const character = await requireOwner(parsed.data.characterId)
+
+  const result = await updateCharacterKnifeDescription(
+    character.id,
+    parsed.data.knifeId,
+    parsed.data.description.length === 0 ? null : parsed.data.description,
     parsed.data.expectedVersion
   )
 

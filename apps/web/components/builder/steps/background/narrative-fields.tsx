@@ -38,6 +38,29 @@ export function NarrativeFields({
   backstoryText: string | null
   identityVersion: number
 }) {
+  const backstory = useDebouncedAutoSave({
+    serverValue: backstoryText ?? "",
+    serverVersion: identityVersion,
+    characterId,
+    characterClass: "identity",
+    isEqual: (a, b) => a.trim() === b.trim(),
+    save: async (next, expectedVersion) => {
+      const result = await updateCharacterNarrativeAction({
+        characterId,
+        field: "backstory",
+        text: next,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return {
+          ok: true,
+          value: { value: next, version: result.value.version },
+        }
+      }
+      return result
+    },
+  })
+
   return (
     <div className="flex flex-col gap-5">
       <SingleLineField
@@ -67,10 +90,13 @@ export function NarrativeFields({
           shaped them, what they carry forward. Use Markdown shortcuts (`#
           heading`, `- list`, `**bold**`) and standard keyboard formatting.
         </FieldDescription>
-        <BackstoryAutoSave
-          characterId={characterId}
-          serverValue={backstoryText ?? ""}
-          identityVersion={identityVersion}
+        <MarkdownField
+          ariaLabel="Backstory"
+          placeholder="Tell us about your character's life before the adventure…"
+          value={backstory.value}
+          onChange={backstory.setValue}
+          onFocus={() => backstory.onFocusChange(true)}
+          onBlur={() => backstory.onFocusChange(false)}
         />
       </Field>
     </div>
@@ -147,49 +173,5 @@ function SingleLineField({
         }}
       />
     </Field>
-  )
-}
-
-function BackstoryAutoSave({
-  characterId,
-  serverValue,
-  identityVersion,
-}: {
-  characterId: string
-  serverValue: string
-  identityVersion: number
-}) {
-  const { value, setValue, onFocusChange } = useDebouncedAutoSave({
-    serverValue,
-    serverVersion: identityVersion,
-    characterId,
-    characterClass: "identity",
-    isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, expectedVersion) => {
-      const result = await updateCharacterNarrativeAction({
-        characterId,
-        field: "backstory",
-        text: next,
-        expectedVersion,
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next, version: result.value.version },
-        }
-      }
-      return result
-    },
-  })
-
-  return (
-    <MarkdownField
-      ariaLabel="Backstory"
-      placeholder="Tell us about your character's life before the adventure…"
-      value={value}
-      onChange={setValue}
-      onFocus={() => onFocusChange(true)}
-      onBlur={() => onFocusChange(false)}
-    />
   )
 }

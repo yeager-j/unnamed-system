@@ -3,11 +3,16 @@
 import {
   addCharacterKnifeAction,
   removeCharacterKnifeAction,
-  updateCharacterKnifeAction,
+  updateCharacterKnifeDescriptionAction,
+  updateCharacterKnifeTitleAction,
 } from "@/lib/actions/character-knives"
 import type { CharacterKnifeRow } from "@/lib/db/load-character"
 
-import { EntryListEditor, type EntryRow } from "./entry-list-editor"
+import {
+  EntryListEditor,
+  type EntryActions,
+  type EntryRow,
+} from "./entry-list-editor"
 
 /**
  * Knives editor (rulebook 1.4, PRD §5.1 step 3). External stakes — people,
@@ -32,11 +37,64 @@ export function KnivesEditor({
     description: k.description,
   }))
 
+  const actions: EntryActions = {
+    add: async (title, expectedVersion) => {
+      const result = await addCharacterKnifeAction({
+        characterId,
+        title,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return {
+          ok: true,
+          value: { id: result.value.id, version: result.value.version },
+        }
+      }
+      return result
+    },
+    updateTitle: async (knifeId, title, expectedVersion) => {
+      const result = await updateCharacterKnifeTitleAction({
+        characterId,
+        knifeId,
+        title,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+    updateDescription: async (knifeId, description, expectedVersion) => {
+      const result = await updateCharacterKnifeDescriptionAction({
+        characterId,
+        knifeId,
+        description: description ?? "",
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+    remove: async (knifeId, expectedVersion) => {
+      const result = await removeCharacterKnifeAction({
+        characterId,
+        knifeId,
+        expectedVersion,
+      })
+      if (result.ok) {
+        return { ok: true, value: { version: result.value.version } }
+      }
+      return result
+    },
+  }
+
   return (
     <EntryListEditor
       characterId={characterId}
       identityVersion={identityVersion}
       initialEntries={entries}
+      actions={actions}
       messages={{
         label: "Knives",
         description:
@@ -50,44 +108,6 @@ export function KnivesEditor({
         softMax: KNIFE_SOFT_MAX,
         recommendedMin: KNIFE_MIN,
         saveError: "Couldn't save the Knife. Try again.",
-      }}
-      addEntry={async (title, expectedVersion) => {
-        const result = await addCharacterKnifeAction({
-          characterId,
-          title,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return {
-            ok: true,
-            value: { id: result.value.id, version: result.value.version },
-          }
-        }
-        return result
-      }}
-      updateEntry={async (knifeId, title, description, expectedVersion) => {
-        const result = await updateCharacterKnifeAction({
-          characterId,
-          knifeId,
-          title,
-          description: description ?? undefined,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return { ok: true, value: { version: result.value.version } }
-        }
-        return result
-      }}
-      removeEntry={async (knifeId, expectedVersion) => {
-        const result = await removeCharacterKnifeAction({
-          characterId,
-          knifeId,
-          expectedVersion,
-        })
-        if (result.ok) {
-          return { ok: true, value: { version: result.value.version } }
-        }
-        return result
       }}
     />
   )
