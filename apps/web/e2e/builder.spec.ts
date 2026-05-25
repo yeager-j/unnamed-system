@@ -286,4 +286,87 @@ test.describe("character builder", () => {
       popover.getByRole("heading", { name: /Attack Roll \+ 2/ })
     ).toBeVisible()
   })
+
+  // ─── Step 3 — Background (UNN-207) ───────────────────────────────────────────
+
+  /**
+   * Walks Steps 1 + 2's required fields so the suite can land on Step 3
+   * with a known starting state (named character, Balanced path, Warrior
+   * Origin). Returns the draft's `shortId` so the test can wait on URL.
+   */
+  async function advanceToStep3(page: Page): Promise<string> {
+    const shortId = await advanceToStep2(page)
+
+    const warriorCard = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: "Warrior Lineage" })
+    await warriorCard.getByRole("button", { name: "Select as Origin" }).click()
+    await page.waitForLoadState("networkidle")
+
+    await page.getByRole("button", { name: /^Next$/ }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/background`)
+    return shortId
+  }
+
+  test("Step 3: Virtue allocation gate — Next stays disabled until one +2 and two +1s are picked", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+    // Fresh draft starts with all-zero Virtues; we expect Next to be
+    // disabled with the virtue reason as the first unmet gate.
+    await expect(nextBtn).toBeDisabled()
+
+    // Pick Expression as +2 via the radio in the "+2 Virtue" subgroup.
+    await page.getByRole("radio", { name: "Expression" }).click()
+    await page.waitForLoadState("networkidle")
+    // Still disabled — no +1s yet.
+    await expect(nextBtn).toBeDisabled()
+
+    // Pick two +1s — the chips next to Empathy and Wisdom under the +1 column.
+    await page.getByRole("button", { name: /^Empathy/ }).click()
+    await page.waitForLoadState("networkidle")
+    await page.getByRole("button", { name: /^Wisdom/ }).click()
+    await page.waitForLoadState("networkidle")
+
+    // Virtues now valid — but we still don't have 4 Knives, so Next stays
+    // disabled with a different reason.
+    await expect(nextBtn).toBeDisabled()
+  })
+
+  test("Step 3: Knives + Chains hard mins gate Next; reaching both unlocks it", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    // Satisfy the virtue gate up front so Knives/Chains are the only
+    // remaining requirements.
+    await page.getByRole("radio", { name: "Expression" }).click()
+    await page.waitForLoadState("networkidle")
+    await page.getByRole("button", { name: /^Empathy/ }).click()
+    await page.waitForLoadState("networkidle")
+    await page.getByRole("button", { name: /^Wisdom/ }).click()
+    await page.waitForLoadState("networkidle")
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+
+    // Add 4 Knives — the hard minimum from the AC. Each click adds one
+    // optimistic row and persists in the background; we wait on
+    // networkidle between adds so the next click sees the fresh
+    // identityVersion.
+    const addKnife = page.getByRole("button", { name: "Add Knife" })
+    for (let i = 0; i < 4; i++) {
+      await addKnife.click()
+      await page.waitForLoadState("networkidle")
+    }
+
+    // Still gated — 0 Chains.
+    await expect(nextBtn).toBeDisabled()
+
+    await page.getByRole("button", { name: "Add Chain" }).click()
+    await page.waitForLoadState("networkidle")
+
+    await expect(nextBtn).toBeEnabled()
+  })
 })

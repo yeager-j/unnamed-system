@@ -2,8 +2,12 @@ import { eq } from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/lib/db"
+import { loadCharacterChains } from "@/lib/db/character-chains"
+import { loadCharacterKnives } from "@/lib/db/character-knives"
 import {
   loadCharacterRowByShortId,
+  type CharacterChainRow,
+  type CharacterKnifeRow,
   type CharacterRow,
 } from "@/lib/db/load-character"
 import { characterArchetypes } from "@/lib/db/schema/character"
@@ -16,11 +20,17 @@ import { characterArchetypes } from "@/lib/db/schema/character"
  *
  * Includes the picked Origin Archetype's catalog key (resolved by joining
  * `characters.activeArchetypeId` to the `characterArchetype` row it points
- * at) so the Step 2 picker can mark the selected card without re-querying.
+ * at) so the Step 2 picker can mark the selected card without re-querying,
+ * and the Knives + Chains child rows so Step 3 can render the repeating
+ * lists without a round-trip per section.
  */
 export interface BuilderCharacter extends CharacterRow {
   /** Catalog key of the row at `activeArchetypeId`, or `null` when none picked. */
   originArchetypeKey: string | null
+  /** Knives rows for this character, ordered by `order`. */
+  knives: CharacterKnifeRow[]
+  /** Chains rows for this character, ordered by `order`. */
+  chains: CharacterChainRow[]
 }
 
 export const getBuilderCharacter = cache(
@@ -28,16 +38,24 @@ export const getBuilderCharacter = cache(
     const row = await loadCharacterRowByShortId(shortId)
     if (!row) return null
 
-    let originArchetypeKey: string | null = null
-    if (row.activeArchetypeId) {
-      const [archetypeRow] = await db
-        .select({ archetypeKey: characterArchetypes.archetypeKey })
-        .from(characterArchetypes)
-        .where(eq(characterArchetypes.id, row.activeArchetypeId))
-        .limit(1)
-      originArchetypeKey = archetypeRow?.archetypeKey ?? null
-    }
+    const [archetypeRow, knives, chains] = await Promise.all([
+      row.activeArchetypeId
+        ? db
+            .select({ archetypeKey: characterArchetypes.archetypeKey })
+            .from(characterArchetypes)
+            .where(eq(characterArchetypes.id, row.activeArchetypeId))
+            .limit(1)
+            .then((rows) => rows[0] ?? null)
+        : Promise.resolve(null),
+      loadCharacterKnives(row.id),
+      loadCharacterChains(row.id),
+    ])
 
-    return { ...row, originArchetypeKey }
+    return {
+      ...row,
+      originArchetypeKey: archetypeRow?.archetypeKey ?? null,
+      knives,
+      chains,
+    }
   }
 )

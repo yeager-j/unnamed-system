@@ -4,12 +4,12 @@
  * route's `[step]/page.tsx` switch read from this; `characters.builderStep`
  * is an index into it.
  *
- * Step bodies for everything past `basic-info` ship as placeholder
- * "Coming soon" surfaces in this ticket. Follow-up tickets fill them in:
+ * Step bodies are filled in across sibling tickets:
  *
- * - `path-and-archetype` → UNN-205
- * - `background` → UNN-205 + UNN-207
- * - `identity` → UNN-207
+ * - `basic-info` → UNN-204 (shipped)
+ * - `path-and-archetype` → UNN-205 (shipped)
+ * - `background` → UNN-207 (shipped)
+ * - `identity` → UNN-208
  * - `review` → UNN-206
  */
 
