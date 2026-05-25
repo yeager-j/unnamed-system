@@ -103,9 +103,15 @@ export interface EntryActions {
  * cleanly past a handful of entries; a follow-up — UNN-211 — replaces the
  * Dialog with a dedicated full-width writer view).
  *
- * Add is optimistic via direct local state (a temp row gets a synthetic id
- * tracked in `pendingIds`, swapped for the server row on success). Remove
- * is optimistic with snapshot-rollback on failure.
+ * Adds are deliberately *not* optimistic: we wait for the server to assign
+ * the real id, then append the row and open the edit dialog. Earlier
+ * versions added a temp row + opened the dialog immediately, then swapped
+ * the temp id for the real one on success — which made the dialog re-key
+ * mid-flight (visible flicker) and dropped any input the player typed in
+ * the first ~500ms. The sub-second pause before the dialog opens is a
+ * better trade than that glitch.
+ *
+ * Remove is still optimistic with snapshot-rollback on failure.
  */
 export function EntryListEditor({
   characterId,
@@ -123,9 +129,6 @@ export function EntryListEditor({
   const versionRef = useCharacterTokenRef(identityVersion)
   const [items, setItems] = useState(initialEntries)
   const [syncedFrom, setSyncedFrom] = useState(initialEntries)
-  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  )
   const [pendingMutation, startTransition] = useTransition()
   const [openEntryId, setOpenEntryId] = useState<string | null>(null)
 
@@ -134,27 +137,16 @@ export function EntryListEditor({
     setItems(initialEntries)
   }
 
-  function markPending(id: string, on: boolean) {
-    setPendingIds((prev) => {
-      const next = new Set(prev)
-      if (on) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }
-
   function handleAdd() {
-    const tempId = crypto.randomUUID()
-    const tempRow: EntryRow = {
-      id: tempId,
-      title: messages.newEntryTitle,
-      description: null,
-    }
-    setItems((prev) => [...prev, tempRow])
-    markPending(tempId, true)
-    setOpenEntryId(tempId)
-
     startTransition(async () => {
+      // No optimistic temp row here — we defer both the new row and the
+      // edit dialog until the server has assigned a real id. The
+      // alternative (optimistic temp id → swap to real id on success)
+      // makes the row appear instantly, but it forces the dialog to
+      // re-key mid-open, which both visibly flickers and races any input
+      // the player types in the first ~500ms. The cost of waiting for
+      // the round-trip is a sub-second pause before the dialog opens;
+      // the cost of *not* waiting is a UX glitch the player can see.
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
         characterClass: "identity",
@@ -163,26 +155,15 @@ export function EntryListEditor({
           actions.add(messages.newEntryTitle, expectedVersion),
       })
       if (!result.ok) {
-        setItems((prev) => prev.filter((entry) => entry.id !== tempId))
-        markPending(tempId, false)
-        if (openEntryId === tempId) setOpenEntryId(null)
         toast.error(messages.saveError)
         return
       }
       const realId = result.value.id
-      setItems((prev) =>
-        prev.map((entry) =>
-          entry.id === tempId
-            ? {
-                id: realId,
-                title: messages.newEntryTitle,
-                description: null,
-              }
-            : entry
-        )
-      )
-      markPending(tempId, false)
-      setOpenEntryId((prev) => (prev === tempId ? realId : prev))
+      setItems((prev) => [
+        ...prev,
+        { id: realId, title: messages.newEntryTitle, description: null },
+      ])
+      setOpenEntryId(realId)
     })
   }
 
@@ -221,45 +202,40 @@ export function EntryListEditor({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((entry) => {
-              const isPending = pendingIds.has(entry.id)
-              return (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-medium">
-                    {entry.title}
-                    {!entry.description ? (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        No description yet
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Edit ${entry.title}`}
-                        onClick={() => setOpenEntryId(entry.id)}
-                        disabled={isPending}
-                      >
-                        <PencilSimpleIcon weight="bold" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={`Remove ${entry.title}`}
-                        onClick={() => handleRemove(entry.id)}
-                        disabled={isPending}
-                      >
-                        <TrashIcon weight="bold" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
+            {items.map((entry) => (
+              <TableRow key={entry.id}>
+                <TableCell className="font-medium">
+                  {entry.title}
+                  {!entry.description ? (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      No description yet
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Edit ${entry.title}`}
+                      onClick={() => setOpenEntryId(entry.id)}
+                    >
+                      <PencilSimpleIcon weight="bold" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remove ${entry.title}`}
+                      onClick={() => handleRemove(entry.id)}
+                    >
+                      <TrashIcon weight="bold" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       ) : null}
@@ -283,8 +259,13 @@ export function EntryListEditor({
         />
       </div>
 
+      {/* No `key={openEntry?.id}` — when handleAdd swaps the optimistic
+       *  temp id for the server-assigned real id, a key change would
+       *  unmount and remount the dialog (visible flicker). The form
+       *  already re-mounts on close-and-reopen via the `{entry ? ... }`
+       *  conditional inside, so the key wasn't load-bearing for
+       *  switching between *different* entries. */}
       <EntryEditDialog
-        key={openEntry?.id}
         characterId={characterId}
         identityVersion={identityVersion}
         entry={openEntry}

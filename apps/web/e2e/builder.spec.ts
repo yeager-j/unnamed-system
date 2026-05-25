@@ -359,37 +359,23 @@ test.describe("character builder", () => {
   }
 
   /**
-   * Clicks the "Add {Knife|Chain}" button and dismisses the edit dialog the
-   * UI auto-opens on the new row, so a test that just wants to seed entries
-   * doesn't have to thread the dialog every time. Waits for the table to
-   * settle with the new row count before returning — otherwise back-to-back
-   * adds can race the silent-stale retry pipeline and drop a write.
+   * Clicks the "Add {Knife|Chain}" button and dismisses the edit dialog
+   * the UI auto-opens on the new row, so a test that just wants to seed
+   * entries doesn't have to thread the dialog every time.
+   *
+   * Adds are sequential server-confirmed writes (no optimistic temp row),
+   * so the dialog appears with a real row already in the table — we just
+   * close it and wait for the network to settle before the next call.
    */
   async function addEntryAndCloseDialog(
     page: Page,
     addButtonName: "Add Knife" | "Add Chain"
   ): Promise<void> {
-    // Identify which table this Add button belongs to so we can scope the
-    // count-after assertion correctly (the page renders one Knives table
-    // and one Chains table side by side).
-    const button = page.getByRole("button", { name: addButtonName })
-    const fieldset = button.locator("xpath=ancestor::fieldset[1]")
-    // The Add button disables itself while a mutation is in flight via
-    // `pendingMutation` (useTransition). Back-to-back calls have to wait
-    // for the prior add to settle, otherwise the second click is a no-op.
-    await expect(button).toBeEnabled()
-    const before = await fieldset.locator("tbody tr").count()
-
-    await button.click()
+    await page.getByRole("button", { name: addButtonName }).click()
     const dialog = page.getByRole("dialog")
     await expect(dialog).toBeVisible()
     await dialog.getByRole("button", { name: "Done" }).click()
     await expect(dialog).toBeHidden()
-
-    // Wait for the row to actually land in the table (the optimistic row
-    // is present immediately; this also handles the case where the prop
-    // sync replaces the temp row with the server-confirmed row).
-    await expect(fieldset.locator("tbody tr")).toHaveCount(before + 1)
     await page.waitForLoadState("networkidle")
   }
 
@@ -438,14 +424,11 @@ test.describe("character builder", () => {
     await advanceToStep3(page)
 
     await page.getByRole("button", { name: "Add Knife" }).click()
-    // Wait for the add POST + revalidation to fully settle so the dialog
-    // settles on the real (server-assigned) entry id; otherwise the form
-    // remounts mid-edit when the optimistic temp id is swapped for the
-    // real one and the draft is lost.
-    await page.waitForLoadState("networkidle")
-    await page.waitForTimeout(500)
-    await page.waitForLoadState("networkidle")
 
+    // The dialog opens *after* the server confirms the add, so its title
+    // input is always wired to the real (server-assigned) entry id — no
+    // need for the settle waits an optimistic-temp implementation would
+    // need to thread.
     const dialog = page.getByRole("dialog", { name: /Edit Knife/ })
     await expect(dialog).toBeVisible()
 
@@ -474,12 +457,6 @@ test.describe("character builder", () => {
     // Close — both saves should be in flight or already settled by now.
     await dialog.getByRole("button", { name: "Done" }).click()
     await expect(dialog).toBeHidden()
-    await page.waitForLoadState("networkidle")
-    // Extra settle window: the dialog close + the two per-field saves'
-    // revalidations + the parent prop sync are independent round-trips,
-    // and `networkidle`'s 500ms-of-silence definition can fire in the
-    // gap between them.
-    await page.waitForTimeout(500)
     await page.waitForLoadState("networkidle")
 
     // Title cell shows the new title; the "No description yet" hint is
