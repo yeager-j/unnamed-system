@@ -20,14 +20,13 @@ import type { FinalizeCharacterError } from "@/lib/actions/character-finalize.sc
  * avoids a needless round-trip + toast for the obvious "you haven't
  * filled out X yet" case.
  *
- * Toast copy distinguishes the three meaningful failure shapes:
- *
- * - `missing-requirement` → "Fix in {step}" toast action that deep-links
- *   to the failing step. Catches a race where the failure appears between
- *   server render and submit (e.g. another tab cleared the field).
- * - `stale` → "Refresh and try again." The draft is single-owner so a
- *   stale token is rare but possible (two tabs open).
- * - everything else → generic "Couldn't create — try again."
+ * Toast copy distinguishes the meaningful failure shapes. The
+ * `missing-requirement` case is unusual — the disabled-button gate
+ * client-side suppresses the obvious cases, so reaching it means another
+ * tab cleared a required field between server render and submit. The
+ * action's toast surfaces the failing field's reason, and `router.refresh()`
+ * re-runs the server render so the validation summary above catches up
+ * with the deep link.
  */
 export function FinalizeButton({
   characterId,
@@ -54,6 +53,10 @@ export function FinalizeButton({
         return
       }
       surfaceError(result.error)
+      // Re-run the server render so the validation summary catches up if a
+      // field changed (missing-requirement) or the row staled out from
+      // under us (stale). Idempotent on the unrelated error codes.
+      router.refresh()
     })
   }
 

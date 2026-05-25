@@ -17,11 +17,7 @@ import {
   type CharacterArchetypeRow,
   type CharacterRow,
 } from "./load-character"
-import {
-  characterArchetypes,
-  characters,
-  inventoryItems,
-} from "./schema/character"
+import { characters, inventoryItems } from "./schema/character"
 
 /**
  * Persistence for the wizard's Review step (UNN-206). Flips a `draft` row to
@@ -64,23 +60,12 @@ export interface CharacterFinalizePersistenceSuccess {
 }
 
 export async function finalizeCharacter(
-  characterId: string,
+  characterRow: CharacterRow,
+  archetypeRows: readonly CharacterArchetypeRow[],
   expectedVersion: number
 ): Promise<
   Result<CharacterFinalizePersistenceSuccess, CharacterFinalizePersistenceError>
 > {
-  const [characterRow] = await db
-    .select()
-    .from(characters)
-    .where(eq(characters.id, characterId))
-    .limit(1)
-  if (!characterRow) return err("character-not-found")
-
-  const archetypeRows = await db
-    .select()
-    .from(characterArchetypes)
-    .where(eq(characterArchetypes.characterId, characterId))
-
   const activeRow = resolveActiveArchetypeRow(characterRow, archetypeRows)
   if (!activeRow) return err("no-origin-archetype")
 
@@ -126,20 +111,20 @@ export async function finalizeCharacter(
       })
       .where(
         and(
-          eq(characters.id, characterId),
+          eq(characters.id, characterRow.id),
           eq(characters.identityVersion, expectedVersion)
         )
       )
       .returning({ identityVersion: characters.identityVersion })
 
     if (!bumped) {
-      return (await characterExists(characterId))
+      return (await characterExists(characterRow.id))
         ? err("stale")
         : err("character-not-found")
     }
 
     await tx.insert(inventoryItems).values({
-      characterId,
+      characterId: characterRow.id,
       catalogItemKey: startingWeaponKey,
       equipped: true,
     })

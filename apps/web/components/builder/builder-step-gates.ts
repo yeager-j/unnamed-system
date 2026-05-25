@@ -74,7 +74,7 @@ export function nextGateForStep(
   slug: string,
   character: StepGateCharacter
 ): StepGateResult {
-  switch (slug as GatedStepSlug) {
+  switch (slug) {
     case "basic-info": {
       const trimmed = character.name.trim()
       if (trimmed.length === 0 || trimmed === DRAFT_NAME_PLACEHOLDER) {

@@ -22,6 +22,22 @@ import {
 import { revalidateCharacter } from "./revalidate"
 
 /**
+ * Resolves the active Archetype's catalog key from the pre-loaded rows so
+ * the gate check and the persistence call share one `characterArchetypes`
+ * read.
+ */
+function activeArchetypeKey(
+  activeArchetypeId: string | null,
+  archetypeRows: readonly { id: string; archetypeKey: string }[]
+): string | null {
+  if (!activeArchetypeId) return null
+  return (
+    archetypeRows.find((row) => row.id === activeArchetypeId)?.archetypeKey ??
+    null
+  )
+}
+
+/**
  * Flips a draft character to `finalized` after re-running every wizard-step
  * gate server-side (PRD §5.2). The Review screen renders the same failures
  * client-side so the player is never surprised by a disabled button, but
@@ -41,22 +57,21 @@ export async function finalizeCharacterAction(
 
   const character = await requireOwner(parsed.data.characterId)
 
-  const [knives, chains, archetypeRow] = await Promise.all([
+  const [knives, chains, archetypeRows] = await Promise.all([
     loadCharacterKnives(character.id),
     loadCharacterChains(character.id),
-    character.activeArchetypeId
-      ? db
-          .select({ archetypeKey: characterArchetypes.archetypeKey })
-          .from(characterArchetypes)
-          .where(eq(characterArchetypes.id, character.activeArchetypeId))
-          .limit(1)
-          .then((rows) => rows[0] ?? null)
-      : Promise.resolve(null),
+    db
+      .select()
+      .from(characterArchetypes)
+      .where(eq(characterArchetypes.characterId, character.id)),
   ])
 
   const failures = findStepGateFailures({
     name: character.name,
-    originArchetypeKey: archetypeRow?.archetypeKey ?? null,
+    originArchetypeKey: activeArchetypeKey(
+      character.activeArchetypeId,
+      archetypeRows
+    ),
     virtueExpression: character.virtueExpression,
     virtueEmpathy: character.virtueEmpathy,
     virtueWisdom: character.virtueWisdom,
@@ -80,7 +95,8 @@ export async function finalizeCharacterAction(
   }
 
   const result = await finalizeCharacter(
-    character.id,
+    character,
+    archetypeRows,
     parsed.data.expectedVersion
   )
 
