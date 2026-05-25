@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation"
 import { useTransition, type ReactNode } from "react"
 import { toast } from "sonner"
 
+import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { cn } from "@workspace/ui/lib/utils"
 
 import { setBuilderStepAction } from "@/lib/actions/character-identity"
 
@@ -172,14 +172,20 @@ function BackLink({
   step: (typeof BUILDER_STEPS)[number]
 }) {
   return (
-    <Link
-      href={`/builder/${shortId}/${step.slug}`}
-      aria-label={`Back to ${step.label}`}
-      className="-mx-2 -my-1.5 inline-flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+    <Button
+      variant="link"
+      size="lg"
+      nativeButton={false}
+      render={
+        <Link
+          href={`/builder/${shortId}/${step.slug}`}
+          aria-label={`Back to ${step.label}`}
+        />
+      }
     >
       <ArrowLeftIcon weight="bold" className="size-3.5" />
       <span className="hidden sm:inline">{step.label}</span>
-    </Link>
+    </Button>
   )
 }
 
@@ -221,17 +227,12 @@ function ContinueLink({
   }
 
   const button = (
-    <button
-      type="button"
+    <Button
+      variant="link"
+      size="lg"
       onClick={onClick}
       disabled={disabled}
       aria-label={`Continue to ${step.label}`}
-      className={cn(
-        "-mx-2 -my-1.5 inline-flex items-center gap-2 px-2 py-1.5 text-sm transition-colors",
-        disabled
-          ? "cursor-not-allowed text-muted-foreground/50"
-          : "text-foreground hover:text-primary"
-      )}
     >
       <span className="hidden sm:inline">Continue to {step.label}</span>
       {isPending ? (
@@ -239,7 +240,7 @@ function ContinueLink({
       ) : (
         <ArrowRightIcon weight="bold" className="size-3.5" />
       )}
-    </button>
+    </Button>
   )
 
   if (!disabledReason || canAdvance) return button
