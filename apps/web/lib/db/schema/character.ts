@@ -15,14 +15,12 @@ import { MechanicState } from "@/lib/game/mechanics"
 import {
   ailmentsSchema,
   battleConditionsSchema,
-  identityListSchema,
   inheritanceSlotsSchema,
   manualBonusesSchema,
   partyCompositionSchema,
   sparkLogSchema,
   type Ailments,
   type BattleConditions,
-  type IdentityList,
   type InheritanceSlots,
   type ManualBonuses,
   type PartyComposition,
@@ -105,14 +103,11 @@ export const characters = pgTable("character", {
   ancestryText: text("ancestryText"),
   backgroundText: text("backgroundText"),
   backstoryText: text("backstoryText"),
-  personalityTraits: jsonb("personalityTraits")
-    .$type<IdentityList>()
-    .notNull()
-    .default([]),
-  hopes: jsonb("hopes").$type<IdentityList>().notNull().default([]),
-  dreams: jsonb("dreams").$type<IdentityList>().notNull().default([]),
-  fears: jsonb("fears").$type<IdentityList>().notNull().default([]),
-  secrets: jsonb("secrets").$type<IdentityList>().notNull().default([]),
+  personalityTraits: text("personalityTraits"),
+  hopes: text("hopes"),
+  dreams: text("dreams"),
+  fears: text("fears"),
+  secrets: text("secrets"),
   /**
    * Talents the character has picked up via Background or downtime learning
    * (rulebook 2.1). The active Archetype's Talents are derived at hydration
@@ -246,11 +241,6 @@ export const insertCharacterSchema = createInsertSchema(characters, {
   ailments: ailmentsSchema,
   battleConditions: battleConditionsSchema,
   partyComposition: partyCompositionSchema,
-  personalityTraits: identityListSchema,
-  hopes: identityListSchema,
-  dreams: identityListSchema,
-  fears: identityListSchema,
-  secrets: identityListSchema,
   gainedTalents: gainedTalentsSchema,
 })
 export const selectCharacterSchema = createSelectSchema(characters)

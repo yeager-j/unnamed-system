@@ -57,12 +57,16 @@ export interface SeedCharacter {
   ancestryText: string
   backgroundText: string
   backstoryText: string
-  dreams: string[]
+  /**
+   * Step-4 Identity sections (UNN-208). Each is one Markdown blob; multi-
+   * entry sections use a `- ` list at the source. `null` for unwritten.
+   */
+  personalityTraits: string | null
+  hopes: string | null
+  dreams: string | null
+  fears: string | null
+  secrets: string | null
   notes: string
-  personalityTraits: string[]
-  hopes: string[]
-  fears: string[]
-  secrets: string[]
   knives: { title: string; description: string }[]
   chains: { title: string; description: string }[]
   /**
@@ -113,12 +117,12 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Caravan guard turned sellsword.",
     backstoryText:
       "Brann took up the blade to pay off his family's debt to the salt barons and never put it down.",
-    dreams: ["To own a quiet inn far from any battlefield."],
+    personalityTraits: "- Blunt\n- Dependable\n- Slow to anger",
+    hopes: "- Earn enough to free his sister from indenture",
+    dreams: "To own a quiet inn far from any battlefield.",
+    fears: "- Drowning\n- Being thought a coward",
+    secrets: "- Cannot actually read the contracts he guards",
     notes: "Newly recruited. Still figuring out the party's pace.",
-    personalityTraits: ["Blunt", "Dependable", "Slow to anger"],
-    hopes: ["Earn enough to free his sister from indenture"],
-    fears: ["Drowning", "Being thought a coward"],
-    secrets: ["Cannot actually read the contracts he guards"],
     knives: [
       {
         title: "The Salt Barons",
@@ -168,12 +172,12 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Cloister-trained field medic.",
     backstoryText:
       "Raised by the Lantern Order, Yune left the cloister to tend the wounded the war left behind.",
-    dreams: ["To found a free infirmary in the lower city."],
+    personalityTraits: "- Patient\n- Quietly stubborn\n- Observant",
+    hopes: "- Find the family that left her at the temple gate",
+    dreams: "To found a free infirmary in the lower city.",
+    fears: "- Losing a patient she could have saved",
+    secrets: "- Doubts the Order's teachings more than she admits",
     notes: "Conserving SP until she learns the party's rhythm.",
-    personalityTraits: ["Patient", "Quietly stubborn", "Observant"],
-    hopes: ["Find the family that left her at the temple gate"],
-    fears: ["Losing a patient she could have saved"],
-    secrets: ["Doubts the Order's teachings more than she admits"],
     knives: [
       {
         title: "The Lantern Order",
@@ -224,16 +228,14 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Disgraced academy adept.",
     backstoryText:
       "Expelled from the Conservatory for an unsanctioned summoning, Calliope now sells her spellwork to whoever asks no questions.",
-    dreams: ["To prove the Conservatory wrong and be reinstated with honors."],
+    personalityTraits: "- Sharp-tongued\n- Proud\n- Relentlessly curious",
+    hopes: "- Recover the confiscated grimoire\n- Outlive her rivals",
+    dreams: "To prove the Conservatory wrong and be reinstated with honors.",
+    fears: "- Mediocrity\n- Open flame",
+    secrets:
+      "- The summoning that got her expelled actually succeeded\n- She still hears it sometimes",
     notes:
       "Mid-fight: took a Burn off a trapped door, pushed her offense, dropped her guard.",
-    personalityTraits: ["Sharp-tongued", "Proud", "Relentlessly curious"],
-    hopes: ["Recover the confiscated grimoire", "Outlive her rivals"],
-    fears: ["Mediocrity", "Open flame"],
-    secrets: [
-      "The summoning that got her expelled actually succeeded",
-      "She still hears it sometimes",
-    ],
     knives: [
       {
         title: "The Conservatory",
@@ -309,25 +311,17 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Oathbound knight-errant, last of her order.",
     backstoryText:
       "Ortensia outlived her order at the Siege of Vell. She keeps its vows alone now, carrying three disciplines so no ally falls the way her brothers did.",
-    dreams: [
+    personalityTraits:
+      "- Unbending on her word\n- Gentle with the frightened\n- Haunted",
+    hopes:
+      "- Find one squire worth the Order's oath\n- Forgive herself for Vell",
+    dreams:
       "To see the Order's banner raised honestly again, by someone worthy.",
-    ],
+    fears: "- Dying with the Order's debts unpaid\n- Becoming what she fights",
+    secrets:
+      "- She gave the retreat order at Vell\n- The relic she guards is a forgery; the real one she lost",
     notes:
       "Banked 8 Victories — ready to level. Mastered Knight; dabbles in Warrior and Mage.",
-    personalityTraits: [
-      "Unbending on her word",
-      "Gentle with the frightened",
-      "Haunted",
-    ],
-    hopes: [
-      "Find one squire worth the Order's oath",
-      "Forgive herself for Vell",
-    ],
-    fears: ["Dying with the Order's debts unpaid", "Becoming what she fights"],
-    secrets: [
-      "She gave the retreat order at Vell",
-      "The relic she guards is a forgery; the real one she lost",
-    ],
     knives: [
       {
         title: "The House of Vell",
@@ -385,18 +379,14 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     backgroundText: "Warlord turned lone bulwark.",
     backstoryText:
       "Halvard outlived every banner he ever raised. At the Gate of Ash he stood alone so the column could pass; the column passed, and he did not rise.",
-    dreams: [
-      "To be remembered for the line that held, not the line that broke.",
-    ],
+    personalityTraits: "- Immovable\n- Spare with words\n- Last to retreat",
+    hopes: "- That the column reached the pass\n- To be buried facing the gate",
+    dreams: "To be remembered for the line that held, not the line that broke.",
+    fears: "- Outliving another banner\n- Being remembered as the one who fell",
+    secrets:
+      "- He gave the order that cost the first banner\n- He chose the Gate of Ash to settle that debt",
     notes:
       "Reduced to 0 HP holding the Gate of Ash. Hit/Skill Dice nearly spent, Prisma untouched — he never got the chance.",
-    personalityTraits: ["Immovable", "Spare with words", "Last to retreat"],
-    hopes: ["That the column reached the pass", "To be buried facing the gate"],
-    fears: ["Outliving another banner", "Being remembered as the one who fell"],
-    secrets: [
-      "He gave the order that cost the first banner",
-      "He chose the Gate of Ash to settle that debt",
-    ],
     knives: [
       {
         title: "The Gate of Ash",
@@ -454,29 +444,18 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
       "Trained as an **archivist** at the Conservatory's outer cloister, then took to the road when the cloister's catalogue stopped including books she had personally returned. She keeps **three commonplace books**:\n\n1. *Field* — observations, sketches, names.\n2. *Ledger* — debts owed and owing.\n3. *Cipher* — the things she does not write plainly.",
     backstoryText:
       'Isolde left the Conservatory the night she found a `restricted-access` ledger entry with her own name inside it. She has been **walking ever since**, copying what she can, burning what she must.\n\n> *"A book is the only honest witness. It does not flinch and it does not forget."* — marginalia in her Field book, attributed to no one.\n\nShe takes contracts from anyone who needs ~~mercenaries~~ **researchers**, and she always — *always* — leaves with a transcript.',
-    dreams: [
-      "To assemble a *complete* **Cinderwatch Concordance** before the Conservatory rewrites it.",
-      "To one day walk back into the outer cloister carrying the book they took.",
-    ],
+    personalityTraits:
+      "- **Methodical** to the point of slowness — she will read the *footnotes*.\n- Quietly *funny*, in marginalia and rarely out loud.\n- Trusts **ink** more than people; trusts *people who keep receipts* most of all.",
+    hopes:
+      "- To find the **author** of the marginalia in her Field book.\n- To publish — *under her own name* — the Concordance the cloister suppressed.",
+    dreams:
+      "To assemble a *complete* **Cinderwatch Concordance** before the Conservatory rewrites it — and one day walk back into the outer cloister carrying the book they took.",
+    fears:
+      "- That her **Cipher** book will be read by someone who can decode it.\n- That she has already met the person who crossed out the three names.",
+    secrets:
+      "- She **copied** a forbidden chapter of the Concordance before leaving; it is sewn into the lining of her coat.\n- She suspects *Prior Aldous* — Sister Yune's mentor — knows what happened to volume **III**, and has not asked him yet because she is *afraid of the answer*.",
     notes:
       "Active research threads:\n\n- **Stain residue** in coastal beacon-oil — *anomalous*, possibly Conservatory provenance.\n- The ~~missing~~ misfiled Cinderwatch Concordance, vol. **III**.\n- Three names in the cloister ledger, all crossed out, none explained.\n\n| Lead | Status | Next step |\n| --- | --- | --- |\n| Beacon-oil | Sampling | Compare to vault stock |\n| Concordance III | Cold | Press Prior Aldous |\n| Crossed names | Open | Identify before they hear |\n\n> Reminder: **never** carry the cipher book and the field book in the same satchel.",
-    personalityTraits: [
-      "**Methodical** to the point of slowness — she will read the *footnotes*.",
-      "Quietly *funny*, in marginalia and rarely out loud.",
-      "Trusts **ink** more than people; trusts *people who keep receipts* most of all.",
-    ],
-    hopes: [
-      "To find the **author** of the marginalia in her Field book.",
-      "To publish — *under her own name* — the Concordance the cloister suppressed.",
-    ],
-    fears: [
-      "That her **Cipher** book will be read by someone who can decode it.",
-      "That she has already met the person who crossed out the three names.",
-    ],
-    secrets: [
-      "She **copied** a forbidden chapter of the Concordance before leaving; it is sewn into the lining of her coat.",
-      "She suspects *Prior Aldous* — Sister Yune's mentor — knows what happened to volume **III**, and has not asked him yet because she is *afraid of the answer*.",
-    ],
     knives: [
       {
         title: "The Conservatory",
