@@ -1,7 +1,24 @@
+import { defaultSchema } from "hast-util-sanitize"
 import ReactMarkdown from "react-markdown"
+import rehypeSanitize from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
 
 import { cn } from "@workspace/ui/lib/utils"
+
+/**
+ * Three-layer defense for rendering player-authored Markdown (ADR-001):
+ *
+ * 1. `react-markdown` escapes embedded HTML by default (no `rehype-raw`), so a
+ *    literal `<script>` shows up as text.
+ * 2. `rehype-sanitize` runs an allowlist over the produced HAST tree as
+ *    belt-and-braces, in case a future plugin (or upstream library bug)
+ *    relaxes step 1.
+ * 3. `urlTransform` strips `javascript:`, `data:`, and other non-web schemes
+ *    so a crafted `[click](javascript:...)` link becomes inert.
+ */
+const SAFE_URL_SCHEMES = /^(https?:|mailto:|\/|#)/
+const safeUrlTransform = (url: string): string =>
+  SAFE_URL_SCHEMES.test(url) ? url : ""
 
 /**
  * Shared Markdown renderer for free-text content on the public sheet. Wraps
@@ -44,7 +61,13 @@ export function Prose({
         className
       )}
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[[rehypeSanitize, defaultSchema]]}
+        urlTransform={safeUrlTransform}
+      >
+        {children}
+      </ReactMarkdown>
     </div>
   )
 }

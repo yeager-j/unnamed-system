@@ -5,8 +5,10 @@ import { BuilderShell } from "@/components/builder/builder-shell"
 import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
 import { StepPlaceholder } from "@/components/builder/step-placeholder"
 import { BasicInfoStep } from "@/components/builder/steps/basic-info"
+import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
 import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
 import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
+import { isValidCreationAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 
@@ -98,6 +100,41 @@ function nextGateForStep(
       }
       return { canAdvance: true }
     }
+    case "character-origins": {
+      // Three independent hard requirements per PRD §5.2 + UNN-207 AC:
+      // virtue allocation, 4 Knives, 1 Chain. The narrative free-text fields
+      // and Talents picker are encouraged but non-blocking. Reasons are
+      // surfaced to the player on the disabled Next button, so they're
+      // written in second-person prose, not log lines.
+      const allocation = {
+        expression: character.virtueExpression,
+        empathy: character.virtueEmpathy,
+        wisdom: character.virtueWisdom,
+        focus: character.virtueFocus,
+      }
+      if (!isValidCreationAllocation(allocation)) {
+        return {
+          canAdvance: false,
+          reason:
+            "Finish your Virtue allocation — one Virtue at +2 and two at +1.",
+        }
+      }
+      if (character.knives.length < 4) {
+        return {
+          canAdvance: false,
+          reason: `Add at least ${4 - character.knives.length} more Knife${
+            4 - character.knives.length === 1 ? "" : "s"
+          } to continue.`,
+        }
+      }
+      if (character.chains.length < 1) {
+        return {
+          canAdvance: false,
+          reason: "Add at least one Chain to continue.",
+        }
+      }
+      return { canAdvance: true }
+    }
     default:
       return { canAdvance: true }
   }
@@ -130,15 +167,28 @@ function renderStepBody({
           identityVersion={character.identityVersion}
         />
       )
-    case "background":
+    case "character-origins":
       return (
-        <StepPlaceholder
-          stepLabel={labelFor(step)}
-          ticket="UNN-205 / UNN-207"
+        <CharacterOriginsStep
+          characterId={character.id}
+          identityVersion={character.identityVersion}
+          serverVirtueAllocation={{
+            expression: character.virtueExpression,
+            empathy: character.virtueEmpathy,
+            wisdom: character.virtueWisdom,
+            focus: character.virtueFocus,
+          }}
+          ancestryText={character.ancestryText}
+          backgroundText={character.backgroundText}
+          backstoryText={character.backstoryText}
+          knives={character.knives}
+          chains={character.chains}
+          originArchetypeKey={character.originArchetypeKey}
+          gainedTalents={character.gainedTalents}
         />
       )
     case "identity":
-      return <StepPlaceholder stepLabel={labelFor(step)} ticket="UNN-207" />
+      return <StepPlaceholder stepLabel={labelFor(step)} ticket="UNN-208" />
     case "review":
       return <StepPlaceholder stepLabel={labelFor(step)} ticket="UNN-206" />
     default:

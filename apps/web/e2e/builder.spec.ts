@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { and, eq } from "drizzle-orm"
 
-import { characters, getDb } from "@/lib/db"
+import { characterKnives, characters, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 
@@ -285,5 +285,318 @@ test.describe("character builder", () => {
     await expect(
       popover.getByRole("heading", { name: /Attack Roll \+ 2/ })
     ).toBeVisible()
+  })
+
+  // ─── Step 3 — Character Origins (UNN-207) ──────────────────────────────────
+
+  /**
+   * Walks Steps 1 + 2's required fields so the suite can land on Step 3
+   * with a known starting state (named character, Balanced path, Warrior
+   * Origin). Returns the draft's `shortId` so the test can wait on URL.
+   */
+  async function advanceToStep3(page: Page): Promise<string> {
+    const shortId = await advanceToStep2(page)
+
+    const warriorCard = page
+      .locator('[data-slot="card"]')
+      .filter({ hasText: "Warrior Lineage" })
+    await warriorCard.getByRole("button", { name: "Select as Origin" }).click()
+    await page.waitForLoadState("networkidle")
+
+    await page.getByRole("button", { name: /^Next$/ }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/character-origins`)
+    return shortId
+  }
+
+  test("Step 3: Virtue allocation gate — Next stays disabled until one +2 and two +1s are picked", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+    // Fresh draft starts with all-zero Virtues; we expect Next to be
+    // disabled with the virtue reason as the first unmet gate.
+    await expect(nextBtn).toBeDisabled()
+
+    // Pick Expression as +2 via the radio in the "+2 Virtue" subgroup.
+    await page.getByRole("radio", { name: "Expression" }).click()
+    await page.waitForLoadState("networkidle")
+    // Still disabled — no +1s yet.
+    await expect(nextBtn).toBeDisabled()
+
+    // Pick two +1s — the chips next to Empathy and Wisdom under the +1 column.
+    // Base UI's Checkbox renders the role on a `<span>` whose accessible
+    // name is wired through `aria-labelledby` → a label generated id;
+    // Playwright's role-name resolution doesn't always traverse that
+    // chain, so we click the FieldLabel directly (native `<label
+    // htmlFor>` propagation handles toggling).
+    await page.locator('label[for="virtue-plus-one-empathy"]').click()
+    await page.waitForLoadState("networkidle")
+    await page.locator('label[for="virtue-plus-one-wisdom"]').click()
+    await page.waitForLoadState("networkidle")
+
+    // Virtues now valid — but we still don't have 4 Knives, so Next stays
+    // disabled with a different reason.
+    await expect(nextBtn).toBeDisabled()
+  })
+
+  /**
+   * Satisfies the Step-3 virtue allocation gate (one +2, two +1s) so a
+   * later assertion isolates whichever gate the test is actually probing.
+   */
+  async function allocateVirtues(page: Page): Promise<void> {
+    await page.getByRole("radio", { name: "Expression" }).click()
+    await page.waitForLoadState("networkidle")
+    // Base UI's Checkbox renders the role on a `<span>` whose accessible
+    // name is wired through `aria-labelledby` → a label generated id;
+    // Playwright's role-name resolution doesn't always traverse that
+    // chain, so we click the FieldLabel directly (native `<label
+    // htmlFor>` propagation handles toggling).
+    await page.locator('label[for="virtue-plus-one-empathy"]').click()
+    await page.waitForLoadState("networkidle")
+    await page.locator('label[for="virtue-plus-one-wisdom"]').click()
+    await page.waitForLoadState("networkidle")
+  }
+
+  /**
+   * Clicks the "Add {Knife|Chain}" button and dismisses the edit dialog
+   * the UI auto-opens on the new row, so a test that just wants to seed
+   * entries doesn't have to thread the dialog every time.
+   *
+   * Adds are sequential server-confirmed writes (no optimistic temp row),
+   * so the dialog appears with a real row already in the table — we just
+   * close it and wait for the network to settle before the next call.
+   */
+  async function addEntryAndCloseDialog(
+    page: Page,
+    addButtonName: "Add Knife" | "Add Chain"
+  ): Promise<void> {
+    await page.getByRole("button", { name: addButtonName }).click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole("button", { name: "Done" }).click()
+    await expect(dialog).toBeHidden()
+    await page.waitForLoadState("networkidle")
+  }
+
+  test("Step 3: Knives + Chains hard mins gate Next; reaching both unlocks it", async ({
+    page,
+  }) => {
+    const shortId = await advanceToStep3(page)
+    await allocateVirtues(page)
+
+    const nextBtn = page.getByRole("button", { name: /^Next$/ })
+
+    // Skip the UI churn of 4 sequential adds — the gate's wired up via
+    // `nextGateForStep("character-origins")` and we just need the row count to
+    // satisfy the >=4 check. Seed the Knives directly through Drizzle and
+    // reload; the chain add stays on the UI path because that's what the
+    // test is actually verifying.
+    const [row] = await getDb()
+      .select({ id: characters.id })
+      .from(characters)
+      .where(eq(characters.shortId, shortId))
+    if (!row) throw new Error(`Could not find character ${shortId}`)
+    await getDb()
+      .insert(characterKnives)
+      .values(
+        [0, 1, 2, 3].map((order) => ({
+          characterId: row.id,
+          title: `Seeded Knife ${order + 1}`,
+          order,
+        }))
+      )
+
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    // Still gated — 0 Chains.
+    await expect(nextBtn).toBeDisabled()
+
+    await addEntryAndCloseDialog(page, "Add Chain")
+
+    await expect(nextBtn).toBeEnabled({ timeout: 5000 })
+  })
+
+  test("Step 3 — Knives: add → dialog auto-opens → edit title + description → row updates → reload preserves both", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    await page.getByRole("button", { name: "Add Knife" }).click()
+
+    // The dialog opens *after* the server confirms the add, so its title
+    // input is always wired to the real (server-assigned) entry id — no
+    // need for the settle waits an optimistic-temp implementation would
+    // need to thread.
+    const dialog = page.getByRole("dialog", { name: /Edit Knife/ })
+    await expect(dialog).toBeVisible()
+
+    const titleInput = dialog.getByRole("textbox", { name: "Title" })
+    // The seed title is the throwaway "New Knife" copy; the dialog
+    // autoFocuses the Title input so the player can overwrite immediately.
+    // (Not asserting `toBeFocused` here — Base UI's Dialog focus trap can
+    // briefly steal focus before the autoFocus settles; the test is about
+    // persistence, not the focus race.)
+    await expect(titleInput).toHaveValue("New Knife")
+
+    await titleInput.fill("Mira my younger sister")
+    // Move focus into the description editor and type via the keyboard so
+    // Tiptap's input pipeline fires the same way it does for a real user.
+    // The MarkdownField surface is a Tiptap contenteditable `<div>` rather
+    // than a real `<textarea>`, so we look it up by its aria-label rather
+    // than role=textbox (Playwright's role engine doesn't grant the
+    // implicit textbox role to contenteditable=true without a hint).
+    const description = dialog.getByLabel(/— description$/)
+    await description.click()
+    await page.keyboard.type("She is the only family I have left.")
+    // Blur the description so its debounce flushes before the dialog
+    // unmounts; we don't want to rely on the hook's unmount-flush race.
+    await description.blur()
+
+    // Close — both saves should be in flight or already settled by now.
+    await dialog.getByRole("button", { name: "Done" }).click()
+    await expect(dialog).toBeHidden()
+    await page.waitForLoadState("networkidle")
+
+    // Title cell shows the new title; the "No description yet" hint is
+    // gone because the description column is no longer null.
+    const firstRow = page.locator("tbody tr").first()
+    await expect(firstRow).toContainText("Mira my younger sister")
+    await expect(firstRow).not.toContainText("No description yet")
+
+    // Persistence: reload and confirm both fields survived the round-trip.
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+
+    const reloadedRow = page.locator("tbody tr").first()
+    await expect(reloadedRow).toContainText("Mira my younger sister")
+    await expect(reloadedRow).not.toContainText("No description yet")
+
+    // Reopen the dialog and confirm the description payload is intact —
+    // catches a regression where the description save would race with the
+    // title save and clobber one of them (the bug split into per-field
+    // actions resolved).
+    await reloadedRow.getByRole("button", { name: /^Edit/ }).click()
+    const reopened = page.getByRole("dialog", { name: /Edit Knife/ })
+    await expect(reopened.getByRole("textbox", { name: "Title" })).toHaveValue(
+      "Mira my younger sister"
+    )
+    await expect(reopened.getByLabel(/— description$/)).toContainText(
+      "She is the only family I have left."
+    )
+  })
+
+  test("Step 3 — Knives: removing a row drops it from the table and the count", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    await addEntryAndCloseDialog(page, "Add Knife")
+    await addEntryAndCloseDialog(page, "Add Knife")
+    await expect(page.locator("tbody tr")).toHaveCount(2)
+
+    await page
+      .locator("tbody tr")
+      .first()
+      .getByRole("button", { name: /^Remove/ })
+      .click()
+    await page.waitForLoadState("networkidle")
+
+    await expect(page.locator("tbody tr")).toHaveCount(1)
+    // Count summary updates immediately — "1/4 minimum" because the hard
+    // min is 4 and we now have 1.
+    await expect(page.getByText("1/4 minimum")).toBeVisible()
+  })
+
+  test("Step 3 — Talents: typeahead → add Talent chip → reload preserves; chip × removes", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    // Origin chips for Warrior render as locked badges — verify the
+    // chosen Origin contributes its Talents (Climb / Lift / Athletics)
+    // before the player adds any of their own.
+    const originSection = page
+      .locator("div", { has: page.locator("h4", { hasText: /Origin/ }) })
+      .first()
+    for (const talent of ["Climb", "Lift", "Athletics"]) {
+      await expect(
+        originSection.getByText(talent, { exact: true })
+      ).toBeVisible()
+    }
+
+    // Add Arcana via typeahead. The Combobox input has role="combobox".
+    const talentInput = page.getByRole("combobox").last()
+    await talentInput.click()
+    await talentInput.fill("arc")
+    await page.getByRole("option", { name: "Arcana" }).click()
+    await page.waitForLoadState("networkidle")
+
+    // Chip lands in the chips container; cap counter ticks up.
+    await expect(
+      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
+    ).toBeVisible()
+    await expect(page.getByText(/Background Talents \(1\/2\)/)).toBeVisible()
+
+    // Reload — the chip survives.
+    await page.reload()
+    await page.waitForLoadState("networkidle")
+    await expect(
+      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
+    ).toBeVisible()
+
+    // Remove via the chip's × button. The shadcn ComboboxChipRemove
+    // primitive carries the `combobox-chip-remove` data slot but no
+    // explicit aria-label (the X icon is decorative), so we address the
+    // button by its slot rather than role.
+    await page
+      .locator('[data-slot="combobox-chip"]')
+      .filter({ hasText: "Arcana" })
+      .locator('[data-slot="combobox-chip-remove"]')
+      .click()
+    await page.waitForLoadState("networkidle")
+
+    await expect(
+      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
+    ).toBeHidden()
+    await expect(page.getByText(/Background Talents \(0\/2\)/)).toBeVisible()
+  })
+
+  test("Step 3 — Talents: at cap, the input flips placeholder and no extra chip can be added", async ({
+    page,
+  }) => {
+    await advanceToStep3(page)
+
+    const talentInput = page.getByRole("combobox").last()
+
+    // Fill the cap (2 player-picked Talents).
+    for (const name of ["Arcana", "History"]) {
+      await talentInput.click()
+      await talentInput.fill(name)
+      await page.getByRole("option", { name }).click()
+      await page.waitForLoadState("networkidle")
+    }
+    await expect(page.getByText(/Background Talents \(2\/2\)/)).toBeVisible()
+
+    // Placeholder flips to the cap-reached message so a player at the
+    // cap knows why they can't just type another name.
+    await expect(talentInput).toHaveAttribute(
+      "placeholder",
+      /Remove a Talent to pick a different one/
+    )
+
+    // Attempting to pick a third Talent is rejected at the controlled
+    // boundary — the picker is still searchable, but selecting "Nature"
+    // surfaces a toast and the chip count stays at 2.
+    await talentInput.click()
+    await talentInput.fill("nat")
+    await page.getByRole("option", { name: "Nature" }).click()
+
+    await expect(page.getByText(/You can pick at most 2 Talents/)).toBeVisible()
+    await expect(
+      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Nature" })
+    ).toBeHidden()
+    await expect(page.getByText(/Background Talents \(2\/2\)/)).toBeVisible()
   })
 })
