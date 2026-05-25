@@ -1,4 +1,4 @@
-# Persona System — Character Sheet App
+# Unnamed System — Character Sheet App
 
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 

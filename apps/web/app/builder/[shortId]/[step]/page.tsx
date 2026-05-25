@@ -1,29 +1,30 @@
 import { notFound } from "next/navigation"
 
-import { BuilderNav } from "@/components/builder/builder-nav"
 import { BuilderShell } from "@/components/builder/builder-shell"
 import { nextGateForStep } from "@/components/builder/builder-step-gates"
-import { indexOfStep } from "@/components/builder/builder-steps"
-import { BasicInfoStep } from "@/components/builder/steps/basic-info"
-import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
-import { IdentityStep } from "@/components/builder/steps/identity"
-import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
-import { ReviewStep } from "@/components/builder/steps/review"
-import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
+import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
+import { StepPlaceholder } from "@/components/builder/step-placeholder"
 
-import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
+import { getBuilderCharacter } from "../_loader"
 
 /**
- * Renders the body for a single builder step. The slug is validated
+ * Renders the body for a single builder movement. The slug is validated
  * against `BUILDER_STEPS`; unknown slugs 404 so a typo in the URL doesn't
- * silently land on step 1. Only `basic-info` and `path-and-archetype` have
- * real bodies today — every other step renders the placeholder pointing at
- * the sibling ticket that owns it.
+ * silently land on Movement 1.
  *
- * The shell (header, blurb, stepper) is rendered here rather than in the
- * layout so the layout doesn't have to know the current step slug —
- * Next's layout API doesn't expose child segment params.
+ * For UNN-214 every movement renders `StepPlaceholder`; the per-movement
+ * tickets (UNN-215 → UNN-218) replace each placeholder with the movement's
+ * real content. The shell (chapter header + dots footer + named back/
+ * continue links) is rendered here so the layout doesn't need to read child
+ * segment params — Next 16 layouts don't get those.
  */
+const MOVEMENT_TICKETS: Record<string, string> = {
+  corpus: "UNN-215",
+  origo: "UNN-216",
+  animus: "UNN-217",
+  persona: "UNN-218",
+}
+
 export default async function BuilderStepPage({
   params,
 }: {
@@ -37,90 +38,22 @@ export default async function BuilderStepPage({
   if (!character) notFound()
 
   const gate = nextGateForStep(step, character)
+  const currentStep = BUILDER_STEPS[currentIndex]!
 
   return (
     <BuilderShell
+      characterId={character.id}
       shortId={shortId}
       currentStepSlug={step}
       highestVisitedStepIndex={character.builderStep}
+      identityVersion={character.identityVersion}
+      canAdvance={gate.canAdvance}
+      disabledReason={gate.canAdvance ? undefined : gate.reason}
     >
-      {renderStepBody({ step, character, shortId })}
-      <BuilderNav
-        characterId={character.id}
-        shortId={shortId}
-        currentIndex={currentIndex}
-        identityVersion={character.identityVersion}
-        canAdvance={gate.canAdvance}
-        disabledReason={gate.canAdvance ? undefined : gate.reason}
+      <StepPlaceholder
+        stepLabel={currentStep.label}
+        ticket={MOVEMENT_TICKETS[step] ?? "a follow-up ticket"}
       />
     </BuilderShell>
   )
-}
-
-function renderStepBody({
-  step,
-  character,
-  shortId,
-}: {
-  step: string
-  character: BuilderCharacter
-  shortId: string
-}) {
-  switch (step) {
-    case "basic-info":
-      return (
-        <BasicInfoStep
-          characterId={character.id}
-          name={character.name}
-          pronouns={character.pronouns}
-          portraitUrl={character.portraitUrl}
-          identityVersion={character.identityVersion}
-        />
-      )
-    case "path-and-archetype":
-      return (
-        <PathAndArchetypeStep
-          characterId={character.id}
-          pathChoice={character.pathChoice}
-          originArchetypeKey={character.originArchetypeKey}
-          identityVersion={character.identityVersion}
-        />
-      )
-    case "character-origins":
-      return (
-        <CharacterOriginsStep
-          characterId={character.id}
-          identityVersion={character.identityVersion}
-          serverVirtueAllocation={coerceVirtueAllocation({
-            expression: character.virtueExpression,
-            empathy: character.virtueEmpathy,
-            wisdom: character.virtueWisdom,
-            focus: character.virtueFocus,
-          })}
-          ancestryText={character.ancestryText}
-          backgroundText={character.backgroundText}
-          backstoryText={character.backstoryText}
-          knives={character.knives}
-          chains={character.chains}
-          originArchetypeKey={character.originArchetypeKey}
-          gainedTalents={character.gainedTalents}
-        />
-      )
-    case "identity":
-      return (
-        <IdentityStep
-          characterId={character.id}
-          identityVersion={character.identityVersion}
-          personalityTraits={character.personalityTraits}
-          hopes={character.hopes}
-          dreams={character.dreams}
-          fears={character.fears}
-          secrets={character.secrets}
-        />
-      )
-    case "review":
-      return <ReviewStep character={character} shortId={shortId} />
-    default:
-      return null
-  }
 }
