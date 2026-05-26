@@ -21,24 +21,31 @@ import { deleteCharacterAction } from "@/lib/actions/delete-character"
 
 interface DeleteCharacterDialogProps {
   characterId: string
+  /**
+   * The character's actual `name` column. Empty/whitespace flips the
+   * dialog into the lightweight "Discard this draft?" confirm (UNN-219 /
+   * ADR-002 §5.5); non-empty keeps the existing type-the-name flow.
+   */
   name: string
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 /**
- * Type-to-confirm modal for the one genuinely destructive owner action.
- * The destructive button only enables once the typed value (trimmed)
- * exactly matches the character's name; the Server Action re-checks the
- * same comparison server-side as defense-in-depth.
+ * Owner-only confirm modal for the one genuinely destructive action.
+ *
+ * Two-tier by `name` presence (UNN-219):
+ *
+ * - **Unnamed draft** (`name.trim()` is empty): single "Discard" affordance,
+ *   same energy as dismissing an unsent email. Skips the type-to-confirm
+ *   because the row has no identity worth protecting yet.
+ * - **Named row** (every finalized character, plus any draft the player
+ *   has typed a name into): the existing type-to-confirm gate. The
+ *   destructive button enables only when the typed value (trimmed) matches
+ *   the row's name; the Server Action re-checks the same comparison.
  *
  * Esc, the Cancel button, and clicking the backdrop all close the dialog
- * without side effects — Base UI's `AlertDialog.Root` wires those up.
- *
- * The action runs inside a `useTransition` so the destructive button can
- * disable while in flight; on success we `router.refresh()` so the
- * already-revalidated My Characters list re-renders without the deleted
- * row.
+ * without side effects in either flow.
  */
 export function DeleteCharacterDialog({
   characterId,
@@ -46,6 +53,98 @@ export function DeleteCharacterDialog({
   open,
   onOpenChange,
 }: DeleteCharacterDialogProps) {
+  const isUnnamed = name.trim().length === 0
+
+  if (isUnnamed) {
+    return (
+      <DiscardDraftDialog
+        characterId={characterId}
+        open={open}
+        onOpenChange={onOpenChange}
+      />
+    )
+  }
+
+  return (
+    <TypeToConfirmDialog
+      characterId={characterId}
+      name={name}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  )
+}
+
+function DiscardDraftDialog({
+  characterId,
+  open,
+  onOpenChange,
+}: {
+  characterId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
+  function handleConfirm() {
+    startTransition(async () => {
+      const result = await deleteCharacterAction({ characterId })
+
+      if (result.ok) {
+        toast.success("Draft discarded.")
+        onOpenChange(false)
+        router.refresh()
+        return
+      }
+
+      if (result.error === "character-not-found") {
+        toast.error("Draft already discarded.")
+        onOpenChange(false)
+        router.refresh()
+        return
+      }
+
+      toast.error("Couldn't discard. Try again.")
+    })
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your progress will be lost. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={handleConfirm}
+            disabled={pending}
+          >
+            Discard
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function TypeToConfirmDialog({
+  characterId,
+  name,
+  open,
+  onOpenChange,
+}: {
+  characterId: string
+  name: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const router = useRouter()
   const [typed, setTyped] = useState("")
   const [pending, startTransition] = useTransition()

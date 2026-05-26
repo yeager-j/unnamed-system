@@ -69,7 +69,8 @@ export function CharacterCard({ character }: CharacterCardProps) {
       <ItemActions>
         <CharacterCardActions
           characterId={character.id}
-          name={displayName}
+          name={character.name}
+          displayName={displayName}
           href={href}
           primaryLabel={primaryLabel}
         />
