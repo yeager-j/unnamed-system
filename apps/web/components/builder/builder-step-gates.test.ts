@@ -112,14 +112,10 @@ describe("nextGateForStep", () => {
     })
   })
 
-  describe("unknown step slugs", () => {
-    it("never blocks an unrecognized slug — only enumerated movements gate", () => {
-      // Placeholder slugs for movements not yet shipped (UNN-217 Animus) and
-      // the route's fallback all permissively advance.
+  describe("ungated slugs", () => {
+    it("permissively advances for movements without a gate (e.g. Animus)", () => {
+      // Movement 3 is intentionally ungated — the writer view is opt-in.
       expect(nextGateForStep("animus", validCharacter()).canAdvance).toBe(true)
-      expect(
-        nextGateForStep("not-a-real-step", validCharacter()).canAdvance
-      ).toBe(true)
     })
   })
 })

@@ -14,8 +14,8 @@ import type {
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
 
-import { AnimusDocumentProvider } from "./animus/animus-context"
-import { WriterSidebar } from "./animus/writer-sidebar"
+import { AnimusDocumentProvider } from "./movements/animus/animus-context"
+import { WriterSidebar } from "./movements/animus/writer-sidebar"
 
 /**
  * Mounts the Movement 3 writer's left rail at the builder layout level so

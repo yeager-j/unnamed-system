@@ -71,6 +71,27 @@ export function isValidCreationAllocation(
 }
 
 /**
+ * Returns `true` if setting `key` to `target` would push the allocation
+ * past the rulebook 1.2 creation cap (>1 Virtue at +2, or >2 Virtues at
+ * +1). Clearing (`target === 0`) and re-clicking the current rank are
+ * never disabled. The Virtues control uses this to disable the
+ * cap-violating segment of each `ButtonGroup`; the canonical server-side
+ * cap lives in `SetVirtuesSchema` (twos ≤ 1, ones ≤ 2).
+ */
+export function wouldExceedAllocationCap(
+  allocation: VirtueAllocation,
+  key: VirtueKey,
+  target: 0 | 1 | 2
+): boolean {
+  if (target === 0) return false
+  if (allocation[key] === target) return false
+  const next: VirtueAllocation = { ...allocation, [key]: target }
+  const twos = VIRTUE_KEYS.filter((k) => next[k] === 2).length
+  const ones = VIRTUE_KEYS.filter((k) => next[k] === 1).length
+  return twos > 1 || ones > 2
+}
+
+/**
  * Returns the +2 Virtue, the +1 Virtues, and an explanation if the
  * allocation isn't yet valid — used by the picker to surface "pick a +2",
  * "pick one more +1", etc.

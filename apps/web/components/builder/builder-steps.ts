@@ -4,23 +4,21 @@
  * four movements"). The shell reads from this; the route's
  * `[step]/page.tsx` validates the URL segment against it; the DB row's
  * `builderStep` integer is an index into it.
- *
- * Movement bodies are filled in across sibling tickets:
- *
- * - `the-body`   → UNN-215 (Path picker + Archetype grid + narrative-light)
- * - `the-past`   → UNN-216 (Ancestry + Background + Virtues)
- * - `the-story`  → UNN-217 (writer view — Backstory / Knives / Chains / Identity)
- * - `the-person` → UNN-218 (Portrait + Pronouns + Name-last + Finalize)
- *
- * Until each movement's ticket lands, this ticket (UNN-214) renders a
- * placeholder so the shell can be exercised end-to-end.
  */
 
 export type RomanNumeral = "I" | "II" | "III" | "IV"
 
+/**
+ * The closed set of movement slugs. The route page narrows the URL segment
+ * to this union after `indexOfStep` confirms the slug exists, so the
+ * dispatch in `[step]/page.tsx` can be exhaustively type-checked without a
+ * fallback branch.
+ */
+export type MovementSlug = "corpus" | "ortus" | "animus" | "persona"
+
 export type BuilderStep = {
   /** URL slug — the segment under `/builder/[shortId]/`. */
-  slug: string
+  slug: MovementSlug
   /**
    * The Roman numeral rendered above the title in the chapter-header chrome.
    * One per movement; intentionally not derived from index so the source
@@ -79,7 +77,7 @@ export function indexOfStep(slug: string): number | null {
  * Resolves a `builderStep` index → its slug, clamping if the index is out
  * of range so a corrupted/old value can't trap the player.
  */
-export function slugForStepIndex(index: number): string {
+export function slugForStepIndex(index: number): MovementSlug {
   if (index < 0) return BUILDER_STEPS[0].slug
   if (index >= BUILDER_STEPS.length) {
     return BUILDER_STEPS[BUILDER_STEPS.length - 1]!.slug

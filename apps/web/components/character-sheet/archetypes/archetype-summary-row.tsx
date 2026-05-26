@@ -26,13 +26,12 @@ import {
   formatMasteryDescription,
   formatTalentLabel,
 } from "@/components/archetype/format"
+import { DetailSection } from "@/components/shared/detail-section"
+import { Prose } from "@/components/shared/prose"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus, hasUnlockedRank } from "@/lib/game/archetypes/schema"
 import { getMechanic } from "@/lib/game/mechanics"
 import { TIER_LABELS } from "@/lib/ui/labels"
-
-import { DetailSection } from "../shared/detail-section"
-import { Prose } from "../shared/prose"
 
 // formatTalentLabel re-export retained for any callers still depending on it.
 export { formatTalentLabel }

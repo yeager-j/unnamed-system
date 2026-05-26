@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest"
 import {
   describeAllocationProgress,
   isValidCreationAllocation,
+  wouldExceedAllocationCap,
   ZERO_VIRTUE_ALLOCATION,
+  type VirtueAllocation,
 } from "./allocation"
 
 describe("isValidCreationAllocation", () => {
@@ -120,5 +122,32 @@ describe("describeAllocationProgress", () => {
     expect(progress.valid).toBe(false)
     // No "remaining" count to surface — UI falls back to a generic nudge.
     expect(progress.remaining.plusOnes).toBe(0)
+  })
+})
+
+describe("wouldExceedAllocationCap", () => {
+  const oneTwoTwoOnes: VirtueAllocation = {
+    expression: 2,
+    empathy: 1,
+    wisdom: 1,
+    focus: 0,
+  }
+
+  it("never blocks clearing a rank", () => {
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "expression", 0)).toBe(false)
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "empathy", 0)).toBe(false)
+  })
+
+  it("never blocks re-selecting the current rank", () => {
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "expression", 2)).toBe(false)
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "empathy", 1)).toBe(false)
+  })
+
+  it("blocks a second +2", () => {
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "focus", 2)).toBe(true)
+  })
+
+  it("blocks a third +1", () => {
+    expect(wouldExceedAllocationCap(oneTwoTwoOnes, "focus", 1)).toBe(true)
   })
 })

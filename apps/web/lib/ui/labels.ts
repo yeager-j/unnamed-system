@@ -123,6 +123,13 @@ export const VIRTUE_LABELS: Record<VirtueKey, string> = {
   focus: "Focus",
 }
 
+/** The three allocator ranks rendered on the Virtues control. */
+export const VIRTUE_RANK_LABELS: Record<0 | 1 | 2, string> = {
+  0: "+0",
+  1: "+1",
+  2: "+2",
+}
+
 /** The twelve Lineages. */
 export const LINEAGE_LABELS: Record<Lineage, string> = {
   warrior: "Warrior Lineage",

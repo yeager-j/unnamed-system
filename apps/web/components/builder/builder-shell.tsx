@@ -16,7 +16,7 @@ import {
 
 import { setBuilderStepAction } from "@/lib/actions/character-identity"
 
-import { BUILDER_STEPS, indexOfStep } from "./builder-steps"
+import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
 
 /**
  * The shared chrome for every wizard movement (ADR-002 §5.2). A
@@ -44,7 +44,7 @@ export function BuilderShell({
 }: {
   characterId: string
   shortId: string
-  currentStepSlug: string
+  currentStepSlug: MovementSlug
   highestVisitedStepIndex: number
   identityVersion: number
   canAdvance?: boolean
@@ -60,11 +60,8 @@ export function BuilderShell({
 }) {
   const currentIndex = indexOfStep(currentStepSlug) ?? 0
   const currentStep = BUILDER_STEPS[currentIndex]!
-  const previousStep = currentIndex > 0 ? BUILDER_STEPS[currentIndex - 1] : null
-  const nextStep =
-    currentIndex + 1 < BUILDER_STEPS.length
-      ? BUILDER_STEPS[currentIndex + 1]
-      : null
+  const previousStep = BUILDER_STEPS[currentIndex - 1] ?? null
+  const nextStep = BUILDER_STEPS[currentIndex + 1] ?? null
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 p-6 lg:p-8">
@@ -78,8 +75,8 @@ export function BuilderShell({
         currentIndex={currentIndex}
         highestVisitedStepIndex={highestVisitedStepIndex}
         identityVersion={identityVersion}
-        previousStep={previousStep ?? null}
-        nextStep={nextStep ?? null}
+        previousStep={previousStep}
+        nextStep={nextStep}
         canAdvance={canAdvance}
         disabledReason={disabledReason}
       />
