@@ -41,7 +41,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
   const href = isDraft
     ? `/builder/${character.shortId}/${slugForStepIndex(character.builderStep)}`
     : `/c/${character.shortId}`
-  const primaryLabel = isDraft ? "Resume building" : "Open"
+  const primaryLabel = isDraft ? "Resume" : "Open"
   const displayName = displayNameFor(character)
 
   return (
@@ -55,7 +55,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
           alt=""
         />
       </ItemMedia>
-      <ItemContent className="min-w-0">
+      <ItemContent>
         <ItemTitle className="flex items-center gap-2">
           {displayName}
           {isDraft ? (
@@ -66,7 +66,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
         </ItemTitle>
         <ItemDescription>{describe(character)}</ItemDescription>
       </ItemContent>
-      <ItemActions className="shrink-0">
+      <ItemActions>
         <CharacterCardActions
           characterId={character.id}
           name={character.name}
