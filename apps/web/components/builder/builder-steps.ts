@@ -41,26 +41,25 @@ export const BUILDER_STEPS = [
     slug: "corpus",
     romanNumeral: "I",
     label: "Corpus",
-    framingLine: "The body your character will inhabit.",
+    framingLine: "What shape does your power take?",
   },
   {
     slug: "ortus",
     romanNumeral: "II",
     label: "Ortus",
-    framingLine: "The years before the adventure.",
+    framingLine: "Where does your character come from?",
   },
   {
     slug: "animus",
     romanNumeral: "III",
     label: "Animus",
-    framingLine:
-      "Knives, Chains, and Identity Traits — your DM needs these most.",
+    framingLine: "What are the contents of your soul?",
   },
   {
     slug: "persona",
     romanNumeral: "IV",
     label: "Persona",
-    framingLine: null,
+    framingLine: "Who are you?",
   },
 ] as const satisfies readonly BuilderStep[]
 

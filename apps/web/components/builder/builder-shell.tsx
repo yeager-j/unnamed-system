@@ -85,7 +85,7 @@ function ChapterHeader({ step }: { step: (typeof BUILDER_STEPS)[number] }) {
       <div className="flex flex-col items-center gap-2">
         <span
           aria-hidden
-          className="font-mono text-xs tracking-[0.4em] text-muted-foreground uppercase"
+          className="text-center font-mono text-xs text-muted-foreground uppercase"
         >
           {step.romanNumeral}
         </span>

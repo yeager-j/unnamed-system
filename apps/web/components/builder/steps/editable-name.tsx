@@ -5,21 +5,13 @@ import { Label } from "@workspace/ui/components/label"
 
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterNameAction } from "@/lib/actions/character-name"
-import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
 
 const MAX_LENGTH = 64
 
 /**
- * Builder-form variant of the editable name. Same auto-save plumbing as
- * `EditableCharacterName` on the sheet header, but with form-input styling
- * rather than the borderless h1 look the sheet uses. Empty input is
- * skipped at the hook level (no save dispatched) and snaps back on blur,
- * so the player can backspace through the seeded placeholder without
- * leaving the field in a broken state.
- *
- * When the field still holds the seeded `DRAFT_NAME_PLACEHOLDER`, focusing
- * the input auto-selects so the player can type their name directly
- * instead of clearing first.
+ * Builder-form variant of the editable name (orphaned post-UNN-218 —
+ * Movement 4's `NameField` is the live consumer). Same auto-save plumbing as
+ * `EditableCharacterName` on the sheet header, with form-input styling.
  */
 export function EditableName({
   characterId,
@@ -67,19 +59,7 @@ export function EditableName({
         placeholder="Your character's name"
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        onFocus={(event) => {
-          onFocusChange(true)
-          // setSelectionRange has to run synchronously in the focus
-          // handler — deferring it (e.g. via rAF) lets React's
-          // controlled-input re-commit collapse the selection back to a
-          // caret position.
-          if (event.currentTarget.value === DRAFT_NAME_PLACEHOLDER) {
-            event.currentTarget.setSelectionRange(
-              0,
-              event.currentTarget.value.length
-            )
-          }
-        }}
+        onFocus={() => onFocusChange(true)}
         onBlur={() => onFocusChange(false)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {

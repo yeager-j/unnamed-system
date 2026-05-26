@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation"
 
 import { BuilderShell } from "@/components/builder/builder-shell"
-import { nextGateForStep } from "@/components/builder/builder-step-gates"
+import {
+  findStepGateFailures,
+  nextGateForStep,
+} from "@/components/builder/builder-step-gates"
 import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
 import { StepPlaceholder } from "@/components/builder/step-placeholder"
+import { PersonaStep } from "@/components/builder/steps/persona"
 import { TheBodyStep } from "@/components/builder/steps/the-body"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
@@ -75,6 +79,23 @@ function renderMovementBody({
           identityVersion={character.identityVersion}
         />
       )
+    case "persona": {
+      // Finalize must honor every gate, not just persona's name. A player
+      // who skipped past Corpus without picking an Origin should see the
+      // Finalize button disabled with the corpus reason surfaced.
+      const failures = findStepGateFailures(character)
+      return (
+        <PersonaStep
+          characterId={character.id}
+          name={character.name}
+          pronouns={character.pronouns}
+          portraitUrl={character.portraitUrl}
+          identityVersion={character.identityVersion}
+          canFinalize={failures.length === 0}
+          disabledReason={failures[0]?.reason}
+        />
+      )
+    }
     default:
       return (
         <StepPlaceholder

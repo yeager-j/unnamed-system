@@ -4,8 +4,6 @@ import {
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 
-import { DRAFT_NAME_PLACEHOLDER } from "@/lib/db/start-character-draft"
-
 import { ReviewCard } from "./shared"
 
 /**
@@ -25,7 +23,7 @@ export function BasicsSummary({
   portraitUrl: string | null
 }) {
   const trimmed = name.trim()
-  const isUnnamed = trimmed.length === 0 || trimmed === DRAFT_NAME_PLACEHOLDER
+  const isUnnamed = trimmed.length === 0
   const showName = isUnnamed ? "(unnamed)" : trimmed
 
   return (

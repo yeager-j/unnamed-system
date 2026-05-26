@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { DRAFT_NAME_PLACEHOLDER } from "../../lib/db/start-character-draft"
 import {
   findStepGateFailures,
   nextGateForStep,
@@ -49,34 +48,10 @@ function validCharacter(
 }
 
 describe("nextGateForStep", () => {
-  describe("basic-info", () => {
-    it("blocks an unnamed draft", () => {
-      const result = nextGateForStep(
-        "basic-info",
-        validCharacter({ name: DRAFT_NAME_PLACEHOLDER })
-      )
-      expect(result.canAdvance).toBe(false)
-      expect(result.canAdvance === false && result.reason).toMatch(/name/i)
-    })
-
-    it("blocks a whitespace-only name", () => {
-      expect(
-        nextGateForStep("basic-info", validCharacter({ name: "   " }))
-          .canAdvance
-      ).toBe(false)
-    })
-
-    it("allows any non-placeholder, non-whitespace name", () => {
-      expect(nextGateForStep("basic-info", validCharacter()).canAdvance).toBe(
-        true
-      )
-    })
-  })
-
-  describe("path-and-archetype", () => {
+  describe("corpus", () => {
     it("blocks when no Origin is picked", () => {
       const result = nextGateForStep(
-        "path-and-archetype",
+        "corpus",
         validCharacter({ originArchetypeKey: null })
       )
       expect(result.canAdvance).toBe(false)
@@ -84,80 +59,34 @@ describe("nextGateForStep", () => {
     })
 
     it("allows once Origin is set", () => {
-      expect(
-        nextGateForStep("path-and-archetype", validCharacter()).canAdvance
-      ).toBe(true)
+      expect(nextGateForStep("corpus", validCharacter()).canAdvance).toBe(true)
     })
   })
 
-  describe("character-origins", () => {
-    it("blocks an invalid Virtue allocation", () => {
-      const result = nextGateForStep(
-        "character-origins",
-        validCharacter({
-          virtueEmpathy: 0,
-          virtueExpression: 2,
-          virtueFocus: 2,
-          virtueWisdom: 0,
-        })
-      )
+  describe("persona", () => {
+    it("blocks an empty name", () => {
+      const result = nextGateForStep("persona", validCharacter({ name: "" }))
       expect(result.canAdvance).toBe(false)
-      expect(result.canAdvance === false && result.reason).toMatch(/virtue/i)
+      expect(result.canAdvance === false && result.reason).toMatch(/name/i)
     })
 
-    it("blocks fewer than four Knives", () => {
-      const result = nextGateForStep(
-        "character-origins",
-        validCharacter({
-          knives: validCharacter().knives.slice(0, 2),
-        })
-      )
-      expect(result.canAdvance).toBe(false)
-      expect(result.canAdvance === false && result.reason).toMatch(/knife/i)
-    })
-
-    it("blocks zero Chains", () => {
-      const result = nextGateForStep(
-        "character-origins",
-        validCharacter({ chains: [] })
-      )
-      expect(result.canAdvance).toBe(false)
-      expect(result.canAdvance === false && result.reason).toMatch(/chain/i)
-    })
-
-    it("allows a fully valid Origins step", () => {
+    it("blocks a whitespace-only name", () => {
       expect(
-        nextGateForStep("character-origins", validCharacter()).canAdvance
-      ).toBe(true)
-    })
-  })
-
-  describe("identity", () => {
-    it.each([
-      ["personalityTraits", /personality/i],
-      ["hopes", /hope/i],
-      ["dreams", /dream/i],
-      ["fears", /fear/i],
-      ["secrets", /secret/i],
-    ] as const)("blocks an empty %s section", (field, pattern) => {
-      const result = nextGateForStep(
-        "identity",
-        validCharacter({ [field]: "   " })
-      )
-      expect(result.canAdvance).toBe(false)
-      expect(result.canAdvance === false && result.reason).toMatch(pattern)
+        nextGateForStep("persona", validCharacter({ name: "   " })).canAdvance
+      ).toBe(false)
     })
 
-    it("allows all five Identity sections populated", () => {
-      expect(nextGateForStep("identity", validCharacter()).canAdvance).toBe(
-        true
-      )
+    it("allows any non-whitespace name", () => {
+      expect(nextGateForStep("persona", validCharacter()).canAdvance).toBe(true)
     })
   })
 
   describe("unknown step slugs", () => {
-    it("never blocks an unrecognized slug — only enumerated steps gate", () => {
-      expect(nextGateForStep("review", validCharacter()).canAdvance).toBe(true)
+    it("never blocks an unrecognized slug — only enumerated movements gate", () => {
+      // Placeholder slugs for movements not yet shipped (UNN-216 Ortus,
+      // UNN-217 Animus) and the route's fallback all permissively advance.
+      expect(nextGateForStep("ortus", validCharacter()).canAdvance).toBe(true)
+      expect(nextGateForStep("animus", validCharacter()).canAdvance).toBe(true)
       expect(
         nextGateForStep("not-a-real-step", validCharacter()).canAdvance
       ).toBe(true)
@@ -170,31 +99,21 @@ describe("findStepGateFailures", () => {
     expect(findStepGateFailures(validCharacter())).toEqual([])
   })
 
-  it("returns one failure per failing step, in wizard order", () => {
+  it("returns one failure per failing movement, in wizard order", () => {
     const failures = findStepGateFailures(
-      validCharacter({
-        name: DRAFT_NAME_PLACEHOLDER,
-        originArchetypeKey: null,
-        virtueEmpathy: 0,
-        personalityTraits: null,
-      })
+      validCharacter({ name: "", originArchetypeKey: null })
     )
-    expect(failures.map((f) => f.stepSlug)).toEqual([
-      "basic-info",
-      "path-and-archetype",
-      "character-origins",
-      "identity",
-    ])
+    expect(failures.map((f) => f.stepSlug)).toEqual(["corpus", "persona"])
     for (const failure of failures) {
       expect(failure.reason).not.toEqual("")
     }
   })
 
-  it("reports only the steps that fail", () => {
+  it("reports only the movements that fail", () => {
     const failures = findStepGateFailures(
       validCharacter({ originArchetypeKey: null })
     )
     expect(failures).toHaveLength(1)
-    expect(failures[0]!.stepSlug).toBe("path-and-archetype")
+    expect(failures[0]!.stepSlug).toBe("corpus")
   })
 })

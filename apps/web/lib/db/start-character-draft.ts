@@ -25,21 +25,15 @@ const generateShortId = customAlphabet(SHORT_ID_ALPHABET, 8)
 const MAX_SHORT_ID_RETRIES = 3
 
 /**
- * Placeholder character name a fresh draft is seeded with. The user replaces
- * it in the Basic info step before they can advance — the Next gate
- * recognizes this exact string as "not yet named." Storing a non-empty
- * default keeps every downstream consumer (My Characters card, delete
- * confirmation, toasts) from needing its own empty-name fallback.
- */
-export const DRAFT_NAME_PLACEHOLDER = "Untitled character"
-
-/**
  * Inserts a fresh `status: "draft"` character row for `ownerId` and returns
  * the generated `shortId`. Defaults are deliberately minimal — empty `name`,
  * Balanced HP/SP path, zero current HP/SP — because the wizard hasn't
- * collected any of these yet. Once the player completes the Review step
- * (UNN-206), `status` flips to `"finalized"` and the real values are
- * written.
+ * collected any of these yet. The Movement 4 finalize step (UNN-218) flips
+ * `status` to `"finalized"` and writes the path-derived starting pools.
+ *
+ * Name seeds empty per ADR-002's "name-last" decision — the player names
+ * the character in Movement 4 with the rest of the character's identity
+ * already on the page, not on a blank screen at the start.
  *
  * Each call creates a new row (multiple drafts per user is intentional).
  * Cleanup is handled by the existing delete-character dialog (UNN-181), not
@@ -54,7 +48,7 @@ export async function startCharacterDraft(
       await db.insert(characters).values({
         ownerId,
         shortId,
-        name: DRAFT_NAME_PLACEHOLDER,
+        name: "",
         pathChoice: "balanced",
         currentHP: 0,
         currentSP: 0,

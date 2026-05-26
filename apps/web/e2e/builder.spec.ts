@@ -84,7 +84,7 @@ test.describe("builder shell", () => {
       page.getByRole("heading", { level: 1, name: "Corpus" })
     ).toBeVisible()
     await expect(
-      page.getByText("The body your character will inhabit.")
+      page.getByText("What shape does your power take?")
     ).toBeVisible()
 
     await chooseWarriorOrigin(page)
@@ -122,6 +122,7 @@ test.describe("builder shell", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Persona" })
     ).toBeVisible()
+    await expect(page.getByText("Who are you?")).toBeVisible()
     await expect(
       page.getByRole("button", { name: /^Continue to/ })
     ).toHaveCount(0)
@@ -262,5 +263,144 @@ test.describe("movement 1 — corpus", () => {
 
     await healerButton.click()
     await expect(healerButton).toHaveAttribute("aria-expanded", "false")
+  })
+})
+
+/**
+ * Movement 4 content tests (UNN-218). Covers Persona's contract: auto-focus
+ * on the name field, the Finalize gate, and the commit-to-sheet redirect.
+ */
+test.describe("movement 4 — persona", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("auto-focus lands on the name field on page load", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await expect(nameInput).toBeFocused()
+  })
+
+  test("Finalize stays disabled until both Origin and name are set", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    // Skip Movement 1 to confirm Finalize honors the cross-movement gate.
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const finalizeButton = page.getByRole("button", {
+      name: "Finalize character",
+    })
+    await expect(finalizeButton).toBeDisabled()
+
+    // Even with a name, the missing Origin keeps Finalize disabled.
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await nameInput.fill("Garron Vey")
+    // Blur to flush the debounced auto-save before navigating away.
+    await nameInput.blur()
+    await expect(finalizeButton).toBeDisabled()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ name: characters.name })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.name ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Garron Vey")
+
+    // Backtrack to Corpus, pick an Origin, return — Finalize now enables
+    // (the name persisted server-side, so re-rendering /persona shows it
+    // pre-filled and both gates pass).
+    await page.goto(`/builder/${shortId}/corpus`)
+    await chooseWarriorOrigin(page)
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ activeArchetypeId: characters.activeArchetypeId })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.activeArchetypeId ?? null
+        },
+        { timeout: 5000 }
+      )
+      .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/persona`)
+    await expect(finalizeButton).toBeEnabled()
+  })
+
+  test("Finalize commits the character and redirects to the editable sheet", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await chooseWarriorOrigin(page)
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ activeArchetypeId: characters.activeArchetypeId })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.activeArchetypeId ?? null
+        },
+        { timeout: 5000 }
+      )
+      .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await nameInput.fill("Garron Vey")
+    // Blur to flush the debounced auto-save before the finalize click.
+    await nameInput.blur()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ name: characters.name })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.name ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Garron Vey")
+
+    await page.getByRole("button", { name: "Finalize character" }).click()
+
+    // Sheet route appends `?tab=combat` for the default tab, hence the regex.
+    await expect(page).toHaveURL(new RegExp(`/c/${shortId}(\\?|$)`))
+
+    const [row] = await getDb()
+      .select({ status: characters.status, name: characters.name })
+      .from(characters)
+      .where(eq(characters.shortId, shortId))
+      .limit(1)
+    expect(row?.status).toBe("finalized")
+    expect(row?.name).toBe("Garron Vey")
   })
 })
