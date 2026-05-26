@@ -1,8 +1,8 @@
 import { Badge } from "@workspace/ui/components/badge"
 
+import { DetailSection } from "@/components/shared/detail-section"
 import type { Archetype } from "@/lib/game/archetypes/schema"
 
-import { DetailSection } from "../character-sheet/shared/detail-section"
 import { formatTalentLabel } from "./format"
 
 /**

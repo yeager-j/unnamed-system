@@ -1,7 +1,7 @@
+import { DetailSection } from "@/components/shared/detail-section"
 import { ATTRIBUTE_KEYS, type Archetype } from "@/lib/game/archetypes/schema"
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
-import { DetailSection } from "../character-sheet/shared/detail-section"
 import { formatModifier } from "./format"
 
 /**

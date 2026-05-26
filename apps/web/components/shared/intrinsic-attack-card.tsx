@@ -2,11 +2,11 @@ import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { AttributeScores } from "@/lib/game/stats"
 
-import { AttackRollTable } from "./shared/attack-roll-table"
-import { PopoverCardShell } from "./shared/popover-card-shell"
-import { SkillText } from "./shared/skill-text"
-import { StatsGrid } from "./shared/stats-grid"
+import { AttackRollTable } from "./attack-roll-table"
+import { PopoverCardShell } from "./popover-card-shell"
 import { intrinsicAttackStatRows } from "./skill-card-utils"
+import { SkillText } from "./skill-text"
+import { StatsGrid } from "./stats-grid"
 
 interface IntrinsicAttackCardProps {
   weapon: Weapon

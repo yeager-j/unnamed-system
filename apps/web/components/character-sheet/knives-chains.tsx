@@ -5,13 +5,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
+import { Prose } from "@/components/shared/prose"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-
-import { Prose } from "./shared/prose"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow
 

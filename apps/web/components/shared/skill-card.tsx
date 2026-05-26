@@ -2,11 +2,11 @@ import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { AttributeScores } from "@/lib/game/stats"
 import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
 
-import { AttackRollTable } from "./shared/attack-roll-table"
-import { PopoverCardShell } from "./shared/popover-card-shell"
-import { SkillText } from "./shared/skill-text"
-import { StatsGrid } from "./shared/stats-grid"
+import { AttackRollTable } from "./attack-roll-table"
+import { PopoverCardShell } from "./popover-card-shell"
 import { skillStatRows } from "./skill-card-utils"
+import { SkillText } from "./skill-text"
+import { StatsGrid } from "./stats-grid"
 
 interface SkillCardProps {
   skill: HydratedSkill

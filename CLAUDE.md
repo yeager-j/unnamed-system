@@ -70,7 +70,10 @@ apps/web/
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
-│   ├── character-sheet/       Sheet feature; nested shared/ for reusable helpers
+│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls)
+│   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
+│   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
+│   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 └── lib/

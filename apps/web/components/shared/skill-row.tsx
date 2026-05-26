@@ -19,10 +19,10 @@ import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { AttributeScores } from "@/lib/game/stats"
 
+import { DamageTypeSlot } from "./damage-type-slot"
 import { IntrinsicAttackCard } from "./intrinsic-attack-card"
-import { DamageTypeSlot } from "./shared/damage-type-slot"
-import { SkillCostBadge } from "./shared/skill-cost-badge"
 import { SkillCard } from "./skill-card"
+import { SkillCostBadge } from "./skill-cost-badge"
 
 interface SkillRowProps {
   skill: HydratedSkill
