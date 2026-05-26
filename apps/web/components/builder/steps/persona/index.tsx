@@ -42,14 +42,14 @@ export function PersonaStep({
       />
 
       <div className="flex w-full max-w-md flex-col items-center gap-6">
-        <PronounsField
-          characterId={characterId}
-          pronouns={pronouns}
-          identityVersion={identityVersion}
-        />
         <NameField
           characterId={characterId}
           name={name}
+          identityVersion={identityVersion}
+        />
+        <PronounsField
+          characterId={characterId}
+          pronouns={pronouns}
           identityVersion={identityVersion}
         />
       </div>
