@@ -34,8 +34,11 @@ export function OrtusStep({
   identityVersion: number
 }) {
   return (
-    <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-12">
-      <div className="flex flex-col gap-8">
+    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-12">
+      <div className="flex flex-col gap-5">
+        <h2 className="font-heading text-lg font-medium text-foreground">
+          History
+        </h2>
         <NarrativePair
           characterId={characterId}
           ancestryText={ancestryText}

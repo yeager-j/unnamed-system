@@ -19,6 +19,7 @@ import {
 } from "@workspace/ui/components/combobox"
 import {
   FieldDescription,
+  FieldLabel,
   FieldLegend,
   FieldSet,
 } from "@workspace/ui/components/field"
@@ -163,9 +164,7 @@ export function TalentsPicker({
       <div className="flex flex-col gap-4">
         {originArchetypeKey && originTalents.length > 0 ? (
           <div className="flex flex-col gap-2">
-            <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              From your Origin Archetype
-            </h4>
+            <FieldLabel>From your Origin Archetype</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {originTalents.map((key) => (
                 <Badge
@@ -182,10 +181,10 @@ export function TalentsPicker({
         ) : null}
 
         <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <FieldLabel>
             Background Talents ({gainedTalents.length}/
             {MAX_PLAYER_ADDED_TALENTS})
-          </h4>
+          </FieldLabel>
           <Combobox<TalentKey, true>
             multiple
             autoHighlight

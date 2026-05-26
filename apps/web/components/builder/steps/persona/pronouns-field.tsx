@@ -1,6 +1,7 @@
 "use client"
 
-import { cn } from "@workspace/ui/lib/utils"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
 
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
@@ -46,33 +47,29 @@ export function PronounsField({
   })
 
   return (
-    <input
-      type="text"
-      aria-label="Pronouns"
-      placeholder="they/them"
-      autoComplete="off"
-      maxLength={MAX_LENGTH}
-      value={value}
-      onChange={(event) => setValue(event.target.value)}
-      onFocus={() => onFocusChange(true)}
-      onBlur={() => onFocusChange(false)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault()
-          event.currentTarget.blur()
-        } else if (event.key === "Escape") {
-          event.preventDefault()
-          revert()
-          event.currentTarget.blur()
-        }
-      }}
-      className={cn(
-        "text-sm text-muted-foreground",
-        "w-full max-w-xs min-w-0 border-0 bg-transparent p-0 text-center outline-none",
-        "border-b border-border pb-1 transition-colors",
-        "placeholder:text-muted-foreground/40",
-        "focus-visible:border-foreground focus-visible:text-foreground focus-visible:ring-0"
-      )}
-    />
+    <Field>
+      <FieldLabel htmlFor="pronouns">Pronouns (Optional)</FieldLabel>
+      <Input
+        type="text"
+        aria-label="Pronouns"
+        placeholder="they/them"
+        autoComplete="off"
+        maxLength={MAX_LENGTH}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onFocus={() => onFocusChange(true)}
+        onBlur={() => onFocusChange(false)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault()
+            event.currentTarget.blur()
+          } else if (event.key === "Escape") {
+            event.preventDefault()
+            revert()
+            event.currentTarget.blur()
+          }
+        }}
+      />
+    </Field>
   )
 }

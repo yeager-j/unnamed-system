@@ -17,7 +17,7 @@ import {
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 const RANK_LABELS: Record<0 | 1 | 2, string> = {
-  0: "○",
+  0: "+0",
   1: "+1",
   2: "+2",
 }
