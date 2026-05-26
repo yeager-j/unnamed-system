@@ -16,8 +16,8 @@ import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrativ
  * with rules-cited ghost text. Each auto-saves through the shared
  * `useDebouncedAutoSave` hook on the identity write class.
  *
- * Backstory is intentionally NOT here — it moved to the Animus writer view
- * (UNN-217) where all prose lives as Markdown.
+ * Backstory is intentionally NOT here — it lives in the Animus writer
+ * (Movement 3) where all long-form prose is edited as Markdown.
  */
 const ANCESTRY_MAX = 160
 const BACKGROUND_MAX = 160

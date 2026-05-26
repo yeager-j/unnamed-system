@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
@@ -51,10 +51,17 @@ export function VirtuesControl({
   // +1) would otherwise reset to the in-flight server prop between actions
   // and drop the intermediate intent — the next click would read the
   // pre-+2 state and overwrite the +2.
+  //
+  // The route produces a fresh `allocation` object every render, so we
+  // adopt it during render whenever its identity changes (React's "store
+  // information from previous renders" pattern, in lieu of a `useEffect`
+  // sync that would lag a frame and re-render twice).
   const [draft, setDraft] = useState<VirtueAllocation>(allocation)
-  useEffect(() => {
+  const [previousAllocation, setPreviousAllocation] = useState(allocation)
+  if (allocation !== previousAllocation) {
+    setPreviousAllocation(allocation)
     setDraft(allocation)
-  }, [allocation])
+  }
 
   function applyAllocation(next: VirtueAllocation) {
     setDraft(next)

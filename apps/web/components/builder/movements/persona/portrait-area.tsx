@@ -23,16 +23,16 @@ import { MAX_PORTRAIT_BYTES } from "@/lib/storage/portrait-upload"
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
 
 /**
- * Movement 4's portrait area. Sits at the visual top of the page, larger
- * than the old basic-info portrait. When empty, renders a quiet cream
- * placeholder (no gradient) — the saturated avatar.vercel.sh service is
- * skipped entirely so the page doesn't compete with the name field for
- * attention. Once uploaded, the image fills the same circular frame.
+ * Movement 4's portrait area. Sits at the visual top of the page. When
+ * empty, renders a quiet cream placeholder (no gradient) — the saturated
+ * avatar.vercel.sh service is skipped entirely so the page doesn't compete
+ * with the name field for attention. Once uploaded, the image fills the
+ * same circular frame.
  *
- * Upload pipeline matches the existing `PortraitUpload` widget:
- * `dispatchCharacterWriteWithRetry` keyed on `identityVersion`, silent
- * stale-retry, cross-tab broadcast. Client-side mime + size guards mirror
- * what the server enforces so the user gets fast feedback.
+ * Upload pipeline: `dispatchCharacterWriteWithRetry` keyed on
+ * `identityVersion`, silent stale-retry, cross-tab broadcast. Client-side
+ * mime + size guards mirror what the server enforces so the user gets
+ * fast feedback.
  */
 export function PortraitArea({
   characterId,

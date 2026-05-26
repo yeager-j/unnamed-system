@@ -3,6 +3,7 @@ import type {
   CharacterKnifeRow,
 } from "../../lib/db/load-character"
 import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
+import type { MovementSlug } from "./builder-steps"
 
 /**
  * Shared "can the player advance from this movement?" predicates. Three
@@ -16,18 +17,14 @@ import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
  *   gate — re-runs every predicate and rejects the finalize on the first
  *   failure).
  *
- * As each movement ticket lands its content, it adds its slug to
- * `GATED_STEPS` and its case to `nextGateForStep`. UNN-215 added `"corpus"`;
- * UNN-216 added `"ortus"`; UNN-218 added `"persona"`. Movement 3 (`animus`)
- * is permissive by design (ADR-002: the text-heavy work is opt-in and
- * Knives / Chains / Identity Traits do not block finalize) and intentionally
- * does not appear here.
+ * Corpus, Ortus, and Persona gate; Movement 3 (Animus) is permissive by
+ * design (ADR-002: the text-heavy work is opt-in and Knives / Chains /
+ * Identity Traits do not block finalize) and intentionally does not appear
+ * here.
  *
  * The input is the minimal structural slice of the builder character every
  * predicate needs. The route's `BuilderCharacter` and the action's loaded
- * row both satisfy this shape without wrapping; the unused fields stay on
- * the interface so UNN-216/217 can plug in their gates without re-widening
- * the contract.
+ * row both satisfy this shape without wrapping.
  */
 
 /** The minimal builder-character slice the gates inspect. */
@@ -63,7 +60,7 @@ export type GatedStepSlug = "corpus" | "ortus" | "persona"
  * disabled-Continue / disabled-Finalize tooltip.
  */
 export function nextGateForStep(
-  slug: string,
+  slug: MovementSlug,
   character: StepGateCharacter
 ): StepGateResult {
   switch (slug) {

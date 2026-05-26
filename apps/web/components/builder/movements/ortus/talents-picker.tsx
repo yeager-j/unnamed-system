@@ -41,9 +41,9 @@ import {
 const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
 
 /**
- * Talents picker for Step 3 (rulebook 2.1, PRD §5.2 — updated by UNN-207
- * to allow up to {@link MAX_PLAYER_ADDED_TALENTS} player-picked Talents at
- * creation alongside the active Archetype's automatic Talents).
+ * Talents picker for Movement 2 — Ortus (rulebook 2.1, PRD §5.2). Allows
+ * up to {@link MAX_PLAYER_ADDED_TALENTS} player-picked Talents at
+ * creation alongside the active Archetype's automatic Talents.
  *
  * Two surfaces:
  *
