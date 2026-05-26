@@ -68,7 +68,7 @@ Inside `apps/web/`:
 apps/web/
 ├── app/                       Next routes
 ├── components/
-│   ├── builder/               Character builder components and steps
+│   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
 │   ├── character-sheet/       Sheet feature; nested shared/ for reusable helpers
 │   └── my-characters/
