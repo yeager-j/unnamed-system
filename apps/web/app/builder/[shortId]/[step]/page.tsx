@@ -7,8 +7,10 @@ import {
 } from "@/components/builder/builder-step-gates"
 import { BUILDER_STEPS, indexOfStep } from "@/components/builder/builder-steps"
 import { StepPlaceholder } from "@/components/builder/step-placeholder"
+import { OrtusStep } from "@/components/builder/steps/ortus"
 import { PersonaStep } from "@/components/builder/steps/persona"
 import { TheBodyStep } from "@/components/builder/steps/the-body"
+import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 
@@ -76,6 +78,23 @@ function renderMovementBody({
           characterId={character.id}
           pathChoice={character.pathChoice}
           originArchetypeKey={character.originArchetypeKey}
+          identityVersion={character.identityVersion}
+        />
+      )
+    case "ortus":
+      return (
+        <OrtusStep
+          characterId={character.id}
+          ancestryText={character.ancestryText}
+          backgroundText={character.backgroundText}
+          originArchetypeKey={character.originArchetypeKey}
+          gainedTalents={character.gainedTalents}
+          allocation={coerceVirtueAllocation({
+            expression: character.virtueExpression,
+            empathy: character.virtueEmpathy,
+            wisdom: character.virtueWisdom,
+            focus: character.virtueFocus,
+          })}
           identityVersion={character.identityVersion}
         />
       )

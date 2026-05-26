@@ -2,6 +2,7 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "../../lib/db/load-character"
+import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
 
 /**
  * Shared "can the player advance from this movement?" predicates. Three
@@ -50,7 +51,7 @@ export type StepGateResult =
   | { canAdvance: false; reason: string }
 
 /** The gate-bearing movement slugs. Slugs not listed are always advanceable. */
-export type GatedStepSlug = "corpus" | "persona"
+export type GatedStepSlug = "corpus" | "ortus" | "persona"
 
 /**
  * Per-movement "can the player advance from here?" rule. Returns
@@ -70,6 +71,22 @@ export function nextGateForStep(
         return {
           canAdvance: false,
           reason: "Pick an Origin Archetype to continue.",
+        }
+      }
+      return { canAdvance: true }
+    }
+    case "ortus": {
+      const allocation = {
+        expression: character.virtueExpression,
+        empathy: character.virtueEmpathy,
+        wisdom: character.virtueWisdom,
+        focus: character.virtueFocus,
+      }
+      if (!isValidCreationAllocation(allocation)) {
+        return {
+          canAdvance: false,
+          reason:
+            "Finish your Virtue allocation — one Virtue at +2 and two at +1.",
         }
       }
       return { canAdvance: true }
@@ -100,7 +117,11 @@ export interface GateFailure {
 }
 
 /** Every gated movement in wizard order. */
-export const GATED_STEPS: readonly GatedStepSlug[] = ["corpus", "persona"]
+export const GATED_STEPS: readonly GatedStepSlug[] = [
+  "corpus",
+  "ortus",
+  "persona",
+]
 
 /**
  * Runs every gate in wizard order and returns the failures. The route page

@@ -63,6 +63,37 @@ describe("nextGateForStep", () => {
     })
   })
 
+  describe("ortus", () => {
+    it("blocks an invalid Virtue allocation", () => {
+      // Default-shape `validCharacter()` already has 1×+2 + 2×+1; perturb
+      // it so we have two +2s, which violates the creation rule.
+      const result = nextGateForStep(
+        "ortus",
+        validCharacter({ virtueExpression: 2, virtueEmpathy: 2 })
+      )
+      expect(result.canAdvance).toBe(false)
+      expect(result.canAdvance === false && result.reason).toMatch(/virtue/i)
+    })
+
+    it("blocks an unfilled allocation", () => {
+      expect(
+        nextGateForStep(
+          "ortus",
+          validCharacter({
+            virtueExpression: 0,
+            virtueEmpathy: 0,
+            virtueWisdom: 0,
+            virtueFocus: 0,
+          })
+        ).canAdvance
+      ).toBe(false)
+    })
+
+    it("allows the canonical creation allocation", () => {
+      expect(nextGateForStep("ortus", validCharacter()).canAdvance).toBe(true)
+    })
+  })
+
   describe("persona", () => {
     it("blocks an empty name", () => {
       const result = nextGateForStep("persona", validCharacter({ name: "" }))
@@ -83,9 +114,8 @@ describe("nextGateForStep", () => {
 
   describe("unknown step slugs", () => {
     it("never blocks an unrecognized slug — only enumerated movements gate", () => {
-      // Placeholder slugs for movements not yet shipped (UNN-216 Ortus,
-      // UNN-217 Animus) and the route's fallback all permissively advance.
-      expect(nextGateForStep("ortus", validCharacter()).canAdvance).toBe(true)
+      // Placeholder slugs for movements not yet shipped (UNN-217 Animus) and
+      // the route's fallback all permissively advance.
       expect(nextGateForStep("animus", validCharacter()).canAdvance).toBe(true)
       expect(
         nextGateForStep("not-a-real-step", validCharacter()).canAdvance
@@ -101,9 +131,20 @@ describe("findStepGateFailures", () => {
 
   it("returns one failure per failing movement, in wizard order", () => {
     const failures = findStepGateFailures(
-      validCharacter({ name: "", originArchetypeKey: null })
+      validCharacter({
+        name: "",
+        originArchetypeKey: null,
+        virtueExpression: 0,
+        virtueEmpathy: 0,
+        virtueWisdom: 0,
+        virtueFocus: 0,
+      })
     )
-    expect(failures.map((f) => f.stepSlug)).toEqual(["corpus", "persona"])
+    expect(failures.map((f) => f.stepSlug)).toEqual([
+      "corpus",
+      "ortus",
+      "persona",
+    ])
     for (const failure of failures) {
       expect(failure.reason).not.toEqual("")
     }
