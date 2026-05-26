@@ -55,7 +55,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
           alt=""
         />
       </ItemMedia>
-      <ItemContent>
+      <ItemContent className="min-w-0">
         <ItemTitle className="flex items-center gap-2">
           {displayName}
           {isDraft ? (
@@ -66,7 +66,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
         </ItemTitle>
         <ItemDescription>{describe(character)}</ItemDescription>
       </ItemContent>
-      <ItemActions>
+      <ItemActions className="shrink-0">
         <CharacterCardActions
           characterId={character.id}
           name={character.name}
