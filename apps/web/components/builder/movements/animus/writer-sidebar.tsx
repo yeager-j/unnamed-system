@@ -31,7 +31,7 @@ import type {
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
 
-import { BUILDER_STEPS, indexOfStep } from "../builder-steps"
+import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"
 import {
   buildDocumentGroups,

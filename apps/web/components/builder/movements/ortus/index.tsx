@@ -1,8 +1,8 @@
-import { TalentsPicker } from "@/components/builder/steps/character-origins/talents-picker"
 import type { TalentKey } from "@/lib/game/talents"
 import type { VirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { NarrativePair } from "./narrative-pair"
+import { TalentsPicker } from "./talents-picker"
 import { VirtuesControl } from "./virtues-control"
 
 /**

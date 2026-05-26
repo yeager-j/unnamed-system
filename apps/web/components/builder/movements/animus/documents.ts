@@ -7,7 +7,7 @@ import type {
 import {
   IDENTITY_TRAIT_MESSAGES,
   IDENTITY_TRAIT_ORDER,
-} from "../steps/identity/messages"
+} from "./identity-trait-messages"
 
 /**
  * The Movement 3 writer's left rail is a flat list of "documents" grouped

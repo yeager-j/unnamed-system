@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation"
 
-import { AnimusStep } from "@/components/builder/animus"
 import { BuilderShell } from "@/components/builder/builder-shell"
 import {
   findStepGateFailures,
@@ -10,9 +9,10 @@ import {
   indexOfStep,
   type MovementSlug,
 } from "@/components/builder/builder-steps"
+import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
-import { OrtusStep } from "@/components/builder/steps/ortus"
-import { PersonaStep } from "@/components/builder/steps/persona"
+import { OrtusStep } from "@/components/builder/movements/ortus"
+import { PersonaStep } from "@/components/builder/movements/persona"
 import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
