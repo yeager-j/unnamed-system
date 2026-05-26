@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 
+import { AnimusStep } from "@/components/builder/animus"
 import { BuilderShell } from "@/components/builder/builder-shell"
 import {
   findStepGateFailures,
@@ -28,7 +29,6 @@ import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 const MOVEMENT_TICKETS: Record<string, string> = {
   corpus: "UNN-215",
   ortus: "UNN-216",
-  animus: "UNN-217",
   persona: "UNN-218",
 }
 
@@ -56,6 +56,7 @@ export default async function BuilderStepPage({
       identityVersion={character.identityVersion}
       canAdvance={gate.canAdvance}
       disabledReason={gate.canAdvance ? undefined : gate.reason}
+      hideHeader={step === "animus"}
     >
       {renderMovementBody({ step, character, label: currentStep.label })}
     </BuilderShell>
@@ -96,6 +97,21 @@ function renderMovementBody({
             focus: character.virtueFocus,
           })}
           identityVersion={character.identityVersion}
+        />
+      )
+    case "animus":
+      return (
+        <AnimusStep
+          characterId={character.id}
+          identityVersion={character.identityVersion}
+          backstoryText={character.backstoryText}
+          knives={character.knives}
+          chains={character.chains}
+          personalityTraits={character.personalityTraits}
+          hopes={character.hopes}
+          dreams={character.dreams}
+          fears={character.fears}
+          secrets={character.secrets}
         />
       )
     case "persona": {

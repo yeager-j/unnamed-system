@@ -39,6 +39,7 @@ export function BuilderShell({
   identityVersion,
   canAdvance = true,
   disabledReason,
+  hideHeader = false,
   children,
 }: {
   characterId: string
@@ -48,6 +49,13 @@ export function BuilderShell({
   identityVersion: number
   canAdvance?: boolean
   disabledReason?: string
+  /**
+   * Suppress the chapter header above the content. Movement 3 (the writer)
+   * relocates the Roman / chapter title / framing line into the writer's
+   * `<SidebarHeader>` so the full pane is left for the document — see
+   * UNN-211.
+   */
+  hideHeader?: boolean
   children: ReactNode
 }) {
   const currentIndex = indexOfStep(currentStepSlug) ?? 0
@@ -59,8 +67,8 @@ export function BuilderShell({
       : null
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-6 py-12 lg:py-16">
-      <ChapterHeader step={currentStep} />
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 p-6 lg:p-8">
+      {hideHeader ? null : <ChapterHeader step={currentStep} />}
 
       <section className="flex flex-1 flex-col gap-6">{children}</section>
 

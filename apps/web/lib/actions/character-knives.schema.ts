@@ -11,7 +11,13 @@ import type { CharacterKnifePersistenceError } from "@/lib/db/character-knives"
 
 export const AddKnifeSchema = z.object({
   characterId: z.string().min(1),
-  title: z.string().trim().min(1, "Title is required").max(120),
+  /**
+   * Empty allowed: the writer view ([UNN-211]) seeds a new Knife with no
+   * title so the placeholder ("Untitled Knife") cues the player to type
+   * one. The sidebar shows "New Knife" until they do (Notion's "New page"
+   * pattern). Per-write actions can still bound the max length.
+   */
+  title: z.string().trim().max(120),
   description: z.string().max(4000).optional(),
   expectedVersion: z.number().int().nonnegative(),
 })
@@ -20,7 +26,8 @@ export type AddKnifeInput = z.input<typeof AddKnifeSchema>
 export const UpdateKnifeTitleSchema = z.object({
   characterId: z.string().min(1),
   knifeId: z.string().min(1),
-  title: z.string().trim().min(1, "Title is required").max(120),
+  /** Empty allowed — clearing a title is a legitimate edit. */
+  title: z.string().trim().max(120),
   expectedVersion: z.number().int().nonnegative(),
 })
 export type UpdateKnifeTitleInput = z.input<typeof UpdateKnifeTitleSchema>

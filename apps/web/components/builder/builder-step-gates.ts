@@ -18,9 +18,10 @@ import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
  *
  * As each movement ticket lands its content, it adds its slug to
  * `GATED_STEPS` and its case to `nextGateForStep`. UNN-215 added `"corpus"`;
- * UNN-218 added `"persona"`. UNN-216 (Ortus) and UNN-217 (Animus) will add
- * their gates when those movements ship — until then, finalize permissively
- * allows characters without Virtues / Knives / Chains / Identity Traits.
+ * UNN-216 added `"ortus"`; UNN-218 added `"persona"`. Movement 3 (`animus`)
+ * is permissive by design (ADR-002: the text-heavy work is opt-in and
+ * Knives / Chains / Identity Traits do not block finalize) and intentionally
+ * does not appear here.
  *
  * The input is the minimal structural slice of the builder character every
  * predicate needs. The route's `BuilderCharacter` and the action's loaded
