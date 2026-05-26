@@ -166,7 +166,7 @@ function wireActions({
           bodyPlaceholder:
             "Tell us about your character's life before the adventure…",
           description:
-            "Tell us who your character was before the adventure began — what shaped them, what they carry forward, who they used to be. The longer the better; this becomes the table's reference for the years your character has already lived.",
+            "Tell us who your character was before the adventure began — what shaped them, what they carry forward, who they used to be. 2-3 paragraphs is sufficient; this becomes the table's reference for the years your character has already lived.",
           saveError: "Couldn't save your Backstory. Try again.",
         },
       }
@@ -240,7 +240,7 @@ function wireActions({
           bodyPlaceholder: "What limits your character? Why does it bind them?",
           titlePlaceholder: UNTITLED_CHAIN,
           description:
-            "A limitation that binds your character — a debt, an oath, a vice, a wound. Breaking a Chain through play is how you unlock your Paragon, but you won't mark that here — you'll do it from your sheet later.",
+            "A Chain is something inside you holding you back from who you're meant to be. Where Knives are external, Chains are internal — the fears, wounds, and lies you've internalized about yourself. A Chain might be a crippling self-doubt born from a past failure. Whatever form it takes, a Chain is the gap between who you are and who you could be.",
           saveError: "Couldn't save the Chain. Try again.",
         },
       }
@@ -273,14 +273,14 @@ function wireActions({
 function identityDescriptionFor(field: IdentityTraitField): string {
   switch (field) {
     case "personality":
-      return "Small, specific habits that make your character recognizable at the table. Use a `- ` list with one trait per line — aim for two to four, concrete enough that the table will pick up on them mid-scene."
+      return "A Personality Trait is a small, specific habit or quirk that makes your character recognizable at the table. The strongest Personality Traits are things another player at the table could mimic after one session."
     case "hope":
-      return "Short-term, realistic goals your character is actively working toward — concrete enough that you and the DM will recognize one being fulfilled. One or two."
+      return "A Hope is a short-term, realistic goal your character is actively working toward. Hopes are the engine of your character's near-term decisions, and they should be concrete enough that you and the DM can recognize when one is fulfilled."
     case "dream":
-      return "A long-term, larger-than-life goal your character cannot achieve alone — and may not achieve in their lifetime. Choose one."
+      return "A Dream is a long-term, larger-than-life goal your character cannot achieve alone — and may not achieve in their lifetime. Where Hopes drive your character's next session, Dreams drive their whole life. Examples include ending a century-long war between two kingdoms or creating a world without lawyers."
     case "fear":
-      return "Things that paralyze your character now but might be overcome through play. Every Fear emerges from a specific wound — capture both. Often tied to one of your Knives or Chains."
+      return "A Fear is something that paralyzes your character *right now* but which they can plausibly overcome through the events of the campaign. Every Fear emerges from a specific trauma in your character's past. The fear itself (whether concrete or abstract) is important, but what matters more is the wound underneath it."
     case "secret":
-      return "Things only your character (and perhaps a very small circle) knows, which would be devastating if revealed. Share each with your DM in private."
+      return "A Secret is something only your character (and perhaps a very small circle of others) knows, and which would be devastating if revealed. A Secret does not have to be about your character — it might be that you accidentally killed your brother, or it might be that you know the King is a Lich."
   }
 }

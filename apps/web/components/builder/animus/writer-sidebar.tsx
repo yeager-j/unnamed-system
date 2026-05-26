@@ -136,7 +136,6 @@ function SidebarSection({
   function handleAdd() {
     const kind = group.kind
     if (kind !== "knives" && kind !== "chains") return
-    const seedTitle = defaultNewTitle(kind, group.entries.length)
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
@@ -146,12 +145,12 @@ function SidebarSection({
           kind === "knives"
             ? addCharacterKnifeAction({
                 characterId,
-                title: seedTitle,
+                title: "",
                 expectedVersion,
               })
             : addCharacterChainAction({
                 characterId,
-                title: seedTitle,
+                title: "",
                 expectedVersion,
               }),
       })
@@ -166,7 +165,7 @@ function SidebarSection({
       selectDocument({
         kind: kind === "knives" ? "knife" : "chain",
         id: result.value.id,
-        label: seedTitle,
+        label: "",
       })
     })
   }
@@ -222,26 +221,36 @@ function SidebarSection({
 
       <SidebarGroupContent>
         <SidebarMenu>
-          {group.entries.map((entry) => (
-            <SidebarMenuItem key={`${entry.kind}:${entry.id}`}>
-              <SidebarMenuButton
-                isActive={refsEqual(activeRef, entry)}
-                onClick={() => selectDocument(entry)}
-              >
-                <span>{entry.label || placeholderLabel(entry)}</span>
-              </SidebarMenuButton>
-              {group.canRemove ? (
-                <SidebarMenuAction
-                  showOnHover
-                  aria-label={`Remove ${entry.label || placeholderLabel(entry)}`}
-                  disabled={isPending}
-                  onClick={() => handleRemove(entry)}
+          {group.entries.map((entry) => {
+            const isPlaceholder = entry.label.length === 0
+            const displayedLabel = entry.label || placeholderLabel(entry)
+            return (
+              <SidebarMenuItem key={`${entry.kind}:${entry.id}`}>
+                <SidebarMenuButton
+                  isActive={refsEqual(activeRef, entry)}
+                  onClick={() => selectDocument(entry)}
                 >
-                  <TrashIcon weight="bold" />
-                </SidebarMenuAction>
-              ) : null}
-            </SidebarMenuItem>
-          ))}
+                  <span
+                    className={
+                      isPlaceholder ? "text-sidebar-foreground/50" : undefined
+                    }
+                  >
+                    {displayedLabel}
+                  </span>
+                </SidebarMenuButton>
+                {group.canRemove ? (
+                  <SidebarMenuAction
+                    showOnHover
+                    aria-label={`Remove ${displayedLabel}`}
+                    disabled={isPending}
+                    onClick={() => handleRemove(entry)}
+                  >
+                    <TrashIcon weight="bold" />
+                  </SidebarMenuAction>
+                ) : null}
+              </SidebarMenuItem>
+            )
+          })}
 
           {group.canAdd ? (
             <SidebarMenuItem>
@@ -261,13 +270,15 @@ function SidebarSection({
   )
 }
 
-function defaultNewTitle(kind: "knives" | "chains", existingCount: number) {
-  const singular = kind === "knives" ? "Knife" : "Chain"
-  return `New ${singular} ${existingCount + 1}`
-}
-
+/**
+ * Sidebar fallback label for an empty Knife/Chain title. Mirrors Notion's
+ * "New page" convention — the editor pane uses a different placeholder
+ * ("Untitled Knife") to cue the player that the title field is editable;
+ * the sidebar just needs a non-empty row label so the entry stays
+ * clickable.
+ */
 function placeholderLabel(ref: DocumentRef): string {
-  if (ref.kind === "knife") return "Untitled Knife"
-  if (ref.kind === "chain") return "Untitled Chain"
+  if (ref.kind === "knife") return "New Knife"
+  if (ref.kind === "chain") return "New Chain"
   return ref.label
 }

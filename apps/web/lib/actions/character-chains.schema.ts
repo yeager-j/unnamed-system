@@ -10,7 +10,11 @@ import type { CharacterChainPersistenceError } from "@/lib/db/character-chains"
 
 export const AddChainSchema = z.object({
   characterId: z.string().min(1),
-  title: z.string().trim().min(1, "Title is required").max(120),
+  /**
+   * Empty allowed — the writer view ([UNN-211]) seeds a new Chain with
+   * no title; sidebar shows "New Chain" until the player types one.
+   */
+  title: z.string().trim().max(120),
   description: z.string().max(4000).optional(),
   expectedVersion: z.number().int().nonnegative(),
 })
@@ -19,7 +23,8 @@ export type AddChainInput = z.input<typeof AddChainSchema>
 export const UpdateChainTitleSchema = z.object({
   characterId: z.string().min(1),
   chainId: z.string().min(1),
-  title: z.string().trim().min(1, "Title is required").max(120),
+  /** Empty allowed — clearing a title is a legitimate edit. */
+  title: z.string().trim().max(120),
   expectedVersion: z.number().int().nonnegative(),
 })
 export type UpdateChainTitleInput = z.input<typeof UpdateChainTitleSchema>

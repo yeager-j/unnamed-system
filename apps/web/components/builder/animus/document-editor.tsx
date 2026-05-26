@@ -102,7 +102,10 @@ export function DocumentEditor({
     characterId,
     characterClass: "identity",
     isEqual: (a, b) => a.trim() === b.trim(),
-    isEmpty: (v) => v.trim().length === 0,
+    // No `isEmpty` guard — clearing the title is a legitimate edit. The
+    // sidebar renders "New Knife" / "New Chain" as a fallback label when
+    // the saved title is empty; the editor's own placeholder cues the
+    // player to type one.
     onError,
     save: async (next, expectedVersion) => {
       if (!actions.updateTitle) {
