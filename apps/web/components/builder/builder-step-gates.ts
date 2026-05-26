@@ -2,25 +2,29 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "../../lib/db/load-character"
-import { DRAFT_NAME_PLACEHOLDER } from "../../lib/db/start-character-draft"
 import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
-import { IDENTITY_TRAIT_MESSAGES } from "./steps/identity/messages"
+import type { MovementSlug } from "./builder-steps"
 
 /**
- * Shared "can the player advance from this step?" predicates. Lifted out of
- * `app/builder/[shortId]/[step]/page.tsx` so three callers share one source
- * of truth:
+ * Shared "can the player advance from this movement?" predicates. Three
+ * callers share the source of truth:
  *
- * - the wizard's Next button (`nextGateForStep` — gates one step at a time);
- * - the Review server component (calls every prior step's gate to render
- *   the validation summary that points at the failing step);
+ * - the wizard's Continue link (`nextGateForStep` — gates one movement at a
+ *   time, surfaces the reason as the disabled-link tooltip);
+ * - the route page on Movement 4 (calls `findStepGateFailures` to gate the
+ *   Finalize button on every required input, not just persona's name);
  * - the `finalizeCharacterAction` Server Action (canonical server-side
- *   gate — re-runs all predicates and rejects the finalize on the first
+ *   gate — re-runs every predicate and rejects the finalize on the first
  *   failure).
  *
+ * Corpus, Ortus, and Persona gate; Movement 3 (Animus) is permissive by
+ * design (ADR-002: the text-heavy work is opt-in and Knives / Chains /
+ * Identity Traits do not block finalize) and intentionally does not appear
+ * here.
+ *
  * The input is the minimal structural slice of the builder character every
- * predicate needs. Both the route's `BuilderCharacter` and the action's
- * loaded row satisfy this shape without wrapping.
+ * predicate needs. The route's `BuilderCharacter` and the action's loaded
+ * row both satisfy this shape without wrapping.
  */
 
 /** The minimal builder-character slice the gates inspect. */
@@ -44,48 +48,23 @@ export type StepGateResult =
   | { canAdvance: true }
   | { canAdvance: false; reason: string }
 
-/** The gate-bearing step slugs. Steps not listed are always advanceable. */
-export type GatedStepSlug =
-  | "basic-info"
-  | "path-and-archetype"
-  | "character-origins"
-  | "identity"
+/** The gate-bearing movement slugs. Slugs not listed are always advanceable. */
+export type GatedStepSlug = "corpus" | "ortus" | "persona"
 
 /**
- * The Step-3 hard minimums — surfaced here so the Knives/Chains editors and
- * the Review screen's "what's blocking finalize" summary share one source.
- */
-export const MIN_KNIVES = 4
-export const MIN_CHAINS = 1
-
-/**
- * Per-step "can the player advance from here?" rule. Returns
- * `{ canAdvance: true }` for any step that does not gate progress, so callers
+ * Per-movement "can the player advance from here?" rule. Returns
+ * `{ canAdvance: true }` for any slug that does not gate progress, so callers
  * never need a default branch.
  *
- * Each reason string is written in second-person prose because it's surfaced
- * to the player as the disabled Next button's tooltip and (on the Review
- * screen) as the validation summary's bullet copy. PRD §5.2 lists the hard
- * requirements; the Step-3 minima for Knives/Chains and the Step-4 "all
- * five Identity sections non-empty" gate are existing UNN-207/208
- * conventions, not new requirements.
+ * Reason strings are second-person prose because they surface as the
+ * disabled-Continue / disabled-Finalize tooltip.
  */
 export function nextGateForStep(
-  slug: string,
+  slug: MovementSlug,
   character: StepGateCharacter
 ): StepGateResult {
   switch (slug) {
-    case "basic-info": {
-      const trimmed = character.name.trim()
-      if (trimmed.length === 0 || trimmed === DRAFT_NAME_PLACEHOLDER) {
-        return {
-          canAdvance: false,
-          reason: "Give your character a name to continue.",
-        }
-      }
-      return { canAdvance: true }
-    }
-    case "path-and-archetype": {
+    case "corpus": {
       if (character.originArchetypeKey === null) {
         return {
           canAdvance: false,
@@ -94,7 +73,7 @@ export function nextGateForStep(
       }
       return { canAdvance: true }
     }
-    case "character-origins": {
+    case "ortus": {
       const allocation = {
         expression: character.virtueExpression,
         empathy: character.virtueEmpathy,
@@ -108,36 +87,13 @@ export function nextGateForStep(
             "Finish your Virtue allocation — one Virtue at +2 and two at +1.",
         }
       }
-      if (character.knives.length < MIN_KNIVES) {
-        const missing = MIN_KNIVES - character.knives.length
-        return {
-          canAdvance: false,
-          reason: `Add at least ${missing} more Knife${missing === 1 ? "" : "s"} to continue.`,
-        }
-      }
-      if (character.chains.length < MIN_CHAINS) {
-        return {
-          canAdvance: false,
-          reason: "Add at least one Chain to continue.",
-        }
-      }
       return { canAdvance: true }
     }
-    case "identity": {
-      const sections = [
-        { field: "personality" as const, value: character.personalityTraits },
-        { field: "hope" as const, value: character.hopes },
-        { field: "dream" as const, value: character.dreams },
-        { field: "fear" as const, value: character.fears },
-        { field: "secret" as const, value: character.secrets },
-      ]
-      const firstEmpty = sections.find(
-        (section) => (section.value ?? "").trim().length === 0
-      )
-      if (firstEmpty) {
+    case "persona": {
+      if (character.name.trim().length === 0) {
         return {
           canAdvance: false,
-          reason: IDENTITY_TRAIT_MESSAGES[firstEmpty.field].emptyReason,
+          reason: "Give your character a name to finalize.",
         }
       }
       return { canAdvance: true }
@@ -148,26 +104,27 @@ export function nextGateForStep(
 }
 
 /**
- * A gate failure surfaced on the Review screen / finalize action. Each entry
- * names the step slug so the consumer can render a "Fix in {step}" link.
+ * A gate failure surfaced on the Finalize button / finalize action. Each
+ * entry names the movement slug so the consumer can render a "Fix in {slug}"
+ * link if it wants to (the Finalize button just surfaces the first reason as
+ * its disabled tooltip).
  */
 export interface GateFailure {
   stepSlug: GatedStepSlug
   reason: string
 }
 
-/** Every gated step in wizard order. */
+/** Every gated movement in wizard order. */
 export const GATED_STEPS: readonly GatedStepSlug[] = [
-  "basic-info",
-  "path-and-archetype",
-  "character-origins",
-  "identity",
+  "corpus",
+  "ortus",
+  "persona",
 ]
 
 /**
- * Runs every gate in wizard order and returns the failures. The Review
- * screen renders these as a validation summary; the finalize Server Action
- * rejects if the list is non-empty.
+ * Runs every gate in wizard order and returns the failures. The route page
+ * uses the result to gate the Finalize button; the finalize Server Action
+ * uses it to reject mid-write if anything has changed since the click.
  */
 export function findStepGateFailures(
   character: StepGateCharacter

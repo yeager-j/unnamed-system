@@ -1,59 +1,63 @@
 /**
- * The wizard's step list — the single source of truth for slugs, labels, and
- * in-context guidance blurbs (PRD §5.1 + §11). Both the stepper UI and the
- * route's `[step]/page.tsx` switch read from this; `characters.builderStep`
- * is an index into it.
- *
- * Step bodies are filled in across sibling tickets:
- *
- * - `basic-info` → UNN-204 (shipped)
- * - `path-and-archetype` → UNN-205 (shipped)
- * - `character-origins` → UNN-207 (shipped)
- * - `identity` → UNN-208
- * - `review` → UNN-206
+ * The wizard's movement list — the single source of truth for slugs, Roman
+ * numerals, chapter titles, and italic framing lines (ADR-002 §"Structure —
+ * four movements"). The shell reads from this; the route's
+ * `[step]/page.tsx` validates the URL segment against it; the DB row's
+ * `builderStep` integer is an index into it.
  */
+
+export type RomanNumeral = "I" | "II" | "III" | "IV"
+
+/**
+ * The closed set of movement slugs. The route page narrows the URL segment
+ * to this union after `indexOfStep` confirms the slug exists, so the
+ * dispatch in `[step]/page.tsx` can be exhaustively type-checked without a
+ * fallback branch.
+ */
+export type MovementSlug = "corpus" | "ortus" | "animus" | "persona"
 
 export type BuilderStep = {
   /** URL slug — the segment under `/builder/[shortId]/`. */
-  slug: string
-  /** Short label shown in the step indicator and on the draft card. */
+  slug: MovementSlug
+  /**
+   * The Roman numeral rendered above the title in the chapter-header chrome.
+   * One per movement; intentionally not derived from index so the source
+   * file reads as data, not arithmetic.
+   */
+  romanNumeral: RomanNumeral
+  /** The chapter title in serif type (e.g. "The Body"). */
   label: string
   /**
-   * The PRD-§11 short blurb rendered above the step body, explaining what
-   * the player is choosing and why.
+   * The italic serif framing line under the title. `null` for movements that
+   * intentionally render without one (Movement 4 per ADR-002).
    */
-  blurb: string
+  framingLine: string | null
 }
 
 export const BUILDER_STEPS = [
   {
-    slug: "basic-info",
-    label: "Basic info",
-    blurb:
-      "Pick the name and pronouns your character goes by, and (optionally) upload a portrait. You can change any of these later from the sheet.",
+    slug: "corpus",
+    romanNumeral: "I",
+    label: "Corpus",
+    framingLine: "What shape does your power take?",
   },
   {
-    slug: "path-and-archetype",
-    label: "Path & Archetype",
-    blurb:
-      "Choose your HP / SP path and your Origin Archetype. The Archetype sets your Attributes, Affinities, and starting Skills.",
+    slug: "ortus",
+    romanNumeral: "II",
+    label: "Ortus",
+    framingLine: "Where does your character come from?",
   },
   {
-    slug: "character-origins",
-    label: "Character Origins",
-    blurb:
-      "Assign your starting Virtues and write the prose that grounds your character — Ancestry, Background, Backstory, Knives, and Chains.",
+    slug: "animus",
+    romanNumeral: "III",
+    label: "Animus",
+    framingLine: "What are the contents of your soul?",
   },
   {
-    slug: "identity",
-    label: "Identity Traits",
-    blurb:
-      "Capture who your character is on the inside: Personality, Hopes, Dreams, Fears, and Secrets.",
-  },
-  {
-    slug: "review",
-    label: "Review",
-    blurb: "Look over everything and finalize your character.",
+    slug: "persona",
+    romanNumeral: "IV",
+    label: "Persona",
+    framingLine: "Who are you?",
   },
 ] as const satisfies readonly BuilderStep[]
 
@@ -62,7 +66,7 @@ export const FIRST_STEP_SLUG = BUILDER_STEPS[0].slug
 /**
  * Resolves a step slug → its index in `BUILDER_STEPS`, or `null` if the slug
  * isn't recognized. Used by the route handler to validate the URL segment
- * and by the stepper to highlight the current pill.
+ * and by the shell to highlight the current dot.
  */
 export function indexOfStep(slug: string): number | null {
   const index = BUILDER_STEPS.findIndex((step) => step.slug === slug)
@@ -73,7 +77,7 @@ export function indexOfStep(slug: string): number | null {
  * Resolves a `builderStep` index → its slug, clamping if the index is out
  * of range so a corrupted/old value can't trap the player.
  */
-export function slugForStepIndex(index: number): string {
+export function slugForStepIndex(index: number): MovementSlug {
   if (index < 0) return BUILDER_STEPS[0].slug
   if (index >= BUILDER_STEPS.length) {
     return BUILDER_STEPS[BUILDER_STEPS.length - 1]!.slug

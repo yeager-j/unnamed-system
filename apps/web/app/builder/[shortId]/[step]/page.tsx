@@ -1,28 +1,29 @@
 import { notFound } from "next/navigation"
 
-import { BuilderNav } from "@/components/builder/builder-nav"
 import { BuilderShell } from "@/components/builder/builder-shell"
-import { nextGateForStep } from "@/components/builder/builder-step-gates"
-import { indexOfStep } from "@/components/builder/builder-steps"
-import { BasicInfoStep } from "@/components/builder/steps/basic-info"
-import { CharacterOriginsStep } from "@/components/builder/steps/character-origins"
-import { IdentityStep } from "@/components/builder/steps/identity"
-import { PathAndArchetypeStep } from "@/components/builder/steps/path-and-archetype"
-import { ReviewStep } from "@/components/builder/steps/review"
+import {
+  findStepGateFailures,
+  nextGateForStep,
+} from "@/components/builder/builder-step-gates"
+import {
+  indexOfStep,
+  type MovementSlug,
+} from "@/components/builder/builder-steps"
+import { AnimusStep } from "@/components/builder/movements/animus"
+import { CorpusStep } from "@/components/builder/movements/corpus"
+import { OrtusStep } from "@/components/builder/movements/ortus"
+import { PersonaStep } from "@/components/builder/movements/persona"
 import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 
 /**
- * Renders the body for a single builder step. The slug is validated
- * against `BUILDER_STEPS`; unknown slugs 404 so a typo in the URL doesn't
- * silently land on step 1. Only `basic-info` and `path-and-archetype` have
- * real bodies today — every other step renders the placeholder pointing at
- * the sibling ticket that owns it.
- *
- * The shell (header, blurb, stepper) is rendered here rather than in the
- * layout so the layout doesn't have to know the current step slug —
- * Next's layout API doesn't expose child segment params.
+ * Renders the body for a single builder movement. The slug is validated
+ * against `BUILDER_STEPS` via `indexOfStep`; unknown slugs 404 above so a
+ * typo in the URL doesn't silently land on Movement 1. The shell (chapter
+ * header + dots footer + named back/continue links) wraps every movement
+ * so the layout doesn't have to read child segment params — Next 16
+ * layouts don't get those.
  */
 export default async function BuilderStepPage({
   params,
@@ -36,81 +37,67 @@ export default async function BuilderStepPage({
   const character = await getBuilderCharacter(shortId)
   if (!character) notFound()
 
-  const gate = nextGateForStep(step, character)
+  const slug = step as MovementSlug
+  const gate = nextGateForStep(slug, character)
 
   return (
     <BuilderShell
+      characterId={character.id}
       shortId={shortId}
-      currentStepSlug={step}
+      currentStepSlug={slug}
       highestVisitedStepIndex={character.builderStep}
+      identityVersion={character.identityVersion}
+      canAdvance={gate.canAdvance}
+      disabledReason={gate.canAdvance ? undefined : gate.reason}
+      hideHeader={slug === "animus"}
     >
-      {renderStepBody({ step, character, shortId })}
-      <BuilderNav
-        characterId={character.id}
-        shortId={shortId}
-        currentIndex={currentIndex}
-        identityVersion={character.identityVersion}
-        canAdvance={gate.canAdvance}
-        disabledReason={gate.canAdvance ? undefined : gate.reason}
-      />
+      {renderMovementBody({ slug, character })}
     </BuilderShell>
   )
 }
 
-function renderStepBody({
-  step,
+function renderMovementBody({
+  slug,
   character,
-  shortId,
 }: {
-  step: string
+  slug: MovementSlug
   character: BuilderCharacter
-  shortId: string
 }) {
-  switch (step) {
-    case "basic-info":
+  switch (slug) {
+    case "corpus":
       return (
-        <BasicInfoStep
-          characterId={character.id}
-          name={character.name}
-          pronouns={character.pronouns}
-          portraitUrl={character.portraitUrl}
-          identityVersion={character.identityVersion}
-        />
-      )
-    case "path-and-archetype":
-      return (
-        <PathAndArchetypeStep
+        <CorpusStep
           characterId={character.id}
           pathChoice={character.pathChoice}
           originArchetypeKey={character.originArchetypeKey}
           identityVersion={character.identityVersion}
         />
       )
-    case "character-origins":
+    case "ortus":
       return (
-        <CharacterOriginsStep
+        <OrtusStep
           characterId={character.id}
-          identityVersion={character.identityVersion}
-          serverVirtueAllocation={coerceVirtueAllocation({
+          ancestryText={character.ancestryText}
+          backgroundText={character.backgroundText}
+          originArchetypeKey={character.originArchetypeKey}
+          gainedTalents={character.gainedTalents}
+          allocation={coerceVirtueAllocation({
             expression: character.virtueExpression,
             empathy: character.virtueEmpathy,
             wisdom: character.virtueWisdom,
             focus: character.virtueFocus,
           })}
-          ancestryText={character.ancestryText}
-          backgroundText={character.backgroundText}
+          identityVersion={character.identityVersion}
+        />
+      )
+    case "animus":
+      return (
+        <AnimusStep
+          characterId={character.id}
+          identityVersion={character.identityVersion}
           backstoryText={character.backstoryText}
           knives={character.knives}
           chains={character.chains}
-          originArchetypeKey={character.originArchetypeKey}
-          gainedTalents={character.gainedTalents}
-        />
-      )
-    case "identity":
-      return (
-        <IdentityStep
-          characterId={character.id}
-          identityVersion={character.identityVersion}
           personalityTraits={character.personalityTraits}
           hopes={character.hopes}
           dreams={character.dreams}
@@ -118,9 +105,22 @@ function renderStepBody({
           secrets={character.secrets}
         />
       )
-    case "review":
-      return <ReviewStep character={character} shortId={shortId} />
-    default:
-      return null
+    case "persona": {
+      // Finalize must honor every gate, not just persona's name. A player
+      // who skipped past Corpus without picking an Origin should see the
+      // Finalize button disabled with the corpus reason surfaced.
+      const failures = findStepGateFailures(character)
+      return (
+        <PersonaStep
+          characterId={character.id}
+          name={character.name}
+          pronouns={character.pronouns}
+          portraitUrl={character.portraitUrl}
+          identityVersion={character.identityVersion}
+          canFinalize={failures.length === 0}
+          disabledReason={failures[0]?.reason}
+        />
+      )
+    }
   }
 }

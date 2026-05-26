@@ -8,6 +8,31 @@ import {
 } from "./builder-steps"
 
 describe("BUILDER_STEPS", () => {
+  it("has exactly four movements with the ADR-002 slugs in order", () => {
+    expect(BUILDER_STEPS.map((step) => step.slug)).toEqual([
+      "corpus",
+      "ortus",
+      "animus",
+      "persona",
+    ])
+  })
+
+  it("numbers the movements I → IV", () => {
+    expect(BUILDER_STEPS.map((step) => step.romanNumeral)).toEqual([
+      "I",
+      "II",
+      "III",
+      "IV",
+    ])
+  })
+
+  it("supplies a framing line for every movement", () => {
+    for (const step of BUILDER_STEPS) {
+      expect(step.framingLine).not.toBeNull()
+      expect(step.framingLine?.length).toBeGreaterThan(0)
+    }
+  })
+
   it("has unique URL-safe slugs", () => {
     const slugs = BUILDER_STEPS.map((step) => step.slug)
     expect(new Set(slugs).size).toBe(slugs.length)

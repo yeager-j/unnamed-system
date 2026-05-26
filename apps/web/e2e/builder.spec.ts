@@ -1,28 +1,23 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test } from "@playwright/test"
 import { and, eq } from "drizzle-orm"
 
-import { characterChains, characterKnives, characters, getDb } from "@/lib/db"
+import { characters, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 
 /**
- * Character builder wizard E2E (UNN-204, UNN-205). Covers the surfaces the
- * builder ACs call out: the Step 1 happy path with auto-save + required-field
- * gate, the non-owner WIP dialog on `/c/{shortId}` for a draft, the
- * "multiple drafts per user" UX on My Characters, and the Step 2
- * Path/Origin pickers including persistence and the resolved-cost popover
- * inside the Archetype drawer.
+ * Builder shell — the contract this PR delivers (UNN-214):
  *
- * Each test creates one or more new draft rows for `DEV_USER`. A
- * `beforeEach` wipes those rows so a re-run starts clean even if a prior
- * test crashed mid-flight, and the seed (`lib/db/seed.ts`) does the same
- * sweep so drafts don't accumulate across CI invocations.
+ * - A fresh draft lands on `/corpus`.
+ * - The chapter header renders the Roman + serif title for each movement.
+ * - The Continue link advances the row's `builderStep` cursor AND navigates.
+ * - `/builder/{shortId}` (no movement segment) redirects to the cursor,
+ *   not always Movement 1.
+ * - Visited dots navigate back; upcoming dots are inert.
+ * - Movement 4 (Persona) has no Continue link and a named back-link.
  *
- * Serialized because every test mutates the My Characters list for the
- * same dev user; running them in parallel would let one test's "two drafts
- * visible" assertion catch another test's transient state, and a Step 2
- * mutation could land on a draft the `clearDevUserDrafts` of a sibling
- * test had wiped.
+ * Movement bodies are placeholders here — per-movement tickets
+ * (UNN-215 → UNN-218) own end-to-end content coverage for each movement.
  */
 
 const DEV_USER_ID = "dev-user-claude"
@@ -43,801 +38,568 @@ function shortIdFromBuilderUrl(url: string): string {
   return match[1]!
 }
 
-test.describe("character builder", () => {
+async function readBuilderStep(shortId: string): Promise<number> {
+  const [row] = await getDb()
+    .select({ builderStep: characters.builderStep })
+    .from(characters)
+    .where(eq(characters.shortId, shortId))
+    .limit(1)
+  if (!row) throw new Error(`no row for shortId=${shortId}`)
+  return row.builderStep
+}
+
+/**
+ * Movement 1's Continue is gated on an Origin Archetype being selected
+ * (UNN-215). Specs that need to walk past Corpus expand the Warrior card and
+ * click its Choose button to satisfy the gate before they ever touch Continue.
+ */
+async function chooseWarriorOrigin(
+  page: import("@playwright/test").Page
+): Promise<void> {
+  await page
+    .getByRole("button", { name: "Expand Warrior Lineage details" })
+    .click()
+  await page.getByRole("button", { name: "Choose Warrior as Origin" }).click()
+  await expect(
+    page.getByRole("button", { name: "Warrior chosen" })
+  ).toBeVisible()
+}
+
+/**
+ * Movement 2's Continue is gated on a valid creation Virtue allocation
+ * (UNN-216): exactly one +2, two +1s, one 0. Helper for specs that walk
+ * past Ortus.
+ *
+ * `setCharacterVirtuesAction` writes the full 4-rank snapshot per click.
+ * Sequential clicks can race the in-flight action — between each click we
+ * poll the DB until the rank persisted, then issue the next click. This is
+ * slower than waiting for an optimistic-UI signal but it's the only way to
+ * guarantee `versionRef.current` is fresh for the next dispatch.
+ */
+async function setValidVirtueAllocation(
+  page: import("@playwright/test").Page,
+  shortId: string
+): Promise<void> {
+  async function readVirtues() {
+    const [row] = await getDb()
+      .select({
+        expression: characters.virtueExpression,
+        empathy: characters.virtueEmpathy,
+        wisdom: characters.virtueWisdom,
+        focus: characters.virtueFocus,
+      })
+      .from(characters)
+      .where(eq(characters.shortId, shortId))
+      .limit(1)
+    return row
+  }
+
+  await page
+    .locator('[data-virtue="expression"]')
+    .getByRole("button", { name: "+2" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.expression ?? null, {
+      timeout: 5000,
+    })
+    .toBe(2)
+
+  await page
+    .locator('[data-virtue="empathy"]')
+    .getByRole("button", { name: "+1" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.empathy ?? null, { timeout: 5000 })
+    .toBe(1)
+
+  await page
+    .locator('[data-virtue="wisdom"]')
+    .getByRole("button", { name: "+1" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.wisdom ?? null, { timeout: 5000 })
+    .toBe(1)
+
+  // Reload so the server-rendered Continue button picks up the fresh gate
+  // state without racing the route's revalidation chain.
+  await page.reload()
+  await expect(
+    page.getByRole("button", { name: "Continue to Animus" })
+  ).toBeEnabled()
+}
+
+test.describe("builder shell", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(clearDevUserDrafts)
   test.afterAll(clearDevUserDrafts)
 
-  test("create → auto-save name → Next enables → advance → Back preserves the value → /c redirects the owner", async ({
+  test("renders chapter chrome, advances the cursor on Continue, and bounces /builder to the cursor", async ({
     page,
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
 
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/basic-info$/)
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    // Fresh draft seeds `name = "Untitled character"` — Next gates until
-    // the player replaces it. The placeholder text is in the input on
-    // load (the value, not a placeholder attribute) so focusing the
-    // input auto-selects it.
-    const nameInput = page.getByRole("textbox", { name: "Name" })
-    await expect(nameInput).toHaveValue("Untitled character")
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Corpus" })
+    ).toBeVisible()
+    await expect(
+      page.getByText("What shape does your power take?")
+    ).toBeVisible()
 
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    await expect(nextBtn).toBeDisabled()
+    await chooseWarriorOrigin(page)
 
-    await nameInput.fill("Aurelius Vex")
-    await nameInput.blur()
-    // Cover the 500ms debounce + Server Action round-trip +
-    // revalidateCharacter that re-renders the page with the new prop.
-    await page.waitForLoadState("networkidle")
-    await expect(nextBtn).toBeEnabled()
+    await page.getByRole("button", { name: "Continue to Ortus" }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/ortus`)
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Ortus" })
+    ).toBeVisible()
+    expect(await readBuilderStep(shortId)).toBe(1)
 
-    await nextBtn.click()
-    await expect(page).toHaveURL(`/builder/${shortId}/path-and-archetype`)
-    // UNN-205 fills in the Step 2 body. Confirm we landed on the new step
-    // by asserting on the Path picker's RadioGroup — the "Step 2" tests below
-    // own the deep coverage of this step.
-    await expect(page.getByRole("radiogroup")).toBeVisible()
+    await page.goto(`/builder/${shortId}`)
+    await expect(page).toHaveURL(`/builder/${shortId}/ortus`)
 
-    // Base UI's Button with `nativeButton={false}` renders the Link as an
-    // `<a>` but keeps `role="button"`, so the accessible role is "button"
-    // even though the underlying element is an anchor.
-    await page.getByRole("button", { name: "Back" }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/basic-info`)
-    await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue(
-      "Aurelius Vex"
-    )
-
-    // The owner pasting `/c/{shortId}` for their own draft is bounced
-    // straight into the builder at the highest step they've reached
-    // (cursor is 1 after the Next click above).
-    await page.goto(`/c/${shortId}`)
-    await expect(page).toHaveURL(`/builder/${shortId}/path-and-archetype`)
+    await page.getByRole("link", { name: "Movement 1 — Corpus" }).click()
+    await expect(page).toHaveURL(`/builder/${shortId}/corpus`)
   })
 
-  test("a draft's /c/{shortId} shows a non-dismissable WIP dialog to non-owners", async ({
-    browser,
+  test("Movement 4 (Persona) has a named back-link and no Continue", async ({
     page,
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/basic-info$/)
+
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    const guestContext = await browser.newContext({ storageState: undefined })
-    try {
-      const guest = await guestContext.newPage()
-      await guest.goto(`/c/${shortId}`)
-      const dialog = guest.getByRole("alertdialog", {
-        name: /Character not ready yet/,
-      })
-      await expect(dialog).toBeVisible()
-      // AlertDialog's default contract is to ignore Escape + backdrop
-      // click; the absence of `AlertDialogCancel` removes the only
-      // dismiss path.
-      await guest.keyboard.press("Escape")
-      await expect(dialog).toBeVisible()
-    } finally {
-      await guestContext.close()
-    }
-  })
+    await chooseWarriorOrigin(page)
 
-  test("multiple drafts coexist on My Characters with their own Resume CTAs", async ({
+    await page.getByRole("button", { name: "Continue to Ortus" }).click()
+    await setValidVirtueAllocation(page, shortId)
+    await page.getByRole("button", { name: "Continue to Animus" }).click()
+    await page.getByRole("button", { name: "Continue to Persona" }).click()
+
+    await expect(page).toHaveURL(`/builder/${shortId}/persona`)
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Persona" })
+    ).toBeVisible()
+    await expect(page.getByText("Who are you?")).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: /^Continue to/ })
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole("link", { name: "Back to Animus" })
+    ).toBeVisible()
+  })
+})
+
+/**
+ * Movement 1 content tests (UNN-215). These cover the per-movement contract
+ * the shell tests don't reach: Path-responsive grid sort, gate behavior,
+ * affinity rendering, and the single-card-expanded invariant. They share the
+ * file-level serial mode + DEV_USER cleanup with the shell suite.
+ */
+test.describe("movement 1 — corpus", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("Path selection persists and re-sorts the Archetype grid by fit", async ({
     page,
   }) => {
-    const createBtn = page.getByRole("button", { name: "Create new character" })
-
-    await page.goto("/")
-    await createBtn.click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/basic-info$/)
-    const firstShortId = shortIdFromBuilderUrl(page.url())
-
-    await page.goto("/")
-    await createBtn.click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/basic-info$/)
-    const secondShortId = shortIdFromBuilderUrl(page.url())
-    expect(secondShortId).not.toBe(firstShortId)
-
-    await page.goto("/")
-    const resumeLinks = page.getByRole("link", { name: "Resume building" })
-    await expect(resumeLinks).toHaveCount(2)
-    const hrefs = await resumeLinks.evaluateAll((els) =>
-      (els as HTMLAnchorElement[]).map((el) => el.getAttribute("href"))
-    )
-    expect(hrefs).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining(`/builder/${firstShortId}/`),
-        expect.stringContaining(`/builder/${secondShortId}/`),
-      ])
-    )
-  })
-
-  // ─── Step 2 — Path & Archetype (UNN-205) ────────────────────────────────────
-
-  /**
-   * Walks Step 1's required-field gate so the suite can land cleanly on Step 2
-   * with a known starting state. Returns the draft's `shortId` for follow-up
-   * assertions on the URL.
-   */
-  async function advanceToStep2(page: Page): Promise<string> {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/basic-info$/)
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    const nameInput = page.getByRole("textbox", { name: "Name" })
-    await nameInput.fill("Step 2 Tester")
-    await nameInput.blur()
-    await page.waitForLoadState("networkidle")
+    const firstCard = page.locator("[data-archetype]").first()
 
-    await page.getByRole("button", { name: /^Next$/ }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/path-and-archetype`)
-    return shortId
-  }
+    // Fresh draft defaults to Balanced — Healer (suggestedPath: balanced)
+    // is the first card in the bucket-then-tiebreaker order.
+    await expect(firstCard).toHaveAttribute("data-archetype", "healer")
 
-  test("Step 2: Path defaults to Balanced; switching path + selecting Origin persists across reload and enables Next", async ({
-    page,
-  }) => {
-    const shortId = await advanceToStep2(page)
+    await page.getByRole("radio", { name: /Skill-Focused/ }).click()
+    await expect(page.getByText(/Sorted by fit with your/)).toContainText(
+      "Skill-Focused"
+    )
+    await expect(firstCard).toHaveAttribute("data-archetype", "mage")
 
-    // Default seeded path is "balanced" — the radio is pre-selected on landing.
-    await expect(page.getByRole("radio", { name: /Balanced/ })).toBeChecked()
-
-    // Origin is unset, so Next is disabled.
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    await expect(nextBtn).toBeDisabled()
-
-    // The FieldLabel wraps the radio + content, so the whole card is the click
-    // target — clicking the radio role exercises that path.
     await page.getByRole("radio", { name: /Health-Focused/ }).click()
-    await page.waitForLoadState("networkidle")
-    await expect(
-      page.getByRole("radio", { name: /Health-Focused/ })
-    ).toBeChecked()
-
-    // Pick Mage as Origin. With Origin set, Next enables.
-    const mageCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: "Mage Lineage" })
-    await mageCard.getByRole("button", { name: "Select as Origin" }).click()
-    await page.waitForLoadState("networkidle")
-    await expect(nextBtn).toBeEnabled()
-
-    // Refresh — both choices persist.
-    await page.reload()
-    await expect(page).toHaveURL(`/builder/${shortId}/path-and-archetype`)
-    await expect(
-      page.getByRole("radio", { name: /Health-Focused/ })
-    ).toBeChecked()
-    await expect(
-      mageCard.getByRole("button", { name: "Selected" })
-    ).toBeVisible()
-    await expect(page.getByRole("button", { name: /^Next$/ })).toBeEnabled()
-  })
-
-  test("Step 2: switching Origin replaces the prior selection", async ({
-    page,
-  }) => {
-    await advanceToStep2(page)
-
-    const warriorCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: "Warrior Lineage" })
-    const mageCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: "Mage Lineage" })
-
-    await warriorCard.getByRole("button", { name: "Select as Origin" }).click()
-    await page.waitForLoadState("networkidle")
-    await expect(
-      warriorCard.getByRole("button", { name: "Selected" })
-    ).toBeVisible()
-
-    await mageCard.getByRole("button", { name: "Select as Origin" }).click()
-    await page.waitForLoadState("networkidle")
-
-    await expect(
-      mageCard.getByRole("button", { name: "Selected" })
-    ).toBeVisible()
-    await expect(
-      warriorCard.getByRole("button", { name: "Select as Origin" })
-    ).toBeVisible()
-  })
-
-  test("Step 2: the Archetype drawer renders the full stat block; the Skill popover shows the resolved cost + Attack Roll", async ({
-    page,
-  }) => {
-    await advanceToStep2(page)
-
-    const warriorCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: "Warrior Lineage" })
-    await warriorCard.getByRole("button", { name: "Show details" }).click()
-
-    const drawer = page.getByRole("dialog", { name: "Warrior" })
-    await expect(drawer).toBeVisible()
-
-    // Every ranked Skill heading renders (Ranks 1 through 5).
-    for (const rank of [1, 2, 3, 4, 5]) {
-      await expect(
-        drawer.getByRole("heading", { name: `Rank ${rank}` })
-      ).toBeVisible()
-    }
-    // Synthesis Skill section is present.
-    await expect(
-      drawer.getByRole("heading", { name: "Synthesis Skill" })
-    ).toBeVisible()
-
-    // Click the Cleave row — its popover should show a resolved Cost row and
-    // the Attack Roll header. Cleave is the Rank-1 Warrior Skill (5% HP).
-    await drawer.getByRole("button", { name: /Cleave/ }).click()
-    const popover = page.locator('[data-slot="popover-content"]')
-    await expect(popover).toBeVisible()
-    // Default path is Balanced (20 max HP); 5% floors to 1 HP via the
-    // `resolveSkillCost` floor-at-1 rule.
-    await expect(popover.getByText("Cost")).toBeVisible()
-    await expect(popover.getByText("1 HP", { exact: true })).toBeVisible()
-    // Attack Roll header surfaces the Warrior's Strength (+2) as the resolved
-    // total.
-    await expect(
-      popover.getByRole("heading", { name: /Attack Roll \+ 2/ })
-    ).toBeVisible()
-  })
-
-  // ─── Step 3 — Character Origins (UNN-207) ──────────────────────────────────
-
-  /**
-   * Walks Steps 1 + 2's required fields so the suite can land on Step 3
-   * with a known starting state (named character, Balanced path, Warrior
-   * Origin). Returns the draft's `shortId` so the test can wait on URL.
-   */
-  async function advanceToStep3(page: Page): Promise<string> {
-    const shortId = await advanceToStep2(page)
-
-    const warriorCard = page
-      .locator('[data-slot="card"]')
-      .filter({ hasText: "Warrior Lineage" })
-    await warriorCard.getByRole("button", { name: "Select as Origin" }).click()
-    await page.waitForLoadState("networkidle")
-
-    await page.getByRole("button", { name: /^Next$/ }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/character-origins`)
-    return shortId
-  }
-
-  test("Step 3: Virtue allocation gate — Next stays disabled until one +2 and two +1s are picked", async ({
-    page,
-  }) => {
-    await advanceToStep3(page)
-
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    // Fresh draft starts with all-zero Virtues; we expect Next to be
-    // disabled with the virtue reason as the first unmet gate.
-    await expect(nextBtn).toBeDisabled()
-
-    // Pick Expression as +2 via the radio in the "+2 Virtue" subgroup.
-    await page.getByRole("radio", { name: "Expression" }).click()
-    await page.waitForLoadState("networkidle")
-    // Still disabled — no +1s yet.
-    await expect(nextBtn).toBeDisabled()
-
-    // Pick two +1s — the chips next to Empathy and Wisdom under the +1 column.
-    // Base UI's Checkbox renders the role on a `<span>` whose accessible
-    // name is wired through `aria-labelledby` → a label generated id;
-    // Playwright's role-name resolution doesn't always traverse that
-    // chain, so we click the FieldLabel directly (native `<label
-    // htmlFor>` propagation handles toggling).
-    await page.locator('label[for="virtue-plus-one-empathy"]').click()
-    await page.waitForLoadState("networkidle")
-    await page.locator('label[for="virtue-plus-one-wisdom"]').click()
-    await page.waitForLoadState("networkidle")
-
-    // Virtues now valid — but we still don't have 4 Knives, so Next stays
-    // disabled with a different reason.
-    await expect(nextBtn).toBeDisabled()
-  })
-
-  /**
-   * Satisfies the Step-3 virtue allocation gate (one +2, two +1s) so a
-   * later assertion isolates whichever gate the test is actually probing.
-   */
-  async function allocateVirtues(page: Page): Promise<void> {
-    await page.getByRole("radio", { name: "Expression" }).click()
-    await page.waitForLoadState("networkidle")
-    // Base UI's Checkbox renders the role on a `<span>` whose accessible
-    // name is wired through `aria-labelledby` → a label generated id;
-    // Playwright's role-name resolution doesn't always traverse that
-    // chain, so we click the FieldLabel directly (native `<label
-    // htmlFor>` propagation handles toggling).
-    await page.locator('label[for="virtue-plus-one-empathy"]').click()
-    await page.waitForLoadState("networkidle")
-    await page.locator('label[for="virtue-plus-one-wisdom"]').click()
-    await page.waitForLoadState("networkidle")
-  }
-
-  /**
-   * Clicks the "Add {Knife|Chain}" button and dismisses the edit dialog
-   * the UI auto-opens on the new row, so a test that just wants to seed
-   * entries doesn't have to thread the dialog every time.
-   *
-   * Adds are sequential server-confirmed writes (no optimistic temp row),
-   * so the dialog appears with a real row already in the table — we just
-   * close it and wait for the network to settle before the next call.
-   */
-  async function addEntryAndCloseDialog(
-    page: Page,
-    addButtonName: "Add Knife" | "Add Chain"
-  ): Promise<void> {
-    await page.getByRole("button", { name: addButtonName }).click()
-    const dialog = page.getByRole("dialog")
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole("button", { name: "Done" }).click()
-    await expect(dialog).toBeHidden()
-    await page.waitForLoadState("networkidle")
-  }
-
-  test("Step 3: Knives + Chains hard mins gate Next; reaching both unlocks it", async ({
-    page,
-  }) => {
-    const shortId = await advanceToStep3(page)
-    await allocateVirtues(page)
-
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-
-    // Skip the UI churn of 4 sequential adds — the gate's wired up via
-    // `nextGateForStep("character-origins")` and we just need the row count to
-    // satisfy the >=4 check. Seed the Knives directly through Drizzle and
-    // reload; the chain add stays on the UI path because that's what the
-    // test is actually verifying.
-    const [row] = await getDb()
-      .select({ id: characters.id })
-      .from(characters)
-      .where(eq(characters.shortId, shortId))
-    if (!row) throw new Error(`Could not find character ${shortId}`)
-    await getDb()
-      .insert(characterKnives)
-      .values(
-        [0, 1, 2, 3].map((order) => ({
-          characterId: row.id,
-          title: `Seeded Knife ${order + 1}`,
-          order,
-        }))
-      )
-
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-
-    // Still gated — 0 Chains.
-    await expect(nextBtn).toBeDisabled()
-
-    await addEntryAndCloseDialog(page, "Add Chain")
-
-    await expect(nextBtn).toBeEnabled({ timeout: 5000 })
-  })
-
-  test("Step 3 — Knives: add → dialog auto-opens → edit title + description → row updates → reload preserves both", async ({
-    page,
-  }) => {
-    await advanceToStep3(page)
-
-    await page.getByRole("button", { name: "Add Knife" }).click()
-
-    // The dialog opens *after* the server confirms the add, so its title
-    // input is always wired to the real (server-assigned) entry id — no
-    // need for the settle waits an optimistic-temp implementation would
-    // need to thread.
-    const dialog = page.getByRole("dialog", { name: /Edit Knife/ })
-    await expect(dialog).toBeVisible()
-
-    const titleInput = dialog.getByRole("textbox", { name: "Title" })
-    // The seed title is the throwaway "New Knife" copy; the dialog
-    // autoFocuses the Title input so the player can overwrite immediately.
-    // (Not asserting `toBeFocused` here — Base UI's Dialog focus trap can
-    // briefly steal focus before the autoFocus settles; the test is about
-    // persistence, not the focus race.)
-    await expect(titleInput).toHaveValue("New Knife")
-
-    await titleInput.fill("Mira my younger sister")
-    // Move focus into the description editor and type via the keyboard so
-    // Tiptap's input pipeline fires the same way it does for a real user.
-    // The MarkdownField surface is a Tiptap contenteditable `<div>` rather
-    // than a real `<textarea>`, so we look it up by its aria-label rather
-    // than role=textbox (Playwright's role engine doesn't grant the
-    // implicit textbox role to contenteditable=true without a hint).
-    const description = dialog.getByLabel(/— description$/)
-    await description.click()
-    await page.keyboard.type("She is the only family I have left.")
-    // Blur the description so its debounce flushes before the dialog
-    // unmounts; we don't want to rely on the hook's unmount-flush race.
-    await description.blur()
-
-    // Close — both saves should be in flight or already settled by now.
-    await dialog.getByRole("button", { name: "Done" }).click()
-    await expect(dialog).toBeHidden()
-    await page.waitForLoadState("networkidle")
-
-    // Title cell shows the new title; the "No description yet" hint is
-    // gone because the description column is no longer null.
-    const firstRow = page.locator("tbody tr").first()
-    await expect(firstRow).toContainText("Mira my younger sister")
-    await expect(firstRow).not.toContainText("No description yet")
-
-    // Persistence: reload and confirm both fields survived the round-trip.
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-
-    const reloadedRow = page.locator("tbody tr").first()
-    await expect(reloadedRow).toContainText("Mira my younger sister")
-    await expect(reloadedRow).not.toContainText("No description yet")
-
-    // Reopen the dialog and confirm the description payload is intact —
-    // catches a regression where the description save would race with the
-    // title save and clobber one of them (the bug split into per-field
-    // actions resolved).
-    await reloadedRow.getByRole("button", { name: /^Edit/ }).click()
-    const reopened = page.getByRole("dialog", { name: /Edit Knife/ })
-    await expect(reopened.getByRole("textbox", { name: "Title" })).toHaveValue(
-      "Mira my younger sister"
+    await expect(page.getByText(/Sorted by fit with your/)).toContainText(
+      "Health-Focused"
     )
-    await expect(reopened.getByLabel(/— description$/)).toContainText(
-      "She is the only family I have left."
-    )
-  })
-
-  test("Step 3 — Knives: removing a row drops it from the table and the count", async ({
-    page,
-  }) => {
-    await advanceToStep3(page)
-
-    await addEntryAndCloseDialog(page, "Add Knife")
-    await addEntryAndCloseDialog(page, "Add Knife")
-    await expect(page.locator("tbody tr")).toHaveCount(2)
-
-    await page
-      .locator("tbody tr")
-      .first()
-      .getByRole("button", { name: /^Remove/ })
-      .click()
-    await page.waitForLoadState("networkidle")
-
-    await expect(page.locator("tbody tr")).toHaveCount(1)
-    // Count summary updates immediately — "1/4 minimum" because the hard
-    // min is 4 and we now have 1.
-    await expect(page.getByText("1/4 minimum")).toBeVisible()
-  })
-
-  test("Step 3 — Talents: typeahead → add Talent chip → reload preserves; chip × removes", async ({
-    page,
-  }) => {
-    await advanceToStep3(page)
-
-    // Origin chips for Warrior render as locked badges — verify the
-    // chosen Origin contributes its Talents (Climb / Lift / Athletics)
-    // before the player adds any of their own.
-    const originSection = page
-      .locator("div", { has: page.locator("h4", { hasText: /Origin/ }) })
-      .first()
-    for (const talent of ["Climb", "Lift", "Athletics"]) {
-      await expect(
-        originSection.getByText(talent, { exact: true })
-      ).toBeVisible()
-    }
-
-    // Add Arcana via typeahead. The Combobox input has role="combobox".
-    const talentInput = page.getByRole("combobox").last()
-    await talentInput.click()
-    await talentInput.fill("arc")
-    await page.getByRole("option", { name: "Arcana" }).click()
-    await page.waitForLoadState("networkidle")
-
-    // Chip lands in the chips container; cap counter ticks up.
-    await expect(
-      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
-    ).toBeVisible()
-    await expect(page.getByText(/Background Talents \(1\/2\)/)).toBeVisible()
-
-    // Reload — the chip survives.
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-    await expect(
-      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
-    ).toBeVisible()
-
-    // Remove via the chip's × button. The shadcn ComboboxChipRemove
-    // primitive carries the `combobox-chip-remove` data slot but no
-    // explicit aria-label (the X icon is decorative), so we address the
-    // button by its slot rather than role.
-    await page
-      .locator('[data-slot="combobox-chip"]')
-      .filter({ hasText: "Arcana" })
-      .locator('[data-slot="combobox-chip-remove"]')
-      .click()
-    await page.waitForLoadState("networkidle")
-
-    await expect(
-      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Arcana" })
-    ).toBeHidden()
-    await expect(page.getByText(/Background Talents \(0\/2\)/)).toBeVisible()
-  })
-
-  test("Step 3 — Talents: at cap, the input flips placeholder and no extra chip can be added", async ({
-    page,
-  }) => {
-    await advanceToStep3(page)
-
-    const talentInput = page.getByRole("combobox").last()
-
-    // Fill the cap (2 player-picked Talents).
-    for (const name of ["Arcana", "History"]) {
-      await talentInput.click()
-      await talentInput.fill(name)
-      await page.getByRole("option", { name }).click()
-      await page.waitForLoadState("networkidle")
-    }
-    await expect(page.getByText(/Background Talents \(2\/2\)/)).toBeVisible()
-
-    // Placeholder flips to the cap-reached message so a player at the
-    // cap knows why they can't just type another name.
-    await expect(talentInput).toHaveAttribute(
-      "placeholder",
-      /Remove a Talent to pick a different one/
-    )
-
-    // Attempting to pick a third Talent is rejected at the controlled
-    // boundary — the picker is still searchable, but selecting "Nature"
-    // surfaces a toast and the chip count stays at 2.
-    await talentInput.click()
-    await talentInput.fill("nat")
-    await page.getByRole("option", { name: "Nature" }).click()
-
-    await expect(page.getByText(/You can pick at most 2 Talents/)).toBeVisible()
-    await expect(
-      page.locator('[data-slot="combobox-chip"]').filter({ hasText: "Nature" })
-    ).toBeHidden()
-    await expect(page.getByText(/Background Talents \(2\/2\)/)).toBeVisible()
-  })
-
-  // ─── Step 4 — Identity Traits (UNN-208) ────────────────────────────────────
-
-  /**
-   * The five Identity sections in PRD order. The label drives both the
-   * `FieldLegend` text and the `aria-label` on the section's MarkdownField,
-   * so a single string anchors both the visual + accessibility tree query.
-   */
-  const IDENTITY_LABELS = [
-    "Personality Traits",
-    "Hopes",
-    "Dreams",
-    "Fears",
-    "Secrets",
-  ] as const
-
-  /**
-   * Seed the four non-target Identity columns directly through Drizzle so
-   * one test isn't re-exercising the auto-save pipeline five times in a
-   * row (those concurrent identity-class writes serialize on
-   * `identityVersion` and the retry-once-only path can drop a save under
-   * dev-server load). Skips whichever section the UI test owns.
-   */
-  async function seedOtherIdentityColumns(
-    shortId: string,
-    skip: (typeof IDENTITY_LABELS)[number]
-  ): Promise<void> {
-    const columnFor = {
-      "Personality Traits": "personalityTraits",
-      Hopes: "hopes",
-      Dreams: "dreams",
-      Fears: "fears",
-      Secrets: "secrets",
-    } as const
-    const patch: Partial<typeof characters.$inferInsert> = {}
-    for (const label of IDENTITY_LABELS) {
-      if (label === skip) continue
-      patch[columnFor[label]] = `Seeded ${label}`
-    }
-    await getDb()
-      .update(characters)
-      .set(patch)
-      .where(eq(characters.shortId, shortId))
-  }
-
-  /**
-   * Walks Steps 1–3 so the suite can land cleanly on Step 4 with the
-   * Step-3 gate (virtues + 4 Knives + 1 Chain) already satisfied. Knives
-   * and Chains are seeded directly through Drizzle — the Step-3 tests
-   * already cover the UI write path; this helper only cares about
-   * satisfying the gate so we can step forward.
-   */
-  async function advanceToStep4(page: Page): Promise<string> {
-    const shortId = await advanceToStep3(page)
-    await allocateVirtues(page)
+    await expect(firstCard).toHaveAttribute("data-archetype", "warrior")
 
     const [row] = await getDb()
-      .select({ id: characters.id })
+      .select({ pathChoice: characters.pathChoice })
       .from(characters)
       .where(eq(characters.shortId, shortId))
-    if (!row) throw new Error(`Could not find character ${shortId}`)
-    await getDb()
-      .insert(characterKnives)
-      .values(
-        [0, 1, 2, 3].map((order) => ({
-          characterId: row.id,
-          title: `Seeded Knife ${order + 1}`,
-          order,
-        }))
+      .limit(1)
+    expect(row?.pathChoice).toBe("health-focused")
+  })
+
+  test("Continue is gated on an Origin until one is chosen", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+
+    await expect(
+      page.getByRole("button", { name: "Continue to Ortus" })
+    ).toBeDisabled()
+
+    await chooseWarriorOrigin(page)
+
+    await expect(
+      page.getByRole("button", { name: "Continue to Ortus" })
+    ).toBeEnabled()
+  })
+
+  test("Origin selection persists across reload", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await chooseWarriorOrigin(page)
+
+    // The optimistic UI flips to "Warrior chosen" immediately; the Server
+    // Action commits asynchronously. Poll until the row reflects the write
+    // before reloading so we're not racing the action.
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ activeArchetypeId: characters.activeArchetypeId })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.activeArchetypeId ?? null
+        },
+        { timeout: 5000 }
       )
-    await getDb().insert(characterChains).values({
-      characterId: row.id,
-      title: "Seeded Chain",
-      order: 0,
+      .not.toBeNull()
+
+    await page.reload()
+
+    const warriorCard = page.locator('[data-archetype="warrior"]')
+    await expect(
+      warriorCard.getByLabel("Currently selected as Origin")
+    ).toBeVisible()
+  })
+
+  test("compact card surfaces every non-neutral affinity", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+
+    // Healer has three: Strike weak, Light resist, Dark weak. Regression
+    // guard for the original "pick one Resist + one Weak" bug.
+    const healerCard = page.locator('[data-archetype="healer"]')
+    await expect(healerCard).toContainText("Strike Weak")
+    await expect(healerCard).toContainText("Light Resist")
+    await expect(healerCard).toContainText("Dark Weak")
+  })
+
+  test("only one Archetype detail is expanded at a time", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+
+    const mageButton = page.getByRole("button", {
+      name: /Mage Lineage details$/,
+    })
+    const healerButton = page.getByRole("button", {
+      name: /Healer Lineage details$/,
     })
 
-    await page.reload()
-    await page.waitForLoadState("networkidle")
+    await mageButton.click()
+    await expect(mageButton).toHaveAttribute("aria-expanded", "true")
 
-    await page.getByRole("button", { name: /^Next$/ }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/identity`)
-    return shortId
-  }
+    await healerButton.click()
+    await expect(mageButton).toHaveAttribute("aria-expanded", "false")
+    await expect(healerButton).toHaveAttribute("aria-expanded", "true")
 
-  /**
-   * Types into one Identity section's Markdown editor and flushes its
-   * debounced auto-save by blurring the contenteditable. The
-   * `MarkdownField` is a Tiptap contenteditable `<div>` rather than a real
-   * textbox, so we address it by aria-label (same pattern as the Knife
-   * description editor on Step 3).
-   *
-   * Confirms the typed text is visible in the editor before returning so
-   * the caller can trust the in-memory + persisted state is up to date.
-   */
-  async function fillIdentitySection(
-    page: Page,
-    label: (typeof IDENTITY_LABELS)[number],
-    text: string
-  ): Promise<void> {
-    const editor = page.getByLabel(label, { exact: true })
-    await editor.click()
-    await page.keyboard.type(text)
-    // Wait for the auto-save Server Action POST + its revalidation RSC
-    // round-trip. Plain `networkidle` resolves too early under back-to-
-    // back saves on the same write-class — we need to anchor on the
-    // specific Server Action request the auto-save dispatches on blur.
-    // Filtering on the `next-action` request header avoids matching
-    // unrelated HMR / analytics POSTs.
-    const responsePromise = page.waitForResponse(
-      (resp) =>
-        resp.request().method() === "POST" &&
-        resp.url().includes("/builder/") &&
-        !!resp.request().headers()["next-action"],
-      { timeout: 10000 }
-    )
-    // Click the step heading to force focus loss; ProseMirror's blur
-    // transaction fires only on a real focus shift, so `Locator.blur()`
-    // and `keyboard.press("Escape")` don't reliably trigger the auto-
-    // save's flush path. The heading is a non-editable, focus-safe target.
-    await page.getByRole("heading", { name: "Identity Traits" }).click()
-    await responsePromise
-    // The Server Action returns once the row is updated, but the RSC
-    // re-render that flips `canAdvance` lands as a follow-up GET. Wait
-    // for networkidle so the new prop reaches the page before the caller
-    // makes any assertions on the Next button.
-    await page.waitForLoadState("networkidle")
-    await expect(editor).toContainText(text, { timeout: 5000 })
-  }
-
-  test("Step 4: typing into a section auto-saves; reload preserves the value and enables Next once every section has content", async ({
-    page,
-  }) => {
-    const shortId = await advanceToStep4(page)
-
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    // Fresh draft lands here with all five columns null → gate engaged.
-    await expect(nextBtn).toBeDisabled()
-
-    // Seed the four other columns through Drizzle so the UI test is
-    // verifying *one* end-to-end auto-save round-trip rather than five
-    // racing identity-class writes — that race trips the silent-retry
-    // budget under dev-server load and isn't what this test is about.
-    await seedOtherIdentityColumns(shortId, "Hopes")
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-
-    // Hopes is still blank → gate still engaged.
-    await expect(nextBtn).toBeDisabled()
-
-    const hopesText = "Find the sister who left at the temple gate"
-    await fillIdentitySection(page, "Hopes", hopesText)
-
-    // Next enables once the Server Action lands; allow a generous window
-    // for the in-place revalidation under load.
-    await expect(nextBtn).toBeEnabled({ timeout: 10000 })
-
-    // Reload — the typed value survives the round-trip in its matching
-    // column (a write to the wrong field would surface as the
-    // contribution appearing under a different label).
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-    await expect(page.getByLabel("Hopes", { exact: true })).toContainText(
-      hopesText
-    )
-
-    // Advancing into Review proves the gate actually unlocks navigation,
-    // not just the disabled prop.
-    await page.getByRole("button", { name: /^Next$/ }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/review`)
+    await healerButton.click()
+    await expect(healerButton).toHaveAttribute("aria-expanded", "false")
   })
+})
 
-  test("Step 4: an empty section keeps Next disabled even when every other section has content", async ({
+/**
+ * Movement 2 content tests (UNN-216). Covers the Virtue allocation gate,
+ * Ancestry/Background persistence, and the Talents picker's pickup cap.
+ */
+test.describe("movement 2 — ortus", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("Continue is gated until the Virtue allocation is valid", async ({
     page,
   }) => {
-    const shortId = await advanceToStep4(page)
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
 
-    // Seed every section except Dreams. The gate scans in PRD order so
-    // "first empty" → Dreams, which exercises the per-kind reason copy.
-    await seedOtherIdentityColumns(shortId, "Dreams")
-    await page.reload()
-    await page.waitForLoadState("networkidle")
+    await page.goto(`/builder/${shortId}/ortus`)
 
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    await expect(nextBtn).toBeDisabled()
+    const continueButton = page.getByRole("button", {
+      name: "Continue to Animus",
+    })
+    await expect(continueButton).toBeDisabled()
 
-    // Sanity: only Dreams is blank — the others render their seeded
-    // values, so the disable cause is the empty Dreams column and not a
-    // regression in the loader.
-    for (const label of IDENTITY_LABELS) {
-      if (label === "Dreams") continue
-      await expect(page.getByLabel(label, { exact: true })).toContainText(
-        `Seeded ${label}`
+    // Allocate 1×+2 + 2×+1, sequentially so optimistic state settles between
+    // clicks (each click writes through dispatchCharacterWriteWithRetry).
+    await page
+      .locator('[data-virtue="expression"]')
+      .getByRole("button", { name: "+2" })
+      .click()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ v: characters.virtueExpression })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.v ?? null
+        },
+        { timeout: 5000 }
       )
-    }
-    await expect(page.getByLabel("Dreams", { exact: true })).toHaveText(/^\s*$/)
+      .toBe(2)
 
-    // Filling Dreams flips the gate — the empty section was the only
-    // blocker, and the Server Action's revalidation re-renders Next.
-    await fillIdentitySection(page, "Dreams", "End the long war")
-    await expect(nextBtn).toBeEnabled({ timeout: 10000 })
+    await page
+      .locator('[data-virtue="empathy"]')
+      .getByRole("button", { name: "+1" })
+      .click()
+    await page
+      .locator('[data-virtue="wisdom"]')
+      .getByRole("button", { name: "+1" })
+      .click()
+
+    await expect(continueButton).toBeEnabled()
   })
 
-  test("Step 4: clearing a previously-filled section re-engages the gate", async ({
+  test("inline budget locks out picks that would overflow", async ({
     page,
   }) => {
-    const shortId = await advanceToStep4(page)
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
 
-    // Seed all five (including the UI test's target column) so the gate
-    // starts open. Then the test clears one section through the UI and
-    // verifies the gate re-engages — exercising the action's empty-
-    // string → null normalization path that re-disables `canAdvance`.
-    await seedOtherIdentityColumns(shortId, "Hopes")
-    await getDb()
-      .update(characters)
-      .set({ hopes: "Seeded Hopes" })
+    await page.goto(`/builder/${shortId}/ortus`)
+
+    // Set Expression to +2 → +2 buttons on every other row should disable.
+    await page
+      .locator('[data-virtue="expression"]')
+      .getByRole("button", { name: "+2" })
+      .click()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ v: characters.virtueExpression })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.v ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe(2)
+
+    for (const virtue of ["empathy", "wisdom", "focus"] as const) {
+      await expect(
+        page
+          .locator(`[data-virtue="${virtue}"]`)
+          .getByRole("button", { name: "+2" })
+      ).toBeDisabled()
+    }
+  })
+
+  test("Ancestry and Background auto-save", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/ortus`)
+
+    const ancestry = page.getByLabel("Ancestry")
+    const background = page.getByLabel("Background")
+    await ancestry.fill("Half-elf")
+    await ancestry.blur()
+    await background.fill("Disgraced noble")
+    await background.blur()
+
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({
+              ancestryText: characters.ancestryText,
+              backgroundText: characters.backgroundText,
+            })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row ? [row.ancestryText, row.backgroundText].join(" / ") : null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Half-elf / Disgraced noble")
+  })
+})
+
+/**
+ * Movement 4 content tests (UNN-218). Covers Persona's contract: auto-focus
+ * on the name field, the Finalize gate, and the commit-to-sheet redirect.
+ */
+test.describe("movement 4 — persona", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("auto-focus lands on the name field on page load", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await expect(nameInput).toBeFocused()
+  })
+
+  test("Finalize stays disabled until both Origin and name are set", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    // Skip Movement 1 to confirm Finalize honors the cross-movement gate.
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const finalizeButton = page.getByRole("button", {
+      name: "Finalize character",
+    })
+    await expect(finalizeButton).toBeDisabled()
+
+    // Even with a name, the missing Origin keeps Finalize disabled.
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await nameInput.fill("Garron Vey")
+    // Blur to flush the debounced auto-save before navigating away.
+    await nameInput.blur()
+    await expect(finalizeButton).toBeDisabled()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ name: characters.name })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.name ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Garron Vey")
+
+    // Backtrack to Corpus + Ortus to satisfy the corpus + ortus gates, then
+    // return to Persona — the name persisted server-side, so re-rendering
+    // /persona shows it pre-filled and all three gates pass.
+    await page.goto(`/builder/${shortId}/corpus`)
+    await chooseWarriorOrigin(page)
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ activeArchetypeId: characters.activeArchetypeId })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.activeArchetypeId ?? null
+        },
+        { timeout: 5000 }
+      )
+      .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/ortus`)
+    await setValidVirtueAllocation(page, shortId)
+
+    await page.goto(`/builder/${shortId}/persona`)
+    await expect(finalizeButton).toBeEnabled()
+  })
+
+  test("Finalize commits the character and redirects to the editable sheet", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await chooseWarriorOrigin(page)
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ activeArchetypeId: characters.activeArchetypeId })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.activeArchetypeId ?? null
+        },
+        { timeout: 5000 }
+      )
+      .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/ortus`)
+    await setValidVirtueAllocation(page, shortId)
+
+    await page.goto(`/builder/${shortId}/persona`)
+
+    const nameInput = page.getByRole("textbox", { name: "Character name" })
+    await nameInput.fill("Garron Vey")
+    // Blur to flush the debounced auto-save before the finalize click.
+    await nameInput.blur()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ name: characters.name })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.name ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Garron Vey")
+
+    await page.getByRole("button", { name: "Finalize character" }).click()
+
+    // Sheet route appends `?tab=combat` for the default tab, hence the regex.
+    await expect(page).toHaveURL(new RegExp(`/c/${shortId}(\\?|$)`))
+
+    const [row] = await getDb()
+      .select({ status: characters.status, name: characters.name })
+      .from(characters)
       .where(eq(characters.shortId, shortId))
-    await page.reload()
-    await page.waitForLoadState("networkidle")
-
-    const nextBtn = page.getByRole("button", { name: /^Next$/ })
-    await expect(nextBtn).toBeEnabled()
-
-    // Clear Hopes through the UI: select all + delete, then click off so
-    // the auto-save's blur flush dispatches the empty-text save.
-    const hopes = page.getByLabel("Hopes", { exact: true })
-    await hopes.click()
-    await page.keyboard.press("ControlOrMeta+A")
-    await page.keyboard.press("Delete")
-    const responsePromise = page.waitForResponse(
-      (resp) =>
-        resp.request().method() === "POST" &&
-        resp.url().includes("/builder/") &&
-        !!resp.request().headers()["next-action"],
-      { timeout: 10000 }
-    )
-    await page.getByRole("heading", { name: "Identity Traits" }).click()
-    await responsePromise
-    await page.waitForLoadState("networkidle")
-
-    await expect(nextBtn).toBeDisabled({ timeout: 10000 })
+      .limit(1)
+    expect(row?.status).toBe("finalized")
+    expect(row?.name).toBe("Garron Vey")
   })
 })

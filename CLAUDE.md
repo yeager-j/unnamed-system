@@ -1,4 +1,4 @@
-# Persona System — Character Sheet App
+# Unnamed System — Character Sheet App
 
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 
@@ -68,9 +68,12 @@ Inside `apps/web/`:
 apps/web/
 ├── app/                       Next routes
 ├── components/
-│   ├── builder/               Character builder components and steps
+│   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
-│   ├── character-sheet/       Sheet feature; nested shared/ for reusable helpers
+│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls)
+│   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
+│   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
+│   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 └── lib/

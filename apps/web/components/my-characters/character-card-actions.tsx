@@ -18,7 +18,17 @@ import { DeleteCharacterDialog } from "./delete-character-dialog"
 
 interface CharacterCardActionsProps {
   characterId: string
+  /**
+   * The character's actual `name` column — possibly empty for an unnamed
+   * draft. Passed through to {@link DeleteCharacterDialog} which branches
+   * on emptiness to pick the confirm flow (UNN-219).
+   */
   name: string
+  /**
+   * The resolved label used in the dropdown's aria-label. Always non-empty
+   * (the card falls back to "New draft" for unnamed drafts).
+   */
+  displayName: string
   /**
    * Primary-button destination. Finalized characters point at the public
    * sheet (`/c/{shortId}`); drafts point at the builder so the player
@@ -34,12 +44,14 @@ interface CharacterCardActionsProps {
  * caller-supplied `href` (the sheet for finalized rows, the builder for
  * drafts; the card computes which). The trailing half opens a menu with
  * Edit / Duplicate / Share / Delete. Edit, Duplicate, and Share remain
- * disabled until their per-action tickets land; Delete opens the
- * type-to-confirm {@link DeleteCharacterDialog} (UNN-181).
+ * disabled until their per-action tickets land; Delete opens
+ * {@link DeleteCharacterDialog}, which renders the simple discard confirm
+ * for unnamed drafts and the type-to-confirm flow for named rows.
  */
 export function CharacterCardActions({
   characterId,
   name,
+  displayName,
   href,
   primaryLabel,
 }: CharacterCardActionsProps) {
@@ -61,7 +73,7 @@ export function CharacterCardActions({
               <Button
                 variant="outline"
                 size="icon-sm"
-                aria-label={`Actions for ${name}`}
+                aria-label={`Actions for ${displayName}`}
               >
                 <CaretDownIcon weight="bold" />
               </Button>

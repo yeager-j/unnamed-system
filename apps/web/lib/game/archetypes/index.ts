@@ -59,15 +59,26 @@ export type ArchetypeKey = keyof typeof ARCHETYPES_BY_KEY
 export const ARCHETYPES: readonly Archetype[] = Object.values(ARCHETYPES_BY_KEY)
 
 /**
- * Slug keys of every initiate-tier Archetype — i.e. the catalog the builder's
- * Origin Archetype picker iterates over and the set of valid `archetypeKey`
- * values for {@link setOriginArchetypeAction}. Derived once from
- * {@link ARCHETYPES} so the picker UI and the server-side input validation
- * stay in lock-step with the hardcoded catalog.
+ * Every initiate-tier Archetype, in catalog order. The builder's Movement 1
+ * grid iterates over this list; the picker's Path-sensitive sort runs on
+ * top of it (see {@link sortArchetypesByPath}).
+ *
+ * Cast narrows `.key` from the schema's generic `string` to the catalog's
+ * `ArchetypeKey` union so callers don't need to widen at the boundary.
  */
-export const ORIGIN_ARCHETYPE_KEYS = ARCHETYPES.filter(
+export const INITIATE_ARCHETYPES = ARCHETYPES.filter(
   (archetype) => archetype.tier === "initiate"
-).map((archetype) => archetype.key) as [string, ...string[]]
+) as readonly (Archetype & { key: ArchetypeKey })[]
+
+/**
+ * Slug keys of every initiate-tier Archetype — i.e. the set of valid
+ * `archetypeKey` values for {@link setOriginArchetypeAction}. Kept in
+ * lock-step with {@link INITIATE_ARCHETYPES} so the picker UI and the
+ * server-side input validation can't drift apart.
+ */
+export const ORIGIN_ARCHETYPE_KEYS = INITIATE_ARCHETYPES.map(
+  (archetype) => archetype.key
+) as [string, ...string[]]
 
 /**
  * Looks up a hardcoded Archetype by its slug key. Returns `undefined` when no

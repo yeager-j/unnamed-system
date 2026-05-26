@@ -1,12 +1,11 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { DetailSection } from "@/components/shared/detail-section"
+import { SkillRow } from "@/components/shared/skill-row"
 import type { RankedSkill } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
 import type { AttributeScores } from "@/lib/game/stats"
-
-import { DetailSection } from "../character-sheet/shared/detail-section"
-import { SkillRow } from "../character-sheet/skill-row"
 
 /**
  * Per-rank Skill list shared by every Archetype detail surface.

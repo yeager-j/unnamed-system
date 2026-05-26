@@ -6,10 +6,9 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { getEquippedItem } from "@/lib/game/items"
-
-import { IntrinsicAttackRow, SkillRow } from "./skill-row"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1): every Skill currently available

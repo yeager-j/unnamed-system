@@ -1,6 +1,7 @@
 import { forbidden, notFound, redirect } from "next/navigation"
 import { type ReactNode } from "react"
 
+import { BuilderProviderShell } from "@/components/builder/builder-provider-shell"
 import { auth } from "@/lib/auth"
 
 import { getBuilderCharacter } from "./_loader"
@@ -11,7 +12,13 @@ import { getBuilderCharacter } from "./_loader"
  * is the owner, and redirects finalized characters to their public sheet
  * (the builder isn't useful for a complete character).
  *
- * The shell chrome (title, blurb, stepper) lives in each step's
+ * Wraps the rendered tree in {@link BuilderProviderShell}, which mounts
+ * the Movement 3 writer's `SidebarProvider` at the layout level so the
+ * left rail (and its open document) persists across intra-builder
+ * navigation. The provider is always mounted; the visible `<Sidebar>`
+ * content is gated on the active step inside the shell.
+ *
+ * The chapter header chrome (title, blurb, stepper) lives in each step's
  * `page.tsx` rather than this layout because Next's layout can't read
  * child segment params and we need the current step slug to render the
  * right header/stepper highlight.
@@ -35,5 +42,14 @@ export default async function BuilderLayout({
   if (character.ownerId !== viewerId) forbidden()
   if (character.status === "finalized") redirect(`/c/${shortId}`)
 
-  return <>{children}</>
+  return (
+    <BuilderProviderShell
+      characterId={character.id}
+      identityVersion={character.identityVersion}
+      knives={character.knives}
+      chains={character.chains}
+    >
+      {children}
+    </BuilderProviderShell>
+  )
 }

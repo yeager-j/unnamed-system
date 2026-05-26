@@ -7,12 +7,11 @@ import { ArchetypeInheritanceSlots } from "@/components/archetype/archetype-inhe
 import { ArchetypeMechanicProse } from "@/components/archetype/archetype-mechanic-prose"
 import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-skills"
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
+import { DetailSection } from "@/components/shared/detail-section"
+import { SkillRow } from "@/components/shared/skill-row"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
 import type { AttributeScores } from "@/lib/game/stats"
-
-import { DetailSection } from "../shared/detail-section"
-import { SkillRow } from "../skill-row"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on

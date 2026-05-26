@@ -1,4 +1,4 @@
-import { Geist, JetBrains_Mono } from "next/font/google"
+import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google"
 
 import "@workspace/ui/globals.css"
 
@@ -19,6 +19,12 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
 })
 
+const fontProse = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-prose",
+  weight: ["400", "500", "600", "700"],
+})
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,8 +37,9 @@ export default function RootLayout({
       className={cn(
         "antialiased",
         fontSans.variable,
-        "font-mono",
-        jetbrainsMono.variable
+        fontProse.variable,
+        jetbrainsMono.variable,
+        "font-sans"
       )}
     >
       <body className="flex min-h-svh flex-col">
