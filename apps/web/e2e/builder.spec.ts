@@ -65,6 +65,69 @@ async function chooseWarriorOrigin(
   ).toBeVisible()
 }
 
+/**
+ * Movement 2's Continue is gated on a valid creation Virtue allocation
+ * (UNN-216): exactly one +2, two +1s, one 0. Helper for specs that walk
+ * past Ortus.
+ *
+ * `setCharacterVirtuesAction` writes the full 4-rank snapshot per click.
+ * Sequential clicks can race the in-flight action — between each click we
+ * poll the DB until the rank persisted, then issue the next click. This is
+ * slower than waiting for an optimistic-UI signal but it's the only way to
+ * guarantee `versionRef.current` is fresh for the next dispatch.
+ */
+async function setValidVirtueAllocation(
+  page: import("@playwright/test").Page,
+  shortId: string
+): Promise<void> {
+  async function readVirtues() {
+    const [row] = await getDb()
+      .select({
+        expression: characters.virtueExpression,
+        empathy: characters.virtueEmpathy,
+        wisdom: characters.virtueWisdom,
+        focus: characters.virtueFocus,
+      })
+      .from(characters)
+      .where(eq(characters.shortId, shortId))
+      .limit(1)
+    return row
+  }
+
+  await page
+    .locator('[data-virtue="expression"]')
+    .getByRole("button", { name: "+2" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.expression ?? null, {
+      timeout: 5000,
+    })
+    .toBe(2)
+
+  await page
+    .locator('[data-virtue="empathy"]')
+    .getByRole("button", { name: "+1" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.empathy ?? null, { timeout: 5000 })
+    .toBe(1)
+
+  await page
+    .locator('[data-virtue="wisdom"]')
+    .getByRole("button", { name: "+1" })
+    .click()
+  await expect
+    .poll(async () => (await readVirtues())?.wisdom ?? null, { timeout: 5000 })
+    .toBe(1)
+
+  // Reload so the server-rendered Continue button picks up the fresh gate
+  // state without racing the route's revalidation chain.
+  await page.reload()
+  await expect(
+    page.getByRole("button", { name: "Continue to Animus" })
+  ).toBeEnabled()
+}
+
 test.describe("builder shell", () => {
   test.use({ storageState: STORAGE_STATE })
 
@@ -115,6 +178,7 @@ test.describe("builder shell", () => {
     await chooseWarriorOrigin(page)
 
     await page.getByRole("button", { name: "Continue to Ortus" }).click()
+    await setValidVirtueAllocation(page, shortId)
     await page.getByRole("button", { name: "Continue to Animus" }).click()
     await page.getByRole("button", { name: "Continue to Persona" }).click()
 
@@ -267,6 +331,135 @@ test.describe("movement 1 — corpus", () => {
 })
 
 /**
+ * Movement 2 content tests (UNN-216). Covers the Virtue allocation gate,
+ * Ancestry/Background persistence, and the Talents picker's pickup cap.
+ */
+test.describe("movement 2 — ortus", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("Continue is gated until the Virtue allocation is valid", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/ortus`)
+
+    const continueButton = page.getByRole("button", {
+      name: "Continue to Animus",
+    })
+    await expect(continueButton).toBeDisabled()
+
+    // Allocate 1×+2 + 2×+1, sequentially so optimistic state settles between
+    // clicks (each click writes through dispatchCharacterWriteWithRetry).
+    await page
+      .locator('[data-virtue="expression"]')
+      .getByRole("button", { name: "+2" })
+      .click()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ v: characters.virtueExpression })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.v ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe(2)
+
+    await page
+      .locator('[data-virtue="empathy"]')
+      .getByRole("button", { name: "+1" })
+      .click()
+    await page
+      .locator('[data-virtue="wisdom"]')
+      .getByRole("button", { name: "+1" })
+      .click()
+
+    await expect(continueButton).toBeEnabled()
+  })
+
+  test("inline budget locks out picks that would overflow", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/ortus`)
+
+    // Set Expression to +2 → +2 buttons on every other row should disable.
+    await page
+      .locator('[data-virtue="expression"]')
+      .getByRole("button", { name: "+2" })
+      .click()
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({ v: characters.virtueExpression })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row?.v ?? null
+        },
+        { timeout: 5000 }
+      )
+      .toBe(2)
+
+    for (const virtue of ["empathy", "wisdom", "focus"] as const) {
+      await expect(
+        page
+          .locator(`[data-virtue="${virtue}"]`)
+          .getByRole("button", { name: "+2" })
+      ).toBeDisabled()
+    }
+  })
+
+  test("Ancestry and Background auto-save", async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/ortus`)
+
+    const ancestry = page.getByLabel("Ancestry")
+    const background = page.getByLabel("Background")
+    await ancestry.fill("Half-elf")
+    await ancestry.blur()
+    await background.fill("Disgraced noble")
+    await background.blur()
+
+    await expect
+      .poll(
+        async () => {
+          const [row] = await getDb()
+            .select({
+              ancestryText: characters.ancestryText,
+              backgroundText: characters.backgroundText,
+            })
+            .from(characters)
+            .where(eq(characters.shortId, shortId))
+            .limit(1)
+          return row ? [row.ancestryText, row.backgroundText].join(" / ") : null
+        },
+        { timeout: 5000 }
+      )
+      .toBe("Half-elf / Disgraced noble")
+  })
+})
+
+/**
  * Movement 4 content tests (UNN-218). Covers Persona's contract: auto-focus
  * on the name field, the Finalize gate, and the commit-to-sheet redirect.
  */
@@ -324,9 +517,9 @@ test.describe("movement 4 — persona", () => {
       )
       .toBe("Garron Vey")
 
-    // Backtrack to Corpus, pick an Origin, return — Finalize now enables
-    // (the name persisted server-side, so re-rendering /persona shows it
-    // pre-filled and both gates pass).
+    // Backtrack to Corpus + Ortus to satisfy the corpus + ortus gates, then
+    // return to Persona — the name persisted server-side, so re-rendering
+    // /persona shows it pre-filled and all three gates pass.
     await page.goto(`/builder/${shortId}/corpus`)
     await chooseWarriorOrigin(page)
     await expect
@@ -342,6 +535,9 @@ test.describe("movement 4 — persona", () => {
         { timeout: 5000 }
       )
       .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/ortus`)
+    await setValidVirtueAllocation(page, shortId)
 
     await page.goto(`/builder/${shortId}/persona`)
     await expect(finalizeButton).toBeEnabled()
@@ -369,6 +565,9 @@ test.describe("movement 4 — persona", () => {
         { timeout: 5000 }
       )
       .not.toBeNull()
+
+    await page.goto(`/builder/${shortId}/ortus`)
+    await setValidVirtueAllocation(page, shortId)
 
     await page.goto(`/builder/${shortId}/persona`)
 

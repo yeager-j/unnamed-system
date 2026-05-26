@@ -26,11 +26,11 @@ describe("BUILDER_STEPS", () => {
     ])
   })
 
-  it("omits the framing line on Movement 4 only (ADR-002 §The Person)", () => {
-    const indexesWithoutFramingLine = BUILDER_STEPS.flatMap((step, index) =>
-      step.framingLine === null ? [index] : []
-    )
-    expect(indexesWithoutFramingLine).toEqual([3])
+  it("supplies a framing line for every movement", () => {
+    for (const step of BUILDER_STEPS) {
+      expect(step.framingLine).not.toBeNull()
+      expect(step.framingLine?.length).toBeGreaterThan(0)
+    }
   })
 
   it("has unique URL-safe slugs", () => {
