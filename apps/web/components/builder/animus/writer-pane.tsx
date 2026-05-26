@@ -76,10 +76,9 @@ export function WriterPane({
   })
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center gap-2 md:hidden">
-        <SidebarTrigger />
-        <span className="text-xs text-muted-foreground">Sections</span>
+    <div className="flex h-full flex-col gap-2">
+      <div className="md:hidden">
+        <SidebarTrigger aria-label="Open sections" />
       </div>
 
       {resolved ? (
@@ -134,6 +133,9 @@ function ActiveDocument({
     </div>
   )
 }
+
+const UNTITLED_KNIFE = "Untitled Knife"
+const UNTITLED_CHAIN = "Untitled Chain"
 
 function documentKey(ref: DocumentRef): string {
   return `${ref.kind}:${ref.id}`
@@ -212,7 +214,7 @@ function wireActions({
         messages: {
           bodyAriaLabel: `${ref.label || "Knife"} — description`,
           bodyPlaceholder: "Why does this matter? What's at stake?",
-          titlePlaceholder: "e.g. My younger sister Mira",
+          titlePlaceholder: UNTITLED_KNIFE,
           saveError: "Couldn't save the Knife. Try again.",
         },
       }
@@ -247,7 +249,7 @@ function wireActions({
         messages: {
           bodyAriaLabel: `${ref.label || "Chain"} — description`,
           bodyPlaceholder: "What limits your character? Why does it bind them?",
-          titlePlaceholder: "e.g. A debt to the King's court",
+          titlePlaceholder: UNTITLED_CHAIN,
           saveError: "Couldn't save the Chain. Try again.",
         },
       }

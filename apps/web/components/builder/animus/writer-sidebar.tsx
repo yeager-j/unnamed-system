@@ -9,6 +9,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
@@ -30,6 +31,7 @@ import type {
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
 
+import { BUILDER_STEPS, indexOfStep } from "../builder-steps"
 import { useAnimusDocument } from "./animus-context"
 import {
   buildDocumentGroups,
@@ -37,6 +39,8 @@ import {
   type DocumentGroup,
   type DocumentRef,
 } from "./documents"
+
+const ANIMUS_STEP = BUILDER_STEPS[indexOfStep("animus")!]!
 
 /**
  * The Movement 3 writer's left rail. Renders four groups (Backstory /
@@ -69,16 +73,47 @@ export function WriterSidebar({
   const groups = buildDocumentGroups({ knives, chains })
 
   return (
-    <SidebarContent>
-      {groups.map((group) => (
-        <SidebarSection
-          key={group.kind}
-          group={group}
-          characterId={characterId}
-          identityVersion={identityVersion}
-        />
-      ))}
-    </SidebarContent>
+    <>
+      <WriterSidebarHeader />
+      <SidebarContent>
+        {groups.map((group) => (
+          <SidebarSection
+            key={group.kind}
+            group={group}
+            characterId={characterId}
+            identityVersion={identityVersion}
+          />
+        ))}
+      </SidebarContent>
+    </>
+  )
+}
+
+/**
+ * The chapter header (Roman numeral, "Animus", framing line) relocated
+ * from `BuilderShell`'s top into the sidebar so the main pane is free for
+ * the document. Sidebar-scale type (smaller than the centered chapter
+ * heading on Movements 1/2/4) and left-aligned to read as the rail's
+ * heading.
+ */
+function WriterSidebarHeader() {
+  return (
+    <SidebarHeader className="gap-3 px-4 pt-6 pb-4">
+      <span
+        aria-hidden
+        className="font-mono text-xs text-sidebar-foreground/60 uppercase"
+      >
+        {ANIMUS_STEP.romanNumeral}
+      </span>
+      <h1 className="font-heading text-3xl font-medium text-sidebar-foreground">
+        {ANIMUS_STEP.label}
+      </h1>
+      {ANIMUS_STEP.framingLine ? (
+        <p className="font-heading text-sm text-sidebar-foreground/70 italic">
+          {ANIMUS_STEP.framingLine}
+        </p>
+      ) : null}
+    </SidebarHeader>
   )
 }
 

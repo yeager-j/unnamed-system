@@ -125,7 +125,7 @@ export function DocumentEditor({
   const bodyLabelId = `writer-body-label-${documentId}`
 
   return (
-    <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+    <div className="flex flex-1 flex-col gap-3 overflow-hidden">
       {title !== null ? (
         <Field>
           <FieldLabel htmlFor={titleInputId} className="sr-only">
@@ -140,7 +140,7 @@ export function DocumentEditor({
             onChange={(event) => titleState.setValue(event.target.value)}
             onFocus={() => titleState.onFocusChange(true)}
             onBlur={() => titleState.onFocusChange(false)}
-            className="h-auto rounded-none border-0 border-b border-border bg-transparent px-0 font-heading text-2xl shadow-none focus-visible:border-foreground focus-visible:ring-0 sm:text-3xl"
+            className="h-auto rounded-none border-0 bg-transparent px-0 font-heading text-2xl text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
           />
         </Field>
       ) : null}
@@ -158,7 +158,7 @@ export function DocumentEditor({
             onChange={bodyState.setValue}
             onFocus={() => bodyState.onFocusChange(true)}
             onBlur={() => bodyState.onFocusChange(false)}
-            className="h-full"
+            className="h-full rounded-none border-0 bg-transparent text-base focus-within:border-0 focus-within:ring-0 dark:bg-transparent [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-0"
           />
         </div>
       </Field>

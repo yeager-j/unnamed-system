@@ -56,6 +56,7 @@ export default async function BuilderStepPage({
       identityVersion={character.identityVersion}
       canAdvance={gate.canAdvance}
       disabledReason={gate.canAdvance ? undefined : gate.reason}
+      hideHeader={step === "animus"}
     >
       {renderMovementBody({ step, character, label: currentStep.label })}
     </BuilderShell>
