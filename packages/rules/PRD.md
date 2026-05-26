@@ -56,8 +56,7 @@ Full design rationale and rejected alternatives live in a Linear document: [ADR-
 
 1. **The Body.** The mechanical character. ~5 minutes.
    - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60). **Picked first** because it sorts the Archetype grid downstream.
-   - **Origin Archetype.** Pick one from a 3×4 grid of all 12 Lineages. The grid sorts by fit with the chosen Path: Health-Focused → HP-matched archetypes first, then Balanced, then Skill-matched; Balanced → Balanced first; Skill-Focused → Skill-matched first. Each Lineage carries a `suggestedPath` attribute that drives the sort; nothing is gated or hidden. Each card shows the Lineage name, its Mechanic name + one-line description, the attribute row, and one Resist + one Weak affinity. Click a card to expand inline to the full archetype detail (full Affinities, Talents, Skills at Ranks 1–5, Synthesis Skill); commit via a "Choose [Lineage] as Origin" button sticky at the bottom of the expanded card. The app does not gate Archetypes at MVP. Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
-   - **Narrative-light toggle** at the top of this movement: *"Skip the Knives, Chains, and Identity work — our group uses level-gate advancement."* Off by default. If on, Movement 3 is hidden entirely and Movement 2 sheds the Backstory field. Honors the rulebook's "Opting Out of Narrative Advancement" alternative (rules 1.3).
+   - **Origin Archetype.** Pick one from a 3×4 grid of all 12 Lineages. The grid sorts by fit with the chosen Path: Health-Focused → HP-matched archetypes first, then Balanced, then Skill-matched; Balanced → Balanced first; Skill-Focused → Skill-matched first. Each Lineage carries a `suggestedPath` attribute that drives the sort; nothing is gated or hidden. Each card shows the Lineage name, its Mechanic name + one-line description, the attribute row, and one Resist + one Weak affinity. Click a card to expand inline to the full archetype detail (full Affinities, Talents, Skills at Ranks 1–5, Synthesis Skill); commit via a "Choose [Lineage] as Origin" button sticky at the bottom of the viewport while the expanded content scrolls. The app does not gate Archetypes at MVP. Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
 
 2. **The Past.** Who they were before the adventure. ~10–15 minutes. Two-column layout, fits one viewport on desktop.
    - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance. Setting-defined per the rules; the player types what their DM provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
@@ -96,8 +95,7 @@ Talents are *not* picked in the builder. The active Origin Archetype's Talents a
 - Virtue allocation rules are validated within Movement 2 (exactly one +2, exactly two +1s, all different).
 - HP/SP path determines starting HP/SP and Hit/Skill Die for future leveling.
 - Origin Archetype determines which Paragon Archetype is eventually available (informational only at MVP, since gating isn't enforced).
-- To finalize in narrative mode: name, HP/SP path, Origin Archetype, valid Virtue allocation, at least 4 Knives, at least 1 Chain, minimum Identity Trait counts.
-- To finalize in narrative-light mode: name, HP/SP path, Origin Archetype, valid Virtue allocation only.
+- To finalize: name, HP/SP path, Origin Archetype, valid Virtue allocation, at least 4 Knives, at least 1 Chain, minimum Identity Trait counts.
 - Other narrative fields (Ancestry, Background, Backstory) are optional but encouraged with non-blocking guidance.
 - **Equipment is not chosen in the builder.** The starting weapon is the canonical weapon for the character's Origin Lineage; it can be customized from the live sheet after creation.
 

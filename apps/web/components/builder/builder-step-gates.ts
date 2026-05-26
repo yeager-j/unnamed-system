@@ -75,6 +75,15 @@ export function nextGateForStep(
   character: StepGateCharacter
 ): StepGateResult {
   switch (slug) {
+    case "corpus": {
+      if (character.originArchetypeKey === null) {
+        return {
+          canAdvance: false,
+          reason: "Pick an Origin Archetype to continue.",
+        }
+      }
+      return { canAdvance: true }
+    }
     case "basic-info": {
       const trimmed = character.name.trim()
       if (trimmed.length === 0 || trimmed === DRAFT_NAME_PLACEHOLDER) {
