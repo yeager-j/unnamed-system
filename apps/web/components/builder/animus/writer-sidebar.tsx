@@ -49,9 +49,7 @@ const ANIMUS_STEP = BUILDER_STEPS[indexOfStep("animus")!]!
  * the selection in the `AnimusDocumentContext` so the pane (in the page
  * subtree) swaps.
  *
- * Add (Knives/Chains only) wires through `dispatchCharacterWriteWithRetry`
- * — same pattern as
- * {@link import("../steps/character-origins/entry-list-editor.tsx").EntryListEditor}.
+ * Add (Knives/Chains only) wires through `dispatchCharacterWriteWithRetry`.
  * On success, the new entry becomes the active document so the player
  * lands ready to type.
  *

@@ -17,10 +17,7 @@ import type { Result } from "@/lib/game/result"
 
 /**
  * The title + Markdown body pair the Movement 3 writer renders for the
- * active document. Extracted from the original
- * {@link import("../steps/character-origins/entry-edit-dialog.tsx").EntryEditForm}
- * (UNN-207) so the writer and the legacy dialog share one autosave-wiring
- * implementation while UNN-217 deletes the dialog.
+ * active document.
  *
  * Two independent `useDebouncedAutoSave` instances drive title and body
  * separately. Both write the identity class — the silent-retry pipeline in
