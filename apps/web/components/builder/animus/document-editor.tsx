@@ -2,9 +2,14 @@
 
 import { toast } from "sonner"
 
-import { Field, FieldLabel } from "@workspace/ui/components/field"
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+} from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
@@ -21,15 +26,21 @@ import type { Result } from "@/lib/game/result"
  * separately. Both write the identity class — the silent-retry pipeline in
  * `dispatchCharacterWriteWithRetry` handles the version race between them.
  *
- * For documents without a player-editable title (Backstory, Identity
- * Traits), pass `title={null}` — the input is suppressed and the parent
- * is expected to render the fixed serif heading itself.
+ * Every document — editable (Knives / Chains) or fixed (Backstory /
+ * Identity Traits) — renders the same Input + description + Separator +
+ * Markdown body. Fixed documents pass no `updateTitle` action, which
+ * flips the input to `readOnly` so the styling and rhythm stay identical
+ * across kinds.
  */
 export interface DocumentEditorMutationResult {
   version: number
 }
 
 export interface DocumentEditorActions {
+  /**
+   * When omitted, the title input is rendered `readOnly` (Backstory and
+   * Identity Traits — the player can't rename the section name).
+   */
   updateTitle?: (
     title: string,
     expectedVersion: number
@@ -45,8 +56,17 @@ export interface DocumentEditorMessages {
   bodyAriaLabel: string
   /** Placeholder shown in the body editor when empty. */
   bodyPlaceholder: string
-  /** Placeholder shown in the title input. Only used when `title !== null`. */
+  /**
+   * Placeholder shown when the title is empty. Only meaningful for
+   * editable docs (Knives / Chains); fixed docs always have a value.
+   */
   titlePlaceholder?: string
+  /**
+   * Two-to-three sentences of guidance shown between the title and the
+   * body editor. Pulled from the rulebook so each document carries its
+   * own framing without the player having to look it up.
+   */
+  description: string
   /** Toast text on a save failure. */
   saveError: string
 }
@@ -68,15 +88,16 @@ export function DocumentEditor({
    * editor remounts on doc swap.
    */
   documentId: string
-  title: string | null
+  title: string
   body: string
   actions: DocumentEditorActions
   messages: DocumentEditorMessages
 }) {
   const onError = () => toast.error(messages.saveError)
+  const isTitleEditable = !!actions.updateTitle
 
   const titleState = useDebouncedAutoSave({
-    serverValue: title ?? "",
+    serverValue: title,
     serverVersion: identityVersion,
     characterId,
     characterClass: "identity",
@@ -126,24 +147,25 @@ export function DocumentEditor({
 
   return (
     <div className="flex flex-1 flex-col gap-3 overflow-hidden">
-      {title !== null ? (
-        <Field>
-          <FieldLabel htmlFor={titleInputId} className="sr-only">
-            Title
-          </FieldLabel>
-          <Input
-            id={titleInputId}
-            type="text"
-            autoComplete="off"
-            placeholder={messages.titlePlaceholder ?? ""}
-            value={titleState.value}
-            onChange={(event) => titleState.setValue(event.target.value)}
-            onFocus={() => titleState.onFocusChange(true)}
-            onBlur={() => titleState.onFocusChange(false)}
-            className="h-auto rounded-none border-0 bg-transparent px-0 font-heading text-2xl text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
-          />
-        </Field>
-      ) : null}
+      <Field>
+        <FieldLabel htmlFor={titleInputId} className="sr-only">
+          Title
+        </FieldLabel>
+        <Input
+          id={titleInputId}
+          type="text"
+          autoComplete="off"
+          readOnly={!isTitleEditable}
+          placeholder={messages.titlePlaceholder ?? ""}
+          value={titleState.value}
+          onChange={(event) => titleState.setValue(event.target.value)}
+          onFocus={() => titleState.onFocusChange(true)}
+          onBlur={() => titleState.onFocusChange(false)}
+          className="h-auto rounded-none border-0 bg-transparent px-0 font-heading text-2xl text-foreground shadow-none placeholder:text-muted-foreground read-only:cursor-default focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
+        />
+        <FieldDescription>{messages.description}</FieldDescription>
+        <Separator />
+      </Field>
 
       <Field className="flex-1 overflow-hidden">
         <Label id={bodyLabelId} className="sr-only">

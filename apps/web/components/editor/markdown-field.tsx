@@ -105,7 +105,7 @@ export function MarkdownField({
         // Prose styling layers the rich-text typography on top of the same
         // base box.
         class:
-          "prose prose-sm dark:prose-invert max-w-none min-h-16 px-2.5 py-2 outline-none min-h-64",
+          "prose prose-sm dark:prose-invert max-w-none min-h-16 px-2.5 py-2 outline-none h-full min-h-64 font-serif",
       },
     },
     onUpdate({ editor }) {
