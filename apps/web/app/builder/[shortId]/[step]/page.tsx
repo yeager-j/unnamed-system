@@ -10,9 +10,9 @@ import {
   indexOfStep,
   type MovementSlug,
 } from "@/components/builder/builder-steps"
+import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/steps/ortus"
 import { PersonaStep } from "@/components/builder/steps/persona"
-import { TheBodyStep } from "@/components/builder/steps/the-body"
 import { coerceVirtueAllocation } from "@/lib/game/virtues/allocation"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
@@ -66,7 +66,7 @@ function renderMovementBody({
   switch (slug) {
     case "corpus":
       return (
-        <TheBodyStep
+        <CorpusStep
           characterId={character.id}
           pathChoice={character.pathChoice}
           originArchetypeKey={character.originArchetypeKey}

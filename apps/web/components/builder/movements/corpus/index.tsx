@@ -11,7 +11,7 @@ import { PathBar } from "./path-bar"
  * composer that hands `pathChoice` down to the grid so the sort updates in
  * lockstep with the picker.
  */
-export function TheBodyStep({
+export function CorpusStep({
   characterId,
   pathChoice,
   originArchetypeKey,
