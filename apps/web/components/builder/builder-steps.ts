@@ -44,9 +44,9 @@ export const BUILDER_STEPS = [
     framingLine: "The body your character will inhabit.",
   },
   {
-    slug: "origo",
+    slug: "ortus",
     romanNumeral: "II",
-    label: "Origo",
+    label: "Ortus",
     framingLine: "The years before the adventure.",
   },
   {

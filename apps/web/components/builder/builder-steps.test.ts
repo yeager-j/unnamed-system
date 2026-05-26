@@ -11,7 +11,7 @@ describe("BUILDER_STEPS", () => {
   it("has exactly four movements with the ADR-002 slugs in order", () => {
     expect(BUILDER_STEPS.map((step) => step.slug)).toEqual([
       "corpus",
-      "origo",
+      "ortus",
       "animus",
       "persona",
     ])
