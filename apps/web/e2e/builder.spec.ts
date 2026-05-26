@@ -84,7 +84,7 @@ test.describe("builder shell", () => {
       page.getByRole("heading", { level: 1, name: "Corpus" })
     ).toBeVisible()
     await expect(
-      page.getByText("The body your character will inhabit.")
+      page.getByText("What shape does your power take?")
     ).toBeVisible()
 
     await chooseWarriorOrigin(page)
@@ -122,6 +122,7 @@ test.describe("builder shell", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Persona" })
     ).toBeVisible()
+    await expect(page.getByText("Who are you?")).toBeVisible()
     await expect(
       page.getByRole("button", { name: /^Continue to/ })
     ).toHaveCount(0)
