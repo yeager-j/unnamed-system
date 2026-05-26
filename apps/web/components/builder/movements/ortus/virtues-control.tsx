@@ -54,12 +54,7 @@ export function VirtuesControl({
   const [draft, setDraft] = useState<VirtueAllocation>(allocation)
   useEffect(() => {
     setDraft(allocation)
-  }, [
-    allocation.expression,
-    allocation.empathy,
-    allocation.wisdom,
-    allocation.focus,
-  ])
+  }, [allocation])
 
   function applyAllocation(next: VirtueAllocation) {
     setDraft(next)

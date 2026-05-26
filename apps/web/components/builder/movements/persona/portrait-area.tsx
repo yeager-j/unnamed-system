@@ -1,7 +1,7 @@
 "use client"
 
 import { CameraIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useEffect, useEffectEvent, useRef, useTransition } from "react"
+import { useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -13,6 +13,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
+import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
   removeCharacterPortraitAction,
   uploadCharacterPortraitAction,
@@ -44,14 +45,7 @@ export function PortraitArea({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [isPending, startTransition] = useTransition()
-  const versionRef = useRef(identityVersion)
-
-  const syncFromServer = useEffectEvent(() => {
-    versionRef.current = identityVersion
-  })
-  useEffect(() => {
-    syncFromServer()
-  }, [identityVersion])
+  const versionRef = useCharacterTokenRef(identityVersion)
 
   function openPicker() {
     inputRef.current?.click()
