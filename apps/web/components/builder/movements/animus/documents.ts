@@ -51,6 +51,15 @@ const BACKSTORY_REF: DocumentRef = {
 }
 
 /**
+ * Single source for the empty-title label across both the sidebar row and the
+ * editor's title `placeholder`. Notion-style "Untitled X" — visually muted in
+ * the sidebar cues that the row needs a name; the same string as the editor
+ * placeholder keeps the player's mental model consistent across surfaces.
+ */
+export const UNTITLED_KNIFE = "Untitled Knife"
+export const UNTITLED_CHAIN = "Untitled Chain"
+
+/**
  * Builds the sidebar's grouped document list from the loaded builder
  * character. Order matches the rulebook's Movement 3 flow: long-form
  * Backstory first, then the stakes (Knives), the limitations (Chains),

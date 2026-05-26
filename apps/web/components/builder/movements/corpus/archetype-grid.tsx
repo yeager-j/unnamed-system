@@ -8,7 +8,7 @@ import { Button } from "@workspace/ui/components/button"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
-import { INITIATE_ARCHETYPES } from "@/lib/game/archetypes"
+import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@/lib/game/archetypes"
 import { sortArchetypesByPath } from "@/lib/game/archetypes/sort"
 import type { PathChoice } from "@/lib/game/character"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
@@ -27,8 +27,9 @@ import { ArchetypeDetail } from "./archetype-detail"
  * regardless of which (if any) card is currently expanded.
  *
  * Sort responds to `pathChoice`: a Health-Focused player sees HP-matched
- * Lineages first (see {@link sortArchetypesByPath}). When Path is unset the
- * announcement line above the grid hides — there's no fit to announce.
+ * Lineages first (see {@link sortArchetypesByPath}). A draft's row always
+ * carries a Path (defaulted to `"balanced"` by `startCharacterDraft`), so
+ * this never sees a null.
  */
 export function ArchetypeGrid({
   characterId,
@@ -37,7 +38,13 @@ export function ArchetypeGrid({
   identityVersion,
 }: {
   characterId: string
-  pathChoice: PathChoice | null
+  pathChoice: PathChoice
+  /**
+   * The persisted Origin from the DB. Typed loosely because the catalog
+   * could change post-finalize (an Archetype dropping from `INITIATE_ARCHETYPES`
+   * would leave a stale key on the row); the grid still renders the rest of
+   * the catalog without crashing.
+   */
   originArchetypeKey: string | null
   identityVersion: number
 }) {
@@ -45,7 +52,7 @@ export function ArchetypeGrid({
   const versionRef = useCharacterTokenRef(identityVersion)
   const [optimisticKey, setOptimisticKey] = useOptimistic(
     originArchetypeKey,
-    (_current: string | null, next: string) => next
+    (_current: string | null, next: ArchetypeKey) => next
   )
   const [expandedKey, setExpandedKey] = useState<string | null>(
     originArchetypeKey
@@ -58,7 +65,7 @@ export function ArchetypeGrid({
     setExpandedKey((current) => (current === key ? null : key))
   }
 
-  function handleSelect(archetypeKey: string) {
+  function handleSelect(archetypeKey: ArchetypeKey) {
     if (archetypeKey === optimisticKey) return
     startTransition(async () => {
       setOptimisticKey(archetypeKey)
@@ -69,7 +76,7 @@ export function ArchetypeGrid({
         action: (expectedVersion) =>
           setOriginArchetypeAction({
             characterId,
-            archetypeKey: archetypeKey as never,
+            archetypeKey,
             expectedVersion,
           }),
       })
@@ -93,15 +100,13 @@ export function ArchetypeGrid({
         <h2 className="font-heading text-lg font-medium text-foreground">
           Origin Archetype
         </h2>
-        {pathChoice ? (
-          <p className="text-xs text-muted-foreground">
-            Sorted by fit with your{" "}
-            <span className="text-foreground">
-              {PATH_CHOICE_LABELS[pathChoice]}
-            </span>{" "}
-            path.
-          </p>
-        ) : null}
+        <p className="text-xs text-muted-foreground">
+          Sorted by fit with your{" "}
+          <span className="text-foreground">
+            {PATH_CHOICE_LABELS[pathChoice]}
+          </span>{" "}
+          path.
+        </p>
       </header>
 
       <ul className="grid grid-cols-1 gap-4 pb-24 md:grid-cols-2 lg:grid-cols-3">
@@ -121,7 +126,7 @@ export function ArchetypeGrid({
               <div className="col-span-full border border-primary bg-muted/40 p-6">
                 <ArchetypeDetail
                   archetype={archetype}
-                  pathChoice={pathChoice ?? "balanced"}
+                  pathChoice={pathChoice}
                 />
               </div>
             ) : null}

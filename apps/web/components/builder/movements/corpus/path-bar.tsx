@@ -164,11 +164,11 @@ function HpSpBalanceBar({
         className="relative h-2 w-full overflow-hidden border border-border"
       >
         <div
-          className="absolute inset-y-0 left-0 bg-green-200 transition-[width] duration-300"
+          className="absolute inset-y-0 left-0 bg-hp transition-[width] duration-300"
           style={{ width: `${hpShare}%` }}
         />
         <div
-          className="absolute inset-y-0 right-0 bg-blue-200 transition-[width] duration-300"
+          className="absolute inset-y-0 right-0 bg-sp transition-[width] duration-300"
           style={{ width: `${100 - hpShare}%` }}
         />
       </div>

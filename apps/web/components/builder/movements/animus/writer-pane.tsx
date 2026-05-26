@@ -26,6 +26,8 @@ import {
 } from "./document-editor"
 import {
   resolveDocumentContent,
+  UNTITLED_CHAIN,
+  UNTITLED_KNIFE,
   type DocumentRef,
   type ResolvedDocument,
 } from "./documents"
@@ -129,9 +131,6 @@ function ActiveDocument({
     />
   )
 }
-
-const UNTITLED_KNIFE = "Untitled Knife"
-const UNTITLED_CHAIN = "Untitled Chain"
 
 function documentKey(ref: DocumentRef): string {
   return `${ref.kind}:${ref.id}`

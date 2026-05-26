@@ -20,9 +20,9 @@ import {
 import { characters, inventoryItems } from "./schema/character"
 
 /**
- * Persistence for the wizard's Review step (UNN-206). Flips a `draft` row to
- * `finalized` in a single transaction, alongside the side-effects PRD §5.1
- * step 5 calls out:
+ * Persistence for the Movement 4 Finalize button (UNN-218). Flips a `draft`
+ * row to `finalized` in a single transaction, alongside the side-effects
+ * PRD §5.1 calls out for the commit moment:
  *
  * - **Status flip.** `status = 'finalized'`.
  * - **Pool seeding.** `currentHP` / `currentSP` set to the path-and-Origin

@@ -62,10 +62,13 @@ export const ARCHETYPES: readonly Archetype[] = Object.values(ARCHETYPES_BY_KEY)
  * Every initiate-tier Archetype, in catalog order. The builder's Movement 1
  * grid iterates over this list; the picker's Path-sensitive sort runs on
  * top of it (see {@link sortArchetypesByPath}).
+ *
+ * Cast narrows `.key` from the schema's generic `string` to the catalog's
+ * `ArchetypeKey` union so callers don't need to widen at the boundary.
  */
-export const INITIATE_ARCHETYPES: readonly Archetype[] = ARCHETYPES.filter(
+export const INITIATE_ARCHETYPES = ARCHETYPES.filter(
   (archetype) => archetype.tier === "initiate"
-)
+) as readonly (Archetype & { key: ArchetypeKey })[]
 
 /**
  * Slug keys of every initiate-tier Archetype — i.e. the set of valid

@@ -17,9 +17,7 @@ import type { Archetype } from "./schema"
  * - `"skill-focused"`   → skill   → balanced → health
  *
  * Within a bucket, Archetypes fall back to the canonical `LINEAGES` array order
- * (the rulebook order). When `pathChoice` is `null` — e.g. an entry-deep-link
- * lands before Path has been set — the whole grid renders in flat `LINEAGES`
- * order and the UI hides the "Sorted by fit with your X path." announcement.
+ * (the rulebook order).
  *
  * The sort never gates anything — every Archetype stays selectable regardless
  * of Path. An HP-Focused Mage is unusual but valid; the sort is *discovery*,
@@ -39,16 +37,10 @@ const LINEAGE_ORDER: Record<(typeof LINEAGES)[number], number> =
     LINEAGES.map((lineage, index) => [lineage, index])
   ) as Record<(typeof LINEAGES)[number], number>
 
-export function sortArchetypesByPath(
-  archetypes: readonly Archetype[],
-  pathChoice: PathChoice | null
-): Archetype[] {
-  if (pathChoice === null) {
-    return archetypes
-      .slice()
-      .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
-  }
-
+export function sortArchetypesByPath<T extends Archetype>(
+  archetypes: readonly T[],
+  pathChoice: PathChoice
+): T[] {
   const bucketOrder = BUCKET_ORDER_BY_PATH[pathChoice]
   const bucketRank = {
     [bucketOrder[0]]: 0,

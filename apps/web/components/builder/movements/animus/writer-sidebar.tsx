@@ -36,6 +36,8 @@ import { useAnimusDocument } from "./animus-context"
 import {
   buildDocumentGroups,
   refsEqual,
+  UNTITLED_CHAIN,
+  UNTITLED_KNIFE,
   type DocumentGroup,
   type DocumentRef,
 } from "./documents"
@@ -269,14 +271,13 @@ function SidebarSection({
 }
 
 /**
- * Sidebar fallback label for an empty Knife/Chain title. Mirrors Notion's
- * "New page" convention — the editor pane uses a different placeholder
- * ("Untitled Knife") to cue the player that the title field is editable;
- * the sidebar just needs a non-empty row label so the entry stays
- * clickable.
+ * Sidebar fallback label for an empty Knife/Chain title. Shares the
+ * editor's title placeholder so a freshly-added row reads the same on
+ * both surfaces; the muted styling on the sidebar row cues "this is
+ * empty, please name it."
  */
 function placeholderLabel(ref: DocumentRef): string {
-  if (ref.kind === "knife") return "New Knife"
-  if (ref.kind === "chain") return "New Chain"
+  if (ref.kind === "knife") return UNTITLED_KNIFE
+  if (ref.kind === "chain") return UNTITLED_CHAIN
   return ref.label
 }

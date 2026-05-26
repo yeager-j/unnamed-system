@@ -6,11 +6,6 @@ import { sortArchetypesByPath } from "./sort"
 describe("sortArchetypesByPath", () => {
   const initiates = ARCHETYPES.filter((a) => a.tier === "initiate")
 
-  it("falls back to LINEAGES order when path is null", () => {
-    const ordered = sortArchetypesByPath(initiates, null).map((a) => a.lineage)
-    expect(ordered).toEqual(["warrior", "mage", "knight", "healer"])
-  })
-
   it("surfaces health-bucket Lineages first under health-focused", () => {
     const ordered = sortArchetypesByPath(initiates, "health-focused").map(
       (a) => a.lineage
