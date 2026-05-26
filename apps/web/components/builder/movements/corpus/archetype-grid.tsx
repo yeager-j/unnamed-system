@@ -8,7 +8,7 @@ import { Button } from "@workspace/ui/components/button"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
-import { ARCHETYPES } from "@/lib/game/archetypes"
+import { INITIATE_ARCHETYPES } from "@/lib/game/archetypes"
 import { sortArchetypesByPath } from "@/lib/game/archetypes/sort"
 import type { PathChoice } from "@/lib/game/character"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
@@ -51,8 +51,7 @@ export function ArchetypeGrid({
     originArchetypeKey
   )
 
-  const initiates = ARCHETYPES.filter((a) => a.tier === "initiate")
-  const sorted = sortArchetypesByPath(initiates, pathChoice)
+  const sorted = sortArchetypesByPath(INITIATE_ARCHETYPES, pathChoice)
   const expanded = sorted.find((a) => a.key === expandedKey) ?? null
 
   function handleToggleExpand(key: string) {

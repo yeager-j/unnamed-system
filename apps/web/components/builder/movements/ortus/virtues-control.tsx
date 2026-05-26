@@ -12,15 +12,10 @@ import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
 import { VIRTUE_KEYS, type VirtueKey } from "@/lib/game/character"
 import {
   describeAllocationProgress,
+  wouldExceedAllocationCap,
   type VirtueAllocation,
 } from "@/lib/game/virtues/allocation"
-import { VIRTUE_LABELS } from "@/lib/ui/labels"
-
-const RANK_LABELS: Record<0 | 1 | 2, string> = {
-  0: "+0",
-  1: "+1",
-  2: "+2",
-}
+import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/lib/ui/labels"
 
 const RANKS = [0, 1, 2] as const
 
@@ -127,7 +122,7 @@ export function VirtuesControl({
             <ButtonGroup aria-label={`${VIRTUE_LABELS[key]} rank`}>
               {RANKS.map((rank) => {
                 const isSelected = draft[key] === rank
-                const isDisabled = wouldOverflow(draft, key, rank)
+                const isDisabled = wouldExceedAllocationCap(draft, key, rank)
                 return (
                   <Button
                     key={rank}
@@ -139,7 +134,7 @@ export function VirtuesControl({
                     onClick={() => setRank(key, rank)}
                     className="font-mono tabular-nums"
                   >
-                    {RANK_LABELS[rank]}
+                    {VIRTUE_RANK_LABELS[rank]}
                   </Button>
                 )
               })}
@@ -149,23 +144,4 @@ export function VirtuesControl({
       </div>
     </section>
   )
-}
-
-/**
- * Returns true if setting `key` to `target` would push the allocation past
- * the rulebook 1.2 creation cap (>1 Virtues at +2, or >2 Virtues at +1).
- * Clearing (`target === 0`) and re-clicking the current rank are never
- * disabled.
- */
-function wouldOverflow(
-  allocation: VirtueAllocation,
-  key: VirtueKey,
-  target: 0 | 1 | 2
-): boolean {
-  if (target === 0) return false
-  if (allocation[key] === target) return false
-  const next: VirtueAllocation = { ...allocation, [key]: target }
-  const twos = VIRTUE_KEYS.filter((k) => next[k] === 2).length
-  const ones = VIRTUE_KEYS.filter((k) => next[k] === 1).length
-  return twos > 1 || ones > 2
 }
