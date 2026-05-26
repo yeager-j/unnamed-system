@@ -51,13 +51,17 @@ export function BuilderProviderShell({
 
   return (
     <AnimusDocumentProvider>
-      <SidebarProvider open={isAnimus} onOpenChange={() => {}}>
+      <SidebarProvider
+        open={isAnimus}
+        onOpenChange={() => {}}
+        className="min-h-[calc(100svh-3.5rem)]"
+      >
         {/* The default `fixed inset-y-0 h-svh` positions the sidebar from the
             very top of the viewport, which would slide it under the
             site-wide 56px sticky `<header>`. Push it down by that much so
             the top entry (Backstory) sits below the chrome. The mobile
             `<Sheet>` variant is unaffected — it's its own portal. */}
-        <Sidebar className="top-14 h-[calc(100svh-3.5rem)]">
+        <Sidebar variant="floating" className="top-14 h-[calc(100svh-3.5rem)]">
           {isAnimus ? (
             <WriterSidebar
               characterId={characterId}

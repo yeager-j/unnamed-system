@@ -67,7 +67,7 @@ export function BuilderShell({
       : null
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-6 py-12 lg:py-16">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 p-6 lg:p-8">
       {hideHeader ? null : <ChapterHeader step={currentStep} />}
 
       <section className="flex flex-1 flex-col gap-6">{children}</section>
