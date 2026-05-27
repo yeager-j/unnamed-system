@@ -1,10 +1,11 @@
 import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { AttributeScores } from "@/lib/game/stats"
-import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
 
 import { AttackRollTable } from "./attack-roll-table"
+import { DamageTypeBadge } from "./damage-type-badge"
 import { PopoverCardShell } from "./popover-card-shell"
 import { skillStatRows } from "./skill-card-utils"
+import { SkillKindBadge } from "./skill-kind-badge"
 import { SkillText } from "./skill-text"
 import { StatsGrid } from "./stats-grid"
 
@@ -21,17 +22,23 @@ interface SkillCardProps {
 }
 
 /**
- * The popover body for a Skill row. Renders the Skill's name, kind tag,
- * description, an applicable-fields-only stats grid, the Attack Roll table
- * (for Skills that have one), and any freeform Effect prose. Damage and
- * healing formulas and the Attack Roll header hydrate with the passed-in
- * attribute scores.
+ * The popover body for a Skill row. Renders the Skill's name, header badge
+ * (damage type for attack Skills, kind for everything else), description, an
+ * applicable-fields-only stats grid, the Attack Roll table (for Skills that
+ * have one), and any freeform Effect prose. Damage and healing formulas and
+ * the Attack Roll header hydrate with the passed-in attribute scores.
  */
 export function SkillCard({ skill, attributes }: SkillCardProps) {
   return (
     <PopoverCardShell
       title={skill.name}
-      kindLabel={SKILL_KIND_LABELS[skill.kind]}
+      badge={
+        skill.kind === "attack" ? (
+          <DamageTypeBadge damageType={skill.damageType} />
+        ) : (
+          <SkillKindBadge kind={skill.kind} />
+        )
+      }
     >
       <SkillText>{skill.description}</SkillText>
       <StatsGrid rows={skillStatRows(skill, skill.resolvedCost, attributes)} />

@@ -1,4 +1,3 @@
-import { Badge } from "@workspace/ui/components/badge"
 import {
   PopoverDescription,
   PopoverTitle,
@@ -7,8 +6,12 @@ import {
 /**
  * The card frame shared by every popover body on the sheet (Skill, intrinsic
  * attack, and future inventory item popovers). Renders the header — title,
- * optional subtitle, and the right-aligned kind badge — then drops into the
+ * optional subtitle, and a right-aligned badge slot — then drops into the
  * children slot for the card body.
+ *
+ * The badge is supplied by the caller so attack surfaces can render a tinted
+ * {@link DamageTypeBadge} while non-attack surfaces render an outline kind
+ * chip without the shell knowing the distinction.
  *
  * Uses Base UI's {@link PopoverTitle} / {@link PopoverDescription} so the
  * popover popup is automatically `aria-labelledby` / `aria-describedby` the
@@ -19,12 +22,12 @@ import {
 export function PopoverCardShell({
   title,
   subtitle,
-  kindLabel,
+  badge,
   children,
 }: {
   title: string
   subtitle?: string
-  kindLabel: string
+  badge: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -40,9 +43,7 @@ export function PopoverCardShell({
             </PopoverDescription>
           ) : null}
         </div>
-        <Badge variant="outline" className="shrink-0">
-          {kindLabel}
-        </Badge>
+        <span className="shrink-0">{badge}</span>
       </div>
       {children}
     </div>
