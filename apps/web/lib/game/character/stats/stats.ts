@@ -1,30 +1,28 @@
-import { getArchetype } from "../../archetypes"
 import {
   ATTRIBUTE_KEYS,
+  getArchetype,
   hasMasteryBonus,
   resolveAffinity,
   type AttributeKey,
-} from "../../archetypes/schema"
-import {
-  DAMAGE_TYPES,
-  type Affinity,
-  type DamageType,
-} from "../../combat/affinity"
+} from "../../archetypes"
 import {
   BONUS_TARGET_KEYS,
+  DAMAGE_TYPES,
+  type Affinity,
   type AffinityEffect,
   type AttackRollEffect,
   type AttributeEffect,
   type BonusTargetKey,
-} from "../../combat/effects"
-import type { EquippableItem } from "../../items/schema"
+  type DamageType,
+} from "../../combat"
+import type { EquippableItem } from "../../items"
 import {
   mechanicEffectsFor,
   type MechanicEffect,
   type MechanicKind,
   type MechanicState,
 } from "../../mechanics"
-import type { Skill } from "../../skills/schema"
+import type { Skill } from "../../skills"
 import type { ManualBonuses, PathChoice } from "../state"
 
 /**

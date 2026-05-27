@@ -5,8 +5,8 @@ import {
   rankUpVirtue,
   type SparkCharacter,
   type SparkError,
-} from "../game/character/leveling"
-import type { VirtueKey } from "../game/character/state"
+  type VirtueKey,
+} from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"

@@ -14,7 +14,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import type { HydratedSkill } from "@/lib/game/character/stats/hydrated-character"
+import type { HydratedSkill } from "@/lib/game/character"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
 import type { Weapon } from "@/lib/game/items/schema"

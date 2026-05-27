@@ -8,9 +8,8 @@ import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-s
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { Archetype } from "@/lib/game/archetypes/schema"
-import { previewArchetypeSkills } from "@/lib/game/archetypes/utils"
-import type { PathChoice } from "@/lib/game/character/state"
+import { previewArchetypeSkills, type Archetype } from "@/lib/game/archetypes"
+import type { PathChoice } from "@/lib/game/character"
 
 /**
  * The expanded inline detail panel rendered next to a compact

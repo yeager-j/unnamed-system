@@ -1,4 +1,4 @@
-import type { PathChoice } from "@/lib/game/character/state"
+import type { PathChoice } from "@/lib/game/character"
 
 import { ArchetypeGrid } from "./archetype-grid"
 import { PathBar } from "./path-bar"

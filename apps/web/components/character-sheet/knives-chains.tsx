@@ -10,7 +10,7 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
-import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow
 

@@ -1,12 +1,9 @@
 import { getArchetype } from "../archetypes"
+import { computeAttributes, type StatComputationCharacter } from "../character"
 import type { PartyComposition } from "../character/state"
-import {
-  computeAttributes,
-  type StatComputationCharacter,
-} from "../character/stats/stats"
 import { mechanicEffectsFor } from "../mechanics"
+import type { SkillKind } from "../skills"
 import type { Skill } from "../skills/schema"
-import type { SkillKind } from "../skills/skill-kind"
 import { resolveAttackAttribute } from "../skills/utils"
 import type { DamageType } from "./affinity"
 import type { AttackAttribute, Delivery } from "./attack"

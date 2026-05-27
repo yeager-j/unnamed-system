@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicDefinition } from "./types"
+import type { MechanicDefinition } from "../types"
 
 /**
  * Mage — Stains. Elemental Skills cast on the Mage's turn leave residue that

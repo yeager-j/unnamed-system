@@ -1,6 +1,6 @@
 import { Badge } from "@workspace/ui/components/badge"
 
-import type { ItemEffect } from "@/lib/game/items/schema"
+import type { ItemEffect } from "@/lib/game/items"
 import { getSkill } from "@/lib/game/skills"
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,

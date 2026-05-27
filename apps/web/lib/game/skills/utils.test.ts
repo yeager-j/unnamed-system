@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import type { HydratedSkill } from "../character/stats/hydrated-character"
-import type { AttributeScores } from "../character/stats/stats"
-import type { DamageType } from "../combat/affinity"
+import type { AttributeScores, HydratedSkill } from "../character"
+import type { DamageType } from "../combat"
+import type { SkillKind } from "../common"
 import { dia } from "./heal/dia"
 import { healersInsight } from "./passive/healers-insight"
-import type { SkillKind } from "./skill-kind"
 import { cleave } from "./slash/cleave"
 import {
   canCast,

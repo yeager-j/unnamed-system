@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { ARCHETYPES } from "./index"
+import { ARCHETYPES } from "./registry"
 import { previewArchetypeSkills, sortArchetypesByPath } from "./utils"
-import { warrior } from "./warrior"
+import { warrior } from "./warrior/warrior"
 
 describe("sortArchetypesByPath", () => {
   const initiates = ARCHETYPES.filter((a) => a.tier === "initiate")

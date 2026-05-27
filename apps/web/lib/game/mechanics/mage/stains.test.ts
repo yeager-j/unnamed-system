@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { mechanicStateSchema } from "./schema"
+import { mechanicStateSchema } from "../schema"
 import { STAIN_ELEMENTS, STAIN_SLOT_COUNT, stains } from "./stains"
 
 describe("stains", () => {

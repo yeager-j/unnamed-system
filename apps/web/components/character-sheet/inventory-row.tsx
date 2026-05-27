@@ -14,7 +14,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import type { EquippableItem } from "@/lib/game/items/schema"
+import type { EquippableItem } from "@/lib/game/items"
 
 import { ItemEffects } from "./item-effects"
 

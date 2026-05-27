@@ -4,7 +4,7 @@ import {
   MAX_PLAYER_ADDED_TALENTS,
   TALENT_KEYS,
   type TalentKey,
-} from "../game/character/talents"
+} from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"

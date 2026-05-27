@@ -15,6 +15,7 @@ import { MechanicState } from "@/lib/game/mechanics"
 import {
   ailmentsSchema,
   battleConditionsSchema,
+  gainedTalentsSchema,
   inheritanceSlotsSchema,
   manualBonusesSchema,
   partyCompositionSchema,
@@ -26,11 +27,8 @@ import {
   type PartyComposition,
   type PathChoice,
   type SparkLog,
-} from "../../game/character/state"
-import {
-  gainedTalentsSchema,
   type TalentKey,
-} from "../../game/character/talents"
+} from "../../game/character"
 import { users } from "./user"
 
 /**

@@ -5,7 +5,7 @@ import {
   unequipItem,
   type EquipError,
   type InventoryItemState,
-} from "../game/items/utils"
+} from "../game/items"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"

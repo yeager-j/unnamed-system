@@ -8,9 +8,10 @@ import {
 import {
   SPARK_LOG_CAPACITY,
   sparkLogBreakdown,
-} from "@/lib/game/character/leveling"
-import { VIRTUE_KEYS, type VirtueKey } from "@/lib/game/character/state"
-import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
+  VIRTUE_KEYS,
+  type HydratedCharacter,
+  type VirtueKey,
+} from "@/lib/game/character"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**

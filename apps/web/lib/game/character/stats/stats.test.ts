@@ -9,8 +9,8 @@ import {
   spAccessory,
   weaknessArmor,
 } from "../../__fixtures__/fixtures"
-import { mage } from "../../archetypes/mage"
-import { warrior } from "../../archetypes/warrior"
+import { mage } from "../../archetypes/mage/mage"
+import { warrior } from "../../archetypes/warrior/warrior"
 import { cleave } from "../../skills/slash/cleave"
 import {
   computeAffinityChart,

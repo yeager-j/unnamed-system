@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { getTalent } from "../character/talents"
-import { healer } from "./healer"
-import { archetypeDisplayName, ARCHETYPES, getArchetype } from "./index"
-import { knight } from "./knight"
-import { mage } from "./mage"
+import { getTalent } from "../character"
+import { healer } from "./healer/healer"
+import { knight } from "./knight/knight"
+import { mage } from "./mage/mage"
+import { archetypeDisplayName, ARCHETYPES, getArchetype } from "./registry"
 import { archetypeSchema, LINEAGES, resolveAffinity } from "./schema"
-import { warrior } from "./warrior"
+import { warrior } from "./warrior/warrior"
 
 describe("archetype data", () => {
   it("exposes a non-empty catalog", () => {

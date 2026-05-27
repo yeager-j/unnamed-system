@@ -1,4 +1,4 @@
-import type { EquippableItem } from "@/lib/game/items/schema"
+import type { EquippableItem } from "@/lib/game/items"
 
 import { ItemEffects } from "./item-effects"
 

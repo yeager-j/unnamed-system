@@ -2,20 +2,21 @@ import type {
   ArchetypeTier,
   AttributeKey,
   Lineage,
-} from "@/lib/game/archetypes/schema"
+} from "@/lib/game/archetypes"
 import type {
   BattleConditionState,
   PathChoice,
   VirtueKey,
-} from "@/lib/game/character/state"
+} from "@/lib/game/character"
 import type {
   Affinity,
   AffinityDamageType,
+  BonusTargetKey,
   DamageType,
-} from "@/lib/game/combat/affinity"
-import type { Delivery, Range } from "@/lib/game/combat/attack"
-import type { BonusTargetKey } from "@/lib/game/combat/effects"
-import type { SkillKind } from "@/lib/game/skills/skill-kind"
+  Delivery,
+  Range,
+} from "@/lib/game/combat"
+import type { SkillKind } from "@/lib/game/skills"
 
 /**
  * Canonical display labels for the game-data vocabularies. Every UI surface

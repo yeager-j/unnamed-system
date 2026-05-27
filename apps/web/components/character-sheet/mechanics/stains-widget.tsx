@@ -1,7 +1,4 @@
-import {
-  STAIN_ELEMENT_LABELS,
-  type StainsState,
-} from "@/lib/game/mechanics/stains"
+import { STAIN_ELEMENT_LABELS, type StainsState } from "@/lib/game/mechanics"
 
 /**
  * Mage — Stains rendering. Four equal-width tiles; each shows its current

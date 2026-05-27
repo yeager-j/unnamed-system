@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicDefinition } from "./types"
+import type { MechanicDefinition } from "../types"
 
 /**
  * Healer — Path of Dawn. Light-damage Skills apply Lumina counters to enemies

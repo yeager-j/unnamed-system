@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "../character/stats/stats"
+import type { StatComputationCharacter } from "../../character/stats/stats"
 import { valor, VALOR_MAX, VALOR_THRESHOLDS } from "./valor"
 
 const baseStats: StatComputationCharacter = {

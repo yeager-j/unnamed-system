@@ -1,13 +1,12 @@
-import type { HydratedSkill } from "../character/stats/hydrated-character"
 import {
   computeMaxHP,
   type AttributeScores,
+  type HydratedSkill,
   type StatComputationCharacter,
-} from "../character/stats/stats"
-import { DAMAGE_TYPES } from "../combat/affinity"
-import type { AttackAttribute } from "../combat/attack"
+} from "../character"
+import { DAMAGE_TYPES, type AttackAttribute } from "../combat"
+import type { SkillKind } from "../common"
 import type { Skill } from "./schema"
-import type { SkillKind } from "./skill-kind"
 
 /**
  * Display order for the Combat-tab Skills list (UNN-198): attackers should

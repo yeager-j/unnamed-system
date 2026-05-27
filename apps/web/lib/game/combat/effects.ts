@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import { LINEAGES } from "../character/lineage"
-import { SKILL_KINDS } from "../skills/skill-kind"
+import { SKILL_KINDS } from "../common"
 import { AFFINITIES, AFFINITY_DAMAGE_TYPES, DAMAGE_TYPES } from "./affinity"
 import { DELIVERIES } from "./attack"
 

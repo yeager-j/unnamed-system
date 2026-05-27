@@ -1,11 +1,11 @@
-import type { EquippableItem, IntrinsicAttack } from "../items/schema"
-import type { Skill } from "../skills/schema"
+import type { EquippableItem, IntrinsicAttack } from "../items"
+import type { Skill } from "../skills"
 
 /**
  * Shared, test-only game-data fixtures. These deliberately model items no sane
  * designer would ship in the real catalog (pure-downside gear, single-purpose
  * stat sticks) so the derived-value logic can be exercised at its edges
- * without polluting `items/index.ts` — nothing here is ever imported by app or
+ * without polluting `items/registry.ts` — nothing here is ever imported by app or
  * catalog code, and these keys never reach the loader's integrity checks.
  *
  * Holds equippable-item and Skill fixtures today; intended to grow Archetype

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { ARCHETYPES } from "../archetypes"
+import { ARCHETYPES } from "../archetypes/registry"
 import { evilTouch } from "./ailment/evil-touch"
 import { agi } from "./fire/agi"
 import { amritaDrop } from "./heal/amrita-drop"

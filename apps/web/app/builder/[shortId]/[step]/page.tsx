@@ -13,7 +13,7 @@ import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/movements/ortus"
 import { PersonaStep } from "@/components/builder/movements/persona"
-import { coerceVirtueAllocation } from "@/lib/game/character/virtues/utils"
+import { coerceVirtueAllocation } from "@/lib/game/character"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 

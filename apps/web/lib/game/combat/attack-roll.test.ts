@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "../character/stats/stats"
+import type { StatComputationCharacter } from "../character"
 import { ailmentBoost } from "../skills/passive/ailment-boost"
 import { magicCircle } from "../skills/passive/magic-circle"
 import { slashBoost } from "../skills/passive/slash-boost"

@@ -1,9 +1,15 @@
 import { z } from "zod/v4"
 
-import { pathOfDawnStateSchema, type PathOfDawnState } from "./path-of-dawn"
-import { perfectionStateSchema, type PerfectionState } from "./perfection"
-import { stainsStateSchema, type StainsState } from "./stains"
-import { valorStateSchema, type ValorState } from "./valor"
+import {
+  pathOfDawnStateSchema,
+  type PathOfDawnState,
+} from "./healer/path-of-dawn"
+import { valorStateSchema, type ValorState } from "./knight/valor"
+import { stainsStateSchema, type StainsState } from "./mage/stains"
+import {
+  perfectionStateSchema,
+  type PerfectionState,
+} from "./warrior/perfection"
 
 /**
  * Discriminated union of every mechanic state shape. The registry in

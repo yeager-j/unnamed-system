@@ -1,9 +1,9 @@
 import { z } from "zod/v4"
 
 import { LINEAGES, type Lineage } from "../character/lineage"
-import type { TalentKey } from "../character/talents"
+import type { TalentKey } from "../character/talents/registry"
 import { AFFINITIES, type Affinity, type DamageType } from "../combat/affinity"
-import type { MechanicKind } from "../mechanics/schema"
+import type { MechanicKind } from "../mechanics"
 import type { SkillKey } from "../skills"
 
 export { LINEAGES, type Lineage }

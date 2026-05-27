@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../result"
-import type { HydratedInventoryItem } from "../character/stats/hydrated-character"
+import type { HydratedInventoryItem } from "../character"
 import { getEquippableItem } from "./index"
 import type { Accessory, Armor, EquippableItem, Weapon } from "./schema"
 

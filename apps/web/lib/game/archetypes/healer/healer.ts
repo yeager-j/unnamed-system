@@ -1,4 +1,4 @@
-import type { Archetype } from "./schema"
+import type { Archetype } from "../schema"
 
 export const healer = {
   key: "healer",

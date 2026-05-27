@@ -1,17 +1,14 @@
+import type { ActiveMechanic, AttributeScores, TalentKey } from "."
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
   CharacterKnifeRow,
   CharacterRow,
   InventoryItemRow,
-} from "../../../db/load-character"
-import type { Affinity, DamageType } from "../../combat/affinity"
-import type { ResolvedAttackRoll } from "../../combat/attack-roll"
-import type { EquippableItem } from "../../items/schema"
-import type { Skill } from "../../skills/schema"
-import type { ResolvedSkillCost } from "../../skills/utils"
-import type { TalentKey } from "../talents"
-import type { ActiveMechanic, AttributeScores } from "./stats"
+} from "../../db/load-character"
+import type { Affinity, DamageType, ResolvedAttackRoll } from "../combat"
+import type { EquippableItem } from "../items"
+import type { ResolvedSkillCost, Skill } from "../skills"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every

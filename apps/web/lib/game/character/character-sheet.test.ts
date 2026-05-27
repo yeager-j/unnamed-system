@@ -5,9 +5,8 @@ import {
   SEED_CHARACTERS,
   type SeedCharacter,
 } from "../../__fixtures__/seed-characters"
-import { getArchetype } from "../archetypes"
-import { hasMasteryBonus } from "../archetypes/schema"
-import { resolveAttackRoll } from "../combat/attack-roll"
+import { getArchetype, hasMasteryBonus } from "../archetypes"
+import { resolveAttackRoll } from "../combat"
 import { getEquippableItem } from "../items"
 import { getSkill } from "../skills"
 import { VIRTUE_KEYS } from "./state"

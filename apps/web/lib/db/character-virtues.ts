@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import type { VirtueAllocation } from "../game/character/virtues/utils"
+import type { VirtueAllocation } from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"

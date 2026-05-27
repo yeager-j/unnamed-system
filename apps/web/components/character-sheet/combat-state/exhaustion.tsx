@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { getExhaustionLevel } from "@/lib/game/combat/exhaustion"
+import { getExhaustionLevel } from "@/lib/game/combat"
 
 /**
  * The Exhaustion entry on the Combat State card. Uses the same vertical

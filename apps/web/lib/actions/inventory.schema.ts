@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import type { InventoryPersistenceError } from "@/lib/db/inventory"
-import type { InventoryItemState } from "@/lib/game/items/utils"
+import type { InventoryItemState } from "@/lib/game/items"
 
 /**
  * Input schema for {@link equipInventoryItemAction} and

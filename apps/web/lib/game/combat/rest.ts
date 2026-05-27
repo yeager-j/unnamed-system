@@ -7,7 +7,7 @@ import {
   computeMaxSkillDice,
   computeMaxSP,
   type StatComputationCharacter,
-} from "../character/stats/stats"
+} from "../character"
 
 /**
  * The three rest transitions — Full, Partial, Respite — that recover a

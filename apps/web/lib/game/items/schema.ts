@@ -8,7 +8,7 @@ import {
   type AffinityEffect,
   type AttributeEffect,
 } from "../combat/effects"
-import type { SkillKey } from "../skills"
+import type { SkillKey } from "../skills/registry"
 
 const itemKeySchema = z.string().regex(/^[a-z0-9-]+$/)
 

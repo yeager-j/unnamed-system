@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicDefinition, MechanicEffect } from "./types"
+import type { MechanicDefinition, MechanicEffect } from "../types"
 
 /**
  * Warrior — Perfection. A linear chain D → C → B → A → S that climbs on hits

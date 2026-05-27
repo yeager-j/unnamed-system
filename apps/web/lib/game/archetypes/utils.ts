@@ -3,28 +3,27 @@ import {
   type CharacterArchetypeRow,
 } from "../../db/load-character"
 import {
-  LINEAGE_SUGGESTED_PATH,
-  type SuggestedPath,
-} from "../character/lineage"
-import type { PathChoice } from "../character/state"
-import type {
-  HydratedCharacter,
-  HydratedSkill,
-} from "../character/stats/hydrated-character"
-import {
   computeMaxHP,
   computeMaxSP,
+  LINEAGE_SUGGESTED_PATH,
+  type HydratedCharacter,
+  type HydratedSkill,
+  type PathChoice,
   type StatComputationCharacter,
-} from "../character/stats/stats"
+  type SuggestedPath,
+} from "../character"
 import {
   resolveAttackRoll,
   skillAttackRollContext,
   type ResolvedAttackRoll,
-} from "../combat/attack-roll"
-import { getSkill } from "../skills"
-import type { Skill } from "../skills/schema"
-import { resolveSkillCost, type CastingCharacter } from "../skills/utils"
-import { getArchetype } from "./index"
+} from "../combat"
+import {
+  getSkill,
+  resolveSkillCost,
+  type CastingCharacter,
+  type Skill,
+} from "../skills"
+import { getArchetype } from "./registry"
 import {
   ARCHETYPE_TIERS,
   LINEAGES,

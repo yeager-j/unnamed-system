@@ -1,5 +1,5 @@
-import type { Lineage } from "@/lib/game/archetypes/schema"
-import type { PartyComposition } from "@/lib/game/character/state"
+import type { Lineage } from "@/lib/game/archetypes"
+import type { PartyComposition } from "@/lib/game/character"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -1,5 +1,5 @@
 import { getArchetype } from "../../archetypes"
-import { getTalent, type TalentKey } from "./index"
+import { getTalent, type TalentKey } from "./registry"
 
 /**
  * The character's full Talent roster, derived rather than stored. Per rulebook

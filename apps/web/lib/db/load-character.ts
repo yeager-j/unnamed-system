@@ -1,25 +1,28 @@
 import { asc, eq } from "drizzle-orm"
 
-import type { HydratedCharacter } from "../game/character/stats/hydrated-character"
-import { buildStatComputationCharacter } from "../game/character/stats/stat-character"
 import {
+  buildStatComputationCharacter,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
+  resolveTalents,
+  type HydratedCharacter,
   type StatComputationCharacter,
-} from "../game/character/stats/stats"
-import { resolveTalents } from "../game/character/talents/utils"
+} from "../game/character"
 import {
   resolveAttackRoll,
   skillAttackRollContext,
   type AttackRollContext,
-} from "../game/combat/attack-roll"
-import { getEquippableItem, getEquippedItem } from "../game/items"
-import type { IntrinsicAttack } from "../game/items/schema"
-import { resolveSkillCost, type CastingCharacter } from "../game/skills/utils"
+} from "../game/combat"
+import {
+  getEquippableItem,
+  getEquippedItem,
+  type IntrinsicAttack,
+} from "../game/items"
+import { resolveSkillCost, type CastingCharacter } from "../game/skills"
 import { db } from "./index"
 import {
   characterArchetypes,

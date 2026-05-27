@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicDefinition, MechanicEffect } from "./types"
+import type { MechanicDefinition, MechanicEffect } from "../types"
 
 /**
  * Knight — Valor. A 0–7 counter built up by acting as a bulwark for the party

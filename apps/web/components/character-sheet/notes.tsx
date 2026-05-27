@@ -6,7 +6,7 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
-import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character"
 
 /**
  * Read-only Notes block (PRD §6.1 Explore tab). Renders the player's free

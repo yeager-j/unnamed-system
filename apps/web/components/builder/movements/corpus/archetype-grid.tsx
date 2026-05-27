@@ -8,9 +8,12 @@ import { Button } from "@workspace/ui/components/button"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
-import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@/lib/game/archetypes"
-import { sortArchetypesByPath } from "@/lib/game/archetypes/utils"
-import type { PathChoice } from "@/lib/game/character/state"
+import {
+  INITIATE_ARCHETYPES,
+  sortArchetypesByPath,
+  type ArchetypeKey,
+} from "@/lib/game/archetypes"
+import type { PathChoice } from "@/lib/game/character"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeCard } from "./archetype-card"

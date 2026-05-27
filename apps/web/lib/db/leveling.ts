@@ -4,7 +4,7 @@ import {
   applyLevelUp,
   type LevelingCharacter,
   type LevelingError,
-} from "../game/character/leveling"
+} from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists, loadCharacterRowById } from "./load-character"

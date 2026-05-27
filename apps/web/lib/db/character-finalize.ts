@@ -1,14 +1,14 @@
 import { and, eq, sql } from "drizzle-orm"
 
 import { getArchetype } from "../game/archetypes"
-import { startingWeaponForLineage } from "../game/character/lineage"
-import { buildStatComputationCharacter } from "../game/character/stats/stat-character"
 import {
+  buildStatComputationCharacter,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-} from "../game/character/stats/stats"
+  startingWeaponForLineage,
+} from "../game/character"
 import { type WeaponKey } from "../game/items"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"

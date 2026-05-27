@@ -1,4 +1,4 @@
-import type { SkillKind } from "@/lib/game/skill-kind"
+import type { SkillKind } from "@/lib/game/skills"
 
 import { DamageTypeBadge, type SkillRowDamageType } from "./damage-type-badge"
 import { SkillKindBadge } from "./skill-kind-badge"

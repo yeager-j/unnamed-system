@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { warrior } from "../../archetypes/warrior"
+import { warrior } from "../../archetypes/warrior/warrior"
 import {
   buildStatComputationCharacter,
   type PersistedArchetypeState,
