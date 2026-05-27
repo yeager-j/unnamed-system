@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "../stats"
+import type { StatComputationCharacter } from "../character/stats/stats"
 import {
   attackBonusForRank,
   perfection,

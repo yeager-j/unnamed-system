@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react"
 
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 
 import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
 

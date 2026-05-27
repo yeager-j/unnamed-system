@@ -7,7 +7,7 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 import { getEquippedItem } from "@/lib/game/items"
 import { sortSkillsByKind } from "@/lib/game/skills/sort"
 

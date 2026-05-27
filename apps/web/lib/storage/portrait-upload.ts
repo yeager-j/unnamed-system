@@ -1,6 +1,6 @@
 import { put } from "@vercel/blob"
 
-import { err, ok, type Result } from "@/lib/game/result"
+import { err, ok, type Result } from "@/lib/result"
 
 /**
  * The set of image mime types the portrait uploader accepts. Kept narrow

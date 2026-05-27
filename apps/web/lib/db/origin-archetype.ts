@@ -1,8 +1,8 @@
 import { and, eq, sql } from "drizzle-orm"
 
 import { getArchetype } from "../game/archetypes"
-import { err, ok, type Result } from "../game/result"
-import type { TalentKey } from "../game/talents"
+import type { TalentKey } from "../game/character/talents"
+import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characterArchetypes, characters } from "./schema/character"

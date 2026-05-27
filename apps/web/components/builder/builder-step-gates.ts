@@ -2,7 +2,7 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "../../lib/db/load-character"
-import { isValidCreationAllocation } from "../../lib/game/virtues/allocation"
+import { isValidCreationAllocation } from "../../lib/game/character/virtues/utils"
 import type { MovementSlug } from "./builder-steps"
 
 /**

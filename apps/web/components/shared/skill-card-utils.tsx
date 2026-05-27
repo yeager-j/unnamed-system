@@ -1,11 +1,11 @@
 import { Badge } from "@workspace/ui/components/badge"
 
-import type { AttackRange } from "@/lib/game/attack"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
+import type { AttackRange } from "@/lib/game/combat/attack"
 import type { IntrinsicAttack } from "@/lib/game/items/schema"
-import type { ResolvedSkillCost } from "@/lib/game/skill-cost"
-import { hydrateFormula } from "@/lib/game/skill-display"
 import type { Skill } from "@/lib/game/skills/schema"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { ResolvedSkillCost } from "@/lib/game/skills/skill-cost"
+import { hydrateFormula } from "@/lib/game/skills/skill-display"
 import {
   DAMAGE_TYPE_LABELS,
   DELIVERY_LABELS,

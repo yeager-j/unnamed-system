@@ -1,6 +1,6 @@
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
 
-import type { BattleConditionState } from "@/lib/game/character"
+import type { BattleConditionState } from "@/lib/game/character/state"
 import { BATTLE_CONDITION_LABELS } from "@/lib/ui/labels"
 
 export function ConditionValue({ state }: { state: BattleConditionState }) {

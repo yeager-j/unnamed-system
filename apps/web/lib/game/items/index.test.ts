@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getSkill } from "../skills/index"
-import { bladeturnMail } from "./bladeturn-mail"
+import { bladeturnMail } from "./armor/bladeturn-mail"
 import {
   ACCESSORIES,
   ARMOR,
@@ -10,9 +10,9 @@ import {
   getWeapon,
   WEAPONS,
 } from "./index"
-import { longsword } from "./longsword"
-import { runedCane } from "./runed-cane"
 import { equippableItemSchema } from "./schema"
+import { longsword } from "./weapon/longsword"
+import { runedCane } from "./weapon/runed-cane"
 
 const CATALOG = [...WEAPONS, ...ARMOR, ...ACCESSORIES]
 

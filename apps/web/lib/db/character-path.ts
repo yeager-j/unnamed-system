@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import type { PathChoice } from "../game/character"
-import { err, ok, type Result } from "../game/result"
+import type { PathChoice } from "../game/character/state"
+import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characters } from "./schema/character"

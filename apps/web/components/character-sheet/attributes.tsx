@@ -1,5 +1,5 @@
 import { ATTRIBUTE_KEYS } from "@/lib/game/archetypes/schema"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
 /**

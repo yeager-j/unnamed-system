@@ -5,7 +5,7 @@ import { unauthorized } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 import { startCharacterDraft } from "@/lib/db/start-character-draft"
-import { ok, type Result } from "@/lib/game/result"
+import { ok, type Result } from "@/lib/result"
 
 /**
  * Inserts a fresh `status: "draft"` character row for the signed-in caller

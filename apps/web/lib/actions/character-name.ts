@@ -5,7 +5,7 @@ import {
   updateCharacterName,
   type CharacterNamePersistenceSuccess,
 } from "@/lib/db/character-name"
-import { type Result } from "@/lib/game/result"
+import { type Result } from "@/lib/result"
 
 import {
   UpdateCharacterNameSchema,

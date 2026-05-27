@@ -36,7 +36,7 @@ import {
   MAX_PLAYER_ADDED_TALENTS,
   TALENT_KEYS,
   type TalentKey,
-} from "@/lib/game/talents"
+} from "@/lib/game/character/talents"
 
 const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
 

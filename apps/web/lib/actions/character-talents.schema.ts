@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import type { CharacterTalentPersistenceError } from "@/lib/db/character-talents"
-import { TALENT_KEYS } from "@/lib/game/talents"
+import { TALENT_KEYS } from "@/lib/game/character/talents"
 
 /**
  * Input schemas for the player-added Talent picker. The `talentKey` is

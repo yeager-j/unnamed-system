@@ -1,6 +1,6 @@
-import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
+import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
 import type { Weapon } from "@/lib/game/items/schema"
-import type { AttributeScores } from "@/lib/game/stats"
 
 import { AttackRollTable } from "./attack-roll-table"
 import { DamageTypeBadge } from "./damage-type-badge"

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import type { DamageType } from "../affinity"
-import type { HydratedSkill } from "../hydrated-character"
-import type { SkillKind } from "../skill-kind"
+import type { HydratedSkill } from "../character/stats/hydrated-character"
+import type { DamageType } from "../combat/affinity"
+import type { SkillKind } from "./skill-kind"
 import { sortSkillsByKind } from "./sort"
 
 function makeSkill(

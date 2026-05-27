@@ -5,8 +5,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
+import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/combat/affinity"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
 /**

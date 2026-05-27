@@ -5,7 +5,7 @@ import {
   loadCharacterVersions,
   type CharacterVersions,
 } from "@/lib/db/character-versions"
-import { err, ok, type Result } from "@/lib/game/result"
+import { err, ok, type Result } from "@/lib/result"
 
 import {
   GetCharacterVersionsSchema,

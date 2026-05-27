@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { getTalent } from "../talents"
+import { getTalent } from "../character/talents"
 import { healer } from "./healer"
 import { archetypeDisplayName, ARCHETYPES, getArchetype } from "./index"
 import { knight } from "./knight"

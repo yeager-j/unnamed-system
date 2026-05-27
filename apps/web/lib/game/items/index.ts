@@ -1,8 +1,8 @@
 import { getSkill } from "../skills"
-import { bladeturnMail } from "./bladeturn-mail"
-import { censer } from "./censer"
-import { longsword } from "./longsword"
-import { runedCane } from "./runed-cane"
+import { shadowCharm } from "./accessory/shadow-charm"
+import { zephyrBand } from "./accessory/zephyr-band"
+import { bladeturnMail } from "./armor/bladeturn-mail"
+import { warlockPact } from "./armor/warlock-pact"
 import {
   equippableItemSchema,
   type Accessory,
@@ -10,11 +10,11 @@ import {
   type EquippableItem,
   type Weapon,
 } from "./schema"
-import { shadowCharm } from "./shadow-charm"
-import { spear } from "./spear"
-import { staff } from "./staff"
-import { warlockPact } from "./warlock-pact"
-import { zephyrBand } from "./zephyr-band"
+import { censer } from "./weapon/censer"
+import { longsword } from "./weapon/longsword"
+import { runedCane } from "./weapon/runed-cane"
+import { spear } from "./weapon/spear"
+import { staff } from "./weapon/staff"
 
 /**
  * Structurally validates an item, then asserts every granted-Skill effect

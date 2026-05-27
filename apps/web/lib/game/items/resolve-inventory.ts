@@ -1,4 +1,4 @@
-import type { HydratedInventoryItem } from "../hydrated-character"
+import type { HydratedInventoryItem } from "../character/stats/hydrated-character"
 import type { Accessory, Armor, EquippableItem, Weapon } from "./schema"
 
 interface ResolvedInventoryEntry {

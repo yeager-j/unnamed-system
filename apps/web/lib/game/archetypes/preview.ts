@@ -1,14 +1,17 @@
-import { resolveAttackRoll, skillAttackRollContext } from "../attack-roll"
-import type { PathChoice } from "../character"
-import type { HydratedSkill } from "../hydrated-character"
-import { resolveSkillCost, type CastingCharacter } from "../skill-cost"
-import { getSkill } from "../skills"
-import type { Skill } from "../skills/schema"
+import type { PathChoice } from "../character/state"
+import type { HydratedSkill } from "../character/stats/hydrated-character"
 import {
   computeMaxHP,
   computeMaxSP,
   type StatComputationCharacter,
-} from "../stats"
+} from "../character/stats/stats"
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+} from "../combat/attack-roll"
+import { getSkill } from "../skills"
+import type { Skill } from "../skills/schema"
+import { resolveSkillCost, type CastingCharacter } from "../skills/skill-cost"
 import type { RankedSkill } from "./entries"
 import type { Archetype } from "./schema"
 

@@ -5,7 +5,7 @@ import {
   updateCharacterNarrative,
   type CharacterNarrativePersistenceSuccess,
 } from "@/lib/db/character-narrative"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   UpdateCharacterNarrativeSchema,

@@ -5,7 +5,7 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import type { RankedSkill } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**
  * Per-rank Skill list shared by every Archetype detail surface.

@@ -1,6 +1,6 @@
-import { DAMAGE_TYPES } from "../affinity"
-import type { HydratedSkill } from "../hydrated-character"
-import type { SkillKind } from "../skill-kind"
+import type { HydratedSkill } from "../character/stats/hydrated-character"
+import { DAMAGE_TYPES } from "../combat/affinity"
+import type { SkillKind } from "./skill-kind"
 
 /**
  * Display order for the Combat-tab Skills list (UNN-198): attackers should

@@ -1,9 +1,9 @@
-import type { PathChoice } from "../character"
 import {
   LINEAGE_SUGGESTED_PATH,
   LINEAGES,
   type SuggestedPath,
-} from "../lineage"
+} from "../character/lineage"
+import type { PathChoice } from "../character/state"
 import type { Archetype } from "./schema"
 
 /**

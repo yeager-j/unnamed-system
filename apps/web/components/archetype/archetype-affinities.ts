@@ -1,5 +1,5 @@
-import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
 import type { Archetype } from "@/lib/game/archetypes/schema"
+import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/combat/affinity"
 
 /**
  * Whether an Archetype's chart has any non-Neutral Affinity entries. Used by

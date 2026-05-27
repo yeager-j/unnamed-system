@@ -4,11 +4,11 @@ import type {
   PartyComposition,
   PathChoice,
   SparkLog,
-} from "../game/character"
+} from "../game/character/state"
+import { buildStatComputationCharacter } from "../game/character/stats/stat-character"
+import type { StatComputationCharacter } from "../game/character/stats/stats"
+import type { TalentKey } from "../game/character/talents"
 import type { MechanicState } from "../game/mechanics/schema"
-import { buildStatComputationCharacter } from "../game/stat-character"
-import type { StatComputationCharacter } from "../game/stats"
-import type { TalentKey } from "../game/talents"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

@@ -11,7 +11,7 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on

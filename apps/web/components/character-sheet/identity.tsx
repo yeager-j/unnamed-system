@@ -6,7 +6,7 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 
 /**
  * Read-only Identity block (PRD §6.1 Explore tab). Renders the five

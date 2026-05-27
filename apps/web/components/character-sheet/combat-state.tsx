@@ -5,8 +5,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import type { BattleConditions } from "@/lib/game/character"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { BattleConditions } from "@/lib/game/character/state"
+import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 
 import { AilmentList } from "./combat-state/ailment-list"
 import { BattleConditionRow } from "./combat-state/battle-condition-row"

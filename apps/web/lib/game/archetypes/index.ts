@@ -1,6 +1,6 @@
+import { getTalent } from "../character/talents"
 import { getMechanic } from "../mechanics"
 import { getSkill } from "../skills"
-import { getTalent } from "../talents"
 import { healer } from "./healer"
 import { knight } from "./knight"
 import { mage } from "./mage"

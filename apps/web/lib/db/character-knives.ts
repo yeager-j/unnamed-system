@@ -1,4 +1,4 @@
-import { type Result } from "../game/result"
+import { type Result } from "../result"
 import {
   addNamedEntry,
   loadNamedEntries,

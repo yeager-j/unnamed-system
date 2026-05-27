@@ -1,13 +1,13 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import type { VirtueKey } from "../game/character"
-import { err, ok, type Result } from "../game/result"
 import {
   addSpark,
   rankUpVirtue,
   type SparkCharacter,
   type SparkError,
-} from "../game/spark"
+} from "../game/character/spark"
+import type { VirtueKey } from "../game/character/state"
+import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"
 import { characters } from "./schema/character"

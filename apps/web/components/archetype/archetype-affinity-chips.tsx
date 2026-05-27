@@ -1,11 +1,11 @@
 import { Badge } from "@workspace/ui/components/badge"
 
+import type { Archetype } from "@/lib/game/archetypes/schema"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-} from "@/lib/game/affinity"
-import type { Archetype } from "@/lib/game/archetypes/schema"
+} from "@/lib/game/combat/affinity"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -5,7 +5,7 @@ import {
   updateCharacterIdentityTrait,
   type CharacterIdentityTraitPersistenceSuccess,
 } from "@/lib/db/character-identity-traits"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   UpdateCharacterIdentityTraitSchema,

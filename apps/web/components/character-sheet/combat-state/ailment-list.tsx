@@ -1,4 +1,4 @@
-import { getAilment } from "@/lib/game/ailments"
+import { getAilment } from "@/lib/game/combat/ailments"
 
 export function AilmentList({
   ailmentKeys,

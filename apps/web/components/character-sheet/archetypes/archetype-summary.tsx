@@ -12,7 +12,7 @@ import {
 
 import { useDrawerDirection } from "@/hooks/use-drawer-direction"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetype-detail"

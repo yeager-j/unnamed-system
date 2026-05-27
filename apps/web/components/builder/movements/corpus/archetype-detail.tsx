@@ -10,7 +10,7 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import { previewArchetypeSkills } from "@/lib/game/archetypes/preview"
 import type { Archetype } from "@/lib/game/archetypes/schema"
-import type { PathChoice } from "@/lib/game/character"
+import type { PathChoice } from "@/lib/game/character/state"
 
 /**
  * The expanded inline detail panel rendered next to a compact

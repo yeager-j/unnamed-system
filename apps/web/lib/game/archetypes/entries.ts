@@ -3,16 +3,19 @@ import {
   type CharacterArchetypeRow,
 } from "@/lib/db/load-character"
 
+import type {
+  HydratedCharacter,
+  HydratedSkill,
+} from "../character/stats/hydrated-character"
+import type { StatComputationCharacter } from "../character/stats/stats"
 import {
   resolveAttackRoll,
   skillAttackRollContext,
   type ResolvedAttackRoll,
-} from "../attack-roll"
-import type { HydratedCharacter, HydratedSkill } from "../hydrated-character"
-import { resolveSkillCost, type CastingCharacter } from "../skill-cost"
+} from "../combat/attack-roll"
 import { getSkill } from "../skills"
 import type { Skill } from "../skills/schema"
-import type { StatComputationCharacter } from "../stats"
+import { resolveSkillCost, type CastingCharacter } from "../skills/skill-cost"
 import { getArchetype } from "./index"
 import {
   ARCHETYPE_TIERS,

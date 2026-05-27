@@ -4,7 +4,7 @@ import {
   rankLabel,
   type PerfectionState,
 } from "@/lib/game/mechanics/perfection"
-import { formatSignedBonus } from "@/lib/game/skill-display"
+import { formatSignedBonus } from "@/lib/game/skills/skill-display"
 
 /**
  * Warrior — Perfection rendering. Big current letter (D / C / B / A / S) with

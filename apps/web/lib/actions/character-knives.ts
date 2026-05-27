@@ -9,7 +9,7 @@ import {
   type AddKnifeSuccess,
   type CharacterKnifePersistenceSuccess,
 } from "@/lib/db/character-knives"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   AddKnifeSchema,

@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import type { CharacterPathPersistenceError } from "@/lib/db/character-path"
-import { PATH_CHOICES } from "@/lib/game/character"
+import { PATH_CHOICES } from "@/lib/game/character/state"
 
 /**
  * Input schema for {@link updateCharacterPathAction}. Lives in its own file

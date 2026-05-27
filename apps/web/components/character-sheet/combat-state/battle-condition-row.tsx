@@ -1,4 +1,4 @@
-import type { BattleConditions } from "@/lib/game/character"
+import type { BattleConditions } from "@/lib/game/character/state"
 
 import { ConditionValue } from "./condition-value"
 

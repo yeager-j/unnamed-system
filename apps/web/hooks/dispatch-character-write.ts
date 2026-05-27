@@ -3,7 +3,7 @@
 import type { RefObject } from "react"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
-import type { Result } from "../lib/game/result"
+import type { Result } from "../lib/result"
 import {
   broadcastCharacterVersion,
   type VersionClass,

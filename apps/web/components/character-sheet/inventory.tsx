@@ -21,7 +21,7 @@ import {
 import type {
   HydratedCharacter,
   HydratedInventoryItem,
-} from "@/lib/game/hydrated-character"
+} from "@/lib/game/character/stats/hydrated-character"
 import {
   equipItem,
   unequipItem,

@@ -26,8 +26,11 @@ import {
   type PartyComposition,
   type PathChoice,
   type SparkLog,
-} from "../../game/character"
-import { gainedTalentsSchema, type TalentKey } from "../../game/talents"
+} from "../../game/character/state"
+import {
+  gainedTalentsSchema,
+  type TalentKey,
+} from "../../game/character/talents"
 import { users } from "./user"
 
 /**

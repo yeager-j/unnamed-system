@@ -1,6 +1,6 @@
 import { DetailSection } from "@/components/shared/detail-section"
-import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/affinity"
 import type { Archetype } from "@/lib/game/archetypes/schema"
+import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/combat/affinity"
 
 import { ArchetypeAffinityChip } from "./archetype-affinity-chips"
 

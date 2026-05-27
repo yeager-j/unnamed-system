@@ -3,7 +3,7 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**
  * Per-row Inheritance Slot block — fillers resolved against the character's

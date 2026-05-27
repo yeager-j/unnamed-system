@@ -1,4 +1,4 @@
-import type { HydratedCharacter } from "../hydrated-character"
+import type { HydratedCharacter } from "../character/stats/hydrated-character"
 import {
   buildArchetypeEntries,
   groupByLineage,

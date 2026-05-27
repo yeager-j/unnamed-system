@@ -13,7 +13,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-} from "../game/stats"
+} from "../game/character/stats/stats"
 
 /**
  * Idempotent database seed. Persists the {@link SEED_CHARACTERS} roster so the
