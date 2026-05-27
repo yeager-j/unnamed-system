@@ -9,6 +9,7 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
 import type { HydratedCharacter } from "@/lib/game/hydrated-character"
 import { getEquippedItem } from "@/lib/game/items"
+import { sortSkillsByKind } from "@/lib/game/skills/sort"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1): every Skill currently available
@@ -24,9 +25,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
   const equippedWeapon = getEquippedItem(character.inventory, "weapon")
   const { attributes, weaponAttackRoll } = character
 
-  const sorted = [...character.skills].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  )
+  const sorted = sortSkillsByKind(character.skills)
   const regular = sorted.filter((entry) => !entry.isSynthesis)
   const synthesis = sorted.filter((entry) => entry.isSynthesis)
 
