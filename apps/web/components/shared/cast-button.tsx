@@ -1,14 +1,10 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import type { HydratedSkill } from "@/lib/game/character"
+import type { HydratedCostSkill } from "@/lib/game/character"
+import { canAfford } from "@/lib/game/skills"
 
 /**
  * Pool state the Cast button checks affordability against. Sourced from the
@@ -23,7 +19,11 @@ export interface CastBindings {
 }
 
 interface CastButtonProps {
-  skill: HydratedSkill
+  /** Narrowed to the cost-bearing variant of {@link HydratedSkill}: a
+   *  cost-less passive can never be Cast, so requiring the narrowed type
+   *  pushes that guard to the caller and lets this component trust
+   *  `skill.resolvedCost` (UNN-231). */
+  skill: HydratedCostSkill
   cast: CastBindings
   /**
    * Layout hint. `inline` renders compact for the SkillRow's actions slot;
@@ -40,9 +40,8 @@ interface CastButtonProps {
  * The owner-mode Cast affordance shared by the inline SkillRow echo (desktop
  * only) and the SkillCard popover footer (always). PRD §7.2: deduct the
  * resolved cost from the matching pool, refuse to drop the caster to 0 HP via
- * Skill. Cost-less Skills (passives) render nothing. The disabled state is
- * wrapped in a Tooltip so the reason — `"Not enough SP"` or `"Would drop HP
- * to 0"` — surfaces on hover/tap.
+ * Skill. The disabled state is wrapped in a Tooltip so the reason —
+ * `"Not enough SP"` or `"Would drop HP to 0"` — surfaces on hover/tap.
  *
  * Wrapped in {@link OwnerOnly} so the public sheet and non-owner viewers
  * never see the button. Read-only callers (the builder's Archetype preview,
@@ -55,56 +54,32 @@ export function CastButton({
   variant,
   className,
 }: CastButtonProps) {
+  // Affordability routes through the shared `canAfford` primitive
+  // (UNN-231) so the disabled state can never drift from `applyResolvedCost`
+  // (server engine) or the optimistic reducer.
   const cost = skill.resolvedCost
-  if (!cost) return null
-
-  // The hydrated skill's resolvedCost is already the concrete number — SP
-  // costs are flat, HP-percent costs were resolved against max HP at
-  // hydration time (PRD §7.2). Affordability mirrors the engine's `canCast`:
-  // SP needs >= amount, HP needs > amount (strictly, so a Skill cannot drop
-  // the caster to 0 HP).
-  const affordable =
-    cost.kind === "sp"
-      ? cast.currentSP >= cost.amount
-      : cast.currentHP > cost.amount
+  const affordable = canAfford(cost, cast)
   const disabled = !affordable || cast.pending
-  const reason = !affordable
+  const disabledReason = !affordable
     ? cost.kind === "sp"
       ? "Not enough SP"
       : "Would drop HP to 0"
-    : null
-
-  const size = variant === "inline" ? "xs" : "sm"
-  const button = (
-    <Button
-      size={size}
-      disabled={disabled}
-      onClick={(event) => {
-        event.stopPropagation()
-        cast.onCast(skill.key)
-      }}
-    >
-      Cast
-    </Button>
-  )
+    : undefined
 
   return (
     <OwnerOnly>
       <div className={className}>
-        {reason ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span tabIndex={0} className="inline-flex">
-                  {button}
-                </span>
-              }
-            />
-            <TooltipContent side="top">{reason}</TooltipContent>
-          </Tooltip>
-        ) : (
-          button
-        )}
+        <TooltipButton
+          size={variant === "inline" ? "xs" : "sm"}
+          disabled={disabled}
+          disabledReason={disabledReason}
+          onClick={(event) => {
+            event.stopPropagation()
+            cast.onCast(skill.key)
+          }}
+        >
+          Cast
+        </TooltipButton>
       </div>
     </OwnerOnly>
   )

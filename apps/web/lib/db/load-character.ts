@@ -22,7 +22,7 @@ import {
   getEquippedItem,
   type IntrinsicAttack,
 } from "../game/items"
-import { resolveSkillCost, type CastingCharacter } from "../game/skills"
+import { hydrateSkill, type CastingCharacter } from "../game/skills"
 import { db } from "./index"
 import {
   characterArchetypes,
@@ -144,13 +144,11 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
     activeMechanic: stats.activeMechanic,
     skills: stats.activeSkills.map((skill) => {
       const context = skillAttackRollContext(skill)
-      return {
-        ...skill,
-        resolvedCost: resolveSkillCost(skill, casting),
-        resolvedAttackRoll: context
-          ? resolveAttackRoll(context, stats, row.partyComposition)
-          : null,
-      }
+      return hydrateSkill(
+        skill,
+        casting,
+        context ? resolveAttackRoll(context, stats, row.partyComposition) : null
+      )
     }),
   }
 }

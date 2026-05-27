@@ -8,6 +8,8 @@ import { healersInsight } from "./passive/healers-insight"
 import { cleave } from "./slash/cleave"
 import {
   applyCast,
+  applyResolvedCost,
+  canAfford,
   canCast,
   formatSignedBonus,
   hydrateFormula,
@@ -161,6 +163,76 @@ describe("resolveSkillCost", () => {
 
   it("returns null for a costless passive Skill", () => {
     expect(resolveSkillCost(healersInsight, makeCharacter())).toBeNull()
+  })
+})
+
+describe("canAfford", () => {
+  it("approves an SP cost when currentSP exceeds the amount", () => {
+    expect(
+      canAfford({ kind: "sp", amount: 3 }, { currentHP: 1, currentSP: 4 })
+    ).toBe(true)
+  })
+
+  it("approves an SP cost at exactly the amount", () => {
+    expect(
+      canAfford({ kind: "sp", amount: 3 }, { currentHP: 1, currentSP: 3 })
+    ).toBe(true)
+  })
+
+  it("rejects an SP cost below the amount", () => {
+    expect(
+      canAfford({ kind: "sp", amount: 3 }, { currentHP: 1, currentSP: 2 })
+    ).toBe(false)
+  })
+
+  it("approves an HP cost only when currentHP strictly exceeds the amount", () => {
+    expect(
+      canAfford({ kind: "hp", amount: 5 }, { currentHP: 6, currentSP: 0 })
+    ).toBe(true)
+    expect(
+      canAfford({ kind: "hp", amount: 5 }, { currentHP: 5, currentSP: 0 })
+    ).toBe(false)
+  })
+})
+
+describe("applyResolvedCost", () => {
+  it("deducts a flat SP cost", () => {
+    const result = applyResolvedCost(
+      { kind: "sp", amount: 3 },
+      { currentHP: 10, currentSP: 10 }
+    )
+    expect(result.ok && result.value).toEqual({ currentHP: 10, currentSP: 7 })
+  })
+
+  it("deducts an HP cost", () => {
+    const result = applyResolvedCost(
+      { kind: "hp", amount: 5 },
+      { currentHP: 10, currentSP: 10 }
+    )
+    expect(result.ok && result.value).toEqual({ currentHP: 5, currentSP: 10 })
+  })
+
+  it("refuses to drop HP to 0", () => {
+    const result = applyResolvedCost(
+      { kind: "hp", amount: 5 },
+      { currentHP: 5, currentSP: 10 }
+    )
+    expect(result).toEqual({ ok: false, error: "insufficient-hp" })
+  })
+
+  it("returns insufficient-sp when SP is short", () => {
+    const result = applyResolvedCost(
+      { kind: "sp", amount: 4 },
+      { currentHP: 10, currentSP: 3 }
+    )
+    expect(result).toEqual({ ok: false, error: "insufficient-sp" })
+  })
+
+  it("does not mutate the input pools", () => {
+    const pools = { currentHP: 10, currentSP: 10 }
+    const before = { ...pools }
+    applyResolvedCost({ kind: "sp", amount: 3 }, pools)
+    expect(pools).toEqual(before)
   })
 })
 

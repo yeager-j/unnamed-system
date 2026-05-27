@@ -61,7 +61,7 @@ export function SkillCard({ skill, attributes, cast }: SkillCardProps) {
           {skill.effect}
         </SkillText>
       ) : null}
-      {cast && skill.resolvedCost ? (
+      {cast && "cost" in skill ? (
         <CastButton
           skill={skill}
           cast={cast}

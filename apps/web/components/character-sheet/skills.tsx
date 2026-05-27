@@ -17,7 +17,7 @@ import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { castSkillAction } from "@/lib/actions/cast-skill"
 import type { HydratedCharacter } from "@/lib/game/character"
 import { getEquippedItem } from "@/lib/game/items"
-import { sortSkillsByKind } from "@/lib/game/skills"
+import { applyResolvedCost, sortSkillsByKind } from "@/lib/game/skills"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1 / §7.2): every Skill currently
@@ -53,15 +53,16 @@ export function Skills({ character }: { character: HydratedCharacter }) {
   const [pools, applyOptimistic] = useOptimistic(
     { currentHP: character.currentHP, currentSP: character.currentSP },
     (current, skillKey: string) => {
+      // Route the optimistic frame through the same `applyResolvedCost`
+      // primitive the Server Action runs (UNN-231) — keeps the optimistic
+      // pool deduction structurally identical to the persisted one. The
+      // disabled Cast button means an unaffordable cast cannot dispatch,
+      // so we treat the err branch as a no-op.
       const skill = character.skills.find((entry) => entry.key === skillKey)
       const cost = skill?.resolvedCost
       if (!cost) return current
-      if (cost.kind === "sp") {
-        if (current.currentSP < cost.amount) return current
-        return { ...current, currentSP: current.currentSP - cost.amount }
-      }
-      if (current.currentHP <= cost.amount) return current
-      return { ...current, currentHP: current.currentHP - cost.amount }
+      const result = applyResolvedCost(cost, current)
+      return result.ok ? result.value : current
     }
   )
 

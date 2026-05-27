@@ -17,7 +17,7 @@ import {
 } from "../combat"
 import {
   getSkill,
-  resolveSkillCost,
+  hydrateSkill,
   type CastingCharacter,
   type Skill,
 } from "../skills"
@@ -117,15 +117,11 @@ export function buildArchetypeEntries(
   function resolveSkillByKey(key: string): HydratedSkill | null {
     const skill = getSkill(key)
     if (!skill) return null
-    return {
-      ...skill,
-      resolvedCost: resolveSkillCost(skill, casting),
-      resolvedAttackRoll: resolveAttackRollForSkill(
-        skill,
-        stats,
-        character.partyComposition
-      ),
-    }
+    return hydrateSkill(
+      skill,
+      casting,
+      resolveAttackRollForSkill(skill, stats, character.partyComposition)
+    )
   }
 
   return character.archetypeRows.flatMap((row) => {
@@ -316,13 +312,11 @@ export function previewArchetypeSkills(
 
   const resolveSkill = (skill: Skill): HydratedSkill => {
     const context = skillAttackRollContext(skill)
-    return {
-      ...skill,
-      resolvedCost: resolveSkillCost(skill, casting),
-      resolvedAttackRoll: context
-        ? resolveAttackRoll(context, stats, null)
-        : null,
-    }
+    return hydrateSkill(
+      skill,
+      casting,
+      context ? resolveAttackRoll(context, stats, null) : null
+    )
   }
 
   const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {

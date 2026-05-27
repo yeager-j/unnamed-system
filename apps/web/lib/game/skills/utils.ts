@@ -5,9 +5,13 @@ import {
   type HydratedSkill,
   type StatComputationCharacter,
 } from "../character"
-import { DAMAGE_TYPES, type AttackAttribute } from "../combat"
+import {
+  DAMAGE_TYPES,
+  type AttackAttribute,
+  type ResolvedAttackRoll,
+} from "../combat"
 import type { SkillKind } from "../common"
-import type { Skill } from "./schema"
+import type { Skill, SkillCost } from "./schema"
 
 /**
  * Display order for the Combat-tab Skills list (UNN-198): attackers should
@@ -62,6 +66,30 @@ export function sortSkillsByKind(skills: HydratedSkill[]): HydratedSkill[] {
 export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
 
 /**
+ * Assembles a {@link HydratedSkill} from a {@link Skill} and its derived
+ * values, narrowing the result onto the matching distributed variant.
+ * Cost-bearing Skill kinds receive a non-null `resolvedCost`; the passive
+ * variant receives `null`. Centralized here so the three hydration call
+ * sites (`lib/db/load-character.ts`, archetype detail builders) stop
+ * branching manually and downstream consumers gain TS narrowing on
+ * `"cost" in skill` (UNN-231).
+ */
+export function hydrateSkill(
+  skill: Skill,
+  casting: CastingCharacter,
+  resolvedAttackRoll: ResolvedAttackRoll | null
+): HydratedSkill {
+  if ("cost" in skill) {
+    return {
+      ...skill,
+      resolvedCost: resolveCost(skill.cost, casting),
+      resolvedAttackRoll,
+    }
+  }
+  return { ...skill, resolvedCost: null, resolvedAttackRoll }
+}
+
+/**
  * A {@link StatComputationCharacter} plus the two live, tracked combat pools.
  * `currentHP`/`currentSP` are mutable session state (not derived), so they
  * stay off the pure derived-value view and ride along here for the cast check.
@@ -86,43 +114,90 @@ export function resolveSkillCost(
   character: CastingCharacter
 ): ResolvedSkillCost | null {
   if (!("cost" in skill)) return null
+  return resolveCost(skill.cost, character)
+}
 
-  const { cost } = skill
+/** Resolves a raw {@link SkillCost} to its concrete pool + integer amount.
+ *  The non-null path of {@link resolveSkillCost}, extracted so the hydration
+ *  helper (and any future consumer that already knows the Skill is
+ *  cost-bearing) can resolve a cost without re-discriminating the skill. */
+export function resolveCost(
+  cost: SkillCost,
+  character: CastingCharacter
+): ResolvedSkillCost {
   if (cost.kind === "sp") return { kind: "sp", amount: cost.amount }
-
   const maxHP = computeMaxHP(character)
   const amount = Math.max(1, Math.floor((maxHP * cost.amount) / 100))
   return { kind: "hp", amount }
 }
 
+/** The two combat pools every pool-mutating engine operates on. Subset of
+ *  {@link CastingCharacter} so the optimistic reducer and the Cast button —
+ *  which only have the live pools, not the full computation context — can
+ *  share the engine's affordability + deduction logic via {@link canAfford}
+ *  and {@link applyResolvedCost}. */
+export interface SkillPools {
+  currentHP: number
+  currentSP: number
+}
+
+/** Recoverable failures the cast engine reports — same pool affordances
+ *  {@link canAfford} checks, surfaced as discrete codes so the UI /
+ *  persistence layer can disambiguate without re-deriving them. */
+export type CastError = "insufficient-sp" | "insufficient-hp"
+
 /**
- * Whether the character can pay a Skill's resolved cost. SP costs need
- * `currentSP >= amount`; HP costs need `currentHP > amount` (strictly greater —
- * a Skill can never drop the caster to 0 HP, PRD §7.2). A costless Skill is
+ * Whether a {@link SkillPools} snapshot can pay a {@link ResolvedSkillCost}
+ * (PRD §7.2). SP needs `currentSP >= amount`; HP needs `currentHP > amount`
+ * (strictly greater — a Skill can never drop the caster to 0 HP). The cost
+ * has already been resolved by {@link resolveSkillCost} elsewhere, so this
+ * function makes no assumptions about how the character's max HP relates to
+ * the percentage that produced the cost.
+ */
+export function canAfford(cost: ResolvedSkillCost, pools: SkillPools): boolean {
+  if (cost.kind === "sp") return pools.currentSP >= cost.amount
+  return pools.currentHP > cost.amount
+}
+
+/**
+ * Deducts a {@link ResolvedSkillCost} from the matching pool, returning the
+ * new {@link SkillPools} snapshot or the matching {@link CastError} when the
+ * character can't pay. Pure and side-effect free: returns a fresh object and
+ * never mutates its input. The single place pool-deduction math lives, so
+ * the server engine, the optimistic reducer, and the Cast button affordability
+ * check all share one implementation (UNN-231).
+ */
+export function applyResolvedCost(
+  cost: ResolvedSkillCost,
+  pools: SkillPools
+): Result<SkillPools, CastError> {
+  if (!canAfford(cost, pools)) {
+    return err(cost.kind === "sp" ? "insufficient-sp" : "insufficient-hp")
+  }
+  if (cost.kind === "sp") {
+    return ok({ ...pools, currentSP: pools.currentSP - cost.amount })
+  }
+  return ok({ ...pools, currentHP: pools.currentHP - cost.amount })
+}
+
+/**
+ * Whether the character can pay a Skill's resolved cost. Composes
+ * {@link resolveSkillCost} with {@link canAfford}; costless passives are
  * always castable.
  */
 export function canCast(skill: Skill, character: CastingCharacter): boolean {
   const cost = resolveSkillCost(skill, character)
   if (cost === null) return true
-
-  if (cost.kind === "sp") return character.currentSP >= cost.amount
-  return character.currentHP > cost.amount
+  return canAfford(cost, character)
 }
-
-/** Recoverable failures the cast engine reports — same pool affordances
- *  `canCast` checks, surfaced as discrete codes so the UI / persistence layer
- *  can disambiguate without re-deriving them. */
-export type CastError = "insufficient-sp" | "insufficient-hp"
 
 /**
  * Deducts a Skill's resolved cost from the matching pool (PRD §7.2). Pure
  * and side-effect free: returns a fresh {@link CastingCharacter} and never
  * mutates its input. Cost-less Skills (passives) return the character
  * unchanged so the engine stays total; the UI gates whether a Cast button
- * exists. Affordability mirrors {@link canCast} exactly — SP needs
- * `currentSP >= amount`, HP needs `currentHP > amount` (strict, so a Skill
- * cannot drop the caster to 0 HP). Damage, target effects, and Affinity
- * chart changes are explicitly out of scope.
+ * exists. Affordability + deduction route through the shared
+ * {@link applyResolvedCost} primitive — see UNN-231 for why.
  */
 export function applyCast(
   skill: Skill,
@@ -131,13 +206,9 @@ export function applyCast(
   const cost = resolveSkillCost(skill, character)
   if (cost === null) return ok(character)
 
-  if (cost.kind === "sp") {
-    if (character.currentSP < cost.amount) return err("insufficient-sp")
-    return ok({ ...character, currentSP: character.currentSP - cost.amount })
-  }
-
-  if (character.currentHP <= cost.amount) return err("insufficient-hp")
-  return ok({ ...character, currentHP: character.currentHP - cost.amount })
+  const result = applyResolvedCost(cost, character)
+  if (!result.ok) return result
+  return ok({ ...character, ...result.value })
 }
 
 /**
