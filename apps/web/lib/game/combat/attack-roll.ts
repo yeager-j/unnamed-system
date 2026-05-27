@@ -6,8 +6,8 @@ import {
 } from "../character/stats/stats"
 import { mechanicEffectsFor } from "../mechanics"
 import type { Skill } from "../skills/schema"
-import { resolveAttackAttribute } from "../skills/skill-display"
 import type { SkillKind } from "../skills/skill-kind"
+import { resolveAttackAttribute } from "../skills/utils"
 import type { DamageType } from "./affinity"
 import type { AttackAttribute, Delivery } from "./attack"
 import type {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { equipItem, unequipItem, type InventoryItemState } from "./equip"
+import { equipItem, unequipItem, type InventoryItemState } from "./utils"
 
 const longswordA: InventoryItemState = {
   id: "row-longsword",

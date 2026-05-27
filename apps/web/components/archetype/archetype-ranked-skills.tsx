@@ -3,8 +3,8 @@ import { ItemGroup } from "@workspace/ui/components/item"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { RankedSkill } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import type { RankedSkill } from "@/lib/game/archetypes/utils"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**

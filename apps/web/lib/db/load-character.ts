@@ -19,10 +19,7 @@ import {
 } from "../game/combat/attack-roll"
 import { getEquippableItem, getEquippedItem } from "../game/items"
 import type { IntrinsicAttack } from "../game/items/schema"
-import {
-  resolveSkillCost,
-  type CastingCharacter,
-} from "../game/skills/skill-cost"
+import { resolveSkillCost, type CastingCharacter } from "../game/skills/utils"
 import { db } from "./index"
 import {
   characterArchetypes,

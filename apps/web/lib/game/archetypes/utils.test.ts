@@ -1,7 +1,46 @@
 import { describe, expect, it } from "vitest"
 
-import { previewArchetypeSkills } from "./preview"
+import { ARCHETYPES } from "./index"
+import { previewArchetypeSkills, sortArchetypesByPath } from "./utils"
 import { warrior } from "./warrior"
+
+describe("sortArchetypesByPath", () => {
+  const initiates = ARCHETYPES.filter((a) => a.tier === "initiate")
+
+  it("surfaces health-bucket Lineages first under health-focused", () => {
+    const ordered = sortArchetypesByPath(initiates, "health-focused").map(
+      (a) => a.lineage
+    )
+    expect(ordered).toEqual(["warrior", "knight", "healer", "mage"])
+  })
+
+  it("surfaces balanced-bucket Lineages first under balanced", () => {
+    const ordered = sortArchetypesByPath(initiates, "balanced").map(
+      (a) => a.lineage
+    )
+    expect(ordered).toEqual(["healer", "warrior", "knight", "mage"])
+  })
+
+  it("surfaces skill-bucket Lineages first under skill-focused", () => {
+    const ordered = sortArchetypesByPath(initiates, "skill-focused").map(
+      (a) => a.lineage
+    )
+    expect(ordered).toEqual(["mage", "healer", "warrior", "knight"])
+  })
+
+  it("does not mutate its input", () => {
+    const before = initiates.map((a) => a.key)
+    sortArchetypesByPath(initiates, "skill-focused")
+    expect(initiates.map((a) => a.key)).toEqual(before)
+  })
+
+  it("breaks ties within a bucket by LINEAGES order", () => {
+    const ordered = sortArchetypesByPath(initiates, "health-focused").map(
+      (a) => a.lineage
+    )
+    expect(ordered.indexOf("warrior")).toBeLessThan(ordered.indexOf("knight"))
+  })
+})
 
 describe("previewArchetypeSkills", () => {
   it("returns every rank-keyed Skill the Archetype declares", () => {
@@ -12,17 +51,12 @@ describe("previewArchetypeSkills", () => {
   })
 
   it("resolves percentage-HP costs against the picked path's max HP", () => {
-    // Cleave (Warrior, Rank 1) costs 5% HP. At Level 1 on Balanced the
-    // character has 20 max HP, so the cost resolves to floor(20 * 5 / 100) = 1.
     const { ranks } = previewArchetypeSkills(warrior, "balanced")
     const cleave = ranks.find((ranked) => ranked.key === "cleave")
     expect(cleave?.resolvedCost).toEqual({ kind: "hp", amount: 1 })
   })
 
   it("re-resolves percentage costs when the path changes", () => {
-    // Cleave (5% HP) at Level 1 — both Health-Focused (24 max HP) and
-    // Skill-Focused (16 max HP) floor to 1 HP under the engine's
-    // always-charge-at-least-1 rule.
     const health = previewArchetypeSkills(warrior, "health-focused")
     const skill = previewArchetypeSkills(warrior, "skill-focused")
     expect(health.ranks.find((r) => r.key === "cleave")?.resolvedCost).toEqual({

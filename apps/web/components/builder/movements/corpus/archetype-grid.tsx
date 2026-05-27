@@ -9,7 +9,7 @@ import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-writ
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@/lib/game/archetypes"
-import { sortArchetypesByPath } from "@/lib/game/archetypes/sort"
+import { sortArchetypesByPath } from "@/lib/game/archetypes/utils"
 import type { PathChoice } from "@/lib/game/character/state"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 

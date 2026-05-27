@@ -5,7 +5,7 @@ import {
   rankUpVirtue,
   type SparkCharacter,
   type SparkError,
-} from "../game/character/spark"
+} from "../game/character/leveling"
 import type { VirtueKey } from "../game/character/state"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"

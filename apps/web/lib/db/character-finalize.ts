@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
 import { getArchetype } from "../game/archetypes"
-import { startingWeaponForLineage } from "../game/character/lineage-starting-weapon"
+import { startingWeaponForLineage } from "../game/character/lineage"
 import { buildStatComputationCharacter } from "../game/character/stats/stat-character"
 import {
   computeMaxHitDice,

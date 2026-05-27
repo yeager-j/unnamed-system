@@ -1,13 +1,21 @@
 import {
   toStatComputationCharacter,
   type CharacterArchetypeRow,
-} from "@/lib/db/load-character"
-
+} from "../../db/load-character"
+import {
+  LINEAGE_SUGGESTED_PATH,
+  type SuggestedPath,
+} from "../character/lineage"
+import type { PathChoice } from "../character/state"
 import type {
   HydratedCharacter,
   HydratedSkill,
 } from "../character/stats/hydrated-character"
-import type { StatComputationCharacter } from "../character/stats/stats"
+import {
+  computeMaxHP,
+  computeMaxSP,
+  type StatComputationCharacter,
+} from "../character/stats/stats"
 import {
   resolveAttackRoll,
   skillAttackRollContext,
@@ -15,7 +23,7 @@ import {
 } from "../combat/attack-roll"
 import { getSkill } from "../skills"
 import type { Skill } from "../skills/schema"
-import { resolveSkillCost, type CastingCharacter } from "../skills/skill-cost"
+import { resolveSkillCost, type CastingCharacter } from "../skills/utils"
 import { getArchetype } from "./index"
 import {
   ARCHETYPE_TIERS,
@@ -203,4 +211,139 @@ export function groupByLineage(entries: ArchetypeEntry[]): LineageGroup[] {
       }),
     }))
     .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
+}
+
+export interface ArchetypeDisplay {
+  activeEntry: ArchetypeEntry | null
+  lineageGroups: LineageGroup[]
+  unlockedCount: number
+}
+
+/**
+ * Shapes the data the {@link Archetypes} tab needs: the active Archetype
+ * entry (if one is set), every unlocked entry grouped by Lineage in canonical
+ * order, and the total unlocked count. Pure — wraps the existing
+ * {@link buildArchetypeEntries} / {@link groupByLineage} pair so the tab
+ * orchestrator stays focused on layout.
+ */
+export function getArchetypeDisplay(
+  character: HydratedCharacter
+): ArchetypeDisplay {
+  const entries = buildArchetypeEntries(character)
+  return {
+    activeEntry: entries.find((entry) => entry.isActive) ?? null,
+    lineageGroups: groupByLineage(entries),
+    unlockedCount: entries.length,
+  }
+}
+
+/**
+ * Path-responsive ordering for the Movement 1 Archetype grid (UNN-215 / ADR-002
+ * §"Order — responsive to Path"). Three buckets keyed on each Lineage's
+ * `LINEAGE_SUGGESTED_PATH`; the bucket order rotates so the Path the player
+ * picked surfaces first:
+ *
+ * - `"health-focused"`  → health  → balanced → skill
+ * - `"balanced"`        → balanced → health  → skill
+ * - `"skill-focused"`   → skill   → balanced → health
+ *
+ * Within a bucket, Archetypes fall back to the canonical `LINEAGES` array order
+ * (the rulebook order).
+ *
+ * The sort never gates anything — every Archetype stays selectable regardless
+ * of Path. An HP-Focused Mage is unusual but valid; the sort is *discovery*,
+ * not *restriction*.
+ */
+const BUCKET_ORDER_BY_PATH: Record<
+  PathChoice,
+  readonly [SuggestedPath, SuggestedPath, SuggestedPath]
+> = {
+  "health-focused": ["health", "balanced", "skill"],
+  balanced: ["balanced", "health", "skill"],
+  "skill-focused": ["skill", "balanced", "health"],
+}
+
+export function sortArchetypesByPath<T extends Archetype>(
+  archetypes: readonly T[],
+  pathChoice: PathChoice
+): T[] {
+  const bucketOrder = BUCKET_ORDER_BY_PATH[pathChoice]
+  const bucketRank = {
+    [bucketOrder[0]]: 0,
+    [bucketOrder[1]]: 1,
+    [bucketOrder[2]]: 2,
+  } as Record<SuggestedPath, number>
+
+  return archetypes.slice().sort((a, b) => {
+    const aBucket = bucketRank[LINEAGE_SUGGESTED_PATH[a.lineage]]
+    const bBucket = bucketRank[LINEAGE_SUGGESTED_PATH[b.lineage]]
+    if (aBucket !== bBucket) return aBucket - bBucket
+    return LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage]
+  })
+}
+
+/**
+ * Catalog-only preview of an Archetype's Skills (PRD §5.1 — builder Step 2).
+ *
+ * Resolves every Rank-keyed Skill reference (and the Synthesis Skill) into the
+ * `RankedSkill` shape the shared archetype display components consume.
+ *
+ * `resolvedCost` and `resolvedAttackRoll` are both computed against a synthetic
+ * {@link StatComputationCharacter} carrying the player's already-picked
+ * `pathChoice` and the previewed Archetype at Rank 2 (Origin's auto-assigned
+ * Rank, PRD §5.1) — no equipment, no other Archetypes, no Mastery yet. That
+ * yields the same concrete readout the live-sheet popover does once the
+ * character is created, so the player sees `"1 HP"` and `"Attack Roll +2"`
+ * instead of `"5% HP"` and a missing Attack-Roll section. Switching path
+ * re-resolves on the next server revalidate.
+ */
+export function previewArchetypeSkills(
+  archetype: Archetype,
+  pathChoice: PathChoice
+): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
+  const stats: StatComputationCharacter = {
+    pathChoice,
+    level: 1,
+    manualBonuses: {},
+    activeArchetypeKey: archetype.key,
+    archetypes: [{ key: archetype.key, rank: 2 }],
+    equippedItems: [],
+    activeSkills: [],
+    activeMechanic: null,
+  }
+  const casting: CastingCharacter = {
+    ...stats,
+    currentHP: computeMaxHP(stats),
+    currentSP: computeMaxSP(stats),
+  }
+
+  const resolveSkill = (skill: Skill): HydratedSkill => {
+    const context = skillAttackRollContext(skill)
+    return {
+      ...skill,
+      resolvedCost: resolveSkillCost(skill, casting),
+      resolvedAttackRoll: context
+        ? resolveAttackRoll(context, stats, null)
+        : null,
+    }
+  }
+
+  const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
+    const skill = getSkill(reference.skill)
+    if (!skill) return []
+    return [{ ...resolveSkill(skill), rank: reference.rank }]
+  })
+
+  let synthesis: RankedSkill | null = null
+  if (archetype.synthesisSkill) {
+    const skill = getSkill(archetype.synthesisSkill.skill)
+    if (skill) {
+      synthesis = {
+        ...resolveSkill(skill),
+        rank: archetype.synthesisSkill.rank,
+      }
+    }
+  }
+
+  return { ranks, synthesis }
 }

@@ -9,7 +9,7 @@ import type { Affinity, DamageType } from "../../combat/affinity"
 import type { ResolvedAttackRoll } from "../../combat/attack-roll"
 import type { EquippableItem } from "../../items/schema"
 import type { Skill } from "../../skills/schema"
-import type { ResolvedSkillCost } from "../../skills/skill-cost"
+import type { ResolvedSkillCost } from "../../skills/utils"
 import type { TalentKey } from "../talents"
 import type { ActiveMechanic, AttributeScores } from "./stats"
 

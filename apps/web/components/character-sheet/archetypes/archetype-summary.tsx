@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui/components/drawer"
 
 import { useDrawerDirection } from "@/hooks/use-drawer-direction"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/utils"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 

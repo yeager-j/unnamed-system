@@ -9,8 +9,8 @@ import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-s
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/utils"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**

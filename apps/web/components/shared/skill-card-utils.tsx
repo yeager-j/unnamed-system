@@ -4,8 +4,7 @@ import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import type { AttackRange } from "@/lib/game/combat/attack"
 import type { IntrinsicAttack } from "@/lib/game/items/schema"
 import type { Skill } from "@/lib/game/skills/schema"
-import type { ResolvedSkillCost } from "@/lib/game/skills/skill-cost"
-import { hydrateFormula } from "@/lib/game/skills/skill-display"
+import { hydrateFormula, type ResolvedSkillCost } from "@/lib/game/skills/utils"
 import {
   DAMAGE_TYPE_LABELS,
   DELIVERY_LABELS,

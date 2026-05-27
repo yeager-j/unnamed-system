@@ -9,9 +9,11 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { formatMasteryDescription } from "@/components/archetype/format"
-import { getArchetypeDisplay } from "@/lib/game/archetypes/display"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
 import { hasMasteryBonus } from "@/lib/game/archetypes/schema"
+import {
+  getArchetypeDisplay,
+  type ArchetypeEntry,
+} from "@/lib/game/archetypes/utils"
 import type { HydratedCharacter } from "@/lib/game/character/stats/hydrated-character"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"

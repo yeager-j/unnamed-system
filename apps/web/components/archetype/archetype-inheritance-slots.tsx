@@ -2,7 +2,7 @@ import { ItemGroup } from "@workspace/ui/components/item"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
+import type { ArchetypeEntry } from "@/lib/game/archetypes/utils"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 
 /**

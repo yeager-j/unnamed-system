@@ -1,5 +1,5 @@
 import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
-import { formatSignedBonus } from "@/lib/game/skills/skill-display"
+import { formatSignedBonus } from "@/lib/game/skills/utils"
 
 /**
  * Inline attribution row under the Attack Roll header. Hidden when only the
