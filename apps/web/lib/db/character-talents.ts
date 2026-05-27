@@ -1,10 +1,6 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import {
-  MAX_PLAYER_ADDED_TALENTS,
-  TALENT_KEYS,
-  type TalentKey,
-} from "../game/character"
+import { TALENT_KEYS, type TalentKey } from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characterExists } from "./load-character"
@@ -13,10 +9,12 @@ import { characters } from "./schema/character"
 /**
  * Persistence for the Step-3 / sheet Talents picker. The `gainedTalents`
  * JSONB column holds the keys of player-acquired Talents — Background picks
- * at character creation (capped at 2 per PRD §5.2) and later downtime
- * picks (rulebook 2.1). Active-Archetype Talents are *derived* by
- * `resolveTalents` at hydration and never written to this column, so a
- * key listed here is always a deliberate addition.
+ * at character creation and post-creation additions from the Explore tab.
+ * Active-Archetype Talents are *derived* by `resolveTalents` at hydration
+ * and never written to this column, so a key listed here is always a
+ * deliberate addition. The Background slot count (PRD §5.2) lives as a
+ * builder-UI gate in `talents-picker.tsx`; this layer enforces only
+ * structural validity (known key, no duplicates).
  *
  * Reads + writes are wrapped in a transaction with the identity-class
  * version bump first; the row lock either blocks a concurrent identity-class
@@ -30,7 +28,6 @@ export type CharacterTalentPersistenceError =
   | "unknown-talent"
   | "duplicate-talent"
   | "talent-not-found"
-  | "limit-exceeded"
 
 export interface CharacterTalentPersistenceSuccess {
   version: number
@@ -76,7 +73,6 @@ export async function addGainedTalent(
 
     const current = row?.gainedTalents ?? []
     if (current.includes(talentKey as TalentKey)) return err("duplicate-talent")
-    if (current.length >= MAX_PLAYER_ADDED_TALENTS) return err("limit-exceeded")
 
     const next = [...current, talentKey as TalentKey]
 

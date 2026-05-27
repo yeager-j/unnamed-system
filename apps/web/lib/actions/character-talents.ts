@@ -19,9 +19,11 @@ import { revalidateCharacter } from "./revalidate"
 
 /**
  * Adds / removes a player-picked Talent on the character's `gainedTalents`
- * array. Cap (`MAX_PLAYER_ADDED_TALENTS`) and dedupe enforcement live in
- * the persistence layer so they're applied atomically with the row's
- * identity-class bump; this action layer just plumbs auth and validation.
+ * array. Dedupe and known-key validation live in the persistence layer so
+ * they're applied atomically with the row's identity-class bump; the
+ * builder-only Background slot cap (`MAX_PLAYER_ADDED_TALENTS`) is enforced
+ * client-side in `talents-picker.tsx`. This action layer just plumbs auth
+ * and validation.
  */
 
 export async function addGainedTalentAction(

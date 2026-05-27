@@ -113,11 +113,7 @@ export function TalentsPicker({
             }),
         })
         if (!result.ok) {
-          if (result.error === "limit-exceeded") {
-            toast.error(
-              `You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`
-            )
-          } else if (result.error === "duplicate-talent") {
+          if (result.error === "duplicate-talent") {
             // Cross-tab race; the next prop sync will reflect it.
           } else if (result.error === "stale") {
             toast.error(
