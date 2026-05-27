@@ -7,6 +7,7 @@ import { dia } from "./heal/dia"
 import { healersInsight } from "./passive/healers-insight"
 import { cleave } from "./slash/cleave"
 import {
+  applyCast,
   canCast,
   formatSignedBonus,
   hydrateFormula,
@@ -160,6 +161,51 @@ describe("resolveSkillCost", () => {
 
   it("returns null for a costless passive Skill", () => {
     expect(resolveSkillCost(healersInsight, makeCharacter())).toBeNull()
+  })
+})
+
+describe("applyCast", () => {
+  it("deducts a flat SP cost from currentSP", () => {
+    const result = applyCast(dia, makeCharacter({ currentSP: 10 }))
+    expect(result.ok && result.value.currentSP).toBe(7)
+  })
+
+  it("deducts a resolved HP cost from currentHP", () => {
+    const result = applyCast(cleave, withMaxHP(100, { currentHP: 60 }))
+    expect(result.ok && result.value.currentHP).toBe(55)
+  })
+
+  it("rejects an SP cast when currentSP is below the cost", () => {
+    const result = applyCast(dia, makeCharacter({ currentSP: 2 }))
+    expect(result).toEqual({ ok: false, error: "insufficient-sp" })
+  })
+
+  it("allows an SP cast at exactly the cost (drops currentSP to 0)", () => {
+    const result = applyCast(dia, makeCharacter({ currentSP: 3 }))
+    expect(result.ok && result.value.currentSP).toBe(0)
+  })
+
+  it("rejects an HP cast at exactly the cost (a Skill cannot drop HP to 0)", () => {
+    const result = applyCast(cleave, withMaxHP(100, { currentHP: 5 }))
+    expect(result).toEqual({ ok: false, error: "insufficient-hp" })
+  })
+
+  it("rejects an HP cast below the cost", () => {
+    const result = applyCast(cleave, withMaxHP(100, { currentHP: 3 }))
+    expect(result).toEqual({ ok: false, error: "insufficient-hp" })
+  })
+
+  it("returns the character unchanged for a costless passive Skill", () => {
+    const character = makeCharacter({ currentHP: 1, currentSP: 0 })
+    const result = applyCast(healersInsight, character)
+    expect(result.ok && result.value).toEqual(character)
+  })
+
+  it("does not mutate the input character", () => {
+    const character = makeCharacter({ currentSP: 10 })
+    const before = { ...character }
+    applyCast(dia, character)
+    expect(character).toEqual(before)
   })
 })
 

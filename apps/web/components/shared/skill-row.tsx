@@ -19,6 +19,7 @@ import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
 import type { Weapon } from "@/lib/game/items/schema"
 
+import { CastButton, type CastBindings } from "./cast-button"
 import { IntrinsicAttackCard } from "./intrinsic-attack-card"
 import { RowBadgeSlot } from "./row-badge-slot"
 import { SkillCard } from "./skill-card"
@@ -33,16 +34,27 @@ interface SkillRowProps {
    * scores from its own context and passes them in explicitly.
    */
   attributes: AttributeScores
+  /**
+   * Owner-mode Cast bindings (PRD §7.2). When supplied, the row gains a
+   * desktop-only inline Cast echo next to the cost badge, and the popover
+   * footer renders a full-size Cast button. Read-only callers (the builder's
+   * Archetype preview, the public read-only sheet) omit this prop and no
+   * Cast affordance renders.
+   */
+  cast?: CastBindings
 }
 
 /**
- * One row in the Skills list. Click (or Enter) opens the {@link SkillCard}
- * popover with full Skill detail; clicking outside or pressing Escape
- * dismisses. Hover is deliberately not wired — it would interfere with the
- * Cast button planned for this row in a later ticket. Built on the shadcn
- * {@link Item} primitive shared with the Inventory list.
+ * One row in the Skills list. Click (or Enter) on the row body opens the
+ * {@link SkillCard} popover with full Skill detail; clicking outside or
+ * pressing Escape dismisses. The popover trigger wraps the content area only
+ * (not the full row) so the actions slot can host its own interactive
+ * controls — the inline owner-mode {@link CastButton} (`md+` only) sits
+ * there alongside the cost badge. Hover styling on the trigger is
+ * intentionally not paired with a hover-popover to avoid stealing the user's
+ * intent away from Cast.
  */
-export function SkillRow({ skill, attributes }: SkillRowProps) {
+export function SkillRow({ skill, attributes, cast }: SkillRowProps) {
   return (
     <Popover>
       <PopoverTrigger
@@ -74,7 +86,7 @@ export function SkillRow({ skill, attributes }: SkillRowProps) {
         className="w-80"
         initialFocus={false}
       >
-        <SkillCard skill={skill} attributes={attributes} />
+        <SkillCard skill={skill} attributes={attributes} cast={cast} />
       </PopoverContent>
     </Popover>
   )
