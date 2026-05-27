@@ -40,7 +40,15 @@ async function resetCharacter(): Promise<void> {
   const db = getDb()
   await db
     .update(characters)
-    .set({ name: DEFAULT_NAME })
+    .set({
+      name: DEFAULT_NAME,
+      gainedTalents: [],
+      sparkLog: [],
+      virtueExpression: 0,
+      virtueEmpathy: 0,
+      virtueWisdom: 0,
+      virtueFocus: 0,
+    })
     .where(eq(characters.id, CHARACTER_ID))
   await db
     .update(inventoryItems)
@@ -462,5 +470,160 @@ test.describe("UNN-203: stale is self-healing", () => {
     } finally {
       await context.close()
     }
+  })
+})
+
+test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
+  // Mira Solberg's active Archetype is Warrior, whose granted Talents are
+  // Athletics / Climb / Lift — the locked "inherited" set the picker must
+  // exclude and the X button must hide. These tests pin that contract.
+  const EXPLORE_URL = `${CHARACTER_URL}?tab=explore`
+  const INHERITED_TALENTS = ["Athletics", "Climb", "Lift"] as const
+
+  test.describe("owner controls are hidden on the public sheet", () => {
+    test("signed-out viewer sees inherited Talents locked and no add/remove or Spark controls", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({ storageState: undefined })
+      const page = await context.newPage()
+      try {
+        await resetCharacter()
+        await page.goto(EXPLORE_URL)
+
+        const talents = page.getByRole("region", { name: "Talents" })
+        for (const label of INHERITED_TALENTS) {
+          await expect(talents.getByText(label)).toBeVisible()
+        }
+        await expect(
+          page.getByRole("button", { name: "Add Talent" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("button", { name: "Remove Athletics" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("button", { name: "Add a Spark" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("button", { name: "Rank up a Virtue" })
+        ).toHaveCount(0)
+      } finally {
+        await context.close()
+      }
+    })
+  })
+
+  test.describe("owner Talents picker", () => {
+    test.use({ storageState: STORAGE_STATE })
+
+    test.beforeEach(async () => {
+      await resetCharacter()
+    })
+
+    test("add → reload → remove round-trips through persistence", async ({
+      page,
+    }) => {
+      await page.goto(EXPLORE_URL)
+
+      // The popover is portaled outside the Talents region, so resolve the
+      // Add button by aria-label rather than scoping to the region.
+      await page.getByRole("button", { name: "Add Talent" }).click()
+      await page.getByPlaceholder("Search Talents…").fill("arc")
+      await page.getByRole("button", { name: "Arcana" }).click()
+
+      const talents = page.getByRole("region", { name: "Talents" })
+      await expect(talents.getByText("Arcana")).toBeVisible()
+      // Inherited Talents remain — and stay locked (no Remove button).
+      await expect(
+        page.getByRole("button", { name: "Remove Athletics" })
+      ).toHaveCount(0)
+
+      await page.waitForLoadState("networkidle")
+      await page.reload()
+      await expect(
+        page.getByRole("region", { name: "Talents" }).getByText("Arcana")
+      ).toBeVisible()
+
+      await page.getByRole("button", { name: "Remove Arcana" }).click()
+      await page.waitForLoadState("networkidle")
+      await page.reload()
+      await expect(
+        page.getByRole("region", { name: "Talents" }).getByText("Arcana")
+      ).toHaveCount(0)
+      await expectNoToast(page)
+    })
+  })
+
+  test.describe("owner Spark + Rank-up controls", () => {
+    test.use({ storageState: STORAGE_STATE })
+
+    test.beforeEach(async () => {
+      await resetCharacter()
+    })
+
+    /**
+     * Helper: open the +1 Spark popover and pick `virtue`. The popover
+     * auto-closes on pick, so a follow-up call re-opens it cleanly.
+     */
+    async function addSparkAs(page: Page, virtue: string): Promise<void> {
+      await page.getByRole("button", { name: "Add a Spark" }).click()
+      await page.getByRole("button", { name: virtue, exact: true }).click()
+      // Wait for the optimistic state + server round-trip to settle so the
+      // next iteration sees the popover unmounted before re-opening.
+      await page.waitForLoadState("networkidle")
+    }
+
+    test("tagging a Spark updates the Sparks counter and breakdown", async ({
+      page,
+    }) => {
+      await page.goto(EXPLORE_URL)
+      const virtues = page.getByRole("region", { name: "Virtues" })
+      await expect(virtues.getByText("Sparks: 0 / 7")).toBeVisible()
+
+      await addSparkAs(page, "Wisdom")
+
+      await expect(virtues.getByText("Sparks: 1 / 7")).toBeVisible()
+      await expect(virtues.getByText("(Wisdom ×1)")).toBeVisible()
+      await expectNoToast(page)
+    })
+
+    test("seven Sparks surfaces the Rank-up CTA and rank-up clears the log", async ({
+      page,
+    }) => {
+      await page.goto(EXPLORE_URL)
+      const virtues = page.getByRole("region", { name: "Virtues" })
+
+      // Fill the log to 7 tagged as Wisdom so only Wisdom is eligible.
+      for (let i = 0; i < 7; i++) {
+        await addSparkAs(page, "Wisdom")
+      }
+      await expect(virtues.getByText("Sparks: 7 / 7")).toBeVisible()
+      await expect(virtues.getByText("(Wisdom ×7)")).toBeVisible()
+
+      // +1 Spark is gone; Rank up a Virtue is present.
+      await expect(
+        page.getByRole("button", { name: "Add a Spark" })
+      ).toHaveCount(0)
+      await page.getByRole("button", { name: "Rank up a Virtue" }).click()
+
+      // Only Virtues present in the log are eligible — Wisdom is the only
+      // button in the rank-up popover; Expression / Empathy / Focus must not
+      // appear.
+      await expect(
+        page.getByRole("button", { name: "Expression", exact: true })
+      ).toHaveCount(0)
+      await page.getByRole("button", { name: "Wisdom", exact: true }).click()
+      await page.waitForLoadState("networkidle")
+
+      // Log clears, Wisdom row jumps from 0 → 1, +1 Spark returns.
+      await expect(virtues.getByText("Sparks: 0 / 7")).toBeVisible()
+      await expect(
+        page.getByRole("button", { name: "Add a Spark" })
+      ).toBeVisible()
+      // The Wisdom dt/dd row shows rank 1.
+      await expect(
+        virtues.locator('div:has(> dt:text-is("Wisdom")) > dd')
+      ).toHaveText("1")
+      await expectNoToast(page)
+    })
   })
 })
