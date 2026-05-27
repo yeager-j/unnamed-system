@@ -1,8 +1,13 @@
+import type {
+  HydratedCharacter,
+  InheritanceSlots,
+  ManualBonuses,
+  PathChoice,
+} from "../"
 import { getArchetype, hasUnlockedRank } from "../../archetypes"
 import { getEquippableItem, type EquippableItem } from "../../items"
 import { getMechanic, type MechanicState } from "../../mechanics"
 import { getSkill } from "../../skills"
-import type { InheritanceSlots, ManualBonuses, PathChoice } from "../state"
 import type { ActiveMechanic, StatComputationCharacter } from "./stats"
 
 /**
@@ -89,6 +94,34 @@ function activeMechanicFor(
 
   const state = active.mechanicState ?? mechanic.initialState()
   return { kind: archetype.mechanic, state }
+}
+
+/**
+ * Reconstructs the pure {@link StatComputationCharacter} from a hydrated
+ * character. The single shared row→engine mapping so engine callers (e.g. the
+ * rest wrapper) need not re-hand-roll it.
+ */
+export function toStatComputationCharacter(
+  character: HydratedCharacter
+): StatComputationCharacter {
+  return buildStatComputationCharacter(
+    {
+      pathChoice: character.pathChoice,
+      level: character.level,
+      manualBonuses: character.manualBonuses,
+      activeCharacterArchetypeId: character.activeArchetypeId,
+    },
+    character.archetypeRows.map((archetype) => ({
+      id: archetype.id,
+      archetypeKey: archetype.archetypeKey,
+      rank: archetype.rank,
+      inheritanceSlots: archetype.inheritanceSlots,
+      mechanicState: archetype.mechanicState,
+    })),
+    character.inventory
+      .filter((item) => item.equipped)
+      .map((item) => item.catalogItemKey)
+  )
 }
 
 export function buildStatComputationCharacter(

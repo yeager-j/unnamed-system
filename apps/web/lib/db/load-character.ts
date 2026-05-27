@@ -83,21 +83,6 @@ function statComputationCharacter(
   )
 }
 
-/**
- * Reconstructs the pure {@link StatComputationCharacter} from a hydrated
- * character. The single shared row→engine mapping so engine callers (e.g. the
- * rest wrapper) need not re-hand-roll it.
- */
-export function toStatComputationCharacter(
-  character: HydratedCharacter
-): StatComputationCharacter {
-  return statComputationCharacter(
-    character,
-    character.archetypeRows,
-    character.inventory
-  )
-}
-
 async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
   const [archetypeRows, inventoryRows, knives, chains] = await Promise.all([
     db

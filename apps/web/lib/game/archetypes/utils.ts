@@ -1,11 +1,9 @@
-import {
-  toStatComputationCharacter,
-  type CharacterArchetypeRow,
-} from "../../db/load-character"
+import type { CharacterArchetypeRow } from "../../db/load-character"
 import {
   computeMaxHP,
   computeMaxSP,
   LINEAGE_SUGGESTED_PATH,
+  toStatComputationCharacter,
   type HydratedCharacter,
   type HydratedSkill,
   type PathChoice,
