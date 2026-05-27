@@ -1,3 +1,4 @@
+import { err, ok, type Result } from "../../result"
 import {
   computeMaxHP,
   type AttributeScores,
@@ -106,6 +107,37 @@ export function canCast(skill: Skill, character: CastingCharacter): boolean {
 
   if (cost.kind === "sp") return character.currentSP >= cost.amount
   return character.currentHP > cost.amount
+}
+
+/** Recoverable failures the cast engine reports — same pool affordances
+ *  `canCast` checks, surfaced as discrete codes so the UI / persistence layer
+ *  can disambiguate without re-deriving them. */
+export type CastError = "insufficient-sp" | "insufficient-hp"
+
+/**
+ * Deducts a Skill's resolved cost from the matching pool (PRD §7.2). Pure
+ * and side-effect free: returns a fresh {@link CastingCharacter} and never
+ * mutates its input. Cost-less Skills (passives) return the character
+ * unchanged so the engine stays total; the UI gates whether a Cast button
+ * exists. Affordability mirrors {@link canCast} exactly — SP needs
+ * `currentSP >= amount`, HP needs `currentHP > amount` (strict, so a Skill
+ * cannot drop the caster to 0 HP). Damage, target effects, and Affinity
+ * chart changes are explicitly out of scope.
+ */
+export function applyCast(
+  skill: Skill,
+  character: CastingCharacter
+): Result<CastingCharacter, CastError> {
+  const cost = resolveSkillCost(skill, character)
+  if (cost === null) return ok(character)
+
+  if (cost.kind === "sp") {
+    if (character.currentSP < cost.amount) return err("insufficient-sp")
+    return ok({ ...character, currentSP: character.currentSP - cost.amount })
+  }
+
+  if (character.currentHP <= cost.amount) return err("insufficient-hp")
+  return ok({ ...character, currentHP: character.currentHP - cost.amount })
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { AttributeScores, HydratedSkill } from "@/lib/game/character"
 
 import { AttackRollTable } from "./attack-roll-table"
+import { CastButton, type CastBindings } from "./cast-button"
 import { DamageTypeBadge } from "./damage-type-badge"
 import { PopoverCardShell } from "./popover-card-shell"
 import { skillStatRows } from "./skill-card-utils"
@@ -18,6 +19,13 @@ interface SkillCardProps {
    * component never reaches into context.
    */
   attributes: AttributeScores
+  /**
+   * Owner-mode Cast bindings (PRD §7.2). When supplied, a Cast footer renders
+   * under {@link OwnerOnly} with affordability resolved against the passed-in
+   * `currentHP`/`currentSP`. The builder's Archetype preview and the public
+   * read-only sheet simply omit this prop and the footer never mounts.
+   */
+  cast?: CastBindings
 }
 
 /**
@@ -27,7 +35,7 @@ interface SkillCardProps {
  * have one), and any freeform Effect prose. Damage and healing formulas and
  * the Attack Roll header hydrate with the passed-in attribute scores.
  */
-export function SkillCard({ skill, attributes }: SkillCardProps) {
+export function SkillCard({ skill, attributes, cast }: SkillCardProps) {
   return (
     <PopoverCardShell
       title={skill.name}
@@ -52,6 +60,14 @@ export function SkillCard({ skill, attributes }: SkillCardProps) {
         <SkillText className="border-t border-border pt-2">
           {skill.effect}
         </SkillText>
+      ) : null}
+      {cast && skill.resolvedCost ? (
+        <CastButton
+          skill={skill}
+          cast={cast}
+          variant="footer"
+          className="flex justify-end border-t border-border pt-3"
+        />
       ) : null}
     </PopoverCardShell>
   )

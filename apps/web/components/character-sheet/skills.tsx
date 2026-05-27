@@ -1,3 +1,8 @@
+"use client"
+
+import { useOptimistic, useTransition } from "react"
+import { toast } from "sonner"
+
 import {
   Card,
   CardContent,
@@ -7,19 +12,29 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
+import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
+import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { castSkillAction } from "@/lib/actions/cast-skill"
 import type { HydratedCharacter } from "@/lib/game/character"
 import { getEquippedItem } from "@/lib/game/items"
 import { sortSkillsByKind } from "@/lib/game/skills"
 
 /**
- * The Combat-tab Skills surface (PRD §6.1): every Skill currently available
- * to the character — granted by the active Archetype's unlocked Ranks, its
- * Inheritance Slots, the equipped weapon's intrinsic attack, or any
- * equipment-granted Skill — plus the active Archetype's Synthesis Skill in
- * its own subsection. Read-only; the cast button is a later ticket.
+ * The Combat-tab Skills surface (PRD §6.1 / §7.2): every Skill currently
+ * available to the character — granted by the active Archetype's unlocked
+ * Ranks, its Inheritance Slots, the equipped weapon's intrinsic attack, or
+ * any equipment-granted Skill — plus the active Archetype's Synthesis Skill
+ * in its own subsection.
  *
- * Each row opens a {@link SkillCard} popover on click/tap with the full
- * rulebook detail.
+ * **Owner mode (UNN-225).** Each row gains a Cast button: the SkillCard
+ * popover always shows the full-size affordance; on `md+` viewports an
+ * inline echo lives in the row's actions slot. Cast deducts the resolved
+ * cost from current SP / HP via the pure `applyCast` engine — the same
+ * function the Server Action runs — so the optimistic frame is structurally
+ * identical to the persisted one. After the server returns,
+ * `revalidateCharacter` re-derives the Vitals card automatically. Read-only
+ * callers (public sheet, signed-out viewers) do not see Cast at all because
+ * the `cast` prop short-circuits inside {@link OwnerOnly}.
  */
 export function Skills({ character }: { character: HydratedCharacter }) {
   const equippedWeapon = getEquippedItem(character.inventory, "weapon")
@@ -28,6 +43,59 @@ export function Skills({ character }: { character: HydratedCharacter }) {
   const sorted = sortSkillsByKind(character.skills)
   const regular = sorted.filter((entry) => !entry.isSynthesis)
   const synthesis = sorted.filter((entry) => entry.isSynthesis)
+
+  const [pending, startTransition] = useTransition()
+  // Vitals-class token (UNN-140). A rapid follow-up Cast reads the value
+  // just written by the prior save's success branch — without waiting for
+  // React commit + effect to propagate the new prop.
+  const versionRef = useCharacterTokenRef(character.vitalsVersion)
+
+  const [pools, applyOptimistic] = useOptimistic(
+    { currentHP: character.currentHP, currentSP: character.currentSP },
+    (current, skillKey: string) => {
+      const skill = character.skills.find((entry) => entry.key === skillKey)
+      const cost = skill?.resolvedCost
+      if (!cost) return current
+      if (cost.kind === "sp") {
+        if (current.currentSP < cost.amount) return current
+        return { ...current, currentSP: current.currentSP - cost.amount }
+      }
+      if (current.currentHP <= cost.amount) return current
+      return { ...current, currentHP: current.currentHP - cost.amount }
+    }
+  )
+
+  function handleCast(skillKey: string) {
+    startTransition(async () => {
+      applyOptimistic(skillKey)
+      const result = await dispatchCharacterWriteWithRetry({
+        characterId: character.id,
+        characterClass: "vitals",
+        versionRef,
+        action: (expectedVersion) =>
+          castSkillAction({
+            characterId: character.id,
+            skillKey,
+            expectedVersion,
+          }),
+      })
+
+      if (result.ok) return
+
+      if (result.error === "stale") {
+        toast.error("Couldn't sync — refresh to see the latest.")
+      } else {
+        toast.error("Couldn't cast Skill. Try again.")
+      }
+    })
+  }
+
+  const cast = {
+    currentHP: pools.currentHP,
+    currentSP: pools.currentSP,
+    pending,
+    onCast: handleCast,
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,6 +126,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
                   key={entry.key}
                   skill={entry}
                   attributes={attributes}
+                  cast={cast}
                 />
               ))}
             </ItemGroup>
@@ -79,6 +148,7 @@ export function Skills({ character }: { character: HydratedCharacter }) {
                   key={entry.key}
                   skill={entry}
                   attributes={attributes}
+                  cast={cast}
                 />
               ))}
             </ItemGroup>
