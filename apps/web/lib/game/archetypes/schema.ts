@@ -1,10 +1,10 @@
 import { z } from "zod/v4"
 
-import { AFFINITIES, type Affinity, type DamageType } from "../affinity"
-import { LINEAGES, type Lineage } from "../lineage"
-import type { MechanicKind } from "../mechanics/schema"
+import { LINEAGES, type Lineage } from "../character/lineage"
+import type { TalentKey } from "../character/talents/registry"
+import { AFFINITIES, type Affinity, type DamageType } from "../combat/affinity"
+import type { MechanicKind } from "../mechanics"
 import type { SkillKey } from "../skills"
-import type { TalentKey } from "../talents"
 
 export { LINEAGES, type Lineage }
 

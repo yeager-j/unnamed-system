@@ -5,7 +5,7 @@ import {
   setCharacterVirtues,
   type CharacterVirtuesPersistenceSuccess,
 } from "@/lib/db/character-virtues"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   SetVirtuesSchema,

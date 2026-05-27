@@ -1,7 +1,7 @@
 import { Separator } from "@workspace/ui/components/separator"
 
 import { Prose } from "@/components/shared/prose"
-import type { Archetype } from "@/lib/game/archetypes/schema"
+import type { Archetype } from "@/lib/game/archetypes"
 import { getMechanic } from "@/lib/game/mechanics"
 
 /**

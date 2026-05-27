@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import type { Result } from "@/lib/game/result"
+import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import type { VersionClass } from "./use-character-versions-broadcast"

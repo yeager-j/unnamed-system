@@ -13,7 +13,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
-import type { Result } from "@/lib/game/result"
+import type { Result } from "@/lib/result"
 
 /**
  * The title + Markdown body pair the Movement 3 writer renders for the

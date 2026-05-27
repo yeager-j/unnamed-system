@@ -1,5 +1,4 @@
-import type { TalentKey } from "@/lib/game/talents"
-import type { VirtueAllocation } from "@/lib/game/virtues/allocation"
+import type { TalentKey, VirtueAllocation } from "@/lib/game/character"
 
 import { NarrativePair } from "./narrative-pair"
 import { TalentsPicker } from "./talents-picker"

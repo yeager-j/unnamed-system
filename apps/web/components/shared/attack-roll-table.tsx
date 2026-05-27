@@ -1,9 +1,9 @@
 import { Badge } from "@workspace/ui/components/badge"
 
-import type { AttackRoll } from "@/lib/game/attack"
-import type { ResolvedAttackRoll } from "@/lib/game/attack-roll"
-import { formatSignedBonus, hydrateFormula } from "@/lib/game/skill-display"
-import type { AttributeScores } from "@/lib/game/stats"
+import type { AttributeScores } from "@/lib/game/character/stats/stats"
+import type { AttackRoll } from "@/lib/game/combat/attack"
+import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
+import { formatSignedBonus, hydrateFormula } from "@/lib/game/skills/utils"
 
 import { AttackRollBreakdown } from "./attack-roll-breakdown"
 import { SideEffectBadge } from "./side-effect-badge"

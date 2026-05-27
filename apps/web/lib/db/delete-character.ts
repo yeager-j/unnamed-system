@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "../game/result"
+import { err, ok, type Result } from "../result"
 import { db } from "./index"
 import { characters } from "./schema/character"
 

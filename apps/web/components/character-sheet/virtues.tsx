@@ -5,9 +5,13 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { VIRTUE_KEYS, type VirtueKey } from "@/lib/game/character"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-import { SPARK_LOG_CAPACITY, sparkLogBreakdown } from "@/lib/game/spark"
+import {
+  SPARK_LOG_CAPACITY,
+  sparkLogBreakdown,
+  VIRTUE_KEYS,
+  type HydratedCharacter,
+  type VirtueKey,
+} from "@/lib/game/character"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**

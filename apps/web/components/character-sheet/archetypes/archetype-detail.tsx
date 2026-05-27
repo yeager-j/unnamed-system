@@ -9,9 +9,8 @@ import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-s
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
-import { hasUnlockedRank } from "@/lib/game/archetypes/schema"
-import type { AttributeScores } from "@/lib/game/stats"
+import { hasUnlockedRank, type ArchetypeEntry } from "@/lib/game/archetypes"
+import type { AttributeScores } from "@/lib/game/character"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on

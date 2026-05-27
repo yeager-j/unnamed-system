@@ -6,7 +6,7 @@ import {
   removeGainedTalent,
   type CharacterTalentPersistenceSuccess,
 } from "@/lib/db/character-talents"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   AddGainedTalentSchema,

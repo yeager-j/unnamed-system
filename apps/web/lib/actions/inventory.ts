@@ -6,7 +6,7 @@ import {
   unequipInventoryItem,
   type InventoryPersistenceError,
 } from "@/lib/db/inventory"
-import { type Result } from "@/lib/game/result"
+import { type Result } from "@/lib/result"
 
 import {
   EquipInventoryItemSchema,

@@ -1,6 +1,9 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import { HydratedCharacter } from "../game/hydrated-character"
+import {
+  toStatComputationCharacter,
+  type HydratedCharacter,
+} from "../game/character"
 import {
   applyFullRest,
   applyPartialRest,
@@ -9,14 +12,10 @@ import {
   type RespiteInput,
   type RestError,
   type RestingCharacter,
-} from "../game/rest"
-import { err, ok, type Result } from "../game/result"
+} from "../game/combat"
+import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import {
-  characterExists,
-  loadHydratedCharacterById,
-  toStatComputationCharacter,
-} from "./load-character"
+import { characterExists, loadHydratedCharacterById } from "./load-character"
 import { characters } from "./schema/character"
 
 /**

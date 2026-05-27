@@ -1,7 +1,6 @@
 import { Progress } from "@workspace/ui/components/progress"
 
-import { isFallen } from "@/lib/game/character"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import { isFallen, type HydratedCharacter } from "@/lib/game/character"
 
 /**
  * The read-only Vitals block (PRD §6.1 Vitals): current/max HP and SP with bars

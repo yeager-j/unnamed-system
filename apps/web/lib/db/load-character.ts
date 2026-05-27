@@ -1,25 +1,28 @@
 import { asc, eq } from "drizzle-orm"
 
 import {
-  resolveAttackRoll,
-  skillAttackRollContext,
-  type AttackRollContext,
-} from "../game/attack-roll"
-import type { HydratedCharacter } from "../game/hydrated-character"
-import { getEquippableItem, getEquippedItem } from "../game/items"
-import type { IntrinsicAttack } from "../game/items/schema"
-import { resolveSkillCost, type CastingCharacter } from "../game/skill-cost"
-import { buildStatComputationCharacter } from "../game/stat-character"
-import {
+  buildStatComputationCharacter,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
+  resolveTalents,
+  type HydratedCharacter,
   type StatComputationCharacter,
-} from "../game/stats"
-import { resolveTalents } from "../game/talents/resolve"
+} from "../game/character"
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type AttackRollContext,
+} from "../game/combat"
+import {
+  getEquippableItem,
+  getEquippedItem,
+  type IntrinsicAttack,
+} from "../game/items"
+import { resolveSkillCost, type CastingCharacter } from "../game/skills"
 import { db } from "./index"
 import {
   characterArchetypes,
@@ -77,21 +80,6 @@ function statComputationCharacter(
     inventoryRows
       .filter((item) => item.equipped)
       .map((item) => item.catalogItemKey)
-  )
-}
-
-/**
- * Reconstructs the pure {@link StatComputationCharacter} from a hydrated
- * character. The single shared row→engine mapping so engine callers (e.g. the
- * rest wrapper) need not re-hand-roll it.
- */
-export function toStatComputationCharacter(
-  character: HydratedCharacter
-): StatComputationCharacter {
-  return statComputationCharacter(
-    character,
-    character.archetypeRows,
-    character.inventory
   )
 }
 

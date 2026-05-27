@@ -5,8 +5,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-import { getTalent } from "@/lib/game/talents"
+import { getTalent, type HydratedCharacter } from "@/lib/game/character"
 
 /**
  * Read-only Talents block (PRD §6.1 Explore tab). Lists every Talent the

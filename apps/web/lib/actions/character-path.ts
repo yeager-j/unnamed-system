@@ -5,7 +5,7 @@ import {
   updateCharacterPath,
   type CharacterPathPersistenceSuccess,
 } from "@/lib/db/character-path"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   UpdateCharacterPathSchema,

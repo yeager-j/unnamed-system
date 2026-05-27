@@ -1,14 +1,14 @@
-import type {
-  BattleConditions,
-  ManualBonuses,
-  PartyComposition,
-  PathChoice,
-  SparkLog,
+import {
+  buildStatComputationCharacter,
+  type BattleConditions,
+  type ManualBonuses,
+  type PartyComposition,
+  type PathChoice,
+  type SparkLog,
+  type StatComputationCharacter,
+  type TalentKey,
 } from "../game/character"
-import type { MechanicState } from "../game/mechanics/schema"
-import { buildStatComputationCharacter } from "../game/stat-character"
-import type { StatComputationCharacter } from "../game/stats"
-import type { TalentKey } from "../game/talents"
+import type { MechanicState } from "../game/mechanics"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

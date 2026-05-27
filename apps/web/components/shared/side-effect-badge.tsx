@@ -5,7 +5,10 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { getSideEffect, type SideEffectKey } from "@/lib/game/side-effects"
+import {
+  getSideEffect,
+  type SideEffectKey,
+} from "@/lib/game/combat/side-effects"
 
 import { Prose } from "./prose"
 

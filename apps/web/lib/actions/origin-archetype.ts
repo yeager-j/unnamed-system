@@ -5,7 +5,7 @@ import {
   setOriginArchetype,
   type OriginArchetypePersistenceSuccess,
 } from "@/lib/db/origin-archetype"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   SetOriginArchetypeSchema,

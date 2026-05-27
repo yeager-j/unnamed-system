@@ -3,7 +3,7 @@ import {
   VALOR_THRESHOLD_DESCRIPTIONS,
   VALOR_THRESHOLDS,
   type ValorState,
-} from "@/lib/game/mechanics/valor"
+} from "@/lib/game/mechanics"
 
 /**
  * Knight — Valor rendering. A row of 8 pips (0–7) shows the current score, and

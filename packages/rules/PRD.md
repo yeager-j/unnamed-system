@@ -54,22 +54,22 @@ Full design rationale and rejected alternatives live in a Linear document: [ADR-
 
 ### 5.1 Movements
 
-1. **The Body.** The mechanical character. ~5 minutes.
+1. **Corups.** The mechanical character. ~5 minutes.
    - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60). **Picked first** because it sorts the Archetype grid downstream.
    - **Origin Archetype.** Pick one from a 3×4 grid of all 12 Lineages. The grid sorts by fit with the chosen Path: Health-Focused → HP-matched archetypes first, then Balanced, then Skill-matched; Balanced → Balanced first; Skill-Focused → Skill-matched first. Each Lineage carries a `suggestedPath` attribute that drives the sort; nothing is gated or hidden. Each card shows the Lineage name, its Mechanic name + one-line description, the attribute row, and one Resist + one Weak affinity. Click a card to expand inline to the full archetype detail (full Affinities, Talents, Skills at Ranks 1–5, Synthesis Skill); commit via a "Choose [Lineage] as Origin" button sticky at the bottom of the viewport while the expanded content scrolls. The app does not gate Archetypes at MVP. Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
 
-2. **The Past.** Who they were before the adventure. ~10–15 minutes. Two-column layout, fits one viewport on desktop.
+1. **Ortus.** Who they were before the adventure. ~10–15 minutes. Two-column layout, fits one viewport on desktop.
    - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance. Setting-defined per the rules; the player types what their DM provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
    - **Virtue Allocation.** Single-column picker with four rows (Expression, Empathy, Wisdom, Focus), each a three-state segmented control (○ +1 +2). Budget enforcement inline: exactly one +2, exactly two +1s, no overlap. Framing copy uses rules-cited logic: *"Pick the one your character most embodies, then two more that are also strong."*
 
-3. **The Story.** The text-heavy movement. ~15–30 minutes, returnable across sessions. Rendered as the [UNN-211](https://linear.app/unnamed-system/issue/UNN-211) writer view: collapsible sidebar (Backstory / Knives / Chains / Identity Traits) on the left, full-width MarkdownField on the right. Clicking a sidebar entry loads it as the active document.
+1. **Animus.** The text-heavy movement. ~15–30 minutes, returnable across sessions. Rendered as the [UNN-211](https://linear.app/unnamed-system/issue/UNN-211) writer view: collapsible sidebar (Backstory / Knives / Chains / Identity Traits) on the left, full-width MarkdownField on the right. Clicking a sidebar entry loads it as the active document.
    - **Backstory.** Long-form Markdown. Brief in-context guidance.
    - **Knives.** One sidebar entry per Knife (title + Markdown description). Counter reads *"N / 7 — your DM is hungry for more"*. Require at least 4; soft-warn above 12.
    - **Chains.** Same shape. At least one Chain; soft-warn above 3.
    - **Identity Traits.** Five sub-entries (Personality, Hopes, Dreams, Fears, Secrets), each its own sidebar entry. Counts: Personality 2–4, Hopes 1–2, Dreams 1, Fears 1–2, Secrets 1–2. Minimum counts are enforced; maximums are advisory. **Fears** prompt suggests "often tied to a Knife or Chain" (the sidebar IS the cross-reference). **Secrets** display a small lock icon: "share with your DM in private."
    - Each entry has a per-section "share with DM" copy/share affordance.
 
-4. **The Person.** Final, sparse, vertical center composition.
+1. **Persona.** Final, sparse, vertical center composition.
    - **Portrait.** Center-top, larger than the prior wizard; a quiet placeholder until uploaded.
    - **Pronouns.** Small field above the name.
    - **Name.** The visual climax — serif, ~28–32px, no field chrome. **Last** input in the builder.

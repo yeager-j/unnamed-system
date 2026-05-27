@@ -8,7 +8,7 @@ import {
   updateCharacterPronouns,
   type CharacterIdentityPersistenceSuccess,
 } from "@/lib/db/character-identity"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 import { uploadPortrait } from "@/lib/storage/portrait-upload"
 
 import {

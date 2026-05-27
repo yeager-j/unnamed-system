@@ -8,9 +8,11 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
-import { isFallen } from "@/lib/game/character"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
-import { VICTORIES_PER_LEVEL } from "@/lib/game/leveling"
+import {
+  isFallen,
+  VICTORIES_PER_LEVEL,
+  type HydratedCharacter,
+} from "@/lib/game/character"
 
 import { Attributes } from "./attributes"
 import { EditableCharacterName } from "./editable-character-name"

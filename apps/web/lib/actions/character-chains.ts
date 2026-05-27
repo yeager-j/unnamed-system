@@ -9,7 +9,7 @@ import {
   type AddChainSuccess,
   type CharacterChainPersistenceSuccess,
 } from "@/lib/db/character-chains"
-import { err, type Result } from "@/lib/game/result"
+import { err, type Result } from "@/lib/result"
 
 import {
   AddChainSchema,

@@ -28,8 +28,11 @@ import {
 } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { Prose } from "@/components/shared/prose"
-import type { ArchetypeEntry } from "@/lib/game/archetypes/entries"
-import { hasMasteryBonus, hasUnlockedRank } from "@/lib/game/archetypes/schema"
+import {
+  hasMasteryBonus,
+  hasUnlockedRank,
+  type ArchetypeEntry,
+} from "@/lib/game/archetypes"
 import { getMechanic } from "@/lib/game/mechanics"
 import { TIER_LABELS } from "@/lib/ui/labels"
 

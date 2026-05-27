@@ -12,7 +12,7 @@ import {
 import { loadCharacterKnives } from "@/lib/db/character-knives"
 import { db } from "@/lib/db/index"
 import { characterArchetypes } from "@/lib/db/schema/character"
-import { err, ok, type Result } from "@/lib/game/result"
+import { err, ok, type Result } from "@/lib/result"
 
 import {
   FinalizeCharacterSchema,

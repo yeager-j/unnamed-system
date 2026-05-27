@@ -21,17 +21,15 @@ import {
 import type {
   HydratedCharacter,
   HydratedInventoryItem,
-} from "@/lib/game/hydrated-character"
+} from "@/lib/game/character"
 import {
   equipItem,
-  unequipItem,
-  type InventoryItemState,
-} from "@/lib/game/items/equip"
-import {
   resolveInventory,
+  unequipItem,
+  type EquippableItem,
+  type InventoryItemState,
   type ResolvedInventory,
-} from "@/lib/game/items/resolve-inventory"
-import type { EquippableItem } from "@/lib/game/items/schema"
+} from "@/lib/game/items"
 
 import { EquippedSlot } from "./equipped-slot"
 import { InventoryRow } from "./inventory-row"

@@ -7,9 +7,9 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
-import type { HydratedCharacter } from "@/lib/game/hydrated-character"
+import type { HydratedCharacter } from "@/lib/game/character"
 import { getEquippedItem } from "@/lib/game/items"
-import { sortSkillsByKind } from "@/lib/game/skills/sort"
+import { sortSkillsByKind } from "@/lib/game/skills"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1): every Skill currently available
