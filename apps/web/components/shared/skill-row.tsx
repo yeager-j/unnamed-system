@@ -19,8 +19,8 @@ import type { HydratedSkill } from "@/lib/game/hydrated-character"
 import type { Weapon } from "@/lib/game/items/schema"
 import type { AttributeScores } from "@/lib/game/stats"
 
-import { DamageTypeSlot } from "./damage-type-slot"
 import { IntrinsicAttackCard } from "./intrinsic-attack-card"
+import { RowBadgeSlot } from "./row-badge-slot"
 import { SkillCard } from "./skill-card"
 import { SkillCostBadge } from "./skill-cost-badge"
 
@@ -54,9 +54,11 @@ export function SkillRow({ skill, attributes }: SkillRowProps) {
         }
       >
         <ItemMedia className="w-20">
-          <DamageTypeSlot
-            damageType={skill.kind === "attack" ? skill.damageType : null}
-          />
+          {skill.kind === "attack" ? (
+            <RowBadgeSlot damageType={skill.damageType} />
+          ) : (
+            <RowBadgeSlot kind={skill.kind} />
+          )}
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{skill.name}</ItemTitle>
@@ -111,7 +113,7 @@ export function IntrinsicAttackRow({
         }
       >
         <ItemMedia className="w-20">
-          <DamageTypeSlot damageType={weapon.intrinsicAttack.damageType} />
+          <RowBadgeSlot damageType={weapon.intrinsicAttack.damageType} />
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{weapon.name}</ItemTitle>

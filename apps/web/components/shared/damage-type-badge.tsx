@@ -1,4 +1,5 @@
 import { Badge } from "@workspace/ui/components/badge"
+import { cn } from "@workspace/ui/lib/utils"
 
 import type { DamageType } from "@/lib/game/affinity"
 import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
@@ -11,12 +12,18 @@ export type SkillRowDamageType = DamageType | "special"
 
 export function DamageTypeBadge({
   damageType,
+  className,
 }: {
   damageType: SkillRowDamageType
+  className?: string
 }) {
   return (
     <Badge
-      className={`w-full border-transparent text-neutral-900 ${DAMAGE_TYPE_BADGE_CLASSES[damageType]}`}
+      className={cn(
+        "border-transparent text-neutral-900",
+        DAMAGE_TYPE_BADGE_CLASSES[damageType],
+        className
+      )}
     >
       {DAMAGE_TYPE_LABELS[damageType]}
     </Badge>

@@ -3,6 +3,7 @@ import type { Weapon } from "@/lib/game/items/schema"
 import type { AttributeScores } from "@/lib/game/stats"
 
 import { AttackRollTable } from "./attack-roll-table"
+import { DamageTypeBadge } from "./damage-type-badge"
 import { PopoverCardShell } from "./popover-card-shell"
 import { intrinsicAttackStatRows } from "./skill-card-utils"
 import { SkillText } from "./skill-text"
@@ -34,7 +35,7 @@ export function IntrinsicAttackCard({
   return (
     <PopoverCardShell
       title={weapon.name}
-      kindLabel="Attack"
+      badge={<DamageTypeBadge damageType={attack.damageType} />}
       subtitle="Equipped weapon"
     >
       <SkillText>Intrinsic weapon attack.</SkillText>
