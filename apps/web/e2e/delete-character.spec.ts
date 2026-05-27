@@ -4,22 +4,24 @@ import { eq } from "drizzle-orm"
 import { characters, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
+import { deleteTarget } from "./fixtures/delete-target"
 
 /**
  * UNN-181 — type-to-confirm deletion. Target is the dedicated
- * `delete-target` seed character (`Wren Halloway`, owned by DEV_USER); it
- * exists only for this spec so the happy-path test can hard-delete the row
- * without flaking the read-only specs. `db:seed` re-inserts it at the start
- * of every E2E run.
+ * `delete-target` seed character (`Wren Halloway`, owned by DEV_USER) —
+ * fixture lives at `e2e/fixtures/delete-target.ts`. It exists only for
+ * this spec so the happy-path test can hard-delete the row without
+ * flaking the read-only specs. `db:seed` re-inserts it at the start of
+ * every E2E run.
  *
  * Tests run in serial mode and depend on each other in a deliberate order:
  * the cancel and disabled-button tests run first while the row still
  * exists; the happy-path test runs last and removes it.
  */
 
-const CHARACTER_ID = "seed-char-delete-target"
-const CHARACTER_NAME = "Wren Halloway"
-const CHARACTER_SHORT_ID = "delete-target"
+const CHARACTER_ID = deleteTarget.characterId
+const CHARACTER_NAME = deleteTarget.seed.name
+const CHARACTER_SHORT_ID = deleteTarget.seed.shortId
 
 test.describe.configure({ mode: "serial" })
 test.use({ storageState: STORAGE_STATE })

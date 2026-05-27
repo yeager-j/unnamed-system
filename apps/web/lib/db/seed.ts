@@ -8,6 +8,7 @@ import {
   SEED_CHARACTERS,
   type SeedCharacter,
 } from "../__fixtures__/seed-characters"
+import { DEV_USER_E2E_FIXTURES } from "../../e2e/fixtures"
 import {
   computeMaxHitDice,
   computeMaxHP,
@@ -116,148 +117,6 @@ const DEV_USER_CHARACTER: SeedCharacter = {
     { catalogItemKey: "bladeturn-mail", equipped: false },
     { catalogItemKey: "zephyr-band", equipped: false },
   ],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
-
-/**
- * Dedicated target for `e2e/delete-character.spec.ts`. Owned by
- * {@link DEV_USER}. Sized just large enough to prove CASCADE: one archetype,
- * one inventory item, one knife/chain. Lives in its own row because
- * the happy-path test removes it — `npm run db:seed` runs at the start of
- * every E2E invocation and re-inserts it via the same deterministic upsert.
- */
-const DELETE_TEST_CHARACTER: SeedCharacter = {
-  slug: "delete-target",
-  shortId: "delete-target",
-  name: "Wren Halloway",
-  pronouns: "they/them",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [{ catalogItemKey: "longsword", equipped: false }],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
-
-/**
- * Dedicated write-target for `e2e/write-pattern.spec.ts`. Owned by
- * {@link DEV_USER} so the existing auth fixture can drive it; carries the
- * three inventory items the equip tests need; mirrors Iris Vey's archetype
- * so the Slash-affinity assertions read the same baseline. Lives in its own
- * row so write specs can mutate freely without flaking the read-only specs
- * that pin Iris Vey's name and inventory.
- */
-const WRITE_TEST_CHARACTER: SeedCharacter = {
-  slug: "write-target",
-  shortId: "write-target",
-  name: "Mira Solberg",
-  pronouns: "they/them",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [
-    { catalogItemKey: "longsword", equipped: false },
-    { catalogItemKey: "bladeturn-mail", equipped: false },
-    { catalogItemKey: "zephyr-band", equipped: false },
-  ],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
-
-/**
- * Dedicated cast-target for `e2e/cast-skill.spec.ts`. Owned by
- * {@link DEV_USER}; active Archetype is Warrior at Rank 2, so the Skill list
- * carries both Cleave (5% HP cost — exercises the HP-percent branch and the
- * "would drop HP to 0" disabled tooltip) and Windblade (4 SP cost —
- * exercises the flat-SP branch). Lives in its own row so the existing
- * `write-target` write-pattern spec can mutate Mira Solberg's identity
- * column without flaking these cast assertions, and vice versa.
- */
-const CAST_TEST_CHARACTER: SeedCharacter = {
-  slug: "cast-target",
-  shortId: "cast-target",
-  name: "Cassia Vance",
-  pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 2,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
   victories: 0,
   virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
   sparkLog: [],
@@ -456,12 +315,12 @@ async function seed(): Promise<void> {
   }
 
   await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
-  await seedCharacter(WRITE_TEST_CHARACTER, DEV_USER.id)
-  await seedCharacter(DELETE_TEST_CHARACTER, DEV_USER.id)
-  await seedCharacter(CAST_TEST_CHARACTER, DEV_USER.id)
+  for (const fixture of DEV_USER_E2E_FIXTURES) {
+    await seedCharacter(fixture.seed, DEV_USER.id)
+  }
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 4} characters and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 1 + DEV_USER_E2E_FIXTURES.length} characters and 1 dev user.`
   )
 }
 

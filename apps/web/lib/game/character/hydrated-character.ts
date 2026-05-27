@@ -8,7 +8,7 @@ import type {
 } from "../../db/load-character"
 import type { Affinity, DamageType, ResolvedAttackRoll } from "../combat"
 import type { EquippableItem } from "../items"
-import type { ResolvedSkillCost, Skill } from "../skills"
+import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every
@@ -29,19 +29,37 @@ export type HydratedInventoryItem = InventoryItemRow & {
   item: EquippableItem | undefined
 }
 
-/** A character's active Skill spread flat, with its concrete payable cost
- *  alongside (or `null` for cost-free Skills) and its resolved per-Skill
- *  Attack Roll bonus. The catalog's raw `cost` field stays on the Skill; the
- *  engine-derived values live on `resolvedCost` and `attackRollBonus` so the
- *  pair is distinguishable when both happen to be in scope. `attackRollBonus`
- *  is `{ total: 0, sources: [] }` on Skills that make no Attack Roll. */
-export type HydratedSkill = Skill & {
-  resolvedCost: ResolvedSkillCost | null
-  /** Pre-resolved Attack Roll readout — null on Skill kinds that make no
-   *  Attack Roll (passive / heal / support) or on attack Skills that ship
-   *  with no `attackRoll` table (severe flat-damage Skills). */
-  resolvedAttackRoll: ResolvedAttackRoll | null
-}
+/**
+ * A character's active Skill spread flat, with its concrete payable cost
+ * alongside (or `null` for cost-free Skills) and its resolved per-Skill
+ * Attack Roll bonus. The catalog's raw `cost` field stays on the Skill; the
+ * engine-derived values live on `resolvedCost` and `attackRollBonus` so the
+ * pair is distinguishable when both happen to be in scope. `attackRollBonus`
+ * is `{ total: 0, sources: [] }` on Skills that make no Attack Roll.
+ *
+ * Distributed over the {@link Skill} discriminated union (UNN-231): the
+ * cost-bearing variants (attack / ailment / heal / support) carry a
+ * non-null `resolvedCost`, and the passive variant carries `null`. Any
+ * narrowing TypeScript can do on the original Skill discriminant —
+ * `skill.kind !== "passive"` or `"cost" in skill` — also narrows
+ * `resolvedCost` automatically, so consumers no longer need to null-check
+ * after they've already established the Skill is cost-bearing.
+ */
+type HydrateSkill<S> = S extends { cost: SkillCost }
+  ? S & {
+      resolvedCost: ResolvedSkillCost
+      resolvedAttackRoll: ResolvedAttackRoll | null
+    }
+  : S & {
+      resolvedCost: null
+      resolvedAttackRoll: ResolvedAttackRoll | null
+    }
+
+export type HydratedSkill = HydrateSkill<Skill>
+
+/** A {@link HydratedSkill} narrowed to the cost-bearing variants — the
+ *  shape any code that requires a concrete `resolvedCost` should accept. */
+export type HydratedCostSkill = Extract<HydratedSkill, { cost: SkillCost }>
 
 /**
  * The complete sheet view: every persisted `characters` column (spread flat),

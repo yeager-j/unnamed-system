@@ -27,6 +27,7 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 5. **Favor composition over inheritance.** This creates more flexible code with fewer hidden dependencies. Inheritance expects you to bundle common behavior into a parent type, but as soon as you find an exception to the commonality, an expensive refactor is required. If you think your inheritance structure is perfect, remember that change is the enemy of perfect design.
 6. **Avoid nesting the Happy Path.** If your Happy Path is nested within a bunch of conditionals, try inverting the conditions and using early return statements. If the conditionals are complex, it might be worth extracting them into their own bite-sized functions.
 7. **Write tests to enable confident refactoring.** Tests aren't just about verifying code works today; they're about maintaining the freedom to improve it tomorrow. Good tests let you iterate on implementation details while ensuring behavior remains consistent, turning what would be hours of debugging into seconds of test runs.
+8. **Leave the codebase better than you found it.** If you're about to reach for a type cast that papers over a real mismatch (as unknown as X), duplicate logic because the shared abstraction is awkward, suppress a lint or type error, write a TODO that hides a correctness issue, or add a special-case branch with no precedent — stop and ask. The user will tell you whether to fix the underlying issue in the current ticket or file a follow-up tech-debt ticket. This applies in auto-mode too; the bar to interrupt is higher but the bar for code quality isn't.
 
 ### Code Conventions
 
@@ -49,6 +50,8 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
 - When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
 - When you create new folders, add them to this document's **Repo Structure** section. Ensuring this section is up-to-date allows future Claude instances to know where relevant code is without having to dig through the repo.
+
+**Retrospective at the end of every ticket.** When the implementation lands, briefly consider what slowed you down — friction in the type system, repeated patterns the abstractions don't cover, missing primitives, awkward seams between layers — and surface them with the user. An empty list is a fine outcome; padded lists are worse than silence. The user decides whether to act, file a DX ticket, or skip.
 
 ## Repo Structure
 
@@ -76,6 +79,8 @@ apps/web/
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
+├── e2e/                       Playwright specs
+│   └── fixtures/              Per-spec seed-character fixtures (write-target, delete-target, cast-target). Each owns its SeedCharacter + DB-poke reset helpers; lib/db/seed.ts iterates DEV_USER_E2E_FIXTURES.
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── game/                  Game data + per-domain helpers and display shaping

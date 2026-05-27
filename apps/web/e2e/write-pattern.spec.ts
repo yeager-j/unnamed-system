@@ -1,9 +1,14 @@
 import { expect, test, type Page } from "@playwright/test"
-import { eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
-import { characters, getDb, inventoryItems } from "@/lib/db"
+import { getDb, inventoryItems } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
+import {
+  bumpWriteTargetIdentityVersion,
+  resetWriteTarget,
+  writeTarget,
+} from "./fixtures/write-target"
 
 /**
  * Regression suite for the UNN-180 write-pattern: a typed Server Action with
@@ -24,52 +29,17 @@ import { STORAGE_STATE } from "./auth.setup"
  * read from `/c/claude-1`, so the resets here don't disturb them.
  */
 
-// Dedicated write-target seeded by `lib/db/seed.ts#WRITE_TEST_CHARACTER`. This
+// Dedicated write-target lives in `e2e/fixtures/write-target.ts` and is
+// seeded by `lib/db/seed.ts` via the `DEV_USER_E2E_FIXTURES` registry. This
 // character exists *only* for this spec, so mutations here can't flake
 // read-only specs (`home`, `owner-controls-slot`, `authenticated`) that pin
 // `claude-1` (Iris Vey).
-const CHARACTER_URL = "/c/write-target"
-const CHARACTER_ID = "seed-char-write-target"
-const DEFAULT_NAME = "Mira Solberg"
+const CHARACTER_URL = writeTarget.url
+const DEFAULT_NAME = writeTarget.seed.name
 
 const NAME_INPUT = "Character name"
 
 test.describe.configure({ mode: "serial" })
-
-async function resetCharacter(): Promise<void> {
-  const db = getDb()
-  await db
-    .update(characters)
-    .set({
-      name: DEFAULT_NAME,
-      gainedTalents: [],
-      sparkLog: [],
-      virtueExpression: 0,
-      virtueEmpathy: 0,
-      virtueWisdom: 0,
-      virtueFocus: 0,
-    })
-    .where(eq(characters.id, CHARACTER_ID))
-  await db
-    .update(inventoryItems)
-    .set({ equipped: false })
-    .where(eq(inventoryItems.characterId, CHARACTER_ID))
-}
-
-/**
- * Bumps `identityVersion` on the seed character by 1 directly via the DB —
- * simulates "a sibling tab / another writer landed an identity-class write
- * between the page load and the user's edit." The next save from the page
- * will see its `expectedVersion` mismatch and `"stale"` will surface from
- * the wrapper, exercising the UNN-203 silent-retry path.
- */
-async function bumpIdentityVersionForCharacter(): Promise<void> {
-  const db = getDb()
-  await db
-    .update(characters)
-    .set({ identityVersion: sql`${characters.identityVersion} + 1` })
-    .where(eq(characters.id, CHARACTER_ID))
-}
 
 async function openItemPopover(page: Page, descriptionFragment: string) {
   await page
@@ -97,7 +67,7 @@ test.describe("owner affordances are gated", () => {
     const context = await browser.newContext({ storageState: undefined })
     const page = await context.newPage()
     try {
-      await resetCharacter()
+      await resetWriteTarget()
       await page.goto(`${CHARACTER_URL}?tab=inventory`)
       await expect(
         page.getByRole("heading", { name: DEFAULT_NAME })
@@ -146,7 +116,7 @@ test.describe("owner-mode write pattern", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetCharacter()
+    await resetWriteTarget()
   })
 
   test("owner sees an editable name input and equip buttons", async ({
@@ -401,7 +371,7 @@ test.describe("UNN-203: stale is self-healing", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetCharacter()
+    await resetWriteTarget()
   })
 
   test("silent refetch + retry: first-attempt stale becomes invisible", async ({
@@ -416,7 +386,7 @@ test.describe("UNN-203: stale is self-healing", () => {
     await page.waitForLoadState("networkidle")
 
     // Concurrent identity-class write lands between load and edit.
-    await bumpIdentityVersionForCharacter()
+    await bumpWriteTargetIdentityVersion()
 
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Healed")
@@ -487,7 +457,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       const context = await browser.newContext({ storageState: undefined })
       const page = await context.newPage()
       try {
-        await resetCharacter()
+        await resetWriteTarget()
         await page.goto(EXPLORE_URL)
 
         const talents = page.getByRole("region", { name: "Talents" })
@@ -516,7 +486,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test.use({ storageState: STORAGE_STATE })
 
     test.beforeEach(async () => {
-      await resetCharacter()
+      await resetWriteTarget()
     })
 
     test("add → reload → remove round-trips through persistence", async ({
@@ -557,7 +527,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test.use({ storageState: STORAGE_STATE })
 
     test.beforeEach(async () => {
-      await resetCharacter()
+      await resetWriteTarget()
     })
 
     /**
