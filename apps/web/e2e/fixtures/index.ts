@@ -1,4 +1,5 @@
 import { castTarget } from "./cast-target"
+import { combatStateTarget } from "./combat-state-target"
 import { deleteTarget } from "./delete-target"
 import { headerActionsTarget } from "./header-actions-target"
 import { levelingTarget } from "./leveling-target"
@@ -22,9 +23,11 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   headerActionsTarget,
   restTarget,
   levelingTarget,
+  combatStateTarget,
 ]
 
 export { castTarget } from "./cast-target"
+export { combatStateTarget } from "./combat-state-target"
 export { deleteTarget } from "./delete-target"
 export { headerActionsTarget } from "./header-actions-target"
 export { levelingTarget } from "./leveling-target"
