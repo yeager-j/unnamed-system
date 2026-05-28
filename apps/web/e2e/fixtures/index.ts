@@ -5,6 +5,7 @@ import { headerActionsTarget } from "./header-actions-target"
 import { levelingTarget } from "./leveling-target"
 import { restTarget } from "./rest-target"
 import type { E2EFixture } from "./types"
+import { valorTarget } from "./valor-target"
 import { writeTarget } from "./write-target"
 
 /**
@@ -24,6 +25,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   restTarget,
   levelingTarget,
   combatStateTarget,
+  valorTarget,
 ]
 
 export { castTarget } from "./cast-target"
@@ -33,4 +35,5 @@ export { headerActionsTarget } from "./header-actions-target"
 export { levelingTarget } from "./leveling-target"
 export { restTarget } from "./rest-target"
 export type { E2EFixture } from "./types"
+export { valorTarget } from "./valor-target"
 export { writeTarget } from "./write-target"

@@ -41,6 +41,17 @@ export const valorStateSchema = z.object({
 
 export type ValorState = z.infer<typeof valorStateSchema>
 
+/**
+ * Pure transition the owner-mode stepper composes through the persistence
+ * layer. Lives next to the mechanic definition so game logic stays out of
+ * the UI and out of the DB wrapper; `lib/db/mechanics/knight/valor.ts`
+ * imports this and hands it to {@link applyMechanicStateForCharacter}.
+ */
+export function adjustValor(state: ValorState, delta: number): ValorState {
+  const value = Math.max(0, Math.min(VALOR_MAX, state.value + delta))
+  return { ...state, value }
+}
+
 export const valor: MechanicDefinition<ValorState> = {
   kind: "valor",
   displayName: "Valor",

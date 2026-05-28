@@ -54,11 +54,29 @@ const {
   inventoryItems,
 } = await import("./index")
 
+/**
+ * Single-purpose "other user" so the E2E `signed-in-non-owner` case has a
+ * sheet that the dev user (Claude) does not own. Only {@link SEED_USER_OWNED}
+ * is assigned to this owner — the rest of the showcase roster is dev-owned
+ * (`DEV_USER`), giving local owner-mode verification a sheet per Archetype
+ * (Warrior, Knight, Healer, Mage) without further reshuffling.
+ *
+ * See `e2e/owner-controls-slot.spec.ts` and `e2e/write-pattern.spec.ts` for
+ * the load-bearing usage; everything else that consumes the showcase roster
+ * runs unauthenticated and is indifferent to `ownerId`.
+ */
 const SEED_USER = {
   id: "seed-user",
   email: "seed@persona.local",
   name: "Persona System Seed",
 } as const
+
+/**
+ * Slugs whose showcase row stays {@link SEED_USER}-owned. Anything else in
+ * {@link SEED_CHARACTERS} is owned by {@link DEV_USER} so the dev user (the
+ * one Claude signs in as) owns at least one character of each Archetype.
+ */
+const SEED_USER_OWNED: ReadonlySet<string> = new Set(["warrior"])
 
 /**
  * Dev-only sign-in target (UNN-185). Has no `account` row, so the only path to
@@ -75,8 +93,7 @@ const DEV_USER = {
  * A minimal character owned by {@link DEV_USER} so the Playwright auth fixture
  * (which signs in as Claude) has a sheet it owns to assert owner-mode chrome
  * against. UNN-176 added this so the {@link OwnerControlsSlot} E2E case has a
- * deterministic URL — the showcase {@link SEED_CHARACTERS} roster stays
- * SEED_USER-owned and continues to serve as the signed-in-non-owner case.
+ * deterministic URL.
  *
  * **Do not target this character from write-path E2E specs.** Read-only specs
  * (`home`, `owner-controls-slot`, `authenticated`) assert against its stable
@@ -311,7 +328,10 @@ async function seed(): Promise<void> {
     )
 
   for (const character of SEED_CHARACTERS) {
-    await seedCharacter(character, SEED_USER.id)
+    const ownerId = SEED_USER_OWNED.has(character.slug)
+      ? SEED_USER.id
+      : DEV_USER.id
+    await seedCharacter(character, ownerId)
   }
 
   await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
