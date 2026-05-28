@@ -41,6 +41,8 @@ interface SeedArchetype {
 interface SeedItem {
   catalogItemKey: string
   equipped: boolean
+  /** Stacked quantity; defaults to 1 when omitted. */
+  quantity?: number
 }
 
 export interface SeedCharacter {
@@ -258,6 +260,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
       { catalogItemKey: "runed-cane", equipped: true },
       { catalogItemKey: "shadow-charm", equipped: true },
       { catalogItemKey: "warlock-pact", equipped: true },
+      { catalogItemKey: "soul-drop", equipped: false, quantity: 7 },
     ],
     victories: 3,
     virtues: { expression: 2, empathy: 1, wisdom: 5, focus: 3 },

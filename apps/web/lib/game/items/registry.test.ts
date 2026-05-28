@@ -10,7 +10,7 @@ import {
   getWeapon,
   WEAPONS,
 } from "./index"
-import { equippableItemSchema } from "./schema"
+import { itemSchema } from "./schema"
 import { longsword } from "./weapon/longsword"
 import { runedCane } from "./weapon/runed-cane"
 
@@ -39,7 +39,7 @@ describe("item catalog data", () => {
 
   it("resolves every granted-Skill effect to a real Skill", () => {
     for (const item of CATALOG) {
-      for (const effect of item.effects ?? []) {
+      for (const effect of item.equip?.effects ?? []) {
         if (effect.type === "skill") {
           expect(getSkill(effect.skillKey)).toBeDefined()
         }
@@ -99,19 +99,19 @@ describe("getEquippedItem (weapon)", () => {
 
 describe("Longsword transcription (PRD §6.2)", () => {
   it("matches the Longsword snapshot end-to-end", () => {
-    expect(equippableItemSchema.parse(longsword)).toMatchSnapshot()
+    expect(itemSchema.parse(longsword)).toMatchSnapshot()
   })
 
   it("keeps the intrinsic attack exactly as printed", () => {
     expect(WEAPONS).toContain(longsword)
-    expect(longsword.intrinsicAttack.range).toEqual({
+    expect(longsword.equip.intrinsicAttack.range).toEqual({
       kind: "known",
       value: "engaged",
     })
-    expect(longsword.intrinsicAttack.damageType).toBe("slash")
-    expect(longsword.intrinsicAttack.delivery).toBe("physical")
-    expect(longsword.intrinsicAttack.attackRoll.attribute).toBe("st")
-    expect(longsword.intrinsicAttack.attackRoll.tiers).toEqual([
+    expect(longsword.equip.intrinsicAttack.damageType).toBe("slash")
+    expect(longsword.equip.intrinsicAttack.delivery).toBe("physical")
+    expect(longsword.equip.intrinsicAttack.attackRoll.attribute).toBe("st")
+    expect(longsword.equip.intrinsicAttack.attackRoll.tiers).toEqual([
       { band: "1-10", formula: "1 + St", sideEffects: [] },
       { band: "11-19", formula: "1d6 + St", sideEffects: [] },
       { band: "20+", formula: "1d6 + St", sideEffects: ["critical"] },

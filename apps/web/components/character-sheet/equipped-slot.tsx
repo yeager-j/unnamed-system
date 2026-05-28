@@ -28,7 +28,7 @@ export function EquippedSlot({
             <p className="text-sm font-medium">{item.name}</p>
             <p className="text-sm text-muted-foreground">{item.description}</p>
           </div>
-          <ItemEffects effects={item.effects} />
+          <ItemEffects effects={item.equip.effects} />
         </div>
       ) : (
         <p className="text-sm text-muted-foreground italic">Empty slot</p>

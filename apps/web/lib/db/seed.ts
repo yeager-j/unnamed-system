@@ -276,11 +276,12 @@ async function seedCharacter(
 
   if (character.items.length > 0) {
     await db.insert(inventoryItems).values(
-      character.items.map((item) => ({
-        id: `seed-item-${character.slug}-${item.catalogItemKey}`,
+      character.items.map((item, index) => ({
+        id: `seed-item-${character.slug}-${item.catalogItemKey}-${index}`,
         characterId,
         catalogItemKey: item.catalogItemKey,
         equipped: item.equipped,
+        quantity: item.quantity ?? 1,
       }))
     )
   }

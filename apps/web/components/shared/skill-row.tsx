@@ -17,7 +17,7 @@ import {
 import type { HydratedSkill } from "@/lib/game/character"
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
-import type { Weapon } from "@/lib/game/items/schema"
+import type { EquippedWeapon } from "@/lib/game/items/schema"
 
 import { CastButton, type CastBindings } from "./cast-button"
 import { IntrinsicAttackCard } from "./intrinsic-attack-card"
@@ -93,7 +93,7 @@ export function SkillRow({ skill, attributes, cast }: SkillRowProps) {
 }
 
 interface IntrinsicAttackRowProps {
-  weapon: Weapon
+  weapon: EquippedWeapon
   /** Same passing-in contract as {@link SkillRowProps.attributes}. */
   attributes: AttributeScores
   /**
@@ -125,7 +125,7 @@ export function IntrinsicAttackRow({
         }
       >
         <ItemMedia className="w-20">
-          <RowBadgeSlot damageType={weapon.intrinsicAttack.damageType} />
+          <RowBadgeSlot damageType={weapon.equip.intrinsicAttack.damageType} />
         </ItemMedia>
         <ItemContent>
           <ItemTitle>{weapon.name}</ItemTitle>

@@ -1,4 +1,9 @@
-import type { EquippableItem, IntrinsicAttack } from "../items"
+import type {
+  EquippableItem,
+  IntrinsicAttack,
+  Item,
+  ItemEffects,
+} from "../items"
 import type { Skill } from "../skills"
 
 /**
@@ -29,55 +34,68 @@ const STUB_INTRINSIC_ATTACK: IntrinsicAttack = {
 
 /** Armor whose only effect is a Fire weakness — strictly a downside. */
 export const weaknessArmor = {
-  slot: "armor",
   key: "fixture-weakness-armor",
   name: "Fixture Weakness Armor",
   description: "Test-only: imposes a Fire weakness.",
-  effects: [{ type: "affinity", damageTypes: ["fire"], affinity: "weak" }],
-} satisfies EquippableItem
+  stackSize: 1,
+  equip: {
+    slot: "armor",
+    effects: [{ type: "affinity", damageTypes: ["fire"], affinity: "weak" }],
+  },
+} satisfies Item
 
 /** Weapon that Nulls Ice. */
 export const nullWeapon = {
-  slot: "weapon",
   key: "fixture-null-weapon",
   name: "Fixture Null Weapon",
   description: "Test-only: Nulls Ice.",
-  intrinsicAttack: STUB_INTRINSIC_ATTACK,
-  effects: [{ type: "affinity", damageTypes: ["ice"], affinity: "null" }],
-} satisfies EquippableItem
+  stackSize: 1,
+  equip: {
+    slot: "weapon",
+    intrinsicAttack: STUB_INTRINSIC_ATTACK,
+    effects: [{ type: "affinity", damageTypes: ["ice"], affinity: "null" }],
+  },
+} satisfies Item
 
 /** Accessory granting +2 Magic. */
 export const magicAccessory = {
-  slot: "accessory",
   key: "fixture-magic-accessory",
   name: "Fixture Magic Accessory",
   description: "Test-only: +2 Magic.",
-  effects: [{ type: "attribute", target: "magic", amount: 2 }],
-} satisfies EquippableItem
+  stackSize: 1,
+  equip: {
+    slot: "accessory",
+    effects: [{ type: "attribute", target: "magic", amount: 2 }],
+  },
+} satisfies Item
 
 /** Accessory granting +20 SP. */
 export const spAccessory = {
-  slot: "accessory",
   key: "fixture-sp-accessory",
   name: "Fixture SP Accessory",
   description: "Test-only: +20 SP.",
-  effects: [{ type: "attribute", target: "sp", amount: 20 }],
-} satisfies EquippableItem
+  stackSize: 1,
+  equip: {
+    slot: "accessory",
+    effects: [{ type: "attribute", target: "sp", amount: 20 }],
+  },
+} satisfies Item
 
 /**
  * Builds an accessory carrying arbitrary effects, for the one-off precise
  * combinations (specific amounts, colliding affinities) the named fixtures
  * above don't cover.
  */
-export function accessoryWithEffects(
-  effects: NonNullable<EquippableItem["effects"]>
-): EquippableItem {
+export function accessoryWithEffects(effects: ItemEffects): EquippableItem {
   return {
-    slot: "accessory",
     key: "fixture-accessory",
     name: "Fixture Accessory",
     description: "Test-only.",
-    effects,
+    stackSize: 1,
+    equip: {
+      slot: "accessory",
+      effects,
+    },
   } satisfies EquippableItem
 }
 

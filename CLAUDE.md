@@ -142,7 +142,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (kind: weapon | armor | accessory | other; effects: affinity | attribute | skill), `ActionLogEntry`.
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`.
 
 See PRD §8 for the full field list.
 

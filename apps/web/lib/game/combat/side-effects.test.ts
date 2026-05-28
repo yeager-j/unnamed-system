@@ -45,7 +45,7 @@ describe("side-effect cross-references", () => {
 
   it("resolves every weapon intrinsic-attack side effect from the registry", () => {
     for (const weapon of WEAPONS) {
-      for (const tier of weapon.intrinsicAttack.attackRoll.tiers) {
+      for (const tier of weapon.equip.intrinsicAttack.attackRoll.tiers) {
         for (const key of tier.sideEffects) {
           expect(getSideEffect(key)).toBeDefined()
         }

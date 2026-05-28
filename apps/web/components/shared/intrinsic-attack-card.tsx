@@ -1,6 +1,6 @@
 import type { AttributeScores } from "@/lib/game/character/stats/stats"
 import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
-import type { Weapon } from "@/lib/game/items/schema"
+import type { EquippedWeapon } from "@/lib/game/items/schema"
 
 import { AttackRollTable } from "./attack-roll-table"
 import { DamageTypeBadge } from "./damage-type-badge"
@@ -10,7 +10,7 @@ import { SkillText } from "./skill-text"
 import { StatsGrid } from "./stats-grid"
 
 interface IntrinsicAttackCardProps {
-  weapon: Weapon
+  weapon: EquippedWeapon
   /**
    * Attribute scores used to hydrate the Attack Roll formulas. The caller
    * (the live-sheet Skills tab) sources them from the active character.
@@ -31,7 +31,7 @@ export function IntrinsicAttackCard({
   attributes,
   weaponAttackRoll,
 }: IntrinsicAttackCardProps) {
-  const attack = weapon.intrinsicAttack
+  const attack = weapon.equip.intrinsicAttack
   return (
     <PopoverCardShell
       title={weapon.name}

@@ -17,11 +17,7 @@ import {
   skillAttackRollContext,
   type AttackRollContext,
 } from "../game/combat"
-import {
-  getEquippableItem,
-  getEquippedItem,
-  type IntrinsicAttack,
-} from "../game/items"
+import { getEquippedItem, getItem, type IntrinsicAttack } from "../game/items"
 import { hydrateSkill, type CastingCharacter } from "../game/skills"
 import { db } from "./index"
 import {
@@ -114,13 +110,13 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
 
   const inventory = inventoryRows.map((inventoryRow) => ({
     ...inventoryRow,
-    item: getEquippableItem(inventoryRow.catalogItemKey),
+    item: getItem(inventoryRow.catalogItemKey),
   }))
 
   const weapon = getEquippedItem(inventory, "weapon")
   const weaponAttackRoll = weapon
     ? resolveAttackRoll(
-        weaponAttackContext(weapon.intrinsicAttack),
+        weaponAttackContext(weapon.equip.intrinsicAttack),
         stats,
         row.partyComposition
       )

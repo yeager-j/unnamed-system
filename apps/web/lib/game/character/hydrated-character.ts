@@ -7,7 +7,7 @@ import type {
   InventoryItemRow,
 } from "../../db/load-character"
 import type { Affinity, DamageType, ResolvedAttackRoll } from "../combat"
-import type { EquippableItem } from "../items"
+import type { Item } from "../items"
 import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
 
 /**
@@ -26,7 +26,7 @@ import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
  *  (or `undefined` when the persisted `catalogItemKey` no longer exists in
  *  the shipped data). */
 export type HydratedInventoryItem = InventoryItemRow & {
-  item: EquippableItem | undefined
+  item: Item | undefined
 }
 
 /**

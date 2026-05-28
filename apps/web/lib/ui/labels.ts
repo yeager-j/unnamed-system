@@ -16,6 +16,7 @@ import type {
   Delivery,
   Range,
 } from "@/lib/game/combat"
+import type { EquipSlot } from "@/lib/game/items"
 import type { SkillKind } from "@/lib/game/skills"
 
 /**
@@ -99,6 +100,24 @@ export const DELIVERY_LABELS: Record<Delivery, string> = {
   physical: "Physical",
   magical: "Magical",
 }
+
+/** Singular equip-slot labels for the per-row slot badge. */
+export const SLOT_LABELS: Record<EquipSlot, string> = {
+  weapon: "Weapon",
+  armor: "Armor",
+  accessory: "Accessory",
+}
+
+/**
+ * Plural section headings for the Inventory list and the add-item picker,
+ * grouped by capability: the three equip slots plus consumables.
+ */
+export const ITEM_GROUP_LABELS = {
+  weapon: "Weapons",
+  armor: "Armor",
+  accessory: "Accessories",
+  consumable: "Consumables",
+} as const
 
 /** Skill discriminator labels for the popover header badge. */
 export const SKILL_KIND_LABELS: Record<SkillKind, string> = {

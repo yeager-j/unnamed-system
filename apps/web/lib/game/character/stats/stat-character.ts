@@ -65,7 +65,7 @@ function activeSkillsFor(
     if (slot.skillKey) keys.add(slot.skillKey)
   }
   for (const item of equippedItems) {
-    for (const effect of item.effects ?? []) {
+    for (const effect of item.equip.effects ?? []) {
       if (effect.type === "skill") keys.add(effect.skillKey)
     }
   }
