@@ -40,17 +40,21 @@ import { useInventoryEditor } from "./use-inventory-editor"
  * component only shapes the resolved view and renders it.
  */
 export function Inventory({ character }: { character: HydratedCharacter }) {
-  const { inventory, currency, pending, dispatchMutation, dispatchCurrency } =
-    useInventoryEditor(character)
+  const {
+    character: optimisticCharacter,
+    pending,
+    dispatchMutation,
+    dispatchCurrency,
+  } = useInventoryEditor(character)
 
-  const resolved = resolveInventory(inventory)
+  const resolved = resolveInventory(optimisticCharacter.inventory)
 
   return (
     <div className="flex flex-col gap-4">
       <EquippedSection resolved={resolved} />
       <InventoryList
         resolved={resolved}
-        currency={currency}
+        currency={optimisticCharacter.currency}
         pending={pending}
         onMutate={dispatchMutation}
         onAddCurrency={(amount) => dispatchCurrency(amount)}

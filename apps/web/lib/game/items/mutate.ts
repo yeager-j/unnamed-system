@@ -1,6 +1,4 @@
 import type { Result } from "../../result"
-import type { HydratedInventoryItem } from "../character"
-import { getItem } from "./registry"
 import {
   addItem,
   equipItem,
@@ -53,46 +51,4 @@ export function applyInventoryMutation(
     case "remove":
       return removeItem(items, mutation.itemId)
   }
-}
-
-/**
- * Applies an {@link InventoryMutation} to the hydrated rows for an optimistic
- * frame: projects to {@link InventoryItemState}, runs the same pure engine the
- * server runs, then rebuilds the hydrated array from the result (add/remove
- * change cardinality). Surviving rows keep their hydrated catalog entry; rows
- * the `add` transition creates get a temp id and their resolved entry, which
- * the server's revalidate later replaces with the persisted row. On engine
- * failure the input is returned unchanged.
- */
-export function reduceHydratedInventory(
-  current: HydratedInventoryItem[],
-  mutation: InventoryMutation,
-  characterId: string,
-  newId: () => string = randomId
-): HydratedInventoryItem[] {
-  const projection: InventoryItemState[] = current.map((entry) => ({
-    id: entry.id,
-    catalogItemKey: entry.catalogItemKey,
-    equipped: entry.equipped,
-    quantity: entry.quantity,
-  }))
-
-  const result = applyInventoryMutation(projection, mutation, newId)
-  if (!result.ok) return current
-
-  const byId = new Map(current.map((entry) => [entry.id, entry]))
-  return result.value.map((state) => {
-    const existing = byId.get(state.id)
-    if (existing) {
-      return { ...existing, equipped: state.equipped, quantity: state.quantity }
-    }
-    return {
-      id: state.id,
-      characterId,
-      catalogItemKey: state.catalogItemKey,
-      equipped: state.equipped,
-      quantity: state.quantity,
-      item: getItem(state.catalogItemKey),
-    }
-  })
 }

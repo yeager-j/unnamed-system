@@ -1,5 +1,7 @@
 export * from "./adjust-pools"
 export * from "./currency"
+export * from "./derive-hydrated-character"
+export * from "./reduce-character"
 export * from "./stats/stats"
 export * from "./stats/stat-character"
 export * from "./talents/registry"
