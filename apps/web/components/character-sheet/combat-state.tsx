@@ -12,6 +12,7 @@ import { BattleConditionRow } from "./combat-state/battle-condition-row"
 import { Exhaustion } from "./combat-state/exhaustion"
 import { FlagRow } from "./combat-state/flag-row"
 import { PartyCompositionRow } from "./combat-state/party-composition-row"
+import { PrismaRow } from "./combat-state/prisma-row"
 
 /**
  * The read-only Combat State block (PRD §6.1 Combat tab > Combat State): the
@@ -46,6 +47,11 @@ export function CombatState({ character }: { character: HydratedCharacter }) {
           <AilmentList ailmentKeys={character.ailments} />
           <Exhaustion exhaustion={character.exhaustion} />
         </div>
+        <PrismaRow
+          characterId={character.id}
+          prismaCharges={character.prismaCharges}
+          vitalsVersion={character.vitalsVersion}
+        />
         <BattleConditionRow conditions={conditions} />
         <FlagRow
           charged={conditions.charged}

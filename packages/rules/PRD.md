@@ -54,12 +54,13 @@ Full design rationale and rejected alternatives live in a Linear document: [ADR-
 
 ### 5.1 Movements
 
-1. **Corups.** The mechanical character. ~5 minutes.
+1. **Corpus.** The mechanical character. ~5 minutes.
    - **HP/SP Path.** Choose one: Health-Focused (d12/d8), Balanced (d10/d10), or Skill-Focused (d8/d12). Show resulting starting HP/SP (24/40, 20/50, 16/60). **Picked first** because it sorts the Archetype grid downstream.
    - **Origin Archetype.** Pick one from a 3×4 grid of all 12 Lineages. The grid sorts by fit with the chosen Path: Health-Focused → HP-matched archetypes first, then Balanced, then Skill-matched; Balanced → Balanced first; Skill-Focused → Skill-matched first. Each Lineage carries a `suggestedPath` attribute that drives the sort; nothing is gated or hidden. Each card shows the Lineage name, its Mechanic name + one-line description, the attribute row, and one Resist + one Weak affinity. Click a card to expand inline to the full archetype detail (full Affinities, Talents, Skills at Ranks 1–5, Synthesis Skill); commit via a "Choose [Lineage] as Origin" button sticky at the bottom of the viewport while the expanded content scrolls. The app does not gate Archetypes at MVP. Selecting an Origin auto-sets Archetype Rank to 2 and unlocks Skills at Ranks 1 and 2.
 
 1. **Ortus.** Who they were before the adventure. ~10–15 minutes. Two-column layout, fits one viewport on desktop.
    - **Ancestry & Background (free text).** Two single-line text fields with brief in-context guidance. Setting-defined per the rules; the player types what their DM provided. Bonuses or features granted by these are added in the relevant section, not parsed from the text.
+   - **Talents**. 3 allocated automatically by Archetype. 2 Talents can be freely chosen on this screen.
    - **Virtue Allocation.** Single-column picker with four rows (Expression, Empathy, Wisdom, Focus), each a three-state segmented control (○ +1 +2). Budget enforcement inline: exactly one +2, exactly two +1s, no overlap. Framing copy uses rules-cited logic: *"Pick the one your character most embodies, then two more that are also strong."*
 
 1. **Animus.** The text-heavy movement. ~15–30 minutes, returnable across sessions. Rendered as the [UNN-211](https://linear.app/unnamed-system/issue/UNN-211) writer view: collapsible sidebar (Backstory / Knives / Chains / Identity Traits) on the left, full-width MarkdownField on the right. Clicking a sidebar entry loads it as the active document.
@@ -87,7 +88,7 @@ Each movement uses the same shared shell:
 
 ### 5.3 Talents
 
-Talents are *not* picked in the builder. The active Origin Archetype's Talents are granted automatically; additional Talents come from post-creation downtime activities (rulebook 2.1), surfaced from the live sheet. (The previous builder's "Background Talents" pick is folded into post-creation editing.)
+Talents are picked on Step 2 of the builder. The active Origin Archetype's Talents are granted automatically; additional Talents come from the Ortus step and post-creation downtime activities (rulebook 2.1), surfaced from the live sheet. (The previous builder's "Background Talents" pick is folded into post-creation editing.)
 
 ### 5.4 Rules the Builder Enforces
 
@@ -213,8 +214,8 @@ Three rest buttons on the sheet:
 When Victories ≥ 7:
 
 1. CTA on the sheet: "Level up."
-2. Walk the player through gaining 1 Hit Die + 2 Skill Dice (choose roll or average; the app accepts a roll result from the player). Add to max HP and max SP.
-3. Grant 2 Archetype Ranks. Player can spend them now (rank up one Archetype twice, or two different Archetypes once each) or save them. Saved Ranks accumulate.
+2. Show the player the deterministic state change: +1 Hit Die / +2 Skill Dice with the pools refilled to the new max, and the corresponding bump to max HP/SP. MVP uses averaged Hit/Skill Dice only — `computeMaxHP` / `computeMaxSP` derive everything from `level`, so there is no roll input. A future ticket may add a roll-or-average choice with a persisted bonus.
+3. Grant 2 Archetype Ranks straight to the Saved Archetype Ranks counter; rank-spending lives on the Archetypes tab (the dialog links there). Saved Ranks accumulate.
 4. Decrement Victories by 7. Any overflow (e.g., earned an 8th Victory before leveling) carries forward.
 
 Max character level is 30.
@@ -231,7 +232,7 @@ This matches the rulebook's example in 1.2 — a character who earned Sparks of 
 
 ### 7.6 Prisma
 
-Track current charges and max charges (default max 2). "Use Prisma" button: decrement charges by 1. Player will roll and adjust their HP manually for the MVP. Refills to max on Full Rest. Prisma upgrades are out of scope for MVP (the rules themselves have these as TODOs). "Use Prisma" is an owner-mode action in the header's "Owner controls" actions affordance, shown as "Use Prisma (n)"; there is no persistent Prisma charge readout in the at-a-glance header — Prisma is a consumable, not a summary statistic.
+Track current charges and max charges (default max 2). Player will roll and adjust their HP manually for the MVP. Refills to max on Full Rest. Prisma upgrades are out of scope for MVP (the rules themselves have these as TODOs). The Prisma readout (`Prisma — N Charges`) lives on the Combat State card alongside Ailment and Exhaustion; the owner-mode `Use` button is inline on that row, so spending a charge happens where the count is visible. It is intentionally *not* in the always-visible at-a-glance header — Prisma is a consumable, not a summary statistic — but a persistent count is shown in encounter context so the player knows what's available without hovering.
 
 ### 7.7 Currency
 
@@ -252,7 +253,7 @@ A non-exhaustive list of the entities the app needs. Field types are illustrativ
 - **CharacterArchetype** (join). `characterId`, `archetypeKey`, `rank`, `inheritanceSlots` ({slotIndex, sourceCharacterArchetypeId, skillKey}[]), `masteryBonusApplied` (bool).
 - **CharacterKnife.** `id`, `characterId`, `title`, `description`, `order`.
 - **CharacterChain.** `id`, `characterId`, `title`, `description`, `order`.
-- **CharacterTalent.** `id`, `characterId`, `name` (canonical or custom).
+- **CharacterTalent.** `id`, `characterId`, `name` (canonical).
 - **InventoryItem.** `id`, `characterId`, `catalogItemKey` (references a Weapon/Armor/Accessory in game data), `equipped` (bool). The item's `name`, `description`, slot type, intrinsic attack (weapons only), and effects come from the catalog entry, not from the database row.
 
 Game data (Archetypes, Skills, Talents) is hardcoded as static data the app references by key.

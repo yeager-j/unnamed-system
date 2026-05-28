@@ -76,9 +76,9 @@ Every DB wrapper here is built on **per-write-class optimistic concurrency**
 | Column | Wrappers that bump it |
 |---|---|
 | `identityVersion` | `character-name` (and future notes / identity-list / knife-title / chain-title editors) |
-| `vitalsVersion` | `rest` (full/partial/respite); shared with `leveling` (level-up) |
+| `vitalsVersion` | `adjust-pools` (damage / heal / spend SP / recover SP from header; use prisma from Combat State), `rest` (full/partial/respite); shared with `leveling` (level-up) |
 | `inventoryVersion` | `inventory` (equip / unequip; add / remove when those land) |
-| `progressionVersion` | `spark`, `award-victory`; shared with `leveling` (level-up) |
+| `progressionVersion` | `character-spark` (award Spark), `leveling` (award Victories; shared with vitals on level-up) |
 
 The shape of every wrapper:
 
