@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { StatComputationCharacter } from "../../character/stats/stats"
-import { valor, VALOR_MAX, VALOR_THRESHOLDS } from "./valor"
+import { adjustValor, valor, VALOR_MAX, VALOR_THRESHOLDS } from "./valor"
 
 const baseStats: StatComputationCharacter = {
   pathChoice: "balanced",
@@ -55,6 +55,33 @@ describe("valor", () => {
     expect(effects?.[0]).toMatchObject({
       affinity: "resist",
       source: "Valor (7)",
+    })
+  })
+})
+
+describe("adjustValor", () => {
+  it("increments and decrements in unit steps", () => {
+    expect(adjustValor({ kind: "valor", value: 2 }, 1)).toEqual({
+      kind: "valor",
+      value: 3,
+    })
+    expect(adjustValor({ kind: "valor", value: 4 }, -1)).toEqual({
+      kind: "valor",
+      value: 3,
+    })
+  })
+
+  it("clamps at 0 on decrement", () => {
+    expect(adjustValor({ kind: "valor", value: 0 }, -1)).toEqual({
+      kind: "valor",
+      value: 0,
+    })
+  })
+
+  it("clamps at VALOR_MAX on increment", () => {
+    expect(adjustValor({ kind: "valor", value: VALOR_MAX }, 1)).toEqual({
+      kind: "valor",
+      value: VALOR_MAX,
     })
   })
 })

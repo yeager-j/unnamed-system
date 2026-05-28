@@ -1,3 +1,7 @@
+"use client"
+
+import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useCharacter } from "@/hooks/use-character"
 import {
   VALOR_MAX,
   VALOR_THRESHOLD_DESCRIPTIONS,
@@ -5,14 +9,23 @@ import {
   type ValorState,
 } from "@/lib/game/mechanics"
 
+import { ValorStepper } from "./knight/valor-stepper"
+
 /**
- * Knight — Valor rendering. A row of 8 pips (0–7) shows the current score, and
- * a threshold ladder beneath spells out which passive benefits are active.
- * The 3+ threshold's affinity change is engine-applied (visible on the
- * Affinities card); the other thresholds are narrative effects called out here
- * because they aren't modelled as engine data.
+ * Knight — Valor rendering. A row of 7 pips (0–7) shows the current score
+ * with the fraction readout and the owner's +/- stepper alongside; a
+ * threshold ladder beneath spells out which passive benefits are active.
+ * Only the 3+ threshold is engine-applied (the Affinity card already shows
+ * the Slash/Pierce/Strike → Resist change); the others are narrative and
+ * not modelled as engine data.
+ *
+ * Reads `characterId` and `vitalsVersion` from {@link useCharacter} — the
+ * widget-registry contract keeps `state` as the only structural prop, and
+ * per-widget context lookups match the precedent set by Path of Dawn's
+ * Luck-derived cap.
  */
 export function ValorWidget({ state }: { state: ValorState }) {
+  const character = useCharacter()
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -34,6 +47,13 @@ export function ValorWidget({ state }: { state: ValorState }) {
         <span className="font-mono text-sm text-muted-foreground">
           {state.value} / {VALOR_MAX}
         </span>
+        <OwnerOnly>
+          <ValorStepper
+            characterId={character.id}
+            value={state.value}
+            vitalsVersion={character.vitalsVersion}
+          />
+        </OwnerOnly>
       </div>
       <ul className="flex flex-col gap-1.5 text-sm">
         {VALOR_THRESHOLDS.map((threshold) => {
