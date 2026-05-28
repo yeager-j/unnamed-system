@@ -10,7 +10,9 @@ import {
 } from "../combat/effects"
 import type { SkillKey } from "../skills/registry"
 
-const itemKeySchema = z.string().regex(/^[a-z0-9-]+$/)
+/** A catalog item slug: lowercase alphanumerics and hyphens. Shared by the
+ *  catalog definitions and any Server Action that accepts a `catalogItemKey`. */
+export const itemKeySchema = z.string().regex(/^[a-z0-9-]+$/)
 
 const skillEffectSchema = z.object({
   type: z.literal("skill"),

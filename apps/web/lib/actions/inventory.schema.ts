@@ -2,7 +2,17 @@ import { z } from "zod/v4"
 
 import type { InventoryPersistenceError } from "@/lib/db/inventory"
 import { MAX_CURRENCY } from "@/lib/game/character"
-import type { InventoryItemState } from "@/lib/game/items"
+import { itemKeySchema, type InventoryItemState } from "@/lib/game/items"
+
+/**
+ * A hard ceiling on a single add's requested quantity. Defense-in-depth: the
+ * Add dialog already clamps to the item's `stackSize`, but the action trusts
+ * only this schema. Without it, a direct call with a huge quantity would drive
+ * the `addItem` overflow loop — and the per-row inserts behind it — into an
+ * unbounded write. The real per-item cap is `stackSize` (not knowable at schema
+ * time), so this is a flat backstop well above any legitimate add.
+ */
+const MAX_ADD_QUANTITY = 9999
 
 /**
  * Input schemas for the Inventory tab's owner-mode Server Actions. Lives in its
@@ -21,8 +31,8 @@ export type EquipInventoryItemInput = z.input<typeof EquipInventoryItemSchema>
 
 export const AddInventoryItemSchema = z.object({
   characterId: z.string().min(1),
-  catalogItemKey: z.string().regex(/^[a-z0-9-]+$/),
-  quantity: z.number().int().positive(),
+  catalogItemKey: itemKeySchema,
+  quantity: z.number().int().positive().max(MAX_ADD_QUANTITY),
   expectedVersion: z.number().int().nonnegative(),
 })
 
@@ -57,10 +67,7 @@ export type AdjustCurrencyInput = z.input<typeof AdjustCurrencySchema>
 
 export type InventoryActionError = "invalid-input" | InventoryPersistenceError
 
-/** @deprecated Prefer {@link InventoryActionError}; kept for existing imports. */
-export type EquipActionError = InventoryActionError
-
-export type EquipActionSuccess = {
+export type InventoryActionSuccess = {
   items: InventoryItemState[]
   version: number
 }

@@ -37,7 +37,7 @@ export type InventoryPersistenceError =
   | "character-not-found"
   | "stale"
 
-export interface EquipPersistenceSuccess {
+export interface InventoryPersistenceSuccess {
   items: InventoryItemState[]
   version: number
 }
@@ -50,7 +50,7 @@ async function mutateInventory(
   characterId: string,
   expectedVersion: number,
   transition: InventoryTransition
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   const rows = await db
     .select({
       id: inventoryItems.id,
@@ -128,7 +128,7 @@ export async function equipInventoryItem(
   characterId: string,
   itemId: string,
   expectedVersion: number
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   return mutateInventory(characterId, expectedVersion, (items) =>
     equipItem(items, itemId)
   )
@@ -142,7 +142,7 @@ export async function unequipInventoryItem(
   characterId: string,
   itemId: string,
   expectedVersion: number
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   return mutateInventory(characterId, expectedVersion, (items) =>
     unequipItem(items, itemId)
   )
@@ -157,7 +157,7 @@ export async function addInventoryItem(
   catalogItemKey: string,
   quantity: number,
   expectedVersion: number
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   return mutateInventory(characterId, expectedVersion, (items) =>
     addItem(items, catalogItemKey, quantity, () => crypto.randomUUID())
   )
@@ -172,7 +172,7 @@ export async function setInventoryItemQuantity(
   itemId: string,
   quantity: number,
   expectedVersion: number
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   return mutateInventory(characterId, expectedVersion, (items) =>
     setItemQuantity(items, itemId, quantity)
   )
@@ -186,7 +186,7 @@ export async function removeInventoryItem(
   characterId: string,
   itemId: string,
   expectedVersion: number
-): Promise<Result<EquipPersistenceSuccess, InventoryPersistenceError>> {
+): Promise<Result<InventoryPersistenceSuccess, InventoryPersistenceError>> {
   return mutateInventory(characterId, expectedVersion, (items) =>
     removeItem(items, itemId)
   )

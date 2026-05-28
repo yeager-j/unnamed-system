@@ -20,9 +20,9 @@ import {
   type AddInventoryItemInput,
   type AdjustCurrencyInput,
   type CurrencyActionSuccess,
-  type EquipActionSuccess,
   type EquipInventoryItemInput,
   type InventoryActionError,
+  type InventoryActionSuccess,
   type RemoveInventoryItemInput,
   type SetInventoryItemQuantityInput,
 } from "./inventory.schema"
@@ -44,7 +44,7 @@ import { revalidateCharacter } from "./revalidate"
  */
 export async function equipInventoryItemAction(
   input: EquipInventoryItemInput
-): Promise<Result<EquipActionSuccess, InventoryActionError>> {
+): Promise<Result<InventoryActionSuccess, InventoryActionError>> {
   const parsed = EquipInventoryItemSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -66,7 +66,7 @@ export async function equipInventoryItemAction(
  */
 export async function unequipInventoryItemAction(
   input: EquipInventoryItemInput
-): Promise<Result<EquipActionSuccess, InventoryActionError>> {
+): Promise<Result<InventoryActionSuccess, InventoryActionError>> {
   const parsed = EquipInventoryItemSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -88,7 +88,7 @@ export async function unequipInventoryItemAction(
  */
 export async function addInventoryItemAction(
   input: AddInventoryItemInput
-): Promise<Result<EquipActionSuccess, InventoryActionError>> {
+): Promise<Result<InventoryActionSuccess, InventoryActionError>> {
   const parsed = AddInventoryItemSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -111,7 +111,7 @@ export async function addInventoryItemAction(
  */
 export async function setInventoryItemQuantityAction(
   input: SetInventoryItemQuantityInput
-): Promise<Result<EquipActionSuccess, InventoryActionError>> {
+): Promise<Result<InventoryActionSuccess, InventoryActionError>> {
   const parsed = SetInventoryItemQuantitySchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -131,7 +131,7 @@ export async function setInventoryItemQuantityAction(
 /** Removes the row `itemId` outright (auto-unequipping it if equipped). */
 export async function removeInventoryItemAction(
   input: RemoveInventoryItemInput
-): Promise<Result<EquipActionSuccess, InventoryActionError>> {
+): Promise<Result<InventoryActionSuccess, InventoryActionError>> {
   const parsed = RemoveInventoryItemSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
