@@ -2,6 +2,7 @@ import { castTarget } from "./cast-target"
 import { combatStateTarget } from "./combat-state-target"
 import { deleteTarget } from "./delete-target"
 import { headerActionsTarget } from "./header-actions-target"
+import { inventoryTarget } from "./inventory-target"
 import { levelingTarget } from "./leveling-target"
 import { perfectionTarget } from "./perfection-target"
 import { restTarget } from "./rest-target"
@@ -28,12 +29,14 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   combatStateTarget,
   valorTarget,
   perfectionTarget,
+  inventoryTarget,
 ]
 
 export { castTarget } from "./cast-target"
 export { combatStateTarget } from "./combat-state-target"
 export { deleteTarget } from "./delete-target"
 export { headerActionsTarget } from "./header-actions-target"
+export { inventoryTarget } from "./inventory-target"
 export { levelingTarget } from "./leveling-target"
 export { perfectionTarget } from "./perfection-target"
 export { restTarget } from "./rest-target"

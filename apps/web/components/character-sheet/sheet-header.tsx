@@ -13,6 +13,7 @@ import {
   VICTORIES_PER_LEVEL,
   type HydratedCharacter,
 } from "@/lib/game/character"
+import { formatCurrency } from "@/lib/ui/format-currency"
 
 import { Attributes } from "./attributes"
 import { EditableCharacterName } from "./editable-character-name"
@@ -84,7 +85,7 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
               </p>
 
               <p className="text-sm text-muted-foreground">
-                {character.currency} gp
+                {formatCurrency(character.currency)}
               </p>
             </div>
           </div>

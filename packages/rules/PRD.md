@@ -254,7 +254,7 @@ A non-exhaustive list of the entities the app needs. Field types are illustrativ
 - **CharacterKnife.** `id`, `characterId`, `title`, `description`, `order`.
 - **CharacterChain.** `id`, `characterId`, `title`, `description`, `order`.
 - **CharacterTalent.** `id`, `characterId`, `name` (canonical).
-- **InventoryItem.** `id`, `characterId`, `catalogItemKey` (references a Weapon/Armor/Accessory in game data), `equipped` (bool). The item's `name`, `description`, slot type, intrinsic attack (weapons only), and effects come from the catalog entry, not from the database row.
+- **InventoryItem.** `id`, `characterId`, `catalogItemKey` (references a catalog item in game data), `equipped` (bool), `quantity` (int ≥ 1). The item's `name`, `description`, and capabilities (equip slot, intrinsic attack, effects, `stackSize`) come from the catalog entry, not from the database row. Stackable items (`stackSize > 1`) hold multiple units in one row up to `stackSize`, overflowing into additional rows; equipment is `stackSize = 1`, so each unit is its own row.
 
 Game data (Archetypes, Skills, Talents) is hardcoded as static data the app references by key.
 
@@ -264,8 +264,10 @@ The app ships with the canonical Unnamed System rules data transcribed from this
 
 - **Archetypes.** Four Archetypes at MVP: **Warrior, Knight, Mage, Healer**. (Thief and higher-tier Archetypes are deferred until their rules data is complete.) Each Archetype includes: Lineage, Tier, prerequisites (display-only), Inheritance Slot count, Talents granted, Mastery bonus, Attribute scores, Affinity chart, Skills by Rank (1–5), Synthesis Skill (Rank 5), and a `suggestedPath` (`'health'` | `'balanced'` | `'skill'`) used by the Character Builder's Movement 1 grid sort (§5.1). The `suggestedPath` has no mechanical effect at runtime.
 - **Skills.** Every Skill referenced by the four MVP Archetypes. Each Skill includes: name, type (damage type or category), cost (either a flat SP value or an HP percentage), range, one-line description, full card text (for the popover), and structured side-effect info if simple enough.
-- **Weapons.** A starter catalog of weapons. Each Weapon includes: name, description, slot (always `weapon`), intrinsic attack (Range, Damage type, Attack Roll attribute, and result thresholds — structured like a Skill), and optional effects (Attribute bonuses, Affinity changes, granted Skill keys).
-- **Armor & Accessories.** Type definitions exist parallel to Weapons but without an intrinsic attack — only optional effects. The MVP catalog for both is empty; content is added post-MVP.
+- **Items.** Every catalog item is one `Item` whose **capabilities compose** rather than being a fixed kind: it may be **equippable** (carries an equip slot — `weapon`/`armor`/`accessory` — plus optional effects, and for weapons an intrinsic attack), **stackable** (`stackSize > 1`), and/or **consumable**. A `stackSize` is authored per item (equipment is `1`; most non-equipment defaults to a generous `999`). This lets future hybrids — a thrown consumable weapon, a stackable artifact — exist without a new kind. Effects are Attribute bonuses, Affinity changes, or granted Skill keys, applied while equipped.
+  - **Weapons.** Equippable into the `weapon` slot; carry an intrinsic attack (Range, Damage type, Attack Roll attribute, and result thresholds — structured like a Skill) plus optional effects.
+  - **Armor & Accessories.** Equippable into their slot; optional effects, no intrinsic attack.
+  - **Consumables.** Non-equippable, stackable items. The MVP catalog ships one — **Soul Drop** (`stackSize 999`). A use/consume action is out of scope for now; the description carries the intended effect text.
 - **Talents.** The canonical Talent list from rules 2.1.
 - **Affinity types.** The 11 damage types (Slash, Pierce, Strike, Fire, Ice, Wind, Elec, Aether, Psy, Light, Dark) plus Almighty.
 - **Ailments.** The 13 ailments from the rulebook (Downed plus the 12 listed in CLAUDE.md).

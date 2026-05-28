@@ -7,7 +7,7 @@ import {
 } from "../../__fixtures__/seed-characters"
 import { getArchetype, hasMasteryBonus } from "../archetypes"
 import { resolveAttackRoll } from "../combat"
-import { getEquippableItem } from "../items"
+import { getEquippableItem, getItem } from "../items"
 import { getSkill } from "../skills"
 import { VIRTUE_KEYS } from "./state"
 import {
@@ -64,7 +64,7 @@ describe("seed roster structural invariants", () => {
         }
       }
       for (const item of c.items) {
-        expect(getEquippableItem(item.catalogItemKey)).toBeDefined()
+        expect(getItem(item.catalogItemKey)).toBeDefined()
       }
     }
   })
@@ -161,7 +161,7 @@ describe("seed roster covers every sheet section (UNN-144)", () => {
     for (const c of SEED_CHARACTERS) {
       for (const item of c.items) {
         const catalog = getEquippableItem(item.catalogItemKey)
-        for (const effect of catalog?.effects ?? []) {
+        for (const effect of catalog?.equip.effects ?? []) {
           effectTypes.add(effect.type)
         }
       }

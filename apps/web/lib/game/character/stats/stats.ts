@@ -199,7 +199,7 @@ function accumulatedBonuses(character: StatComputationCharacter): BonusPool {
   }
 
   for (const item of character.equippedItems) {
-    for (const effect of item.effects ?? []) {
+    for (const effect of item.equip.effects ?? []) {
       if (effect.type === "attribute") pool[effect.target] += effect.amount
     }
   }
@@ -345,7 +345,7 @@ export function computeAffinityChart(
   }
 
   for (const item of character.equippedItems) {
-    for (const effect of item.effects ?? []) {
+    for (const effect of item.equip.effects ?? []) {
       if (effect.type !== "affinity") continue
       for (const damageType of effect.damageTypes) {
         addCandidate(damageType, effect.affinity)

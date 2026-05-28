@@ -204,8 +204,9 @@ export const characterChains = pgTable("characterChain", {
 /**
  * Inventory. Items are hardcoded catalog entries (PRD §6.2/§8): the row only
  * references the catalog by `catalogItemKey` and tracks whether it is
- * `equipped`. The item's name, description, slot, intrinsic attack, and
- * effects come from the catalog entry, not this row.
+ * `equipped` and how many are stacked (`quantity`). The item's name,
+ * description, and capabilities (equip slot, intrinsic attack, effects,
+ * stackSize) come from the catalog entry, not this row.
  */
 export const inventoryItems = pgTable("inventoryItem", {
   id: text("id")
@@ -216,6 +217,7 @@ export const inventoryItems = pgTable("inventoryItem", {
     .references(() => characters.id, { onDelete: "cascade" }),
   catalogItemKey: text("catalogItemKey").notNull(),
   equipped: boolean("equipped").notNull().default(false),
+  quantity: integer("quantity").notNull().default(1),
 })
 
 /**

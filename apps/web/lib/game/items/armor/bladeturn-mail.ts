@@ -1,10 +1,13 @@
-import type { Armor } from "../schema"
+import type { Item } from "../schema"
 
 export const bladeturnMail = {
-  slot: "armor",
   key: "bladeturn-mail",
   name: "Bladeturn Mail",
   description:
     "Overlapping scales angled to glance blades aside, granting Resist to Slash.",
-  effects: [{ type: "affinity", damageTypes: ["slash"], affinity: "resist" }],
-} satisfies Armor
+  stackSize: 1,
+  equip: {
+    slot: "armor",
+    effects: [{ type: "affinity", damageTypes: ["slash"], affinity: "resist" }],
+  },
+} satisfies Item
