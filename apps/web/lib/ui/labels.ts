@@ -162,6 +162,19 @@ export const BATTLE_CONDITION_LABELS: Record<BattleConditionState, string> = {
   decreased: "Decreased",
 }
 
+/** The three tri-state Battle Condition axes (Attack / Defense / Hit-Evasion). */
+export const BATTLE_CONDITION_AXIS_LABELS = {
+  attack: "Attack",
+  defense: "Defense",
+  hitEvasion: "Hit/Evasion",
+} as const
+
+/** The two single-use Battle Condition flags (Charged / Concentrating). */
+export const BATTLE_CONDITION_FLAG_LABELS = {
+  charged: "Charged",
+  concentrating: "Concentrating",
+} as const
+
 /**
  * Known range labels used in the Skill / intrinsic-attack popovers. Skills
  * with a non-canonical range carry an explicit string instead and never go

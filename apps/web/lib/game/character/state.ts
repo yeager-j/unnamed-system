@@ -87,6 +87,20 @@ export const battleConditionsSchema = z.object({
 export type BattleConditions = z.infer<typeof battleConditionsSchema>
 
 /**
+ * The all-neutral state every axis falls back to when no per-axis
+ * Battle Condition has been set on a character. Used as the read fallback on
+ * the Combat State card and as the post-state the "Clear combat state"
+ * mutator writes back.
+ */
+export const DEFAULT_BATTLE_CONDITIONS: BattleConditions = {
+  attack: { state: "neutral", stacks: 0 },
+  defense: { state: "neutral", stacks: 0 },
+  hitEvasion: { state: "neutral", stacks: 0 },
+  charged: false,
+  concentrating: false,
+}
+
+/**
  * Manual, sparse count of allied Lineages present in the current combat
  * encounter — including the character themselves. Read by the
  * `perPartyLineage` Attack Roll scaler (Magic Circle, Ailment Boost) when a

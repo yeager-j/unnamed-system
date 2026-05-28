@@ -1,0 +1,236 @@
+import { and, eq, sql } from "drizzle-orm"
+
+import {
+  DEFAULT_BATTLE_CONDITIONS,
+  type Ailments,
+  type BattleConditions,
+  type BattleConditionState,
+} from "../game/character/state"
+import { MAX_EXHAUSTION_LEVEL } from "../game/combat/exhaustion"
+import { err, ok, type Result } from "../result"
+import { db } from "./index"
+import { characterExists, loadCharacterRowById } from "./load-character"
+import { characters } from "./schema/character"
+
+/**
+ * Persistence for the owner-mode Combat State editors (PRD §6.1, UNN-226):
+ * four vitals-class wrappers that mutate the tracked combat columns
+ * (`ailments`, `battleConditions`, `exhaustion`) while honouring the same
+ * `(id, vitalsVersion)` optimistic concurrency contract as
+ * `lib/db/adjust-pools.ts`. The Combat State edit surface shares
+ * `vitalsVersion` with HP/SP/Prisma/Rest because all of these are encounter-
+ * time touches by the same player on the same card — collisions between them
+ * are the only thing the per-class token is meant to detect.
+ */
+
+export type CombatStatePersistenceError = "character-not-found" | "stale"
+
+export interface CombatStatePersistenceSuccess<T> {
+  value: T
+  version: number
+}
+
+export type SetAilmentsSuccess = CombatStatePersistenceSuccess<Ailments>
+
+export type SetBattleConditionsSuccess =
+  CombatStatePersistenceSuccess<BattleConditions>
+
+export type AdjustExhaustionSuccess = CombatStatePersistenceSuccess<number>
+
+export interface ClearCombatStateSuccessValue {
+  ailments: Ailments
+  battleConditions: BattleConditions
+}
+
+export type ClearCombatStateSuccess =
+  CombatStatePersistenceSuccess<ClearCombatStateSuccessValue>
+
+export async function applySetAilmentsForCharacter(
+  characterId: string,
+  ailments: Ailments,
+  expectedVersion: number
+): Promise<Result<SetAilmentsSuccess, CombatStatePersistenceError>> {
+  const updated = await db
+    .update(characters)
+    .set({
+      ailments,
+      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.vitalsVersion, expectedVersion)
+      )
+    )
+    .returning({ vitalsVersion: characters.vitalsVersion })
+
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({ value: ailments, version: updated[0]!.vitalsVersion })
+}
+
+/**
+ * Reads the row's current `battleConditions`, falling back to the all-neutral
+ * default when null, so a granular patch can merge into a known baseline.
+ */
+async function readBattleConditions(
+  characterId: string
+): Promise<BattleConditions | null> {
+  const row = await loadCharacterRowById(characterId)
+  if (!row) return null
+  return row.battleConditions ?? DEFAULT_BATTLE_CONDITIONS
+}
+
+export async function applySetBattleConditionAxisForCharacter(
+  characterId: string,
+  axis: "attack" | "defense" | "hitEvasion",
+  state: BattleConditionState,
+  expectedVersion: number
+): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {
+  const current = await readBattleConditions(characterId)
+  if (!current) return err("character-not-found")
+  const next: BattleConditions = {
+    ...current,
+    [axis]: { state, stacks: state === "neutral" ? 0 : 1 },
+  }
+  return applySetBattleConditionsForCharacter(
+    characterId,
+    next,
+    expectedVersion
+  )
+}
+
+export async function applySetBattleConditionFlagForCharacter(
+  characterId: string,
+  flag: "charged" | "concentrating",
+  value: boolean,
+  expectedVersion: number
+): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {
+  const current = await readBattleConditions(characterId)
+  if (!current) return err("character-not-found")
+  const next: BattleConditions = { ...current, [flag]: value }
+  return applySetBattleConditionsForCharacter(
+    characterId,
+    next,
+    expectedVersion
+  )
+}
+
+export async function applySetBattleConditionsForCharacter(
+  characterId: string,
+  conditions: BattleConditions,
+  expectedVersion: number
+): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {
+  const updated = await db
+    .update(characters)
+    .set({
+      battleConditions: conditions,
+      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.vitalsVersion, expectedVersion)
+      )
+    )
+    .returning({ vitalsVersion: characters.vitalsVersion })
+
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({ value: conditions, version: updated[0]!.vitalsVersion })
+}
+
+/**
+ * Bumps Exhaustion by +/- 1 and clamps to the `[0, MAX_EXHAUSTION_LEVEL]`
+ * range. The clamp belongs on the server (not just the disabled `-` button)
+ * because the action is the source of truth; the UI gate is a courtesy.
+ */
+export async function applyAdjustExhaustionForCharacter(
+  characterId: string,
+  direction: "increment" | "decrement",
+  expectedVersion: number
+): Promise<Result<AdjustExhaustionSuccess, CombatStatePersistenceError>> {
+  const nextExpression =
+    direction === "increment"
+      ? sql`LEAST(${MAX_EXHAUSTION_LEVEL}, ${characters.exhaustion} + 1)`
+      : sql`GREATEST(0, ${characters.exhaustion} - 1)`
+
+  const updated = await db
+    .update(characters)
+    .set({
+      exhaustion: nextExpression,
+      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.vitalsVersion, expectedVersion)
+      )
+    )
+    .returning({
+      exhaustion: characters.exhaustion,
+      vitalsVersion: characters.vitalsVersion,
+    })
+
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({
+    value: updated[0]!.exhaustion,
+    version: updated[0]!.vitalsVersion,
+  })
+}
+
+/**
+ * Resets Ailments and Battle Conditions back to their neutral defaults.
+ * Exhaustion is **not** touched — it's dungeoneering state that only Full
+ * Rest reduces (PRD §3.7 / UNN-156). The clear is a single write so the
+ * version bumps once and the optimistic client can sync in one round-trip.
+ */
+export async function applyClearCombatStateForCharacter(
+  characterId: string,
+  expectedVersion: number
+): Promise<Result<ClearCombatStateSuccess, CombatStatePersistenceError>> {
+  const clearedAilments: Ailments = []
+  const clearedConditions = DEFAULT_BATTLE_CONDITIONS
+
+  const updated = await db
+    .update(characters)
+    .set({
+      ailments: clearedAilments,
+      battleConditions: clearedConditions,
+      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+    })
+    .where(
+      and(
+        eq(characters.id, characterId),
+        eq(characters.vitalsVersion, expectedVersion)
+      )
+    )
+    .returning({ vitalsVersion: characters.vitalsVersion })
+
+  if (updated.length === 0) {
+    return (await characterExists(characterId))
+      ? err("stale")
+      : err("character-not-found")
+  }
+
+  return ok({
+    value: {
+      ailments: clearedAilments,
+      battleConditions: clearedConditions,
+    },
+    version: updated[0]!.vitalsVersion,
+  })
+}

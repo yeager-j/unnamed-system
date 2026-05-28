@@ -60,6 +60,40 @@ the *right reason* (read the error message — "received 1 expected 0" beats
 was one extra commit (`c128f3d`) but the alternative was shipping tests
 that protected against nothing.
 
+## Poll the DB for write-then-read sequences, don't trust `networkidle`
+
+`page.waitForLoadState("networkidle")` returns when the network goes quiet —
+but for a Next.js Server Action that calls `revalidatePath`, "quiet" can fire
+*before* the revalidation cycle finishes committing the new RSC payload. If
+the spec then chains a second click that depends on the first write being
+visible, the second action can dispatch against stale optimistic state and
+silently overwrite the first.
+
+UNN-226 hit this exactly: click Charged → networkidle → click Concentrating
+→ networkidle → DB read showed `{charged: true, concentrating: false}`. The
+production code was correct (and verified by hand in the browser). The race
+was entirely in the spec.
+
+**Use `expect.poll` against the DB helper between dependent writes:**
+
+```ts
+await page.getByRole("button", { name: "Charged" }).click()
+await expect
+  .poll(async () => (await getCombatStateTargetState()).battleConditions?.charged)
+  .toBe(true)
+
+await page.getByRole("button", { name: "Concentrating" }).click()
+await expect
+  .poll(
+    async () => (await getCombatStateTargetState()).battleConditions?.concentrating
+  )
+  .toBe(true)
+```
+
+`networkidle` is fine for "wait until UI settles before snapshotting" — what
+it can't promise is "the prior server write is fully persisted and the next
+optimistic baseline has caught up." For dependent writes, only the DB knows.
+
 ## Write-spec discipline
 
 `playwright.config.ts` sets `fullyParallel: true`, so different spec files
