@@ -109,6 +109,45 @@ retry, finer per-class partitioning) won't touch action call sites.
 `characters.updatedAt` is still on the row as a "last touched" display
 column but is no longer the concurrency token.
 
+## Mechanic writes — a specialization where the DB wrapper layer collapses
+
+Per-Archetype mechanic writes (UNN-227+, e.g. Valor, Perfection) share a
+single persistence primitive: [lib/db/mechanics/state.ts](../db/mechanics/state.ts)
+exports `applyMechanicStateForCharacter<K>(characterId, kind, transition, expectedVersion)`,
+which runs the whole transaction (load the active `characterArchetype`,
+validate kind, run the pure transition, conditional `vitalsVersion` bump,
+write `mechanicState` back).
+
+Because that primitive owns the entire persistence step, the per-mechanic
+DB wrapper file has nothing left to do — it would be a typed alias around
+a one-line composition. So mechanic actions skip the DB wrapper layer
+entirely and compose the pure transition inline:
+
+```ts
+// lib/actions/mechanics/knight/valor.ts
+const delta = parsed.data.direction === "increment" ? 1 : -1
+const result = await applyMechanicStateForCharacter(
+  character.id, "valor",
+  (state) => adjustValor(state, delta),
+  parsed.data.expectedVersion,
+)
+```
+
+The pure transition (`adjustValor`, `resetPerfection`, …) lives next to
+the `MechanicDefinition` in `lib/game/mechanics/<lineage>/<kind>.ts`,
+where the game-layer tests already exercise it. Adding a new mechanic
+write surface is therefore: pure transition (game/), action + schema
+(actions/mechanics/), UI control (components/character-sheet/mechanics/).
+Three files, no DB layer.
+
+**This collapse only applies when the shared primitive owns everything.**
+The general 3-layer pattern below still holds for writes with per-domain
+logic — `adjust-pools`, `combat-state`, `inventory`, `rest`, `leveling`
+all have meaningful DB wrappers because they coordinate across columns
+(or child tables), run engine validation, or compose engine transitions
+that aren't expressible as a single transition function. Earn the layer
+by needing it; don't add one for symmetry.
+
 ## Client patterns
 
 Two shapes prove the pattern (UNN-180):
