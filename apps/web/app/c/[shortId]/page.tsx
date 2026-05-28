@@ -114,9 +114,9 @@ export default async function CharacterSheetPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
-        <SheetHeader character={character} />
-
         <CharacterProvider character={character}>
+          <SheetHeader character={character} />
+
           <SheetTabs
             defaultTab={resolveTab(tab)}
             combat={
@@ -163,7 +163,7 @@ export default async function CharacterSheetPage({
                 </section>
               </>
             }
-            inventory={<Inventory character={character} />}
+            inventory={<Inventory />}
             archetypes={<Archetypes character={character} />}
           />
         </CharacterProvider>
