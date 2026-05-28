@@ -111,6 +111,29 @@ export function getPathStats(pathChoice: PathChoice): PathStats {
   return PATH_STATS[pathChoice]
 }
 
+/**
+ * Per-path Hit Die and Skill Die sizes (rulebook 1.1). The app never rolls,
+ * but the Rest dialog surfaces the die size next to the spend inputs so the
+ * player knows what to roll externally and enter back. Source-of-truth lives
+ * here next to {@link PATH_STATS}; the per-level HP/SP figures in
+ * {@link PATH_STATS} are the averaged Hit Die / two-Skill-Dice values that
+ * these dice round-trip to.
+ */
+export interface PathDice {
+  hitDie: 8 | 10 | 12
+  skillDie: 8 | 10 | 12
+}
+
+const PATH_DICE: Record<PathChoice, PathDice> = {
+  "health-focused": { hitDie: 12, skillDie: 8 },
+  balanced: { hitDie: 10, skillDie: 10 },
+  "skill-focused": { hitDie: 8, skillDie: 12 },
+}
+
+export function getPathDice(pathChoice: PathChoice): PathDice {
+  return PATH_DICE[pathChoice]
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
