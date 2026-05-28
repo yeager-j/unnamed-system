@@ -1,8 +1,11 @@
 "use server"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
-import { applyAdjustValorForCharacter } from "@/lib/db/mechanics/knight/valor"
-import type { MechanicWriteSuccess } from "@/lib/db/mechanics/state"
+import {
+  applyMechanicStateForCharacter,
+  type MechanicWriteSuccess,
+} from "@/lib/db/mechanics/state"
+import { adjustValor } from "@/lib/game/mechanics"
 import { err, type Result } from "@/lib/result"
 
 import { revalidateCharacter } from "../../revalidate"
@@ -14,10 +17,13 @@ import {
 
 /**
  * Server Action for the Knight — Valor +/- stepper (UNN-227). Parse →
- * `requireOwner` (non-owners get HTTP 403 via `forbidden()`) → DB wrapper
- * → `revalidateCharacter` on success. Mirrors the
- * `lib/actions/combat-state.ts` shape exactly so every future mechanic
- * action reads the same way.
+ * `requireOwner` → compose the pure {@link adjustValor} transition through
+ * the shared {@link applyMechanicStateForCharacter} primitive →
+ * `revalidateCharacter` on success.
+ *
+ * No per-mechanic DB wrapper: the shared primitive owns the entire
+ * persistence transaction, so an extra file would be a typed alias with
+ * nothing left to alias. See `lib/actions/README.md` ("Mechanic writes").
  */
 export async function adjustValorAction(
   input: AdjustValorInput
@@ -27,9 +33,11 @@ export async function adjustValorAction(
 
   const character = await requireOwner(parsed.data.characterId)
 
-  const result = await applyAdjustValorForCharacter(
+  const delta = parsed.data.direction === "increment" ? 1 : -1
+  const result = await applyMechanicStateForCharacter(
     character.id,
-    parsed.data.direction,
+    "valor",
+    (state) => adjustValor(state, delta),
     parsed.data.expectedVersion
   )
 

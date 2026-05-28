@@ -3,6 +3,7 @@ import { combatStateTarget } from "./combat-state-target"
 import { deleteTarget } from "./delete-target"
 import { headerActionsTarget } from "./header-actions-target"
 import { levelingTarget } from "./leveling-target"
+import { perfectionTarget } from "./perfection-target"
 import { restTarget } from "./rest-target"
 import type { E2EFixture } from "./types"
 import { valorTarget } from "./valor-target"
@@ -26,6 +27,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   levelingTarget,
   combatStateTarget,
   valorTarget,
+  perfectionTarget,
 ]
 
 export { castTarget } from "./cast-target"
@@ -33,6 +35,7 @@ export { combatStateTarget } from "./combat-state-target"
 export { deleteTarget } from "./delete-target"
 export { headerActionsTarget } from "./header-actions-target"
 export { levelingTarget } from "./leveling-target"
+export { perfectionTarget } from "./perfection-target"
 export { restTarget } from "./rest-target"
 export type { E2EFixture } from "./types"
 export { valorTarget } from "./valor-target"

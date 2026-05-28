@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import type { StatComputationCharacter } from "../../character/stats/stats"
 import {
+  adjustPerfection,
   attackBonusForRank,
   perfection,
   PERFECTION_ATTACK_BONUSES,
   PERFECTION_RANK_LABELS,
   rankLabel,
+  resetPerfection,
 } from "./perfection"
 
 const baseStats: StatComputationCharacter = {
@@ -63,5 +65,43 @@ describe("perfection", () => {
       { stats: baseStats }
     )
     expect(effects?.[0]).toMatchObject({ amount: 4, source: "Perfection (S)" })
+  })
+})
+
+describe("adjustPerfection", () => {
+  it("increments and decrements in unit steps", () => {
+    expect(adjustPerfection({ kind: "perfection", rank: 1 }, 1)).toEqual({
+      kind: "perfection",
+      rank: 2,
+    })
+    expect(adjustPerfection({ kind: "perfection", rank: 3 }, -1)).toEqual({
+      kind: "perfection",
+      rank: 2,
+    })
+  })
+
+  it("clamps at rank D on decrement", () => {
+    expect(adjustPerfection({ kind: "perfection", rank: 0 }, -1)).toEqual({
+      kind: "perfection",
+      rank: 0,
+    })
+  })
+
+  it("clamps at rank S on increment", () => {
+    expect(adjustPerfection({ kind: "perfection", rank: 4 }, 1)).toEqual({
+      kind: "perfection",
+      rank: 4,
+    })
+  })
+})
+
+describe("resetPerfection", () => {
+  it("returns rank D from any starting rank", () => {
+    for (let rank = 0; rank <= 4; rank++) {
+      expect(resetPerfection({ kind: "perfection", rank })).toEqual({
+        kind: "perfection",
+        rank: 0,
+      })
+    }
   })
 })
