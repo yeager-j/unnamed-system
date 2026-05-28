@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  BedIcon,
   CaretDownIcon,
   FlaskIcon,
   HeartIcon,
@@ -42,6 +43,8 @@ import {
   spendSPAction,
 } from "@/lib/actions/adjust-pools"
 import type { HydratedCharacter } from "@/lib/game/character"
+
+import { RestDialog } from "./rest-dialog"
 
 /**
  * The header's owner-mode actions affordance (PRD §6.1 / §7.6, UNN-155).
@@ -125,6 +128,7 @@ export function HeaderOwnerActions({
   const versionRef = useCharacterTokenRef(character.vitalsVersion)
   const [pending, startTransition] = useTransition()
   const [mobileForm, setMobileForm] = useState<MobileFormMode>(null)
+  const [restOpen, setRestOpen] = useState(false)
 
   const base: Pools = {
     currentHP: character.currentHP,
@@ -227,6 +231,10 @@ export function HeaderOwnerActions({
           <FlaskIcon weight="fill" aria-hidden />
           {prismaLabel}
         </Button>
+        <Button size="sm" variant="outline" onClick={() => setRestOpen(true)}>
+          <BedIcon weight="fill" aria-hidden />
+          Rest
+        </Button>
       </ButtonGroup>
 
       {/* Collapsed affordance: narrow viewports. */}
@@ -256,6 +264,10 @@ export function HeaderOwnerActions({
               <FlaskIcon weight="fill" aria-hidden />
               {prismaLabel}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setRestOpen(true)}>
+              <BedIcon weight="fill" aria-hidden />
+              Rest
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -278,6 +290,12 @@ export function HeaderOwnerActions({
           onIncrement={handleRecoverSP}
         />
       </div>
+
+      <RestDialog
+        character={character}
+        open={restOpen}
+        onOpenChange={setRestOpen}
+      />
     </>
   )
 }
