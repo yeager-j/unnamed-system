@@ -216,7 +216,7 @@ test.describe("owner-mode write pattern", () => {
     await getDb()
       .update(inventoryItems)
       .set({ equipped: true })
-      .where(eq(inventoryItems.id, "seed-item-write-target-bladeturn-mail"))
+      .where(eq(inventoryItems.id, "seed-item-write-target-bladeturn-mail-1"))
 
     await page.goto(`${CHARACTER_URL}?tab=inventory`)
     await openItemPopover(page, "Overlapping scales")
