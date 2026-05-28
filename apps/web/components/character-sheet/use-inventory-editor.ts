@@ -13,39 +13,34 @@ import {
   setInventoryItemQuantityAction,
   unequipInventoryItemAction,
 } from "@/lib/actions/inventory"
-import { MAX_CURRENCY, type HydratedCharacter } from "@/lib/game/character"
 import {
-  reduceHydratedInventory,
-  type InventoryMutation,
-} from "@/lib/game/items"
+  reduceCharacter,
+  type CharacterEdit,
+  type HydratedCharacter,
+} from "@/lib/game/character"
+import type { InventoryMutation } from "@/lib/game/items"
 
 /**
  * Owns the Inventory tab's owner-mode write lifecycle so the component stays
- * presentational. Inventory edits and currency edits share the `inventory`
- * write class (UNN-140), so a single `versionRef` keeps the tab's optimistic
- * frame coherent across both. Each edit applies the same pure engine the server
- * runs for the optimistic projection, then persists via the Server Action; on
- * failure the optimistic state reverts and a toast explains.
+ * presentational. A single character-level optimistic frame runs the pure
+ * {@link reduceCharacter} — the same derivation the server uses — so item and
+ * currency edits re-derive every dependent value, not just the slice they
+ * touch. Both share the `inventory` write class (UNN-140), so one `versionRef`
+ * keeps the frame coherent; on failure the optimistic state reverts and a toast
+ * explains.
  */
 export function useInventoryEditor(character: HydratedCharacter) {
   const [pending, startTransition] = useTransition()
   const versionRef = useCharacterTokenRef(character.inventoryVersion)
 
-  const [inventory, applyInventory] = useOptimistic(
-    character.inventory,
-    (current, mutation: InventoryMutation) =>
-      reduceHydratedInventory(current, mutation, character.id)
-  )
-
-  const [currency, applyCurrency] = useOptimistic(
-    character.currency,
-    (current, delta: number) =>
-      Math.max(0, Math.min(MAX_CURRENCY, current + delta))
+  const [optimisticCharacter, applyEdit] = useOptimistic(
+    character,
+    (current, edit: CharacterEdit) => reduceCharacter(current, edit)
   )
 
   function dispatchMutation(mutation: InventoryMutation) {
     startTransition(async () => {
-      applyInventory(mutation)
+      applyEdit({ kind: "inventory", mutation })
       const result = await dispatchCharacterWriteWithRetry({
         characterId: character.id,
         characterClass: "inventory",
@@ -66,7 +61,7 @@ export function useInventoryEditor(character: HydratedCharacter) {
   function dispatchCurrency(delta: number) {
     if (delta === 0) return
     startTransition(async () => {
-      applyCurrency(delta)
+      applyEdit({ kind: "currency", delta })
       const result = await dispatchCharacterWriteWithRetry({
         characterId: character.id,
         characterClass: "inventory",
@@ -88,7 +83,12 @@ export function useInventoryEditor(character: HydratedCharacter) {
     })
   }
 
-  return { inventory, currency, pending, dispatchMutation, dispatchCurrency }
+  return {
+    character: optimisticCharacter,
+    pending,
+    dispatchMutation,
+    dispatchCurrency,
+  }
 }
 
 /** Routes an {@link InventoryMutation} to its Server Action. */

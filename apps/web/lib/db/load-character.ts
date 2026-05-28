@@ -1,24 +1,10 @@
 import { asc, eq } from "drizzle-orm"
 
 import {
-  buildStatComputationCharacter,
-  computeAffinityChart,
-  computeAttributes,
-  computeMaxHitDice,
-  computeMaxHP,
-  computeMaxSkillDice,
-  computeMaxSP,
-  resolveTalents,
+  deriveHydratedCharacter,
   type HydratedCharacter,
-  type StatComputationCharacter,
+  type RawCharacterInputs,
 } from "../game/character"
-import {
-  resolveAttackRoll,
-  skillAttackRollContext,
-  type AttackRollContext,
-} from "../game/combat"
-import { getEquippedItem, getItem, type IntrinsicAttack } from "../game/items"
-import { hydrateSkill, type CastingCharacter } from "../game/skills"
 import { db } from "./index"
 import {
   characterArchetypes,
@@ -30,11 +16,11 @@ import {
 
 /**
  * The full character-sheet loader. It owns the character query (by `id` or
- * public `shortId`), every child-row query, the pure
- * {@link buildStatComputationCharacter} hydration, and the derived-value
- * resolution — so the public sheet and every per-domain db wrapper share one
- * source of truth and a new effect/bonus source can no longer drift between
- * surfaces. Nothing here imports another db domain.
+ * public `shortId`) and every child-row query ({@link fetchRawInputs}); the
+ * pure {@link deriveHydratedCharacter} (in `lib/game/`) turns those raw rows
+ * into the sheet view. Splitting fetch from derive lets the client re-derive
+ * an optimistic frame with the exact function the server uses. Nothing here
+ * imports another db domain.
  *
  * The view types ({@link HydratedCharacter} and friends) live in
  * `lib/game/hydrated-character.ts` so game-layer code can consume them
@@ -50,36 +36,11 @@ export type CharacterChainRow = typeof characterChains.$inferSelect
 export type InventoryItemRow = typeof inventoryItems.$inferSelect
 
 /**
- * Projects the persisted state onto the pure engine input. Only equipped
- * inventory items are passed through so item effects stay gated exactly as
- * before the full inventory was loaded for display.
+ * Fetches the persisted {@link RawCharacterInputs} for a character row — the
+ * four child-row queries, run concurrently. The pure
+ * {@link deriveHydratedCharacter} turns the result into the sheet view.
  */
-function statComputationCharacter(
-  row: CharacterRow,
-  archetypeRows: CharacterArchetypeRow[],
-  inventoryRows: InventoryItemRow[]
-): StatComputationCharacter {
-  return buildStatComputationCharacter(
-    {
-      pathChoice: row.pathChoice,
-      level: row.level,
-      manualBonuses: row.manualBonuses,
-      activeCharacterArchetypeId: row.activeArchetypeId,
-    },
-    archetypeRows.map((archetype) => ({
-      id: archetype.id,
-      archetypeKey: archetype.archetypeKey,
-      rank: archetype.rank,
-      inheritanceSlots: archetype.inheritanceSlots,
-      mechanicState: archetype.mechanicState,
-    })),
-    inventoryRows
-      .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
-  )
-}
-
-async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
+async function fetchRawInputs(row: CharacterRow): Promise<RawCharacterInputs> {
   const [archetypeRows, inventoryRows, knives, chains] = await Promise.all([
     db
       .select()
@@ -101,61 +62,11 @@ async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
       .orderBy(asc(characterChains.order)),
   ])
 
-  const stats = statComputationCharacter(row, archetypeRows, inventoryRows)
-  const casting: CastingCharacter = {
-    ...stats,
-    currentHP: row.currentHP,
-    currentSP: row.currentSP,
-  }
-
-  const inventory = inventoryRows.map((inventoryRow) => ({
-    ...inventoryRow,
-    item: getItem(inventoryRow.catalogItemKey),
-  }))
-
-  const weapon = getEquippedItem(inventory, "weapon")
-  const weaponAttackRoll = weapon
-    ? resolveAttackRoll(
-        weaponAttackContext(weapon.equip.intrinsicAttack),
-        stats,
-        row.partyComposition
-      )
-    : null
-
-  return {
-    ...row,
-    archetypeRows,
-    knives,
-    chains,
-    talents: resolveTalents(row.gainedTalents, stats.activeArchetypeKey),
-    inventory,
-    activeArchetypeKey: stats.activeArchetypeKey,
-    attributes: computeAttributes(stats),
-    maxHP: computeMaxHP(stats),
-    maxSP: computeMaxSP(stats),
-    maxHitDice: computeMaxHitDice(row.level),
-    maxSkillDice: computeMaxSkillDice(row.level),
-    affinityChart: computeAffinityChart(stats),
-    weaponAttackRoll,
-    activeMechanic: stats.activeMechanic,
-    skills: stats.activeSkills.map((skill) => {
-      const context = skillAttackRollContext(skill)
-      return hydrateSkill(
-        skill,
-        casting,
-        context ? resolveAttackRoll(context, stats, row.partyComposition) : null
-      )
-    }),
-  }
+  return { row, archetypeRows, inventoryRows, knives, chains }
 }
 
-function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
-  return {
-    kind: "attack",
-    damageType: attack.damageType,
-    delivery: attack.delivery,
-    attribute: attack.attackRoll.attribute,
-  }
+async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
+  return deriveHydratedCharacter(await fetchRawInputs(row))
 }
 
 /** The raw `characters` row by id, or `null` when no character matches. */

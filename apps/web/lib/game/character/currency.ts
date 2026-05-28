@@ -5,3 +5,8 @@
  * share one source of truth.
  */
 export const MAX_CURRENCY = 99_999_999
+
+/** Clamps a currency value to `[0, MAX_CURRENCY]`. */
+export function clampCurrency(value: number): number {
+  return Math.max(0, Math.min(MAX_CURRENCY, value))
+}
