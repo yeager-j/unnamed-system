@@ -16,6 +16,7 @@ import {
 
 import { Attributes } from "./attributes"
 import { EditableCharacterName } from "./editable-character-name"
+import { HeaderOwnerActions } from "./header-owner-actions"
 import { OwnerControlsSlot } from "./owner-controls-slot"
 import { Vitals } from "./vitals"
 
@@ -87,7 +88,9 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
 
             <OwnerOnly>
               <div className="mt-2">
-                <OwnerControlsSlot />
+                <OwnerControlsSlot>
+                  <HeaderOwnerActions character={character} />
+                </OwnerControlsSlot>
               </div>
             </OwnerOnly>
           </div>

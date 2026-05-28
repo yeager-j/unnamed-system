@@ -1,5 +1,6 @@
 import { castTarget } from "./cast-target"
 import { deleteTarget } from "./delete-target"
+import { headerActionsTarget } from "./header-actions-target"
 import type { E2EFixture } from "./types"
 import { writeTarget } from "./write-target"
 
@@ -16,9 +17,11 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   writeTarget,
   deleteTarget,
   castTarget,
+  headerActionsTarget,
 ]
 
 export { castTarget } from "./cast-target"
 export { deleteTarget } from "./delete-target"
+export { headerActionsTarget } from "./header-actions-target"
 export type { E2EFixture } from "./types"
 export { writeTarget } from "./write-target"
