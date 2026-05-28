@@ -139,15 +139,21 @@ test.describe("owner header actions", () => {
     const before = await getHeaderActionsTargetPools()
     expect(before.prismaCharges).toBeGreaterThan(0)
 
-    await page
-      .getByRole("button", { name: `Use Prisma (${before.prismaCharges})` })
-      .click()
+    await expect(
+      page.getByText(
+        `${before.prismaCharges} ${before.prismaCharges === 1 ? "Charge" : "Charges"}`
+      )
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Use", exact: true }).click()
     await page.waitForLoadState("networkidle")
 
     const after = await getHeaderActionsTargetPools()
     expect(after.prismaCharges).toBe(before.prismaCharges - 1)
     await expect(
-      page.getByRole("button", { name: `Use Prisma (${after.prismaCharges})` })
+      page.getByText(
+        `${after.prismaCharges} ${after.prismaCharges === 1 ? "Charge" : "Charges"}`
+      )
     ).toBeVisible()
   })
 
@@ -155,7 +161,8 @@ test.describe("owner header actions", () => {
     await setHeaderActionsTargetPrismaCharges(0)
     await page.goto(CHARACTER_URL)
 
-    const button = page.getByRole("button", { name: "Use Prisma (0)" })
+    await expect(page.getByText("0 Charges")).toBeVisible()
+    const button = page.getByRole("button", { name: "Use", exact: true })
     await expect(button).toBeVisible()
     await expect(button).toBeDisabled()
   })

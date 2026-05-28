@@ -3,9 +3,9 @@
 import {
   BedIcon,
   CaretDownIcon,
-  FlaskIcon,
   HeartIcon,
   LightningIcon,
+  TrophyIcon,
 } from "@phosphor-icons/react"
 import { useOptimistic, useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -13,66 +13,65 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@workspace/ui/components/popover"
 
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
-  consumePrismaAction,
   damageAction,
   healAction,
   recoverSPAction,
   spendSPAction,
 } from "@/lib/actions/adjust-pools"
-import type { HydratedCharacter } from "@/lib/game/character"
+import { awardVictoriesAction } from "@/lib/actions/leveling"
+import {
+  canLevelUp,
+  VICTORIES_PER_LEVEL,
+  type HydratedCharacter,
+} from "@/lib/game/character"
 
+import { AdjustPoolDialog, AdjustPoolPopover } from "./adjust-pool-controls"
+import { LevelUpDialog } from "./level-up-dialog"
 import { RestDialog } from "./rest-dialog"
+import {
+  VictoriesDialog,
+  VictoriesPopover,
+  type VictoriesAmount,
+} from "./victories-controls"
 
 /**
- * The header's owner-mode actions affordance (PRD §6.1 / §7.6, UNN-155).
- * Damage and Heal share an "Adjust HP" form (one amount input + two action
- * buttons) and Spend/Recover SP share an "Adjust SP" form so the row stays
- * narrow as siblings (Rest, Level-up) join it. "Use Prisma (n)" is a
- * one-click decrement; the player adjusts HP manually for the MVP per PRD
- * §7.6.
+ * The header's owner-mode actions affordance (PRD §6.1, UNN-155 / UNN-156 /
+ * UNN-157). Orchestrates five controls: Adjust HP and Adjust SP (popover
+ * forms in [./adjust-pool-controls.tsx](./adjust-pool-controls.tsx)), Rest
+ * (opens [./rest-dialog.tsx](./rest-dialog.tsx)), Victories ± (popover in
+ * [./victories-controls.tsx](./victories-controls.tsx)), and the Level-up
+ * CTA (opens [./level-up-dialog.tsx](./level-up-dialog.tsx)) that only
+ * appears when {@link canLevelUp} is true. Use Prisma lives on the Combat
+ * State card now (PRD §7.6) — it isn't part of this affordance.
  *
- * The render forks responsively. On `md+` the three controls sit inline as
- * popover triggers (matches the Virtues affordance idiom). On narrow
- * viewports they collapse into a single "Actions" dropdown so the header
- * doesn't widen — selecting Adjust HP or Adjust SP opens a centered Dialog
- * with the same form, Use Prisma fires directly from the menu. Both
- * branches dispatch through the same handlers; only the chrome differs.
+ * The render forks responsively. On `md+` the controls sit inline as
+ * popover / button triggers (matches the Virtues affordance idiom). On
+ * narrow viewports they collapse into a single "Actions" dropdown so the
+ * header doesn't widen — selecting Adjust HP / Adjust SP / Victories opens
+ * a centered Dialog with the same form, Rest / Level up open their feature
+ * dialogs directly. Both branches dispatch through the same handlers; only
+ * the chrome differs.
  *
- * All five writes are vitals-class, so they share one
- * {@link useCharacterTokenRef} on `vitalsVersion` and one optimistic state
- * keyed by `(currentHP, currentSP, prismaCharges)`. The Vitals card itself
- * still re-renders via `revalidateCharacter`; the optimistic state here
- * keeps the Prisma label accurate between dispatch and revalidate and
- * disables the disabled-by-zero path correctly under rapid clicks.
+ * Two independent write classes share this affordance: HP/SP are
+ * vitals-class (one {@link useCharacterTokenRef} on `vitalsVersion` and one
+ * optimistic state); Victories ± is progression-class (its own ref + its
+ * own optimistic counter). Server `revalidateCharacter` is the source of
+ * truth on success; the optimistic state here only covers the in-flight
+ * frame and keeps disabled-by-zero correct under rapid clicks.
  */
 
 type Pools = {
   currentHP: number
   currentSP: number
-  prismaCharges: number
 }
 
 type Mutation =
@@ -80,7 +79,6 @@ type Mutation =
   | { kind: "heal"; amount: number }
   | { kind: "spend-sp"; amount: number }
   | { kind: "recover-sp"; amount: number }
-  | { kind: "use-prisma" }
 
 function reducePools(
   current: Pools,
@@ -109,16 +107,11 @@ function reducePools(
         ...current,
         currentSP: Math.min(maxSP, current.currentSP + mutation.amount),
       }
-    case "use-prisma":
-      return {
-        ...current,
-        prismaCharges: Math.max(0, current.prismaCharges - 1),
-      }
   }
 }
 
 /** The slot a mobile dropdown-menu item routes an "Adjust" choice into. */
-type MobileFormMode = "hp" | "sp" | null
+type MobileFormMode = "hp" | "sp" | "victories" | null
 
 export function HeaderOwnerActions({
   character,
@@ -126,16 +119,25 @@ export function HeaderOwnerActions({
   character: HydratedCharacter
 }) {
   const versionRef = useCharacterTokenRef(character.vitalsVersion)
+  const progressionVersionRef = useCharacterTokenRef(
+    character.progressionVersion
+  )
   const [pending, startTransition] = useTransition()
+  const [victoriesPending, startVictoriesTransition] = useTransition()
   const [mobileForm, setMobileForm] = useState<MobileFormMode>(null)
   const [restOpen, setRestOpen] = useState(false)
+  const [levelUpOpen, setLevelUpOpen] = useState(false)
+  const [optimisticVictories, applyOptimisticVictories] = useOptimistic(
+    character.victories,
+    (current: number, delta: number) => Math.max(0, current + delta)
+  )
+  const levelUpReady = canLevelUp(character)
 
   const base: Pools = {
     currentHP: character.currentHP,
     currentSP: character.currentSP,
-    prismaCharges: character.prismaCharges,
   }
-  const [pools, applyOptimistic] = useOptimistic(
+  const [, applyOptimistic] = useOptimistic(
     base,
     (current: Pools, mutation: Mutation): Pools =>
       reducePools(current, mutation, character.maxHP, character.maxSP)
@@ -191,18 +193,37 @@ export function HeaderOwnerActions({
     )
   }
 
-  function handleUsePrisma() {
-    dispatch({ kind: "use-prisma" }, (expectedVersion) =>
-      consumePrismaAction({ characterId: character.id, expectedVersion })
-    )
+  function handleAwardVictories(amount: VictoriesAmount) {
+    startVictoriesTransition(async () => {
+      applyOptimisticVictories(amount)
+      const result = await dispatchCharacterWriteWithRetry({
+        characterId: character.id,
+        characterClass: "progression",
+        versionRef: progressionVersionRef,
+        action: (expectedVersion) =>
+          awardVictoriesAction({
+            characterId: character.id,
+            amount,
+            expectedVersion,
+          }),
+      })
+      if (result.ok) return
+      if (result.error === "stale") {
+        toast.error("Couldn't sync — refresh to see the latest.")
+      } else {
+        toast.error("Couldn't save. Try again.")
+      }
+    })
   }
 
-  const prismaLabel = `Use Prisma (${pools.prismaCharges})`
-  const prismaDisabled = pending || pools.prismaCharges === 0
+  const undoDisabled = victoriesPending || optimisticVictories === 0
 
   return (
     <>
-      {/* Inline affordance: md+ viewports. */}
+      {/* Inline affordance: md+ viewports. The row sits in the bottom-left of
+          the header card (its own slot under the portrait + identity block),
+          so it has the full left-column width to stretch out — labels stay
+          on. Mobile collapses into the "Actions" dropdown below. */}
       <ButtonGroup className="hidden md:flex" aria-label="Owner actions">
         <AdjustPoolPopover
           label="Adjust HP"
@@ -222,19 +243,26 @@ export function HeaderOwnerActions({
           onDecrement={handleSpendSP}
           onIncrement={handleRecoverSP}
         />
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={prismaDisabled}
-          onClick={handleUsePrisma}
-        >
-          <FlaskIcon weight="fill" aria-hidden />
-          {prismaLabel}
-        </Button>
         <Button size="sm" variant="outline" onClick={() => setRestOpen(true)}>
           <BedIcon weight="fill" aria-hidden />
           Rest
         </Button>
+        <VictoriesPopover
+          victories={optimisticVictories}
+          undoDisabled={undoDisabled}
+          disabled={victoriesPending}
+          onAward={handleAwardVictories}
+        />
+        {levelUpReady ? (
+          <Button
+            size="sm"
+            variant="default"
+            onClick={() => setLevelUpOpen(true)}
+          >
+            <TrophyIcon weight="fill" aria-hidden />
+            Level up
+          </Button>
+        ) : null}
       </ButtonGroup>
 
       {/* Collapsed affordance: narrow viewports. */}
@@ -257,17 +285,20 @@ export function HeaderOwnerActions({
               <LightningIcon weight="fill" aria-hidden />
               Adjust SP
             </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={prismaDisabled}
-              onClick={handleUsePrisma}
-            >
-              <FlaskIcon weight="fill" aria-hidden />
-              {prismaLabel}
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setRestOpen(true)}>
               <BedIcon weight="fill" aria-hidden />
               Rest
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setMobileForm("victories")}>
+              <TrophyIcon weight="fill" aria-hidden />
+              Victories ({optimisticVictories}/{VICTORIES_PER_LEVEL})
+            </DropdownMenuItem>
+            {levelUpReady ? (
+              <DropdownMenuItem onClick={() => setLevelUpOpen(true)}>
+                <TrophyIcon weight="fill" aria-hidden />
+                Level up
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -289,6 +320,17 @@ export function HeaderOwnerActions({
           onDecrement={handleSpendSP}
           onIncrement={handleRecoverSP}
         />
+        <VictoriesDialog
+          open={mobileForm === "victories"}
+          onOpenChange={(next) => setMobileForm(next ? "victories" : null)}
+          victories={optimisticVictories}
+          undoDisabled={undoDisabled}
+          disabled={victoriesPending}
+          onAward={(amount) => {
+            handleAwardVictories(amount)
+            setMobileForm(null)
+          }}
+        />
       </div>
 
       <RestDialog
@@ -296,154 +338,11 @@ export function HeaderOwnerActions({
         open={restOpen}
         onOpenChange={setRestOpen}
       />
+      <LevelUpDialog
+        character={character}
+        open={levelUpOpen}
+        onOpenChange={setLevelUpOpen}
+      />
     </>
-  )
-}
-
-function AdjustPoolForm({
-  inputId,
-  decrementLabel,
-  incrementLabel,
-  onDecrement,
-  onIncrement,
-  onAfterSubmit,
-}: {
-  inputId: string
-  decrementLabel: string
-  incrementLabel: string
-  onDecrement: (amount: number) => void
-  onIncrement: (amount: number) => void
-  onAfterSubmit: () => void
-}) {
-  const [amount, setAmount] = useState("1")
-
-  function submit(handler: (amount: number) => void) {
-    const parsed = Number.parseInt(amount, 10)
-    if (!Number.isFinite(parsed) || parsed <= 0) return
-    handler(parsed)
-    setAmount("1")
-    onAfterSubmit()
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Label htmlFor={inputId} className="text-xs">
-        Amount
-      </Label>
-      <Input
-        id={inputId}
-        type="number"
-        inputMode="numeric"
-        min={1}
-        value={amount}
-        onChange={(event) => setAmount(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault()
-            submit(onDecrement)
-          }
-        }}
-        autoFocus
-      />
-      <div className="grid grid-cols-2 gap-1.5">
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => submit(onDecrement)}
-        >
-          {decrementLabel}
-        </Button>
-        <Button size="sm" onClick={() => submit(onIncrement)}>
-          {incrementLabel}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function AdjustPoolPopover({
-  label,
-  icon,
-  decrementLabel,
-  incrementLabel,
-  disabled,
-  onDecrement,
-  onIncrement,
-}: {
-  label: string
-  icon: React.ReactNode
-  decrementLabel: string
-  incrementLabel: string
-  disabled: boolean
-  onDecrement: (amount: number) => void
-  onIncrement: (amount: number) => void
-}) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            aria-label={label}
-          >
-            {icon}
-            {label}
-          </Button>
-        }
-      />
-      <PopoverContent align="end" sideOffset={6} className="w-60">
-        <AdjustPoolForm
-          inputId={`${label}-amount`}
-          decrementLabel={decrementLabel}
-          incrementLabel={incrementLabel}
-          onDecrement={onDecrement}
-          onIncrement={onIncrement}
-          onAfterSubmit={() => setOpen(false)}
-        />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-function AdjustPoolDialog({
-  open,
-  onOpenChange,
-  title,
-  decrementLabel,
-  incrementLabel,
-  onDecrement,
-  onIncrement,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  decrementLabel: string
-  incrementLabel: string
-  onDecrement: (amount: number) => void
-  onIncrement: (amount: number) => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            Enter an amount, then choose {decrementLabel} or {incrementLabel}.
-          </DialogDescription>
-        </DialogHeader>
-        <AdjustPoolForm
-          inputId={`${title}-mobile-amount`}
-          decrementLabel={decrementLabel}
-          incrementLabel={incrementLabel}
-          onDecrement={onDecrement}
-          onIncrement={onIncrement}
-          onAfterSubmit={() => onOpenChange(false)}
-        />
-      </DialogContent>
-    </Dialog>
   )
 }
