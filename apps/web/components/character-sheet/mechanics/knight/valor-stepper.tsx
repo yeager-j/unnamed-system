@@ -1,65 +1,31 @@
 "use client"
 
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
-import { useOptimistic, useTransition } from "react"
-import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacterWrite } from "@/hooks/use-character"
 import { adjustValorAction } from "@/lib/actions/mechanics/knight/valor"
 import { VALOR_MAX } from "@/lib/game/mechanics"
 
 /**
- * Owner-mode +/- stepper for the Knight's Valor counter (UNN-227). Clamps
- * to `[0, VALOR_MAX]`; the disabled-button gate is a courtesy, the pure
- * {@link adjustValor} transition on the server is the authority.
- *
- * Modelled directly on {@link ExhaustionStepper}: optimistic update via the
- * same direction-coerced delta the server applies, then dispatch through
- * {@link dispatchCharacterWriteWithRetry} on the `vitals` write class.
+ * Owner-mode +/- stepper for the Knight's Valor counter (UNN-227). Dispatches
+ * a `valor` {@link CharacterEdit} through the shared write path; the optimistic
+ * value is re-derived on the active Archetype's mechanic state, so the pips and
+ * fraction (read off the optimistic character) move in the same frame. `value`
+ * is the current count, used only for the clamp-gate on the buttons.
  */
-export function ValorStepper({
-  characterId,
-  value,
-  vitalsVersion,
-}: {
-  characterId: string
-  value: number
-  vitalsVersion: number
-}) {
-  const versionRef = useCharacterTokenRef(vitalsVersion)
-  const [pending, startTransition] = useTransition()
-  const [optimisticValue, applyOptimistic] = useOptimistic(
-    value,
-    (current: number, direction: "increment" | "decrement") =>
-      direction === "increment"
-        ? Math.min(VALOR_MAX, current + 1)
-        : Math.max(0, current - 1)
-  )
+export function ValorStepper({ value }: { value: number }) {
+  const { pending, write, characterId } = useCharacterWrite()
 
   function dispatch(direction: "increment" | "decrement") {
-    startTransition(async () => {
-      applyOptimistic(direction)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: "vitals",
-        versionRef,
-        action: (expectedVersion) =>
-          adjustValorAction({ characterId, direction, expectedVersion }),
-      })
-      if (result.ok) return
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't save. Try again.")
-      }
+    write({
+      edit: { kind: "valor", direction },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        adjustValorAction({ characterId, direction, expectedVersion }),
     })
   }
-
-  const atMin = optimisticValue <= 0
-  const atMax = optimisticValue >= VALOR_MAX
 
   return (
     <div className="flex items-center gap-1">
@@ -68,7 +34,7 @@ export function ValorStepper({
         variant="outline"
         size="icon-xs"
         aria-label="Decrease Valor"
-        disabled={pending || atMin}
+        disabled={pending || value <= 0}
         onClick={() => dispatch("decrement")}
       >
         <MinusIcon weight="bold" aria-hidden />
@@ -78,7 +44,7 @@ export function ValorStepper({
         variant="outline"
         size="icon-xs"
         aria-label="Increase Valor"
-        disabled={pending || atMax}
+        disabled={pending || value >= VALOR_MAX}
         onClick={() => dispatch("increment")}
       >
         <PlusIcon weight="bold" aria-hidden />

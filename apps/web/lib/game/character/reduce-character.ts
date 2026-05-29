@@ -5,6 +5,15 @@ import {
   type InventoryItemState,
   type InventoryMutation,
 } from "../items"
+import {
+  adjustPerfection,
+  adjustValor,
+  initialStateFor,
+  resetPerfection,
+  type MechanicState,
+  type PerfectionState,
+  type ValorState,
+} from "../mechanics"
 import { applyUsePrisma } from "./adjust-pools"
 import { clampCurrency } from "./currency"
 import {
@@ -42,6 +51,8 @@ export type CharacterEdit =
   | { kind: "exhaustion"; direction: "increment" | "decrement" }
   | { kind: "usePrisma" }
   | { kind: "clearCombatState" }
+  | { kind: "valor"; direction: "increment" | "decrement" }
+  | { kind: "perfection"; op: "increment" | "decrement" | "reset" }
 
 const randomId = () => crypto.randomUUID()
 
@@ -108,7 +119,54 @@ export function reduceCharacter(
         ailments: [],
         battleConditions: DEFAULT_BATTLE_CONDITIONS,
       })
+
+    case "valor":
+      return withActiveMechanic(raw, character, "valor", (state) =>
+        adjustValor(
+          state as ValorState,
+          edit.direction === "increment" ? 1 : -1
+        )
+      )
+
+    case "perfection":
+      return withActiveMechanic(raw, character, "perfection", (state) =>
+        edit.op === "reset"
+          ? resetPerfection(state as PerfectionState)
+          : adjustPerfection(
+              state as PerfectionState,
+              edit.op === "increment" ? 1 : -1
+            )
+      )
   }
+}
+
+/**
+ * Applies a transform to the active Archetype's mechanic state (Valor /
+ * Perfection live on the `characterArchetype` row, coerced from null via
+ * {@link initialStateFor}), then re-derives. Returns the input unchanged when
+ * no Archetype is active or its mechanic is unknown.
+ */
+function withActiveMechanic(
+  raw: RawCharacterInputs,
+  character: HydratedCharacter,
+  mechanicKind: string,
+  transform: (state: MechanicState) => MechanicState
+): HydratedCharacter {
+  const activeId = raw.row.activeArchetypeId
+  if (!activeId) return character
+
+  let changed = false
+  const archetypeRows = raw.archetypeRows.map((archetype) => {
+    if (archetype.id !== activeId) return archetype
+    const current = archetype.mechanicState ?? initialStateFor(mechanicKind)
+    if (!current) return archetype
+    changed = true
+    return { ...archetype, mechanicState: transform(current) }
+  })
+
+  return changed
+    ? deriveHydratedCharacter({ ...raw, archetypeRows })
+    : character
 }
 
 function reduceInventory(
