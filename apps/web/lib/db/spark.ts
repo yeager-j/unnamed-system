@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import {
   addSpark,
@@ -9,8 +9,8 @@ import {
 } from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
 import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the pure Spark engine: load the row, run the (pure)
@@ -80,29 +80,18 @@ export async function addSparkForCharacter(
   const result = addSpark(character, virtue)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      sparkLog: result.value.sparkLog,
-      progressionVersion: sql`${characters.progressionVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.progressionVersion, expectedVersion)
-      )
-    )
-    .returning({ progressionVersion: characters.progressionVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "progression",
+    expectedVersion,
+    { sparkLog: result.value.sparkLog }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     character: result.value,
-    version: updated[0]!.progressionVersion,
+    version: bumped.value.version,
   })
 }
 
@@ -124,32 +113,23 @@ export async function rankUpVirtueForCharacter(
   const result = rankUpVirtue(character, virtue)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "progression",
+    expectedVersion,
+    {
       sparkLog: result.value.sparkLog,
       virtueExpression: result.value.virtues.expression,
       virtueEmpathy: result.value.virtues.empathy,
       virtueWisdom: result.value.virtues.wisdom,
       virtueFocus: result.value.virtues.focus,
-      progressionVersion: sql`${characters.progressionVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.progressionVersion, expectedVersion)
-      )
-    )
-    .returning({ progressionVersion: characters.progressionVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+    }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     character: result.value,
-    version: updated[0]!.progressionVersion,
+    version: bumped.value.version,
   })
 }

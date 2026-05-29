@@ -9,8 +9,13 @@ import {
 import { MAX_EXHAUSTION_LEVEL } from "../game/combat/exhaustion"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists, loadCharacterRowById } from "./load-character"
+import { loadCharacterRowById } from "./load-character"
 import { characters } from "./schema/character"
+import {
+  bumpCharacterVersionGuarded,
+  characterVersionIncrement,
+  staleOrMissing,
+} from "./version-guard"
 
 /**
  * Persistence for the owner-mode Combat State editors (PRD §6.1, UNN-226):
@@ -50,27 +55,16 @@ export async function applySetAilmentsForCharacter(
   ailments: Ailments,
   expectedVersion: number
 ): Promise<Result<SetAilmentsSuccess, CombatStatePersistenceError>> {
-  const updated = await db
-    .update(characters)
-    .set({
-      ailments,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { ailments }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ value: ailments, version: updated[0]!.vitalsVersion })
+  return ok({ value: ailments, version: bumped.value.version })
 }
 
 /**
@@ -125,27 +119,16 @@ export async function applySetBattleConditionsForCharacter(
   conditions: BattleConditions,
   expectedVersion: number
 ): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {
-  const updated = await db
-    .update(characters)
-    .set({
-      battleConditions: conditions,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { battleConditions: conditions }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ value: conditions, version: updated[0]!.vitalsVersion })
+  return ok({ value: conditions, version: bumped.value.version })
 }
 
 /**
@@ -167,7 +150,7 @@ export async function applyAdjustExhaustionForCharacter(
     .update(characters)
     .set({
       exhaustion: nextExpression,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+      ...characterVersionIncrement("vitals"),
     })
     .where(
       and(
@@ -180,11 +163,7 @@ export async function applyAdjustExhaustionForCharacter(
       vitalsVersion: characters.vitalsVersion,
     })
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  if (updated.length === 0) return staleOrMissing(characterId)
 
   return ok({
     value: updated[0]!.exhaustion,
@@ -205,32 +184,23 @@ export async function applyClearCombatStateForCharacter(
   const clearedAilments: Ailments = []
   const clearedConditions = DEFAULT_BATTLE_CONDITIONS
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    {
       ailments: clearedAilments,
       battleConditions: clearedConditions,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+    }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     value: {
       ailments: clearedAilments,
       battleConditions: clearedConditions,
     },
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }

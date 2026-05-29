@@ -1,11 +1,11 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { getArchetype } from "../game/archetypes"
 import type { TalentKey } from "../game/character"
-import { err, ok, type Result } from "../result"
+import { ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
 import { characterArchetypes, characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the builder's Origin Archetype choice (PRD §5.1).
@@ -49,27 +49,17 @@ export async function setOriginArchetype(
   return db.transaction(async (tx) => {
     // 1. Bump the version (and clear both Archetype pointers so the FK won't
     //    fail when we delete the row they currently point at).
-    const [bumped] = await tx
-      .update(characters)
-      .set({
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion,
+      {
         activeArchetypeId: null,
         originCharacterArchetypeId: null,
-        identityVersion: sql`${characters.identityVersion} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.identityVersion, expectedVersion)
-        )
-      )
-      .returning({ identityVersion: characters.identityVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterId))
-        ? err("stale")
-        : err("character-not-found")
-    }
+      }
+    )
+    if (!bumped.ok) return bumped
 
     // 2. Clear any existing characterArchetype rows for this character.
     //    During Step 2 of the builder this is at most one row; a second
@@ -129,7 +119,7 @@ export async function setOriginArchetype(
     return ok({
       activeArchetypeId: inserted!.id,
       archetypeKey,
-      version: bumped.identityVersion,
+      version: bumped.value.version,
     })
   })
 }

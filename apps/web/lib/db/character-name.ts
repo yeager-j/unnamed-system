@@ -1,9 +1,6 @@
-import { and, eq, sql } from "drizzle-orm"
-
-import { err, ok, type Result } from "../result"
+import { ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
-import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the trivial character-name update (no engine transition).
@@ -39,29 +36,14 @@ export async function updateCharacterName(
 ): Promise<
   Result<CharacterNamePersistenceSuccess, CharacterNamePersistenceError>
 > {
-  const updated = await db
-    .update(characters)
-    .set({
-      name,
-      identityVersion: sql`${characters.identityVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.identityVersion, expectedVersion)
-      )
-    )
-    .returning({
-      name: characters.name,
-      identityVersion: characters.identityVersion,
-    })
+  const result = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "identity",
+    expectedVersion,
+    { name }
+  )
+  if (!result.ok) return result
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  const [row] = updated
-  return ok({ name: row!.name, version: row!.identityVersion })
+  return ok({ name, version: result.value.version })
 }

@@ -1,10 +1,7 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import type { PathChoice } from "../game/character"
-import { err, ok, type Result } from "../result"
+import { ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
-import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the builder's HP/SP path choice. Conditions on
@@ -33,30 +30,14 @@ export async function updateCharacterPath(
 ): Promise<
   Result<CharacterPathPersistenceSuccess, CharacterPathPersistenceError>
 > {
-  const updated = await db
-    .update(characters)
-    .set({
-      pathChoice,
-      identityVersion: sql`${characters.identityVersion} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.identityVersion, expectedVersion)
-      )
-    )
-    .returning({
-      pathChoice: characters.pathChoice,
-      identityVersion: characters.identityVersion,
-    })
+  const result = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "identity",
+    expectedVersion,
+    { pathChoice }
+  )
+  if (!result.ok) return result
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  const [row] = updated
-  return ok({ pathChoice: row!.pathChoice, version: row!.identityVersion })
+  return ok({ pathChoice, version: result.value.version })
 }

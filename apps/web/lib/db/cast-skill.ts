@@ -1,5 +1,3 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
@@ -11,8 +9,8 @@ import {
 } from "../game/skills"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists, loadHydratedCharacterById } from "./load-character"
-import { characters } from "./schema/character"
+import { loadHydratedCharacterById } from "./load-character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the pure cast engine (PRD §7.2): hydrate the character via
@@ -78,30 +76,21 @@ export async function applyCastForCharacter(
   const result = applyCast(skill, toCastingCharacter(character))
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    {
       currentHP: result.value.currentHP,
       currentSP: result.value.currentSP,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+    }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     currentHP: result.value.currentHP,
     currentSP: result.value.currentSP,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }

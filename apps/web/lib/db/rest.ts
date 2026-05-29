@@ -1,5 +1,3 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
@@ -15,8 +13,8 @@ import {
 } from "../game/combat"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists, loadHydratedCharacterById } from "./load-character"
-import { characters } from "./schema/character"
+import { loadHydratedCharacterById } from "./load-character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the pure rest engine: hydrate the character via
@@ -72,32 +70,23 @@ export async function applyFullRestForCharacter(
 
   const next = applyFullRest(toRestingCharacter(character))
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    {
       currentHP: next.currentHP,
       currentSP: next.currentSP,
       hitDiceRemaining: next.hitDiceRemaining,
       skillDiceRemaining: next.skillDiceRemaining,
       exhaustion: next.exhaustion,
       prismaCharges: next.prismaCharges,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
+    }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ character: next, version: updated[0]!.vitalsVersion })
+  return ok({ character: next, version: bumped.value.version })
 }
 
 /**
@@ -118,29 +107,20 @@ export async function applyPartialRestForCharacter(
   const result = applyPartialRest(toRestingCharacter(character), input)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    {
       currentHP: result.value.currentHP,
       currentSP: result.value.currentSP,
       skillDiceRemaining: result.value.skillDiceRemaining,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
+    }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ character: result.value, version: updated[0]!.vitalsVersion })
+  return ok({ character: result.value, version: bumped.value.version })
 }
 
 /**
@@ -161,26 +141,17 @@ export async function applyRespiteForCharacter(
   const result = applyRespite(toRestingCharacter(character), input)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    {
       currentHP: result.value.currentHP,
       hitDiceRemaining: result.value.hitDiceRemaining,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
+    }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ character: result.value, version: updated[0]!.vitalsVersion })
+  return ok({ character: result.value, version: bumped.value.version })
 }

@@ -1,10 +1,10 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { TALENT_KEYS, type TalentKey } from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
 import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the Step-3 / sheet Talents picker. The `gainedTalents`
@@ -46,25 +46,13 @@ export async function addGainedTalent(
   if (!TALENT_KEY_SET.has(talentKey)) return err("unknown-talent")
 
   return db.transaction(async (tx) => {
-    const [bumped] = await tx
-      .update(characters)
-      .set({
-        identityVersion: sql`${characters.identityVersion} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.identityVersion, expectedVersion)
-        )
-      )
-      .returning({ identityVersion: characters.identityVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterId))
-        ? err("stale")
-        : err("character-not-found")
-    }
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion
+    )
+    if (!bumped.ok) return bumped
 
     const [row] = await tx
       .select({ gainedTalents: characters.gainedTalents })
@@ -81,7 +69,7 @@ export async function addGainedTalent(
       .set({ gainedTalents: next })
       .where(eq(characters.id, characterId))
 
-    return ok({ version: bumped.identityVersion, gainedTalents: next })
+    return ok({ version: bumped.value.version, gainedTalents: next })
   })
 }
 
@@ -95,25 +83,13 @@ export async function removeGainedTalent(
   if (!TALENT_KEY_SET.has(talentKey)) return err("unknown-talent")
 
   return db.transaction(async (tx) => {
-    const [bumped] = await tx
-      .update(characters)
-      .set({
-        identityVersion: sql`${characters.identityVersion} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.identityVersion, expectedVersion)
-        )
-      )
-      .returning({ identityVersion: characters.identityVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterId))
-        ? err("stale")
-        : err("character-not-found")
-    }
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion
+    )
+    if (!bumped.ok) return bumped
 
     const [row] = await tx
       .select({ gainedTalents: characters.gainedTalents })
@@ -131,6 +107,6 @@ export async function removeGainedTalent(
       .set({ gainedTalents: next })
       .where(eq(characters.id, characterId))
 
-    return ok({ version: bumped.identityVersion, gainedTalents: next })
+    return ok({ version: bumped.value.version, gainedTalents: next })
   })
 }

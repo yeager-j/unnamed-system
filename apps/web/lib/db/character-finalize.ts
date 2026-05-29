@@ -1,5 +1,3 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import { getArchetype } from "../game/archetypes"
 import {
   buildStatComputationCharacter,
@@ -12,12 +10,9 @@ import {
 import { type WeaponKey } from "../game/items"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import {
-  characterExists,
-  type CharacterArchetypeRow,
-  type CharacterRow,
-} from "./load-character"
-import { characters, inventoryItems } from "./schema/character"
+import { type CharacterArchetypeRow, type CharacterRow } from "./load-character"
+import { inventoryItems } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the Movement 4 Finalize button (UNN-218). Flips a `draft`
@@ -98,30 +93,20 @@ export async function finalizeCharacter(
   const maxSkillDice = computeMaxSkillDice(characterRow.level)
 
   return db.transaction(async (tx) => {
-    const [bumped] = await tx
-      .update(characters)
-      .set({
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterRow.id,
+      "identity",
+      expectedVersion,
+      {
         status: "finalized",
         currentHP: maxHP,
         currentSP: maxSP,
         hitDiceRemaining: maxHitDice,
         skillDiceRemaining: maxSkillDice,
-        identityVersion: sql`${characters.identityVersion} + 1`,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(characters.id, characterRow.id),
-          eq(characters.identityVersion, expectedVersion)
-        )
-      )
-      .returning({ identityVersion: characters.identityVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterRow.id))
-        ? err("stale")
-        : err("character-not-found")
-    }
+      }
+    )
+    if (!bumped.ok) return bumped
 
     await tx.insert(inventoryItems).values({
       characterId: characterRow.id,

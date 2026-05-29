@@ -1,10 +1,7 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import type { VirtueAllocation } from "../game/character"
-import { err, ok, type Result } from "../result"
+import { ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
-import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the character creation Virtue allocation (rulebook 1.2):
@@ -27,29 +24,19 @@ export async function setCharacterVirtues(
 ): Promise<
   Result<CharacterVirtuesPersistenceSuccess, CharacterVirtuesPersistenceError>
 > {
-  const updated = await db
-    .update(characters)
-    .set({
+  const result = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "identity",
+    expectedVersion,
+    {
       virtueExpression: allocation.expression,
       virtueEmpathy: allocation.empathy,
       virtueWisdom: allocation.wisdom,
       virtueFocus: allocation.focus,
-      identityVersion: sql`${characters.identityVersion} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.identityVersion, expectedVersion)
-      )
-    )
-    .returning({ identityVersion: characters.identityVersion })
+    }
+  )
+  if (!result.ok) return result
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ version: updated[0]!.identityVersion })
+  return ok({ version: result.value.version })
 }

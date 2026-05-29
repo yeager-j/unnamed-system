@@ -1,9 +1,7 @@
-import { and, eq, sql } from "drizzle-orm"
-
-import { err, ok, type Result } from "../result"
+import { ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
 import { characters } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the three Step-3 narrative free-text columns: `ancestryText`,
@@ -47,26 +45,14 @@ export async function updateCharacterNarrative(
     typeof characters.$inferInsert
   >
 
-  const updated = await db
-    .update(characters)
-    .set({
-      ...patch,
-      identityVersion: sql`${characters.identityVersion} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.identityVersion, expectedVersion)
-      )
-    )
-    .returning({ identityVersion: characters.identityVersion })
+  const result = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "identity",
+    expectedVersion,
+    patch
+  )
+  if (!result.ok) return result
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ version: updated[0]!.identityVersion })
+  return ok({ version: result.value.version })
 }

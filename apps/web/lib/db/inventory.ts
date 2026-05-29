@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { MAX_CURRENCY } from "../game/character"
 import {
@@ -14,8 +14,8 @@ import {
 } from "../game/items"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
 import { characters, inventoryItems } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the pure inventory engine: load the inventory rows, run the
@@ -69,24 +69,13 @@ async function mutateInventory(
   const nextIds = new Set(next.map((row) => row.id))
 
   return db.transaction(async (tx) => {
-    const [bumped] = await tx
-      .update(characters)
-      .set({
-        inventoryVersion: sql`${characters.inventoryVersion} + 1`,
-      })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.inventoryVersion, expectedVersion)
-        )
-      )
-      .returning({ inventoryVersion: characters.inventoryVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterId))
-        ? err("stale")
-        : err("character-not-found")
-    }
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "inventory",
+      expectedVersion
+    )
+    if (!bumped.ok) return bumped
 
     for (const row of rows) {
       if (!nextIds.has(row.id)) {
@@ -115,7 +104,7 @@ async function mutateInventory(
       }
     }
 
-    return ok({ items: next, version: bumped.inventoryVersion })
+    return ok({ items: next, version: bumped.value.version })
   })
 }
 
@@ -223,22 +212,15 @@ export async function adjustCurrency(
       Math.min(MAX_CURRENCY, current.currency + delta)
     )
 
-    const [bumped] = await tx
-      .update(characters)
-      .set({
-        currency: nextCurrency,
-        inventoryVersion: sql`${characters.inventoryVersion} + 1`,
-      })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.inventoryVersion, expectedVersion)
-        )
-      )
-      .returning({ inventoryVersion: characters.inventoryVersion })
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "inventory",
+      expectedVersion,
+      { currency: nextCurrency }
+    )
+    if (!bumped.ok) return bumped
 
-    if (!bumped) return err("stale")
-
-    return ok({ currency: nextCurrency, version: bumped.inventoryVersion })
+    return ok({ currency: nextCurrency, version: bumped.value.version })
   })
 }

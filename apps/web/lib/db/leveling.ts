@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import {
   applyLevelUp,
@@ -7,8 +7,13 @@ import {
 } from "../game/character"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists, loadCharacterRowById } from "./load-character"
+import { loadCharacterRowById } from "./load-character"
 import { characters } from "./schema/character"
+import {
+  bumpCharacterVersionGuarded,
+  characterVersionIncrement,
+  staleOrMissing,
+} from "./version-guard"
 
 /**
  * Persistence for the pure leveling engine: load the row, run the (pure)
@@ -95,27 +100,16 @@ export async function awardVictoriesForCharacter(
     victories: character.victories + amount,
   }
 
-  const updated = await db
-    .update(characters)
-    .set({
-      victories: next.victories,
-      progressionVersion: sql`${characters.progressionVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.progressionVersion, expectedVersion)
-      )
-    )
-    .returning({ progressionVersion: characters.progressionVersion })
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "progression",
+    expectedVersion,
+    { victories: next.victories }
+  )
+  if (!bumped.ok) return bumped
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-
-  return ok({ character: next, version: updated[0]!.progressionVersion })
+  return ok({ character: next, version: bumped.value.version })
 }
 
 /**
@@ -145,8 +139,8 @@ export async function applyLevelUpForCharacter(
       savedArchetypeRanks: result.value.savedArchetypeRanks,
       hitDiceRemaining: result.value.hitDiceRemaining,
       skillDiceRemaining: result.value.skillDiceRemaining,
-      progressionVersion: sql`${characters.progressionVersion} + 1`,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
+      ...characterVersionIncrement("progression"),
+      ...characterVersionIncrement("vitals"),
     })
     .where(
       and(
@@ -160,11 +154,7 @@ export async function applyLevelUpForCharacter(
       vitalsVersion: characters.vitalsVersion,
     })
 
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  if (updated.length === 0) return staleOrMissing(characterId)
 
   return ok({
     character: result.value,
