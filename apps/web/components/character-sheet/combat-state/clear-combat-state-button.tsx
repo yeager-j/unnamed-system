@@ -1,13 +1,10 @@
 "use client"
 
 import { EraserIcon } from "@phosphor-icons/react"
-import { useTransition } from "react"
-import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacterWrite } from "@/hooks/use-character"
 import { clearCombatStateAction } from "@/lib/actions/combat-state"
 
 /**
@@ -22,35 +19,8 @@ import { clearCombatStateAction } from "@/lib/actions/combat-state"
  * already-clean card doesn't fire a no-op write (and waste a vitalsVersion
  * bump that would stale a debounced sibling save).
  */
-export function ClearCombatStateButton({
-  characterId,
-  vitalsVersion,
-  hasState,
-}: {
-  characterId: string
-  vitalsVersion: number
-  hasState: boolean
-}) {
-  const versionRef = useCharacterTokenRef(vitalsVersion)
-  const [pending, startTransition] = useTransition()
-
-  function handleClick() {
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: "vitals",
-        versionRef,
-        action: (expectedVersion) =>
-          clearCombatStateAction({ characterId, expectedVersion }),
-      })
-      if (result.ok) return
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't save. Try again.")
-      }
-    })
-  }
+export function ClearCombatStateButton({ hasState }: { hasState: boolean }) {
+  const { pending, write, characterId } = useCharacterWrite()
 
   return (
     <Button
@@ -58,7 +28,14 @@ export function ClearCombatStateButton({
       variant="ghost"
       size="sm"
       disabled={pending || !hasState}
-      onClick={handleClick}
+      onClick={() =>
+        write({
+          edit: { kind: "clearCombatState" },
+          characterClass: "vitals",
+          action: (expectedVersion) =>
+            clearCombatStateAction({ characterId, expectedVersion }),
+        })
+      }
     >
       <EraserIcon weight="regular" aria-hidden />
       Clear

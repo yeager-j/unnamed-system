@@ -1,3 +1,5 @@
+"use client"
+
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,
@@ -6,6 +8,7 @@ import {
 } from "@workspace/ui/components/tooltip"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useCharacter } from "@/hooks/use-character"
 import { getExhaustionLevel } from "@/lib/game/combat"
 
 import { ExhaustionStepper } from "./exhaustion-stepper"
@@ -18,15 +21,8 @@ import { ExhaustionStepper } from "./exhaustion-stepper"
  * inline +/- steppers for manual correction — the normal reducer is Full
  * Rest (UNN-156), not these buttons.
  */
-export function Exhaustion({
-  characterId,
-  exhaustion,
-  vitalsVersion,
-}: {
-  characterId: string
-  exhaustion: number
-  vitalsVersion: number
-}) {
+export function Exhaustion() {
+  const { exhaustion } = useCharacter()
   const entry = getExhaustionLevel(exhaustion)
   const exhausted = entry.level > 0
   return (
@@ -51,11 +47,7 @@ export function Exhaustion({
           </TooltipContent>
         </Tooltip>
         <OwnerOnly>
-          <ExhaustionStepper
-            characterId={characterId}
-            exhaustion={exhaustion}
-            vitalsVersion={vitalsVersion}
-          />
+          <ExhaustionStepper />
         </OwnerOnly>
       </div>
     </div>

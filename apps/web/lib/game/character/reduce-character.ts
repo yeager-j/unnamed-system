@@ -1,14 +1,22 @@
+import type { CharacterRow } from "../../db/load-character"
+import { MAX_EXHAUSTION_LEVEL } from "../combat"
 import {
   applyInventoryMutation,
   type InventoryItemState,
   type InventoryMutation,
 } from "../items"
+import { applyUsePrisma } from "./adjust-pools"
 import { clampCurrency } from "./currency"
 import {
   deriveHydratedCharacter,
   toRawInputs,
+  type RawCharacterInputs,
 } from "./derive-hydrated-character"
 import type { HydratedCharacter } from "./hydrated-character"
+import { DEFAULT_BATTLE_CONDITIONS, type BattleConditionState } from "./state"
+
+type BattleConditionAxisKey = "attack" | "defense" | "hitEvasion"
+type BattleConditionFlagKey = "charged" | "concentrating"
 
 /**
  * One owner-mode edit to a character, in raw-input terms. Each variant maps to
@@ -20,6 +28,20 @@ import type { HydratedCharacter } from "./hydrated-character"
 export type CharacterEdit =
   | { kind: "inventory"; mutation: InventoryMutation }
   | { kind: "currency"; delta: number }
+  | { kind: "ailments"; ailments: string[] }
+  | {
+      kind: "battleConditionAxis"
+      axis: BattleConditionAxisKey
+      state: BattleConditionState
+    }
+  | {
+      kind: "battleConditionFlag"
+      flag: BattleConditionFlagKey
+      value: boolean
+    }
+  | { kind: "exhaustion"; direction: "increment" | "decrement" }
+  | { kind: "usePrisma" }
+  | { kind: "clearCombatState" }
 
 const randomId = () => crypto.randomUUID()
 
@@ -38,12 +60,63 @@ export function reduceCharacter(
   newId: () => string = randomId
 ): HydratedCharacter {
   const raw = toRawInputs(character)
+  const withRow = (patch: Partial<CharacterRow>) =>
+    deriveHydratedCharacter({ ...raw, row: { ...raw.row, ...patch } })
+  const conditions = raw.row.battleConditions ?? DEFAULT_BATTLE_CONDITIONS
 
-  if (edit.kind === "currency") {
-    const currency = clampCurrency(raw.row.currency + edit.delta)
-    return deriveHydratedCharacter({ ...raw, row: { ...raw.row, currency } })
+  switch (edit.kind) {
+    case "inventory":
+      return reduceInventory(raw, character, edit.mutation, newId)
+
+    case "currency":
+      return withRow({ currency: clampCurrency(raw.row.currency + edit.delta) })
+
+    case "ailments":
+      return withRow({ ailments: edit.ailments })
+
+    case "battleConditionAxis":
+      return withRow({
+        battleConditions: {
+          ...conditions,
+          [edit.axis]: {
+            state: edit.state,
+            stacks: edit.state === "neutral" ? 0 : 1,
+          },
+        },
+      })
+
+    case "battleConditionFlag":
+      return withRow({
+        battleConditions: { ...conditions, [edit.flag]: edit.value },
+      })
+
+    case "exhaustion": {
+      const next =
+        edit.direction === "increment"
+          ? Math.min(MAX_EXHAUSTION_LEVEL, raw.row.exhaustion + 1)
+          : Math.max(0, raw.row.exhaustion - 1)
+      return withRow({ exhaustion: next })
+    }
+
+    case "usePrisma": {
+      const result = applyUsePrisma(raw.row)
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "clearCombatState":
+      return withRow({
+        ailments: [],
+        battleConditions: DEFAULT_BATTLE_CONDITIONS,
+      })
   }
+}
 
+function reduceInventory(
+  raw: RawCharacterInputs,
+  character: HydratedCharacter,
+  mutation: InventoryMutation,
+  newId: () => string
+): HydratedCharacter {
   const projection: InventoryItemState[] = raw.inventoryRows.map((row) => ({
     id: row.id,
     catalogItemKey: row.catalogItemKey,
@@ -51,7 +124,7 @@ export function reduceCharacter(
     quantity: row.quantity,
   }))
 
-  const result = applyInventoryMutation(projection, edit.mutation, newId)
+  const result = applyInventoryMutation(projection, mutation, newId)
   if (!result.ok) return character
 
   const inventoryRows = result.value.map((state) => ({

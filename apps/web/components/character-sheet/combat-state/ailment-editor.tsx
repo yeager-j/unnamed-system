@@ -1,8 +1,6 @@
 "use client"
 
 import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react"
-import { useOptimistic, useTransition } from "react"
-import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -17,8 +15,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setAilmentsAction } from "@/lib/actions/combat-state"
 import { AILMENTS, getAilment } from "@/lib/game/combat"
 
@@ -57,63 +54,24 @@ function withNonDownedSelection(
  * 11 other ailments as a single-select list below). Reuses the same vitals-
  * class optimistic-write plumbing as the other Combat State editors.
  */
-export function AilmentEditor({
-  characterId,
-  ailments,
-  vitalsVersion,
-}: {
-  characterId: string
-  ailments: readonly string[]
-  vitalsVersion: number
-}) {
+export function AilmentEditor() {
   const role = useViewerRole()
+  const { ailments } = useCharacter()
   if (role !== "owner") return <AilmentList ailmentKeys={ailments} />
 
-  return (
-    <OwnerAilmentEditor
-      characterId={characterId}
-      ailments={ailments}
-      vitalsVersion={vitalsVersion}
-    />
-  )
+  return <OwnerAilmentEditor />
 }
 
-function OwnerAilmentEditor({
-  characterId,
-  ailments,
-  vitalsVersion,
-}: {
-  characterId: string
-  ailments: readonly string[]
-  vitalsVersion: number
-}) {
-  const versionRef = useCharacterTokenRef(vitalsVersion)
-  const [pending, startTransition] = useTransition()
-  const [optimisticAilments, applyOptimistic] = useOptimistic(
-    ailments,
-    (_current, next: readonly string[]) => next
-  )
+function OwnerAilmentEditor() {
+  const { ailments: optimisticAilments } = useCharacter()
+  const { pending, write, characterId } = useCharacterWrite()
 
   function dispatch(next: string[]) {
-    startTransition(async () => {
-      applyOptimistic(next)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: "vitals",
-        versionRef,
-        action: (expectedVersion) =>
-          setAilmentsAction({
-            characterId,
-            ailments: next,
-            expectedVersion,
-          }),
-      })
-      if (result.ok) return
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't save. Try again.")
-      }
+    write({
+      edit: { kind: "ailments", ailments: next },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        setAilmentsAction({ characterId, ailments: next, expectedVersion }),
     })
   }
 

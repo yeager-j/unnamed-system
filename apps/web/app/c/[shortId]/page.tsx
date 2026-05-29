@@ -131,7 +131,7 @@ export default async function CharacterSheetPage({
                     </section>
                   ) : null}
                   <section aria-label="Combat State">
-                    <CombatState character={character} />
+                    <CombatState />
                   </section>
                 </div>
                 <section aria-label="Skills">

@@ -174,5 +174,5 @@ export function useCharacterWrite() {
     })
   }
 
-  return { pending, write }
+  return { pending, write, characterId }
 }
