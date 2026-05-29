@@ -7,6 +7,7 @@ import { soulDrop } from "./consumable/soul-drop"
 import {
   isConsumable,
   isEquippable,
+  isItemForSlot,
   itemSchema,
   type EquippableItem,
   type EquippedWeapon,
@@ -59,17 +60,35 @@ const ITEMS_BY_KEY = {
 
 export type ItemKey = keyof typeof ITEMS_BY_KEY
 
-/** The keys of catalog items that carry the weapon equip capability. */
+/**
+ * The keys of catalog items that carry the weapon equip capability. A mapped
+ * type that walks every {@link ItemKey} and keeps a key `K` only when that
+ * item's concrete type is assignable to {@link EquippedWeapon} (its
+ * `equip.slot` is `"weapon"`), mapping the rest to `never`; indexing the
+ * result by `[ItemKey]` then unions the surviving keys. If a future catalog
+ * change makes this resolve to `never`, check that the intended weapons still
+ * satisfy `EquippedWeapon` rather than a wider `Item`.
+ */
 export type WeaponKey = {
   [K in ItemKey]: (typeof ITEMS_BY_KEY)[K] extends EquippedWeapon ? K : never
 }[ItemKey]
 
 export const ITEMS: readonly Item[] = Object.values(ITEMS_BY_KEY)
 
+/**
+ * Runtime lookup index keyed by arbitrary `string`, so {@link getItem} can
+ * resolve a persisted `catalogItemKey` against the catalog without widening
+ * the literal-keyed {@link ITEMS_BY_KEY} (whose precise keys exist only to
+ * derive {@link ItemKey} / {@link WeaponKey}).
+ */
+const ITEM_INDEX: ReadonlyMap<string, Item> = new Map(
+  Object.entries(ITEMS_BY_KEY)
+)
+
 /** Equippable items in a slot, for the add-item picker's grouped listing. */
 function itemsInSlot<S extends EquipSlot>(slot: S): readonly ItemForSlot<S>[] {
-  return ITEMS.filter(
-    (item): item is ItemForSlot<S> => item.equip?.slot === slot
+  return ITEMS.filter((item): item is ItemForSlot<S> =>
+    isItemForSlot(item, slot)
   )
 }
 
@@ -85,7 +104,7 @@ export const CONSUMABLES: readonly Item[] = ITEMS.filter(isConsumable)
  * non-equippable items (consumables) resolve too.
  */
 export function getItem(key: string): Item | undefined {
-  return (ITEMS_BY_KEY as Record<string, Item>)[key]
+  return ITEM_INDEX.get(key)
 }
 
 /**
@@ -104,7 +123,7 @@ export function getEquippableItem(key: string): EquippableItem | undefined {
  */
 export function getWeapon(key: string): EquippedWeapon | undefined {
   const item = getItem(key)
-  return item?.equip?.slot === "weapon" ? (item as EquippedWeapon) : undefined
+  return item && isItemForSlot(item, "weapon") ? item : undefined
 }
 
 /** Structural inventory slice that the slot helper accepts. */
@@ -124,10 +143,10 @@ export function getEquippedItem<S extends EquipSlot>(
   inventory: InventorySlice,
   slot: S
 ): ItemForSlot<S> | null {
-  const entry = inventory.find(
-    (e) => e.equipped && e.item?.equip?.slot === slot
-  )
-  return entry?.item?.equip?.slot === slot
-    ? (entry.item as ItemForSlot<S>)
-    : null
+  for (const entry of inventory) {
+    if (entry.equipped && entry.item && isItemForSlot(entry.item, slot)) {
+      return entry.item
+    }
+  }
+  return null
 }
