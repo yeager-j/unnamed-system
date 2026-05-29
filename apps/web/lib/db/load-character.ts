@@ -65,8 +65,31 @@ async function fetchRawInputs(row: CharacterRow): Promise<RawCharacterInputs> {
   return { row, archetypeRows, inventoryRows, knives, chains }
 }
 
+/**
+ * Fails loudly when a character's persisted Origin points outside its own
+ * Archetype rows. `originCharacterArchetypeId` is a permanent identity field
+ * (UNN-173) that no UI lets the player edit, so a value that doesn't match a
+ * sibling row is data corruption — better to throw here than to silently
+ * mislabel Origin downstream. A null Origin (an unfinalized draft) is valid
+ * and passes.
+ */
+function assertOriginBelongsToCharacter(
+  row: CharacterRow,
+  archetypeRows: CharacterArchetypeRow[]
+): void {
+  const originId = row.originCharacterArchetypeId
+  if (originId === null) return
+  if (!archetypeRows.some((archetype) => archetype.id === originId)) {
+    throw new Error(
+      `Character ${row.id} has originCharacterArchetypeId ${originId}, which is not one of its Archetype rows.`
+    )
+  }
+}
+
 async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
-  return deriveHydratedCharacter(await fetchRawInputs(row))
+  const raw = await fetchRawInputs(row)
+  assertOriginBelongsToCharacter(row, raw.archetypeRows)
+  return deriveHydratedCharacter(raw)
 }
 
 /** The raw `characters` row by id, or `null` when no character matches. */

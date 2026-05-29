@@ -100,6 +100,23 @@ export const characters = pgTable("character", {
     (): AnyPgColumn => characterArchetypes.id,
     { onDelete: "set null" }
   ),
+  /**
+   * The character's **Origin** Archetype (rulebook 1.3) — the one Archetype
+   * chosen at creation, ranked up twice, and permanent thereafter. Unlike
+   * {@link activeArchetypeId}, which can change post-MVP as the character
+   * switches between unlocked Archetypes, Origin never changes once set, and
+   * only the Origin Lineage's Paragon is ever unlockable.
+   *
+   * Nullable only because a builder draft (UNN-204) inserts the `character`
+   * row before any `characterArchetype` row exists; it is set the moment the
+   * player picks their Origin in the builder (`setOriginArchetype`), alongside
+   * `activeArchetypeId`. The loader asserts that a non-null value references a
+   * sibling row of the same character.
+   */
+  originCharacterArchetypeId: text("originCharacterArchetypeId").references(
+    (): AnyPgColumn => characterArchetypes.id,
+    { onDelete: "set null" }
+  ),
   savedArchetypeRanks: integer("savedArchetypeRanks").notNull().default(0),
   ancestryText: text("ancestryText"),
   backgroundText: text("backgroundText"),

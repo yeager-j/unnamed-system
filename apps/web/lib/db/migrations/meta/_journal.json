@@ -113,6 +113,13 @@
       "when": 1779998564386,
       "tag": "0015_unn_223_inventory_quantity",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780034899280,
+      "tag": "0016_unn_173_origin_archetype",
+      "breakpoints": true
     }
   ]
 }
