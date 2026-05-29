@@ -25,7 +25,7 @@ import { Virtues } from "@/components/character-sheet/virtues"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import { getViewerRole } from "@/lib/auth/viewer-role"
-import { loadHydratedCharacterByShortId } from "@/lib/db/load-character"
+import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 /**

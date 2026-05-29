@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterKnifePersistenceError } from "@/lib/db/character-knives"
+import type { CharacterKnifePersistenceError } from "@/lib/db/writes/knives"
 
 /**
  * Input schemas for the Step-3 Knives actions. Title + description updates

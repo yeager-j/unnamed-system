@@ -89,10 +89,35 @@ apps/web/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── game/                  Game data + per-domain helpers and display shaping
     ├── ui/                    Cross-cutting UI utilities (labels)
-    ├── db/                    Drizzle schema and loaders
+    ├── db/                    Persistence, grouped by role (see below)
     ├── storage/               Vercel Blob storage
     └── auth/                  Auth.js
 ```
+
+`lib/db/` is grouped by role:
+
+```
+lib/db/
+├── client.ts        Lazy Drizzle client (db, getDb)
+├── index.ts         Barrel: re-exports client + schema (import via @/lib/db)
+├── env.ts           DB env resolution
+├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
+├── schema/          Drizzle table + column definitions
+├── migrations/      drizzle-kit SQL migrations + meta
+├── queries/         Reads: load-character (central loader), character-list, versions
+└── writes/          Per-concern persistence wrappers + the version-guard primitive
+```
+
+**Wrapper naming rule:** files in `queries/`/`writes/` are named for the
+character-state slice or operation they touch, with **no `character-` prefix**
+(the folder already says "character db") — `writes/virtues.ts`,
+`writes/combat-state.ts`, `queries/versions.ts`, matching peers like
+`writes/inventory.ts`/`writes/rest.ts`. Keep `character` in the name **only**
+when the whole character is the operation's object: `queries/load-character.ts`,
+`queries/character-list.ts`, `writes/delete-character.ts`,
+`writes/start-character-draft.ts`. Every write composes through
+`writes/version-guard.ts` (UNN-248); the README in `lib/actions/` documents the
+owner-mode write pattern these back.
 
 ## Commands
 

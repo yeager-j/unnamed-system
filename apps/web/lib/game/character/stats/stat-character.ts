@@ -19,7 +19,7 @@ import type { ActiveMechanic, StatComputationCharacter } from "./stats"
  * Pure and storage-agnostic: it takes plain persisted values (not DB rows or a
  * client) and resolves keys against the hardcoded catalogs, so it is unit
  * testable without a database. The thin query wrapper that feeds it lives in
- * `lib/db/load-character.ts`.
+ * `lib/db/queries/load-character.ts`.
  */
 
 /** The `characters`-row fields stat computation depends on. */

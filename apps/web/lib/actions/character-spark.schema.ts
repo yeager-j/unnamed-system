@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { SparkPersistenceError } from "@/lib/db/spark"
+import type { SparkPersistenceError } from "@/lib/db/writes/spark"
 import { VIRTUE_KEYS } from "@/lib/game/character"
 
 /**

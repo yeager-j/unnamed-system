@@ -5,7 +5,7 @@ import {
   addGainedTalent,
   removeGainedTalent,
   type CharacterTalentPersistenceSuccess,
-} from "@/lib/db/character-talents"
+} from "@/lib/db/writes/talents"
 import { err, type Result } from "@/lib/result"
 
 import {

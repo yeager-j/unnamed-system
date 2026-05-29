@@ -1,7 +1,8 @@
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "../../lib/db/load-character"
+} from "@/lib/db/queries/load-character"
+
 import { isValidCreationAllocation } from "../../lib/game/character/virtues/utils"
 import type { MovementSlug } from "./builder-steps"
 

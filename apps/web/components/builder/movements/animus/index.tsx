@@ -1,7 +1,7 @@
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/queries/load-character"
 
 import { WriterPane } from "./writer-pane"
 

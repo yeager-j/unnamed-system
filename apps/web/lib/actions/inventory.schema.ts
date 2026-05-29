@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { InventoryPersistenceError } from "@/lib/db/inventory"
+import type { InventoryPersistenceError } from "@/lib/db/writes/inventory"
 import { MAX_CURRENCY } from "@/lib/game/character"
 import { itemKeySchema, type InventoryItemState } from "@/lib/game/items"
 

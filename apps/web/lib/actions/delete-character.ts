@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
-import { deleteCharacter } from "@/lib/db/delete-character"
+import { deleteCharacter } from "@/lib/db/writes/delete-character"
 import { err, ok, type Result } from "@/lib/result"
 
 import {

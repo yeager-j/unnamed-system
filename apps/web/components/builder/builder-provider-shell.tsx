@@ -12,7 +12,7 @@ import {
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/queries/load-character"
 
 import { AnimusDocumentProvider } from "./movements/animus/animus-context"
 import { WriterSidebar } from "./movements/animus/writer-sidebar"

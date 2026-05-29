@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm"
 
-import { getArchetype } from "../game/archetypes"
-import type { TalentKey } from "../game/character"
-import { ok, type Result } from "../result"
-import { db } from "./index"
-import { characterArchetypes, characters } from "./schema/character"
+import { db } from "@/lib/db/client"
+import { characterArchetypes, characters } from "@/lib/db/schema/character"
+import { getArchetype } from "@/lib/game/archetypes"
+import type { TalentKey } from "@/lib/game/character"
+import { ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
@@ -24,7 +25,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  *
  * Concurrency: the parent UPDATE bumps `identityVersion` conditionally
  * **first** inside a transaction (matches the child-write pattern in
- * `lib/db/inventory.ts`) so a concurrent identity-class writer either blocks
+ * `lib/db/writes/inventory.ts`) so a concurrent identity-class writer either blocks
  * on the row lock or causes our WHERE to miss with no child rows touched.
  */
 

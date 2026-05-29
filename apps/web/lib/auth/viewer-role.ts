@@ -3,7 +3,7 @@ import { forbidden } from "next/navigation"
 import {
   loadCharacterRowById,
   type CharacterRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/queries/load-character"
 
 import { auth } from "./index"
 

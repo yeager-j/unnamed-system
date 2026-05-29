@@ -1,5 +1,6 @@
-import { ok, type Result } from "../result"
-import { db } from "./index"
+import { db } from "@/lib/db/client"
+import { ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

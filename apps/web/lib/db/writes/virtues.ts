@@ -1,6 +1,7 @@
-import type { VirtueAllocation } from "../game/character"
-import { ok, type Result } from "../result"
-import { db } from "./index"
+import { db } from "@/lib/db/client"
+import type { VirtueAllocation } from "@/lib/game/character"
+import { ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

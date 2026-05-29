@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterChainPersistenceError } from "@/lib/db/character-chains"
+import type { CharacterChainPersistenceError } from "@/lib/db/writes/chains"
 
 /**
  * Input schemas for the Step-3 Chains actions. Mirrors the Knives shape;

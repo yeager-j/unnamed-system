@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import type { CharacterRow, InventoryItemRow } from "../../db/load-character"
+import type {
+  CharacterRow,
+  InventoryItemRow,
+} from "@/lib/db/queries/load-character"
+
 import { MAX_CURRENCY } from "./currency"
 import {
   deriveHydratedCharacter,

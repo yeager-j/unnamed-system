@@ -8,7 +8,7 @@ import {
   updateCharacterKnifeTitle,
   type AddKnifeSuccess,
   type CharacterKnifePersistenceSuccess,
-} from "@/lib/db/character-knives"
+} from "@/lib/db/writes/knives"
 import { err, type Result } from "@/lib/result"
 
 import {

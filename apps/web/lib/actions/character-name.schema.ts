@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterNamePersistenceError } from "@/lib/db/character-name"
+import type { CharacterNamePersistenceError } from "@/lib/db/writes/name"
 
 /**
  * Input schema for {@link updateCharacterNameAction}. Lives in its own file

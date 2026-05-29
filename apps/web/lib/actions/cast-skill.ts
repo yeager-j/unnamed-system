@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyCastForCharacter,
   type CastPersistenceSuccess,
-} from "@/lib/db/cast-skill"
+} from "@/lib/db/writes/cast-skill"
 import { err, type Result } from "@/lib/result"
 
 import {

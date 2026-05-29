@@ -1,8 +1,9 @@
 import { and, asc, eq, max } from "drizzle-orm"
 
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { characterChains, characterKnives } from "./schema/character"
+import { db } from "@/lib/db/client"
+import { characterChains, characterKnives } from "@/lib/db/schema/character"
+import { err, ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

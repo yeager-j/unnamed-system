@@ -1,11 +1,11 @@
 import { asc, eq } from "drizzle-orm"
 
-import { db } from "./index"
+import { db } from "@/lib/db/client"
 import {
   characterArchetypes,
   characters,
   type CharacterStatus,
-} from "./schema/character"
+} from "@/lib/db/schema/character"
 
 /**
  * Summary view of a character for the My Characters home page: just the

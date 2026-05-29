@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { unauthorized } from "next/navigation"
 
 import { auth } from "@/lib/auth"
-import { startCharacterDraft } from "@/lib/db/start-character-draft"
+import { startCharacterDraft } from "@/lib/db/writes/start-character-draft"
 import { ok, type Result } from "@/lib/result"
 
 /**

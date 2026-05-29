@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterNarrative,
   type CharacterNarrativePersistenceSuccess,
-} from "@/lib/db/character-narrative"
+} from "@/lib/db/writes/narrative"
 import { err, type Result } from "@/lib/result"
 
 import {

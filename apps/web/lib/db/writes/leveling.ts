@@ -1,14 +1,15 @@
 import { and, eq } from "drizzle-orm"
 
+import { db } from "@/lib/db/client"
+import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import { characters } from "@/lib/db/schema/character"
 import {
   applyLevelUp,
   type LevelingCharacter,
   type LevelingError,
-} from "../game/character"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { loadCharacterRowById } from "./load-character"
-import { characters } from "./schema/character"
+} from "@/lib/game/character"
+import { err, ok, type Result } from "@/lib/result"
+
 import {
   bumpCharacterVersionGuarded,
   characterVersionIncrement,

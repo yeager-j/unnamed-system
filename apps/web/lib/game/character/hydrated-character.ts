@@ -1,11 +1,12 @@
-import type { ActiveMechanic, AttributeScores, TalentKey } from "."
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
   CharacterKnifeRow,
   CharacterRow,
   InventoryItemRow,
-} from "../../db/load-character"
+} from "@/lib/db/queries/load-character"
+
+import type { ActiveMechanic, AttributeScores, TalentKey } from "."
 import type { Affinity, DamageType, ResolvedAttackRoll } from "../combat"
 import type { Item } from "../items"
 import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
@@ -15,7 +16,7 @@ import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
  * persisted column plus the engine-derived values. Lives in `lib/game/` so
  * game-layer code (mechanic transforms, mutation engines) can operate on a
  * hydrated character without crossing into the persistence layer; only the
- * thin assembler in [lib/db/load-character.ts](../db/load-character.ts)
+ * thin assembler in [lib/db/queries/load-character.ts](../db/queries/load-character.ts)
  * constructs values of these shapes.
  *
  * The DB row shapes are still defined alongside the schema (`lib/db/`) since

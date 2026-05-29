@@ -1,4 +1,4 @@
-import type { IdentityTraitField } from "@/lib/db/character-identity-traits"
+import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
 /**
  * Per-kind copy for the five Step-4 Identity sections. Pulled into its own

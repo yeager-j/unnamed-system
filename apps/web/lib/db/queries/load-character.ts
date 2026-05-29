@@ -1,18 +1,18 @@
 import { asc, eq } from "drizzle-orm"
 
-import {
-  deriveHydratedCharacter,
-  type HydratedCharacter,
-  type RawCharacterInputs,
-} from "../game/character"
-import { db } from "./index"
+import { db } from "@/lib/db/client"
 import {
   characterArchetypes,
   characterChains,
   characterKnives,
   characters,
   inventoryItems,
-} from "./schema/character"
+} from "@/lib/db/schema/character"
+import {
+  deriveHydratedCharacter,
+  type HydratedCharacter,
+  type RawCharacterInputs,
+} from "@/lib/game/character"
 
 /**
  * Either the auto-resolving {@link db} client or the transaction handle passed

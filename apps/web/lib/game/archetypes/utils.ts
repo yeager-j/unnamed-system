@@ -1,4 +1,5 @@
-import type { CharacterArchetypeRow } from "../../db/load-character"
+import type { CharacterArchetypeRow } from "@/lib/db/queries/load-character"
+
 import {
   computeMaxHP,
   computeMaxSP,

@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import type { GatedStepSlug } from "@/components/builder/builder-step-gates"
-import type { CharacterFinalizePersistenceError } from "@/lib/db/character-finalize"
+import type { CharacterFinalizePersistenceError } from "@/lib/db/writes/finalize"
 
 /**
  * Input + error types for {@link finalizeCharacterAction}. Kept in its own

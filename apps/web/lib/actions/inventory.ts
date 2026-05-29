@@ -8,7 +8,7 @@ import {
   removeInventoryItem,
   setInventoryItemQuantity,
   unequipInventoryItem,
-} from "@/lib/db/inventory"
+} from "@/lib/db/writes/inventory"
 import { err, type Result } from "@/lib/result"
 
 import {
@@ -31,7 +31,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * The Inventory tab's owner-mode Server Actions (PRD §6.1/§6.2/§7.7,
  * UNN-223). Each flows through a pure engine and the transactional persistence
- * wrapper in `lib/db/inventory.ts`. After a successful write,
+ * wrapper in `lib/db/writes/inventory.ts`. After a successful write,
  * `revalidateCharacter` re-derives every stat that depends on equipped effects
  * (attributes, affinities, weapon attack roll) plus the currency display. Auth
  * is `requireOwner` — non-owners get `forbidden()` (HTTP 403). See

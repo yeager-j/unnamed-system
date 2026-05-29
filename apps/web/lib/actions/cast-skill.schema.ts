@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CastPersistenceError } from "@/lib/db/cast-skill"
+import type { CastPersistenceError } from "@/lib/db/writes/cast-skill"
 
 /**
  * Input schema for {@link castSkillAction}. The Skill key is the same

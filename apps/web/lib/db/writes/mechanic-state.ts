@@ -1,16 +1,17 @@
 import { eq } from "drizzle-orm"
 
+import { db } from "@/lib/db/client"
+import { characterExists } from "@/lib/db/queries/load-character"
+import { characterArchetypes, characters } from "@/lib/db/schema/character"
 import {
   initialStateFor,
   mechanicStateSchema,
   type MechanicKind,
   type MechanicState,
-} from "../../game/mechanics"
-import { err, ok, type Result } from "../../result"
-import { db } from "../index"
-import { characterExists } from "../load-character"
-import { characterArchetypes, characters } from "../schema/character"
-import { bumpCharacterVersionGuarded } from "../version-guard"
+} from "@/lib/game/mechanics"
+import { err, ok, type Result } from "@/lib/result"
+
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * The shared persistence primitive every per-Archetype mechanic write

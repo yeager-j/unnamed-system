@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { DeleteCharacterPersistenceError } from "@/lib/db/delete-character"
+import type { DeleteCharacterPersistenceError } from "@/lib/db/writes/delete-character"
 
 /**
  * Input schema for {@link deleteCharacterAction}. Lives in its own file

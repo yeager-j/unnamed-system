@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { OriginArchetypePersistenceError } from "@/lib/db/origin-archetype"
+import type { OriginArchetypePersistenceError } from "@/lib/db/writes/origin-archetype"
 import { ORIGIN_ARCHETYPE_KEYS } from "@/lib/game/archetypes"
 
 /**

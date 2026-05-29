@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CombatStatePersistenceError } from "@/lib/db/combat-state"
+import type { CombatStatePersistenceError } from "@/lib/db/writes/combat-state"
 import {
   ailmentsSchema,
   BATTLE_CONDITION_STATES,
