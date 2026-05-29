@@ -15,6 +15,16 @@ import {
 } from "./schema/character"
 
 /**
+ * Either the auto-resolving {@link db} client or the transaction handle passed
+ * to a `db.transaction` callback. Helpers that run inside a transaction accept
+ * this so their reads share the caller's snapshot rather than silently
+ * escaping to a separate connection.
+ */
+export type CharacterWriteExecutor =
+  | typeof db
+  | Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
  * The full character-sheet loader. It owns the character query (by `id` or
  * public `shortId`) and every child-row query ({@link fetchRawInputs}); the
  * pure {@link deriveHydratedCharacter} (in `lib/game/`) turns those raw rows
@@ -111,8 +121,11 @@ export async function loadCharacterRowById(
  * was deleted) and `"stale"` (the row exists but its `updatedAt` no longer
  * matches the caller's token). Selects only `id` so the read is index-only.
  */
-export async function characterExists(characterId: string): Promise<boolean> {
-  const [row] = await db
+export async function characterExists(
+  characterId: string,
+  executor: CharacterWriteExecutor = db
+): Promise<boolean> {
+  const [row] = await executor
     .select({ id: characters.id })
     .from(characters)
     .where(eq(characters.id, characterId))

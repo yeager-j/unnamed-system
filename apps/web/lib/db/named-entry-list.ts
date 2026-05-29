@@ -1,13 +1,9 @@
-import { and, asc, eq, max, sql } from "drizzle-orm"
+import { and, asc, eq, max } from "drizzle-orm"
 
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists } from "./load-character"
-import {
-  characterChains,
-  characterKnives,
-  characters,
-} from "./schema/character"
+import { characterChains, characterKnives } from "./schema/character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Shared persistence for the Step-3 "named entry list" tables — Knives and
@@ -54,7 +50,12 @@ export async function addNamedEntry(
   expectedVersion: number
 ): Promise<Result<AddSuccess, CommonError>> {
   return db.transaction(async (tx) => {
-    const bumped = await bumpIdentityVersion(tx, characterId, expectedVersion)
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion
+    )
     if (!bumped.ok) return bumped
 
     const [maxRow] = await tx
@@ -134,7 +135,12 @@ export async function removeNamedEntry<E extends string>(
   expectedVersion: number
 ): Promise<Result<MutationSuccess, CommonError | E>> {
   return db.transaction(async (tx) => {
-    const bumped = await bumpIdentityVersion(tx, characterId, expectedVersion)
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion
+    )
     if (!bumped.ok) return bumped
 
     const removed = await tx
@@ -171,7 +177,12 @@ async function updateNamedEntryFields<E extends string>(
   expectedVersion: number
 ): Promise<Result<MutationSuccess, CommonError | E>> {
   return db.transaction(async (tx) => {
-    const bumped = await bumpIdentityVersion(tx, characterId, expectedVersion)
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "identity",
+      expectedVersion
+    )
     if (!bumped.ok) return bumped
 
     const updated = await tx
@@ -183,33 +194,6 @@ async function updateNamedEntryFields<E extends string>(
     if (updated.length === 0) return err(notFoundError)
     return ok({ version: bumped.value.version })
   })
-}
-
-async function bumpIdentityVersion(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  characterId: string,
-  expectedVersion: number
-): Promise<Result<MutationSuccess, CommonError>> {
-  const [bumped] = await tx
-    .update(characters)
-    .set({
-      identityVersion: sql`${characters.identityVersion} + 1`,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.identityVersion, expectedVersion)
-      )
-    )
-    .returning({ identityVersion: characters.identityVersion })
-
-  if (!bumped) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
-  return ok({ version: bumped.identityVersion })
 }
 
 function normalizeDescription(description: string | null): string | null {

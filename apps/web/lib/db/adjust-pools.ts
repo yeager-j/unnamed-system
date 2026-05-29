@@ -1,5 +1,3 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import {
   applyDamage,
   applyHeal,
@@ -11,8 +9,8 @@ import {
 } from "../game/character/adjust-pools"
 import { err, ok, type Result } from "../result"
 import { db } from "./index"
-import { characterExists, loadHydratedCharacterById } from "./load-character"
-import { characters } from "./schema/character"
+import { loadHydratedCharacterById } from "./load-character"
+import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**
  * Persistence for the header owner-mode pool adjustments (PRD §6.1 / §7.6):
@@ -73,29 +71,18 @@ export async function applyDamageForCharacter(
   const result = applyDamage(character, amount)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      currentHP: result.value.currentHP,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { currentHP: result.value.currentHP }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     currentHP: result.value.currentHP,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }
 
@@ -110,29 +97,18 @@ export async function applyHealForCharacter(
   const result = applyHeal(character, amount)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      currentHP: result.value.currentHP,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { currentHP: result.value.currentHP }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     currentHP: result.value.currentHP,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }
 
@@ -147,29 +123,18 @@ export async function applySpendSPForCharacter(
   const result = applySpendSP(character, amount)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      currentSP: result.value.currentSP,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { currentSP: result.value.currentSP }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     currentSP: result.value.currentSP,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }
 
@@ -184,29 +149,18 @@ export async function applyRecoverSPForCharacter(
   const result = applyRecoverSP(character, amount)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      currentSP: result.value.currentSP,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { currentSP: result.value.currentSP }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     currentSP: result.value.currentSP,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }
 
@@ -220,28 +174,17 @@ export async function applyUsePrismaForCharacter(
   const result = applyUsePrisma(character)
   if (!result.ok) return result
 
-  const updated = await db
-    .update(characters)
-    .set({
-      prismaCharges: result.value.prismaCharges,
-      vitalsVersion: sql`${characters.vitalsVersion} + 1`,
-    })
-    .where(
-      and(
-        eq(characters.id, characterId),
-        eq(characters.vitalsVersion, expectedVersion)
-      )
-    )
-    .returning({ vitalsVersion: characters.vitalsVersion })
-
-  if (updated.length === 0) {
-    return (await characterExists(characterId))
-      ? err("stale")
-      : err("character-not-found")
-  }
+  const bumped = await bumpCharacterVersionGuarded(
+    db,
+    characterId,
+    "vitals",
+    expectedVersion,
+    { prismaCharges: result.value.prismaCharges }
+  )
+  if (!bumped.ok) return bumped
 
   return ok({
     prismaCharges: result.value.prismaCharges,
-    version: updated[0]!.vitalsVersion,
+    version: bumped.value.version,
   })
 }

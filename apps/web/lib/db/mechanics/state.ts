@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import {
   initialStateFor,
@@ -10,6 +10,7 @@ import { err, ok, type Result } from "../../result"
 import { db } from "../index"
 import { characterExists } from "../load-character"
 import { characterArchetypes, characters } from "../schema/character"
+import { bumpCharacterVersionGuarded } from "../version-guard"
 
 /**
  * The shared persistence primitive every per-Archetype mechanic write
@@ -67,7 +68,7 @@ export async function applyMechanicStateForCharacter<K extends MechanicKind>(
       .limit(1)
 
     if (!activeRow) {
-      return (await characterExists(characterId))
+      return (await characterExists(characterId, tx))
         ? err("no-active-archetype")
         : err("character-not-found")
     }
@@ -83,28 +84,19 @@ export async function applyMechanicStateForCharacter<K extends MechanicKind>(
     const next = transition(current as StateOf<K>)
     const validated = mechanicStateSchema.parse(next) as StateOf<K>
 
-    const [bumped] = await tx
-      .update(characters)
-      .set({ vitalsVersion: sql`${characters.vitalsVersion} + 1` })
-      .where(
-        and(
-          eq(characters.id, characterId),
-          eq(characters.vitalsVersion, expectedVitalsVersion)
-        )
-      )
-      .returning({ vitalsVersion: characters.vitalsVersion })
-
-    if (!bumped) {
-      return (await characterExists(characterId))
-        ? err("stale")
-        : err("character-not-found")
-    }
+    const bumped = await bumpCharacterVersionGuarded(
+      tx,
+      characterId,
+      "vitals",
+      expectedVitalsVersion
+    )
+    if (!bumped.ok) return bumped
 
     await tx
       .update(characterArchetypes)
       .set({ mechanicState: validated })
       .where(eq(characterArchetypes.id, activeRow.archetypeId))
 
-    return ok({ value: validated, version: bumped.vitalsVersion })
+    return ok({ value: validated, version: bumped.value.version })
   })
 }
