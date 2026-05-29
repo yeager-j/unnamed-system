@@ -163,7 +163,7 @@ export async function applyAdjustExhaustionForCharacter(
       vitalsVersion: characters.vitalsVersion,
     })
 
-  if (updated.length === 0) return staleOrMissing(characterId)
+  if (updated.length === 0) return staleOrMissing(db, characterId)
 
   return ok({
     value: updated[0]!.exhaustion,

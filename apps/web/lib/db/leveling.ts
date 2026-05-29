@@ -154,7 +154,7 @@ export async function applyLevelUpForCharacter(
       vitalsVersion: characters.vitalsVersion,
     })
 
-  if (updated.length === 0) return staleOrMissing(characterId)
+  if (updated.length === 0) return staleOrMissing(db, characterId)
 
   return ok({
     character: result.value,

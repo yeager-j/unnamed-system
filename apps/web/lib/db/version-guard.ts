@@ -2,8 +2,7 @@ import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
 import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { characterExists } from "./load-character"
+import { characterExists, type CharacterWriteExecutor } from "./load-character"
 import { characters } from "./schema/character"
 
 /**
@@ -25,14 +24,7 @@ export type CharacterVersionClass =
 
 export type GuardedVersionError = "character-not-found" | "stale"
 
-/**
- * Either the auto-resolving {@link db} client or the transaction handle passed
- * to a `db.transaction` callback, so the primitive serves both plain writes
- * and writes that coordinate child-table mutations inside a transaction.
- */
-export type CharacterWriteExecutor =
-  | typeof db
-  | Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type { CharacterWriteExecutor }
 
 const VERSION_COLUMNS = {
   identity: characters.identityVersion,
@@ -66,12 +58,15 @@ export function characterVersionIncrement(
  * Disambiguates a zero-row guarded write: the row is gone
  * (`"character-not-found"`) or it exists but its version token moved past the
  * caller's expectation (`"stale"`). Every guarded write funnels its zero-row
- * branch through here, so the disambiguation lives in exactly one place.
+ * branch through here, so the disambiguation lives in exactly one place. The
+ * existence read runs on the caller's `executor` so an in-transaction write
+ * checks against its own snapshot rather than a separate connection.
  */
 export async function staleOrMissing(
+  executor: CharacterWriteExecutor,
   characterId: string
 ): Promise<Result<never, GuardedVersionError>> {
-  return (await characterExists(characterId))
+  return (await characterExists(characterId, executor))
     ? err("stale")
     : err("character-not-found")
 }
@@ -97,7 +92,7 @@ export async function bumpCharacterVersionGuarded(
     .where(and(eq(characters.id, characterId), eq(column, expectedVersion)))
     .returning({ version: column })
 
-  if (updated.length === 0) return staleOrMissing(characterId)
+  if (updated.length === 0) return staleOrMissing(executor, characterId)
 
   return ok({ version: updated[0]!.version })
 }

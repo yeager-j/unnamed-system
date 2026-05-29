@@ -68,7 +68,7 @@ export async function applyMechanicStateForCharacter<K extends MechanicKind>(
       .limit(1)
 
     if (!activeRow) {
-      return (await characterExists(characterId))
+      return (await characterExists(characterId, tx))
         ? err("no-active-archetype")
         : err("character-not-found")
     }
