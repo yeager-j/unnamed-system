@@ -13,6 +13,7 @@ import { mage } from "../../archetypes/mage/mage"
 import { warrior } from "../../archetypes/warrior/warrior"
 import { cleave } from "../../skills/slash/cleave"
 import {
+  accumulatedBonuses,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
@@ -318,6 +319,32 @@ describe("purity", () => {
       computeAffinityChart(character)
     )
     expect(character).toEqual(snapshot)
+  })
+})
+
+describe("shared bonus pool", () => {
+  it("matches the standalone path when the pool is threaded in", () => {
+    const character = makeCharacter({
+      activeArchetypeKey: "mage",
+      archetypes: [
+        { key: "mage", rank: 5 },
+        { key: "warrior", rank: 5 },
+      ],
+      equippedItems: [
+        accessoryWithEffects([
+          { type: "attribute", target: "magic", amount: 2 },
+        ]),
+        spAccessory,
+      ],
+      manualBonuses: { hp: 4, strength: 1 },
+    })
+    const bonuses = accumulatedBonuses(character)
+
+    expect(computeAttributes(character, bonuses)).toEqual(
+      computeAttributes(character)
+    )
+    expect(computeMaxHP(character, bonuses)).toBe(computeMaxHP(character))
+    expect(computeMaxSP(character, bonuses)).toBe(computeMaxSP(character))
   })
 })
 

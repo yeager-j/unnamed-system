@@ -138,7 +138,24 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
-type BonusPool = Record<BonusTargetKey, number>
+export type BonusPool = Record<BonusTargetKey, number>
+
+function emptyBonusPool(): BonusPool {
+  return { hp: 0, sp: 0, strength: 0, magic: 0, agility: 0, luck: 0 }
+}
+
+/**
+ * Combines several bonus pools into one by summing each target across them.
+ * Each source helper returns a full pool (zeroed for untouched targets), so the
+ * combiner needs no knowledge of which source contributes to which target.
+ */
+function sumBonuses(...pools: BonusPool[]): BonusPool {
+  const total = emptyBonusPool()
+  for (const pool of pools) {
+    for (const target of BONUS_TARGET_KEYS) total[target] += pool[target]
+  }
+  return total
+}
 
 /**
  * Flattens the structured effects of the active Archetype's passive Skills.
@@ -171,22 +188,12 @@ function activeMechanicEffects(
 }
 
 /**
- * Sums every permanent, source-agnostic bonus: derived Mastery (any Archetype
- * at or above its Mastery Rank, active or not), equipped-item Attribute
- * effects, the active Archetype's passive-Skill Attribute effects, and the
- * manually-entered bonuses. Mastery is intentionally derived from Rank here,
- * never read from storage, so an inactive Mastered Archetype still contributes.
+ * Mastery bonuses: every Archetype at or above its Mastery Rank (active or not)
+ * contributes its Mastery effect. Derived from Rank here, never read from
+ * storage, so an inactive Mastered Archetype still contributes.
  */
-function accumulatedBonuses(character: StatComputationCharacter): BonusPool {
-  const pool: BonusPool = {
-    hp: 0,
-    sp: 0,
-    strength: 0,
-    magic: 0,
-    agility: 0,
-    luck: 0,
-  }
-
+function masteryBonuses(character: StatComputationCharacter): BonusPool {
+  const pool = emptyBonusPool()
   for (const { key, rank } of character.archetypes) {
     if (!hasMasteryBonus(rank)) continue
     const archetype = getArchetype(key)
@@ -197,26 +204,74 @@ function accumulatedBonuses(character: StatComputationCharacter): BonusPool {
     else if (mastery.kind === "sp") pool.sp += mastery.amount
     else pool[mastery.attribute] += mastery.amount
   }
-
-  for (const item of character.equippedItems) {
-    for (const effect of item.equip.effects ?? []) {
-      if (effect.type === "attribute") pool[effect.target] += effect.amount
-    }
-  }
-
-  for (const effect of activePassiveEffects(character)) {
-    if (effect.type === "attribute") pool[effect.target] += effect.amount
-  }
-
-  for (const effect of activeMechanicEffects(character)) {
-    if (effect.type === "attribute") pool[effect.target] += effect.amount
-  }
-
-  for (const target of BONUS_TARGET_KEYS) {
-    pool[target] += character.manualBonuses[target] ?? 0
-  }
-
   return pool
+}
+
+function isAttributeEffect(effect: {
+  type: string
+}): effect is AttributeEffect {
+  return effect.type === "attribute"
+}
+
+/**
+ * Folds any list of structured effects into a pool, applying only the Attribute
+ * effects (the sole kind that touches a {@link BonusTargetKey}). Shared by the
+ * item, passive-Skill, and mechanic sources, whose Attribute contributions are
+ * identical in shape.
+ */
+function attributeEffectBonuses(
+  effects: ReadonlyArray<{ type: string }>
+): BonusPool {
+  const pool = emptyBonusPool()
+  for (const effect of effects) {
+    if (isAttributeEffect(effect)) pool[effect.target] += effect.amount
+  }
+  return pool
+}
+
+/** Attribute effects conferred by currently-equipped items. */
+function itemBonuses(character: StatComputationCharacter): BonusPool {
+  return attributeEffectBonuses(
+    character.equippedItems.flatMap((item) => item.equip.effects ?? [])
+  )
+}
+
+/** Attribute effects of the active Archetype's passive Skills. */
+function passiveSkillBonuses(character: StatComputationCharacter): BonusPool {
+  return attributeEffectBonuses(activePassiveEffects(character))
+}
+
+/** Attribute effects emitted by the active Archetype's mechanic. */
+function mechanicBonuses(character: StatComputationCharacter): BonusPool {
+  return attributeEffectBonuses(activeMechanicEffects(character))
+}
+
+/** The character's manually-entered bonuses. */
+function manualBonusPool(character: StatComputationCharacter): BonusPool {
+  const pool = emptyBonusPool()
+  for (const target of BONUS_TARGET_KEYS) {
+    pool[target] = character.manualBonuses[target] ?? 0
+  }
+  return pool
+}
+
+/**
+ * Sums every permanent, source-agnostic bonus — Mastery, equipped-item
+ * Attribute effects, the active Archetype's passive-Skill and mechanic Attribute
+ * effects, and the manually-entered bonuses — into one pool. Built once per
+ * derive and shared across {@link computeAttributes}, {@link computeMaxHP}, and
+ * {@link computeMaxSP} so the sources are walked a single time.
+ */
+export function accumulatedBonuses(
+  character: StatComputationCharacter
+): BonusPool {
+  return sumBonuses(
+    masteryBonuses(character),
+    itemBonuses(character),
+    passiveSkillBonuses(character),
+    mechanicBonuses(character),
+    manualBonusPool(character)
+  )
 }
 
 /**
@@ -225,9 +280,9 @@ function accumulatedBonuses(character: StatComputationCharacter): BonusPool {
  * after all sources are summed.
  */
 export function computeAttributes(
-  character: StatComputationCharacter
+  character: StatComputationCharacter,
+  bonuses: BonusPool = accumulatedBonuses(character)
 ): AttributeScores {
-  const bonuses = accumulatedBonuses(character)
   const active = character.activeArchetypeKey
     ? getArchetype(character.activeArchetypeKey)
     : undefined
@@ -249,12 +304,13 @@ function levelsGained(level: number): number {
  * after the first, plus permanent HP bonuses (Mastery, equipment, manual).
  * MVP uses averaged Hit Dice only — no rolled values.
  */
-export function computeMaxHP(character: StatComputationCharacter): number {
+export function computeMaxHP(
+  character: StatComputationCharacter,
+  bonuses: BonusPool = accumulatedBonuses(character)
+): number {
   const path = PATH_STATS[character.pathChoice]
   const total =
-    path.startHP +
-    levelsGained(character.level) * path.hpPerLevel +
-    accumulatedBonuses(character).hp
+    path.startHP + levelsGained(character.level) * path.hpPerLevel + bonuses.hp
   return Math.round(total)
 }
 
@@ -262,12 +318,13 @@ export function computeMaxHP(character: StatComputationCharacter): number {
  * Max SP: analogous to {@link computeMaxHP} using the Skill Dice gain and
  * permanent SP bonuses.
  */
-export function computeMaxSP(character: StatComputationCharacter): number {
+export function computeMaxSP(
+  character: StatComputationCharacter,
+  bonuses: BonusPool = accumulatedBonuses(character)
+): number {
   const path = PATH_STATS[character.pathChoice]
   const total =
-    path.startSP +
-    levelsGained(character.level) * path.spPerLevel +
-    accumulatedBonuses(character).sp
+    path.startSP + levelsGained(character.level) * path.spPerLevel + bonuses.sp
   return Math.round(total)
 }
 
