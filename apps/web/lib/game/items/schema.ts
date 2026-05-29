@@ -135,6 +135,20 @@ export function isEquippable(item: Item): item is EquippableItem {
   return item.equip !== undefined
 }
 
+/**
+ * Whether the item is equipped into `slot`, narrowed to that slot's concrete
+ * equip spec. The runtime check is the same `slot` comparison the registry
+ * lookups did inline; expressing it as a type predicate lets the discriminated
+ * {@link EquipSpec} narrow back through the parent {@link Item}, so slot
+ * lookups need no `as` cast.
+ */
+export function isItemForSlot<S extends EquipSlot>(
+  item: Item,
+  slot: S
+): item is ItemForSlot<S> {
+  return item.equip?.slot === slot
+}
+
 /** Whether multiple units of the item share one inventory row. */
 export function isStackable(item: Item): boolean {
   return item.stackSize > 1
