@@ -4,7 +4,7 @@ import type {
   CharacterKnifeRow,
   CharacterRow,
   InventoryItemRow,
-} from "@/lib/db/queries/load-character"
+} from "@/lib/db/schema/character"
 
 import type { ActiveMechanic, AttributeScores, TalentKey } from "."
 import type { Affinity, DamageType, ResolvedAttackRoll } from "../combat"
@@ -19,8 +19,9 @@ import type { ResolvedSkillCost, Skill, SkillCost } from "../skills"
  * thin assembler in [lib/db/queries/load-character.ts](../db/queries/load-character.ts)
  * constructs values of these shapes.
  *
- * The DB row shapes are still defined alongside the schema (`lib/db/`) since
- * they're inferred from Drizzle tables — they're type-imported here.
+ * The DB row shapes are defined alongside the tables
+ * (`lib/db/schema/character.ts`) since they're inferred from Drizzle — they're
+ * type-imported here.
  */
 
 /** An inventory row spread flat, with the resolved catalog entry alongside

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type {
-  CharacterRow,
-  InventoryItemRow,
-} from "@/lib/db/queries/load-character"
+import type { CharacterRow, InventoryItemRow } from "@/lib/db/schema/character"
 
 import { MAX_CURRENCY } from "./currency"
 import {

@@ -1,4 +1,4 @@
-import type { CharacterRow } from "@/lib/db/queries/load-character"
+import type { CharacterRow } from "@/lib/db/schema/character"
 
 import type { Result } from "../../result"
 import { MAX_EXHAUSTION_LEVEL } from "../combat"

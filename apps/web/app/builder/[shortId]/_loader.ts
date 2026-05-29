@@ -2,13 +2,13 @@ import { eq } from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/lib/db"
+import { loadCharacterRowByShortId } from "@/lib/db/queries/load-character"
 import {
-  loadCharacterRowByShortId,
+  characterArchetypes,
   type CharacterChainRow,
   type CharacterKnifeRow,
   type CharacterRow,
-} from "@/lib/db/queries/load-character"
-import { characterArchetypes } from "@/lib/db/schema/character"
+} from "@/lib/db/schema/character"
 import { loadCharacterChains } from "@/lib/db/writes/chains"
 import { loadCharacterKnives } from "@/lib/db/writes/knives"
 

@@ -1,9 +1,9 @@
 import { db } from "@/lib/db/client"
 import {
+  inventoryItems,
   type CharacterArchetypeRow,
   type CharacterRow,
-} from "@/lib/db/queries/load-character"
-import { inventoryItems } from "@/lib/db/schema/character"
+} from "@/lib/db/schema/character"
 import { getArchetype } from "@/lib/game/archetypes"
 import {
   buildStatComputationCharacter,

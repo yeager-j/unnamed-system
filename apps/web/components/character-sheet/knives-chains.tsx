@@ -12,7 +12,7 @@ import { useCharacter } from "@/hooks/use-character"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/queries/load-character"
+} from "@/lib/db/schema/character"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow
 

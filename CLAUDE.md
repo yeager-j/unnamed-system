@@ -102,7 +102,7 @@ lib/db/
 ├── index.ts         Barrel: re-exports client + schema (import via @/lib/db)
 ├── env.ts           DB env resolution
 ├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
-├── schema/          Drizzle table + column definitions
+├── schema/          Drizzle table + column definitions + inferred row types (CharacterRow, …)
 ├── migrations/      drizzle-kit SQL migrations + meta
 ├── queries/         Reads: load-character (central loader), character-list, versions
 └── writes/          Per-concern persistence wrappers + the version-guard primitive

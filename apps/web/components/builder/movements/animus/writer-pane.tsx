@@ -15,7 +15,7 @@ import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrativ
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/queries/load-character"
+} from "@/lib/db/schema/character"
 import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
 import { useAnimusDocument } from "./animus-context"
