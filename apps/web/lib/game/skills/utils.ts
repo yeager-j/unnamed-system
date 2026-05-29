@@ -70,7 +70,7 @@ export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
  * values, narrowing the result onto the matching distributed variant.
  * Cost-bearing Skill kinds receive a non-null `resolvedCost`; the passive
  * variant receives `null`. Centralized here so the three hydration call
- * sites (`lib/db/load-character.ts`, archetype detail builders) stop
+ * sites (`lib/db/queries/load-character.ts`, archetype detail builders) stop
  * branching manually and downstream consumers gain TS narrowing on
  * `"cost" in skill` (UNN-231).
  */

@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyMechanicStateForCharacter,
   type MechanicWriteSuccess,
-} from "@/lib/db/mechanics/state"
+} from "@/lib/db/writes/mechanic-state"
 import { adjustPerfection, resetPerfection } from "@/lib/game/mechanics"
 import { err, type Result } from "@/lib/result"
 

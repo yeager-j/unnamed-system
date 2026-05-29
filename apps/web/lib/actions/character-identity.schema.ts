@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterIdentityPersistenceError } from "@/lib/db/character-identity"
+import type { CharacterIdentityPersistenceError } from "@/lib/db/writes/identity"
 import type { PortraitUploadError } from "@/lib/storage/portrait-upload"
 
 /**

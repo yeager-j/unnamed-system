@@ -2,15 +2,15 @@ import { eq } from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/lib/db"
-import { loadCharacterChains } from "@/lib/db/character-chains"
-import { loadCharacterKnives } from "@/lib/db/character-knives"
+import { loadCharacterRowByShortId } from "@/lib/db/queries/load-character"
 import {
-  loadCharacterRowByShortId,
+  characterArchetypes,
   type CharacterChainRow,
   type CharacterKnifeRow,
   type CharacterRow,
-} from "@/lib/db/load-character"
-import { characterArchetypes } from "@/lib/db/schema/character"
+} from "@/lib/db/schema/character"
+import { loadCharacterChains } from "@/lib/db/writes/chains"
+import { loadCharacterKnives } from "@/lib/db/writes/knives"
 
 /**
  * Per-request memoized draft loader shared by the builder route's layout,

@@ -7,7 +7,7 @@ import { CreateCharacterButton } from "@/components/my-characters/create-charact
 import { EmptyCharacters } from "@/components/my-characters/empty-state"
 import { SignedOutLanding } from "@/components/my-characters/signed-out-landing"
 import { auth } from "@/lib/auth"
-import { loadOwnedCharacterSummaries } from "@/lib/db/character-list"
+import { loadOwnedCharacterSummaries } from "@/lib/db/queries/character-list"
 
 export const metadata: Metadata = {
   title: "My Characters — Unnamed System",

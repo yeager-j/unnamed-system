@@ -1,3 +1,5 @@
+import { db } from "@/lib/db/client"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   applyDamage,
   applyHeal,
@@ -6,10 +8,9 @@ import {
   applyUsePrisma,
   type AdjustAmountError,
   type UsePrismaError,
-} from "../game/character/adjust-pools"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { loadHydratedCharacterById } from "./load-character"
+} from "@/lib/game/character/adjust-pools"
+import { err, ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

@@ -12,7 +12,7 @@ import {
   type RecoverSPPersistenceSuccess,
   type SpendSPPersistenceSuccess,
   type UsePrismaPersistenceSuccess,
-} from "@/lib/db/adjust-pools"
+} from "@/lib/db/writes/adjust-pools"
 import { err, type Result } from "@/lib/result"
 
 import {
@@ -34,7 +34,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * Server Actions for the header owner-mode actions affordance (PRD §6.1 /
  * §7.6, UNN-155). All five wrap a vitals-class persistence primitive from
- * `lib/db/adjust-pools.ts`. Auth is `requireOwner` — non-owners get
+ * `lib/db/writes/adjust-pools.ts`. Auth is `requireOwner` — non-owners get
  * `forbidden()`. After a successful write, `revalidateCharacter` re-derives
  * every dependent display value (Vitals bars, Fallen badge, Prisma count in
  * the menu).

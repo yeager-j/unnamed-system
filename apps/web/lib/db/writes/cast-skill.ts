@@ -1,15 +1,16 @@
+import { db } from "@/lib/db/client"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
-} from "../game/character"
+} from "@/lib/game/character"
 import {
   applyCast,
   type CastError,
   type CastingCharacter,
-} from "../game/skills"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { loadHydratedCharacterById } from "./load-character"
+} from "@/lib/game/skills"
+import { err, ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

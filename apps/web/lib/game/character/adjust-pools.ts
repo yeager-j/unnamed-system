@@ -9,7 +9,7 @@ import { err, ok, type Result } from "../../result"
  * other engine (Cast, Rest, Attack). All five functions are pure: callers
  * project a hydrated character down to the minimum input shape and persist
  * the returned pool field via the vitals-class wrapper in
- * `lib/db/adjust-pools.ts`.
+ * `lib/db/writes/adjust-pools.ts`.
  *
  * Amount validation (positive integer) lives in the Server Action Zod schema;
  * the engine accepts a non-negative integer and does the clamp.

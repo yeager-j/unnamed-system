@@ -1,8 +1,8 @@
-import type { IdentityTraitField } from "@/lib/db/character-identity-traits"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/schema/character"
+import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
 import {
   IDENTITY_TRAIT_MESSAGES,

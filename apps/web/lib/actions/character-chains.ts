@@ -8,7 +8,7 @@ import {
   updateCharacterChainTitle,
   type AddChainSuccess,
   type CharacterChainPersistenceSuccess,
-} from "@/lib/db/character-chains"
+} from "@/lib/db/writes/chains"
 import { err, type Result } from "@/lib/result"
 
 import {

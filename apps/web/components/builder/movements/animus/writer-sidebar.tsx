@@ -29,7 +29,7 @@ import {
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/schema/character"
 
 import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"

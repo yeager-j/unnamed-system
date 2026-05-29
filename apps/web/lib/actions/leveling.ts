@@ -6,7 +6,7 @@ import {
   awardVictoriesForCharacter,
   type AwardVictoriesPersistenceSuccess,
   type LevelUpPersistenceSuccess,
-} from "@/lib/db/leveling"
+} from "@/lib/db/writes/leveling"
 import { err, type Result } from "@/lib/result"
 
 import {

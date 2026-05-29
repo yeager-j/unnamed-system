@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterName,
   type CharacterNamePersistenceSuccess,
-} from "@/lib/db/character-name"
+} from "@/lib/db/writes/name"
 import { type Result } from "@/lib/result"
 
 import {

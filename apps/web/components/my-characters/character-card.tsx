@@ -14,7 +14,7 @@ import {
   BUILDER_STEPS,
   slugForStepIndex,
 } from "@/components/builder/builder-steps"
-import type { CharacterSummary } from "@/lib/db/character-list"
+import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 import { CharacterCardActions } from "./character-card-actions"

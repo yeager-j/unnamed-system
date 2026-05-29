@@ -12,11 +12,11 @@ import {
   updateCharacterKnifeTitleAction,
 } from "@/lib/actions/character-knives"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
-import type { IdentityTraitField } from "@/lib/db/character-identity-traits"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/schema/character"
+import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
 import { useAnimusDocument } from "./animus-context"
 import {

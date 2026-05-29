@@ -1,7 +1,7 @@
 import { customAlphabet } from "nanoid"
 
-import { db } from "./index"
-import { characters } from "./schema/character"
+import { db } from "@/lib/db/client"
+import { characters } from "@/lib/db/schema/character"
 
 /**
  * URL-safe 8-character `shortId`s for the public `/c/{shortId}` route. The

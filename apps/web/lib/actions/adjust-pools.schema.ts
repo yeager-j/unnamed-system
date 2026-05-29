@@ -3,7 +3,7 @@ import { z } from "zod/v4"
 import type {
   AdjustPoolPersistenceError,
   UsePrismaPersistenceError,
-} from "@/lib/db/adjust-pools"
+} from "@/lib/db/writes/adjust-pools"
 
 /**
  * Input schemas for the header owner-mode pool adjustments

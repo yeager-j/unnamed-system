@@ -1,16 +1,17 @@
 import { and, eq, sql } from "drizzle-orm"
 
+import { db } from "@/lib/db/client"
+import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import { characters } from "@/lib/db/schema/character"
 import {
   DEFAULT_BATTLE_CONDITIONS,
   type Ailments,
   type BattleConditions,
   type BattleConditionState,
-} from "../game/character/state"
-import { MAX_EXHAUSTION_LEVEL } from "../game/combat/exhaustion"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { loadCharacterRowById } from "./load-character"
-import { characters } from "./schema/character"
+} from "@/lib/game/character/state"
+import { MAX_EXHAUSTION_LEVEL } from "@/lib/game/combat/exhaustion"
+import { err, ok, type Result } from "@/lib/result"
+
 import {
   bumpCharacterVersionGuarded,
   characterVersionIncrement,
@@ -22,7 +23,7 @@ import {
  * four vitals-class wrappers that mutate the tracked combat columns
  * (`ailments`, `battleConditions`, `exhaustion`) while honouring the same
  * `(id, vitalsVersion)` optimistic concurrency contract as
- * `lib/db/adjust-pools.ts`. The Combat State edit surface shares
+ * `lib/db/writes/adjust-pools.ts`. The Combat State edit surface shares
  * `vitalsVersion` with HP/SP/Prisma/Rest because all of these are encounter-
  * time touches by the same player on the same card — collisions between them
  * are the only thing the per-class token is meant to detect.

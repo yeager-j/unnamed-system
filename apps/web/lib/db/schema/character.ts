@@ -283,3 +283,16 @@ export const selectInventoryItemSchema = createSelectSchema(inventoryItems)
 
 export const insertActionLogEntrySchema = createInsertSchema(actionLogEntries)
 export const selectActionLogEntrySchema = createSelectSchema(actionLogEntries)
+
+/**
+ * Persisted row shapes, inferred straight from the tables above. These are the
+ * contract the pure derivation layer reads: `HydratedCharacter` (in `lib/game`)
+ * is `CharacterRow & { …derived }`, and both server and client re-derive the
+ * sheet view from the same raw rows. They live here, beside the tables they're
+ * inferred from, rather than in any loader — the schema is their single source.
+ */
+export type CharacterRow = typeof characters.$inferSelect
+export type CharacterArchetypeRow = typeof characterArchetypes.$inferSelect
+export type CharacterKnifeRow = typeof characterKnives.$inferSelect
+export type CharacterChainRow = typeof characterChains.$inferSelect
+export type InventoryItemRow = typeof inventoryItems.$inferSelect

@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { LevelingPersistenceError } from "@/lib/db/leveling"
+import type { LevelingPersistenceError } from "@/lib/db/writes/leveling"
 
 /**
  * Input schemas for the header owner-mode progression controls (PRD §6.1 /

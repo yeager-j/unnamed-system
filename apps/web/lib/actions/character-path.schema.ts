@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterPathPersistenceError } from "@/lib/db/character-path"
+import type { CharacterPathPersistenceError } from "@/lib/db/writes/path"
 import { PATH_CHOICES } from "@/lib/game/character"
 
 /**

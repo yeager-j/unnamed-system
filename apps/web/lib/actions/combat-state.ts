@@ -12,7 +12,7 @@ import {
   type ClearCombatStateSuccess,
   type SetAilmentsSuccess,
   type SetBattleConditionsSuccess,
-} from "@/lib/db/combat-state"
+} from "@/lib/db/writes/combat-state"
 import { err, type Result } from "@/lib/result"
 
 import {
@@ -34,7 +34,7 @@ import { revalidateCharacter } from "./revalidate"
 
 /**
  * Server Actions for owner-mode Combat State editing (PRD §6.1, UNN-226).
- * Each wraps the matching `lib/db/combat-state` primitive: parse the input,
+ * Each wraps the matching `lib/db/writes/combat-state` primitive: parse the input,
  * `requireOwner` (non-owners get HTTP 403), apply the write, then
  * {@link revalidateCharacter} so the sheet's derived state re-renders.
  */

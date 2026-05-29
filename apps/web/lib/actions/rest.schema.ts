@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { RestPersistenceError } from "@/lib/db/rest"
+import type { RestPersistenceError } from "@/lib/db/writes/rest"
 import {
   partialRestInputSchema,
   respiteInputSchema,

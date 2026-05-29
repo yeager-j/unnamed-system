@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicPersistenceError } from "@/lib/db/mechanics/state"
+import type { MechanicPersistenceError } from "@/lib/db/writes/mechanic-state"
 import { STAIN_ELEMENTS, STAIN_SLOT_COUNT } from "@/lib/game/mechanics"
 
 /**

@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm"
 
-import { MAX_CURRENCY } from "../game/character"
+import { db } from "@/lib/db/client"
+import { characters, inventoryItems } from "@/lib/db/schema/character"
+import { MAX_CURRENCY } from "@/lib/game/character"
 import {
   addItem,
   equipItem,
@@ -11,10 +13,9 @@ import {
   type EquipError,
   type InventoryItemState,
   type QuantityError,
-} from "../game/items"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { characters, inventoryItems } from "./schema/character"
+} from "@/lib/game/items"
+import { err, ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

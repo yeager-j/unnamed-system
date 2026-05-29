@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 
-import { db } from "./index"
-import { characters } from "./schema/character"
+import { db } from "@/lib/db/client"
+import { characters } from "@/lib/db/schema/character"
 
 /**
  * Cheap read of the four per-write-class version tokens (UNN-140) for the

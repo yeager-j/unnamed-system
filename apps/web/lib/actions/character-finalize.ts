@@ -4,14 +4,14 @@ import { eq } from "drizzle-orm"
 
 import { findStepGateFailures } from "@/components/builder/builder-step-gates"
 import { requireOwner } from "@/lib/auth/viewer-role"
-import { loadCharacterChains } from "@/lib/db/character-chains"
+import { db } from "@/lib/db"
+import { characterArchetypes } from "@/lib/db/schema/character"
+import { loadCharacterChains } from "@/lib/db/writes/chains"
 import {
   finalizeCharacter,
   type CharacterFinalizePersistenceSuccess,
-} from "@/lib/db/character-finalize"
-import { loadCharacterKnives } from "@/lib/db/character-knives"
-import { db } from "@/lib/db/index"
-import { characterArchetypes } from "@/lib/db/schema/character"
+} from "@/lib/db/writes/finalize"
+import { loadCharacterKnives } from "@/lib/db/writes/knives"
 import { err, ok, type Result } from "@/lib/result"
 
 import {

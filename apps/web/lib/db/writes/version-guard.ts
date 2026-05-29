@@ -1,9 +1,12 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
-import { err, ok, type Result } from "../result"
-import { characterExists, type CharacterWriteExecutor } from "./load-character"
-import { characters } from "./schema/character"
+import {
+  characterExists,
+  type CharacterWriteExecutor,
+} from "@/lib/db/queries/load-character"
+import { characters } from "@/lib/db/schema/character"
+import { err, ok, type Result } from "@/lib/result"
 
 /**
  * The shared optimistic-concurrency primitive every character write composes

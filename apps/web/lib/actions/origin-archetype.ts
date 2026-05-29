@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   setOriginArchetype,
   type OriginArchetypePersistenceSuccess,
-} from "@/lib/db/origin-archetype"
+} from "@/lib/db/writes/origin-archetype"
 import { err, type Result } from "@/lib/result"
 
 import {

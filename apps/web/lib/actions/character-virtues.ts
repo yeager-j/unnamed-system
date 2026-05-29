@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   setCharacterVirtues,
   type CharacterVirtuesPersistenceSuccess,
-} from "@/lib/db/character-virtues"
+} from "@/lib/db/writes/virtues"
 import { err, type Result } from "@/lib/result"
 
 import {

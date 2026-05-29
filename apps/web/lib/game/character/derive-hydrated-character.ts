@@ -4,7 +4,8 @@ import type {
   CharacterKnifeRow,
   CharacterRow,
   InventoryItemRow,
-} from "../../db/load-character"
+} from "@/lib/db/schema/character"
+
 import {
   resolveAttackRoll,
   skillAttackRollContext,

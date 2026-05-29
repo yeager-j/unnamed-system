@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 
 import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb } from "@/lib/db"
-import { loadHydratedCharacterById } from "@/lib/db/load-character"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   computeMaxHP,
   computeMaxSP,

@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { characters } from "./schema/character"
+import { db } from "@/lib/db/client"
+import { characters } from "@/lib/db/schema/character"
+import { err, ok, type Result } from "@/lib/result"
 
 /**
  * Persistence for permanent character deletion. A single

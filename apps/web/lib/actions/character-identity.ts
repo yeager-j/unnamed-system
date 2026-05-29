@@ -7,7 +7,7 @@ import {
   updateCharacterPortraitUrl,
   updateCharacterPronouns,
   type CharacterIdentityPersistenceSuccess,
-} from "@/lib/db/character-identity"
+} from "@/lib/db/writes/identity"
 import { err, type Result } from "@/lib/result"
 import { uploadPortrait } from "@/lib/storage/portrait-upload"
 

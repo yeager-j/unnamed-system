@@ -1,18 +1,20 @@
 import { asc, eq } from "drizzle-orm"
 
-import {
-  deriveHydratedCharacter,
-  type HydratedCharacter,
-  type RawCharacterInputs,
-} from "../game/character"
-import { db } from "./index"
+import { db } from "@/lib/db/client"
 import {
   characterArchetypes,
   characterChains,
   characterKnives,
   characters,
   inventoryItems,
-} from "./schema/character"
+  type CharacterArchetypeRow,
+  type CharacterRow,
+} from "@/lib/db/schema/character"
+import {
+  deriveHydratedCharacter,
+  type HydratedCharacter,
+  type RawCharacterInputs,
+} from "@/lib/game/character"
 
 /**
  * Either the auto-resolving {@link db} client or the transaction handle passed
@@ -34,16 +36,10 @@ export type CharacterWriteExecutor =
  *
  * The view types ({@link HydratedCharacter} and friends) live in
  * `lib/game/hydrated-character.ts` so game-layer code can consume them
- * without crossing into persistence; the assembly stays here.
+ * without crossing into persistence; the assembly stays here. The raw row
+ * shapes it reads ({@link CharacterRow} and friends) live beside the tables
+ * in `lib/db/schema/character.ts`.
  */
-
-/** Row shapes inferred from the Drizzle schema. The Hydrated* view types
- *  reference these via type-only imports from `lib/game/`. */
-export type CharacterRow = typeof characters.$inferSelect
-export type CharacterArchetypeRow = typeof characterArchetypes.$inferSelect
-export type CharacterKnifeRow = typeof characterKnives.$inferSelect
-export type CharacterChainRow = typeof characterChains.$inferSelect
-export type InventoryItemRow = typeof inventoryItems.$inferSelect
 
 /**
  * Fetches the persisted {@link RawCharacterInputs} for a character row — the

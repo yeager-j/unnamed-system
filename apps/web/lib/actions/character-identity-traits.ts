@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterIdentityTrait,
   type CharacterIdentityTraitPersistenceSuccess,
-} from "@/lib/db/character-identity-traits"
+} from "@/lib/db/writes/identity-traits"
 import { err, type Result } from "@/lib/result"
 
 import {

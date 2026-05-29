@@ -112,7 +112,7 @@ column but is no longer the concurrency token.
 ## Mechanic writes — a specialization where the DB wrapper layer collapses
 
 Per-Archetype mechanic writes (UNN-227+, e.g. Valor, Perfection) share a
-single persistence primitive: [lib/db/mechanics/state.ts](../db/mechanics/state.ts)
+single persistence primitive: [lib/db/writes/mechanic-state.ts](../db/writes/mechanic-state.ts)
 exports `applyMechanicStateForCharacter<K>(characterId, kind, transition, expectedVersion)`,
 which runs the whole transaction (load the active `characterArchetype`,
 validate kind, run the pure transition, conditional `vitalsVersion` bump,

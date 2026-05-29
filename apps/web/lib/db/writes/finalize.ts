@@ -1,4 +1,10 @@
-import { getArchetype } from "../game/archetypes"
+import { db } from "@/lib/db/client"
+import {
+  inventoryItems,
+  type CharacterArchetypeRow,
+  type CharacterRow,
+} from "@/lib/db/schema/character"
+import { getArchetype } from "@/lib/game/archetypes"
 import {
   buildStatComputationCharacter,
   computeMaxHitDice,
@@ -6,12 +12,10 @@ import {
   computeMaxSkillDice,
   computeMaxSP,
   startingWeaponForLineage,
-} from "../game/character"
-import { type WeaponKey } from "../game/items"
-import { err, ok, type Result } from "../result"
-import { db } from "./index"
-import { type CharacterArchetypeRow, type CharacterRow } from "./load-character"
-import { inventoryItems } from "./schema/character"
+} from "@/lib/game/character"
+import { type WeaponKey } from "@/lib/game/items"
+import { err, ok, type Result } from "@/lib/result"
+
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
 /**

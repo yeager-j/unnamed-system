@@ -4,7 +4,7 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   loadCharacterVersions,
   type CharacterVersions,
-} from "@/lib/db/character-versions"
+} from "@/lib/db/queries/versions"
 import { err, ok, type Result } from "@/lib/result"
 
 import {

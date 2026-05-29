@@ -1,4 +1,6 @@
-import { type Result } from "../result"
+import { characterKnives } from "@/lib/db/schema/character"
+import { type Result } from "@/lib/result"
+
 import {
   addNamedEntry,
   loadNamedEntries,
@@ -6,7 +8,6 @@ import {
   updateNamedEntryDescription,
   updateNamedEntryTitle,
 } from "./named-entry-list"
-import { characterKnives } from "./schema/character"
 
 /**
  * Persistence for the Step-3 Knives repeating list (rulebook 1.4). All of

@@ -5,7 +5,7 @@ import {
   addSparkForCharacter,
   rankUpVirtueForCharacter,
   type SparkPersistenceSuccess,
-} from "@/lib/db/spark"
+} from "@/lib/db/writes/spark"
 import { err, type Result } from "@/lib/result"
 
 import {
@@ -20,7 +20,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * Server Actions for the Explore-tab Spark / Virtue rank-up controls
  * (PRD §6.1 / §7.5, UNN-222). Both wrap the progression-class persistence
- * primitives in `lib/db/spark.ts`; engine validity (log full, virtue not in
+ * primitives in `lib/db/writes/spark.ts`; engine validity (log full, virtue not in
  * log, rank capped) bubbles up unchanged so the client can render the right
  * toast. Auth is `requireOwner` — non-owners get `forbidden()`.
  */

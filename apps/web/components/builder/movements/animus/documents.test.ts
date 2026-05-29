@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
-} from "@/lib/db/load-character"
+} from "@/lib/db/schema/character"
 
 import {
   buildDocumentGroups,

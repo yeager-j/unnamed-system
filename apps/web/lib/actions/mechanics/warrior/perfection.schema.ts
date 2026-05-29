@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { MechanicPersistenceError } from "@/lib/db/mechanics/state"
+import type { MechanicPersistenceError } from "@/lib/db/writes/mechanic-state"
 
 /**
  * Input schemas for the Warrior — Perfection owner controls (UNN-228).

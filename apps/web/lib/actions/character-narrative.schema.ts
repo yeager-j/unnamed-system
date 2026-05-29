@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterNarrativePersistenceError } from "@/lib/db/character-narrative"
+import type { CharacterNarrativePersistenceError } from "@/lib/db/writes/narrative"
 
 /**
  * Input schema for {@link updateCharacterNarrativeAction}. The `field`

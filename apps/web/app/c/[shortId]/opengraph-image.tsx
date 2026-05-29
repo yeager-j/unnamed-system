@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og"
 
-import { loadCharacterRowByShortId } from "@/lib/db/load-character"
+import { loadCharacterRowByShortId } from "@/lib/db/queries/load-character"
 
 /**
  * The `/c/{shortId}` OpenGraph image. Uses the character's portrait when one

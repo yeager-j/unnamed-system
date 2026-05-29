@@ -6,7 +6,7 @@ import {
   applyPartialRestForCharacter,
   applyRespiteForCharacter,
   type RestPersistenceSuccess,
-} from "@/lib/db/rest"
+} from "@/lib/db/writes/rest"
 import { err, type Result } from "@/lib/result"
 
 import {
@@ -22,7 +22,7 @@ import { revalidateCharacter } from "./revalidate"
 
 /**
  * Server Actions for the header-launched Rest dialog (PRD §7.3, UNN-156). All
- * three wrap the vitals-class persistence primitives in `lib/db/rest.ts`.
+ * three wrap the vitals-class persistence primitives in `lib/db/writes/rest.ts`.
  * Auth is `requireOwner` — non-owners get `forbidden()`. After a successful
  * write, `revalidateCharacter` re-derives every dependent display value
  * (Vitals bars, Fallen badge, the Dice readout inside the dialog).

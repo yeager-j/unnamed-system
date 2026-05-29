@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { CharacterVirtuesPersistenceError } from "@/lib/db/character-virtues"
+import type { CharacterVirtuesPersistenceError } from "@/lib/db/writes/virtues"
 
 /**
  * Input schema for {@link setCharacterVirtuesAction}. Ranks are constrained

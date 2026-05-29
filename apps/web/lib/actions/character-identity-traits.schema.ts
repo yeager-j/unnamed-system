@@ -3,7 +3,7 @@ import { z } from "zod/v4"
 import {
   IDENTITY_TRAIT_FIELDS,
   type CharacterIdentityTraitPersistenceError,
-} from "@/lib/db/character-identity-traits"
+} from "@/lib/db/writes/identity-traits"
 
 /**
  * Input schema for {@link updateCharacterIdentityTraitAction}. The `field`

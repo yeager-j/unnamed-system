@@ -1,9 +1,7 @@
 import { forbidden } from "next/navigation"
 
-import {
-  loadCharacterRowById,
-  type CharacterRow,
-} from "@/lib/db/load-character"
+import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import type { CharacterRow } from "@/lib/db/schema/character"
 
 import { auth } from "./index"
 
