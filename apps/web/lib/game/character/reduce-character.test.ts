@@ -187,4 +187,99 @@ describe("reduceCharacter", () => {
     })
     expect(next).toBe(character)
   })
+
+  it("awards victories and clamps at 0", () => {
+    const character = make()
+    expect(
+      reduceCharacter(character, { kind: "victories", delta: 2 }).victories
+    ).toBe(2)
+    expect(
+      reduceCharacter(character, { kind: "victories", delta: -5 }).victories
+    ).toBe(0)
+  })
+
+  it("applies damage and clamps heal at max HP", () => {
+    const character = make()
+    const hurt = reduceCharacter(character, { kind: "damage", amount: 5 })
+    expect(hurt.currentHP).toBe(character.currentHP - 5)
+    const healed = reduceCharacter(hurt, { kind: "heal", amount: 9999 })
+    expect(healed.currentHP).toBe(character.maxHP)
+  })
+
+  it("steps exhaustion and clamps at 0", () => {
+    const character = make()
+    const up = reduceCharacter(character, {
+      kind: "exhaustion",
+      direction: "increment",
+    })
+    expect(up.exhaustion).toBe(1)
+    expect(
+      reduceCharacter(character, { kind: "exhaustion", direction: "decrement" })
+        .exhaustion
+    ).toBe(0)
+  })
+
+  it("sets ailments and battle conditions, and clearCombatState wipes them", () => {
+    const character = make()
+    const ailing = reduceCharacter(character, {
+      kind: "ailments",
+      ailments: ["downed"],
+    })
+    expect(ailing.ailments).toEqual(["downed"])
+
+    const buffed = reduceCharacter(ailing, {
+      kind: "battleConditionAxis",
+      axis: "attack",
+      state: "increased",
+    })
+    expect(buffed.battleConditions?.attack.state).toBe("increased")
+
+    const cleared = reduceCharacter(buffed, { kind: "clearCombatState" })
+    expect(cleared.ailments).toEqual([])
+    expect(cleared.battleConditions?.attack.state).toBe("neutral")
+  })
+
+  it("spends a Prisma charge and refuses at 0", () => {
+    const character = make()
+    const used = reduceCharacter(character, { kind: "usePrisma" })
+    expect(used.prismaCharges).toBe(character.prismaCharges - 1)
+
+    const empty = reduceCharacter(character, { kind: "currency", delta: 0 })
+    const drained = { ...empty, prismaCharges: 0 }
+    expect(reduceCharacter(drained, { kind: "usePrisma" })).toBe(drained)
+  })
+
+  it("steps the active Archetype's Perfection mechanic", () => {
+    const character = make()
+    const next = reduceCharacter(character, {
+      kind: "perfection",
+      op: "increment",
+    })
+    const mechanic = next.activeMechanic?.state
+    expect(mechanic?.kind).toBe("perfection")
+    expect(mechanic).toMatchObject({ rank: 1 })
+  })
+
+  it("adds and removes gained talents", () => {
+    const character = make()
+    const added = reduceCharacter(character, {
+      kind: "talentAdd",
+      talentKey: "alchemy",
+    })
+    expect(added.gainedTalents).toContain("alchemy")
+    const removed = reduceCharacter(added, {
+      kind: "talentRemove",
+      talentKey: "alchemy",
+    })
+    expect(removed.gainedTalents).not.toContain("alchemy")
+  })
+
+  it("adds a spark tagged with a virtue", () => {
+    const character = make()
+    const next = reduceCharacter(character, {
+      kind: "addSpark",
+      virtue: "wisdom",
+    })
+    expect(next.sparkLog).toEqual([...character.sparkLog, "wisdom"])
+  })
 })
