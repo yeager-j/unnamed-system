@@ -87,8 +87,8 @@ const ITEM_INDEX: ReadonlyMap<string, Item> = new Map(
 
 /** Equippable items in a slot, for the add-item picker's grouped listing. */
 function itemsInSlot<S extends EquipSlot>(slot: S): readonly ItemForSlot<S>[] {
-  return ITEMS.filter(
-    (item): item is ItemForSlot<S> => item.equip?.slot === slot
+  return ITEMS.filter((item): item is ItemForSlot<S> =>
+    isItemForSlot(item, slot)
   )
 }
 
