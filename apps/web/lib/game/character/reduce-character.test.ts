@@ -260,6 +260,19 @@ describe("reduceCharacter", () => {
     expect(mechanic).toMatchObject({ rank: 1 })
   })
 
+  it("ignores a mechanic edit that doesn't match the active Archetype's mechanic", () => {
+    // Establish a Perfection state on the active Archetype, then dispatch a
+    // Valor edit: it must be a no-op rather than corrupting the Perfection
+    // state through the transform's cast.
+    const perfected = reduceCharacter(make(), {
+      kind: "perfection",
+      op: "increment",
+    })
+    expect(
+      reduceCharacter(perfected, { kind: "valor", direction: "increment" })
+    ).toBe(perfected)
+  })
+
   it("adds and removes gained talents", () => {
     const character = make()
     const added = reduceCharacter(character, {

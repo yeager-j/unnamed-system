@@ -270,7 +270,10 @@ function withActiveMechanic(
   const archetypeRows = raw.archetypeRows.map((archetype) => {
     if (archetype.id !== activeId) return archetype
     const current = archetype.mechanicState ?? initialStateFor(mechanicKind)
-    if (!current) return archetype
+    // Guard the transform's `as`-cast: only apply when the resolved state is
+    // actually this mechanic's kind (the active Archetype could carry a
+    // different mechanic). UI-gated today, but this keeps the cast honest.
+    if (!current || current.kind !== mechanicKind) return archetype
     changed = true
     return { ...archetype, mechanicState: transform(current) }
   })
