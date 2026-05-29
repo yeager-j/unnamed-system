@@ -50,9 +50,12 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - When building UI components, see if there is a shadcn/ui component that already does what you need.
 - User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
 - When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
+- When screenshotting via the Playwright MCP, omit the `filename` arg — a relative filename resolves against the repo cwd and litters the root; auto-named files honor the configured `--output-dir` and also render inline in the tool result.
 - When you create new folders, add them to this document's **Repo Structure** section. Ensuring this section is up-to-date allows future Claude instances to know where relevant code is without having to dig through the repo.
 
 **Retrospective at the end of every ticket.** When the implementation lands, briefly consider what slowed you down — friction in the type system, repeated patterns the abstractions don't cover, missing primitives, awkward seams between layers — and surface them with the user. An empty list is a fine outcome; padded lists are worse than silence. The user decides whether to act, file a DX ticket, or skip.
+
+As part of the retrospective, if you noticed anything that could be improved about the code near your changes that might have been out of scope for this ticket, surface it. Again, an empty list is a fine outcome; padded lists are worse than silence.
 
 ## Repo Structure
 

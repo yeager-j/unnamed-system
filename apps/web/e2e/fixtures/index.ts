@@ -6,6 +6,7 @@ import { inventoryTarget } from "./inventory-target"
 import { levelingTarget } from "./leveling-target"
 import { perfectionTarget } from "./perfection-target"
 import { restTarget } from "./rest-target"
+import { stainsTarget } from "./stains-target"
 import type { E2EFixture } from "./types"
 import { valorTarget } from "./valor-target"
 import { writeTarget } from "./write-target"
@@ -29,6 +30,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   combatStateTarget,
   valorTarget,
   perfectionTarget,
+  stainsTarget,
   inventoryTarget,
 ]
 
@@ -40,6 +42,7 @@ export { inventoryTarget } from "./inventory-target"
 export { levelingTarget } from "./leveling-target"
 export { perfectionTarget } from "./perfection-target"
 export { restTarget } from "./rest-target"
+export { stainsTarget } from "./stains-target"
 export type { E2EFixture } from "./types"
 export { valorTarget } from "./valor-target"
 export { writeTarget } from "./write-target"
