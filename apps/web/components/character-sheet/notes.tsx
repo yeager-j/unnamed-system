@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -6,7 +8,7 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
-import type { HydratedCharacter } from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
 
 /**
  * Read-only Notes block (PRD §6.1 Explore tab). Renders the player's free
@@ -15,7 +17,8 @@ import type { HydratedCharacter } from "@/lib/game/character"
  * latitude matters most here. Missing content collapses to a muted line
  * so the block still presents on a clean character.
  */
-export function Notes({ character }: { character: HydratedCharacter }) {
+export function Notes() {
+  const character = useCharacter()
   const text = character.notes
   const isEmpty = !text || text.trim().length === 0
 

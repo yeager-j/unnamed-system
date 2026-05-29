@@ -115,7 +115,7 @@ export default async function CharacterSheetPage({
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
         <CharacterProvider character={character}>
-          <SheetHeader character={character} />
+          <SheetHeader />
 
           <SheetTabs
             defaultTab={resolveTab(tab)}
@@ -150,21 +150,21 @@ export default async function CharacterSheetPage({
                   </section>
                 </div>
                 <section aria-label="Identity">
-                  <Identity character={character} />
+                  <Identity />
                 </section>
                 <section aria-label="Knives & Chains">
-                  <KnivesChains character={character} />
+                  <KnivesChains />
                 </section>
                 <section aria-label="Background">
-                  <Background character={character} />
+                  <Background />
                 </section>
                 <section aria-label="Notes">
-                  <Notes character={character} />
+                  <Notes />
                 </section>
               </>
             }
             inventory={<Inventory />}
-            archetypes={<Archetypes character={character} />}
+            archetypes={<Archetypes />}
           />
         </CharacterProvider>
       </ViewerRoleProvider>

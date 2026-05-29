@@ -1,3 +1,5 @@
+"use client"
+
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -9,12 +11,13 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { formatMasteryDescription } from "@/components/archetype/format"
+import { useCharacter } from "@/hooks/use-character"
 import {
   getArchetypeDisplay,
   hasMasteryBonus,
   type ArchetypeEntry,
 } from "@/lib/game/archetypes"
-import type { AttributeScores, HydratedCharacter } from "@/lib/game/character"
+import type { AttributeScores } from "@/lib/game/character"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
@@ -45,7 +48,8 @@ import { ArchetypeSummary } from "./archetypes/archetype-summary"
  * No Switch / Rank up / Unlock affordances appear anywhere — owner-mode
  * concerns live elsewhere.
  */
-export function Archetypes({ character }: { character: HydratedCharacter }) {
+export function Archetypes() {
+  const character = useCharacter()
   const { activeEntry, lineageGroups, unlockedCount } =
     getArchetypeDisplay(character)
   const otherCount = unlockedCount - (activeEntry ? 1 : 0)

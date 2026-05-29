@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Avatar,
   AvatarFallback,
@@ -7,12 +9,9 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Card, CardContent } from "@workspace/ui/components/card"
 
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
+import { useCharacter } from "@/hooks/use-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
-import {
-  isFallen,
-  VICTORIES_PER_LEVEL,
-  type HydratedCharacter,
-} from "@/lib/game/character"
+import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 import { formatCurrency } from "@/lib/ui/format-currency"
 
 import { Attributes } from "./attributes"
@@ -36,7 +35,8 @@ import { Vitals } from "./vitals"
  * the viewer is the owner. Subsequent tickets drop their controls into the
  * slot without restructuring this layout (PRD §6.1).
  */
-export function SheetHeader({ character }: { character: HydratedCharacter }) {
+export function SheetHeader() {
+  const character = useCharacter()
   const fallen = isFallen(character.currentHP)
 
   return (

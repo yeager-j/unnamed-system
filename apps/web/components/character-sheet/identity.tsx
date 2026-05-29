@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -6,7 +8,7 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
-import type { HydratedCharacter } from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
 
 /**
  * Read-only Identity block (PRD §6.1 Explore tab). Renders the five
@@ -16,7 +18,8 @@ import type { HydratedCharacter } from "@/lib/game/character"
  * here. Empty sections render one muted "None recorded." line rather than
  * disappearing, keeping the block scannable on a clean character.
  */
-export function Identity({ character }: { character: HydratedCharacter }) {
+export function Identity() {
+  const character = useCharacter()
   const sections: ReadonlyArray<{ label: string; body: string | null }> = [
     { label: "Personality Traits", body: character.personalityTraits },
     { label: "Hopes", body: character.hopes },

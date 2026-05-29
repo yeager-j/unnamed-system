@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -6,7 +8,7 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
-import type { HydratedCharacter } from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
 
 /**
  * Read-only Background block (PRD §6.1 Explore tab). Surfaces the three free
@@ -16,7 +18,8 @@ import type { HydratedCharacter } from "@/lib/game/character"
  * collapses to a muted "None recorded." line so the block reads the same on
  * every character.
  */
-export function Background({ character }: { character: HydratedCharacter }) {
+export function Background() {
+  const character = useCharacter()
   const sections: ReadonlyArray<{ label: string; text: string | null }> = [
     { label: "Ancestry", text: character.ancestryText },
     { label: "Background", text: character.backgroundText },
