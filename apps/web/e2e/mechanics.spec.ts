@@ -11,7 +11,7 @@ import { expect, test } from "@playwright/test"
  * Seed state the assertions rely on (see `lib/__fixtures__/seed-characters.ts`):
  *  - seed-warrior:  Perfection rank A (3) on active Warrior
  *  - seed-knight:   Valor 3 on active Knight
- *  - seed-healer:   Dawn Mode + two Illuminated enemies on active Healer
+ *  - seed-healer:   Dawn Mode on, active Healer
  *  - seed-mage:     Stains [fire, ice, null, null] on active Mage Rank 5;
  *                   partyComposition { mage: 2, warlock: 1 }; equips
  *                   Warlock's Pact (grants Ailment Boost) + Shadow Charm
@@ -118,17 +118,14 @@ test("Knight at Valor 3 has Resist on every physical damage type", async ({
   }
 })
 
-test("Healer's Path of Dawn surfaces the seeded Illuminated enemies", async ({
+test("Healer's Path of Dawn surfaces the Dawn Mode indicator", async ({
   page,
 }) => {
   await page.goto("/c/seed-healer")
 
-  // Loose content assertion — names and Dawn-mode indicator must be visible
-  // somewhere in the mechanic region. Doesn't care whether the list is a
-  // <ul>, a table, or rebuilt against the future initiative tracker.
+  // Read-only viewer (signed out): the widget is just the Dawn Mode indicator.
+  // Doesn't care whether it renders as a badge or a (disabled) toggle.
   const mechanic = page.getByRole("region", { name: "Archetype Mechanic" })
-  await expect(mechanic).toContainText("Charred Skeleton")
-  await expect(mechanic).toContainText("Salt Wraith")
   await expect(mechanic).toContainText(/Dawn/)
 })
 

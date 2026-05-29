@@ -12,8 +12,10 @@ import {
   clearStains,
   initialStateFor,
   resetPerfection,
+  setDawnMode,
   setStainSlot,
   type MechanicState,
+  type PathOfDawnState,
   type PerfectionState,
   type StainElement,
   type StainsState,
@@ -78,6 +80,7 @@ export type CharacterEdit =
       element: StainElement | null
     }
   | { kind: "stains"; op: "clear" }
+  | { kind: "pathOfDawn"; dawnMode: boolean }
   | { kind: "victories"; delta: number }
   | { kind: "damage"; amount: number }
   | { kind: "heal"; amount: number }
@@ -180,6 +183,11 @@ export function reduceCharacter(
         edit.op === "clear"
           ? clearStains(state as StainsState)
           : setStainSlot(state as StainsState, edit.slotIndex, edit.element)
+      )
+
+    case "pathOfDawn":
+      return withActiveMechanic(raw, character, "path-of-dawn", (state) =>
+        setDawnMode(state as PathOfDawnState, edit.dawnMode)
       )
 
     case "victories":

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { luminaCapFor, pathOfDawn } from "./path-of-dawn"
+import { mechanicStateSchema } from "../schema"
+import { pathOfDawn, setDawnMode, type PathOfDawnState } from "./path-of-dawn"
 
 describe("path of dawn", () => {
-  it("starts with Dawn Mode off and no enemies", () => {
+  it("starts with Dawn Mode off", () => {
     expect(pathOfDawn.initialState()).toEqual({
       kind: "path-of-dawn",
       dawnMode: false,
-      enemies: [],
     })
   })
 
@@ -15,11 +15,24 @@ describe("path of dawn", () => {
     expect(pathOfDawn.effects).toBeUndefined()
   })
 
-  it("reports a Lumina cap equal to the character's Luck", () => {
-    expect(luminaCapFor(3)).toBe(3)
-  })
+  describe("setDawnMode", () => {
+    it("toggles Dawn Mode on and off", () => {
+      const off = pathOfDawn.initialState()
+      const on = setDawnMode(off, true)
+      expect(on.dawnMode).toBe(true)
+      expect(setDawnMode(on, false).dawnMode).toBe(false)
+    })
 
-  it("floors a negative Luck score to a 0 cap", () => {
-    expect(luminaCapFor(-2)).toBe(0)
+    it("does not mutate the input state", () => {
+      const state: PathOfDawnState = pathOfDawn.initialState()
+      setDawnMode(state, true)
+      expect(state.dawnMode).toBe(false)
+    })
+
+    it("produces a state that still validates", () => {
+      expect(() =>
+        mechanicStateSchema.parse(setDawnMode(pathOfDawn.initialState(), true))
+      ).not.toThrow()
+    })
   })
 })

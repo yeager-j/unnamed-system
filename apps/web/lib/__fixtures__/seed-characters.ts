@@ -162,10 +162,6 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         mechanicState: {
           kind: "path-of-dawn",
           dawnMode: true,
-          enemies: [
-            { id: "skeleton-a", name: "Charred Skeleton", lumina: 2 },
-            { id: "wraith-b", name: "Salt Wraith", lumina: 1 },
-          ],
         },
       },
     ],
@@ -436,7 +432,6 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
         mechanicState: {
           kind: "path-of-dawn",
           dawnMode: false,
-          enemies: [],
         },
       },
     ],
