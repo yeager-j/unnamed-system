@@ -134,6 +134,12 @@ interface WriteParams<
   action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   /** Toast copy. Defaults cover the stale and generic cases. */
   messages?: { stale?: string; error?: string }
+  /**
+   * First crack at a failure: return `true` to suppress the default toast
+   * (the caller handled it — e.g. surfacing a domain-specific message or
+   * intentionally ignoring a benign cross-tab race).
+   */
+  onError?: (error: TError | "stale") => boolean
 }
 
 /**
@@ -156,6 +162,7 @@ export function useCharacterWrite() {
     characterClass,
     action,
     messages,
+    onError,
   }: WriteParams<TSuccess, TError>) {
     startTransition(async () => {
       applyEdit(edit)
@@ -166,6 +173,7 @@ export function useCharacterWrite() {
         action,
       })
       if (result.ok) return
+      if (onError?.(result.error)) return
       toast.error(
         result.error === "stale"
           ? (messages?.stale ?? "Couldn't sync — refresh to see the latest.")

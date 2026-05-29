@@ -7,8 +7,7 @@ import {
   LightningIcon,
   TrophyIcon,
 } from "@phosphor-icons/react"
-import { useOptimistic, useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
@@ -19,8 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {
   damageAction,
   healAction,
@@ -28,11 +26,7 @@ import {
   spendSPAction,
 } from "@/lib/actions/adjust-pools"
 import { awardVictoriesAction } from "@/lib/actions/leveling"
-import {
-  canLevelUp,
-  VICTORIES_PER_LEVEL,
-  type HydratedCharacter,
-} from "@/lib/game/character"
+import { canLevelUp, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 
 import { AdjustPoolDialog, AdjustPoolPopover } from "./adjust-pool-controls"
 import { LevelUpDialog } from "./level-up-dialog"
@@ -69,153 +63,72 @@ import {
  * frame and keeps disabled-by-zero correct under rapid clicks.
  */
 
-type Pools = {
-  currentHP: number
-  currentSP: number
-}
-
-type Mutation =
-  | { kind: "damage"; amount: number }
-  | { kind: "heal"; amount: number }
-  | { kind: "spend-sp"; amount: number }
-  | { kind: "recover-sp"; amount: number }
-
-function reducePools(
-  current: Pools,
-  mutation: Mutation,
-  maxHP: number,
-  maxSP: number
-): Pools {
-  switch (mutation.kind) {
-    case "damage":
-      return {
-        ...current,
-        currentHP: Math.max(0, current.currentHP - mutation.amount),
-      }
-    case "heal":
-      return {
-        ...current,
-        currentHP: Math.min(maxHP, current.currentHP + mutation.amount),
-      }
-    case "spend-sp":
-      return {
-        ...current,
-        currentSP: Math.max(0, current.currentSP - mutation.amount),
-      }
-    case "recover-sp":
-      return {
-        ...current,
-        currentSP: Math.min(maxSP, current.currentSP + mutation.amount),
-      }
-  }
-}
-
 /** The slot a mobile dropdown-menu item routes an "Adjust" choice into. */
 type MobileFormMode = "hp" | "sp" | "victories" | null
 
-export function HeaderOwnerActions({
-  character,
-}: {
-  character: HydratedCharacter
-}) {
-  const versionRef = useCharacterTokenRef(character.vitalsVersion)
-  const progressionVersionRef = useCharacterTokenRef(
-    character.progressionVersion
-  )
-  const [pending, startTransition] = useTransition()
-  const [victoriesPending, startVictoriesTransition] = useTransition()
+export function HeaderOwnerActions() {
+  const character = useCharacter()
+  // Two write surfaces so HP/SP (vitals) and Victories (progression) keep
+  // independent `pending` — a Victories click shouldn't disable Adjust HP.
+  const pools = useCharacterWrite()
+  const victories = useCharacterWrite()
   const [mobileForm, setMobileForm] = useState<MobileFormMode>(null)
   const [restOpen, setRestOpen] = useState(false)
   const [levelUpOpen, setLevelUpOpen] = useState(false)
-  const [optimisticVictories, applyOptimisticVictories] = useOptimistic(
-    character.victories,
-    (current: number, delta: number) => Math.max(0, current + delta)
-  )
   const levelUpReady = canLevelUp(character)
-
-  const base: Pools = {
-    currentHP: character.currentHP,
-    currentSP: character.currentSP,
-  }
-  const [, applyOptimistic] = useOptimistic(
-    base,
-    (current: Pools, mutation: Mutation): Pools =>
-      reducePools(current, mutation, character.maxHP, character.maxSP)
-  )
-
-  function dispatch<TError extends string>(
-    mutation: Mutation,
-    action: (
-      expectedVersion: number
-    ) => Promise<
-      | { ok: true; value: { version: number } }
-      | { ok: false; error: TError | "stale" }
-    >
-  ) {
-    startTransition(async () => {
-      applyOptimistic(mutation)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "vitals",
-        versionRef,
-        action,
-      })
-      if (result.ok) return
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't save. Try again.")
-      }
-    })
-  }
+  const optimisticVictories = character.victories
 
   function handleDamage(amount: number) {
-    dispatch({ kind: "damage", amount }, (expectedVersion) =>
-      damageAction({ characterId: character.id, amount, expectedVersion })
-    )
+    pools.write({
+      edit: { kind: "damage", amount },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        damageAction({ characterId: character.id, amount, expectedVersion }),
+    })
   }
 
   function handleHeal(amount: number) {
-    dispatch({ kind: "heal", amount }, (expectedVersion) =>
-      healAction({ characterId: character.id, amount, expectedVersion })
-    )
-  }
-
-  function handleSpendSP(amount: number) {
-    dispatch({ kind: "spend-sp", amount }, (expectedVersion) =>
-      spendSPAction({ characterId: character.id, amount, expectedVersion })
-    )
-  }
-
-  function handleRecoverSP(amount: number) {
-    dispatch({ kind: "recover-sp", amount }, (expectedVersion) =>
-      recoverSPAction({ characterId: character.id, amount, expectedVersion })
-    )
-  }
-
-  function handleAwardVictories(amount: VictoriesAmount) {
-    startVictoriesTransition(async () => {
-      applyOptimisticVictories(amount)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "progression",
-        versionRef: progressionVersionRef,
-        action: (expectedVersion) =>
-          awardVictoriesAction({
-            characterId: character.id,
-            amount,
-            expectedVersion,
-          }),
-      })
-      if (result.ok) return
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't save. Try again.")
-      }
+    pools.write({
+      edit: { kind: "heal", amount },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        healAction({ characterId: character.id, amount, expectedVersion }),
     })
   }
 
+  function handleSpendSP(amount: number) {
+    pools.write({
+      edit: { kind: "spendSP", amount },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        spendSPAction({ characterId: character.id, amount, expectedVersion }),
+    })
+  }
+
+  function handleRecoverSP(amount: number) {
+    pools.write({
+      edit: { kind: "recoverSP", amount },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        recoverSPAction({ characterId: character.id, amount, expectedVersion }),
+    })
+  }
+
+  function handleAwardVictories(amount: VictoriesAmount) {
+    victories.write({
+      edit: { kind: "victories", delta: amount },
+      characterClass: "progression",
+      action: (expectedVersion) =>
+        awardVictoriesAction({
+          characterId: character.id,
+          amount,
+          expectedVersion,
+        }),
+    })
+  }
+
+  const pending = pools.pending
+  const victoriesPending = victories.pending
   const undoDisabled = victoriesPending || optimisticVictories === 0
 
   return (

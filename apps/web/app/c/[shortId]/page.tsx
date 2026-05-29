@@ -135,7 +135,7 @@ export default async function CharacterSheetPage({
                   </section>
                 </div>
                 <section aria-label="Skills">
-                  <Skills character={character} />
+                  <Skills />
                 </section>
               </>
             }
@@ -143,10 +143,10 @@ export default async function CharacterSheetPage({
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <section aria-label="Virtues">
-                    <Virtues character={character} />
+                    <Virtues />
                   </section>
                   <section aria-label="Talents">
-                    <Talents character={character} />
+                    <Talents />
                   </section>
                 </div>
                 <section aria-label="Identity">

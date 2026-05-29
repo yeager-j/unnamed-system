@@ -14,7 +14,14 @@ import {
   type PerfectionState,
   type ValorState,
 } from "../mechanics"
-import { applyUsePrisma } from "./adjust-pools"
+import { applyResolvedCost } from "../skills"
+import {
+  applyDamage,
+  applyHeal,
+  applyRecoverSP,
+  applySpendSP,
+  applyUsePrisma,
+} from "./adjust-pools"
 import { clampCurrency } from "./currency"
 import {
   deriveHydratedCharacter,
@@ -22,7 +29,13 @@ import {
   type RawCharacterInputs,
 } from "./derive-hydrated-character"
 import type { HydratedCharacter } from "./hydrated-character"
-import { DEFAULT_BATTLE_CONDITIONS, type BattleConditionState } from "./state"
+import { addSpark, rankUpVirtue, type SparkCharacter } from "./leveling"
+import {
+  DEFAULT_BATTLE_CONDITIONS,
+  type BattleConditionState,
+  type VirtueKey,
+} from "./state"
+import type { TalentKey } from "./talents/registry"
 
 type BattleConditionAxisKey = "attack" | "defense" | "hitEvasion"
 type BattleConditionFlagKey = "charged" | "concentrating"
@@ -53,6 +66,16 @@ export type CharacterEdit =
   | { kind: "clearCombatState" }
   | { kind: "valor"; direction: "increment" | "decrement" }
   | { kind: "perfection"; op: "increment" | "decrement" | "reset" }
+  | { kind: "victories"; delta: number }
+  | { kind: "damage"; amount: number }
+  | { kind: "heal"; amount: number }
+  | { kind: "spendSP"; amount: number }
+  | { kind: "recoverSP"; amount: number }
+  | { kind: "cast"; skillKey: string }
+  | { kind: "addSpark"; virtue: VirtueKey }
+  | { kind: "rankUpVirtue"; virtue: VirtueKey }
+  | { kind: "talentAdd"; talentKey: TalentKey }
+  | { kind: "talentRemove"; talentKey: TalentKey }
 
 const randomId = () => crypto.randomUUID()
 
@@ -137,6 +160,94 @@ export function reduceCharacter(
               edit.op === "increment" ? 1 : -1
             )
       )
+
+    case "victories":
+      return withRow({ victories: Math.max(0, raw.row.victories + edit.delta) })
+
+    case "damage": {
+      const result = applyDamage(raw.row, edit.amount)
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "heal": {
+      const result = applyHeal(
+        { currentHP: raw.row.currentHP, maxHP: character.maxHP },
+        edit.amount
+      )
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "spendSP": {
+      const result = applySpendSP(raw.row, edit.amount)
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "recoverSP": {
+      const result = applyRecoverSP(
+        { currentSP: raw.row.currentSP, maxSP: character.maxSP },
+        edit.amount
+      )
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "cast": {
+      const cost = character.skills.find(
+        (skill) => skill.key === edit.skillKey
+      )?.resolvedCost
+      if (!cost) return character
+      const result = applyResolvedCost(cost, {
+        currentHP: raw.row.currentHP,
+        currentSP: raw.row.currentSP,
+      })
+      return result.ok ? withRow(result.value) : character
+    }
+
+    case "addSpark": {
+      const result = addSpark(sparkCharacter(raw), edit.virtue)
+      return result.ok ? withRow(sparkRow(result.value)) : character
+    }
+
+    case "rankUpVirtue": {
+      const result = rankUpVirtue(sparkCharacter(raw), edit.virtue)
+      return result.ok ? withRow(sparkRow(result.value)) : character
+    }
+
+    case "talentAdd":
+      return raw.row.gainedTalents.includes(edit.talentKey)
+        ? character
+        : withRow({ gainedTalents: [...raw.row.gainedTalents, edit.talentKey] })
+
+    case "talentRemove":
+      return withRow({
+        gainedTalents: raw.row.gainedTalents.filter(
+          (key) => key !== edit.talentKey
+        ),
+      })
+  }
+}
+
+/** Projects the spark/virtue columns into the {@link SparkCharacter} the
+ *  leveling engine reads. */
+function sparkCharacter(raw: RawCharacterInputs): SparkCharacter {
+  return {
+    sparkLog: raw.row.sparkLog,
+    virtues: {
+      expression: raw.row.virtueExpression,
+      empathy: raw.row.virtueEmpathy,
+      wisdom: raw.row.virtueWisdom,
+      focus: raw.row.virtueFocus,
+    },
+  }
+}
+
+/** Maps a spark/virtue engine result back onto the flat `characters` columns. */
+function sparkRow(value: SparkCharacter): Partial<CharacterRow> {
+  return {
+    sparkLog: value.sparkLog,
+    virtueExpression: value.virtues.expression,
+    virtueEmpathy: value.virtues.empathy,
+    virtueWisdom: value.virtues.wisdom,
+    virtueFocus: value.virtues.focus,
   }
 }
 

@@ -93,7 +93,7 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
           <OwnerOnly>
             <div className="mt-auto">
               <OwnerControlsSlot>
-                <HeaderOwnerActions character={character} />
+                <HeaderOwnerActions />
               </OwnerControlsSlot>
             </div>
           </OwnerOnly>

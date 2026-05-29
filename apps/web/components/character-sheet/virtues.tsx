@@ -1,7 +1,7 @@
 "use client"
 
 import { SparkleIcon } from "@phosphor-icons/react"
-import { useOptimistic, useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
@@ -19,34 +19,19 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {
   addSparkAction,
   rankUpVirtueAction,
 } from "@/lib/actions/character-spark"
 import {
-  addSpark,
   eligibleVirtuesForRankUp,
-  rankUpVirtue,
   SPARK_LOG_CAPACITY,
   sparkLogBreakdown,
   VIRTUE_KEYS,
-  type HydratedCharacter,
-  type SparkCharacter,
-  type SparkLog,
   type VirtueKey,
 } from "@/lib/game/character"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
-
-type Mutation =
-  | { kind: "add-spark"; virtue: VirtueKey }
-  | { kind: "rank-up"; virtue: VirtueKey }
-
-interface OptimisticState {
-  sparkLog: SparkLog
-  virtues: Record<VirtueKey, number>
-}
 
 /**
  * Virtues block on the Explore tab (PRD §6.1 / §7.5, UNN-222). Renders the
@@ -59,11 +44,11 @@ interface OptimisticState {
  * / `rankUpVirtue` engines client-side — so a click updates the breakdown
  * line before the round-trip and a failure rolls back cleanly.
  */
-export function Virtues({ character }: { character: HydratedCharacter }) {
-  const versionRef = useCharacterTokenRef(character.progressionVersion)
-  const [pending, startTransition] = useTransition()
+export function Virtues() {
+  const character = useCharacter()
+  const { pending, write, characterId } = useCharacterWrite()
 
-  const base: OptimisticState = {
+  const optimistic = {
     sparkLog: character.sparkLog,
     virtues: {
       expression: character.virtueExpression,
@@ -72,22 +57,6 @@ export function Virtues({ character }: { character: HydratedCharacter }) {
       focus: character.virtueFocus,
     },
   }
-
-  const [optimistic, applyOptimistic] = useOptimistic(
-    base,
-    (current: OptimisticState, mutation: Mutation): OptimisticState => {
-      const projection: SparkCharacter = {
-        sparkLog: current.sparkLog,
-        virtues: current.virtues,
-      }
-      const result =
-        mutation.kind === "add-spark"
-          ? addSpark(projection, mutation.virtue)
-          : rankUpVirtue(projection, mutation.virtue)
-      if (!result.ok) return current
-      return { sparkLog: result.value.sparkLog, virtues: result.value.virtues }
-    }
-  )
 
   const breakdown = sparkLogBreakdown(optimistic.sparkLog)
   const logFull = optimistic.sparkLog.length >= SPARK_LOG_CAPACITY
@@ -99,58 +68,40 @@ export function Virtues({ character }: { character: HydratedCharacter }) {
     : new Set<VirtueKey>()
 
   function handleAddSpark(virtue: VirtueKey) {
-    startTransition(async () => {
-      applyOptimistic({ kind: "add-spark", virtue })
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "progression",
-        versionRef,
-        action: (expectedVersion) =>
-          addSparkAction({
-            characterId: character.id,
-            virtue,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "log-full") {
-          toast.error("Spark log is full — rank up a Virtue to make room.")
-        } else if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else {
-          toast.error("Couldn't add Spark. Try again.")
-        }
-      }
+    write({
+      edit: { kind: "addSpark", virtue },
+      characterClass: "progression",
+      action: (expectedVersion) =>
+        addSparkAction({ characterId, virtue, expectedVersion }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't add Spark. Try again.",
+      },
+      onError: (error) => {
+        if (error !== "log-full") return false
+        toast.error("Spark log is full — rank up a Virtue to make room.")
+        return true
+      },
     })
   }
 
   function handleRankUp(virtue: VirtueKey) {
-    startTransition(async () => {
-      applyOptimistic({ kind: "rank-up", virtue })
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "progression",
-        versionRef,
-        action: (expectedVersion) =>
-          rankUpVirtueAction({
-            characterId: character.id,
-            virtue,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else if (result.error === "rank-capped") {
-          toast.error(`${VIRTUE_LABELS[virtue]} is already at maximum rank.`)
-        } else {
-          toast.error("Couldn't rank up. Try again.")
-        }
-      }
+    write({
+      edit: { kind: "rankUpVirtue", virtue },
+      characterClass: "progression",
+      action: (expectedVersion) =>
+        rankUpVirtueAction({ characterId, virtue, expectedVersion }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't rank up. Try again.",
+      },
+      onError: (error) => {
+        if (error !== "rank-capped") return false
+        toast.error(`${VIRTUE_LABELS[virtue]} is already at maximum rank.`)
+        return true
+      },
     })
   }
 

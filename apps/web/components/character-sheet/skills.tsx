@@ -1,8 +1,5 @@
 "use client"
 
-import { useOptimistic, useTransition } from "react"
-import { toast } from "sonner"
-
 import {
   Card,
   CardContent,
@@ -12,12 +9,10 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { castSkillAction } from "@/lib/actions/cast-skill"
-import type { HydratedCharacter } from "@/lib/game/character"
 import { getEquippedItem } from "@/lib/game/items"
-import { applyResolvedCost, sortSkillsByKind } from "@/lib/game/skills"
+import { sortSkillsByKind } from "@/lib/game/skills"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1 / §7.2): every Skill currently
@@ -36,7 +31,10 @@ import { applyResolvedCost, sortSkillsByKind } from "@/lib/game/skills"
  * callers (public sheet, signed-out viewers) do not see Cast at all because
  * the `cast` prop short-circuits inside {@link OwnerOnly}.
  */
-export function Skills({ character }: { character: HydratedCharacter }) {
+export function Skills() {
+  const character = useCharacter()
+  const { pending, write, characterId } = useCharacterWrite()
+
   const equippedWeapon = getEquippedItem(character.inventory, "weapon")
   const { attributes, weaponAttackRoll } = character
 
@@ -44,56 +42,19 @@ export function Skills({ character }: { character: HydratedCharacter }) {
   const regular = sorted.filter((entry) => !entry.isSynthesis)
   const synthesis = sorted.filter((entry) => entry.isSynthesis)
 
-  const [pending, startTransition] = useTransition()
-  // Vitals-class token (UNN-140). A rapid follow-up Cast reads the value
-  // just written by the prior save's success branch — without waiting for
-  // React commit + effect to propagate the new prop.
-  const versionRef = useCharacterTokenRef(character.vitalsVersion)
-
-  const [pools, applyOptimistic] = useOptimistic(
-    { currentHP: character.currentHP, currentSP: character.currentSP },
-    (current, skillKey: string) => {
-      // Route the optimistic frame through the same `applyResolvedCost`
-      // primitive the Server Action runs (UNN-231) — keeps the optimistic
-      // pool deduction structurally identical to the persisted one. The
-      // disabled Cast button means an unaffordable cast cannot dispatch,
-      // so we treat the err branch as a no-op.
-      const skill = character.skills.find((entry) => entry.key === skillKey)
-      const cost = skill?.resolvedCost
-      if (!cost) return current
-      const result = applyResolvedCost(cost, current)
-      return result.ok ? result.value : current
-    }
-  )
-
   function handleCast(skillKey: string) {
-    startTransition(async () => {
-      applyOptimistic(skillKey)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "vitals",
-        versionRef,
-        action: (expectedVersion) =>
-          castSkillAction({
-            characterId: character.id,
-            skillKey,
-            expectedVersion,
-          }),
-      })
-
-      if (result.ok) return
-
-      if (result.error === "stale") {
-        toast.error("Couldn't sync — refresh to see the latest.")
-      } else {
-        toast.error("Couldn't cast Skill. Try again.")
-      }
+    write({
+      edit: { kind: "cast", skillKey },
+      characterClass: "vitals",
+      action: (expectedVersion) =>
+        castSkillAction({ characterId, skillKey, expectedVersion }),
+      messages: { error: "Couldn't cast Skill. Try again." },
     })
   }
 
   const cast = {
-    currentHP: pools.currentHP,
-    currentSP: pools.currentSP,
+    currentHP: character.currentHP,
+    currentSP: character.currentSP,
     pending,
     onCast: handleCast,
   }
