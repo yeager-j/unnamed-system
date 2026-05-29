@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -5,7 +7,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import type { HydratedCharacter } from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
 import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/combat"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
@@ -20,7 +22,8 @@ import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
  * desktop width and wraps on narrower screens. No controls; the public sheet
  * never mutates state.
  */
-export function Affinities({ character }: { character: HydratedCharacter }) {
+export function Affinities() {
+  const character = useCharacter()
   return (
     <Card>
       <CardHeader>

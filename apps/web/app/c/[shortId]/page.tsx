@@ -122,7 +122,7 @@ export default async function CharacterSheetPage({
             combat={
               <>
                 <section aria-label="Affinities">
-                  <Affinities character={character} />
+                  <Affinities />
                 </section>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {character.activeMechanic ? (

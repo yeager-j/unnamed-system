@@ -100,9 +100,9 @@ export function SheetHeader({ character }: { character: HydratedCharacter }) {
         </div>
 
         <div className="flex flex-col gap-4 border-t border-border pt-6 md:w-80 md:border-t-0 md:border-l md:pt-0 md:pl-6">
-          <Vitals character={character} />
+          <Vitals />
           <section aria-label="Attributes">
-            <Attributes character={character} />
+            <Attributes />
           </section>
         </div>
       </CardContent>
