@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -6,11 +8,11 @@ import {
 } from "@workspace/ui/components/card"
 
 import { Prose } from "@/components/shared/prose"
+import { useCharacter } from "@/hooks/use-character"
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/load-character"
-import type { HydratedCharacter } from "@/lib/game/character"
 
 type IdentityEntry = CharacterKnifeRow | CharacterChainRow
 
@@ -22,7 +24,8 @@ type IdentityEntry = CharacterKnifeRow | CharacterChainRow
  * Both subsections always render their heading; an empty side shows a single
  * "None recorded." line so the block reads the same shape on any character.
  */
-export function KnivesChains({ character }: { character: HydratedCharacter }) {
+export function KnivesChains() {
+  const character = useCharacter()
   return (
     <Card>
       <CardHeader>

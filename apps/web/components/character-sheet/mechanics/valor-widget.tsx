@@ -1,7 +1,6 @@
 "use client"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useCharacter } from "@/hooks/use-character"
 import {
   VALOR_MAX,
   VALOR_THRESHOLD_DESCRIPTIONS,
@@ -25,7 +24,6 @@ import { ValorStepper } from "./knight/valor-stepper"
  * Luck-derived cap.
  */
 export function ValorWidget({ state }: { state: ValorState }) {
-  const character = useCharacter()
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -48,11 +46,7 @@ export function ValorWidget({ state }: { state: ValorState }) {
           {state.value} / {VALOR_MAX}
         </span>
         <OwnerOnly>
-          <ValorStepper
-            characterId={character.id}
-            value={state.value}
-            vitalsVersion={character.vitalsVersion}
-          />
+          <ValorStepper value={state.value} />
         </OwnerOnly>
       </div>
       <ul className="flex flex-col gap-1.5 text-sm">

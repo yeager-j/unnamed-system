@@ -1,8 +1,7 @@
 "use client"
 
 import { LockIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
-import { useMemo, useOptimistic, useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useMemo, useState } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -21,28 +20,18 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
 import { getArchetype } from "@/lib/game/archetypes"
-import {
-  getTalent,
-  TALENT_KEYS,
-  type HydratedCharacter,
-  type TalentKey,
-} from "@/lib/game/character"
+import { getTalent, TALENT_KEYS, type TalentKey } from "@/lib/game/character"
 
 const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
 
 const compareLabel = (a: TalentKey, b: TalentKey) =>
   labelFor(a).localeCompare(labelFor(b))
-
-type OptimisticMutation =
-  | { kind: "add"; talentKey: TalentKey }
-  | { kind: "remove"; talentKey: TalentKey }
 
 /**
  * Talents block on the Explore tab (PRD §6.1 / §5.3, UNN-222). Owners can
@@ -56,10 +45,11 @@ type OptimisticMutation =
  * server round-trip; the surrounding `OwnerOnly` only governs *whether*
  * controls render — `requireOwner` is the canonical authorization gate.
  */
-export function Talents({ character }: { character: HydratedCharacter }) {
+export function Talents() {
   const role = useViewerRole()
-  const versionRef = useCharacterTokenRef(character.identityVersion)
-  const [pending, startTransition] = useTransition()
+  const character = useCharacter()
+  const { pending, write, characterId } = useCharacterWrite()
+  const optimisticGained = character.gainedTalents
 
   const inheritedKeys = useMemo<TalentKey[]>(() => {
     const archetype = character.activeArchetypeKey
@@ -67,17 +57,6 @@ export function Talents({ character }: { character: HydratedCharacter }) {
       : null
     return archetype?.talents ?? []
   }, [character.activeArchetypeKey])
-
-  const [optimisticGained, applyOptimistic] = useOptimistic(
-    character.gainedTalents,
-    (current: TalentKey[], mutation: OptimisticMutation): TalentKey[] => {
-      if (mutation.kind === "add") {
-        if (current.includes(mutation.talentKey)) return current
-        return [...current, mutation.talentKey]
-      }
-      return current.filter((key) => key !== mutation.talentKey)
-    }
-  )
 
   const inheritedSet = useMemo(() => new Set(inheritedKeys), [inheritedKeys])
   const gainedSorted = useMemo(
@@ -99,50 +78,29 @@ export function Talents({ character }: { character: HydratedCharacter }) {
   )
 
   function handleAdd(talentKey: TalentKey) {
-    startTransition(async () => {
-      applyOptimistic({ kind: "add", talentKey })
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "identity",
-        versionRef,
-        action: (expectedVersion) =>
-          addGainedTalentAction({
-            characterId: character.id,
-            talentKey,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "duplicate-talent") {
-          // Cross-tab race; the next prop sync will reflect it.
-        } else if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else {
-          toast.error("Couldn't add Talent. Try again.")
-        }
-      }
+    write({
+      edit: { kind: "talentAdd", talentKey },
+      characterClass: "identity",
+      action: (expectedVersion) =>
+        addGainedTalentAction({ characterId, talentKey, expectedVersion }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't add Talent. Try again.",
+      },
+      // Cross-tab race: the talent is already gained — the next prop sync
+      // reflects it, so there's nothing to surface.
+      onError: (error) => error === "duplicate-talent",
     })
   }
 
   function handleRemove(talentKey: TalentKey) {
-    startTransition(async () => {
-      applyOptimistic({ kind: "remove", talentKey })
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: character.id,
-        characterClass: "identity",
-        versionRef,
-        action: (expectedVersion) =>
-          removeGainedTalentAction({
-            characterId: character.id,
-            talentKey,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        toast.error("Couldn't remove Talent. Try again.")
-      }
+    write({
+      edit: { kind: "talentRemove", talentKey },
+      characterClass: "identity",
+      action: (expectedVersion) =>
+        removeGainedTalentAction({ characterId, talentKey, expectedVersion }),
+      messages: { error: "Couldn't remove Talent. Try again." },
     })
   }
 

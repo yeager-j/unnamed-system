@@ -114,15 +114,15 @@ export default async function CharacterSheetPage({
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
-        <SheetHeader character={character} />
-
         <CharacterProvider character={character}>
+          <SheetHeader />
+
           <SheetTabs
             defaultTab={resolveTab(tab)}
             combat={
               <>
                 <section aria-label="Affinities">
-                  <Affinities character={character} />
+                  <Affinities />
                 </section>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {character.activeMechanic ? (
@@ -131,11 +131,11 @@ export default async function CharacterSheetPage({
                     </section>
                   ) : null}
                   <section aria-label="Combat State">
-                    <CombatState character={character} />
+                    <CombatState />
                   </section>
                 </div>
                 <section aria-label="Skills">
-                  <Skills character={character} />
+                  <Skills />
                 </section>
               </>
             }
@@ -143,28 +143,28 @@ export default async function CharacterSheetPage({
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <section aria-label="Virtues">
-                    <Virtues character={character} />
+                    <Virtues />
                   </section>
                   <section aria-label="Talents">
-                    <Talents character={character} />
+                    <Talents />
                   </section>
                 </div>
                 <section aria-label="Identity">
-                  <Identity character={character} />
+                  <Identity />
                 </section>
                 <section aria-label="Knives & Chains">
-                  <KnivesChains character={character} />
+                  <KnivesChains />
                 </section>
                 <section aria-label="Background">
-                  <Background character={character} />
+                  <Background />
                 </section>
                 <section aria-label="Notes">
-                  <Notes character={character} />
+                  <Notes />
                 </section>
               </>
             }
-            inventory={<Inventory character={character} />}
-            archetypes={<Archetypes character={character} />}
+            inventory={<Inventory />}
+            archetypes={<Archetypes />}
           />
         </CharacterProvider>
       </ViewerRoleProvider>

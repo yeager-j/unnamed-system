@@ -10,7 +10,6 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import type { HydratedCharacter } from "@/lib/game/character"
 import {
   resolveInventory,
   type EquipSlot,
@@ -39,22 +38,18 @@ import { useInventoryEditor } from "./use-inventory-editor"
  * (optimistic engine + Server Actions) lives in {@link useInventoryEditor}; this
  * component only shapes the resolved view and renders it.
  */
-export function Inventory({ character }: { character: HydratedCharacter }) {
-  const {
-    character: optimisticCharacter,
-    pending,
-    dispatchMutation,
-    dispatchCurrency,
-  } = useInventoryEditor(character)
+export function Inventory() {
+  const { character, pending, dispatchMutation, dispatchCurrency } =
+    useInventoryEditor()
 
-  const resolved = resolveInventory(optimisticCharacter.inventory)
+  const resolved = resolveInventory(character.inventory)
 
   return (
     <div className="flex flex-col gap-4">
       <EquippedSection resolved={resolved} />
       <InventoryList
         resolved={resolved}
-        currency={optimisticCharacter.currency}
+        currency={character.currency}
         pending={pending}
         onMutate={dispatchMutation}
         onAddCurrency={(amount) => dispatchCurrency(amount)}

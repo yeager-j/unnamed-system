@@ -1,5 +1,7 @@
+"use client"
+
+import { useCharacter } from "@/hooks/use-character"
 import { ATTRIBUTE_KEYS } from "@/lib/game/archetypes"
-import type { HydratedCharacter } from "@/lib/game/character"
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -15,7 +17,8 @@ import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
  * the tall Vitals column would otherwise leave empty. No controls; the public
  * sheet never mutates state.
  */
-export function Attributes({ character }: { character: HydratedCharacter }) {
+export function Attributes() {
+  const character = useCharacter()
   return (
     <dl className="grid grid-cols-1 gap-1.5 md:grid-cols-2 md:gap-x-6">
       {ATTRIBUTE_KEYS.map((key) => (

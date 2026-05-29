@@ -1,3 +1,5 @@
+"use client"
+
 import {
   Card,
   CardContent,
@@ -6,10 +8,8 @@ import {
 } from "@workspace/ui/components/card"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import {
-  DEFAULT_BATTLE_CONDITIONS,
-  type HydratedCharacter,
-} from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
+import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 
 import { AilmentEditor } from "./combat-state/ailment-editor"
 import { BattleConditionRow } from "./combat-state/battle-condition-row"
@@ -38,56 +38,33 @@ import { PrismaRow } from "./combat-state/prisma-row"
  * constructive stacking, so `stacks > 1` only encodes extended duration —
  * meaningful once an initiative tracker exists, not before.
  */
-export function CombatState({ character }: { character: HydratedCharacter }) {
+export function CombatState() {
+  const character = useCharacter()
   const conditions = character.battleConditions ?? DEFAULT_BATTLE_CONDITIONS
+  const hasState =
+    character.ailments.length > 0 ||
+    conditions.attack.state !== "neutral" ||
+    conditions.defense.state !== "neutral" ||
+    conditions.hitEvasion.state !== "neutral" ||
+    conditions.charged ||
+    conditions.concentrating
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>Combat State</CardTitle>
         <OwnerOnly>
-          <ClearCombatStateButton
-            characterId={character.id}
-            vitalsVersion={character.vitalsVersion}
-            hasState={
-              character.ailments.length > 0 ||
-              conditions.attack.state !== "neutral" ||
-              conditions.defense.state !== "neutral" ||
-              conditions.hitEvasion.state !== "neutral" ||
-              conditions.charged ||
-              conditions.concentrating
-            }
-          />
+          <ClearCombatStateButton hasState={hasState} />
         </OwnerOnly>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="grid grid-cols-3 items-start gap-x-2">
-          <AilmentEditor
-            characterId={character.id}
-            ailments={character.ailments}
-            vitalsVersion={character.vitalsVersion}
-          />
-          <Exhaustion
-            characterId={character.id}
-            exhaustion={character.exhaustion}
-            vitalsVersion={character.vitalsVersion}
-          />
+          <AilmentEditor />
+          <Exhaustion />
         </div>
-        <PrismaRow
-          characterId={character.id}
-          prismaCharges={character.prismaCharges}
-          vitalsVersion={character.vitalsVersion}
-        />
-        <BattleConditionRow
-          characterId={character.id}
-          conditions={conditions}
-          vitalsVersion={character.vitalsVersion}
-        />
-        <FlagRow
-          characterId={character.id}
-          conditions={conditions}
-          vitalsVersion={character.vitalsVersion}
-        />
+        <PrismaRow />
+        <BattleConditionRow />
+        <FlagRow />
         <PartyCompositionRow composition={character.partyComposition} />
       </CardContent>
     </Card>

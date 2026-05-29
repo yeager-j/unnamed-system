@@ -1,6 +1,9 @@
+"use client"
+
 import { Progress } from "@workspace/ui/components/progress"
 
-import { isFallen, type HydratedCharacter } from "@/lib/game/character"
+import { useCharacter } from "@/hooks/use-character"
+import { isFallen } from "@/lib/game/character"
 
 /**
  * The read-only Vitals block (PRD §6.1 Vitals): current/max HP and SP with bars
@@ -12,7 +15,8 @@ import { isFallen, type HydratedCharacter } from "@/lib/game/character"
  * header. No controls; the public sheet never mutates state. Rendered as part
  * of the top-of-sheet summary ({@link SheetHeader}), so no card wrapper.
  */
-export function Vitals({ character }: { character: HydratedCharacter }) {
+export function Vitals() {
+  const character = useCharacter()
   const fallen = isFallen(character.currentHP)
 
   return (

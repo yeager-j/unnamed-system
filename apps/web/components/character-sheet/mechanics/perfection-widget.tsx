@@ -1,7 +1,6 @@
 "use client"
 
-import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
-import { useCharacter } from "@/hooks/use-character"
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import {
   attackBonusForRank,
   PERFECTION_RANK_LABELS,
@@ -26,16 +25,9 @@ import { usePerfectionControls } from "./warrior/perfection-controls"
  * the server response lands.
  */
 export function PerfectionWidget({ state }: { state: PerfectionState }) {
-  const character = useCharacter()
-  const role = useViewerRole()
+  const controls = usePerfectionControls({ rank: state.rank })
 
-  const controls = usePerfectionControls({
-    characterId: character.id,
-    rank: state.rank,
-    vitalsVersion: character.vitalsVersion,
-  })
-
-  const displayRank = role === "owner" ? controls.optimisticRank : state.rank
+  const displayRank = state.rank
   const bonus = attackBonusForRank(displayRank)
 
   return (
