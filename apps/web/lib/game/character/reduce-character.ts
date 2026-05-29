@@ -9,10 +9,14 @@ import {
 import {
   adjustPerfection,
   adjustValor,
+  clearStains,
   initialStateFor,
   resetPerfection,
+  setStainSlot,
   type MechanicState,
   type PerfectionState,
+  type StainElement,
+  type StainsState,
   type ValorState,
 } from "../mechanics"
 import { applyResolvedCost } from "../skills"
@@ -67,6 +71,13 @@ export type CharacterEdit =
   | { kind: "clearCombatState" }
   | { kind: "valor"; direction: "increment" | "decrement" }
   | { kind: "perfection"; op: "increment" | "decrement" | "reset" }
+  | {
+      kind: "stains"
+      op: "setSlot"
+      slotIndex: number
+      element: StainElement | null
+    }
+  | { kind: "stains"; op: "clear" }
   | { kind: "victories"; delta: number }
   | { kind: "damage"; amount: number }
   | { kind: "heal"; amount: number }
@@ -162,6 +173,13 @@ export function reduceCharacter(
               state as PerfectionState,
               edit.op === "increment" ? 1 : -1
             )
+      )
+
+    case "stains":
+      return withActiveMechanic(raw, character, "stains", (state) =>
+        edit.op === "clear"
+          ? clearStains(state as StainsState)
+          : setStainSlot(state as StainsState, edit.slotIndex, edit.element)
       )
 
     case "victories":

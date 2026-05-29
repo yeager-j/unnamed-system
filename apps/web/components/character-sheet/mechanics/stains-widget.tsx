@@ -1,34 +1,62 @@
-import { STAIN_ELEMENT_LABELS, type StainsState } from "@/lib/game/mechanics"
+"use client"
+
+import { TrashIcon } from "@phosphor-icons/react"
+
+import { Button } from "@workspace/ui/components/button"
+
+import { useViewerRole } from "@/components/shell/viewer-role"
+import { type StainsState } from "@/lib/game/mechanics"
+
+import { OwnerStainSlot, StainTile } from "./mage/stain-slot"
+import { useStainsControls } from "./mage/use-stains-controls"
 
 /**
- * Mage — Stains rendering. Four equal-width tiles; each shows its current
- * element (Fire / Ice / Elec / Wind / Light) or an empty placeholder. Color
- * coding picks up the elemental affinity vocabulary so the eye can scan a
- * row at a glance.
+ * Mage — Stains rendering. Four equal-width tiles, each showing its current
+ * element (Fire / Ice / Elec / Wind / Light) or empty. Non-owners see the
+ * tiles read-only; owners get per-slot controls (UNN-229): every tile is a
+ * popover to fill / replace / remove a Stain, plus a one-click Clear.
  */
 export function StainsWidget({ state }: { state: StainsState }) {
-  return (
-    <ol aria-label="Stain slots" className="grid grid-cols-4 gap-2">
-      {state.tokens.map((token, index) => (
-        <li
-          key={index}
-          className={
-            token
-              ? `flex h-16 items-center justify-center rounded-md border-2 font-medium ${STAIN_TILE_CLASSES[token]}`
-              : "flex h-16 items-center justify-center rounded-md border-2 border-dashed border-border text-muted-foreground"
-          }
-        >
-          {token ? STAIN_ELEMENT_LABELS[token] : "—"}
-        </li>
-      ))}
-    </ol>
-  )
+  const role = useViewerRole()
+
+  if (role !== "owner") {
+    return (
+      <ol aria-label="Stain slots" className="grid grid-cols-4 gap-2">
+        {state.tokens.map((token, index) => (
+          <StainTile key={index} token={token} />
+        ))}
+      </ol>
+    )
+  }
+
+  return <OwnerStains tokens={state.tokens} />
 }
 
-const STAIN_TILE_CLASSES = {
-  fire: "border-orange-400 bg-orange-500/15 text-orange-700 dark:text-orange-300",
-  ice: "border-sky-400 bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  elec: "border-yellow-400 bg-yellow-500/15 text-yellow-700 dark:text-yellow-300",
-  wind: "border-emerald-400 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  light: "border-amber-300 bg-amber-200/40 text-amber-800 dark:text-amber-200",
-} as const satisfies Record<NonNullable<StainsState["tokens"][number]>, string>
+function OwnerStains({ tokens }: { tokens: StainsState["tokens"] }) {
+  const { clear, pending } = useStainsControls()
+  const hasStains = tokens.some((token) => token !== null)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <ol aria-label="Stain slots" className="grid grid-cols-4 gap-2">
+        {tokens.map((token, index) => (
+          <OwnerStainSlot key={index} slotIndex={index} token={token} />
+        ))}
+      </ol>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          aria-label="Clear all Stains"
+          disabled={pending || !hasStains}
+          onClick={clear}
+        >
+          <TrashIcon weight="bold" aria-hidden />
+          Clear
+        </Button>
+      </div>
+    </div>
+  )
+}

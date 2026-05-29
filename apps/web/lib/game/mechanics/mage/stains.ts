@@ -35,6 +35,35 @@ export const stainsStateSchema = z.object({
 
 export type StainsState = z.infer<typeof stainsStateSchema>
 
+/**
+ * Pure transition the owner-mode controls compose through the persistence
+ * layer. Sets a single slot to an element (add / replace) or to `null`
+ * (remove / consume); an out-of-range index is a no-op. Slot position is
+ * mechanically meaningless, so the caller decides which slot to write (an
+ * empty one to add, an occupied one to replace) and the server just sets it —
+ * the per-field write that keeps back-to-back clicks from clobbering each
+ * other. Lives next to the definition so game logic stays out of the UI and
+ * the DB wrapper, mirroring the Knight's `adjustValor`.
+ */
+export function setStainSlot(
+  state: StainsState,
+  slotIndex: number,
+  element: StainElement | null
+): StainsState {
+  if (slotIndex < 0 || slotIndex >= STAIN_SLOT_COUNT) return state
+  const tokens = state.tokens.slice()
+  tokens[slotIndex] = element
+  return { ...state, tokens }
+}
+
+/** Pure transition that empties every slot (e.g. end of combat). */
+export function clearStains(state: StainsState): StainsState {
+  return {
+    ...state,
+    tokens: Array.from({ length: STAIN_SLOT_COUNT }, () => null),
+  }
+}
+
 export const stains: MechanicDefinition<StainsState> = {
   kind: "stains",
   displayName: "Stains",
