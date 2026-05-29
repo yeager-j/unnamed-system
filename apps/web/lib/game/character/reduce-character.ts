@@ -1,4 +1,5 @@
 import type { CharacterRow } from "../../db/load-character"
+import type { Result } from "../../result"
 import { MAX_EXHAUSTION_LEVEL } from "../combat"
 import {
   applyInventoryMutation,
@@ -96,6 +97,10 @@ export function reduceCharacter(
   const raw = toRawInputs(character)
   const withRow = (patch: Partial<CharacterRow>) =>
     deriveHydratedCharacter({ ...raw, row: { ...raw.row, ...patch } })
+  // A pure engine returned a row patch (or rejected the edit): apply it, or
+  // leave the character untouched on failure.
+  const fromResult = (result: Result<Partial<CharacterRow>, string>) =>
+    result.ok ? withRow(result.value) : character
   const conditions = raw.row.battleConditions ?? DEFAULT_BATTLE_CONDITIONS
 
   switch (edit.kind) {
@@ -132,10 +137,8 @@ export function reduceCharacter(
       return withRow({ exhaustion: next })
     }
 
-    case "usePrisma": {
-      const result = applyUsePrisma(raw.row)
-      return result.ok ? withRow(result.value) : character
-    }
+    case "usePrisma":
+      return fromResult(applyUsePrisma(raw.row))
 
     case "clearCombatState":
       return withRow({
@@ -164,42 +167,39 @@ export function reduceCharacter(
     case "victories":
       return withRow({ victories: Math.max(0, raw.row.victories + edit.delta) })
 
-    case "damage": {
-      const result = applyDamage(raw.row, edit.amount)
-      return result.ok ? withRow(result.value) : character
-    }
+    case "damage":
+      return fromResult(applyDamage(raw.row, edit.amount))
 
-    case "heal": {
-      const result = applyHeal(
-        { currentHP: raw.row.currentHP, maxHP: character.maxHP },
-        edit.amount
+    case "heal":
+      return fromResult(
+        applyHeal(
+          { currentHP: raw.row.currentHP, maxHP: character.maxHP },
+          edit.amount
+        )
       )
-      return result.ok ? withRow(result.value) : character
-    }
 
-    case "spendSP": {
-      const result = applySpendSP(raw.row, edit.amount)
-      return result.ok ? withRow(result.value) : character
-    }
+    case "spendSP":
+      return fromResult(applySpendSP(raw.row, edit.amount))
 
-    case "recoverSP": {
-      const result = applyRecoverSP(
-        { currentSP: raw.row.currentSP, maxSP: character.maxSP },
-        edit.amount
+    case "recoverSP":
+      return fromResult(
+        applyRecoverSP(
+          { currentSP: raw.row.currentSP, maxSP: character.maxSP },
+          edit.amount
+        )
       )
-      return result.ok ? withRow(result.value) : character
-    }
 
     case "cast": {
       const cost = character.skills.find(
         (skill) => skill.key === edit.skillKey
       )?.resolvedCost
       if (!cost) return character
-      const result = applyResolvedCost(cost, {
-        currentHP: raw.row.currentHP,
-        currentSP: raw.row.currentSP,
-      })
-      return result.ok ? withRow(result.value) : character
+      return fromResult(
+        applyResolvedCost(cost, {
+          currentHP: raw.row.currentHP,
+          currentSP: raw.row.currentSP,
+        })
+      )
     }
 
     case "addSpark": {
