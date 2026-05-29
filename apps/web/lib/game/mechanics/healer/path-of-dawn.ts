@@ -7,41 +7,30 @@ import type { MechanicDefinition } from "../types"
  * (entering Dawn Mode); HP-restoring or Ailment-curing Skills consume Lumina
  * for Light damage and SP refund (rulebook `Skills/Mechanics/Path of Dawn.md`).
  *
- * State holds the Dawn Mode flag and the per-enemy Lumina counters. The cap
- * per enemy is the character's Luck score. Cap, consumption, and counter
- * application all happen in Skill-cast write paths — out of MVP scope; this
- * module just owns the persisted shape and exposes the cap helper for the
- * (read-only) widget.
- *
- * The inline enemy list is a placeholder. When the initiative tracker lands,
- * Lumina counters move there and reference initiative entries instead of
- * carrying their own enemy name.
+ * State holds only the Dawn Mode flag — the player toggles it as they enter and
+ * leave Dawn Mode. Per-enemy Lumina tracking is intentionally out of the app:
+ * it lives in the table's combat tracker until a future initiative-tracker
+ * ticket gives that data a real consumer (Skill-cast generation/consumption is
+ * likewise out of scope).
  */
-
-export const pathOfDawnEnemySchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  lumina: z.number().int().min(0),
-})
-
-export type PathOfDawnEnemy = z.infer<typeof pathOfDawnEnemySchema>
 
 export const pathOfDawnStateSchema = z.object({
   kind: z.literal("path-of-dawn"),
   dawnMode: z.boolean(),
-  enemies: z.array(pathOfDawnEnemySchema),
 })
 
 export type PathOfDawnState = z.infer<typeof pathOfDawnStateSchema>
 
 /**
- * Per-enemy Lumina cap, equal to the character's post-Effect Luck score
- * (clamped at 0). Takes Luck directly rather than the engine input so this
- * module stays free of compute-pipeline dependencies — the caller resolves
- * Luck off the hydrated character.
+ * Pure transition the owner-mode toggle composes through the persistence
+ * layer. Lives next to the definition so game logic stays out of the UI and
+ * the DB wrapper, mirroring the Knight's `adjustValor`.
  */
-export function luminaCapFor(luck: number): number {
-  return Math.max(0, luck)
+export function setDawnMode(
+  state: PathOfDawnState,
+  value: boolean
+): PathOfDawnState {
+  return { ...state, dawnMode: value }
 }
 
 export const pathOfDawn: MechanicDefinition<PathOfDawnState> = {
@@ -60,7 +49,6 @@ When combat ends, all unused Lumina disappear and you exit Dawn Mode.`,
   initialState: () => ({
     kind: "path-of-dawn",
     dawnMode: false,
-    enemies: [],
   }),
   resetOn: "encounter",
 }

@@ -50,11 +50,7 @@ const REGISTRY: MechanicWidgetRegistry = {
   },
   "path-of-dawn": {
     render: (state) => <PathOfDawnWidget state={state} />,
-    summary: (state) => {
-      const mode = state.dawnMode ? "Dawn" : "Inactive"
-      const count = state.enemies.length
-      return count > 0 ? `${mode} · ${count} Illuminated` : mode
-    },
+    summary: (state) => (state.dawnMode ? "Dawn Mode" : "Inactive"),
   },
   stains: {
     render: (state) => <StainsWidget state={state} />,

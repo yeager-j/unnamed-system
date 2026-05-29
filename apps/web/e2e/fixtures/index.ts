@@ -4,6 +4,7 @@ import { deleteTarget } from "./delete-target"
 import { headerActionsTarget } from "./header-actions-target"
 import { inventoryTarget } from "./inventory-target"
 import { levelingTarget } from "./leveling-target"
+import { pathOfDawnTarget } from "./path-of-dawn-target"
 import { perfectionTarget } from "./perfection-target"
 import { restTarget } from "./rest-target"
 import { stainsTarget } from "./stains-target"
@@ -31,6 +32,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   valorTarget,
   perfectionTarget,
   stainsTarget,
+  pathOfDawnTarget,
   inventoryTarget,
 ]
 
@@ -41,6 +43,7 @@ export { headerActionsTarget } from "./header-actions-target"
 export { inventoryTarget } from "./inventory-target"
 export { levelingTarget } from "./leveling-target"
 export { perfectionTarget } from "./perfection-target"
+export { pathOfDawnTarget } from "./path-of-dawn-target"
 export { restTarget } from "./rest-target"
 export { stainsTarget } from "./stains-target"
 export type { E2EFixture } from "./types"
