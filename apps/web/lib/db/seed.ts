@@ -293,6 +293,10 @@ async function seedCharacter(
         character.slug,
         character.activeArchetypeKey
       ),
+      originCharacterArchetypeId: archetypeId(
+        character.slug,
+        character.originArchetypeKey ?? character.activeArchetypeKey
+      ),
     })
     .where(eq(characters.id, characterId))
 

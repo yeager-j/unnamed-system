@@ -52,6 +52,7 @@ function makeRaw(): RawCharacterInputs {
     battleConditions: null,
     partyComposition: null,
     activeArchetypeId: "arch-1",
+    originCharacterArchetypeId: "arch-1",
     savedArchetypeRanks: 0,
     ancestryText: null,
     backgroundText: null,

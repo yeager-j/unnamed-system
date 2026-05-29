@@ -54,6 +54,14 @@ export interface SeedCharacter {
   level: number
   pathChoice: PathChoice
   activeArchetypeKey: string
+  /**
+   * The permanent **Origin** Archetype (rulebook 1.3). Defaults to
+   * {@link activeArchetypeKey} when omitted — correct for every current seed
+   * and every E2E fixture, where Origin coincides with the active Archetype —
+   * so only a showcase row whose Origin diverges from its active Archetype
+   * needs to set this explicitly. Must name one of {@link archetypes}.
+   */
+  originArchetypeKey?: string
   archetypes: SeedArchetype[]
   manualBonuses: ManualBonuses
   ancestryText: string
@@ -107,6 +115,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 1,
     pathChoice: "health-focused",
     activeArchetypeKey: "warrior",
+    originArchetypeKey: "warrior",
     archetypes: [
       {
         archetypeKey: "warrior",
@@ -155,6 +164,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 1,
     pathChoice: "skill-focused",
     activeArchetypeKey: "healer",
+    originArchetypeKey: "healer",
     archetypes: [
       {
         archetypeKey: "healer",
@@ -206,6 +216,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 13,
     pathChoice: "balanced",
     activeArchetypeKey: "mage",
+    originArchetypeKey: "mage",
     archetypes: [
       {
         archetypeKey: "mage",
@@ -281,6 +292,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 27,
     pathChoice: "balanced",
     activeArchetypeKey: "knight",
+    originArchetypeKey: "knight",
     archetypes: [
       {
         archetypeKey: "knight",
@@ -366,6 +378,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 30,
     pathChoice: "health-focused",
     activeArchetypeKey: "warrior",
+    originArchetypeKey: "warrior",
     archetypes: [
       {
         archetypeKey: "warrior",
@@ -417,6 +430,7 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     level: 7,
     pathChoice: "balanced",
     activeArchetypeKey: "mage",
+    originArchetypeKey: "mage",
     archetypes: [
       {
         archetypeKey: "mage",

@@ -11,11 +11,16 @@ import { characterArchetypes, characters } from "./schema/character"
  * Persistence for the builder's Origin Archetype choice (PRD §5.1).
  *
  * Inserts a fresh `characterArchetype` row with `rank: 2` for the picked
- * Archetype and points `characters.activeArchetypeId` at it. When the player
- * switches Origin on Step 2, the prior `characterArchetype` row is discarded
- * first — a draft only ever has one Archetype row in play, so a clean
- * delete-and-replace keeps the row set tidy without touching foreign keys
- * elsewhere (inheritance slot fills, mechanic state) that don't yet exist.
+ * Archetype and points both `characters.activeArchetypeId` and
+ * `characters.originCharacterArchetypeId` at it. During the builder the active
+ * Archetype and the Origin are the same row — this is the one and only place
+ * Origin is chosen (rulebook 1.3, UNN-173); the active/Origin distinction only
+ * emerges post-MVP, when an Archetype-switch moves `activeArchetypeId` alone
+ * and leaves Origin fixed. When the player switches Origin on Step 2, the
+ * prior `characterArchetype` row is discarded first — a draft only ever has
+ * one Archetype row in play, so a clean delete-and-replace keeps the row set
+ * tidy without touching foreign keys elsewhere (inheritance slot fills,
+ * mechanic state) that don't yet exist.
  *
  * Concurrency: the parent UPDATE bumps `identityVersion` conditionally
  * **first** inside a transaction (matches the child-write pattern in
@@ -42,12 +47,13 @@ export async function setOriginArchetype(
   Result<OriginArchetypePersistenceSuccess, OriginArchetypePersistenceError>
 > {
   return db.transaction(async (tx) => {
-    // 1. Bump the version (and clear activeArchetypeId so the FK won't fail
-    //    when we delete the row it currently points at).
+    // 1. Bump the version (and clear both Archetype pointers so the FK won't
+    //    fail when we delete the row they currently point at).
     const [bumped] = await tx
       .update(characters)
       .set({
         activeArchetypeId: null,
+        originCharacterArchetypeId: null,
         identityVersion: sql`${characters.identityVersion} + 1`,
         updatedAt: new Date(),
       })
@@ -110,10 +116,14 @@ export async function setOriginArchetype(
       }
     }
 
-    // 5. Point the character at the new row.
+    // 5. Point the character at the new row — both as active and as Origin,
+    //    which coincide at creation.
     await tx
       .update(characters)
-      .set({ activeArchetypeId: inserted!.id })
+      .set({
+        activeArchetypeId: inserted!.id,
+        originCharacterArchetypeId: inserted!.id,
+      })
       .where(eq(characters.id, characterId))
 
     return ok({
