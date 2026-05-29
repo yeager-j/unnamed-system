@@ -75,6 +75,16 @@ export type WeaponKey = {
 
 export const ITEMS: readonly Item[] = Object.values(ITEMS_BY_KEY)
 
+/**
+ * Runtime lookup index keyed by arbitrary `string`, so {@link getItem} can
+ * resolve a persisted `catalogItemKey` against the catalog without widening
+ * the literal-keyed {@link ITEMS_BY_KEY} (whose precise keys exist only to
+ * derive {@link ItemKey} / {@link WeaponKey}).
+ */
+const ITEM_INDEX: ReadonlyMap<string, Item> = new Map(
+  Object.entries(ITEMS_BY_KEY)
+)
+
 /** Equippable items in a slot, for the add-item picker's grouped listing. */
 function itemsInSlot<S extends EquipSlot>(slot: S): readonly ItemForSlot<S>[] {
   return ITEMS.filter(
@@ -94,7 +104,7 @@ export const CONSUMABLES: readonly Item[] = ITEMS.filter(isConsumable)
  * non-equippable items (consumables) resolve too.
  */
 export function getItem(key: string): Item | undefined {
-  return (ITEMS_BY_KEY as Record<string, Item>)[key]
+  return ITEM_INDEX.get(key)
 }
 
 /**
