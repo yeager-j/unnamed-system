@@ -93,7 +93,7 @@ silently disagree (UNN-233). The table below mirrors that map — keep them in s
 
 | Write class | Edit surfaces | Notes |
 |---|---|---|
-| `identityVersion` | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below. |
+| `identityVersion` | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `inheritanceSlots`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below. |
 | `vitalsVersion` | `pools`, `cast`, `ailments`, `battleConditions`, `exhaustion`, `prisma`, `clearCombatState`, `rest`, `mechanic` | In-play Combat-tab state. |
 | `inventoryVersion` | `inventoryItems`, `currency` | **`currency` rides here despite being a `characters` column** — the wallet lives on the Inventory tab, so it shares the class for optimistic-frame coherence (UNN-223). The canonical per-surface-not-per-table case. |
 | `progressionVersion` | `victories`, `virtueRankUp`, `spark` | Sheet-side Virtue rank-up / Spark — progression, unlike the builder's identity-class `virtuesAllocation`. |

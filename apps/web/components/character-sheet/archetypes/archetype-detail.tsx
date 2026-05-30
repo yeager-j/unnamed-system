@@ -3,7 +3,6 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { ArchetypeAffinitiesChart } from "@/components/archetype/archetype-affinities-chart"
 import { ArchetypeAttributesGrid } from "@/components/archetype/archetype-attributes-grid"
-import { ArchetypeInheritanceSlots } from "@/components/archetype/archetype-inheritance-slots"
 import { ArchetypeMechanicProse } from "@/components/archetype/archetype-mechanic-prose"
 import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-skills"
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
@@ -11,6 +10,8 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import { hasUnlockedRank, type ArchetypeEntry } from "@/lib/game/archetypes"
 import type { AttributeScores } from "@/lib/game/character"
+
+import { InheritanceSlots } from "./inheritance-slots"
 
 /**
  * The rich, per-Archetype detail block — shared by the featured Active card on
@@ -59,7 +60,7 @@ export function ArchetypeDetail({
         </DetailSection>
       ) : null}
 
-      <ArchetypeInheritanceSlots entry={entry} attributes={attributes} />
+      <InheritanceSlots entry={entry} attributes={attributes} />
     </div>
   )
 }

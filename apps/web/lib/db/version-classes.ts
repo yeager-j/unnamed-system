@@ -38,6 +38,7 @@ export type IdentitySurface =
   | "path"
   | "originArchetype"
   | "activeArchetype"
+  | "inheritanceSlots"
   | "builderStep"
   | "knives"
   | "chains"
@@ -93,6 +94,7 @@ export const EDIT_SURFACE_CLASS = {
   path: "identity",
   originArchetype: "identity",
   activeArchetype: "identity",
+  inheritanceSlots: "identity",
   builderStep: "identity",
   knives: "identity",
   chains: "identity",

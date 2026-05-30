@@ -23,6 +23,7 @@ import {
   type CastingCharacter,
   type Skill,
 } from "../skills"
+import { isInheritableSkill } from "./inheritance"
 import { getArchetype } from "./registry"
 import {
   ARCHETYPE_TIERS,
@@ -52,11 +53,24 @@ export type RankedSkill = HydratedSkill & { rank: number }
  * the filling Skill + cost (`null` when the slot is empty or its `skillKey`
  * no longer resolves). Both `null` ⇒ a vacant slot the detail block renders
  * as "Empty slot".
+ *
+ * `isValid` is `false` only for a *configured* slot whose Skill the source
+ * Archetype's **current** Rank no longer makes inheritable (data drift, or a
+ * Rank that dropped below the picked Skill). The picker prevents writing an
+ * invalid slot; this flag lets the read side surface a pre-existing one and
+ * prompt re-selection rather than silently dropping it. Empty slots are valid.
  */
 export interface ResolvedInheritanceSlot {
   slotIndex: number
+  /** The source `characterArchetype` row id the slot points at (raw stored
+   *  value); `null` for an empty slot. The owner-mode picker keys its
+   *  selected-state on this. */
+  sourceCharacterArchetypeId: string | null
+  /** The raw stored Skill key; `null` for an empty slot. */
+  skillKey: string | null
   sourceArchetype: Archetype | null
   resolved: HydratedSkill | null
+  isValid: boolean
 }
 
 /**
@@ -154,7 +168,9 @@ export function buildArchetypeEntries(
   }
 
   const archetypeByRowId = new Map<string, Archetype>()
+  const rowById = new Map<string, CharacterArchetypeRow>()
   for (const row of character.archetypeRows) {
+    rowById.set(row.id, row)
     const archetype = getArchetype(row.archetypeKey)
     if (archetype) archetypeByRowId.set(row.id, archetype)
   }
@@ -181,13 +197,31 @@ export function buildArchetypeEntries(
     )
 
     const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(
-      (slot) => ({
-        slotIndex: slot.slotIndex,
-        sourceArchetype: slot.sourceCharacterArchetypeId
-          ? (archetypeByRowId.get(slot.sourceCharacterArchetypeId) ?? null)
-          : null,
-        resolved: slot.skillKey ? resolveSkillByKey(slot.skillKey) : null,
-      })
+      (slot) => {
+        const sourceRow = slot.sourceCharacterArchetypeId
+          ? rowById.get(slot.sourceCharacterArchetypeId)
+          : undefined
+        const sourceArchetype = sourceRow
+          ? (archetypeByRowId.get(sourceRow.id) ?? null)
+          : null
+        const isValid =
+          slot.skillKey === null
+            ? true
+            : sourceArchetype !== null &&
+              isInheritableSkill(
+                sourceArchetype,
+                sourceRow!.rank,
+                slot.skillKey
+              )
+        return {
+          slotIndex: slot.slotIndex,
+          sourceCharacterArchetypeId: slot.sourceCharacterArchetypeId,
+          skillKey: slot.skillKey,
+          sourceArchetype,
+          resolved: slot.skillKey ? resolveSkillByKey(slot.skillKey) : null,
+          isValid,
+        }
+      }
     )
 
     return [
