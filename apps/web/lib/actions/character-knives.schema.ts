@@ -2,6 +2,8 @@ import { z } from "zod/v4"
 
 import type { CharacterKnifePersistenceError } from "@/lib/db/writes/knives"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the Step-3 Knives actions. Title + description updates
  * are split into two actions so a fast-typing player can write one of them
@@ -9,8 +11,7 @@ import type { CharacterKnifePersistenceError } from "@/lib/db/writes/knives"
  * full-row write (the bug the split fixes; see UNN-207 review).
  */
 
-export const AddKnifeSchema = z.object({
-  characterId: z.string().min(1),
+export const AddKnifeSchema = characterMutationBase.extend({
   /**
    * Empty allowed: the writer view ([UNN-211]) seeds a new Knife with no
    * title so the placeholder ("Untitled Knife") cues the player to type
@@ -19,33 +20,26 @@ export const AddKnifeSchema = z.object({
    */
   title: z.string().trim().max(120),
   description: z.string().max(4000).optional(),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type AddKnifeInput = z.input<typeof AddKnifeSchema>
 
-export const UpdateKnifeTitleSchema = z.object({
-  characterId: z.string().min(1),
+export const UpdateKnifeTitleSchema = characterMutationBase.extend({
   knifeId: z.string().min(1),
   /** Empty allowed — clearing a title is a legitimate edit. */
   title: z.string().trim().max(120),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type UpdateKnifeTitleInput = z.input<typeof UpdateKnifeTitleSchema>
 
-export const UpdateKnifeDescriptionSchema = z.object({
-  characterId: z.string().min(1),
+export const UpdateKnifeDescriptionSchema = characterMutationBase.extend({
   knifeId: z.string().min(1),
   description: z.string().max(4000),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type UpdateKnifeDescriptionInput = z.input<
   typeof UpdateKnifeDescriptionSchema
 >
 
-export const RemoveKnifeSchema = z.object({
-  characterId: z.string().min(1),
+export const RemoveKnifeSchema = characterMutationBase.extend({
   knifeId: z.string().min(1),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type RemoveKnifeInput = z.input<typeof RemoveKnifeSchema>
 

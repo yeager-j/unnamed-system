@@ -3,17 +3,17 @@ import { z } from "zod/v4"
 import type { GatedStepSlug } from "@/components/builder/builder-step-gates"
 import type { CharacterFinalizePersistenceError } from "@/lib/db/writes/finalize"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input + error types for {@link finalizeCharacterAction}. Kept in its own
  * file so client components can pre-validate before paying for a round-trip
  * (a `"use server"` module only exports async functions).
  */
 
-export const FinalizeCharacterSchema = z.object({
-  characterId: z.string().min(1),
-  /** The `identityVersion` token at the moment the player clicked Create. */
-  expectedVersion: z.number().int().nonnegative(),
-})
+/** `expectedVersion` is the `identityVersion` token at the moment the player
+ *  clicked Create. */
+export const FinalizeCharacterSchema = characterMutationBase
 
 export type FinalizeCharacterInput = z.input<typeof FinalizeCharacterSchema>
 

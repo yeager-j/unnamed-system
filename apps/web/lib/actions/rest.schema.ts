@@ -6,6 +6,8 @@ import {
   respiteInputSchema,
 } from "@/lib/game/combat/rest"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the header-launched Rest dialog (PRD §7.3, UNN-156).
  * Full / Partial / Respite are all vitals-class writes, so the client sends
@@ -18,26 +20,17 @@ import {
  * violation.
  */
 
-export const FullRestSchema = z.object({
-  characterId: z.string().min(1),
-  expectedVersion: z.number().int().nonnegative(),
-})
+export const FullRestSchema = characterMutationBase
 export type FullRestInput = z.input<typeof FullRestSchema>
 
-export const PartialRestSchema = z
-  .object({
-    characterId: z.string().min(1),
-    expectedVersion: z.number().int().nonnegative(),
-  })
-  .extend(partialRestInputSchema.shape)
+export const PartialRestSchema = characterMutationBase.extend(
+  partialRestInputSchema.shape
+)
 export type PartialRestInput = z.input<typeof PartialRestSchema>
 
-export const RespiteSchema = z
-  .object({
-    characterId: z.string().min(1),
-    expectedVersion: z.number().int().nonnegative(),
-  })
-  .extend(respiteInputSchema.shape)
+export const RespiteSchema = characterMutationBase.extend(
+  respiteInputSchema.shape
+)
 export type RespiteInput = z.input<typeof RespiteSchema>
 
 export type RestActionError = "invalid-input" | RestPersistenceError

@@ -5,6 +5,8 @@ import {
   type CharacterIdentityTraitPersistenceError,
 } from "@/lib/db/writes/identity-traits"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schema for {@link updateCharacterIdentityTraitAction}. The `field`
  * discriminator selects which of the five Step-4 Identity columns to write
@@ -12,11 +14,9 @@ import {
  * avoids a one-action-per-field sprawl. Structural parent: the Step-3
  * narrative action.
  */
-export const UpdateCharacterIdentityTraitSchema = z.object({
-  characterId: z.string().min(1),
+export const UpdateCharacterIdentityTraitSchema = characterMutationBase.extend({
   field: z.enum(IDENTITY_TRAIT_FIELDS),
   text: z.string().max(8000),
-  expectedVersion: z.number().int().nonnegative(),
 })
 
 export type UpdateCharacterIdentityTraitInput = z.input<
