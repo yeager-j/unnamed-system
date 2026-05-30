@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  EDIT_SURFACE_CLASS,
-  type EditSurface,
-  type VersionClass,
-} from "./version-classes"
+import { EDIT_SURFACE_CLASS, type VersionClass } from "./version-classes"
 
 describe("EDIT_SURFACE_CLASS", () => {
   it("pins the rationale-bearing surface assignments", () => {
@@ -24,18 +20,6 @@ describe("EDIT_SURFACE_CLASS", () => {
     expect(EDIT_SURFACE_CLASS.victories).toBe("progression")
   })
 
-  it("only ever maps to a real version class", () => {
-    const classes = new Set<VersionClass>([
-      "identity",
-      "vitals",
-      "inventory",
-      "progression",
-    ])
-    for (const value of Object.values(EDIT_SURFACE_CLASS)) {
-      expect(classes.has(value)).toBe(true)
-    }
-  })
-
   it("exercises every version class (no class is dead)", () => {
     const used = new Set<VersionClass>(Object.values(EDIT_SURFACE_CLASS))
     expect([...used].sort()).toEqual([
@@ -44,10 +28,5 @@ describe("EDIT_SURFACE_CLASS", () => {
       "progression",
       "vitals",
     ])
-  })
-
-  it("covers each declared surface exactly once", () => {
-    const surfaces = Object.keys(EDIT_SURFACE_CLASS) as EditSurface[]
-    expect(new Set(surfaces).size).toBe(surfaces.length)
   })
 })
