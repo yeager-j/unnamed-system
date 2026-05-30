@@ -1,6 +1,7 @@
 "use client"
 
 import { WarningIcon } from "@phosphor-icons/react"
+import { useMemo } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -20,13 +21,14 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillCostBadge } from "@/components/shared/skill-cost-badge"
 import { SkillRow } from "@/components/shared/skill-row"
-import { OwnerOnly } from "@/components/shell/viewer-role"
+import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setInheritanceSlotAction } from "@/lib/actions/inheritance-slots"
 import {
   buildArchetypeEntries,
   inheritanceSourceGroups,
   type ArchetypeEntry,
+  type InheritanceSourceGroup,
   type RankedSkill,
   type ResolvedInheritanceSlot,
 } from "@/lib/game/archetypes"
@@ -52,6 +54,25 @@ export function InheritanceSlots({
 }) {
   const { archetype, slots } = entry
   const total = archetype.inheritanceSlots
+
+  const character = useCharacter()
+  const isOwner = useViewerRole() === "owner"
+  // Resolve the picker's source groups once for the whole block — every slot
+  // shares them. A Paragon-tier Archetype has 6 slots, and the resolution
+  // re-hydrates every other Archetype's Skills, so doing it per-SlotPicker
+  // would repeat that work 6× per render. Owner-only: a read-only viewer never
+  // renders a picker, so it pays nothing.
+  const sourceGroups = useMemo<InheritanceSourceGroup[]>(
+    () =>
+      isOwner
+        ? inheritanceSourceGroups(
+            buildArchetypeEntries(character),
+            entry.row.id
+          )
+        : [],
+    [isOwner, character, entry.row.id]
+  )
+
   if (total === 0) return null
 
   const filled = slots.filter((slot) => slot.resolved !== null).length
@@ -73,6 +94,7 @@ export function InheritanceSlots({
             slot={slots.find((s) => s.slotIndex === slotIndex) ?? null}
             slotIndex={slotIndex}
             attributes={attributes}
+            sourceGroups={sourceGroups}
           />
         ))}
       </ul>
@@ -85,11 +107,13 @@ function SlotRow({
   slot,
   slotIndex,
   attributes,
+  sourceGroups,
 }: {
   ownerEntry: ArchetypeEntry
   slot: ResolvedInheritanceSlot | null
   slotIndex: number
   attributes: AttributeScores
+  sourceGroups: InheritanceSourceGroup[]
 }) {
   const invalid = slot !== null && !slot.isValid
 
@@ -116,6 +140,7 @@ function SlotRow({
             ownerEntry={ownerEntry}
             slot={slot}
             slotIndex={slotIndex}
+            sourceGroups={sourceGroups}
           />
         </OwnerOnly>
       </div>
@@ -165,16 +190,14 @@ function SlotPicker({
   ownerEntry,
   slot,
   slotIndex,
+  sourceGroups,
 }: {
   ownerEntry: ArchetypeEntry
   slot: ResolvedInheritanceSlot | null
   slotIndex: number
+  sourceGroups: InheritanceSourceGroup[]
 }) {
-  const character = useCharacter()
   const { pending, write, characterId } = useCharacterWrite()
-
-  const entries = buildArchetypeEntries(character)
-  const sourceGroups = inheritanceSourceGroups(entries, ownerEntry.row.id)
 
   const groups: PickerGroup[] = [
     { id: "__clear", label: "Slot", items: [EMPTY_OPTION] },
