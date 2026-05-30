@@ -1,3 +1,5 @@
+import { ATTACK_ATTRIBUTE_LABELS } from "@/lib/ui/labels"
+
 import { getArchetype } from "../archetypes"
 import { computeAttributes, type StatComputationCharacter } from "../character"
 import type { PartyComposition } from "../character/state"
@@ -66,17 +68,6 @@ export interface AttackRollContext {
    *  weapon's {@link ./attack#AttackRoll}). */
   attribute: AttackAttribute
 }
-
-/** Display labels for an {@link AttackAttribute}, used as the first source
- *  in {@link ResolvedAttackRoll.sources}. `"st-or-ma"` keeps both names so
- *  the breakdown stays honest about which is in play. */
-export const ATTACK_ATTRIBUTE_LABELS = {
-  st: "Strength",
-  ma: "Magic",
-  ag: "Agility",
-  lu: "Luck",
-  "st-or-ma": "Strength or Magic",
-} as const satisfies Record<AttackAttribute, string>
 
 export const EMPTY_RESOLVED_ATTACK_ROLL: ResolvedAttackRoll = {
   total: 0,

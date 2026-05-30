@@ -13,13 +13,16 @@ import {
 import type {
   Affinity,
   AffinityDamageType,
+  AttackAttribute,
   BonusTargetKey,
   DamageType,
   Delivery,
   Range,
 } from "@/lib/game/combat"
 import type { EquipSlot } from "@/lib/game/items"
+import type { StainElement } from "@/lib/game/mechanics"
 import type { SkillKind } from "@/lib/game/skills"
+import type { ResolvedSkillCost } from "@/lib/game/skills/utils"
 
 /**
  * Canonical display labels for the game-data vocabularies. Every UI surface
@@ -103,6 +106,17 @@ export const DELIVERY_LABELS: Record<Delivery, string> = {
   magical: "Magical",
 }
 
+/** Display labels for an {@link AttackAttribute}, used as the first source
+ *  in a resolved Attack Roll's breakdown. `"st-or-ma"` keeps both names so
+ *  the breakdown stays honest about which is in play. */
+export const ATTACK_ATTRIBUTE_LABELS = {
+  st: "Strength",
+  ma: "Magic",
+  ag: "Agility",
+  lu: "Luck",
+  "st-or-ma": "Strength or Magic",
+} as const satisfies Record<AttackAttribute, string>
+
 /** Singular equip-slot labels for the per-row slot badge. */
 export const SLOT_LABELS: Record<EquipSlot, string> = {
   weapon: "Weapon",
@@ -128,6 +142,12 @@ export const SKILL_KIND_LABELS: Record<SkillKind, string> = {
   support: "Support",
   passive: "Passive",
   ailment: "Ailment",
+}
+
+/** Resource a Skill cost drains, for the cost chip: `SP` / `HP`. */
+export const COST_KIND_LABELS: Record<ResolvedSkillCost["kind"], string> = {
+  sp: "SP",
+  hp: "HP",
 }
 
 /** The three HP/SP paths (PRD §5.1). */
@@ -208,6 +228,15 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "adjacent-zone": "Adjacent Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
+}
+
+/** The five Stain elements the Mage can hold. */
+export const STAIN_ELEMENT_LABELS: Record<StainElement, string> = {
+  fire: "Fire",
+  ice: "Ice",
+  elec: "Elec",
+  wind: "Wind",
+  light: "Light",
 }
 
 /**
