@@ -93,7 +93,10 @@ export function ActiveArchetypeSwitcher() {
       disabled={pending}
       autoHighlight
     >
-      <ComboboxTrigger className="inline-flex items-center gap-0.5 rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none">
+      <ComboboxTrigger
+        aria-label="Switch active Archetype"
+        className="inline-flex items-center gap-0.5 rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none"
+      >
         {archetypeDisplayName(character.activeArchetypeKey)}
       </ComboboxTrigger>
       <ComboboxContent className="min-w-72">
