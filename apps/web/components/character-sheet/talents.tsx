@@ -1,7 +1,7 @@
 "use client"
 
 import { LockIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -25,13 +25,7 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
-import { getArchetype } from "@/lib/game/archetypes"
-import { getTalent, TALENT_KEYS, type TalentKey } from "@/lib/game/character"
-
-const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
-
-const compareLabel = (a: TalentKey, b: TalentKey) =>
-  labelFor(a).localeCompare(labelFor(b))
+import { resolveTalentsForSheet, type TalentKey } from "@/lib/game/character"
 
 /**
  * Talents block on the Explore tab (PRD §6.1 / §5.3, UNN-222). Owners can
@@ -49,32 +43,9 @@ export function Talents() {
   const role = useViewerRole()
   const character = useCharacter()
   const { pending, write, characterId } = useCharacterWrite()
-  const optimisticGained = character.gainedTalents
-
-  const inheritedKeys = useMemo<TalentKey[]>(() => {
-    const archetype = character.activeArchetypeKey
-      ? getArchetype(character.activeArchetypeKey)
-      : null
-    return archetype?.talents ?? []
-  }, [character.activeArchetypeKey])
-
-  const inheritedSet = useMemo(() => new Set(inheritedKeys), [inheritedKeys])
-  const gainedSorted = useMemo(
-    () => [...optimisticGained].sort(compareLabel),
-    [optimisticGained]
-  )
-  const inheritedSorted = useMemo(
-    () => [...inheritedKeys].sort(compareLabel),
-    [inheritedKeys]
-  )
-
-  const knownSet = useMemo(
-    () => new Set<TalentKey>([...inheritedKeys, ...optimisticGained]),
-    [inheritedKeys, optimisticGained]
-  )
-  const remainingTalents = useMemo(
-    () => TALENT_KEYS.filter((key) => !knownSet.has(key)).sort(compareLabel),
-    [knownSet]
+  const { chips, remaining } = resolveTalentsForSheet(
+    character.gainedTalents,
+    character.activeArchetypeKey
   )
 
   function handleAdd(talentKey: TalentKey) {
@@ -104,7 +75,6 @@ export function Talents() {
     })
   }
 
-  const allKeys = [...inheritedSorted, ...gainedSorted]
   const isOwner = role === "owner"
 
   return (
@@ -114,7 +84,7 @@ export function Talents() {
         <OwnerOnly>
           <CardAction>
             <AddTalentPopover
-              remainingTalents={remainingTalents}
+              remaining={remaining}
               disabled={pending}
               onPick={handleAdd}
             />
@@ -122,24 +92,21 @@ export function Talents() {
         </OwnerOnly>
       </CardHeader>
       <CardContent>
-        {allKeys.length === 0 ? (
+        {chips.length === 0 ? (
           <p className="text-sm text-muted-foreground">None recorded.</p>
         ) : (
           <ul className="flex flex-wrap gap-1.5">
-            {allKeys.map((key) => {
-              const inherited = inheritedSet.has(key)
-              return (
-                <li key={key}>
-                  <TalentChip
-                    label={labelFor(key)}
-                    inherited={inherited}
-                    removable={isOwner && !inherited}
-                    disabled={pending}
-                    onRemove={() => handleRemove(key)}
-                  />
-                </li>
-              )
-            })}
+            {chips.map((chip) => (
+              <li key={chip.key}>
+                <TalentChip
+                  label={chip.label}
+                  inherited={chip.inherited}
+                  removable={isOwner && !chip.inherited}
+                  disabled={pending}
+                  onRemove={() => handleRemove(chip.key)}
+                />
+              </li>
+            ))}
           </ul>
         )}
       </CardContent>
@@ -185,26 +152,23 @@ function TalentChip({
 }
 
 function AddTalentPopover({
-  remainingTalents,
+  remaining,
   disabled,
   onPick,
 }: {
-  remainingTalents: TalentKey[]
+  remaining: { key: TalentKey; label: string }[]
   disabled: boolean
   onPick: (key: TalentKey) => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (!needle) return remainingTalents
-    return remainingTalents.filter((key) =>
-      labelFor(key).toLowerCase().includes(needle)
-    )
-  }, [query, remainingTalents])
+  const needle = query.trim().toLowerCase()
+  const filtered = needle
+    ? remaining.filter((option) => option.label.toLowerCase().includes(needle))
+    : remaining
 
-  const noneLeft = remainingTalents.length === 0
+  const noneLeft = remaining.length === 0
 
   return (
     <Popover
@@ -244,18 +208,18 @@ function AddTalentPopover({
                 No matching Talents.
               </li>
             ) : (
-              filtered.map((key) => (
-                <li key={key}>
+              filtered.map((option) => (
+                <li key={option.key}>
                   <button
                     type="button"
                     onClick={() => {
-                      onPick(key)
+                      onPick(option.key)
                       setOpen(false)
                       setQuery("")
                     }}
                     className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                   >
-                    {labelFor(key)}
+                    {option.label}
                   </button>
                 </li>
               ))
