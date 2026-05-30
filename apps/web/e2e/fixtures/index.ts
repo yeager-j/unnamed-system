@@ -3,6 +3,7 @@ import { castTarget } from "./cast-target"
 import { combatStateTarget } from "./combat-state-target"
 import { deleteTarget } from "./delete-target"
 import { headerActionsTarget } from "./header-actions-target"
+import { inheritanceSlotsTarget } from "./inheritance-slots-target"
 import { inventoryTarget } from "./inventory-target"
 import { levelingTarget } from "./leveling-target"
 import { pathOfDawnTarget } from "./path-of-dawn-target"
@@ -36,6 +37,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   stainsTarget,
   pathOfDawnTarget,
   inventoryTarget,
+  inheritanceSlotsTarget,
 ]
 
 export { archetypeSwitchTarget } from "./archetype-switch-target"
@@ -43,6 +45,7 @@ export { castTarget } from "./cast-target"
 export { combatStateTarget } from "./combat-state-target"
 export { deleteTarget } from "./delete-target"
 export { headerActionsTarget } from "./header-actions-target"
+export { inheritanceSlotsTarget } from "./inheritance-slots-target"
 export { inventoryTarget } from "./inventory-target"
 export { levelingTarget } from "./leveling-target"
 export { perfectionTarget } from "./perfection-target"

@@ -324,4 +324,100 @@ describe("reduceCharacter", () => {
     expect(next.activeMechanic?.state.kind).toBe("stains")
     expect(character.activeMechanic?.state.kind).toBe("perfection")
   })
+
+  /** Warrior (active) + Mage so a slot can inherit across Archetypes. */
+  function makeWithMage() {
+    const raw = makeRaw()
+    raw.archetypeRows.push({
+      id: "arch-2",
+      characterId: CHARACTER_ID,
+      archetypeKey: "mage",
+      rank: 1,
+      inheritanceSlots: [],
+      mechanicState: null,
+    })
+    return deriveHydratedCharacter(raw)
+  }
+
+  it("threads a slot inherited by the active Archetype into the Skills list", () => {
+    const character = makeWithMage()
+    expect(character.skills.some((s) => s.key === "agi")).toBe(false)
+
+    const next = reduceCharacter(character, {
+      kind: "setInheritanceSlot",
+      characterArchetypeId: "arch-1",
+      slotIndex: 0,
+      sourceCharacterArchetypeId: "arch-2",
+      skillKey: "agi",
+    })
+
+    expect(next.skills.some((s) => s.key === "agi")).toBe(true)
+    expect(
+      next.archetypeRows.find((a) => a.id === "arch-1")?.inheritanceSlots
+    ).toEqual([
+      { slotIndex: 0, sourceCharacterArchetypeId: "arch-2", skillKey: "agi" },
+    ])
+  })
+
+  it("persists a slot on an inactive Archetype without touching the Skills list", () => {
+    const character = makeWithMage()
+
+    const next = reduceCharacter(character, {
+      kind: "setInheritanceSlot",
+      characterArchetypeId: "arch-2",
+      slotIndex: 0,
+      sourceCharacterArchetypeId: "arch-1",
+      skillKey: "cleave",
+    })
+
+    expect(next.skills).toEqual(character.skills)
+    expect(
+      next.archetypeRows.find((a) => a.id === "arch-2")?.inheritanceSlots
+    ).toEqual([
+      {
+        slotIndex: 0,
+        sourceCharacterArchetypeId: "arch-1",
+        skillKey: "cleave",
+      },
+    ])
+  })
+
+  it("clears a configured slot, dropping the inherited Skill", () => {
+    const filled = reduceCharacter(makeWithMage(), {
+      kind: "setInheritanceSlot",
+      characterArchetypeId: "arch-1",
+      slotIndex: 0,
+      sourceCharacterArchetypeId: "arch-2",
+      skillKey: "agi",
+    })
+    expect(filled.skills.some((s) => s.key === "agi")).toBe(true)
+
+    const cleared = reduceCharacter(filled, {
+      kind: "setInheritanceSlot",
+      characterArchetypeId: "arch-1",
+      slotIndex: 0,
+      sourceCharacterArchetypeId: null,
+      skillKey: null,
+    })
+
+    expect(cleared.skills.some((s) => s.key === "agi")).toBe(false)
+    expect(
+      cleared.archetypeRows.find((a) => a.id === "arch-1")?.inheritanceSlots
+    ).toEqual([
+      { slotIndex: 0, sourceCharacterArchetypeId: null, skillKey: null },
+    ])
+  })
+
+  it("returns the input unchanged when the owner Archetype row is unknown", () => {
+    const character = makeWithMage()
+    expect(
+      reduceCharacter(character, {
+        kind: "setInheritanceSlot",
+        characterArchetypeId: "does-not-exist",
+        slotIndex: 0,
+        sourceCharacterArchetypeId: "arch-2",
+        skillKey: "agi",
+      })
+    ).toBe(character)
+  })
 })

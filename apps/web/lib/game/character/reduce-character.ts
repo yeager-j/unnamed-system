@@ -93,6 +93,13 @@ export type CharacterEdit =
   | { kind: "talentAdd"; talentKey: TalentKey }
   | { kind: "talentRemove"; talentKey: TalentKey }
   | { kind: "switchActiveArchetype"; characterArchetypeId: string }
+  | {
+      kind: "setInheritanceSlot"
+      characterArchetypeId: string
+      slotIndex: number
+      sourceCharacterArchetypeId: string | null
+      skillKey: string | null
+    }
 
 const randomId = () => crypto.randomUUID()
 
@@ -254,7 +261,48 @@ export function reduceCharacter(
 
     case "switchActiveArchetype":
       return withRow({ activeArchetypeId: edit.characterArchetypeId })
+
+    case "setInheritanceSlot":
+      return reduceInheritanceSlot(raw, character, edit)
   }
+}
+
+/**
+ * Replaces (or clears) one Inheritance Slot on the owning `characterArchetype`
+ * row by `slotIndex`, then re-derives. Merges into the row's existing
+ * `inheritanceSlots` array — the server reads and merges the same way — so a
+ * slot change on the *active* Archetype re-threads the Combat Skills list in
+ * the same optimistic frame, while a change on an inactive one persists without
+ * touching it. Returns the input unchanged when the owner row is unknown.
+ */
+function reduceInheritanceSlot(
+  raw: RawCharacterInputs,
+  character: HydratedCharacter,
+  edit: Extract<CharacterEdit, { kind: "setInheritanceSlot" }>
+): HydratedCharacter {
+  let changed = false
+  const archetypeRows = raw.archetypeRows.map((archetype) => {
+    if (archetype.id !== edit.characterArchetypeId) return archetype
+    changed = true
+    const others = archetype.inheritanceSlots.filter(
+      (slot) => slot.slotIndex !== edit.slotIndex
+    )
+    return {
+      ...archetype,
+      inheritanceSlots: [
+        ...others,
+        {
+          slotIndex: edit.slotIndex,
+          sourceCharacterArchetypeId: edit.sourceCharacterArchetypeId,
+          skillKey: edit.skillKey,
+        },
+      ],
+    }
+  })
+
+  return changed
+    ? deriveHydratedCharacter({ ...raw, archetypeRows })
+    : character
 }
 
 /** Projects the spark/virtue columns into the {@link SparkCharacter} the
