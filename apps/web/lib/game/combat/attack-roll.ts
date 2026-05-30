@@ -1,5 +1,3 @@
-import { ATTACK_ATTRIBUTE_LABELS } from "@/lib/ui/labels"
-
 import { getArchetype } from "../archetypes"
 import { computeAttributes, type StatComputationCharacter } from "../character"
 import type { PartyComposition } from "../character/state"
@@ -8,7 +6,11 @@ import type { SkillKind } from "../skills"
 import type { Skill } from "../skills/schema"
 import { resolveAttackAttribute } from "../skills/utils"
 import type { DamageType } from "./affinity"
-import type { AttackAttribute, Delivery } from "./attack"
+import {
+  ATTACK_ATTRIBUTE_LABELS,
+  type AttackAttribute,
+  type Delivery,
+} from "./attack"
 import type {
   AttackRollEffect,
   AttackRollFilter,

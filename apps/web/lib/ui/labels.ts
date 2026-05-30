@@ -13,7 +13,6 @@ import {
 import type {
   Affinity,
   AffinityDamageType,
-  AttackAttribute,
   BonusTargetKey,
   DamageType,
   Delivery,
@@ -105,17 +104,6 @@ export const DELIVERY_LABELS: Record<Delivery, string> = {
   physical: "Physical",
   magical: "Magical",
 }
-
-/** Display labels for an {@link AttackAttribute}, used as the first source
- *  in a resolved Attack Roll's breakdown. `"st-or-ma"` keeps both names so
- *  the breakdown stays honest about which is in play. */
-export const ATTACK_ATTRIBUTE_LABELS = {
-  st: "Strength",
-  ma: "Magic",
-  ag: "Agility",
-  lu: "Luck",
-  "st-or-ma": "Strength or Magic",
-} as const satisfies Record<AttackAttribute, string>
 
 /** Singular equip-slot labels for the per-row slot badge. */
 export const SLOT_LABELS: Record<EquipSlot, string> = {
