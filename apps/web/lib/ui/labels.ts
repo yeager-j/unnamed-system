@@ -3,10 +3,12 @@ import type {
   AttributeKey,
   Lineage,
 } from "@/lib/game/archetypes"
-import type {
-  BattleConditionState,
-  PathChoice,
-  VirtueKey,
+import {
+  getTalent,
+  type BattleConditionState,
+  type PathChoice,
+  type TalentKey,
+  type VirtueKey,
 } from "@/lib/game/character"
 import type {
   Affinity,
@@ -207,3 +209,10 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
 }
+
+/**
+ * Display label for a Talent, resolved from the canonical registry; falls back
+ * to the raw key if it doesn't match a shipped Talent.
+ */
+export const talentLabel = (key: TalentKey): string =>
+  getTalent(key)?.name ?? key

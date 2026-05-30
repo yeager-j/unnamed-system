@@ -30,15 +30,12 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
-import { getArchetype } from "@/lib/game/archetypes"
 import {
-  getTalent,
   MAX_PLAYER_ADDED_TALENTS,
-  TALENT_KEYS,
+  resolveTalentsForBuilder,
   type TalentKey,
 } from "@/lib/game/character"
-
-const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
+import { talentLabel } from "@/lib/ui/labels"
 
 /**
  * Talents picker for Movement 2 — Ortus (rulebook 2.1, PRD §5.2). Allows
@@ -78,17 +75,7 @@ export function TalentsPicker({
   const [pending, startTransition] = useTransition()
   const anchor = useComboboxAnchor()
 
-  const originTalents = originArchetypeKey
-    ? (getArchetype(originArchetypeKey)?.talents ?? [])
-    : []
-  const originSet = new Set(originTalents)
-
-  // Items selectable in the picker: every canonical Talent the player
-  // hasn't been granted by their Origin. Already-picked ones stay in the
-  // list so the indicator highlights them in the dropdown — the chip
-  // remove button is the primary "remove" affordance, but selecting in
-  // the list also toggles.
-  const items = TALENT_KEYS.filter((key) => !originSet.has(key))
+  const { origin, selectable } = resolveTalentsForBuilder(originArchetypeKey)
   const atCap = gainedTalents.length >= MAX_PLAYER_ADDED_TALENTS
 
   function handleChange(next: TalentKey[]) {
@@ -158,18 +145,18 @@ export function TalentsPicker({
       </FieldDescription>
 
       <div className="flex flex-col gap-4">
-        {originArchetypeKey && originTalents.length > 0 ? (
+        {origin.length > 0 ? (
           <div className="flex flex-col gap-2">
             <FieldLabel>From your Origin Archetype</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {originTalents.map((key) => (
+              {origin.map((key) => (
                 <Badge
                   key={key}
                   variant="secondary"
                   className="gap-1 py-1 pr-2.5 pl-2"
                 >
                   <LockIcon weight="bold" className="size-3 opacity-70" />
-                  {labelFor(key)}
+                  {talentLabel(key)}
                 </Badge>
               ))}
             </div>
@@ -184,17 +171,17 @@ export function TalentsPicker({
           <Combobox<TalentKey, true>
             multiple
             autoHighlight
-            items={items}
+            items={selectable}
             value={gainedTalents}
             onValueChange={(next) => handleChange(next as TalentKey[])}
-            itemToStringLabel={(key) => labelFor(key as TalentKey)}
+            itemToStringLabel={(key) => talentLabel(key as TalentKey)}
           >
             <ComboboxChips ref={anchor}>
               <ComboboxValue>
                 {(values: TalentKey[]) => (
                   <Fragment>
                     {values.map((key) => (
-                      <ComboboxChip key={key}>{labelFor(key)}</ComboboxChip>
+                      <ComboboxChip key={key}>{talentLabel(key)}</ComboboxChip>
                     ))}
                     <ComboboxChipsInput
                       placeholder={
@@ -214,7 +201,7 @@ export function TalentsPicker({
               <ComboboxList>
                 {(key: TalentKey) => (
                   <ComboboxItem key={key} value={key}>
-                    {labelFor(key)}
+                    {talentLabel(key)}
                   </ComboboxItem>
                 )}
               </ComboboxList>
