@@ -14,6 +14,7 @@ import { archetypeDisplayName } from "@/lib/game/archetypes"
 import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 import { formatCurrency } from "@/lib/ui/format-currency"
 
+import { ActiveArchetypeSwitcher } from "./active-archetype-switcher"
 import { Attributes } from "./attributes"
 import { EditableCharacterName } from "./editable-character-name"
 import { HeaderOwnerActions } from "./header-owner-actions"
@@ -80,8 +81,13 @@ export function SheetHeader() {
 
               <p className="text-sm text-muted-foreground">
                 Level {character.level} ·{" "}
-                {archetypeDisplayName(character.activeArchetypeKey)} · Victories{" "}
-                {character.victories}/{VICTORIES_PER_LEVEL}
+                <OwnerOnly>
+                  <ActiveArchetypeSwitcher />
+                </OwnerOnly>
+                <NonOwner>
+                  {archetypeDisplayName(character.activeArchetypeKey)}
+                </NonOwner>{" "}
+                · Victories {character.victories}/{VICTORIES_PER_LEVEL}
               </p>
 
               <p className="text-sm text-muted-foreground">

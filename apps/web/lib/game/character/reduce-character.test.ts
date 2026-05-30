@@ -297,4 +297,31 @@ describe("reduceCharacter", () => {
     })
     expect(next.sparkLog).toEqual([...character.sparkLog, "wisdom"])
   })
+
+  it("switches the active Archetype and re-derives attributes, affinities, skills, and mechanic", () => {
+    const raw = makeRaw()
+    raw.archetypeRows.push({
+      id: "arch-2",
+      characterId: CHARACTER_ID,
+      archetypeKey: "mage",
+      rank: 1,
+      inheritanceSlots: [],
+      mechanicState: null,
+    })
+    const character = deriveHydratedCharacter(raw)
+    expect(character.activeArchetypeKey).toBe("warrior")
+
+    const next = reduceCharacter(character, {
+      kind: "switchActiveArchetype",
+      characterArchetypeId: "arch-2",
+    })
+
+    expect(next.activeArchetypeId).toBe("arch-2")
+    expect(next.activeArchetypeKey).toBe("mage")
+    expect(next.attributes).not.toEqual(character.attributes)
+    expect(next.affinityChart).not.toEqual(character.affinityChart)
+    expect(next.skills).not.toEqual(character.skills)
+    expect(next.activeMechanic?.state.kind).toBe("stains")
+    expect(character.activeMechanic?.state.kind).toBe("perfection")
+  })
 })
