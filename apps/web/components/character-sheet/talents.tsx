@@ -51,7 +51,7 @@ export function Talents() {
   function handleAdd(talentKey: TalentKey) {
     write({
       edit: { kind: "talentAdd", talentKey },
-      characterClass: "identity",
+      surface: "talents",
       action: (expectedVersion) =>
         addGainedTalentAction({ characterId, talentKey, expectedVersion }),
       messages: {
@@ -68,7 +68,7 @@ export function Talents() {
   function handleRemove(talentKey: TalentKey) {
     write({
       edit: { kind: "talentRemove", talentKey },
-      characterClass: "identity",
+      surface: "talents",
       action: (expectedVersion) =>
         removeGainedTalentAction({ characterId, talentKey, expectedVersion }),
       messages: { error: "Couldn't remove Talent. Try again." },

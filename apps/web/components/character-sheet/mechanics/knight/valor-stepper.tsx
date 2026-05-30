@@ -21,7 +21,7 @@ export function ValorStepper({ value }: { value: number }) {
   function dispatch(direction: "increment" | "decrement") {
     write({
       edit: { kind: "valor", direction },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         adjustValorAction({ characterId, direction, expectedVersion }),
     })

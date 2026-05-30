@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/client"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import type { VirtueAllocation } from "@/lib/game/character"
 import { ok, type Result } from "@/lib/result"
 
@@ -28,7 +29,7 @@ export async function setCharacterVirtues(
   const result = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "identity",
+    EDIT_SURFACE_CLASS.virtuesAllocation,
     expectedVersion,
     {
       virtueExpression: allocation.expression,

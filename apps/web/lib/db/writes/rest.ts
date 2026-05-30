@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
@@ -74,7 +75,7 @@ export async function applyFullRestForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.rest,
     expectedVersion,
     {
       currentHP: next.currentHP,
@@ -111,7 +112,7 @@ export async function applyPartialRestForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.rest,
     expectedVersion,
     {
       currentHP: result.value.currentHP,
@@ -145,7 +146,7 @@ export async function applyRespiteForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.rest,
     expectedVersion,
     {
       currentHP: result.value.currentHP,

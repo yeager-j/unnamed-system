@@ -69,7 +69,7 @@ function OwnerAilmentEditor() {
   function dispatch(next: string[]) {
     write({
       edit: { kind: "ailments", ailments: next },
-      characterClass: "vitals",
+      surface: "ailments",
       action: (expectedVersion) =>
         setAilmentsAction({ characterId, ailments: next, expectedVersion }),
     })

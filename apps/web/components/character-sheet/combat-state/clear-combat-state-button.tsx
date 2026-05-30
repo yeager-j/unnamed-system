@@ -31,7 +31,7 @@ export function ClearCombatStateButton({ hasState }: { hasState: boolean }) {
       onClick={() =>
         write({
           edit: { kind: "clearCombatState" },
-          characterClass: "vitals",
+          surface: "clearCombatState",
           action: (expectedVersion) =>
             clearCombatStateAction({ characterId, expectedVersion }),
         })

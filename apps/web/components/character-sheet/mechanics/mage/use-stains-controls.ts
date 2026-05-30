@@ -26,7 +26,7 @@ export function useStainsControls(): {
   function setSlot(slotIndex: number, element: StainElement | null) {
     write({
       edit: { kind: "stains", op: "setSlot", slotIndex, element },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         setStainSlotAction({
           characterId,
@@ -40,7 +40,7 @@ export function useStainsControls(): {
   function clear() {
     write({
       edit: { kind: "stains", op: "clear" },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         clearStainsAction({ characterId, expectedVersion }),
     })

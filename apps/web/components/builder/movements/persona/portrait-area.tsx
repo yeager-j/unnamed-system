@@ -18,6 +18,7 @@ import {
   removeCharacterPortraitAction,
   uploadCharacterPortraitAction,
 } from "@/lib/actions/character-identity"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { MAX_PORTRAIT_BYTES } from "@/lib/storage/portrait-upload"
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
@@ -68,7 +69,7 @@ export function PortraitArea({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS.portrait,
         versionRef,
         action: async (expectedVersion) => {
           const formData = new FormData()
@@ -88,7 +89,7 @@ export function PortraitArea({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS.portrait,
         versionRef,
         action: (expectedVersion) =>
           removeCharacterPortraitAction({

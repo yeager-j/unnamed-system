@@ -31,7 +31,7 @@ export function NameField({
     serverValue: name,
     serverVersion: identityVersion,
     characterId,
-    characterClass: "identity",
+    surface: "name",
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
     save: async (next, expectedVersion) => {

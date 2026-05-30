@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/client"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import type { PathChoice } from "@/lib/game/character"
 import { ok, type Result } from "@/lib/result"
 
@@ -34,7 +35,7 @@ export async function updateCharacterPath(
   const result = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "identity",
+    EDIT_SURFACE_CLASS.path,
     expectedVersion,
     { pathChoice }
   )

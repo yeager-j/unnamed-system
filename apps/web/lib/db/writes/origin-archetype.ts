@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { getArchetype } from "@/lib/game/archetypes"
 import type { TalentKey } from "@/lib/game/character"
 import { ok, type Result } from "@/lib/result"
@@ -53,7 +54,7 @@ export async function setOriginArchetype(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS.originArchetype,
       expectedVersion,
       {
         activeArchetypeId: null,

@@ -2,6 +2,7 @@ import { and, asc, eq, max } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characterChains, characterKnives } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
 import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
@@ -25,6 +26,12 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * thing that differs at runtime is which physical table to write to.
  */
 export type NamedEntryTable = typeof characterKnives | typeof characterChains
+
+/** Knives and Chains are distinct identity-class edit surfaces; derive which
+ *  from the table being written so the bump references the shared map. */
+function surfaceForTable(table: NamedEntryTable): EditSurface {
+  return table === characterKnives ? "knives" : "chains"
+}
 
 interface AddSuccess {
   id: string
@@ -54,7 +61,7 @@ export async function addNamedEntry(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS[surfaceForTable(table)],
       expectedVersion
     )
     if (!bumped.ok) return bumped
@@ -139,7 +146,7 @@ export async function removeNamedEntry<E extends string>(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS[surfaceForTable(table)],
       expectedVersion
     )
     if (!bumped.ok) return bumped
@@ -181,7 +188,7 @@ async function updateNamedEntryFields<E extends string>(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS[surfaceForTable(table)],
       expectedVersion
     )
     if (!bumped.ok) return bumped

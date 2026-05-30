@@ -24,7 +24,7 @@ export function UsePrismaButton() {
       onClick={() =>
         write({
           edit: { kind: "usePrisma" },
-          characterClass: "vitals",
+          surface: "prisma",
           action: (expectedVersion) =>
             consumePrismaAction({ characterId, expectedVersion }),
         })

@@ -30,6 +30,7 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"
@@ -139,7 +140,7 @@ function SidebarSection({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS[kind],
         versionRef,
         action: (expectedVersion) =>
           kind === "knives"
@@ -179,7 +180,8 @@ function SidebarSection({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass:
+          EDIT_SURFACE_CLASS[ref.kind === "knife" ? "knives" : "chains"],
         versionRef,
         action: (expectedVersion) =>
           ref.kind === "knife"

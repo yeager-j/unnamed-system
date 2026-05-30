@@ -16,6 +16,7 @@ import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/schema/character"
+import type { EditSurface } from "@/lib/db/version-classes"
 import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
 import { useAnimusDocument } from "./animus-context"
@@ -110,7 +111,7 @@ function ActiveDocument({
   resolved: ResolvedDocument
 }) {
   const { ref, title, body } = resolved
-  const { actions, messages } = wireActions({ characterId, ref })
+  const { actions, messages, surface } = wireActions({ characterId, ref })
 
   // Editable titles (Knives / Chains) carry their own value from the DB;
   // fixed titles (Backstory / Identity Traits) display the canonical
@@ -128,6 +129,7 @@ function ActiveDocument({
       body={body}
       actions={actions}
       messages={messages}
+      surface={surface}
     />
   )
 }
@@ -142,10 +144,15 @@ function wireActions({
 }: {
   characterId: string
   ref: DocumentRef
-}): { actions: DocumentEditorActions; messages: DocumentEditorMessages } {
+}): {
+  actions: DocumentEditorActions
+  messages: DocumentEditorMessages
+  surface: EditSurface
+} {
   switch (ref.kind) {
     case "backstory":
       return {
+        surface: "narrative",
         actions: {
           updateDescription: async (text, expectedVersion) => {
             const result = await updateCharacterNarrativeAction({
@@ -171,6 +178,7 @@ function wireActions({
       }
     case "knife":
       return {
+        surface: "knives",
         actions: {
           updateTitle: async (title, expectedVersion) => {
             const result = await updateCharacterKnifeTitleAction({
@@ -208,6 +216,7 @@ function wireActions({
       }
     case "chain":
       return {
+        surface: "chains",
         actions: {
           updateTitle: async (title, expectedVersion) => {
             const result = await updateCharacterChainTitleAction({
@@ -245,6 +254,7 @@ function wireActions({
       }
     case "identity":
       return {
+        surface: "identityTraits",
         actions: {
           updateDescription: async (text, expectedVersion) => {
             const result = await updateCharacterIdentityTraitAction({

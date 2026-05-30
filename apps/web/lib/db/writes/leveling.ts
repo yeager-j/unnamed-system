@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   applyLevelUp,
   type LevelingCharacter,
@@ -104,7 +105,7 @@ export async function awardVictoriesForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "progression",
+    EDIT_SURFACE_CLASS.victories,
     expectedVersion,
     { victories: next.victories }
   )
@@ -140,6 +141,10 @@ export async function applyLevelUpForCharacter(
       savedArchetypeRanks: result.value.savedArchetypeRanks,
       hitDiceRemaining: result.value.hitDiceRemaining,
       skillDiceRemaining: result.value.skillDiceRemaining,
+      // Level-up is the one cross-class write — it bumps both tokens together
+      // and is gated on an `expectedVersions` pair, so it is not a single-class
+      // edit surface and references the raw classes rather than EDIT_SURFACE_CLASS
+      // (see lib/db/version-classes.ts).
       ...characterVersionIncrement("progression"),
       ...characterVersionIncrement("vitals"),
     })

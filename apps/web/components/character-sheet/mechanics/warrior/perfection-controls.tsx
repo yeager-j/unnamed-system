@@ -39,7 +39,7 @@ export function usePerfectionControls({ rank }: { rank: number }): {
   function step(direction: "increment" | "decrement") {
     write({
       edit: { kind: "perfection", op: direction },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         adjustPerfectionAction({ characterId, direction, expectedVersion }),
     })
@@ -48,7 +48,7 @@ export function usePerfectionControls({ rank }: { rank: number }): {
   function reset() {
     write({
       edit: { kind: "perfection", op: "reset" },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         resetPerfectionAction({ characterId, expectedVersion }),
     })

@@ -2,12 +2,11 @@
 
 import type { RefObject } from "react"
 
+import type { VersionClass } from "@/lib/db/version-classes"
+
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
 import type { Result } from "../lib/result"
-import {
-  broadcastCharacterVersion,
-  type VersionClass,
-} from "./use-character-versions-broadcast"
+import { broadcastCharacterVersion } from "./use-character-versions-broadcast"
 
 /**
  * The shared retry-and-broadcast pipeline every character write composes

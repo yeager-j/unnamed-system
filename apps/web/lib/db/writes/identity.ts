@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
 import { ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
@@ -32,7 +33,7 @@ export async function updateCharacterPronouns(
 ): Promise<
   Result<CharacterIdentityPersistenceSuccess, CharacterIdentityPersistenceError>
 > {
-  return runIdentityUpdate(characterId, expectedVersion, {
+  return runIdentityUpdate(characterId, expectedVersion, "pronouns", {
     pronouns: pronouns.length === 0 ? null : pronouns,
   })
 }
@@ -49,7 +50,9 @@ export async function updateCharacterPortraitUrl(
 ): Promise<
   Result<CharacterIdentityPersistenceSuccess, CharacterIdentityPersistenceError>
 > {
-  return runIdentityUpdate(characterId, expectedVersion, { portraitUrl })
+  return runIdentityUpdate(characterId, expectedVersion, "portrait", {
+    portraitUrl,
+  })
 }
 
 /**
@@ -62,7 +65,9 @@ export async function clearCharacterPortrait(
 ): Promise<
   Result<CharacterIdentityPersistenceSuccess, CharacterIdentityPersistenceError>
 > {
-  return runIdentityUpdate(characterId, expectedVersion, { portraitUrl: null })
+  return runIdentityUpdate(characterId, expectedVersion, "portrait", {
+    portraitUrl: null,
+  })
 }
 
 /**
@@ -79,12 +84,15 @@ export async function setCharacterBuilderStep(
 ): Promise<
   Result<CharacterIdentityPersistenceSuccess, CharacterIdentityPersistenceError>
 > {
-  return runIdentityUpdate(characterId, expectedVersion, { builderStep: step })
+  return runIdentityUpdate(characterId, expectedVersion, "builderStep", {
+    builderStep: step,
+  })
 }
 
 async function runIdentityUpdate(
   characterId: string,
   expectedVersion: number,
+  surface: EditSurface,
   patch: Partial<
     Pick<
       typeof characters.$inferInsert,
@@ -97,7 +105,7 @@ async function runIdentityUpdate(
   const result = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "identity",
+    EDIT_SURFACE_CLASS[surface],
     expectedVersion,
     patch
   )

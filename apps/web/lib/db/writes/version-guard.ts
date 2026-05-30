@@ -6,6 +6,7 @@ import {
   type CharacterWriteExecutor,
 } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
+import type { VersionClass } from "@/lib/db/version-classes"
 import { err, ok, type Result } from "@/lib/result"
 
 /**
@@ -19,12 +20,6 @@ import { err, ok, type Result } from "@/lib/result"
  * `.$onUpdate(() => new Date())`, so every UPDATE refreshes it automatically.
  */
 
-export type CharacterVersionClass =
-  | "identity"
-  | "vitals"
-  | "inventory"
-  | "progression"
-
 export type GuardedVersionError = "character-not-found" | "stale"
 
 export type { CharacterWriteExecutor }
@@ -34,7 +29,7 @@ const VERSION_COLUMNS = {
   vitals: characters.vitalsVersion,
   inventory: characters.inventoryVersion,
   progression: characters.progressionVersion,
-} as const satisfies Record<CharacterVersionClass, unknown>
+} as const satisfies Record<VersionClass, unknown>
 
 /**
  * The typed `SET` fragment that increments a version class's token by one.
@@ -43,7 +38,7 @@ const VERSION_COLUMNS = {
  * does rather than re-spelling the `sql` template.
  */
 export function characterVersionIncrement(
-  versionClass: CharacterVersionClass
+  versionClass: VersionClass
 ): PgUpdateSetSource<typeof characters> {
   switch (versionClass) {
     case "identity":
@@ -83,7 +78,7 @@ export async function staleOrMissing(
 export async function bumpCharacterVersionGuarded(
   executor: CharacterWriteExecutor,
   characterId: string,
-  versionClass: CharacterVersionClass,
+  versionClass: VersionClass,
   expectedVersion: number,
   patch?: Partial<typeof characters.$inferInsert>
 ): Promise<Result<{ version: number }, GuardedVersionError>> {

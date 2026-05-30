@@ -68,7 +68,7 @@ export function ActiveArchetypeSwitcher() {
     if (!option || option.id === character.activeArchetypeId) return
     write({
       edit: { kind: "switchActiveArchetype", characterArchetypeId: option.id },
-      characterClass: "identity",
+      surface: "activeArchetype",
       action: (expectedVersion) =>
         setActiveArchetypeAction({
           characterId,

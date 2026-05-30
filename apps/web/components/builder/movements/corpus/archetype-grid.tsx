@@ -8,6 +8,7 @@ import { Button } from "@workspace/ui/components/button"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   INITIATE_ARCHETYPES,
   sortArchetypesByPath,
@@ -74,7 +75,7 @@ export function ArchetypeGrid({
       setOptimisticKey(archetypeKey)
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS.originArchetype,
         versionRef,
         action: (expectedVersion) =>
           setOriginArchetypeAction({

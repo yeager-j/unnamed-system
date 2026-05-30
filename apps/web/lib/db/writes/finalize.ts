@@ -4,6 +4,7 @@ import {
   type CharacterArchetypeRow,
   type CharacterRow,
 } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { getArchetype } from "@/lib/game/archetypes"
 import {
   buildStatComputationCharacter,
@@ -100,7 +101,7 @@ export async function finalizeCharacter(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterRow.id,
-      "identity",
+      EDIT_SURFACE_CLASS.finalize,
       expectedVersion,
       {
         status: "finalized",

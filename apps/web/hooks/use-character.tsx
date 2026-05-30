@@ -11,6 +11,11 @@ import {
 import { toast } from "sonner"
 
 import {
+  EDIT_SURFACE_CLASS,
+  type EditSurface,
+  type VersionClass,
+} from "@/lib/db/version-classes"
+import {
   reduceCharacter,
   type CharacterEdit,
   type HydratedCharacter,
@@ -19,10 +24,7 @@ import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
-import {
-  useCharacterVersionBroadcast,
-  type VersionClass,
-} from "./use-character-versions-broadcast"
+import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
 
 /**
  * The single client-side source of truth for the character sheet. The provider
@@ -128,8 +130,12 @@ interface WriteParams<
 > {
   /** The optimistic edit, applied through {@link reduceCharacter}. */
   edit: CharacterEdit
-  /** Which per-write-class token to condition the save on (UNN-140). */
-  characterClass: VersionClass
+  /**
+   * The edit surface being written. Its per-write-class version token (UNN-140)
+   * is resolved from {@link EDIT_SURFACE_CLASS} — the one place surface→class
+   * lives, shared with the server wrappers (UNN-233).
+   */
+  surface: EditSurface
   /** The Server Action call, given the expected version. */
   action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   /** Toast copy. Defaults cover the stale and generic cases. */
@@ -159,11 +165,12 @@ export function useCharacterWrite() {
 
   function write<TSuccess extends { version: number }, TError extends string>({
     edit,
-    characterClass,
+    surface,
     action,
     messages,
     onError,
   }: WriteParams<TSuccess, TError>) {
+    const characterClass = EDIT_SURFACE_CLASS[surface]
     startTransition(async () => {
       applyEdit(edit)
       const result = await dispatchCharacterWriteWithRetry({

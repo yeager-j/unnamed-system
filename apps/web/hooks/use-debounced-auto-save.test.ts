@@ -57,7 +57,7 @@ async function flushMicrotasks(): Promise<void> {
 
 const FIXED_ARGS = {
   characterId: "char-test",
-  characterClass: "identity" as const,
+  surface: "name" as const,
 }
 
 describe("useDebouncedAutoSave", () => {

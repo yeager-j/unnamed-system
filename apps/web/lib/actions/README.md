@@ -78,15 +78,26 @@ export async function someWriteAction(
 ## Concurrency
 
 Every DB wrapper here is built on **per-write-class optimistic concurrency**
-(UNN-140). One integer counter per logical edit-surface group lives on the
-`character` row:
+(UNN-140). One integer counter per write class lives on the `character` row —
+`identityVersion`, `vitalsVersion`, `inventoryVersion`, `progressionVersion` —
+and every owner write is gated on exactly one of them.
 
-| Column | Wrappers that bump it |
-|---|---|
-| `identityVersion` | `character-name` (and future notes / identity-list / knife-title / chain-title editors) |
-| `vitalsVersion` | `adjust-pools` (damage / heal / spend SP / recover SP from header; use prisma from Combat State), `rest` (full/partial/respite); shared with `leveling` (level-up) |
-| `inventoryVersion` | `inventory` (equip / unequip; add / remove when those land) |
-| `progressionVersion` | `character-spark` (award Spark), `leveling` (award Victories; shared with vitals on level-up) |
+Which **edit surface** bumps which class is a deliberate, per-surface (not
+per-table) decision. The single source of truth is the typed
+`EDIT_SURFACE_CLASS` map in
+[`lib/db/version-classes.ts`](../db/version-classes.ts): the client
+(`useCharacterWrite({ surface })` / `useDebouncedAutoSave({ surface })`) resolves
+the class from it, and every server wrapper passes `EDIT_SURFACE_CLASS.<surface>`
+to `bumpCharacterVersionGuarded`, so the two layers are the same value and can't
+silently disagree (UNN-233). The table below mirrors that map — keep them in sync:
+
+| Write class | Edit surfaces | Notes |
+|---|---|---|
+| `identityVersion` | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below. |
+| `vitalsVersion` | `pools`, `cast`, `ailments`, `battleConditions`, `exhaustion`, `prisma`, `clearCombatState`, `rest`, `mechanic` | In-play Combat-tab state. |
+| `inventoryVersion` | `inventoryItems`, `currency` | **`currency` rides here despite being a `characters` column** — the wallet lives on the Inventory tab, so it shares the class for optimistic-frame coherence (UNN-223). The canonical per-surface-not-per-table case. |
+| `progressionVersion` | `victories`, `virtueRankUp`, `spark` | Sheet-side Virtue rank-up / Spark — progression, unlike the builder's identity-class `virtuesAllocation`. |
+| `progressionVersion` + `vitalsVersion` | `levelUp` | The one **cross-class** write — gated on both tokens and bumps both, so it carries an `expectedVersions` pair and is *not* in `EDIT_SURFACE_CLASS`. See `leveling.applyLevelUp`. |
 
 The shape of every wrapper:
 

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
@@ -61,7 +62,7 @@ export async function setActiveArchetype(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS.activeArchetype,
       expectedVersion,
       { activeArchetypeId: characterArchetypeId }
     )
