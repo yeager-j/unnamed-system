@@ -16,6 +16,7 @@ import {
   skillAttackRollContext,
   type ResolvedAttackRoll,
 } from "../combat"
+import { getMechanic } from "../mechanics"
 import {
   getSkill,
   hydrateSkill,
@@ -27,6 +28,7 @@ import {
   ARCHETYPE_TIERS,
   LINEAGES,
   type Archetype,
+  type ArchetypeTier,
   type Lineage,
 } from "./schema"
 
@@ -263,6 +265,63 @@ export function getArchetypeDisplay(
     lineageGroups: groupByLineage(entries),
     unlockedCount: entries.length,
   }
+}
+
+/** One unlocked Archetype as the header switcher shows it: the catalog facts a
+ *  player weighs when switching (name, Tier, current Rank, Mechanic name),
+ *  keyed by the `characterArchetype` row id the switch write targets. */
+export interface ArchetypeSwitcherOption {
+  id: string
+  name: string
+  tier: ArchetypeTier
+  rank: number
+  mechanicName: string | null
+}
+
+/** Unlocked Archetypes for one Lineage, in the header switcher. */
+export interface ArchetypeSwitcherGroup {
+  lineage: Lineage
+  options: ArchetypeSwitcherOption[]
+}
+
+/**
+ * Lineage-grouped options for the header's active-Archetype switcher (UNN-238).
+ * Unlike {@link getArchetypeDisplay} this resolves only the catalog facts the
+ * picker renders — no Skill or Inheritance-Slot work — since the switcher sits
+ * on every owner sheet. Groups follow the same canonical Lineage order (and
+ * Tier-then-name order within a Lineage) as {@link groupByLineage}; Lineages
+ * with no unlocked Archetype are omitted.
+ */
+export function archetypeSwitcherGroups(
+  character: HydratedCharacter
+): ArchetypeSwitcherGroup[] {
+  const grouped = new Map<Lineage, ArchetypeSwitcherOption[]>()
+  for (const row of character.archetypeRows) {
+    const archetype = getArchetype(row.archetypeKey)
+    if (!archetype) continue
+    const bucket = grouped.get(archetype.lineage) ?? []
+    bucket.push({
+      id: row.id,
+      name: archetype.name,
+      tier: archetype.tier,
+      rank: row.rank,
+      mechanicName: archetype.mechanic
+        ? (getMechanic(archetype.mechanic)?.displayName ?? null)
+        : null,
+    })
+    grouped.set(archetype.lineage, bucket)
+  }
+
+  return [...grouped.entries()]
+    .map<ArchetypeSwitcherGroup>(([lineage, options]) => ({
+      lineage,
+      options: [...options].sort((a, b) => {
+        const tierDelta = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
+        if (tierDelta !== 0) return tierDelta
+        return a.name.localeCompare(b.name)
+      }),
+    }))
+    .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
 }
 
 /**

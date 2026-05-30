@@ -92,6 +92,7 @@ export type CharacterEdit =
   | { kind: "rankUpVirtue"; virtue: VirtueKey }
   | { kind: "talentAdd"; talentKey: TalentKey }
   | { kind: "talentRemove"; talentKey: TalentKey }
+  | { kind: "switchActiveArchetype"; characterArchetypeId: string }
 
 const randomId = () => crypto.randomUUID()
 
@@ -250,6 +251,9 @@ export function reduceCharacter(
           (key) => key !== edit.talentKey
         ),
       })
+
+    case "switchActiveArchetype":
+      return withRow({ activeArchetypeId: edit.characterArchetypeId })
   }
 }
 
