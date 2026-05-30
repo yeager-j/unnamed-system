@@ -12,11 +12,11 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
-  STAIN_ELEMENT_LABELS,
   STAIN_ELEMENTS,
   type StainElement,
   type StainsState,
 } from "@/lib/game/mechanics"
+import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
 import { useStainsControls } from "./use-stains-controls"
 

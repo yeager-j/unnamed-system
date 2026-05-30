@@ -19,7 +19,9 @@ import type {
   Range,
 } from "@/lib/game/combat"
 import type { EquipSlot } from "@/lib/game/items"
+import type { StainElement } from "@/lib/game/mechanics"
 import type { SkillKind } from "@/lib/game/skills"
+import type { ResolvedSkillCost } from "@/lib/game/skills/utils"
 
 /**
  * Canonical display labels for the game-data vocabularies. Every UI surface
@@ -130,6 +132,12 @@ export const SKILL_KIND_LABELS: Record<SkillKind, string> = {
   ailment: "Ailment",
 }
 
+/** Resource a Skill cost drains, for the cost chip: `SP` / `HP`. */
+export const COST_KIND_LABELS: Record<ResolvedSkillCost["kind"], string> = {
+  sp: "SP",
+  hp: "HP",
+}
+
 /** The three HP/SP paths (PRD §5.1). */
 export const PATH_CHOICE_LABELS: Record<PathChoice, string> = {
   "health-focused": "Health-Focused",
@@ -208,6 +216,15 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "adjacent-zone": "Adjacent Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
+}
+
+/** The five Stain elements the Mage can hold. */
+export const STAIN_ELEMENT_LABELS: Record<StainElement, string> = {
+  fire: "Fire",
+  ice: "Ice",
+  elec: "Elec",
+  wind: "Wind",
+  light: "Light",
 }
 
 /**

@@ -2,11 +2,11 @@ import { type ReactNode } from "react"
 
 import {
   rankLabel,
-  STAIN_ELEMENT_LABELS,
   VALOR_MAX,
   type MechanicKind,
   type MechanicState,
 } from "@/lib/game/mechanics"
+import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
 import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PerfectionWidget } from "./perfection-widget"
