@@ -92,6 +92,48 @@ function resolveAttackRollForSkill(
 }
 
 /**
+ * Resolves an Archetype's Rank-keyed Skills and Synthesis Skill into the
+ * {@link RankedSkill} shape both the live display and the builder preview
+ * consume. The only thing that varies between call sites is the source stats:
+ * the live sheet passes the character's hydrated `stats`/`casting`/party, the
+ * builder preview passes a synthetic Rank-2, equipment-less character. Skill
+ * references whose `skillKey` no longer resolves are dropped.
+ */
+function resolveArchetypeRankedSkills(
+  archetype: Archetype,
+  casting: CastingCharacter,
+  stats: StatComputationCharacter,
+  partyComposition: HydratedCharacter["partyComposition"]
+): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
+  const resolveByKey = (key: string): HydratedSkill | null => {
+    const skill = getSkill(key)
+    if (!skill) return null
+    return hydrateSkill(
+      skill,
+      casting,
+      resolveAttackRollForSkill(skill, stats, partyComposition)
+    )
+  }
+
+  const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
+    const resolved = resolveByKey(reference.skill)
+    if (!resolved) return []
+    return [{ ...resolved, rank: reference.rank }]
+  })
+
+  const synthesisReference = archetype.synthesisSkill
+  const synthesisResolved = synthesisReference
+    ? resolveByKey(synthesisReference.skill)
+    : null
+  const synthesis: RankedSkill | null =
+    synthesisReference && synthesisResolved
+      ? { ...synthesisResolved, rank: synthesisReference.rank }
+      : null
+
+  return { ranks, synthesis }
+}
+
+/**
  * Resolves the hydrated character's Archetype rows into pre-resolved
  * {@link ArchetypeEntry} bundles — Skill catalog lookups, Skill-cost
  * resolution against the character's current max HP, and inheritance-slot
@@ -129,20 +171,12 @@ export function buildArchetypeEntries(
     const archetype = archetypeByRowId.get(row.id)
     if (!archetype) return []
 
-    const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
-      const resolved = resolveSkillByKey(reference.skill)
-      if (!resolved) return []
-      return [{ ...resolved, rank: reference.rank }]
-    })
-
-    const synthesisReference = archetype.synthesisSkill
-    const synthesisResolved = synthesisReference
-      ? resolveSkillByKey(synthesisReference.skill)
-      : null
-    const synthesis: RankedSkill | null =
-      synthesisReference && synthesisResolved
-        ? { ...synthesisResolved, rank: synthesisReference.rank }
-        : null
+    const { ranks, synthesis } = resolveArchetypeRankedSkills(
+      archetype,
+      casting,
+      stats,
+      character.partyComposition
+    )
 
     const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(
       (slot) => ({
@@ -311,31 +345,5 @@ export function previewArchetypeSkills(
     currentSP: computeMaxSP(stats),
   }
 
-  const resolveSkill = (skill: Skill): HydratedSkill => {
-    const context = skillAttackRollContext(skill)
-    return hydrateSkill(
-      skill,
-      casting,
-      context ? resolveAttackRoll(context, stats, null) : null
-    )
-  }
-
-  const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
-    const skill = getSkill(reference.skill)
-    if (!skill) return []
-    return [{ ...resolveSkill(skill), rank: reference.rank }]
-  })
-
-  let synthesis: RankedSkill | null = null
-  if (archetype.synthesisSkill) {
-    const skill = getSkill(archetype.synthesisSkill.skill)
-    if (skill) {
-      synthesis = {
-        ...resolveSkill(skill),
-        rank: archetype.synthesisSkill.rank,
-      }
-    }
-  }
-
-  return { ranks, synthesis }
+  return resolveArchetypeRankedSkills(archetype, casting, stats, null)
 }
