@@ -81,7 +81,7 @@ export function HeaderOwnerActions() {
   function handleDamage(amount: number) {
     pools.write({
       edit: { kind: "damage", amount },
-      characterClass: "vitals",
+      surface: "pools",
       action: (expectedVersion) =>
         damageAction({ characterId: character.id, amount, expectedVersion }),
     })
@@ -90,7 +90,7 @@ export function HeaderOwnerActions() {
   function handleHeal(amount: number) {
     pools.write({
       edit: { kind: "heal", amount },
-      characterClass: "vitals",
+      surface: "pools",
       action: (expectedVersion) =>
         healAction({ characterId: character.id, amount, expectedVersion }),
     })
@@ -99,7 +99,7 @@ export function HeaderOwnerActions() {
   function handleSpendSP(amount: number) {
     pools.write({
       edit: { kind: "spendSP", amount },
-      characterClass: "vitals",
+      surface: "pools",
       action: (expectedVersion) =>
         spendSPAction({ characterId: character.id, amount, expectedVersion }),
     })
@@ -108,7 +108,7 @@ export function HeaderOwnerActions() {
   function handleRecoverSP(amount: number) {
     pools.write({
       edit: { kind: "recoverSP", amount },
-      characterClass: "vitals",
+      surface: "pools",
       action: (expectedVersion) =>
         recoverSPAction({ characterId: character.id, amount, expectedVersion }),
     })
@@ -117,7 +117,7 @@ export function HeaderOwnerActions() {
   function handleAwardVictories(amount: VictoriesAmount) {
     victories.write({
       edit: { kind: "victories", delta: amount },
-      characterClass: "progression",
+      surface: "victories",
       action: (expectedVersion) =>
         awardVictoriesAction({
           characterId: character.id,

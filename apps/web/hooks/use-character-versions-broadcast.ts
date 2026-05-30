@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 
+import type { VersionClass } from "@/lib/db/version-classes"
+
 /**
  * Cross-tab notification for per-write-class version bumps (UNN-203). When a
  * write lands in tab A, every other tab open on the same character refreshes
@@ -21,9 +23,6 @@ import { useEffect } from "react"
  * runners): the silent-retry path still works; cross-tab convergence
  * downgrades to "next page interaction" instead of "live."
  */
-
-/** The four per-write-class buckets `characters` carries — UNN-140. */
-export type VersionClass = "identity" | "vitals" | "inventory" | "progression"
 
 interface VersionBroadcastMessage {
   senderTabId: string

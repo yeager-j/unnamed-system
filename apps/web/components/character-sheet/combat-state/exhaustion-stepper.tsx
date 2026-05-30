@@ -22,7 +22,7 @@ export function ExhaustionStepper() {
   function step(direction: "increment" | "decrement") {
     write({
       edit: { kind: "exhaustion", direction },
-      characterClass: "vitals",
+      surface: "exhaustion",
       action: (expectedVersion) =>
         adjustExhaustionAction({ characterId, direction, expectedVersion }),
     })

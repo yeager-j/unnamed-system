@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
@@ -63,7 +64,7 @@ export async function updateCharacterIdentityTrait(
   const result = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "identity",
+    EDIT_SURFACE_CLASS.identityTraits,
     expectedVersion,
     patch
   )

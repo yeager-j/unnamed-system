@@ -28,7 +28,7 @@ export function PronounsField({
     serverValue: pronouns ?? "",
     serverVersion: identityVersion,
     characterId,
-    characterClass: "identity",
+    surface: "pronouns",
     isEqual: (a, b) => a.trim() === b.trim(),
     save: async (next, expectedVersion) => {
       const result = await updateCharacterPronounsAction({

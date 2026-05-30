@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   applyDamage,
   applyHeal,
@@ -75,7 +76,7 @@ export async function applyDamageForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.pools,
     expectedVersion,
     { currentHP: result.value.currentHP }
   )
@@ -101,7 +102,7 @@ export async function applyHealForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.pools,
     expectedVersion,
     { currentHP: result.value.currentHP }
   )
@@ -127,7 +128,7 @@ export async function applySpendSPForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.pools,
     expectedVersion,
     { currentSP: result.value.currentSP }
   )
@@ -153,7 +154,7 @@ export async function applyRecoverSPForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.pools,
     expectedVersion,
     { currentSP: result.value.currentSP }
   )
@@ -178,7 +179,7 @@ export async function applyUsePrismaForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.prisma,
     expectedVersion,
     { prismaCharges: result.value.prismaCharges }
   )

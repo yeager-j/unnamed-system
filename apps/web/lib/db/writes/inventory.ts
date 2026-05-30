@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characters, inventoryItems } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { MAX_CURRENCY } from "@/lib/game/character"
 import {
   addItem,
@@ -73,7 +74,7 @@ async function mutateInventory(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "inventory",
+      EDIT_SURFACE_CLASS.inventoryItems,
       expectedVersion
     )
     if (!bumped.ok) return bumped
@@ -216,7 +217,7 @@ export async function adjustCurrency(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "inventory",
+      EDIT_SURFACE_CLASS.currency,
       expectedVersion,
       { currency: nextCurrency }
     )

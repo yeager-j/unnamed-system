@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   addSpark,
   rankUpVirtue,
@@ -84,7 +85,7 @@ export async function addSparkForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "progression",
+    EDIT_SURFACE_CLASS.spark,
     expectedVersion,
     { sparkLog: result.value.sparkLog }
   )
@@ -117,7 +118,7 @@ export async function rankUpVirtueForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "progression",
+    EDIT_SURFACE_CLASS.virtueRankUp,
     expectedVersion,
     {
       sparkLog: result.value.sparkLog,

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { TALENT_KEYS, type TalentKey } from "@/lib/game/character"
 import { err, ok, type Result } from "@/lib/result"
 
@@ -50,7 +51,7 @@ export async function addGainedTalent(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS.talents,
       expectedVersion
     )
     if (!bumped.ok) return bumped
@@ -87,7 +88,7 @@ export async function removeGainedTalent(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "identity",
+      EDIT_SURFACE_CLASS.talents,
       expectedVersion
     )
     if (!bumped.ok) return bumped

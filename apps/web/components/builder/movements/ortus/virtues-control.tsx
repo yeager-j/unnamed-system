@@ -9,6 +9,7 @@ import { ButtonGroup } from "@workspace/ui/components/button-group"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   describeAllocationProgress,
   VIRTUE_KEYS,
@@ -69,7 +70,7 @@ export function VirtuesControl({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS.virtuesAllocation,
         versionRef,
         action: (expectedVersion) =>
           setCharacterVirtuesAction({

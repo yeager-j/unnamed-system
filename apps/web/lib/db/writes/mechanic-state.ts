@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import { characterExists } from "@/lib/db/queries/load-character"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   initialStateFor,
   mechanicStateSchema,
@@ -88,7 +89,7 @@ export async function applyMechanicStateForCharacter<K extends MechanicKind>(
     const bumped = await bumpCharacterVersionGuarded(
       tx,
       characterId,
-      "vitals",
+      EDIT_SURFACE_CLASS.mechanic,
       expectedVitalsVersion
     )
     if (!bumped.ok) return bumped

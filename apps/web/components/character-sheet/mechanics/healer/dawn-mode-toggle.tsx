@@ -22,7 +22,7 @@ export function DawnModeToggle({ dawnMode }: { dawnMode: boolean }) {
   function dispatch(next: boolean) {
     write({
       edit: { kind: "pathOfDawn", dawnMode: next },
-      characterClass: "vitals",
+      surface: "mechanic",
       action: (expectedVersion) =>
         setDawnModeAction({ characterId, dawnMode: next, expectedVersion }),
     })

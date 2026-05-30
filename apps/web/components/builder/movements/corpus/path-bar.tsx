@@ -10,6 +10,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { PATH_CHOICES, type PathChoice } from "@/lib/game/character/state"
 import { getPathStats } from "@/lib/game/character/stats/stats"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
@@ -63,7 +64,7 @@ export function PathBar({
       setOptimisticPath(next)
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass: "identity",
+        characterClass: EDIT_SURFACE_CLASS.path,
         versionRef,
         action: (expectedVersion) =>
           updateCharacterPathAction({

@@ -45,7 +45,7 @@ export function Skills() {
   function handleCast(skillKey: string) {
     write({
       edit: { kind: "cast", skillKey },
-      characterClass: "vitals",
+      surface: "cast",
       action: (expectedVersion) =>
         castSkillAction({ characterId, skillKey, expectedVersion }),
       messages: { error: "Couldn't cast Skill. Try again." },

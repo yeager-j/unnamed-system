@@ -82,7 +82,7 @@ function SingleLineField({
     serverValue,
     serverVersion: identityVersion,
     characterId,
-    characterClass: "identity",
+    surface: "narrative",
     isEqual: (a, b) => a.trim() === b.trim(),
     save: async (next, expectedVersion) => {
       const result = await updateCharacterNarrativeAction({

@@ -70,7 +70,7 @@ export function Virtues() {
   function handleAddSpark(virtue: VirtueKey) {
     write({
       edit: { kind: "addSpark", virtue },
-      characterClass: "progression",
+      surface: "spark",
       action: (expectedVersion) =>
         addSparkAction({ characterId, virtue, expectedVersion }),
       messages: {
@@ -89,7 +89,7 @@ export function Virtues() {
   function handleRankUp(virtue: VirtueKey) {
     write({
       edit: { kind: "rankUpVirtue", virtue },
-      characterClass: "progression",
+      surface: "virtueRankUp",
       action: (expectedVersion) =>
         rankUpVirtueAction({ characterId, virtue, expectedVersion }),
       messages: {

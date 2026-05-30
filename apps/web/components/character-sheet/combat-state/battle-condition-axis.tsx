@@ -60,7 +60,7 @@ function OwnerAxis({
     if (nextState === current) return
     write({
       edit: { kind: "battleConditionAxis", axis, state: nextState },
-      characterClass: "vitals",
+      surface: "battleConditions",
       action: (expectedVersion) =>
         setBattleConditionAxisAction({
           characterId,

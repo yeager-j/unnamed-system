@@ -65,7 +65,7 @@ function OwnerFlagRow({
   function dispatch(flag: FlagKey, value: boolean) {
     write({
       edit: { kind: "battleConditionFlag", flag, value },
-      characterClass: "vitals",
+      surface: "battleConditions",
       action: (expectedVersion) =>
         setBattleConditionFlagAction({
           characterId,

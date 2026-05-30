@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
@@ -80,7 +81,7 @@ export async function applyCastForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.cast,
     expectedVersion,
     {
       currentHP: result.value.currentHP,

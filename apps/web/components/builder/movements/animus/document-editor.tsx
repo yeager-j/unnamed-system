@@ -13,6 +13,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
 
 /**
@@ -76,6 +77,7 @@ export function DocumentEditor({
   body,
   actions,
   messages,
+  surface,
 }: {
   characterId: string
   identityVersion: number
@@ -89,6 +91,7 @@ export function DocumentEditor({
   body: string
   actions: DocumentEditorActions
   messages: DocumentEditorMessages
+  surface: EditSurface
 }) {
   const onError = () => toast.error(messages.saveError)
   const isTitleEditable = !!actions.updateTitle
@@ -97,7 +100,7 @@ export function DocumentEditor({
     serverValue: title,
     serverVersion: identityVersion,
     characterId,
-    characterClass: "identity",
+    surface,
     isEqual: (a, b) => a.trim() === b.trim(),
     // No `isEmpty` guard — clearing the title is a legitimate edit. The
     // sidebar renders "New Knife" / "New Chain" as a fallback label when
@@ -123,7 +126,7 @@ export function DocumentEditor({
     serverValue: body,
     serverVersion: identityVersion,
     characterId,
-    characterClass: "identity",
+    surface,
     isEqual: (a, b) => a.trim() === b.trim(),
     onError,
     save: async (next, expectedVersion) => {

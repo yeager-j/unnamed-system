@@ -3,6 +3,7 @@ import { and, eq, sql } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   DEFAULT_BATTLE_CONDITIONS,
   type Ailments,
@@ -59,7 +60,7 @@ export async function applySetAilmentsForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.ailments,
     expectedVersion,
     { ailments }
   )
@@ -123,7 +124,7 @@ export async function applySetBattleConditionsForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.battleConditions,
     expectedVersion,
     { battleConditions: conditions }
   )
@@ -151,7 +152,7 @@ export async function applyAdjustExhaustionForCharacter(
     .update(characters)
     .set({
       exhaustion: nextExpression,
-      ...characterVersionIncrement("vitals"),
+      ...characterVersionIncrement(EDIT_SURFACE_CLASS.exhaustion),
     })
     .where(
       and(
@@ -188,7 +189,7 @@ export async function applyClearCombatStateForCharacter(
   const bumped = await bumpCharacterVersionGuarded(
     db,
     characterId,
-    "vitals",
+    EDIT_SURFACE_CLASS.clearCombatState,
     expectedVersion,
     {
       ailments: clearedAilments,

@@ -30,6 +30,7 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   MAX_PLAYER_ADDED_TALENTS,
   resolveTalentsForBuilder,
@@ -90,7 +91,7 @@ export function TalentsPicker({
       startTransition(async () => {
         const result = await dispatchCharacterWriteWithRetry({
           characterId,
-          characterClass: "identity",
+          characterClass: EDIT_SURFACE_CLASS.talents,
           versionRef,
           action: (expectedVersion) =>
             addGainedTalentAction({
@@ -118,7 +119,7 @@ export function TalentsPicker({
       startTransition(async () => {
         const result = await dispatchCharacterWriteWithRetry({
           characterId,
-          characterClass: "identity",
+          characterClass: EDIT_SURFACE_CLASS.talents,
           versionRef,
           action: (expectedVersion) =>
             removeGainedTalentAction({

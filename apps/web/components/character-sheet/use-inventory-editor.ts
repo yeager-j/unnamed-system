@@ -25,7 +25,7 @@ export function useInventoryEditor() {
   function dispatchMutation(mutation: InventoryMutation) {
     write({
       edit: { kind: "inventory", mutation },
-      characterClass: "inventory",
+      surface: "inventoryItems",
       action: (expectedVersion) =>
         runInventoryAction(character.id, mutation, expectedVersion),
       messages: {
@@ -39,7 +39,7 @@ export function useInventoryEditor() {
     if (delta === 0) return
     write({
       edit: { kind: "currency", delta },
-      characterClass: "inventory",
+      surface: "currency",
       action: (expectedVersion) =>
         adjustCurrencyAction({
           characterId: character.id,
