@@ -1,7 +1,6 @@
 "use client"
 
 import { WarningIcon } from "@phosphor-icons/react"
-import { useMemo } from "react"
 
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -60,18 +59,11 @@ export function InheritanceSlots({
   // Resolve the picker's source groups once for the whole block — every slot
   // shares them. A Paragon-tier Archetype has 6 slots, and the resolution
   // re-hydrates every other Archetype's Skills, so doing it per-SlotPicker
-  // would repeat that work 6× per render. Owner-only: a read-only viewer never
-  // renders a picker, so it pays nothing.
-  const sourceGroups = useMemo<InheritanceSourceGroup[]>(
-    () =>
-      isOwner
-        ? inheritanceSourceGroups(
-            buildArchetypeEntries(character),
-            entry.row.id
-          )
-        : [],
-    [isOwner, character, entry.row.id]
-  )
+  // would repeat that work 6× (one call site, memoized by the React Compiler).
+  // Owner-only: a read-only viewer never renders a picker, so it pays nothing.
+  const sourceGroups: InheritanceSourceGroup[] = isOwner
+    ? inheritanceSourceGroups(buildArchetypeEntries(character), entry.row.id)
+    : []
 
   if (total === 0) return null
 
