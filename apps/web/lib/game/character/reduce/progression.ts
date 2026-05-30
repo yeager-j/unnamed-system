@@ -1,14 +1,9 @@
 import type { CharacterRow } from "@/lib/db/schema/character"
 
-import type { CharacterEdit } from "../character-edit"
+import type { ProgressionEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { addSpark, rankUpVirtue, type SparkCharacter } from "../leveling"
 import { patchRow, type SliceResult } from "./shared"
-
-type ProgressionEdit = Extract<
-  CharacterEdit,
-  { kind: "victories" | "addSpark" | "rankUpVirtue" }
->
 
 /**
  * Progression slice: banking Victories and the Spark log (adding a Spark,

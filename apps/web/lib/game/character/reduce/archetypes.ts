@@ -1,11 +1,6 @@
-import type { CharacterEdit } from "../character-edit"
+import type { ArchetypeEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { patchRow, type SliceResult } from "./shared"
-
-type ArchetypeEdit = Extract<
-  CharacterEdit,
-  { kind: "switchActiveArchetype" | "setInheritanceSlot" }
->
 
 /**
  * Archetypes slice: switching the active Archetype and configuring an

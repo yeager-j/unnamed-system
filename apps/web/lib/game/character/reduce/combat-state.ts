@@ -1,20 +1,8 @@
 import { MAX_EXHAUSTION_LEVEL } from "../../combat"
-import type { CharacterEdit } from "../character-edit"
+import type { CombatStateEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { DEFAULT_BATTLE_CONDITIONS } from "../state"
 import { patchRow, type SliceResult } from "./shared"
-
-type CombatStateEdit = Extract<
-  CharacterEdit,
-  {
-    kind:
-      | "ailments"
-      | "battleConditionAxis"
-      | "battleConditionFlag"
-      | "exhaustion"
-      | "clearCombatState"
-  }
->
 
 /**
  * Combat-state slice: ailments, the three battle-condition axes, the two

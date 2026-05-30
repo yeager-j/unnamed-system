@@ -1,8 +1,6 @@
-import type { CharacterEdit } from "../character-edit"
+import type { TalentEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { patchRow, type SliceResult } from "./shared"
-
-type TalentEdit = Extract<CharacterEdit, { kind: "talentAdd" | "talentRemove" }>
 
 /**
  * Talents slice: adds or removes a key from the `gainedTalents` column. Adding

@@ -6,17 +6,10 @@ import {
   applySpendSP,
   applyUsePrisma,
 } from "../adjust-pools"
-import type { CharacterEdit } from "../character-edit"
+import type { PoolsEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import type { HydratedCharacter } from "../hydrated-character"
 import { fromResult, type SliceResult } from "./shared"
-
-type PoolsEdit = Extract<
-  CharacterEdit,
-  {
-    kind: "usePrisma" | "damage" | "heal" | "spendSP" | "recoverSP" | "cast"
-  }
->
 
 /**
  * Pools / casting slice: the manual HP/SP/Prisma affordances plus Skill casts.

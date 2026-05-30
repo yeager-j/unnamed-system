@@ -1,10 +1,8 @@
 import { applyInventoryMutation, type InventoryItemState } from "../../items"
-import type { CharacterEdit } from "../character-edit"
+import type { InventoryEdit } from "../character-edit"
 import { clampCurrency } from "../currency"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { patchRow, type SliceResult } from "./shared"
-
-type InventoryEdit = Extract<CharacterEdit, { kind: "inventory" | "currency" }>
 
 /**
  * Inventory + currency slice: the gold-piece pool and inventory-row mutations

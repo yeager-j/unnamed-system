@@ -8,14 +8,9 @@ import {
   setStainSlot,
   type MechanicState,
 } from "../../mechanics"
-import type { CharacterEdit } from "../character-edit"
+import type { MechanicEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import type { SliceResult } from "./shared"
-
-type MechanicEdit = Extract<
-  CharacterEdit,
-  { kind: "valor" | "perfection" | "stains" | "pathOfDawn" }
->
 
 /**
  * Mechanics slice: steps the active Archetype's unique mechanic (Valor /
