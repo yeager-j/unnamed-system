@@ -5,6 +5,8 @@ import type {
   UsePrismaPersistenceError,
 } from "@/lib/db/writes/adjust-pools"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the header owner-mode pool adjustments
  * (PRD §6.1 / §7.6, UNN-155). Damage / Heal / Spend SP / Recover SP all share
@@ -14,10 +16,8 @@ import type {
  * {@link characters.vitalsVersion} token it last saw.
  */
 
-const AmountAdjustSchema = z.object({
-  characterId: z.string().min(1),
+const AmountAdjustSchema = characterMutationBase.extend({
   amount: z.number().int().positive(),
-  expectedVersion: z.number().int().nonnegative(),
 })
 
 export const DamageSchema = AmountAdjustSchema
@@ -32,10 +32,7 @@ export type SpendSPInput = z.input<typeof SpendSPSchema>
 export const RecoverSPSchema = AmountAdjustSchema
 export type RecoverSPInput = z.input<typeof RecoverSPSchema>
 
-export const UsePrismaSchema = z.object({
-  characterId: z.string().min(1),
-  expectedVersion: z.number().int().nonnegative(),
-})
+export const UsePrismaSchema = characterMutationBase
 export type UsePrismaInput = z.input<typeof UsePrismaSchema>
 
 export type AdjustPoolActionError = "invalid-input" | AdjustPoolPersistenceError

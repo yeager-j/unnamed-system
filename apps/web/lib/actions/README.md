@@ -13,19 +13,27 @@ The Zod schema lives in `<domain>.schema.ts` alongside the action. A
 component that wants to pre-validate (or any code outside the action that
 references the input type) imports from the `.schema.ts` file directly.
 
+Every owner-mode mutation carries the same envelope — the character id and the
+per-write-class version token (UNN-140) — so it is not restated per file.
+Extend the shared `characterMutationBase` (`./character-mutation.schema`) with
+the domain payload instead (UNN-253):
+
 ```ts
 // lib/actions/<domain>.schema.ts
 import { z } from "zod/v4"
 
-export const SomeWriteSchema = z.object({
-  characterId: z.string().min(1),
-  // ... the actual fields ...
-  expectedVersion: z.number().int().nonnegative(), // per-class version token
+import { characterMutationBase } from "./character-mutation.schema"
+
+export const SomeWriteSchema = characterMutationBase.extend({
+  // ... the actual domain fields ...
 })
 
 export type SomeWriteInput = z.input<typeof SomeWriteSchema>
 export type SomeWriteError = "invalid-input" | DbError
 ```
+
+A write that takes no payload beyond the envelope is just
+`export const SomeWriteSchema = characterMutationBase`.
 
 ```ts
 // lib/actions/<domain>.ts

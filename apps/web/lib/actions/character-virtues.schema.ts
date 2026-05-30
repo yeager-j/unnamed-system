@@ -2,6 +2,8 @@ import { z } from "zod/v4"
 
 import type { CharacterVirtuesPersistenceError } from "@/lib/db/writes/virtues"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schema for {@link setCharacterVirtuesAction}. Ranks are constrained
  * to {0, 1, 2} and the *upper* bounds of the rulebook 1.2 creation rule are
@@ -18,14 +20,12 @@ import type { CharacterVirtuesPersistenceError } from "@/lib/db/writes/virtues"
  */
 const rankSchema = z.union([z.literal(0), z.literal(1), z.literal(2)])
 
-export const SetVirtuesSchema = z
-  .object({
-    characterId: z.string().min(1),
+export const SetVirtuesSchema = characterMutationBase
+  .extend({
     expression: rankSchema,
     empathy: rankSchema,
     wisdom: rankSchema,
     focus: rankSchema,
-    expectedVersion: z.number().int().nonnegative(),
   })
   .refine(
     ({ expression, empathy, wisdom, focus }) => {

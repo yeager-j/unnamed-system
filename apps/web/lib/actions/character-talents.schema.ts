@@ -3,6 +3,8 @@ import { z } from "zod/v4"
 import type { CharacterTalentPersistenceError } from "@/lib/db/writes/talents"
 import { TALENT_KEYS } from "@/lib/game/character"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the player-added Talent picker. The `talentKey` is
  * validated against the canonical list, so a tampered payload bails before
@@ -10,17 +12,13 @@ import { TALENT_KEYS } from "@/lib/game/character"
  * belt-and-braces measure.
  */
 
-export const AddGainedTalentSchema = z.object({
-  characterId: z.string().min(1),
+export const AddGainedTalentSchema = characterMutationBase.extend({
   talentKey: z.enum(TALENT_KEYS),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type AddGainedTalentInput = z.input<typeof AddGainedTalentSchema>
 
-export const RemoveGainedTalentSchema = z.object({
-  characterId: z.string().min(1),
+export const RemoveGainedTalentSchema = characterMutationBase.extend({
   talentKey: z.enum(TALENT_KEYS),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type RemoveGainedTalentInput = z.input<typeof RemoveGainedTalentSchema>
 

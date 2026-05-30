@@ -3,6 +3,8 @@ import { z } from "zod/v4"
 import type { SparkPersistenceError } from "@/lib/db/writes/spark"
 import { VIRTUE_KEYS } from "@/lib/game/character"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the sheet-side Spark / Virtue rank-up pickers
  * (PRD §6.1 / §7.5). Both writes target the progression-class version
@@ -10,17 +12,13 @@ import { VIRTUE_KEYS } from "@/lib/game/character"
  * so a tampered payload bails before the database round-trip.
  */
 
-export const AddSparkSchema = z.object({
-  characterId: z.string().min(1),
+export const AddSparkSchema = characterMutationBase.extend({
   virtue: z.enum(VIRTUE_KEYS),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type AddSparkInput = z.input<typeof AddSparkSchema>
 
-export const RankUpVirtueSchema = z.object({
-  characterId: z.string().min(1),
+export const RankUpVirtueSchema = characterMutationBase.extend({
   virtue: z.enum(VIRTUE_KEYS),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type RankUpVirtueInput = z.input<typeof RankUpVirtueSchema>
 

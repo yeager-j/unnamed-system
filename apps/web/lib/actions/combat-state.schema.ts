@@ -7,6 +7,8 @@ import {
   battleConditionsSchema,
 } from "@/lib/game/character/state"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the owner-mode Combat State editors (PRD §6.1, UNN-226).
  * Every action targets the `vitalsVersion` write class — the same token
@@ -17,11 +19,6 @@ import {
  * server stores whatever the player records and leaves "one at a time +
  * Downed coexists" to the picker UI, matching the column's design intent.
  */
-
-const characterMutationBase = z.object({
-  characterId: z.string().min(1),
-  expectedVersion: z.number().int().nonnegative(),
-})
 
 export const SetAilmentsSchema = characterMutationBase.extend({
   ailments: ailmentsSchema,

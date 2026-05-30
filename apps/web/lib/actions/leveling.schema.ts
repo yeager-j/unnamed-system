@@ -2,6 +2,8 @@ import { z } from "zod/v4"
 
 import type { LevelingPersistenceError } from "@/lib/db/writes/leveling"
 
+import { characterMutationBase } from "./character-mutation.schema"
+
 /**
  * Input schemas for the header owner-mode progression controls (PRD §6.1 /
  * §7.4, UNN-157). Victories ± is a single-class write on `progressionVersion`;
@@ -14,15 +16,13 @@ import type { LevelingPersistenceError } from "@/lib/db/writes/leveling"
  * affordance.
  */
 
-export const AwardVictoriesSchema = z.object({
-  characterId: z.string().min(1),
+export const AwardVictoriesSchema = characterMutationBase.extend({
   amount: z
     .number()
     .int()
     .refine((n) => n === 1 || n === 2 || n === -1, {
       message: "amount must be -1, 1, or 2",
     }),
-  expectedVersion: z.number().int().nonnegative(),
 })
 export type AwardVictoriesInput = z.input<typeof AwardVictoriesSchema>
 
