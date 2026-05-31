@@ -1,7 +1,9 @@
 import type { CharacterRow } from "@/lib/db/schema/character"
 
 import type { Result } from "../../result"
-import { MASTERY_RANK } from "../archetypes/schema"
+import { unmetPrerequisites } from "../archetypes/atlas"
+import { MASTERY_RANK } from "../archetypes/rank"
+import { getArchetype } from "../archetypes/registry"
 import { MAX_EXHAUSTION_LEVEL } from "../combat"
 import {
   applyInventoryMutation,
@@ -281,8 +283,9 @@ export function reduceCharacter(
  * Saved Rank, then re-derives. The optimistic row mirrors the DB insert (empty
  * Inheritance Slots, null mechanic state); the server's revalidate later
  * replaces the minted id with the persisted one. Ignored (returns the input)
- * when the Archetype is already owned or no Saved Rank is available — the same
- * guards the server enforces — so the optimistic frame never lies.
+ * when the Archetype is unknown, already owned, has unmet prerequisites, or no
+ * Saved Rank is available — the same guards the server enforces — so the
+ * optimistic frame never lies (and a tampered edit can't advance the UI).
  */
 function reduceUnlockArchetype(
   raw: RawCharacterInputs,
@@ -290,10 +293,20 @@ function reduceUnlockArchetype(
   edit: Extract<CharacterEdit, { kind: "unlockArchetype" }>,
   newId: () => string
 ): HydratedCharacter {
+  const archetype = getArchetype(edit.archetypeKey)
+  if (!archetype) return character
+
   const alreadyOwned = raw.archetypeRows.some(
-    (archetype) => archetype.archetypeKey === edit.archetypeKey
+    (row) => row.archetypeKey === edit.archetypeKey
   )
   if (alreadyOwned || raw.row.savedArchetypeRanks <= 0) return character
+
+  const ownedRankByKey = new Map(
+    raw.archetypeRows
+      .filter((row) => getArchetype(row.archetypeKey))
+      .map((row) => [row.archetypeKey, row.rank] as const)
+  )
+  if (unmetPrerequisites(archetype, ownedRankByKey).length > 0) return character
 
   return deriveHydratedCharacter({
     ...raw,

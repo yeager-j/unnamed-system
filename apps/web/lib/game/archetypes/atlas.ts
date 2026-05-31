@@ -2,10 +2,10 @@ import type { CharacterArchetypeRow } from "@/lib/db/schema/character"
 
 import type { HydratedCharacter } from "../character/hydrated-character"
 import { LINEAGES, type Lineage } from "../character/lineage"
+import { hasMasteryBonus } from "./rank"
 import { ARCHETYPES, getArchetype } from "./registry"
 import {
   ARCHETYPE_TIERS,
-  hasMasteryBonus,
   type Archetype,
   type ArchetypePrerequisite,
   type ArchetypeTier,

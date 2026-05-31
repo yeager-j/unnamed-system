@@ -465,6 +465,16 @@ describe("reduceCharacter", () => {
     ).toBe(character)
   })
 
+  it("does not unlock an unknown Archetype key", () => {
+    const character = makeWithSavedRanks(2)
+    expect(
+      reduceCharacter(character, {
+        kind: "unlockArchetype",
+        archetypeKey: "not-a-real-archetype",
+      })
+    ).toBe(character)
+  })
+
   it("ranks up an owned Archetype, spends a Rank, and re-derives active Skills", () => {
     const character = makeWithSavedRanks(2)
     const rankTwoSkills = character.skills.length

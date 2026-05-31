@@ -102,18 +102,22 @@ function TreeColumns({
   onSelect: (archetypeKey: string) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const nodeRefs = useRef(new Map<string, HTMLElement>())
   const [paths, setPaths] = useState<string[]>([])
 
   const recompute = useCallback(() => {
-    const container = containerRef.current
-    if (!container) return
+    const track = trackRef.current
+    if (!track) return
     const presentKeys = new Set(
       lineage.columns.flatMap((column) =>
         column.nodes.map((node) => node.archetype.key)
       )
     )
-    const origin = container.getBoundingClientRect()
+    // Measure against the full-width track (the `min-w-max` element the svg also
+    // spans), not the clipped scroll viewport, so connectors past the fold on a
+    // narrow screen still draw.
+    const origin = track.getBoundingClientRect()
     const next: string[] = []
     for (const column of lineage.columns) {
       for (const node of column.nodes) {
@@ -153,55 +157,57 @@ function TreeColumns({
       aria-label={`${LINEAGE_LABELS[lineage.lineage]} tree`}
       className="relative overflow-x-auto"
     >
-      <svg
-        aria-hidden
-        className="pointer-events-none absolute inset-0 h-full w-full text-border"
-      >
-        {paths.map((path, index) => (
-          <path
-            key={index}
-            d={path}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          />
-        ))}
-      </svg>
+      <div ref={trackRef} className="relative min-w-max">
+        <svg
+          aria-hidden
+          className="pointer-events-none absolute inset-0 h-full w-full text-border"
+        >
+          {paths.map((path, index) => (
+            <path
+              key={index}
+              d={path}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.5}
+            />
+          ))}
+        </svg>
 
-      <div className="relative flex min-w-max gap-8">
-        {lineage.columns.map((column) => (
-          <div key={column.tier} className="flex w-56 flex-col gap-3">
-            <div className="flex items-baseline justify-between gap-2 border-b pb-1">
-              <span className="font-serif text-sm font-semibold">
-                <span className="font-mono text-muted-foreground">
-                  {TIER_ROMAN_LABELS[column.tier]}
-                </span>{" "}
-                {TIER_LABELS[column.tier]}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {TIER_LEVEL_HINT_LABELS[column.tier]}
-              </span>
-            </div>
+        <div className="relative flex gap-8">
+          {lineage.columns.map((column) => (
+            <div key={column.tier} className="flex w-56 flex-col gap-3">
+              <div className="flex items-baseline justify-between gap-2 border-b pb-1">
+                <span className="font-serif text-sm font-semibold">
+                  <span className="font-mono text-muted-foreground">
+                    {TIER_ROMAN_LABELS[column.tier]}
+                  </span>{" "}
+                  {TIER_LABELS[column.tier]}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {TIER_LEVEL_HINT_LABELS[column.tier]}
+                </span>
+              </div>
 
-            <div className="flex flex-1 flex-col justify-center gap-8 py-2">
-              {column.nodes.map((node) => (
-                <div
-                  key={node.archetype.key}
-                  ref={(el) => {
-                    if (el) nodeRefs.current.set(node.archetype.key, el)
-                    else nodeRefs.current.delete(node.archetype.key)
-                  }}
-                >
-                  <ArchetypeNodeCard
-                    node={node}
-                    selected={selectedKey === node.archetype.key}
-                    onSelect={() => onSelect(node.archetype.key)}
-                  />
-                </div>
-              ))}
+              <div className="flex flex-1 flex-col justify-center gap-8 py-2">
+                {column.nodes.map((node) => (
+                  <div
+                    key={node.archetype.key}
+                    ref={(el) => {
+                      if (el) nodeRefs.current.set(node.archetype.key, el)
+                      else nodeRefs.current.delete(node.archetype.key)
+                    }}
+                  >
+                    <ArchetypeNodeCard
+                      node={node}
+                      selected={selectedKey === node.archetype.key}
+                      onSelect={() => onSelect(node.archetype.key)}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -1,9 +1,13 @@
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { getArchetype, MASTERY_RANK } from "@/lib/game/archetypes"
+import {
+  getArchetype,
+  MASTERY_RANK,
+  unmetPrerequisites,
+} from "@/lib/game/archetypes"
 import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
@@ -28,6 +32,7 @@ export type UnlockArchetypeError =
   | "stale"
   | "no-ranks"
   | "already-owned"
+  | "prerequisites-not-met"
   | "unknown-archetype"
 
 export type RankUpArchetypeError =
@@ -55,17 +60,25 @@ export interface RankUpArchetypeSuccess {
 }
 
 /**
- * Unlocks `archetypeKey` for the character: verifies a Saved Rank is available
- * and the Archetype isn't already owned, decrements `savedArchetypeRanks`, and
- * inserts a fresh `characterArchetype` row at Rank 1. Does not touch the active
+ * Unlocks `archetypeKey` for the character: verifies a Saved Rank is available,
+ * the Archetype isn't already owned, and its **prerequisites are met** against
+ * the character's owned Ranks, then decrements `savedArchetypeRanks` and inserts
+ * a fresh `characterArchetype` row at Rank 1. Does not touch the active
  * Archetype pointer — unlocking never switches what's projected.
+ *
+ * Prerequisites are enforced here, not just in the UI: the Atlas hides locked
+ * Archetypes behind a "Prerequisites not met" button, but the rule is a game
+ * rule, so the server is the authority (a crafted call can't unlock out of
+ * tier). Owned Ranks are read inside the transaction, so the check sees the
+ * same snapshot the spend commits against.
  */
 export async function unlockArchetype(
   characterId: string,
   archetypeKey: string,
   expectedVersion: number
 ): Promise<Result<UnlockArchetypeSuccess, UnlockArchetypeError>> {
-  if (!getArchetype(archetypeKey)) return err("unknown-archetype")
+  const archetype = getArchetype(archetypeKey)
+  if (!archetype) return err("unknown-archetype")
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -75,16 +88,23 @@ export async function unlockArchetype(
     if (!row) return err("character-not-found")
     if (row.savedArchetypeRanks <= 0) return err("no-ranks")
 
-    const [existing] = await tx
-      .select({ id: characterArchetypes.id })
+    const ownedRows = await tx
+      .select({
+        archetypeKey: characterArchetypes.archetypeKey,
+        rank: characterArchetypes.rank,
+      })
       .from(characterArchetypes)
-      .where(
-        and(
-          eq(characterArchetypes.characterId, characterId),
-          eq(characterArchetypes.archetypeKey, archetypeKey)
-        )
-      )
-    if (existing) return err("already-owned")
+      .where(eq(characterArchetypes.characterId, characterId))
+    if (ownedRows.some((owned) => owned.archetypeKey === archetypeKey)) {
+      return err("already-owned")
+    }
+
+    const ownedRankByKey = new Map(
+      ownedRows.map((owned) => [owned.archetypeKey, owned.rank] as const)
+    )
+    if (unmetPrerequisites(archetype, ownedRankByKey).length > 0) {
+      return err("prerequisites-not-met")
+    }
 
     const bumped = await bumpCharacterVersionGuarded(
       tx,
