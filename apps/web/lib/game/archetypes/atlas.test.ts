@@ -9,9 +9,18 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "../character/derive-hydrated-character"
-import { LINEAGES } from "../character/lineage"
-import { atlasNodeState, buildLineageAtlas, unmetPrerequisites } from "./atlas"
-import type { Archetype } from "./schema"
+import { LINEAGES, type Lineage } from "../character/lineage"
+import {
+  atlasNodeState,
+  buildLineageAtlas,
+  getAtlasRecommendations,
+  unmetPrerequisites,
+  type AtlasLineage,
+  type AtlasNode,
+  type AtlasNodeState,
+  type LineageAtlasView,
+} from "./atlas"
+import { ARCHETYPE_TIERS, type Archetype } from "./schema"
 
 const CHARACTER_ID = "char-1"
 
@@ -241,5 +250,548 @@ describe("buildLineageAtlas", () => {
       .find((entry) => entry.lineage === "knight")!
       .columns.find((column) => column.tier === "initiate")!.nodes[0]!
     expect(knightNode.parentKeys).toEqual([])
+  })
+})
+
+/**
+ * Hand-built Atlas views let the recommendation tests exercise every node state
+ * — including `locked` and `mastered`, which the shipped Initiate-only catalog
+ * can't produce on its own — and reach the full three-slot fill the small
+ * catalog otherwise can't.
+ */
+function makeArchetype(
+  archetype: Pick<Archetype, "key" | "lineage" | "tier"> & Partial<Archetype>
+): Archetype {
+  return {
+    name: archetype.key,
+    prerequisites: [],
+    inheritanceSlots: 3,
+    talents: [],
+    mastery: { kind: "hp", amount: 10 },
+    attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
+    affinities: {},
+    skills: [],
+    ...archetype,
+  }
+}
+
+function node(
+  state: AtlasNodeState,
+  archetype: Pick<Archetype, "key" | "lineage" | "tier"> & Partial<Archetype>,
+  characterArchetypeId: string | null = null
+): AtlasNode {
+  return {
+    archetype: makeArchetype(archetype),
+    state,
+    characterArchetypeId,
+    parentKeys: [],
+  }
+}
+
+function lineageEntry(
+  lineage: Lineage,
+  nodes: AtlasNode[],
+  ownedOverride?: number
+): AtlasLineage {
+  return {
+    lineage,
+    progress: {
+      owned:
+        ownedOverride ??
+        nodes.filter((entry) => entry.characterArchetypeId !== null).length,
+      total: nodes.length,
+    },
+    columns: ARCHETYPE_TIERS.map((tier) => ({
+      tier,
+      nodes: nodes.filter((entry) => entry.archetype.tier === tier),
+    })),
+  }
+}
+
+function makeView(options: {
+  lineages: AtlasLineage[]
+  savedRanks?: number
+  originLineage?: Lineage | null
+}): LineageAtlasView {
+  return {
+    lineages: options.lineages,
+    savedRanks: options.savedRanks ?? 5,
+    unlockedCount: 0,
+    originLineage: options.originLineage ?? null,
+  }
+}
+
+const keysOf = (recommendations: AtlasNode["archetype"][]) =>
+  recommendations.map((archetype) => archetype.key)
+
+describe("getAtlasRecommendations", () => {
+  it("fills Slot 1 from the Origin Lineage and badges it", () => {
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "owned", rank: 3 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+        ]),
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "knight",
+              lineage: "knight",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "health-focused", 5)
+
+    expect(result[0]!.archetype.key).toBe("warrior")
+    expect(result[0]!.reason).toBe("origin-lineage")
+    expect(result[0]!.state).toEqual({ kind: "owned", rank: 3 })
+  })
+
+  it("prefers the lower-tier Origin step (Initiate before its branch)", () => {
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "owned", rank: 3 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior-adept",
+              lineage: "warrior",
+              tier: "adept",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "balanced", 5)
+
+    expect(result[0]!.archetype.key).toBe("warrior")
+  })
+
+  it("falls back to a Path-fit pick for Slot 1 when the Origin Lineage is exhausted", () => {
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "mastered", rank: 5 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+        ]),
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "skill-focused", 5)
+
+    expect(result[0]!.archetype.key).toBe("mage")
+    expect(result[0]!.reason).toBe("fits-path")
+  })
+
+  it("surfaces only Path-matching Lineages among untouched ones", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            }
+          ),
+        ]),
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+            }
+          ),
+        ]),
+        lineageEntry("healer", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "healer",
+              lineage: "healer",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    expect(
+      keysOf(
+        getAtlasRecommendations(view, "skill-focused", 5).map(
+          (r) => r.archetype
+        )
+      )
+    ).toEqual(["mage"])
+    expect(
+      keysOf(
+        getAtlasRecommendations(view, "health-focused", 5).map(
+          (r) => r.archetype
+        )
+      )
+    ).toEqual(["warrior"])
+    expect(
+      keysOf(
+        getAtlasRecommendations(view, "balanced", 5).map((r) => r.archetype)
+      )
+    ).toEqual(["healer"])
+  })
+
+  it("recommends an off-Path Lineage the character has invested a Rank in", () => {
+    // Balanced character who has put Ranks into Knight (a health-Path Lineage):
+    // continuing that investment should beat opening an untouched on-Path Lineage.
+    const view = makeView({
+      lineages: [
+        lineageEntry("knight", [
+          node(
+            { kind: "owned", rank: 3 },
+            { key: "knight", lineage: "knight", tier: "initiate" },
+            "a1"
+          ),
+          node(
+            { kind: "unlockable" },
+            { key: "knight-adept", lineage: "knight", tier: "adept" }
+          ),
+        ]),
+        lineageEntry("healer", [
+          node(
+            { kind: "unlockable" },
+            { key: "healer", lineage: "healer", tier: "initiate" }
+          ),
+        ]),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "balanced", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual([
+      "knight",
+      "knight-adept",
+      "healer",
+    ])
+    expect(result.map((r) => r.reason)).toEqual([
+      "unlocked-archetype",
+      "unlocked-archetype",
+      "fits-path",
+    ])
+  })
+
+  it("does not surface an untouched off-Path Lineage", () => {
+    // Balanced character, Knight (health-Path) untouched and no progress anywhere.
+    const view = makeView({
+      lineages: [
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            { key: "knight", lineage: "knight", tier: "initiate" }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "balanced", 5)).toEqual([])
+  })
+
+  it("never repeats the Slot 1 Archetype across the three slots", () => {
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "owned", rank: 2 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior-adept",
+              lineage: "warrior",
+              tier: "adept",
+            }
+          ),
+        ]),
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "knight",
+              lineage: "knight",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+      (r) => r.archetype.key
+    )
+
+    expect(keys).toHaveLength(3)
+    expect(new Set(keys).size).toBe(3)
+    expect(keys).toContain("warrior")
+  })
+
+  it("nudges toward Lineages already in progress before untouched ones", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry(
+          "warrior",
+          [
+            node(
+              { kind: "unlockable" },
+              {
+                key: "warrior-adept",
+                lineage: "warrior",
+                tier: "adept",
+              }
+            ),
+          ],
+          1
+        ),
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "knight",
+              lineage: "knight",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+      (r) => r.archetype.key
+    )
+
+    expect(keys).toEqual(["warrior-adept", "knight"])
+  })
+
+  it("never recommends a locked or mastered Archetype", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            {
+              kind: "locked",
+              unmetPrerequisites: [{ archetype: "x", rank: 5 }],
+            },
+            { key: "warrior-adept", lineage: "warrior", tier: "adept" }
+          ),
+          node(
+            { kind: "mastered", rank: 5 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+        ]),
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "knight",
+              lineage: "knight",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+      (r) => r.archetype.key
+    )
+
+    expect(keys).toEqual(["knight"])
+  })
+
+  it("returns fewer than three when fewer are eligible", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "skill-focused", 5)).toHaveLength(1)
+  })
+
+  it("returns an empty list when nothing is actionable", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            {
+              kind: "locked",
+              unmetPrerequisites: [{ archetype: "x", rank: 5 }],
+            },
+            { key: "warrior-adept", lineage: "warrior", tier: "adept" }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "health-focused", 5)).toEqual([])
+  })
+
+  it("still recommends with no Saved Ranks below the level ceiling (planning)", () => {
+    const view = makeView({
+      savedRanks: 0,
+      lineages: [
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+            }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "skill-focused", 1)).toHaveLength(1)
+  })
+
+  it("returns nothing at the level ceiling with no Saved Ranks", () => {
+    const candidate = lineageEntry("mage", [
+      node(
+        { kind: "unlockable" },
+        {
+          key: "mage",
+          lineage: "mage",
+          tier: "initiate",
+        }
+      ),
+    ])
+
+    expect(
+      getAtlasRecommendations(
+        makeView({ savedRanks: 0, lineages: [candidate] }),
+        "skill-focused",
+        30
+      )
+    ).toEqual([])
+    expect(
+      getAtlasRecommendations(
+        makeView({ savedRanks: 2, lineages: [candidate] }),
+        "skill-focused",
+        30
+      )
+    ).toHaveLength(1)
+  })
+
+  it("returns an empty list when every Archetype is Mastered", () => {
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "mastered", rank: 5 },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+            },
+            "a1"
+          ),
+        ]),
+        lineageEntry("mage", [
+          node(
+            { kind: "mastered", rank: 5 },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+            },
+            "a2"
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "skill-focused", 5)).toEqual([])
+  })
+
+  it("composes with the real view builder over the shipped catalog", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+        ],
+        originCharacterArchetypeId: "a1",
+      })
+    )
+
+    const result = getAtlasRecommendations(view, "health-focused", 1)
+
+    expect(result[0]!.archetype.key).toBe("warrior")
+    expect(result[0]!.reason).toBe("origin-lineage")
+    expect(result.map((r) => r.archetype.key)).toContain("knight")
+    expect(new Set(result.map((r) => r.archetype.key)).size).toBe(result.length)
   })
 })
