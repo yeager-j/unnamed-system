@@ -76,7 +76,7 @@ export function ArchetypeActionButton({
 
   const isUnlock = state.kind === "unlockable"
   const verb = isUnlock ? "unlock" : "rank up"
-  const label = isUnlock ? "Unlock for 1 Rank" : "Rank up for 1 Rank"
+  const label = isUnlock ? "Unlock" : "Rank up"
   const noRanks = savedRanks <= 0
 
   function confirm() {

@@ -2,6 +2,7 @@ import type {
   ArchetypeTier,
   AttributeKey,
   Lineage,
+  RecommendationReason,
 } from "@/lib/game/archetypes"
 import {
   getTalent,
@@ -266,6 +267,34 @@ export const LINEAGE_DISPLAY: Record<Lineage, LineageDisplay> = {
   hunter: { label: "Hunter", icon: "crosshair", description: "" },
   warlock: { label: "Warlock", icon: "skull", description: "" },
   summoner: { label: "Summoner", icon: "users-three", description: "" },
+}
+
+/**
+ * Icon keys a recommendation reason can display, resolved to a Phosphor
+ * component by `RECOMMENDATION_REASON_ICONS` in
+ * [lib/ui/recommendation-reason-icons.ts](./recommendation-reason-icons.ts) —
+ * kept as plain strings here for the same server-safe reason as
+ * {@link LineageIconKey}.
+ */
+export type RecommendationReasonIconKey = "compass" | "lock-key-open" | "path"
+
+export interface RecommendationReasonDisplay {
+  label: string
+  icon: RecommendationReasonIconKey
+}
+
+/**
+ * Per-reason label + icon key for the Atlas recommendation slots (UNN-256).
+ * The reason is computed in the game layer ({@link RecommendationReason}); this
+ * is the one place its phrasing and icon are chosen.
+ */
+export const RECOMMENDATION_REASON_DISPLAY: Record<
+  RecommendationReason,
+  RecommendationReasonDisplay
+> = {
+  "origin-lineage": { label: "Origin Lineage", icon: "compass" },
+  "unlocked-archetype": { label: "Unlocked", icon: "lock-key-open" },
+  "fits-path": { label: "Fits Your Path", icon: "path" },
 }
 
 /** Per-axis Battle Condition state for the Combat State block. */

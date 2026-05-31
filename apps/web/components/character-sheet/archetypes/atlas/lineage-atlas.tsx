@@ -9,6 +9,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { useCharacter } from "@/hooks/use-character"
 import {
   buildLineageAtlas,
+  getAtlasRecommendations,
   type AtlasLineage,
   type AtlasNode,
 } from "@/lib/game/archetypes"
@@ -27,8 +28,10 @@ import { RecommendationSlots } from "./recommendation-slots"
  *
  * Both write actions flow through the panel's (and slots') shared action
  * button, so an unlock or rank-up re-renders the tree, sidebar counts, and
- * Saved-Ranks counter from the same optimistic frame. Recommendations are empty
- * until UNN-256 ships the logic; the slots render their own empty state.
+ * Saved-Ranks counter from the same optimistic frame. Recommendation slots are
+ * filled by {@link getAtlasRecommendations} (UNN-256), which returns fewer than
+ * three picks — or none, leaving the slots' own empty state — when little is
+ * actionable.
  */
 export function LineageAtlas() {
   const character = useCharacter()
@@ -66,7 +69,11 @@ export function LineageAtlas() {
       />
 
       <RecommendationSlots
-        recommendations={[]}
+        recommendations={getAtlasRecommendations(
+          view,
+          character.pathChoice,
+          character.level
+        )}
         pathChoice={character.pathChoice}
         savedRanks={view.savedRanks}
       />

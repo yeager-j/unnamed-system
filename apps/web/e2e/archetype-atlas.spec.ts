@@ -54,7 +54,10 @@ test.describe("Lineage Atlas owner flows", () => {
     const tree = page.getByRole("group", { name: "Mage Lineage tree" })
     await tree.getByRole("button", { name: /^Mage/ }).click()
 
-    await page.getByRole("button", { name: "Unlock for 1 Rank" }).click()
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Unlock" })
+      .click()
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Unlock" })
@@ -84,13 +87,18 @@ test.describe("Lineage Atlas owner flows", () => {
     const tree = page.getByRole("group", { name: "Warrior Lineage tree" })
     await tree.getByRole("button", { name: /^Warrior/ }).click()
 
-    await page.getByRole("button", { name: "Rank up for 1 Rank" }).click()
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Rank up" })
+      .click()
     await page
       .getByRole("alertdialog")
       .getByRole("button", { name: "Rank up" })
       .click()
 
-    await expect(page.getByRole("button", { name: "Mastered" })).toBeVisible()
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "Mastered" })
+    ).toBeVisible()
     await page.keyboard.press("Escape")
     await expect(tree.getByRole("button", { name: /^Warrior/ })).toContainText(
       "Mastered"
@@ -123,25 +131,22 @@ test.describe("Lineage Atlas owner flows", () => {
       .click()
 
     await expect(
-      page.getByRole("button", { name: "Unlock for 1 Rank" })
+      page.getByRole("dialog").getByRole("button", { name: "Unlock" })
     ).toBeDisabled()
   })
 
   test("dismisses the detail panel with Escape", async ({ page }) => {
     await page.goto(ATLAS_URL)
 
+    const panel = page.getByRole("dialog")
     await page
       .getByRole("group", { name: "Warrior Lineage tree" })
       .getByRole("button", { name: /^Warrior/ })
       .click()
-    await expect(
-      page.getByRole("button", { name: "Rank up for 1 Rank" })
-    ).toBeVisible()
+    await expect(panel).toBeVisible()
 
     await page.keyboard.press("Escape")
-    await expect(
-      page.getByRole("button", { name: "Rank up for 1 Rank" })
-    ).toHaveCount(0)
+    await expect(panel).toHaveCount(0)
   })
 })
 

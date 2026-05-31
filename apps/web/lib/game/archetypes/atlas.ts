@@ -1,7 +1,14 @@
 import type { CharacterArchetypeRow } from "@/lib/db/schema/character"
 
 import type { HydratedCharacter } from "../character/hydrated-character"
-import { LINEAGES, type Lineage } from "../character/lineage"
+import { MAX_LEVEL } from "../character/leveling"
+import {
+  LINEAGE_SUGGESTED_PATH,
+  LINEAGES,
+  type Lineage,
+  type SuggestedPath,
+} from "../character/lineage"
+import type { PathChoice } from "../character/state"
 import { hasMasteryBonus } from "./rank"
 import { ARCHETYPES, getArchetype } from "./registry"
 import {
@@ -64,17 +71,30 @@ export interface AtlasLineage {
 }
 
 /**
+ * Why an Archetype was recommended — the rationale the Atlas surfaces on each
+ * slot (label + icon resolved in the UI layer via `RECOMMENDATION_REASON_DISPLAY`).
+ * Mirrors the selection logic exactly: `origin-lineage` is the Origin priority
+ * pick, `unlocked-archetype` is a Lineage the character has already invested a
+ * Rank in (continue the build), `fits-path` is a fresh Lineage that suits the
+ * character's Path (discovery).
+ */
+export type RecommendationReason =
+  | "origin-lineage"
+  | "unlocked-archetype"
+  | "fits-path"
+
+/**
  * One filled recommendation slot at the top of the Atlas. Computed by the
  * recommendation-logic ticket (UNN-256) and rendered by the Atlas (UNN-239):
  * enough to act on directly — the Archetype, its current Atlas state (so the
- * slot shows Unlock vs. Rank up), the owned row id when ranking up, and whether
- * it's the player's Origin Lineage (the first slot's "Origin Lineage" badge).
+ * slot shows Unlock vs. Rank up), the owned row id when ranking up, and the
+ * {@link RecommendationReason} the slot displays.
  */
 export interface AtlasRecommendation {
   archetype: Archetype
   state: AtlasNodeState
   characterArchetypeId: string | null
-  isOriginLineage: boolean
+  reason: RecommendationReason
 }
 
 export interface LineageAtlasView {
@@ -208,4 +228,137 @@ export function buildLineageAtlas(
     unlockedCount: ownedRowByKey.size,
     originLineage,
   }
+}
+
+/**
+ * The {@link SuggestedPath} a character's HP/SP {@link PathChoice} fits — the
+ * bucket Path-fit recommendations match against. Mirrors the leading bucket of
+ * the Movement-1 grid sort (`sortArchetypesByPath`): a Health-Focused character
+ * fits `health` Lineages, Skill-Focused fits `skill`, Balanced fits `balanced`.
+ */
+const SUGGESTED_PATH_BY_CHOICE: Record<PathChoice, SuggestedPath> = {
+  "health-focused": "health",
+  balanced: "balanced",
+  "skill-focused": "skill",
+}
+
+const TIER_RANK = new Map<ArchetypeTier, number>(
+  ARCHETYPE_TIERS.map((tier, index) => [tier, index])
+)
+
+/** An eligible Atlas node with the unlocked-count of its Lineage carried along,
+ *  so the recommendation sort can nudge toward Lineages already in progress
+ *  without re-walking the view. */
+interface RecommendationCandidate {
+  node: AtlasNode
+  lineage: Lineage
+  ownedInLineage: number
+}
+
+/** A node is actionable (so, recommendable) only when it can be unlocked now or
+ *  ranked up: `locked` (unmet prerequisites) and `mastered` (Rank 5, no further
+ *  progression) are excluded. Owned-below-Mastery means a rank-up is available. */
+function isRecommendable(node: AtlasNode): boolean {
+  return node.state.kind === "unlockable" || node.state.kind === "owned"
+}
+
+/** Rank-up (an already-owned Archetype) sorts before a fresh unlock, so a
+ *  recommendation deepens existing investment before opening something new. */
+function actionRank(node: AtlasNode): number {
+  return node.state.kind === "owned" ? 0 : 1
+}
+
+function tierRank(node: AtlasNode): number {
+  return TIER_RANK.get(node.archetype.tier)!
+}
+
+/**
+ * The three "Recommended for your [Path] Path" slots (UNN-256), computed over a
+ * {@link buildLineageAtlas} view. Slot 1 prioritizes the most natural next step
+ * in the character's Origin Lineage. Slots 2–3 (and Slot 1 when the Origin
+ * Lineage offers nothing actionable) draw from two pools: Archetypes in any
+ * Lineage the character has already invested a Rank in (continue what you've
+ * started — *regardless of Path*) and Archetypes whose Lineage's
+ * `LINEAGE_SUGGESTED_PATH` matches the character's Path (discover a new Lineage
+ * that fits). In-progress Lineages rank ahead of untouched on-Path ones — depth
+ * before breadth. An untouched *off-Path* Lineage is never surfaced: an unrelated
+ * fresh start isn't a recommendation. Only actionable Archetypes are surfaced
+ * (see {@link isRecommendable}); the three slots never repeat an Archetype, and
+ * fewer than three eligible picks yields a shorter list rather than padding.
+ * Saved Ranks don't gate the list — a character with none still plans ahead —
+ * except at the level ceiling, where no ranks can ever be earned and the list is
+ * empty.
+ */
+export function getAtlasRecommendations(
+  view: LineageAtlasView,
+  pathChoice: PathChoice,
+  level: number
+): AtlasRecommendation[] {
+  if (view.savedRanks === 0 && level >= MAX_LEVEL) return []
+
+  const candidates: RecommendationCandidate[] = view.lineages.flatMap(
+    (lineage) =>
+      lineage.columns
+        .flatMap((column) => column.nodes)
+        .filter(isRecommendable)
+        .map((node) => ({
+          node,
+          lineage: lineage.lineage,
+          ownedInLineage: lineage.progress.owned,
+        }))
+  )
+
+  const toRecommendation = (
+    candidate: RecommendationCandidate
+  ): AtlasRecommendation => ({
+    archetype: candidate.node.archetype,
+    state: candidate.node.state,
+    characterArchetypeId: candidate.node.characterArchetypeId,
+    reason:
+      candidate.lineage === view.originLineage
+        ? "origin-lineage"
+        : candidate.ownedInLineage > 0
+          ? "unlocked-archetype"
+          : "fits-path",
+  })
+
+  const recommendations: AtlasRecommendation[] = []
+  const used = new Set<string>()
+
+  const originPick = candidates
+    .filter((candidate) => candidate.lineage === view.originLineage)
+    .sort(
+      (a, b) =>
+        tierRank(a.node) - tierRank(b.node) ||
+        actionRank(a.node) - actionRank(b.node) ||
+        a.node.archetype.key.localeCompare(b.node.archetype.key)
+    )[0]
+
+  if (originPick) {
+    recommendations.push(toRecommendation(originPick))
+    used.add(originPick.node.archetype.key)
+  }
+
+  const targetPath = SUGGESTED_PATH_BY_CHOICE[pathChoice]
+  const fillCandidates = candidates
+    .filter(
+      (candidate) =>
+        !used.has(candidate.node.archetype.key) &&
+        (candidate.ownedInLineage > 0 ||
+          LINEAGE_SUGGESTED_PATH[candidate.lineage] === targetPath)
+    )
+    .sort(
+      (a, b) =>
+        Number(b.ownedInLineage > 0) - Number(a.ownedInLineage > 0) ||
+        actionRank(a.node) - actionRank(b.node) ||
+        tierRank(a.node) - tierRank(b.node) ||
+        a.node.archetype.key.localeCompare(b.node.archetype.key)
+    )
+
+  for (const candidate of fillCandidates) {
+    if (recommendations.length >= 3) break
+    recommendations.push(toRecommendation(candidate))
+  }
+
+  return recommendations
 }
