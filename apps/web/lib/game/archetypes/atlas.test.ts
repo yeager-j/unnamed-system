@@ -242,6 +242,12 @@ describe("buildLineageAtlas", () => {
     expect(view.savedRanks).toBe(4)
     expect(view.unlockedCount).toBe(2)
     expect(view.originLineage).toBe("warrior")
+
+    const warrior = view.lineages.find((entry) => entry.lineage === "warrior")!
+    expect(warrior.isOrigin).toBe(true)
+    for (const entry of view.lineages) {
+      if (entry.lineage !== "warrior") expect(entry.isOrigin).toBeFalsy()
+    }
   })
 
   it("carries an Archetype's prerequisite keys as its parent links", () => {

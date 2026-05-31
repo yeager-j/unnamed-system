@@ -46,16 +46,16 @@ export type Lineage = (typeof LINEAGES)[number]
 export const LINEAGE_SUGGESTED_PATH = {
   warrior: "health",
   mage: "skill",
-  brawler: "balanced",
+  brawler: "health",
   knight: "health",
   healer: "balanced",
   thief: "balanced",
-  berserker: "balanced",
-  bard: "balanced",
+  berserker: "health",
+  bard: "skill",
   shapechanger: "balanced",
   hunter: "balanced",
-  warlock: "balanced",
-  summoner: "balanced",
+  warlock: "skill",
+  summoner: "skill",
 } as const satisfies Record<Lineage, "health" | "balanced" | "skill">
 
 export type SuggestedPath = (typeof LINEAGE_SUGGESTED_PATH)[Lineage]

@@ -128,9 +128,7 @@ test.describe("owner active-Archetype switching", () => {
       await page.goto(CHARACTER_URL)
 
       // The identity line still names the active Archetype…
-      await expect(
-        page.getByText(/Level 5 · Warrior · Victories/)
-      ).toBeVisible()
+      await expect(page.getByText(/Level 5 · Warrior · Balanced/)).toBeVisible()
       // …but the owner-only switch affordance is absent.
       await expect(
         page.getByRole("combobox", { name: SWITCHER_NAME })

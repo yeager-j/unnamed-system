@@ -65,6 +65,7 @@ export interface AtlasTierColumn {
 /** One Lineage's full column set plus its unlocked-progress count. */
 export interface AtlasLineage {
   lineage: Lineage
+  isOrigin?: boolean
   progress: { owned: number; total: number }
   /** All four tiers in order; a tier with no Archetypes has an empty column. */
   columns: AtlasTierColumn[]
@@ -175,6 +176,14 @@ export function buildLineageAtlas(
     byLineage.set(archetype.lineage, bucket)
   }
 
+  const originRow = character.originCharacterArchetypeId
+    ? character.archetypeRows.find(
+        (row) => row.id === character.originCharacterArchetypeId
+      )
+    : undefined
+  const originLineage =
+    (originRow && getArchetype(originRow.archetypeKey)?.lineage) ?? null
+
   const lineages: AtlasLineage[] = LINEAGES.map((lineage) => {
     const archetypes = (byLineage.get(lineage) ?? [])
       .slice()
@@ -202,6 +211,7 @@ export function buildLineageAtlas(
 
     return {
       lineage,
+      isOrigin: originLineage === lineage,
       progress: {
         owned: nodes.filter((node) => node.characterArchetypeId !== null)
           .length,
@@ -213,14 +223,6 @@ export function buildLineageAtlas(
       })),
     }
   })
-
-  const originRow = character.originCharacterArchetypeId
-    ? character.archetypeRows.find(
-        (row) => row.id === character.originCharacterArchetypeId
-      )
-    : undefined
-  const originLineage =
-    (originRow && getArchetype(originRow.archetypeKey)?.lineage) ?? null
 
   return {
     lineages,
