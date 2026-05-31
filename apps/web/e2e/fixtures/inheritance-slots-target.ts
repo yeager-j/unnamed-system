@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 
 import {
   archetypeId,
-  type SeedCharacter,
+  makeSeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
 import { characterArchetypes, getDb } from "@/lib/db"
 
@@ -19,41 +19,17 @@ import type { E2EFixture } from "./types"
  * Warrior row; sharing `archetype-switch-target` (whose spec re-points
  * `activeArchetypeId`) would race the two write specs under `fullyParallel`.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "inheritance-slots-target",
   shortId: "inheritance-slots-target",
   name: "Wynn Calloway",
-  pronouns: "they/them",
   level: 5,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
   archetypes: [
     { archetypeKey: "warrior", rank: 2 },
     { archetypeKey: "mage", rank: 2 },
     { archetypeKey: "knight", rank: 1 },
   ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const inheritanceSlotsTarget: E2EFixture = {
   seed,

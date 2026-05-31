@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb } from "@/lib/db"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
@@ -19,43 +19,12 @@ import type { E2EFixture } from "./types"
  * in parallel without flaking these Rest assertions. Balanced path (HD d10,
  * SD d10) keeps the dice-display labels predictable in assertions.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "rest-target",
   shortId: "rest-target",
   name: "Mira Solberg-Rest",
   pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const restTarget: E2EFixture = {
   seed,

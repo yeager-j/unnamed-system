@@ -2,7 +2,7 @@ import { and, eq, ne } from "drizzle-orm"
 
 import {
   archetypeId,
-  type SeedCharacter,
+  makeSeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
 import { characterArchetypes, characters, getDb } from "@/lib/db"
 
@@ -18,38 +18,16 @@ import type { E2EFixture } from "./types"
  * Its own row because the spec spends Ranks and mutates the roster; sharing
  * another write target would race under Playwright's `fullyParallel`.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "atlas-target",
   shortId: "atlas-target",
   name: "Dorian Mercer",
   pronouns: "he/him",
   level: 12,
   pathChoice: "skill-focused",
-  activeArchetypeKey: "warrior",
   archetypes: [{ archetypeKey: "warrior", rank: 4 }],
   savedArchetypeRanks: 3,
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const atlasTarget: E2EFixture = {
   seed,

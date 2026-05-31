@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 
 import {
   archetypeId,
-  type SeedCharacter,
+  makeSeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb } from "@/lib/db"
 
@@ -25,41 +25,17 @@ import type { E2EFixture } from "./types"
  * Perfection → Stains — clean engine assertions that the active Archetype
  * drives derived state.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "archetype-switch-target",
   shortId: "archetype-switch-target",
   name: "Pell Aldaric",
-  pronouns: "they/them",
   level: 5,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
   archetypes: [
     { archetypeKey: "warrior", rank: 2 },
     { archetypeKey: "mage", rank: 1 },
     { archetypeKey: "knight", rank: 1 },
   ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const archetypeSwitchTarget: E2EFixture = {
   seed,

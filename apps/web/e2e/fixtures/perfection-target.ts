@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characterArchetypes, getDb } from "@/lib/db"
 import type { PerfectionState } from "@/lib/game/mechanics"
 
@@ -17,43 +17,12 @@ import type { E2EFixture } from "./types"
  * Attack Roll readout: Strength (+2) + Perfection (B) (+2) = +4 once
  * the rank climbs.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "perfection-target",
   shortId: "perfection-target",
   name: "Tarek Vance",
   pronouns: "he/him",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const perfectionTarget: E2EFixture = {
   seed,

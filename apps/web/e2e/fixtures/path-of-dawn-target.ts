@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characterArchetypes, getDb } from "@/lib/db"
 import type { PathOfDawnState } from "@/lib/game/mechanics"
 
@@ -12,12 +12,11 @@ import type { E2EFixture } from "./types"
  * the spec can toggle Dawn Mode without flaking the showcase `seed-healer`,
  * which `mechanics.spec.ts` pins to Dawn Mode on.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "path-of-dawn-target",
   shortId: "path-of-dawn-target",
   name: "Brother Cael",
   pronouns: "he/him",
-  level: 1,
   pathChoice: "skill-focused",
   activeArchetypeKey: "healer",
   archetypes: [
@@ -27,28 +26,7 @@ const seed: SeedCharacter = {
       mechanicState: { kind: "path-of-dawn", dawnMode: false },
     },
   ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const pathOfDawnTarget: E2EFixture = {
   seed,

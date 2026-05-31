@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb } from "@/lib/db"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
@@ -20,14 +20,11 @@ import type { E2EFixture } from "./types"
  * write-pattern spec can mutate Mira Solberg's identity column without
  * flaking these cast assertions, and vice versa.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "cast-target",
   shortId: "cast-target",
   name: "Cassia Vance",
   pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
   archetypes: [
     {
       archetypeKey: "warrior",
@@ -35,28 +32,7 @@ const seed: SeedCharacter = {
       mechanicState: { kind: "perfection", rank: 0 },
     },
   ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const castTarget: E2EFixture = {
   seed,

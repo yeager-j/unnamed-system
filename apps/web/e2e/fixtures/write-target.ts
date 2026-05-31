@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb, inventoryItems } from "@/lib/db"
 
 import type { E2EFixture } from "./types"
@@ -14,47 +14,16 @@ import type { E2EFixture } from "./types"
  * without flaking the read-only specs that pin Iris Vey's name and
  * inventory.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "write-target",
   shortId: "write-target",
   name: "Mira Solberg",
-  pronouns: "they/them",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
   items: [
     { catalogItemKey: "longsword", equipped: false },
     { catalogItemKey: "bladeturn-mail", equipped: false },
     { catalogItemKey: "zephyr-band", equipped: false },
   ],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const writeTarget: E2EFixture = {
   seed,
