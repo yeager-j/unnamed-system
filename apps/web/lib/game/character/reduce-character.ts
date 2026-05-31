@@ -1,6 +1,7 @@
 import type { CharacterRow } from "@/lib/db/schema/character"
 
 import type { Result } from "../../result"
+import { MASTERY_RANK } from "../archetypes/schema"
 import { MAX_EXHAUSTION_LEVEL } from "../combat"
 import {
   applyInventoryMutation,
@@ -100,6 +101,8 @@ export type CharacterEdit =
       sourceCharacterArchetypeId: string | null
       skillKey: string | null
     }
+  | { kind: "unlockArchetype"; archetypeKey: string }
+  | { kind: "rankUpArchetype"; characterArchetypeId: string }
 
 const randomId = () => crypto.randomUUID()
 
@@ -264,7 +267,83 @@ export function reduceCharacter(
 
     case "setInheritanceSlot":
       return reduceInheritanceSlot(raw, character, edit)
+
+    case "unlockArchetype":
+      return reduceUnlockArchetype(raw, character, edit, newId)
+
+    case "rankUpArchetype":
+      return reduceRankUpArchetype(raw, character, edit)
   }
+}
+
+/**
+ * Adds a freshly-unlocked Archetype to the roster at Rank 1 and spends one
+ * Saved Rank, then re-derives. The optimistic row mirrors the DB insert (empty
+ * Inheritance Slots, null mechanic state); the server's revalidate later
+ * replaces the minted id with the persisted one. Ignored (returns the input)
+ * when the Archetype is already owned or no Saved Rank is available — the same
+ * guards the server enforces — so the optimistic frame never lies.
+ */
+function reduceUnlockArchetype(
+  raw: RawCharacterInputs,
+  character: HydratedCharacter,
+  edit: Extract<CharacterEdit, { kind: "unlockArchetype" }>,
+  newId: () => string
+): HydratedCharacter {
+  const alreadyOwned = raw.archetypeRows.some(
+    (archetype) => archetype.archetypeKey === edit.archetypeKey
+  )
+  if (alreadyOwned || raw.row.savedArchetypeRanks <= 0) return character
+
+  return deriveHydratedCharacter({
+    ...raw,
+    row: { ...raw.row, savedArchetypeRanks: raw.row.savedArchetypeRanks - 1 },
+    archetypeRows: [
+      ...raw.archetypeRows,
+      {
+        id: newId(),
+        characterId: raw.row.id,
+        archetypeKey: edit.archetypeKey,
+        rank: 1,
+        inheritanceSlots: [],
+        mechanicState: null,
+      },
+    ],
+  })
+}
+
+/**
+ * Increments one owned Archetype's Rank by one and spends a Saved Rank, then
+ * re-derives — so a rank-up on the **active** Archetype re-threads its
+ * Combat-tab Skills in the same frame, and crossing Rank 5 surfaces Mastery
+ * (both fall out of the re-derive). Ignored when the row is unknown, already at
+ * the Mastery Rank, or no Saved Rank is available.
+ */
+function reduceRankUpArchetype(
+  raw: RawCharacterInputs,
+  character: HydratedCharacter,
+  edit: Extract<CharacterEdit, { kind: "rankUpArchetype" }>
+): HydratedCharacter {
+  const target = raw.archetypeRows.find(
+    (archetype) => archetype.id === edit.characterArchetypeId
+  )
+  if (
+    !target ||
+    target.rank >= MASTERY_RANK ||
+    raw.row.savedArchetypeRanks <= 0
+  ) {
+    return character
+  }
+
+  return deriveHydratedCharacter({
+    ...raw,
+    row: { ...raw.row, savedArchetypeRanks: raw.row.savedArchetypeRanks - 1 },
+    archetypeRows: raw.archetypeRows.map((archetype) =>
+      archetype.id === edit.characterArchetypeId
+        ? { ...archetype, rank: archetype.rank + 1 }
+        : archetype
+    ),
+  })
 }
 
 /**

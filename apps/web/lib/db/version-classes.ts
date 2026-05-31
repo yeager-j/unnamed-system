@@ -62,8 +62,19 @@ export type VitalsSurface =
 /** Inventory-class surfaces: the Inventory tab — item rows and the wallet. */
 export type InventorySurface = "inventoryItems" | "currency"
 
-/** Progression-class surfaces: Victories, Spark, and sheet-side Virtue rank-up. */
-export type ProgressionSurface = "victories" | "virtueRankUp" | "spark"
+/**
+ * Progression-class surfaces: Victories, Spark, sheet-side Virtue rank-up, and
+ * spending Saved Archetype Ranks in the Lineage Atlas (unlock / rank up). Atlas
+ * writes also mutate `characterArchetype` rows, but they ride
+ * `progressionVersion` because the contended field is `savedArchetypeRanks` —
+ * the progression currency leveling grants — so spend serializes against grant.
+ * Same per-surface-not-per-table call as `currency` riding `inventoryVersion`.
+ */
+export type ProgressionSurface =
+  | "victories"
+  | "virtueRankUp"
+  | "spark"
+  | "spendArchetypeRank"
 
 /** Every owner-mode edit surface, grouped by the class it writes. */
 export type EditSurface =
@@ -131,6 +142,9 @@ export const EDIT_SURFACE_CLASS = {
    *  identity-class `virtuesAllocation` above. */
   virtueRankUp: "progression",
   spark: "progression",
+  /** Lineage Atlas unlock + rank-up. Spends `savedArchetypeRanks`, so it rides
+   *  the same class leveling's grant does. */
+  spendArchetypeRank: "progression",
 } as const satisfies Record<IdentitySurface, "identity"> &
   Record<VitalsSurface, "vitals"> &
   Record<InventorySurface, "inventory"> &

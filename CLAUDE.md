@@ -77,7 +77,7 @@ apps/web/
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
-│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls)
+│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls); archetypes/atlas/ is the Lineage Atlas growth surface (UNN-239, route app/c/[shortId]/archetypes/atlas/)
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
@@ -162,7 +162,7 @@ Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, p
 - **Hosting**: Vercel + Neon + Vercel Blob
 - **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 
-Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database.
+Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database. Demo-only Archetypes (`lib/game/archetypes/demo/`) are merged into the runtime catalog only when `NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES=true` (local dev + Vercel Preview), never in Production — they let the Lineage Atlas exercise tier trees before the real higher-tier data ships.
 
 ## Game Rules
 
@@ -185,7 +185,7 @@ See PRD §8 for the full field list.
 
 - No DM tooling, campaigns, or group features
 - No dice rolling — app accepts player-entered numbers where rolls are required
-- No Archetype prerequisite enforcement (display prerequisites as informational only)
+- Archetype prerequisites (`{archetype, rank}`) are enforced in the Lineage Atlas (UNN-239: Locked + "Prerequisites not met"); level-based tier gates remain informational hints only
 - No Ancestry/Background structure — free text fields only
 - No Prisma upgrade tree
 - No Spoils deck simulation

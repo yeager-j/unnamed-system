@@ -1,6 +1,10 @@
 "use client"
 
+import { TreeStructureIcon } from "@phosphor-icons/react"
+import Link from "next/link"
+
 import { Badge } from "@workspace/ui/components/badge"
+import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -11,6 +15,7 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { formatMasteryDescription } from "@/components/archetype/format"
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
 import {
   getArchetypeDisplay,
@@ -67,14 +72,27 @@ export function Archetypes() {
       )}
 
       <section className="flex flex-col gap-4" aria-label="Unlocked Archetypes">
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">Unlocked Archetypes</h2>
-          <p className="flex items-baseline gap-2 text-xs">
-            <span className="text-muted-foreground">Saved Archetype Ranks</span>
-            <span className="font-semibold tabular-nums">
-              {character.savedArchetypeRanks}
-            </span>
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="flex items-baseline gap-2 text-xs">
+              <span className="text-muted-foreground">
+                Saved Archetype Ranks
+              </span>
+              <span className="font-semibold tabular-nums">
+                {character.savedArchetypeRanks}
+              </span>
+            </p>
+            <OwnerOnly>
+              <Link
+                href={`/c/${character.shortId}/archetypes/atlas`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                <TreeStructureIcon aria-hidden />
+                Open Lineage Atlas
+              </Link>
+            </OwnerOnly>
+          </div>
         </div>
         {unlockedCount === 0 ? (
           <p className="text-sm text-muted-foreground">

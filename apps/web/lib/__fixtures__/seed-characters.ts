@@ -63,6 +63,12 @@ export interface SeedCharacter {
    */
   originArchetypeKey?: string
   archetypes: SeedArchetype[]
+  /**
+   * Unspent Saved Archetype Ranks (PRD §7.1). Defaults to 0 — only a fixture
+   * that exercises the Lineage Atlas's spend flow (UNN-239) needs a positive
+   * value. Always written to the row so a re-seed resets it deterministically.
+   */
+  savedArchetypeRanks?: number
   manualBonuses: ManualBonuses
   ancestryText: string
   backgroundText: string

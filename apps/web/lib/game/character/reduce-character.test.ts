@@ -420,4 +420,97 @@ describe("reduceCharacter", () => {
       })
     ).toBe(character)
   })
+
+  /** A finalized Warrior (active, arch-1) carrying `savedRanks` Saved Ranks. */
+  function makeWithSavedRanks(savedRanks: number) {
+    const raw = makeRaw()
+    raw.row.savedArchetypeRanks = savedRanks
+    return deriveHydratedCharacter(raw)
+  }
+
+  it("unlocks a new Archetype at Rank 1 and spends a Saved Rank", () => {
+    const character = makeWithSavedRanks(2)
+    expect(character.archetypeRows.some((a) => a.archetypeKey === "mage")).toBe(
+      false
+    )
+
+    const next = reduceCharacter(character, {
+      kind: "unlockArchetype",
+      archetypeKey: "mage",
+    })
+
+    const mage = next.archetypeRows.find((a) => a.archetypeKey === "mage")
+    expect(mage?.rank).toBe(1)
+    expect(mage?.inheritanceSlots).toEqual([])
+    expect(next.savedArchetypeRanks).toBe(1)
+  })
+
+  it("does not unlock an already-owned Archetype", () => {
+    const character = makeWithSavedRanks(2)
+    expect(
+      reduceCharacter(character, {
+        kind: "unlockArchetype",
+        archetypeKey: "warrior",
+      })
+    ).toBe(character)
+  })
+
+  it("does not unlock when no Saved Rank is available", () => {
+    const character = makeWithSavedRanks(0)
+    expect(
+      reduceCharacter(character, {
+        kind: "unlockArchetype",
+        archetypeKey: "mage",
+      })
+    ).toBe(character)
+  })
+
+  it("ranks up an owned Archetype, spends a Rank, and re-derives active Skills", () => {
+    const character = makeWithSavedRanks(2)
+    const rankTwoSkills = character.skills.length
+
+    const next = reduceCharacter(character, {
+      kind: "rankUpArchetype",
+      characterArchetypeId: "arch-1",
+    })
+
+    expect(next.archetypeRows.find((a) => a.id === "arch-1")?.rank).toBe(2)
+    expect(next.savedArchetypeRanks).toBe(1)
+    // Warrior's Rank-2 Skill becomes active once the row reaches Rank 2.
+    expect(next.skills.length).toBeGreaterThan(rankTwoSkills)
+  })
+
+  it("does not rank up at the Mastery Rank", () => {
+    const raw = makeRaw()
+    raw.row.savedArchetypeRanks = 2
+    raw.archetypeRows[0]!.rank = 5
+    const character = deriveHydratedCharacter(raw)
+
+    expect(
+      reduceCharacter(character, {
+        kind: "rankUpArchetype",
+        characterArchetypeId: "arch-1",
+      })
+    ).toBe(character)
+  })
+
+  it("does not rank up when no Saved Rank is available", () => {
+    const character = makeWithSavedRanks(0)
+    expect(
+      reduceCharacter(character, {
+        kind: "rankUpArchetype",
+        characterArchetypeId: "arch-1",
+      })
+    ).toBe(character)
+  })
+
+  it("does not rank up an unknown Archetype row", () => {
+    const character = makeWithSavedRanks(2)
+    expect(
+      reduceCharacter(character, {
+        kind: "rankUpArchetype",
+        characterArchetypeId: "does-not-exist",
+      })
+    ).toBe(character)
+  })
 })

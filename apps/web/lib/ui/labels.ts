@@ -7,6 +7,7 @@ import {
   getTalent,
   type BattleConditionState,
   type PathChoice,
+  type SuggestedPath,
   type TalentKey,
   type VirtueKey,
 } from "@/lib/game/character"
@@ -137,6 +138,16 @@ export const PATH_CHOICE_LABELS: Record<PathChoice, string> = {
   "skill-focused": "Skill-Focused",
 }
 
+/**
+ * A Lineage's suggested Path, phrased like the {@link PATH_CHOICE_LABELS} it
+ * mirrors. Drives the Atlas "Recommended Path" line ({@link LINEAGE_SUGGESTED_PATH}).
+ */
+export const SUGGESTED_PATH_LABELS: Record<SuggestedPath, string> = {
+  health: "Health-Focused",
+  balanced: "Balanced",
+  skill: "Skill-Focused",
+}
+
 /** The four Virtues. */
 export const VIRTUE_LABELS: Record<VirtueKey, string> = {
   expression: "Expression",
@@ -174,6 +185,79 @@ export const TIER_LABELS: Record<ArchetypeTier, string> = {
   adept: "Adept",
   elite: "Elite",
   paragon: "Paragon",
+}
+
+/** Roman-numeral tier ordinals, as the Lineage Atlas column headers show them. */
+export const TIER_ROMAN_LABELS: Record<ArchetypeTier, string> = {
+  initiate: "I",
+  adept: "II",
+  elite: "III",
+  paragon: "IV",
+}
+
+/**
+ * Per-tier minimum-level hint shown under each Lineage Atlas column. These are
+ * the rulebook's optional level-gate thresholds (Adept 8, Elite 16, Paragon 24)
+ * surfaced as informational guidance — the Atlas gates unlocks on Archetype
+ * prerequisites, not level (PRD §6.1).
+ */
+export const TIER_LEVEL_HINT_LABELS: Record<ArchetypeTier, string> = {
+  initiate: "Lv 1+",
+  adept: "Lv 8+",
+  elite: "Lv 16+",
+  paragon: "Lv 24+",
+}
+
+/**
+ * Icon keys a Lineage can display. These are resolved to a Phosphor component
+ * by `LINEAGE_ICONS` in [lib/ui/lineage-icons.ts](./lineage-icons.ts) — kept as
+ * plain strings here (not the component itself) so this widely-imported,
+ * server-safe module never pulls in the icon library.
+ */
+export type LineageIconKey =
+  | "sword"
+  | "magic-wand"
+  | "fist"
+  | "shield"
+  | "heart"
+  | "knife"
+  | "axe"
+  | "music-notes"
+  | "paw-print"
+  | "crosshair"
+  | "skull"
+  | "users-three"
+
+/**
+ * Per-Lineage display definition: the bare `label` (no "Lineage" suffix — for
+ * dense surfaces like the Atlas sidebar; {@link LINEAGE_LABELS} keeps the
+ * suffixed form for headings), the {@link LineageIconKey}, and the flavor
+ * `description` shown as the Atlas heading's subtitle. Subtitles are authored
+ * by hand; an empty string renders no subtitle.
+ */
+export interface LineageDisplay {
+  label: string
+  icon: LineageIconKey
+  description: string
+}
+
+export const LINEAGE_DISPLAY: Record<Lineage, LineageDisplay> = {
+  warrior: { label: "Warrior", icon: "sword", description: "" },
+  mage: { label: "Mage", icon: "magic-wand", description: "" },
+  brawler: { label: "Brawler", icon: "fist", description: "" },
+  knight: {
+    label: "Knight",
+    icon: "shield",
+    description: "Oaths, bulwarks, and the long line.",
+  },
+  healer: { label: "Healer", icon: "heart", description: "" },
+  thief: { label: "Thief", icon: "knife", description: "" },
+  berserker: { label: "Berserker", icon: "axe", description: "" },
+  bard: { label: "Bard", icon: "music-notes", description: "" },
+  shapechanger: { label: "Shapechanger", icon: "paw-print", description: "" },
+  hunter: { label: "Hunter", icon: "crosshair", description: "" },
+  warlock: { label: "Warlock", icon: "skull", description: "" },
+  summoner: { label: "Summoner", icon: "users-three", description: "" },
 }
 
 /** Per-axis Battle Condition state for the Combat State block. */

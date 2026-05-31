@@ -199,6 +199,7 @@ async function seedCharacter(
     partyComposition: character.partyComposition,
     // FK to a characterArchetype row; set after those rows exist.
     activeArchetypeId: null,
+    savedArchetypeRanks: character.savedArchetypeRanks ?? 0,
     ancestryText: character.ancestryText,
     backgroundText: character.backgroundText,
     backstoryText: character.backstoryText,
