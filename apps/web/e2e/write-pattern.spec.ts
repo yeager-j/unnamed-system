@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
-import { getDb, inventoryItems } from "@/lib/db"
+import { characters, getDb, inventoryItems } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -593,6 +593,176 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       await expect(
         virtues.locator('div:has(> dt:text-is("Wisdom")) > dd')
       ).toHaveText("1")
+      await expectNoToast(page)
+    })
+  })
+})
+
+test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () => {
+  const EXPLORE_URL = `${CHARACTER_URL}?tab=explore`
+  // A 1×1 transparent PNG — enough to exercise the upload → Blob → revalidate
+  // round-trip without committing a binary fixture.
+  const PNG_1x1 = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  )
+
+  async function portraitUrl(): Promise<string | null> {
+    const rows = await getDb()
+      .select({ portraitUrl: characters.portraitUrl })
+      .from(characters)
+      .where(eq(characters.id, writeTarget.characterId))
+    return rows[0]?.portraitUrl ?? null
+  }
+
+  test.describe("owner affordances are gated", () => {
+    test("signed-out viewer sees read-only values and no edit affordances", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({ storageState: undefined })
+      const page = await context.newPage()
+      try {
+        await resetWriteTarget()
+        await page.goto(EXPLORE_URL)
+        // The seed pronouns render as static text, not an input.
+        await expect(
+          page
+            .getByRole("region", { name: "Background" })
+            .getByText("they/them")
+        ).toBeVisible()
+        await expect(
+          page.getByRole("textbox", { name: "Pronouns" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("textbox", { name: "Ancestry" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("textbox", { name: "Background" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("button", { name: "Edit portrait" })
+        ).toHaveCount(0)
+      } finally {
+        await context.close()
+      }
+    })
+
+    test.describe("signed-in non-owner sees the same read-only view", () => {
+      test.use({ storageState: STORAGE_STATE })
+
+      test("no field editors, no portrait menu", async ({ page }) => {
+        await page.goto("/c/seed-warrior?tab=explore")
+        await expect(
+          page.getByRole("textbox", { name: "Pronouns" })
+        ).toHaveCount(0)
+        await expect(
+          page.getByRole("button", { name: "Edit portrait" })
+        ).toHaveCount(0)
+      })
+    })
+  })
+
+  test.describe("owner inline edits", () => {
+    test.use({ storageState: STORAGE_STATE })
+
+    test.beforeEach(async () => {
+      await resetWriteTarget()
+    })
+
+    async function columnValue(
+      column: "pronouns" | "ancestryText" | "backgroundText"
+    ): Promise<string | null> {
+      const rows = await getDb()
+        .select()
+        .from(characters)
+        .where(eq(characters.id, writeTarget.characterId))
+      return rows[0]?.[column] ?? null
+    }
+
+    /**
+     * Edit one field, then wait until it has actually persisted before moving
+     * on. The three Background fields share `identityVersion` but each holds an
+     * independent debounce `versionRef`, so a sibling edit can trip one save's
+     * silent stale-retry; polling the row (rather than `networkidle`) keeps the
+     * sequence deterministic instead of racing the retry against the next edit.
+     * The shared-ref fix that would let this drop the poll is tracked in UNN-274.
+     */
+    async function editField(
+      page: Page,
+      label: string,
+      value: string,
+      column: "pronouns" | "ancestryText" | "backgroundText"
+    ) {
+      const input = page.getByRole("textbox", { name: label })
+      await input.fill(value)
+      await input.blur()
+      await expect.poll(() => columnValue(column)).toBe(value)
+    }
+
+    test("pronouns / ancestry / background auto-save and persist across reload", async ({
+      page,
+    }) => {
+      await page.goto(EXPLORE_URL)
+      await editField(page, "Pronouns", "ze/zir", "pronouns")
+      await editField(page, "Ancestry", "Aether-touched", "ancestryText")
+      await editField(
+        page,
+        "Background",
+        "Wandering archivist",
+        "backgroundText"
+      )
+
+      await page.reload()
+      await expect(page.getByRole("textbox", { name: "Pronouns" })).toHaveValue(
+        "ze/zir"
+      )
+      await expect(page.getByRole("textbox", { name: "Ancestry" })).toHaveValue(
+        "Aether-touched"
+      )
+      await expect(
+        page.getByRole("textbox", { name: "Background" })
+      ).toHaveValue("Wandering archivist")
+      await expectNoToast(page)
+    })
+
+    test("clearing a field persists empty (and the public sheet falls back)", async ({
+      page,
+    }) => {
+      await page.goto(EXPLORE_URL)
+      const pronouns = page.getByRole("textbox", { name: "Pronouns" })
+      await expect(pronouns).toHaveValue("they/them")
+      await pronouns.fill("")
+      await pronouns.blur()
+      await expect.poll(() => columnValue("pronouns")).toBeNull()
+
+      await page.reload()
+      await expect(page.getByRole("textbox", { name: "Pronouns" })).toHaveValue(
+        ""
+      )
+      await expectNoToast(page)
+    })
+
+    test("owner can upload a portrait and remove it", async ({ page }) => {
+      await page.goto(EXPLORE_URL)
+      await expect(
+        page.getByRole("button", { name: "Edit portrait" })
+      ).toBeVisible()
+      expect(await portraitUrl()).toBeNull()
+
+      // The menu item just forwards a click to this hidden input; setting it
+      // directly drives the same onChange → upload → revalidate path.
+      await page.locator('input[type="file"]').setInputFiles({
+        name: "portrait.png",
+        mimeType: "image/png",
+        buffer: PNG_1x1,
+      })
+      await page.waitForLoadState("networkidle")
+      await expect.poll(portraitUrl).not.toBeNull()
+
+      await page.getByRole("button", { name: "Edit portrait" }).click()
+      await page.getByRole("menuitem", { name: "Remove portrait" }).click()
+      await page.waitForLoadState("networkidle")
+      await expect.poll(portraitUrl).toBeNull()
       await expectNoToast(page)
     })
   })

@@ -128,8 +128,14 @@ interface WriteParams<
   TSuccess extends { version: number },
   TError extends string,
 > {
-  /** The optimistic edit, applied through {@link reduceCharacter}. */
-  edit: CharacterEdit
+  /**
+   * The optimistic edit, applied through {@link reduceCharacter}. Optional:
+   * a write whose result isn't known client-side ahead of the round-trip
+   * (e.g. a portrait upload, where the Blob URL comes back from the server)
+   * omits it and lets `revalidateCharacter` repaint the affected surface —
+   * the same shape `useBuilderWrite`'s optional `optimistic` callback allows.
+   */
+  edit?: CharacterEdit
   /**
    * The edit surface being written. Its per-write-class version token (UNN-140)
    * is resolved from {@link EDIT_SURFACE_CLASS} — the one place surface→class
@@ -172,7 +178,7 @@ export function useCharacterWrite() {
   }: WriteParams<TSuccess, TError>) {
     const characterClass = EDIT_SURFACE_CLASS[surface]
     startTransition(async () => {
-      applyEdit(edit)
+      if (edit) applyEdit(edit)
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
         characterClass,
