@@ -151,6 +151,60 @@ describe("useDebouncedAutoSave", () => {
     expect(b.calls[0]!.expectedVersion).toBe(1)
   })
 
+  it("sibling fields sharing a save queue serialize back-to-back saves (UNN-274)", async () => {
+    // The real lost-update case: two same-class fields blurred back-to-back,
+    // faster than a round-trip. With a *shared* queue (the provider hands one
+    // per class), B's save chains behind A's instead of dispatching alongside
+    // it at the stale token — so B reads the version A's success just bumped,
+    // and neither stales. Without serialization both would dispatch at v0,
+    // collide, and the second would lose its update.
+    const shared = { current: 0 }
+    const queue = { current: Promise.resolve() }
+    const a = makeControlledSave()
+    const b = makeControlledSave()
+
+    const fieldA = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "",
+        versionRef: shared,
+        saveQueueRef: queue,
+        save: a.save,
+      })
+    )
+    const fieldB = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "",
+        versionRef: shared,
+        saveQueueRef: queue,
+        save: b.save,
+      })
+    )
+
+    // Blur A, then blur B immediately — A is still in flight.
+    act(() => fieldA.result.current.setValue("Aether"))
+    act(() => fieldA.result.current.flush())
+    act(() => fieldB.result.current.setValue("Archivist"))
+    act(() => fieldB.result.current.flush())
+    await flushMicrotasks()
+
+    // A has dispatched; B is queued behind it and has NOT dispatched yet.
+    expect(a.calls).toHaveLength(1)
+    expect(a.calls[0]!.expectedVersion).toBe(0)
+    expect(b.calls).toHaveLength(0)
+
+    // A succeeds and bumps the shared ref to v1.
+    await act(async () => {
+      a.calls[0]!.resolve(ok({ value: "Aether", version: 1 }))
+    })
+    await flushMicrotasks()
+
+    // Only now does B dispatch — and it reads the freshly-bumped v1.
+    expect(b.calls).toHaveLength(1)
+    expect(b.calls[0]!.expectedVersion).toBe(1)
+  })
+
   it("on flush, reverts to last-saved when the draft is empty", async () => {
     const { save, calls } = makeControlledSave()
     const versionRef = { current: 0 }

@@ -682,11 +682,13 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     /**
      * Edit one field and move straight on — no per-field persistence poll.
      * The three Background fields share `identityVersion`, and since UNN-274
-     * they read one shared in-memory version ref, so a sibling's successful
-     * bump is visible to the next field's save in the same frame. That means
-     * hammering them back-to-back (faster than the `revalidate → prop-sync`
-     * round-trip) no longer trips a stale-retry, so the sequence stays
-     * deterministic without pacing the edits against the persisted row.
+     * they share one in-memory version ref *and* one per-class save queue: the
+     * three blurs serialize through that queue, so each save reads the version
+     * the previous one's success just bumped instead of all dispatching at the
+     * stale pre-bump token and colliding on the silent stale-retry. That lets
+     * us hammer them back-to-back (faster than the `revalidate → prop-sync`
+     * round-trip) deterministically, without pacing the edits against the
+     * persisted row.
      */
     async function editField(page: Page, label: string, value: string) {
       const input = page.getByRole("textbox", { name: label })

@@ -38,11 +38,17 @@ import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
  * from the server prop (`useCharacterTokenRef`) as the fallback for cross-tab /
  * external bumps.
  *
- * Saves are serialized via a single promise chain (`saveQueueRef`): when a
- * save is dispatched while another is in flight, it chains behind the
- * in-flight one and reads the *fresh* `versionRef.current` (just written by
- * the prior save's success branch) before its own request goes out. That
- * closes both the same-value and different-value debounce+blur races.
+ * Saves are serialized via a promise chain (`saveQueueRef`): when a save is
+ * dispatched while another is in flight, it chains behind the in-flight one
+ * and reads the *fresh* `versionRef.current` (just written by the prior save's
+ * success branch) before its own request goes out. That closes the same-value
+ * and different-value debounce+blur races for this field. When the wrappers
+ * pass the provider's *shared* per-class queue (UNN-274), the chain spans
+ * every same-class field too: blurring N sibling fields back-to-back (faster
+ * than a round-trip) serializes them, so each reads the freshly-bumped token
+ * instead of all dispatching at the stale pre-bump version and colliding on
+ * the silent-retry. Without a shared queue the hook still serializes its own
+ * writes via an internal fallback queue.
  *
  * On success, the shared ref is updated from `result.value.version`
  * immediately, so a rapid follow-up save — by this field or a sibling —
@@ -88,6 +94,13 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    *  visible in-frame. The provider keeps it synced from the server prop as the
    *  cross-tab/external fallback. */
   versionRef: RefObject<number>
+  /** The *shared* per-write-class save queue from the provider (UNN-274).
+   *  Supplied by the wrappers so same-class debounced fields serialize their
+   *  saves through one chain — back-to-back sibling edits each read the
+   *  freshly-bumped `versionRef` instead of colliding at the stale token.
+   *  Omitted, the hook falls back to an internal queue that serializes only
+   *  this field's own debounce+blur. */
+  saveQueueRef?: RefObject<Promise<void>>
   /** Owning character — used by the silent-retry path to refetch the
    *  fresh per-class version after a `"stale"` and by the broadcast
    *  pipeline to notify sibling tabs. */
@@ -131,6 +144,7 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
   versionRef,
+  saveQueueRef,
   characterId,
   surface,
   save,
@@ -146,10 +160,11 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
   const lastSavedRef = useRef(serverValue)
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const ownSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const queueRef = saveQueueRef ?? ownSaveQueueRef
 
   function performSave(next: TValue): Promise<void> {
-    const queued = saveQueueRef.current.then(async () => {
+    const queued = queueRef.current.then(async () => {
       if (isEqual(next, lastSavedRef.current)) return
 
       try {
@@ -189,7 +204,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     // throw from `setLocalValue` or `toast`, an unhandled error in
     // microtask scheduling), keep the queue resolved so the next save —
     // including the unmount flush — still dispatches.
-    saveQueueRef.current = queued.catch(() => {})
+    queueRef.current = queued.catch(() => {})
     return queued
   }
 
