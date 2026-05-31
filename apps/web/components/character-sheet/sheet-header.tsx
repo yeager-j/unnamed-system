@@ -11,9 +11,9 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
-import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
-import { formatCurrency } from "@/lib/ui/format-currency"
+import { isFallen } from "@/lib/game/character"
 import { initials } from "@/lib/ui/initials"
+import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ActiveArchetypeSwitcher } from "./active-archetype-switcher"
 import { Attributes } from "./attributes"
@@ -88,11 +88,14 @@ export function SheetHeader() {
                 <NonOwner>
                   {archetypeDisplayName(character.activeArchetypeKey)}
                 </NonOwner>{" "}
-                · Victories {character.victories}/{VICTORIES_PER_LEVEL}
+                · {PATH_CHOICE_LABELS[character.pathChoice]}
               </p>
 
               <p className="text-sm text-muted-foreground">
-                {formatCurrency(character.currency)}
+                <span className="font-mono tabular-nums">
+                  {character.victories}/7
+                </span>{" "}
+                Victories
               </p>
             </div>
           </div>

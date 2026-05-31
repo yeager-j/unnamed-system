@@ -1,6 +1,9 @@
 "use client"
 
+import { CompassIcon } from "@phosphor-icons/react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
+
+import { Separator } from "@workspace/ui/components/separator"
 
 import type { AtlasLineage } from "@/lib/game/archetypes"
 import {
@@ -47,6 +50,7 @@ export function LineageTree({
 
   return (
     <div className="flex flex-col gap-6">
+      <Separator className="sm:hidden" />
       <LineageHeading lineage={lineage} />
       <TreeColumns
         lineage={lineage}
@@ -70,11 +74,17 @@ function LineageHeading({ lineage }: { lineage: AtlasLineage }) {
       <div className="flex items-center gap-3">
         <span
           aria-hidden
-          className="grid size-12 shrink-0 place-items-center border border-dashed bg-muted text-muted-foreground"
+          className="hidden size-12 shrink-0 place-items-center border border-dashed bg-muted text-muted-foreground sm:grid"
         >
           <Icon className="size-6" />
         </span>
         <div className="flex flex-col">
+          {lineage.isOrigin && (
+            <span className="flex items-center gap-1 text-xs font-bold text-primary uppercase">
+              <CompassIcon className="size-4" weight="bold" />
+              Origin Lineage
+            </span>
+          )}
           <h2 className="font-serif text-2xl font-bold">
             {LINEAGE_LABELS[lineage.lineage]}
           </h2>

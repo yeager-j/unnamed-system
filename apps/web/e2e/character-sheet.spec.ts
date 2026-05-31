@@ -10,8 +10,7 @@ test("public character sheet renders for a seeded character", async ({
   // Header (persistent, above the tabs): level, active Archetype, Victories
   // progress, currency with unit, portrait placeholder.
   await expect(page.getByText(/Level 1 · Warrior/)).toBeVisible()
-  await expect(page.getByText(/Victories 0\/7/)).toBeVisible()
-  await expect(page.getByText("0 gp")).toBeVisible()
+  await expect(page.getByText(/0\/7 Victories/)).toBeVisible()
   await expect(page.getByText("BH")).toBeVisible()
 
   // Vitals: HP + SP each render a bar (Hit/Skill Dice and Prisma are
@@ -69,7 +68,7 @@ test("a Fallen, max-level character is marked Fallen and reads level 30", async 
 
   // AC: level reads the bare number, no "/ 30" progression implication.
   await expect(page.getByText(/Level 30 · Warrior/)).toBeVisible()
-  await expect(page.getByText(/Victories 0\/7/)).toBeVisible()
+  await expect(page.getByText(/0\/7 Victories/)).toBeVisible()
   await expect(page.getByText(/30\s*\/\s*30/)).toHaveCount(0)
 
   // AC: visibly marked Fallen (text label, not just an empty bar) and HP 0/max.
@@ -82,7 +81,7 @@ test("Virtues Spark breakdown reflects the seeded log", async ({ page }) => {
   expect(response?.ok()).toBeTruthy()
 
   // Victories progress shows in the persistent header.
-  await expect(page.getByText(/Victories 3\/7/)).toBeVisible()
+  await expect(page.getByText(/3\/7 Victories/)).toBeVisible()
 
   // Virtues is on the Explore tab. seed-mage log [wisdom, focus, wisdom,
   // expression]: 4 / 7, breakdown ordered count-desc then Virtue order.

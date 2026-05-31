@@ -3,29 +3,21 @@
 import { TreeStructureIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 
-import { Badge } from "@workspace/ui/components/badge"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
-  CardAction,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
-import { formatMasteryDescription } from "@/components/archetype/format"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
-import {
-  getArchetypeDisplay,
-  hasMasteryBonus,
-  type ArchetypeEntry,
-} from "@/lib/game/archetypes"
-import type { AttributeScores } from "@/lib/game/character"
+import { getArchetypeDisplay } from "@/lib/game/archetypes"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
+import { ActiveArchetypeCard } from "./archetypes/active-archetype-card"
 import { ArchetypeDetail } from "./archetypes/archetype-detail"
 import { ArchetypeSummary } from "./archetypes/archetype-summary"
 
@@ -63,11 +55,17 @@ export function Archetypes() {
   // popover beneath it (Active card, drawer-launched detail block, inheritance
   // slots). Read once at the top, pass down — leaves stay context-free.
   const { attributes } = character
+  const activeIsOrigin =
+    character.originCharacterArchetypeId === activeEntry?.row.id
 
   return (
     <div className="flex flex-col gap-6">
       {activeEntry ? (
-        <ActiveArchetypeCard entry={activeEntry} attributes={attributes} />
+        <ActiveArchetypeCard
+          entry={activeEntry}
+          attributes={attributes}
+          origin={activeIsOrigin}
+        />
       ) : (
         <NoActiveArchetypeCard />
       )}
@@ -132,38 +130,6 @@ export function Archetypes() {
         )}
       </section>
     </div>
-  )
-}
-
-function ActiveArchetypeCard({
-  entry,
-  attributes,
-}: {
-  entry: ArchetypeEntry
-  attributes: AttributeScores
-}) {
-  const { archetype, row } = entry
-  return (
-    <Card>
-      <CardHeader>
-        <ArchetypeDetailHeader
-          archetype={archetype}
-          rank={row.rank}
-          titleAs={CardTitle}
-          trailing={<Badge>Active</Badge>}
-        />
-        <CardAction>
-          {hasMasteryBonus(row.rank) ? (
-            <Badge>
-              Mastery: {formatMasteryDescription(archetype.mastery)}
-            </Badge>
-          ) : null}
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <ArchetypeDetail entry={entry} attributes={attributes} />
-      </CardContent>
-    </Card>
   )
 }
 

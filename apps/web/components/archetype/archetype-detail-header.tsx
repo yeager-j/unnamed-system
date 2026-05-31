@@ -1,3 +1,4 @@
+import { CompassIcon } from "@phosphor-icons/react"
 import type { ElementType, ReactNode } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
@@ -22,6 +23,7 @@ import { LINEAGE_LABELS, TIER_LABELS, TIER_ROMAN_LABELS } from "@/lib/ui/labels"
 export function ArchetypeDetailHeader({
   archetype,
   rank,
+  origin,
   titleAs: Title = "h2",
   subtitleAs: Subtitle = "p",
   trailing,
@@ -30,6 +32,7 @@ export function ArchetypeDetailHeader({
   archetype: Pick<Archetype, "name" | "tier" | "lineage">
   /** Appends `· Rank n/5`. Omit for planning views (the Atlas) that don't pin a Rank. */
   rank?: number
+  origin?: boolean
   /** Element the name renders as — pass the surface's title wrapper for a11y. Defaults to `h2`. */
   titleAs?: ElementType
   /** Element the `{Lineage} · {Tier}` line renders as — pass the surface's description wrapper. Defaults to `p`. */
@@ -40,6 +43,12 @@ export function ArchetypeDetailHeader({
 }) {
   return (
     <div className={cn("flex flex-col", className)}>
+      {origin && (
+        <span className="flex items-center gap-1 text-xs font-bold text-primary uppercase">
+          <CompassIcon className="size-4" weight="bold" />
+          Origin Lineage
+        </span>
+      )}
       <div className="flex items-center gap-3">
         <Title className="text-2xl font-semibold tracking-tight">
           {archetype.name}

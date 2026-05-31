@@ -45,7 +45,7 @@ test.describe("Leveling controls gating", () => {
       await expect(
         page.getByRole("heading", { name: levelingTarget.seed.name })
       ).toBeVisible()
-      await expect(page.getByText("Victories 7/7")).toBeVisible()
+      await expect(page.getByText(" 7/7 Victories")).toBeVisible()
       await expect(
         page.getByRole("button", { name: "Victories", exact: false })
       ).toHaveCount(0)
@@ -80,7 +80,7 @@ test.describe("owner leveling controls", () => {
       .poll(async () => (await getLevelingTargetState()).victories)
       .toBe(3)
 
-    await expect(page.getByText("Victories 3/7")).toBeVisible()
+    await expect(page.getByText("3/7 Victories")).toBeVisible()
   })
 
   test("Undo (−1) decrements and disables at 0", async ({ page }) => {
@@ -133,7 +133,7 @@ test.describe("owner leveling controls", () => {
     expect(after.skillDiceRemaining).toBe(7)
 
     await expect(
-      page.getByText("Level 2 · Warrior · Victories 3/7")
+      page.getByText("Level 2 · Warrior · 3/7 Victories")
     ).toBeVisible()
   })
 })
