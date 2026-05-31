@@ -112,6 +112,68 @@ export interface SeedCharacter {
   }
 }
 
+/**
+ * Builds a complete {@link SeedCharacter} from a partial override, filling
+ * every unspecified field with a sensible default so a fixture declares only
+ * what makes it distinct. `slug` and `shortId` are required — they have no safe
+ * default (a silent collision would corrupt the seed); everything else is
+ * optional.
+ *
+ * Defaults: name `"Seed Character"`, pronouns `"they/them"`, level 1, balanced
+ * path, a single Rank 1 Warrior Archetype with its Perfection counter at D
+ * (rank 0), no manual bonuses, blank identity/notes text, all five Step-4
+ * Identity sections unwritten (`null`), empty knives/chains/talents/items/
+ * sparkLog/ailments, zero virtues/victories/exhaustion, and null battle
+ * conditions / party composition. The optional `originArchetypeKey`,
+ * `savedArchetypeRanks`, and `damage` fields stay omitted unless overridden.
+ *
+ * The defaults are rebuilt on every call, so fixtures never share a mutable
+ * array or object. `SeedCharacter` is flat, so the shallow merge is correct:
+ * a fixture that overrides `archetypes`, `virtues`, or `items` supplies the
+ * complete value for that field.
+ */
+export function makeSeedCharacter(
+  overrides: Partial<SeedCharacter> & Pick<SeedCharacter, "slug" | "shortId">
+): SeedCharacter {
+  const defaults: Omit<SeedCharacter, "slug" | "shortId"> = {
+    name: "Seed Character",
+    pronouns: "they/them",
+    level: 1,
+    pathChoice: "balanced",
+    activeArchetypeKey: "warrior",
+    archetypes: [
+      {
+        archetypeKey: "warrior",
+        rank: 1,
+        mechanicState: { kind: "perfection", rank: 0 },
+      },
+    ],
+    manualBonuses: {},
+    ancestryText: "",
+    backgroundText: "",
+    backstoryText: "",
+    personalityTraits: null,
+    hopes: null,
+    dreams: null,
+    fears: null,
+    secrets: null,
+    notes: "",
+    knives: [],
+    chains: [],
+    gainedTalents: [],
+    items: [],
+    victories: 0,
+    virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
+    sparkLog: [],
+    exhaustion: 0,
+    ailments: [],
+    battleConditions: null,
+    partyComposition: null,
+  }
+
+  return { ...defaults, ...overrides }
+}
+
 export const SEED_CHARACTERS: SeedCharacter[] = [
   {
     slug: "warrior",

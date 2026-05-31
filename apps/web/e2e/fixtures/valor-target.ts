@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characterArchetypes, getDb } from "@/lib/db"
 import type { ValorState } from "@/lib/game/mechanics"
 
@@ -17,13 +17,11 @@ import type { E2EFixture } from "./types"
  * Strike are Neutral at the base, so they're the cleanest engine assertion:
  * they only flip to Resist via the Valor ≥ 3 effect.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "valor-target",
   shortId: "valor-target",
   name: "Sera Olvin",
   pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
   activeArchetypeKey: "knight",
   archetypes: [
     {
@@ -32,28 +30,7 @@ const seed: SeedCharacter = {
       mechanicState: { kind: "valor", value: 0 },
     },
   ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const valorTarget: E2EFixture = {
   seed,

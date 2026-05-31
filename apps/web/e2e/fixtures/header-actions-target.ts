@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import type { SeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { characters, getDb } from "@/lib/db"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
@@ -18,43 +18,12 @@ import type { E2EFixture } from "./types"
  * path Warrior R1 — the active Archetype is incidental; the spec only cares
  * about the header's HP / SP / Prisma columns.
  */
-const seed: SeedCharacter = {
+const seed = makeSeedCharacter({
   slug: "header-actions-target",
   shortId: "header-actions-target",
   name: "Elara Voss",
   pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
-  items: [],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 export const headerActionsTarget: E2EFixture = {
   seed,

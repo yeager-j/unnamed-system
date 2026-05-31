@@ -5,6 +5,7 @@ import { and, eq, inArray } from "drizzle-orm"
 import {
   archetypeId,
   buildSeedStatCharacter,
+  makeSeedCharacter,
   SEED_CHARACTERS,
   type SeedCharacter,
 } from "../__fixtures__/seed-characters"
@@ -101,47 +102,17 @@ const DEV_USER = {
  * Playwright's fullyParallel default. Write specs use
  * {@link WRITE_TEST_CHARACTER} instead.
  */
-const DEV_USER_CHARACTER: SeedCharacter = {
+const DEV_USER_CHARACTER = makeSeedCharacter({
   slug: "claude",
   shortId: "claude-1",
   name: "Iris Vey",
   pronouns: "she/her",
-  level: 1,
-  pathChoice: "balanced",
-  activeArchetypeKey: "warrior",
-  archetypes: [
-    {
-      archetypeKey: "warrior",
-      rank: 1,
-      mechanicState: { kind: "perfection", rank: 0 },
-    },
-  ],
-  manualBonuses: {},
-  ancestryText: "",
-  backgroundText: "",
-  backstoryText: "",
-  personalityTraits: null,
-  hopes: null,
-  dreams: null,
-  fears: null,
-  secrets: null,
-  notes: "",
-  knives: [],
-  chains: [],
-  gainedTalents: [],
   items: [
     { catalogItemKey: "longsword", equipped: false },
     { catalogItemKey: "bladeturn-mail", equipped: false },
     { catalogItemKey: "zephyr-band", equipped: false },
   ],
-  victories: 0,
-  virtues: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
-  sparkLog: [],
-  exhaustion: 0,
-  ailments: [],
-  battleConditions: null,
-  partyComposition: null,
-}
+})
 
 /**
  * The character's full max HP/SP, derived through the production stat engine so
