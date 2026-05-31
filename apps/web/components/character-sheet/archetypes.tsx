@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui/components/card"
 import { ItemGroup } from "@workspace/ui/components/item"
 
+import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import { formatMasteryDescription } from "@/components/archetype/format"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
@@ -145,15 +146,12 @@ function ActiveArchetypeCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-base font-semibold">Active Archetype</span>
-          <span className="text-base font-normal text-muted-foreground">
-            {archetype.name}
-          </span>
-          <span className="text-sm font-normal text-muted-foreground">
-            Rank {row.rank}/5
-          </span>
-        </CardTitle>
+        <ArchetypeDetailHeader
+          archetype={archetype}
+          rank={row.rank}
+          titleAs={CardTitle}
+          trailing={<Badge>Active</Badge>}
+        />
         <CardAction>
           {hasMasteryBonus(row.rank) ? (
             <Badge>

@@ -18,6 +18,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { ArchetypeAffinitiesChart } from "@/components/archetype/archetype-affinities-chart"
 import { ArchetypeAttributesGrid } from "@/components/archetype/archetype-attributes-grid"
+import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import { ArchetypeMechanicProse } from "@/components/archetype/archetype-mechanic-prose"
 import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-skills"
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
@@ -36,12 +37,7 @@ import {
   type AttributeScores,
   type PathChoice,
 } from "@/lib/game/character"
-import {
-  LINEAGE_LABELS,
-  SUGGESTED_PATH_LABELS,
-  TIER_LABELS,
-  TIER_ROMAN_LABELS,
-} from "@/lib/ui/labels"
+import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"
 
@@ -122,25 +118,22 @@ function PanelBody({
       initialFocusRef={headerRef}
       className="data-[side=right]:sm:max-w-2xl"
     >
-      <ResponsiveDialogHeader>
-        <div
-          ref={headerRef}
-          tabIndex={-1}
-          className="flex items-start justify-between gap-2 pr-8 outline-none"
-        >
-          <ResponsiveDialogTitle className="text-2xl">
-            {archetype.name}
-          </ResponsiveDialogTitle>
-          {locked ? (
-            <Badge variant="outline" className="gap-1 text-muted-foreground">
-              <LockSimpleIcon weight="bold" /> Locked
-            </Badge>
-          ) : null}
-        </div>
-        <ResponsiveDialogDescription>
-          {LINEAGE_LABELS[archetype.lineage]} ·{" "}
-          {TIER_ROMAN_LABELS[archetype.tier]} {TIER_LABELS[archetype.tier]}
-        </ResponsiveDialogDescription>
+      <ResponsiveDialogHeader ref={headerRef}>
+        <ArchetypeDetailHeader
+          archetype={archetype}
+          titleAs={ResponsiveDialogTitle}
+          subtitleAs={ResponsiveDialogDescription}
+          trailing={
+            locked ? (
+              <Badge
+                variant="outline"
+                className="shrink-0 gap-1 text-muted-foreground"
+              >
+                <LockSimpleIcon weight="bold" /> Locked
+              </Badge>
+            ) : null
+          }
+        />
       </ResponsiveDialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
