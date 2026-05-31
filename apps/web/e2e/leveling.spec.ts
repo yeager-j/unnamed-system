@@ -45,7 +45,7 @@ test.describe("Leveling controls gating", () => {
       await expect(
         page.getByRole("heading", { name: levelingTarget.seed.name })
       ).toBeVisible()
-      await expect(page.getByText(" 7/7 Victories")).toBeVisible()
+      await expect(page.getByText("7/7 Victories")).toBeVisible()
       await expect(
         page.getByRole("button", { name: "Victories", exact: false })
       ).toHaveCount(0)

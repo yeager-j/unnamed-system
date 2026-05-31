@@ -10,7 +10,7 @@ import {
 import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import { formatMasteryDescription } from "@/components/archetype/format"
 import { ArchetypeDetail } from "@/components/character-sheet/archetypes/archetype-detail"
-import { ArchetypeEntry, hasMasteryBonus } from "@/lib/game/archetypes"
+import { hasMasteryBonus, type ArchetypeEntry } from "@/lib/game/archetypes"
 import type { AttributeScores } from "@/lib/game/character"
 
 export function ActiveArchetypeCard({

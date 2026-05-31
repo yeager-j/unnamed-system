@@ -1,8 +1,8 @@
-import { CompassIcon } from "@phosphor-icons/react"
 import type { ElementType, ReactNode } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
 import { MASTERY_RANK, type Archetype } from "@/lib/game/archetypes"
 import { LINEAGE_LABELS, TIER_LABELS, TIER_ROMAN_LABELS } from "@/lib/ui/labels"
 
@@ -43,12 +43,7 @@ export function ArchetypeDetailHeader({
 }) {
   return (
     <div className={cn("flex flex-col", className)}>
-      {origin && (
-        <span className="flex items-center gap-1 text-xs font-bold text-primary uppercase">
-          <CompassIcon className="size-4" weight="bold" />
-          Origin Lineage
-        </span>
-      )}
+      {origin && <OriginLineageIndicator />}
       <div className="flex items-center gap-3">
         <Title className="text-2xl font-semibold tracking-tight">
           {archetype.name}

@@ -1,10 +1,10 @@
 "use client"
 
-import { CompassIcon } from "@phosphor-icons/react"
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
 import { Separator } from "@workspace/ui/components/separator"
 
+import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
 import type { AtlasLineage } from "@/lib/game/archetypes"
 import {
   LINEAGE_DISPLAY,
@@ -79,12 +79,7 @@ function LineageHeading({ lineage }: { lineage: AtlasLineage }) {
           <Icon className="size-6" />
         </span>
         <div className="flex flex-col">
-          {lineage.isOrigin && (
-            <span className="flex items-center gap-1 text-xs font-bold text-primary uppercase">
-              <CompassIcon className="size-4" weight="bold" />
-              Origin Lineage
-            </span>
-          )}
+          {lineage.isOrigin && <OriginLineageIndicator />}
           <h2 className="font-serif text-2xl font-bold">
             {LINEAGE_LABELS[lineage.lineage]}
           </h2>

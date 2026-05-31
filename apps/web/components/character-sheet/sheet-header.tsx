@@ -11,7 +11,7 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
-import { isFallen } from "@/lib/game/character"
+import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 import { initials } from "@/lib/ui/initials"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
@@ -93,7 +93,7 @@ export function SheetHeader() {
 
               <p className="text-sm text-muted-foreground">
                 <span className="font-mono tabular-nums">
-                  {character.victories}/7
+                  {character.victories}/{VICTORIES_PER_LEVEL}
                 </span>{" "}
                 Victories
               </p>
