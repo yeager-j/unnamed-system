@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import { setBuilderStepAction } from "@/lib/actions/character-identity"
 
 import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
@@ -32,21 +33,17 @@ import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
  * can gate progress on missing required inputs.
  */
 export function BuilderShell({
-  characterId,
   shortId,
   currentStepSlug,
   highestVisitedStepIndex,
-  identityVersion,
   canAdvance = true,
   disabledReason,
   hideHeader = false,
   children,
 }: {
-  characterId: string
   shortId: string
   currentStepSlug: MovementSlug
   highestVisitedStepIndex: number
-  identityVersion: number
   canAdvance?: boolean
   disabledReason?: string
   /**
@@ -70,11 +67,9 @@ export function BuilderShell({
       <section className="flex flex-1 flex-col gap-6">{children}</section>
 
       <BuilderFooter
-        characterId={characterId}
         shortId={shortId}
         currentIndex={currentIndex}
         highestVisitedStepIndex={highestVisitedStepIndex}
-        identityVersion={identityVersion}
         previousStep={previousStep}
         nextStep={nextStep}
         canAdvance={canAdvance}
@@ -111,21 +106,17 @@ function ChapterHeader({ step }: { step: (typeof BUILDER_STEPS)[number] }) {
 }
 
 function BuilderFooter({
-  characterId,
   shortId,
   currentIndex,
   highestVisitedStepIndex,
-  identityVersion,
   previousStep,
   nextStep,
   canAdvance,
   disabledReason,
 }: {
-  characterId: string
   shortId: string
   currentIndex: number
   highestVisitedStepIndex: number
-  identityVersion: number
   previousStep: (typeof BUILDER_STEPS)[number] | null
   nextStep: (typeof BUILDER_STEPS)[number] | null
   canAdvance: boolean
@@ -153,11 +144,9 @@ function BuilderFooter({
       <div className="flex flex-1 justify-end">
         {nextStep ? (
           <ContinueLink
-            characterId={characterId}
             shortId={shortId}
             nextIndex={currentIndex + 1}
             step={nextStep}
-            identityVersion={identityVersion}
             canAdvance={canAdvance}
             disabledReason={disabledReason}
           />
@@ -189,22 +178,19 @@ function BackLink({
 }
 
 function ContinueLink({
-  characterId,
   shortId,
   nextIndex,
   step,
-  identityVersion,
   canAdvance,
   disabledReason,
 }: {
-  characterId: string
   shortId: string
   nextIndex: number
   step: (typeof BUILDER_STEPS)[number]
-  identityVersion: number
   canAdvance: boolean
   disabledReason?: string
 }) {
+  const { id: characterId, identityVersion } = useBuilderDraft()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canAdvance

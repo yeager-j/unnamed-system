@@ -7,6 +7,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
 
@@ -22,17 +23,14 @@ import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrativ
 const ANCESTRY_MAX = 160
 const BACKGROUND_MAX = 160
 
-export function NarrativePair({
-  characterId,
-  ancestryText,
-  backgroundText,
-  identityVersion,
-}: {
-  characterId: string
-  ancestryText: string | null
-  backgroundText: string | null
-  identityVersion: number
-}) {
+export function NarrativePair() {
+  const {
+    id: characterId,
+    ancestryText,
+    backgroundText,
+    identityVersion,
+  } = useBuilderDraft()
+
   return (
     <div className="flex flex-col gap-5">
       <SingleLineField

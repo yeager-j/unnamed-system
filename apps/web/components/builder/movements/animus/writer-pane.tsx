@@ -2,6 +2,7 @@
 
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import {
   updateCharacterChainDescriptionAction,
   updateCharacterChainTitleAction,
@@ -12,10 +13,6 @@ import {
   updateCharacterKnifeTitleAction,
 } from "@/lib/actions/character-knives"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
-import type {
-  CharacterChainRow,
-  CharacterKnifeRow,
-} from "@/lib/db/schema/character"
 import type { EditSurface } from "@/lib/db/version-classes"
 import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
 
@@ -43,29 +40,19 @@ import {
  * is permanently visible; on mobile this trigger toggles the built-in
  * `<Sheet>` drawer.
  */
-export function WriterPane({
-  characterId,
-  identityVersion,
-  backstoryText,
-  knives,
-  chains,
-  personalityTraits,
-  hopes,
-  dreams,
-  fears,
-  secrets,
-}: {
-  characterId: string
-  identityVersion: number
-  backstoryText: string | null
-  knives: readonly CharacterKnifeRow[]
-  chains: readonly CharacterChainRow[]
-  personalityTraits: string | null
-  hopes: string | null
-  dreams: string | null
-  fears: string | null
-  secrets: string | null
-}) {
+export function WriterPane() {
+  const {
+    id: characterId,
+    identityVersion,
+    backstoryText,
+    knives,
+    chains,
+    personalityTraits,
+    hopes,
+    dreams,
+    fears,
+    secrets,
+  } = useBuilderDraft()
   const { activeRef } = useAnimusDocument()
 
   const resolved = resolveDocumentContent(activeRef, {

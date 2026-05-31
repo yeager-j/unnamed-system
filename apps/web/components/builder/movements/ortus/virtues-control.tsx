@@ -1,16 +1,15 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
+  coerceVirtueAllocation,
   describeAllocationProgress,
   VIRTUE_KEYS,
   wouldExceedAllocationCap,
@@ -37,25 +36,33 @@ const RANKS = [0, 1, 2] as const
  * ones ≤ 2) match the UI's gating; the Continue gate on this movement
  * checks the full creation rule (one +2, two +1s, all different).
  */
-export function VirtuesControl({
-  characterId,
-  allocation,
-  identityVersion,
-}: {
-  characterId: string
-  allocation: VirtueAllocation
-  identityVersion: number
-}) {
-  const [, startTransition] = useTransition()
-  const versionRef = useCharacterTokenRef(identityVersion)
+export function VirtuesControl() {
+  const {
+    id: characterId,
+    virtueExpression,
+    virtueEmpathy,
+    virtueWisdom,
+    virtueFocus,
+  } = useBuilderDraft()
+  const { write } = useBuilderWrite()
+  // Derived from the draft's four virtue columns. React Compiler (UNN-241)
+  // memoizes this on those four values, so its identity is stable across
+  // re-renders that don't change them — exactly what the `previousAllocation`
+  // sync below depends on.
+  const allocation = coerceVirtueAllocation({
+    expression: virtueExpression,
+    empathy: virtueEmpathy,
+    wisdom: virtueWisdom,
+    focus: virtueFocus,
+  })
   // Local draft seeded from the server. Plain useState rather than
   // `useOptimistic` because rapid sequential clicks (e.g. +2 then +1 then
   // +1) would otherwise reset to the in-flight server prop between actions
   // and drop the intermediate intent — the next click would read the
   // pre-+2 state and overwrite the +2.
   //
-  // The route produces a fresh `allocation` object every render, so we
-  // adopt it during render whenever its identity changes (React's "store
+  // `allocation`'s identity only changes when the underlying virtue columns
+  // do, so we adopt it during render whenever it changes (React's "store
   // information from previous renders" pattern, in lieu of a `useEffect`
   // sync that would lag a frame and re-render twice).
   const [draft, setDraft] = useState<VirtueAllocation>(allocation)
@@ -67,29 +74,26 @@ export function VirtuesControl({
 
   function applyAllocation(next: VirtueAllocation) {
     setDraft(next)
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS.virtuesAllocation,
-        versionRef,
-        action: (expectedVersion) =>
-          setCharacterVirtuesAction({
-            characterId,
-            ...next,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else if (result.error === "character-not-found") {
+    write({
+      surface: "virtuesAllocation",
+      action: (expectedVersion) =>
+        setCharacterVirtuesAction({
+          characterId,
+          ...next,
+          expectedVersion,
+        }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't save your Virtues. Try again.",
+      },
+      onError: (error) => {
+        if (error === "character-not-found") {
           toast.error("This character was deleted.")
-        } else {
-          toast.error("Couldn't save your Virtues. Try again.")
+          return true
         }
-      }
+        return false
+      },
     })
   }
 

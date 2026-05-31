@@ -15,13 +15,17 @@ const ACCEPTED_MIME_TYPES = new Set([
 ])
 
 /**
- * Hard size cap for portrait uploads. Five megabytes comfortably accommodates
- * a high-resolution phone photo while keeping the Blob bill (and the
- * `revalidatePath` request body) predictable. The client component performs
- * the same pre-check before the action is dispatched so the user gets fast
- * feedback without a server round-trip.
+ * Hard size cap for portrait uploads. Pinned to 1 MB to match Next's default
+ * Server Action `bodySizeLimit`: the portrait is sent as multipart FormData
+ * through a Server Action, so a larger file is rejected by the framework
+ * *before* the action runs and surfaces to the user as a cryptic "unexpected
+ * response was received from the server." Validating at the same ceiling makes
+ * oversized uploads fail with a clear client-side message instead. Raising this
+ * (bump `serverActions.bodySizeLimit`, or move to a client-direct Blob upload)
+ * is tracked in UNN-258. The client component performs the same pre-check
+ * before the action is dispatched so the user gets fast feedback.
  */
-export const MAX_PORTRAIT_BYTES = 5 * 1024 * 1024
+export const MAX_PORTRAIT_BYTES = 1 * 1024 * 1024
 
 export type PortraitUploadError =
   | "invalid-mime"

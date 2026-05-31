@@ -43,13 +43,6 @@ export default async function BuilderLayout({
   if (character.status === "finalized") redirect(`/c/${shortId}`)
 
   return (
-    <BuilderProviderShell
-      characterId={character.id}
-      identityVersion={character.identityVersion}
-      knives={character.knives}
-      chains={character.chains}
-    >
-      {children}
-    </BuilderProviderShell>
+    <BuilderProviderShell character={character}>{children}</BuilderProviderShell>
   )
 }

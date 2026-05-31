@@ -1,7 +1,7 @@
 "use client"
 
 import { CameraIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useRef, useTransition } from "react"
+import { useRef } from "react"
 import { toast } from "sonner"
 
 import {
@@ -12,13 +12,11 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import {
   removeCharacterPortraitAction,
   uploadCharacterPortraitAction,
 } from "@/lib/actions/character-identity"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { MAX_PORTRAIT_BYTES } from "@/lib/storage/portrait-upload"
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
@@ -35,18 +33,10 @@ const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
  * mime + size guards mirror what the server enforces so the user gets
  * fast feedback.
  */
-export function PortraitArea({
-  characterId,
-  portraitUrl,
-  identityVersion,
-}: {
-  characterId: string
-  portraitUrl: string | null
-  identityVersion: number
-}) {
+export function PortraitArea() {
+  const { id: characterId, portraitUrl } = useBuilderDraft()
+  const { pending, write } = useBuilderWrite()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [isPending, startTransition] = useTransition()
-  const versionRef = useCharacterTokenRef(identityVersion)
 
   function openPicker() {
     inputRef.current?.click()
@@ -58,7 +48,7 @@ export function PortraitArea({
     if (!file) return
 
     if (file.size > MAX_PORTRAIT_BYTES) {
-      toast.error("That image is over 5 MB. Pick a smaller one.")
+      toast.error("That image is over 1 MB. Pick a smaller one.")
       return
     }
     if (!ACCEPT.split(",").includes(file.type)) {
@@ -66,40 +56,34 @@ export function PortraitArea({
       return
     }
 
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS.portrait,
-        versionRef,
-        action: async (expectedVersion) => {
-          const formData = new FormData()
-          formData.append("characterId", characterId)
-          formData.append("expectedVersion", String(expectedVersion))
-          formData.append("file", file)
-          return uploadCharacterPortraitAction(formData)
-        },
-      })
-      if (!result.ok) {
-        toast.error(messageForUploadError(result.error))
-      }
+    write({
+      surface: "portrait",
+      action: async (expectedVersion) => {
+        const formData = new FormData()
+        formData.append("characterId", characterId)
+        formData.append("expectedVersion", String(expectedVersion))
+        formData.append("file", file)
+        return uploadCharacterPortraitAction(formData)
+      },
+      onError: (error) => {
+        toast.error(messageForUploadError(error))
+        return true
+      },
     })
   }
 
   function onRemove() {
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS.portrait,
-        versionRef,
-        action: (expectedVersion) =>
-          removeCharacterPortraitAction({
-            characterId,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        toast.error("Couldn't remove the portrait. Try again.")
-      }
+    write({
+      surface: "portrait",
+      action: (expectedVersion) =>
+        removeCharacterPortraitAction({
+          characterId,
+          expectedVersion,
+        }),
+      messages: {
+        stale: "Couldn't remove the portrait. Try again.",
+        error: "Couldn't remove the portrait. Try again.",
+      },
     })
   }
 
@@ -124,9 +108,9 @@ export function PortraitArea({
           variant="outline"
           size="sm"
           onClick={openPicker}
-          disabled={isPending}
+          disabled={pending}
         >
-          {isPending ? <Spinner /> : <CameraIcon weight="bold" />}
+          {pending ? <Spinner /> : <CameraIcon weight="bold" />}
           {portraitUrl ? "Replace" : "Upload portrait"}
         </Button>
         {portraitUrl ? (
@@ -135,7 +119,7 @@ export function PortraitArea({
             variant="ghost"
             size="sm"
             onClick={onRemove}
-            disabled={isPending}
+            disabled={pending}
           >
             <TrashIcon weight="bold" />
             Remove
@@ -149,7 +133,7 @@ export function PortraitArea({
 function messageForUploadError(error: string): string {
   switch (error) {
     case "too-large":
-      return "That image is over 5 MB. Pick a smaller one."
+      return "That image is over 1 MB. Pick a smaller one."
     case "invalid-mime":
       return "Portraits must be a JPEG, PNG, WebP, or GIF."
     case "empty-file":
