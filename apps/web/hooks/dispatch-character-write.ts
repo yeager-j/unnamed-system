@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react"
 
-import type { VersionClass } from "@/lib/db/version-classes"
+import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
 import type { Result } from "../lib/result"
@@ -33,21 +33,28 @@ import { broadcastCharacterVersion } from "./use-character-versions-broadcast"
  * The helper mutates `versionRef.current` on both success and pre-retry
  * paths so the consumer's next dispatch reads the latest value without
  * waiting for React commit + effects to propagate the new prop.
+ *
+ * Callers name the edit `surface`, not the version class (UNN-254): the
+ * class — needed only for the cross-tab broadcast tag and the
+ * `${class}Version` refetch field — is resolved here from
+ * {@link EDIT_SURFACE_CLASS}, the one place surface→class lives (UNN-233).
+ * Every client call site therefore names a surface and nothing else.
  */
 export async function dispatchCharacterWriteWithRetry<
   TSuccess extends { version: number },
   TError extends string,
 >({
   characterId,
-  characterClass,
+  surface,
   versionRef,
   action,
 }: {
   characterId: string
-  characterClass: VersionClass
+  surface: EditSurface
   versionRef: RefObject<number>
   action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
 }): Promise<Result<TSuccess, TError>> {
+  const characterClass = EDIT_SURFACE_CLASS[surface]
   const first = await action(versionRef.current)
   if (first.ok) {
     versionRef.current = first.value.version

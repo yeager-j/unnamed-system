@@ -181,7 +181,7 @@ export function useCharacterWrite() {
       if (edit) applyEdit(edit)
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass,
+        surface,
         versionRef: versionRefs[characterClass],
         action,
       })

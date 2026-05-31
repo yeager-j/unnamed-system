@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
+import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
@@ -75,9 +75,10 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    *  fresh per-class version after a `"stale"` and by the broadcast
    *  pipeline to notify sibling tabs. */
   characterId: string
-  /** The edit surface this editor mutates. Its per-write-class bucket — which
-   *  drives the refetch field and the broadcast tag — is resolved from
-   *  {@link EDIT_SURFACE_CLASS} (UNN-233). */
+  /** The edit surface this editor mutates. Passed through to
+   *  {@link dispatchCharacterWriteWithRetry}, which resolves its per-write-class
+   *  bucket — the one driving the refetch field and the broadcast tag — from the
+   *  surface→class map (UNN-233). */
   surface: EditSurface
   /** Persists `value`, conditioned on `expectedVersion`. */
   save: (
@@ -124,7 +125,6 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   TValue,
   TError
 >): UseDebouncedAutoSaveReturn<TValue> {
-  const characterClass = EDIT_SURFACE_CLASS[surface]
   const [value, setLocalValue] = useState(serverValue)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
@@ -139,7 +139,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       try {
         const result = await dispatchCharacterWriteWithRetry({
           characterId,
-          characterClass,
+          surface,
           versionRef,
           action: (expectedVersion) => save(next, expectedVersion),
         })

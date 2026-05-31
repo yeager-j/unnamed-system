@@ -27,7 +27,6 @@ import {
   partialRestAction,
   respiteAction,
 } from "@/lib/actions/rest"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { getPathDice, type HydratedCharacter } from "@/lib/game/character"
 
 /**
@@ -77,7 +76,7 @@ export function RestDialog({
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId: character.id,
-        characterClass: EDIT_SURFACE_CLASS.rest,
+        surface: "rest",
         versionRef,
         action,
       })
