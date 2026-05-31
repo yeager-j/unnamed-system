@@ -39,10 +39,12 @@ const safeUrlTransform = (url: string): string =>
 export function Prose({
   children,
   className,
+  serif = false,
   inverted = false,
 }: {
   children: string
   className?: string
+  serif?: boolean
   inverted?: boolean
 }) {
   return (
@@ -58,6 +60,7 @@ export function Prose({
         "[&_:not(pre)>code]:before:content-none [&_:not(pre)>code]:after:content-none",
         "[&_:not(pre)>code]:rounded-sm [&_:not(pre)>code]:bg-current/10 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5",
         inverted ? INVERTED_PROSE_VARS : "dark:prose-invert",
+        serif ? "font-serif" : "font-sans",
         className
       )}
     >

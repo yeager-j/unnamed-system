@@ -21,6 +21,7 @@ import { useCharacter } from "@/hooks/use-character"
 export function Background() {
   const character = useCharacter()
   const sections: ReadonlyArray<{ label: string; text: string | null }> = [
+    { label: "Pronouns", text: character.pronouns },
     { label: "Ancestry", text: character.ancestryText },
     { label: "Background", text: character.backgroundText },
     { label: "Backstory", text: character.backstoryText },

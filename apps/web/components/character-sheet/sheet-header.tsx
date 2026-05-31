@@ -73,12 +73,6 @@ export function SheetHeader() {
                 {fallen ? <Badge variant="destructive">Fallen</Badge> : null}
               </div>
 
-              {character.pronouns ? (
-                <p className="text-sm text-muted-foreground">
-                  {character.pronouns}
-                </p>
-              ) : null}
-
               <p className="text-sm text-muted-foreground">
                 Level {character.level} ·{" "}
                 <OwnerOnly>
