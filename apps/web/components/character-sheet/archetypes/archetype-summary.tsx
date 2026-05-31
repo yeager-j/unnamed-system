@@ -1,5 +1,6 @@
 "use client"
 
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   ResponsiveDialog,
@@ -10,9 +11,9 @@ import {
   ResponsiveDialogTrigger,
 } from "@workspace/ui/components/responsive-dialog"
 
+import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import type { ArchetypeEntry } from "@/lib/game/archetypes"
 import type { AttributeScores } from "@/lib/game/character"
-import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeDetail } from "./archetype-detail"
 import { ArchetypeSummaryRow } from "./archetype-summary-row"
@@ -54,16 +55,13 @@ export function ArchetypeSummary({
       />
       <ResponsiveDialogContent className="data-[side=right]:sm:max-w-xl">
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle className="flex items-baseline gap-2">
-            <span>{archetype.name}</span>
-            <span className="text-sm font-normal text-muted-foreground">
-              Rank {row.rank}/5
-            </span>
-          </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            {LINEAGE_LABELS[archetype.lineage]} · {TIER_LABELS[archetype.tier]}
-            {isActive ? " · Active" : null}
-          </ResponsiveDialogDescription>
+          <ArchetypeDetailHeader
+            archetype={archetype}
+            rank={row.rank}
+            titleAs={ResponsiveDialogTitle}
+            subtitleAs={ResponsiveDialogDescription}
+            trailing={isActive ? <Badge>Active</Badge> : null}
+          />
         </ResponsiveDialogHeader>
         <div className="overflow-y-auto px-4 pb-8">
           <ArchetypeDetail entry={entry} attributes={attributes} />

@@ -19,9 +19,9 @@ test("Active Archetype card surfaces the full Rank-5 block", async ({
 }) => {
   await page.goto("/c/seed-knight?tab=archetypes")
 
-  // The Active card calls itself out by name and pins the Archetype identity
-  // (name / Rank / Mastery) in its header.
-  await expect(page.getByText("Active Archetype")).toBeVisible()
+  // The Active card calls itself out with an "Active" badge and pins the
+  // Archetype identity (name / Rank / Mastery) in its header.
+  await expect(page.getByText("Active", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("Knight", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("Rank 5/5").first()).toBeVisible()
 
@@ -68,7 +68,11 @@ test("Unlocked Archetypes list groups by Lineage and marks the active one", asyn
   // The active Archetype carries an "Active" badge in its compact row inside
   // its Lineage. The summary cards each have one "Show details" button — three
   // cards ⇒ three triggers.
-  await expect(page.getByText("Active", { exact: true })).toBeVisible()
+  await expect(
+    page.getByRole("region", { name: "Knight Lineage" }).getByText("Active", {
+      exact: true,
+    })
+  ).toBeVisible()
   await expect(page.getByRole("button", { name: "Show details" })).toHaveCount(
     3
   )
