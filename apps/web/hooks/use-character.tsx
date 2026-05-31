@@ -124,6 +124,26 @@ export function useCharacter(): HydratedCharacter {
   return character
 }
 
+/**
+ * Reads the *shared* per-write-class version ref for a given edit surface from
+ * {@link CharacterProvider} (UNN-274). The debounced text editors
+ * ({@link useDebouncedAutoSave}) consume this so every same-class field reads
+ * and writes one token — a sibling's successful bump is visible in the same
+ * frame, without waiting on the `revalidate → prop-sync` round-trip. The
+ * click-write path reads the same refs via {@link useCharacterWrite}.
+ */
+export function useCharacterVersionRef(
+  surface: EditSurface
+): RefObject<number> {
+  const editor = useContext(CharacterEditorContext)
+  if (!editor) {
+    throw new Error(
+      "useCharacterVersionRef must be used within a CharacterProvider"
+    )
+  }
+  return editor.versionRefs[EDIT_SURFACE_CLASS[surface]]
+}
+
 interface WriteParams<
   TSuccess extends { version: number },
   TError extends string,

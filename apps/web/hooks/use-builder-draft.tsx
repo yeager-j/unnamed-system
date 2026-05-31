@@ -80,6 +80,24 @@ export function useBuilderDraft(): BuilderCharacter {
   return draft
 }
 
+/**
+ * Reads the *shared* identity version ref from {@link BuilderDraftProvider}
+ * (UNN-274). The builder's debounced text editors
+ * ({@link useDebouncedAutoSave}) consume this so every field reads and writes
+ * one token — a sibling's successful bump is visible in the same frame,
+ * without waiting on the `revalidate → prop-sync` round-trip. Every builder
+ * surface is identity-class, so there's a single ref (no surface param).
+ */
+export function useBuilderVersionRef(): RefObject<number> {
+  const ctx = useContext(BuilderWriteContext)
+  if (!ctx) {
+    throw new Error(
+      "useBuilderVersionRef must be used within a BuilderDraftProvider"
+    )
+  }
+  return ctx.versionRef
+}
+
 interface BuilderWriteParams<
   TSuccess extends { version: number },
   TError extends string,

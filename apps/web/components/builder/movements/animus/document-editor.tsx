@@ -12,6 +12,7 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
+import { useBuilderVersionRef } from "@/hooks/use-builder-draft"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
@@ -21,8 +22,9 @@ import type { Result } from "@/lib/result"
  * active document.
  *
  * Two independent `useDebouncedAutoSave` instances drive title and body
- * separately. Both write the identity class — the silent-retry pipeline in
- * `dispatchCharacterWriteWithRetry` handles the version race between them.
+ * separately. Both write the identity class and read the *same* shared
+ * version ref (`useBuilderVersionRef`, UNN-274), so the title's bump is
+ * visible to the body's next save in-frame — no version race between them.
  *
  * Every document — editable (Knives / Chains) or fixed (Backstory /
  * Identity Traits) — renders the same Input + description + Separator +
@@ -71,7 +73,6 @@ export interface DocumentEditorMessages {
 
 export function DocumentEditor({
   characterId,
-  identityVersion,
   documentId,
   title,
   body,
@@ -80,7 +81,6 @@ export function DocumentEditor({
   surface,
 }: {
   characterId: string
-  identityVersion: number
   /**
    * Stable per-document id used to seed the input element's `id` for label
    * association. Avoids cross-document `htmlFor` collisions when the
@@ -95,10 +95,11 @@ export function DocumentEditor({
 }) {
   const onError = () => toast.error(messages.saveError)
   const isTitleEditable = !!actions.updateTitle
+  const versionRef = useBuilderVersionRef()
 
   const titleState = useDebouncedAutoSave({
     serverValue: title,
-    serverVersion: identityVersion,
+    versionRef,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),
@@ -124,7 +125,7 @@ export function DocumentEditor({
 
   const bodyState = useDebouncedAutoSave({
     serverValue: body,
-    serverVersion: identityVersion,
+    versionRef,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),

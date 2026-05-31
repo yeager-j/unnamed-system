@@ -72,12 +72,13 @@ describe("useDebouncedAutoSave", () => {
 
   it("serializes a follow-up save: B reads the post-A version", async () => {
     const { save, calls } = makeControlledSave()
+    const versionRef = { current: 0 }
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "",
-        serverVersion: 0,
+        versionRef,
         save,
       })
     )
@@ -108,14 +109,57 @@ describe("useDebouncedAutoSave", () => {
     expect(calls[1]!.expectedVersion).toBe(1)
   })
 
+  it("sibling fields sharing a versionRef see each other's bump in-frame (UNN-274)", async () => {
+    // Two same-class fields (e.g. Ancestry + Background) are handed the *same*
+    // provider ref. After field A's save bumps it to v1, field B's next save
+    // must read v1 — not the stale v0 it loaded with — so it never stales.
+    const shared = { current: 0 }
+    const a = makeControlledSave()
+    const b = makeControlledSave()
+
+    const fieldA = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "",
+        versionRef: shared,
+        save: a.save,
+      })
+    )
+    const fieldB = renderHook(() =>
+      useDebouncedAutoSave({
+        ...FIXED_ARGS,
+        serverValue: "",
+        versionRef: shared,
+        save: b.save,
+      })
+    )
+
+    // A saves and the server advances to v1.
+    act(() => fieldA.result.current.setValue("Aether"))
+    act(() => fieldA.result.current.flush())
+    await flushMicrotasks()
+    expect(a.calls[0]!.expectedVersion).toBe(0)
+    await act(async () => {
+      a.calls[0]!.resolve(ok({ value: "Aether", version: 1 }))
+    })
+    await flushMicrotasks()
+
+    // B now saves — it reads the shared ref, already advanced to v1.
+    act(() => fieldB.result.current.setValue("Archivist"))
+    act(() => fieldB.result.current.flush())
+    await flushMicrotasks()
+    expect(b.calls[0]!.expectedVersion).toBe(1)
+  })
+
   it("on flush, reverts to last-saved when the draft is empty", async () => {
     const { save, calls } = makeControlledSave()
+    const versionRef = { current: 0 }
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -146,12 +190,13 @@ describe("useDebouncedAutoSave", () => {
 
   it("on unmount, dispatches a fire-and-forget save when the draft is dirty", async () => {
     const { save, calls } = makeControlledSave()
+    const versionRef = { current: 0 }
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "",
-        serverVersion: 0,
+        versionRef,
         save,
       })
     )
@@ -170,12 +215,13 @@ describe("useDebouncedAutoSave", () => {
 
   it("on unmount, skips the save when the draft is empty", async () => {
     const { save, calls } = makeControlledSave()
+    const versionRef = { current: 0 }
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -205,11 +251,12 @@ describe("useDebouncedAutoSave", () => {
         }
       )
 
+    const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         onError,
       })
@@ -249,11 +296,12 @@ describe("useDebouncedAutoSave", () => {
       })
     )
 
+    const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         onError,
       })
@@ -299,11 +347,12 @@ describe("useDebouncedAutoSave", () => {
       })
     )
 
+    const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         onError,
       })
@@ -333,11 +382,12 @@ describe("useDebouncedAutoSave", () => {
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
 
+    const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
         ...FIXED_ARGS,
         serverValue: "Mira",
-        serverVersion: 0,
+        versionRef,
         save,
         onError,
       })

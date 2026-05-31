@@ -2,6 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useCharacterVersionRef } from "@/hooks/use-character"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterNameAction } from "@/lib/actions/character-name"
 
@@ -18,22 +19,21 @@ const MAX_LENGTH = 64
  * routine-save channel stays quiet and a real error reads as one.
  *
  * All the concurrency + lifecycle plumbing (debounce, in-flight guard,
- * `identityVersion` dual-writer ref, last-saved tracking, focused-prop sync,
+ * shared `identityVersion` ref, last-saved tracking, focused-prop sync,
  * rollback) lives in {@link useDebouncedAutoSave}. This component is just
  * the rendered input + the keybindings.
  */
 export function EditableCharacterName({
   characterId,
   name,
-  identityVersion,
 }: {
   characterId: string
   name: string
-  identityVersion: number
 }) {
+  const versionRef = useCharacterVersionRef("name")
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue: name,
-    serverVersion: identityVersion,
+    versionRef,
     characterId,
     surface: "name",
     isEmpty: (next) => next.trim().length === 0,

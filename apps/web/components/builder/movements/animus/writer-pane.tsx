@@ -43,7 +43,6 @@ import {
 export function WriterPane() {
   const {
     id: characterId,
-    identityVersion,
     backstoryText,
     knives,
     chains,
@@ -76,7 +75,6 @@ export function WriterPane() {
         <ActiveDocument
           key={documentKey(resolved.ref)}
           characterId={characterId}
-          identityVersion={identityVersion}
           resolved={resolved}
         />
       ) : (
@@ -90,11 +88,9 @@ export function WriterPane() {
 
 function ActiveDocument({
   characterId,
-  identityVersion,
   resolved,
 }: {
   characterId: string
-  identityVersion: number
   resolved: ResolvedDocument
 }) {
   const { ref, title, body } = resolved
@@ -110,7 +106,6 @@ function ActiveDocument({
   return (
     <DocumentEditor
       characterId={characterId}
-      identityVersion={identityVersion}
       documentId={documentKey(ref)}
       title={displayedTitle}
       body={body}

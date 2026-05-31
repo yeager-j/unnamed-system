@@ -2,6 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useCharacterVersionRef } from "@/hooks/use-character"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
@@ -35,7 +36,6 @@ export function EditableDetailField({
   field,
   label,
   serverValue,
-  serverVersion,
   placeholder,
   maxLength,
 }: {
@@ -43,13 +43,13 @@ export function EditableDetailField({
   field: DetailField
   label: string
   serverValue: string
-  serverVersion: number
   placeholder: string
   maxLength: number
 }) {
+  const versionRef = useCharacterVersionRef(FIELD_SURFACE[field])
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue,
-    serverVersion,
+    versionRef,
     characterId,
     surface: FIELD_SURFACE[field],
     isEqual: (a, b) => a.trim() === b.trim(),

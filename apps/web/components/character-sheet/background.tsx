@@ -27,7 +27,7 @@ const NARRATIVE_MAX = 160
 
 export function Background() {
   const character = useCharacter()
-  const { id: characterId, identityVersion } = character
+  const { id: characterId } = character
 
   return (
     <Card>
@@ -42,7 +42,6 @@ export function Background() {
               field="pronouns"
               label="Pronouns"
               serverValue={character.pronouns ?? ""}
-              serverVersion={identityVersion}
               placeholder="e.g. they/them"
               maxLength={PRONOUNS_MAX}
             />
@@ -59,7 +58,6 @@ export function Background() {
               field="ancestry"
               label="Ancestry"
               serverValue={character.ancestryText ?? ""}
-              serverVersion={identityVersion}
               placeholder="e.g. Half-elf, Tiefling, Dwarf…"
               maxLength={NARRATIVE_MAX}
             />
@@ -76,7 +74,6 @@ export function Background() {
               field="background"
               label="Background"
               serverValue={character.backgroundText ?? ""}
-              serverVersion={identityVersion}
               placeholder="e.g. Disgraced noble, Street thief, Battlefield medic…"
               maxLength={NARRATIVE_MAX}
             />

@@ -7,7 +7,10 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import { useBuilderDraft } from "@/hooks/use-builder-draft"
+import {
+  useBuilderDraft,
+  useBuilderVersionRef,
+} from "@/hooks/use-builder-draft"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
 
@@ -24,12 +27,7 @@ const ANCESTRY_MAX = 160
 const BACKGROUND_MAX = 160
 
 export function NarrativePair() {
-  const {
-    id: characterId,
-    ancestryText,
-    backgroundText,
-    identityVersion,
-  } = useBuilderDraft()
+  const { id: characterId, ancestryText, backgroundText } = useBuilderDraft()
 
   return (
     <div className="flex flex-col gap-5">
@@ -41,7 +39,6 @@ export function NarrativePair() {
         placeholder="e.g. Half-elf, Tiefling, Dwarf…"
         maxLength={ANCESTRY_MAX}
         serverValue={ancestryText ?? ""}
-        identityVersion={identityVersion}
       />
       <SingleLineField
         characterId={characterId}
@@ -51,7 +48,6 @@ export function NarrativePair() {
         placeholder="e.g. Disgraced noble, Street thief, Battlefield medic…"
         maxLength={BACKGROUND_MAX}
         serverValue={backgroundText ?? ""}
-        identityVersion={identityVersion}
       />
     </div>
   )
@@ -65,7 +61,6 @@ function SingleLineField({
   placeholder,
   maxLength,
   serverValue,
-  identityVersion,
 }: {
   characterId: string
   field: "ancestry" | "background"
@@ -74,11 +69,11 @@ function SingleLineField({
   placeholder: string
   maxLength: number
   serverValue: string
-  identityVersion: number
 }) {
+  const versionRef = useBuilderVersionRef()
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue,
-    serverVersion: identityVersion,
+    versionRef,
     characterId,
     surface: "narrative",
     isEqual: (a, b) => a.trim() === b.trim(),

@@ -1,6 +1,12 @@
 "use client"
 
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type RefObject,
+} from "react"
 import { toast } from "sonner"
 
 import type { EditSurface } from "@/lib/db/version-classes"
@@ -14,24 +20,31 @@ import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
  * per-knife/chain titles, …) needs the same plumbing: a local draft state,
  * a debounce timeout, a serialized save queue so the debounce-then-blur
  * pattern doesn't double-fire with the same `expectedVersion`, a
- * `lastSavedRef` to skip no-op edits, and a `versionRef` with two
- * convergent writers (own-action success + prop sync) so sibling components
- * don't leave us with a stale version token. This hook is the one place
- * those rules live.
+ * `lastSavedRef` to skip no-op edits, and a shared per-write-class
+ * `versionRef` so sibling components coordinate on a single version token.
+ * This hook is the one place those rules live.
  *
  * **Concurrency contract.** The `save` callback receives the current value
  * *and* the latest known per-write-class `version` (UNN-140) — the hook
  * does not let the consumer thread the token itself, because every place
- * I've seen consumers do that has eventually drifted from the prop. Saves
- * are serialized via a single promise chain (`saveQueueRef`): when a save
- * is dispatched while another is in flight, it chains behind the in-flight
- * one and reads the *fresh* `versionRef.current` (just written by the prior
- * save's success branch) before its own request goes out. That closes both
- * the same-value and different-value debounce+blur races.
+ * I've seen consumers do that has eventually drifted from the prop. The
+ * `version` comes from the *shared* provider ref passed in as `versionRef`
+ * (UNN-274): the sheet's `useCharacterVersionRef(surface)` and the builder's
+ * `useBuilderVersionRef()` both hand back the same per-class ref every
+ * same-class field reads and writes, so a sibling field's successful bump is
+ * visible in the same frame — no waiting on the `revalidate → prop-sync`
+ * round-trip. The provider keeps that ref synced from the server prop
+ * (`useCharacterTokenRef`) as the fallback for cross-tab / external bumps.
  *
- * On success, the ref is updated from `result.value.version` immediately,
- * so a rapid follow-up save doesn't have to wait for React commit + effect
- * to propagate the prop.
+ * Saves are serialized via a single promise chain (`saveQueueRef`): when a
+ * save is dispatched while another is in flight, it chains behind the
+ * in-flight one and reads the *fresh* `versionRef.current` (just written by
+ * the prior save's success branch) before its own request goes out. That
+ * closes both the same-value and different-value debounce+blur races.
+ *
+ * On success, the shared ref is updated from `result.value.version`
+ * immediately, so a rapid follow-up save — by this field or a sibling —
+ * doesn't have to wait for React commit + effect to propagate the prop.
  *
  * **Silent stale retry + cross-tab broadcast** (UNN-203). Every save flows
  * through {@link dispatchCharacterWriteWithRetry}, which on `"stale"`
@@ -67,10 +80,12 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   /** The current value from the server. Drives the initial draft and the
    *  rollback target on failure. */
   serverValue: TValue
-  /** The per-write-class version token from the server (UNN-140). Pass the
-   *  column that matches this field's write class — e.g. `identityVersion`
-   *  for name/notes/identity-list editors. */
-  serverVersion: number
+  /** The *shared* per-write-class version ref from the provider (UNN-274).
+   *  Obtain it from `useCharacterVersionRef(surface)` (sheet) or
+   *  `useBuilderVersionRef()` (builder) so every same-class field reads and
+   *  writes one token and a sibling's bump is visible in-frame. The provider
+   *  keeps it synced from the server prop as the cross-tab/external fallback. */
+  versionRef: RefObject<number>
   /** Owning character — used by the silent-retry path to refetch the
    *  fresh per-class version after a `"stale"` and by the broadcast
    *  pipeline to notify sibling tabs. */
@@ -113,7 +128,7 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
-  serverVersion,
+  versionRef,
   characterId,
   surface,
   save,
@@ -129,7 +144,6 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
   const lastSavedRef = useRef(serverValue)
-  const versionRef = useRef(serverVersion)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   function performSave(next: TValue): Promise<void> {
@@ -215,15 +229,16 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   }
 
   // useEffectEvent (React 19.2) sees the latest props/state without being
-  // listed in deps — lets the prop-sync effect fire on version-bump only,
-  // and lets the unmount cleanup read fresh `value`, `isEmpty`, `isEqual`,
-  // and `performSave` without re-running every render.
+  // listed in deps — lets the prop-sync effect fire on serverValue change
+  // only, and lets the unmount cleanup read fresh `value`, `isEmpty`,
+  // `isEqual`, and `performSave` without re-running every render. The version
+  // token is *not* synced here: the shared `versionRef` is owned by the
+  // provider's `useCharacterTokenRef`, so this hook only reads it (UNN-274).
   const syncFromServer = useEffectEvent(() => {
     if (!focusedRef.current) {
       setLocalValue(serverValue)
       lastSavedRef.current = serverValue
     }
-    versionRef.current = serverVersion
   })
   const flushOnUnmount = useEffectEvent(() => {
     if (debounceRef.current) {
@@ -237,7 +252,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
 
   useEffect(() => {
     syncFromServer()
-  }, [serverValue, serverVersion])
+  }, [serverValue])
 
   useEffect(() => () => flushOnUnmount(), [])
 

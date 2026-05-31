@@ -680,37 +680,35 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     }
 
     /**
-     * Edit one field, then wait until it has actually persisted before moving
-     * on. The three Background fields share `identityVersion` but each holds an
-     * independent debounce `versionRef`, so a sibling edit can trip one save's
-     * silent stale-retry; polling the row (rather than `networkidle`) keeps the
-     * sequence deterministic instead of racing the retry against the next edit.
-     * The shared-ref fix that would let this drop the poll is tracked in UNN-274.
+     * Edit one field and move straight on — no per-field persistence poll.
+     * The three Background fields share `identityVersion`, and since UNN-274
+     * they read one shared in-memory version ref, so a sibling's successful
+     * bump is visible to the next field's save in the same frame. That means
+     * hammering them back-to-back (faster than the `revalidate → prop-sync`
+     * round-trip) no longer trips a stale-retry, so the sequence stays
+     * deterministic without pacing the edits against the persisted row.
      */
-    async function editField(
-      page: Page,
-      label: string,
-      value: string,
-      column: "pronouns" | "ancestryText" | "backgroundText"
-    ) {
+    async function editField(page: Page, label: string, value: string) {
       const input = page.getByRole("textbox", { name: label })
       await input.fill(value)
       await input.blur()
-      await expect.poll(() => columnValue(column)).toBe(value)
     }
 
     test("pronouns / ancestry / background auto-save and persist across reload", async ({
       page,
     }) => {
       await page.goto(EXPLORE_URL)
-      await editField(page, "Pronouns", "ze/zir", "pronouns")
-      await editField(page, "Ancestry", "Aether-touched", "ancestryText")
-      await editField(
-        page,
-        "Background",
-        "Wandering archivist",
-        "backgroundText"
-      )
+      // Edit all three back-to-back, faster than the revalidate round-trip,
+      // to exercise the shared-ref coordination (UNN-274).
+      await editField(page, "Pronouns", "ze/zir")
+      await editField(page, "Ancestry", "Aether-touched")
+      await editField(page, "Background", "Wandering archivist")
+
+      // The last edit's save still needs to land before the reload re-reads
+      // the row; the three share one ref so they serialize cleanly.
+      await expect
+        .poll(() => columnValue("backgroundText"))
+        .toBe("Wandering archivist")
 
       await page.reload()
       await expect(page.getByRole("textbox", { name: "Pronouns" })).toHaveValue(
