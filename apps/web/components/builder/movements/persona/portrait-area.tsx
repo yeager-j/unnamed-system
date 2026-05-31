@@ -17,9 +17,11 @@ import {
   removeCharacterPortraitAction,
   uploadCharacterPortraitAction,
 } from "@/lib/actions/character-identity"
-import { MAX_PORTRAIT_BYTES } from "@/lib/storage/portrait-upload"
-
-const ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
+import {
+  MAX_PORTRAIT_BYTES,
+  messageForPortraitUploadError,
+  PORTRAIT_ACCEPT,
+} from "@/lib/storage/portrait-upload"
 
 /**
  * Movement 4's portrait area. Sits at the visual top of the page. When
@@ -51,7 +53,7 @@ export function PortraitArea() {
       toast.error("That image is over 1 MB. Pick a smaller one.")
       return
     }
-    if (!ACCEPT.split(",").includes(file.type)) {
+    if (!PORTRAIT_ACCEPT.split(",").includes(file.type)) {
       toast.error("Portraits must be a JPEG, PNG, WebP, or GIF.")
       return
     }
@@ -66,7 +68,7 @@ export function PortraitArea() {
         return uploadCharacterPortraitAction(formData)
       },
       onError: (error) => {
-        toast.error(messageForUploadError(error))
+        toast.error(messageForPortraitUploadError(error))
         return true
       },
     })
@@ -97,7 +99,7 @@ export function PortraitArea() {
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPT}
+        accept={PORTRAIT_ACCEPT}
         className="sr-only"
         onChange={onFileSelected}
       />
@@ -128,21 +130,4 @@ export function PortraitArea() {
       </div>
     </div>
   )
-}
-
-function messageForUploadError(error: string): string {
-  switch (error) {
-    case "too-large":
-      return "That image is over 1 MB. Pick a smaller one."
-    case "invalid-mime":
-      return "Portraits must be a JPEG, PNG, WebP, or GIF."
-    case "empty-file":
-      return "That file looks empty."
-    case "stale":
-      return "Couldn't sync — refresh to see the latest changes."
-    case "character-not-found":
-      return "This character was deleted. Head back to your roster."
-    default:
-      return "Couldn't upload. Try again."
-  }
 }

@@ -42,6 +42,10 @@ export async function resetWriteTarget(): Promise<void> {
     .update(characters)
     .set({
       name: seed.name,
+      pronouns: seed.pronouns,
+      ancestryText: seed.ancestryText,
+      backgroundText: seed.backgroundText,
+      portraitUrl: null,
       gainedTalents: [],
       sparkLog: [],
       virtueExpression: 0,

@@ -13,10 +13,12 @@ import { useCharacter } from "@/hooks/use-character"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 import { formatCurrency } from "@/lib/ui/format-currency"
+import { initials } from "@/lib/ui/initials"
 
 import { ActiveArchetypeSwitcher } from "./active-archetype-switcher"
 import { Attributes } from "./attributes"
 import { EditableCharacterName } from "./editable-character-name"
+import { EditablePortrait } from "./editable-portrait"
 import { HeaderOwnerActions } from "./header-owner-actions"
 import { OwnerControlsSlot } from "./owner-controls-slot"
 import { Vitals } from "./vitals"
@@ -45,16 +47,21 @@ export function SheetHeader() {
       <CardContent className="flex flex-col gap-6 md:flex-row md:items-start">
         <div className="flex flex-col gap-4 md:flex-1">
           <div className="flex items-start gap-4">
-            <Avatar className="size-20 rounded-none">
-              <AvatarImage
-                src={character.portraitUrl ?? undefined}
-                alt={`${character.name}'s portrait`}
-                className="rounded-none"
-              />
-              <AvatarFallback className="rounded-none text-lg">
-                {initials(character.name)}
-              </AvatarFallback>
-            </Avatar>
+            <OwnerOnly>
+              <EditablePortrait />
+            </OwnerOnly>
+            <NonOwner>
+              <Avatar className="size-20 rounded-none">
+                <AvatarImage
+                  src={character.portraitUrl ?? undefined}
+                  alt={`${character.name}'s portrait`}
+                  className="rounded-none"
+                />
+                <AvatarFallback className="rounded-none text-lg">
+                  {initials(character.name)}
+                </AvatarFallback>
+              </Avatar>
+            </NonOwner>
 
             <div className="flex min-w-0 flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -108,15 +115,4 @@ export function SheetHeader() {
       </CardContent>
     </Card>
   )
-}
-
-/** Up to two uppercase initials from the character's name, for the portrait
- * placeholder when no portrait is set. */
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((word) => word[0]!.toUpperCase())
-    .join("")
 }

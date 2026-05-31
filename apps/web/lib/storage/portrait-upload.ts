@@ -15,6 +15,14 @@ const ACCEPTED_MIME_TYPES = new Set([
 ])
 
 /**
+ * The `accept` attribute (and client-side allow-list) for a portrait file
+ * input, derived from {@link ACCEPTED_MIME_TYPES} so the browser picker and
+ * the server validator can never drift apart. Shared by every uploader (the
+ * builder's Movement 4 and the sheet header).
+ */
+export const PORTRAIT_ACCEPT = "image/jpeg,image/png,image/webp,image/gif"
+
+/**
  * Hard size cap for portrait uploads. Pinned to 1 MB to match Next's default
  * Server Action `bodySizeLimit`: the portrait is sent as multipart FormData
  * through a Server Action, so a larger file is rejected by the framework
@@ -65,6 +73,29 @@ export async function uploadPortrait(
   } catch (error) {
     console.error("[uploadPortrait] put() failed", error)
     return err("upload-failed")
+  }
+}
+
+/**
+ * Maps a portrait upload/remove failure to user-facing toast copy. Covers
+ * both the storage-side {@link PortraitUploadError}s and the persistence-side
+ * `"stale"` / `"character-not-found"` cases so every caller (builder + sheet)
+ * surfaces one consistent message set.
+ */
+export function messageForPortraitUploadError(error: string): string {
+  switch (error) {
+    case "too-large":
+      return "That image is over 1 MB. Pick a smaller one."
+    case "invalid-mime":
+      return "Portraits must be a JPEG, PNG, WebP, or GIF."
+    case "empty-file":
+      return "That file looks empty."
+    case "stale":
+      return "Couldn't sync — refresh to see the latest changes."
+    case "character-not-found":
+      return "This character was deleted. Head back to your roster."
+    default:
+      return "Couldn't upload. Try again."
   }
 }
 
