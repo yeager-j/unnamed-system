@@ -3,7 +3,6 @@
 import {
   createContext,
   useContext,
-  useMemo,
   useOptimistic,
   useRef,
   useTransition,
@@ -101,36 +100,22 @@ export function CharacterProvider({
   const inventoryQueue = useRef<Promise<void>>(Promise.resolve())
   const progressionQueue = useRef<Promise<void>>(Promise.resolve())
 
-  const editor = useMemo<CharacterEditor>(
-    () => ({
-      characterId: character.id,
-      applyEdit,
-      versionRefs: {
-        identity: identityRef,
-        vitals: vitalsRef,
-        inventory: inventoryRef,
-        progression: progressionRef,
-      },
-      saveQueues: {
-        identity: identityQueue,
-        vitals: vitalsQueue,
-        inventory: inventoryQueue,
-        progression: progressionQueue,
-      },
-    }),
-    [
-      character.id,
-      applyEdit,
-      identityRef,
-      vitalsRef,
-      inventoryRef,
-      progressionRef,
-      identityQueue,
-      vitalsQueue,
-      inventoryQueue,
-      progressionQueue,
-    ]
-  )
+  const editor: CharacterEditor = {
+    characterId: character.id,
+    applyEdit,
+    versionRefs: {
+      identity: identityRef,
+      vitals: vitalsRef,
+      inventory: inventoryRef,
+      progression: progressionRef,
+    },
+    saveQueues: {
+      identity: identityQueue,
+      vitals: vitalsQueue,
+      inventory: inventoryQueue,
+      progression: progressionQueue,
+    },
+  }
 
   return (
     <CharacterEditorContext.Provider value={editor}>
