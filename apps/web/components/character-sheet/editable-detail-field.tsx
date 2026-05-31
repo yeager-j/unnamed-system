@@ -2,7 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useCharacterAutoSave } from "@/hooks/use-character"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
 import type { EditSurface } from "@/lib/db/version-classes"
@@ -18,7 +18,8 @@ import type { Result } from "@/lib/result"
  * Unlike {@link EditableCharacterName}, **empty is a valid value** here — the
  * field clears to `null` and the public sheet falls back to "None recorded." —
  * so no `isEmpty` revert-on-blur is passed. The lifecycle plumbing lives in
- * {@link useDebouncedAutoSave}; the `field` discriminant picks the Server
+ * {@link useCharacterAutoSave} and the core hook it wraps; the `field`
+ * discriminant picks the Server
  * Action (Pronouns and the two narrative slots ride different actions but the
  * same `identity` write class), mirroring the builder's `SingleLineField`.
  */
@@ -35,7 +36,6 @@ export function EditableDetailField({
   field,
   label,
   serverValue,
-  serverVersion,
   placeholder,
   maxLength,
 }: {
@@ -43,13 +43,11 @@ export function EditableDetailField({
   field: DetailField
   label: string
   serverValue: string
-  serverVersion: number
   placeholder: string
   maxLength: number
 }) {
-  const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
+  const { value, setValue, revert, onFocusChange } = useCharacterAutoSave({
     serverValue,
-    serverVersion,
     characterId,
     surface: FIELD_SURFACE[field],
     isEqual: (a, b) => a.trim() === b.trim(),

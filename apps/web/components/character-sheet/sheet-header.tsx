@@ -69,7 +69,6 @@ export function SheetHeader() {
                   <EditableCharacterName
                     characterId={character.id}
                     name={character.name}
-                    identityVersion={character.identityVersion}
                   />
                 </OwnerOnly>
                 <NonOwner>

@@ -12,7 +12,7 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useBuilderAutoSave } from "@/hooks/use-builder-draft"
 import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
 
@@ -20,9 +20,10 @@ import type { Result } from "@/lib/result"
  * The title + Markdown body pair the Movement 3 writer renders for the
  * active document.
  *
- * Two independent `useDebouncedAutoSave` instances drive title and body
- * separately. Both write the identity class — the silent-retry pipeline in
- * `dispatchCharacterWriteWithRetry` handles the version race between them.
+ * Two independent `useBuilderAutoSave` instances drive title and body
+ * separately. Both write the identity class and resolve the *same* shared
+ * version ref (UNN-274), so the title's bump is visible to the body's next
+ * save in-frame — no version race between them.
  *
  * Every document — editable (Knives / Chains) or fixed (Backstory /
  * Identity Traits) — renders the same Input + description + Separator +
@@ -71,7 +72,6 @@ export interface DocumentEditorMessages {
 
 export function DocumentEditor({
   characterId,
-  identityVersion,
   documentId,
   title,
   body,
@@ -80,7 +80,6 @@ export function DocumentEditor({
   surface,
 }: {
   characterId: string
-  identityVersion: number
   /**
    * Stable per-document id used to seed the input element's `id` for label
    * association. Avoids cross-document `htmlFor` collisions when the
@@ -96,9 +95,8 @@ export function DocumentEditor({
   const onError = () => toast.error(messages.saveError)
   const isTitleEditable = !!actions.updateTitle
 
-  const titleState = useDebouncedAutoSave({
+  const titleState = useBuilderAutoSave({
     serverValue: title,
-    serverVersion: identityVersion,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),
@@ -122,9 +120,8 @@ export function DocumentEditor({
     },
   })
 
-  const bodyState = useDebouncedAutoSave({
+  const bodyState = useBuilderAutoSave({
     serverValue: body,
-    serverVersion: identityVersion,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),

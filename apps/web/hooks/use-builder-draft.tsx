@@ -1,6 +1,12 @@
 "use client"
 
-import { createContext, useContext, useTransition, type RefObject } from "react"
+import {
+  createContext,
+  useContext,
+  useRef,
+  useTransition,
+  type RefObject,
+} from "react"
 import { toast } from "sonner"
 
 import type { BuilderCharacter } from "@/app/builder/[shortId]/_loader"
@@ -9,6 +15,11 @@ import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
+import {
+  useDebouncedAutoSave,
+  type UseDebouncedAutoSaveArgs,
+  type UseDebouncedAutoSaveReturn,
+} from "./use-debounced-auto-save"
 
 /**
  * The builder's draft context — the creation-time analogue of the sheet's
@@ -31,13 +42,22 @@ import { useCharacterTokenRef } from "./use-character-token-ref"
 const BuilderDraftContext = createContext<BuilderCharacter | null>(null)
 
 /**
- * The write surface: the owning character id plus the identity version ref
- * (UNN-140). Lives in its own context so write-only consumers
- * ({@link useBuilderWrite}) don't re-render when the draft changes.
+ * The write surface: the owning character id, the identity version ref
+ * (UNN-140), and the identity save queue (UNN-274). Lives in its own context
+ * so write-only consumers ({@link useBuilderWrite}) don't re-render when the
+ * draft changes.
  */
 interface BuilderWrite {
   characterId: string
   versionRef: RefObject<number>
+  /**
+   * The identity-class save queue (UNN-274): a single promise chain so the
+   * builder's same-class debounced fields serialize their saves and each reads
+   * the freshly-bumped {@link versionRef} token instead of colliding at the
+   * stale pre-bump version. Threaded into {@link useDebouncedAutoSave} by
+   * {@link useBuilderAutoSave}.
+   */
+  saveQueueRef: RefObject<Promise<void>>
 }
 
 const BuilderWriteContext = createContext<BuilderWrite | null>(null)
@@ -50,12 +70,17 @@ export function BuilderDraftProvider({
   children: React.ReactNode
 }) {
   const versionRef = useCharacterTokenRef(character.identityVersion)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   // No manual `useMemo` — React Compiler (UNN-241) memoizes this inline value
-  // on its stable inputs (`character.id` + the stable `versionRef`), so the
-  // write context stays referentially stable across draft-only changes and
+  // on its stable inputs (`character.id` + the stable refs), so the write
+  // context stays referentially stable across draft-only changes and
   // write-only consumers don't re-render.
-  const write: BuilderWrite = { characterId: character.id, versionRef }
+  const write: BuilderWrite = {
+    characterId: character.id,
+    versionRef,
+    saveQueueRef,
+  }
 
   return (
     <BuilderWriteContext.Provider value={write}>
@@ -78,6 +103,36 @@ export function useBuilderDraft(): BuilderCharacter {
     )
   }
   return draft
+}
+
+/**
+ * The builder's debounced auto-save primitive — the provider-bound wrapper
+ * over {@link useDebouncedAutoSave}, mirroring how {@link useBuilderWrite}
+ * wraps the shared click-write dispatch. It resolves the *shared* identity
+ * version ref *and* save queue from {@link BuilderDraftProvider} (UNN-274) and
+ * hands them to the core hook, so the builder's same-class fields both
+ * coordinate on one token and serialize their saves — consumers never touch
+ * either. Every builder surface is identity-class, so there's a single ref and
+ * queue (no surface param). Pass the same args as {@link useDebouncedAutoSave}
+ * minus `versionRef`/`saveQueueRef`.
+ */
+export function useBuilderAutoSave<TValue, TError extends string>(
+  args: Omit<
+    UseDebouncedAutoSaveArgs<TValue, TError>,
+    "versionRef" | "saveQueueRef"
+  >
+): UseDebouncedAutoSaveReturn<TValue> {
+  const ctx = useContext(BuilderWriteContext)
+  if (!ctx) {
+    throw new Error(
+      "useBuilderAutoSave must be used within a BuilderDraftProvider"
+    )
+  }
+  return useDebouncedAutoSave({
+    ...args,
+    versionRef: ctx.versionRef,
+    saveQueueRef: ctx.saveQueueRef,
+  })
 }
 
 interface BuilderWriteParams<

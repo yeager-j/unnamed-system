@@ -3,8 +3,8 @@
 import {
   createContext,
   useContext,
-  useMemo,
   useOptimistic,
+  useRef,
   useTransition,
   type RefObject,
 } from "react"
@@ -25,6 +25,11 @@ import type { Result } from "@/lib/result"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
 import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
+import {
+  useDebouncedAutoSave,
+  type UseDebouncedAutoSaveArgs,
+  type UseDebouncedAutoSaveReturn,
+} from "./use-debounced-auto-save"
 
 /**
  * The single client-side source of truth for the character sheet. The provider
@@ -58,6 +63,14 @@ interface CharacterEditor {
   characterId: string
   applyEdit: (edit: CharacterEdit) => void
   versionRefs: Record<VersionClass, RefObject<number>>
+  /**
+   * Per-write-class save queues (UNN-274): one promise chain per class so
+   * same-class debounced fields serialize their saves and each reads the
+   * freshly-bumped {@link versionRefs} token instead of colliding at the stale
+   * pre-bump version. Threaded into {@link useDebouncedAutoSave} by
+   * {@link useCharacterAutoSave}.
+   */
+  saveQueues: Record<VersionClass, RefObject<Promise<void>>>
 }
 
 const CharacterEditorContext = createContext<CharacterEditor | null>(null)
@@ -82,26 +95,27 @@ export function CharacterProvider({
   const inventoryRef = useCharacterTokenRef(character.inventoryVersion)
   const progressionRef = useCharacterTokenRef(character.progressionVersion)
 
-  const editor = useMemo<CharacterEditor>(
-    () => ({
-      characterId: character.id,
-      applyEdit,
-      versionRefs: {
-        identity: identityRef,
-        vitals: vitalsRef,
-        inventory: inventoryRef,
-        progression: progressionRef,
-      },
-    }),
-    [
-      character.id,
-      applyEdit,
-      identityRef,
-      vitalsRef,
-      inventoryRef,
-      progressionRef,
-    ]
-  )
+  const identityQueue = useRef<Promise<void>>(Promise.resolve())
+  const vitalsQueue = useRef<Promise<void>>(Promise.resolve())
+  const inventoryQueue = useRef<Promise<void>>(Promise.resolve())
+  const progressionQueue = useRef<Promise<void>>(Promise.resolve())
+
+  const editor: CharacterEditor = {
+    characterId: character.id,
+    applyEdit,
+    versionRefs: {
+      identity: identityRef,
+      vitals: vitalsRef,
+      inventory: inventoryRef,
+      progression: progressionRef,
+    },
+    saveQueues: {
+      identity: identityQueue,
+      vitals: vitalsQueue,
+      inventory: inventoryQueue,
+      progression: progressionQueue,
+    },
+  }
 
   return (
     <CharacterEditorContext.Provider value={editor}>
@@ -122,6 +136,35 @@ export function useCharacter(): HydratedCharacter {
     throw new Error("useCharacter must be used within a CharacterProvider")
   }
   return character
+}
+
+/**
+ * The sheet's debounced auto-save primitive — the provider-bound wrapper over
+ * {@link useDebouncedAutoSave}, mirroring how {@link useCharacterWrite} wraps
+ * the shared click-write dispatch. It resolves the *shared* per-write-class
+ * version ref *and* save queue from {@link CharacterProvider} (UNN-274) and
+ * hands them to the core hook, so sibling same-class fields both coordinate on
+ * one token and serialize their saves — consumers never touch either. Pass the
+ * same args as {@link useDebouncedAutoSave} minus `versionRef`/`saveQueueRef`.
+ */
+export function useCharacterAutoSave<TValue, TError extends string>(
+  args: Omit<
+    UseDebouncedAutoSaveArgs<TValue, TError>,
+    "versionRef" | "saveQueueRef"
+  >
+): UseDebouncedAutoSaveReturn<TValue> {
+  const editor = useContext(CharacterEditorContext)
+  if (!editor) {
+    throw new Error(
+      "useCharacterAutoSave must be used within a CharacterProvider"
+    )
+  }
+  const characterClass = EDIT_SURFACE_CLASS[args.surface]
+  return useDebouncedAutoSave({
+    ...args,
+    versionRef: editor.versionRefs[characterClass],
+    saveQueueRef: editor.saveQueues[characterClass],
+  })
 }
 
 interface WriteParams<

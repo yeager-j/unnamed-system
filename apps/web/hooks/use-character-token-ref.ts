@@ -13,9 +13,11 @@ import { useEffect, useRef, type RefObject } from "react"
  * click-action editor on the sheet (UNN-180-style) should consume it
  * instead of hand-rolling the ref-plus-effect pair.
  *
- * `useDebouncedAutoSave` does not consume this hook because it owns
- * additional internal state (focus guard, draft sync) that needs the same
- * effect; the duplication there is intentional.
+ * The debounced text editors read the *same* ref this hook produces — handed
+ * to them by the provider-bound wrappers `useCharacterAutoSave` /
+ * `useBuilderAutoSave` (UNN-274) — so same-class fields coordinate on one
+ * token. This hook's prop-sync remains the fallback that absorbs cross-tab /
+ * external version bumps.
  */
 export function useCharacterTokenRef<T>(token: T): RefObject<T> {
   const ref = useRef(token)
