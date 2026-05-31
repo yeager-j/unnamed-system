@@ -4,10 +4,7 @@ import { createContext, useContext, useTransition, type RefObject } from "react"
 import { toast } from "sonner"
 
 import type { BuilderCharacter } from "@/app/builder/[shortId]/_loader"
-import {
-  EDIT_SURFACE_CLASS,
-  type EditSurface,
-} from "@/lib/db/version-classes"
+import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
@@ -27,9 +24,8 @@ import { useCharacterTokenRef } from "./use-character-token-ref"
  * Instead it reuses the low-level primitives the builder already depends on
  * ({@link dispatchCharacterWriteWithRetry}, {@link useCharacterTokenRef}).
  *
- * Every builder edit surface maps to the `identity` version class
- * ({@link EDIT_SURFACE_CLASS}), so the provider holds a single identity
- * version ref rather than the sheet's four.
+ * Every builder edit surface maps to the `identity` version class, so the
+ * provider holds a single identity version ref rather than the sheet's four.
  */
 
 const BuilderDraftContext = createContext<BuilderCharacter | null>(null)
@@ -77,7 +73,9 @@ export function BuilderDraftProvider({
 export function useBuilderDraft(): BuilderCharacter {
   const draft = useContext(BuilderDraftContext)
   if (!draft) {
-    throw new Error("useBuilderDraft must be used within a BuilderDraftProvider")
+    throw new Error(
+      "useBuilderDraft must be used within a BuilderDraftProvider"
+    )
   }
   return draft
 }
@@ -87,9 +85,10 @@ interface BuilderWriteParams<
   TError extends string,
 > {
   /**
-   * The edit surface being written. Its per-write-class version token
-   * (UNN-140) is resolved from {@link EDIT_SURFACE_CLASS} — shared with the
-   * server wrappers (UNN-233). Every builder surface is `identity`-class.
+   * The edit surface being written. Passed through to
+   * {@link dispatchCharacterWriteWithRetry}, which resolves its per-write-class
+   * version token (UNN-140) from the surface→class map shared with the server
+   * wrappers (UNN-233). Every builder surface is `identity`-class.
    */
   surface: EditSurface
   /** The Server Action call, given the expected version. */
@@ -128,7 +127,9 @@ interface BuilderWriteParams<
 export function useBuilderWrite() {
   const ctx = useContext(BuilderWriteContext)
   if (!ctx) {
-    throw new Error("useBuilderWrite must be used within a BuilderDraftProvider")
+    throw new Error(
+      "useBuilderWrite must be used within a BuilderDraftProvider"
+    )
   }
   const { characterId, versionRef } = ctx
   const [pending, startTransition] = useTransition()
@@ -141,12 +142,11 @@ export function useBuilderWrite() {
     messages,
     onError,
   }: BuilderWriteParams<TSuccess, TError>) {
-    const characterClass = EDIT_SURFACE_CLASS[surface]
     startTransition(async () => {
       optimistic?.()
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
-        characterClass,
+        surface,
         versionRef,
         action,
       })
