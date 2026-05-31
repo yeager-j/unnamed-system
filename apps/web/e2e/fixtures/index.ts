@@ -9,6 +9,7 @@ import { inventoryTarget } from "./inventory-target"
 import { levelingTarget } from "./leveling-target"
 import { pathOfDawnTarget } from "./path-of-dawn-target"
 import { perfectionTarget } from "./perfection-target"
+import { ranksBannerTarget } from "./ranks-banner-target"
 import { restTarget } from "./rest-target"
 import { stainsTarget } from "./stains-target"
 import type { E2EFixture } from "./types"
@@ -40,6 +41,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   pathOfDawnTarget,
   inventoryTarget,
   inheritanceSlotsTarget,
+  ranksBannerTarget,
 ]
 
 export { archetypeSwitchTarget } from "./archetype-switch-target"
@@ -53,6 +55,7 @@ export { inventoryTarget } from "./inventory-target"
 export { levelingTarget } from "./leveling-target"
 export { perfectionTarget } from "./perfection-target"
 export { pathOfDawnTarget } from "./path-of-dawn-target"
+export { ranksBannerTarget } from "./ranks-banner-target"
 export { restTarget } from "./rest-target"
 export { stainsTarget } from "./stains-target"
 export type { E2EFixture } from "./types"

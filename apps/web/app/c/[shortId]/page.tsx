@@ -13,6 +13,7 @@ import { Inventory } from "@/components/character-sheet/inventory"
 import { KnivesChains } from "@/components/character-sheet/knives-chains"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { Notes } from "@/components/character-sheet/notes"
+import { RanksBanner } from "@/components/character-sheet/ranks-banner"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import {
   SHEET_TAB_KEYS,
@@ -116,6 +117,8 @@ export default async function CharacterSheetPage({
       <ViewerRoleProvider role={role}>
         <CharacterProvider character={character}>
           <SheetHeader />
+
+          <RanksBanner />
 
           <SheetTabs
             defaultTab={resolveTab(tab)}
