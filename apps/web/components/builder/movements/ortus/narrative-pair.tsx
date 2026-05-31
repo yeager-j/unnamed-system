@@ -7,11 +7,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import {
-  useBuilderDraft,
-  useBuilderVersionRef,
-} from "@/hooks/use-builder-draft"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
 
 /**
@@ -70,10 +66,8 @@ function SingleLineField({
   maxLength: number
   serverValue: string
 }) {
-  const versionRef = useBuilderVersionRef()
-  const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
+  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
     serverValue,
-    versionRef,
     characterId,
     surface: "narrative",
     isEqual: (a, b) => a.trim() === b.trim(),

@@ -12,8 +12,7 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
-import { useBuilderVersionRef } from "@/hooks/use-builder-draft"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useBuilderAutoSave } from "@/hooks/use-builder-draft"
 import type { EditSurface } from "@/lib/db/version-classes"
 import type { Result } from "@/lib/result"
 
@@ -21,10 +20,10 @@ import type { Result } from "@/lib/result"
  * The title + Markdown body pair the Movement 3 writer renders for the
  * active document.
  *
- * Two independent `useDebouncedAutoSave` instances drive title and body
- * separately. Both write the identity class and read the *same* shared
- * version ref (`useBuilderVersionRef`, UNN-274), so the title's bump is
- * visible to the body's next save in-frame — no version race between them.
+ * Two independent `useBuilderAutoSave` instances drive title and body
+ * separately. Both write the identity class and resolve the *same* shared
+ * version ref (UNN-274), so the title's bump is visible to the body's next
+ * save in-frame — no version race between them.
  *
  * Every document — editable (Knives / Chains) or fixed (Backstory /
  * Identity Traits) — renders the same Input + description + Separator +
@@ -95,11 +94,9 @@ export function DocumentEditor({
 }) {
   const onError = () => toast.error(messages.saveError)
   const isTitleEditable = !!actions.updateTitle
-  const versionRef = useBuilderVersionRef()
 
-  const titleState = useDebouncedAutoSave({
+  const titleState = useBuilderAutoSave({
     serverValue: title,
-    versionRef,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),
@@ -123,9 +120,8 @@ export function DocumentEditor({
     },
   })
 
-  const bodyState = useDebouncedAutoSave({
+  const bodyState = useBuilderAutoSave({
     serverValue: body,
-    versionRef,
     characterId,
     surface,
     isEqual: (a, b) => a.trim() === b.trim(),

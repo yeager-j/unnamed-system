@@ -27,14 +27,16 @@ import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
  * **Concurrency contract.** The `save` callback receives the current value
  * *and* the latest known per-write-class `version` (UNN-140) — the hook
  * does not let the consumer thread the token itself, because every place
- * I've seen consumers do that has eventually drifted from the prop. The
- * `version` comes from the *shared* provider ref passed in as `versionRef`
- * (UNN-274): the sheet's `useCharacterVersionRef(surface)` and the builder's
- * `useBuilderVersionRef()` both hand back the same per-class ref every
- * same-class field reads and writes, so a sibling field's successful bump is
- * visible in the same frame — no waiting on the `revalidate → prop-sync`
- * round-trip. The provider keeps that ref synced from the server prop
- * (`useCharacterTokenRef`) as the fallback for cross-tab / external bumps.
+ * I've seen consumers do that has eventually drifted from the prop. This is
+ * the shared core; consumers go through the provider-bound wrappers
+ * `useCharacterAutoSave` (sheet) / `useBuilderAutoSave` (builder), which
+ * resolve the *shared* per-write-class `versionRef` and pass it in — the same
+ * way `useCharacterWrite` / `useBuilderWrite` wrap the click-write dispatch.
+ * Because every same-class field reads and writes that one ref (UNN-274), a
+ * sibling field's successful bump is visible in the same frame — no waiting on
+ * the `revalidate → prop-sync` round-trip. The provider keeps the ref synced
+ * from the server prop (`useCharacterTokenRef`) as the fallback for cross-tab /
+ * external bumps.
  *
  * Saves are serialized via a single promise chain (`saveQueueRef`): when a
  * save is dispatched while another is in flight, it chains behind the
@@ -81,10 +83,10 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    *  rollback target on failure. */
   serverValue: TValue
   /** The *shared* per-write-class version ref from the provider (UNN-274).
-   *  Obtain it from `useCharacterVersionRef(surface)` (sheet) or
-   *  `useBuilderVersionRef()` (builder) so every same-class field reads and
-   *  writes one token and a sibling's bump is visible in-frame. The provider
-   *  keeps it synced from the server prop as the cross-tab/external fallback. */
+   *  Supplied by the `useCharacterAutoSave` / `useBuilderAutoSave` wrappers, so
+   *  every same-class field reads and writes one token and a sibling's bump is
+   *  visible in-frame. The provider keeps it synced from the server prop as the
+   *  cross-tab/external fallback. */
   versionRef: RefObject<number>
   /** Owning character — used by the silent-retry path to refetch the
    *  fresh per-class version after a `"stale"` and by the broadcast

@@ -25,6 +25,11 @@ import type { Result } from "@/lib/result"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
 import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
+import {
+  useDebouncedAutoSave,
+  type UseDebouncedAutoSaveArgs,
+  type UseDebouncedAutoSaveReturn,
+} from "./use-debounced-auto-save"
 
 /**
  * The single client-side source of truth for the character sheet. The provider
@@ -126,22 +131,35 @@ export function useCharacter(): HydratedCharacter {
 
 /**
  * Reads the *shared* per-write-class version ref for a given edit surface from
- * {@link CharacterProvider} (UNN-274). The debounced text editors
- * ({@link useDebouncedAutoSave}) consume this so every same-class field reads
- * and writes one token — a sibling's successful bump is visible in the same
- * frame, without waiting on the `revalidate → prop-sync` round-trip. The
- * click-write path reads the same refs via {@link useCharacterWrite}.
+ * {@link CharacterProvider} (UNN-274) so every same-class field reads and
+ * writes one token. Internal: {@link useCharacterAutoSave} is the public
+ * entry point; the click-write path reads the same refs via
+ * {@link useCharacterWrite}.
  */
-export function useCharacterVersionRef(
-  surface: EditSurface
-): RefObject<number> {
+function useCharacterVersionRef(surface: EditSurface): RefObject<number> {
   const editor = useContext(CharacterEditorContext)
   if (!editor) {
     throw new Error(
-      "useCharacterVersionRef must be used within a CharacterProvider"
+      "useCharacterAutoSave must be used within a CharacterProvider"
     )
   }
   return editor.versionRefs[EDIT_SURFACE_CLASS[surface]]
+}
+
+/**
+ * The sheet's debounced auto-save primitive — the provider-bound wrapper over
+ * {@link useDebouncedAutoSave}, mirroring how {@link useCharacterWrite} wraps
+ * the shared click-write dispatch. It resolves the *shared* per-write-class
+ * version ref from {@link CharacterProvider} (so sibling same-class fields
+ * coordinate in-frame, UNN-274) and hands it to the core hook — consumers
+ * never touch the ref. Pass the same args as {@link useDebouncedAutoSave}
+ * minus `versionRef`.
+ */
+export function useCharacterAutoSave<TValue, TError extends string>(
+  args: Omit<UseDebouncedAutoSaveArgs<TValue, TError>, "versionRef">
+): UseDebouncedAutoSaveReturn<TValue> {
+  const versionRef = useCharacterVersionRef(args.surface)
+  return useDebouncedAutoSave({ ...args, versionRef })
 }
 
 interface WriteParams<

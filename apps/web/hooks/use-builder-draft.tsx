@@ -9,6 +9,11 @@ import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
+import {
+  useDebouncedAutoSave,
+  type UseDebouncedAutoSaveArgs,
+  type UseDebouncedAutoSaveReturn,
+} from "./use-debounced-auto-save"
 
 /**
  * The builder's draft context — the creation-time analogue of the sheet's
@@ -82,20 +87,34 @@ export function useBuilderDraft(): BuilderCharacter {
 
 /**
  * Reads the *shared* identity version ref from {@link BuilderDraftProvider}
- * (UNN-274). The builder's debounced text editors
- * ({@link useDebouncedAutoSave}) consume this so every field reads and writes
- * one token — a sibling's successful bump is visible in the same frame,
- * without waiting on the `revalidate → prop-sync` round-trip. Every builder
- * surface is identity-class, so there's a single ref (no surface param).
+ * (UNN-274) so every field reads and writes one token. Every builder surface
+ * is identity-class, so there's a single ref (no surface param). Internal:
+ * {@link useBuilderAutoSave} is the public entry point.
  */
-export function useBuilderVersionRef(): RefObject<number> {
+function useBuilderVersionRef(): RefObject<number> {
   const ctx = useContext(BuilderWriteContext)
   if (!ctx) {
     throw new Error(
-      "useBuilderVersionRef must be used within a BuilderDraftProvider"
+      "useBuilderAutoSave must be used within a BuilderDraftProvider"
     )
   }
   return ctx.versionRef
+}
+
+/**
+ * The builder's debounced auto-save primitive — the provider-bound wrapper
+ * over {@link useDebouncedAutoSave}, mirroring how {@link useBuilderWrite}
+ * wraps the shared click-write dispatch. It resolves the *shared* identity
+ * version ref from {@link BuilderDraftProvider} (so sibling fields coordinate
+ * in-frame, UNN-274) and hands it to the core hook — consumers never touch
+ * the ref. Pass the same args as {@link useDebouncedAutoSave} minus
+ * `versionRef`.
+ */
+export function useBuilderAutoSave<TValue, TError extends string>(
+  args: Omit<UseDebouncedAutoSaveArgs<TValue, TError>, "versionRef">
+): UseDebouncedAutoSaveReturn<TValue> {
+  const versionRef = useBuilderVersionRef()
+  return useDebouncedAutoSave({ ...args, versionRef })
 }
 
 interface BuilderWriteParams<

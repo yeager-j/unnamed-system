@@ -3,11 +3,7 @@
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import {
-  useBuilderDraft,
-  useBuilderVersionRef,
-} from "@/hooks/use-builder-draft"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
 
 const MAX_LENGTH = 64
@@ -21,10 +17,8 @@ const MAX_LENGTH = 64
  */
 export function PronounsField() {
   const { id: characterId, pronouns } = useBuilderDraft()
-  const versionRef = useBuilderVersionRef()
-  const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
+  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
     serverValue: pronouns ?? "",
-    versionRef,
     characterId,
     surface: "pronouns",
     isEqual: (a, b) => a.trim() === b.trim(),

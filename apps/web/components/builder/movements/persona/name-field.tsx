@@ -2,11 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import {
-  useBuilderDraft,
-  useBuilderVersionRef,
-} from "@/hooks/use-builder-draft"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
 import { updateCharacterNameAction } from "@/lib/actions/character-name"
 
 const MAX_LENGTH = 64
@@ -24,10 +20,8 @@ const MAX_LENGTH = 64
  */
 export function NameField() {
   const { id: characterId, name } = useBuilderDraft()
-  const versionRef = useBuilderVersionRef()
-  const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
+  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
     serverValue: name,
-    versionRef,
     characterId,
     surface: "name",
     isEmpty: (next) => next.trim().length === 0,

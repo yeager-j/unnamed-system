@@ -2,8 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useCharacterVersionRef } from "@/hooks/use-character"
-import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
+import { useCharacterAutoSave } from "@/hooks/use-character"
 import { updateCharacterNameAction } from "@/lib/actions/character-name"
 
 const MAX_LENGTH = 64
@@ -20,8 +19,8 @@ const MAX_LENGTH = 64
  *
  * All the concurrency + lifecycle plumbing (debounce, in-flight guard,
  * shared `identityVersion` ref, last-saved tracking, focused-prop sync,
- * rollback) lives in {@link useDebouncedAutoSave}. This component is just
- * the rendered input + the keybindings.
+ * rollback) lives in {@link useCharacterAutoSave} and the core hook it wraps.
+ * This component is just the rendered input + the keybindings.
  */
 export function EditableCharacterName({
   characterId,
@@ -30,10 +29,8 @@ export function EditableCharacterName({
   characterId: string
   name: string
 }) {
-  const versionRef = useCharacterVersionRef("name")
-  const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
+  const { value, setValue, revert, onFocusChange } = useCharacterAutoSave({
     serverValue: name,
-    versionRef,
     characterId,
     surface: "name",
     isEmpty: (next) => next.trim().length === 0,
