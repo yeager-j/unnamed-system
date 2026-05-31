@@ -1,4 +1,5 @@
 import { archetypeSwitchTarget } from "./archetype-switch-target"
+import { atlasTarget } from "./atlas-target"
 import { castTarget } from "./cast-target"
 import { combatStateTarget } from "./combat-state-target"
 import { deleteTarget } from "./delete-target"
@@ -27,6 +28,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
   writeTarget,
   deleteTarget,
   archetypeSwitchTarget,
+  atlasTarget,
   castTarget,
   headerActionsTarget,
   restTarget,
@@ -41,6 +43,7 @@ export const DEV_USER_E2E_FIXTURES: ReadonlyArray<E2EFixture> = [
 ]
 
 export { archetypeSwitchTarget } from "./archetype-switch-target"
+export { atlasTarget } from "./atlas-target"
 export { castTarget } from "./cast-target"
 export { combatStateTarget } from "./combat-state-target"
 export { deleteTarget } from "./delete-target"

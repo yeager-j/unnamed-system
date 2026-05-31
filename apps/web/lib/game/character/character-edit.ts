@@ -77,6 +77,8 @@ export type ArchetypeEdit =
       sourceCharacterArchetypeId: string | null
       skillKey: string | null
     }
+  | { kind: "unlockArchetype"; archetypeKey: string }
+  | { kind: "rankUpArchetype"; characterArchetypeId: string }
 
 /**
  * One owner-mode edit to a character, in raw-input terms. Each variant maps to

@@ -1,4 +1,6 @@
+export * from "./atlas"
 export * from "./inheritance"
+export * from "./rank"
 export * from "./registry"
 export * from "./schema"
 export * from "./utils"

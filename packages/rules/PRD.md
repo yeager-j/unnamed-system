@@ -148,9 +148,9 @@ Items can confer Affinity changes, Attribute bonuses, or Skills — see 6.2.
 
 - **Active Archetype** card with its full block: Attributes, Affinities, Skills at the current Rank, Synthesis Skill (if unlocked), Inheritance Slots.
 - "Switch Active Archetype" → picker of unlocked Archetypes; switching shows the reminder "You may only switch Archetypes during a Respite."
-- **Unlocked Archetypes** list: each with current Rank (1–5), Skills unlocked, Inheritance Slot config, a "Rank up" affordance that spends a saved Archetype Rank; Mastery (Rank 5) shows the permanent bonus.
+- **Unlocked Archetypes** list: each with current Rank (1–5), Skills unlocked, Inheritance Slot config; Mastery (Rank 5) shows the permanent bonus.
 - **Saved Archetype Ranks** counter (gained from leveling, unspent).
-- **Unlock new Archetype** → the Archetype catalog. No prerequisites enforced, but display them informationally ("Requires Mage 5").
+- **Open the Lineage Atlas** → a dedicated owner-only surface (`/c/{shortId}/archetypes/atlas`) for *spending* Saved Ranks: unlocking new Archetypes and ranking up owned ones, organized as a Lineage tree (the Archetypes tab stays the current-state view). The Atlas **enforces Archetype prerequisites** — an Archetype whose prerequisites (e.g. the prior tier at Rank 5) aren't met renders Locked with a "Prerequisites not met" action. Per-tier minimum-level hints (Lv 1+/8+/16+/24+) are shown but informational. See §7.1 / UNN-239.
 
 There is no separate Progression or Vitals section: HP/SP and Victories live in the persistent header; the level-up walkthrough (§7.4) and Rest (§7.3) are owner-mode dialogs launched from the header.
 
@@ -319,7 +319,7 @@ The game data (Archetypes, Skills, Talents, Ailments) lives in TypeScript files 
 - PDF / print export. (The public URL is the share mechanism.)
 - Real-time multiplayer features.
 - Importing rules data from the Obsidian vault.
-- Enforcing Archetype Lineage prerequisites or tier gates.
+- Enforcing **level-based** tier gates (per-tier level hints are informational only). Note: Archetype **prerequisites** (the `{archetype, rank}` list — e.g. prior tier at Rank 5) _are_ enforced by the Lineage Atlas (§6.1, UNN-239); only level/Chain gating remains unenforced.
 - Negotiation and downtime-activity helpers.
 - Spoils deck simulation.
 - Prisma upgrade tree (defined in rules but TODO).

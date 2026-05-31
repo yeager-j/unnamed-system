@@ -1,4 +1,5 @@
-import { hasUnlockedRank, type Archetype } from "./schema"
+import { hasUnlockedRank } from "./rank"
+import type { Archetype } from "./schema"
 import type { ArchetypeEntry, RankedSkill } from "./utils"
 
 /**

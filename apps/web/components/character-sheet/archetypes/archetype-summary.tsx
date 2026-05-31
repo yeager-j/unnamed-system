@@ -2,15 +2,14 @@
 
 import { Button } from "@workspace/ui/components/button"
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@workspace/ui/components/drawer"
+  ResponsiveDialog,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@workspace/ui/components/responsive-dialog"
 
-import { useDrawerDirection } from "@/hooks/use-drawer-direction"
 import type { ArchetypeEntry } from "@/lib/game/archetypes"
 import type { AttributeScores } from "@/lib/game/character"
 import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
@@ -20,15 +19,16 @@ import { ArchetypeSummaryRow } from "./archetype-summary-row"
 
 /**
  * One Archetype's compact entry in the Lineage-grouped list, wrapped with the
- * Drawer that opens the full {@link ArchetypeDetail}. Composes
+ * {@link ResponsiveDialog} that opens the full {@link ArchetypeDetail} —
+ * a bottom Drawer on mobile, a right-side Sheet on desktop. Composes
  * {@link ArchetypeSummaryRow} (the compact card body) with a "Show details"
- * trigger and the responsive drawer side from {@link useDrawerDirection}.
+ * trigger.
  *
  * Used for *every* unlocked Archetype; the active one carries an `Active`
  * badge so the Lineage grid stays coherent while the featured Active card
  * above provides the spotlight view.
  *
- * `attributes` flows through to the drawer body so the Skill popovers there
+ * `attributes` flows through to the detail body so the Skill popovers there
  * hydrate against the active character's scores.
  */
 export function ArchetypeSummary({
@@ -39,37 +39,36 @@ export function ArchetypeSummary({
   attributes: AttributeScores
 }) {
   const { archetype, row, isActive } = entry
-  const drawerDirection = useDrawerDirection()
 
   return (
-    <Drawer direction={drawerDirection}>
+    <ResponsiveDialog>
       <ArchetypeSummaryRow
         entry={entry}
         trigger={
-          <DrawerTrigger asChild>
+          <ResponsiveDialogTrigger>
             <Button variant="ghost" size="sm">
               Show details
             </Button>
-          </DrawerTrigger>
+          </ResponsiveDialogTrigger>
         }
       />
-      <DrawerContent className="data-[vaul-drawer-direction=right]:sm:max-w-xl">
-        <DrawerHeader>
-          <DrawerTitle className="flex items-baseline gap-2">
+      <ResponsiveDialogContent className="data-[side=right]:sm:max-w-xl">
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle className="flex items-baseline gap-2">
             <span>{archetype.name}</span>
             <span className="text-sm font-normal text-muted-foreground">
               Rank {row.rank}/5
             </span>
-          </DrawerTitle>
-          <DrawerDescription>
+          </ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
             {LINEAGE_LABELS[archetype.lineage]} · {TIER_LABELS[archetype.tier]}
             {isActive ? " · Active" : null}
-          </DrawerDescription>
-        </DrawerHeader>
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
         <div className="overflow-y-auto px-4 pb-8">
           <ArchetypeDetail entry={entry} attributes={attributes} />
         </div>
-      </DrawerContent>
-    </Drawer>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   )
 }

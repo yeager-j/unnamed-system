@@ -87,6 +87,8 @@ function routeEdit(
 
     case "switchActiveArchetype":
     case "setInheritanceSlot":
-      return reduceArchetypeEdit(raw, edit)
+    case "unlockArchetype":
+    case "rankUpArchetype":
+      return reduceArchetypeEdit(raw, edit, newId)
   }
 }
