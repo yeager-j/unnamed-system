@@ -13,7 +13,6 @@ import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/movements/ortus"
 import { PersonaStep } from "@/components/builder/movements/persona"
-import { coerceVirtueAllocation } from "@/lib/game/character"
 
 import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
 
@@ -42,11 +41,9 @@ export default async function BuilderStepPage({
 
   return (
     <BuilderShell
-      characterId={character.id}
       shortId={shortId}
       currentStepSlug={slug}
       highestVisitedStepIndex={character.builderStep}
-      identityVersion={character.identityVersion}
       canAdvance={gate.canAdvance}
       disabledReason={gate.canAdvance ? undefined : gate.reason}
       hideHeader={slug === "animus"}
@@ -65,58 +62,18 @@ function renderMovementBody({
 }) {
   switch (slug) {
     case "corpus":
-      return (
-        <CorpusStep
-          characterId={character.id}
-          pathChoice={character.pathChoice}
-          originArchetypeKey={character.originArchetypeKey}
-          identityVersion={character.identityVersion}
-        />
-      )
+      return <CorpusStep />
     case "ortus":
-      return (
-        <OrtusStep
-          characterId={character.id}
-          ancestryText={character.ancestryText}
-          backgroundText={character.backgroundText}
-          originArchetypeKey={character.originArchetypeKey}
-          gainedTalents={character.gainedTalents}
-          allocation={coerceVirtueAllocation({
-            expression: character.virtueExpression,
-            empathy: character.virtueEmpathy,
-            wisdom: character.virtueWisdom,
-            focus: character.virtueFocus,
-          })}
-          identityVersion={character.identityVersion}
-        />
-      )
+      return <OrtusStep />
     case "animus":
-      return (
-        <AnimusStep
-          characterId={character.id}
-          identityVersion={character.identityVersion}
-          backstoryText={character.backstoryText}
-          knives={character.knives}
-          chains={character.chains}
-          personalityTraits={character.personalityTraits}
-          hopes={character.hopes}
-          dreams={character.dreams}
-          fears={character.fears}
-          secrets={character.secrets}
-        />
-      )
+      return <AnimusStep />
     case "persona": {
-      // Finalize must honor every gate, not just persona's name. A player
-      // who skipped past Corpus without picking an Origin should see the
-      // Finalize button disabled with the corpus reason surfaced.
+      // Finalize must honor every gate, not just persona's name. Computed
+      // here (Server Component) and passed down so `PersonaStep` need not be
+      // a client component — see its JSDoc for the hydration reason.
       const failures = findStepGateFailures(character)
       return (
         <PersonaStep
-          characterId={character.id}
-          name={character.name}
-          pronouns={character.pronouns}
-          portraitUrl={character.portraitUrl}
-          identityVersion={character.identityVersion}
           canFinalize={failures.length === 0}
           disabledReason={failures[0]?.reason}
         />

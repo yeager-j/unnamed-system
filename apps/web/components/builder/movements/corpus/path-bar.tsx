@@ -1,16 +1,14 @@
 "use client"
 
 import { Radio as RadioPrimitive } from "@base-ui/react/radio"
-import { useOptimistic, useTransition } from "react"
+import { useOptimistic } from "react"
 import { toast } from "sonner"
 
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import { PATH_CHOICES, type PathChoice } from "@/lib/game/character/state"
 import { getPathStats } from "@/lib/game/character/stats/stats"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
@@ -42,17 +40,9 @@ function formatDie(die: { hp: number; sp: number }): string {
  * on `identityVersion`; the action layer is reused as-is from the original
  * radio-card picker.
  */
-export function PathBar({
-  characterId,
-  pathChoice,
-  identityVersion,
-}: {
-  characterId: string
-  pathChoice: PathChoice
-  identityVersion: number
-}) {
-  const [, startTransition] = useTransition()
-  const versionRef = useCharacterTokenRef(identityVersion)
+export function PathBar() {
+  const { id: characterId, pathChoice } = useBuilderDraft()
+  const { write } = useBuilderWrite()
   const [optimisticPath, setOptimisticPath] = useOptimistic(
     pathChoice,
     (_current: PathChoice, next: PathChoice) => next
@@ -60,30 +50,27 @@ export function PathBar({
 
   function handleChange(next: PathChoice) {
     if (next === optimisticPath) return
-    startTransition(async () => {
-      setOptimisticPath(next)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS.path,
-        versionRef,
-        action: (expectedVersion) =>
-          updateCharacterPathAction({
-            characterId,
-            pathChoice: next,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else if (result.error === "character-not-found") {
+    write({
+      surface: "path",
+      optimistic: () => setOptimisticPath(next),
+      action: (expectedVersion) =>
+        updateCharacterPathAction({
+          characterId,
+          pathChoice: next,
+          expectedVersion,
+        }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't save your path. Try again.",
+      },
+      onError: (error) => {
+        if (error === "character-not-found") {
           toast.error("This character was deleted.")
-        } else {
-          toast.error("Couldn't save your path. Try again.")
+          return true
         }
-      }
+        return false
+      },
     })
   }
 

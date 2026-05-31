@@ -12,54 +12,29 @@ import { PronounsField } from "./pronouns-field"
  * Vertical centered composition per ADR-002 §"Movement 4 — The Person":
  * portrait at the top, pronouns small below, name as the visual climax in
  * serif. No mini-review, no recap of earlier choices — the page IS the
- * naming moment. `canFinalize` + `disabledReason` come from the route's
- * `findStepGateFailures` so the Finalize button honors every gate (not just
- * persona's name check).
+ * naming moment. The sub-controls read their slice of the draft from
+ * `useBuilderDraft()` (UNN-252); `canFinalize`/`disabledReason` are computed
+ * by the route page so this stays a Server Component. (Making it a client
+ * component to compute the gate from context shifted base-ui's `useId`
+ * numbering for the fields below and produced a hydration mismatch.)
  */
 export function PersonaStep({
-  characterId,
-  name,
-  pronouns,
-  portraitUrl,
-  identityVersion,
   canFinalize,
   disabledReason,
 }: {
-  characterId: string
-  name: string
-  pronouns: string | null
-  portraitUrl: string | null
-  identityVersion: number
   canFinalize: boolean
   disabledReason?: string
 }) {
   return (
     <div className="flex flex-col items-center gap-10 py-8">
-      <PortraitArea
-        characterId={characterId}
-        portraitUrl={portraitUrl}
-        identityVersion={identityVersion}
-      />
+      <PortraitArea />
 
       <div className="flex w-full max-w-md flex-col items-center gap-6">
-        <NameField
-          characterId={characterId}
-          name={name}
-          identityVersion={identityVersion}
-        />
-        <PronounsField
-          characterId={characterId}
-          pronouns={pronouns}
-          identityVersion={identityVersion}
-        />
+        <NameField />
+        <PronounsField />
       </div>
 
-      <FinalizeButton
-        characterId={characterId}
-        identityVersion={identityVersion}
-        canFinalize={canFinalize}
-        disabledReason={disabledReason}
-      />
+      <FinalizeButton canFinalize={canFinalize} disabledReason={disabledReason} />
     </div>
   )
 }

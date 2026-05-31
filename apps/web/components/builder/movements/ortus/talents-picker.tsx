@@ -1,7 +1,7 @@
 "use client"
 
 import { LockIcon } from "@phosphor-icons/react"
-import { Fragment, useTransition } from "react"
+import { Fragment } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@workspace/ui/components/badge"
@@ -24,13 +24,11 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   MAX_PLAYER_ADDED_TALENTS,
   resolveTalentsForBuilder,
@@ -61,19 +59,9 @@ import { talentLabel } from "@/lib/ui/labels"
  * the server's problem — `addGainedTalent` / `removeGainedTalent` are
  * read-modify-write inside a transaction with the identity-class bump.
  */
-export function TalentsPicker({
-  characterId,
-  identityVersion,
-  originArchetypeKey,
-  gainedTalents,
-}: {
-  characterId: string
-  identityVersion: number
-  originArchetypeKey: string | null
-  gainedTalents: TalentKey[]
-}) {
-  const versionRef = useCharacterTokenRef(identityVersion)
-  const [pending, startTransition] = useTransition()
+export function TalentsPicker() {
+  const { id: characterId, originArchetypeKey, gainedTalents } = useBuilderDraft()
+  const { pending, write } = useBuilderWrite()
   const anchor = useComboboxAnchor()
 
   const { origin, selectable } = resolveTalentsForBuilder(originArchetypeKey)
@@ -88,49 +76,38 @@ export function TalentsPicker({
         toast.error(`You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`)
         return
       }
-      startTransition(async () => {
-        const result = await dispatchCharacterWriteWithRetry({
-          characterId,
-          characterClass: EDIT_SURFACE_CLASS.talents,
-          versionRef,
-          action: (expectedVersion) =>
-            addGainedTalentAction({
-              characterId,
-              talentKey: added,
-              expectedVersion,
-            }),
-        })
-        if (!result.ok) {
-          if (result.error === "duplicate-talent") {
-            // Cross-tab race; the next prop sync will reflect it.
-          } else if (result.error === "stale") {
-            toast.error(
-              "Someone else updated this character — refresh to see the latest."
-            )
-          } else {
-            toast.error("Couldn't add Talent. Try again.")
-          }
-        }
+      write({
+        surface: "talents",
+        action: (expectedVersion) =>
+          addGainedTalentAction({
+            characterId,
+            talentKey: added,
+            expectedVersion,
+          }),
+        messages: {
+          stale:
+            "Someone else updated this character — refresh to see the latest.",
+          error: "Couldn't add Talent. Try again.",
+        },
+        // Duplicate is a benign cross-tab race; the next prop sync reflects it.
+        onError: (error) => error === "duplicate-talent",
       })
       return
     }
 
     if (removed) {
-      startTransition(async () => {
-        const result = await dispatchCharacterWriteWithRetry({
-          characterId,
-          characterClass: EDIT_SURFACE_CLASS.talents,
-          versionRef,
-          action: (expectedVersion) =>
-            removeGainedTalentAction({
-              characterId,
-              talentKey: removed,
-              expectedVersion,
-            }),
-        })
-        if (!result.ok) {
-          toast.error("Couldn't remove Talent. Try again.")
-        }
+      write({
+        surface: "talents",
+        action: (expectedVersion) =>
+          removeGainedTalentAction({
+            characterId,
+            talentKey: removed,
+            expectedVersion,
+          }),
+        messages: {
+          stale: "Couldn't remove Talent. Try again.",
+          error: "Couldn't remove Talent. Try again.",
+        },
       })
     }
   }

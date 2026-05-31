@@ -3,6 +3,7 @@
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
 
@@ -15,15 +16,8 @@ const MAX_LENGTH = 64
  * plumbing as the sibling `NameField` and the sheet's existing
  * `EditablePronouns`.
  */
-export function PronounsField({
-  characterId,
-  pronouns,
-  identityVersion,
-}: {
-  characterId: string
-  pronouns: string | null
-  identityVersion: number
-}) {
+export function PronounsField() {
+  const { id: characterId, pronouns, identityVersion } = useBuilderDraft()
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue: pronouns ?? "",
     serverVersion: identityVersion,

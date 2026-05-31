@@ -1,8 +1,6 @@
 "use client"
 
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import { useTransition } from "react"
-import { toast } from "sonner"
 
 import {
   SidebarContent,
@@ -16,8 +14,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import {
   addCharacterChainAction,
   removeCharacterChainAction,
@@ -26,11 +23,6 @@ import {
   addCharacterKnifeAction,
   removeCharacterKnifeAction,
 } from "@/lib/actions/character-knives"
-import type {
-  CharacterChainRow,
-  CharacterKnifeRow,
-} from "@/lib/db/schema/character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"
@@ -52,25 +44,15 @@ const ANIMUS_STEP = BUILDER_STEPS[indexOfStep("animus")!]!
  * the selection in the `AnimusDocumentContext` so the pane (in the page
  * subtree) swaps.
  *
- * Add (Knives/Chains only) wires through `dispatchCharacterWriteWithRetry`.
- * On success, the new entry becomes the active document so the player
- * lands ready to type.
+ * Add (Knives/Chains only) wires through `useBuilderWrite`. On success, the
+ * new entry becomes the active document so the player lands ready to type.
  *
- * Remove (Knives/Chains only) reuses the same dispatch pipeline. If the
- * active document is the one being removed, the selection falls back to
- * Backstory so the pane has something to render.
+ * Remove (Knives/Chains only) reuses the same write hook. If the active
+ * document is the one being removed, the selection falls back to Backstory
+ * so the pane has something to render.
  */
-export function WriterSidebar({
-  characterId,
-  identityVersion,
-  knives,
-  chains,
-}: {
-  characterId: string
-  identityVersion: number
-  knives: readonly CharacterKnifeRow[]
-  chains: readonly CharacterChainRow[]
-}) {
+export function WriterSidebar() {
+  const { knives, chains } = useBuilderDraft()
   const groups = buildDocumentGroups({ knives, chains })
 
   return (
@@ -78,12 +60,7 @@ export function WriterSidebar({
       <WriterSidebarHeader />
       <SidebarContent>
         {groups.map((group) => (
-          <SidebarSection
-            key={group.kind}
-            group={group}
-            characterId={characterId}
-            identityVersion={identityVersion}
-          />
+          <SidebarSection key={group.kind} group={group} />
         ))}
       </SidebarContent>
     </>
@@ -118,18 +95,9 @@ function WriterSidebarHeader() {
   )
 }
 
-function SidebarSection({
-  group,
-  characterId,
-  identityVersion,
-}: {
-  group: DocumentGroup
-  characterId: string
-  identityVersion: number
-}) {
+function SidebarSection({ group }: { group: DocumentGroup }) {
   const { activeRef, selectDocument, resetToDefault } = useAnimusDocument()
-  const versionRef = useCharacterTokenRef(identityVersion)
-  const [isPending, startTransition] = useTransition()
+  const { pending, write, characterId } = useBuilderWrite()
 
   const showCount = group.kind === "knives" || group.kind === "chains"
   const showHeading = group.kind !== "backstory"
@@ -137,37 +105,27 @@ function SidebarSection({
   function handleAdd() {
     const kind = group.kind
     if (kind !== "knives" && kind !== "chains") return
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS[kind],
-        versionRef,
-        action: (expectedVersion) =>
-          kind === "knives"
-            ? addCharacterKnifeAction({
-                characterId,
-                title: "",
-                expectedVersion,
-              })
-            : addCharacterChainAction({
-                characterId,
-                title: "",
-                expectedVersion,
-              }),
-      })
-      if (!result.ok) {
-        toast.error(
-          kind === "knives"
-            ? "Couldn't add the Knife. Try again."
-            : "Couldn't add the Chain. Try again."
-        )
-        return
-      }
-      selectDocument({
-        kind: kind === "knives" ? "knife" : "chain",
-        id: result.value.id,
-        label: "",
-      })
+    const message =
+      kind === "knives"
+        ? "Couldn't add the Knife. Try again."
+        : "Couldn't add the Chain. Try again."
+    write({
+      surface: kind,
+      action: (expectedVersion) =>
+        kind === "knives"
+          ? addCharacterKnifeAction({ characterId, title: "", expectedVersion })
+          : addCharacterChainAction({
+              characterId,
+              title: "",
+              expectedVersion,
+            }),
+      messages: { stale: message, error: message },
+      onSuccess: (value) =>
+        selectDocument({
+          kind: kind === "knives" ? "knife" : "chain",
+          id: value.id,
+          label: "",
+        }),
     })
   }
 
@@ -176,35 +134,29 @@ function SidebarSection({
     if (ref.kind !== "knife" && ref.kind !== "chain") return
 
     const wasActive = refsEqual(activeRef, ref)
+    const message =
+      ref.kind === "knife"
+        ? "Couldn't remove the Knife. Try again."
+        : "Couldn't remove the Chain. Try again."
 
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass:
-          EDIT_SURFACE_CLASS[ref.kind === "knife" ? "knives" : "chains"],
-        versionRef,
-        action: (expectedVersion) =>
-          ref.kind === "knife"
-            ? removeCharacterKnifeAction({
-                characterId,
-                knifeId: ref.id,
-                expectedVersion,
-              })
-            : removeCharacterChainAction({
-                characterId,
-                chainId: ref.id,
-                expectedVersion,
-              }),
-      })
-      if (!result.ok) {
-        toast.error(
-          ref.kind === "knife"
-            ? "Couldn't remove the Knife. Try again."
-            : "Couldn't remove the Chain. Try again."
-        )
-        return
-      }
-      if (wasActive) resetToDefault()
+    write({
+      surface: ref.kind === "knife" ? "knives" : "chains",
+      action: (expectedVersion) =>
+        ref.kind === "knife"
+          ? removeCharacterKnifeAction({
+              characterId,
+              knifeId: ref.id,
+              expectedVersion,
+            })
+          : removeCharacterChainAction({
+              characterId,
+              chainId: ref.id,
+              expectedVersion,
+            }),
+      messages: { stale: message, error: message },
+      onSuccess: () => {
+        if (wasActive) resetToDefault()
+      },
     })
   }
 
@@ -244,7 +196,7 @@ function SidebarSection({
                   <SidebarMenuAction
                     showOnHover
                     aria-label={`Remove ${displayedLabel}`}
-                    disabled={isPending}
+                    disabled={pending}
                     onClick={() => handleRemove(entry)}
                   >
                     <TrashIcon weight="bold" />
@@ -258,7 +210,7 @@ function SidebarSection({
             <SidebarMenuItem>
               <SidebarMenuButton
                 onClick={handleAdd}
-                disabled={isPending}
+                disabled={pending}
                 className="text-sidebar-foreground/60 hover:text-sidebar-foreground"
               >
                 <PlusIcon weight="bold" />

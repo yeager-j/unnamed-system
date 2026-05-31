@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import { finalizeCharacterAction } from "@/lib/actions/character-finalize"
 import type { FinalizeCharacterError } from "@/lib/actions/character-finalize.schema"
 
@@ -23,21 +24,18 @@ import type { FinalizeCharacterError } from "@/lib/actions/character-finalize.sc
  * character" per the ticket — not "Continue", not "Next", not "Create."
  *
  * Disabled until every gated movement passes (`canFinalize` comes from
- * `findStepGateFailures(character).length === 0` on the route page). When
- * disabled, the failure reason surfaces as a tooltip so the player can see
- * what's blocking them without having to navigate back.
+ * `findStepGateFailures(draft).length === 0` in `PersonaStep`). When disabled,
+ * the failure reason surfaces as a tooltip so the player can see what's
+ * blocking them without having to navigate back.
  */
 export function FinalizeButton({
-  characterId,
-  identityVersion,
   canFinalize,
   disabledReason,
 }: {
-  characterId: string
-  identityVersion: number
   canFinalize: boolean
   disabledReason?: string
 }) {
+  const { id: characterId, identityVersion } = useBuilderDraft()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canFinalize

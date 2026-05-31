@@ -2,6 +2,7 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useBuilderDraft } from "@/hooks/use-builder-draft"
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save"
 import { updateCharacterNameAction } from "@/lib/actions/character-name"
 
@@ -18,15 +19,8 @@ const MAX_LENGTH = 64
  * editable name (debounced keystroke + blur save, optimistic concurrency on
  * `identityVersion`, Escape-revert).
  */
-export function NameField({
-  characterId,
-  name,
-  identityVersion,
-}: {
-  characterId: string
-  name: string
-  identityVersion: number
-}) {
+export function NameField() {
+  const { id: characterId, name, identityVersion } = useBuilderDraft()
   const { value, setValue, revert, onFocusChange } = useDebouncedAutoSave({
     serverValue: name,
     serverVersion: identityVersion,

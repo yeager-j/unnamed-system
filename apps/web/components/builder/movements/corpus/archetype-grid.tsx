@@ -1,20 +1,17 @@
 "use client"
 
-import { useOptimistic, useState, useTransition } from "react"
+import { useOptimistic, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   INITIATE_ARCHETYPES,
   sortArchetypesByPath,
   type ArchetypeKey,
 } from "@/lib/game/archetypes"
-import type { PathChoice } from "@/lib/game/character"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeCard } from "./archetype-card"
@@ -35,25 +32,9 @@ import { ArchetypeDetail } from "./archetype-detail"
  * carries a Path (defaulted to `"balanced"` by `startCharacterDraft`), so
  * this never sees a null.
  */
-export function ArchetypeGrid({
-  characterId,
-  pathChoice,
-  originArchetypeKey,
-  identityVersion,
-}: {
-  characterId: string
-  pathChoice: PathChoice
-  /**
-   * The persisted Origin from the DB. Typed loosely because the catalog
-   * could change post-finalize (an Archetype dropping from `INITIATE_ARCHETYPES`
-   * would leave a stale key on the row); the grid still renders the rest of
-   * the catalog without crashing.
-   */
-  originArchetypeKey: string | null
-  identityVersion: number
-}) {
-  const [pending, startTransition] = useTransition()
-  const versionRef = useCharacterTokenRef(identityVersion)
+export function ArchetypeGrid() {
+  const { id: characterId, pathChoice, originArchetypeKey } = useBuilderDraft()
+  const { pending, write } = useBuilderWrite()
   const [optimisticKey, setOptimisticKey] = useOptimistic(
     originArchetypeKey,
     (_current: string | null, next: ArchetypeKey) => next
@@ -71,30 +52,27 @@ export function ArchetypeGrid({
 
   function handleSelect(archetypeKey: ArchetypeKey) {
     if (archetypeKey === optimisticKey) return
-    startTransition(async () => {
-      setOptimisticKey(archetypeKey)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        characterClass: EDIT_SURFACE_CLASS.originArchetype,
-        versionRef,
-        action: (expectedVersion) =>
-          setOriginArchetypeAction({
-            characterId,
-            archetypeKey,
-            expectedVersion,
-          }),
-      })
-      if (!result.ok) {
-        if (result.error === "stale") {
-          toast.error(
-            "Someone else updated this character — refresh to see the latest."
-          )
-        } else if (result.error === "character-not-found") {
+    write({
+      surface: "originArchetype",
+      optimistic: () => setOptimisticKey(archetypeKey),
+      action: (expectedVersion) =>
+        setOriginArchetypeAction({
+          characterId,
+          archetypeKey,
+          expectedVersion,
+        }),
+      messages: {
+        stale:
+          "Someone else updated this character — refresh to see the latest.",
+        error: "Couldn't save your Origin. Try again.",
+      },
+      onError: (error) => {
+        if (error === "character-not-found") {
           toast.error("This character was deleted.")
-        } else {
-          toast.error("Couldn't save your Origin. Try again.")
+          return true
         }
-      }
+        return false
+      },
     })
   }
 
