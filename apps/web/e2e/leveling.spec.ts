@@ -132,8 +132,7 @@ test.describe("owner leveling controls", () => {
     expect(after.hitDiceRemaining).toBe(3)
     expect(after.skillDiceRemaining).toBe(7)
 
-    await expect(
-      page.getByText("Level 2 · Warrior · 3/7 Victories")
-    ).toBeVisible()
+    await expect(page.getByText(/Level 2 · Warrior/)).toBeVisible()
+    await expect(page.getByText("3/7 Victories")).toBeVisible()
   })
 })
