@@ -23,6 +23,21 @@ export const ATTACK_ATTRIBUTES = ["st", "ma", "ag", "lu", "st-or-ma"] as const
 export type AttackAttribute = (typeof ATTACK_ATTRIBUTES)[number]
 
 /**
+ * Display names for each {@link AttackAttribute}, used by the resolver as the
+ * first source in an Attack Roll's labelled breakdown. `"st-or-ma"` keeps both
+ * names so the breakdown stays honest about which is in play. Lives with the
+ * type rather than in the UI label store because the game engine — not a UI
+ * surface — is the only consumer.
+ */
+export const ATTACK_ATTRIBUTE_LABELS = {
+  st: "Strength",
+  ma: "Magic",
+  ag: "Agility",
+  lu: "Luck",
+  "st-or-ma": "Strength or Magic",
+} as const satisfies Record<AttackAttribute, string>
+
+/**
  * Known Range values. Attacks outside this set carry an explicit string via
  * the {@link rangeSchema} escape hatch so unusual ranges never block
  * transcription.

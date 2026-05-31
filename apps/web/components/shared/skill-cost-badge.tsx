@@ -2,6 +2,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ResolvedSkillCost } from "@/lib/game/skills/utils"
+import { COST_KIND_LABELS } from "@/lib/ui/labels"
 
 interface SkillCostBadgeProps {
   cost: ResolvedSkillCost | null
@@ -32,9 +33,4 @@ export function SkillCostBadge({ cost, className }: SkillCostBadgeProps) {
       {cost.amount} {COST_KIND_LABELS[cost.kind]}
     </Badge>
   )
-}
-
-const COST_KIND_LABELS: Record<ResolvedSkillCost["kind"], string> = {
-  sp: "SP",
-  hp: "HP",
 }

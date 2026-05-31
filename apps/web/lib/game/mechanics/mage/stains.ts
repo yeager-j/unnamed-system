@@ -20,14 +20,6 @@ export type StainElement = (typeof STAIN_ELEMENTS)[number]
 
 export const STAIN_SLOT_COUNT = 4
 
-export const STAIN_ELEMENT_LABELS: Record<StainElement, string> = {
-  fire: "Fire",
-  ice: "Ice",
-  elec: "Elec",
-  wind: "Wind",
-  light: "Light",
-}
-
 export const stainsStateSchema = z.object({
   kind: z.literal("stains"),
   tokens: z.array(z.enum(STAIN_ELEMENTS).nullable()).length(STAIN_SLOT_COUNT),
