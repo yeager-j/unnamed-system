@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
 
 import { useCharacter } from "@/hooks/use-character"
 
@@ -14,21 +14,34 @@ import { Virtues } from "./virtues"
 
 /**
  * The Explore tab's story sections, in reading order. Each `id` is both the
- * scroll-spy key and the `<section>` anchor the {@link JumpNav} jumps to.
+ * scroll-spy key and the `<section>` anchor the {@link JumpNav} jumps to —
+ * prefixed so these generic words can't collide with a co-mounted surface's
+ * element ids.
  */
 const STORY_SECTIONS = [
-  { id: "identity", label: "Identity" },
-  { id: "knives", label: "Knives" },
-  { id: "chains", label: "Chains" },
-  { id: "background", label: "Background" },
-  { id: "notes", label: "Notes" },
+  { id: "explore-identity", label: "Identity" },
+  { id: "explore-knives", label: "Knives" },
+  { id: "explore-chains", label: "Chains" },
+  { id: "explore-background", label: "Background" },
+  { id: "explore-notes", label: "Notes" },
 ] as const
+
+/**
+ * The sticky-header offset, exposed to the markup as a CSS variable so the rail
+ * `top`, the section `scroll-mt`, and the JS scroll math in {@link
+ * useActiveSection} / {@link JumpNav} all resolve from one number ({@link
+ * SHEET_STICKY_OFFSET}) — no Tailwind literal to silently desync.
+ */
+const STICKY_OFFSET_STYLE = {
+  "--sheet-sticky-offset": `${SHEET_STICKY_OFFSET}px`,
+} as CSSProperties
 
 /**
  * Resolves the story section currently in view to drive the {@link JumpNav}
  * highlight. Probes section tops against the scroll position (offset for the
  * sticky header) and returns the last one scrolled past. Window-scroll based —
- * the document, not an inner container, is what scrolls on the sheet.
+ * the document, not an inner container, is what scrolls on the sheet — and
+ * rAF-throttled so a burst of scroll events collapses to one measure per frame.
  */
 function useActiveSection() {
   const [active, setActive] = useState<string>(STORY_SECTIONS[0].id)
@@ -57,12 +70,22 @@ function useActiveSection() {
       setActive(current)
     }
 
+    let frame = 0
+    const onScroll = () => {
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        resolve()
+      })
+    }
+
     resolve()
-    window.addEventListener("scroll", resolve, { passive: true })
-    window.addEventListener("resize", resolve, { passive: true })
+    window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("resize", onScroll, { passive: true })
     return () => {
-      window.removeEventListener("scroll", resolve)
-      window.removeEventListener("resize", resolve)
+      window.removeEventListener("scroll", onScroll)
+      window.removeEventListener("resize", onScroll)
+      if (frame) cancelAnimationFrame(frame)
     }
   }, [])
 
@@ -86,19 +109,41 @@ export function ExploreTab() {
   const character = useCharacter()
   const active = useActiveSection()
 
+  const counts: Record<string, number> = {
+    "explore-knives": character.knives.length,
+    "explore-chains": character.chains.length,
+  }
   const navItems: JumpNavItem[] = STORY_SECTIONS.map((section) => ({
     ...section,
-    count:
-      section.id === "knives"
-        ? character.knives.length
-        : section.id === "chains"
-          ? character.chains.length
-          : undefined,
+    count: counts[section.id],
   }))
 
+  const bodies: Record<string, ReactNode> = {
+    "explore-identity": <Identity />,
+    "explore-knives": (
+      <NarrativeSection
+        title="Knives"
+        accent="knife"
+        entries={character.knives}
+      />
+    ),
+    "explore-chains": (
+      <NarrativeSection
+        title="Chains"
+        accent="chain"
+        entries={character.chains}
+      />
+    ),
+    "explore-background": <Background />,
+    "explore-notes": <Notes />,
+  }
+
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
-      <aside className="flex flex-col gap-4 lg:sticky lg:top-[72px]">
+    <div
+      style={STICKY_OFFSET_STYLE}
+      className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start"
+    >
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-[var(--sheet-sticky-offset)]">
         <section aria-label="Virtues">
           <Virtues />
         </section>
@@ -109,37 +154,16 @@ export function ExploreTab() {
       </aside>
 
       <div className="flex flex-col gap-4">
-        <section
-          id="identity"
-          aria-label="Identity"
-          className="scroll-mt-[72px]"
-        >
-          <Identity />
-        </section>
-        <section id="knives" aria-label="Knives" className="scroll-mt-[72px]">
-          <NarrativeSection
-            title="Knives"
-            accent="knife"
-            entries={character.knives}
-          />
-        </section>
-        <section id="chains" aria-label="Chains" className="scroll-mt-[72px]">
-          <NarrativeSection
-            title="Chains"
-            accent="chain"
-            entries={character.chains}
-          />
-        </section>
-        <section
-          id="background"
-          aria-label="Background"
-          className="scroll-mt-[72px]"
-        >
-          <Background />
-        </section>
-        <section id="notes" aria-label="Notes" className="scroll-mt-[72px]">
-          <Notes />
-        </section>
+        {STORY_SECTIONS.map(({ id, label }) => (
+          <section
+            key={id}
+            id={id}
+            aria-label={label}
+            className="scroll-mt-[var(--sheet-sticky-offset)]"
+          >
+            {bodies[id]}
+          </section>
+        ))}
       </div>
     </div>
   )
