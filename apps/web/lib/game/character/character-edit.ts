@@ -1,9 +1,12 @@
 import type { InventoryMutation } from "../items"
 import type { StainElement } from "../mechanics"
-import type { BattleConditionState, VirtueKey } from "./state"
+import type {
+  BattleConditionAxisKey,
+  BattleConditionState,
+  VirtueKey,
+} from "./state"
 import type { TalentKey } from "./talents/registry"
 
-export type BattleConditionAxisKey = "attack" | "defense" | "hitEvasion"
 export type BattleConditionFlagKey = "charged" | "concentrating"
 
 /**
