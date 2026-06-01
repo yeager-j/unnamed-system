@@ -14,10 +14,13 @@ describe("battleConditionsSchema", () => {
     expect(battleConditionsSchema.parse(conditions)).toEqual(conditions)
   })
 
-  it("treats DEFAULT_BATTLE_CONDITIONS as a valid all-neutral baseline", () => {
+  it("parses DEFAULT_BATTLE_CONDITIONS unchanged", () => {
     expect(battleConditionsSchema.parse(DEFAULT_BATTLE_CONDITIONS)).toEqual(
       DEFAULT_BATTLE_CONDITIONS
     )
+  })
+
+  it("defaults every axis to neutral", () => {
     expect(DEFAULT_BATTLE_CONDITIONS.attack).toBe("neutral")
     expect(DEFAULT_BATTLE_CONDITIONS.defense).toBe("neutral")
     expect(DEFAULT_BATTLE_CONDITIONS.hitEvasion).toBe("neutral")
