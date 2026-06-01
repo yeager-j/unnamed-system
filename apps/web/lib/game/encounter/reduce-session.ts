@@ -1,3 +1,4 @@
+import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceTurnEvent } from "./reduce/turn"
 import type { CombatSession } from "./session"
 import type { CombatEvent, CombatSessionResult } from "./session-event"
@@ -28,5 +29,8 @@ export function reduceCombatSession(
   switch (event.kind) {
     case "endTurn":
       return reduceTurnEvent(session, event)
+
+    case "applyBattleConditionDuration":
+      return reduceBattleConditionEvent(session, event)
   }
 }
