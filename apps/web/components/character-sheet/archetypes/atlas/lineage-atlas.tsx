@@ -4,11 +4,15 @@ import { ArrowLeftIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
 
+import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
+import { Switch } from "@workspace/ui/components/switch"
 
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
 import {
   buildLineageAtlas,
+  filterAtlasLineagesToUnlocked,
   getAtlasRecommendations,
   type AtlasLineage,
   type AtlasNode,
@@ -21,10 +25,18 @@ import { RanksHeader } from "./ranks-header"
 import { RecommendationSlots } from "./recommendation-slots"
 
 /**
- * The Lineage Atlas root (UNN-239): the owner's growth view for spending Saved
- * Archetype Ranks. Reads the optimistic character, shapes it with
- * {@link buildLineageAtlas}, and lays out the Saved-Ranks strip, recommendation
- * slots, the Lineage sidebar, the selected Lineage's tree, and the detail panel.
+ * The Lineage Atlas root (UNN-239): the canonical roster/tree for a character's
+ * Archetypes. Reads the optimistic character, shapes it with
+ * {@link buildLineageAtlas}, and lays out the Lineage sidebar, the selected
+ * Lineage's tree, and the detail panel. An "Unlocked only" filter collapses the
+ * trees to what the character has unlocked — the role the retired Archetypes-tab
+ * roster used to play (UNN-276).
+ *
+ * Publicly viewable, read-only for non-owners (UNN-276): the *planning chrome*
+ * — the Saved-Ranks strip, recommendation slots, and the detail panel's action
+ * footer — is gated behind {@link OwnerOnly}; the map itself shows for everyone.
+ * The write actions behind that chrome already enforce `requireOwner`
+ * server-side, so the gating is affordance-only.
  *
  * Both write actions flow through the panel's (and slots') shared action
  * button, so an unlock or rank-up re-renders the tree, sidebar counts, and
@@ -44,10 +56,17 @@ export function LineageAtlas() {
       view.lineages[0]!.lineage
   )
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [unlockedOnly, setUnlockedOnly] = useState(false)
 
+  const displayLineages = unlockedOnly
+    ? filterAtlasLineagesToUnlocked(view.lineages)
+    : view.lineages
+  // The user's last explicit pick wins; fall back when the filter has dropped
+  // the selected Lineage out of view — deriving (not setState-ing) keeps the
+  // pick sticky across toggling.
   const lineage =
-    view.lineages.find((entry) => entry.lineage === selectedLineage) ??
-    view.lineages[0]!
+    displayLineages.find((entry) => entry.lineage === selectedLineage) ??
+    displayLineages[0]
   const selectedNode = findNode(view.lineages, selectedKey)
 
   return (
@@ -62,39 +81,56 @@ export function LineageAtlas() {
         <h1 className="text-3xl font-bold">Lineage Atlas</h1>
       </div>
 
-      <RanksHeader
-        savedRanks={view.savedRanks}
-        unlockedCount={view.unlockedCount}
-        pathChoice={character.pathChoice}
-      />
-
-      <RecommendationSlots
-        recommendations={getAtlasRecommendations(
-          view,
-          character.pathChoice,
-          character.level
-        )}
-        pathChoice={character.pathChoice}
-        savedRanks={view.savedRanks}
-      />
-
-      <Separator />
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[12rem_1fr]">
-        <AtlasSidebar
-          lineages={view.lineages}
-          selectedLineage={lineage.lineage}
-          onSelect={(next) => {
-            setSelectedLineage(next)
-            setSelectedKey(null)
-          }}
+      <OwnerOnly>
+        <RanksHeader
+          savedRanks={view.savedRanks}
+          unlockedCount={view.unlockedCount}
+          pathChoice={character.pathChoice}
         />
-        <LineageTree
-          lineage={lineage}
-          selectedKey={selectedKey}
-          onSelect={setSelectedKey}
+
+        <RecommendationSlots
+          recommendations={getAtlasRecommendations(
+            view,
+            character.pathChoice,
+            character.level
+          )}
+          pathChoice={character.pathChoice}
+          savedRanks={view.savedRanks}
+        />
+
+        <Separator />
+      </OwnerOnly>
+
+      <div className="flex items-center justify-end gap-2">
+        <Label htmlFor="atlas-unlocked-only">Unlocked only</Label>
+        <Switch
+          id="atlas-unlocked-only"
+          checked={unlockedOnly}
+          onCheckedChange={setUnlockedOnly}
         />
       </div>
+
+      {lineage ? (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-[12rem_1fr]">
+          <AtlasSidebar
+            lineages={displayLineages}
+            selectedLineage={lineage.lineage}
+            onSelect={(next) => {
+              setSelectedLineage(next)
+              setSelectedKey(null)
+            }}
+          />
+          <LineageTree
+            lineage={lineage}
+            selectedKey={selectedKey}
+            onSelect={setSelectedKey}
+          />
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground italic">
+          No Archetypes unlocked yet.
+        </p>
+      )}
 
       <ArchetypeDetailPanel
         node={selectedNode}

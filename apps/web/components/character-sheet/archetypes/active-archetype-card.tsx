@@ -32,9 +32,10 @@ export function ActiveArchetypeCard({
           titleAs={CardTitle}
           origin={origin}
         />
-        <CardAction>
+        <CardAction className="flex flex-wrap items-center gap-1.5">
+          <Badge>Active</Badge>
           {hasMasteryBonus(row.rank) ? (
-            <Badge>
+            <Badge variant="secondary">
               Mastery: {formatMasteryDescription(archetype.mastery)}
             </Badge>
           ) : null}

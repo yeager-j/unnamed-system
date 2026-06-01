@@ -237,11 +237,6 @@ export function buildArchetypeEntries(
   })
 }
 
-export interface LineageGroup {
-  lineage: Lineage
-  entries: ArchetypeEntry[]
-}
-
 const LINEAGE_ORDER: Record<Lineage, number> = Object.fromEntries(
   LINEAGES.map((lineage, index) => [lineage, index])
 ) as Record<Lineage, number>
@@ -250,45 +245,16 @@ const TIER_ORDER = Object.fromEntries(
   ARCHETYPE_TIERS.map((tier, index) => [tier, index])
 ) as Record<(typeof ARCHETYPE_TIERS)[number], number>
 
-/**
- * Groups Archetype entries by Lineage in the rulebook's canonical Lineage
- * order, then by Tier within each Lineage (initiate → paragon, then by key).
- * Skips Lineages with no unlocked Archetypes — the Lineage list is a player
- * progress view, not a catalog teaser.
- */
-export function groupByLineage(entries: ArchetypeEntry[]): LineageGroup[] {
-  const grouped = new Map<Lineage, ArchetypeEntry[]>()
-  for (const entry of entries) {
-    const bucket = grouped.get(entry.archetype.lineage) ?? []
-    bucket.push(entry)
-    grouped.set(entry.archetype.lineage, bucket)
-  }
-
-  return [...grouped.entries()]
-    .map<LineageGroup>(([lineage, groupEntries]) => ({
-      lineage,
-      entries: [...groupEntries].sort((a, b) => {
-        const tierDelta =
-          TIER_ORDER[a.archetype.tier] - TIER_ORDER[b.archetype.tier]
-        if (tierDelta !== 0) return tierDelta
-        return a.archetype.key.localeCompare(b.archetype.key)
-      }),
-    }))
-    .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
-}
-
 export interface ArchetypeDisplay {
   activeEntry: ArchetypeEntry | null
-  lineageGroups: LineageGroup[]
-  unlockedCount: number
 }
 
 /**
- * Shapes the data the {@link Archetypes} tab needs: the active Archetype
- * entry (if one is set), every unlocked entry grouped by Lineage in canonical
- * order, and the total unlocked count. Pure — wraps the existing
- * {@link buildArchetypeEntries} / {@link groupByLineage} pair so the tab
- * orchestrator stays focused on layout.
+ * Shapes the data the {@link Archetypes} tab needs: the active Archetype entry
+ * (if one is set). The tab's flat unlocked-by-Lineage list was retired in favor
+ * of the Lineage Atlas (UNN-276), so the spotlight is all that remains. Pure —
+ * wraps {@link buildArchetypeEntries} so the tab orchestrator stays focused on
+ * layout.
  */
 export function getArchetypeDisplay(
   character: HydratedCharacter
@@ -296,8 +262,6 @@ export function getArchetypeDisplay(
   const entries = buildArchetypeEntries(character)
   return {
     activeEntry: entries.find((entry) => entry.isActive) ?? null,
-    lineageGroups: groupByLineage(entries),
-    unlockedCount: entries.length,
   }
 }
 
@@ -322,9 +286,9 @@ export interface ArchetypeSwitcherGroup {
  * Lineage-grouped options for the header's active-Archetype switcher (UNN-238).
  * Unlike {@link getArchetypeDisplay} this resolves only the catalog facts the
  * picker renders — no Skill or Inheritance-Slot work — since the switcher sits
- * on every owner sheet. Groups follow the same canonical Lineage order (and
- * Tier-then-name order within a Lineage) as {@link groupByLineage}; Lineages
- * with no unlocked Archetype are omitted.
+ * on every owner sheet. Groups follow the rulebook's canonical Lineage order
+ * (and Tier-then-name order within a Lineage); Lineages with no unlocked
+ * Archetype are omitted.
  */
 export function archetypeSwitcherGroups(
   character: HydratedCharacter
