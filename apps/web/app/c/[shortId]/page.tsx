@@ -6,14 +6,11 @@ import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
-import { Background } from "@/components/character-sheet/background"
 import { CombatState } from "@/components/character-sheet/combat-state"
 import { CommandPalette } from "@/components/character-sheet/command-palette"
-import { Identity } from "@/components/character-sheet/identity"
+import { ExploreTab } from "@/components/character-sheet/explore/explore-tab"
 import { Inventory } from "@/components/character-sheet/inventory"
-import { KnivesChains } from "@/components/character-sheet/knives-chains"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
-import { Notes } from "@/components/character-sheet/notes"
 import { RanksBanner } from "@/components/character-sheet/ranks-banner"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import { SheetNavProvider } from "@/components/character-sheet/sheet-nav-context"
@@ -23,8 +20,6 @@ import {
 } from "@/components/character-sheet/sheet-tab-keys"
 import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
 import { Skills } from "@/components/character-sheet/skills"
-import { Talents } from "@/components/character-sheet/talents"
-import { Virtues } from "@/components/character-sheet/virtues"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import { getViewerRole } from "@/lib/auth/viewer-role"
@@ -146,30 +141,7 @@ export default async function CharacterSheetPage({
                   </section>
                 </>
               }
-              explore={
-                <>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <section aria-label="Virtues">
-                      <Virtues />
-                    </section>
-                    <section aria-label="Talents">
-                      <Talents />
-                    </section>
-                  </div>
-                  <section aria-label="Identity">
-                    <Identity />
-                  </section>
-                  <section aria-label="Knives & Chains">
-                    <KnivesChains />
-                  </section>
-                  <section aria-label="Background">
-                    <Background />
-                  </section>
-                  <section aria-label="Notes">
-                    <Notes />
-                  </section>
-                </>
-              }
+              explore={<ExploreTab />}
               inventory={<Inventory />}
               archetypes={<Archetypes />}
             />

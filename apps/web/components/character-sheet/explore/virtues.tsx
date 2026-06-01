@@ -26,6 +26,7 @@ import {
 } from "@/lib/actions/character-spark"
 import {
   eligibleVirtuesForRankUp,
+  MAX_VIRTUE_RANK,
   SPARK_LOG_CAPACITY,
   sparkLogBreakdown,
   VIRTUE_KEYS,
@@ -34,10 +35,12 @@ import {
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**
- * Virtues block on the Explore tab (PRD §6.1 / §7.5, UNN-222). Renders the
- * four Virtue ranks, the shared Spark log progress, and (for owners) the
- * "+1 Spark" picker plus the "Rank up a Virtue" CTA that surfaces when the
- * log is full. Public viewers see the read-only header rows unchanged.
+ * Virtues block on the Explore tab's reference rail (PRD §6.1 / §7.5,
+ * UNN-222; redesigned UNN-172). Each Virtue renders as a 0–{@link
+ * MAX_VIRTUE_RANK} pip meter beside its numeral, and the shared Spark log as a
+ * segment meter over the `Sparks: N / 7` counter and per-Virtue breakdown. For
+ * owners it carries the "Add Spark" picker plus the "Rank up a Virtue" CTA that
+ * surfaces when the log is full; public viewers see the meters read-only.
  *
  * Writes go through the progression-class retry pipeline. Optimistic state
  * mirrors what the server will persist by running the same pure `addSpark`
@@ -123,30 +126,36 @@ export function Virtues() {
           </CardAction>
         </OwnerOnly>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 sm:grid-cols-4">
+      <CardContent className="flex flex-col gap-3.5">
+        <dl className="flex flex-col gap-2.5">
           {VIRTUE_KEYS.map((key) => (
-            <div
-              key={key}
-              className="flex items-baseline justify-between gap-2"
-            >
-              <dt className="text-muted-foreground">{VIRTUE_LABELS[key]}</dt>
-              <dd className="font-medium tabular-nums">
+            <div key={key} className="flex items-center gap-2.5">
+              <dt className="w-20 shrink-0 text-xs text-muted-foreground">
+                {VIRTUE_LABELS[key]}
+              </dt>
+              <VirtueMeter value={optimistic.virtues[key]} />
+              <dd className="w-3.5 shrink-0 text-right font-mono text-[13px] font-medium tabular-nums">
                 {optimistic.virtues[key]}
               </dd>
             </div>
           ))}
         </dl>
 
-        <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-border pt-3">
-          <span className="font-medium">
+        <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+          <span className="flex items-center gap-1.5 font-medium">
+            <SparkleIcon
+              weight="fill"
+              aria-hidden
+              className="text-sm text-muted-foreground"
+            />
             Sparks:{" "}
-            <span className="tabular-nums">
+            <span className="font-mono tabular-nums">
               {optimistic.sparkLog.length} / {SPARK_LOG_CAPACITY}
             </span>
           </span>
+          <SparkMeter value={optimistic.sparkLog.length} />
           {breakdown.length > 0 ? (
-            <span className="text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               (
               {breakdown
                 .map(
@@ -156,9 +165,50 @@ export function Virtues() {
               )
             </span>
           ) : null}
-        </p>
+        </div>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * The 0–{@link MAX_VIRTUE_RANK} rank track for one Virtue: filled pips up to
+ * `value`, hollow after. Decorative — the adjacent numeral carries the value
+ * for assistive tech, so the track is `aria-hidden`.
+ */
+function VirtueMeter({ value }: { value: number }) {
+  return (
+    <span className="flex flex-1 gap-[3px]" aria-hidden>
+      {Array.from({ length: MAX_VIRTUE_RANK }).map((_, i) => (
+        <span
+          key={i}
+          className={"h-1.5 flex-1 " + (i < value ? "bg-primary" : "bg-muted")}
+        />
+      ))}
+    </span>
+  )
+}
+
+/**
+ * The Spark log fill, one outlined segment per slot up to {@link
+ * SPARK_LOG_CAPACITY}. Decorative — the `Sparks: N / 7` counter above is the
+ * accessible source of truth — so the track is `aria-hidden`.
+ */
+function SparkMeter({ value }: { value: number }) {
+  return (
+    <span className="flex gap-[3px]" aria-hidden>
+      {Array.from({ length: SPARK_LOG_CAPACITY }).map((_, i) => (
+        <span
+          key={i}
+          className={
+            "h-2 flex-1 border " +
+            (i < value
+              ? "border-primary/60 bg-primary/60"
+              : "border-muted-foreground/40")
+          }
+        />
+      ))}
+    </span>
   )
 }
 

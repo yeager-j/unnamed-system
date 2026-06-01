@@ -77,7 +77,7 @@ apps/web/
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
-│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls); archetypes/atlas/ is the Lineage Atlas growth surface (UNN-239, route app/c/[shortId]/archetypes/atlas/)
+│   ├── character-sheet/       Sheet feature (tabs, sections, owner controls); explore/ is the Explore tab's "Reference + Story" surface (UNN-172: sticky Virtues/Talents/jump-nav rail + Identity/Knives/Chains/Background/Notes reading column); archetypes/atlas/ is the Lineage Atlas growth surface (UNN-239, route app/c/[shortId]/archetypes/atlas/)
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
