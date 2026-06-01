@@ -48,7 +48,7 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - Similarly, include a design proposal (can be pure text; image mockups are not necessary) in the Plan when Plan Mode is enabled.
 - As this is a personal project and low-stakes, commiting important files (like CLAUDE.md) that you didn't touch is fine. You should still avoid committing files that are completely unrelated to the PR.
 - When building UI components, see if there is a shadcn/ui component that already does what you need.
-- User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools.
+- User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools. **IMPORTANT!** If you are working in a git worktree, the dev server may have been started by another Claude instance working on its own ticket. You should use a different port in this case.
 - When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
 - When screenshotting via the Playwright MCP, omit the `filename` arg — a relative filename resolves against the repo cwd and litters the root; auto-named files honor the configured `--output-dir` and also render inline in the tool result.
 - When you create new folders, add them to this document's **Repo Structure** section. Ensuring this section is up-to-date allows future Claude instances to know where relevant code is without having to dig through the repo.
@@ -56,6 +56,8 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 **Retrospective at the end of every ticket.** When the implementation lands, briefly consider what slowed you down — friction in the type system, repeated patterns the abstractions don't cover, missing primitives, awkward seams between layers — and surface them with the user. An empty list is a fine outcome; padded lists are worse than silence. The user decides whether to act, file a DX ticket, or skip.
 
 As part of the retrospective, if you noticed anything that could be improved about the code near your changes that might have been out of scope for this ticket, surface it. Again, an empty list is a fine outcome; padded lists are worse than silence.
+
+**Worktrees (parallel tickets).** Each worktree is a separate checkout with its own node_modules — after merging main, run `npm install` if package.json/lockfile changed (a new dep typechecks as "Cannot find module" until you do). Run build/lint/test/dev from the worktree path, not the main checkout (the shell cwd resets between calls). The web launch config uses autoPort, so parallel dev servers won't fight over port 3000.
 
 ## Repo Structure
 
@@ -88,7 +90,7 @@ apps/web/
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
-    ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts)
+    ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts). game/encounter/ is the initiative tracker's second pure engine — the immutable CombatSession shape + (later) reducer (UNN-291+), parallel to game/character/
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── db/                    Persistence, grouped by role (see below)
     ├── storage/               Vercel Blob storage

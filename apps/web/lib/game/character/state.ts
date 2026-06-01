@@ -52,6 +52,21 @@ export const BATTLE_CONDITION_KEYS = [
 export type BattleConditionKey = (typeof BATTLE_CONDITION_KEYS)[number]
 
 /**
+ * The three tri-state Battle Condition axes — the subset of
+ * {@link BATTLE_CONDITION_KEYS} whose value is a {@link BattleConditionState}
+ * (Charged/Concentrating are boolean flags, not axes). The canonical runtime
+ * vocabulary for an axis: the `battleConditionAxis` edit names one of these,
+ * and the initiative tracker keys its per-combatant duration countdowns by them
+ * (UNN-291+).
+ */
+export const BATTLE_CONDITION_AXIS_KEYS = [
+  "attack",
+  "defense",
+  "hitEvasion",
+] as const
+export type BattleConditionAxisKey = (typeof BATTLE_CONDITION_AXIS_KEYS)[number]
+
+/**
  * Manual, source-agnostic bonuses entered directly on the sheet (e.g. a bonus
  * granted by a Background or DM ruling). Mastery is NOT stored here — it is
  * derived from Archetype Rank at compute time and summed on top of these.
