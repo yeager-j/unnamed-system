@@ -155,4 +155,13 @@ describe("combatSessionSchema rejects malformed sessions", () => {
     session.combatants[0]!.conditionDurations = { attack: 0 }
     expect(combatSessionSchema.safeParse(session).success).toBe(false)
   })
+
+  it("rejects an engaged status with no targets", () => {
+    const session = base()
+    session.combatants[0]!.engagement = {
+      status: "engaged",
+      targetCombatantIds: [],
+    }
+    expect(combatSessionSchema.safeParse(session).success).toBe(false)
+  })
 })

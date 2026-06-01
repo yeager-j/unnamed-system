@@ -18,7 +18,8 @@ import { BATTLE_CONDITION_AXIS_KEYS } from "@/lib/game/character"
  * real shape is finalized in UNN-299 (Free-entry enemy/NPC combatants) — keep
  * call sites thin and expect this to gain fields (e.g. affinities). Captures
  * only the free-enter essentials the PRD §1 lists so a representative session
- * is valid today.
+ * is valid today. `current*` are intentionally unbounded below (overkill can
+ * drive HP/SP negative); only `max*` are non-negative.
  */
 export const enemyStatBlockSchema = z.object({
   name: z.string().min(1),
@@ -64,7 +65,7 @@ const engagementSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("free") }),
   z.object({
     status: z.literal("engaged"),
-    targetCombatantIds: z.array(z.string()),
+    targetCombatantIds: z.array(z.string()).min(1),
   }),
 ])
 export type Engagement = z.infer<typeof engagementSchema>
@@ -107,6 +108,11 @@ export type Combatant = z.infer<typeof combatantSchema>
  * between rounds). Turn-loop state (starting advantage, side-drafting, phase)
  * is added by the Turn-Order epic (UNN-285) — this shape is meant to grow
  * per-epic.
+ *
+ * UNN-292's reducer consumes this as a **decider**: `(session, event) →
+ * { session', edits[] }`, where `edits[]` are existing `CharacterEdit`s the
+ * impure shell applies (e.g. a duration reaching zero emits `battleConditionAxis
+ * → neutral`). The reducer is pure and never performs I/O.
  */
 export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
