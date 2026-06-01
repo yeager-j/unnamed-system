@@ -1,9 +1,10 @@
+import { produce } from "immer"
+
 import type { CombatSession } from "../session"
 import type {
   BattleConditionEvent,
   CombatSessionResult,
 } from "../session-event"
-import { withCombatant } from "./shared"
 
 /**
  * Battle-condition duration slice. `applyBattleConditionDuration` sets or extends
@@ -12,7 +13,7 @@ import { withCombatant } from "./shared"
  * added to whatever remains. Session-only — it tracks *how long*; the character's
  * increased/decreased *state* is set through the existing combat-state action,
  * and expiry (the `→ neutral` edit) is emitted from `endTurn`. A no-op when the
- * combatant id is unknown.
+ * combatant id is unknown (Immer returns the original session unchanged).
  */
 export function reduceBattleConditionEvent(
   session: CombatSession,
@@ -20,14 +21,14 @@ export function reduceBattleConditionEvent(
 ): CombatSessionResult {
   switch (event.kind) {
     case "applyBattleConditionDuration": {
-      const next = withCombatant(session, event.combatantId, (combatant) => ({
-        ...combatant,
-        conditionDurations: {
-          ...combatant.conditionDurations,
-          [event.axis]:
-            (combatant.conditionDurations[event.axis] ?? 0) + event.turns,
-        },
-      }))
+      const next = produce(session, (draft) => {
+        const combatant = draft.combatants.find(
+          (entry) => entry.id === event.combatantId
+        )
+        if (combatant === undefined) return
+        combatant.conditionDurations[event.axis] =
+          (combatant.conditionDurations[event.axis] ?? 0) + event.turns
+      })
       return { session: next, edits: [] }
     }
   }

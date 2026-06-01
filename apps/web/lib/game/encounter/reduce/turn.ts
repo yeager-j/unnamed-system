@@ -1,12 +1,13 @@
+import { produce } from "immer"
+
 import { BATTLE_CONDITION_AXIS_KEYS } from "@/lib/game/character"
 
-import type { CombatSession, ConditionDurations } from "../session"
+import type { CombatSession } from "../session"
 import type {
   CombatSessionResult,
   EmittedEdit,
   TurnEvent,
 } from "../session-event"
-import { withCombatant } from "./shared"
 
 /**
  * Turn-loop slice. `endTurn` ends the current actor's turn: they are marked as
@@ -29,32 +30,38 @@ export function reduceTurnEvent(
       const actor = session.combatants.find(
         (combatant) => combatant.id === actorId
       )
-      if (actor === undefined) {
-        return { session: { ...session, currentActorId: null }, edits: [] }
-      }
 
-      const nextDurations: ConditionDurations = {}
+      // Expiry emissions are read off the pre-decrement state, so the producer
+      // below only mutates the draft and carries no external side effects.
       const edits: EmittedEdit[] = []
-      for (const axis of BATTLE_CONDITION_AXIS_KEYS) {
-        const remaining = actor.conditionDurations[axis]
-        if (remaining === undefined) continue
-        const decremented = remaining - 1
-        if (decremented > 0) {
-          nextDurations[axis] = decremented
-        } else {
-          edits.push({
-            combatantId: actorId,
-            edit: { kind: "battleConditionAxis", axis, state: "neutral" },
-          })
+      if (actor !== undefined) {
+        for (const axis of BATTLE_CONDITION_AXIS_KEYS) {
+          const remaining = actor.conditionDurations[axis]
+          if (remaining !== undefined && remaining <= 1) {
+            edits.push({
+              combatantId: actorId,
+              edit: { kind: "battleConditionAxis", axis, state: "neutral" },
+            })
+          }
         }
       }
 
-      const acted = withCombatant(session, actorId, (combatant) => ({
-        ...combatant,
-        hasActedThisRound: true,
-        conditionDurations: nextDurations,
-      }))
-      return { session: { ...acted, currentActorId: null }, edits }
+      const next = produce(session, (draft) => {
+        draft.currentActorId = null
+        const drafted = draft.combatants.find(
+          (combatant) => combatant.id === actorId
+        )
+        if (drafted === undefined) return
+        drafted.hasActedThisRound = true
+        for (const axis of BATTLE_CONDITION_AXIS_KEYS) {
+          const remaining = drafted.conditionDurations[axis]
+          if (remaining === undefined) continue
+          if (remaining > 1) drafted.conditionDurations[axis] = remaining - 1
+          else delete drafted.conditionDurations[axis]
+        }
+      })
+
+      return { session: next, edits }
     }
   }
 }
