@@ -11,7 +11,7 @@ import { Prose } from "@/components/shared/prose"
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
 
-import { EditableDetailField } from "./editable-detail-field"
+import { EditableDetailField } from "../editable-detail-field"
 
 /**
  * Background block (PRD §6.1 Explore tab). Surfaces the short identity slots a
