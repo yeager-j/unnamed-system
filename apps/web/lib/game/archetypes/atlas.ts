@@ -232,6 +232,35 @@ export function buildLineageAtlas(
   }
 }
 
+/** Whether a node is one the character has unlocked — owned (Rank ≥ 1) or
+ *  mastered. The axis the Atlas's "Unlocked only" filter keys off of. */
+export function isAtlasNodeUnlocked(node: AtlasNode): boolean {
+  return node.state.kind === "owned" || node.state.kind === "mastered"
+}
+
+/**
+ * Collapses each Lineage's tree to only the Archetypes the character has
+ * unlocked, then drops Lineages left with none — the view behind the Atlas's
+ * "Unlocked only" toggle, which reproduces the retired Archetypes-tab roster
+ * inside the tree. `progress` is left untouched so a filtered Lineage still
+ * reads "owned/total".
+ */
+export function filterAtlasLineagesToUnlocked(
+  lineages: AtlasLineage[]
+): AtlasLineage[] {
+  return lineages
+    .map((lineage) => ({
+      ...lineage,
+      columns: lineage.columns.map((column) => ({
+        ...column,
+        nodes: column.nodes.filter(isAtlasNodeUnlocked),
+      })),
+    }))
+    .filter((lineage) =>
+      lineage.columns.some((column) => column.nodes.length > 0)
+    )
+}
+
 /**
  * The {@link SuggestedPath} a character's HP/SP {@link PathChoice} fits — the
  * bucket Path-fit recommendations match against. Mirrors the leading bucket of

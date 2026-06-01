@@ -25,6 +25,7 @@ import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
+import { OwnerOnly } from "@/components/shell/viewer-role"
 import {
   getArchetype,
   hasUnlockedRank,
@@ -186,21 +187,27 @@ function PanelBody({
       </div>
 
       <ResponsiveDialogFooter className="flex-row items-center justify-between border-t">
-        <p className="flex items-baseline gap-1.5 text-sm">
-          <span className="text-muted-foreground">Saved Ranks</span>
-          <span className="font-semibold tabular-nums">{savedRanks}</span>
-          <span className="text-muted-foreground">unspent</span>
-        </p>
+        <OwnerOnly>
+          <p className="flex items-baseline gap-1.5 text-sm">
+            <span className="text-muted-foreground">Saved Ranks</span>
+            <span className="font-semibold tabular-nums">{savedRanks}</span>
+            <span className="text-muted-foreground">unspent</span>
+          </p>
+        </OwnerOnly>
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
-          <ArchetypeActionButton
-            archetype={archetype}
-            state={state}
-            characterArchetypeId={characterArchetypeId}
-            savedRanks={savedRanks}
-          />
+          {/* Owner-gated for affordance only; `spendArchetypeRank` enforces
+              `requireOwner` server-side regardless. */}
+          <OwnerOnly>
+            <ArchetypeActionButton
+              archetype={archetype}
+              state={state}
+              characterArchetypeId={characterArchetypeId}
+              savedRanks={savedRanks}
+            />
+          </OwnerOnly>
         </div>
       </ResponsiveDialogFooter>
     </ResponsiveDialogContent>

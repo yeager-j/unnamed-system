@@ -9,8 +9,10 @@ import { expect, test } from "@playwright/test"
  * iterating without breaking E2E. Per-mechanic widget rendering is owned by
  * mechanics.spec.ts — this file is about the Archetypes-tab surface itself.
  *
- * seed-knight is the rich case (Active Knight at Mastered Rank 5, with Warrior
- * + Mage also unlocked at lower Ranks and filled inheritance slots); seed-
+ * Since UNN-276 the tab is just the Active-Archetype spotlight + an "Open
+ * Lineage Atlas" link; the flat unlocked-by-Lineage roster moved to the
+ * publicly-viewable Atlas (see archetype-atlas.spec.ts). seed-knight is the rich
+ * case (Active Knight at Mastered Rank 5 with filled inheritance slots); seed-
  * warrior is the bare case (one Archetype, no inheritance, no Mastery).
  */
 
@@ -26,9 +28,9 @@ test("Active Archetype card surfaces the full Rank-5 block", async ({
   await expect(page.getByText("Rank 5/5").first()).toBeVisible()
 
   // Mastered Archetypes (Rank 5) show the specific permanent bonus they grant.
-  // Knight's mastery is +20 HP. The chip renders both in the Active card header
-  // and the compact Knight card in the Lineage list, hence count 2.
-  await expect(page.getByText("Mastery: +20 HP")).toHaveCount(2)
+  // Knight's mastery is +20 HP, on the lone Active card (the compact Lineage
+  // list that used to repeat it was retired in UNN-276).
+  await expect(page.getByText("Mastery: +20 HP")).toHaveCount(1)
 
   // Skills the character has at the current Rank are shown by name — the
   // Synthesis Skill at Rank 5 reads as a labeled "Synthesis: ..." badge.
@@ -47,38 +49,7 @@ test("Active Archetype card surfaces the full Rank-5 block", async ({
   await expect(page.getByText(/Slot 2.*Warrior/)).toBeVisible()
 })
 
-test("Unlocked Archetypes list groups by Lineage and marks the active one", async ({
-  page,
-}) => {
-  await page.goto("/c/seed-knight?tab=archetypes")
-
-  // Only the Lineages the character has unlocked appear as regions — three
-  // for seed-knight (Warrior / Mage / Knight), not all twelve.
-  await expect(
-    page.getByRole("region", { name: "Warrior Lineage" })
-  ).toBeVisible()
-  await expect(page.getByRole("region", { name: "Mage Lineage" })).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Knight Lineage" })
-  ).toBeVisible()
-  await expect(
-    page.getByRole("region", { name: "Healer Lineage" })
-  ).toHaveCount(0)
-
-  // The active Archetype carries an "Active" badge in its compact row inside
-  // its Lineage. The summary cards each have one "Show details" button — three
-  // cards ⇒ three triggers.
-  await expect(
-    page.getByRole("region", { name: "Knight Lineage" }).getByText("Active", {
-      exact: true,
-    })
-  ).toBeVisible()
-  await expect(page.getByRole("button", { name: "Show details" })).toHaveCount(
-    3
-  )
-})
-
-test("a one-Archetype character renders empty Inheritance Slots + empty Unlocked list", async ({
+test("a one-Archetype character renders empty Inheritance Slots", async ({
   page,
 }) => {
   await page.goto("/c/seed-warrior?tab=archetypes")
@@ -86,39 +57,18 @@ test("a one-Archetype character renders empty Inheritance Slots + empty Unlocked
   // Both Initiate-tier Inheritance Slots are configured but unfilled on seed-
   // warrior. AC: marked, not omitted.
   await expect(page.getByText("Empty slot")).toHaveCount(2)
-
-  // Saved Archetype Ranks renders as an integer (in the inline strip above
-  // the Active card).
-  await expect(page.getByText(/Saved Archetype Ranks/)).toBeVisible()
-
-  // Only Warrior is unlocked ⇒ the Lineage list still renders Warrior (with
-  // its Active badge), and the muted "no others" line sits underneath so the
-  // surface doesn't appear broken.
-  await expect(
-    page.getByRole("region", { name: "Warrior Lineage" })
-  ).toBeVisible()
-  await expect(
-    page.getByText("No other Archetypes unlocked yet.")
-  ).toBeVisible()
 })
 
-test("Show details drawer renders the mechanic prose for a non-active Archetype", async ({
+test("the Archetypes tab links publicly to the Lineage Atlas", async ({
   page,
 }) => {
+  // Signed-out (no storageState): the Atlas link is public now (UNN-276), the
+  // tab's single path to the unlocked roster / tier trees.
   await page.goto("/c/seed-knight?tab=archetypes")
 
-  // First Show details button in document order belongs to the Warrior card
-  // (Warrior Lineage groups before Mage / Knight per the rulebook order).
-  await page.getByRole("button", { name: "Show details" }).first().click()
-
-  // The Drawer is a dialog by role and holds the full ArchetypeDetail block,
-  // including the mechanic's name as a heading and its description prose.
-  const drawer = page.getByRole("dialog")
-  await expect(drawer).toBeVisible()
   await expect(
-    drawer.getByRole("heading", { name: "Perfection" })
+    page.getByRole("link", { name: "Open Lineage Atlas" })
   ).toBeVisible()
-  await expect(drawer.getByText(/Attack Rolls/).first()).toBeVisible()
 })
 
 test("read-only sheet has no owner-mode controls on the Archetypes tab", async ({

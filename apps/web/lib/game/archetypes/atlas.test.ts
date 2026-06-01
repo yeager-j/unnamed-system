@@ -13,7 +13,9 @@ import { LINEAGES, type Lineage } from "../character/lineage"
 import {
   atlasNodeState,
   buildLineageAtlas,
+  filterAtlasLineagesToUnlocked,
   getAtlasRecommendations,
+  isAtlasNodeUnlocked,
   unmetPrerequisites,
   type AtlasLineage,
   type AtlasNode,
@@ -256,6 +258,60 @@ describe("buildLineageAtlas", () => {
       .find((entry) => entry.lineage === "knight")!
       .columns.find((column) => column.tier === "initiate")!.nodes[0]!
     expect(knightNode.parentKeys).toEqual([])
+  })
+})
+
+describe("isAtlasNodeUnlocked", () => {
+  const states: { state: AtlasNodeState; unlocked: boolean }[] = [
+    { state: { kind: "owned", rank: 1 }, unlocked: true },
+    { state: { kind: "mastered", rank: 5 }, unlocked: true },
+    { state: { kind: "unlockable" }, unlocked: false },
+    { state: { kind: "locked", unmetPrerequisites: [] }, unlocked: false },
+  ]
+  for (const { state, unlocked } of states) {
+    it(`treats ${state.kind} as ${unlocked ? "" : "not "}unlocked`, () => {
+      expect(isAtlasNodeUnlocked({ state } as AtlasNode)).toBe(unlocked)
+    })
+  }
+})
+
+describe("filterAtlasLineagesToUnlocked", () => {
+  it("keeps only owned/mastered nodes and drops Lineages with none", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 3 }),
+          archetypeRow({ id: "a2", archetypeKey: "mage", rank: 5 }),
+        ],
+      })
+    )
+    const filtered = filterAtlasLineagesToUnlocked(view.lineages)
+
+    expect(filtered.map((entry) => entry.lineage)).toEqual(["warrior", "mage"])
+    for (const entry of filtered) {
+      const nodes = entry.columns.flatMap((column) => column.nodes)
+      expect(nodes.every(isAtlasNodeUnlocked)).toBe(true)
+      expect(nodes.length).toBeGreaterThan(0)
+    }
+  })
+
+  it("leaves progress counts untouched on a surviving Lineage", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 3 }),
+        ],
+      })
+    )
+    const warrior = filterAtlasLineagesToUnlocked(view.lineages).find(
+      (entry) => entry.lineage === "warrior"
+    )!
+    expect(warrior.progress).toEqual({ owned: 1, total: 1 })
+  })
+
+  it("returns nothing when no Archetype is unlocked", () => {
+    const view = buildLineageAtlas(makeCharacter({}))
+    expect(filterAtlasLineagesToUnlocked(view.lineages)).toEqual([])
   })
 })
 

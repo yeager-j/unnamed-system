@@ -9,14 +9,17 @@ import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
 
 /**
- * The Lineage Atlas (UNN-239) — the owner-only *growth* surface for spending
- * Saved Archetype Ranks. A dedicated route under the sheet rather than a tab:
+ * The Lineage Atlas (UNN-239) — the *growth* surface for spending Saved
+ * Archetype Ranks. A dedicated route under the sheet rather than a tab:
  * unlocking and ranking up Archetypes is a focused, full-page task.
  *
- * Owner-gated. A non-owner (signed-in or out) is redirected to the public
- * sheet — the Atlas has no read-only mode, and the Server Actions behind it
- * trip `forbidden()` regardless. A draft's owner is bounced into the builder,
- * mirroring the sheet route.
+ * Publicly viewable, read-only for non-owners (UNN-276): the page renders the
+ * full tier-tree map for everyone and gates the owner-mode chrome inside
+ * {@link LineageAtlas} with `OwnerOnly`. The Server Actions behind that chrome
+ * trip `forbidden()` regardless, so this is a richer public roster than the
+ * retired Archetypes-tab list with no new exposure. Drafts never render here:
+ * the owner is bounced into the builder, everyone else to the sheet (which
+ * shows the "not ready" dialog), mirroring the sheet route.
  */
 
 interface PageProps {
@@ -37,12 +40,12 @@ export default async function LineageAtlasPage({ params }: PageProps) {
   }
 
   const role = await getViewerRole(character)
-  if (role !== "owner") {
-    redirect(`/c/${shortId}`)
-  }
 
   if (character.status === "draft") {
-    redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+    if (role === "owner") {
+      redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+    }
+    redirect(`/c/${shortId}`)
   }
 
   return (
