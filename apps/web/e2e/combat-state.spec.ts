@@ -121,9 +121,9 @@ test.describe("owner Combat State editing", () => {
     await page.waitForLoadState("networkidle")
 
     const after = await getCombatStateTargetState()
-    expect(after.battleConditions?.attack.state).toBe("increased")
-    expect(after.battleConditions?.defense.state).toBe("neutral")
-    expect(after.battleConditions?.hitEvasion.state).toBe("neutral")
+    expect(after.battleConditions?.attack).toBe("increased")
+    expect(after.battleConditions?.defense).toBe("neutral")
+    expect(after.battleConditions?.hitEvasion).toBe("neutral")
 
     await expect(
       page.getByRole("combobox", { name: "Attack battle condition" })
@@ -188,9 +188,9 @@ test.describe("owner Combat State editing", () => {
     await setCombatStateTargetState({
       ailments: ["burn"],
       battleConditions: {
-        attack: { state: "increased", stacks: 1 },
-        defense: { state: "decreased", stacks: 1 },
-        hitEvasion: { state: "neutral", stacks: 0 },
+        attack: "increased",
+        defense: "decreased",
+        hitEvasion: "neutral",
         charged: true,
         concentrating: true,
       },
@@ -203,9 +203,9 @@ test.describe("owner Combat State editing", () => {
 
     const after = await getCombatStateTargetState()
     expect(after.ailments).toEqual([])
-    expect(after.battleConditions?.attack.state).toBe("neutral")
-    expect(after.battleConditions?.defense.state).toBe("neutral")
-    expect(after.battleConditions?.hitEvasion.state).toBe("neutral")
+    expect(after.battleConditions?.attack).toBe("neutral")
+    expect(after.battleConditions?.defense).toBe("neutral")
+    expect(after.battleConditions?.hitEvasion).toBe("neutral")
     expect(after.battleConditions?.charged).toBe(false)
     expect(after.battleConditions?.concentrating).toBe(false)
     // Exhaustion is dungeoneering state; Clear deliberately leaves it.

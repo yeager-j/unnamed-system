@@ -71,16 +71,18 @@ export type ManualBonuses = z.infer<typeof manualBonusesSchema>
 export const sparkLogSchema = z.array(z.enum(VIRTUE_KEYS)).max(7)
 export type SparkLog = z.infer<typeof sparkLogSchema>
 
-const battleConditionAxisSchema = z.object({
-  state: z.enum(BATTLE_CONDITION_STATES),
-  stacks: z.number().int().nonnegative(),
-})
-
-/** Tracked (not computed) combat modifiers; wiped by "Clear combat state". */
+/**
+ * Tracked (not computed) combat modifiers; wiped by "Clear combat state". Each
+ * tri-state axis (`attack`/`defense`/`hitEvasion`) is its
+ * {@link BattleConditionState} alone: Battle Conditions don't stack
+ * constructively (rulebook 3.8), so there is nothing to track beyond the
+ * current state. A re-applied buff extends its *duration*, which lives on the
+ * initiative tracker's `CombatSession`, never on the character.
+ */
 export const battleConditionsSchema = z.object({
-  attack: battleConditionAxisSchema,
-  defense: battleConditionAxisSchema,
-  hitEvasion: battleConditionAxisSchema,
+  attack: z.enum(BATTLE_CONDITION_STATES),
+  defense: z.enum(BATTLE_CONDITION_STATES),
+  hitEvasion: z.enum(BATTLE_CONDITION_STATES),
   charged: z.boolean(),
   concentrating: z.boolean(),
 })
@@ -93,9 +95,9 @@ export type BattleConditions = z.infer<typeof battleConditionsSchema>
  * mutator writes back.
  */
 export const DEFAULT_BATTLE_CONDITIONS: BattleConditions = {
-  attack: { state: "neutral", stacks: 0 },
-  defense: { state: "neutral", stacks: 0 },
-  hitEvasion: { state: "neutral", stacks: 0 },
+  attack: "neutral",
+  defense: "neutral",
+  hitEvasion: "neutral",
   charged: false,
   concentrating: false,
 }

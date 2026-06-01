@@ -120,6 +120,13 @@
       "when": 1780034899280,
       "tag": "0016_unn_173_origin_archetype",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780294063227,
+      "tag": "0017_unn_290_collapse_battle_condition_axis",
+      "breakpoints": true
     }
   ]
 }

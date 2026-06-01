@@ -343,9 +343,9 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     exhaustion: 2,
     ailments: ["burn"],
     battleConditions: {
-      attack: { state: "increased", stacks: 1 },
-      defense: { state: "decreased", stacks: 1 },
-      hitEvasion: { state: "neutral", stacks: 0 },
+      attack: "increased",
+      defense: "decreased",
+      hitEvasion: "neutral",
       charged: false,
       concentrating: true,
     },
