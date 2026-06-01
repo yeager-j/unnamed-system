@@ -33,19 +33,15 @@ import { PrismaRow } from "./combat-state/prisma-row"
  * playing on. The header-right "Clear combat state" reset wipes Ailment +
  * Battle Conditions + flags in a single click; Exhaustion is dungeoneering
  * state and only Full Rest reduces it (UNN-156).
- *
- * Battle Condition `stacks` are not displayed: rulebook 3.8 forbids
- * constructive stacking, so `stacks > 1` only encodes extended duration —
- * meaningful once an initiative tracker exists, not before.
  */
 export function CombatState() {
   const character = useCharacter()
   const conditions = character.battleConditions ?? DEFAULT_BATTLE_CONDITIONS
   const hasState =
     character.ailments.length > 0 ||
-    conditions.attack.state !== "neutral" ||
-    conditions.defense.state !== "neutral" ||
-    conditions.hitEvasion.state !== "neutral" ||
+    conditions.attack !== "neutral" ||
+    conditions.defense !== "neutral" ||
+    conditions.hitEvasion !== "neutral" ||
     conditions.charged ||
     conditions.concentrating
 

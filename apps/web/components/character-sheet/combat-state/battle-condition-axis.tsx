@@ -39,7 +39,7 @@ export function BattleConditionAxis({ axis }: { axis: AxisKey }) {
   const role = useViewerRole()
   const conditions =
     useCharacter().battleConditions ?? DEFAULT_BATTLE_CONDITIONS
-  const current = conditions[axis].state
+  const current = conditions[axis]
 
   if (role !== "owner") return <ConditionValue state={current} />
 

@@ -22,13 +22,7 @@ export function reduceCombatStateEdit(
 
     case "battleConditionAxis":
       return patchRow(raw, {
-        battleConditions: {
-          ...conditions,
-          [edit.axis]: {
-            state: edit.state,
-            stacks: edit.state === "neutral" ? 0 : 1,
-          },
-        },
+        battleConditions: { ...conditions, [edit.axis]: edit.state },
       })
 
     case "battleConditionFlag":

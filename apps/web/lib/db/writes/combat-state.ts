@@ -89,10 +89,7 @@ export async function applySetBattleConditionAxisForCharacter(
 ): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {
   const current = await readBattleConditions(characterId)
   if (!current) return err("character-not-found")
-  const next: BattleConditions = {
-    ...current,
-    [axis]: { state, stacks: state === "neutral" ? 0 : 1 },
-  }
+  const next: BattleConditions = { ...current, [axis]: state }
   return applySetBattleConditionsForCharacter(
     characterId,
     next,

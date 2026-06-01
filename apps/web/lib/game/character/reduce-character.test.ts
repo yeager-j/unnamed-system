@@ -234,11 +234,11 @@ describe("reduceCharacter", () => {
       axis: "attack",
       state: "increased",
     })
-    expect(buffed.battleConditions?.attack.state).toBe("increased")
+    expect(buffed.battleConditions?.attack).toBe("increased")
 
     const cleared = reduceCharacter(buffed, { kind: "clearCombatState" })
     expect(cleared.ailments).toEqual([])
-    expect(cleared.battleConditions?.attack.state).toBe("neutral")
+    expect(cleared.battleConditions?.attack).toBe("neutral")
   })
 
   it("spends a Prisma charge and refuses at 0", () => {
