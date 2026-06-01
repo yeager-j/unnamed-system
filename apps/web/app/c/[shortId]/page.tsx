@@ -7,11 +7,13 @@ import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
 import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
 import { CombatState } from "@/components/character-sheet/combat-state"
+import { CommandPalette } from "@/components/character-sheet/command-palette"
 import { ExploreTab } from "@/components/character-sheet/explore/explore-tab"
 import { Inventory } from "@/components/character-sheet/inventory"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { RanksBanner } from "@/components/character-sheet/ranks-banner"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
+import { SheetNavProvider } from "@/components/character-sheet/sheet-nav-context"
 import {
   SHEET_TAB_KEYS,
   type SheetTabKey,
@@ -111,36 +113,39 @@ export default async function CharacterSheetPage({
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
         <CharacterProvider character={character}>
-          <SheetHeader />
+          <SheetNavProvider defaultTab={resolveTab(tab)}>
+            <CommandPalette />
 
-          <RanksBanner />
+            <SheetHeader />
 
-          <SheetTabs
-            defaultTab={resolveTab(tab)}
-            combat={
-              <>
-                <section aria-label="Affinities">
-                  <Affinities />
-                </section>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {character.activeMechanic ? (
-                    <section aria-label="Archetype Mechanic">
-                      <MechanicWidget />
-                    </section>
-                  ) : null}
-                  <section aria-label="Combat State">
-                    <CombatState />
+            <RanksBanner />
+
+            <SheetTabs
+              combat={
+                <>
+                  <section aria-label="Affinities">
+                    <Affinities />
                   </section>
-                </div>
-                <section aria-label="Skills">
-                  <Skills />
-                </section>
-              </>
-            }
-            explore={<ExploreTab />}
-            inventory={<Inventory />}
-            archetypes={<Archetypes />}
-          />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {character.activeMechanic ? (
+                      <section aria-label="Archetype Mechanic">
+                        <MechanicWidget />
+                      </section>
+                    ) : null}
+                    <section aria-label="Combat State">
+                      <CombatState />
+                    </section>
+                  </div>
+                  <section aria-label="Skills">
+                    <Skills />
+                  </section>
+                </>
+              }
+              explore={<ExploreTab />}
+              inventory={<Inventory />}
+              archetypes={<Archetypes />}
+            />
+          </SheetNavProvider>
         </CharacterProvider>
       </ViewerRoleProvider>
     </main>

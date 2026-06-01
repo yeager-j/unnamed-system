@@ -87,6 +87,7 @@ apps/web/
 │   └── fixtures/              Per-spec seed-character fixtures (write-target, delete-target, cast-target). Each owns its SeedCharacter + DB-poke reset helpers; lib/db/seed.ts iterates DEV_USER_E2E_FIXTURES.
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
+    ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
     ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts)
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── db/                    Persistence, grouped by role (see below)
