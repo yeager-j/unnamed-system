@@ -8,6 +8,7 @@ import { Affinities } from "@/components/character-sheet/affinities"
 import { Archetypes } from "@/components/character-sheet/archetypes"
 import { Background } from "@/components/character-sheet/background"
 import { CombatState } from "@/components/character-sheet/combat-state"
+import { CommandPalette } from "@/components/character-sheet/command-palette"
 import { Identity } from "@/components/character-sheet/identity"
 import { Inventory } from "@/components/character-sheet/inventory"
 import { KnivesChains } from "@/components/character-sheet/knives-chains"
@@ -15,6 +16,7 @@ import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-
 import { Notes } from "@/components/character-sheet/notes"
 import { RanksBanner } from "@/components/character-sheet/ranks-banner"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
+import { SheetNavProvider } from "@/components/character-sheet/sheet-nav-context"
 import {
   SHEET_TAB_KEYS,
   type SheetTabKey,
@@ -116,59 +118,62 @@ export default async function CharacterSheetPage({
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
         <CharacterProvider character={character}>
-          <SheetHeader />
+          <SheetNavProvider defaultTab={resolveTab(tab)}>
+            <CommandPalette />
 
-          <RanksBanner />
+            <SheetHeader />
 
-          <SheetTabs
-            defaultTab={resolveTab(tab)}
-            combat={
-              <>
-                <section aria-label="Affinities">
-                  <Affinities />
-                </section>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {character.activeMechanic ? (
-                    <section aria-label="Archetype Mechanic">
-                      <MechanicWidget />
+            <RanksBanner />
+
+            <SheetTabs
+              combat={
+                <>
+                  <section aria-label="Affinities">
+                    <Affinities />
+                  </section>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {character.activeMechanic ? (
+                      <section aria-label="Archetype Mechanic">
+                        <MechanicWidget />
+                      </section>
+                    ) : null}
+                    <section aria-label="Combat State">
+                      <CombatState />
                     </section>
-                  ) : null}
-                  <section aria-label="Combat State">
-                    <CombatState />
+                  </div>
+                  <section aria-label="Skills">
+                    <Skills />
                   </section>
-                </div>
-                <section aria-label="Skills">
-                  <Skills />
-                </section>
-              </>
-            }
-            explore={
-              <>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <section aria-label="Virtues">
-                    <Virtues />
+                </>
+              }
+              explore={
+                <>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <section aria-label="Virtues">
+                      <Virtues />
+                    </section>
+                    <section aria-label="Talents">
+                      <Talents />
+                    </section>
+                  </div>
+                  <section aria-label="Identity">
+                    <Identity />
                   </section>
-                  <section aria-label="Talents">
-                    <Talents />
+                  <section aria-label="Knives & Chains">
+                    <KnivesChains />
                   </section>
-                </div>
-                <section aria-label="Identity">
-                  <Identity />
-                </section>
-                <section aria-label="Knives & Chains">
-                  <KnivesChains />
-                </section>
-                <section aria-label="Background">
-                  <Background />
-                </section>
-                <section aria-label="Notes">
-                  <Notes />
-                </section>
-              </>
-            }
-            inventory={<Inventory />}
-            archetypes={<Archetypes />}
-          />
+                  <section aria-label="Background">
+                    <Background />
+                  </section>
+                  <section aria-label="Notes">
+                    <Notes />
+                  </section>
+                </>
+              }
+              inventory={<Inventory />}
+              archetypes={<Archetypes />}
+            />
+          </SheetNavProvider>
         </CharacterProvider>
       </ViewerRoleProvider>
     </main>

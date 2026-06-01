@@ -7,7 +7,7 @@ import {
   CompassIcon,
   SwordIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { useState, type ReactNode } from "react"
+import { type ReactNode } from "react"
 
 import {
   Tabs,
@@ -16,8 +16,7 @@ import {
   TabsTrigger,
 } from "@workspace/ui/components/tabs"
 
-import { useTabUrlSync } from "@/hooks/use-tab-url-sync"
-
+import { useSheetNav } from "./sheet-nav-context"
 import { type SheetTabKey } from "./sheet-tab-keys"
 
 const TABS: ReadonlyArray<{ key: SheetTabKey; label: string; Icon: Icon }> = [
@@ -28,7 +27,6 @@ const TABS: ReadonlyArray<{ key: SheetTabKey; label: string; Icon: Icon }> = [
 ]
 
 export interface SheetTabsProps {
-  defaultTab: SheetTabKey
   combat: ReactNode
   explore: ReactNode
   inventory: ReactNode
@@ -41,21 +39,20 @@ export interface SheetTabsProps {
  * state. It's *controlled* — switching is instant client state with no server
  * round-trip — and the URL is mirrored cosmetically via `history.replaceState`
  * (not the Next router, which would re-render the route and reset the tabs) so
- * a view stays shareable by `?tab=`. The initial tab comes from the server via
- * {@link SheetTabsProps.defaultTab}, so a deep link opens the right tab.
- * Inactive panels are unmounted (the Base UI default with `keepMounted` off),
- * so a switch fully tears down the previous tab's tree. Triggers collapse to
- * icon-only below `sm`.
+ * a view stays shareable by `?tab=`. The active-tab state lives in
+ * {@link SheetNavProvider} (so the command palette can drive it too); the
+ * initial tab comes from the server via that provider's `defaultTab`, so a deep
+ * link opens the right tab. Inactive panels are unmounted (the Base UI default
+ * with `keepMounted` off), so a switch fully tears down the previous tab's tree.
+ * Triggers collapse to icon-only below `sm`.
  */
 export function SheetTabs({
-  defaultTab,
   combat,
   explore,
   inventory,
   archetypes,
 }: SheetTabsProps) {
-  const [value, setValue] = useState<SheetTabKey>(defaultTab)
-  useTabUrlSync(value)
+  const { activeTab, setActiveTab } = useSheetNav()
   const panels: Record<SheetTabKey, ReactNode> = {
     combat,
     explore,
@@ -65,8 +62,8 @@ export function SheetTabs({
 
   return (
     <Tabs
-      value={value}
-      onValueChange={(next) => setValue(next as SheetTabKey)}
+      value={activeTab}
+      onValueChange={(next) => setActiveTab(next as SheetTabKey)}
       className="gap-6"
     >
       <TabsList className="w-full">
