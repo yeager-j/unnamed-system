@@ -1,24 +1,6 @@
-import type { Combatant, CombatSession } from "../session"
+import type { CombatSession } from "../session"
 import type { CombatSessionResult, TurnEvent } from "../session-event"
-
-/**
- * Replaces the combatant with `combatantId` by `updater(combatant)`, returning a
- * new session; combatants are left untouched (and the same array reference is
- * fine to reuse) when no id matches. Kept local to this slice until a second
- * slice needs it, at which point it graduates to a shared helper.
- */
-function withCombatant(
-  session: CombatSession,
-  combatantId: string,
-  updater: (combatant: Combatant) => Combatant
-): CombatSession {
-  return {
-    ...session,
-    combatants: session.combatants.map((combatant) =>
-      combatant.id === combatantId ? updater(combatant) : combatant
-    ),
-  }
-}
+import { withCombatant } from "./shared"
 
 /**
  * Turn-loop slice. Today it handles `endTurn`: the current actor's turn ends, so
