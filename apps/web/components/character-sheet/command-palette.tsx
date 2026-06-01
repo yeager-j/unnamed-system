@@ -2,7 +2,7 @@
 
 import { CaretLeftIcon } from "@phosphor-icons/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -64,27 +64,23 @@ export function CommandPalette() {
         return
       }
       event.preventDefault()
+      // Always (re)enter at the command list — clearing here keeps a ⌘K-close
+      // from leaving a stale parameter sub-page to reopen onto.
+      setParameterCommand(null)
       setOpen((previous) => !previous)
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [isMobile])
 
-  const ctx: CommandContext = useMemo(
-    () => ({ character, role, setActiveTab, router, write }),
-    [character, role, setActiveTab, router, write]
-  )
+  const ctx: CommandContext = { character, role, setActiveTab, router, write }
 
-  const commands = useMemo(() => resolveCommands(ctx), [ctx])
+  const commands = resolveCommands(ctx)
 
-  const groups = useMemo(
-    () =>
-      GROUP_ORDER.map((name) => ({
-        name,
-        commands: commands.filter((command) => command.group === name),
-      })).filter((group) => group.commands.length > 0),
-    [commands]
-  )
+  const groups = GROUP_ORDER.map((name) => ({
+    name,
+    commands: commands.filter((command) => command.group === name),
+  })).filter((group) => group.commands.length > 0)
 
   if (isMobile) return null
 
