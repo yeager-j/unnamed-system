@@ -134,6 +134,13 @@
       "when": 1780434526700,
       "tag": "0018_unn_326_campaign_model",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780438539465,
+      "tag": "0019_unn_296_encounters",
+      "breakpoints": true
     }
   ]
 }
