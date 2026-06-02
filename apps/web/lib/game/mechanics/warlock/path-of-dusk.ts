@@ -3,9 +3,9 @@ import { z } from "zod/v4"
 import type { MechanicDefinition } from "../types"
 
 /**
- * Healer — Path of Dusk. Light-damage Skills apply Lumina counters to enemies
- * (entering Dusk Mode); HP-restoring or Ailment-curing Skills consume Lumina
- * for Light damage and SP refund (rulebook `Skills/Mechanics/Path of Dusk.md`).
+ * Warlock — Path of Dusk. Ailment Skills apply Lumina counters to enemies
+ * (entering Dusk Mode); Dark Skills consume Lumina
+ * for Dark damage and SP refund (rulebook `Skills/Mechanics/Path of Dusk.md`).
  *
  * State holds only the Dusk Mode flag — the player toggles it as they enter and
  * leave Dusk Mode. Per-enemy Lumina tracking is intentionally out of the app:

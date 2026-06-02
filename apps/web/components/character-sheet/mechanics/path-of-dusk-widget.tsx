@@ -8,7 +8,7 @@ import { type PathOfDuskState } from "@/lib/game/mechanics"
 import { DuskModeToggle } from "./warlock/dusk-mode-toggle"
 
 /**
- * Healer — Path of Dusk rendering. The widget is just the Dusk Mode indicator:
+ * Warlock — Path of Dusk rendering. The widget is just the Dusk Mode indicator:
  * owners get a toggle, everyone else a static badge. Per-enemy Lumina tracking
  * lives in the table's combat tracker, not the app (see the mechanic engine
  * comment).

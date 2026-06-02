@@ -9,11 +9,11 @@ import { useCharacterWrite } from "@/hooks/use-character"
 import { setDuskModeAction } from "@/lib/actions/mechanics/warlock/path-of-dusk"
 
 /**
- * Owner-mode Dawn Mode toggle for the Healer's Path of Dawn (UNN-230).
- * Dispatches a `pathOfDawn` {@link CharacterEdit} through the shared
+ * Owner-mode Dusk Mode toggle for the Healer's Path of Dusk.
+ * Dispatches a `pathOfDusk` {@link CharacterEdit} through the shared
  * {@link useCharacterWrite} path; the optimistic flag is re-derived on the
  * active Archetype's mechanic state, so the toggle reflects the in-flight
- * value before the server response lands. Amber when on echoes the read-only
+ * value before the server response lands. Violet when on echoes the read-only
  * indicator (and the neighbouring combat-state flags).
  */
 export function DuskModeToggle({ duskMode }: { duskMode: boolean }) {

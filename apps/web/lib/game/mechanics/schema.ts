@@ -6,7 +6,10 @@ import {
 } from "./healer/path-of-dawn"
 import { valorStateSchema, type ValorState } from "./knight/valor"
 import { stainsStateSchema, type StainsState } from "./mage/stains"
-import { PathOfDuskState, pathOfDuskStateSchema } from "./warlock/path-of-dusk"
+import {
+  pathOfDuskStateSchema,
+  type PathOfDuskState,
+} from "./warlock/path-of-dusk"
 import {
   perfectionStateSchema,
   type PerfectionState,

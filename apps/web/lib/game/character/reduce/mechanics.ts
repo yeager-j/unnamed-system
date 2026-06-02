@@ -3,11 +3,11 @@ import {
   adjustValor,
   clearStains,
   initialStateFor,
-  MechanicKind,
   resetPerfection,
   setDawnMode,
   setDuskMode,
   setStainSlot,
+  type MechanicKind,
   type MechanicState,
 } from "../../mechanics"
 import type { MechanicEdit } from "../character-edit"
