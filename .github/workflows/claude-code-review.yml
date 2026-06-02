@@ -2,7 +2,11 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review, reopened]
+    # Auto-review once when a PR is opened (or reopened), not on every push.
+    # `synchronize` (fires on each new commit) is intentionally omitted so a
+    # follow-up push doesn't re-run a full review; request one on demand by
+    # commenting `@claude` (handled by claude.yml).
+    types: [opened, reopened]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
