@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
+
 import { reduceCombatSession } from "./reduce-session"
-import { createCombatSession, type CombatantSetup } from "./session"
+import {
+  createCombatSession,
+  type CombatantSetup,
+  type CombatSession,
+} from "./session"
 
 const SETUP: CombatantSetup[] = [
   {
@@ -27,15 +33,34 @@ function startedSession() {
   return { ...session, currentActorId: session.combatants[0]!.id }
 }
 
+/**
+ * A started session whose current actor (combatant[0]) carries an explicit
+ * battle-condition overlay + durations — the state an expiry resets to neutral.
+ * There is no event yet to *set* an axis's increased/decreased state (the panel
+ * events arrive in UNN-309+), so the fixture spreads the overlay directly.
+ */
+function startedWithOverlay(
+  battleConditions: CombatSession["combatants"][number]["battleConditions"],
+  conditionDurations: CombatSession["combatants"][number]["conditionDurations"]
+): CombatSession {
+  const session = startedSession()
+  const [actor, ...rest] = session.combatants
+  return {
+    ...session,
+    combatants: [{ ...actor!, battleConditions, conditionDurations }, ...rest],
+  }
+}
+
 describe("reduceCombatSession — endTurn", () => {
-  it("marks the current actor as acted and clears the floor", () => {
+  it("marks the current actor as acted and keeps them as current actor", () => {
     const session = startedSession()
+    const actorId = session.currentActorId
 
     const { session: next, edits } = reduceCombatSession(session, {
       kind: "endTurn",
     })
 
-    expect(next.currentActorId).toBeNull()
+    expect(next.currentActorId).toBe(actorId)
     expect(next.combatants[0]!.hasActedThisRound).toBe(true)
     expect(next.combatants[1]!.hasActedThisRound).toBe(false)
     expect(edits).toEqual([])
@@ -153,56 +178,41 @@ describe("reduceCombatSession — endTurn duration clock", () => {
     expect(edits).toEqual([])
   })
 
-  it("emits battleConditionAxis → neutral and drops the axis on expiry", () => {
-    const started = startedSession()
-    const actorId = started.currentActorId!
-    const armed = reduceCombatSession(started, {
-      kind: "applyBattleConditionDuration",
-      combatantId: actorId,
-      axis: "attack",
-      turns: 1,
-    }).session
+  it("resets the actor's battle-condition axis to neutral on expiry (no edit)", () => {
+    const session = startedWithOverlay(
+      { ...DEFAULT_BATTLE_CONDITIONS, attack: "increased" },
+      { attack: 1 }
+    )
+    const actorId = session.currentActorId
 
-    const { session: next, edits } = reduceCombatSession(armed, {
+    const { session: next, edits } = reduceCombatSession(session, {
       kind: "endTurn",
     })
 
-    expect(edits).toEqual([
-      {
-        combatantId: actorId,
-        edit: { kind: "battleConditionAxis", axis: "attack", state: "neutral" },
-      },
-    ])
+    expect(edits).toEqual([])
+    expect(next.combatants[0]!.battleConditions.attack).toBe("neutral")
     expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
+    expect(next.currentActorId).toBe(actorId)
   })
 
-  it("decrements axes independently", () => {
-    const started = startedSession()
-    const actorId = started.currentActorId!
-    const withAttack = reduceCombatSession(started, {
-      kind: "applyBattleConditionDuration",
-      combatantId: actorId,
-      axis: "attack",
-      turns: 1,
-    }).session
-    const armed = reduceCombatSession(withAttack, {
-      kind: "applyBattleConditionDuration",
-      combatantId: actorId,
-      axis: "defense",
-      turns: 3,
-    }).session
+  it("expires only the axis that hit 0, decrementing the rest", () => {
+    const session = startedWithOverlay(
+      {
+        ...DEFAULT_BATTLE_CONDITIONS,
+        attack: "increased",
+        defense: "increased",
+      },
+      { attack: 1, defense: 3 }
+    )
 
-    const { session: next, edits } = reduceCombatSession(armed, {
+    const { session: next, edits } = reduceCombatSession(session, {
       kind: "endTurn",
     })
 
-    expect(edits).toEqual([
-      {
-        combatantId: actorId,
-        edit: { kind: "battleConditionAxis", axis: "attack", state: "neutral" },
-      },
-    ])
+    expect(edits).toEqual([])
+    expect(next.combatants[0]!.battleConditions.attack).toBe("neutral")
     expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
+    expect(next.combatants[0]!.battleConditions.defense).toBe("increased")
     expect(next.combatants[0]!.conditionDurations.defense).toBe(2)
   })
 })

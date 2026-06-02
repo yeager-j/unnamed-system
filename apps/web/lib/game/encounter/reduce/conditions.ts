@@ -10,10 +10,11 @@ import type {
  * Battle-condition duration slice. `applyBattleConditionDuration` sets or extends
  * a combatant's remaining turns on an axis: re-application **extends** rather
  * than stacks (rulebook 3.8 — Tarukaja twice → 6 turns), so the new turns are
- * added to whatever remains. Session-only — it tracks *how long*; the character's
- * increased/decreased *state* is set through the existing combat-state action,
- * and expiry (the `→ neutral` edit) is emitted from `endTurn`. A no-op when the
- * combatant id is unknown (Immer returns the original session unchanged).
+ * added to whatever remains. It tracks *how long* only; the axis's
+ * increased/decreased *state* lives on the combatant's `battleConditions`
+ * overlay, and expiry resets that overlay to `neutral` inside `endTurn` (ADR
+ * Decision 2). A no-op when the combatant id is unknown (Immer returns the
+ * original session unchanged).
  */
 export function reduceBattleConditionEvent(
   session: CombatSession,

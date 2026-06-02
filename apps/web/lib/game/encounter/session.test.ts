@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
+
 import {
   combatSessionSchema,
   createCombatSession,
@@ -46,6 +48,14 @@ describe("combatSessionSchema", () => {
           id: "c-1",
           side: "players",
           ref: { kind: "pc", characterId: "char-1" },
+          ailments: ["burn"],
+          battleConditions: {
+            attack: "increased",
+            defense: "neutral",
+            hitEvasion: "decreased",
+            charged: true,
+            concentrating: false,
+          },
           hasActedThisRound: true,
           reactionAvailable: false,
           zoneId: "zone-a",
@@ -67,6 +77,8 @@ describe("combatSessionSchema", () => {
               notes: "weak to fire",
             },
           },
+          ailments: [],
+          battleConditions: DEFAULT_BATTLE_CONDITIONS,
           hasActedThisRound: false,
           reactionAvailable: true,
           zoneId: "zone-a",
@@ -99,6 +111,8 @@ describe("createCombatSession", () => {
       "combatant-1",
     ])
     for (const combatant of session.combatants) {
+      expect(combatant.ailments).toEqual([])
+      expect(combatant.battleConditions).toEqual(DEFAULT_BATTLE_CONDITIONS)
       expect(combatant.hasActedThisRound).toBe(false)
       expect(combatant.reactionAvailable).toBe(true)
       expect(combatant.conditionDurations).toEqual({})
