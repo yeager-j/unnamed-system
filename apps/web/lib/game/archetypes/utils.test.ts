@@ -11,21 +11,21 @@ describe("sortArchetypesByPath", () => {
     const ordered = sortArchetypesByPath(initiates, "health-focused").map(
       (a) => a.lineage
     )
-    expect(ordered).toEqual(["warrior", "knight", "healer", "mage"])
+    expect(ordered).toEqual(["warrior", "knight", "healer", "warlock", "mage"])
   })
 
   it("surfaces balanced-bucket Lineages first under balanced", () => {
     const ordered = sortArchetypesByPath(initiates, "balanced").map(
       (a) => a.lineage
     )
-    expect(ordered).toEqual(["healer", "warrior", "knight", "mage"])
+    expect(ordered).toEqual(["healer", "warlock", "warrior", "knight", "mage"])
   })
 
   it("surfaces skill-bucket Lineages first under skill-focused", () => {
     const ordered = sortArchetypesByPath(initiates, "skill-focused").map(
       (a) => a.lineage
     )
-    expect(ordered).toEqual(["mage", "healer", "warrior", "knight"])
+    expect(ordered).toEqual(["mage", "healer", "warlock", "warrior", "knight"])
   })
 
   it("does not mutate its input", () => {

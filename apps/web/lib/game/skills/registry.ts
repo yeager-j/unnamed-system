@@ -1,4 +1,8 @@
 import { evilTouch } from "./ailment/evil-touch"
+import { makajam } from "./ailment/makajam"
+import { pulpina } from "./ailment/pulpina"
+import { doorToHades } from "./dark/door-to-hades"
+import { eiha } from "./dark/eiha"
 import { stormThrust } from "./elec/storm-thrust"
 import { zio } from "./elec/zio"
 import { agi } from "./fire/agi"
@@ -46,13 +50,17 @@ const SKILLS_BY_KEY = {
   "magic-circle": magicCircle,
   "elemental-apocalypse": elementalApocalypse,
   kouha,
+  eiha,
   dia,
   media,
   "amrita-drop": amritaDrop,
   "healers-insight": healersInsight,
   "divine-judgment": divineJudgment,
   "evil-touch": evilTouch,
+  pulpina,
+  makajam,
   "ailment-boost": ailmentBoost,
+  "door-to-hades": doorToHades,
 } as const satisfies Record<string, Skill>
 
 export type SkillKey = keyof typeof SKILLS_BY_KEY

@@ -52,9 +52,9 @@ export const LINEAGE_SUGGESTED_PATH = {
   thief: "balanced",
   berserker: "health",
   bard: "skill",
-  shapechanger: "balanced",
+  shapechanger: "skill",
   hunter: "balanced",
-  warlock: "skill",
+  warlock: "balanced",
   summoner: "skill",
 } as const satisfies Record<Lineage, "health" | "balanced" | "skill">
 

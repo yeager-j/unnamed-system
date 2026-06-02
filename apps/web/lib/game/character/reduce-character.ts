@@ -74,6 +74,7 @@ function routeEdit(
     case "perfection":
     case "stains":
     case "pathOfDawn":
+    case "pathOfDusk":
       return reduceMechanicEdit(raw, edit)
 
     case "victories":

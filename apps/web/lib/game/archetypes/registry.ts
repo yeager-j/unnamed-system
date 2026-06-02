@@ -7,6 +7,7 @@ import { healer } from "./healer/healer"
 import { knight } from "./knight/knight"
 import { mage } from "./mage/mage"
 import { archetypeSchema, type Archetype } from "./schema"
+import { warlock } from "./warlock/warlock"
 import { warrior } from "./warrior/warrior"
 
 /**
@@ -54,6 +55,7 @@ const ARCHETYPES_BY_KEY = {
   knight: validate(knight),
   mage: validate(mage),
   healer: validate(healer),
+  warlock: validate(warlock),
 } as const satisfies Record<string, Archetype>
 
 /**

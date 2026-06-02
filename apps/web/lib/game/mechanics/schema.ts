@@ -7,6 +7,10 @@ import {
 import { valorStateSchema, type ValorState } from "./knight/valor"
 import { stainsStateSchema, type StainsState } from "./mage/stains"
 import {
+  pathOfDuskStateSchema,
+  type PathOfDuskState,
+} from "./warlock/path-of-dusk"
+import {
   perfectionStateSchema,
   type PerfectionState,
 } from "./warrior/perfection"
@@ -24,6 +28,7 @@ export const mechanicStateSchema = z.discriminatedUnion("kind", [
   perfectionStateSchema,
   valorStateSchema,
   pathOfDawnStateSchema,
+  pathOfDuskStateSchema,
   stainsStateSchema,
 ])
 
@@ -32,5 +37,6 @@ export type MechanicState =
   | ValorState
   | PathOfDawnState
   | StainsState
+  | PathOfDuskState
 
 export type MechanicKind = MechanicState["kind"]

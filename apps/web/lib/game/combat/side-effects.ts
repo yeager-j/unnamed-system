@@ -27,13 +27,16 @@ export const SIDE_EFFECT_KEYS = [
   "despair",
   "rage",
   "brainwash",
+  "forget",
   "auto-fear",
   "auto-sleep",
   "auto-confuse",
   "auto-despair",
   "auto-rage",
   "auto-brainwash",
+  "auto-forget",
   "insta-kill-light",
+  "insta-kill-dark",
   "sukunda",
 ] as const
 
@@ -116,6 +119,11 @@ const SIDE_EFFECTS_BY_KEY = {
     name: "Brainwash",
     description: ailmentDescription("Brainwash"),
   },
+  forget: {
+    key: "forget",
+    name: "Forget",
+    description: ailmentDescription("Forget"),
+  },
   "auto-fear": {
     key: "auto-fear",
     name: "Auto-Fear",
@@ -146,11 +154,22 @@ const SIDE_EFFECTS_BY_KEY = {
     name: "Auto-Brainwash",
     description: autoAilmentDescription("Brainwash"),
   },
+  "auto-forget": {
+    key: "auto-forget",
+    name: "Auto-Forget",
+    description: autoAilmentDescription("Forget"),
+  },
   "insta-kill-light": {
     key: "insta-kill-light",
     name: "Insta-Kill (Light)",
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, the target drops to 0 Hit Points. If the target is weak to Light, the Luck comparison is skipped. Targets of equal or higher level are immune.",
+  },
+  "insta-kill-dark": {
+    key: "insta-kill-dark",
+    name: "Insta-Kill (Dark)",
+    description:
+      "Compare your Luck with the target's Luck. If your Luck is higher, the target drops to 0 Hit Points. If the target is weak to Dark, the Luck comparison is skipped. Targets of equal or higher level are immune.",
   },
   sukunda: {
     key: "sukunda",
