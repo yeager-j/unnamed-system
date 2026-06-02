@@ -1,7 +1,4 @@
-import type {
-  BattleConditionAxisKey,
-  CombatStateEdit,
-} from "@/lib/game/character"
+import type { BattleConditionAxisKey, PoolsEdit } from "@/lib/game/character"
 
 import type { CombatSession } from "./session"
 
@@ -26,10 +23,10 @@ export type TurnEvent = { kind: "endTurn" }
 /**
  * Battle-condition duration events. `applyBattleConditionDuration` sets or
  * extends a combatant's remaining turns on an axis — re-application **extends**
- * rather than stacks (UNN-293 / rulebook 3.8). Session-only: the character's
- * increased/decreased *state* is set through the existing combat-state action
- * (the session owns *how long*, the character owns *what*). Decrement and expiry
- * happen on `endTurn`.
+ * rather than stacks (UNN-293 / rulebook 3.8). It owns *how long* only; the
+ * axis's increased/decreased *state* lives on the combatant's `battleConditions`
+ * overlay (ADR Decision 1), set by a future panel event (UNN-309+). Decrement
+ * and expiry happen on `endTurn`, which mutates the overlay back to `neutral`.
  */
 export type BattleConditionEvent = {
   kind: "applyBattleConditionDuration"
@@ -46,20 +43,24 @@ export type BattleConditionEvent = {
 export type CombatEvent = TurnEvent | BattleConditionEvent
 
 /**
- * A character-row edit the reducer emits, tagged with the combatant it pertains
- * to. The reducer is **combatant-agnostic**: it reports "this combatant's axis
- * went neutral" and leaves the PC→character mapping (and any enemy-state
- * handling) to the consumer that applies edits through the combat-state actions.
+ * A rare PC-**vitals** nudge the reducer emits, tagged with the combatant it
+ * pertains to. Combat state lives on the combatant and is mutated in place (ADR
+ * Decision 2), so the reducer no longer emits combat-state edits at all; the one
+ * surviving emission is a vitals change to a PC's character row — e.g.
+ * end-of-combat Fallen-restore to 1 HP — which the impure shell (UNN-332) applies
+ * as a {@link PoolsEdit}. The reducer stays combatant-agnostic: it reports "this
+ * PC combatant's vitals should change" and leaves the PC→character mapping to the
+ * shell. No transition emits one yet.
  */
 export interface EmittedEdit {
   combatantId: string
-  edit: CombatStateEdit
+  edit: PoolsEdit
 }
 
 /**
  * What {@link reduceCombatSession} (and each slice) returns: the next session and
- * the edits to emit ({@link EmittedEdit}). The reducer is a **decider** — it
- * never applies the edits; the caller runs them through the existing combat-state
+ * the PC-vitals edits to emit ({@link EmittedEdit}). The reducer is a **decider**
+ * — it never applies the edits; the caller runs them through the existing pools
  * server actions. An unchanged transition returns the same session and `edits: []`.
  */
 export interface CombatSessionResult {

@@ -1,16 +1,24 @@
 import { z } from "zod/v4"
 
-import { BATTLE_CONDITION_AXIS_KEYS } from "@/lib/game/character"
+import {
+  ailmentsSchema,
+  BATTLE_CONDITION_AXIS_KEYS,
+  battleConditionsSchema,
+  DEFAULT_BATTLE_CONDITIONS,
+} from "@/lib/game/character"
 
 /**
  * The immutable state the initiative tracker's reducer operates over — the
- * combat-temporal and spatial bookkeeping the durationless character model
- * deliberately doesn't hold (UNN-291). PCs are referenced by `characterId` so
- * the character row stays the single source of truth for HP/SP/ailments/
- * battle-conditions; only combat-temporal state (turn position, per-axis
- * durations) and the Zone overlay live on the session. This module is the
- * shape, schema, and constructor only — reducer behavior is UNN-292 and DB
- * serialization is UNN-296.
+ * encounter-scoped combat state, plus the combat-temporal and spatial
+ * bookkeeping, that the character model deliberately doesn't hold (UNN-291,
+ * re-aimed in UNN-331). Per the Architecture ADR (Decision 1), combat state is
+ * encounter-scoped and lives on the *combatant*: a combatant carries the overlay
+ * (ailments, battle conditions + their durations, position, engagement, turn
+ * bookkeeping), uniform for PCs and enemies. A PC is referenced by `characterId`
+ * only to source its persistent **vitals** (HP/SP/exhaustion) from the character
+ * row; everything the rules clear at end of combat lives on the session. This
+ * module is the shape, schema, and constructor only — reducer behavior is
+ * UNN-292 and DB serialization is UNN-296.
  */
 
 /**
@@ -46,9 +54,11 @@ export const COMBAT_SIDES = ["players", "enemies"] as const
 export type CombatSide = (typeof COMBAT_SIDES)[number]
 
 /**
- * How a combatant's live state is sourced: a `pc` defers to its character row
- * (HP/SP/ailments/battle-conditions written through the existing combat-state
- * actions), while an `enemy` carries an inline {@link EnemyStatBlock}.
+ * How a combatant's **vitals** are sourced: a `pc` defers to its character row
+ * for the persistent HP/SP/exhaustion that survives a fight, while an `enemy`
+ * carries an inline {@link EnemyStatBlock}. The encounter overlay (ailments,
+ * battle conditions, durations) lives on the combatant for both kinds — only the
+ * vitals source differs (ADR Decision 1).
  */
 const combatantRefSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("pc"), characterId: z.string() }),
@@ -72,11 +82,12 @@ export type Engagement = z.infer<typeof engagementSchema>
 
 /**
  * Per-axis Battle Condition durations (turns remaining), sparse: an absent axis
- * means no active duration. This is the one combat-temporal exception that
- * lives on the session rather than the character (PRD Architecture). When a
- * countdown reaches zero the reducer emits the existing `battleConditionAxis →
- * neutral` edit (UNN-293). Charged/Concentrating are single-use flags consumed
- * on the next attack (UNN-294), not durations.
+ * means no active duration. Sits alongside the {@link battleConditions} overlay
+ * on the combatant — the durations track *how long*, the overlay tracks *what
+ * state*. When a countdown reaches zero the reducer mutates the combatant's
+ * `battleConditions[axis]` back to `neutral` directly (ADR Decision 2; UNN-331
+ * — no longer an emitted edit). Charged/Concentrating are single-use flags
+ * consumed on the next attack (UNN-294), not durations.
  */
 const conditionDurationsSchema = z.partialRecord(
   z.enum(BATTLE_CONDITION_AXIS_KEYS),
@@ -86,14 +97,19 @@ export type ConditionDurations = z.infer<typeof conditionDurationsSchema>
 
 /**
  * One combatant in the encounter. Owns everything about itself: identity
- * ({@link CombatantRef}), turn bookkeeping, position (`zoneId`), engagement,
- * and per-axis durations. The Zone *graph* (zones + adjacency) is UNN-313, so
- * `zoneId` is a free string referencing it until that lands.
+ * ({@link CombatantRef}), the encounter overlay (`ailments` + `battleConditions`
+ * state and their `conditionDurations`), turn bookkeeping, position (`zoneId`),
+ * and engagement. The overlay is identical for PCs and enemies (ADR Decision 1)
+ * — it holds the combat state the rules clear at end of combat, which the
+ * character row no longer carries. The Zone *graph* (zones + adjacency) is
+ * UNN-313, so `zoneId` is a free string referencing it until that lands.
  */
 export const combatantSchema = z.object({
   id: z.string(),
   side: z.enum(COMBAT_SIDES),
   ref: combatantRefSchema,
+  ailments: ailmentsSchema,
+  battleConditions: battleConditionsSchema,
   hasActedThisRound: z.boolean(),
   reactionAvailable: z.boolean(),
   zoneId: z.string(),
@@ -110,9 +126,10 @@ export type Combatant = z.infer<typeof combatantSchema>
  * per-epic.
  *
  * UNN-292's reducer consumes this as a **decider**: `(session, event) →
- * { session', edits[] }`, where `edits[]` are existing `CharacterEdit`s the
- * impure shell applies (e.g. a duration reaching zero emits `battleConditionAxis
- * → neutral`). The reducer is pure and never performs I/O.
+ * { session', edits[] }`. Combat-state transitions mutate the combatant overlay
+ * in place (ADR Decision 2), so `edits[]` is now reserved for the rare PC
+ * **vitals** nudge (e.g. end-of-combat Fallen-restore) the impure shell applies
+ * to the character row. The reducer is pure and never performs I/O.
  */
 export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
@@ -136,10 +153,10 @@ export interface CombatantSetup {
 /**
  * Builds a valid initial {@link CombatSession} from encounter-setup inputs:
  * round 1, no current actor (drafting and starting advantage are UNN-303), and
- * every combatant fresh — not yet acted, reaction available, no active
- * durations, and Free unless setup says otherwise. `newId` mints each
- * combatant's stable id (mirrors `reduceCharacter`'s injectable id so tests can
- * be deterministic).
+ * every combatant fresh — no ailments, all battle conditions neutral, not yet
+ * acted, reaction available, no active durations, and Free unless setup says
+ * otherwise. `newId` mints each combatant's stable id (mirrors
+ * `reduceCharacter`'s injectable id so tests can be deterministic).
  */
 export function createCombatSession(
   setup: CombatantSetup[],
@@ -152,6 +169,8 @@ export function createCombatSession(
       id: newId(),
       side: combatant.side,
       ref: combatant.ref,
+      ailments: [],
+      battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
       hasActedThisRound: false,
       reactionAvailable: true,
       zoneId: combatant.zoneId,

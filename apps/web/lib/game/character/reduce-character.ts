@@ -14,8 +14,6 @@ import { reduceProgressionEdit } from "./reduce/progression"
 import type { SliceResult } from "./reduce/shared"
 import { reduceTalentEdit } from "./reduce/talents"
 
-export type { CharacterEdit, CombatStateEdit } from "./character-edit"
-
 const randomId = () => crypto.randomUUID()
 
 /**
