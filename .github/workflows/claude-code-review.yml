@@ -38,7 +38,34 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            Use Skill /code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+
+            Review this PR against our team checklist:
+
+            ## Code Quality
+            - [ ] Code follows our style guide detailed in the CLAUDE.md
+            - [ ] Meaningful variable names
+            - [ ] DRY principle followed
+            - [ ] No cross-silo code; no game logic in the UI, no UI code in the game engine
+            - [ ] Game engine is pure
+            - [ ] No tech debt is introduced
+
+            ## Testing
+            - [ ] Unit tests for new functions
+            - [ ] e2e tests for new UI
+            - [ ] Edge cases covered
+
+            ## Security
+            - [ ] No hardcoded credentials
+            - [ ] Input validation implemented
+            - [ ] Proper error handling
+            - [ ] No sensitive data in logs
+
+            For each item, check if it's satisfied and comment on any that need attention.
+            Post a summary comment with checklist results.
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
