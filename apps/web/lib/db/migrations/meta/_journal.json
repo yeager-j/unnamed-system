@@ -127,6 +127,13 @@
       "when": 1780294063227,
       "tag": "0017_unn_290_collapse_battle_condition_axis",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780434526700,
+      "tag": "0018_unn_326_campaign_model",
+      "breakpoints": true
     }
   ]
 }

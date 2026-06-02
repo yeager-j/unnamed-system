@@ -50,6 +50,7 @@ function makeRaw(): RawCharacterInputs {
     id: CHARACTER_ID,
     shortId: "char-inherit-short",
     ownerId: "user-1",
+    campaignId: null,
     status: "finalized",
     builderStep: 0,
     name: "Inheritor",

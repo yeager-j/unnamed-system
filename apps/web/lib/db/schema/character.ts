@@ -29,6 +29,7 @@ import {
   type SparkLog,
   type TalentKey,
 } from "../../game/character"
+import { campaigns } from "./campaign"
 import { users } from "./user"
 
 /**
@@ -57,6 +58,17 @@ export const characters = pgTable("character", {
   ownerId: text("ownerId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  /**
+   * The campaign this character is *placed* into, or null when unplaced (ADR
+   * Decision 9). Placement is an owner action and grants the campaign's DM
+   * write access via the single FK hop `campaignId → campaign.dmUserId`
+   * (`requireOwnerOrCampaignDM`, UNN-297). A character is in at most one
+   * campaign at a time. On campaign deletion / leave / kick this is nulled, not
+   * cascaded — the character outlives the campaign.
+   */
+  campaignId: text("campaignId").references(() => campaigns.id, {
+    onDelete: "set null",
+  }),
   /**
    * Wizard lifecycle gate (UNN-204). New rows start as `"draft"`; the Review
    * step in UNN-206 flips this to `"finalized"`. Reads outside the builder

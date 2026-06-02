@@ -28,6 +28,7 @@ function makeCharacter(prismaCharges: number) {
     id: CHARACTER_ID,
     shortId: "char-1-short",
     ownerId: "user-1",
+    campaignId: null,
     status: "finalized",
     builderStep: 0,
     name: "Test Character",
