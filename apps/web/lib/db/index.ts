@@ -7,4 +7,5 @@
  */
 export * from "./client"
 export * from "./schema/user"
+export * from "./schema/campaign"
 export * from "./schema/character"
