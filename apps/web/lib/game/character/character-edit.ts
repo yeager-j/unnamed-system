@@ -57,6 +57,7 @@ export type MechanicEdit =
     }
   | { kind: "stains"; op: "clear" }
   | { kind: "pathOfDawn"; dawnMode: boolean }
+  | { kind: "pathOfDusk"; duskMode: boolean }
 
 /** Progression slice: banking Victories and the Spark log. */
 export type ProgressionEdit =

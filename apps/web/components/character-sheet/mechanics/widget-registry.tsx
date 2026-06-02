@@ -9,6 +9,7 @@ import {
 import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
 import { PathOfDawnWidget } from "./path-of-dawn-widget"
+import { PathOfDuskWidget } from "./path-of-dusk-widget"
 import { PerfectionWidget } from "./perfection-widget"
 import { StainsWidget } from "./stains-widget"
 import { ValorWidget } from "./valor-widget"
@@ -51,6 +52,10 @@ const REGISTRY: MechanicWidgetRegistry = {
   "path-of-dawn": {
     render: (state) => <PathOfDawnWidget state={state} />,
     summary: (state) => (state.dawnMode ? "Dawn Mode" : "Inactive"),
+  },
+  "path-of-dusk": {
+    render: (state) => <PathOfDuskWidget state={state} />,
+    summary: (state) => (state.duskMode ? "Dusk Mode" : "Inactive"),
   },
   stains: {
     render: (state) => <StainsWidget state={state} />,

@@ -3,8 +3,10 @@ import {
   adjustValor,
   clearStains,
   initialStateFor,
+  MechanicKind,
   resetPerfection,
   setDawnMode,
+  setDuskMode,
   setStainSlot,
   type MechanicState,
 } from "../../mechanics"
@@ -68,6 +70,16 @@ export function reduceMechanicEdit(
         setDawnMode(active.current, edit.dawnMode)
       )
     }
+
+    case "pathOfDusk": {
+      const active = activeMechanicState(raw, "path-of-dusk")
+      if (!active || active.current.kind !== "path-of-dusk") return null
+      return writeMechanic(
+        raw,
+        active.activeId,
+        setDuskMode(active.current, edit.duskMode)
+      )
+    }
   }
 }
 
@@ -79,7 +91,7 @@ export function reduceMechanicEdit(
  */
 function activeMechanicState(
   raw: RawCharacterInputs,
-  mechanicKind: string
+  mechanicKind: MechanicKind
 ): { activeId: string; current: MechanicState } | null {
   const activeId = raw.row.activeArchetypeId
   if (!activeId) return null

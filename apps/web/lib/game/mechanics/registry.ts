@@ -7,6 +7,7 @@ import type {
   MechanicEffect,
   MechanicEffectContext,
 } from "./types"
+import { pathOfDusk } from "./warlock/path-of-dusk"
 import { perfection } from "./warrior/perfection"
 
 /**
@@ -23,7 +24,13 @@ import { perfection } from "./warrior/perfection"
  *  - Stains — Mage
  */
 
-const MECHANIC_LIST = [perfection, valor, pathOfDawn, stains] as const
+const MECHANIC_LIST = [
+  perfection,
+  valor,
+  pathOfDawn,
+  pathOfDusk,
+  stains,
+] as const
 
 type MechanicMap = {
   [K in MechanicKind]: MechanicDefinition<Extract<MechanicState, { kind: K }>>

@@ -10,7 +10,13 @@ import { getMechanic, initialStateFor, MECHANICS } from "./index"
 describe("mechanic registry", () => {
   it("registers every MVP mechanic exactly once", () => {
     const kinds = MECHANICS.map((m) => m.kind).sort()
-    expect(kinds).toEqual(["path-of-dawn", "perfection", "stains", "valor"])
+    expect(kinds).toEqual([
+      "path-of-dawn",
+      "path-of-dusk",
+      "perfection",
+      "stains",
+      "valor",
+    ])
   })
 
   it("returns undefined for an unknown mechanic kind", () => {
