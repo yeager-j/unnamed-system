@@ -170,7 +170,7 @@ export function createCombatSession(
       side: combatant.side,
       ref: combatant.ref,
       ailments: [],
-      battleConditions: DEFAULT_BATTLE_CONDITIONS,
+      battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
       hasActedThisRound: false,
       reactionAvailable: true,
       zoneId: combatant.zoneId,
