@@ -207,6 +207,23 @@ export function makeCombatant(
 }
 
 /**
+ * Projects a {@link Combatant} back down to the {@link CombatantSetup} it was
+ * built from — the inverse of {@link makeCombatant}, keeping the
+ * "which fields are setup-shaped" knowledge (side, identity, position,
+ * engagement) in the engine rather than the UI. The setup shell uses it to seed
+ * its editable roster from a persisted session (UNN-335); the rest of the
+ * combatant overlay is the reducer's to own once combat is live.
+ */
+export function toCombatantSetup(combatant: Combatant): CombatantSetup {
+  return {
+    side: combatant.side,
+    ref: combatant.ref,
+    zoneId: combatant.zoneId,
+    engagement: combatant.engagement,
+  }
+}
+
+/**
  * Builds a valid initial {@link CombatSession} from encounter-setup inputs:
  * round 1, no current actor, no advantage declared yet (`advantage`/`firstSide`
  * are `null` until the `startCombat` event, UNN-303), and every combatant fresh

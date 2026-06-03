@@ -9,24 +9,9 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import type { Combatant, CombatantSetup } from "@/lib/game/encounter"
+import { toCombatantSetup, type CombatantSetup } from "@/lib/game/encounter"
 
 import { SetupPanelStub } from "./setup-panels"
-
-/**
- * Projects a persisted {@link Combatant} back down to the {@link CombatantSetup}
- * the setup shell edits — the inverse of `makeCombatant`. The shell only owns
- * the setup-shaped fields (side, identity, position, engagement); the rest of
- * the overlay is the reducer's to manage once combat is live.
- */
-function toSetup(combatant: Combatant): CombatantSetup {
-  return {
-    side: combatant.side,
-    ref: combatant.ref,
-    zoneId: combatant.zoneId,
-    engagement: combatant.engagement,
-  }
-}
 
 /** A throwaway combatant the stub panels add so the skeleton flow is testable
  *  before the real Import-PCs / Add-enemies panels (UNN-298/299) land. */
@@ -79,11 +64,11 @@ export function EncounterSetup({ encounter }: { encounter: EncounterRow }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [combatants, setCombatants] = useState<CombatantSetup[]>(() =>
-    encounter.session.combatants.map(toSetup)
+    encounter.session.combatants.map(toCombatantSetup)
   )
 
   const everyCombatantPlaced = combatants.every(
-    (combatant) => combatant.side && combatant.zoneId.length > 0
+    (combatant) => combatant.zoneId.length > 0
   )
   const canStart = combatants.length > 0 && everyCombatantPlaced
 
