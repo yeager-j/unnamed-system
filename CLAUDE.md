@@ -90,7 +90,7 @@ apps/web/
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
-    ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts). game/encounter/ is the initiative tracker's second pure engine — the immutable CombatSession shape + (later) reducer (UNN-291+), parallel to game/character/
+    ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts). game/encounter/ is the initiative tracker's second pure engine — the immutable CombatSession shape + (later) reducer (UNN-291+), parallel to game/character/. game/enemies/ is the hardcoded enemy catalog (UNN-336) — immutable EnemyDefinition by key, mirroring game/items/; per-entry modules under game/enemies/5e/<5e-creature-type>/ (these are 5e statblocks used for playtesting), resolved by the `{ kind: "catalog-enemy", enemyKey }` combatant-ref arm
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── db/                    Persistence, grouped by role (see below)
     ├── storage/               Vercel Blob storage

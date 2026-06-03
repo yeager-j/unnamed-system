@@ -19,6 +19,7 @@ import { magicCircle } from "./passive/magic-circle"
 import { slashBoost } from "./passive/slash-boost"
 import { hammerOfJustice } from "./pierce/hammer-of-justice"
 import { skewer } from "./pierce/skewer"
+import { psi } from "./psy/psi"
 import type { Skill } from "./schema"
 import { cleave } from "./slash/cleave"
 import { criticalStrike } from "./slash/critical-strike"
@@ -47,6 +48,7 @@ const SKILLS_BY_KEY = {
   bufu,
   zio,
   garu,
+  psi,
   "magic-circle": magicCircle,
   "elemental-apocalypse": elementalApocalypse,
   kouha,

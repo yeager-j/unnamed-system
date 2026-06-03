@@ -55,14 +55,23 @@ export type CombatSide = (typeof COMBAT_SIDES)[number]
 
 /**
  * How a combatant's **vitals** are sourced: a `pc` defers to its character row
- * for the persistent HP/SP/exhaustion that survives a fight, while an `enemy`
- * carries an inline {@link EnemyStatBlock}. The encounter overlay (ailments,
- * battle conditions, durations) lives on the combatant for both kinds — only the
- * vitals source differs (ADR Decision 1).
+ * for the persistent HP/SP/exhaustion that survives a fight; an `enemy` carries
+ * an inline {@link EnemyStatBlock}; a `catalog-enemy` is a stable pointer at a
+ * hardcoded {@link import("@/lib/game/enemies").EnemyDefinition} resolved by
+ * `enemyKey` at runtime (UNN-336). The pointer holds no mutable vitals — a
+ * catalog enemy's working HP is injected onto the combatant when combat is
+ * drafted (UNN-303), so the ref stays a stable reference, not a copied blob. The
+ * encounter overlay (ailments, battle conditions, durations) lives on the
+ * combatant for all kinds — only the vitals source differs (ADR Decision 1).
+ *
+ * The `enemy` arm is UNN-299's provisional free-entry shape; it is renamed to
+ * `custom-enemy` there, pairing with `catalog-enemy` so the two enemy-sourcing
+ * arms share a suffix.
  */
 const combatantRefSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("pc"), characterId: z.string() }),
   z.object({ kind: z.literal("enemy"), statBlock: enemyStatBlockSchema }),
+  z.object({ kind: z.literal("catalog-enemy"), enemyKey: z.string() }),
 ])
 export type CombatantRef = z.infer<typeof combatantRefSchema>
 

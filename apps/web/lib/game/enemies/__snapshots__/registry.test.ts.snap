@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Goblin transcription > matches the Goblin snapshot end-to-end 1`] = `
+{
+  "abilities": "**Scimitar** — The Goblin slashes at an enemy with their scimitar.
+
+Range: **Engaged**; Damage: **Slash (Physical)**
+
+Attack Roll + St:
+- **1–10**: \`1 + St\`
+- **11–19**: \`1d6 + St\`
+- **20+**: \`1d6 + St\` *(Critical)*
+
+**Shortbow** — The Goblin shoots at an enemy with their shortbow.
+
+Range: **Same/Adjacent Zone**; Damage: **Pierce (Physical)**
+
+Attack Roll + Ag:
+- **1–10**: \`1 + Ag\`
+- **11–19**: \`1d6 + Ag\`
+- **20+**: \`1d6 + Ag\` *(Critical)*",
+  "affinities": {
+    "dark": "resist",
+    "wind": "weak",
+  },
+  "attributes": {
+    "agility": 1,
+    "luck": 0,
+    "magic": -1,
+    "strength": 0,
+  },
+  "key": "goblin",
+  "level": 1,
+  "maxHP": 16,
+  "name": "Goblin",
+  "skillKeys": [],
+  "talents": [
+    "sneak",
+  ],
+}
+`;
