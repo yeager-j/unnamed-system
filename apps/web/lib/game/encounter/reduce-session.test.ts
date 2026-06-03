@@ -230,6 +230,19 @@ describe("reduceCombatSession — DM overrides", () => {
     expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
   })
 
+  it("setCurrentActor writes an unknown id unconditionally (unlike setActed's no-op)", () => {
+    // Guides, never rejects (ADR Decision 8): setCurrentActor only sets the
+    // field, so a bogus id is written as-is rather than no-op'd.
+    const session = startedSession()
+
+    const next = reduceCombatSession(session, {
+      kind: "setCurrentActor",
+      combatantId: "nobody",
+    })
+
+    expect(next.currentActorId).toBe("nobody")
+  })
+
   it("setActed sets the flag without touching the current actor", () => {
     const session = startedSession() // currentActorId === combatant-0
 
