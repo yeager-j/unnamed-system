@@ -217,6 +217,87 @@ describe("reduceCombatSession — draftCombatant", () => {
   })
 })
 
+describe("reduceCombatSession — DM overrides", () => {
+  it("setCurrentActor points the actor at any combatant without touching acted flags", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const next = reduceCombatSession(session, {
+      kind: "setCurrentActor",
+      combatantId: "combatant-1",
+    })
+
+    expect(next.currentActorId).toBe("combatant-1")
+    expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
+  })
+
+  it("setCurrentActor writes an unknown id unconditionally (unlike setActed's no-op)", () => {
+    // Guides, never rejects (ADR Decision 8): setCurrentActor only sets the
+    // field, so a bogus id is written as-is rather than no-op'd.
+    const session = startedSession()
+
+    const next = reduceCombatSession(session, {
+      kind: "setCurrentActor",
+      combatantId: "nobody",
+    })
+
+    expect(next.currentActorId).toBe("nobody")
+  })
+
+  it("setActed sets the flag without touching the current actor", () => {
+    const session = startedSession() // currentActorId === combatant-0
+
+    const next = reduceCombatSession(session, {
+      kind: "setActed",
+      combatantId: "combatant-1",
+      hasActed: true,
+    })
+
+    expect(next.combatants[1]!.hasActedThisRound).toBe(true)
+    expect(next.currentActorId).toBe("combatant-0")
+  })
+
+  it("setActed can un-flag a combatant (hasActed: false)", () => {
+    const fresh = createCombatSession(SETUP, sequentialIds())
+    const session: CombatSession = {
+      ...fresh,
+      combatants: [
+        { ...fresh.combatants[0]!, hasActedThisRound: true },
+        ...fresh.combatants.slice(1),
+      ],
+    }
+
+    const next = reduceCombatSession(session, {
+      kind: "setActed",
+      combatantId: "combatant-0",
+      hasActed: false,
+    })
+
+    expect(next.combatants[0]!.hasActedThisRound).toBe(false)
+  })
+
+  it("setActed is a no-op for an unknown combatant id", () => {
+    const session = startedSession()
+
+    const next = reduceCombatSession(session, {
+      kind: "setActed",
+      combatantId: "nobody",
+      hasActed: true,
+    })
+
+    expect(next).toBe(session)
+  })
+
+  it("setRound sets the round without touching combatant flags or the actor", () => {
+    const session = startedSession()
+
+    const next = reduceCombatSession(session, { kind: "setRound", round: 5 })
+
+    expect(next.round).toBe(5)
+    expect(next.currentActorId).toBe(session.currentActorId)
+    expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
+  })
+})
+
 describe("reduceCombatSession — advanceRound", () => {
   /** Both combatants have acted; the first is still the current actor. */
   function endOfRound() {
