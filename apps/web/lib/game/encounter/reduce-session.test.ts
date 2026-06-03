@@ -87,6 +87,69 @@ describe("reduceCombatSession — endTurn", () => {
   })
 })
 
+describe("reduceCombatSession — startCombat", () => {
+  it("records advantage and firstSide on a fresh draft session", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const { session: next, edits } = reduceCombatSession(session, {
+      kind: "startCombat",
+      advantage: "players",
+      firstSide: "players",
+    })
+
+    expect(next.advantage).toBe("players")
+    expect(next.firstSide).toBe("players")
+    expect(edits).toEqual([])
+  })
+
+  it("records firstSide even when advantage is neutral", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "startCombat",
+      advantage: "neutral",
+      firstSide: "enemies",
+    })
+
+    expect(next.advantage).toBe("neutral")
+    expect(next.firstSide).toBe("enemies")
+  })
+
+  it("is a no-op on an already-started session (cannot start twice)", () => {
+    const started = reduceCombatSession(
+      createCombatSession(SETUP, sequentialIds()),
+      { kind: "startCombat", advantage: "players", firstSide: "players" }
+    ).session
+
+    const result = reduceCombatSession(started, {
+      kind: "startCombat",
+      advantage: "enemies",
+      firstSide: "enemies",
+    })
+
+    expect(result.session).toBe(started)
+    expect(result.session.advantage).toBe("players")
+    expect(result.session.firstSide).toBe("players")
+    expect(result.edits).toEqual([])
+  })
+
+  it("does not mutate a frozen draft input", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+    Object.freeze(session)
+    Object.freeze(session.combatants)
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "startCombat",
+      advantage: "enemies",
+      firstSide: "enemies",
+    })
+
+    expect(next).not.toBe(session)
+    expect(session.advantage).toBeNull()
+    expect(session.firstSide).toBeNull()
+  })
+})
+
 describe("reduceCombatSession — advanceRound", () => {
   /** Both combatants have acted; the first is still the current actor. */
   function endOfRound() {

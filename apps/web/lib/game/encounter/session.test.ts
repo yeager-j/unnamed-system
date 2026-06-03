@@ -43,6 +43,8 @@ describe("combatSessionSchema", () => {
     const session: CombatSession = {
       round: 2,
       currentActorId: "c-1",
+      advantage: "players",
+      firstSide: "players",
       combatants: [
         {
           id: "c-1",
@@ -101,6 +103,8 @@ describe("createCombatSession", () => {
     expect(combatSessionSchema.safeParse(session).success).toBe(true)
     expect(session.round).toBe(1)
     expect(session.currentActorId).toBeNull()
+    expect(session.advantage).toBeNull()
+    expect(session.firstSide).toBeNull()
     expect(session.combatants).toHaveLength(2)
   })
 

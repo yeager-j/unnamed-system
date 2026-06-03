@@ -1,6 +1,11 @@
 import type { BattleConditionAxisKey, PoolsEdit } from "@/lib/game/character"
 
-import type { CombatantSetup, CombatSession } from "./session"
+import type {
+  CombatAdvantage,
+  CombatantSetup,
+  CombatSession,
+  CombatSide,
+} from "./session"
 
 /**
  * The tracker reducer's vocabulary: the events that drive a {@link CombatSession}
@@ -15,10 +20,29 @@ import type { CombatantSetup, CombatSession } from "./session"
  * union and its dispatch grow together.
  */
 
-/** Turn-loop events. `endTurn` ends the current actor's turn; the rest of the
- *  turn model (drafting the next actor, round rollover, Fallen-skip, per-turn
- *  effects) is the Turn-Order epic (UNN-285) extending this sub-union. */
-export type TurnEvent = { kind: "endTurn" }
+/** `endTurn` ends the current actor's turn (they are marked as having acted; the
+ *  actor is kept as `currentActorId`). */
+export type EndTurnEvent = { kind: "endTurn" }
+
+/**
+ * `startCombat` opens the encounter: the DM declares the opening `advantage` and
+ * which side acts first (`firstSide`). The reducer just records both on the
+ * session — it is a no-op once `advantage` is non-null (an encounter cannot start
+ * twice). The shell resolves `firstSide` (highest-Agility side, DM-overridable)
+ * and transitions the DB `status` `draft → live` *after* persisting the reduced
+ * session (UNN-332); the pure reducer never touches status. `advantage`/
+ * `firstSide` are consumed by the `nextDraftingSide` selector (UNN-304).
+ */
+export type StartCombatEvent = {
+  kind: "startCombat"
+  advantage: CombatAdvantage
+  firstSide: CombatSide
+}
+
+/** Turn-loop events. The rest of the turn model (drafting the next actor, round
+ *  rollover, Fallen-skip, per-turn effects) is the Turn-Order epic (UNN-285)
+ *  extending this sub-union. */
+export type TurnEvent = EndTurnEvent | StartCombatEvent
 
 /**
  * Round-lifecycle + mid-round roster events. `advanceRound` rolls the encounter

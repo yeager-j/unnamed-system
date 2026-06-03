@@ -3,7 +3,7 @@ import { produce } from "immer"
 import { BATTLE_CONDITION_AXIS_KEYS } from "@/lib/game/character"
 
 import type { CombatSession } from "../session"
-import type { CombatSessionResult, TurnEvent } from "../session-event"
+import type { CombatSessionResult, EndTurnEvent } from "../session-event"
 
 /**
  * Turn-loop slice. `endTurn` ends the current actor's turn: they are marked as
@@ -20,7 +20,7 @@ import type { CombatSessionResult, TurnEvent } from "../session-event"
  */
 export function reduceTurnEvent(
   session: CombatSession,
-  event: TurnEvent
+  event: EndTurnEvent
 ): CombatSessionResult {
   switch (event.kind) {
     case "endTurn": {

@@ -1,6 +1,7 @@
 import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
+import { reduceStartCombatEvent } from "./reduce/turn-start"
 import type { CombatSession } from "./session"
 import type { CombatEvent, CombatSessionResult } from "./session-event"
 
@@ -35,6 +36,9 @@ export function reduceCombatSession(
   switch (event.kind) {
     case "endTurn":
       return reduceTurnEvent(session, event)
+
+    case "startCombat":
+      return reduceStartCombatEvent(session, event)
 
     case "advanceRound":
     case "addCombatant":
