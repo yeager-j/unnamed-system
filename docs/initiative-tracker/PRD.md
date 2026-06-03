@@ -22,7 +22,7 @@ This is a prep-and-run tool. A DM builds an encounter ahead of time, then drives
 ## Non-Goals (v1)
 
 - A reusable **DM-saved** enemy bestiary. Enemies come from a hardcoded-TS catalog or are free-entered per encounter; _saving_ custom stat blocks to a database for reuse is deferred.
-- Automating the full Follow-Up / Shift / All-Out / Synthesis sequence. v1 only prompts and reminds.
+- Automating or sequencing the Follow-Up / Shift / All-Out / Synthesis flow. The DM adjudicates these; the tracker tracks the state they depend on (Downed, ailments, and the Shift chain for the §3.6 no-repeat rule) but does not detect All-Out/Follow-Up triggers or prompt for them. (The end-of-turn saving-throw reminder is the one exception — a per-turn obligation that's easy to forget.)
 - Players editing their own state _in the tracker_. The DM drives everything; the player view is read-only. (Players still edit their own character sheet normally — e.g. the end-of-combat self-heal to 1 HP happens there.)
 - Automatic resolution of attack rolls, damage, affinities, or ailment infliction. The DM adjudicates; the tracker records outcomes.
 - **Computing anything from battle conditions.** There is no dice engine, so condition math (Charged/Concentrating's 2.5×, Attack/Def/Hit-Evasion modifiers, party-lineage scalers) is done by hand at the table; the app only _tracks and displays_ conditions.
@@ -101,7 +101,7 @@ The tracker renders the Zone layout and adjacency and shows which combatants occ
 
 ### 6. Rules prompts & reminders
 
-At the end of each turn, the tracker resolves the just-acted combatant's obligations: **duration decrements** are applied automatically and reported, while **saving throws** (for any afflicted combatant) and ailment end-of-turn effects are **prompts** the DM rolls and records. When the DM records that an enemy was Downed, the tracker prompts that a **Follow-Up** is available (and notes Shift eligibility — ailment-free allies, no repeats in the chain). When all enemies are Downed, it surfaces the **All-Out Attack / Synthesis** option. These are prompts and reminders only; the DM resolves and records the outcome. The tracker does not sequence the chain itself in v1.
+At the end of each turn, the tracker resolves the just-acted combatant's obligations: **duration decrements** are applied automatically and reported, while **saving throws** (for any afflicted combatant) and ailment end-of-turn effects are **prompts** the DM rolls and records — these per-turn obligations recur constantly and are easy to forget, so the tracker reminds. For the out-of-turn flow the tracker takes the opposite stance: it does **not** prompt. A **Follow-Up** needs no prompt (the DM knows they Downed an enemy), but the tracker **tracks the current Shift chain** so it can surface which allies are still legal Shift recipients (ailment-free, not Fallen, and not already in the chain — §3.6). **All-Out Attack / Synthesis is left entirely to the DM**, adjudicated off the Downed + ailment state the tracker already displays — the tracker does not detect the trigger or prompt for it. The tracker never sequences the Follow-Up/Shift/All-Out chain; it tracks the state those decisions depend on, and the DM resolves and records outcomes.
 
 ### 7. Shared player view
 
@@ -140,5 +140,5 @@ On victory, each Fallen PC self-heals to 1 HP on their own sheet (a normal owner
 1. **Campaign (prereq):** Campaign model + two-level membership + join-link flow + character placement; `requireOwnerOrCampaignDM`. Gates the tracker as a whole.
 2. **Core loop:** encounter setup within a campaign, catalog/free-entered enemies, sides, manual starting advantage, guided/overridable turn order, and the HP/SP panel writing PC vitals through the (campaign-DM-authorized) pools actions. Run a real encounter solo.
 3. **Full state + Zones:** combat state on the combatant — ailments with saving-throw prompts, battle conditions with `CombatSession`-side duration clocks, Charged/Concentrating (track + single-use clear), the Reaction flag, and the Zone/engagement layout. Retire the character's Combat State card + columns at cutover.
-4. **Prompts:** Follow-Up / All-Out / Synthesis reminders, end-of-turn and end-of-combat automation.
+4. **Prompts & lifecycle:** end-of-turn saving-throw reminders, Follow-Up/Shift chain tracking (no-repeat eligibility, §3.6), and end-of-combat close-out (status → ended; Fallen players self-heal). All-Out/Synthesis is DM-adjudicated off the displayed state, not a system prompt.
 5. **Shared player view:** real-time read-only sync via polling, with the enemy-affinity-hidden visibility model.
