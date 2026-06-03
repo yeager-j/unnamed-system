@@ -45,16 +45,15 @@ export function nextDraftingSide(
 ): CombatSide {
   const lead = session.firstSide ?? "players"
 
-  const eligible = (side: CombatSide) =>
-    session.combatants.filter(
-      (c) => c.side === side && !c.hasActedThisRound && !fallenIds.has(c.id)
-    ).length
-  const acted = (side: CombatSide) =>
+  const pending = pendingCombatants(session, fallenIds)
+  const pendingOn = (side: CombatSide) =>
+    pending.filter((c) => c.side === side).length
+  const actedOn = (side: CombatSide) =>
     session.combatants.filter((c) => c.side === side && c.hasActedThisRound)
       .length
 
-  const pendingPlayers = eligible("players")
-  const pendingEnemies = eligible("enemies")
+  const pendingPlayers = pendingOn("players")
+  const pendingEnemies = pendingOn("enemies")
 
   if (pendingPlayers === 0 && pendingEnemies === 0) return lead
   if (pendingPlayers === 0) return "enemies"
@@ -67,7 +66,7 @@ export function nextDraftingSide(
     return session.advantage
   }
 
-  return acted(lead) <= acted(otherSide(lead)) ? lead : otherSide(lead)
+  return actedOn(lead) <= actedOn(otherSide(lead)) ? lead : otherSide(lead)
 }
 
 /**
