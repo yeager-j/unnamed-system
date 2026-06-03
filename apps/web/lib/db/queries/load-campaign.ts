@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { campaigns, type CampaignRow } from "@/lib/db/schema/campaign"
@@ -21,4 +21,19 @@ export async function loadCampaignRowById(
     .limit(1)
 
   return row ?? null
+}
+
+/**
+ * Every campaign a user runs as the DM (`dmUserId`), newest first. Backs the
+ * thin `/campaigns` entry (UNN-335) that lists a DM's campaigns with a "New
+ * encounter" button; the full My Campaigns / manage page is UNN-329.
+ */
+export async function loadCampaignsByDmUserId(
+  dmUserId: string
+): Promise<CampaignRow[]> {
+  return db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.dmUserId, dmUserId))
+    .orderBy(desc(campaigns.createdAt))
 }

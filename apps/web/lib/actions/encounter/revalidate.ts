@@ -8,12 +8,12 @@ import { revalidatePath } from "next/cache"
  * `revalidateCharacter` (the character one moves alongside it under
  * `lib/actions/character/` when the flat `lib/actions/` files migrate).
  *
- * PROVISIONAL: no encounter route exists yet — the DM console (UNN-335) and the
- * signed-out player view (UNN-322) land later. The DM client relies on the
- * returned version + its `useOptimistic` frame, and the player view refreshes by
- * polling (UNN-322), so this is thin best-effort today. The `shortId` path is a
- * placeholder to be confirmed when those routes are defined.
+ * Revalidates the DM combat console (`/combat/{shortId}`, UNN-335). The DM
+ * client also relies on the returned version + its `useOptimistic` frame, and
+ * the signed-out player view (UNN-322) refreshes by polling, so this is
+ * best-effort for the console's own RSC (e.g. the `startCombat` status flip the
+ * client mirrors with `router.refresh()`).
  */
 export function revalidateEncounter(encounter: { shortId: string }): void {
-  revalidatePath(`/e/${encounter.shortId}`)
+  revalidatePath(`/combat/${encounter.shortId}`)
 }
