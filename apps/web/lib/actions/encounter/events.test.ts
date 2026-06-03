@@ -173,4 +173,35 @@ describe("applyCombatEvent", () => {
     expect(result).toEqual(err("encounter-not-found"))
     expect(requireCampaignDM).not.toHaveBeenCalled()
   })
+
+  it("returns encounter-not-found when the row is deleted between the two reads", async () => {
+    loadEncounterRowById.mockResolvedValue(null)
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: { kind: "endTurn" },
+    })
+
+    expect(result).toEqual(err("encounter-not-found"))
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+  })
+
+  it("propagates a setEncounterStatus failure on startCombat without revalidating", async () => {
+    setEncounterStatus.mockResolvedValue(err("encounter-not-found"))
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: {
+        kind: "startCombat",
+        advantage: "players",
+        firstSide: "players",
+      },
+    })
+
+    expect(saveEncounterSession).toHaveBeenCalledOnce()
+    expect(result).toEqual(err("encounter-not-found"))
+    expect(revalidateEncounter).not.toHaveBeenCalled()
+  })
 })

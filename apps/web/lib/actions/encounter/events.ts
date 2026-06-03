@@ -34,6 +34,15 @@ import { revalidateEncounter } from "./revalidate"
  * session is persisted, guarded on the just-bumped version. The reducer never
  * writes a character row; PC vitals move through their own pools actions
  * (UNN-309 / UNN-320).
+ *
+ * The `startCombat` status flip is a *second* guarded write, so the two are not
+ * atomic: if the session save commits but the status flip fails, the action
+ * returns that error and the encounter is left `draft` with `advantage` set.
+ * Recovery is **not** a transparent retry — the client must reload (seeing the
+ * bumped version + still-`draft` status) and re-issue with the new
+ * `expectedVersion`; re-applying `startCombat` is a reducer no-op (UNN-303), so
+ * the re-issue re-persists the same session and lands the status flip. The DM
+ * client contract (UNN-335) owns that reload-and-reissue path.
  */
 export async function applyCombatEvent(
   input: ApplyCombatEventInput
@@ -55,17 +64,13 @@ export async function applyCombatEvent(
   const saved = await saveEncounterSession(encounterId, next, expectedVersion)
   if (!saved.ok) return saved
 
+  let version = saved.value.version
   if (event.kind === "startCombat") {
-    const live = await setEncounterStatus(
-      encounterId,
-      "live",
-      saved.value.version
-    )
+    const live = await setEncounterStatus(encounterId, "live", version)
     if (!live.ok) return live
-    revalidateEncounter(encounter)
-    return ok({ version: live.value.version })
+    version = live.value.version
   }
 
   revalidateEncounter(encounter)
-  return ok({ version: saved.value.version })
+  return ok({ version })
 }
