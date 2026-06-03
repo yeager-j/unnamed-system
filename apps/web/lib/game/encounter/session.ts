@@ -166,14 +166,17 @@ export type CombatSession = z.infer<typeof combatSessionSchema>
 /**
  * One combatant as supplied to {@link createCombatSession} from encounter
  * setup. The stable combatant id is minted by the constructor; `engagement`
- * defaults to Free.
+ * defaults to Free. Schema-first (like {@link combatantSchema}) so it doubles as
+ * the wire-payload validator for the `addCombatant` event at the shell boundary
+ * (UNN-332).
  */
-export interface CombatantSetup {
-  side: CombatSide
-  ref: CombatantRef
-  zoneId: string
-  engagement?: Engagement
-}
+export const combatantSetupSchema = z.object({
+  side: z.enum(COMBAT_SIDES),
+  ref: combatantRefSchema,
+  zoneId: z.string(),
+  engagement: engagementSchema.optional(),
+})
+export type CombatantSetup = z.infer<typeof combatantSetupSchema>
 
 /**
  * Builds one fresh {@link Combatant} from a {@link CombatantSetup} and a minted

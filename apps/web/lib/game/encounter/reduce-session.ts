@@ -3,17 +3,16 @@ import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
 import { reduceStartCombatEvent } from "./reduce/turn-start"
 import type { CombatSession } from "./session"
-import type { CombatEvent, CombatSessionResult } from "./session-event"
+import type { CombatEvent } from "./session-event"
 
-export type { CombatEvent, CombatSessionResult } from "./session-event"
+export type { CombatEvent } from "./session-event"
 
 /**
  * The pure tracker reducer: applies a {@link CombatEvent} to an immutable
- * {@link CombatSession}, returning the next session and the character-row edits
- * to emit ({@link CombatSessionResult}). It is a **decider** — deterministic, no
- * I/O, no mutation, and it never applies the edits itself; the caller runs them
- * through the existing combat-state server actions. The character engine's
- * counterpart is {@link reduceCharacter}.
+ * {@link CombatSession}, returning the next session. It is a **decider** —
+ * deterministic, no I/O, no mutation; the impure shell (`applyCombatEvent`,
+ * UNN-332) persists the returned session. The character engine's counterpart is
+ * {@link reduceCharacter}.
  *
  * Dispatch is a grouped `switch` over `event.kind` routing to per-domain slices
  * in `./reduce/`, mirroring `reduceCharacter`'s `routeEdit`. There is no
@@ -32,7 +31,7 @@ export function reduceCombatSession(
   session: CombatSession,
   event: CombatEvent,
   newId: () => string = () => crypto.randomUUID()
-): CombatSessionResult {
+): CombatSession {
   switch (event.kind) {
     case "endTurn":
       return reduceTurnEvent(session, event)

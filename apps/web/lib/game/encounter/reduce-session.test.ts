@@ -67,23 +67,19 @@ describe("reduceCombatSession — endTurn", () => {
     const session = startedSession()
     const actorId = session.currentActorId
 
-    const { session: next, edits } = reduceCombatSession(session, {
-      kind: "endTurn",
-    })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
     expect(next.currentActorId).toBe(actorId)
     expect(next.combatants[0]!.hasActedThisRound).toBe(true)
     expect(next.combatants[1]!.hasActedThisRound).toBe(false)
-    expect(edits).toEqual([])
   })
 
   it("is a no-op when there is no current actor", () => {
     const session = createCombatSession(SETUP, sequentialIds())
 
-    const result = reduceCombatSession(session, { kind: "endTurn" })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
-    expect(result.session).toBe(session)
-    expect(result.edits).toEqual([])
+    expect(next).toBe(session)
   })
 })
 
@@ -91,7 +87,7 @@ describe("reduceCombatSession — startCombat", () => {
   it("records advantage and firstSide on a fresh draft session", () => {
     const session = createCombatSession(SETUP, sequentialIds())
 
-    const { session: next, edits } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "startCombat",
       advantage: "players",
       firstSide: "players",
@@ -99,13 +95,12 @@ describe("reduceCombatSession — startCombat", () => {
 
     expect(next.advantage).toBe("players")
     expect(next.firstSide).toBe("players")
-    expect(edits).toEqual([])
   })
 
   it("records firstSide even when advantage is neutral", () => {
     const session = createCombatSession(SETUP, sequentialIds())
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "startCombat",
       advantage: "neutral",
       firstSide: "enemies",
@@ -118,7 +113,7 @@ describe("reduceCombatSession — startCombat", () => {
   it("records a non-neutral advantage and firstSide verbatim, without normalising them", () => {
     const session = createCombatSession(SETUP, sequentialIds())
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "startCombat",
       advantage: "players",
       firstSide: "enemies",
@@ -132,18 +127,17 @@ describe("reduceCombatSession — startCombat", () => {
     const started = reduceCombatSession(
       createCombatSession(SETUP, sequentialIds()),
       { kind: "startCombat", advantage: "players", firstSide: "players" }
-    ).session
+    )
 
-    const result = reduceCombatSession(started, {
+    const next = reduceCombatSession(started, {
       kind: "startCombat",
       advantage: "enemies",
       firstSide: "enemies",
     })
 
-    expect(result.session).toBe(started)
-    expect(result.session.advantage).toBe("players")
-    expect(result.session.firstSide).toBe("players")
-    expect(result.edits).toEqual([])
+    expect(next).toBe(started)
+    expect(next.advantage).toBe("players")
+    expect(next.firstSide).toBe("players")
   })
 
   it("does not mutate a frozen draft input", () => {
@@ -151,7 +145,7 @@ describe("reduceCombatSession — startCombat", () => {
     Object.freeze(session)
     Object.freeze(session.combatants)
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "startCombat",
       advantage: "enemies",
       firstSide: "enemies",
@@ -180,22 +174,17 @@ describe("reduceCombatSession — advanceRound", () => {
   it("increments the round, clears all acted flags, and nulls the current actor", () => {
     const session = endOfRound()
 
-    const { session: next, edits } = reduceCombatSession(session, {
-      kind: "advanceRound",
-    })
+    const next = reduceCombatSession(session, { kind: "advanceRound" })
 
     expect(next.round).toBe(2)
     expect(next.currentActorId).toBeNull()
     expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
-    expect(edits).toEqual([])
   })
 
   it("still increments the round when no one has acted (idempotent safeguard)", () => {
     const session = startedSession()
 
-    const { session: next } = reduceCombatSession(session, {
-      kind: "advanceRound",
-    })
+    const next = reduceCombatSession(session, { kind: "advanceRound" })
 
     expect(next.round).toBe(2)
     expect(next.currentActorId).toBeNull()
@@ -212,7 +201,7 @@ describe("reduceCombatSession — addCombatant", () => {
   it("appends a joiner with a minted id and hasActedThisRound = true", () => {
     const session = startedSession()
 
-    const { session: next, edits } = reduceCombatSession(
+    const next = reduceCombatSession(
       session,
       { kind: "addCombatant", setup: JOINER },
       () => "joiner-id"
@@ -223,13 +212,12 @@ describe("reduceCombatSession — addCombatant", () => {
     expect(joiner.id).toBe("joiner-id")
     expect(joiner.hasActedThisRound).toBe(true)
     expect(joiner.side).toBe("enemies")
-    expect(edits).toEqual([])
   })
 
   it("leaves the existing combatants untouched", () => {
     const session = startedSession()
 
-    const { session: next } = reduceCombatSession(
+    const next = reduceCombatSession(
       session,
       { kind: "addCombatant", setup: JOINER },
       () => "joiner-id"
@@ -244,20 +232,19 @@ describe("reduceCombatSession — removeCombatant", () => {
     const session = startedSession()
     const removedId = session.combatants[1]!.id
 
-    const { session: next, edits } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "removeCombatant",
       combatantId: removedId,
     })
 
     expect(next.combatants).toHaveLength(1)
     expect(next.combatants.some((c) => c.id === removedId)).toBe(false)
-    expect(edits).toEqual([])
   })
 
   it("clears the current actor when it is the one removed", () => {
     const session = startedSession()
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "removeCombatant",
       combatantId: session.currentActorId!,
     })
@@ -269,7 +256,7 @@ describe("reduceCombatSession — removeCombatant", () => {
     const session = startedSession()
     const actorId = session.currentActorId
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "removeCombatant",
       combatantId: session.combatants[1]!.id,
     })
@@ -280,13 +267,12 @@ describe("reduceCombatSession — removeCombatant", () => {
   it("is a no-op for an unknown combatant id (returns the same session)", () => {
     const session = startedSession()
 
-    const result = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "removeCombatant",
       combatantId: "nobody",
     })
 
-    expect(result.session).toBe(session)
-    expect(result.edits).toEqual([])
+    expect(next).toBe(session)
   })
 })
 
@@ -297,7 +283,7 @@ describe("reduceCombatSession — purity", () => {
     Object.freeze(session.combatants)
     session.combatants.forEach((combatant) => Object.freeze(combatant))
 
-    const { session: next } = reduceCombatSession(session, { kind: "endTurn" })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
     // A mutation of the frozen input would throw under strict mode; reaching
     // here means the reducer built a new session instead.
@@ -312,9 +298,7 @@ describe("reduceCombatSession — purity", () => {
     Object.freeze(session.combatants)
     session.combatants.forEach((combatant) => Object.freeze(combatant))
 
-    const { session: next } = reduceCombatSession(session, {
-      kind: "advanceRound",
-    })
+    const next = reduceCombatSession(session, { kind: "advanceRound" })
 
     expect(next).not.toBe(session)
     expect(session.round).toBe(1)
@@ -327,7 +311,7 @@ describe("reduceCombatSession — purity", () => {
     Object.freeze(session.combatants)
     session.combatants.forEach((combatant) => Object.freeze(combatant))
 
-    const { session: next } = reduceCombatSession(
+    const next = reduceCombatSession(
       session,
       {
         kind: "addCombatant",
@@ -350,7 +334,7 @@ describe("reduceCombatSession — purity", () => {
     Object.freeze(session.combatants)
     session.combatants.forEach((combatant) => Object.freeze(combatant))
 
-    const { session: next } = reduceCombatSession(session, {
+    const next = reduceCombatSession(session, {
       kind: "removeCombatant",
       combatantId: session.combatants[0]!.id,
     })
@@ -371,41 +355,28 @@ describe("reduceCombatSession — applyBattleConditionDuration", () => {
       combatantId: actorId,
       axis: "attack",
       turns: 3,
-    }).session
+    })
     const twice = reduceCombatSession(once, {
       kind: "applyBattleConditionDuration",
       combatantId: actorId,
       axis: "attack",
       turns: 3,
-    }).session
-
-    expect(twice.combatants[0]!.conditionDurations.attack).toBe(6)
-  })
-
-  it("is session-only (emits no edits)", () => {
-    const started = startedSession()
-
-    const result = reduceCombatSession(started, {
-      kind: "applyBattleConditionDuration",
-      combatantId: started.currentActorId!,
-      axis: "attack",
-      turns: 2,
     })
 
-    expect(result.edits).toEqual([])
+    expect(twice.combatants[0]!.conditionDurations.attack).toBe(6)
   })
 
   it("is a no-op for an unknown combatant", () => {
     const started = startedSession()
 
-    const result = reduceCombatSession(started, {
+    const next = reduceCombatSession(started, {
       kind: "applyBattleConditionDuration",
       combatantId: "nobody",
       axis: "attack",
       turns: 2,
     })
 
-    expect(result.session.combatants).toEqual(started.combatants)
+    expect(next.combatants).toEqual(started.combatants)
   })
 })
 
@@ -419,45 +390,34 @@ describe("reduceCombatSession — endTurn duration clock", () => {
       combatantId: first!.id,
       axis: "attack",
       turns: 2,
-    }).session
+    })
     const afterBoth = reduceCombatSession(afterFirst, {
       kind: "applyBattleConditionDuration",
       combatantId: second!.id,
       axis: "attack",
       turns: 2,
-    }).session
+    })
     return { ...afterBoth, currentActorId: first!.id }
   }
 
   it("decrements only the current actor's durations", () => {
     const session = startedWithDurations()
 
-    const { session: next } = reduceCombatSession(session, { kind: "endTurn" })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
     expect(next.combatants[0]!.conditionDurations.attack).toBe(1)
     expect(next.combatants[1]!.conditionDurations.attack).toBe(2)
   })
 
-  it("emits nothing while remaining > 0", () => {
-    const session = startedWithDurations()
-
-    const { edits } = reduceCombatSession(session, { kind: "endTurn" })
-
-    expect(edits).toEqual([])
-  })
-
-  it("resets the actor's battle-condition axis to neutral on expiry (no edit)", () => {
+  it("resets the actor's battle-condition axis to neutral on expiry", () => {
     const session = startedWithOverlay(
       { ...DEFAULT_BATTLE_CONDITIONS, attack: "increased" },
       { attack: 1 }
     )
     const actorId = session.currentActorId
 
-    const { session: next, edits } = reduceCombatSession(session, {
-      kind: "endTurn",
-    })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
-    expect(edits).toEqual([])
     expect(next.combatants[0]!.battleConditions.attack).toBe("neutral")
     expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
     expect(next.currentActorId).toBe(actorId)
@@ -473,11 +433,8 @@ describe("reduceCombatSession — endTurn duration clock", () => {
       { attack: 1, defense: 3 }
     )
 
-    const { session: next, edits } = reduceCombatSession(session, {
-      kind: "endTurn",
-    })
+    const next = reduceCombatSession(session, { kind: "endTurn" })
 
-    expect(edits).toEqual([])
     expect(next.combatants[0]!.battleConditions.attack).toBe("neutral")
     expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
     expect(next.combatants[0]!.battleConditions.defense).toBe("increased")
