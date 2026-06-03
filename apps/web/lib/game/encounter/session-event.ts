@@ -1,10 +1,17 @@
-import type { BattleConditionAxisKey, PoolsEdit } from "@/lib/game/character"
+import { z } from "zod/v4"
 
-import type {
-  CombatAdvantage,
-  CombatantSetup,
-  CombatSession,
-  CombatSide,
+import {
+  BATTLE_CONDITION_AXIS_KEYS,
+  type BattleConditionAxisKey,
+} from "@/lib/game/character"
+
+import {
+  COMBAT_ADVANTAGES,
+  COMBAT_SIDES,
+  combatantSetupSchema,
+  type CombatAdvantage,
+  type CombatantSetup,
+  type CombatSide,
 } from "./session"
 
 /**
@@ -91,27 +98,40 @@ export type BattleConditionEvent = {
 export type CombatEvent = TurnEvent | RoundEvent | BattleConditionEvent
 
 /**
- * A rare PC-**vitals** nudge the reducer emits, tagged with the combatant it
- * pertains to. Combat state lives on the combatant and is mutated in place (ADR
- * Decision 2), so the reducer no longer emits combat-state edits at all; the one
- * surviving emission is a vitals change to a PC's character row — e.g.
- * end-of-combat Fallen-restore to 1 HP — which the impure shell (UNN-332) applies
- * as a {@link PoolsEdit}. The reducer stays combatant-agnostic: it reports "this
- * PC combatant's vitals should change" and leaves the PC→character mapping to the
- * shell. No transition emits one yet.
+ * Runtime validator for a {@link CombatEvent} arriving over the wire — the
+ * boundary the impure shell (`applyCombatEvent`, UNN-332) parses an untrusted
+ * client payload through before handing it to the pure reducer. Mirrors the
+ * hand-written {@link CombatEvent} union member-for-member; the lockstep
+ * assertion below stops the two from drifting.
  */
-export interface EmittedEdit {
-  combatantId: string
-  edit: PoolsEdit
-}
+export const combatEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("endTurn") }),
+  z.object({
+    kind: z.literal("startCombat"),
+    advantage: z.enum(COMBAT_ADVANTAGES),
+    firstSide: z.enum(COMBAT_SIDES),
+  }),
+  z.object({ kind: z.literal("advanceRound") }),
+  z.object({ kind: z.literal("addCombatant"), setup: combatantSetupSchema }),
+  z.object({ kind: z.literal("removeCombatant"), combatantId: z.string() }),
+  z.object({
+    kind: z.literal("applyBattleConditionDuration"),
+    combatantId: z.string(),
+    axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
+    turns: z.number().int().positive(),
+  }),
+])
+
+/** `true` only when `A` and `B` are mutually assignable (structurally equal). */
+type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
- * What {@link reduceCombatSession} (and each slice) returns: the next session and
- * the PC-vitals edits to emit ({@link EmittedEdit}). The reducer is a **decider**
- * — it never applies the edits; the caller runs them through the existing pools
- * server actions. An unchanged transition returns the same session and `edits: []`.
+ * Compile-time lockstep guard: if {@link combatEventSchema} and the hand-written
+ * {@link CombatEvent} union ever diverge (a new event kind added to one but not
+ * the other, a payload field renamed), this assignment stops compiling.
  */
-export interface CombatSessionResult {
-  session: CombatSession
-  edits: EmittedEdit[]
-}
+const _combatEventSchemaInSync: Equals<
+  z.infer<typeof combatEventSchema>,
+  CombatEvent
+> = true
+void _combatEventSchemaInSync

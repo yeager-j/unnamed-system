@@ -1,7 +1,7 @@
 import { produce } from "immer"
 
 import type { CombatSession } from "../session"
-import type { CombatSessionResult, StartCombatEvent } from "../session-event"
+import type { StartCombatEvent } from "../session-event"
 
 /**
  * Combat-start slice. `startCombat` records the DM's opening declaration on the
@@ -12,23 +12,20 @@ import type { CombatSessionResult, StartCombatEvent } from "../session-event"
  * `firstSide` consistent with a non-neutral `advantage` is the shell's invariant
  * (UNN-332), not the reducer's, so this stays a pure, total recorder. Resolving
  * `firstSide` (highest-Agility side) and the DB `draft → live` status transition
- * are likewise the shell's job, so this slice emits no edits and never touches
- * status.
+ * are likewise the shell's job, so this slice never touches status.
  */
 export function reduceStartCombatEvent(
   session: CombatSession,
   event: StartCombatEvent
-): CombatSessionResult {
+): CombatSession {
   switch (event.kind) {
     case "startCombat": {
-      if (session.advantage !== null) return { session, edits: [] }
+      if (session.advantage !== null) return session
 
-      const next = produce(session, (draft) => {
+      return produce(session, (draft) => {
         draft.advantage = event.advantage
         draft.firstSide = event.firstSide
       })
-
-      return { session: next, edits: [] }
     }
   }
 }

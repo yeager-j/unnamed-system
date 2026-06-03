@@ -1,10 +1,7 @@
 import { produce } from "immer"
 
 import type { CombatSession } from "../session"
-import type {
-  BattleConditionEvent,
-  CombatSessionResult,
-} from "../session-event"
+import type { BattleConditionEvent } from "../session-event"
 
 /**
  * Battle-condition duration slice. `applyBattleConditionDuration` sets or extends
@@ -19,10 +16,10 @@ import type {
 export function reduceBattleConditionEvent(
   session: CombatSession,
   event: BattleConditionEvent
-): CombatSessionResult {
+): CombatSession {
   switch (event.kind) {
-    case "applyBattleConditionDuration": {
-      const next = produce(session, (draft) => {
+    case "applyBattleConditionDuration":
+      return produce(session, (draft) => {
         const combatant = draft.combatants.find(
           (entry) => entry.id === event.combatantId
         )
@@ -30,7 +27,5 @@ export function reduceBattleConditionEvent(
         combatant.conditionDurations[event.axis] =
           (combatant.conditionDurations[event.axis] ?? 0) + event.turns
       })
-      return { session: next, edits: [] }
-    }
   }
 }

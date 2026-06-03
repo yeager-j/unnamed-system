@@ -1,7 +1,7 @@
 import { produce } from "immer"
 
 import { makeCombatant, type CombatSession } from "../session"
-import type { CombatSessionResult, RoundEvent } from "../session-event"
+import type { RoundEvent } from "../session-event"
 
 /**
  * Round-lifecycle + roster slice. `advanceRound` rolls to the next round:
@@ -19,28 +19,24 @@ export function reduceRoundEvent(
   session: CombatSession,
   event: RoundEvent,
   newId: () => string
-): CombatSessionResult {
+): CombatSession {
   switch (event.kind) {
-    case "advanceRound": {
-      const next = produce(session, (draft) => {
+    case "advanceRound":
+      return produce(session, (draft) => {
         draft.round += 1
         draft.currentActorId = null
         for (const combatant of draft.combatants) {
           combatant.hasActedThisRound = false
         }
       })
-      return { session: next, edits: [] }
-    }
 
-    case "addCombatant": {
-      const next = produce(session, (draft) => {
+    case "addCombatant":
+      return produce(session, (draft) => {
         draft.combatants.push(makeCombatant(event.setup, newId(), true))
       })
-      return { session: next, edits: [] }
-    }
 
-    case "removeCombatant": {
-      const next = produce(session, (draft) => {
+    case "removeCombatant":
+      return produce(session, (draft) => {
         const index = draft.combatants.findIndex(
           (combatant) => combatant.id === event.combatantId
         )
@@ -50,7 +46,5 @@ export function reduceRoundEvent(
           draft.currentActorId = null
         }
       })
-      return { session: next, edits: [] }
-    }
   }
 }

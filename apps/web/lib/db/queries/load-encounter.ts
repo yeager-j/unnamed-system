@@ -40,6 +40,25 @@ export async function loadEncounterRowByShortId(
 }
 
 /**
+ * The encounter's `campaignId` only, or `null` when no encounter matches. Lets
+ * the impure shell (`applyCombatEvent`, UNN-332) authorize the caller against the
+ * owning campaign (`requireCampaignDM`) *before* loading the `session` blob, so a
+ * non-DM is rejected without the session ever being read. Selects one column, so
+ * the read is index-light.
+ */
+export async function loadEncounterCampaignId(
+  encounterId: string
+): Promise<string | null> {
+  const [row] = await db
+    .select({ campaignId: encounters.campaignId })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+
+  return row?.campaignId ?? null
+}
+
+/**
  * Cheap existence check used by the guarded session writes to disambiguate a
  * zero-row `UPDATE` between `"encounter-not-found"` (the row is gone) and
  * `"stale"` (it exists but its `version` moved past the caller's token). Selects

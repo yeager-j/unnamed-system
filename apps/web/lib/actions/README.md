@@ -1,10 +1,36 @@
-# Server Actions — the owner-mode write pattern
+# Server Actions — the write pattern
 
-Every write that mutates a character row in owner mode lives here. The shape
-is non-negotiable: same plumbing, every file. Downstream tickets that need a
-write surface should add to `lib/actions/` rather than inventing a new path
-(API route, ad-hoc server function, etc.). If a use case doesn't fit, raise
-it.
+Every Server Action that mutates persisted state lives here. The shape is
+non-negotiable: same plumbing, every file — parse the wire, authorize, persist
+version-guarded, revalidate. Downstream tickets that need a write surface should
+add to `lib/actions/` rather than inventing a new path (API route, ad-hoc server
+function, etc.). If a use case doesn't fit, raise it.
+
+## Directory layout — group by aggregate
+
+Actions are grouped into a folder per **aggregate** (the persisted entity they
+write), matching how `lib/game/` and `lib/db/writes/` are already organized:
+
+```
+lib/actions/<aggregate>/<slice>.ts          # the "use server" action(s)
+lib/actions/<aggregate>/<slice>.schema.ts   # its Zod input schema + types
+lib/actions/<aggregate>/revalidate.ts       # that aggregate's cache invalidation
+```
+
+The slice file is named for what it touches with **no aggregate prefix** — the
+folder already says it (same rule as `lib/db/writes/`): `encounter/events.ts`,
+not `encounter/encounter-events.ts`. Each aggregate brings its own auth gate,
+concurrency token, and envelope:
+
+| Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
+| ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
+| `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
+| `encounter/` | `requireCampaignDM`                         | `{ encounterId, expectedVersion }` (inline until a 2nd action earns an `encounterMutationBase`) | single `version` per encounter |
+
+> **Migration in progress.** The ~35 flat `character-*.ts` files at the root of
+> `lib/actions/` predate this convention; they belong under `character/` (dropping
+> the prefix) and move there in a dedicated tech-debt ticket. New actions go
+> straight into the aggregate-folder layout — `encounter/` is the first.
 
 ## The pattern
 
@@ -43,12 +69,12 @@ import { requireOwner } from "@/lib/auth/viewer-role"
 import { dbWrite } from "@/lib/db/<domain>"
 import { type Result } from "@/lib/game/result"
 
-import { revalidateCharacter } from "./revalidate"
 import {
   SomeWriteSchema,
   type SomeWriteError,
   type SomeWriteInput,
 } from "./<domain>.schema"
+import { revalidateCharacter } from "./revalidate"
 
 export async function someWriteAction(
   input: SomeWriteInput
@@ -64,7 +90,7 @@ export async function someWriteAction(
 
   // 3. Persistence wrapper does the load → optional pure engine transition →
   //    conditional UPDATE (see Concurrency below).
-  const result = await dbWrite(character.id, parsed.data, /* ... */)
+  const result = await dbWrite(character.id, parsed.data /* ... */)
 
   // 4. Revalidate the sheet route via the shared helper so derived stats
   //    (attributes, affinities, weapon attack roll, etc.) re-render with
@@ -91,13 +117,13 @@ the class from it, and every server wrapper passes `EDIT_SURFACE_CLASS.<surface>
 to `bumpCharacterVersionGuarded`, so the two layers are the same value and can't
 silently disagree (UNN-233). The table below mirrors that map — keep them in sync:
 
-| Write class | Edit surfaces | Notes |
-|---|---|---|
-| `identityVersion` | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `inheritanceSlots`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below. |
-| `vitalsVersion` | `pools`, `cast`, `ailments`, `battleConditions`, `exhaustion`, `prisma`, `clearCombatState`, `rest`, `mechanic` | In-play Combat-tab state. |
-| `inventoryVersion` | `inventoryItems`, `currency` | **`currency` rides here despite being a `characters` column** — the wallet lives on the Inventory tab, so it shares the class for optimistic-frame coherence (UNN-223). The canonical per-surface-not-per-table case. |
-| `progressionVersion` | `victories`, `virtueRankUp`, `spark` | Sheet-side Virtue rank-up / Spark — progression, unlike the builder's identity-class `virtuesAllocation`. |
-| `progressionVersion` + `vitalsVersion` | `levelUp` | The one **cross-class** write — gated on both tokens and bumps both, so it carries an `expectedVersions` pair and is *not* in `EDIT_SURFACE_CLASS`. See `leveling.applyLevelUp`. |
+| Write class                            | Edit surfaces                                                                                                                                                                                                  | Notes                                                                                                                                                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `identityVersion`                      | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `inheritanceSlots`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below.                                                                             |
+| `vitalsVersion`                        | `pools`, `cast`, `ailments`, `battleConditions`, `exhaustion`, `prisma`, `clearCombatState`, `rest`, `mechanic`                                                                                                | In-play Combat-tab state.                                                                                                                                                                                             |
+| `inventoryVersion`                     | `inventoryItems`, `currency`                                                                                                                                                                                   | **`currency` rides here despite being a `characters` column** — the wallet lives on the Inventory tab, so it shares the class for optimistic-frame coherence (UNN-223). The canonical per-surface-not-per-table case. |
+| `progressionVersion`                   | `victories`, `virtueRankUp`, `spark`                                                                                                                                                                           | Sheet-side Virtue rank-up / Spark — progression, unlike the builder's identity-class `virtuesAllocation`.                                                                                                             |
+| `progressionVersion` + `vitalsVersion` | `levelUp`                                                                                                                                                                                                      | The one **cross-class** write — gated on both tokens and bumps both, so it carries an `expectedVersions` pair and is _not_ in `EDIT_SURFACE_CLASS`. See `leveling.applyLevelUp`.                                      |
 
 The shape of every wrapper:
 
@@ -110,11 +136,11 @@ The shape of every wrapper:
 - Returns the new `version` in the success value so the client can chain
   follow-up saves without a re-fetch.
 - Cross-class writes (currently only `leveling.applyLevelUp`, which touches
-  vitals + progression) condition on *both* expected versions and bump both.
+  vitals + progression) condition on _both_ expected versions and bump both.
 
 Per-class scoping is the load-bearing property: a debounced notes save in
 flight does not get falsely staled by a blur on an unrelated vitals counter.
-Two writes in the *same* class still race (correctly — that's the point).
+Two writes in the _same_ class still race (correctly — that's the point).
 
 Child-table writes (e.g. inventory items) run inside a `db.transaction` and
 bump `<class>Version` conditionally **first**, so the row lock either blocks
@@ -146,9 +172,10 @@ entirely and compose the pure transition inline:
 // lib/actions/mechanics/knight/valor.ts
 const delta = parsed.data.direction === "increment" ? 1 : -1
 const result = await applyMechanicStateForCharacter(
-  character.id, "valor",
+  character.id,
+  "valor",
   (state) => adjustValor(state, delta),
-  parsed.data.expectedVersion,
+  parsed.data.expectedVersion
 )
 ```
 
@@ -188,6 +215,7 @@ confirmation, and a routine-save channel that stays quiet means a real
 error reads as one.
 
 ### 2. Optimistic toggle on a click action
+
 `components/character-sheet/inventory.tsx`
 
 The user clicks Equip / Unequip. The parent component's `useOptimistic`
@@ -201,7 +229,7 @@ state automatically when the transition resolves.
 ## Failure modes the UI must handle
 
 | Error code              | Surface                                          |
-|-------------------------|--------------------------------------------------|
+| ----------------------- | ------------------------------------------------ |
 | `invalid-input`         | Toast — generic "Couldn't save". Programmer bug. |
 | `character-not-found`   | Toast — the character was deleted out from under |
 |                         | the viewer. Usually means redirect to `/`.       |

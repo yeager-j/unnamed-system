@@ -3,7 +3,7 @@ import { produce } from "immer"
 import { BATTLE_CONDITION_AXIS_KEYS } from "@/lib/game/character"
 
 import type { CombatSession } from "../session"
-import type { CombatSessionResult, EndTurnEvent } from "../session-event"
+import type { EndTurnEvent } from "../session-event"
 
 /**
  * Turn-loop slice. `endTurn` ends the current actor's turn: they are marked as
@@ -21,13 +21,13 @@ import type { CombatSessionResult, EndTurnEvent } from "../session-event"
 export function reduceTurnEvent(
   session: CombatSession,
   event: EndTurnEvent
-): CombatSessionResult {
+): CombatSession {
   switch (event.kind) {
     case "endTurn": {
       const actorId = session.currentActorId
-      if (actorId === null) return { session, edits: [] }
+      if (actorId === null) return session
 
-      const next = produce(session, (draft) => {
+      return produce(session, (draft) => {
         const actor = draft.combatants.find(
           (combatant) => combatant.id === actorId
         )
@@ -44,8 +44,6 @@ export function reduceTurnEvent(
           }
         }
       })
-
-      return { session: next, edits: [] }
     }
   }
 }
