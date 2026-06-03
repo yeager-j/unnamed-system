@@ -1,4 +1,5 @@
 import { reduceBattleConditionEvent } from "./reduce/conditions"
+import { reduceDraftCombatantEvent } from "./reduce/draft"
 import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
 import { reduceStartCombatEvent } from "./reduce/turn-start"
@@ -38,6 +39,9 @@ export function reduceCombatSession(
 
     case "startCombat":
       return reduceStartCombatEvent(session, event)
+
+    case "draftCombatant":
+      return reduceDraftCombatantEvent(session, event)
 
     case "advanceRound":
     case "addCombatant":

@@ -157,6 +157,66 @@ describe("reduceCombatSession — startCombat", () => {
   })
 })
 
+describe("reduceCombatSession — draftCombatant", () => {
+  /** A fresh session whose first combatant carries ailments + a spent reaction. */
+  function withFirstCombatant(
+    ailments: string[],
+    reactionAvailable: boolean
+  ): CombatSession {
+    const session = createCombatSession(SETUP, sequentialIds())
+    const [first, ...rest] = session.combatants
+    return {
+      ...session,
+      combatants: [{ ...first!, ailments, reactionAvailable }, ...rest],
+    }
+  }
+
+  it("sets currentActorId to the drafted combatant", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const next = reduceCombatSession(session, {
+      kind: "draftCombatant",
+      combatantId: "combatant-1",
+    })
+
+    expect(next.currentActorId).toBe("combatant-1")
+  })
+
+  it("clears the Downed ailment, keeps other ailments, and refreshes the reaction", () => {
+    const session = withFirstCombatant(["downed", "burn"], false)
+
+    const next = reduceCombatSession(session, {
+      kind: "draftCombatant",
+      combatantId: "combatant-0",
+    })
+
+    expect(next.combatants[0]!.ailments).toEqual(["burn"])
+    expect(next.combatants[0]!.reactionAvailable).toBe(true)
+  })
+
+  it("does not mark the drafted combatant as acted", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const next = reduceCombatSession(session, {
+      kind: "draftCombatant",
+      combatantId: "combatant-0",
+    })
+
+    expect(next.combatants[0]!.hasActedThisRound).toBe(false)
+  })
+
+  it("is a no-op for an unknown combatant id (returns the same session)", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const next = reduceCombatSession(session, {
+      kind: "draftCombatant",
+      combatantId: "nobody",
+    })
+
+    expect(next).toBe(session)
+  })
+})
+
 describe("reduceCombatSession — advanceRound", () => {
   /** Both combatants have acted; the first is still the current actor. */
   function endOfRound() {

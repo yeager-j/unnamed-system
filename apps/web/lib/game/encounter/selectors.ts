@@ -1,4 +1,4 @@
-import type { Combatant, CombatSession } from "./session"
+import type { Combatant, CombatSession, CombatSide } from "./session"
 
 /**
  * Pure read-only views over a {@link CombatSession} — derived state the reducer
@@ -6,9 +6,12 @@ import type { Combatant, CombatSession } from "./session"
  * `fallenIds` as an injected `Set<string>` of combatant ids: the encounter layer
  * can't compute Fallen for a PC on its own (its vitals live on the character row,
  * read via `isFallen`), so the impure shell resolves the set and passes it in.
- * UNN-304 adds `eligibleCombatants` / `nextDraftingSide` here under the same
- * contract.
  */
+
+/** The opposing side. */
+function otherSide(side: CombatSide): CombatSide {
+  return side === "players" ? "enemies" : "players"
+}
 
 /**
  * The combatants who still have to act this round: those whose
@@ -22,4 +25,60 @@ export function pendingCombatants(
   return session.combatants.filter(
     (combatant) => !combatant.hasActedThisRound && !fallenIds.has(combatant.id)
   )
+}
+
+/**
+ * The side the DM should draft from next — pure and **derived** (no `draftingSide`
+ * is stored). The side that won initiative (`firstSide`) leads **every** round
+ * (rulebook 3.2); within a round the sides alternate, the side with fewer combatants
+ * acted goes next (ties → `firstSide`), and a side with no eligible combatants left
+ * is skipped so the other finishes back-to-back. During the round-1 opening
+ * advantage phase (UNN-303) the advantaged side drafts until it is exhausted, then
+ * the other side begins normal alternation. `fallenIds` excludes Fallen combatants
+ * from eligibility (they don't take turns until revived). When neither side has an
+ * eligible combatant the round is over — the caller advances the round — and this
+ * returns the lead side as a harmless default.
+ */
+export function nextDraftingSide(
+  session: CombatSession,
+  fallenIds: Set<string>
+): CombatSide {
+  const lead = session.firstSide ?? "players"
+
+  const eligible = (side: CombatSide) =>
+    session.combatants.filter(
+      (c) => c.side === side && !c.hasActedThisRound && !fallenIds.has(c.id)
+    ).length
+  const acted = (side: CombatSide) =>
+    session.combatants.filter((c) => c.side === side && c.hasActedThisRound)
+      .length
+
+  const pendingPlayers = eligible("players")
+  const pendingEnemies = eligible("enemies")
+
+  if (pendingPlayers === 0 && pendingEnemies === 0) return lead
+  if (pendingPlayers === 0) return "enemies"
+  if (pendingEnemies === 0) return "players"
+
+  if (
+    session.round === 1 &&
+    (session.advantage === "players" || session.advantage === "enemies")
+  ) {
+    return session.advantage
+  }
+
+  return acted(lead) <= acted(otherSide(lead)) ? lead : otherSide(lead)
+}
+
+/**
+ * The ordered list of combatants the UI highlights as valid next picks: those on
+ * {@link nextDraftingSide} who have not acted this round and are not Fallen. A pure
+ * helper over {@link pendingCombatants}; order matches `session.combatants`.
+ */
+export function eligibleCombatants(
+  session: CombatSession,
+  fallenIds: Set<string>
+): Combatant[] {
+  const side = nextDraftingSide(session, fallenIds)
+  return pendingCombatants(session, fallenIds).filter((c) => c.side === side)
 }
