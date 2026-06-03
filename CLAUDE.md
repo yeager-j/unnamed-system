@@ -69,6 +69,9 @@ packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
 packages/rules/     Obsidian vault with game mechanics rules
+docs/               Long-form feature specs (PRD/ADR), one folder per feature
+                    (e.g. docs/initiative-tracker/). Canonical source of truth;
+                    Linear docs are stubs linking here.
 ```
 
 Inside `apps/web/`:
