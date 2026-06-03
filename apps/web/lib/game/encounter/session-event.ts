@@ -27,11 +27,17 @@ export type EndTurnEvent = { kind: "endTurn" }
 /**
  * `startCombat` opens the encounter: the DM declares the opening `advantage` and
  * which side acts first (`firstSide`). The reducer just records both on the
- * session — it is a no-op once `advantage` is non-null (an encounter cannot start
- * twice). The shell resolves `firstSide` (highest-Agility side, DM-overridable)
- * and transitions the DB `status` `draft → live` *after* persisting the reduced
- * session (UNN-332); the pure reducer never touches status. `advantage`/
- * `firstSide` are consumed by the `nextDraftingSide` selector (UNN-304).
+ * session **verbatim** — it is a no-op once `advantage` is non-null (an encounter
+ * cannot start twice). The shell resolves `firstSide` (highest-Agility side,
+ * DM-overridable) and transitions the DB `status` `draft → live` *after*
+ * persisting the reduced session (UNN-332); the pure reducer never touches status.
+ *
+ * `firstSide` is only *meaningfully free* under `neutral` advantage; for
+ * `players`/`enemies` advantage the advantaged side takes the opening turns, so
+ * the shell resolves `firstSide` to that same side. That coupling is the shell's
+ * invariant to uphold, not the reducer's — the reducer records whatever pair it
+ * is given so it stays a pure, total recorder. `advantage`/`firstSide` are
+ * consumed by the `nextDraftingSide` selector (UNN-304).
  */
 export type StartCombatEvent = {
   kind: "startCombat"

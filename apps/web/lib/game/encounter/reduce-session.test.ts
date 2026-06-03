@@ -115,6 +115,19 @@ describe("reduceCombatSession — startCombat", () => {
     expect(next.firstSide).toBe("enemies")
   })
 
+  it("records a non-neutral advantage and firstSide verbatim, without normalising them", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "startCombat",
+      advantage: "players",
+      firstSide: "enemies",
+    })
+
+    expect(next.advantage).toBe("players")
+    expect(next.firstSide).toBe("enemies")
+  })
+
   it("is a no-op on an already-started session (cannot start twice)", () => {
     const started = reduceCombatSession(
       createCombatSession(SETUP, sequentialIds()),
