@@ -120,6 +120,24 @@ describe("createCombatSession", () => {
     }
   })
 
+  it("accepts a catalog enemy ref as a stable pointer", () => {
+    const session = createCombatSession(
+      [
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+          zoneId: "zone-b",
+        },
+      ],
+      sequentialIds()
+    )
+    expect(combatSessionSchema.safeParse(session).success).toBe(true)
+    expect(session.combatants[0]!.ref).toEqual({
+      kind: "catalog-enemy",
+      enemyKey: "goblin",
+    })
+  })
+
   it("preserves an explicit engagement from setup", () => {
     const session = createCombatSession(
       [
