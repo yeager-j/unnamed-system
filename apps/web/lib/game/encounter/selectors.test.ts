@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { reduceCombatSession } from "./reduce-session"
 import {
   eligibleCombatants,
   nextDraftingSide,
@@ -226,5 +227,50 @@ describe("eligibleCombatants", () => {
     expect(
       eligibleCombatants(session, new Set(["combatant-1"])).map((c) => c.id)
     ).toEqual(["combatant-0"])
+  })
+
+  it("re-includes a revived combatant once it leaves the Fallen set", () => {
+    const session = build({ setup: FOUR, firstSide: "players" })
+
+    expect(
+      eligibleCombatants(session, new Set(["combatant-1"])).map((c) => c.id)
+    ).toEqual(["combatant-0"])
+    // Same session, combatant-1 revived (no longer injected as Fallen):
+    expect(eligibleCombatants(session, new Set()).map((c) => c.id)).toEqual([
+      "combatant-0",
+      "combatant-1",
+    ])
+  })
+})
+
+describe("Fallen + override integration", () => {
+  const ALL_FOUR = new Set([
+    "combatant-0",
+    "combatant-1",
+    "combatant-2",
+    "combatant-3",
+  ])
+
+  it("returns the firstSide sentinel and no picks when both sides are entirely Fallen", () => {
+    const session = build({ setup: FOUR, firstSide: "enemies" })
+
+    expect(nextDraftingSide(session, ALL_FOUR)).toBe("enemies")
+    expect(eligibleCombatants(session, ALL_FOUR)).toEqual([])
+  })
+
+  it("re-derives guidance from the session after a setActed override", () => {
+    const session = build({ setup: FOUR, firstSide: "players" })
+
+    const afterPlayersActed = reduceCombatSession(
+      reduceCombatSession(session, {
+        kind: "setActed",
+        combatantId: "combatant-0",
+        hasActed: true,
+      }),
+      { kind: "setActed", combatantId: "combatant-1", hasActed: true }
+    )
+
+    // Both players now flagged acted → the selector points at enemies.
+    expect(nextDraftingSide(afterPlayersActed, new Set())).toBe("enemies")
   })
 })

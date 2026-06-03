@@ -103,11 +103,29 @@ export type BattleConditionEvent = {
 }
 
 /**
+ * DM override events — manual corrections to the turn-loop fields the guiding
+ * selectors derive from. Each is applied **unconditionally**: the engine guides
+ * but never rejects (ADR Decision 8), so an out-of-order actor, a re-flagged
+ * combatant, or a manual round rollback simply shifts where the selectors point
+ * next. Clearing the current actor is *not* one of these — that is `advanceRound`
+ * (UNN-307). The reducer holds no permission checks; auth is `requireCampaignDM`
+ * at the Server Action boundary.
+ */
+export type OverrideEvent =
+  | { kind: "setCurrentActor"; combatantId: string }
+  | { kind: "setActed"; combatantId: string; hasActed: boolean }
+  | { kind: "setRound"; round: number }
+
+/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
  */
-export type CombatEvent = TurnEvent | RoundEvent | BattleConditionEvent
+export type CombatEvent =
+  | TurnEvent
+  | RoundEvent
+  | BattleConditionEvent
+  | OverrideEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -133,6 +151,13 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
     turns: z.number().int().positive(),
   }),
+  z.object({ kind: z.literal("setCurrentActor"), combatantId: z.string() }),
+  z.object({
+    kind: z.literal("setActed"),
+    combatantId: z.string(),
+    hasActed: z.boolean(),
+  }),
+  z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
 ])
 
 /** `true` only when `A` and `B` are mutually assignable (structurally equal). */

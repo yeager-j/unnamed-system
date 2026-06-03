@@ -1,5 +1,6 @@
 import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceDraftCombatantEvent } from "./reduce/draft"
+import { reduceOverrideEvent } from "./reduce/override"
 import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
 import { reduceStartCombatEvent } from "./reduce/turn-start"
@@ -50,5 +51,10 @@ export function reduceCombatSession(
 
     case "applyBattleConditionDuration":
       return reduceBattleConditionEvent(session, event)
+
+    case "setCurrentActor":
+    case "setActed":
+    case "setRound":
+      return reduceOverrideEvent(session, event)
   }
 }
