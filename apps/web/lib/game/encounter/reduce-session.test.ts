@@ -200,6 +200,18 @@ describe("reduceCombatSession — removeCombatant", () => {
 
     expect(next.currentActorId).toBe(actorId)
   })
+
+  it("is a no-op for an unknown combatant id (returns the same session)", () => {
+    const session = startedSession()
+
+    const result = reduceCombatSession(session, {
+      kind: "removeCombatant",
+      combatantId: "nobody",
+    })
+
+    expect(result.session).toBe(session)
+    expect(result.edits).toEqual([])
+  })
 })
 
 describe("reduceCombatSession — purity", () => {
@@ -230,6 +242,45 @@ describe("reduceCombatSession — purity", () => {
 
     expect(next).not.toBe(session)
     expect(session.round).toBe(1)
+    expect(session.currentActorId).toBe(session.combatants[0]!.id)
+  })
+
+  it("does not mutate a frozen input on addCombatant", () => {
+    const session = startedSession()
+    Object.freeze(session)
+    Object.freeze(session.combatants)
+    session.combatants.forEach((combatant) => Object.freeze(combatant))
+
+    const { session: next } = reduceCombatSession(
+      session,
+      {
+        kind: "addCombatant",
+        setup: {
+          side: "enemies",
+          ref: { kind: "enemy", statBlock: enemyStatBlock() },
+          zoneId: "zone-b",
+        },
+      },
+      () => "joiner-id"
+    )
+
+    expect(next).not.toBe(session)
+    expect(session.combatants).toHaveLength(2)
+  })
+
+  it("does not mutate a frozen input on removeCombatant", () => {
+    const session = startedSession()
+    Object.freeze(session)
+    Object.freeze(session.combatants)
+    session.combatants.forEach((combatant) => Object.freeze(combatant))
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "removeCombatant",
+      combatantId: session.combatants[0]!.id,
+    })
+
+    expect(next).not.toBe(session)
+    expect(session.combatants).toHaveLength(2)
     expect(session.currentActorId).toBe(session.combatants[0]!.id)
   })
 })

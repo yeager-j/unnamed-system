@@ -41,9 +41,11 @@ export function reduceRoundEvent(
 
     case "removeCombatant": {
       const next = produce(session, (draft) => {
-        draft.combatants = draft.combatants.filter(
-          (combatant) => combatant.id !== event.combatantId
+        const index = draft.combatants.findIndex(
+          (combatant) => combatant.id === event.combatantId
         )
+        if (index === -1) return
+        draft.combatants.splice(index, 1)
         if (draft.currentActorId === event.combatantId) {
           draft.currentActorId = null
         }
