@@ -86,6 +86,7 @@ apps/web/
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
+│   ├── combat/                DM combat console (UNN-335): the encounter setup shell (CombatantSetup[] state container + Start-combat transition), stub setup panels (UNN-298–301), and the live/ended status-branch stubs rendered by app/combat/[shortId]/
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
