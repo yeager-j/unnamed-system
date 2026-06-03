@@ -9,7 +9,7 @@
 
 ## Context
 
-The PRD is finished and the project is fully ticketed. The **engine epic (UNN-283) is already built and merged**: the immutable `CombatSession` shape (UNN-291), the pure decider `reduceCombatSession(session, event) → { session, edits[] }` (UNN-292), and the duration clocks (UNN-293).
+The PRD is finished and the project is fully ticketed. The **engine epic (UNN-283) is already built and merged**: the immutable `CombatSession` shape (UNN-291), the pure decider `reduceCombatSession(session, event) → { session, edits[] }` (UNN-292; the `edits[]` channel is since removed — see _Cross-aggregate writes_), and the duration clocks (UNN-293).
 
 The engine was built bottom-up, before the system architecture around it was settled, on the PRD's original premise that a character's combat state stays on the character row. Designing the surrounding architecture surfaced a cleaner premise that **inverts that decision**, and this ADR adopts it:
 
@@ -22,7 +22,7 @@ This collapses the dual-home of PC combat state and most of the machinery the or
 ### What still stands from the PRD
 
 - Two pure reducers; statefulness in the DB and React, never the engine.
-- The decider shape: `reduceCombatSession(session, event) → { session', edits[] }`.
+- The decider shape: `reduceCombatSession(session, event) → session'` (pure; no PC-vitals `edits[]` channel — see _Cross-aggregate writes_).
 - Manual starting advantage; one live encounter at a time; enemy HP/SP visible to players, affinities hidden.
 
 ---
@@ -92,12 +92,9 @@ combatant += {
 
 **Decision.** Battle-condition expiry (and every combat-state transition) **mutates the combatant directly** in the reducer's Immer draft. There is **no emitted edit for combat state at all.** This revises the merged UNN-293 behavior: `reduceTurnEvent` currently _emits_ an expiry edit; it should instead set `combatant.battleConditions[axis] = "neutral"` on the draft.
 
-**The only tracker→character writes are PC vitals (HP/SP):**
+**The only tracker→character write is the DM's manual PC-vitals adjust:** the DM adjusting a PC's HP/SP in the panel calls the existing pools action directly (`adjustPoolsAction`/`damage`/`heal`), DM-authorized. This does **not** go through the session reducer.
 
-1. **DM manually adjusts a PC's HP/SP in the panel** → the panel calls the existing pools action directly (`adjustPoolsAction`/`damage`/`heal`), DM-authorized. This does **not** go through the session reducer.
-2. **A lifecycle effect changes a PC's HP** — end-of-combat restores Fallen PCs to 1 HP. The one place an `EmittedEdit` survives: it carries a **vitals** edit (a `PoolsEdit`), not a `CombatStateEdit`, tagged with a PC combatant.
-
-So `EmittedEdit` shrinks from "the central mechanism" to "a rare vitals nudge." Its carried edit must still be an **idempotent absolute set** (so the best-effort, version-guarded character write is replay-safe), but the surface is now tiny.
+**The reducer emits nothing to a character row.** The earlier design had the end-of-combat Fallen-restore emit a PC-vitals `EmittedEdit`; that restore is now a **player self-heal** (see _Cross-aggregate writes_ below), so `edits[]`/`EmittedEdit` is removed and the reducer is `(session, event) → session`.
 
 **DM authorization narrows.** `requireOwnerOrCampaignDM` (Decision 9) is needed **only on the PC-vitals (pools) actions** — combat-state actions are retired (see _Retirement cascade_). The two-writer case reduces to HP/SP alone, reconciled by the existing `vitalsVersion` guard.
 
@@ -126,9 +123,9 @@ The earlier "DM-vitals auth lookup" sub-decision is **resolved by Decision 9**: 
 applyCombatEvent(encounterId, event: CombatEvent, expectedVersion): Result<…>
 ```
 
-The action receives the **event (intent)**, not a client-computed session. Server-side: `requireCampaignDM` → load session + version → `reduce` → persist `next` (version-guarded) → emit any PC-vitals edits → revalidate. The DM client runs the **same** `reduceCombatSession` optimistically via `useOptimistic`/`useTransition`.
+The action receives the **event (intent)**, not a client-computed session. Server-side: `requireCampaignDM` → load session + version → `reduce` → persist `next` (version-guarded) → revalidate. The DM client runs the **same** `reduceCombatSession` optimistically via `useOptimistic`/`useTransition`.
 
-Passing the event (not the post-state) prevents a client from persisting arbitrary session state. **Fan-out is small:** persist the session first (authoritative), then apply any PC-vitals edit best-effort with bounded retry (idempotent). A dropped vitals edit is an accepted, low-stakes eventual-consistency gap.
+Passing the event (not the post-state) prevents a client from persisting arbitrary session state. The reducer touches **only the session** — there is no PC-vitals fan-out. The DM's in-combat HP adjustments and the end-of-combat Fallen-restore are separate, ordinary pools writes (see _Cross-aggregate writes_).
 
 ---
 
@@ -273,27 +270,24 @@ The two-level split makes the real cases work: **multiple characters**, **a char
 
 ---
 
-## Cross-aggregate optimistic updates — the `edits[]` seam (added 2026-06-03)
+## Cross-aggregate writes: rejected — the Fallen-restore is a player self-heal (decided 2026-06-03)
 
-Refines Decisions 2 & 4. Surfaced while implementing the tracker: `edits[]` is not just unexercised infra — it is the one place the tracker's optimistic story is _genuinely harder_ than the character sheet's, and it deserves a deliberate design rather than discovery when the first damage-to-PC event lands. The reference slice is the spike UNN-340.
+The PRD's end-of-combat rule restores Fallen PCs to 1 HP "on victory." The earlier plan had the tracker do this automatically: the session reducer would emit a PC-vitals `EmittedEdit`, and the impure shell would fan it out to the character row. That single feature was the _only_ reducer-emitted cross-aggregate write in v1, and it carried disproportionate cost.
 
-**Closed vs open aggregate.** `reduceCharacter` derives entirely from `RawCharacterInputs` — a **closed** aggregate: everything it needs is in hand, so the sheet's `useOptimistic` frame is always complete and self-consistent. `CombatSession` is an **open** aggregate: enemy vitals live _inside_ it (the inline stat block / catalog working-HP), but **PC vitals live in the character row it only references** by `characterId`. So:
+**Why it was hard.** `reduceCharacter` derives from a **closed** aggregate (`RawCharacterInputs`) — everything it needs is in hand, so the sheet's `useOptimistic` frame is always complete. `CombatSession` is an **open** aggregate: enemy vitals live _inside_ it, but **PC vitals live in the character row it only references**. Auto-restoring a Fallen PC therefore touched the session and a character row in the same frame — a combined client view-model, a best-effort fan-out, and load-time reconciliation for dropped edits, none of which the single-aggregate sheet ever needed. It was also the **only** place in v1 where the tracker _auto-applies_ a vitals change; every other rules nudge — saving throws, ailment end-of-turn effects (which also change HP), Follow-Ups — is a **prompt the DM/player resolves**, never an automatic write.
 
-- Damaging an enemy, setting an ailment, moving a zone — **closed, fully-optimistic** session mutations; the session reducer mirrors them client-side with no external read.
-- A killing blow that ends combat and **restores a Fallen PC to 1 HP** touches the **session and a character row in the same frame** — a _cross-aggregate_ update. This is exactly what `edits[]` (an `EmittedEdit` carrying a `PoolsEdit`) exists to carry, and the sheet's single-aggregate `useOptimistic` has no precedent for it.
+**Decision: drop the auto-restore. The Fallen-restore is an ordinary player self-heal.** When combat ends (all enemies dead, loot dropped — the table knows), each Fallen player sets their own HP to 1 on their own character sheet, through the existing owner pools action. The tracker does not write it; it need not even prompt, since the end of combat is self-evident at the table.
 
-**In v1 there is exactly one reducer-emitted cross-aggregate edit: the end-of-combat Fallen-restore** (Decision 2; UNN-320). The DM's manual PC-HP adjust goes _direct_ to the pools action, not through `edits[]`; ailment end-of-turn effects are DM-applied reminders. So the seam has a single, low-stakes v1 user — design it well against that one case.
+This eliminates the entire cross-aggregate seam:
 
-**Idempotency: the real exposure is reconciliation, not retry.** Two distinct safety properties, often conflated:
+- **No `edits[]`.** Nothing emits, so `EmittedEdit` / `CombatSessionResult.edits` are removed; the reducer is `(session, event) → session`.
+- **No fan-out** in the impure shell (UNN-332) — it just persists the session.
+- **No new `PoolsEdit` variant, no reconciliation, no combined view-model.** The restore is the owner's own single-aggregate write (`requireOwner`), already covered by the sheet's optimistic + `vitalsVersion` machinery. No DM→PC grant is involved for it.
+- The seam-validation spike is canceled (UNN-340).
 
-- _Intra-action retry_ is already covered by the `version-guard` **if the bounded retry holds `expectedVersion` fixed** — the first success bumps `vitalsVersion`, so a duplicate retry stales out and cannot double-apply. A _relative_ `heal +1` is safe under this.
-- _Cross-reload reconciliation of a fully-dropped edit_ is **not** covered. If the fan-out is dropped entirely (e.g. the PC's owner wrote their sheet in the same window and staled it — the accepted eventual-consistency gap), a relative `heal +1` has **no safe recovery**: you cannot tell on reload whether it was applied, so you cannot re-apply it. This is the property "idempotent absolute set" (Decision 2) was really protecting.
+The tracker's only remaining PC-vitals interaction is the **DM's manual in-combat HP adjust** (UNN-309) — a direct, DM-authorized pools write, single-aggregate. The reducer never writes to a character row.
 
-**Decision.** Express the Fallen-restore as an **idempotent absolute/conditional** operation — "any Fallen PC in this just-ended encounter → set HP to 1" — not a `heal +1` delta, so it is safe to **re-derive and re-apply on encounter load**. `PoolsEdit` is currently **relative-only** (`damage`/`heal`/`spendSP`/`recoverSP`), so this needs either a new absolute/conditional edit kind (e.g. `restoreFallen` / `setHP`) with its pure transition + write, or a dedicated conditional end-of-combat write. **Reconciliation rule:** on load of an `ended` encounter, recompute the Fallen set and re-apply the absolute restore (a no-op once HP ≥ 1) — turning "dropped edit = stuck at 0 HP on victory" into "self-heals on next load."
-
-**Client optimistic view-model.** The tracker's `useOptimistic` state is a **combined** view-model `{ session, pcVitals }`: the client reducer applies both the session transition **and** `edits[]` to a local projection of PC vitals. Two PC-vitals write paths converge there — the emitted Fallen-restore _and_ the DM's manual panel pools write (UNN-309) — so the combined shape is designed once, not retrofitted.
-
-**Sequencing.** The fan-out machinery (UNN-332, Phase 3) is currently first _exercised_ by UNN-320 (Phase 8). Validate the seam end-to-end early via a thin Fallen-restore reference slice (UNN-340) so the shell's fan-out is proven against a real emitter rather than built blind.
+> **On the "no player editing" non-goal.** The self-heal is on the player's _own character sheet_ (always owner-editable), not the read-only tracker watch view — so it doesn't conflict with "the DM drives the tracker; the player view is read-only."
 
 ---
 
@@ -370,9 +364,9 @@ Combat-state tracking on the sheet **survives Friday regardless of tracker readi
 - `reduceTurnEvent`: (1) Expiry **mutates the combatant's `battleConditions[axis]`** instead of emitting (Decision 2). (2) `endTurn` **keeps** `currentActorId` instead of nulling it; clearing moves to `advanceRound` (Decision 8).
 - `combatantSchema`: gains `ailments` + `battleConditions`. `conditionDurations` stays.
 - `EnemyStatBlock`: does _not_ gain ailments/conditions. Splits into immutable definition (`catalog | custom`, +affinities, +abilities markdown) and mutable `currentHP/SP` on the combatant — UNN-299.
-- `EmittedEdit`: its carried edit becomes a **vitals** edit (`PoolsEdit`) for PC combatants, not a `CombatStateEdit`.
+- `EmittedEdit` / `CombatSessionResult.edits`: **removed.** Nothing emits a PC-vitals edit anymore (the Fallen-restore is a player self-heal — see _Cross-aggregate writes_), so the decider collapses to `reduceCombatSession(session, event) → session`.
 
-The decider shape, purity, and durations-on-session decisions all hold; this is a re-aim, not a teardown.
+Purity and durations-on-session hold; the decider sheds its now-unused `edits[]` channel — a re-aim, not a teardown.
 
 ---
 
@@ -390,11 +384,11 @@ The decider shape, purity, and durations-on-session decisions all hold; this is 
 | UNN-304 | `draftingSide` is **derived** via `nextDraftingSide`. |
 | UNN-305 | Selectors take an **injected** Fallen `status`. |
 | UNN-307 | No rejection path — override is the default. |
-| UNN-308 | The impure shell (UNN-332) + PC-vitals fan-out; `endTurn` is the hook. |
+| UNN-308 | The impure shell (UNN-332); `endTurn` is the hook. |
 | UNN-317 | `endOfTurnObligations` selector, auto-vs-prompt split. |
 | UNN-321 (transport ADR) | **Done — superseded by Decision 5.** |
 | UNN-322/323 | Build against `getEncounterSnapshot` + the polling hook. |
-| **New tickets** | UNN-331 engine re-aim · UNN-332 impure shell · UNN-333 retire UNN-226 + `0019` · UNN-334 `partyComposition` derive-from-roster + inject (gates the `0019` `partyComposition` drop) · UNN-340 cross-aggregate `edits[]` seam spike · plus Campaign surfaces/lifecycle (UNN-329/330). |
+| **New tickets** | UNN-331 engine re-aim · UNN-332 impure shell · UNN-333 retire UNN-226 + `0019` · UNN-334 `partyComposition` derive-from-roster + inject (gates the `0019` `partyComposition` drop) · plus Campaign surfaces/lifecycle (UNN-329/330). |
 
 ---
 
@@ -447,5 +441,4 @@ The PRD has been updated to match this ADR:
 
 - **Invite delivery** (Decision 9): out-of-band join link now; email/inbox later.
 - **DM grant breadth** (Decision 9): campaign-durable vs encounter-gated. Lean durable.
-- **PC-vitals fan-out retry bound**: 3 then soft-warn is a starting value.
-- **Post-combat hook** (PRD §8): Fallen-restore + close-out; the Spoils flow stays a hook.
+- **Post-combat hook** (PRD §8): the Fallen-restore is a player self-heal and the DM closes out the encounter; the Spoils flow stays a deferred hook.
