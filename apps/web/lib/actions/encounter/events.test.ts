@@ -14,6 +14,7 @@ import { applyCombatEvent } from "./events"
 const requireCampaignDM = vi.fn()
 const loadEncounterCampaignId = vi.fn()
 const loadEncounterRowById = vi.fn()
+const loadLiveEncounterForCampaign = vi.fn()
 const saveEncounterSession = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
@@ -24,6 +25,8 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterCampaignId: (id: string) => loadEncounterCampaignId(id),
   loadEncounterRowById: (id: string) => loadEncounterRowById(id),
+  loadLiveEncounterForCampaign: (id: string) =>
+    loadLiveEncounterForCampaign(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   saveEncounterSession: (id: string, session: CombatSession, v: number) =>
@@ -72,6 +75,7 @@ beforeEach(() => {
   loadEncounterRowById
     .mockReset()
     .mockResolvedValue(encounterRow(startedSession()))
+  loadLiveEncounterForCampaign.mockReset().mockResolvedValue(null)
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
   revalidateEncounter.mockReset()
@@ -130,6 +134,42 @@ describe("applyCombatEvent", () => {
     expect(saveEncounterSession).toHaveBeenCalledOnce()
     expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "live", 1)
     expect(result).toEqual(ok({ version: 2 }))
+  })
+
+  it("rejects startCombat when the campaign already has a different live encounter", async () => {
+    loadLiveEncounterForCampaign.mockResolvedValue({ id: "other-encounter" })
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: {
+        kind: "startCombat",
+        advantage: "players",
+        firstSide: "players",
+      },
+    })
+
+    expect(result).toEqual(err("campaign-already-has-live-encounter"))
+    // Rejected before any write.
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(setEncounterStatus).not.toHaveBeenCalled()
+  })
+
+  it("allows startCombat when the only live encounter is this one (idempotent re-issue)", async () => {
+    loadLiveEncounterForCampaign.mockResolvedValue({ id: ENCOUNTER_ID })
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: {
+        kind: "startCombat",
+        advantage: "players",
+        firstSide: "players",
+      },
+    })
+
+    expect(result).toEqual(ok({ version: 2 }))
+    expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "live", 1)
   })
 
   it("propagates a stale version and does not flip status or revalidate", async () => {

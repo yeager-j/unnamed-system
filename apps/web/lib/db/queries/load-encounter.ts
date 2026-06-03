@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
@@ -72,4 +72,25 @@ export async function encounterExists(encounterId: string): Promise<boolean> {
     .limit(1)
 
   return row !== undefined
+}
+
+/**
+ * The campaign's single `live` encounter, or `null` if none is live. Backs the
+ * single-live-encounter-per-campaign guard (UNN-302, ADR Decision 3): the
+ * `startCombat` path reads this before flipping a draft to `live` and rejects
+ * the transition when another encounter in the same campaign already holds the
+ * slot. App-side enforcement — there is no DB uniqueness constraint for MVP.
+ */
+export async function loadLiveEncounterForCampaign(
+  campaignId: string
+): Promise<EncounterRow | null> {
+  const [row] = await db
+    .select()
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.status, "live"))
+    )
+    .limit(1)
+
+  return row ?? null
 }

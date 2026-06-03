@@ -6,6 +6,7 @@ import { CombatConsoleStub } from "@/components/combat/console-stub"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { auth } from "@/lib/auth"
+import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadEncounterRowByShortId } from "@/lib/db/queries/load-encounter"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -66,8 +67,17 @@ export default async function CombatPage({ params }: PageProps) {
   if (!encounter) notFound()
 
   switch (encounter.status) {
-    case "draft":
-      return <EncounterSetup encounter={encounter} />
+    case "draft": {
+      const placedCharacters = await loadPlacedCharactersForCampaign(
+        encounter.campaignId
+      )
+      return (
+        <EncounterSetup
+          encounter={encounter}
+          placedCharacters={placedCharacters}
+        />
+      )
+    }
     case "live":
       return <CombatConsoleStub encounter={encounter} />
     case "ended":

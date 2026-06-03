@@ -4,6 +4,7 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {
   loadEncounterCampaignId,
   loadEncounterRowById,
+  loadLiveEncounterForCampaign,
 } from "@/lib/db/queries/load-encounter"
 import {
   saveEncounterSession,
@@ -55,6 +56,15 @@ export async function applyCombatEvent(
   const campaignId = await loadEncounterCampaignId(encounterId)
   if (campaignId === null) return err("encounter-not-found")
   await requireCampaignDM(campaignId)
+
+  // Single-live-encounter-per-campaign guard (UNN-302): a `startCombat` is
+  // rejected if another encounter in this campaign already holds the live slot.
+  if (event.kind === "startCombat") {
+    const live = await loadLiveEncounterForCampaign(campaignId)
+    if (live && live.id !== encounterId) {
+      return err("campaign-already-has-live-encounter")
+    }
+  }
 
   const encounter = await loadEncounterRowById(encounterId)
   if (encounter === null) return err("encounter-not-found")
