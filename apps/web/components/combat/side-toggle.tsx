@@ -1,15 +1,19 @@
 "use client"
 
-import { Button } from "@workspace/ui/components/button"
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@workspace/ui/components/toggle-group"
 
 import { COMBAT_SIDES, type CombatSide } from "@/lib/game/encounter"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**
  * A compact Players/Enemies segmented control bound to one combatant's `side`
- * (UNN-300). Always exactly one side is active (it's a required field), so this
- * is two mutually-exclusive buttons rather than a deselectable toggle. Labels
- * come from `COMBAT_SIDE_LABELS`, not inline strings.
+ * (UNN-300). Base UI's `ToggleGroup` is single-select by default, so this is a
+ * true segmented toggle; `side` is required, so a deselect (empty group value)
+ * is ignored — there is always exactly one active side. Labels come from
+ * `COMBAT_SIDE_LABELS`, not inline strings.
  */
 export function SideToggle({
   side,
@@ -19,24 +23,21 @@ export function SideToggle({
   onChange: (side: CombatSide) => void
 }) {
   return (
-    <div
-      role="group"
+    <ToggleGroup
       aria-label="Side"
-      className="inline-flex gap-0.5 rounded-md border p-0.5"
+      variant="outline"
+      size="sm"
+      value={[side]}
+      onValueChange={(value) => {
+        const next = value[0] as CombatSide | undefined
+        if (next) onChange(next)
+      }}
     >
       {COMBAT_SIDES.map((value) => (
-        <Button
-          key={value}
-          type="button"
-          size="sm"
-          variant={value === side ? "default" : "ghost"}
-          aria-pressed={value === side}
-          className="h-7"
-          onClick={() => onChange(value)}
-        >
+        <ToggleGroupItem key={value} value={value}>
           {COMBAT_SIDE_LABELS[value]}
-        </Button>
+        </ToggleGroupItem>
       ))}
-    </div>
+    </ToggleGroup>
   )
 }
