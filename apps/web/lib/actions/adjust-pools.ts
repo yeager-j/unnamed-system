@@ -1,6 +1,6 @@
 "use server"
 
-import { requireOwner } from "@/lib/auth/viewer-role"
+import { requireOwnerOrCampaignDM } from "@/lib/auth/campaign-access"
 import {
   applyDamageForCharacter,
   applyHealForCharacter,
@@ -34,8 +34,10 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * Server Actions for the header owner-mode actions affordance (PRD §6.1 /
  * §7.6, UNN-155). All five wrap a vitals-class persistence primitive from
- * `lib/db/writes/adjust-pools.ts`. Auth is `requireOwner` — non-owners get
- * `forbidden()`. After a successful write, `revalidateCharacter` re-derives
+ * `lib/db/writes/adjust-pools.ts`. Auth is `requireOwnerOrCampaignDM` — the
+ * character's owner or the DM of the campaign it's placed in may adjust HP/SP;
+ * everyone else gets `forbidden()`. After a successful write,
+ * `revalidateCharacter` re-derives
  * every dependent display value (Vitals bars, Fallen badge, Prisma count in
  * the menu).
  */
@@ -46,7 +48,7 @@ export async function damageAction(
   const parsed = DamageSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const character = await requireOwner(parsed.data.characterId)
+  const character = await requireOwnerOrCampaignDM(parsed.data.characterId)
 
   const result = await applyDamageForCharacter(
     character.id,
@@ -65,7 +67,7 @@ export async function healAction(
   const parsed = HealSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const character = await requireOwner(parsed.data.characterId)
+  const character = await requireOwnerOrCampaignDM(parsed.data.characterId)
 
   const result = await applyHealForCharacter(
     character.id,
@@ -84,7 +86,7 @@ export async function spendSPAction(
   const parsed = SpendSPSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const character = await requireOwner(parsed.data.characterId)
+  const character = await requireOwnerOrCampaignDM(parsed.data.characterId)
 
   const result = await applySpendSPForCharacter(
     character.id,
@@ -103,7 +105,7 @@ export async function recoverSPAction(
   const parsed = RecoverSPSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const character = await requireOwner(parsed.data.characterId)
+  const character = await requireOwnerOrCampaignDM(parsed.data.characterId)
 
   const result = await applyRecoverSPForCharacter(
     character.id,
@@ -122,7 +124,7 @@ export async function consumePrismaAction(
   const parsed = UsePrismaSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const character = await requireOwner(parsed.data.characterId)
+  const character = await requireOwnerOrCampaignDM(parsed.data.characterId)
 
   const result = await applyUsePrismaForCharacter(
     character.id,

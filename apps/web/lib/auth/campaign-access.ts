@@ -1,7 +1,9 @@
 import { forbidden } from "next/navigation"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
+import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
+import type { CharacterRow } from "@/lib/db/schema/character"
 
 import { auth } from "./index"
 
@@ -32,4 +34,39 @@ export async function requireCampaignDM(
   if (!campaign || campaign.dmUserId !== viewerId) forbidden()
 
   return campaign
+}
+
+/**
+ * Authorization gate for the PC-vitals (pools) writes — `damage`/`heal`/
+ * `spendSP`/`recoverSP`/`usePrisma` (UNN-297). Widens `requireOwner`
+ * (`viewer-role.ts`) by the campaign-DM branch: the character's owner *or* the
+ * DM of the campaign the character is placed into may adjust HP/SP. The
+ * two-writer race (player heals while DM damages) is HP/SP-only and reconciled
+ * by the existing `vitalsVersion` guard, so no extra locking is needed here.
+ *
+ * Loads the character row first (as `requireOwner` does); on an owner match it
+ * returns immediately — no campaign query. Otherwise, if the character is placed
+ * (`campaignId` non-null), it loads the campaign and compares `dmUserId`. Trips
+ * `forbidden()` (HTTP 403) on any failure — missing session, missing character,
+ * a non-owner whose character is unplaced, or a viewer who is not the campaign's
+ * DM. Returns the loaded {@link CharacterRow} on success so callers don't
+ * re-query. Two queries max, no joins.
+ */
+export async function requireOwnerOrCampaignDM(
+  characterId: string
+): Promise<CharacterRow> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) forbidden()
+
+  const character = await loadCharacterRowById(characterId)
+  if (!character) forbidden()
+  if (character.ownerId === viewerId) return character
+
+  if (character.campaignId) {
+    const campaign = await loadCampaignRowById(character.campaignId)
+    if (campaign && campaign.dmUserId === viewerId) return character
+  }
+
+  forbidden()
 }
