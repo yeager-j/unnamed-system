@@ -54,6 +54,16 @@ export const COMBAT_SIDES = ["players", "enemies"] as const
 export type CombatSide = (typeof COMBAT_SIDES)[number]
 
 /**
+ * The opening state a DM declares for an encounter (UNN-303). `players`/`enemies`
+ * advantage = that side takes all its opening turns before the other acts;
+ * `neutral` = standard alternating order from round one. Distinct from
+ * {@link CombatSide} because it carries the extra `neutral` arm — advantage is
+ * "who, if anyone, gets the jump", not a side a combatant belongs to.
+ */
+export const COMBAT_ADVANTAGES = ["players", "enemies", "neutral"] as const
+export type CombatAdvantage = (typeof COMBAT_ADVANTAGES)[number]
+
+/**
  * How a combatant's **vitals** are sourced: a `pc` defers to its character row
  * for the persistent HP/SP/exhaustion that survives a fight; an `enemy` carries
  * an inline {@link EnemyStatBlock}; a `catalog-enemy` is a stable pointer at a
@@ -129,10 +139,14 @@ export type Combatant = z.infer<typeof combatantSchema>
 
 /**
  * The full immutable tracker state: the round number, the ordered combatants,
- * and which combatant is currently acting (`null` before anyone is drafted, or
- * between rounds). Turn-loop state (starting advantage, side-drafting, phase)
- * is added by the Turn-Order epic (UNN-285) — this shape is meant to grow
- * per-epic.
+ * which combatant is currently acting (`null` before anyone is drafted, or
+ * between rounds), and the opening-advantage declaration (`advantage` +
+ * `firstSide`, both `null` while the encounter is in `draft` status — set by the
+ * `startCombat` event, UNN-303). `firstSide` records who acts first even when
+ * `advantage` is `neutral`; both are consumed by the `nextDraftingSide` selector
+ * (UNN-304) so it stays a pure function of session state. Turn-loop state
+ * (side-drafting, phase) is added by the Turn-Order epic (UNN-285) — this shape
+ * is meant to grow per-epic.
  *
  * UNN-292's reducer consumes this as a **decider**: `(session, event) →
  * { session', edits[] }`. Combat-state transitions mutate the combatant overlay
@@ -144,6 +158,8 @@ export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
   combatants: z.array(combatantSchema),
   currentActorId: z.string().nullable(),
+  advantage: z.enum(COMBAT_ADVANTAGES).nullable(),
+  firstSide: z.enum(COMBAT_SIDES).nullable(),
 })
 export type CombatSession = z.infer<typeof combatSessionSchema>
 
@@ -189,10 +205,11 @@ export function makeCombatant(
 
 /**
  * Builds a valid initial {@link CombatSession} from encounter-setup inputs:
- * round 1, no current actor (drafting and starting advantage are UNN-303), and
- * every combatant fresh and not-yet-acted (see {@link makeCombatant}). `newId`
- * mints each combatant's stable id (mirrors `reduceCharacter`'s injectable id so
- * tests can be deterministic).
+ * round 1, no current actor, no advantage declared yet (`advantage`/`firstSide`
+ * are `null` until the `startCombat` event, UNN-303), and every combatant fresh
+ * and not-yet-acted (see {@link makeCombatant}). `newId` mints each combatant's
+ * stable id (mirrors `reduceCharacter`'s injectable id so tests can be
+ * deterministic).
  */
 export function createCombatSession(
   setup: CombatantSetup[],
@@ -201,6 +218,8 @@ export function createCombatSession(
   return {
     round: 1,
     currentActorId: null,
+    advantage: null,
+    firstSide: null,
     combatants: setup.map((combatant) =>
       makeCombatant(combatant, newId(), false)
     ),
