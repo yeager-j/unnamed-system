@@ -4,8 +4,10 @@ import { TALENT_KEYS } from "../character/talents/registry"
 import { AFFINITIES, AFFINITY_DAMAGE_TYPES } from "../combat/affinity"
 import type { SkillKey } from "../skills/registry"
 
-/** A catalog enemy slug: lowercase alphanumerics and hyphens. Shared by the
- *  catalog definitions and the `{ kind: "catalog-enemy", enemyKey }` combatant ref. */
+/** A catalog enemy slug: lowercase alphanumerics and hyphens. Constrains the
+ *  `key` of catalog entry definitions. The `{ kind: "catalog-enemy", enemyKey }`
+ *  combatant ref keeps `enemyKey` a plain string — a stable pointer (mirroring a
+ *  PC ref's `characterId`) that `getEnemy` resolves, not a re-validated slug. */
 export const enemyKeySchema = z.string().regex(/^[a-z0-9-]+$/)
 
 /** An enemy's four core Attributes. Unbounded — a monster may have a negative
