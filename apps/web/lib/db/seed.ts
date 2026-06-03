@@ -10,14 +10,16 @@ import {
   type SeedCharacter,
 } from "../__fixtures__/seed-characters"
 import { DEV_USER_E2E_FIXTURES } from "../../e2e/fixtures"
-import { encounterTarget } from "../../e2e/fixtures/encounter-target"
+import {
+  encounterTarget,
+  SEEDED_ENCOUNTERS,
+} from "../../e2e/fixtures/encounter-target"
 import {
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
 } from "../game/character"
-import { createCombatSession, type CombatantSetup } from "../game/encounter"
 
 /**
  * Idempotent database seed. Persists the {@link SEED_CHARACTERS} roster so the
@@ -294,57 +296,37 @@ async function seedCharacter(
 async function seedEncounterFixtures(): Promise<void> {
   await seedCharacter(encounterTarget.placedPc.seed, DEV_USER.id)
 
-  const { campaign, placedPc, draft, live, ended } = encounterTarget
+  const { campaignA, campaignB, foreignCampaign, placedPc } = encounterTarget
 
-  await db
-    .insert(campaigns)
-    .values({
-      id: campaign.id,
-      shortId: campaign.shortId,
-      dmUserId: DEV_USER.id,
-      name: campaign.name,
-    })
-    .onConflictDoUpdate({
-      target: campaigns.id,
-      set: {
-        shortId: campaign.shortId,
-        dmUserId: DEV_USER.id,
-        name: campaign.name,
-      },
-    })
+  // Two dev-DM campaigns (A = startable draft + ended; B = live + a draft the
+  // single-live guard rejects) plus one foreign (seed-user) campaign for the
+  // 404 case.
+  const campaignRows = [
+    { ...campaignA, dmUserId: DEV_USER.id },
+    { ...campaignB, dmUserId: DEV_USER.id },
+    { ...foreignCampaign, dmUserId: SEED_USER.id },
+  ]
+  for (const campaign of campaignRows) {
+    await db
+      .insert(campaigns)
+      .values(campaign)
+      .onConflictDoUpdate({ target: campaigns.id, set: campaign })
+  }
 
+  // Place the PC into Campaign A (its draft's roster + the import-PCs panel).
   await db
     .update(characters)
-    .set({ campaignId: campaign.id })
+    .set({ campaignId: campaignA.id })
     .where(eq(characters.id, placedPc.characterId))
 
-  const pcSetup: CombatantSetup = {
-    side: "players",
-    ref: { kind: "pc", characterId: placedPc.characterId },
-    zoneId: "zone-1",
-  }
-  const deterministicId = (slug: string) => {
-    let n = 0
-    return () => `seed-combatant-${slug}-${n++}`
-  }
-
-  const rosters: Record<string, CombatantSetup[]> = {
-    [draft.id]: [pcSetup],
-    [live.id]: [pcSetup],
-    [ended.id]: [],
-  }
-
-  for (const encounter of [draft, live, ended]) {
+  for (const encounter of SEEDED_ENCOUNTERS) {
     const row = {
       id: encounter.id,
       shortId: encounter.shortId,
-      campaignId: campaign.id,
-      name: `${campaign.name} — ${encounter.status}`,
+      campaignId: encounter.campaignId,
+      name: `Encounter: ${encounter.shortId}`,
       status: encounter.status,
-      session: createCombatSession(
-        rosters[encounter.id]!,
-        deterministicId(encounter.shortId)
-      ),
+      session: encounter.session,
       version: 0,
     }
     await db
@@ -353,41 +335,6 @@ async function seedEncounterFixtures(): Promise<void> {
       .onConflictDoUpdate({ target: encounters.id, set: row })
     console.log(`  ✓ encounter ${encounter.status} (${encounter.url})`)
   }
-
-  // A foreign campaign (DM = seed-user) + encounter so the DM-only route can be
-  // proven to 404 for the dev user, who is not its DM.
-  const { foreignCampaign, foreign } = encounterTarget
-  await db
-    .insert(campaigns)
-    .values({
-      id: foreignCampaign.id,
-      shortId: foreignCampaign.shortId,
-      dmUserId: SEED_USER.id,
-      name: foreignCampaign.name,
-    })
-    .onConflictDoUpdate({
-      target: campaigns.id,
-      set: {
-        shortId: foreignCampaign.shortId,
-        dmUserId: SEED_USER.id,
-        name: foreignCampaign.name,
-      },
-    })
-
-  const foreignRow = {
-    id: foreign.id,
-    shortId: foreign.shortId,
-    campaignId: foreignCampaign.id,
-    name: foreignCampaign.name,
-    status: foreign.status,
-    session: createCombatSession([], deterministicId(foreign.shortId)),
-    version: 0,
-  }
-  await db
-    .insert(encounters)
-    .values(foreignRow)
-    .onConflictDoUpdate({ target: encounters.id, set: foreignRow })
-  console.log(`  ✓ foreign encounter (${foreign.url})`)
 }
 
 async function seed(): Promise<void> {
@@ -432,7 +379,7 @@ async function seed(): Promise<void> {
   await seedEncounterFixtures()
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 2 + DEV_USER_E2E_FIXTURES.length} characters, 1 campaign + 3 encounters, and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 2 + DEV_USER_E2E_FIXTURES.length} characters, 3 campaigns + ${SEEDED_ENCOUNTERS.length} encounters, and 1 dev user.`
   )
 }
 

@@ -1,23 +1,25 @@
-import { z } from "zod/v4"
+import type { z } from "zod/v4"
 
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 import { combatEventSchema } from "@/lib/game/encounter"
 
+import { encounterMutationBase } from "./encounter-mutation.schema"
+
 /**
- * Input schema for {@link applyCombatEvent} (UNN-332). The envelope is the
- * encounter id + the optimistic-concurrency token the caller last saw, plus the
- * {@link combatEventSchema}-validated event — the wire payload is the *event*,
- * never a client-computed session (ADR Decision 4). The `{ encounterId,
- * expectedVersion }` pair is inlined here; extract an `encounterMutationBase`
- * (mirroring `character-mutation.schema.ts`) once a second encounter action
- * lands (UNN-309+).
+ * Input schema for {@link applyCombatEvent} (UNN-332): the shared
+ * {@link encounterMutationBase} envelope (encounter id + optimistic-concurrency
+ * token) plus the {@link combatEventSchema}-validated event — the wire payload
+ * is the *event*, never a client-computed session (ADR Decision 4).
  */
-export const ApplyCombatEventSchema = z.object({
-  encounterId: z.string(),
-  expectedVersion: z.number().int().nonnegative(),
+export const ApplyCombatEventSchema = encounterMutationBase.extend({
   event: combatEventSchema,
 })
 
 export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>
 
-export type ApplyCombatEventError = "invalid-input" | EncounterWriteError
+/** A `startCombat` is rejected when the campaign already has a live encounter
+ *  (UNN-302's single-live guard). */
+export type ApplyCombatEventError =
+  | "invalid-input"
+  | "campaign-already-has-live-encounter"
+  | EncounterWriteError

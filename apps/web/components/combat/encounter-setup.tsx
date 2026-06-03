@@ -1,97 +1,176 @@
 "use client"
 
+import { XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
+import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
+import type { SaveEncounterSetupError } from "@/lib/actions/encounter/setup.schema"
+import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import { toCombatantSetup, type CombatantSetup } from "@/lib/game/encounter"
+import {
+  toCombatantSetup,
+  type CombatantSetup,
+  type CombatSide,
+} from "@/lib/game/encounter"
 
+import { ImportPcsPanel } from "./import-pcs-panel"
 import { SetupPanelStub } from "./setup-panels"
+import { SideToggle } from "./side-toggle"
 
-/** A throwaway combatant the stub panels add so the skeleton flow is testable
- *  before the real Import-PCs / Add-enemies panels (UNN-298/299) land. */
-function placeholderCombatant(index: number): CombatantSetup {
-  return {
-    side: "enemies",
-    ref: {
-      kind: "enemy",
-      statBlock: {
-        name: `Placeholder enemy ${index + 1}`,
-        maxHP: 10,
-        currentHP: 10,
-        maxSP: 0,
-        currentSP: 0,
-        attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
-      },
-    },
-    zoneId: "zone-1",
-  }
-}
+type SetupError =
+  | SaveEncounterSetupError
+  | "campaign-already-has-live-encounter"
 
-function combatantLabel(setup: CombatantSetup): string {
-  switch (setup.ref.kind) {
-    case "pc":
-      return `PC ${setup.ref.characterId}`
-    case "enemy":
-      return setup.ref.statBlock.name
-    case "catalog-enemy":
-      return setup.ref.enemyKey
+function errorMessage(error: SetupError): string {
+  switch (error) {
+    case "campaign-already-has-live-encounter":
+      return "This campaign already has a live encounter."
+    case "stale":
+      return "This encounter changed elsewhere. Reload and try again."
+    case "encounter-not-found":
+      return "This encounter no longer exists."
+    case "invalid-input":
+      return "Something looks off with the roster. Try again."
   }
 }
 
 /**
- * The encounter **setup shell** (UNN-335): the real, load-bearing frame the rest
- * of Phase 4 plugs into. It owns the in-progress `CombatantSetup[]` state
- * container (seeded from the encounter's persisted session so a resumed draft is
- * non-empty), hosts the four named setup-panel slots (UNN-298/299/300/301, stubs
- * for now), and wires the **Start combat** button to the `draft → live`
- * transition.
+ * The encounter **setup shell** (UNN-335/298/300/302): the load-bearing frame the
+ * rest of Phase 4 plugs into. It owns the in-progress `CombatantSetup[]` (seeded
+ * from the persisted session so a resumed draft is restored), hosts the
+ * Import-PCs panel (UNN-298) + the per-combatant side control (UNN-300), and
+ * persists the roster (UNN-302).
  *
- * Start dispatches the existing `startCombat` event through `applyCombatEvent`
- * (UNN-332), which flips the DB `status` to `live`; the client then
- * `router.refresh()`es so the route's RSC re-reads the new status and renders the
- * live console. The opening `advantage` / `firstSide` are placeholders here —
- * the real selection UI is UNN-303 — and the explicit save of the assembled
- * roster is UNN-302, so combatants added via the stub panels are not yet
- * persisted.
+ * **Save draft** persists the assembled roster (`saveEncounterSetupAction`,
+ * version-guarded) without leaving `draft`. **Start combat** saves first, then
+ * dispatches `startCombat` through `applyCombatEvent` (which flips `status →
+ * live`, rejecting if the campaign already has a live encounter) and refreshes so
+ * the route re-reads the new status. Both writes thread the encounter's single
+ * `version`. The opening advantage is a placeholder (`neutral`/`players`) — the
+ * DM advantage UI is a later concern; enemies (UNN-299) and zones (UNN-301) are
+ * still stubs.
  */
-export function EncounterSetup({ encounter }: { encounter: EncounterRow }) {
+export function EncounterSetup({
+  encounter,
+  placedCharacters,
+}: {
+  encounter: EncounterRow
+  placedCharacters: CharacterSummary[]
+}) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [version, setVersion] = useState(encounter.version)
   const [combatants, setCombatants] = useState<CombatantSetup[]>(() =>
     encounter.session.combatants.map(toCombatantSetup)
   )
 
-  const everyCombatantPlaced = combatants.every(
-    (combatant) => combatant.zoneId.length > 0
+  const placedById = useMemo(
+    () =>
+      new Map(placedCharacters.map((character) => [character.id, character])),
+    [placedCharacters]
   )
-  const canStart = combatants.length > 0 && everyCombatantPlaced
 
-  function addPlaceholder() {
-    setCombatants((current) => [
-      ...current,
-      placeholderCombatant(current.length),
-    ])
+  const addedCharacterIds = useMemo(
+    () =>
+      new Set(
+        combatants.flatMap((combatant) =>
+          combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
+        )
+      ),
+    [combatants]
+  )
+
+  const canStart = combatants.length > 0
+
+  function combatantLabel(setup: CombatantSetup): string {
+    switch (setup.ref.kind) {
+      case "pc":
+        return (
+          placedById.get(setup.ref.characterId)?.name ?? setup.ref.characterId
+        )
+      case "enemy":
+        return setup.ref.statBlock.name
+      case "catalog-enemy":
+        return setup.ref.enemyKey
+    }
+  }
+
+  function togglePc(characterId: string) {
+    setCombatants((current) =>
+      addedCharacterIds.has(characterId)
+        ? current.filter(
+            (combatant) =>
+              !(
+                combatant.ref.kind === "pc" &&
+                combatant.ref.characterId === characterId
+              )
+          )
+        : [
+            ...current,
+            {
+              side: "players",
+              ref: { kind: "pc", characterId },
+              zoneId: "",
+            },
+          ]
+    )
+  }
+
+  function setSide(index: number, side: CombatSide) {
+    setCombatants((current) =>
+      current.map((combatant, i) =>
+        i === index ? { ...combatant, side } : combatant
+      )
+    )
+  }
+
+  function removeCombatant(index: number) {
+    setCombatants((current) => current.filter((_, i) => i !== index))
+  }
+
+  async function persist(): Promise<number | null> {
+    const saved = await saveEncounterSetupAction({
+      encounterId: encounter.id,
+      expectedVersion: version,
+      combatants,
+    })
+    if (!saved.ok) {
+      toast.error(errorMessage(saved.error))
+      return null
+    }
+    setVersion(saved.value.version)
+    return saved.value.version
+  }
+
+  function onSaveDraft() {
+    startTransition(async () => {
+      const nextVersion = await persist()
+      if (nextVersion !== null) toast.success("Draft saved.")
+    })
   }
 
   function onStart() {
     startTransition(async () => {
-      const result = await applyCombatEvent({
+      const nextVersion = await persist()
+      if (nextVersion === null) return
+
+      const started = await applyCombatEvent({
         encounterId: encounter.id,
-        expectedVersion: encounter.version,
+        expectedVersion: nextVersion,
         event: {
           kind: "startCombat",
           advantage: "neutral",
           firstSide: "players",
         },
       })
-      if (!result.ok) {
-        toast.error("Couldn't start combat. Reload and try again.")
+      if (!started.ok) {
+        toast.error(errorMessage(started.error))
         return
       }
       router.refresh()
@@ -105,20 +184,25 @@ export function EncounterSetup({ encounter }: { encounter: EncounterRow }) {
           <h1 className="font-heading text-lg font-medium">{encounter.name}</h1>
           <p className="text-sm text-muted-foreground">Encounter setup</p>
         </div>
-        <Button onClick={onStart} disabled={!canStart || isPending}>
-          {isPending ? <Spinner /> : null}
-          Start combat
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={onSaveDraft} disabled={isPending}>
+            {isPending ? <Spinner /> : null}
+            Save draft
+          </Button>
+          <Button onClick={onStart} disabled={!canStart || isPending}>
+            {isPending ? <Spinner /> : null}
+            Start combat
+          </Button>
+        </div>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <SetupPanelStub title="Import PCs" ticket="UNN-298">
-          <Button size="sm" variant="outline" onClick={addPlaceholder}>
-            Add placeholder combatant
-          </Button>
-        </SetupPanelStub>
+        <ImportPcsPanel
+          placedCharacters={placedCharacters}
+          addedCharacterIds={addedCharacterIds}
+          onToggle={togglePc}
+        />
         <SetupPanelStub title="Add enemies" ticket="UNN-299" />
-        <SetupPanelStub title="Sides" ticket="UNN-300" />
         <SetupPanelStub title="Zones" ticket="UNN-301" />
       </div>
 
@@ -131,16 +215,29 @@ export function EncounterSetup({ encounter }: { encounter: EncounterRow }) {
             No combatants yet — add at least one to start combat.
           </p>
         ) : (
-          <ul className="flex flex-col gap-1 text-sm">
+          <ul className="flex flex-col gap-2">
             {combatants.map((combatant, index) => (
               <li
                 key={index}
-                className="flex items-center justify-between rounded-md border px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
               >
-                <span>{combatantLabel(combatant)}</span>
-                <span className="text-xs text-muted-foreground">
-                  {combatant.side} · {combatant.zoneId}
+                <span className="min-w-0 truncate text-sm font-medium">
+                  {combatantLabel(combatant)}
                 </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <SideToggle
+                    side={combatant.side}
+                    onChange={(side) => setSide(index, side)}
+                  />
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label="Remove combatant"
+                    onClick={() => removeCombatant(index)}
+                  >
+                    <XIcon />
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

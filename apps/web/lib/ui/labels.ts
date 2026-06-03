@@ -20,6 +20,7 @@ import type {
   Delivery,
   Range,
 } from "@/lib/game/combat"
+import type { CombatSide } from "@/lib/game/encounter"
 import type { EquipSlot } from "@/lib/game/items"
 import type { StainElement } from "@/lib/game/mechanics"
 import type { SkillKind } from "@/lib/game/skills"
@@ -316,6 +317,12 @@ export const BATTLE_CONDITION_FLAG_LABELS = {
   charged: "Charged",
   concentrating: "Concentrating",
 } as const
+
+/** The two combat sides a combatant can be assigned to (UNN-300). */
+export const COMBAT_SIDE_LABELS: Record<CombatSide, string> = {
+  players: "Players",
+  enemies: "Enemies",
+}
 
 /**
  * Known range labels used in the Skill / intrinsic-attack popovers. Skills
