@@ -2,13 +2,14 @@
 
 import { XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
+import type { ApplyCombatEventError } from "@/lib/actions/encounter/events.schema"
 import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
 import type { SaveEncounterSetupError } from "@/lib/actions/encounter/setup.schema"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
@@ -23,9 +24,7 @@ import { ImportPcsPanel } from "./import-pcs-panel"
 import { SetupPanelStub } from "./setup-panels"
 import { SideToggle } from "./side-toggle"
 
-type SetupError =
-  | SaveEncounterSetupError
-  | "campaign-already-has-live-encounter"
+type SetupError = SaveEncounterSetupError | ApplyCombatEventError
 
 function errorMessage(error: SetupError): string {
   switch (error) {
@@ -70,20 +69,14 @@ export function EncounterSetup({
     encounter.session.combatants.map(toCombatantSetup)
   )
 
-  const placedById = useMemo(
-    () =>
-      new Map(placedCharacters.map((character) => [character.id, character])),
-    [placedCharacters]
+  const placedById = new Map(
+    placedCharacters.map((character) => [character.id, character])
   )
 
-  const addedCharacterIds = useMemo(
-    () =>
-      new Set(
-        combatants.flatMap((combatant) =>
-          combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
-        )
-      ),
-    [combatants]
+  const addedCharacterIds = new Set(
+    combatants.flatMap((combatant) =>
+      combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
+    )
   )
 
   const canStart = combatants.length > 0
@@ -102,8 +95,13 @@ export function EncounterSetup({
   }
 
   function togglePc(characterId: string) {
-    setCombatants((current) =>
-      addedCharacterIds.has(characterId)
+    setCombatants((current) => {
+      const isAdded = current.some(
+        (combatant) =>
+          combatant.ref.kind === "pc" &&
+          combatant.ref.characterId === characterId
+      )
+      return isAdded
         ? current.filter(
             (combatant) =>
               !(
@@ -113,13 +111,9 @@ export function EncounterSetup({
           )
         : [
             ...current,
-            {
-              side: "players",
-              ref: { kind: "pc", characterId },
-              zoneId: "",
-            },
+            { side: "players", ref: { kind: "pc", characterId }, zoneId: "" },
           ]
-    )
+    })
   }
 
   function setSide(index: number, side: CombatSide) {
