@@ -1,4 +1,5 @@
 import { reduceBattleConditionEvent } from "./reduce/conditions"
+import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
 import type { CombatSession } from "./session"
 import type { CombatEvent, CombatSessionResult } from "./session-event"
@@ -21,14 +22,24 @@ export type { CombatEvent, CombatSessionResult } from "./session-event"
  * routed — the compile-time guarantee that the event vocabulary and its dispatch
  * stay in lockstep. *Illegal* events (well-typed but a no-op against the current
  * state, e.g. `endTurn` with no current actor) are handled inside their slice.
+ *
+ * `newId` mints stable ids for combatants an `addCombatant` event joins (mirrors
+ * `reduceCharacter`'s injectable id so tests can be deterministic); it defaults
+ * to `crypto.randomUUID`, matching `createCombatSession`.
  */
 export function reduceCombatSession(
   session: CombatSession,
-  event: CombatEvent
+  event: CombatEvent,
+  newId: () => string = () => crypto.randomUUID()
 ): CombatSessionResult {
   switch (event.kind) {
     case "endTurn":
       return reduceTurnEvent(session, event)
+
+    case "advanceRound":
+    case "addCombatant":
+    case "removeCombatant":
+      return reduceRoundEvent(session, event, newId)
 
     case "applyBattleConditionDuration":
       return reduceBattleConditionEvent(session, event)

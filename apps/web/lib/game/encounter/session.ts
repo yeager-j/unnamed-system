@@ -160,12 +160,39 @@ export interface CombatantSetup {
 }
 
 /**
+ * Builds one fresh {@link Combatant} from a {@link CombatantSetup} and a minted
+ * `id`: no ailments, all battle conditions neutral, reaction available, no active
+ * durations, and Free unless setup says otherwise. `hasActedThisRound` is the
+ * caller's call — `false` for combatants present at encounter start, `true` for a
+ * mid-round joiner so it is queued for the next round (UNN-306). Shared by
+ * {@link createCombatSession} and the `addCombatant` reducer slice so the
+ * (long) field list lives in one place.
+ */
+export function makeCombatant(
+  setup: CombatantSetup,
+  id: string,
+  hasActedThisRound: boolean
+): Combatant {
+  return {
+    id,
+    side: setup.side,
+    ref: setup.ref,
+    ailments: [],
+    battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
+    hasActedThisRound,
+    reactionAvailable: true,
+    zoneId: setup.zoneId,
+    engagement: setup.engagement ?? { status: "free" },
+    conditionDurations: {},
+  }
+}
+
+/**
  * Builds a valid initial {@link CombatSession} from encounter-setup inputs:
  * round 1, no current actor (drafting and starting advantage are UNN-303), and
- * every combatant fresh — no ailments, all battle conditions neutral, not yet
- * acted, reaction available, no active durations, and Free unless setup says
- * otherwise. `newId` mints each combatant's stable id (mirrors
- * `reduceCharacter`'s injectable id so tests can be deterministic).
+ * every combatant fresh and not-yet-acted (see {@link makeCombatant}). `newId`
+ * mints each combatant's stable id (mirrors `reduceCharacter`'s injectable id so
+ * tests can be deterministic).
  */
 export function createCombatSession(
   setup: CombatantSetup[],
@@ -174,17 +201,8 @@ export function createCombatSession(
   return {
     round: 1,
     currentActorId: null,
-    combatants: setup.map((combatant) => ({
-      id: newId(),
-      side: combatant.side,
-      ref: combatant.ref,
-      ailments: [],
-      battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
-      hasActedThisRound: false,
-      reactionAvailable: true,
-      zoneId: combatant.zoneId,
-      engagement: combatant.engagement ?? { status: "free" },
-      conditionDurations: {},
-    })),
+    combatants: setup.map((combatant) =>
+      makeCombatant(combatant, newId(), false)
+    ),
   }
 }

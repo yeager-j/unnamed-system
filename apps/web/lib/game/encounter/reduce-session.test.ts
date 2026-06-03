@@ -27,6 +27,17 @@ function sequentialIds() {
   return () => `combatant-${n++}`
 }
 
+function enemyStatBlock() {
+  return {
+    name: "Shadow",
+    maxHP: 20,
+    currentHP: 20,
+    maxSP: 0,
+    currentSP: 0,
+    attributes: { strength: 4, magic: 1, agility: 3, luck: 2 },
+  }
+}
+
 /** A fresh session with the first combatant drafted as the current actor. */
 function startedSession() {
   const session = createCombatSession(SETUP, sequentialIds())
@@ -76,6 +87,121 @@ describe("reduceCombatSession — endTurn", () => {
   })
 })
 
+describe("reduceCombatSession — advanceRound", () => {
+  /** Both combatants have acted; the first is still the current actor. */
+  function endOfRound() {
+    const session = startedSession()
+    const [first, second] = session.combatants
+    return {
+      ...session,
+      combatants: [
+        { ...first!, hasActedThisRound: true },
+        { ...second!, hasActedThisRound: true },
+      ],
+    }
+  }
+
+  it("increments the round, clears all acted flags, and nulls the current actor", () => {
+    const session = endOfRound()
+
+    const { session: next, edits } = reduceCombatSession(session, {
+      kind: "advanceRound",
+    })
+
+    expect(next.round).toBe(2)
+    expect(next.currentActorId).toBeNull()
+    expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
+    expect(edits).toEqual([])
+  })
+
+  it("still increments the round when no one has acted (idempotent safeguard)", () => {
+    const session = startedSession()
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "advanceRound",
+    })
+
+    expect(next.round).toBe(2)
+    expect(next.currentActorId).toBeNull()
+  })
+})
+
+describe("reduceCombatSession — addCombatant", () => {
+  const JOINER: CombatantSetup = {
+    side: "enemies",
+    ref: { kind: "enemy", statBlock: enemyStatBlock() },
+    zoneId: "zone-b",
+  }
+
+  it("appends a joiner with a minted id and hasActedThisRound = true", () => {
+    const session = startedSession()
+
+    const { session: next, edits } = reduceCombatSession(
+      session,
+      { kind: "addCombatant", setup: JOINER },
+      () => "joiner-id"
+    )
+
+    expect(next.combatants).toHaveLength(3)
+    const joiner = next.combatants[2]!
+    expect(joiner.id).toBe("joiner-id")
+    expect(joiner.hasActedThisRound).toBe(true)
+    expect(joiner.side).toBe("enemies")
+    expect(edits).toEqual([])
+  })
+
+  it("leaves the existing combatants untouched", () => {
+    const session = startedSession()
+
+    const { session: next } = reduceCombatSession(
+      session,
+      { kind: "addCombatant", setup: JOINER },
+      () => "joiner-id"
+    )
+
+    expect(next.combatants.slice(0, 2)).toEqual(session.combatants)
+  })
+})
+
+describe("reduceCombatSession — removeCombatant", () => {
+  it("removes the matching combatant", () => {
+    const session = startedSession()
+    const removedId = session.combatants[1]!.id
+
+    const { session: next, edits } = reduceCombatSession(session, {
+      kind: "removeCombatant",
+      combatantId: removedId,
+    })
+
+    expect(next.combatants).toHaveLength(1)
+    expect(next.combatants.some((c) => c.id === removedId)).toBe(false)
+    expect(edits).toEqual([])
+  })
+
+  it("clears the current actor when it is the one removed", () => {
+    const session = startedSession()
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "removeCombatant",
+      combatantId: session.currentActorId!,
+    })
+
+    expect(next.currentActorId).toBeNull()
+  })
+
+  it("leaves the current actor when a different combatant is removed", () => {
+    const session = startedSession()
+    const actorId = session.currentActorId
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "removeCombatant",
+      combatantId: session.combatants[1]!.id,
+    })
+
+    expect(next.currentActorId).toBe(actorId)
+  })
+})
+
 describe("reduceCombatSession — purity", () => {
   it("does not mutate its input and returns a new session on change", () => {
     const session = startedSession()
@@ -90,6 +216,21 @@ describe("reduceCombatSession — purity", () => {
     expect(next).not.toBe(session)
     expect(session.currentActorId).toBe(session.combatants[0]!.id)
     expect(session.combatants[0]!.hasActedThisRound).toBe(false)
+  })
+
+  it("does not mutate a frozen input on advanceRound", () => {
+    const session = startedSession()
+    Object.freeze(session)
+    Object.freeze(session.combatants)
+    session.combatants.forEach((combatant) => Object.freeze(combatant))
+
+    const { session: next } = reduceCombatSession(session, {
+      kind: "advanceRound",
+    })
+
+    expect(next).not.toBe(session)
+    expect(session.round).toBe(1)
+    expect(session.currentActorId).toBe(session.combatants[0]!.id)
   })
 })
 

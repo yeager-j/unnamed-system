@@ -1,6 +1,6 @@
 import type { BattleConditionAxisKey, PoolsEdit } from "@/lib/game/character"
 
-import type { CombatSession } from "./session"
+import type { CombatantSetup, CombatSession } from "./session"
 
 /**
  * The tracker reducer's vocabulary: the events that drive a {@link CombatSession}
@@ -19,6 +19,24 @@ import type { CombatSession } from "./session"
  *  turn model (drafting the next actor, round rollover, Fallen-skip, per-turn
  *  effects) is the Turn-Order epic (UNN-285) extending this sub-union. */
 export type TurnEvent = { kind: "endTurn" }
+
+/**
+ * Round-lifecycle + mid-round roster events. `advanceRound` rolls the encounter
+ * to the next round: it increments `round`, resets every combatant's
+ * `hasActedThisRound` to `false`, and clears `currentActorId` — the only event
+ * that clears those flags (individual flags are set by `endTurn`). It always
+ * applies, even when no one has acted, as an idempotent round-end safeguard.
+ * `addCombatant` joins a combatant mid-fight: it enters with
+ * `hasActedThisRound = true` so it is not eligible until the next round (its
+ * stable id is minted by the reducer's injectable `newId`). `removeCombatant`
+ * drops a combatant; if it was the current actor, `currentActorId` is cleared.
+ * Auto-advancing when everyone has acted is a UI decision, out of scope here
+ * (UNN-306).
+ */
+export type RoundEvent =
+  | { kind: "advanceRound" }
+  | { kind: "addCombatant"; setup: CombatantSetup }
+  | { kind: "removeCombatant"; combatantId: string }
 
 /**
  * Battle-condition duration events. `applyBattleConditionDuration` sets or
@@ -40,7 +58,7 @@ export type BattleConditionEvent = {
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
  */
-export type CombatEvent = TurnEvent | BattleConditionEvent
+export type CombatEvent = TurnEvent | RoundEvent | BattleConditionEvent
 
 /**
  * A rare PC-**vitals** nudge the reducer emits, tagged with the combatant it
