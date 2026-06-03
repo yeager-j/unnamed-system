@@ -52,10 +52,22 @@ export type StartCombatEvent = {
   firstSide: CombatSide
 }
 
-/** Turn-loop events. The rest of the turn model (drafting the next actor, round
- *  rollover, Fallen-skip, per-turn effects) is the Turn-Order epic (UNN-285)
- *  extending this sub-union. */
-export type TurnEvent = EndTurnEvent | StartCombatEvent
+/**
+ * `draftCombatant` starts a combatant's turn: it makes them the `currentActorId`,
+ * clears their Downed ailment (the one *start*-of-turn effect — rulebook 3.7),
+ * and refreshes their reaction. It never blocks: the UI highlights the eligible
+ * side ({@link import("./selectors").nextDraftingSide}), but the DM may draft any
+ * combatant (ADR Decision 8; UNN-304). Whose turn it *should* be is derived, not
+ * stored — no `draftingSide` field exists.
+ */
+export type DraftCombatantEvent = {
+  kind: "draftCombatant"
+  combatantId: string
+}
+
+/** Turn-loop events. The rest of the turn model (round rollover, Fallen-skip,
+ *  per-turn effects) is the Turn-Order epic (UNN-285) extending this sub-union. */
+export type TurnEvent = EndTurnEvent | StartCombatEvent | DraftCombatantEvent
 
 /**
  * Round-lifecycle + mid-round roster events. `advanceRound` rolls the encounter
@@ -111,6 +123,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     advantage: z.enum(COMBAT_ADVANTAGES),
     firstSide: z.enum(COMBAT_SIDES),
   }),
+  z.object({ kind: z.literal("draftCombatant"), combatantId: z.string() }),
   z.object({ kind: z.literal("advanceRound") }),
   z.object({ kind: z.literal("addCombatant"), setup: combatantSetupSchema }),
   z.object({ kind: z.literal("removeCombatant"), combatantId: z.string() }),
