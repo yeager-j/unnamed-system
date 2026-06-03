@@ -291,6 +291,17 @@ The tracker's only remaining PC-vitals interaction is the **DM's manual in-comba
 
 ---
 
+## Tracking vs. adjudication: what the tracker automates (decided 2026-06-03)
+
+A principle that recurs across several decisions (the Fallen-restore self-heal, and the All-Out / Follow-Up reframe): **the tracker tracks combat state; the DM adjudicates the rules off that state.** It auto-applies nothing to character rows, and it prompts only for **frequent, forgettable, per-turn obligations** — the end-of-turn saving throw and ailment effects (UNN-317), which recur every turn and change outcomes if missed.
+
+It does **not** detect or prompt **one-time opportunities the DM can already see on the board**:
+
+- **All-Out Attack / Synthesis** (UNN-319 — cut): when every enemy is Downed, the DM sees it (Downed badges + ailment display) and declares it, applying effects via the panel. No trigger detection; no participant-eligibility selector.
+- **Follow-Up availability**: the DM knows they Downed an enemy — no prompt.
+
+The one piece of out-of-turn state the tracker *does* own is the **Shift chain** (UNN-318): which combatants have taken a Follow-Up in the current burst, so the §3.6 "no repeat in the chain" rule is enforceable and the DM isn't tracking it verbally. It is a small stored field on the `CombatSession`, cleared when normal turn order resumes — tracking, not adjudication.
+
 ## Retirement cascade (UNN-226)
 
 Moving combat state off the character retires recently-shipped Combat State work — footprint going _down_:
