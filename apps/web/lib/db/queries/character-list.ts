@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
+import { campaigns } from "@/lib/db/schema/campaign"
 import {
   characterArchetypes,
   characters,
@@ -94,4 +95,50 @@ export async function loadPlacedCharactersForCampaign(
     .orderBy(asc(characters.name))
 
   return rows
+}
+
+/**
+ * A finalized character the viewer owns, plus where it is currently placed — the
+ * data the campaign-page placement controls need (UNN-328). `campaignId` is the
+ * character's current campaign (null when unplaced); `placedCampaignName` is that
+ * campaign's name, resolved by a LEFT JOIN so the "Move from {name}?" dialog can
+ * label the prior campaign without a second query.
+ */
+export interface OwnedPlacementCharacter extends CharacterSummary {
+  campaignId: string | null
+  placedCampaignName: string | null
+}
+
+/**
+ * Every **finalized** character owned by `ownerId`, with its current placement,
+ * ordered by name. Backs the placement section on the campaign page (UNN-328);
+ * drafts are excluded because only a finished character is eligible to be placed
+ * (and run as a combatant).
+ */
+export async function loadOwnedFinalizedCharactersWithPlacement(
+  ownerId: string
+): Promise<OwnedPlacementCharacter[]> {
+  return db
+    .select({
+      id: characters.id,
+      shortId: characters.shortId,
+      name: characters.name,
+      level: characters.level,
+      portraitUrl: characters.portraitUrl,
+      activeArchetypeKey: characterArchetypes.archetypeKey,
+      status: characters.status,
+      builderStep: characters.builderStep,
+      campaignId: characters.campaignId,
+      placedCampaignName: campaigns.name,
+    })
+    .from(characters)
+    .leftJoin(
+      characterArchetypes,
+      eq(characters.activeArchetypeId, characterArchetypes.id)
+    )
+    .leftJoin(campaigns, eq(characters.campaignId, campaigns.id))
+    .where(
+      and(eq(characters.ownerId, ownerId), eq(characters.status, "finalized"))
+    )
+    .orderBy(asc(characters.name))
 }

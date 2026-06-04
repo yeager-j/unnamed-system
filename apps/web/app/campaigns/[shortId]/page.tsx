@@ -8,6 +8,7 @@ import {
   AvatarImage,
 } from "@workspace/ui/components/avatar"
 
+import { CharacterPlacementSection } from "@/components/campaign/character-placement-section"
 import { CreateEncounterButton } from "@/components/campaign/create-encounter-button"
 import { EncounterList } from "@/components/campaign/encounter-list"
 import { JoinLinkCard } from "@/components/campaign/join-link-card"
@@ -69,19 +70,26 @@ export default async function CampaignPage({ params }: PageProps) {
 
   const session = await auth()
   const viewerId = session?.user?.id
+  if (!viewerId) notFound()
 
   if (viewerId === campaign.dmUserId) {
-    return <DmManageView campaign={campaign} />
+    return <DmManageView campaign={campaign} viewerId={viewerId} />
   }
 
-  if (viewerId && (await isCampaignMember(campaign.id, viewerId))) {
-    return <MemberOverview campaign={campaign} />
+  if (await isCampaignMember(campaign.id, viewerId)) {
+    return <MemberOverview campaign={campaign} viewerId={viewerId} />
   }
 
   notFound()
 }
 
-async function DmManageView({ campaign }: { campaign: CampaignRow }) {
+async function DmManageView({
+  campaign,
+  viewerId,
+}: {
+  campaign: CampaignRow
+  viewerId: string
+}) {
   const [roster, encounters, liveEncounter] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadEncountersForCampaign(campaign.id),
@@ -123,11 +131,23 @@ async function DmManageView({ campaign }: { campaign: CampaignRow }) {
         </div>
         <EncounterList encounters={encounters} />
       </section>
+
+      <CharacterPlacementSection
+        campaignId={campaign.id}
+        campaignName={campaign.name}
+        viewerId={viewerId}
+      />
     </main>
   )
 }
 
-async function MemberOverview({ campaign }: { campaign: CampaignRow }) {
+async function MemberOverview({
+  campaign,
+  viewerId,
+}: {
+  campaign: CampaignRow
+  viewerId: string
+}) {
   const [roster, liveEncounter] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadLiveEncounterForCampaign(campaign.id),
@@ -171,6 +191,12 @@ async function MemberOverview({ campaign }: { campaign: CampaignRow }) {
           })}
         </ul>
       </section>
+
+      <CharacterPlacementSection
+        campaignId={campaign.id}
+        campaignName={campaign.name}
+        viewerId={viewerId}
+      />
     </main>
   )
 }
