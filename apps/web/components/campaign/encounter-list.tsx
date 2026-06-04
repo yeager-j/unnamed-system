@@ -1,0 +1,50 @@
+import Link from "next/link"
+
+import { Badge } from "@workspace/ui/components/badge"
+
+import type { EncounterSummary } from "@/lib/db/queries/load-encounter"
+import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
+
+/** Status → badge styling. `live` stands out; `draft`/`ended` are muted. */
+const STATUS_VARIANT = {
+  draft: "secondary",
+  live: "default",
+  ended: "outline",
+} as const
+
+/**
+ * The campaign's encounters on the manage page (UNN-329) — each linking to its DM
+ * console (`/combat/{shortId}`, UNN-335) with a status badge. The create
+ * affordance is the sibling {@link CreateEncounterButton}; this is the list.
+ */
+export function EncounterList({
+  encounters,
+}: {
+  encounters: EncounterSummary[]
+}) {
+  if (encounters.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No encounters yet. Create one to start setting up combat.
+      </p>
+    )
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {encounters.map((encounter) => (
+        <li key={encounter.id}>
+          <Link
+            href={`/combat/${encounter.shortId}`}
+            className="flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+          >
+            <span className="truncate font-medium">{encounter.name}</span>
+            <Badge variant={STATUS_VARIANT[encounter.status]}>
+              {ENCOUNTER_STATUS_LABELS[encounter.status]}
+            </Badge>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  )
+}

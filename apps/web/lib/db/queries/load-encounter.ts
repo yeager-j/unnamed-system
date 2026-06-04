@@ -1,7 +1,11 @@
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
-import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
+import {
+  encounters,
+  type EncounterRow,
+  type EncounterStatus,
+} from "@/lib/db/schema/encounter"
 
 /**
  * Reads for the `encounters` table. Unlike the character loader there is no
@@ -72,6 +76,38 @@ export async function encounterExists(encounterId: string): Promise<boolean> {
     .limit(1)
 
   return row !== undefined
+}
+
+/** Summary row for the manage page's encounter list (UNN-329) — the columns the
+ *  list renders, never the heavy `session` blob. */
+export interface EncounterSummary {
+  id: string
+  shortId: string
+  name: string
+  status: EncounterStatus
+  createdAt: Date
+}
+
+/**
+ * Every encounter in a campaign, newest first, as the lightweight
+ * {@link EncounterSummary} projection (no `session` jsonb). Backs the manage
+ * page's encounter list (UNN-329); the single live one for the banner comes from
+ * {@link loadLiveEncounterForCampaign}.
+ */
+export async function loadEncountersForCampaign(
+  campaignId: string
+): Promise<EncounterSummary[]> {
+  return db
+    .select({
+      id: encounters.id,
+      shortId: encounters.shortId,
+      name: encounters.name,
+      status: encounters.status,
+      createdAt: encounters.createdAt,
+    })
+    .from(encounters)
+    .where(eq(encounters.campaignId, campaignId))
+    .orderBy(desc(encounters.createdAt))
 }
 
 /**

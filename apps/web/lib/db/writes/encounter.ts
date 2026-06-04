@@ -33,6 +33,7 @@ export type EncounterWriteError = "encounter-not-found" | "stale"
 export async function createEncounter(input: {
   campaignId: string
   name: string
+  notes?: string | null
   session: CombatSession
 }): Promise<{ id: string; shortId: string }> {
   return insertWithShortId(async (shortId) => {
@@ -41,6 +42,7 @@ export async function createEncounter(input: {
       .values({
         campaignId: input.campaignId,
         name: input.name,
+        notes: input.notes ?? null,
         shortId,
         session: input.session,
       })

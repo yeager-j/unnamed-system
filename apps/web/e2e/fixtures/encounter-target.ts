@@ -65,6 +65,16 @@ const foreignCampaign = {
   name: "Foreign Campaign",
 } as const
 
+/** A seed-user-owned campaign reserved for the campaign-surfaces spec (UNN-329)
+ *  so its member-overview / non-member-404 assertions don't race join.spec's
+ *  foreign-campaign membership churn. No other spec touches it. */
+const overviewCampaign = {
+  id: "seed-campaign-overview",
+  shortId: "overview-campaign",
+  joinToken: "join-overview",
+  name: "Overview Campaign",
+} as const
+
 /** A throwaway enemy combatant so the `blocked` draft's Start button is
  *  clickable (the single-live rejection is what the spec asserts). */
 const enemySetup: CombatantSetup = {
@@ -125,6 +135,7 @@ export const encounterTarget = {
   campaignA,
   campaignB,
   foreignCampaign,
+  overviewCampaign,
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */
   draft: seededEncounter("draft", "draft", campaignA.id, [pcSetup]),
@@ -140,8 +151,8 @@ export const encounterTarget = {
   foreign: seededEncounter("foreign", "draft", foreignCampaign.id, []),
 } as const
 
-/** The campaigns page the New-encounter button lives on. */
-export const ENCOUNTER_CAMPAIGNS_URL = "/campaigns"
+/** Campaign A's manage page — where the New-encounter dialog lives (UNN-329). */
+export const ENCOUNTER_CAMPAIGN_MANAGE_URL = `/campaigns/${campaignA.shortId}`
 
 /** Every seeded encounter, for the seed + reset loops. */
 export const SEEDED_ENCOUNTERS: SeededEncounter[] = [

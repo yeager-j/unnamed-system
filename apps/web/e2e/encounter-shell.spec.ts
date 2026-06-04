@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
-  ENCOUNTER_CAMPAIGNS_URL,
+  ENCOUNTER_CAMPAIGN_MANAGE_URL,
   encounterTarget,
   resetEncounterFixtures,
 } from "./fixtures/encounter-target"
@@ -29,13 +29,11 @@ test.beforeEach(async () => {
 const PLACED_PC_NAME = encounterTarget.placedPc.seed.name
 
 test("create → import a placed PC → Start → live console", async ({ page }) => {
-  await page.goto(ENCOUNTER_CAMPAIGNS_URL)
-  // Campaign A has no live encounter, so its new draft can be started.
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: encounterTarget.campaignA.name })
-    .getByRole("button", { name: "New encounter" })
-    .click()
+  // Campaign A has no live encounter, so a new draft created here can be started.
+  await page.goto(ENCOUNTER_CAMPAIGN_MANAGE_URL)
+  await page.getByRole("button", { name: "New encounter" }).click()
+  await page.getByLabel("Name").fill("Bridge ambush")
+  await page.getByRole("button", { name: "Create encounter" }).click()
 
   await expect(page).toHaveURL(/\/combat\/[^/]+$/)
   const start = page.getByRole("button", { name: "Start combat" })
