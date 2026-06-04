@@ -10,7 +10,7 @@ import Image from "next/image"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { RailRow } from "@/lib/game/encounter"
+import type { Pool, RailRow } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
@@ -104,7 +104,7 @@ function VitalRow({
   kind,
 }: {
   label: string
-  pool: { current: number; max: number }
+  pool: Pool
   kind: "hp" | "sp"
 }) {
   return (

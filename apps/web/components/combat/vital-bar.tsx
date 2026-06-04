@@ -25,6 +25,7 @@ export function VitalBar({
     <div
       className="h-1.5 w-full overflow-hidden rounded-none bg-muted"
       role="progressbar"
+      aria-label={kind === "hp" ? "Hit points" : "Stamina points"}
       aria-valuenow={current}
       aria-valuemin={0}
       aria-valuemax={max}
