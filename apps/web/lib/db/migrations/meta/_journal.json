@@ -148,6 +148,13 @@
       "when": 1780445452334,
       "tag": "0020_slim_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780531213887,
+      "tag": "0021_unn_327_campaign_join_token",
+      "breakpoints": true
     }
   ]
 }

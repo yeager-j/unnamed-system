@@ -11,13 +11,19 @@ import { users } from "./user"
  * authorization authority: `requireOwnerOrCampaignDM` (UNN-297) is a single FK
  * hop from a placed character to `campaign.dmUserId`.
  *
- * `shortId` backs the shareable `/join/{token}` link and the manage-page URL.
+ * `shortId` backs the stable manage-page URL; `joinToken` — a separate,
+ * rotatable secret — backs the shareable `/join/{joinToken}` link (UNN-327), so
+ * the DM can regenerate the invite without changing the manage URL.
  */
 export const campaigns = pgTable("campaign", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   shortId: text("shortId").notNull().unique(),
+  joinToken: text("joinToken")
+    .notNull()
+    .unique()
+    .$defaultFn(() => crypto.randomUUID()),
   dmUserId: text("dmUserId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

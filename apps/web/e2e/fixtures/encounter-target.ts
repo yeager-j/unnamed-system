@@ -47,18 +47,21 @@ const PLACED_PC_ID = `seed-char-${placedPc.slug}`
 const campaignA = {
   id: "seed-campaign-encounter",
   shortId: "encounter-campaign",
+  joinToken: "join-playtest",
   name: "Playtest Campaign",
 } as const
 
 const campaignB = {
   id: "seed-campaign-live",
   shortId: "live-campaign",
+  joinToken: "join-live",
   name: "Live Campaign",
 } as const
 
 const foreignCampaign = {
   id: "seed-campaign-foreign",
   shortId: "foreign-campaign",
+  joinToken: "join-foreign",
   name: "Foreign Campaign",
 } as const
 
