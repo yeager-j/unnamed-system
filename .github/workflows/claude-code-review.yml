@@ -59,6 +59,8 @@ jobs:
             - [ ] No cross-silo code; no game logic in the UI, no UI code in the game engine
             - [ ] Game engine is pure
             - [ ] No tech debt is introduced
+            - [ ] No unnecessary React hooks such as `useCallback` or `useMemo`. The React Compiler is enabled, making most of those unnecessary
+            - [ ] Code should use shadcn/ui primitives whereever possible. Flag code that should be a shadcn primitive unless it has a justifying JSDoc
 
             ## Testing
             - [ ] Unit tests for new functions
@@ -74,7 +76,7 @@ jobs:
             For each item, check if it's satisfied and comment on any that need attention.
             Post a summary comment with checklist results.
             
-            Do not attempt external MCP or API calls (except to GitHub), such as to Neon or Vercel, to verify deployment or database details.
+            Do not attempt external MCP or API calls (except to GitHub), such as to Neon or Vercel, to verify deployment or database details. You also do not need to install dependencies, run tests, or lint.
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
