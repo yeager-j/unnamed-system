@@ -11,6 +11,7 @@ import { z } from "zod/v4"
 export const CreateEncounterSchema = z.object({
   campaignId: z.string(),
   name: z.string().min(1),
+  notes: z.string().trim().max(2000).optional(),
 })
 
 export type CreateEncounterInput = z.input<typeof CreateEncounterSchema>

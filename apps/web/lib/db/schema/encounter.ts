@@ -27,6 +27,7 @@ export const encounters = pgTable("encounter", {
     .notNull()
     .references(() => campaigns.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  notes: text("notes"),
   status: text("status").$type<EncounterStatus>().notNull().default("draft"),
   session: jsonb("session").$type<CombatSession>().notNull(),
   version: integer("version").notNull().default(0),

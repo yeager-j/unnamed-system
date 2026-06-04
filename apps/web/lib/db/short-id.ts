@@ -28,8 +28,11 @@ const MAX_SHORT_ID_RETRIES = 3
  * Runs `insert` with freshly-minted `shortId`s, retrying on a unique-constraint
  * violation up to {@link MAX_SHORT_ID_RETRIES} times. The caller owns the actual
  * insert (so this stays storage-agnostic); it just supplies the candidate id and
- * handles the collision retry. Both tables this serves have `shortId` as their
- * only non-PK unique column, so a `23505` here means a `shortId` collision.
+ * handles the collision retry. A `23505` is treated as a `shortId` collision and
+ * retried with a fresh id. Most callers have `shortId` as their only non-PK
+ * unique column; `campaigns` also has a unique `joinToken`, but its
+ * `$defaultFn` re-mints on every insert attempt, so a retry refreshes both and
+ * the (astronomically unlikely) `joinToken` collision self-heals too.
  */
 export async function insertWithShortId<T>(
   insert: (shortId: string) => Promise<T>

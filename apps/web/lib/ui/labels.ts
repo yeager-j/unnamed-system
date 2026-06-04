@@ -1,3 +1,4 @@
+import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import type {
   ArchetypeTier,
   AttributeKey,
@@ -322,6 +323,12 @@ export const BATTLE_CONDITION_FLAG_LABELS = {
 export const COMBAT_SIDE_LABELS: Record<CombatSide, string> = {
   players: "Players",
   enemies: "Enemies",
+}
+
+export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
+  draft: "Draft",
+  live: "Live",
+  ended: "Ended",
 }
 
 /**

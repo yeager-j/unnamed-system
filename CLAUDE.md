@@ -87,6 +87,7 @@ apps/web/
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   ├── combat/                DM combat console (UNN-335): the encounter setup shell (CombatantSetup[] state container + Start-combat transition), stub setup panels (UNN-298–301), and the live/ended status-branch stubs rendered by app/combat/[shortId]/
+│   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns cards + create dialog, and the manage page's invite-link card (copy/regenerate), roster (+ remove player), encounter list + create dialog, and live-encounter banner. Rendered by app/campaigns/ + app/campaigns/[shortId]/
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
@@ -177,7 +178,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership), `Encounter` (`campaignId`, `session` jsonb, `shortId`).
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`).
 
 See PRD §8 for the full field list.
 
@@ -188,6 +189,9 @@ See PRD §8 for the full field list.
 3. **Character Sheet (edit)** — owner's editable view; header, vitals, attributes, virtues, affinities, archetypes, skills, talents, equipment, identity, progression, combat state, notes
 4. **Character Sheet (public)** — `/c/{shortId}`, read-only, same content, signed-out visible
 5. **Join campaign** — `/join/{joinToken}`, public/signed-out-visible (UNN-327); a DM's shareable invite link. Signs the player in (OAuth round-trip back to this URL), then adds them to the campaign roster (`campaignUsers`). The token is a separate, rotatable secret from the campaign's stable `shortId`.
+6. **My Campaigns** — `/campaigns` (UNN-329); the signed-in viewer's campaigns split into "Running" (DM) and "Playing in" (member), with a Create-campaign CTA.
+7. **Campaign manage / overview** — `/campaigns/{shortId}` (UNN-329), role-conditional: the DM gets the invite link (copy/regenerate), roster (remove player), encounters (create), and a live-combat banner; a member gets a read-only overview; anyone else 404s.
+8. **Encounter watch (public)** — `/c/encounter/{shortId}` (UNN-329 shell; UNN-334 renders), signed-out-visible player view of a live encounter, linked from the overview + live banner.
 
 ## MVP Scope Limits
 

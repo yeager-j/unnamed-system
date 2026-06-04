@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, asc, desc, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import {
@@ -6,12 +6,18 @@ import {
   campaignUsers,
   type CampaignRow,
 } from "@/lib/db/schema/campaign"
+import { characterArchetypes, characters } from "@/lib/db/schema/character"
+import { users } from "@/lib/db/schema/user"
+
+import type { CharacterSummary } from "./character-list"
 
 /**
  * Reads for the `campaigns` table. The campaign is the durable DM↔player
  * boundary (ADR Decision 9); this loader backs the campaign-DM authorization
- * guard (`requireCampaignDM`) and the campaign surfaces (UNN-329). Nothing here
- * imports another db domain.
+ * guard (`requireCampaignDM`) and the campaign surfaces (UNN-329). Most reads
+ * touch only `campaigns` / `campaignUsers`; the roster read (`loadCampaignRoster`)
+ * is cross-domain by nature — it joins `users` for member display and groups the
+ * campaign's placed `characters` onto each member.
  */
 
 /** The raw `campaigns` row by id, or `null` when no campaign matches. */
@@ -40,6 +46,108 @@ export async function loadCampaignsByDmUserId(
     .from(campaigns)
     .where(eq(campaigns.dmUserId, dmUserId))
     .orderBy(desc(campaigns.createdAt))
+}
+
+/**
+ * Every campaign the user plays in — i.e. is a `campaignUsers` member of — newest
+ * first. Backs the "Playing in" section of My Campaigns (UNN-329); the DM's own
+ * campaigns come from {@link loadCampaignsByDmUserId} and never overlap (the DM is
+ * never a member row).
+ */
+export async function loadCampaignsForMember(
+  userId: string
+): Promise<CampaignRow[]> {
+  const rows = await db
+    .select({ campaign: campaigns })
+    .from(campaignUsers)
+    .innerJoin(campaigns, eq(campaignUsers.campaignId, campaigns.id))
+    .where(eq(campaignUsers.userId, userId))
+    .orderBy(desc(campaigns.createdAt))
+
+  return rows.map((row) => row.campaign)
+}
+
+/** The raw `campaigns` row by public `shortId` (the manage/overview URL), or
+ *  `null` when none matches. Peer of {@link loadCampaignByJoinToken}. */
+export async function loadCampaignByShortId(
+  shortId: string
+): Promise<CampaignRow | null> {
+  const [row] = await db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.shortId, shortId))
+    .limit(1)
+
+  return row ?? null
+}
+
+/** One campaign member plus the characters they've placed into the campaign. A
+ *  member who has placed nothing has an empty `characters` array → the manage
+ *  page renders "No character placed". */
+export interface RosterMember {
+  member: {
+    id: string
+    name: string | null
+    email: string
+    image: string | null
+  }
+  characters: CharacterSummary[]
+}
+
+/**
+ * The campaign's roster for the manage page (UNN-329): every `campaignUsers`
+ * member with their display identity, each carrying the characters they've placed
+ * into this campaign. Two reads — members (`campaignUsers` ⋈ `users`) and the
+ * campaign's placed characters (with `ownerId`) — grouped in app code so a member
+ * with no placed character still appears. Ordered by member name then character
+ * name for a stable render.
+ */
+export async function loadCampaignRoster(
+  campaignId: string
+): Promise<RosterMember[]> {
+  const memberRows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      image: users.image,
+    })
+    .from(campaignUsers)
+    .innerJoin(users, eq(campaignUsers.userId, users.id))
+    .where(eq(campaignUsers.campaignId, campaignId))
+    .orderBy(asc(users.name))
+
+  const characterRows = await db
+    .select({
+      ownerId: characters.ownerId,
+      id: characters.id,
+      shortId: characters.shortId,
+      name: characters.name,
+      level: characters.level,
+      portraitUrl: characters.portraitUrl,
+      activeArchetypeKey: characterArchetypes.archetypeKey,
+      status: characters.status,
+      builderStep: characters.builderStep,
+    })
+    .from(characters)
+    .leftJoin(
+      characterArchetypes,
+      eq(characters.activeArchetypeId, characterArchetypes.id)
+    )
+    .where(eq(characters.campaignId, campaignId))
+    .orderBy(asc(characters.name))
+
+  const charactersByOwner = new Map<string, CharacterSummary[]>()
+  for (const { ownerId, ...summary } of characterRows) {
+    const list = charactersByOwner.get(ownerId) ?? []
+    list.push(summary)
+    charactersByOwner.set(ownerId, list)
+  }
+
+  return memberRows.map((member) => ({
+    member,
+    characters: charactersByOwner.get(member.id) ?? [],
+  }))
 }
 
 /**

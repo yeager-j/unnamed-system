@@ -35,6 +35,7 @@ export async function createEncounterAction(
   const { shortId } = await createEncounter({
     campaignId: parsed.data.campaignId,
     name: parsed.data.name,
+    notes: parsed.data.notes ?? null,
     session: createCombatSession([]),
   })
 
