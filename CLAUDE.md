@@ -177,7 +177,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`.
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership), `Encounter` (`campaignId`, `session` jsonb, `shortId`).
 
 See PRD §8 for the full field list.
 
@@ -187,6 +187,7 @@ See PRD §8 for the full field list.
 2. **Character Builder** — 12-step linear flow (savable, back-navigable); see PRD §5
 3. **Character Sheet (edit)** — owner's editable view; header, vitals, attributes, virtues, affinities, archetypes, skills, talents, equipment, identity, progression, combat state, notes
 4. **Character Sheet (public)** — `/c/{shortId}`, read-only, same content, signed-out visible
+5. **Join campaign** — `/join/{joinToken}`, public/signed-out-visible (UNN-327); a DM's shareable invite link. Signs the player in (OAuth round-trip back to this URL), then adds them to the campaign roster (`campaignUsers`). The token is a separate, rotatable secret from the campaign's stable `shortId`.
 
 ## MVP Scope Limits
 
