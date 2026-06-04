@@ -87,6 +87,35 @@ describe("adjustEnemyVitals", () => {
     expect(statBlockOf(next, "combatant-1")?.maxHP).toBe(12)
   })
 
+  it("clamps an inline enemy's currentHP when maxHP drops below it", () => {
+    // Cave Bat is at 8/8; lowering max to 3 caps current at 3 (no 8/3).
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-1",
+      field: "maxHP",
+      value: 3,
+    })
+    expect(statBlockOf(next, "combatant-1")).toMatchObject({
+      maxHP: 3,
+      currentHP: 3,
+    })
+  })
+
+  it("clamps a catalog enemy's currentHP when maxHP drops below it", () => {
+    // The goblin's working HP defaults to its definition max; lowering max to 5
+    // caps current at 5 (the 16/0 bug).
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-2",
+      field: "maxHP",
+      value: 5,
+    })
+    expect(catalogRefOf(next, "combatant-2")).toMatchObject({
+      maxHP: 5,
+      currentHP: 5,
+    })
+  })
+
   it("is a no-op for a PC combatant", () => {
     const session = build()
     const next = reduceCombatSession(session, {
