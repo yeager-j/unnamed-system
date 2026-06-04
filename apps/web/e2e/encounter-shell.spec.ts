@@ -225,10 +225,33 @@ test("enemy HP adjust drives the bar down to a Dead badge (UNN-309)", async ({
   await page.getByLabel("Amount").fill("9")
   await page.getByRole("button", { name: "Take damage" }).click()
 
-  // 8 − 9 = −1 (overkill is unbounded below) → Dead. Asserted inside the drawer:
-  // it is a modal sheet, so the rail behind it is inert while open.
+  // 8 − 9 floors at 0 → Dead. Asserted inside the drawer: it is a modal sheet,
+  // so the rail behind it is inert while open.
   await expect(drawer.getByText("Dead")).toBeVisible()
-  await expect(drawer.getByText("-1 / 8")).toBeVisible()
+  await expect(drawer.getByText("0 / 8")).toBeVisible()
+})
+
+test("catalog enemy HP is adjustable on its working ref (UNN-309)", async ({
+  page,
+}) => {
+  // The goblin is a catalog enemy: its working HP lives inline on the ref,
+  // defaulting to the definition's max — so its controls are live (they used to
+  // be disabled for lack of a working-HP field).
+  await page.goto(encounterTarget.live.url)
+  await page.getByRole("button", { name: "Open Goblin detail" }).click()
+  const drawer = page.getByRole("dialog")
+
+  const adjustHp = drawer.getByRole("button", {
+    name: "Adjust HP",
+    exact: true,
+  })
+  await expect(adjustHp).toBeEnabled()
+  await adjustHp.click()
+  await page.getByLabel("Amount").fill("1")
+  await page.getByRole("button", { name: "Take damage" }).click()
+
+  // 16 → 15 reads off the ref's working HP (no longer the full-bar fallback).
+  await expect(drawer.getByText("15 / 16")).toBeVisible()
 })
 
 test("ended encounter renders the read-only ended stub", async ({ page }) => {

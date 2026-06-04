@@ -2,13 +2,14 @@
 
 import { HeartIcon, LightningIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useTransition } from "react"
+import { useTransition } from "react"
 import { toast } from "sonner"
 
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
+import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
   damageAction,
   healAction,
@@ -73,17 +74,15 @@ function poolErrorMessage(error: AdjustPoolActionError): string {
 
 /**
  * PC vitals via the pools actions. The console has no `CharacterProvider`, so we
- * thread the vitals token in a ref synced to the prop (mirrors
- * `useCharacterTokenRef`): a rapid second click reads the freshly-bumped token
- * instead of a stale render frame; `router.refresh()` re-reads the new vitals.
+ * thread the vitals token through `useCharacterTokenRef` (the same hook
+ * `rest-dialog.tsx` uses outside a provider): a rapid second click reads the
+ * freshly-bumped token instead of a stale render frame; `router.refresh()`
+ * re-reads the new vitals.
  */
 function PcVitals({ detail }: { detail: PcDetail }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const versionRef = useRef(detail.vitalsVersion)
-  useEffect(() => {
-    versionRef.current = detail.vitalsVersion
-  }, [detail.vitalsVersion])
+  const versionRef = useCharacterTokenRef(detail.vitalsVersion)
 
   function run(
     action: (input: {
@@ -152,8 +151,9 @@ function PcVitals({ detail }: { detail: PcDetail }) {
 /**
  * Enemy vitals via the `adjustEnemyVitals` event (absolute set). Damage/heal and
  * max edits compute the new absolute from the popover amount; the reducer floors
- * max at 0. Catalog enemies are inert (`editable: false`) — no working-HP field
- * yet — so their controls are disabled.
+ * max at 0. Works the same for inline and catalog enemies — a catalog enemy's
+ * working HP lives inline on its ref, defaulting to the definition's max
+ * (UNN-309). No SP control: enemy stat blocks carry no SP.
  */
 function EnemyVitals({
   detail,
@@ -166,7 +166,7 @@ function EnemyVitals({
     value: number
   ) => void
 }) {
-  const { id, hp, editable } = detail
+  const { id, hp } = detail
 
   return (
     <div className="flex flex-col gap-3">
@@ -181,7 +181,7 @@ function EnemyVitals({
             icon={<HeartIcon weight="fill" aria-hidden />}
             decrementLabel="Take damage"
             incrementLabel="Heal"
-            disabled={!editable}
+            disabled={false}
             onDecrement={(amount) =>
               onAdjust(id, "currentHP", hp.current - amount)
             }
@@ -200,19 +200,13 @@ function EnemyVitals({
           icon={<HeartIcon aria-hidden />}
           decrementLabel="Lower max"
           incrementLabel="Raise max"
-          disabled={!editable}
+          disabled={false}
           onDecrement={(amount) =>
             onAdjust(id, "maxHP", Math.max(0, hp.max - amount))
           }
           onIncrement={(amount) => onAdjust(id, "maxHP", hp.max + amount)}
         />
       </div>
-      {!editable ? (
-        <p className="text-xs text-muted-foreground">
-          Catalog enemy — working HP isn&apos;t tracked yet, so its bar reads
-          full and can&apos;t be adjusted.
-        </p>
-      ) : null}
     </div>
   )
 }

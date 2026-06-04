@@ -4,18 +4,18 @@ import type { CombatSession } from "../session"
 import type { EnemyVitalsEvent } from "../session-event"
 
 /**
- * Enemy-vitals slice (UNN-309). `adjustEnemyVitals` sets one field of an
- * **enemy** combatant's inline stat block to an absolute value. It is a **no-op
- * unless the target is an `enemy`-ref combatant** — a PC's vitals live on the
- * character row (written through the pools actions, never the session), and a
- * `catalog-enemy` carries no working-HP field yet (the deferred catalog-HP gap),
- * so neither is touched here. A no-op too when the id is unknown (Immer returns
- * the original session).
+ * Enemy-vitals slice (UNN-309). `adjustEnemyVitals` sets one field of an enemy
+ * combatant's working vitals to an absolute value:
  *
- * `maxHP`/`maxSP` are floored at 0 to keep the stat block valid (its schema
- * requires non-negative maxes); `currentHP`/`currentSP` are left unbounded below
- * so overkill can drive them negative (per the `session.ts` comment). Mirrors
- * `reduce/conditions.ts`: find-by-id, mutate the Immer draft, return the session.
+ * - **inline `enemy`** — writes the field on the inline `statBlock` (HP + SP).
+ * - **`catalog-enemy`** — writes `currentHP`/`maxHP` inline on the ref (its
+ *   immutable identity stays resolved from the definition by `enemyKey`); catalog
+ *   enemies have **no SP**, so the SP fields are ignored.
+ *
+ * A **no-op for a PC** (vitals live on the character row, written through the
+ * pools actions) and for an unknown id (Immer returns the original session).
+ * Every field is **floored at 0** — overkill can't drive HP negative, matching
+ * how the character engine floors PC damage. Mirrors `reduce/conditions.ts`.
  */
 export function reduceEnemyVitalsEvent(
   session: CombatSession,
@@ -24,16 +24,19 @@ export function reduceEnemyVitalsEvent(
   switch (event.kind) {
     case "adjustEnemyVitals":
       return produce(session, (draft) => {
-        const combatant = draft.combatants.find(
+        const ref = draft.combatants.find(
           (entry) => entry.id === event.combatantId
-        )
-        if (combatant === undefined || combatant.ref.kind !== "enemy") return
+        )?.ref
+        if (ref === undefined) return
 
-        const floored =
-          event.field === "maxHP" || event.field === "maxSP"
-            ? Math.max(0, event.value)
-            : event.value
-        combatant.ref.statBlock[event.field] = floored
+        const value = Math.max(0, event.value)
+
+        if (ref.kind === "enemy") {
+          ref.statBlock[event.field] = value
+        } else if (ref.kind === "catalog-enemy") {
+          if (event.field === "currentHP") ref.currentHP = value
+          else if (event.field === "maxHP") ref.maxHP = value
+        }
       })
   }
 }

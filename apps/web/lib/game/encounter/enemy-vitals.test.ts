@@ -41,6 +41,11 @@ function statBlockOf(session: ReturnType<typeof build>, id: string) {
   return ref?.kind === "enemy" ? ref.statBlock : null
 }
 
+function catalogRefOf(session: ReturnType<typeof build>, id: string) {
+  const ref = session.combatants.find((c) => c.id === id)?.ref
+  return ref?.kind === "catalog-enemy" ? ref : null
+}
+
 describe("adjustEnemyVitals", () => {
   it("sets an inline enemy's currentHP to the given value", () => {
     const next = reduceCombatSession(build(), {
@@ -52,14 +57,14 @@ describe("adjustEnemyVitals", () => {
     expect(statBlockOf(next, "combatant-1")?.currentHP).toBe(3)
   })
 
-  it("lets currentHP go negative (overkill)", () => {
+  it("floors currentHP at 0 (overkill can't go negative)", () => {
     const next = reduceCombatSession(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "currentHP",
       value: -5,
     })
-    expect(statBlockOf(next, "combatant-1")?.currentHP).toBe(-5)
+    expect(statBlockOf(next, "combatant-1")?.currentHP).toBe(0)
   })
 
   it("floors maxHP at 0", () => {
@@ -93,13 +98,33 @@ describe("adjustEnemyVitals", () => {
     expect(next).toBe(session)
   })
 
-  it("is a no-op for a catalog enemy (no inline stat block)", () => {
+  it("sets a catalog enemy's working currentHP inline on the ref", () => {
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-2",
+      field: "currentHP",
+      value: 4,
+    })
+    expect(catalogRefOf(next, "combatant-2")?.currentHP).toBe(4)
+  })
+
+  it("sets and floors a catalog enemy's maxHP", () => {
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-2",
+      field: "maxHP",
+      value: -3,
+    })
+    expect(catalogRefOf(next, "combatant-2")?.maxHP).toBe(0)
+  })
+
+  it("ignores SP fields for a catalog enemy (no SP)", () => {
     const session = build()
     const next = reduceCombatSession(session, {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-2",
-      field: "currentHP",
-      value: 1,
+      field: "currentSP",
+      value: 5,
     })
     expect(next).toBe(session)
   })

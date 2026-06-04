@@ -131,27 +131,28 @@ export type CombatantDetail =
       hp: Pool
       attributes: AttributeScores
       affinities: AffinityChart | null
-      /** Whether the DM can adjust this enemy's vitals: `true` for an inline stat
-       *  block, `false` for a catalog enemy (no working-HP field yet — the
-       *  `adjustEnemyVitals` reducer no-ops it). */
-      editable: boolean
     }
 
 function isDowned(combatant: Combatant): boolean {
   return combatant.ailments.includes("downed")
 }
 
-/** A catalog enemy's current HP is unknown until working HP lands, so its bar
- *  reads full (`current === max`); an inline enemy carries real current/max. */
+/** An inline enemy carries current/max on its stat block; a catalog enemy
+ *  carries working HP inline on the ref, each value defaulting to the
+ *  definition's `maxHP` until first adjusted (UNN-309). */
 function enemyHp(combatant: Combatant): Pool {
   const ref = combatant.ref
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
   }
-  // catalog-enemy
-  const max =
-    ref.kind === "catalog-enemy" ? (getEnemy(ref.enemyKey)?.maxHP ?? 0) : 0
-  return { current: max, max }
+  if (ref.kind === "catalog-enemy") {
+    const definitionMax = getEnemy(ref.enemyKey)?.maxHP ?? 0
+    return {
+      current: ref.currentHP ?? definitionMax,
+      max: ref.maxHP ?? definitionMax,
+    }
+  }
+  return { current: 0, max: 0 }
 }
 
 function pcPool(
@@ -285,7 +286,6 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: def?.affinities ?? null,
-      editable: false,
     }
   }
 
@@ -299,6 +299,5 @@ export function combatantDetail(
     hp: enemyHp(combatant),
     attributes: ref.statBlock.attributes,
     affinities: null,
-    editable: true,
   }
 }

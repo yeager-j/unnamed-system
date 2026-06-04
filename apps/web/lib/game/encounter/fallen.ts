@@ -1,4 +1,5 @@
 import { isFallen } from "@/lib/game/character"
+import { getEnemy } from "@/lib/game/enemies"
 
 import type { CombatSession } from "./session"
 
@@ -14,8 +15,8 @@ import type { CombatSession } from "./session"
  *   missing entry is treated as not-Fallen (the caller is expected to supply
  *   every PC combatant's HP).
  * - `enemy` — HP is inline on the session (`statBlock.currentHP`).
- * - `catalog-enemy` — no working-HP field exists on the combatant yet, so it is
- *   treated as not-Fallen for now (a later catalog-HP ticket closes this).
+ * - `catalog-enemy` — working HP is inline on the ref (`currentHP`), defaulting
+ *   to the definition's `maxHP` until first adjusted (UNN-309).
  *
  * This is the **pure half** of the Fallen seam: the impure caller (the DM console
  * / player view, UNN-335 / UNN-322) loads the character rows, builds
@@ -36,6 +37,9 @@ export function fallenCombatantIds(
       if (hp !== undefined && isFallen(hp)) fallen.add(combatant.id)
     } else if (ref.kind === "enemy") {
       if (isFallen(ref.statBlock.currentHP)) fallen.add(combatant.id)
+    } else if (ref.kind === "catalog-enemy") {
+      const currentHP = ref.currentHP ?? getEnemy(ref.enemyKey)?.maxHP ?? 0
+      if (isFallen(currentHP)) fallen.add(combatant.id)
     }
   }
 

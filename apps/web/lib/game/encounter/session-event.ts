@@ -130,13 +130,13 @@ export const ENEMY_VITALS_FIELDS = [
 export type EnemyVitalsField = (typeof ENEMY_VITALS_FIELDS)[number]
 
 /**
- * `adjustEnemyVitals` sets one field of an **enemy** combatant's inline stat
- * block to an absolute `value` (UNN-309). A no-op unless the target is an
- * `enemy`-ref combatant — a PC's vitals live on its character row (pools
- * actions), and a `catalog-enemy` has no working-HP field yet (the deferred
- * catalog-HP gap). `maxHP`/`maxSP` are floored at 0 by the reducer
- * (`statBlock` requires non-negative maxes); `currentHP`/`currentSP` are
- * intentionally unbounded below, so overkill can drive them negative.
+ * `adjustEnemyVitals` sets one field of an enemy combatant's working vitals to
+ * an absolute `value` (UNN-309): an inline `enemy` writes its `statBlock`; a
+ * `catalog-enemy` writes `currentHP`/`maxHP` inline on its ref (its identity
+ * stays resolved from the definition by `enemyKey`, and it has no SP). A no-op
+ * for a PC (vitals live on the character row, written via the pools actions).
+ * Every field is **floored at 0** by the reducer — overkill can't drive HP
+ * negative, matching how the character engine floors PC damage.
  */
 export type EnemyVitalsEvent = {
   kind: "adjustEnemyVitals"
