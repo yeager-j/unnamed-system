@@ -113,7 +113,7 @@ function VitalRow({
         {label}
       </span>
       <VitalBar current={pool.current} max={pool.max} kind={kind} />
-      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+      <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
         {pool.current}/{pool.max}
       </span>
     </div>
