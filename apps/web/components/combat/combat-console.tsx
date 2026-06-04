@@ -8,7 +8,12 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import { buildConsoleView, type PcInfo } from "@/lib/game/encounter"
+import {
+  buildConsoleView,
+  buildRosterView,
+  combatantDetail,
+  type PcCombatantDetail,
+} from "@/lib/game/encounter"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -16,6 +21,8 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
+import { CombatantDrawer } from "./combatant-drawer"
+import { CombatantRail } from "./combatant-rail"
 import { EndOfTurnModal } from "./end-of-turn-modal"
 import { TurnOrderStrip, type ConsolePhase } from "./turn-order-strip"
 import { useCombatConsole } from "./use-combat-console"
@@ -33,15 +40,16 @@ import { useCombatConsole } from "./use-combat-console"
  * - current actor, acted, modal open → **resolving** (End turn pressed);
  * - current actor, acted, modal closed → **drafting** the next actor.
  *
- * The combatant rail + detail drawer and the Zone/battlefield map are separate
- * M5 tickets (UNN-314 et al.), so below the spine sits a placeholder for them.
+ * Below the spine sits the combatant **rail** (UNN-345) and the battlefield
+ * placeholder (the zone map is UNN-314); tapping a rail row opens the
+ * per-combatant **detail drawer** (UNN-345).
  */
 export function CombatConsole({
   encounter,
-  pcInfoById,
+  pcDetailById,
 }: {
   encounter: EncounterRow
-  pcInfoById: Record<string, PcInfo>
+  pcDetailById: Record<string, PcCombatantDetail>
 }) {
   const { session, isPending, dispatch } = useCombatConsole(
     encounter.id,
@@ -49,9 +57,17 @@ export function CombatConsole({
     encounter.version
   )
   const [modalOpen, setModalOpen] = useState(false)
+  const [selectedCombatantId, setSelectedCombatantId] = useState<string | null>(
+    null
+  )
 
-  const view = buildConsoleView(session, pcInfoById)
+  const view = buildConsoleView(session, pcDetailById)
   const { currentActor } = view
+  const roster = buildRosterView(session, pcDetailById)
+  const selectedDetail =
+    selectedCombatantId !== null
+      ? combatantDetail(session, selectedCombatantId, pcDetailById)
+      : null
 
   const phase: ConsolePhase =
     currentActor === null
@@ -170,11 +186,14 @@ export function CombatConsole({
           No combatants in this encounter.
         </p>
       ) : (
-        <div
-          className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-          data-testid="combat-console-battlefield-placeholder"
-        >
-          Combatant rail + battlefield — built in later M5 tickets.
+        <div className="flex flex-1 flex-col gap-6 md:flex-row">
+          <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
+          <div
+            className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
+            data-testid="combat-console-battlefield-placeholder"
+          >
+            Battlefield — Zones &amp; engagement (UNN-314).
+          </div>
         </div>
       )}
 
@@ -182,6 +201,11 @@ export function CombatConsole({
         actorName={currentActor?.name ?? ""}
         open={modalOpen && phase === "resolving"}
         onDone={() => setModalOpen(false)}
+      />
+
+      <CombatantDrawer
+        detail={selectedDetail}
+        onClose={() => setSelectedCombatantId(null)}
       />
     </main>
   )

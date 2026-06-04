@@ -181,6 +181,33 @@ test("live console: a full round of turns offers the next round", async ({
   ).toBeVisible()
 })
 
+test("rail row opens the PC detail drawer (UNN-345)", async ({ page }) => {
+  await page.goto(encounterTarget.live.url)
+  await expect(page.getByText("Players · 1")).toBeVisible()
+  await expect(page.getByText("Enemies · 2")).toBeVisible()
+
+  await page.getByRole("button", { name: "Open Roan Vale detail" }).click()
+  const drawer = page.getByRole("dialog")
+  await expect(drawer.getByText("Attributes")).toBeVisible()
+  await expect(drawer.getByText("Affinities")).toBeVisible()
+  // PC footer: edits flow to the character sheet (read-only container here).
+  await expect(
+    drawer.getByText(/character sheet — the player sees it live/)
+  ).toBeVisible()
+})
+
+test("rail row opens an enemy detail drawer (UNN-345)", async ({ page }) => {
+  await page.goto(encounterTarget.live.url)
+
+  // Cave Bat is an inline stat block: no SP, no affinity chart, encounter-scoped.
+  await page.getByRole("button", { name: "Open Cave Bat detail" }).click()
+  const drawer = page.getByRole("dialog")
+  await expect(drawer.getByText("No affinity data.")).toBeVisible()
+  await expect(
+    drawer.getByText(/Edits affect this enemy in this encounter only/)
+  ).toBeVisible()
+})
+
 test("ended encounter renders the read-only ended stub", async ({ page }) => {
   await page.goto(encounterTarget.ended.url)
   await expect(page.getByTestId("combat-ended-stub")).toBeVisible()

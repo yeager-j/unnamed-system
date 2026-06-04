@@ -1,0 +1,149 @@
+"use client"
+
+import {
+  ArrowUUpLeftIcon,
+  CheckIcon,
+  MapPinIcon,
+} from "@phosphor-icons/react/dist/ssr"
+import Image from "next/image"
+
+import { Badge } from "@workspace/ui/components/badge"
+import { cn } from "@workspace/ui/lib/utils"
+
+import type { RailRow } from "@/lib/game/encounter"
+import { initials } from "@/lib/ui/initials"
+import { avatarSrc } from "@/lib/ui/portrait"
+
+import { VitalBar } from "./vital-bar"
+
+/**
+ * One combatant row in the rail (UNN-345). Token + name + HP (and SP for PCs)
+ * bars; acted/Fallen rows dim with a ✓, Downed shows a badge. Two behaviors,
+ * kept distinct: **clicking the row opens the drawer** (`onSelect`), and the
+ * **acting** row (`isCurrent`) auto-expands — because it's that combatant's
+ * turn, not a click — to surface engagement, zone, and reaction. The write
+ * controls (HP −/+, ailments, …) live in the drawer, not here.
+ */
+export function CombatantRailRow({
+  row,
+  onSelect,
+}: {
+  row: RailRow
+  onSelect: (combatantId: string) => void
+}) {
+  const dimmed = row.hasActed || row.isFallen
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(row.id)}
+      aria-label={`Open ${row.name} detail`}
+      className={cn(
+        "flex w-full flex-col gap-2 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/50",
+        row.isCurrent ? "border-foreground bg-muted/30" : "border-border",
+        dimmed && "opacity-60"
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        <Token row={row} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-medium">{row.name}</span>
+              {row.isDowned ? (
+                <Badge variant="destructive" className="shrink-0">
+                  Downed
+                </Badge>
+              ) : null}
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              {row.isCurrent ? (
+                <Badge className="shrink-0">acting</Badge>
+              ) : null}
+              {row.hasActed ? (
+                <CheckIcon
+                  weight="bold"
+                  className="size-3.5 text-muted-foreground"
+                  aria-label="Acted"
+                />
+              ) : null}
+            </span>
+          </div>
+
+          <VitalRow label="HP" pool={row.hp} kind="hp" />
+          {row.sp ? <VitalRow label="SP" pool={row.sp} kind="sp" /> : null}
+        </div>
+      </div>
+
+      {row.isCurrent ? (
+        <div className="flex flex-wrap items-center gap-1.5 pl-[2.875rem]">
+          <Badge variant="outline">
+            {row.engagement.status === "engaged" ? "Engaged" : "Free"}
+          </Badge>
+          <Badge variant="outline" className="gap-1">
+            <MapPinIcon />
+            {row.zoneId || "Unzoned"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn("gap-1", !row.reactionAvailable && "opacity-60")}
+          >
+            <ArrowUUpLeftIcon />
+            {row.reactionAvailable ? "Reaction up" : "Reaction used"}
+          </Badge>
+        </div>
+      ) : null}
+    </button>
+  )
+}
+
+/** The label · bar · value triple shared by the HP and SP rows. */
+function VitalRow({
+  label,
+  pool,
+  kind,
+}: {
+  label: string
+  pool: { current: number; max: number }
+  kind: "hp" | "sp"
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-5 shrink-0 text-[10px] font-medium text-muted-foreground">
+        {label}
+      </span>
+      <VitalBar current={pool.current} max={pool.max} kind={kind} />
+      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+        {pool.current}/{pool.max}
+      </span>
+    </div>
+  )
+}
+
+/** PC ⇒ portrait or stable gradient; enemy ⇒ a side-tinted initials square. */
+function Token({ row }: { row: RailRow }) {
+  if (row.isPc) {
+    return (
+      <Image
+        src={avatarSrc(row.portraitUrl, row.name || row.id)}
+        alt=""
+        width={36}
+        height={36}
+        className="size-9 shrink-0 rounded-none object-cover"
+      />
+    )
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-none text-[10px] font-semibold",
+        row.side === "players"
+          ? "bg-primary/10 text-primary"
+          : "bg-destructive/10 text-destructive"
+      )}
+    >
+      {initials(row.name)}
+    </span>
+  )
+}

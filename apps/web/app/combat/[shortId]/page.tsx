@@ -6,13 +6,12 @@ import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { auth } from "@/lib/auth"
-import {
-  loadCharacterVitalsByIds,
-  loadPlacedCharactersForCampaign,
-} from "@/lib/db/queries/character-list"
+import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import { loadEncounterRowByShortId } from "@/lib/db/queries/load-encounter"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import type { PcCombatantDetail } from "@/lib/game/encounter"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -86,8 +85,16 @@ export default async function CombatPage({ params }: PageProps) {
         (combatant) =>
           combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
       )
-      const pcInfoById = await loadCharacterVitalsByIds(pcCharacterIds)
-      return <CombatConsole encounter={encounter} pcInfoById={pcInfoById} />
+      // The rail/drawer read identity + vitals + attributes + affinities off the
+      // hydrated sheet; `PcCombatantDetail` is a narrowing of it (no mapper).
+      const hydrated = await Promise.all(
+        pcCharacterIds.map((id) => loadHydratedCharacterById(id))
+      )
+      const pcDetailById: Record<string, PcCombatantDetail> =
+        Object.fromEntries(
+          hydrated.filter((c) => c !== null).map((c) => [c.id, c])
+        )
+      return <CombatConsole encounter={encounter} pcDetailById={pcDetailById} />
     }
     case "ended":
       return <EncounterEndedStub encounter={encounter} />
