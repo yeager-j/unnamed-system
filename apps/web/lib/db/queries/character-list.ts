@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
@@ -95,6 +95,40 @@ export async function loadPlacedCharactersForCampaign(
     .orderBy(asc(characters.name))
 
   return rows
+}
+
+/** A PC combatant's persistent name + current HP, keyed by character id. The
+ *  live DM console (UNN-344) injects this into its pure view: a PC's name and
+ *  Fallen state live on the character row, not the session. */
+export interface CharacterVitals {
+  name: string
+  currentHP: number
+}
+
+/**
+ * The `name` + `currentHP` of every character in `characterIds`, keyed by id —
+ * the one batch read the live console needs to label its PC combatants and
+ * resolve their Fallen state (`fallenCombatantIds`). One round trip via
+ * `IN (...)`; an empty id list short-circuits to `{}` (Drizzle rejects an empty
+ * `inArray`). Selects only the two columns, never the heavy character JSON.
+ */
+export async function loadCharacterVitalsByIds(
+  characterIds: string[]
+): Promise<Record<string, CharacterVitals>> {
+  if (characterIds.length === 0) return {}
+
+  const rows = await db
+    .select({
+      id: characters.id,
+      name: characters.name,
+      currentHP: characters.currentHP,
+    })
+    .from(characters)
+    .where(inArray(characters.id, characterIds))
+
+  return Object.fromEntries(
+    rows.map((row) => [row.id, { name: row.name, currentHP: row.currentHP }])
+  )
 }
 
 /**

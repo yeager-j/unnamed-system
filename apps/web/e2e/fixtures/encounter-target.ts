@@ -5,6 +5,7 @@ import { encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import {
   createCombatSession,
+  reduceCombatSession,
   type CombatantSetup,
   type CombatSession,
 } from "@/lib/game/encounter"
@@ -65,6 +66,18 @@ const lifecycleChar = makeSeedCharacter({
 })
 
 const LIFECYCLE_CHAR_ID = `seed-char-${lifecycleChar.slug}`
+
+/** A dev-owned, finalized character placed into Campaign B and standing as a PC
+ *  combatant in its **live** encounter — the live console's turn-flow tests in
+ *  `encounter-shell.spec.ts` (UNN-344) drive its turn. Dedicated (and thus
+ *  live-locked) so no placement/lifecycle spec contends with it. */
+const liveCombatPc = makeSeedCharacter({
+  slug: "live-combat-pc",
+  shortId: "live-combat-pc",
+  name: "Roan Vale",
+})
+
+const LIVE_COMBAT_PC_ID = `seed-char-${liveCombatPc.slug}`
 
 /** A dev-DM campaign reserved for the placement spec (UNN-328) — uncontended, so
  *  placing/unplacing/moving into it doesn't disturb the other campaign specs. */
@@ -130,6 +143,37 @@ const pcSetup: CombatantSetup = {
   zoneId: "",
 }
 
+/** The live encounter's started roster (UNN-344): one PC on the players side and
+ *  two enemies (a catalog goblin + an inline stat block) so drafting, side
+ *  alternation, and back-to-back finishing are all exercisable. */
+const liveRoster: CombatantSetup[] = [
+  {
+    side: "players",
+    ref: { kind: "pc", characterId: LIVE_COMBAT_PC_ID },
+    zoneId: "",
+  },
+  {
+    side: "enemies",
+    ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+    zoneId: "",
+  },
+  {
+    side: "enemies",
+    ref: {
+      kind: "enemy",
+      statBlock: {
+        name: "Cave Bat",
+        maxHP: 8,
+        currentHP: 8,
+        maxSP: 0,
+        currentSP: 0,
+        attributes: { strength: 0, magic: 0, agility: 2, luck: 0 },
+      },
+    },
+    zoneId: "",
+  },
+]
+
 /** A stable id generator so re-seeding doesn't churn the session blob. */
 function deterministicIds(slug: string): () => string {
   let n = 0
@@ -150,15 +194,23 @@ function seededEncounter(
   slug: string,
   status: EncounterStatus,
   campaignId: string,
-  roster: CombatantSetup[]
+  roster: CombatantSetup[],
+  start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
+  const base = createCombatSession(roster, deterministicIds(slug))
+  // A `live` encounter has already run `startCombat`, so its advantage/firstSide
+  // are set — replay that event here so the seeded session matches a real live
+  // one (the console's advantage chip + drafting order need it).
+  const session = start
+    ? reduceCombatSession(base, { kind: "startCombat", ...start })
+    : base
   return {
     id: `seed-encounter-${slug}`,
     shortId: `encounter-${slug}`,
     status,
     campaignId,
     url: `/combat/encounter-${slug}`,
-    session: createCombatSession(roster, deterministicIds(slug)),
+    session,
   }
 }
 
@@ -171,12 +223,17 @@ export const encounterTarget = {
   placementChar: { seed: placementChar, characterId: PLACEMENT_CHAR_ID },
   lifecycleChar: { seed: lifecycleChar, characterId: LIFECYCLE_CHAR_ID },
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
+  liveCombatPc: { seed: liveCombatPc, characterId: LIVE_COMBAT_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */
   draft: seededEncounter("draft", "draft", campaignA.id, [pcSetup]),
   /** Campaign A, read-only ended stub. */
   ended: seededEncounter("ended", "ended", campaignA.id, []),
-  /** Campaign B's live encounter → the combat console stub. */
-  live: seededEncounter("live", "live", campaignB.id, []),
+  /** Campaign B's live encounter → the live combat console (UNN-344): a started
+   *  session (neutral advantage, players first) with a PC + two enemies. */
+  live: seededEncounter("live", "live", campaignB.id, liveRoster, {
+    advantage: "neutral",
+    firstSide: "players",
+  }),
   /** Campaign B, draft — starting it is rejected by the single-live guard (B
    *  already has `live`). Seeded with one combatant so Start is clickable. */
   blocked: seededEncounter("blocked", "draft", campaignB.id, [enemySetup]),

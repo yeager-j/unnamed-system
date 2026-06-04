@@ -305,12 +305,15 @@ async function seedEncounterFixtures(): Promise<void> {
     placedPc,
     placementChar,
     lifecycleChar,
+    liveCombatPc,
   } = encounterTarget
 
   // Dev-owned unplaced characters the placement (UNN-328) + lifecycle (UNN-330)
   // specs move around / delete.
   await seedCharacter(placementChar.seed, DEV_USER.id)
   await seedCharacter(lifecycleChar.seed, DEV_USER.id)
+  // The PC standing as a combatant in Campaign B's live encounter (UNN-344).
+  await seedCharacter(liveCombatPc.seed, DEV_USER.id)
 
   // Two dev-DM campaigns (A = startable draft + ended; B = live + a draft the
   // single-live guard rejects), one foreign (seed-user) campaign for the 404
@@ -336,6 +339,13 @@ async function seedEncounterFixtures(): Promise<void> {
     .update(characters)
     .set({ campaignId: campaignA.id })
     .where(eq(characters.id, placedPc.characterId))
+
+  // Place the live-combat PC into Campaign B (it is a combatant in B's live
+  // encounter — UNN-344).
+  await db
+    .update(characters)
+    .set({ campaignId: campaignB.id })
+    .where(eq(characters.id, liveCombatPc.characterId))
 
   for (const encounter of SEEDED_ENCOUNTERS) {
     const row = {
