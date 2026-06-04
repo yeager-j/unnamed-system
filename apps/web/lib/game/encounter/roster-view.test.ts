@@ -43,6 +43,7 @@ const ROAN: PcCombatantDetail = {
   attributes: { strength: 2, magic: 0, agility: 1, luck: -1 },
   affinityChart: neutralChart({ fire: "weak", ice: "resist" }),
   activeArchetypeKey: null,
+  vitalsVersion: 4,
 }
 
 const CAVE_BAT_STAT_BLOCK = {
@@ -174,6 +175,9 @@ describe("combatantDetail", () => {
       expect(detail.sp).toEqual({ current: 8, max: 12 })
       expect(detail.affinities.fire).toBe("weak")
       expect(detail.attributes.strength).toBe(2)
+      // The pools writes need the character-row id + its vitals token.
+      expect(detail.characterId).toBe("char-roan")
+      expect(detail.vitalsVersion).toBe(4)
     }
   })
 

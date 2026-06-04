@@ -52,6 +52,9 @@ export type PcCombatantDetail = Pick<
   | "attributes"
   | "affinityChart"
   | "activeArchetypeKey"
+  // The vitals-class optimistic token the DM's HP/SP pools writes condition on
+  // (UNN-309) — the only version the combat console touches.
+  | "vitalsVersion"
 >
 
 /** A current/max pool, the shape both vitals bars render. */
@@ -104,6 +107,10 @@ export type CombatantDetail =
   | {
       kind: "pc"
       id: string
+      /** The character-row id the pools actions write (≠ the combatant id). */
+      characterId: string
+      /** Vitals-class token for the DM's pools writes (UNN-309). */
+      vitalsVersion: number
       name: string
       side: CombatSide
       level: number
@@ -124,6 +131,10 @@ export type CombatantDetail =
       hp: Pool
       attributes: AttributeScores
       affinities: AffinityChart | null
+      /** Whether the DM can adjust this enemy's vitals: `true` for an inline stat
+       *  block, `false` for a catalog enemy (no working-HP field yet — the
+       *  `adjustEnemyVitals` reducer no-ops it). */
+      editable: boolean
     }
 
 function isDowned(combatant: Combatant): boolean {
@@ -236,6 +247,8 @@ export function combatantDetail(
     return {
       kind: "pc",
       id: combatant.id,
+      characterId: ref.characterId,
+      vitalsVersion: detail?.vitalsVersion ?? 0,
       name,
       side: combatant.side,
       level: detail?.level ?? 1,
@@ -272,6 +285,7 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: def?.affinities ?? null,
+      editable: false,
     }
   }
 
@@ -285,5 +299,6 @@ export function combatantDetail(
     hp: enemyHp(combatant),
     attributes: ref.statBlock.attributes,
     affinities: null,
+    editable: true,
   }
 }

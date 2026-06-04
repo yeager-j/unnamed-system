@@ -24,6 +24,11 @@ import {
  * or a mobile centered dialog (`AdjustPoolDialog`). Pool-agnostic: the caller
  * supplies the labels and the increment / decrement callbacks, so the same
  * form drives both HP and SP adjustments.
+ *
+ * Cross-feature primitive (`components/shared/`): the character sheet's
+ * owner-actions affordance and the combat console's drawer VITALS section
+ * (UNN-309) both drive it — the sheet through `useCharacterWrite`, the console
+ * through the DM-authorized pools actions / the `adjustEnemyVitals` event.
  */
 
 export function AdjustPoolForm({

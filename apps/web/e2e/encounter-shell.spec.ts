@@ -208,6 +208,29 @@ test("rail row opens an enemy detail drawer (UNN-345)", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("enemy HP adjust drives the bar down to a Dead badge (UNN-309)", async ({
+  page,
+}) => {
+  // Enemy vitals live on the session blob, which `resetEncounterFixtures`
+  // restores per test — so this is self-cleaning and won't perturb the
+  // (serial) turn-flow tests. PC HP is the character row and is NOT reset, so
+  // there is deliberately no PC-vitals e2e here.
+  await page.goto(encounterTarget.live.url)
+  const caveBat = page.getByRole("button", { name: "Open Cave Bat detail" })
+  await expect(caveBat).toContainText("8/8")
+
+  await caveBat.click()
+  const drawer = page.getByRole("dialog")
+  await drawer.getByRole("button", { name: "Adjust HP", exact: true }).click()
+  await page.getByLabel("Amount").fill("9")
+  await page.getByRole("button", { name: "Take damage" }).click()
+
+  // 8 − 9 = −1 (overkill is unbounded below) → Dead. Asserted inside the drawer:
+  // it is a modal sheet, so the rail behind it is inert while open.
+  await expect(drawer.getByText("Dead")).toBeVisible()
+  await expect(drawer.getByText("-1 / 8")).toBeVisible()
+})
+
 test("ended encounter renders the read-only ended stub", async ({ page }) => {
   await page.goto(encounterTarget.ended.url)
   await expect(page.getByTestId("combat-ended-stub")).toBeVisible()
