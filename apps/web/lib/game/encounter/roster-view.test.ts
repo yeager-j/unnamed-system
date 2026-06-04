@@ -1,0 +1,202 @@
+import { describe, expect, it } from "vitest"
+
+import { DAMAGE_TYPES, type Affinity, type DamageType } from "@/lib/game/combat"
+
+import {
+  buildRosterView,
+  combatantDetail,
+  type PcCombatantDetail,
+} from "./roster-view"
+import {
+  createCombatSession,
+  type Combatant,
+  type CombatantSetup,
+  type CombatSession,
+} from "./session"
+
+function sequentialIds() {
+  let n = 0
+  return () => `combatant-${n++}`
+}
+
+/** A full {@link DamageType} chart defaulting to Neutral, matching
+ *  `HydratedCharacter.affinityChart`'s required-key shape. */
+function neutralChart(
+  overrides: Partial<Record<DamageType, Affinity>> = {}
+): Record<DamageType, Affinity> {
+  const base = Object.fromEntries(
+    DAMAGE_TYPES.map((type) => [type, "neutral"])
+  ) as Record<DamageType, Affinity>
+  return { ...base, ...overrides }
+}
+
+const ROAN: PcCombatantDetail = {
+  id: "char-roan",
+  name: "Roan Vale",
+  pronouns: "they/them",
+  portraitUrl: "https://example.com/roan.png",
+  level: 3,
+  currentHP: 18,
+  maxHP: 30,
+  currentSP: 8,
+  maxSP: 12,
+  attributes: { strength: 2, magic: 0, agility: 1, luck: -1 },
+  affinityChart: neutralChart({ fire: "weak", ice: "resist" }),
+  activeArchetypeKey: null,
+}
+
+const CAVE_BAT_STAT_BLOCK = {
+  name: "Cave Bat",
+  maxHP: 8,
+  currentHP: 5,
+  maxSP: 0,
+  currentSP: 0,
+  attributes: { strength: 0, magic: 0, agility: 2, luck: 0 },
+}
+
+/** combatant-0 Roan (PC, players), combatant-1 catalog goblin, combatant-2
+ *  inline Cave Bat — both enemies. */
+const SETUP: CombatantSetup[] = [
+  {
+    side: "players",
+    ref: { kind: "pc", characterId: "char-roan" },
+    zoneId: "z",
+  },
+  {
+    side: "enemies",
+    ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+    zoneId: "z",
+  },
+  {
+    side: "enemies",
+    ref: { kind: "enemy", statBlock: CAVE_BAT_STAT_BLOCK },
+    zoneId: "z",
+  },
+]
+
+const PC_DETAIL: Record<string, PcCombatantDetail> = { "char-roan": ROAN }
+
+function build(): CombatSession {
+  return {
+    ...createCombatSession(SETUP, sequentialIds()),
+    advantage: "neutral",
+    firstSide: "players",
+  }
+}
+
+function withCombatant(
+  session: CombatSession,
+  id: string,
+  patch: Partial<Combatant>
+): CombatSession {
+  return {
+    ...session,
+    combatants: session.combatants.map((c) =>
+      c.id === id ? { ...c, ...patch } : c
+    ),
+  }
+}
+
+describe("buildRosterView", () => {
+  it("groups by side in session order with enemy counts", () => {
+    const view = buildRosterView(build(), PC_DETAIL)
+
+    expect(view.players.map((r) => r.name)).toEqual(["Roan Vale"])
+    expect(view.enemies.map((r) => r.name)).toEqual(["Goblin", "Cave Bat"])
+    expect(view.enemyCount).toBe(2)
+    expect(view.downedEnemyCount).toBe(0)
+  })
+
+  it("gives a PC HP + SP and its portrait", () => {
+    const pc = buildRosterView(build(), PC_DETAIL).players[0]!
+    expect(pc.hp).toEqual({ current: 18, max: 30 })
+    expect(pc.sp).toEqual({ current: 8, max: 12 })
+    expect(pc.portraitUrl).toBe("https://example.com/roan.png")
+  })
+
+  it("gives enemies HP only (no SP, no portrait)", () => {
+    const [goblin, caveBat] = buildRosterView(build(), PC_DETAIL).enemies
+    expect(goblin!.sp).toBeNull()
+    expect(goblin!.portraitUrl).toBeNull()
+    expect(caveBat!.sp).toBeNull()
+  })
+
+  it("reads an inline enemy's real current/max HP", () => {
+    const caveBat = buildRosterView(build(), PC_DETAIL).enemies[1]!
+    expect(caveBat.hp).toEqual({ current: 5, max: 8 })
+  })
+
+  it("renders a catalog enemy at full HP (no working-HP field yet)", () => {
+    const goblin = buildRosterView(build(), PC_DETAIL).enemies[0]!
+    expect(goblin.hp.current).toBe(goblin.hp.max)
+    expect(goblin.hp.max).toBeGreaterThan(0)
+  })
+
+  it("flags Downed and rolls it up across the enemies group", () => {
+    const session = withCombatant(build(), "combatant-2", {
+      ailments: ["downed"],
+    })
+    const view = buildRosterView(session, PC_DETAIL)
+
+    expect(view.enemies[1]!.isDowned).toBe(true)
+    expect(view.downedEnemyCount).toBe(1)
+  })
+
+  it("flags the acted and the acting combatant", () => {
+    let session = withCombatant(build(), "combatant-0", {
+      hasActedThisRound: true,
+    })
+    session = { ...session, currentActorId: "combatant-1" }
+    const view = buildRosterView(session, PC_DETAIL)
+
+    expect(view.players[0]!.hasActed).toBe(true)
+    expect(view.enemies[0]!.isCurrent).toBe(true)
+  })
+})
+
+describe("combatantDetail", () => {
+  it("returns null for an unknown combatant", () => {
+    expect(combatantDetail(build(), "nope", PC_DETAIL)).toBeNull()
+  })
+
+  it("shapes a PC: identity, vitals, attributes, affinities", () => {
+    const detail = combatantDetail(build(), "combatant-0", PC_DETAIL)!
+
+    expect(detail.kind).toBe("pc")
+    expect(detail).toMatchObject({
+      name: "Roan Vale",
+      level: 3,
+      pronouns: "they/them",
+      className: null, // no active archetype in this fixture
+      hp: { current: 18, max: 30 },
+    })
+    if (detail.kind === "pc") {
+      expect(detail.sp).toEqual({ current: 8, max: 12 })
+      expect(detail.affinities.fire).toBe("weak")
+      expect(detail.attributes.strength).toBe(2)
+    }
+  })
+
+  it("shapes a catalog enemy: level + attributes + affinity chart, full HP", () => {
+    const detail = combatantDetail(build(), "combatant-1", PC_DETAIL)!
+
+    expect(detail.kind).toBe("enemy")
+    if (detail.kind === "enemy") {
+      expect(detail.level).toBeTypeOf("number")
+      expect(detail.affinities).not.toBeNull()
+      expect(detail.hp.current).toBe(detail.hp.max)
+    }
+  })
+
+  it("shapes an inline enemy: stat-block attributes, no level, no chart", () => {
+    const detail = combatantDetail(build(), "combatant-2", PC_DETAIL)!
+
+    expect(detail.kind).toBe("enemy")
+    if (detail.kind === "enemy") {
+      expect(detail.level).toBeNull()
+      expect(detail.affinities).toBeNull()
+      expect(detail.attributes.agility).toBe(2)
+      expect(detail.hp).toEqual({ current: 5, max: 8 })
+    }
+  })
+})

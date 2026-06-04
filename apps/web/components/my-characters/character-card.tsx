@@ -16,6 +16,7 @@ import {
 } from "@/components/builder/builder-steps"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
+import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CharacterCardActions } from "./character-card-actions"
 
@@ -51,7 +52,10 @@ export function CharacterCard({ character }: CharacterCardProps) {
           width={64}
           height={64}
           className="object-cover"
-          src={portraitSrc(character)}
+          src={avatarSrc(
+            character.portraitUrl,
+            character.name.trim() || character.shortId
+          )}
           alt=""
         />
       </ItemMedia>
@@ -96,17 +100,4 @@ function describe(character: CharacterSummary): string {
     return `In progress · Step ${stepNumber} of ${BUILDER_STEPS.length}`
   }
   return `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`
-}
-
-/**
- * The character's uploaded portrait, or a Vercel-hosted SVG avatar
- * deterministically derived from the name as a fallback. The fallback
- * service keeps unportraited rosters visually varied without shipping
- * placeholder art. Empty-name drafts seed the avatar with the `shortId` so
- * every draft still gets a stable, unique gradient.
- */
-function portraitSrc(character: CharacterSummary): string {
-  if (character.portraitUrl) return character.portraitUrl
-  const seed = character.name.trim() || character.shortId
-  return `https://avatar.vercel.sh/${encodeURIComponent(seed)}`
 }
