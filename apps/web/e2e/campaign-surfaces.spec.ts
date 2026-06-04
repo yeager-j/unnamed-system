@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
+import { characters } from "@/lib/db/schema/character"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -24,8 +25,12 @@ test.use({ storageState: STORAGE_STATE })
 test.describe.configure({ mode: "serial" })
 
 /** Campaigns this spec created via the UI, deleted after the run (cascades to
- *  their encounters). */
+ *  their encounters + membership). */
 const createdCampaignShortIds: string[] = []
+
+/** The seed-user-owned showcase character the cascade test places + unplaces. */
+const SEED_USER_ID = "seed-user"
+const SEED_WARRIOR_ID = "seed-char-warrior"
 
 async function clearDevOverviewMembership(): Promise<void> {
   await getDb()
@@ -40,10 +45,14 @@ async function clearDevOverviewMembership(): Promise<void> {
 
 test.afterAll(async () => {
   await clearDevOverviewMembership()
-  if (createdCampaignShortIds.length > 0) {
-    await getDb()
-      .delete(campaigns)
-      .where(eq(campaigns.shortId, createdCampaignShortIds[0]!))
+  // Unplace the warrior in case a cascade test failed before removing it
+  // (deleting its campaign below would also FK-null it, but be explicit).
+  await getDb()
+    .update(characters)
+    .set({ campaignId: null })
+    .where(eq(characters.id, SEED_WARRIOR_ID))
+  for (const shortId of createdCampaignShortIds) {
+    await getDb().delete(campaigns).where(eq(campaigns.shortId, shortId))
   }
 })
 
@@ -117,7 +126,61 @@ test("create an encounter from the manage page → DM console", async ({
   await expect(page).toHaveURL(/\/combat\/[^/]+$/)
 })
 
-test("a member sees a read-only overview", async ({ page }) => {
+test("removing a player unplaces their characters", async ({ page }) => {
+  const shortId = createdCampaignShortIds[0]!
+  const [campaign] = await getDb()
+    .select({ id: campaigns.id })
+    .from(campaigns)
+    .where(eq(campaigns.shortId, shortId))
+  const campaignId = campaign!.id
+
+  // Seed-user joins the dev's campaign and places their warrior into it.
+  await getDb()
+    .insert(campaignUsers)
+    .values({ campaignId, userId: SEED_USER_ID })
+    .onConflictDoNothing()
+  await getDb()
+    .update(characters)
+    .set({ campaignId })
+    .where(eq(characters.id, SEED_WARRIOR_ID))
+
+  await page.goto(`/campaigns/${shortId}`)
+  // The roster shows the member with their placed character.
+  await expect(page.getByText("Persona System Seed")).toBeVisible()
+  await expect(page.getByText("Brann Holt")).toBeVisible()
+
+  await page.getByRole("button", { name: "Remove Persona System Seed" }).click()
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Remove" })
+    .click()
+  await expect(
+    page.getByText("No players have joined yet", { exact: false })
+  ).toBeVisible()
+
+  // Membership is gone AND the character was unplaced — the `set null` FK does
+  // not fire on a campaignUsers delete, so the explicit UPDATE is what we verify.
+  const members = await getDb()
+    .select()
+    .from(campaignUsers)
+    .where(
+      and(
+        eq(campaignUsers.campaignId, campaignId),
+        eq(campaignUsers.userId, SEED_USER_ID)
+      )
+    )
+  expect(members).toHaveLength(0)
+
+  const [warrior] = await getDb()
+    .select({ campaignId: characters.campaignId })
+    .from(characters)
+    .where(eq(characters.id, SEED_WARRIOR_ID))
+  expect(warrior!.campaignId).toBeNull()
+})
+
+test("a member sees a read-only overview and the campaign shows under Playing in", async ({
+  page,
+}) => {
   // Make the dev user a member of the uncontended overview campaign.
   await getDb()
     .insert(campaignUsers)
@@ -133,6 +196,15 @@ test("a member sees a read-only overview", async ({ page }) => {
   ).toBeVisible()
   // No DM-only invite-link control.
   await expect(page.getByText("Invite link")).toBeHidden()
+
+  // The joined campaign appears under My Campaigns → "Playing in".
+  await page.goto("/campaigns")
+  const playing = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Playing in" }) })
+  await expect(
+    playing.getByText(encounterTarget.overviewCampaign.name)
+  ).toBeVisible()
 
   await clearDevOverviewMembership()
 })
