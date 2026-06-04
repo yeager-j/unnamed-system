@@ -136,19 +136,22 @@ describe("buildConsoleView", () => {
     expect(view.draftingSide).toBe("enemies")
   })
 
-  it("marks a Downed combatant and excludes it from the draft", () => {
+  it("keeps a Downed combatant draft-eligible so it can recover on draft", () => {
     const base = build()
     const session: CombatSession = {
       ...base,
       combatants: base.combatants.map((c) =>
-        c.id === "combatant-1" ? { ...c, ailments: ["downed"] } : c
+        c.id === "combatant-0" ? { ...c, ailments: ["downed"] } : c
       ),
     }
     const view = buildConsoleView(session, PC_INFO)
 
-    const downed = view.rows.find((r) => r.id === "combatant-1")!
-    expect(downed.isDowned).toBe(true)
-    expect(downed.isEligible).toBe(false)
+    // Players lead and the Downed PC is on that side — still a valid pick. The
+    // draft slice clears Downed on draft (rulebook: "recover at the start of
+    // your turn"); only Fallen are skipped.
+    const downed = view.rows.find((r) => r.id === "combatant-0")!
+    expect(downed.isFallen).toBe(false)
+    expect(downed.isEligible).toBe(true)
   })
 
   it("reports the round complete once everyone eligible has acted", () => {

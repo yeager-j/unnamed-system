@@ -12,14 +12,14 @@ import type { Combatant, CombatSession, CombatSide } from "./session"
  * session plus the PC name/HP map its server page loaded; everything the strip
  * and header show is derived here.
  *
- * **Why a `skipped` set wider than Fallen:** the turn selectors take a single
- * injected "exclude these" set. A **Downed** combatant is skipped exactly like a
- * Fallen one (rulebook 3.7 / UNN-305) — not a valid draft pick and not counted
- * among those still to act this round — but Downed lives on the combatant's
- * `ailments`, not its vitals, so {@link fallenCombatantIds} doesn't include it.
- * This module unions the two into `skippedCombatantIds` and feeds that to the
- * selectors, so eligibility and round-completion both honor "Fallen/Downed are
- * excluded" without widening the engine.
+ * **Only Fallen are excluded from drafting** (rulebook 3.2 — "Fallen combatants
+ * do not take turns until revived"; the injected `fallenCombatantIds` set is
+ * exactly what the selectors take). A **Downed** combatant stays draft-eligible
+ * on purpose: the rules have it "recover at the start of its turn" and
+ * {@link import("./reduce/draft").reduceDraftCombatantEvent} clears Downed
+ * precisely on draft, so excluding it would make recovery unreachable and freeze
+ * it permanently. The combatant rail surfaces the Downed badge; the turn strip
+ * treats a Downed combatant as an ordinary candidate.
  */
 
 /** The PC vitals the console's server page injects per `characterId`: enough to
@@ -39,7 +39,6 @@ export interface CombatantView {
   hasActed: boolean
   isCurrent: boolean
   isFallen: boolean
-  isDowned: boolean
   isEligible: boolean
 }
 
@@ -60,11 +59,6 @@ export interface ConsoleView {
   /** No combatant remains to draft this round — the caller offers "Start round
    *  N+1" (`advanceRound`). */
   roundComplete: boolean
-}
-
-/** Whether a combatant currently carries the Downed ailment. */
-function isDowned(combatant: Combatant): boolean {
-  return combatant.ailments.includes("downed")
 }
 
 /**
@@ -104,13 +98,9 @@ export function buildConsoleView(
   )
 
   const fallenIds = fallenCombatantIds(session, pcCurrentHpById)
-  const skippedCombatantIds = new Set(fallenIds)
-  for (const combatant of session.combatants) {
-    if (isDowned(combatant)) skippedCombatantIds.add(combatant.id)
-  }
 
   const eligibleIds = new Set(
-    eligibleCombatants(session, skippedCombatantIds).map((c) => c.id)
+    eligibleCombatants(session, fallenIds).map((c) => c.id)
   )
 
   const rows: CombatantView[] = session.combatants.map((combatant) => ({
@@ -120,7 +110,6 @@ export function buildConsoleView(
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === session.currentActorId,
     isFallen: fallenIds.has(combatant.id),
-    isDowned: isDowned(combatant),
     isEligible: eligibleIds.has(combatant.id),
   }))
 
@@ -138,7 +127,7 @@ export function buildConsoleView(
           hasActed: actor.hasActedThisRound,
         }
       : null,
-    draftingSide: nextDraftingSide(session, skippedCombatantIds),
+    draftingSide: nextDraftingSide(session, fallenIds),
     roundComplete: eligibleIds.size === 0,
   }
 }

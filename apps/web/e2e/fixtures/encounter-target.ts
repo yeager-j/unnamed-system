@@ -68,8 +68,8 @@ const lifecycleChar = makeSeedCharacter({
 const LIFECYCLE_CHAR_ID = `seed-char-${lifecycleChar.slug}`
 
 /** A dev-owned, finalized character placed into Campaign B and standing as a PC
- *  combatant in its **live** encounter — the live console's turn-flow spec
- *  (`combat-console.spec.ts`, UNN-344) drives its turn. Dedicated (and thus
+ *  combatant in its **live** encounter — the live console's turn-flow tests in
+ *  `encounter-shell.spec.ts` (UNN-344) drive its turn. Dedicated (and thus
  *  live-locked) so no placement/lifecycle spec contends with it. */
 const liveCombatPc = makeSeedCharacter({
   slug: "live-combat-pc",

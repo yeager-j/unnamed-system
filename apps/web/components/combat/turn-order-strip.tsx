@@ -1,5 +1,6 @@
 "use client"
 
+import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { CombatantView } from "@/lib/game/encounter"
@@ -37,8 +38,7 @@ export function TurnOrderStrip({
 }) {
   const isDrafting = phase === "drafting"
 
-  const isSkipped = (row: CombatantView) => row.isFallen || row.isDowned
-  const isStruck = (row: CombatantView) => row.hasActed || isSkipped(row)
+  const isStruck = (row: CombatantView) => row.hasActed || row.isFallen
   const isCandidate = (row: CombatantView) => isDrafting && row.isEligible
   const isBoxed = (row: CombatantView) => !isDrafting && row.isCurrent
 
@@ -89,7 +89,7 @@ export function TurnOrderStrip({
           )
         }
 
-        // Acted or skipped (Fallen/Downed) → a struck, greyed chip.
+        // Acted or Fallen → a struck, greyed chip.
         if (isStruck(row)) {
           return (
             <span
@@ -115,17 +115,15 @@ export function TurnOrderStrip({
       ) : null}
 
       {isDrafting && roundComplete ? (
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-1"
           disabled={isPending}
           onClick={onAdvanceRound}
-          className={cn(
-            "ml-1 inline-flex items-center rounded-md border border-border px-2.5 py-1 text-xs font-medium",
-            "transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-          )}
         >
           Round complete — start round {round + 1}
-        </button>
+        </Button>
       ) : null}
     </div>
   )
