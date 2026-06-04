@@ -44,6 +44,26 @@ const placedPc = makeSeedCharacter({
 
 const PLACED_PC_ID = `seed-char-${placedPc.slug}`
 
+/** A dev-owned, finalized, **unplaced** character reserved for the placement spec
+ *  (UNN-328) so its `campaignId` churn never races the encounter/import specs that
+ *  rely on {@link placedPc} sitting in Campaign A. */
+const placementChar = makeSeedCharacter({
+  slug: "placement-pc",
+  shortId: "placement-pc",
+  name: "Pelle Quist",
+})
+
+const PLACEMENT_CHAR_ID = `seed-char-${placementChar.slug}`
+
+/** A dev-DM campaign reserved for the placement spec (UNN-328) — uncontended, so
+ *  placing/unplacing/moving into it doesn't disturb the other campaign specs. */
+const placementCampaign = {
+  id: "seed-campaign-placement",
+  shortId: "placement-campaign",
+  joinToken: "join-placement",
+  name: "Placement Campaign",
+} as const
+
 const campaignA = {
   id: "seed-campaign-encounter",
   shortId: "encounter-campaign",
@@ -136,6 +156,8 @@ export const encounterTarget = {
   campaignB,
   foreignCampaign,
   overviewCampaign,
+  placementCampaign,
+  placementChar: { seed: placementChar, characterId: PLACEMENT_CHAR_ID },
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */
   draft: seededEncounter("draft", "draft", campaignA.id, [pcSetup]),

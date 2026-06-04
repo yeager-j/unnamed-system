@@ -296,18 +296,30 @@ async function seedCharacter(
 async function seedEncounterFixtures(): Promise<void> {
   await seedCharacter(encounterTarget.placedPc.seed, DEV_USER.id)
 
-  const { campaignA, campaignB, foreignCampaign, overviewCampaign, placedPc } =
-    encounterTarget
+  const {
+    campaignA,
+    campaignB,
+    foreignCampaign,
+    overviewCampaign,
+    placementCampaign,
+    placedPc,
+    placementChar,
+  } = encounterTarget
+
+  // A dev-owned unplaced character the placement spec moves around (UNN-328).
+  await seedCharacter(placementChar.seed, DEV_USER.id)
 
   // Two dev-DM campaigns (A = startable draft + ended; B = live + a draft the
   // single-live guard rejects), one foreign (seed-user) campaign for the 404
-  // case, and one seed-user campaign reserved for the campaign-surfaces spec's
-  // member-overview / non-member-404 branches (UNN-329).
+  // case, one seed-user campaign for the campaign-surfaces spec's member-overview
+  // / non-member-404 branches (UNN-329), and one dev-DM campaign reserved for the
+  // placement spec (UNN-328).
   const campaignRows = [
     { ...campaignA, dmUserId: DEV_USER.id },
     { ...campaignB, dmUserId: DEV_USER.id },
     { ...foreignCampaign, dmUserId: SEED_USER.id },
     { ...overviewCampaign, dmUserId: SEED_USER.id },
+    { ...placementCampaign, dmUserId: DEV_USER.id },
   ]
   for (const campaign of campaignRows) {
     await db
@@ -382,7 +394,7 @@ async function seed(): Promise<void> {
   await seedEncounterFixtures()
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 2 + DEV_USER_E2E_FIXTURES.length} characters, 4 campaigns + ${SEEDED_ENCOUNTERS.length} encounters, and 1 dev user.`
+    `Done. Seeded ${SEED_CHARACTERS.length + 2 + DEV_USER_E2E_FIXTURES.length} characters, 5 campaigns + ${SEEDED_ENCOUNTERS.length} encounters, and 1 dev user.`
   )
 }
 

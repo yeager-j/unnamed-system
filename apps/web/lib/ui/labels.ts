@@ -332,6 +332,21 @@ export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
 }
 
 /**
+ * Consent copy for character placement (UNN-328). Placing a character into a
+ * campaign is the owner's consent to the DM's in-combat vitals writes (ADR
+ * Decision 9); the dialogs state that plainly before the owner confirms.
+ */
+export const CHARACTER_PLACEMENT_CONSENT =
+  "The DM will be able to update this character's HP and SP during combat."
+
+export const CHARACTER_UNPLACE_CONSENT =
+  "The DM will no longer be able to update this character's HP and SP."
+
+/** Move-confirmation copy; `{campaign}` is the character's current campaign. */
+export const characterMoveConsent = (fromCampaign: string): string =>
+  `This character is currently in ${fromCampaign}. Moving it here gives this campaign's DM combat access to its HP and SP, and removes ${fromCampaign}'s DM access.`
+
+/**
  * Known range labels used in the Skill / intrinsic-attack popovers. Skills
  * with a non-canonical range carry an explicit string instead and never go
  * through this map.

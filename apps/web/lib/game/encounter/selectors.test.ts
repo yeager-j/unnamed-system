@@ -5,6 +5,7 @@ import {
   eligibleCombatants,
   nextDraftingSide,
   pendingCombatants,
+  sessionIncludesPc,
 } from "./selectors"
 import {
   createCombatSession,
@@ -272,5 +273,53 @@ describe("Fallen + override integration", () => {
 
     // Both players now flagged acted → the selector points at enemies.
     expect(nextDraftingSide(afterPlayersActed, new Set())).toBe("enemies")
+  })
+})
+
+describe("sessionIncludesPc", () => {
+  const session = createCombatSession(
+    [
+      {
+        side: "players",
+        ref: { kind: "pc", characterId: "char-1" },
+        zoneId: "zone-a",
+      },
+      {
+        side: "enemies",
+        ref: {
+          kind: "enemy",
+          statBlock: {
+            name: "Shadow",
+            maxHP: 10,
+            currentHP: 10,
+            maxSP: 0,
+            currentSP: 0,
+            attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
+          },
+        },
+        zoneId: "zone-a",
+      },
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+        zoneId: "zone-a",
+      },
+    ],
+    (() => {
+      let n = 0
+      return () => `combatant-${n++}`
+    })()
+  )
+
+  it("matches a PC combatant by characterId", () => {
+    expect(sessionIncludesPc(session, "char-1")).toBe(true)
+  })
+
+  it("does not match an absent characterId", () => {
+    expect(sessionIncludesPc(session, "char-999")).toBe(false)
+  })
+
+  it("never matches enemy or catalog-enemy refs", () => {
+    expect(sessionIncludesPc(session, "goblin")).toBe(false)
   })
 })

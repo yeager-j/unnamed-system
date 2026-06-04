@@ -81,3 +81,22 @@ export function eligibleCombatants(
   const side = nextDraftingSide(session, fallenIds)
   return pendingCombatants(session, fallenIds).filter((c) => c.side === side)
 }
+
+/**
+ * Whether the character is a PC combatant in this session. Drives the
+ * live-encounter placement lock (UNN-328): a character that is a combatant in a
+ * `live` encounter cannot be unplaced or moved, since that would revoke the DM's
+ * mid-fight vitals access. Matches only `pc` refs by `characterId` — `enemy` /
+ * `catalog-enemy` combatants carry no character id. (UNN-330 may later fold this
+ * into a shared lifecycle-lock primitive; for now the placement write calls it
+ * directly.)
+ */
+export function sessionIncludesPc(
+  session: CombatSession,
+  characterId: string
+): boolean {
+  return session.combatants.some(
+    (combatant) =>
+      combatant.ref.kind === "pc" && combatant.ref.characterId === characterId
+  )
+}

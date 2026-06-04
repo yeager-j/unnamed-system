@@ -1,0 +1,161 @@
+"use client"
+
+import { CheckIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
+import { useState, useTransition } from "react"
+import { toast } from "sonner"
+
+import { Button } from "@workspace/ui/components/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "@workspace/ui/components/command"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { cn } from "@workspace/ui/lib/utils"
+
+import { setCharacterCampaignAction } from "@/lib/actions/set-character-campaign"
+import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
+import { archetypeDisplayName } from "@/lib/game/archetypes"
+import {
+  CHARACTER_PLACEMENT_CONSENT,
+  characterMoveConsent,
+} from "@/lib/ui/labels"
+
+/**
+ * "Add character to campaign" on the placement section (UNN-328). An inline
+ * searchable list (cmdk `Command`, not a floating combobox — a popup anchored
+ * inside a Dialog mis-positions) of the owner's finalized characters **not**
+ * already in this campaign: unplaced ones, plus ones placed elsewhere (labeled
+ * with their current campaign). The dialog states the consent, and when the
+ * chosen character is placed elsewhere it doubles as the move confirmation
+ * (single-campaign invariant): adding it here moves it. One
+ * `setCharacterCampaignAction` handles both place and move atomically; a
+ * `live-encounter-lock` (moving a live combatant) surfaces as a toast.
+ */
+export function AddCharacterDialog({
+  campaignId,
+  campaignName,
+  available,
+}: {
+  campaignId: string
+  campaignName: string
+  available: OwnedPlacementCharacter[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [selected, setSelected] = useState<OwnedPlacementCharacter | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  function onOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) setSelected(null)
+  }
+
+  function onAdd() {
+    if (!selected) return
+    const character = selected
+    startTransition(async () => {
+      const result = await setCharacterCampaignAction({
+        characterId: character.id,
+        campaignId,
+      })
+      if (result.ok) {
+        onOpenChange(false)
+        toast.success(`${character.name} added to ${campaignName}.`)
+        return
+      }
+      if (result.error === "live-encounter-lock") {
+        toast.error(
+          "Character is in an active encounter — it cannot be moved until the encounter ends."
+        )
+        return
+      }
+      toast.error("Couldn't add the character. Try again.")
+    })
+  }
+
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <PlusIcon weight="bold" />
+        Add character
+      </Button>
+
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a character to {campaignName}</DialogTitle>
+            <DialogDescription>{CHARACTER_PLACEMENT_CONSENT}</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 py-2">
+            <Command className="rounded-md border">
+              <CommandInput placeholder="Search your characters…" />
+              <CommandList>
+                <CommandEmpty>
+                  All your characters are already in this campaign.
+                </CommandEmpty>
+                {available.map((character) => {
+                  const isSelected = selected?.id === character.id
+                  return (
+                    <CommandItem
+                      key={character.id}
+                      value={`${character.name} ${character.placedCampaignName ?? ""} ${character.id}`}
+                      onSelect={() => setSelected(character)}
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate font-medium">
+                          {character.name}
+                        </span>
+                        <span className="truncate text-muted-foreground">
+                          {character.placedCampaignName
+                            ? `In ${character.placedCampaignName}`
+                            : `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`}
+                        </span>
+                      </div>
+                      <CommandShortcut>
+                        <CheckIcon
+                          className={cn(
+                            "size-4 shrink-0",
+                            isSelected ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      </CommandShortcut>
+                    </CommandItem>
+                  )
+                })}
+              </CommandList>
+            </Command>
+
+            {selected?.placedCampaignName ? (
+              <p className="text-sm text-muted-foreground">
+                {characterMoveConsent(selected.placedCampaignName)}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={onAdd}
+              disabled={!selected || isPending}
+            >
+              {isPending ? <Spinner /> : null}
+              {selected?.placedCampaignName ? "Move here" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

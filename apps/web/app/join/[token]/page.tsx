@@ -1,5 +1,6 @@
 import { GoogleLogoIcon } from "@phosphor-icons/react/dist/ssr"
 import type { Metadata } from "next"
+import Link from "next/link"
 import { cache } from "react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -123,6 +124,9 @@ async function CampaignJoinCard({
             You&apos;re the DM of this campaign.
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <GoToCampaignButton shortId={campaign.shortId} />
+        </CardContent>
       </Card>
     )
   }
@@ -136,6 +140,9 @@ async function CampaignJoinCard({
             You&apos;re already in this campaign.
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <GoToCampaignButton shortId={campaign.shortId} />
+        </CardContent>
       </Card>
     )
   }
@@ -156,5 +163,20 @@ async function CampaignJoinCard({
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+/** Lands the viewer on the campaign page — shared by the DM and already-member
+ *  join-link states so a GET visit isn't a dead-end. */
+function GoToCampaignButton({ shortId }: { shortId: string }) {
+  return (
+    <Button
+      render={<Link href={`/campaigns/${shortId}`} />}
+      nativeButton={false}
+      variant="outline"
+      className="w-full"
+    >
+      Go to campaign
+    </Button>
   )
 }

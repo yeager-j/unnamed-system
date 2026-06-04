@@ -89,15 +89,23 @@ test.describe("signed in", () => {
     expect(rows).toHaveLength(0)
   })
 
-  test("a non-member joins, idempotently", async ({ page }) => {
+  test("a non-member joins and lands on the campaign, idempotently", async ({
+    page,
+  }) => {
     await page.goto(`/join/${encounterTarget.foreignCampaign.joinToken}`)
     await page.getByRole("button", { name: "Join campaign" }).click()
+
+    // Joining lands the player on the campaign page (UNN-328 follow-up).
+    await expect(page).toHaveURL(
+      `/campaigns/${encounterTarget.foreignCampaign.shortId}`
+    )
     await expect(
-      page.getByText("You're already in this campaign.")
+      page.getByRole("heading", { name: encounterTarget.foreignCampaign.name })
     ).toBeVisible()
 
-    // Re-visiting the link is a no-op, not an error (reusable-link case).
-    await page.reload()
+    // Re-visiting the link is a no-op, not an error (reusable-link case): the
+    // now-member sees the "already in" state with a link onward.
+    await page.goto(`/join/${encounterTarget.foreignCampaign.joinToken}`)
     await expect(
       page.getByText("You're already in this campaign.")
     ).toBeVisible()
