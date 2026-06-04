@@ -10,10 +10,9 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+import { AdjustPoolForm } from "@/components/shared/adjust-pool-controls"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { formatCurrency } from "@/lib/ui/format-currency"
-
-import { AdjustPoolForm } from "./adjust-pool-controls"
 
 /**
  * The Inventory tab's wallet (PRD §6.1/§7.7, UNN-223). Shows the formatted

@@ -15,38 +15,57 @@ import { cn } from "@workspace/ui/lib/utils"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/game/encounter"
+import type { CombatantDetail, EnemyVitalsField } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
+import { CombatantVitalsSection } from "./combatant-vitals-section"
+
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a
- * {@link ResponsiveDialog} (desktop Sheet / mobile Drawer). It is a **container
- * only** — it dispatches nothing. Its write-owned sections (ACTIONS / VITALS /
- * AILMENT & CONDITIONS / POSITION) render as labeled placeholder slots that
- * their own tickets fill (each owns its Server Action, per the per-field
- * pattern); ATTRIBUTES + AFFINITIES are real read-only content, reusing the
- * shared grids. PC vitals edits will write the character row (DM-authorized,
- * UNN-297); enemy edits the session stat block — surfaced as the footer note.
+ * {@link ResponsiveDialog} (desktop Sheet / mobile Drawer). **VITALS** is live
+ * (UNN-309) — PC HP/SP through the DM-authorized pools actions, enemy HP through
+ * the `adjustEnemyVitals` event the console wires to `onAdjustEnemyVitals`;
+ * ATTRIBUTES + AFFINITIES are read-only (shared grids). The remaining sections
+ * (ACTIONS / AILMENT & CONDITIONS / POSITION) are still labeled placeholder slots
+ * their own tickets fill (each owning its write path, per the per-field pattern).
  */
 export function CombatantDrawer({
   detail,
   onClose,
+  onAdjustEnemyVitals,
 }: {
   detail: CombatantDetail | null
   onClose: () => void
+  onAdjustEnemyVitals: (
+    combatantId: string,
+    field: EnemyVitalsField,
+    value: number
+  ) => void
 }) {
   return (
     <ResponsiveDialog
       open={detail !== null}
       onOpenChange={(open) => !open && onClose()}
     >
-      {detail ? <DrawerBody detail={detail} /> : null}
+      {detail ? (
+        <DrawerBody detail={detail} onAdjustEnemyVitals={onAdjustEnemyVitals} />
+      ) : null}
     </ResponsiveDialog>
   )
 }
 
-function DrawerBody({ detail }: { detail: CombatantDetail }) {
+function DrawerBody({
+  detail,
+  onAdjustEnemyVitals,
+}: {
+  detail: CombatantDetail
+  onAdjustEnemyVitals: (
+    combatantId: string,
+    field: EnemyVitalsField,
+    value: number
+  ) => void
+}) {
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
       <ResponsiveDialogHeader className="flex-row items-center gap-3 space-y-0">
@@ -63,7 +82,10 @@ function DrawerBody({ detail }: { detail: CombatantDetail }) {
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
         <SlotPlaceholder title="Actions this turn" ticket="UNN-312" />
-        <SlotPlaceholder title="Vitals" ticket="UNN-309" />
+        <CombatantVitalsSection
+          detail={detail}
+          onAdjustEnemyVitals={onAdjustEnemyVitals}
+        />
         <SlotPlaceholder
           title="Ailment & conditions"
           ticket="UNN-310 / 294 / 311"

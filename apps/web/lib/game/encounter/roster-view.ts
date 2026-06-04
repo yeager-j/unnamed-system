@@ -52,6 +52,9 @@ export type PcCombatantDetail = Pick<
   | "attributes"
   | "affinityChart"
   | "activeArchetypeKey"
+  // The vitals-class optimistic token the DM's HP/SP pools writes condition on
+  // (UNN-309) — the only version the combat console touches.
+  | "vitalsVersion"
 >
 
 /** A current/max pool, the shape both vitals bars render. */
@@ -104,6 +107,10 @@ export type CombatantDetail =
   | {
       kind: "pc"
       id: string
+      /** The character-row id the pools actions write (≠ the combatant id). */
+      characterId: string
+      /** Vitals-class token for the DM's pools writes (UNN-309). */
+      vitalsVersion: number
       name: string
       side: CombatSide
       level: number
@@ -130,17 +137,22 @@ function isDowned(combatant: Combatant): boolean {
   return combatant.ailments.includes("downed")
 }
 
-/** A catalog enemy's current HP is unknown until working HP lands, so its bar
- *  reads full (`current === max`); an inline enemy carries real current/max. */
+/** An inline enemy carries current/max on its stat block; a catalog enemy
+ *  carries working HP inline on the ref, each value defaulting to the
+ *  definition's `maxHP` until first adjusted (UNN-309). */
 function enemyHp(combatant: Combatant): Pool {
   const ref = combatant.ref
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
   }
-  // catalog-enemy
-  const max =
-    ref.kind === "catalog-enemy" ? (getEnemy(ref.enemyKey)?.maxHP ?? 0) : 0
-  return { current: max, max }
+  if (ref.kind === "catalog-enemy") {
+    const definitionMax = getEnemy(ref.enemyKey)?.maxHP ?? 0
+    return {
+      current: ref.currentHP ?? definitionMax,
+      max: ref.maxHP ?? definitionMax,
+    }
+  }
+  return { current: 0, max: 0 }
 }
 
 function pcPool(
@@ -236,6 +248,8 @@ export function combatantDetail(
     return {
       kind: "pc",
       id: combatant.id,
+      characterId: ref.characterId,
+      vitalsVersion: detail?.vitalsVersion ?? 0,
       name,
       side: combatant.side,
       level: detail?.level ?? 1,

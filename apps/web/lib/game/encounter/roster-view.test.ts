@@ -43,6 +43,7 @@ const ROAN: PcCombatantDetail = {
   attributes: { strength: 2, magic: 0, agility: 1, luck: -1 },
   affinityChart: neutralChart({ fire: "weak", ice: "resist" }),
   activeArchetypeKey: null,
+  vitalsVersion: 4,
 }
 
 const CAVE_BAT_STAT_BLOCK = {
@@ -126,10 +127,28 @@ describe("buildRosterView", () => {
     expect(caveBat.hp).toEqual({ current: 5, max: 8 })
   })
 
-  it("renders a catalog enemy at full HP (no working-HP field yet)", () => {
+  it("renders a catalog enemy at full HP until its working HP is set", () => {
     const goblin = buildRosterView(build(), PC_DETAIL).enemies[0]!
     expect(goblin.hp.current).toBe(goblin.hp.max)
     expect(goblin.hp.max).toBeGreaterThan(0)
+  })
+
+  it("reflects a catalog enemy's adjusted working HP off the ref", () => {
+    const base = build()
+    const session: CombatSession = {
+      ...base,
+      combatants: base.combatants.map((c) =>
+        c.id === "combatant-1"
+          ? {
+              ...c,
+              ref: { kind: "catalog-enemy", enemyKey: "goblin", currentHP: 2 },
+            }
+          : c
+      ),
+    }
+    const goblin = buildRosterView(session, PC_DETAIL).enemies[0]!
+    expect(goblin.hp.current).toBe(2)
+    expect(goblin.hp.max).toBeGreaterThan(2)
   })
 
   it("flags Downed and rolls it up across the enemies group", () => {
@@ -174,6 +193,9 @@ describe("combatantDetail", () => {
       expect(detail.sp).toEqual({ current: 8, max: 12 })
       expect(detail.affinities.fire).toBe("weak")
       expect(detail.attributes.strength).toBe(2)
+      // The pools writes need the character-row id + its vitals token.
+      expect(detail.characterId).toBe("char-roan")
+      expect(detail.vitalsVersion).toBe(4)
     }
   })
 

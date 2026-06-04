@@ -62,9 +62,32 @@ describe("fallenCombatantIds", () => {
     expect(fallen.has("combatant-1")).toBe(false)
   })
 
-  it("never marks a catalog enemy Fallen (no working-HP field yet)", () => {
+  it("excludes a catalog enemy whose working HP is unset (full by default)", () => {
+    // The goblin ref carries no `currentHP`, so it defaults to the definition's
+    // maxHP — full, hence not Fallen.
     const fallen = fallenCombatantIds(session(0), { "char-1": 0 })
     expect(fallen.has("combatant-2")).toBe(false)
+  })
+
+  it("includes a catalog enemy whose working HP is 0 or less", () => {
+    const base = session(20)
+    const downed = {
+      ...base,
+      combatants: base.combatants.map((c) =>
+        c.id === "combatant-2"
+          ? {
+              ...c,
+              ref: {
+                kind: "catalog-enemy" as const,
+                enemyKey: "goblin",
+                currentHP: 0,
+              },
+            }
+          : c
+      ),
+    }
+    const fallen = fallenCombatantIds(downed, { "char-1": 10 })
+    expect(fallen.has("combatant-2")).toBe(true)
   })
 
   it("treats a PC with no injected HP entry as not Fallen", () => {

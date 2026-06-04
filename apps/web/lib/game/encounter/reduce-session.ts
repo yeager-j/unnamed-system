@@ -1,5 +1,6 @@
 import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceDraftCombatantEvent } from "./reduce/draft"
+import { reduceEnemyVitalsEvent } from "./reduce/enemy-vitals"
 import { reduceOverrideEvent } from "./reduce/override"
 import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
@@ -51,6 +52,9 @@ export function reduceCombatSession(
 
     case "applyBattleConditionDuration":
       return reduceBattleConditionEvent(session, event)
+
+    case "adjustEnemyVitals":
+      return reduceEnemyVitalsEvent(session, event)
 
     case "setCurrentActor":
     case "setActed":

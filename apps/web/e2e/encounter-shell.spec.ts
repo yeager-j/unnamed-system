@@ -208,6 +208,52 @@ test("rail row opens an enemy detail drawer (UNN-345)", async ({ page }) => {
   ).toBeVisible()
 })
 
+test("enemy HP adjust drives the bar down to a Dead badge (UNN-309)", async ({
+  page,
+}) => {
+  // Enemy vitals live on the session blob, which `resetEncounterFixtures`
+  // restores per test — so this is self-cleaning and won't perturb the
+  // (serial) turn-flow tests. PC HP is the character row and is NOT reset, so
+  // there is deliberately no PC-vitals e2e here.
+  await page.goto(encounterTarget.live.url)
+  const caveBat = page.getByRole("button", { name: "Open Cave Bat detail" })
+  await expect(caveBat).toContainText("8/8")
+
+  await caveBat.click()
+  const drawer = page.getByRole("dialog")
+  await drawer.getByRole("button", { name: "Adjust HP", exact: true }).click()
+  await page.getByLabel("Amount").fill("9")
+  await page.getByRole("button", { name: "Take damage" }).click()
+
+  // 8 − 9 floors at 0 → Dead. Asserted inside the drawer: it is a modal sheet,
+  // so the rail behind it is inert while open.
+  await expect(drawer.getByText("Dead")).toBeVisible()
+  await expect(drawer.getByText("0 / 8")).toBeVisible()
+})
+
+test("catalog enemy HP is adjustable on its working ref (UNN-309)", async ({
+  page,
+}) => {
+  // The goblin is a catalog enemy: its working HP lives inline on the ref,
+  // defaulting to the definition's max — so its controls are live (they used to
+  // be disabled for lack of a working-HP field).
+  await page.goto(encounterTarget.live.url)
+  await page.getByRole("button", { name: "Open Goblin detail" }).click()
+  const drawer = page.getByRole("dialog")
+
+  const adjustHp = drawer.getByRole("button", {
+    name: "Adjust HP",
+    exact: true,
+  })
+  await expect(adjustHp).toBeEnabled()
+  await adjustHp.click()
+  await page.getByLabel("Amount").fill("1")
+  await page.getByRole("button", { name: "Take damage" }).click()
+
+  // 16 → 15 reads off the ref's working HP (no longer the full-bar fallback).
+  await expect(drawer.getByText("15 / 16")).toBeVisible()
+})
+
 test("ended encounter renders the read-only ended stub", async ({ page }) => {
   await page.goto(encounterTarget.ended.url)
   await expect(page.getByTestId("combat-ended-stub")).toBeVisible()

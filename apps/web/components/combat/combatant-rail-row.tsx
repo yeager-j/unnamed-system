@@ -12,6 +12,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { Pool, RailRow } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
+import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 import { VitalBar } from "./vital-bar"
@@ -50,6 +51,13 @@ export function CombatantRailRow({
           <div className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-sm font-medium">{row.name}</span>
+              {row.isFallen ? (
+                <Badge variant="destructive" className="shrink-0">
+                  {row.isPc
+                    ? COMBATANT_DOWN_LABELS.pc
+                    : COMBATANT_DOWN_LABELS.enemy}
+                </Badge>
+              ) : null}
               {row.isDowned ? (
                 <Badge variant="destructive" className="shrink-0">
                   Downed
@@ -113,7 +121,7 @@ function VitalRow({
         {label}
       </span>
       <VitalBar current={pool.current} max={pool.max} kind={kind} />
-      <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+      <span className="w-12 shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
         {pool.current}/{pool.max}
       </span>
     </div>

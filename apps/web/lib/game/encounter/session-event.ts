@@ -117,6 +117,35 @@ export type OverrideEvent =
   | { kind: "setRound"; round: number }
 
 /**
+ * The four vitals fields on an enemy combatant's inline stat block. PC vitals
+ * never travel as an event — they live on the character row and are written
+ * through the (DM-authorized) pools actions, not the session reducer.
+ */
+export const ENEMY_VITALS_FIELDS = [
+  "currentHP",
+  "currentSP",
+  "maxHP",
+  "maxSP",
+] as const
+export type EnemyVitalsField = (typeof ENEMY_VITALS_FIELDS)[number]
+
+/**
+ * `adjustEnemyVitals` sets one field of an enemy combatant's working vitals to
+ * an absolute `value` (UNN-309): an inline `enemy` writes its `statBlock`; a
+ * `catalog-enemy` writes `currentHP`/`maxHP` inline on its ref (its identity
+ * stays resolved from the definition by `enemyKey`, and it has no SP). A no-op
+ * for a PC (vitals live on the character row, written via the pools actions).
+ * Every field is **floored at 0** by the reducer — overkill can't drive HP
+ * negative, matching how the character engine floors PC damage.
+ */
+export type EnemyVitalsEvent = {
+  kind: "adjustEnemyVitals"
+  combatantId: string
+  field: EnemyVitalsField
+  value: number
+}
+
+/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
@@ -125,6 +154,7 @@ export type CombatEvent =
   | TurnEvent
   | RoundEvent
   | BattleConditionEvent
+  | EnemyVitalsEvent
   | OverrideEvent
 
 /**
@@ -156,6 +186,12 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("setActed"),
     combatantId: z.string(),
     hasActed: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("adjustEnemyVitals"),
+    combatantId: z.string(),
+    field: z.enum(ENEMY_VITALS_FIELDS),
+    value: z.number().int(),
   }),
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
 ])

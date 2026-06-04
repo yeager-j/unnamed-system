@@ -363,6 +363,16 @@ export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
 }
 
 /**
+ * The at-0-HP badge a combatant shows in the console (UNN-309), keyed by kind: a
+ * **PC** at 0 HP is *Fallen* (skipped, recovers to 1 on victory); an **enemy** at
+ * 0 is *Dead*. Derived at render from current HP — never stored.
+ */
+export const COMBATANT_DOWN_LABELS = {
+  pc: "Fallen",
+  enemy: "Dead",
+} as const
+
+/**
  * Consent copy for character placement (UNN-328). Placing a character into a
  * campaign is the owner's consent to the DM's in-combat vitals writes (ADR
  * Decision 9); the dialogs state that plainly before the owner confirms.

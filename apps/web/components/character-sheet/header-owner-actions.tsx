@@ -18,6 +18,10 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 
+import {
+  AdjustPoolDialog,
+  AdjustPoolPopover,
+} from "@/components/shared/adjust-pool-controls"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {
   damageAction,
@@ -28,7 +32,6 @@ import {
 import { awardVictoriesAction } from "@/lib/actions/leveling"
 import { canLevelUp, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 
-import { AdjustPoolDialog, AdjustPoolPopover } from "./adjust-pool-controls"
 import { LevelUpDialog } from "./level-up-dialog"
 import { RestDialog } from "./rest-dialog"
 import {
@@ -40,7 +43,7 @@ import {
 /**
  * The header's owner-mode actions affordance (PRD §6.1, UNN-155 / UNN-156 /
  * UNN-157). Orchestrates five controls: Adjust HP and Adjust SP (popover
- * forms in [./adjust-pool-controls.tsx](./adjust-pool-controls.tsx)), Rest
+ * forms in [@/components/shared/adjust-pool-controls.tsx](../shared/adjust-pool-controls.tsx)), Rest
  * (opens [./rest-dialog.tsx](./rest-dialog.tsx)), Victories ± (popover in
  * [./victories-controls.tsx](./victories-controls.tsx)), and the Level-up
  * CTA (opens [./level-up-dialog.tsx](./level-up-dialog.tsx)) that only
