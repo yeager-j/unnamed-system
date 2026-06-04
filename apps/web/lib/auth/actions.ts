@@ -19,12 +19,22 @@ export async function signInWithGoogle(): Promise<void> {
  * Auth.js threads `redirectTo` through the OAuth `state`, so the per-token URL
  * survives the round-trip. The trailing `_formData` is the `<form>` payload we
  * ignore.
+ *
+ * As an exported Server Action this can be called with an arbitrary
+ * `redirectTo`, so we reject anything that isn't a same-origin **relative** path
+ * (must start with a single `/`, never `//` or a scheme) and fall back to `/`.
+ * Auth.js's default `redirect` callback already drops off-origin targets, but
+ * guarding here is cheap defense-in-depth that doesn't rely on that default.
  */
 export async function signInWithGoogleRedirect(
   redirectTo: string,
   _formData?: FormData
 ): Promise<void> {
-  await signIn("google", { redirectTo })
+  const safeRedirectTo =
+    redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/"
+  await signIn("google", { redirectTo: safeRedirectTo })
 }
 
 /**
