@@ -55,6 +55,17 @@ const placementChar = makeSeedCharacter({
 
 const PLACEMENT_CHAR_ID = `seed-char-${placementChar.slug}`
 
+/** A dev-owned, finalized character reserved for the lifecycle spec (UNN-330):
+ *  leave / delete-campaign / delete + kick live-lock. Uncontended so its
+ *  placement + deletion attempts don't race the placement spec. */
+const lifecycleChar = makeSeedCharacter({
+  slug: "lifecycle-pc",
+  shortId: "lifecycle-pc",
+  name: "Tamsin Roe",
+})
+
+const LIFECYCLE_CHAR_ID = `seed-char-${lifecycleChar.slug}`
+
 /** A dev-DM campaign reserved for the placement spec (UNN-328) — uncontended, so
  *  placing/unplacing/moving into it doesn't disturb the other campaign specs. */
 const placementCampaign = {
@@ -158,6 +169,7 @@ export const encounterTarget = {
   overviewCampaign,
   placementCampaign,
   placementChar: { seed: placementChar, characterId: PLACEMENT_CHAR_ID },
+  lifecycleChar: { seed: lifecycleChar, characterId: LIFECYCLE_CHAR_ID },
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */
   draft: seededEncounter("draft", "draft", campaignA.id, [pcSetup]),

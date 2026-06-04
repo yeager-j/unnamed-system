@@ -100,3 +100,16 @@ export function sessionIncludesPc(
       combatant.ref.kind === "pc" && combatant.ref.characterId === characterId
   )
 }
+
+/**
+ * The character ids of every PC combatant in this session. Powers the member
+ * live-lock (UNN-330): a player can't be kicked / leave while one of their
+ * placed characters is a combatant, found by intersecting this set with the
+ * characters that player owns. `enemy` / `catalog-enemy` refs carry no character
+ * id and are skipped.
+ */
+export function pcCombatantCharacterIds(session: CombatSession): string[] {
+  return session.combatants.flatMap((combatant) =>
+    combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
+  )
+}

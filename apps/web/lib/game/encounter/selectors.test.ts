@@ -4,6 +4,7 @@ import { reduceCombatSession } from "./reduce-session"
 import {
   eligibleCombatants,
   nextDraftingSide,
+  pcCombatantCharacterIds,
   pendingCombatants,
   sessionIncludesPc,
 } from "./selectors"
@@ -321,5 +322,64 @@ describe("sessionIncludesPc", () => {
 
   it("never matches enemy or catalog-enemy refs", () => {
     expect(sessionIncludesPc(session, "goblin")).toBe(false)
+  })
+})
+
+describe("pcCombatantCharacterIds", () => {
+  it("returns only PC character ids, skipping enemy and catalog-enemy refs", () => {
+    const session = createCombatSession(
+      [
+        {
+          side: "players",
+          ref: { kind: "pc", characterId: "char-1" },
+          zoneId: "z",
+        },
+        {
+          side: "enemies",
+          ref: {
+            kind: "enemy",
+            statBlock: {
+              name: "Shadow",
+              maxHP: 10,
+              currentHP: 10,
+              maxSP: 0,
+              currentSP: 0,
+              attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
+            },
+          },
+          zoneId: "z",
+        },
+        {
+          side: "players",
+          ref: { kind: "pc", characterId: "char-2" },
+          zoneId: "z",
+        },
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+          zoneId: "z",
+        },
+      ],
+      (() => {
+        let n = 0
+        return () => `combatant-${n++}`
+      })()
+    )
+
+    expect(pcCombatantCharacterIds(session)).toEqual(["char-1", "char-2"])
+  })
+
+  it("returns an empty array when there are no PC combatants", () => {
+    const session = createCombatSession(
+      [
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "g" },
+          zoneId: "z",
+        },
+      ],
+      () => "combatant-0"
+    )
+    expect(pcCombatantCharacterIds(session)).toEqual([])
   })
 })

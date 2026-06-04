@@ -87,7 +87,7 @@ apps/web/
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   ├── combat/                DM combat console (UNN-335): the encounter setup shell (CombatantSetup[] state container + Start-combat transition), stub setup panels (UNN-298–301), and the live/ended status-branch stubs rendered by app/combat/[shortId]/
-│   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns cards + create dialog, and the manage page's invite-link card (copy/regenerate), roster (+ remove player), encounter list + create dialog, and live-encounter banner. Also the owner's character-placement section (UNN-328): a card grid of the viewer's characters placed here + an "Add character" combobox dialog (place/move, with consent + single-campaign move confirmation) and a per-card remove (unplace) control — all setting characters.campaignId via setCharacterCampaignAction. Rendered by app/campaigns/ + app/campaigns/[shortId]/
+│   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns cards + create dialog, and the manage page's invite-link card (copy/regenerate), roster (+ remove player), encounter list + create dialog, and live-encounter banner. Also the owner's character-placement section (UNN-328): a card grid of the viewer's characters placed here + an "Add character" combobox dialog (place/move, with consent + single-campaign move confirmation) and a per-card remove (unplace) control — all setting characters.campaignId via setCharacterCampaignAction. Plus the lifecycle controls (UNN-330): a member's "Leave campaign" button and the DM's type-to-confirm "Delete campaign" button. Rendered by app/campaigns/ + app/campaigns/[shortId]/
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
@@ -112,7 +112,7 @@ lib/db/
 ├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
 ├── schema/          Drizzle table + column definitions + inferred row types (CharacterRow, …)
 ├── migrations/      drizzle-kit SQL migrations + meta
-├── queries/         Reads: load-character (central loader), character-list, versions
+├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes)
 └── writes/          Per-concern persistence wrappers + the version-guard primitive
 ```
 
@@ -178,7 +178,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`).
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
 
 See PRD §8 for the full field list.
 

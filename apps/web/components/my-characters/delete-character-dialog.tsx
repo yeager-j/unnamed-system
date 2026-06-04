@@ -18,6 +18,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
 import { deleteCharacterAction } from "@/lib/actions/delete-character"
+import { CHARACTER_DELETE_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 interface DeleteCharacterDialogProps {
   characterId: string
@@ -175,6 +176,12 @@ function TypeToConfirmDialog({
         toast.error("Character already deleted.")
         handleOpenChange(false)
         router.refresh()
+        return
+      }
+
+      if (result.error === "live-encounter-lock") {
+        toast.error(CHARACTER_DELETE_LIVE_LOCK_ERROR)
+        handleOpenChange(false)
         return
       }
 

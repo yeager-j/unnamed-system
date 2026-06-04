@@ -17,6 +17,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { removeCampaignMemberAction } from "@/lib/actions/remove-campaign-member"
+import { MEMBER_REMOVE_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 /**
  * Removes a player from the roster on the campaign manage page (UNN-329). Behind
@@ -40,7 +41,11 @@ export function RemovePlayerButton({
       const result = await removeCampaignMemberAction({ campaignId, userId })
       setOpen(false)
       if (!result.ok) {
-        toast.error("Couldn't remove the player. Try again.")
+        toast.error(
+          result.error === "live-encounter-lock"
+            ? MEMBER_REMOVE_LIVE_LOCK_ERROR
+            : "Couldn't remove the player. Try again."
+        )
         return
       }
       toast.success(`Removed ${playerName} from the campaign.`)
