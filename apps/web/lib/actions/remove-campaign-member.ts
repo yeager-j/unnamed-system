@@ -25,7 +25,8 @@ export async function removeCampaignMemberAction(
   if (!parsed.success) return { ok: false, error: "invalid-input" }
 
   const campaign = await requireCampaignDM(parsed.data.campaignId)
-  await removeCampaignMember(campaign.id, parsed.data.userId)
+  const result = await removeCampaignMember(campaign.id, parsed.data.userId)
+  if (!result.ok) return result
 
   revalidatePath(`/campaigns/${campaign.shortId}`)
 

@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
-import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
+import { isCharacterLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { characters } from "@/lib/db/schema/character"
-import { sessionIncludesPc } from "@/lib/game/encounter"
 import { err, ok, type Result } from "@/lib/result"
 
 /**
@@ -39,14 +38,11 @@ export async function setCharacterCampaign(
   const leavingCampaign =
     currentCampaignId !== null && currentCampaignId !== newCampaignId
 
-  if (leavingCampaign) {
-    const liveEncounter = await loadLiveEncounterForCampaign(currentCampaignId)
-    if (
-      liveEncounter &&
-      sessionIncludesPc(liveEncounter.session, characterId)
-    ) {
-      return err("live-encounter-lock")
-    }
+  if (
+    leavingCampaign &&
+    (await isCharacterLiveEncounterCombatant(characterId))
+  ) {
+    return err("live-encounter-lock")
   }
 
   const updated = await db

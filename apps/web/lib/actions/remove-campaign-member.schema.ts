@@ -14,4 +14,4 @@ export type RemoveCampaignMemberInput = z.input<
   typeof RemoveCampaignMemberSchema
 >
 
-export type RemoveCampaignMemberError = "invalid-input"
+export type RemoveCampaignMemberError = "invalid-input" | "live-encounter-lock"

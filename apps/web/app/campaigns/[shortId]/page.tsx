@@ -10,8 +10,10 @@ import {
 
 import { CharacterPlacementSection } from "@/components/campaign/character-placement-section"
 import { CreateEncounterButton } from "@/components/campaign/create-encounter-button"
+import { DeleteCampaignButton } from "@/components/campaign/delete-campaign-button"
 import { EncounterList } from "@/components/campaign/encounter-list"
 import { JoinLinkCard } from "@/components/campaign/join-link-card"
+import { LeaveCampaignButton } from "@/components/campaign/leave-campaign-button"
 import { LiveEncounterBanner } from "@/components/campaign/live-encounter-banner"
 import { RosterList } from "@/components/campaign/roster-list"
 import { auth } from "@/lib/auth"
@@ -137,6 +139,11 @@ async function DmManageView({
         campaignName={campaign.name}
         viewerId={viewerId}
       />
+
+      <DeleteCampaignButton
+        campaignId={campaign.id}
+        campaignName={campaign.name}
+      />
     </main>
   )
 }
@@ -196,6 +203,11 @@ async function MemberOverview({
         campaignId={campaign.id}
         campaignName={campaign.name}
         viewerId={viewerId}
+      />
+
+      <LeaveCampaignButton
+        campaignId={campaign.id}
+        campaignName={campaign.name}
       />
     </main>
   )

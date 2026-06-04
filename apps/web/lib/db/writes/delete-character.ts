@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
+import { isCharacterLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { characters } from "@/lib/db/schema/character"
 import { err, ok, type Result } from "@/lib/result"
 
@@ -20,17 +21,25 @@ import { err, ok, type Result } from "@/lib/result"
  * bumped a field would reject the deletion for a reason the user can't
  * meaningfully act on. The wrapper takes only `characterId`.
  */
-export type DeleteCharacterPersistenceError = "character-not-found"
+export type DeleteCharacterPersistenceError =
+  | "character-not-found"
+  | "live-encounter-lock"
 
 /**
- * Hard-deletes the character with `characterId`. Returns `character-not-found`
- * when no row matches — typically a race with another deleter, since the
- * action's `requireOwner` gate has already loaded the row by the time this
- * runs.
+ * Hard-deletes the character with `characterId`. Refuses with
+ * `live-encounter-lock` when the character is a combatant in its campaign's live
+ * encounter (UNN-330) — deleting it would strand the DM's mid-fight vitals
+ * access. Returns `character-not-found` when no row matches — typically a race
+ * with another deleter, since the action's `requireOwner` gate has already
+ * loaded the row by the time this runs.
  */
 export async function deleteCharacter(
   characterId: string
 ): Promise<Result<void, DeleteCharacterPersistenceError>> {
+  if (await isCharacterLiveEncounterCombatant(characterId)) {
+    return err("live-encounter-lock")
+  }
+
   const deleted = await db
     .delete(characters)
     .where(eq(characters.id, characterId))

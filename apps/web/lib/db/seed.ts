@@ -304,10 +304,13 @@ async function seedEncounterFixtures(): Promise<void> {
     placementCampaign,
     placedPc,
     placementChar,
+    lifecycleChar,
   } = encounterTarget
 
-  // A dev-owned unplaced character the placement spec moves around (UNN-328).
+  // Dev-owned unplaced characters the placement (UNN-328) + lifecycle (UNN-330)
+  // specs move around / delete.
   await seedCharacter(placementChar.seed, DEV_USER.id)
+  await seedCharacter(lifecycleChar.seed, DEV_USER.id)
 
   // Two dev-DM campaigns (A = startable draft + ended; B = live + a draft the
   // single-live guard rejects), one foreign (seed-user) campaign for the 404

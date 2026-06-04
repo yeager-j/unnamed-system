@@ -1,9 +1,12 @@
 import { and, eq } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
+import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
+import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { characters } from "@/lib/db/schema/character"
 import { insertWithShortId } from "@/lib/db/short-id"
+import { err, ok, type Result } from "@/lib/result"
 
 /**
  * Persistence for the `campaigns` aggregate — the campaign row and its
@@ -56,18 +59,28 @@ export async function rotateJoinToken(campaignId: string): Promise<string> {
   return joinToken
 }
 
+export type RemoveCampaignMemberError = "live-encounter-lock"
+
 /**
  * Removes `userId` from `campaignId`'s roster and **unplaces their characters**
- * (`characters.campaignId → null`) in one transaction. The `set null` FK on
- * `characters.campaignId` only fires when the *campaign* is deleted, not when a
- * `campaignUsers` row is — so the unplacing is an explicit `UPDATE` here (UNN-330
- * lifecycle ruling). The live-encounter lock that should block this mid-fight is
- * UNN-330's own concern and is not enforced at this layer.
+ * (`characters.campaignId → null`) in one transaction — the shared kick/leave
+ * cascade (UNN-329 + UNN-330). The `set null` FK on `characters.campaignId` only
+ * fires when the *campaign* is deleted, not when a `campaignUsers` row is, so the
+ * unplacing is an explicit `UPDATE` here.
+ *
+ * Refuses with `live-encounter-lock` when the player owns a character that is a
+ * combatant in the campaign's live encounter (UNN-330): removing them would
+ * unplace a live combatant and revoke the DM's mid-fight vitals access. The DM
+ * must end the encounter or remove the combatant first.
  */
 export async function removeCampaignMember(
   campaignId: string,
   userId: string
-): Promise<void> {
+): Promise<Result<void, RemoveCampaignMemberError>> {
+  if (await memberHasLiveEncounterCombatant(campaignId, userId)) {
+    return err("live-encounter-lock")
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .delete(campaignUsers)
@@ -88,6 +101,29 @@ export async function removeCampaignMember(
         )
       )
   })
+
+  return ok(undefined)
+}
+
+export type DeleteCampaignError = "live-encounter-exists"
+
+/**
+ * Deletes a campaign (UNN-330). Refuses with `live-encounter-exists` while a
+ * `live` encounter is running — the DM must end it first. Otherwise a single
+ * `DELETE FROM campaign`: Postgres cascade-deletes the `encounters` and
+ * `campaignUsers` rows (`onDelete: "cascade"` FKs) and nulls every placed
+ * `characters.campaignId` (`onDelete: "set null"` FK), so the characters survive
+ * unplaced — no explicit UPDATE needed.
+ */
+export async function deleteCampaign(
+  campaignId: string
+): Promise<Result<void, DeleteCampaignError>> {
+  const live = await loadLiveEncounterForCampaign(campaignId)
+  if (live) return err("live-encounter-exists")
+
+  await db.delete(campaigns).where(eq(campaigns.id, campaignId))
+
+  return ok(undefined)
 }
 
 /**

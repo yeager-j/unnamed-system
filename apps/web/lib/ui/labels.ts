@@ -347,6 +347,19 @@ export const CHARACTER_UNPLACE_CONSENT =
 export const CHARACTER_PLACEMENT_LIVE_LOCK_ERROR =
   "Character is in an active encounter — it cannot be moved until the encounter ends."
 
+/** Live-lock errors for the other lifecycle operations (UNN-330). */
+export const CHARACTER_DELETE_LIVE_LOCK_ERROR =
+  "This character is in an active encounter — it cannot be deleted until the encounter ends."
+
+export const MEMBER_REMOVE_LIVE_LOCK_ERROR =
+  "This player has a character in an active encounter — remove the combatant or end the encounter first."
+
+export const LEAVE_CAMPAIGN_LIVE_LOCK_ERROR =
+  "You have a character in an active encounter — you can't leave until the encounter ends."
+
+export const CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR =
+  "End the live encounter before deleting this campaign."
+
 /** Move-confirmation copy; `{campaign}` is the character's current campaign. */
 export const characterMoveConsent = (fromCampaign: string): string =>
   `This character is currently in ${fromCampaign}. Moving it here gives this campaign's DM combat access to its HP and SP, and removes ${fromCampaign}'s DM access.`
