@@ -8,10 +8,9 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
-import type { ApplyCombatEventError } from "@/lib/actions/encounter/events.schema"
 import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
-import type { SaveEncounterSetupError } from "@/lib/actions/encounter/setup.schema"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
@@ -23,21 +22,6 @@ import {
 import { ImportPcsPanel } from "./import-pcs-panel"
 import { SetupPanelStub } from "./setup-panels"
 import { SideToggle } from "./side-toggle"
-
-type SetupError = SaveEncounterSetupError | ApplyCombatEventError
-
-function errorMessage(error: SetupError): string {
-  switch (error) {
-    case "campaign-already-has-live-encounter":
-      return "This campaign already has a live encounter."
-    case "stale":
-      return "This encounter changed elsewhere. Reload and try again."
-    case "encounter-not-found":
-      return "This encounter no longer exists."
-    case "invalid-input":
-      return "Something looks off with the roster. Try again."
-  }
-}
 
 /**
  * The encounter **setup shell** (UNN-335/298/300/302): the load-bearing frame the
@@ -135,7 +119,7 @@ export function EncounterSetup({
       combatants,
     })
     if (!saved.ok) {
-      toast.error(errorMessage(saved.error))
+      toast.error(encounterErrorMessage(saved.error))
       return null
     }
     setVersion(saved.value.version)
@@ -164,7 +148,7 @@ export function EncounterSetup({
         },
       })
       if (!started.ok) {
-        toast.error(errorMessage(started.error))
+        toast.error(encounterErrorMessage(started.error))
         return
       }
       router.refresh()

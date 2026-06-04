@@ -11,8 +11,10 @@ import {
  * E2E for the encounter setup shell (UNN-335/298/300/302): the create action,
  * the `/combat/{shortId}` status fork, importing placed PCs (298), per-combatant
  * side assignment (300), and save / resume + the single-live-encounter guard
- * (302). The live console + enemy/zone panels are still stubs (their own
- * tickets), so this asserts the setup frame + persistence, not the live console.
+ * (302), **plus the live console's turn-flow spine (UNN-344)** — drafting, End
+ * turn, the end-of-turn modal handoff, and round rollover. The turn-flow tests
+ * live here (not a separate file) because they mutate the one shared `live`
+ * encounter, and this file already serializes + resets it per test.
  *
  * Signed in as the dev user (DM of both seeded campaigns). **Serial** because the
  * tests share campaign-level live-encounter state (the single-live guard); each
@@ -45,7 +47,9 @@ test("create → import a placed PC → Start → live console", async ({ page }
   await expect(start).toBeEnabled()
 
   await start.click()
-  await expect(page.getByTestId("combat-console-stub")).toBeVisible()
+  await expect(
+    page.getByTestId("combat-console-battlefield-placeholder")
+  ).toBeVisible()
 })
 
 test("import panel toggles a placed PC in and out of the roster", async ({
@@ -103,12 +107,78 @@ test("single-live guard blocks starting a second encounter", async ({
 
   await start.click()
   await expect(page.getByText("already has a live encounter")).toBeVisible()
-  await expect(page.getByTestId("combat-console-stub")).toBeHidden()
+  await expect(
+    page.getByTestId("combat-console-battlefield-placeholder")
+  ).toBeHidden()
 })
 
-test("live encounter renders the console stub", async ({ page }) => {
+test("live encounter renders the console", async ({ page }) => {
   await page.goto(encounterTarget.live.url)
-  await expect(page.getByTestId("combat-console-stub")).toBeVisible()
+  await expect(
+    page.getByTestId("combat-console-battlefield-placeholder")
+  ).toBeVisible()
+})
+
+test("live console: draft → end turn → modal → hand off to the other side", async ({
+  page,
+}) => {
+  // The seeded live encounter opens un-drafted (neutral start, players lead),
+  // with Roan Vale (PC) vs a goblin + a cave bat.
+  await page.goto(encounterTarget.live.url)
+  await expect(page.getByText("Neutral start")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Players' draft" })
+  ).toBeVisible()
+
+  // Draft the lone player → their turn begins.
+  await page.getByRole("button", { name: "Draft Roan Vale" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Now acting: Roan Vale" })
+  ).toBeVisible()
+
+  // End turn always opens the end-of-turn modal (even with nothing to resolve).
+  await page.getByRole("button", { name: "End turn" }).click()
+  await expect(
+    page.getByRole("dialog", { name: "End of Roan Vale's turn" })
+  ).toBeVisible()
+
+  // "Done" hands off to the enemies' draft; both enemies are now tappable.
+  await page.getByRole("button", { name: "Done — open the draft" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Enemies' draft" })
+  ).toBeVisible()
+  await expect(page.getByRole("button", { name: "Draft Goblin" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Draft Cave Bat" })
+  ).toBeVisible()
+})
+
+test("live console: a full round of turns offers the next round", async ({
+  page,
+}) => {
+  await page.goto(encounterTarget.live.url)
+
+  // Drive all three combatants through draft → end turn → done.
+  for (const name of ["Roan Vale", "Goblin", "Cave Bat"]) {
+    await page.getByRole("button", { name: `Draft ${name}` }).click()
+    await page.getByRole("button", { name: "End turn" }).click()
+    await page.getByRole("button", { name: "Done — open the draft" }).click()
+  }
+
+  // Everyone has acted → the strip offers the next round.
+  const startRound = page.getByRole("button", {
+    name: "Round complete — start round 2",
+  })
+  await expect(startRound).toBeVisible()
+
+  await startRound.click()
+  await expect(page.getByText("Round 2")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Players' draft" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Draft Roan Vale" })
+  ).toBeVisible()
 })
 
 test("ended encounter renders the read-only ended stub", async ({ page }) => {

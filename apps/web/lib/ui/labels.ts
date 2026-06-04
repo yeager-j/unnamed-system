@@ -21,7 +21,7 @@ import type {
   Delivery,
   Range,
 } from "@/lib/game/combat"
-import type { CombatSide } from "@/lib/game/encounter"
+import type { CombatAdvantage, CombatSide } from "@/lib/game/encounter"
 import type { EquipSlot } from "@/lib/game/items"
 import type { StainElement } from "@/lib/game/mechanics"
 import type { SkillKind } from "@/lib/game/skills"
@@ -324,6 +324,37 @@ export const COMBAT_SIDE_LABELS: Record<CombatSide, string> = {
   players: "Players",
   enemies: "Enemies",
 }
+
+/**
+ * The opening-advantage chip in the live console header (UNN-344), phrased as a
+ * "start": who, if anyone, got the jump (UNN-303). `neutral` is the standard
+ * alternating order.
+ */
+export const COMBAT_ADVANTAGE_START_LABELS: Record<CombatAdvantage, string> = {
+  players: "Player start",
+  enemies: "Enemy start",
+  neutral: "Neutral start",
+}
+
+/**
+ * The live console's *Now acting* subtitle, keyed to the acting side (UNN-344):
+ * the turn belongs to the table, and the DM ends it when they're done.
+ */
+export const COMBAT_TURN_SUBTITLES: Record<CombatSide, string> = {
+  players: "Player's turn · end it when the table's done.",
+  enemies: "Enemy's turn · end it when the table's done.",
+}
+
+/** The draft-phase heading, keyed to the side drafting next (UNN-344). */
+export const COMBAT_DRAFT_HEADINGS: Record<CombatSide, string> = {
+  players: "Players' draft",
+  enemies: "Enemies' draft",
+}
+
+/** The draft-phase subtitle — the drafting is the table's call, the tap is the
+ *  DM's (UNN-344). Side-agnostic, as the design frames show. */
+export const COMBAT_DRAFT_SUBTITLE =
+  "Tap a glowing combatant — players' call, your tap."
 
 export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
   draft: "Draft",

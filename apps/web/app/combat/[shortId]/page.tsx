@@ -2,11 +2,14 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { CombatConsoleStub } from "@/components/combat/console-stub"
+import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { auth } from "@/lib/auth"
-import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
+import {
+  loadCharacterVitalsByIds,
+  loadPlacedCharactersForCampaign,
+} from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadEncounterRowByShortId } from "@/lib/db/queries/load-encounter"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -78,8 +81,14 @@ export default async function CombatPage({ params }: PageProps) {
         />
       )
     }
-    case "live":
-      return <CombatConsoleStub encounter={encounter} />
+    case "live": {
+      const pcCharacterIds = encounter.session.combatants.flatMap(
+        (combatant) =>
+          combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
+      )
+      const pcInfoById = await loadCharacterVitalsByIds(pcCharacterIds)
+      return <CombatConsole encounter={encounter} pcInfoById={pcInfoById} />
+    }
     case "ended":
       return <EncounterEndedStub encounter={encounter} />
   }
