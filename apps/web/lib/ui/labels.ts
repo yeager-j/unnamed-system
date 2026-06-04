@@ -342,6 +342,11 @@ export const CHARACTER_PLACEMENT_CONSENT =
 export const CHARACTER_UNPLACE_CONSENT =
   "The DM will no longer be able to update this character's HP and SP."
 
+/** Shown when a placement/move is refused because the character is a combatant in
+ *  a live encounter (the UNN-330 live-lock). */
+export const CHARACTER_PLACEMENT_LIVE_LOCK_ERROR =
+  "Character is in an active encounter — it cannot be moved until the encounter ends."
+
 /** Move-confirmation copy; `{campaign}` is the character's current campaign. */
 export const characterMoveConsent = (fromCampaign: string): string =>
   `This character is currently in ${fromCampaign}. Moving it here gives this campaign's DM combat access to its HP and SP, and removes ${fromCampaign}'s DM access.`

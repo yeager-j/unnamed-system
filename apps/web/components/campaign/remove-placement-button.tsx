@@ -17,7 +17,10 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { setCharacterCampaignAction } from "@/lib/actions/set-character-campaign"
-import { CHARACTER_UNPLACE_CONSENT } from "@/lib/ui/labels"
+import {
+  CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,
+  CHARACTER_UNPLACE_CONSENT,
+} from "@/lib/ui/labels"
 
 /**
  * The per-card "remove from campaign" control on the placement section (UNN-328).
@@ -47,9 +50,7 @@ export function RemovePlacementButton({
         return
       }
       if (result.error === "live-encounter-lock") {
-        toast.error(
-          "Character is in an active encounter — it cannot be moved until the encounter ends."
-        )
+        toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
         return
       }
       toast.error("Couldn't remove the character. Try again.")

@@ -29,6 +29,7 @@ import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
 import { archetypeDisplayName } from "@/lib/game/archetypes"
 import {
   CHARACTER_PLACEMENT_CONSENT,
+  CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,
   characterMoveConsent,
 } from "@/lib/ui/labels"
 
@@ -75,9 +76,7 @@ export function AddCharacterDialog({
         return
       }
       if (result.error === "live-encounter-lock") {
-        toast.error(
-          "Character is in an active encounter — it cannot be moved until the encounter ends."
-        )
+        toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
         return
       }
       toast.error("Couldn't add the character. Try again.")
@@ -102,9 +101,7 @@ export function AddCharacterDialog({
             <Command className="rounded-md border">
               <CommandInput placeholder="Search your characters…" />
               <CommandList>
-                <CommandEmpty>
-                  All your characters are already in this campaign.
-                </CommandEmpty>
+                <CommandEmpty>No characters found.</CommandEmpty>
                 {available.map((character) => {
                   const isSelected = selected?.id === character.id
                   return (
