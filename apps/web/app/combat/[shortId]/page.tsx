@@ -11,7 +11,7 @@ import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import { loadEncounterRowByShortId } from "@/lib/db/queries/load-encounter"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import type { PcCombatantDetail } from "@/lib/game/encounter"
+import type { InitiativeStats, PcCombatantDetail } from "@/lib/game/encounter"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -73,10 +73,30 @@ export default async function CombatPage({ params }: PageProps) {
       const placedCharacters = await loadPlacedCharactersForCampaign(
         encounter.campaignId
       )
+      // The start-combat dialog suggests the higher-Agility first side (UNN-303 /
+      // rulebook 3.2), so it needs each placeable PC's derived Agility/Luck —
+      // hydrate them (as the `live` branch does for combatants) into a lean map.
+      const hydrated = await Promise.all(
+        placedCharacters.map((character) =>
+          loadHydratedCharacterById(character.id)
+        )
+      )
+      const pcStatsById: Record<string, InitiativeStats> = Object.fromEntries(
+        hydrated
+          .filter((character) => character !== null)
+          .map((character) => [
+            character.id,
+            {
+              agility: character.attributes.agility,
+              luck: character.attributes.luck,
+            },
+          ])
+      )
       return (
         <EncounterSetup
           encounter={encounter}
           placedCharacters={placedCharacters}
+          pcStatsById={pcStatsById}
         />
       )
     }
