@@ -92,6 +92,14 @@ describe("combatSessionSchema", () => {
           conditionDurations: {},
         },
       ],
+      zones: {
+        "zone-a": { id: "zone-a", name: "Courtyard", notes: "muddy" },
+        "zone-b": { id: "zone-b", name: "Hall" },
+      },
+      adjacency: {
+        "zone-a": ["zone-b"],
+        "zone-b": ["zone-a"],
+      },
     }
 
     const roundTripped = combatSessionSchema.parse(
