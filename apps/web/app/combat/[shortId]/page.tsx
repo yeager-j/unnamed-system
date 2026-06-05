@@ -5,6 +5,7 @@ import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
+import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import type { InitiativeStats, PcCombatantDetail } from "@/lib/game/encounter"
 
@@ -40,6 +41,11 @@ export default async function CombatPage({ params }: PageProps) {
 
   if (!encounter) notFound()
 
+  // getEncounterForDM already authorized the viewer against this campaign, so the
+  // row exists; resolve its public shortId for the "← Campaign" back link.
+  const campaign = await loadCampaignRowById(encounter.campaignId)
+  const campaignShortId = campaign?.shortId ?? ""
+
   switch (encounter.status) {
     case "draft": {
       const placedCharacters = await loadPlacedCharactersForCampaign(
@@ -67,6 +73,7 @@ export default async function CombatPage({ params }: PageProps) {
       return (
         <EncounterSetup
           encounter={encounter}
+          campaignShortId={campaignShortId}
           placedCharacters={placedCharacters}
           pcStatsById={pcStatsById}
         />
@@ -86,9 +93,20 @@ export default async function CombatPage({ params }: PageProps) {
         Object.fromEntries(
           hydrated.filter((c) => c !== null).map((c) => [c.id, c])
         )
-      return <CombatConsole encounter={encounter} pcDetailById={pcDetailById} />
+      return (
+        <CombatConsole
+          encounter={encounter}
+          campaignShortId={campaignShortId}
+          pcDetailById={pcDetailById}
+        />
+      )
     }
     case "ended":
-      return <EncounterEndedStub encounter={encounter} />
+      return (
+        <EncounterEndedStub
+          encounter={encounter}
+          campaignShortId={campaignShortId}
+        />
+      )
   }
 }

@@ -29,6 +29,7 @@ import {
   type ZoneGraphEvent,
 } from "@/lib/game/encounter"
 
+import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantSetupRow } from "./combatant-setup-row"
 import { ImportPcsPanel } from "./import-pcs-panel"
 import { StartCombatDialog } from "./start-combat-dialog"
@@ -60,10 +61,12 @@ import { ZonesPanel } from "./zones-panel"
  */
 export function EncounterSetup({
   encounter,
+  campaignShortId,
   placedCharacters,
   pcStatsById,
 }: {
   encounter: EncounterRow
+  campaignShortId: string
   placedCharacters: CharacterSummary[]
   pcStatsById: Record<string, InitiativeStats>
 }) {
@@ -223,6 +226,9 @@ export function EncounterSetup({
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
+      {campaignShortId ? (
+        <CampaignBackLink campaignShortId={campaignShortId} />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-lg font-medium">{encounter.name}</h1>

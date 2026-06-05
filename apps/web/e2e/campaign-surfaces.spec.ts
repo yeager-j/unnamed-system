@@ -227,9 +227,16 @@ test("a non-member 404s on the manage URL", async ({ page }) => {
   expect(response?.status()).toBe(404)
 })
 
-test("the watch-route shell renders for an encounter shortId", async ({
+test("the player watch view renders a live encounter read-only", async ({
   page,
 }) => {
   await page.goto(`/c/encounter/${encounterTarget.live.shortId}`)
-  await expect(page.getByTestId("encounter-watch-stub")).toBeVisible()
+
+  // Turn tracker + a combatant from the seeded live roster are visible.
+  await expect(page.getByRole("heading", { name: /^Round \d+$/ })).toBeVisible()
+  await expect(page.getByText("Roan Vale").first()).toBeVisible()
+
+  // Strictly read-only: the watch surface exposes no controls or inputs.
+  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0)
+  await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0)
 })

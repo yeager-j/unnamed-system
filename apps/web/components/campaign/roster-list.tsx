@@ -39,7 +39,7 @@ export function RosterList({
         return (
           <li
             key={member.id}
-            className="flex items-start justify-between gap-3 rounded-lg border p-4"
+            className="flex items-start justify-between gap-3 border p-4"
           >
             <div className="flex min-w-0 items-start gap-3">
               <Avatar className="size-9">
@@ -60,7 +60,7 @@ export function RosterList({
                       <Link
                         key={character.id}
                         href={`/c/${character.shortId}`}
-                        className="rounded-md border px-2 py-0.5 text-sm transition-colors hover:bg-muted"
+                        className="border px-2 py-0.5 text-sm transition-colors hover:bg-muted"
                       >
                         {character.name}{" "}
                         <span className="text-muted-foreground">

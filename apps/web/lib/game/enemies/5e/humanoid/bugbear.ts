@@ -13,19 +13,19 @@ export const bugbear = {
 
 Range: **Engaged**; Damage: **Pierce (Physical)**
 
-Attack Roll + St:
-- **1–10**: \`1d4 + St\`
-- **11–19**: \`1d8 + St\`
-- **20+**: \`1d8 + St\` *(Critical)*
+Attack Roll + 2:
+- **1–10**: \`1d4 + 2\`
+- **11–19**: \`1d8 + 2\`
+- **20+**: \`1d8 + 2\` *(Critical)*
 
 **Javelin** — The Bugbear throws a javelin at a target within range.
 
 Range: **Same/Adjacent Zone**; Damage: **Pierce (Physical)**
 
-Attack Roll + Ag:
-- **1–10**: \`1 + Ag\`
-- **11–19**: \`1d6 + Ag\`
-- **20+**: \`1d6 + Ag\` *(Critical)*
+Attack Roll + 1:
+- **1–10**: \`1 + 1\`
+- **11–19**: \`1d6 + 1\`
+- **20+**: \`1d6 + 1\` *(Critical)*
 
 **Surprise Attack** — During an Ambush round, weapons and Skills deal an additional \`1d8\` damage.`,
 } satisfies EnemyDefinition

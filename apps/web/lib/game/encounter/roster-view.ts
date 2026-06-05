@@ -6,6 +6,7 @@ import type {
 } from "@/lib/game/character"
 import type { Affinity, AffinityDamageType } from "@/lib/game/combat"
 import { getEnemy } from "@/lib/game/enemies"
+import { getSkill, type Skill } from "@/lib/game/skills"
 
 import { combatantName } from "./console-view"
 import { fallenCombatantIds } from "./fallen"
@@ -183,6 +184,13 @@ export type CombatantDetail = CombatantOverlay & {
         hp: Pool
         attributes: AttributeScores
         affinities: AffinityChart | null
+        /** The catalog enemy's resolved skills and its freeform `abilities`
+         *  Markdown (both empty/`null` for an inline enemy). The drawer renders
+         *  each skill as a popover showing the **un-hydrated** skill (no
+         *  character-resolved cost / Attack Roll table — that needs a
+         *  {@link HydratedSkill}, which only a character can produce). */
+        skills: Skill[]
+        abilities: string | null
       }
   )
 
@@ -225,8 +233,10 @@ function combatantOverlay(combatant: Combatant): CombatantOverlay {
 
 /** An inline enemy carries current/max on its stat block; a catalog enemy
  *  carries working HP inline on the ref, each value defaulting to the
- *  definition's `maxHP` until first adjusted (UNN-309). */
-function enemyHp(combatant: Combatant): Pool {
+ *  definition's `maxHP` until first adjusted (UNN-309). Exported so the player
+ *  snapshot projection reuses the same catalog-working-HP-default rule rather
+ *  than duplicating it (UNN-322/324). */
+export function enemyHp(combatant: Combatant): Pool {
   const ref = combatant.ref
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
@@ -392,10 +402,17 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: def?.affinities ?? null,
+      skills:
+        def?.skillKeys.flatMap((key) => {
+          const skill = getSkill(key)
+          return skill ? [skill] : []
+        }) ?? [],
+      abilities: def?.abilities ?? null,
     }
   }
 
-  // inline enemy stat block (UNN-299 provisional: no level, no affinity chart)
+  // inline enemy stat block (UNN-299 provisional: no level, no affinity chart,
+  // no structured skills/abilities)
   return {
     ...overlay,
     position,
@@ -408,5 +425,7 @@ export function combatantDetail(
     hp: enemyHp(combatant),
     attributes: ref.statBlock.attributes,
     affinities: null,
+    skills: [],
+    abilities: null,
   }
 }
