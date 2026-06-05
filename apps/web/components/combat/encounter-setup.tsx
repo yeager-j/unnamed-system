@@ -16,6 +16,7 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   buildSetupCombatantLabels,
   compareInitiative,
+  engageableTargets,
   isRosterFullyPlaced,
   normalizeEngagements,
   setEngagementTargets,
@@ -29,7 +30,6 @@ import {
 } from "@/lib/game/encounter"
 
 import { CombatantSetupRow } from "./combatant-setup-row"
-import type { EngagementOption } from "./engagement-control"
 import { ImportPcsPanel } from "./import-pcs-panel"
 import { StartCombatDialog } from "./start-combat-dialog"
 import { ZonesPanel } from "./zones-panel"
@@ -91,17 +91,6 @@ export function EncounterSetup({
     placedCharacters.map((character) => [character.id, character.name])
   )
   const combatantLabels = buildSetupCombatantLabels(combatants, pcNameById)
-
-  function engagementOptionsFor(index: number): EngagementOption[] {
-    const self = combatants[index]!
-    return combatants.flatMap((combatant, i) =>
-      i === index ||
-      combatant.id === undefined ||
-      combatant.zoneId !== self.zoneId
-        ? []
-        : [{ id: combatant.id, label: combatantLabels[i]! }]
-    )
-  }
 
   function togglePc(characterId: string) {
     setCombatants((current) => {
@@ -317,7 +306,11 @@ export function EncounterSetup({
                 zones={zones}
                 zoneId={combatant.zoneId}
                 engagement={combatant.engagement ?? { status: "free" }}
-                engagementOptions={engagementOptionsFor(index)}
+                engagementOptions={engageableTargets(
+                  combatants,
+                  index,
+                  combatantLabels
+                )}
                 onSideChange={(side) => setSide(index, side)}
                 onZoneChange={(zoneId) => setZone(index, zoneId)}
                 onEngagementChange={(engagement) =>

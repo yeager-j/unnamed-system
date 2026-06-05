@@ -11,14 +11,8 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import type { Engagement } from "@/lib/game/encounter"
+import type { EngageableTarget, Engagement } from "@/lib/game/encounter"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
-
-/** One other combatant a row can be engaged with: its stable id + display label. */
-export interface EngagementOption {
-  id: string
-  label: string
-}
 
 /**
  * Sets one combatant's **initial engagement** during setup (UNN-301): Free, or
@@ -38,7 +32,7 @@ export function EngagementControl({
   disabled,
 }: {
   value: Engagement
-  options: EngagementOption[]
+  options: EngageableTarget[]
   onChange: (engagement: Engagement) => void
   disabled?: boolean
 }) {

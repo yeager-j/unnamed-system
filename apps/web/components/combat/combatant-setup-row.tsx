@@ -14,10 +14,11 @@ import {
 import type {
   CombatSession,
   CombatSide,
+  EngageableTarget,
   Engagement,
 } from "@/lib/game/encounter"
 
-import { EngagementControl, type EngagementOption } from "./engagement-control"
+import { EngagementControl } from "./engagement-control"
 import { SideToggle } from "./side-toggle"
 
 /**
@@ -46,7 +47,7 @@ export function CombatantSetupRow({
   zones: CombatSession["zones"]
   zoneId: string
   engagement: Engagement
-  engagementOptions: EngagementOption[]
+  engagementOptions: EngageableTarget[]
   onSideChange: (side: CombatSide) => void
   onZoneChange: (zoneId: string) => void
   onEngagementChange: (engagement: Engagement) => void

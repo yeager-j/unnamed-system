@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { CombatantSetup, CombatSession } from "./session"
 import {
   buildSetupCombatantLabels,
+  engageableTargets,
   isRosterFullyPlaced,
   normalizeEngagements,
   setEngagementTargets,
@@ -168,6 +169,45 @@ describe("normalizeEngagements", () => {
       status: "engaged",
       targetCombatantIds: ["b"],
     })
+  })
+})
+
+describe("engageableTargets", () => {
+  it("offers every other combatant in the same zone, with labels", () => {
+    const roster = [
+      combatant("a", "zone-a"),
+      combatant("b", "zone-a"),
+      combatant("c", "zone-b"),
+    ]
+    expect(engageableTargets(roster, 0, ["A", "B", "C"])).toEqual([
+      { id: "b", label: "B" },
+    ])
+  })
+
+  it("excludes the combatant itself", () => {
+    const roster = [combatant("a", "zone-a"), combatant("b", "zone-a")]
+    const ids = engageableTargets(roster, 0, ["A", "B"]).map((t) => t.id)
+    expect(ids).not.toContain("a")
+  })
+
+  it("is side-agnostic — offers a same-zone ally", () => {
+    const ally: CombatantSetup = {
+      id: "ally",
+      side: "players",
+      ref: { kind: "pc", characterId: "ally" },
+      zoneId: "zone-a",
+    }
+    const roster = [combatant("a", "zone-a"), ally]
+    expect(engageableTargets(roster, 0, ["A", "Ally"])).toEqual([
+      { id: "ally", label: "Ally" },
+    ])
+  })
+
+  it("offers everyone in an unzoned encounter (all empty zoneId)", () => {
+    const roster = [combatant("a", ""), combatant("b", ""), combatant("c", "")]
+    expect(
+      engageableTargets(roster, 0, ["A", "B", "C"]).map((t) => t.id)
+    ).toEqual(["b", "c"])
   })
 })
 

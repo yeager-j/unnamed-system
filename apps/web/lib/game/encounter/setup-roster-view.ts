@@ -73,6 +73,37 @@ export function isRosterFullyPlaced(
   return setups.every((setup) => setup.zoneId in zones)
 }
 
+/** A combatant a given roster slot may be engaged with: its stable id + label. */
+export interface EngageableTarget {
+  id: string
+  label: string
+}
+
+/**
+ * The combatants the roster slot at `index` may be engaged with (UNN-301): every
+ * *other* placed combatant in the **same zone** (engagement is melee-lock, and
+ * the rules only let you Engage a creature in your current Zone — rulebook 3.5).
+ * Side-agnostic: a combatant can be Engaged with an ally, not just an opponent
+ * (e.g. the Confuse ailment forces engaging an ally), matching the `side`-is-
+ * orthogonal stance of {@link import("./session").Engagement}. The same-zone rule
+ * lives here, not in the component, so it has a single home alongside
+ * {@link normalizeEngagements} (which enforces it on the stored graph). `labels`
+ * is index-aligned to `setups` (e.g. from {@link buildSetupCombatantLabels}).
+ */
+export function engageableTargets(
+  setups: CombatantSetup[],
+  index: number,
+  labels: string[]
+): EngageableTarget[] {
+  const self = setups[index]
+  if (self === undefined) return []
+  return setups.flatMap((setup, i) =>
+    i === index || setup.id === undefined || setup.zoneId !== self.zoneId
+      ? []
+      : [{ id: setup.id, label: labels[i] ?? setup.id }]
+  )
+}
+
 /** The combatants a setup is engaged with, or `[]` when Free. */
 function engagementTargets(setup: CombatantSetup | undefined): string[] {
   return setup?.engagement?.status === "engaged"
