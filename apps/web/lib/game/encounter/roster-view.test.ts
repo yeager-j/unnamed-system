@@ -109,6 +109,21 @@ describe("buildRosterView", () => {
     expect(view.downedEnemyCount).toBe(0)
   })
 
+  it("resolves the rail row's zone display name, not the raw id", () => {
+    const base = build()
+    const session: CombatSession = {
+      ...base,
+      zones: { z: { id: "z", name: "Courtyard" } },
+    }
+    expect(buildRosterView(session, PC_DETAIL).players[0]!.zoneName).toBe(
+      "Courtyard"
+    )
+  })
+
+  it("leaves zoneName null when the combatant is unplaced / unzoned", () => {
+    expect(buildRosterView(build(), PC_DETAIL).players[0]!.zoneName).toBeNull()
+  })
+
   it("gives a PC HP + SP and its portrait", () => {
     const pc = buildRosterView(build(), PC_DETAIL).players[0]!
     expect(pc.hp).toEqual({ current: 18, max: 30 })
