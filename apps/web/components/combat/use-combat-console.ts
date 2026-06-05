@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useEffect, useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
+import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
 import {
@@ -65,5 +66,26 @@ export function useCombatConsole(
     })
   }
 
-  return { session, isPending, dispatch }
+  /**
+   * Ends the encounter (UNN-320): a terminal `status` flip, not a session edit,
+   * so it goes straight through {@link endEncounterAction} (guarded on the live
+   * `versionRef`) rather than the optimistic reduce path. On success
+   * `router.refresh()` re-forks the page to the ended stub.
+   */
+  function endEncounter() {
+    startTransition(async () => {
+      const result = await endEncounterAction({
+        encounterId,
+        expectedVersion: versionRef.current,
+      })
+      if (!result.ok) {
+        toast.error(encounterErrorMessage(result.error))
+        return
+      }
+      versionRef.current = result.value.version
+      router.refresh()
+    })
+  }
+
+  return { session, isPending, dispatch, endEncounter }
 }

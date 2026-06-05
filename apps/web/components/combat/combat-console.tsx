@@ -23,6 +23,7 @@ import {
 
 import { CombatantDrawer } from "./combatant-drawer"
 import { CombatantRail } from "./combatant-rail"
+import { EndCombatDialog } from "./end-combat-dialog"
 import { EndOfTurnModal } from "./end-of-turn-modal"
 import { TurnOrderStrip, type ConsolePhase } from "./turn-order-strip"
 import { useCombatConsole } from "./use-combat-console"
@@ -51,7 +52,7 @@ export function CombatConsole({
   encounter: EncounterRow
   pcDetailById: Record<string, PcCombatantDetail>
 }) {
-  const { session, isPending, dispatch } = useCombatConsole(
+  const { session, isPending, dispatch, endEncounter } = useCombatConsole(
     encounter.id,
     encounter.session,
     encounter.version
@@ -64,6 +65,9 @@ export function CombatConsole({
   const view = buildConsoleView(session, pcDetailById)
   const { currentActor } = view
   const roster = buildRosterView(session, pcDetailById)
+  const fallenPcNames = roster.players
+    .filter((row) => row.isFallen)
+    .map((row) => row.name)
   const selectedDetail =
     selectedCombatantId !== null
       ? combatantDetail(session, selectedCombatantId, pcDetailById)
@@ -121,6 +125,11 @@ export function CombatConsole({
             <EyeIcon />
             Player view
           </Button>
+          <EndCombatDialog
+            fallenPcNames={fallenPcNames}
+            onConfirm={endEncounter}
+            disabled={isPending}
+          />
         </div>
       </div>
 
