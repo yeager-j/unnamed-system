@@ -6,8 +6,8 @@ import {
 } from "../catalog/registered-entries"
 import { getSkill } from "../skills/index"
 import { goblin } from "./5e/humanoid/goblin"
-import { ENEMIES, getEnemy } from "./index"
-import { enemyDefinitionSchema } from "./schema"
+import { ENEMIES, getEnemy, getEnemyFamily } from "./index"
+import { ENEMY_FAMILIES, enemyDefinitionSchema } from "./schema"
 
 describe("enemy catalog data", () => {
   it("has a unique, slug-shaped key for every enemy", () => {
@@ -35,6 +35,14 @@ describe("enemy catalog data", () => {
       for (const skillKey of enemy.skillKeys) {
         expect(getSkill(skillKey)).toBeDefined()
       }
+    }
+  })
+
+  it("resolves a known family for every enemy", () => {
+    for (const enemy of ENEMIES) {
+      const family = getEnemyFamily(enemy.key)
+      expect(family).toBeDefined()
+      expect(ENEMY_FAMILIES).toContain(family)
     }
   })
 

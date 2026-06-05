@@ -10,6 +10,24 @@ import type { SkillKey } from "../skills/registry"
  *  PC ref's `characterId`) that `getEnemy` resolves, not a re-validated slug. */
 export const enemyKeySchema = z.string().regex(/^[a-z0-9-]+$/)
 
+/**
+ * The creature families the catalog is organized into (the 5e creature types
+ * used for playtesting). This is the directory grouping under `5e/<family>/`
+ * lifted to a first-class display/filter vocabulary — `getEnemyFamily` resolves
+ * a `key` to its family, the browse table groups + filters by it, and
+ * {@link ../../ui/labels} renders the labels. The definition itself carries no
+ * `family` field: it is a property of *where* an entry lives, kept off every
+ * entry so adding a creature never restates its directory.
+ */
+export const ENEMY_FAMILIES = [
+  "humanoid",
+  "beast",
+  "undead",
+  "aberration",
+  "monstrosity",
+] as const
+export type EnemyFamily = (typeof ENEMY_FAMILIES)[number]
+
 /** An enemy's four core Attributes. Unbounded — a monster may have a negative
  *  Attribute (e.g. a Goblin's Magic of −1). */
 const attributesSchema = z.object({

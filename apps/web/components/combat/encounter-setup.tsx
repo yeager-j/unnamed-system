@@ -1,6 +1,6 @@
 "use client"
 
-import { XIcon } from "@phosphor-icons/react/dist/ssr"
+import { PlusIcon, SkullIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -14,6 +14,7 @@ import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
+  buildSetupCombatantLabels,
   compareInitiative,
   toCombatantSetup,
   type CombatAdvantage,
@@ -61,10 +62,6 @@ export function EncounterSetup({
     encounter.session.combatants.map(toCombatantSetup)
   )
 
-  const placedById = new Map(
-    placedCharacters.map((character) => [character.id, character])
-  )
-
   const addedCharacterIds = new Set(
     combatants.flatMap((combatant) =>
       combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
@@ -74,18 +71,10 @@ export function EncounterSetup({
   const canStart = combatants.length > 0
   const comparison = compareInitiative(combatants, pcStatsById)
 
-  function combatantLabel(setup: CombatantSetup): string {
-    switch (setup.ref.kind) {
-      case "pc":
-        return (
-          placedById.get(setup.ref.characterId)?.name ?? setup.ref.characterId
-        )
-      case "enemy":
-        return setup.ref.statBlock.name
-      case "catalog-enemy":
-        return setup.ref.enemyKey
-    }
-  }
+  const pcNameById = Object.fromEntries(
+    placedCharacters.map((character) => [character.id, character.name])
+  )
+  const combatantLabels = buildSetupCombatantLabels(combatants, pcNameById)
 
   function togglePc(characterId: string) {
     setCombatants((current) => {
@@ -142,6 +131,17 @@ export function EncounterSetup({
     })
   }
 
+  function browseCatalog() {
+    // Persist the in-progress roster first: the catalog sub-route reads the
+    // *saved* session and appends to it, so unsaved PC toggles would be lost
+    // without this.
+    startTransition(async () => {
+      const nextVersion = await persist()
+      if (nextVersion !== null)
+        router.push(`/combat/${encounter.shortId}/enemies`)
+    })
+  }
+
   function start(advantage: CombatAdvantage, firstSide: CombatSide) {
     startTransition(async () => {
       const nextVersion = await persist()
@@ -186,7 +186,28 @@ export function EncounterSetup({
           addedCharacterIds={addedCharacterIds}
           onToggle={togglePc}
         />
-        <SetupPanelStub title="Add enemies" ticket="UNN-299" />
+        <section className="flex flex-col gap-3 rounded-lg border p-4">
+          <header className="flex items-center justify-between gap-2">
+            <h2 className="font-heading text-sm font-medium">Add enemies</h2>
+          </header>
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="outline"
+              onClick={browseCatalog}
+              disabled={isPending}
+            >
+              {isPending ? <Spinner /> : <SkullIcon weight="bold" />}
+              Browse catalog
+            </Button>
+            <Button variant="outline" disabled>
+              <PlusIcon weight="bold" />
+              Create custom
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Custom enemies are coming soon (UNN-299).
+            </p>
+          </div>
+        </section>
         <SetupPanelStub title="Zones" ticket="UNN-301" />
       </div>
 
@@ -206,7 +227,7 @@ export function EncounterSetup({
                 className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
               >
                 <span className="min-w-0 truncate text-sm font-medium">
-                  {combatantLabel(combatant)}
+                  {combatantLabels[index]}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                   <SideToggle
