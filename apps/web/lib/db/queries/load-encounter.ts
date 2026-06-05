@@ -6,15 +6,32 @@ import {
   type EncounterRow,
   type EncounterStatus,
 } from "@/lib/db/schema/encounter"
+import { combatSessionSchema } from "@/lib/game/encounter"
 
 /**
  * Reads for the `encounters` table. Unlike the character loader there is no
- * "hydrate" step — the `session` jsonb is already the full tracker state; the
- * player-view projection that strips enemy affinities is a separate concern
- * (UNN-322). Nothing here imports another db domain.
+ * game-engine *hydrate* step — the `session` jsonb already is the full tracker
+ * state. It is, however, run through {@link withParsedSession} on read so the
+ * column's compile-time `$type` cast can't hand a caller a blob that predates a
+ * schema field. The player-view projection that strips enemy affinities is a
+ * separate concern (UNN-322). The only non-db-domain import is the engine's
+ * `combatSessionSchema`, which `schema/encounter.ts` already depends on.
  */
 
-/** The raw `encounters` row by id, or `null` when no encounter matches. */
+/**
+ * Parses the raw jsonb `session` through {@link combatSessionSchema} so zod
+ * defaults run on read. The column is typed by a compile-time `$type` cast with
+ * no runtime check, so a blob persisted before a field existed would otherwise
+ * reach callers with that field `undefined` — contradicting the `CombatSession`
+ * type and, e.g., flipping the drawer's action-economy `Toggle` from uncontrolled
+ * to controlled (UNN-310). Parsing once here keeps every loaded `EncounterRow`
+ * honest end-to-end, so no consumer has to defensively coerce.
+ */
+function withParsedSession(row: EncounterRow): EncounterRow {
+  return { ...row, session: combatSessionSchema.parse(row.session) }
+}
+
+/** The `encounters` row by id (session parsed), or `null` when none matches. */
 export async function loadEncounterRowById(
   encounterId: string
 ): Promise<EncounterRow | null> {
@@ -24,7 +41,7 @@ export async function loadEncounterRowById(
     .where(eq(encounters.id, encounterId))
     .limit(1)
 
-  return row ?? null
+  return row ? withParsedSession(row) : null
 }
 
 /**
@@ -40,7 +57,7 @@ export async function loadEncounterRowByShortId(
     .where(eq(encounters.shortId, shortId))
     .limit(1)
 
-  return row ?? null
+  return row ? withParsedSession(row) : null
 }
 
 /**
@@ -128,5 +145,5 @@ export async function loadLiveEncounterForCampaign(
     )
     .limit(1)
 
-  return row ?? null
+  return row ? withParsedSession(row) : null
 }

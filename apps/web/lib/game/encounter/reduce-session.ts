@@ -1,3 +1,5 @@
+import { reduceActionEconomyEvent } from "./reduce/action-economy"
+import { reduceAilmentEvent } from "./reduce/ailments"
 import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceDraftCombatantEvent } from "./reduce/draft"
 import { reduceEnemyVitalsEvent } from "./reduce/enemy-vitals"
@@ -50,8 +52,17 @@ export function reduceCombatSession(
     case "removeCombatant":
       return reduceRoundEvent(session, event, newId)
 
+    case "setBattleConditionAxis":
+    case "setBattleConditionFlag":
     case "applyBattleConditionDuration":
       return reduceBattleConditionEvent(session, event)
+
+    case "setAilment":
+    case "clearAilment":
+      return reduceAilmentEvent(session, event)
+
+    case "setActionEconomy":
+      return reduceActionEconomyEvent(session, event)
 
     case "adjustEnemyVitals":
       return reduceEnemyVitalsEvent(session, event)

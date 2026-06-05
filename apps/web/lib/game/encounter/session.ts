@@ -141,6 +141,8 @@ export const combatantSchema = z.object({
   ailments: ailmentsSchema,
   battleConditions: battleConditionsSchema,
   hasActedThisRound: z.boolean(),
+  moveAvailable: z.boolean().default(true),
+  standardAvailable: z.boolean().default(true),
   reactionAvailable: z.boolean(),
   zoneId: z.string(),
   engagement: engagementSchema,
@@ -191,8 +193,9 @@ export type CombatantSetup = z.infer<typeof combatantSetupSchema>
 
 /**
  * Builds one fresh {@link Combatant} from a {@link CombatantSetup} and a minted
- * `id`: no ailments, all battle conditions neutral, reaction available, no active
- * durations, and Free unless setup says otherwise. `hasActedThisRound` is the
+ * `id`: no ailments, all battle conditions neutral, every action (move/standard/
+ * reaction) available, no active durations, and Free unless setup says otherwise.
+ * `hasActedThisRound` is the
  * caller's call — `false` for combatants present at encounter start, `true` for a
  * mid-round joiner so it is queued for the next round (UNN-306). Shared by
  * {@link createCombatSession} and the `addCombatant` reducer slice so the
@@ -210,6 +213,8 @@ export function makeCombatant(
     ailments: [],
     battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
     hasActedThisRound,
+    moveAvailable: true,
+    standardAvailable: true,
     reactionAvailable: true,
     zoneId: setup.zoneId,
     engagement: setup.engagement ?? { status: "free" },

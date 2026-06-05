@@ -20,6 +20,7 @@ import type { AdjustPoolActionError } from "@/lib/actions/adjust-pools.schema"
 import { isFallen } from "@/lib/game/character"
 import type {
   CombatantDetail,
+  CombatEvent,
   EnemyVitalsField,
   Pool,
 } from "@/lib/game/encounter"
@@ -32,29 +33,36 @@ type PcDetail = Extract<CombatantDetail, { kind: "pc" }>
 type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>
 
 /**
- * The drawer's **VITALS** section (UNN-309) — the one slot that writes. A PC's
- * HP/SP route through the DM-authorized pools actions (the character row; the
- * player's own sheet updates live); an enemy's mutate the session stat block via
- * the `adjustEnemyVitals` event the console wires to `onAdjustEnemyVitals`. Fallen
- * (PC at 0 HP) / Dead (enemy at 0) is derived here, never stored.
+ * The drawer's **VITALS** section (UNN-309) — the one slot that writes a PC's
+ * HP/SP through the DM-authorized pools actions (the character row; the player's
+ * own sheet updates live). An enemy's vitals mutate the session stat block via
+ * the `adjustEnemyVitals` event the console dispatches through `onCombatEvent`
+ * (the shared overlay-edit callback). Fallen (PC at 0 HP) / Dead (enemy at 0) is
+ * derived here, never stored.
  */
 export function CombatantVitalsSection({
   detail,
-  onAdjustEnemyVitals,
+  onCombatEvent,
 }: {
   detail: CombatantDetail
-  onAdjustEnemyVitals: (
-    combatantId: string,
-    field: EnemyVitalsField,
-    value: number
-  ) => void
+  onCombatEvent: (event: CombatEvent) => void
 }) {
   return (
     <DetailSection title="Vitals">
       {detail.kind === "pc" ? (
         <PcVitals detail={detail} />
       ) : (
-        <EnemyVitals detail={detail} onAdjust={onAdjustEnemyVitals} />
+        <EnemyVitals
+          detail={detail}
+          onAdjust={(combatantId, field, value) =>
+            onCombatEvent({
+              kind: "adjustEnemyVitals",
+              combatantId,
+              field,
+              value,
+            })
+          }
+        />
       )}
     </DetailSection>
   )

@@ -2,8 +2,12 @@ import { z } from "zod/v4"
 
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_STATES,
   type BattleConditionAxisKey,
+  type BattleConditionFlagKey,
+  type BattleConditionState,
 } from "@/lib/game/character"
+import { AILMENT_KEYS, type AilmentKey } from "@/lib/game/combat"
 
 import {
   COMBAT_ADVANTAGES,
@@ -88,18 +92,71 @@ export type RoundEvent =
   | { kind: "removeCombatant"; combatantId: string }
 
 /**
- * Battle-condition duration events. `applyBattleConditionDuration` sets or
- * extends a combatant's remaining turns on an axis — re-application **extends**
- * rather than stacks (UNN-293 / rulebook 3.8). It owns *how long* only; the
- * axis's increased/decreased *state* lives on the combatant's `battleConditions`
- * overlay (ADR Decision 1), set by a future panel event (UNN-309+). Decrement
- * and expiry happen on `endTurn`, which mutates the overlay back to `neutral`.
+ * Battle-condition overlay events — the *state* a combatant carries plus *how
+ * long* it lasts (ADR Decision 1), all on the combatant overlay:
+ *
+ * - `setBattleConditionAxis` sets one tri-state axis (Attack / Defense /
+ *   Hit-Evasion) to `neutral` / `increased` / `decreased` directly (UNN-310).
+ * - `setBattleConditionFlag` toggles a single-use flag (Charged / Concentrating)
+ *   on **or** off — manual, no auto-consume, no duration tick (UNN-294 policy).
+ * - `applyBattleConditionDuration` sets or extends an axis's remaining turns —
+ *   re-application **extends** rather than stacks (UNN-293 / rulebook 3.8); it
+ *   owns *how long* only. Decrement and expiry happen on `endTurn`, which mutates
+ *   the axis state back to `neutral`.
+ *
+ * The DM sets axis/flag state from the combatant drawer (UNN-310); the same
+ * overlay lives on the character sheet too until UNN-333 retires that copy.
  */
-export type BattleConditionEvent = {
-  kind: "applyBattleConditionDuration"
+export type BattleConditionEvent =
+  | {
+      kind: "setBattleConditionAxis"
+      combatantId: string
+      axis: BattleConditionAxisKey
+      state: BattleConditionState
+    }
+  | {
+      kind: "setBattleConditionFlag"
+      combatantId: string
+      flag: BattleConditionFlagKey
+      value: boolean
+    }
+  | {
+      kind: "applyBattleConditionDuration"
+      combatantId: string
+      axis: BattleConditionAxisKey
+      turns: number
+    }
+
+/**
+ * Ailment overlay events (UNN-310). `setAilment` adds an ailment key to the
+ * combatant; `clearAilment` removes one. Both are **permissive** — the app
+ * tracks whatever the DM records and never enforces the "one non-Downed at a
+ * time" convention (that is the DM's call at the table, mirroring the permissive
+ * `ailmentsSchema`). Downed set here surfaces the rail badge + draft-skip; it
+ * clears at the start of the combatant's next turn via `draftCombatant`.
+ */
+export type AilmentEvent =
+  | { kind: "setAilment"; combatantId: string; ailment: AilmentKey }
+  | { kind: "clearAilment"; combatantId: string; ailment: AilmentKey }
+
+/**
+ * The three per-turn actions the (non-enforcing) action economy tracks. `move`
+ * and `standard` join the long-standing `reaction` (UNN-310); all three reset to
+ * available at the start of a normal turn via `draftCombatant`.
+ */
+export const ACTION_ECONOMY_ACTIONS = ["move", "standard", "reaction"] as const
+export type ActionEconomyAction = (typeof ACTION_ECONOMY_ACTIONS)[number]
+
+/**
+ * `setActionEconomy` flips one of a combatant's per-turn action toggles
+ * (Move / Standard / Reaction) on or off (UNN-310). **Non-enforcing** — it never
+ * blocks acting (ADR Decision 8); it is a tracking aid the DM eyeballs.
+ */
+export type ActionEconomyEvent = {
+  kind: "setActionEconomy"
   combatantId: string
-  axis: BattleConditionAxisKey
-  turns: number
+  action: ActionEconomyAction
+  available: boolean
 }
 
 /**
@@ -154,6 +211,8 @@ export type CombatEvent =
   | TurnEvent
   | RoundEvent
   | BattleConditionEvent
+  | AilmentEvent
+  | ActionEconomyEvent
   | EnemyVitalsEvent
   | OverrideEvent
 
@@ -176,10 +235,38 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("addCombatant"), setup: combatantSetupSchema }),
   z.object({ kind: z.literal("removeCombatant"), combatantId: z.string() }),
   z.object({
+    kind: z.literal("setBattleConditionAxis"),
+    combatantId: z.string(),
+    axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
+    state: z.enum(BATTLE_CONDITION_STATES),
+  }),
+  z.object({
+    kind: z.literal("setBattleConditionFlag"),
+    combatantId: z.string(),
+    flag: z.enum(["charged", "concentrating"]),
+    value: z.boolean(),
+  }),
+  z.object({
     kind: z.literal("applyBattleConditionDuration"),
     combatantId: z.string(),
     axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
     turns: z.number().int().positive(),
+  }),
+  z.object({
+    kind: z.literal("setAilment"),
+    combatantId: z.string(),
+    ailment: z.enum(AILMENT_KEYS),
+  }),
+  z.object({
+    kind: z.literal("clearAilment"),
+    combatantId: z.string(),
+    ailment: z.enum(AILMENT_KEYS),
+  }),
+  z.object({
+    kind: z.literal("setActionEconomy"),
+    combatantId: z.string(),
+    action: z.enum(ACTION_ECONOMY_ACTIONS),
+    available: z.boolean(),
   }),
   z.object({ kind: z.literal("setCurrentActor"), combatantId: z.string() }),
   z.object({

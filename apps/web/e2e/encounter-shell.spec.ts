@@ -254,6 +254,32 @@ test("catalog enemy HP is adjustable on its working ref (UNN-309)", async ({
   await expect(drawer.getByText("15 / 16")).toBeVisible()
 })
 
+test("drawer edits session-overlay ailments + action economy (UNN-310)", async ({
+  page,
+}) => {
+  // Ailments / action economy live on the session blob, which
+  // `resetEncounterFixtures` restores per test — self-cleaning, so this won't
+  // perturb the (serial) turn-flow tests.
+  await page.goto(encounterTarget.live.url)
+  await page.getByRole("button", { name: "Open Goblin detail" }).click()
+  const drawer = page.getByRole("dialog")
+
+  // Action economy: Reaction toggles from available to used.
+  await drawer.getByRole("button", { name: "Reaction available" }).click()
+  await expect(
+    drawer.getByRole("button", { name: "Reaction used" })
+  ).toBeVisible()
+
+  // Ailments are a permissive multi-select: setting Burn marks its toggle
+  // pressed (the picker portals out of the modal sheet, so scope to the page;
+  // match the row by its description so it never collides with the trigger
+  // summary, which also reads "Burn" once set).
+  await drawer.getByRole("button", { name: "No ailment" }).click()
+  const burnToggle = page.getByRole("button", { name: /Burn.*max HP/ })
+  await burnToggle.click()
+  await expect(burnToggle).toHaveAttribute("aria-pressed", "true")
+})
+
 test("ended encounter renders the read-only ended stub", async ({ page }) => {
   await page.goto(encounterTarget.ended.url)
   await expect(page.getByTestId("combat-ended-stub")).toBeVisible()
