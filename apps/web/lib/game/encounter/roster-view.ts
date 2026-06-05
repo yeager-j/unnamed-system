@@ -15,7 +15,9 @@ import type {
   CombatSide,
   ConditionDurations,
   Engagement,
+  Zone,
 } from "./session"
+import { adjacentZones } from "./zone-graph"
 
 /**
  * The display projection the combatant **rail** and **detail drawer** render
@@ -128,12 +130,26 @@ export interface CombatantOverlay {
   actionEconomy: ActionEconomy
 }
 
+/**
+ * A combatant's position for the drawer's move control (UNN-315): the zone it
+ * occupies (`null` when unplaced or its `zoneId` is stale) and the zones it may
+ * move to — the **adjacent** zones when placed (rulebook §3.5), or **all** zones
+ * when unplaced (the initial-placement affordance for a mid-combat joiner).
+ * `current` is never in `targets` (no self-loops — UNN-313).
+ */
+export interface CombatantPosition {
+  current: Zone | null
+  targets: Zone[]
+}
+
 /** The per-combatant detail the drawer header + sections render. PC and enemy
  *  variants differ only in what their vitals source can supply (a PC has SP +
  *  identity; an enemy may lack a level and an affinity chart); the editable
- *  {@link CombatantOverlay} is common to both. */
-export type CombatantDetail = CombatantOverlay &
-  (
+ *  {@link CombatantOverlay} + the {@link CombatantPosition} are common to both
+ *  (`position` is `null` only when the encounter has no zones). */
+export type CombatantDetail = CombatantOverlay & {
+  position: CombatantPosition | null
+} & (
     | {
         kind: "pc"
         id: string
@@ -166,6 +182,24 @@ export type CombatantDetail = CombatantOverlay &
 
 function isDowned(combatant: Combatant): boolean {
   return combatant.ailments.includes("downed")
+}
+
+/**
+ * The combatant's position for the drawer move control (UNN-315). `null` when the
+ * encounter defines no zones (theater of mind — nothing to move between). When
+ * placed, `targets` are the adjacent zones (Travel, §3.5); when unplaced, every
+ * zone (place a mid-combat joiner). See {@link CombatantPosition}.
+ */
+function combatantPosition(
+  session: CombatSession,
+  combatant: Combatant
+): CombatantPosition | null {
+  if (Object.keys(session.zones).length === 0) return null
+  const current = session.zones[combatant.zoneId] ?? null
+  const targets = current
+    ? adjacentZones(session, current.id)
+    : Object.values(session.zones)
+  return { current, targets }
 }
 
 /** Projects the editable overlay off a combatant — the shared slice both drawer
@@ -296,11 +330,13 @@ export function combatantDetail(
   const ref = combatant.ref
   const name = combatantName(combatant, pcDetailById)
   const overlay = combatantOverlay(combatant)
+  const position = combatantPosition(session, combatant)
 
   if (ref.kind === "pc") {
     const detail = pcDetailById[ref.characterId]
     return {
       ...overlay,
+      position,
       kind: "pc",
       id: combatant.id,
       characterId: ref.characterId,
@@ -329,6 +365,7 @@ export function combatantDetail(
     const def = getEnemy(ref.enemyKey)
     return {
       ...overlay,
+      position,
       kind: "enemy",
       id: combatant.id,
       name,
@@ -348,6 +385,7 @@ export function combatantDetail(
   // inline enemy stat block (UNN-299 provisional: no level, no affinity chart)
   return {
     ...overlay,
+    position,
     kind: "enemy",
     id: combatant.id,
     name,

@@ -274,4 +274,39 @@ describe("combatantDetail", () => {
       reaction: true,
     })
   })
+
+  it("position is null when the encounter has no zones", () => {
+    expect(
+      combatantDetail(build(), "combatant-0", PC_DETAIL)!.position
+    ).toBeNull()
+  })
+
+  it("position carries the current zone + adjacent targets when placed", () => {
+    const session: CombatSession = {
+      ...build(),
+      zones: {
+        z: { id: "z", name: "Courtyard" },
+        z2: { id: "z2", name: "Hall" },
+      },
+      adjacency: { z: ["z2"], z2: ["z"] },
+    }
+    // combatant-0 is placed in "z" (the SETUP zoneId).
+    const pos = combatantDetail(session, "combatant-0", PC_DETAIL)!.position!
+    expect(pos.current?.name).toBe("Courtyard")
+    expect(pos.targets.map((t) => t.name)).toEqual(["Hall"])
+  })
+
+  it("position offers all zones when the combatant is unplaced", () => {
+    const session: CombatSession = {
+      ...build(),
+      // combatant-0's "z" isn't a defined zone → unplaced.
+      zones: {
+        a: { id: "a", name: "Courtyard" },
+        b: { id: "b", name: "Hall" },
+      },
+    }
+    const pos = combatantDetail(session, "combatant-0", PC_DETAIL)!.position!
+    expect(pos.current).toBeNull()
+    expect(pos.targets.map((t) => t.name).sort()).toEqual(["Courtyard", "Hall"])
+  })
 })

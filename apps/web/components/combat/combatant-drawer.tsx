@@ -21,6 +21,7 @@ import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CombatantActionsSection } from "./combatant-actions-section"
 import { CombatantConditionsSection } from "./combatant-conditions-section"
+import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
 
 /**
@@ -29,8 +30,8 @@ import { CombatantVitalsSection } from "./combatant-vitals-section"
  * all dispatch a `CombatEvent` through `onCombatEvent`: **VITALS** (UNN-309; PC
  * HP/SP route through the pools actions inside the section, enemy HP through the
  * `adjustEnemyVitals` event), **ACTIONS THIS TURN** and **AILMENT & CONDITIONS**
- * (UNN-310). ATTRIBUTES + AFFINITIES are read-only (shared grids); POSITION stays
- * a placeholder its own ticket (UNN-315/316) fills.
+ * (UNN-310), and **POSITION** (UNN-315; the move-between-zones control via the
+ * `moveCombatant` event). ATTRIBUTES + AFFINITIES are read-only (shared grids).
  */
 export function CombatantDrawer({
   detail,
@@ -84,7 +85,10 @@ function DrawerBody({
           detail={detail}
           onCombatEvent={onCombatEvent}
         />
-        <SlotPlaceholder title="Position" ticket="UNN-315 / 316" />
+        <CombatantPositionSection
+          detail={detail}
+          onCombatEvent={onCombatEvent}
+        />
 
         <DetailSection title="Attributes">
           <AttributeGrid attributes={detail.attributes} />
@@ -110,18 +114,6 @@ function DrawerBody({
         </p>
       </ResponsiveDialogFooter>
     </ResponsiveDialogContent>
-  )
-}
-
-/** A write-owned section the drawer only frames; its controls arrive with the
- *  named ticket (mirrors the setup shell's stub panels). */
-function SlotPlaceholder({ title, ticket }: { title: string; ticket: string }) {
-  return (
-    <DetailSection title={title}>
-      <p className="text-sm text-muted-foreground">
-        Controls land in {ticket}.
-      </p>
-    </DetailSection>
   )
 }
 
