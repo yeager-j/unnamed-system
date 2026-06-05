@@ -280,6 +280,26 @@ test("drawer edits session-overlay ailments + action economy (UNN-310)", async (
   await expect(burnToggle).toHaveAttribute("aria-pressed", "true")
 })
 
+test("End encounter flips the live console to the ended stub (UNN-320)", async ({
+  page,
+}) => {
+  // Status lives on the encounter row, which `resetEncounterFixtures` restores
+  // per test — so ending the shared live encounter here is self-cleaning.
+  await page.goto(encounterTarget.live.url)
+  await expect(
+    page.getByTestId("combat-console-battlefield-placeholder")
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "End encounter" }).click()
+  const confirm = page.getByRole("alertdialog")
+  await expect(
+    confirm.getByRole("heading", { name: "End this encounter?" })
+  ).toBeVisible()
+  await confirm.getByRole("button", { name: "End encounter" }).click()
+
+  await expect(page.getByTestId("combat-ended-stub")).toBeVisible()
+})
+
 test("ended encounter renders the read-only ended stub", async ({ page }) => {
   await page.goto(encounterTarget.ended.url)
   await expect(page.getByTestId("combat-ended-stub")).toBeVisible()

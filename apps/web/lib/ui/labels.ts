@@ -381,6 +381,14 @@ export const COMBATANT_DOWN_LABELS = {
 } as const
 
 /**
+ * The non-blocking end-of-combat reminder (UNN-320): Fallen PCs recover to 1 HP,
+ * but the tracker never writes a character row — each player sets it on their own
+ * sheet. Display-only; ending the encounter writes nothing to characters.
+ */
+export const FALLEN_RECOVER_REMINDER =
+  "These players recover to 1 HP — set it on their own sheet:"
+
+/**
  * Consent copy for character placement (UNN-328). Placing a character into a
  * campaign is the owner's consent to the DM's in-combat vitals writes (ADR
  * Decision 9); the dialogs state that plainly before the owner confirms.
