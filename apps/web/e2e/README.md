@@ -97,11 +97,29 @@ optimistic baseline has caught up." For dependent writes, only the DB knows.
 ## Write-spec discipline
 
 `playwright.config.ts` sets `fullyParallel: true`, so different spec files
-run in parallel workers. Two specs that mutate the same character row
-will race.
+run in parallel workers. Two specs that mutate the same row will race.
 
-Per CLAUDE.md: give each write spec a dedicated seed character (or
-serialize the writes inside one file). `write-pattern.spec.ts` uses
-`/c/write-target` (Mira Solberg) — added to the seed alongside the
-existing Iris Vey so read-only specs that pin Iris Vey's name don't
-flake.
+**Default: mint ephemeral rows with the factory, don't grow the seed**
+(UNN-343). `fixtures/factory.ts` exposes `createTestCharacter`,
+`createTestCampaign`, `placeCharacter`, and `createLiveEncounter` — each
+stamps a **unique-per-run id** (so `fullyParallel` workers can't contend by
+construction) and registers it in a `CleanupTracker`; a single
+`cleanup(tracker)` in `afterAll` tears the world down FK-safe (and on
+failure). A per-spec fixture file (`fixtures/<thing>-target.ts`) wraps the
+factory: it exports a `createXTarget(tracker)` that mints exactly the
+character its spec needs (the `makeSeedCharacter` overrides inline) and
+returns helpers bound to the new id (`reset` / `setX` / `getX`). The spec
+creates the target in `beforeAll` (or `beforeEach` for destructive specs),
+resets between tests, and `cleanup`s in `afterAll`. See
+`combat-state-target.ts` + `combat-state.spec.ts` for the canonical shape.
+
+**The seed is product/showcase data only.** Keep the demo roster, the auth
+fixture (Iris Vey), and the combat showcase (`encounter-target.ts`:
+campaigns A/B + their encounters, driven by `encounter-shell` / `join`)
+seeded — they read as real demo data and read-only specs pin their
+names/URLs. Don't add a new permanent row per write spec; reach for the
+factory instead.
+
+**Write-then-read still needs `expect.poll`** (see the section above): the
+factory removes contention, not the `networkidle`-vs-revalidation race, so
+assert persisted state by polling the DB helper, not a single read.

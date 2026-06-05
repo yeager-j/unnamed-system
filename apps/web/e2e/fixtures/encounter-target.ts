@@ -11,11 +11,11 @@ import {
 } from "@/lib/game/encounter"
 
 /**
- * Seed + reset data for the encounter shell E2E (`e2e/encounter-shell.spec.ts`,
- * UNN-335/298/300/302). Unlike the {@link import("./types").E2EFixture} rows
- * (character-shaped, seeded by the `DEV_USER_E2E_FIXTURES` loop), this fixture
- * describes **campaigns + their encounters**, so a dedicated step in
- * `lib/db/seed.ts` seeds it.
+ * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,
+ * `e2e/join.spec.ts`, UNN-335/298/300/302/327). This is the kept **combat
+ * showcase**: it describes **campaigns + their encounters** that read as real
+ * demo data, so a dedicated step in `lib/db/seed.ts` seeds it. (Per-spec
+ * write-path scaffolding lives in `e2e/fixtures/factory.ts`, not here.)
  *
  * **Two dev-DM campaigns, by design** (UNN-302's single-live guard):
  *  - **Campaign A** ("Playtest") holds the `draft` + `ended` encounters and the
@@ -45,28 +45,6 @@ const placedPc = makeSeedCharacter({
 
 const PLACED_PC_ID = `seed-char-${placedPc.slug}`
 
-/** A dev-owned, finalized, **unplaced** character reserved for the placement spec
- *  (UNN-328) so its `campaignId` churn never races the encounter/import specs that
- *  rely on {@link placedPc} sitting in Campaign A. */
-const placementChar = makeSeedCharacter({
-  slug: "placement-pc",
-  shortId: "placement-pc",
-  name: "Pelle Quist",
-})
-
-const PLACEMENT_CHAR_ID = `seed-char-${placementChar.slug}`
-
-/** A dev-owned, finalized character reserved for the lifecycle spec (UNN-330):
- *  leave / delete-campaign / delete + kick live-lock. Uncontended so its
- *  placement + deletion attempts don't race the placement spec. */
-const lifecycleChar = makeSeedCharacter({
-  slug: "lifecycle-pc",
-  shortId: "lifecycle-pc",
-  name: "Tamsin Roe",
-})
-
-const LIFECYCLE_CHAR_ID = `seed-char-${lifecycleChar.slug}`
-
 /** A dev-owned, finalized character placed into Campaign B and standing as a PC
  *  combatant in its **live** encounter — the live console's turn-flow tests in
  *  `encounter-shell.spec.ts` (UNN-344) drive its turn. Dedicated (and thus
@@ -78,15 +56,6 @@ const liveCombatPc = makeSeedCharacter({
 })
 
 const LIVE_COMBAT_PC_ID = `seed-char-${liveCombatPc.slug}`
-
-/** A dev-DM campaign reserved for the placement spec (UNN-328) — uncontended, so
- *  placing/unplacing/moving into it doesn't disturb the other campaign specs. */
-const placementCampaign = {
-  id: "seed-campaign-placement",
-  shortId: "placement-campaign",
-  joinToken: "join-placement",
-  name: "Placement Campaign",
-} as const
 
 const campaignA = {
   id: "seed-campaign-encounter",
@@ -107,16 +76,6 @@ const foreignCampaign = {
   shortId: "foreign-campaign",
   joinToken: "join-foreign",
   name: "Foreign Campaign",
-} as const
-
-/** A seed-user-owned campaign reserved for the campaign-surfaces spec (UNN-329)
- *  so its member-overview / non-member-404 assertions don't race join.spec's
- *  foreign-campaign membership churn. No other spec touches it. */
-const overviewCampaign = {
-  id: "seed-campaign-overview",
-  shortId: "overview-campaign",
-  joinToken: "join-overview",
-  name: "Overview Campaign",
 } as const
 
 /** A throwaway enemy combatant so the `blocked` draft's Start button is
@@ -218,10 +177,6 @@ export const encounterTarget = {
   campaignA,
   campaignB,
   foreignCampaign,
-  overviewCampaign,
-  placementCampaign,
-  placementChar: { seed: placementChar, characterId: PLACEMENT_CHAR_ID },
-  lifecycleChar: { seed: lifecycleChar, characterId: LIFECYCLE_CHAR_ID },
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
   liveCombatPc: { seed: liveCombatPc, characterId: LIVE_COMBAT_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */

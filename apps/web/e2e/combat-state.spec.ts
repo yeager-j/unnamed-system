@@ -1,26 +1,30 @@
 import { expect, test } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  combatStateTarget,
-  getCombatStateTargetState,
-  resetCombatStateTarget,
-  setCombatStateTargetState,
-} from "./fixtures/combat-state-target"
+import { createCombatStateTarget } from "./fixtures/combat-state-target"
+import { cleanup, createTracker } from "./fixtures/factory"
 
 /**
  * UNN-226: owner-mode Combat State editing on the Combat tab. Covers the
  * five surfaces the ticket added — Ailment picker, Battle Condition axis
  * selects, Charged / Concentrating toggles, Exhaustion +/- stepper, and the
  * header-right Clear button — plus the cross-cutting gating (public sheet
- * shows none of the controls). All tests target the dedicated
- * `combatStateTarget` row so the other write specs can race with these
- * freely.
+ * shows none of the controls). Targets an ephemeral, factory-minted row so the
+ * other write specs can race with these freely.
  */
 
-const CHARACTER_URL = combatStateTarget.url
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createCombatStateTarget>>
 
 test.describe.configure({ mode: "serial" })
+
+test.beforeAll(async () => {
+  target = await createCombatStateTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
 
 test.describe("Combat State gating", () => {
   test("signed-out viewer does not see any owner controls", async ({
@@ -29,14 +33,14 @@ test.describe("Combat State gating", () => {
     const context = await browser.newContext({ storageState: undefined })
     const page = await context.newPage()
     try {
-      await resetCombatStateTarget()
-      await setCombatStateTargetState({
+      await target.reset()
+      await target.setState({
         ailments: ["burn"],
         exhaustion: 2,
       })
-      await page.goto(CHARACTER_URL)
+      await page.goto(target.url)
       await expect(
-        page.getByRole("heading", { name: combatStateTarget.seed.name })
+        page.getByRole("heading", { name: target.name })
       ).toBeVisible()
 
       // Owner controls absent
@@ -69,11 +73,11 @@ test.describe("owner Combat State editing", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetCombatStateTarget()
+    await target.reset()
   })
 
   test("set an ailment via the picker and persist it", async ({ page }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     await page.getByRole("button", { name: "Set ailment" }).click()
     await page.getByRole("button", { name: /^Burn/ }).click()
@@ -81,7 +85,7 @@ test.describe("owner Combat State editing", () => {
     await page.keyboard.press("Escape")
     await page.waitForLoadState("networkidle")
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.ailments).toEqual(["burn"])
 
     await expect(page.getByText("Burn", { exact: true })).toBeVisible()
@@ -95,15 +99,15 @@ test.describe("owner Combat State editing", () => {
     // popover session detach the row elements between renders and flake
     // here; the picker's coexistence behavior is what we want to verify,
     // not that two consecutive popover clicks both land.
-    await setCombatStateTargetState({ ailments: ["downed"] })
-    await page.goto(CHARACTER_URL)
+    await target.setState({ ailments: ["downed"] })
+    await page.goto(target.url)
 
     await page.getByRole("button", { name: "Edit ailments" }).click()
     await page.getByRole("button", { name: /^Freeze/ }).click()
     await page.keyboard.press("Escape")
     await page.waitForLoadState("networkidle")
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.ailments).toContain("downed")
     expect(after.ailments).toContain("freeze")
     expect(after.ailments).toHaveLength(2)
@@ -112,7 +116,7 @@ test.describe("owner Combat State editing", () => {
   test("toggling a battle condition axis persists and re-renders", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     await page
       .getByRole("combobox", { name: "Attack battle condition" })
@@ -120,7 +124,7 @@ test.describe("owner Combat State editing", () => {
     await page.getByRole("option", { name: /Increased/ }).click()
     await page.waitForLoadState("networkidle")
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.battleConditions?.attack).toBe("increased")
     expect(after.battleConditions?.defense).toBe("neutral")
     expect(after.battleConditions?.hitEvasion).toBe("neutral")
@@ -133,17 +137,14 @@ test.describe("owner Combat State editing", () => {
   test("Charged and Concentrating toggles flip independently", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     await page.getByRole("button", { name: "Charged", exact: true }).click()
     // Poll DB until the first write commits — networkidle alone fires before
     // the action's revalidation cycle has settled and would let click 2
     // dispatch before the server has the new vitalsVersion.
     await expect
-      .poll(
-        async () =>
-          (await getCombatStateTargetState()).battleConditions?.charged
-      )
+      .poll(async () => (await target.getState()).battleConditions?.charged)
       .toBe(true)
 
     await page
@@ -151,18 +152,17 @@ test.describe("owner Combat State editing", () => {
       .click()
     await expect
       .poll(
-        async () =>
-          (await getCombatStateTargetState()).battleConditions?.concentrating
+        async () => (await target.getState()).battleConditions?.concentrating
       )
       .toBe(true)
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.battleConditions?.charged).toBe(true)
     expect(after.battleConditions?.concentrating).toBe(true)
   })
 
   test("Exhaustion stepper clamps at 0 and persists +1", async ({ page }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     // − is disabled at the 0 starting state.
     await expect(
@@ -172,7 +172,7 @@ test.describe("owner Combat State editing", () => {
     await page.getByRole("button", { name: "Increase exhaustion" }).click()
     await page.waitForLoadState("networkidle")
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.exhaustion).toBe(1)
     await expect(page.getByText("Level: 1", { exact: true })).toBeVisible()
 
@@ -185,7 +185,7 @@ test.describe("owner Combat State editing", () => {
   test("Clear wipes ailments + battle conditions but leaves Exhaustion alone", async ({
     page,
   }) => {
-    await setCombatStateTargetState({
+    await target.setState({
       ailments: ["burn"],
       battleConditions: {
         attack: "increased",
@@ -196,12 +196,12 @@ test.describe("owner Combat State editing", () => {
       },
       exhaustion: 2,
     })
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     await page.getByRole("button", { name: "Clear", exact: true }).click()
     await page.waitForLoadState("networkidle")
 
-    const after = await getCombatStateTargetState()
+    const after = await target.getState()
     expect(after.ailments).toEqual([])
     expect(after.battleConditions?.attack).toBe("neutral")
     expect(after.battleConditions?.defense).toBe("neutral")
@@ -216,7 +216,7 @@ test.describe("owner Combat State editing", () => {
   test("Clear button is disabled when there is nothing to clear", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     await expect(
       page.getByRole("button", { name: "Clear", exact: true })
     ).toBeDisabled()

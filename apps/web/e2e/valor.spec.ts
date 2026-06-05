@@ -1,12 +1,8 @@
 import { expect, test } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  getValorTargetValue,
-  resetValorTarget,
-  setValorTargetValue,
-  valorTarget,
-} from "./fixtures/valor-target"
+import { cleanup, createTracker } from "./fixtures/factory"
+import { createValorTarget } from "./fixtures/valor-target"
 
 /**
  * UNN-227: owner-mode Valor counter on the Knight's mechanic widget. Two
@@ -21,24 +17,33 @@ import {
  *     decrement/increment in unit steps with the optimistic UI converging
  *     on the persisted server value.
  *
- * All tests share `valorTarget`'s row, so the describe block is `serial`.
+ * All tests share the one ephemeral target row, so the block is `serial`.
  */
 
-const CHARACTER_URL = valorTarget.url
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createValorTarget>>
 
 test.describe.configure({ mode: "serial" })
+
+test.beforeAll(async () => {
+  target = await createValorTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
 
 test.describe("owner Valor editing", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetValorTarget()
+    await target.reset()
   })
 
   test("incrementing to 3 flips Pierce and Strike to Resist via the engine", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     const affinities = page.getByRole("region", { name: "Affinities" })
     const affinityValue = (name: string) =>
@@ -57,10 +62,10 @@ test.describe("owner Valor editing", () => {
       // Wait for each write to commit before the next click — the action
       // returns a new vitalsVersion and the page re-derives state on
       // revalidation; clicking again before that lands races on the token.
-      await expect.poll(getValorTargetValue).toBe(i + 1)
+      await expect.poll(target.getValue).toBe(i + 1)
     }
 
-    expect(await getValorTargetValue()).toBe(3)
+    expect(await target.getValue()).toBe(3)
 
     // Pierce and Strike flipped to Resist via the engine effect; Slash
     // remains Resist (was already Resist innately).
@@ -70,7 +75,7 @@ test.describe("owner Valor editing", () => {
   })
 
   test("stepper clamps at 0 and 7", async ({ page }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     // Starting at 0: − is disabled, + is enabled.
     await expect(
@@ -82,14 +87,14 @@ test.describe("owner Valor editing", () => {
 
     // One click off the floor re-enables −.
     await page.getByRole("button", { name: "Increase Valor" }).click()
-    await expect.poll(getValorTargetValue).toBe(1)
+    await expect.poll(target.getValue).toBe(1)
     await expect(
       page.getByRole("button", { name: "Decrease Valor" })
     ).toBeEnabled()
 
     // Jump to the ceiling via a DB poke and reload — burns 6 fewer clicks
     // and keeps the assertion focused on the max-clamp behavior.
-    await setValorTargetValue(7)
+    await target.setValue(7)
     await page.reload()
     await expect(
       page.getByRole("button", { name: "Increase Valor" })
@@ -100,6 +105,6 @@ test.describe("owner Valor editing", () => {
 
     // − still works at the ceiling.
     await page.getByRole("button", { name: "Decrease Valor" }).click()
-    await expect.poll(getValorTargetValue).toBe(6)
+    await expect.poll(target.getValue).toBe(6)
   })
 })

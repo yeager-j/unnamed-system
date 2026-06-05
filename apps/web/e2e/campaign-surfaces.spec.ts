@@ -10,6 +10,7 @@ import {
   ENCOUNTER_DM_USER_ID,
   encounterTarget,
 } from "./fixtures/encounter-target"
+import { cleanup, createTestCampaign, createTracker } from "./fixtures/factory"
 
 /**
  * E2E for the campaign surfaces (UNN-329): My Campaigns, the DM manage page
@@ -18,8 +19,8 @@ import {
  *
  * Signed in as the dev DM (storage-state). **Serial** because several tests
  * mutate shared rows. Mutating tests work against a **freshly created** campaign
- * (uncontended) or the dedicated `overviewCampaign` seed row that no other spec
- * touches — never the campaigns `join.spec` / `encounter-shell.spec` rely on.
+ * (uncontended, via the UI or the factory) — never the campaigns `join.spec` /
+ * `encounter-shell.spec` rely on.
  */
 test.use({ storageState: STORAGE_STATE })
 test.describe.configure({ mode: "serial" })
@@ -32,12 +33,24 @@ const createdCampaignShortIds: string[] = []
 const SEED_USER_ID = "seed-user"
 const SEED_WARRIOR_ID = "seed-char-warrior"
 
+/** An ephemeral seed-user-owned campaign for the member-overview / non-member-404
+ *  / "Playing in" branches — uncontended, torn down in `afterAll`. */
+const tracker = createTracker()
+let overviewCampaign: Awaited<ReturnType<typeof createTestCampaign>>
+
+test.beforeAll(async () => {
+  overviewCampaign = await createTestCampaign(tracker, {
+    dmUserId: SEED_USER_ID,
+    name: "Overview Campaign",
+  })
+})
+
 async function clearDevOverviewMembership(): Promise<void> {
   await getDb()
     .delete(campaignUsers)
     .where(
       and(
-        eq(campaignUsers.campaignId, encounterTarget.overviewCampaign.id),
+        eq(campaignUsers.campaignId, overviewCampaign.id),
         eq(campaignUsers.userId, ENCOUNTER_DM_USER_ID)
       )
     )
@@ -54,6 +67,7 @@ test.afterAll(async () => {
   for (const shortId of createdCampaignShortIds) {
     await getDb().delete(campaigns).where(eq(campaigns.shortId, shortId))
   }
+  await cleanup(tracker)
 })
 
 test("My Campaigns lists the campaigns the viewer runs", async ({ page }) => {
@@ -185,14 +199,14 @@ test("a member sees a read-only overview and the campaign shows under Playing in
   await getDb()
     .insert(campaignUsers)
     .values({
-      campaignId: encounterTarget.overviewCampaign.id,
+      campaignId: overviewCampaign.id,
       userId: ENCOUNTER_DM_USER_ID,
     })
     .onConflictDoNothing()
 
-  await page.goto(`/campaigns/${encounterTarget.overviewCampaign.shortId}`)
+  await page.goto(`/campaigns/${overviewCampaign.shortId}`)
   await expect(
-    page.getByRole("heading", { name: encounterTarget.overviewCampaign.name })
+    page.getByRole("heading", { name: overviewCampaign.name })
   ).toBeVisible()
   // No DM-only invite-link control.
   await expect(page.getByText("Invite link")).toBeHidden()
@@ -202,18 +216,14 @@ test("a member sees a read-only overview and the campaign shows under Playing in
   const playing = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Playing in" }) })
-  await expect(
-    playing.getByText(encounterTarget.overviewCampaign.name)
-  ).toBeVisible()
+  await expect(playing.getByText(overviewCampaign.name)).toBeVisible()
 
   await clearDevOverviewMembership()
 })
 
 test("a non-member 404s on the manage URL", async ({ page }) => {
   await clearDevOverviewMembership()
-  const response = await page.goto(
-    `/campaigns/${encounterTarget.overviewCampaign.shortId}`
-  )
+  const response = await page.goto(`/campaigns/${overviewCampaign.shortId}`)
   expect(response?.status()).toBe(404)
 })
 

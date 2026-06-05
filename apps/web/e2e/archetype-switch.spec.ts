@@ -1,12 +1,8 @@
 import { expect, test } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  archetypeSwitchTarget,
-  getActiveArchetypeId,
-  resetArchetypeSwitchTarget,
-  switchTargetArchetypeId,
-} from "./fixtures/archetype-switch-target"
+import { createArchetypeSwitchTarget } from "./fixtures/archetype-switch-target"
+import { cleanup, createTracker } from "./fixtures/factory"
 
 /**
  * UNN-238: the owner-mode "Switch Active Archetype" control in the sheet
@@ -21,27 +17,36 @@ import {
  *  3. Read-only gating — a signed-out viewer sees the Archetype name as plain
  *     text, with no switch affordance.
  *
- * Tests 1–2 share `archetypeSwitchTarget`'s row (test 1 writes), so the block
- * is serial and resets the active Archetype to Warrior before each.
+ * Tests 1–2 share the one ephemeral target row (test 1 writes), so the block is
+ * serial and resets the active Archetype to Warrior before each.
  */
 
-const CHARACTER_URL = archetypeSwitchTarget.url
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createArchetypeSwitchTarget>>
 
 const SWITCHER_NAME = "Switch active Archetype"
 
 test.describe.configure({ mode: "serial" })
 
+test.beforeAll(async () => {
+  target = await createArchetypeSwitchTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
+
 test.describe("owner active-Archetype switching", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetArchetypeSwitchTarget()
+    await target.reset()
   })
 
   test("switching to Mage re-derives attributes, affinities, and the mechanic, and persists", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     const switcher = page.getByRole("combobox", { name: SWITCHER_NAME })
     const attributes = page.getByRole("region", { name: "Attributes" })
@@ -70,14 +75,14 @@ test.describe("owner active-Archetype switching", () => {
 
     // And the switch persisted to `activeArchetypeId`.
     await expect
-      .poll(getActiveArchetypeId)
-      .toBe(switchTargetArchetypeId("mage"))
+      .poll(target.getActiveArchetypeId)
+      .toBe(target.archetypeRowId("mage"))
   })
 
   test("picker is searchable, grouped by Lineage, and marks the active Archetype", async ({
     page,
   }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
 
     await page.getByRole("combobox", { name: SWITCHER_NAME }).click()
 
@@ -125,7 +130,7 @@ test.describe("owner active-Archetype switching", () => {
     const context = await browser.newContext({ storageState: undefined })
     const page = await context.newPage()
     try {
-      await page.goto(CHARACTER_URL)
+      await page.goto(target.url)
 
       // The identity line still names the active Archetype…
       await expect(page.getByText(/Level 5 · Warrior · Balanced/)).toBeVisible()
