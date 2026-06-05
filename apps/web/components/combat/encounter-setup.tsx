@@ -14,14 +14,18 @@ import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
+  compareInitiative,
   toCombatantSetup,
+  type CombatAdvantage,
   type CombatantSetup,
   type CombatSide,
+  type InitiativeStats,
 } from "@/lib/game/encounter"
 
 import { ImportPcsPanel } from "./import-pcs-panel"
 import { SetupPanelStub } from "./setup-panels"
 import { SideToggle } from "./side-toggle"
+import { StartCombatDialog } from "./start-combat-dialog"
 
 /**
  * The encounter **setup shell** (UNN-335/298/300/302): the load-bearing frame the
@@ -31,20 +35,24 @@ import { SideToggle } from "./side-toggle"
  * persists the roster (UNN-302).
  *
  * **Save draft** persists the assembled roster (`saveEncounterSetupAction`,
- * version-guarded) without leaving `draft`. **Start combat** saves first, then
- * dispatches `startCombat` through `applyCombatEvent` (which flips `status →
- * live`, rejecting if the campaign already has a live encounter) and refreshes so
- * the route re-reads the new status. Both writes thread the encounter's single
- * `version`. The opening advantage is a placeholder (`neutral`/`players`) — the
- * DM advantage UI is a later concern; enemies (UNN-299) and zones (UNN-301) are
- * still stubs.
+ * version-guarded) without leaving `draft`. **Start combat** opens the
+ * {@link StartCombatDialog} where the DM declares the opening advantage +
+ * first side (UNN-303 / rulebook 3.2); confirming saves first, then dispatches
+ * `startCombat` through `applyCombatEvent` (which flips `status → live`, rejecting
+ * if the campaign already has a live encounter) and refreshes so the route
+ * re-reads the new status. Both writes thread the encounter's single `version`.
+ * `pcStatsById` supplies each placeable PC's derived Agility/Luck so the dialog
+ * can suggest the higher-Agility first side. Enemies (UNN-299) and zones
+ * (UNN-301) are still stubs.
  */
 export function EncounterSetup({
   encounter,
   placedCharacters,
+  pcStatsById,
 }: {
   encounter: EncounterRow
   placedCharacters: CharacterSummary[]
+  pcStatsById: Record<string, InitiativeStats>
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -64,6 +72,7 @@ export function EncounterSetup({
   )
 
   const canStart = combatants.length > 0
+  const comparison = compareInitiative(combatants, pcStatsById)
 
   function combatantLabel(setup: CombatantSetup): string {
     switch (setup.ref.kind) {
@@ -133,7 +142,7 @@ export function EncounterSetup({
     })
   }
 
-  function onStart() {
+  function start(advantage: CombatAdvantage, firstSide: CombatSide) {
     startTransition(async () => {
       const nextVersion = await persist()
       if (nextVersion === null) return
@@ -141,11 +150,7 @@ export function EncounterSetup({
       const started = await applyCombatEvent({
         encounterId: encounter.id,
         expectedVersion: nextVersion,
-        event: {
-          kind: "startCombat",
-          advantage: "neutral",
-          firstSide: "players",
-        },
+        event: { kind: "startCombat", advantage, firstSide },
       })
       if (!started.ok) {
         toast.error(encounterErrorMessage(started.error))
@@ -167,10 +172,11 @@ export function EncounterSetup({
             {isPending ? <Spinner /> : null}
             Save draft
           </Button>
-          <Button onClick={onStart} disabled={!canStart || isPending}>
-            {isPending ? <Spinner /> : null}
-            Start combat
-          </Button>
+          <StartCombatDialog
+            comparison={comparison}
+            onStart={start}
+            disabled={!canStart || isPending}
+          />
         </div>
       </header>
 

@@ -345,6 +345,28 @@ export const COMBAT_ADVANTAGE_START_LABELS: Record<CombatAdvantage, string> = {
 }
 
 /**
+ * The opening-advantage options the DM picks in the start-combat dialog
+ * (UNN-303 / rulebook 3.2). An ambush has one side take its whole opening round
+ * before the other acts; `neutral` is the standard alternating order.
+ */
+export const COMBAT_ADVANTAGE_SETUP_LABELS: Record<CombatAdvantage, string> = {
+  players: "Players ambush",
+  neutral: "Neutral",
+  enemies: "Enemies ambush",
+}
+
+export const COMBAT_ADVANTAGE_SETUP_HINTS: Record<CombatAdvantage, string> = {
+  players: "Players take all their opening turns before the enemies act.",
+  neutral: "Standard alternating order — the highest-Agility side leads.",
+  enemies: "Enemies take all their opening turns before the players act.",
+}
+
+/** Heading for the neutral-start first-side picker, and the copy shown when the
+ *  two sides tie on Agility *and* Luck (the rulebook's DM-d20 case). */
+export const COMBAT_FIRST_SIDE_HEADING = "Who acts first?"
+export const COMBAT_FIRST_SIDE_TIE_HINT = "Tied — your call."
+
+/**
  * The live console's *Now acting* subtitle, keyed to the acting side (UNN-344):
  * the turn belongs to the table, and the DM ends it when they're done.
  */

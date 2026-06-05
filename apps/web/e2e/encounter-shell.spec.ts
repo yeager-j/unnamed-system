@@ -46,7 +46,12 @@ test("create → import a placed PC → Start → live console", async ({ page }
   await page.getByRole("button", { name: "Add", exact: true }).click()
   await expect(start).toBeEnabled()
 
+  // "Start combat" opens the advantage dialog; confirming (default Neutral) starts.
   await start.click()
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Start combat" })
+    .click()
   await expect(
     page.getByTestId("combat-console-battlefield-placeholder")
   ).toBeVisible()
@@ -106,10 +111,32 @@ test("single-live guard blocks starting a second encounter", async ({
   await expect(start).toBeEnabled()
 
   await start.click()
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Start combat" })
+    .click()
   await expect(page.getByText("already has a live encounter")).toBeVisible()
   await expect(
     page.getByTestId("combat-console-battlefield-placeholder")
   ).toBeHidden()
+})
+
+test("start dialog: a Players ambush opens the live console with a Player-start badge (UNN-303)", async ({
+  page,
+}) => {
+  // Campaign A's seeded draft has no live encounter, so it can be started; the
+  // chosen advantage surfaces as the live header badge + the opening draft side.
+  await page.goto(encounterTarget.draft.url)
+  await page.getByRole("button", { name: "Start combat" }).click()
+
+  const dialog = page.getByRole("dialog")
+  await dialog.getByText("Players ambush").click()
+  await dialog.getByRole("button", { name: "Start combat" }).click()
+
+  await expect(page.getByText("Player start")).toBeVisible()
+  await expect(
+    page.getByRole("heading", { name: "Players' draft" })
+  ).toBeVisible()
 })
 
 test("live encounter renders the console", async ({ page }) => {
