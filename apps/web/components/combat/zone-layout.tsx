@@ -1,5 +1,14 @@
 import Image from "next/image"
 
+import { Badge } from "@workspace/ui/components/badge"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type {
@@ -50,52 +59,67 @@ export function ZoneLayout({ view }: { view: ZoneLayoutView }) {
 
 function ZoneCard({ zone }: { zone: ZoneLayoutEntry }) {
   return (
-    <section className="flex flex-col gap-3 rounded-lg border p-3">
-      <header className="flex items-baseline justify-between gap-2">
-        <h3 className="font-heading text-sm font-medium">{zone.name}</h3>
-        <span className="text-xs text-muted-foreground">
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle>{zone.name}</CardTitle>
+        <CardAction className="text-xs text-muted-foreground">
           {zone.combatants.length}
-        </span>
-      </header>
+        </CardAction>
+      </CardHeader>
 
-      {zone.combatants.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Empty</p>
-      ) : (
-        <ul className="flex flex-wrap gap-1.5">
-          {zone.combatants.map((token) => (
-            <li key={token.id}>
-              <TokenChip token={token} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <CardContent className="flex-1">
+        {zone.combatants.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Empty</p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5">
+            {zone.combatants.map((token) => (
+              <li key={token.id}>
+                <TokenChip token={token} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
 
-      <p className="mt-auto text-xs text-muted-foreground">
-        {zone.adjacentZoneNames.length > 0
-          ? `Borders ${zone.adjacentZoneNames.join(", ")}`
-          : "No borders"}
-      </p>
-    </section>
+      <CardFooter className="flex-wrap gap-1.5">
+        {zone.adjacentZoneNames.length > 0 ? (
+          <>
+            <span className="text-xs text-muted-foreground">Borders</span>
+            {zone.adjacentZoneNames.map((name) => (
+              <Badge key={name} variant="outline">
+                {name}
+              </Badge>
+            ))}
+          </>
+        ) : (
+          <span className="text-xs text-muted-foreground">No borders</span>
+        )}
+      </CardFooter>
+    </Card>
   )
 }
 
 function UnplacedCard({ tokens }: { tokens: ZoneToken[] }) {
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-dashed p-3">
-      <header className="flex items-baseline justify-between gap-2">
-        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Unplaced
-        </h3>
-        <span className="text-xs text-muted-foreground">{tokens.length}</span>
-      </header>
-      <ul className="flex flex-wrap gap-1.5">
-        {tokens.map((token) => (
-          <li key={token.id}>
-            <TokenChip token={token} />
-          </li>
-        ))}
-      </ul>
-    </section>
+        </CardTitle>
+        <CardAction className="text-xs text-muted-foreground">
+          {tokens.length}
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <ul className="flex flex-wrap gap-1.5">
+          {tokens.map((token) => (
+            <li key={token.id}>
+              <TokenChip token={token} />
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -103,7 +127,7 @@ function UnplacedCard({ tokens }: { tokens: ZoneToken[] }) {
  *  side is legible even though zones mix both. */
 function TokenChip({ token }: { token: ZoneToken }) {
   return (
-    <span className="inline-flex max-w-[10rem] items-center gap-1.5 rounded-md border bg-card py-1 pr-2 pl-1">
+    <span className="inline-flex max-w-[10rem] items-center gap-1.5 rounded-md border bg-background py-1 pr-2 pl-1">
       <TokenAvatar token={token} />
       <span className="truncate text-xs font-medium">{token.name}</span>
     </span>
