@@ -446,7 +446,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
   // Mira Solberg's active Archetype is Warrior, whose granted Talents are
   // Athletics / Climb / Lift — the locked "inherited" set the picker must
   // exclude and the X button must hide. These tests pin that contract.
-  const EXPLORE_URL = `${target.url}?tab=explore`
+  const exploreUrl = () => `${target.url}?tab=explore`
   const INHERITED_TALENTS = ["Athletics", "Climb", "Lift"] as const
 
   test.describe("owner controls are hidden on the public sheet", () => {
@@ -457,7 +457,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       const page = await context.newPage()
       try {
         await target.reset()
-        await page.goto(EXPLORE_URL)
+        await page.goto(exploreUrl())
 
         const talents = page.getByRole("region", { name: "Talents" })
         for (const label of INHERITED_TALENTS) {
@@ -491,7 +491,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("add → reload → remove round-trips through persistence", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
 
       // The popover is portaled outside the Talents region, so resolve the
       // Add button by aria-label rather than scoping to the region.
@@ -544,7 +544,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("tagging a Spark updates the Sparks counter and breakdown", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const virtues = page.getByRole("region", { name: "Virtues" })
       await expect(virtues.getByText("Sparks: 0 / 7")).toBeVisible()
 
@@ -558,7 +558,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("seven Sparks surfaces the Rank-up CTA and rank-up clears the log", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const virtues = page.getByRole("region", { name: "Virtues" })
 
       // Fill the log to 7 tagged as Wisdom so only Wisdom is eligible.
@@ -598,7 +598,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
 })
 
 test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () => {
-  const EXPLORE_URL = `${target.url}?tab=explore`
+  const exploreUrl = () => `${target.url}?tab=explore`
   // A 1×1 transparent PNG — enough to exercise the upload → Blob → revalidate
   // round-trip without committing a binary fixture.
   const PNG_1x1 = Buffer.from(
@@ -622,7 +622,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       const page = await context.newPage()
       try {
         await target.reset()
-        await page.goto(EXPLORE_URL)
+        await page.goto(exploreUrl())
         // The seed pronouns render as static text, not an input.
         await expect(
           page
@@ -698,7 +698,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("pronouns / ancestry / background auto-save and persist across reload", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       // Edit all three back-to-back, faster than the revalidate round-trip,
       // to exercise the shared-ref coordination (UNN-274).
       await editField(page, "Pronouns", "ze/zir")
@@ -727,7 +727,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("clearing a field persists empty (and the public sheet falls back)", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const pronouns = page.getByRole("textbox", { name: "Pronouns" })
       await expect(pronouns).toHaveValue("they/them")
       await pronouns.fill("")
@@ -742,7 +742,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     })
 
     test("owner can upload a portrait and remove it", async ({ page }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       await expect(
         page.getByRole("button", { name: "Edit portrait" })
       ).toBeVisible()
