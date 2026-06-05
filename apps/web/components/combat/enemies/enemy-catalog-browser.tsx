@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { Separator } from "@workspace/ui/components/separator"
@@ -60,17 +60,14 @@ export function EnemyCatalogBrowser({
   const [search, setSearch] = useState("")
   const [family, setFamily] = useState<EnemyFamily | null>(null)
 
-  const rows = useMemo(() => buildEnemyCatalogRows(), [])
+  const rows = buildEnemyCatalogRows()
   const [selectedKey, setSelectedKey] = useState<string | null>(
     () => rows[0]?.key ?? null
   )
 
-  const filtered = useMemo(
-    () => filterEnemyCatalogRows(rows, { search, family }),
-    [rows, search, family]
-  )
-  const groups = useMemo(() => groupEnemyRowsByLevel(filtered), [filtered])
-  const familyCounts = useMemo(() => enemyFamilyCounts(rows), [rows])
+  const filtered = filterEnemyCatalogRows(rows, { search, family })
+  const groups = groupEnemyRowsByLevel(filtered)
+  const familyCounts = enemyFamilyCounts(rows)
 
   const selectedDefinition = selectedKey ? getEnemy(selectedKey) : undefined
   const detailView = selectedDefinition

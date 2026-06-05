@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useSyncExternalStore } from "react"
+import { useSyncExternalStore } from "react"
 
 /**
  * One staged catalog enemy and how many of it to add. The browse surface
@@ -80,59 +80,47 @@ export function useEncounterEnemyQueue(
     () => window.localStorage.getItem(storageKey(encounterId)),
     () => null
   )
-  const queue = useMemo(() => parseQueue(raw), [raw])
+  const queue = parseQueue(raw)
 
-  const update = useCallback(
-    (transform: (current: QueuedEnemy[]) => QueuedEnemy[]) => {
-      const current = parseQueue(
-        window.localStorage.getItem(storageKey(encounterId))
-      )
-      writeQueue(encounterId, transform(current))
-    },
-    [encounterId]
-  )
+  function update(transform: (current: QueuedEnemy[]) => QueuedEnemy[]): void {
+    const current = parseQueue(
+      window.localStorage.getItem(storageKey(encounterId))
+    )
+    writeQueue(encounterId, transform(current))
+  }
 
-  const add = useCallback(
-    (enemyKey: string, by = 1) =>
-      update((current) => {
-        const existing = current.find((entry) => entry.enemyKey === enemyKey)
-        return existing
-          ? current.map((entry) =>
-              entry.enemyKey === enemyKey
-                ? { ...entry, count: entry.count + by }
-                : entry
-            )
-          : [...current, { enemyKey, count: by }]
-      }),
-    [update]
-  )
+  function add(enemyKey: string, by = 1): void {
+    update((current) => {
+      const existing = current.find((entry) => entry.enemyKey === enemyKey)
+      return existing
+        ? current.map((entry) =>
+            entry.enemyKey === enemyKey
+              ? { ...entry, count: entry.count + by }
+              : entry
+          )
+        : [...current, { enemyKey, count: by }]
+    })
+  }
 
-  const setCount = useCallback(
-    (enemyKey: string, count: number) =>
-      update((current) =>
-        count <= 0
-          ? current.filter((entry) => entry.enemyKey !== enemyKey)
-          : current.map((entry) =>
-              entry.enemyKey === enemyKey ? { ...entry, count } : entry
-            )
-      ),
-    [update]
-  )
+  function setCount(enemyKey: string, count: number): void {
+    update((current) =>
+      count <= 0
+        ? current.filter((entry) => entry.enemyKey !== enemyKey)
+        : current.map((entry) =>
+            entry.enemyKey === enemyKey ? { ...entry, count } : entry
+          )
+    )
+  }
 
-  const remove = useCallback(
-    (enemyKey: string) =>
-      update((current) =>
-        current.filter((entry) => entry.enemyKey !== enemyKey)
-      ),
-    [update]
-  )
+  function remove(enemyKey: string): void {
+    update((current) => current.filter((entry) => entry.enemyKey !== enemyKey))
+  }
 
-  const clear = useCallback(() => update(() => []), [update])
+  function clear(): void {
+    update(() => [])
+  }
 
-  const totalCount = useMemo(
-    () => queue.reduce((sum, entry) => sum + entry.count, 0),
-    [queue]
-  )
+  const totalCount = queue.reduce((sum, entry) => sum + entry.count, 0)
 
   return { queue, add, setCount, remove, clear, totalCount }
 }
