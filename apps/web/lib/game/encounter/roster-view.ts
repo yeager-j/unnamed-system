@@ -5,7 +5,8 @@ import type {
   HydratedCharacter,
 } from "@/lib/game/character"
 import type { Affinity, AffinityDamageType } from "@/lib/game/combat"
-import { getEnemy } from "@/lib/game/enemies"
+import { getEnemy, type NamedRef } from "@/lib/game/enemies"
+import { getSkill } from "@/lib/game/skills"
 
 import { combatantName } from "./console-view"
 import { fallenCombatantIds } from "./fallen"
@@ -183,6 +184,14 @@ export type CombatantDetail = CombatantOverlay & {
         hp: Pool
         attributes: AttributeScores
         affinities: AffinityChart | null
+        /** The catalog enemy's skills resolved to display names, and its
+         *  freeform `abilities` Markdown (both empty/`null` for an inline enemy).
+         *  Skills are a name listing, not a {@link import("@/components/shared/skill-card").SkillCard}:
+         *  that needs a {@link HydratedSkill}, which only a character can produce
+         *  (cost/attack-roll resolve against character stats) — an enemy is not
+         *  one. */
+        skills: NamedRef[]
+        abilities: string | null
       }
   )
 
@@ -394,10 +403,17 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: def?.affinities ?? null,
+      skills:
+        def?.skillKeys.map((key) => ({
+          key,
+          name: getSkill(key)?.name ?? key,
+        })) ?? [],
+      abilities: def?.abilities ?? null,
     }
   }
 
-  // inline enemy stat block (UNN-299 provisional: no level, no affinity chart)
+  // inline enemy stat block (UNN-299 provisional: no level, no affinity chart,
+  // no structured skills/abilities)
   return {
     ...overlay,
     position,
@@ -410,5 +426,7 @@ export function combatantDetail(
     hp: enemyHp(combatant),
     attributes: ref.statBlock.attributes,
     affinities: null,
+    skills: [],
+    abilities: null,
   }
 }

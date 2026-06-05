@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 
+import { Badge } from "@workspace/ui/components/badge"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -15,6 +16,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
+import { Prose } from "@/components/shared/prose"
 import type { CombatantDetail, CombatEvent } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
@@ -34,7 +36,9 @@ import { CombatantVitalsSection } from "./combatant-vitals-section"
  * (UNN-310), **POSITION** (UNN-315; the move-between-zones control via the
  * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
  * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
- * read-only (shared grids).
+ * read-only (shared grids); a catalog enemy additionally shows read-only SKILLS
+ * (a name listing — not a {@link import("@/components/shared/skill-card").SkillCard},
+ * which needs a character-hydrated skill) and its freeform ABILITIES Markdown.
  */
 export function CombatantDrawer({
   detail,
@@ -111,6 +115,24 @@ function DrawerBody({
             <p className="text-sm text-muted-foreground">No affinity data.</p>
           )}
         </DetailSection>
+
+        {detail.kind === "enemy" && detail.skills.length > 0 ? (
+          <DetailSection title="Skills">
+            <div className="flex flex-wrap gap-1.5">
+              {detail.skills.map((skill) => (
+                <Badge key={skill.key} variant="secondary">
+                  {skill.name}
+                </Badge>
+              ))}
+            </div>
+          </DetailSection>
+        ) : null}
+
+        {detail.kind === "enemy" && detail.abilities ? (
+          <DetailSection title="Abilities">
+            <Prose>{detail.abilities}</Prose>
+          </DetailSection>
+        ) : null}
       </div>
 
       <ResponsiveDialogFooter className="border-t">

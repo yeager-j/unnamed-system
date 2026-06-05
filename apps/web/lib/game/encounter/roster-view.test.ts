@@ -215,7 +215,7 @@ describe("combatantDetail", () => {
     }
   })
 
-  it("shapes a catalog enemy: level + attributes + affinity chart, full HP", () => {
+  it("shapes a catalog enemy: level + attributes + affinity chart, full HP, abilities", () => {
     const detail = combatantDetail(build(), "combatant-1", PC_DETAIL)!
 
     expect(detail.kind).toBe("enemy")
@@ -223,10 +223,37 @@ describe("combatantDetail", () => {
       expect(detail.level).toBeTypeOf("number")
       expect(detail.affinities).not.toBeNull()
       expect(detail.hp.current).toBe(detail.hp.max)
+      // The Goblin has no skills but carries freeform abilities Markdown.
+      expect(detail.skills).toEqual([])
+      expect(detail.abilities).toBeTypeOf("string")
     }
   })
 
-  it("shapes an inline enemy: stat-block attributes, no level, no chart", () => {
+  it("resolves a catalog enemy's skill keys to display names", () => {
+    const session = createCombatSession(
+      [
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "bandit-captain" },
+          zoneId: "z",
+        },
+      ],
+      sequentialIds()
+    )
+    const detail = combatantDetail(session, "combatant-0", PC_DETAIL)!
+
+    expect(detail.kind).toBe("enemy")
+    if (detail.kind === "enemy") {
+      expect(detail.skills.map((skill) => skill.key)).toEqual(["garu", "zio"])
+      // Resolved through the skill registry, never the raw key.
+      for (const skill of detail.skills) {
+        expect(skill.name).not.toBe(skill.key)
+        expect(skill.name.length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it("shapes an inline enemy: stat-block attributes, no level, no chart, no skills/abilities", () => {
     const detail = combatantDetail(build(), "combatant-2", PC_DETAIL)!
 
     expect(detail.kind).toBe("enemy")
@@ -235,6 +262,8 @@ describe("combatantDetail", () => {
       expect(detail.affinities).toBeNull()
       expect(detail.attributes.agility).toBe(2)
       expect(detail.hp).toEqual({ current: 5, max: 8 })
+      expect(detail.skills).toEqual([])
+      expect(detail.abilities).toBeNull()
     }
   })
 
