@@ -36,7 +36,7 @@ export function EncounterList({
         <li key={encounter.id}>
           <Link
             href={`/combat/${encounter.shortId}`}
-            className="flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+            className="flex items-center justify-between gap-3 border p-3 transition-colors hover:bg-muted/50"
           >
             <span className="truncate font-medium">{encounter.name}</span>
             <Badge variant={STATUS_VARIANT[encounter.status]}>

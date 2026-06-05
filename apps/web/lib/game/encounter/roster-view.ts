@@ -5,8 +5,8 @@ import type {
   HydratedCharacter,
 } from "@/lib/game/character"
 import type { Affinity, AffinityDamageType } from "@/lib/game/combat"
-import { getEnemy, type NamedRef } from "@/lib/game/enemies"
-import { getSkill } from "@/lib/game/skills"
+import { getEnemy } from "@/lib/game/enemies"
+import { getSkill, type Skill } from "@/lib/game/skills"
 
 import { combatantName } from "./console-view"
 import { fallenCombatantIds } from "./fallen"
@@ -184,13 +184,12 @@ export type CombatantDetail = CombatantOverlay & {
         hp: Pool
         attributes: AttributeScores
         affinities: AffinityChart | null
-        /** The catalog enemy's skills resolved to display names, and its
-         *  freeform `abilities` Markdown (both empty/`null` for an inline enemy).
-         *  Skills are a name listing, not a {@link import("@/components/shared/skill-card").SkillCard}:
-         *  that needs a {@link HydratedSkill}, which only a character can produce
-         *  (cost/attack-roll resolve against character stats) — an enemy is not
-         *  one. */
-        skills: NamedRef[]
+        /** The catalog enemy's resolved skills and its freeform `abilities`
+         *  Markdown (both empty/`null` for an inline enemy). The drawer renders
+         *  each skill as a popover showing the **un-hydrated** skill (no
+         *  character-resolved cost / Attack Roll table — that needs a
+         *  {@link HydratedSkill}, which only a character can produce). */
+        skills: Skill[]
         abilities: string | null
       }
   )
@@ -404,10 +403,10 @@ export function combatantDetail(
       },
       affinities: def?.affinities ?? null,
       skills:
-        def?.skillKeys.map((key) => ({
-          key,
-          name: getSkill(key)?.name ?? key,
-        })) ?? [],
+        def?.skillKeys.flatMap((key) => {
+          const skill = getSkill(key)
+          return skill ? [skill] : []
+        }) ?? [],
       abilities: def?.abilities ?? null,
     }
   }

@@ -13,10 +13,10 @@ export const doppelganger = {
 
 Range: **Engaged**; Hits: **2**; Damage: **Strike (Physical)**
 
-Attack Roll + St:
-- **1–10**: \`1 + St\`
-- **11–19**: \`1d6 + St\`
-- **20+**: \`1d6 + St\` *(Critical)*
+Attack Roll + 3:
+- **1–10**: \`1 + 3\`
+- **11–19**: \`1d6 + 3\`
+- **20+**: \`1d6 + 3\` *(Critical)*
 
 **Ambusher** — Cannot be Ambushed; a successful Ambush by the opposing side results in a neutral combat encounter.
 

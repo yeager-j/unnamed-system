@@ -34,7 +34,7 @@ export async function CharacterPlacementSection({
         <h2 className="text-sm font-medium text-muted-foreground">
           Your characters
         </h2>
-        <div className="flex flex-col items-start gap-3 rounded-lg border p-4">
+        <div className="flex flex-col items-start gap-3 border p-4">
           <p className="text-sm text-muted-foreground">
             You don&apos;t have a finalized character yet. Create one, then add
             it here so the DM can run it in combat.

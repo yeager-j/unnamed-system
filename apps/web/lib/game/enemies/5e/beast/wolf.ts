@@ -13,10 +13,10 @@ export const wolf = {
 
 Range: **Engaged**; Damage: **Pierce (Physical)**
 
-Attack Roll + St:
-- **1–10**: \`1 + St\`
-- **11–19**: \`1d6 + St\`
-- **20+**: \`1d6 + St\` *(Critical)*
+Attack Roll + 1:
+- **1–10**: \`1 + 1\`
+- **11–19**: \`1d6 + 1\`
+- **20+**: \`1d6 + 1\` *(Critical)*
 
 **Pack Tactics** — Gains Advantage on physical Attack Rolls if at least one ally is Engaged with the same target as this creature.`,
 } satisfies EnemyDefinition

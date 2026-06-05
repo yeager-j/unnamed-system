@@ -27,8 +27,8 @@ Bandits are inexperienced ne’er-do-wells who typically follow the orders of hi
 > 
 > Range: **Same/Adjacent Zone**; Damage: **Pierce (Physical)**
 > 
-> **Attack Roll + Ag**
-> **`1-10`** `1 + Ag`
-> **`11-19`** `1d6 + Ag`
-> **`20+`** `1d6 + Ag` *Critical*
+> **Attack Roll + 1**
+> **`1-10`** `1 + 1
+> **`11-19`** `1d6 + 1`
+> **`20+`** `1d6 + 1 *Critical*
 

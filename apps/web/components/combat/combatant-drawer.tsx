@@ -2,7 +2,6 @@
 
 import Image from "next/image"
 
-import { Badge } from "@workspace/ui/components/badge"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -26,6 +25,7 @@ import { CombatantConditionsSection } from "./combatant-conditions-section"
 import { CombatantEngagementSection } from "./combatant-engagement-section"
 import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
+import { EnemySkillPopover } from "./enemy-skill-popover"
 
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a
@@ -37,8 +37,8 @@ import { CombatantVitalsSection } from "./combatant-vitals-section"
  * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
  * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
  * read-only (shared grids); a catalog enemy additionally shows read-only SKILLS
- * (a name listing — not a {@link import("@/components/shared/skill-card").SkillCard},
- * which needs a character-hydrated skill) and its freeform ABILITIES Markdown.
+ * (each an {@link EnemySkillPopover} with the un-hydrated skill — no
+ * character-resolved cost/Attack Roll) and its freeform ABILITIES Markdown.
  */
 export function CombatantDrawer({
   detail,
@@ -120,9 +120,7 @@ function DrawerBody({
           <DetailSection title="Skills">
             <div className="flex flex-wrap gap-1.5">
               {detail.skills.map((skill) => (
-                <Badge key={skill.key} variant="secondary">
-                  {skill.name}
-                </Badge>
+                <EnemySkillPopover key={skill.key} skill={skill} />
               ))}
             </div>
           </DetailSection>

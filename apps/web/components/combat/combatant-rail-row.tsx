@@ -40,7 +40,7 @@ export function CombatantRailRow({
       onClick={() => onSelect(row.id)}
       aria-label={`Open ${row.name} detail`}
       className={cn(
-        "flex w-full flex-col gap-2 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/50",
+        "flex w-full flex-col gap-2 border px-3 py-2 text-left transition-colors hover:bg-muted/50",
         row.isCurrent ? "border-foreground bg-muted/30" : "border-border",
         dimmed && "opacity-60"
       )}

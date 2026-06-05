@@ -26,12 +26,12 @@ export function LiveEncounterBanner({
   const cta = audience === "dm" ? "Open console" : "Watch combat"
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+    <div className="flex flex-wrap items-center justify-between gap-3 border border-primary/30 bg-primary/5 p-4">
       <div className="flex items-center gap-2">
         <SwordIcon weight="fill" className="text-primary" />
         <span className="font-medium">Combat is live — {encounterName}</span>
       </div>
-      <Button render={<Link href={href} />} size="sm">
+      <Button render={<Link href={href} />} nativeButton={false} size="sm">
         {cta}
       </Button>
     </div>

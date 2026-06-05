@@ -6,7 +6,7 @@ Doppelgangers are devious shapeshifters that take on the appearance of other hum
 
 | Strength | Magic | Agility | Luck |
 | -------- | ----- | ------- | ---- |
-| 3        | -1    | 2       | 1    |
+| 3        | 0     | 2       | 1    |
 
 | Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy  | Light | Dark |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | ---- | ----- | ---- |
