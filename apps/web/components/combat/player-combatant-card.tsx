@@ -72,6 +72,15 @@ export function PlayerCombatantCard({
             ))}
           </div>
         ) : null}
+
+        {combatant.engagedWith.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Engaged with{" "}
+            <span className="text-foreground">
+              {combatant.engagedWith.join(", ")}
+            </span>
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )

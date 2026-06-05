@@ -35,6 +35,11 @@ interface PlayerCombatantBase {
   isCurrent: boolean
   ailments: string[]
   battleConditions: BattleConditions
+  /** The display names of the combatants this one is melee-locked with — empty
+   *  when Free. Engagement is observable battlefield state (not hidden enemy
+   *  data), so it is shown for both sides; target ids are resolved to names here
+   *  so the card stays a dumb renderer. */
+  engagedWith: string[]
 }
 
 export type PlayerVisibleCombatant =
@@ -99,17 +104,26 @@ function enemySp(combatant: Combatant): Pool | null {
 function projectCombatant(
   combatant: Combatant,
   currentActorId: string | null,
+  nameById: Map<string, string>,
   pcDetailById: Record<string, PcCombatantDetail>
 ): PlayerVisibleCombatant {
+  const engagedWith =
+    combatant.engagement.status === "engaged"
+      ? combatant.engagement.targetCombatantIds.map(
+          (id) => nameById.get(id) ?? id
+        )
+      : []
+
   const base: PlayerCombatantBase = {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById),
+    name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
     zoneId: combatant.zoneId,
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
     battleConditions: combatant.battleConditions,
+    engagedWith,
   }
 
   if (combatant.ref.kind === "pc") {
@@ -150,6 +164,12 @@ export function projectPlayerSnapshot(
   pcDetailById: Record<string, PcCombatantDetail>
 ): EncounterSnapshot {
   const { session } = encounter
+  const nameById = new Map(
+    session.combatants.map((combatant) => [
+      combatant.id,
+      combatantName(combatant, pcDetailById),
+    ])
+  )
   const actor = session.combatants.find(
     (combatant) => combatant.id === session.currentActorId
   )
@@ -161,12 +181,17 @@ export function projectPlayerSnapshot(
     currentActor: actor
       ? {
           id: actor.id,
-          name: combatantName(actor, pcDetailById),
+          name: nameById.get(actor.id) ?? actor.id,
           side: actor.side,
         }
       : null,
     combatants: session.combatants.map((combatant) =>
-      projectCombatant(combatant, session.currentActorId, pcDetailById)
+      projectCombatant(
+        combatant,
+        session.currentActorId,
+        nameById,
+        pcDetailById
+      )
     ),
     zones: Object.values(session.zones),
   }

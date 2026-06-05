@@ -18,6 +18,7 @@ function enemy(id: string, zoneId: string): PlayerVisibleCombatant {
     isCurrent: false,
     ailments: [],
     battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
+    engagedWith: [],
     kind: "enemy",
     hp: { current: 10, max: 10 },
     sp: null,

@@ -157,6 +157,35 @@ describe("projectPlayerSnapshot", () => {
     })
   })
 
+  it("resolves engagement target ids to names; Free combatants list none", () => {
+    const base = createCombatSession(
+      [pc("char-aria"), catalogEnemy("goblin")],
+      sequentialIds()
+    )
+    // c-0 (Aria) engaged with c-1 (Goblin); the Goblin is left Free.
+    const session: CombatSession = {
+      ...base,
+      combatants: base.combatants.map((combatant) =>
+        combatant.id === "c-0"
+          ? {
+              ...combatant,
+              engagement: {
+                status: "engaged" as const,
+                targetCombatantIds: ["c-1"],
+              },
+            }
+          : combatant
+      ),
+    }
+
+    const { combatants } = projectPlayerSnapshot(encounter(session, "live"), {
+      "char-aria": ARIA,
+    })
+
+    expect(combatants[0]!.engagedWith).toEqual(["Goblin"])
+    expect(combatants[1]!.engagedWith).toEqual([])
+  })
+
   it("resolves the current actor's name + side, or null when none is acting", () => {
     const base = createCombatSession([pc("char-aria")], sequentialIds())
 
