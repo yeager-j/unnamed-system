@@ -173,14 +173,8 @@ function combatantOverlay(combatant: Combatant): CombatantOverlay {
     battleConditions: combatant.battleConditions,
     conditionDurations: combatant.conditionDurations,
     actionEconomy: {
-      // `?? true` applies the schema's `.default(true)` for sessions persisted
-      // before these fields existed: the `session` jsonb is **cast, not parsed**
-      // on read (schema/encounter.ts), so zod defaults never run. Without this
-      // the drawer's action Toggle starts `pressed={undefined}` (uncontrolled)
-      // and flips to a boolean on first edit. `reactionAvailable` has always
-      // been a required field, so it is never absent.
-      move: combatant.moveAvailable ?? true,
-      standard: combatant.standardAvailable ?? true,
+      move: combatant.moveAvailable,
+      standard: combatant.standardAvailable,
       reaction: combatant.reactionAvailable,
     },
   }

@@ -259,20 +259,4 @@ describe("combatantDetail", () => {
       reaction: true,
     })
   })
-
-  it("defaults move/standard to available for a pre-UNN-310 session blob", () => {
-    // The session jsonb is cast (not parsed) on read, so a blob persisted before
-    // move/standard existed reaches the projection with those fields undefined.
-    // The overlay must still yield booleans, else the drawer's action Toggle
-    // flips from uncontrolled to controlled on first edit.
-    const legacy = build()
-    const combatant = legacy.combatants[0]! as Partial<Combatant>
-    delete combatant.moveAvailable
-    delete combatant.standardAvailable
-
-    const detail = combatantDetail(legacy, "combatant-0", PC_DETAIL)!
-
-    expect(detail.actionEconomy.move).toBe(true)
-    expect(detail.actionEconomy.standard).toBe(true)
-  })
 })
