@@ -1,6 +1,6 @@
 "use client"
 
-import { PlusIcon, SkullIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { PlusIcon, SkullIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -16,35 +16,47 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   buildSetupCombatantLabels,
   compareInitiative,
+  isRosterFullyPlaced,
+  normalizeEngagements,
+  setEngagementTargets,
   toCombatantSetup,
   type CombatAdvantage,
   type CombatantSetup,
   type CombatSide,
+  type Engagement,
   type InitiativeStats,
+  type ZoneGraphEvent,
 } from "@/lib/game/encounter"
 
+import { CombatantSetupRow } from "./combatant-setup-row"
+import type { EngagementOption } from "./engagement-control"
 import { ImportPcsPanel } from "./import-pcs-panel"
-import { SetupPanelStub } from "./setup-panels"
-import { SideToggle } from "./side-toggle"
 import { StartCombatDialog } from "./start-combat-dialog"
+import { ZonesPanel } from "./zones-panel"
 
 /**
- * The encounter **setup shell** (UNN-335/298/300/302): the load-bearing frame the
- * rest of Phase 4 plugs into. It owns the in-progress `CombatantSetup[]` (seeded
- * from the persisted session so a resumed draft is restored), hosts the
- * Import-PCs panel (UNN-298) + the per-combatant side control (UNN-300), and
- * persists the roster (UNN-302).
+ * The encounter **setup shell** (UNN-335/298/300/301/302): the load-bearing frame
+ * the rest of Phase 4 plugs into. It owns the in-progress `CombatantSetup[]`
+ * (seeded from the persisted session so a resumed draft is restored), hosts the
+ * Import-PCs panel (UNN-298), the per-combatant side control (UNN-300), zone
+ * authoring + placement (UNN-301), and persists the roster (UNN-302).
+ *
+ * **Zones are server-owned.** Zone authoring emits UNN-313 `ZoneGraphEvent`s
+ * through `applyCombatEvent` (the shared event path), so the panel renders
+ * straight from `encounter.session.zones`/`adjacency` (props) and a
+ * `router.refresh()` after each edit flows the server-minted zone ids back —
+ * unlike the roster, which is client-owned until an explicit save. Placement
+ * (`zoneId`) and initial `engagement` live on the client roster and persist with
+ * it; the save action preserves the zone graph across rebuilds.
  *
  * **Save draft** persists the assembled roster (`saveEncounterSetupAction`,
  * version-guarded) without leaving `draft`. **Start combat** opens the
  * {@link StartCombatDialog} where the DM declares the opening advantage +
  * first side (UNN-303 / rulebook 3.2); confirming saves first, then dispatches
  * `startCombat` through `applyCombatEvent` (which flips `status → live`, rejecting
- * if the campaign already has a live encounter) and refreshes so the route
- * re-reads the new status. Both writes thread the encounter's single `version`.
- * `pcStatsById` supplies each placeable PC's derived Agility/Luck so the dialog
- * can suggest the higher-Agility first side. Enemies (UNN-299) and zones
- * (UNN-301) are still stubs.
+ * if the campaign already has a live encounter) and refreshes. Once any zone is
+ * defined, both Save and Start are blocked until every combatant is placed
+ * ({@link isRosterFullyPlaced}); an unzoned encounter stays startable.
  */
 export function EncounterSetup({
   encounter,
@@ -62,19 +74,34 @@ export function EncounterSetup({
     encounter.session.combatants.map(toCombatantSetup)
   )
 
+  const zones = encounter.session.zones
+  const adjacency = encounter.session.adjacency
+
   const addedCharacterIds = new Set(
     combatants.flatMap((combatant) =>
       combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
     )
   )
 
-  const canStart = combatants.length > 0
+  const placed = isRosterFullyPlaced(combatants, zones)
+  const canStart = combatants.length > 0 && placed
   const comparison = compareInitiative(combatants, pcStatsById)
 
   const pcNameById = Object.fromEntries(
     placedCharacters.map((character) => [character.id, character.name])
   )
   const combatantLabels = buildSetupCombatantLabels(combatants, pcNameById)
+
+  function engagementOptionsFor(index: number): EngagementOption[] {
+    const self = combatants[index]!
+    return combatants.flatMap((combatant, i) =>
+      i === index ||
+      combatant.id === undefined ||
+      combatant.zoneId !== self.zoneId
+        ? []
+        : [{ id: combatant.id, label: combatantLabels[i]! }]
+    )
+  }
 
   function togglePc(characterId: string) {
     setCombatants((current) => {
@@ -84,16 +111,23 @@ export function EncounterSetup({
           combatant.ref.characterId === characterId
       )
       return isAdded
-        ? current.filter(
-            (combatant) =>
-              !(
-                combatant.ref.kind === "pc" &&
-                combatant.ref.characterId === characterId
-              )
+        ? normalizeEngagements(
+            current.filter(
+              (combatant) =>
+                !(
+                  combatant.ref.kind === "pc" &&
+                  combatant.ref.characterId === characterId
+                )
+            )
           )
         : [
             ...current,
-            { side: "players", ref: { kind: "pc", characterId }, zoneId: "" },
+            {
+              id: crypto.randomUUID(),
+              side: "players",
+              ref: { kind: "pc", characterId },
+              zoneId: "",
+            },
           ]
     })
   }
@@ -106,8 +140,30 @@ export function EncounterSetup({
     )
   }
 
+  function setZone(index: number, zoneId: string) {
+    setCombatants((current) =>
+      normalizeEngagements(
+        current.map((combatant, i) =>
+          i === index ? { ...combatant, zoneId } : combatant
+        )
+      )
+    )
+  }
+
+  function setEngagement(index: number, engagement: Engagement) {
+    const combatantId = combatants[index]?.id
+    if (combatantId === undefined) return
+    const targetIds =
+      engagement.status === "engaged" ? engagement.targetCombatantIds : []
+    setCombatants((current) =>
+      setEngagementTargets(current, combatantId, targetIds)
+    )
+  }
+
   function removeCombatant(index: number) {
-    setCombatants((current) => current.filter((_, i) => i !== index))
+    setCombatants((current) =>
+      normalizeEngagements(current.filter((_, i) => i !== index))
+    )
   }
 
   async function persist(): Promise<number | null> {
@@ -128,6 +184,22 @@ export function EncounterSetup({
     startTransition(async () => {
       const nextVersion = await persist()
       if (nextVersion !== null) toast.success("Draft saved.")
+    })
+  }
+
+  function dispatchZoneEvent(event: ZoneGraphEvent) {
+    startTransition(async () => {
+      const result = await applyCombatEvent({
+        encounterId: encounter.id,
+        expectedVersion: version,
+        event,
+      })
+      if (!result.ok) {
+        toast.error(encounterErrorMessage(result.error))
+        return
+      }
+      setVersion(result.value.version)
+      router.refresh()
     })
   }
 
@@ -168,7 +240,11 @@ export function EncounterSetup({
           <p className="text-sm text-muted-foreground">Encounter setup</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={onSaveDraft} disabled={isPending}>
+          <Button
+            variant="outline"
+            onClick={onSaveDraft}
+            disabled={isPending || !placed}
+          >
             {isPending ? <Spinner /> : null}
             Save draft
           </Button>
@@ -208,13 +284,25 @@ export function EncounterSetup({
             </p>
           </div>
         </section>
-        <SetupPanelStub title="Zones" ticket="UNN-301" />
+        <ZonesPanel
+          zones={zones}
+          adjacency={adjacency}
+          onZoneEvent={dispatchZoneEvent}
+          disabled={isPending}
+        />
       </div>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-heading text-sm font-medium">
-          Combatants ({combatants.length})
-        </h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-heading text-sm font-medium">
+            Combatants ({combatants.length})
+          </h2>
+          {!placed ? (
+            <p className="text-xs text-muted-foreground">
+              Place every combatant in a zone to save or start.
+            </p>
+          ) : null}
+        </div>
         {combatants.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No combatants yet — add at least one to start combat.
@@ -222,28 +310,22 @@ export function EncounterSetup({
         ) : (
           <ul className="flex flex-col gap-2">
             {combatants.map((combatant, index) => (
-              <li
-                key={index}
-                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
-              >
-                <span className="min-w-0 truncate text-sm font-medium">
-                  {combatantLabels[index]}
-                </span>
-                <div className="flex shrink-0 items-center gap-2">
-                  <SideToggle
-                    side={combatant.side}
-                    onChange={(side) => setSide(index, side)}
-                  />
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label="Remove combatant"
-                    onClick={() => removeCombatant(index)}
-                  >
-                    <XIcon />
-                  </Button>
-                </div>
-              </li>
+              <CombatantSetupRow
+                key={combatant.id ?? index}
+                label={combatantLabels[index]!}
+                side={combatant.side}
+                zones={zones}
+                zoneId={combatant.zoneId}
+                engagement={combatant.engagement ?? { status: "free" }}
+                engagementOptions={engagementOptionsFor(index)}
+                onSideChange={(side) => setSide(index, side)}
+                onZoneChange={(zoneId) => setZone(index, zoneId)}
+                onEngagementChange={(engagement) =>
+                  setEngagement(index, engagement)
+                }
+                onRemove={() => removeCombatant(index)}
+                disabled={isPending}
+              />
             ))}
           </ul>
         )}

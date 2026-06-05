@@ -1,17 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import type { CombatantSetup, CombatSession } from "@/lib/game/encounter"
+import {
+  createCombatSession,
+  type CombatantSetup,
+  type CombatSession,
+} from "@/lib/game/encounter"
 import { err, ok } from "@/lib/result"
 
 import { saveEncounterSetupAction } from "./setup"
 
-// Stub the same seams as the action: the DM gate, the campaignId lookup, the
-// guarded write, the full-row reload (for revalidate), and the provisional
+// Stub the same seams as the action: the DM gate, the full-row load (used for
+// both auth and zone preservation), the guarded write, and the provisional
 // revalidate (which imports `server-only`). The schema + `createCombatSession`
 // run for real, so the test asserts the session is built from the wire roster.
 const requireCampaignDM = vi.fn()
-const loadEncounterCampaignId = vi.fn()
 const loadEncounterRowById = vi.fn()
 const saveEncounterSession = vi.fn()
 const revalidateEncounter = vi.fn()
@@ -20,7 +23,6 @@ vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter", () => ({
-  loadEncounterCampaignId: (id: string) => loadEncounterCampaignId(id),
   loadEncounterRowById: (id: string) => loadEncounterRowById(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
@@ -40,18 +42,30 @@ const ROSTER: CombatantSetup[] = [
   { side: "enemies", ref: { kind: "pc", characterId: "char-2" }, zoneId: "z2" },
 ]
 
-function encounterRow(): EncounterRow {
+/** A persisted session carrying an authored zone graph the roster save must keep. */
+function persistedSessionWithZones(): CombatSession {
+  const base = createCombatSession([])
+  return {
+    ...base,
+    zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
+    adjacency: { "zone-a": [] },
+  }
+}
+
+function encounterRow(session: CombatSession): EncounterRow {
   return {
     id: ENCOUNTER_ID,
     campaignId: CAMPAIGN_ID,
     shortId: "enc1",
+    session,
   } as EncounterRow
 }
 
 beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
-  loadEncounterCampaignId.mockReset().mockResolvedValue(CAMPAIGN_ID)
-  loadEncounterRowById.mockReset().mockResolvedValue(encounterRow())
+  loadEncounterRowById
+    .mockReset()
+    .mockResolvedValue(encounterRow(persistedSessionWithZones()))
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   revalidateEncounter.mockReset()
 })
@@ -81,6 +95,33 @@ describe("saveEncounterSetupAction", () => {
     expect(revalidateEncounter).toHaveBeenCalledOnce()
   })
 
+  it("preserves a setup-supplied combatant id over a fresh mint (UNN-301)", async () => {
+    await saveEncounterSetupAction({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      combatants: [{ ...ROSTER[0]!, id: "stable-1" }],
+    })
+
+    const persisted = saveEncounterSession.mock.calls[0]![1] as CombatSession
+    expect(persisted.combatants[0]!.id).toBe("stable-1")
+  })
+
+  it("carries the persisted zone graph forward instead of wiping it (UNN-301)", async () => {
+    // Zones are authored on a separate ZoneGraphEvent path; rebuilding the
+    // session from the roster alone would erase them. The action must merge them.
+    await saveEncounterSetupAction({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      combatants: ROSTER,
+    })
+
+    const persisted = saveEncounterSession.mock.calls[0]![1] as CombatSession
+    expect(persisted.zones).toEqual({
+      "zone-a": { id: "zone-a", name: "Courtyard" },
+    })
+    expect(persisted.adjacency).toEqual({ "zone-a": [] })
+  })
+
   it("rejects a malformed roster before any DB read", async () => {
     const result = await saveEncounterSetupAction({
       encounterId: ENCOUNTER_ID,
@@ -89,11 +130,11 @@ describe("saveEncounterSetupAction", () => {
     })
 
     expect(result).toEqual(err("invalid-input"))
-    expect(loadEncounterCampaignId).not.toHaveBeenCalled()
+    expect(loadEncounterRowById).not.toHaveBeenCalled()
   })
 
   it("returns encounter-not-found before authorizing when the row is gone", async () => {
-    loadEncounterCampaignId.mockResolvedValue(null)
+    loadEncounterRowById.mockResolvedValue(null)
 
     const result = await saveEncounterSetupAction({
       encounterId: ENCOUNTER_ID,

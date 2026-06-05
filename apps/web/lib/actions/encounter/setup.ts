@@ -1,10 +1,7 @@
 "use server"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import {
-  loadEncounterCampaignId,
-  loadEncounterRowById,
-} from "@/lib/db/queries/load-encounter"
+import { loadEncounterRowById } from "@/lib/db/queries/load-encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 import { createCombatSession } from "@/lib/game/encounter"
 import { err, type Result } from "@/lib/result"
@@ -22,12 +19,20 @@ import {
  * client with no DB write per interaction; this action saves the whole roster on
  * explicit "Save draft", version-guarded on the encounter's single `version`.
  *
- * Flow mirrors `applyCombatEvent`: parse → authorize against the owning campaign
- * (`requireCampaignDM` trips `forbidden()` for a non-DM) → build the canonical
- * `CombatSession` server-side from the (validated) setup roster → save guarded on
- * `expectedVersion`. The encounter stays `draft`; the `draft → live` flip is the
- * separate `startCombat` event (UNN-303/332). Combatant ids are minted fresh on
- * each save (no engagement refs across saves yet — that lands with UNN-301).
+ * Flow mirrors `applyCombatEvent`: parse → load the encounter → authorize against
+ * the owning campaign (`requireCampaignDM` trips `forbidden()` for a non-DM) →
+ * build the canonical `CombatSession` server-side from the (validated) setup
+ * roster → save guarded on `expectedVersion`. The encounter stays `draft`; the
+ * `draft → live` flip is the separate `startCombat` event (UNN-303/332).
+ *
+ * The roster carries each combatant's own stable `id` (UNN-301), so ids — and the
+ * `engagement.targetCombatantIds` / `zoneId` placements that reference them —
+ * survive every save. The **zone graph** is authored through `ZoneGraphEvent`s on
+ * a separate path (`applyCombatEvent`), so rebuilding the session from the roster
+ * alone would wipe it; we carry the persisted `zones`/`adjacency` forward
+ * untouched. Placement completeness is **not** enforced here (the catalog
+ * enemy-add path saves unplaced enemies, UNN-346); the setup shell gates Save /
+ * Start on placement as a UX affordance.
  */
 export async function saveEncounterSetupAction(
   input: SaveEncounterSetupInput
@@ -37,11 +42,16 @@ export async function saveEncounterSetupAction(
 
   const { encounterId, expectedVersion, combatants } = parsed.data
 
-  const campaignId = await loadEncounterCampaignId(encounterId)
-  if (campaignId === null) return err("encounter-not-found")
-  await requireCampaignDM(campaignId)
+  const encounter = await loadEncounterRowById(encounterId)
+  if (encounter === null) return err("encounter-not-found")
+  await requireCampaignDM(encounter.campaignId)
 
-  const session = createCombatSession(combatants)
+  const base = createCombatSession(combatants)
+  const session = {
+    ...base,
+    zones: encounter.session.zones,
+    adjacency: encounter.session.adjacency,
+  }
 
   const saved = await saveEncounterSession(
     encounterId,
@@ -50,8 +60,7 @@ export async function saveEncounterSetupAction(
   )
   if (!saved.ok) return saved
 
-  const encounter = await loadEncounterRowById(encounterId)
-  if (encounter) revalidateEncounter(encounter)
+  revalidateEncounter(encounter)
 
   return saved
 }
