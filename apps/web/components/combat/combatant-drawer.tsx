@@ -21,6 +21,7 @@ import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CombatantActionsSection } from "./combatant-actions-section"
 import { CombatantConditionsSection } from "./combatant-conditions-section"
+import { CombatantEngagementSection } from "./combatant-engagement-section"
 import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
 
@@ -30,8 +31,10 @@ import { CombatantVitalsSection } from "./combatant-vitals-section"
  * all dispatch a `CombatEvent` through `onCombatEvent`: **VITALS** (UNN-309; PC
  * HP/SP route through the pools actions inside the section, enemy HP through the
  * `adjustEnemyVitals` event), **ACTIONS THIS TURN** and **AILMENT & CONDITIONS**
- * (UNN-310), and **POSITION** (UNN-315; the move-between-zones control via the
- * `moveCombatant` event). ATTRIBUTES + AFFINITIES are read-only (shared grids).
+ * (UNN-310), **POSITION** (UNN-315; the move-between-zones control via the
+ * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
+ * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
+ * read-only (shared grids).
  */
 export function CombatantDrawer({
   detail,
@@ -86,6 +89,10 @@ function DrawerBody({
           onCombatEvent={onCombatEvent}
         />
         <CombatantPositionSection
+          detail={detail}
+          onCombatEvent={onCombatEvent}
+        />
+        <CombatantEngagementSection
           detail={detail}
           onCombatEvent={onCombatEvent}
         />

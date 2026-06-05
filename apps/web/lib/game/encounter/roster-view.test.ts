@@ -309,4 +309,24 @@ describe("combatantDetail", () => {
     expect(pos.current).toBeNull()
     expect(pos.targets.map((t) => t.name).sort()).toEqual(["Courtyard", "Hall"])
   })
+
+  it("carries engagement: free value + same-zone candidates", () => {
+    // All three SETUP combatants share zoneId "z".
+    const eng = combatantDetail(build(), "combatant-0", PC_DETAIL)!.engagement
+    expect(eng.value).toEqual({ status: "free" })
+    expect(eng.targetNames).toEqual([])
+    expect(eng.candidates.map((c) => c.label)).toEqual(["Goblin", "Cave Bat"])
+  })
+
+  it("resolves engaged target names on the detail", () => {
+    const session = withCombatant(build(), "combatant-0", {
+      engagement: { status: "engaged", targetCombatantIds: ["combatant-1"] },
+    })
+    const eng = combatantDetail(session, "combatant-0", PC_DETAIL)!.engagement
+    expect(eng.value).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["combatant-1"],
+    })
+    expect(eng.targetNames).toEqual(["Goblin"])
+  })
 })
