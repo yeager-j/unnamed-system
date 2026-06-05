@@ -203,6 +203,34 @@ export type EnemyVitalsEvent = {
 }
 
 /**
+ * Zone-graph events (UNN-313) — mutate the spatial graph on the session
+ * (`zones` + `adjacency`), never a combatant:
+ *
+ * - `addZone` mints a new {@link import("./session").Zone} via the reducer's
+ *   injectable `newId` (same pattern as `addCombatant`) — the client supplies
+ *   only the display `name` and optional `notes`, not the id.
+ * - `removeZone` drops a zone and prunes it from every adjacency list. It does
+ *   **not** touch any `combatant.zoneId` — zone-id cleanup is the caller's job
+ *   (placement is UNN-315).
+ * - `setZoneAdjacency` records (or clears) an **undirected** edge between two
+ *   zones; idempotent — re-adding an existing edge does not duplicate it.
+ * - `renameZone` updates a zone's display name.
+ *
+ * Each is a no-op when a referenced zone id is unknown. The graph is pure engine
+ * shape here (UNN-313); rendering is UNN-314 and movement/placement is UNN-315.
+ */
+export type ZoneGraphEvent =
+  | { kind: "addZone"; name: string; notes?: string }
+  | { kind: "removeZone"; zoneId: string }
+  | {
+      kind: "setZoneAdjacency"
+      zoneIdA: string
+      zoneIdB: string
+      adjacent: boolean
+    }
+  | { kind: "renameZone"; zoneId: string; name: string }
+
+/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
@@ -215,6 +243,7 @@ export type CombatEvent =
   | ActionEconomyEvent
   | EnemyVitalsEvent
   | OverrideEvent
+  | ZoneGraphEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -281,6 +310,23 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     value: z.number().int(),
   }),
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
+  z.object({
+    kind: z.literal("addZone"),
+    name: z.string().min(1),
+    notes: z.string().optional(),
+  }),
+  z.object({ kind: z.literal("removeZone"), zoneId: z.string() }),
+  z.object({
+    kind: z.literal("setZoneAdjacency"),
+    zoneIdA: z.string(),
+    zoneIdB: z.string(),
+    adjacent: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("renameZone"),
+    zoneId: z.string(),
+    name: z.string().min(1),
+  }),
 ])
 
 /** `true` only when `A` and `B` are mutually assignable (structurally equal). */

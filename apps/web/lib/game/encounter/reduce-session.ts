@@ -7,6 +7,7 @@ import { reduceOverrideEvent } from "./reduce/override"
 import { reduceRoundEvent } from "./reduce/round"
 import { reduceTurnEvent } from "./reduce/turn"
 import { reduceStartCombatEvent } from "./reduce/turn-start"
+import { reduceZoneGraphEvent } from "./reduce/zones"
 import type { CombatSession } from "./session"
 import type { CombatEvent } from "./session-event"
 
@@ -71,5 +72,11 @@ export function reduceCombatSession(
     case "setActed":
     case "setRound":
       return reduceOverrideEvent(session, event)
+
+    case "addZone":
+    case "removeZone":
+    case "setZoneAdjacency":
+    case "renameZone":
+      return reduceZoneGraphEvent(session, event, newId)
   }
 }

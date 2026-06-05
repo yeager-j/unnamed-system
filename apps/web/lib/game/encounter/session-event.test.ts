@@ -81,4 +81,17 @@ describe("combatEventSchema", () => {
       }).success
     ).toBe(false)
   })
+
+  it("rejects an empty zone name (matching zoneSchema's min(1))", () => {
+    expect(
+      combatEventSchema.safeParse({ kind: "addZone", name: "" }).success
+    ).toBe(false)
+    expect(
+      combatEventSchema.safeParse({
+        kind: "renameZone",
+        zoneId: "zone-0",
+        name: "",
+      }).success
+    ).toBe(false)
+  })
 })

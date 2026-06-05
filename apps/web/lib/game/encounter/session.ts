@@ -48,6 +48,21 @@ export const enemyStatBlockSchema = z.object({
 export type EnemyStatBlock = z.infer<typeof enemyStatBlockSchema>
 
 /**
+ * One Zone — a ~30 ft region of the battlefield (UNN-313). Carries a stable `id`
+ * (also its key in {@link CombatSession.zones}, so a Zone is self-describing), a
+ * DM-supplied display `name`, and optional free-text `notes`. The Zone *graph*
+ * (which zones are adjacent) lives in {@link CombatSession.adjacency}, not here —
+ * a Zone holds only its own identity. Combatant position is the orthogonal
+ * `combatant.zoneId` referencing this map's key (UNN-315 narrows that field).
+ */
+export const zoneSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  notes: z.string().optional(),
+})
+export type Zone = z.infer<typeof zoneSchema>
+
+/**
  * The two sides a combatant can belong to. A PC is not pinned to `players` — a
  * charmed PC or a summoned NPC ally can sit on either side — so `side` is
  * orthogonal to whether a combatant is a PC or a free-entered enemy.
@@ -166,6 +181,13 @@ export type Combatant = z.infer<typeof combatantSchema>
  * in place (ADR Decision 2), so `edits[]` is now reserved for the rare PC
  * **vitals** nudge (e.g. end-of-combat Fallen-restore) the impure shell applies
  * to the character row. The reducer is pure and never performs I/O.
+ *
+ * `zones` + `adjacency` are the spatial graph (UNN-313): `zones` maps a zone id
+ * to its {@link Zone}, and `adjacency` maps a zone id to the ids it borders
+ * (undirected — both directions are stored). Both default to `{}` so sessions
+ * persisted before zones existed still parse (`load-encounter.ts` re-parses the
+ * jsonb). Referential integrity (`combatant.zoneId` ∈ `zones`) is a runtime
+ * convention, not enforced by the schema.
  */
 export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
@@ -173,6 +195,8 @@ export const combatSessionSchema = z.object({
   currentActorId: z.string().nullable(),
   advantage: z.enum(COMBAT_ADVANTAGES).nullable(),
   firstSide: z.enum(COMBAT_SIDES).nullable(),
+  zones: z.record(z.string(), zoneSchema).default({}),
+  adjacency: z.record(z.string(), z.array(z.string())).default({}),
 })
 export type CombatSession = z.infer<typeof combatSessionSchema>
 
@@ -259,5 +283,7 @@ export function createCombatSession(
     combatants: setup.map((combatant) =>
       makeCombatant(combatant, newId(), false)
     ),
+    zones: {},
+    adjacency: {},
   }
 }
