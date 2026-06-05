@@ -9,6 +9,10 @@ import { getEnemy } from "@/lib/game/enemies"
 
 import { combatantName } from "./console-view"
 import { fallenCombatantIds } from "./fallen"
+import {
+  resolveCombatantEngagement,
+  type CombatantEngagement,
+} from "./resolve-engagement"
 import type {
   Combatant,
   CombatSession,
@@ -145,10 +149,12 @@ export interface CombatantPosition {
 /** The per-combatant detail the drawer header + sections render. PC and enemy
  *  variants differ only in what their vitals source can supply (a PC has SP +
  *  identity; an enemy may lack a level and an affinity chart); the editable
- *  {@link CombatantOverlay} + the {@link CombatantPosition} are common to both
- *  (`position` is `null` only when the encounter has no zones). */
+ *  {@link CombatantOverlay}, the {@link CombatantPosition} (`null` only when the
+ *  encounter has no zones), and the {@link CombatantEngagement} are common to
+ *  both. */
 export type CombatantDetail = CombatantOverlay & {
   position: CombatantPosition | null
+  engagement: CombatantEngagement
 } & (
     | {
         kind: "pc"
@@ -331,12 +337,18 @@ export function combatantDetail(
   const name = combatantName(combatant, pcDetailById)
   const overlay = combatantOverlay(combatant)
   const position = combatantPosition(session, combatant)
+  const engagement = resolveCombatantEngagement(
+    session,
+    combatant,
+    pcDetailById
+  )
 
   if (ref.kind === "pc") {
     const detail = pcDetailById[ref.characterId]
     return {
       ...overlay,
       position,
+      engagement,
       kind: "pc",
       id: combatant.id,
       characterId: ref.characterId,
@@ -366,6 +378,7 @@ export function combatantDetail(
     return {
       ...overlay,
       position,
+      engagement,
       kind: "enemy",
       id: combatant.id,
       name,
@@ -386,6 +399,7 @@ export function combatantDetail(
   return {
     ...overlay,
     position,
+    engagement,
     kind: "enemy",
     id: combatant.id,
     name,

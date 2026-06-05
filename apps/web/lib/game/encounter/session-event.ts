@@ -246,6 +246,29 @@ export type MoveCombatantEvent = {
 }
 
 /**
+ * Engagement events (UNN-316) — the *who* a combatant is melee-locked with, on
+ * the combatant overlay (position is the orthogonal `zoneId`, UNN-315):
+ *
+ * - `setEngagement` replaces the combatant's engagement with
+ *   `{ status: "engaged", targetCombatantIds }` (≥1 target).
+ * - `clearEngagement` sets it back to `{ status: "free" }`.
+ *
+ * Engagement is **symmetric**: the reducer mirrors every change onto the targets
+ * (A engaged with B ⟺ B engaged with A). Target ids are **not** validated at
+ * reduce-time (same philosophy as `zoneId`/`toZoneId` — UNN-313/315); the DM
+ * control offers only same-zone combatants. An unknown combatant id, or clearing
+ * an already-Free combatant, is a no-op. This is the live-combat counterpart of
+ * UNN-301's setup-time `setEngagementTargets`.
+ */
+export type EngagementEvent =
+  | {
+      kind: "setEngagement"
+      combatantId: string
+      targetCombatantIds: string[]
+    }
+  | { kind: "clearEngagement"; combatantId: string }
+
+/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
@@ -260,6 +283,7 @@ export type CombatEvent =
   | OverrideEvent
   | ZoneGraphEvent
   | MoveCombatantEvent
+  | EngagementEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -348,6 +372,12 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     combatantId: z.string(),
     toZoneId: z.string(),
   }),
+  z.object({
+    kind: z.literal("setEngagement"),
+    combatantId: z.string(),
+    targetCombatantIds: z.array(z.string()).min(1),
+  }),
+  z.object({ kind: z.literal("clearEngagement"), combatantId: z.string() }),
 ])
 
 /** `true` only when `A` and `B` are mutually assignable (structurally equal). */

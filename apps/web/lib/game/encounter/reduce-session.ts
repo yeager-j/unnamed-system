@@ -3,6 +3,7 @@ import { reduceAilmentEvent } from "./reduce/ailments"
 import { reduceBattleConditionEvent } from "./reduce/conditions"
 import { reduceDraftCombatantEvent } from "./reduce/draft"
 import { reduceEnemyVitalsEvent } from "./reduce/enemy-vitals"
+import { reduceEngagementEvent } from "./reduce/engagement"
 import { reduceOverrideEvent } from "./reduce/override"
 import { reducePlacementEvent } from "./reduce/placement"
 import { reduceRoundEvent } from "./reduce/round"
@@ -82,5 +83,9 @@ export function reduceCombatSession(
 
     case "moveCombatant":
       return reducePlacementEvent(session, event)
+
+    case "setEngagement":
+    case "clearEngagement":
+      return reduceEngagementEvent(session, event)
   }
 }
