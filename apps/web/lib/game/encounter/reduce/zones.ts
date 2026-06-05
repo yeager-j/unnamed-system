@@ -34,8 +34,8 @@ function removeEdge(
  *   `combatant.zoneId` untouched — placement cleanup is UNN-315's concern.
  * - `setZoneAdjacency` writes (or clears) an **undirected** edge by mirroring the
  *   change into both zones' lists; idempotent on re-add (see {@link addEdge}). It
- *   no-ops unless **both** zones exist, so an edge can never point at a missing
- *   zone.
+ *   no-ops unless **both** zones exist (so an edge can never point at a missing
+ *   zone) and when the two ids are equal (a zone is never adjacent to itself).
  * - `renameZone` updates a zone's display name.
  *
  * Each event is a no-op when a referenced zone id is unknown — Immer returns the
@@ -68,6 +68,7 @@ export function reduceZoneGraphEvent(
       }
 
       case "setZoneAdjacency": {
+        if (event.zoneIdA === event.zoneIdB) return
         const bothExist =
           draft.zones[event.zoneIdA] !== undefined &&
           draft.zones[event.zoneIdB] !== undefined

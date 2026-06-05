@@ -312,7 +312,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
   z.object({
     kind: z.literal("addZone"),
-    name: z.string(),
+    name: z.string().min(1),
     notes: z.string().optional(),
   }),
   z.object({ kind: z.literal("removeZone"), zoneId: z.string() }),
@@ -325,7 +325,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("renameZone"),
     zoneId: z.string(),
-    name: z.string(),
+    name: z.string().min(1),
   }),
 ])
 

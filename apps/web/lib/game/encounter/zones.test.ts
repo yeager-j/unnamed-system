@@ -163,6 +163,20 @@ describe("reduceCombatSession — setZoneAdjacency", () => {
 
     expect(next).toBe(session)
   })
+
+  it("is a no-op when the two zone ids are equal (no self-loop)", () => {
+    const { session, zoneA } = sessionWithEdge()
+
+    const next = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: zoneA,
+      zoneIdB: zoneA,
+      adjacent: true,
+    })
+
+    expect(next).toBe(session)
+    expect(session.adjacency[zoneA]).not.toContain(zoneA)
+  })
 })
 
 describe("reduceCombatSession — renameZone", () => {
