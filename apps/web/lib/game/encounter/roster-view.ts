@@ -1,5 +1,9 @@
 import { getArchetype } from "@/lib/game/archetypes"
-import type { AttributeScores, HydratedCharacter } from "@/lib/game/character"
+import type {
+  AttributeScores,
+  BattleConditions,
+  HydratedCharacter,
+} from "@/lib/game/character"
 import type { Affinity, AffinityDamageType } from "@/lib/game/combat"
 import { getEnemy } from "@/lib/game/enemies"
 
@@ -9,6 +13,7 @@ import type {
   Combatant,
   CombatSession,
   CombatSide,
+  ConditionDurations,
   Engagement,
 } from "./session"
 
@@ -100,41 +105,85 @@ export interface RosterView {
   downedEnemyCount: number
 }
 
-/** The per-combatant detail the drawer header + read-only sections render. PC
- *  and enemy variants differ only in what their vitals source can supply (a PC
- *  has SP + identity; an enemy may lack a level and an affinity chart). */
-export type CombatantDetail =
-  | {
-      kind: "pc"
-      id: string
-      /** The character-row id the pools actions write (≠ the combatant id). */
-      characterId: string
-      /** Vitals-class token for the DM's pools writes (UNN-309). */
-      vitalsVersion: number
-      name: string
-      side: CombatSide
-      level: number
-      className: string | null
-      pronouns: string | null
-      portraitUrl: string | null
-      hp: Pool
-      sp: Pool
-      attributes: AttributeScores
-      affinities: AffinityChart
-    }
-  | {
-      kind: "enemy"
-      id: string
-      name: string
-      side: CombatSide
-      level: number | null
-      hp: Pool
-      attributes: AttributeScores
-      affinities: AffinityChart | null
-    }
+/** A combatant's per-turn action economy (UNN-310) — non-enforcing tracking the
+ *  DM eyeballs; reset to all-available at the start of a normal turn. */
+export interface ActionEconomy {
+  move: boolean
+  standard: boolean
+  reaction: boolean
+}
+
+/**
+ * The editable session-overlay state both drawer arms render (UNN-310), read
+ * straight off the combatant — identical for PCs and enemies (ADR Decision 1).
+ * `conditionDurations` is sparse (absent axis ⇒ no active countdown).
+ */
+export interface CombatantOverlay {
+  ailments: string[]
+  battleConditions: BattleConditions
+  conditionDurations: ConditionDurations
+  actionEconomy: ActionEconomy
+}
+
+/** The per-combatant detail the drawer header + sections render. PC and enemy
+ *  variants differ only in what their vitals source can supply (a PC has SP +
+ *  identity; an enemy may lack a level and an affinity chart); the editable
+ *  {@link CombatantOverlay} is common to both. */
+export type CombatantDetail = CombatantOverlay &
+  (
+    | {
+        kind: "pc"
+        id: string
+        /** The character-row id the pools actions write (≠ the combatant id). */
+        characterId: string
+        /** Vitals-class token for the DM's pools writes (UNN-309). */
+        vitalsVersion: number
+        name: string
+        side: CombatSide
+        level: number
+        className: string | null
+        pronouns: string | null
+        portraitUrl: string | null
+        hp: Pool
+        sp: Pool
+        attributes: AttributeScores
+        affinities: AffinityChart
+      }
+    | {
+        kind: "enemy"
+        id: string
+        name: string
+        side: CombatSide
+        level: number | null
+        hp: Pool
+        attributes: AttributeScores
+        affinities: AffinityChart | null
+      }
+  )
 
 function isDowned(combatant: Combatant): boolean {
   return combatant.ailments.includes("downed")
+}
+
+/** Projects the editable overlay off a combatant — the shared slice both drawer
+ *  arms carry. */
+function combatantOverlay(combatant: Combatant): CombatantOverlay {
+  return {
+    ailments: combatant.ailments,
+    battleConditions: combatant.battleConditions,
+    conditionDurations: combatant.conditionDurations,
+    actionEconomy: {
+      // `?? true` applies the schema's `.default(true)` for sessions persisted
+      // before these fields existed: the `session` jsonb is **cast, not parsed**
+      // on read (schema/encounter.ts), so zod defaults never run. Without this
+      // the drawer's action Toggle starts `pressed={undefined}` (uncontrolled)
+      // and flips to a boolean on first edit. `reactionAvailable` has always
+      // been a required field, so it is never absent.
+      move: combatant.moveAvailable ?? true,
+      standard: combatant.standardAvailable ?? true,
+      reaction: combatant.reactionAvailable,
+    },
+  }
 }
 
 /** An inline enemy carries current/max on its stat block; a catalog enemy
@@ -242,10 +291,12 @@ export function combatantDetail(
 
   const ref = combatant.ref
   const name = combatantName(combatant, pcDetailById)
+  const overlay = combatantOverlay(combatant)
 
   if (ref.kind === "pc") {
     const detail = pcDetailById[ref.characterId]
     return {
+      ...overlay,
       kind: "pc",
       id: combatant.id,
       characterId: ref.characterId,
@@ -273,6 +324,7 @@ export function combatantDetail(
   if (ref.kind === "catalog-enemy") {
     const def = getEnemy(ref.enemyKey)
     return {
+      ...overlay,
       kind: "enemy",
       id: combatant.id,
       name,
@@ -291,6 +343,7 @@ export function combatantDetail(
 
   // inline enemy stat block (UNN-299 provisional: no level, no affinity chart)
   return {
+    ...overlay,
     kind: "enemy",
     id: combatant.id,
     name,

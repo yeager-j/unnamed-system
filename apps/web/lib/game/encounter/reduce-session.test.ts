@@ -47,8 +47,8 @@ function startedSession() {
 /**
  * A started session whose current actor (combatant[0]) carries an explicit
  * battle-condition overlay + durations — the state an expiry resets to neutral.
- * There is no event yet to *set* an axis's increased/decreased state (the panel
- * events arrive in UNN-309+), so the fixture spreads the overlay directly.
+ * Spreads the overlay directly so the expiry tests stay independent of the
+ * `setBattleConditionAxis` setter they don't exercise.
  */
 function startedWithOverlay(
   battleConditions: CombatSession["combatants"][number]["battleConditions"],
@@ -191,6 +191,32 @@ describe("reduceCombatSession — draftCombatant", () => {
     })
 
     expect(next.combatants[0]!.ailments).toEqual(["burn"])
+    expect(next.combatants[0]!.reactionAvailable).toBe(true)
+  })
+
+  it("refreshes the whole action economy (move + standard + reaction)", () => {
+    const fresh = createCombatSession(SETUP, sequentialIds())
+    const [first, ...rest] = fresh.combatants
+    const spent: CombatSession = {
+      ...fresh,
+      combatants: [
+        {
+          ...first!,
+          moveAvailable: false,
+          standardAvailable: false,
+          reactionAvailable: false,
+        },
+        ...rest,
+      ],
+    }
+
+    const next = reduceCombatSession(spent, {
+      kind: "draftCombatant",
+      combatantId: "combatant-0",
+    })
+
+    expect(next.combatants[0]!.moveAvailable).toBe(true)
+    expect(next.combatants[0]!.standardAvailable).toBe(true)
     expect(next.combatants[0]!.reactionAvailable).toBe(true)
   })
 
@@ -518,6 +544,76 @@ describe("reduceCombatSession — applyBattleConditionDuration", () => {
     })
 
     expect(next.combatants).toEqual(started.combatants)
+  })
+})
+
+describe("reduceCombatSession — setBattleConditionAxis / Flag", () => {
+  it("sets a tri-state axis directly", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const next = reduceCombatSession(started, {
+      kind: "setBattleConditionAxis",
+      combatantId: actorId,
+      axis: "attack",
+      state: "increased",
+    })
+
+    expect(next.combatants[0]!.battleConditions.attack).toBe("increased")
+  })
+
+  it("can set an axis back to neutral", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const increased = reduceCombatSession(started, {
+      kind: "setBattleConditionAxis",
+      combatantId: actorId,
+      axis: "defense",
+      state: "decreased",
+    })
+    const cleared = reduceCombatSession(increased, {
+      kind: "setBattleConditionAxis",
+      combatantId: actorId,
+      axis: "defense",
+      state: "neutral",
+    })
+
+    expect(cleared.combatants[0]!.battleConditions.defense).toBe("neutral")
+  })
+
+  it("toggles a single-use flag on and off", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const on = reduceCombatSession(started, {
+      kind: "setBattleConditionFlag",
+      combatantId: actorId,
+      flag: "charged",
+      value: true,
+    })
+    expect(on.combatants[0]!.battleConditions.charged).toBe(true)
+
+    const off = reduceCombatSession(on, {
+      kind: "setBattleConditionFlag",
+      combatantId: actorId,
+      flag: "charged",
+      value: false,
+    })
+    expect(off.combatants[0]!.battleConditions.charged).toBe(false)
+  })
+
+  it("is a no-op for an unknown combatant", () => {
+    const started = startedSession()
+
+    const next = reduceCombatSession(started, {
+      kind: "setBattleConditionAxis",
+      combatantId: "nobody",
+      axis: "attack",
+      state: "increased",
+    })
+
+    expect(next).toBe(started)
   })
 })
 

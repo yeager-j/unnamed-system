@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 import { DAMAGE_TYPES, type Affinity, type DamageType } from "@/lib/game/combat"
 
 import {
@@ -220,5 +221,58 @@ describe("combatantDetail", () => {
       expect(detail.attributes.agility).toBe(2)
       expect(detail.hp).toEqual({ current: 5, max: 8 })
     }
+  })
+
+  it("surfaces the editable session overlay off the combatant (enemy)", () => {
+    const session = withCombatant(build(), "combatant-2", {
+      ailments: ["downed", "burn"],
+      battleConditions: {
+        ...DEFAULT_BATTLE_CONDITIONS,
+        attack: "increased",
+        charged: true,
+      },
+      conditionDurations: { attack: 3 },
+      moveAvailable: false,
+      standardAvailable: true,
+      reactionAvailable: false,
+    })
+
+    const detail = combatantDetail(session, "combatant-2", PC_DETAIL)!
+
+    expect(detail.ailments).toEqual(["downed", "burn"])
+    expect(detail.battleConditions.attack).toBe("increased")
+    expect(detail.battleConditions.charged).toBe(true)
+    expect(detail.conditionDurations).toEqual({ attack: 3 })
+    expect(detail.actionEconomy).toEqual({
+      move: false,
+      standard: true,
+      reaction: false,
+    })
+  })
+
+  it("surfaces the overlay for a PC too (identical shape)", () => {
+    const detail = combatantDetail(build(), "combatant-0", PC_DETAIL)!
+    expect(detail.ailments).toEqual([])
+    expect(detail.actionEconomy).toEqual({
+      move: true,
+      standard: true,
+      reaction: true,
+    })
+  })
+
+  it("defaults move/standard to available for a pre-UNN-310 session blob", () => {
+    // The session jsonb is cast (not parsed) on read, so a blob persisted before
+    // move/standard existed reaches the projection with those fields undefined.
+    // The overlay must still yield booleans, else the drawer's action Toggle
+    // flips from uncontrolled to controlled on first edit.
+    const legacy = build()
+    const combatant = legacy.combatants[0]! as Partial<Combatant>
+    delete combatant.moveAvailable
+    delete combatant.standardAvailable
+
+    const detail = combatantDetail(legacy, "combatant-0", PC_DETAIL)!
+
+    expect(detail.actionEconomy.move).toBe(true)
+    expect(detail.actionEconomy.standard).toBe(true)
   })
 })

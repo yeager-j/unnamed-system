@@ -59,6 +59,8 @@ describe("combatSessionSchema", () => {
             concentrating: false,
           },
           hasActedThisRound: true,
+          moveAvailable: false,
+          standardAvailable: false,
           reactionAvailable: false,
           zoneId: "zone-a",
           engagement: { status: "engaged", targetCombatantIds: ["c-2"] },
@@ -82,6 +84,8 @@ describe("combatSessionSchema", () => {
           ailments: [],
           battleConditions: DEFAULT_BATTLE_CONDITIONS,
           hasActedThisRound: false,
+          moveAvailable: true,
+          standardAvailable: true,
           reactionAvailable: true,
           zoneId: "zone-a",
           engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
@@ -94,6 +98,35 @@ describe("combatSessionSchema", () => {
       JSON.parse(JSON.stringify(session))
     )
     expect(roundTripped).toEqual(session)
+  })
+
+  it("defaults moveAvailable/standardAvailable to true for a pre-UNN-310 blob", () => {
+    // A session persisted before the action-economy fields existed must still
+    // parse: the `.default(true)` fills them so no data migration is needed.
+    const legacyCombatant = {
+      id: "c-1",
+      side: "players",
+      ref: { kind: "pc", characterId: "char-1" },
+      ailments: [],
+      battleConditions: DEFAULT_BATTLE_CONDITIONS,
+      hasActedThisRound: false,
+      reactionAvailable: true,
+      zoneId: "zone-a",
+      engagement: { status: "free" },
+      conditionDurations: {},
+    }
+    const legacySession = {
+      round: 1,
+      currentActorId: null,
+      advantage: null,
+      firstSide: null,
+      combatants: [legacyCombatant],
+    }
+
+    const parsed = combatSessionSchema.parse(legacySession)
+
+    expect(parsed.combatants[0]!.moveAvailable).toBe(true)
+    expect(parsed.combatants[0]!.standardAvailable).toBe(true)
   })
 })
 
@@ -118,6 +151,8 @@ describe("createCombatSession", () => {
       expect(combatant.ailments).toEqual([])
       expect(combatant.battleConditions).toEqual(DEFAULT_BATTLE_CONDITIONS)
       expect(combatant.hasActedThisRound).toBe(false)
+      expect(combatant.moveAvailable).toBe(true)
+      expect(combatant.standardAvailable).toBe(true)
       expect(combatant.reactionAvailable).toBe(true)
       expect(combatant.conditionDurations).toEqual({})
       expect(combatant.engagement).toEqual({ status: "free" })

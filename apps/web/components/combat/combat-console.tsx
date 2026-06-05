@@ -206,9 +206,7 @@ export function CombatConsole({
       <CombatantDrawer
         detail={selectedDetail}
         onClose={() => setSelectedCombatantId(null)}
-        onAdjustEnemyVitals={(combatantId, field, value) =>
-          dispatch({ kind: "adjustEnemyVitals", combatantId, field, value })
-        }
+        onCombatEvent={dispatch}
       />
     </main>
   )

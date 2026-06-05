@@ -319,6 +319,19 @@ export const BATTLE_CONDITION_FLAG_LABELS = {
   concentrating: "Concentrating",
 } as const
 
+/** The three per-turn actions the (non-enforcing) action economy tracks in the
+ *  combatant drawer (UNN-310). */
+export const ACTION_ECONOMY_LABELS = {
+  move: "Move",
+  standard: "Standard",
+  reaction: "Reaction",
+} as const
+
+/** The non-blocking "held flag" reminder shown for Charged / Concentrating —
+ *  they carry to the next attack and the DM clears them manually (UNN-294). */
+export const BATTLE_CONDITION_FLAG_HELD_HINT =
+  "Carries to the next attack — clear it when spent."
+
 /** The two combat sides a combatant can be assigned to (UNN-300). */
 export const COMBAT_SIDE_LABELS: Record<CombatSide, string> = {
   players: "Players",
