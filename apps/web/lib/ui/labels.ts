@@ -22,6 +22,7 @@ import type {
   Range,
 } from "@/lib/game/combat"
 import type { CombatAdvantage, CombatSide } from "@/lib/game/encounter"
+import type { EnemyFamily } from "@/lib/game/enemies"
 import type { EquipSlot } from "@/lib/game/items"
 import type { StainElement } from "@/lib/game/mechanics"
 import type { SkillKind } from "@/lib/game/skills"
@@ -90,6 +91,16 @@ export const AFFINITY_DAMAGE_TYPE_LABELS: Record<AffinityDamageType, string> = {
   psy: "Psy",
   light: "Light",
   dark: "Dark",
+}
+
+/** Catalog enemy family names (the 5e creature types), for the bestiary browse
+ *  table's column, filter chips, and statblock tag. */
+export const ENEMY_FAMILY_LABELS: Record<EnemyFamily, string> = {
+  humanoid: "Humanoid",
+  beast: "Beast",
+  undead: "Undead",
+  aberration: "Aberration",
+  monstrosity: "Monstrosity",
 }
 
 /**

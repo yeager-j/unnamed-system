@@ -1,46 +1,18 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { cache } from "react"
 
 import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
-import { auth } from "@/lib/auth"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { loadEncounterRowByShortId } from "@/lib/db/queries/load-encounter"
-import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { InitiativeStats, PcCombatantDetail } from "@/lib/game/encounter"
+
+import { getEncounterForDM } from "./encounter-access"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
 }
-
-/**
- * Resolves the encounter for the current viewer, or `null` if it is missing or
- * the viewer is not its campaign's DM. The DM console is DM-only, and we return
- * the *same* nothing for "not found" and "not your campaign" so the route 404s
- * either way without leaking that an encounter exists (the AC's 404 cases). The
- * signed-out player watch view is a separate `shortId` route (UNN-322).
- *
- * Per-request memoized so `generateMetadata` and the page resolve once.
- */
-const getEncounterForDM = cache(
-  async (shortId: string): Promise<EncounterRow | null> => {
-    const session = await auth()
-    const viewerId = session?.user?.id
-    if (!viewerId) return null
-
-    const encounter = await loadEncounterRowByShortId(shortId)
-    if (!encounter) return null
-
-    const campaign = await loadCampaignRowById(encounter.campaignId)
-    if (!campaign || campaign.dmUserId !== viewerId) return null
-
-    return encounter
-  }
-)
 
 export async function generateMetadata({
   params,

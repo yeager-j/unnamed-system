@@ -5,7 +5,12 @@ import { BEAST_ENEMIES } from "./5e/beast"
 import { HUMANOID_ENEMIES } from "./5e/humanoid"
 import { MONSTROSITY_ENEMIES } from "./5e/monstrosity"
 import { UNDEAD_ENEMIES } from "./5e/undead"
-import { enemyDefinitionSchema, type EnemyDefinition } from "./schema"
+import {
+  ENEMY_FAMILIES,
+  enemyDefinitionSchema,
+  type EnemyDefinition,
+  type EnemyFamily,
+} from "./schema"
 
 /**
  * Structurally validates a catalog enemy, then asserts every referenced
@@ -39,6 +44,25 @@ const ENEMIES_BY_KEY = {
 
 export type EnemyKey = keyof typeof ENEMIES_BY_KEY
 
+/** Each {@link EnemyFamily}'s slice, the one place the family→slice association
+ *  lives. The `satisfies` row asserts (at compile time) that every family has a
+ *  slice, so adding a family to {@link ENEMY_FAMILIES} forces wiring it here. */
+const SLICE_BY_FAMILY = {
+  humanoid: HUMANOID_ENEMIES,
+  beast: BEAST_ENEMIES,
+  undead: UNDEAD_ENEMIES,
+  aberration: ABERRATION_ENEMIES,
+  monstrosity: MONSTROSITY_ENEMIES,
+} satisfies Record<EnemyFamily, Record<string, EnemyDefinition>>
+
+/** Every enemy key mapped to its family, derived from the slices so an entry's
+ *  family is its directory and is never restated on the definition. */
+const ENEMY_FAMILY_BY_KEY: Record<string, EnemyFamily> = Object.fromEntries(
+  ENEMY_FAMILIES.flatMap((family) =>
+    Object.keys(SLICE_BY_FAMILY[family]).map((key) => [key, family])
+  )
+)
+
 const catalog = createCatalog<EnemyDefinition>(ENEMIES_BY_KEY, validateEnemy)
 
 export const ENEMIES: readonly EnemyDefinition[] = catalog.all
@@ -50,4 +74,14 @@ export const ENEMIES: readonly EnemyDefinition[] = catalog.all
  */
 export function getEnemy(key: string): EnemyDefinition | undefined {
   return catalog.get(key)
+}
+
+/**
+ * Resolves a catalog enemy's {@link EnemyFamily} from its `key`, or `undefined`
+ * when no enemy matches. The family is the creature's directory under
+ * `5e/<family>/`, surfaced here so the browse table can column + filter by it
+ * without every entry restating its type.
+ */
+export function getEnemyFamily(key: string): EnemyFamily | undefined {
+  return ENEMY_FAMILY_BY_KEY[key]
 }
