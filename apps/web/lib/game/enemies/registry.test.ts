@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
 
+import {
+  findUnregisteredEntries,
+  loadCatalogEntryModules,
+} from "../catalog/registered-entries"
 import { getSkill } from "../skills/index"
 import { goblin } from "./5e/humanoid/goblin"
 import { ENEMIES, getEnemy } from "./index"
@@ -32,6 +36,11 @@ describe("enemy catalog data", () => {
         expect(getSkill(skillKey)).toBeDefined()
       }
     }
+  })
+
+  it("registers every entry file on disk", async () => {
+    const modules = await loadCatalogEntryModules(import.meta.dirname)
+    expect(findUnregisteredEntries(modules, getEnemy)).toEqual([])
   })
 })
 

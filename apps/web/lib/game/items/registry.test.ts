@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
 
+import {
+  findUnregisteredEntries,
+  loadCatalogEntryModules,
+} from "../catalog/registered-entries"
 import { getSkill } from "../skills/index"
 import { bladeturnMail } from "./armor/bladeturn-mail"
 import {
@@ -7,6 +11,7 @@ import {
   ARMOR,
   getEquippableItem,
   getEquippedItem,
+  getItem,
   getWeapon,
   WEAPONS,
 } from "./index"
@@ -45,6 +50,11 @@ describe("item catalog data", () => {
         }
       }
     }
+  })
+
+  it("registers every entry file on disk", async () => {
+    const modules = await loadCatalogEntryModules(import.meta.dirname)
+    expect(findUnregisteredEntries(modules, getItem)).toEqual([])
   })
 })
 

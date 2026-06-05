@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import { ARCHETYPES } from "../archetypes/registry"
+import {
+  findUnregisteredEntries,
+  loadCatalogEntryModules,
+} from "../catalog/registered-entries"
 import { evilTouch } from "./ailment/evil-touch"
 import { agi } from "./fire/agi"
 import { amritaDrop } from "./heal/amrita-drop"
@@ -35,6 +39,11 @@ describe("skill data", () => {
     for (const skill of SKILLS) {
       expect(getSkill(skill.key)).toBe(skill)
     }
+  })
+
+  it("registers every entry file on disk", async () => {
+    const modules = await loadCatalogEntryModules(import.meta.dirname)
+    expect(findUnregisteredEntries(modules, getSkill)).toEqual([])
   })
 })
 

@@ -1,9 +1,8 @@
+import { createCatalog } from "../catalog"
 import { getSkill } from "../skills"
-import { shadowCharm } from "./accessory/shadow-charm"
-import { zephyrBand } from "./accessory/zephyr-band"
-import { bladeturnMail } from "./armor/bladeturn-mail"
-import { warlockPact } from "./armor/warlock-pact"
-import { soulDrop } from "./consumable/soul-drop"
+import { ACCESSORY_ITEMS } from "./accessory"
+import { ARMOR_ITEMS } from "./armor"
+import { CONSUMABLE_ITEMS } from "./consumable"
 import {
   isConsumable,
   isEquippable,
@@ -15,18 +14,15 @@ import {
   type Item,
   type ItemForSlot,
 } from "./schema"
-import { censer } from "./weapon/censer"
-import { longsword } from "./weapon/longsword"
-import { runedCane } from "./weapon/runed-cane"
-import { spear } from "./weapon/spear"
-import { staff } from "./weapon/staff"
+import { WEAPON_ITEMS } from "./weapon"
 
 /**
  * Structurally validates an item, then asserts every granted-Skill effect
  * resolves to a real Skill so a typo in the catalog fails the import rather
- * than a downstream lookup.
+ * than a downstream lookup. Runs once per entry at module load via
+ * {@link createCatalog}.
  */
-function validate<T extends Item>(item: T): T {
+function validateItem(item: Item): void {
   itemSchema.parse(item)
 
   for (const effect of item.equip?.effects ?? []) {
@@ -36,26 +32,20 @@ function validate<T extends Item>(item: T): T {
       )
     }
   }
-
-  return item
 }
 
 /**
  * Every catalog item by key. The single registry over which capability traits
  * (equippable / stackable / consumable) are queried — there is no per-kind
- * map, so a future hybrid item is added here once and surfaces everywhere.
+ * map, so a future hybrid item is added here once and surfaces everywhere. Each
+ * category's slice lives in its folder's `index.ts`; this spreads them so the
+ * literal-key union (and {@link WeaponKey}'s per-entry value types) is preserved.
  */
 const ITEMS_BY_KEY = {
-  longsword: validate(longsword),
-  "runed-cane": validate(runedCane),
-  spear: validate(spear),
-  censer: validate(censer),
-  staff: validate(staff),
-  "bladeturn-mail": validate(bladeturnMail),
-  "warlock-pact": validate(warlockPact),
-  "zephyr-band": validate(zephyrBand),
-  "shadow-charm": validate(shadowCharm),
-  "soul-drop": validate(soulDrop),
+  ...WEAPON_ITEMS,
+  ...ARMOR_ITEMS,
+  ...ACCESSORY_ITEMS,
+  ...CONSUMABLE_ITEMS,
 } as const satisfies Record<string, Item>
 
 export type ItemKey = keyof typeof ITEMS_BY_KEY
@@ -73,17 +63,9 @@ export type WeaponKey = {
   [K in ItemKey]: (typeof ITEMS_BY_KEY)[K] extends EquippedWeapon ? K : never
 }[ItemKey]
 
-export const ITEMS: readonly Item[] = Object.values(ITEMS_BY_KEY)
+const catalog = createCatalog<Item>(ITEMS_BY_KEY, validateItem)
 
-/**
- * Runtime lookup index keyed by arbitrary `string`, so {@link getItem} can
- * resolve a persisted `catalogItemKey` against the catalog without widening
- * the literal-keyed {@link ITEMS_BY_KEY} (whose precise keys exist only to
- * derive {@link ItemKey} / {@link WeaponKey}).
- */
-const ITEM_INDEX: ReadonlyMap<string, Item> = new Map(
-  Object.entries(ITEMS_BY_KEY)
-)
+export const ITEMS: readonly Item[] = catalog.all
 
 /** Equippable items in a slot, for the add-item picker's grouped listing. */
 function itemsInSlot<S extends EquipSlot>(slot: S): readonly ItemForSlot<S>[] {
@@ -104,7 +86,7 @@ export const CONSUMABLES: readonly Item[] = ITEMS.filter(isConsumable)
  * non-equippable items (consumables) resolve too.
  */
 export function getItem(key: string): Item | undefined {
-  return ITEM_INDEX.get(key)
+  return catalog.get(key)
 }
 
 /**
