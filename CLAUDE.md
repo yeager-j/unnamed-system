@@ -91,7 +91,7 @@ apps/web/
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
-│   └── fixtures/              Per-spec seed-character fixtures (write-target, delete-target, cast-target). Each owns its SeedCharacter + DB-poke reset helpers; lib/db/seed.ts iterates DEV_USER_E2E_FIXTURES.
+│   └── fixtures/              E2E test-data factory (UNN-343). factory.ts mints ephemeral characters/campaigns/encounters with unique-per-run ids + a CleanupTracker (afterAll cleanup); each write spec's <thing>-target.ts wraps it as createXTarget(tracker) returning helpers bound to the new id. encounter-target.ts is the kept seeded combat showcase (campaigns A/B + encounters) for encounter-shell/join. See e2e/README.md "Write-spec discipline".
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
@@ -154,9 +154,9 @@ Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, p
 
 **Write-path E2E (cast / heal / rest / level-up / spark):**
 
-- Re-seed before *every* run. `db:seed` is idempotent and resets the character + archetype/knife/chain/talent/inventory rows, but **not** `actionLogEntries` — a spec that logs actions must clear its own log (or the seed must be extended to truncate it).
-- Give each write spec its **own dedicated seed character** (or serialize write specs). Playwright is `fullyParallel`; two specs mutating the same seed row will flake. This is a test-design constraint, not an infra one.
-- Writes stay within `seed-user`'s `seed-*` rows; mutating the shared preview DB is acceptable for the showcase roster given the per-run re-seed.
+- **Mint ephemeral rows with `e2e/fixtures/factory.ts`, don't grow the seed** (UNN-343). Each `createTest*` helper stamps a unique-per-run id, so `fullyParallel` workers can't contend, and one `cleanup(tracker)` in `afterAll` tears them down (FK-safe, on failure too). A per-spec `<thing>-target.ts` wraps the factory into `createXTarget(tracker)` returning id-bound `reset`/`setX`/`getX` helpers. See `e2e/README.md` "Write-spec discipline" for the canonical shape.
+- **Write-then-read still needs `expect.poll`** against the DB helper — the factory removes contention, not the `networkidle`-vs-revalidation race.
+- The seed is **showcase/demo data only** (the roster, Iris Vey, and the combat showcase in `encounter-target.ts`). Mutating the shared preview DB is acceptable for that showcase given the per-run re-seed; write-path scaffolding no longer lives there.
 
 ## Tech Stack
 

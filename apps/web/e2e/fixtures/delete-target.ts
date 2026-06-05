@@ -1,24 +1,14 @@
-import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
-
-import type { E2EFixture } from "./types"
+import { createTestCharacter, type CleanupTracker } from "./factory"
 
 /**
- * Dedicated target for `e2e/delete-character.spec.ts`. Owned by the dev
- * user. Sized just large enough to prove CASCADE: one archetype, one
- * inventory item, one knife/chain. Lives in its own row because the
- * happy-path test removes it — `npm run db:seed` runs at the start of
- * every E2E invocation and re-inserts it via the same deterministic
- * upsert.
+ * Ephemeral target for `e2e/delete-character.spec.ts` (UNN-181). Sized just
+ * large enough to prove CASCADE: a default Warrior archetype plus one inventory
+ * item. Minted per-run; the happy-path test hard-deletes it, and `afterAll`
+ * `cleanup` is a no-op once it's gone.
  */
-const seed = makeSeedCharacter({
-  slug: "delete-target",
-  shortId: "delete-target",
-  name: "Wren Halloway",
-  items: [{ catalogItemKey: "longsword", equipped: false }],
-})
-
-export const deleteTarget: E2EFixture = {
-  seed,
-  characterId: `seed-char-${seed.slug}`,
-  url: `/c/${seed.shortId}`,
+export function createDeleteTarget(tracker: CleanupTracker) {
+  return createTestCharacter(tracker, {
+    name: "Wren Halloway",
+    items: [{ catalogItemKey: "longsword", equipped: false }],
+  })
 }

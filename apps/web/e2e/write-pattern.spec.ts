@@ -1,14 +1,11 @@
 import { expect, test, type Page } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
-import { characters, getDb, inventoryItems } from "@/lib/db"
+import { characters, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  bumpWriteTargetIdentityVersion,
-  resetWriteTarget,
-  writeTarget,
-} from "./fixtures/write-target"
+import { cleanup, createTracker } from "./fixtures/factory"
+import { createWriteTarget } from "./fixtures/write-target"
 
 /**
  * Regression suite for the UNN-180 write-pattern: a typed Server Action with
@@ -18,28 +15,33 @@ import {
  * the iteration leading up to landing the pattern, so a regression here
  * means we've genuinely lost something.
  *
- * **Serial execution.** All tests mutate the seeded dev user's character
- * (`/c/claude-1`). Playwright is `fullyParallel`, but mode `serial` inside
- * this file keeps the writes ordered. The `beforeEach` resets the
- * character row + every inventory item to its seed defaults via the same
- * Drizzle access path `auth.setup.ts` uses, so each test starts from a
- * known state regardless of run order.
+ * **Serial execution.** All tests mutate the one ephemeral write-target.
+ * Playwright is `fullyParallel`, but mode `serial` inside this file keeps the
+ * writes ordered; `beforeEach` resets the row + every inventory item to its
+ * baseline, so each test starts from a known state regardless of run order.
  *
- * **State scope.** Other specs (`owner-controls-slot`, `authenticated`) only
- * read from `/c/claude-1`, so the resets here don't disturb them.
+ * The target is minted per-run by the factory (`e2e/fixtures/write-target.ts`)
+ * and torn down in `afterAll`, so mutations here can't flake the read-only specs
+ * (`home`, `owner-controls-slot`, `authenticated`) that pin Iris Vey.
  */
-
-// Dedicated write-target lives in `e2e/fixtures/write-target.ts` and is
-// seeded by `lib/db/seed.ts` via the `DEV_USER_E2E_FIXTURES` registry. This
-// character exists *only* for this spec, so mutations here can't flake
-// read-only specs (`home`, `owner-controls-slot`, `authenticated`) that pin
-// `claude-1` (Iris Vey).
-const CHARACTER_URL = writeTarget.url
-const DEFAULT_NAME = writeTarget.seed.name
 
 const NAME_INPUT = "Character name"
 
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createWriteTarget>>
+
+/** The action-POST route matcher, keyed off the ephemeral shortId. */
+const writeRoute = () => new RegExp(`/c/${target.shortId}`)
+
 test.describe.configure({ mode: "serial" })
+
+test.beforeAll(async () => {
+  target = await createWriteTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
 
 async function openItemPopover(page: Page, descriptionFragment: string) {
   await page
@@ -67,10 +69,10 @@ test.describe("owner affordances are gated", () => {
     const context = await browser.newContext({ storageState: undefined })
     const page = await context.newPage()
     try {
-      await resetWriteTarget()
-      await page.goto(`${CHARACTER_URL}?tab=inventory`)
+      await target.reset()
+      await page.goto(`${target.url}?tab=inventory`)
       await expect(
-        page.getByRole("heading", { name: DEFAULT_NAME })
+        page.getByRole("heading", { name: target.name })
       ).toBeVisible()
       await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveCount(
         0
@@ -116,13 +118,13 @@ test.describe("owner-mode write pattern", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetWriteTarget()
+    await target.reset()
   })
 
   test("owner sees an editable name input and equip buttons", async ({
     page,
   }) => {
-    await page.goto(`${CHARACTER_URL}?tab=inventory`)
+    await page.goto(`${target.url}?tab=inventory`)
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toBeVisible()
     await openItemPopover(page, "Overlapping scales")
     await expect(
@@ -131,7 +133,7 @@ test.describe("owner-mode write pattern", () => {
   })
 
   test("name auto-save persists across a reload", async ({ page }) => {
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Persistent")
     await input.blur()
@@ -159,14 +161,14 @@ test.describe("owner-mode write pattern", () => {
     // the action can complete in <50ms and accidentally close the window
     // before blur fires. Route-delay the action POST so the in-flight window
     // is reliably wide enough for blur to land inside it.
-    await page.route(/\/c\/write-target/, async (route) => {
+    await page.route(writeRoute(), async (route) => {
       if (route.request().method() === "POST") {
         await new Promise((resolve) => setTimeout(resolve, 800))
       }
       await route.continue()
     })
 
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Race-Free")
     // Wait past the 500ms debounce so the action is firing; blur lands while
@@ -178,7 +180,7 @@ test.describe("owner-mode write pattern", () => {
     // — `expectNoToast` snapshots, so a toast that flashes here is caught.
     await page.waitForTimeout(2000)
     await expectNoToast(page)
-    await page.unroute(/\/c\/write-target/)
+    await page.unroute(writeRoute())
     await page.reload()
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Race-Free"
@@ -191,7 +193,7 @@ test.describe("owner-mode write pattern", () => {
     // Bladeturn Mail grants `Resist Slash`. With it equipped, the Combat
     // tab's Affinities chart must re-derive to "Resist" — proves the end of
     // the chain (engine → DB → revalidation → re-render of derived stats).
-    await page.goto(`${CHARACTER_URL}?tab=combat`)
+    await page.goto(`${target.url}?tab=combat`)
     // Affinities renders each damage type as `<div><dt>Label</dt><dd>value</dd></div>`,
     // so dt/dd are siblings via a wrapping div, not directly. Match the
     // wrapper that contains the Slash term, then read its definition.
@@ -213,12 +215,9 @@ test.describe("owner-mode write pattern", () => {
   test("unequipping armor restores the Neutral affinity", async ({ page }) => {
     // Start equipped via direct DB poke so we can isolate the unequip
     // contract from the equip contract.
-    await getDb()
-      .update(inventoryItems)
-      .set({ equipped: true })
-      .where(eq(inventoryItems.id, "seed-item-write-target-bladeturn-mail-1"))
+    await target.setItemEquipped("bladeturn-mail", true)
 
-    await page.goto(`${CHARACTER_URL}?tab=inventory`)
+    await page.goto(`${target.url}?tab=inventory`)
     await openItemPopover(page, "Overlapping scales")
     await page.getByRole("button", { name: "Unequip", exact: true }).click()
     await page.waitForLoadState("networkidle")
@@ -244,14 +243,14 @@ test.describe("owner-mode write pattern", () => {
     // a "Someone else updated this character" toast on a normal edit. The
     // serialized save queue closes that window by chaining B behind A so it
     // reads the post-A `versionRef.current` (v1) before its request goes out.
-    await page.route(/\/c\/write-target/, async (route) => {
+    await page.route(writeRoute(), async (route) => {
       if (route.request().method() === "POST") {
         await new Promise((resolve) => setTimeout(resolve, 800))
       }
       await route.continue()
     })
 
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Race A")
     // Wait past the 500ms debounce so save("Race A") is in flight (held open
@@ -264,7 +263,7 @@ test.describe("owner-mode write pattern", () => {
     // Wait well past both round trips but inside Sonner's 4s auto-dismiss.
     await page.waitForTimeout(2500)
     await expectNoToast(page)
-    await page.unroute(/\/c\/write-target/)
+    await page.unroute(writeRoute())
     await page.reload()
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Race B"
@@ -278,7 +277,7 @@ test.describe("owner-mode write pattern", () => {
     // visually empty while the server still held the old name, with no signal
     // that nothing had saved. The hook now snaps the draft back to
     // `lastSavedRef.current` on blur when `isEmpty(value)` is true.
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Steady")
     await input.blur()
@@ -297,7 +296,7 @@ test.describe("owner-mode write pattern", () => {
     // navigating away (client-side, so `blur` may not fire) used to drop the
     // typed text on the floor. The unmount cleanup now flushes the pending
     // draft fire-and-forget through the same serialized queue.
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Vanisher")
     // Click the persistent header link to client-side navigate to `/`
@@ -308,7 +307,7 @@ test.describe("owner-mode write pattern", () => {
     // Wait for the fire-and-forget POST to land before reading back.
     await page.waitForLoadState("networkidle")
 
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Vanisher"
     )
@@ -323,7 +322,7 @@ test.describe("owner-mode write pattern", () => {
     // `characters.updatedAt` and the cross-component dual-writer ref was
     // what made this case work; this test now proves the stronger
     // decoupling holds.
-    await page.goto(`${CHARACTER_URL}?tab=inventory`)
+    await page.goto(`${target.url}?tab=inventory`)
     await openItemPopover(page, "Overlapping scales")
     await page.getByRole("button", { name: "Equip", exact: true }).click()
     await page.waitForLoadState("networkidle")
@@ -347,7 +346,7 @@ test.describe("owner-mode write pattern", () => {
   test("edit name then immediately equip does not stale", async ({ page }) => {
     // The mirror of the above — name first, equip second. The Inventory
     // component has the same dual-writer pattern; this test verifies it.
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Reverse")
     await input.blur()
@@ -371,7 +370,7 @@ test.describe("UNN-203: stale is self-healing", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetWriteTarget()
+    await target.reset()
   })
 
   test("silent refetch + retry: first-attempt stale becomes invisible", async ({
@@ -382,11 +381,11 @@ test.describe("UNN-203: stale is self-healing", () => {
     // and the wrapper returns `"stale"`. The UNN-203 helper should refetch
     // the fresh version (`N+1`), update the ref, retry the save — and the
     // retry should succeed (`N+1` matches now) without surfacing a toast.
-    await page.goto(CHARACTER_URL)
+    await page.goto(target.url)
     await page.waitForLoadState("networkidle")
 
     // Concurrent identity-class write lands between load and edit.
-    await bumpWriteTargetIdentityVersion()
+    await target.bumpIdentityVersion()
 
     const input = page.getByRole("textbox", { name: NAME_INPUT })
     await input.fill("Mira the Healed")
@@ -420,8 +419,8 @@ test.describe("UNN-203: stale is self-healing", () => {
     try {
       const pageA = await context.newPage()
       const pageB = await context.newPage()
-      await pageA.goto(CHARACTER_URL)
-      await pageB.goto(CHARACTER_URL)
+      await pageA.goto(target.url)
+      await pageB.goto(target.url)
       await pageA.waitForLoadState("networkidle")
       await pageB.waitForLoadState("networkidle")
 
@@ -447,7 +446,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
   // Mira Solberg's active Archetype is Warrior, whose granted Talents are
   // Athletics / Climb / Lift — the locked "inherited" set the picker must
   // exclude and the X button must hide. These tests pin that contract.
-  const EXPLORE_URL = `${CHARACTER_URL}?tab=explore`
+  const exploreUrl = () => `${target.url}?tab=explore`
   const INHERITED_TALENTS = ["Athletics", "Climb", "Lift"] as const
 
   test.describe("owner controls are hidden on the public sheet", () => {
@@ -457,8 +456,8 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       const context = await browser.newContext({ storageState: undefined })
       const page = await context.newPage()
       try {
-        await resetWriteTarget()
-        await page.goto(EXPLORE_URL)
+        await target.reset()
+        await page.goto(exploreUrl())
 
         const talents = page.getByRole("region", { name: "Talents" })
         for (const label of INHERITED_TALENTS) {
@@ -486,13 +485,13 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test.use({ storageState: STORAGE_STATE })
 
     test.beforeEach(async () => {
-      await resetWriteTarget()
+      await target.reset()
     })
 
     test("add → reload → remove round-trips through persistence", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
 
       // The popover is portaled outside the Talents region, so resolve the
       // Add button by aria-label rather than scoping to the region.
@@ -527,7 +526,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test.use({ storageState: STORAGE_STATE })
 
     test.beforeEach(async () => {
-      await resetWriteTarget()
+      await target.reset()
     })
 
     /**
@@ -545,7 +544,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("tagging a Spark updates the Sparks counter and breakdown", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const virtues = page.getByRole("region", { name: "Virtues" })
       await expect(virtues.getByText("Sparks: 0 / 7")).toBeVisible()
 
@@ -559,7 +558,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("seven Sparks surfaces the Rank-up CTA and rank-up clears the log", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const virtues = page.getByRole("region", { name: "Virtues" })
 
       // Fill the log to 7 tagged as Wisdom so only Wisdom is eligible.
@@ -599,7 +598,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
 })
 
 test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () => {
-  const EXPLORE_URL = `${CHARACTER_URL}?tab=explore`
+  const exploreUrl = () => `${target.url}?tab=explore`
   // A 1×1 transparent PNG — enough to exercise the upload → Blob → revalidate
   // round-trip without committing a binary fixture.
   const PNG_1x1 = Buffer.from(
@@ -611,7 +610,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     const rows = await getDb()
       .select({ portraitUrl: characters.portraitUrl })
       .from(characters)
-      .where(eq(characters.id, writeTarget.characterId))
+      .where(eq(characters.id, target.id))
     return rows[0]?.portraitUrl ?? null
   }
 
@@ -622,8 +621,8 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       const context = await browser.newContext({ storageState: undefined })
       const page = await context.newPage()
       try {
-        await resetWriteTarget()
-        await page.goto(EXPLORE_URL)
+        await target.reset()
+        await page.goto(exploreUrl())
         // The seed pronouns render as static text, not an input.
         await expect(
           page
@@ -666,7 +665,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test.use({ storageState: STORAGE_STATE })
 
     test.beforeEach(async () => {
-      await resetWriteTarget()
+      await target.reset()
     })
 
     async function columnValue(
@@ -675,7 +674,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       const rows = await getDb()
         .select()
         .from(characters)
-        .where(eq(characters.id, writeTarget.characterId))
+        .where(eq(characters.id, target.id))
       return rows[0]?.[column] ?? null
     }
 
@@ -699,7 +698,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("pronouns / ancestry / background auto-save and persist across reload", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       // Edit all three back-to-back, faster than the revalidate round-trip,
       // to exercise the shared-ref coordination (UNN-274).
       await editField(page, "Pronouns", "ze/zir")
@@ -728,7 +727,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("clearing a field persists empty (and the public sheet falls back)", async ({
       page,
     }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       const pronouns = page.getByRole("textbox", { name: "Pronouns" })
       await expect(pronouns).toHaveValue("they/them")
       await pronouns.fill("")
@@ -743,7 +742,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     })
 
     test("owner can upload a portrait and remove it", async ({ page }) => {
-      await page.goto(EXPLORE_URL)
+      await page.goto(exploreUrl())
       await expect(
         page.getByRole("button", { name: "Edit portrait" })
       ).toBeVisible()

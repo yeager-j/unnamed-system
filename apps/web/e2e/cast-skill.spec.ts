@@ -1,28 +1,23 @@
 import { expect, test, type Page } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  castTarget,
-  getCastTargetPools,
-  resetCastTarget,
-  setCastTargetCurrentHP,
-  setCastTargetCurrentSP,
-} from "./fixtures/cast-target"
+import { createCastTarget } from "./fixtures/cast-target"
+import { cleanup, createTracker } from "./fixtures/factory"
 
 /**
  * UNN-225: owner-mode Cast on the Combat tab. Pressing Cast in the Skill
  * popover deducts the resolved cost from HP or SP, refuses to drop the
  * character to 0 HP via a Skill, and never rolls damage or applies effects.
  *
- * All tests target the dedicated `castTarget` character (Cassia Vance,
- * Warrior Rank 2) — fixture lives at `e2e/fixtures/cast-target.ts`. The
- * active Archetype carries both Cleave (5%-HP, exercises the HP-percent +
- * "would drop HP to 0" path) and Windblade (4 SP, exercises the flat-SP
- * path). Lives in its own row so the existing `write-target` write-pattern
- * spec can race with it freely.
+ * All tests target an ephemeral, factory-minted cast-target (Cassia Vance,
+ * Warrior Rank 2) — factory lives at `e2e/fixtures/cast-target.ts`. The active
+ * Archetype carries both Cleave (5%-HP, exercises the HP-percent + "would drop
+ * HP to 0" path) and Windblade (4 SP, exercises the flat-SP path), so other
+ * write specs can race with it freely.
  */
 
-const CHARACTER_URL = castTarget.url
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createCastTarget>>
 
 /**
  * Opens the SkillCard popover for `skillName` by clicking its row inside
@@ -46,6 +41,14 @@ async function expectNoToast(page: Page): Promise<void> {
 
 test.describe.configure({ mode: "serial" })
 
+test.beforeAll(async () => {
+  target = await createCastTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
+
 test.describe("Cast affordance gating", () => {
   test("signed-out viewer sees the Skill row but no Cast button in its popover", async ({
     browser,
@@ -53,10 +56,10 @@ test.describe("Cast affordance gating", () => {
     const context = await browser.newContext({ storageState: undefined })
     const page = await context.newPage()
     try {
-      await resetCastTarget()
-      await page.goto(`${CHARACTER_URL}?tab=combat`)
+      await target.reset()
+      await page.goto(`${target.url}?tab=combat`)
       await expect(
-        page.getByRole("heading", { name: castTarget.seed.name })
+        page.getByRole("heading", { name: target.name })
       ).toBeVisible()
 
       await openSkillPopover(page, "Cleave")
@@ -75,21 +78,21 @@ test.describe("owner Cast — happy paths", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetCastTarget()
+    await target.reset()
   })
 
   test("Cast on an SP Skill deducts the cost and persists across reload", async ({
     page,
   }) => {
-    await page.goto(`${CHARACTER_URL}?tab=combat`)
-    const beforePools = await getCastTargetPools()
+    await page.goto(`${target.url}?tab=combat`)
+    const beforePools = await target.getPools()
 
     await openSkillPopover(page, "Windblade")
     await page.getByRole("button", { name: "Cast", exact: true }).click()
     await page.waitForLoadState("networkidle")
 
     // Pool persisted at SP − 4 (Windblade's flat cost).
-    const afterPools = await getCastTargetPools()
+    const afterPools = await target.getPools()
     expect(afterPools.currentSP).toBe(beforePools.currentSP - 4)
     expect(afterPools.currentHP).toBe(beforePools.currentHP)
 
@@ -102,15 +105,15 @@ test.describe("owner Cast — happy paths", () => {
   test("Cast on an HP-percent Skill deducts the resolved amount from HP", async ({
     page,
   }) => {
-    await page.goto(`${CHARACTER_URL}?tab=combat`)
-    const beforePools = await getCastTargetPools()
+    await page.goto(`${target.url}?tab=combat`)
+    const beforePools = await target.getPools()
 
     await openSkillPopover(page, "Cleave")
     await page.getByRole("button", { name: "Cast", exact: true }).click()
     await page.waitForLoadState("networkidle")
 
     // Cleave is 5% HP, floored at 1: at max HP 20 the resolved cost is 1.
-    const afterPools = await getCastTargetPools()
+    const afterPools = await target.getPools()
     expect(afterPools.currentHP).toBe(beforePools.currentHP - 1)
     expect(afterPools.currentSP).toBe(beforePools.currentSP)
     await expectNoToast(page)
@@ -121,7 +124,7 @@ test.describe("owner Cast — pool boundary", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetCastTarget()
+    await target.reset()
   })
 
   test("at HP equal to the cost, Cast disables and explains why on hover", async ({
@@ -130,8 +133,8 @@ test.describe("owner Cast — pool boundary", () => {
     // Cleave costs 1 HP. With currentHP = 1, casting it would drop the
     // character to 0 — PRD §7.2 forbids this, so the button must be
     // disabled and the tooltip must surface the reason.
-    await setCastTargetCurrentHP(1)
-    await page.goto(`${CHARACTER_URL}?tab=combat`)
+    await target.setCurrentHP(1)
+    await page.goto(`${target.url}?tab=combat`)
 
     await openSkillPopover(page, "Cleave")
     const castButton = page.getByRole("button", { name: "Cast", exact: true })
@@ -147,7 +150,7 @@ test.describe("owner Cast — pool boundary", () => {
     await expect(page.getByText("Would drop HP to 0")).toBeVisible()
 
     // Pool is unchanged by the hover.
-    const pools = await getCastTargetPools()
+    const pools = await target.getPools()
     expect(pools.currentHP).toBe(1)
   })
 
@@ -156,8 +159,8 @@ test.describe("owner Cast — pool boundary", () => {
   }) => {
     // Windblade costs 4 SP. Set SP to 3 and the same disabled / tooltip
     // contract should apply on the SP branch.
-    await setCastTargetCurrentSP(3)
-    await page.goto(`${CHARACTER_URL}?tab=combat`)
+    await target.setCurrentSP(3)
+    await page.goto(`${target.url}?tab=combat`)
 
     await openSkillPopover(page, "Windblade")
     const castButton = page.getByRole("button", { name: "Cast", exact: true })
@@ -169,7 +172,7 @@ test.describe("owner Cast — pool boundary", () => {
     await wrapper.hover()
     await expect(page.getByText("Not enough SP")).toBeVisible()
 
-    const pools = await getCastTargetPools()
+    const pools = await target.getPools()
     expect(pools.currentSP).toBe(3)
   })
 })

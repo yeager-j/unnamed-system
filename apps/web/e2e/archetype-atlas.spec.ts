@@ -1,13 +1,8 @@
 import { expect, test } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import {
-  atlasTarget,
-  getAtlasTargetArchetypes,
-  getAtlasTargetSavedRanks,
-  resetAtlasTarget,
-  setAtlasTargetSavedRanks,
-} from "./fixtures/atlas-target"
+import { createAtlasTarget } from "./fixtures/atlas-target"
+import { cleanup, createTracker } from "./fixtures/factory"
 
 /**
  * UNN-239: the Lineage Atlas — unlock + rank up Archetypes by spending Saved
@@ -28,19 +23,30 @@ import {
  * resets the target to its seed board before each.
  */
 
-const ATLAS_URL = `${atlasTarget.url}/archetypes/atlas`
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createAtlasTarget>>
+
+const atlasUrl = () => `${target.url}/archetypes/atlas`
 
 test.describe.configure({ mode: "serial" })
+
+test.beforeAll(async () => {
+  target = await createAtlasTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
 
 test.describe("Lineage Atlas owner flows", () => {
   test.use({ storageState: STORAGE_STATE })
 
   test.beforeEach(async () => {
-    await resetAtlasTarget()
+    await target.reset()
   })
 
   test("Archetypes tab links permanently to the Atlas", async ({ page }) => {
-    await page.goto(`${atlasTarget.url}?tab=archetypes`)
+    await page.goto(`${target.url}?tab=archetypes`)
     await expect(
       page.getByRole("link", { name: "Open Lineage Atlas" })
     ).toBeVisible()
@@ -49,7 +55,7 @@ test.describe("Lineage Atlas owner flows", () => {
   test("unlocks an un-owned Archetype, updating card, sidebar, and counter", async ({
     page,
   }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
 
     const sidebar = page.getByRole("navigation", { name: "Lineages" })
     await sidebar.getByRole("button", { name: /^Mage/ }).click()
@@ -76,16 +82,14 @@ test.describe("Lineage Atlas owner flows", () => {
 
     await expect
       .poll(async () =>
-        (await getAtlasTargetArchetypes()).some(
-          (a) => a.archetypeKey === "mage"
-        )
+        (await target.getArchetypes()).some((a) => a.archetypeKey === "mage")
       )
       .toBe(true)
-    expect(await getAtlasTargetSavedRanks()).toBe(2)
+    expect(await target.getSavedRanks()).toBe(2)
   })
 
   test("ranks up an owned Archetype into Mastery", async ({ page }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
 
     const tree = page.getByRole("group", { name: "Warrior Lineage tree" })
     await tree.getByRole("button", { name: /^Warrior/ }).click()
@@ -110,19 +114,19 @@ test.describe("Lineage Atlas owner flows", () => {
     await expect
       .poll(
         async () =>
-          (await getAtlasTargetArchetypes()).find(
+          (await target.getArchetypes()).find(
             (a) => a.archetypeKey === "warrior"
           )?.rank
       )
       .toBe(5)
-    expect(await getAtlasTargetSavedRanks()).toBe(2)
+    expect(await target.getSavedRanks()).toBe(2)
   })
 
   test("disables the action with no Saved Ranks but stays browsable", async ({
     page,
   }) => {
-    await setAtlasTargetSavedRanks(0)
-    await page.goto(ATLAS_URL)
+    await target.setSavedRanks(0)
+    await page.goto(atlasUrl())
 
     await page
       .getByRole("navigation", { name: "Lineages" })
@@ -139,7 +143,7 @@ test.describe("Lineage Atlas owner flows", () => {
   })
 
   test("dismisses the detail panel with Escape", async ({ page }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
 
     const panel = page.getByRole("dialog")
     await page
@@ -155,7 +159,7 @@ test.describe("Lineage Atlas owner flows", () => {
   test("the Unlocked only filter narrows the trees to unlocked Lineages", async ({
     page,
   }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
 
     const sidebar = page.getByRole("navigation", { name: "Lineages" })
     // Off: every Lineage is listed, including the still-locked siblings.
@@ -178,7 +182,7 @@ test.describe("Lineage Atlas public read-only view", () => {
   test("a signed-out visitor sees a read-only Atlas without owner controls", async ({
     page,
   }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
 
     // No redirect — the Atlas renders the map for everyone (UNN-276).
     await expect(page).toHaveURL(/\/archetypes\/atlas$/)

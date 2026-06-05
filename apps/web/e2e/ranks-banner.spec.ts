@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test"
 
 import { STORAGE_STATE } from "./auth.setup"
-import { ranksBannerTarget } from "./fixtures/ranks-banner-target"
+import { cleanup, createTracker } from "./fixtures/factory"
+import { createRanksBannerTarget } from "./fixtures/ranks-banner-target"
 
 /**
  * UNN-255: the sheet-wide Saved Archetype Ranks banner. Covers the AC:
@@ -13,16 +14,26 @@ import { ranksBannerTarget } from "./fixtures/ranks-banner-target"
  *  4. Dismiss hides it for the session, including across tab switches.
  *  5. Owner-only — a signed-out visitor on the public sheet never sees it.
  *
- * Read-only: dismissal is client `sessionStorage`, so no DB writes and no
- * re-seed coordination. The fixture has its own row purely to keep the asserted
- * rank count off any spec that mutates ranks.
+ * Read-only: dismissal is client `sessionStorage`, so no DB writes. The target
+ * is minted per-run purely to keep the asserted rank count off any spec that
+ * mutates ranks.
  */
 
-const SHEET_URL = ranksBannerTarget.url
-const ATLAS_URL = `${SHEET_URL}/archetypes/atlas`
+const tracker = createTracker()
+let target: Awaited<ReturnType<typeof createRanksBannerTarget>>
+
+const atlasUrl = () => `${target.url}/archetypes/atlas`
 
 const bannerLocator = (page: Page) =>
   page.getByRole("status").filter({ hasText: /Archetype Rank/ })
+
+test.beforeAll(async () => {
+  target = await createRanksBannerTarget(tracker)
+})
+
+test.afterAll(async () => {
+  await cleanup(tracker)
+})
 
 test.describe("Saved Ranks banner", () => {
   test.use({ storageState: STORAGE_STATE })
@@ -31,7 +42,7 @@ test.describe("Saved Ranks banner", () => {
     page,
   }) => {
     for (const tab of ["combat", "explore", "inventory", "archetypes"]) {
-      await page.goto(`${SHEET_URL}?tab=${tab}`)
+      await page.goto(`${target.url}?tab=${tab}`)
       const banner = bannerLocator(page)
       await expect(banner).toBeVisible()
       await expect(banner).toContainText("2")
@@ -45,18 +56,18 @@ test.describe("Saved Ranks banner", () => {
   test("CTA navigates to the Lineage Atlas, where the banner is absent", async ({
     page,
   }) => {
-    await page.goto(SHEET_URL)
+    await page.goto(target.url)
     await bannerLocator(page)
       .getByRole("button", { name: "Open Lineage Atlas" })
       .click()
-    await expect(page).toHaveURL(new RegExp(`${ATLAS_URL}$`))
+    await expect(page).toHaveURL(new RegExp(`${atlasUrl()}$`))
     await expect(bannerLocator(page)).toHaveCount(0)
   })
 
   test("dismiss hides it for the session, across tab switches", async ({
     page,
   }) => {
-    await page.goto(SHEET_URL)
+    await page.goto(target.url)
     const banner = bannerLocator(page)
     await expect(banner).toBeVisible()
 
@@ -68,7 +79,7 @@ test.describe("Saved Ranks banner", () => {
   })
 
   test("is absent on the Atlas page directly", async ({ page }) => {
-    await page.goto(ATLAS_URL)
+    await page.goto(atlasUrl())
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
     await expect(bannerLocator(page)).toHaveCount(0)
   })
@@ -78,7 +89,7 @@ test("signed-out visitor never sees the banner", async ({ browser }) => {
   const context = await browser.newContext({ storageState: undefined })
   const page = await context.newPage()
   try {
-    await page.goto(SHEET_URL)
+    await page.goto(target.url)
     await expect(bannerLocator(page)).toHaveCount(0)
   } finally {
     await context.close()
