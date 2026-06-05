@@ -33,6 +33,15 @@ export function CombatantActionsSection({
 }) {
   const { actionEconomy } = detail
 
+  function set(action: ActionEconomyAction, available: boolean) {
+    onCombatEvent({
+      kind: "setActionEconomy",
+      combatantId: detail.id,
+      action,
+      available,
+    })
+  }
+
   return (
     <DetailSection title="Actions this turn">
       <div className="flex flex-wrap gap-2">
@@ -57,15 +66,6 @@ export function CombatantActionsSection({
       </div>
     </DetailSection>
   )
-
-  function set(action: ActionEconomyAction, available: boolean) {
-    onCombatEvent({
-      kind: "setActionEconomy",
-      combatantId: detail.id,
-      action,
-      available,
-    })
-  }
 }
 
 /** One action chip — pressed = available, unpressed = spent (struck through). */
