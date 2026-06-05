@@ -88,7 +88,7 @@ export function ZonesPanel({
           disabled={disabled || newName.trim() === ""}
         >
           <PlusIcon weight="bold" />
-          Add
+          Add zone
         </Button>
       </div>
 
