@@ -231,6 +231,21 @@ export type ZoneGraphEvent =
   | { kind: "renameZone"; zoneId: string; name: string }
 
 /**
+ * `moveCombatant` travels a combatant to `toZoneId` (UNN-315) — the in-play
+ * placement edit, also reused to place an unplaced (empty-`zoneId`) mid-combat
+ * joiner. The reducer sets `combatant.zoneId` verbatim and never validates that
+ * `toZoneId` exists in `session.zones` (no referential enforcement — UNN-313
+ * decision; the DM control offers only adjacent zones). Per ADR Decision 8 it
+ * **guides, doesn't block**: a non-adjacent target is still applied. Moving to
+ * the occupied zone, or an unknown combatant id, is a no-op.
+ */
+export type MoveCombatantEvent = {
+  kind: "moveCombatant"
+  combatantId: string
+  toZoneId: string
+}
+
+/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
@@ -244,6 +259,7 @@ export type CombatEvent =
   | EnemyVitalsEvent
   | OverrideEvent
   | ZoneGraphEvent
+  | MoveCombatantEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -326,6 +342,11 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("renameZone"),
     zoneId: z.string(),
     name: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("moveCombatant"),
+    combatantId: z.string(),
+    toZoneId: z.string(),
   }),
 ])
 

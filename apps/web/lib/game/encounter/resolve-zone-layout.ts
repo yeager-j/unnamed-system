@@ -6,6 +6,7 @@ import type {
   CombatSide,
   Engagement,
 } from "./session"
+import { adjacentZones } from "./zone-graph"
 
 /**
  * The read-only zone layout the battlefield renders (UNN-314): the spatial peer
@@ -92,10 +93,7 @@ export function resolveZoneLayout(
   const zones = zoneEntries.map((zone) => ({
     id: zone.id,
     name: zone.name,
-    adjacentZoneNames: (session.adjacency[zone.id] ?? []).flatMap((id) => {
-      const neighbor = session.zones[id]
-      return neighbor ? [neighbor.name] : []
-    }),
+    adjacentZoneNames: adjacentZones(session, zone.id).map((z) => z.name),
     combatants: session.combatants
       .filter((combatant) => combatant.zoneId === zone.id)
       .map((combatant) => zoneToken(combatant, pcDetailById)),
