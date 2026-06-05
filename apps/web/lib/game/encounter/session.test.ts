@@ -5,6 +5,7 @@ import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 import {
   combatSessionSchema,
   createCombatSession,
+  toCombatantSetup,
   type CombatantSetup,
   type CombatSession,
 } from "./session"
@@ -198,6 +199,40 @@ describe("createCombatSession", () => {
     expect(session.combatants[0]!.engagement).toEqual({
       status: "engaged",
       targetCombatantIds: ["x"],
+    })
+  })
+
+  it("honors a setup-supplied id over the minted fallback (UNN-301)", () => {
+    const session = createCombatSession(
+      [
+        { ...SETUP[0]!, id: "stable-a" },
+        SETUP[1]!, // no id → falls back to newId
+      ],
+      sequentialIds()
+    )
+    expect(session.combatants[0]!.id).toBe("stable-a")
+    expect(session.combatants[1]!.id).toBe("combatant-0")
+  })
+
+  it("round-trips a stable id through toCombatantSetup so engagement refs survive a re-save", () => {
+    const first = createCombatSession(
+      [
+        { ...SETUP[0]!, id: "a" },
+        {
+          ...SETUP[1]!,
+          id: "b",
+          engagement: { status: "engaged", targetCombatantIds: ["a"] },
+        },
+      ],
+      sequentialIds()
+    )
+    const reseeded = first.combatants.map(toCombatantSetup)
+    const second = createCombatSession(reseeded, sequentialIds())
+
+    expect(second.combatants.map((c) => c.id)).toEqual(["a", "b"])
+    expect(second.combatants[1]!.engagement).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["a"],
     })
   })
 })

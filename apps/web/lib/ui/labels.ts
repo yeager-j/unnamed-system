@@ -21,7 +21,11 @@ import type {
   Delivery,
   Range,
 } from "@/lib/game/combat"
-import type { CombatAdvantage, CombatSide } from "@/lib/game/encounter"
+import type {
+  CombatAdvantage,
+  CombatSide,
+  Engagement,
+} from "@/lib/game/encounter"
 import type { EnemyFamily } from "@/lib/game/enemies"
 import type { EquipSlot } from "@/lib/game/items"
 import type { StainElement } from "@/lib/game/mechanics"
@@ -342,6 +346,12 @@ export const ACTION_ECONOMY_LABELS = {
 export const COMBAT_SIDE_LABELS: Record<CombatSide, string> = {
   players: "Players",
   enemies: "Enemies",
+}
+
+/** A combatant's engagement status, shown on the setup placement row (UNN-301). */
+export const ENGAGEMENT_STATUS_LABELS: Record<Engagement["status"], string> = {
+  free: "Free",
+  engaged: "Engaged",
 }
 
 /**

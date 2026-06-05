@@ -202,12 +202,19 @@ export type CombatSession = z.infer<typeof combatSessionSchema>
 
 /**
  * One combatant as supplied to {@link createCombatSession} from encounter
- * setup. The stable combatant id is minted by the constructor; `engagement`
- * defaults to Free. Schema-first (like {@link combatantSchema}) so it doubles as
- * the wire-payload validator for the `addCombatant` event at the shell boundary
- * (UNN-332).
+ * setup. `engagement` defaults to Free. Schema-first (like {@link combatantSchema})
+ * so it doubles as the wire-payload validator for the `addCombatant` event at the
+ * shell boundary (UNN-332).
+ *
+ * `id` is **optional**: the setup UI (UNN-301) mints a stable id when a combatant
+ * is added so it survives every "Save draft" round-trip — that stability is what
+ * lets `engagement.targetCombatantIds` and zone placement reference a combatant
+ * across saves. {@link createCombatSession} honors a supplied `id` and falls back
+ * to its `newId` for callers that omit it (fixtures, the mid-combat `addCombatant`
+ * join, which mints server-side regardless).
  */
 export const combatantSetupSchema = z.object({
+  id: z.string().optional(),
   side: z.enum(COMBAT_SIDES),
   ref: combatantRefSchema,
   zoneId: z.string(),
@@ -256,6 +263,7 @@ export function makeCombatant(
  */
 export function toCombatantSetup(combatant: Combatant): CombatantSetup {
   return {
+    id: combatant.id,
     side: combatant.side,
     ref: combatant.ref,
     zoneId: combatant.zoneId,
@@ -267,9 +275,10 @@ export function toCombatantSetup(combatant: Combatant): CombatantSetup {
  * Builds a valid initial {@link CombatSession} from encounter-setup inputs:
  * round 1, no current actor, no advantage declared yet (`advantage`/`firstSide`
  * are `null` until the `startCombat` event, UNN-303), and every combatant fresh
- * and not-yet-acted (see {@link makeCombatant}). `newId` mints each combatant's
- * stable id (mirrors `reduceCharacter`'s injectable id so tests can be
- * deterministic).
+ * and not-yet-acted (see {@link makeCombatant}). A combatant's stable id is its
+ * own `setup.id` when supplied (so a setup-authored roster keeps the same ids
+ * across saves — UNN-301), falling back to `newId` otherwise (mirrors
+ * `reduceCharacter`'s injectable id so tests can be deterministic).
  */
 export function createCombatSession(
   setup: CombatantSetup[],
@@ -281,7 +290,7 @@ export function createCombatSession(
     advantage: null,
     firstSide: null,
     combatants: setup.map((combatant) =>
-      makeCombatant(combatant, newId(), false)
+      makeCombatant(combatant, combatant.id ?? newId(), false)
     ),
     zones: {},
     adjacency: {},
