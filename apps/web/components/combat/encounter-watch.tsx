@@ -4,6 +4,7 @@ import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
 import { resolvePlayerView, type EncounterSnapshot } from "@/lib/game/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
+import { CampaignBackLink } from "./campaign-back-link"
 import { PlayerTurnOrder } from "./player-turn-order"
 import { PlayerZoneMap } from "./player-zone-map"
 
@@ -30,6 +31,9 @@ export function EncounterWatch({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-6">
+      {snapshot.campaignShortId ? (
+        <CampaignBackLink campaignShortId={snapshot.campaignShortId} />
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-heading text-xl font-medium">{snapshot.name}</h1>
         <StatusPill status={snapshot.status} stale={stale} />

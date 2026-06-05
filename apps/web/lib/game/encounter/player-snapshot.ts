@@ -73,6 +73,8 @@ export interface PlayerCurrentActor {
 export interface EncounterSnapshot {
   status: EncounterStatus
   name: string
+  /** The owning campaign's public `shortId`, for the watch view's back link. */
+  campaignShortId: string
   round: number
   currentActor: PlayerCurrentActor | null
   combatants: PlayerVisibleCombatant[]
@@ -160,7 +162,12 @@ function projectCombatant(
  * module doc.
  */
 export function projectPlayerSnapshot(
-  encounter: { name: string; status: EncounterStatus; session: CombatSession },
+  encounter: {
+    name: string
+    status: EncounterStatus
+    campaignShortId: string
+    session: CombatSession
+  },
   pcDetailById: Record<string, PcCombatantDetail>
 ): EncounterSnapshot {
   const { session } = encounter
@@ -177,6 +184,7 @@ export function projectPlayerSnapshot(
   return {
     status: encounter.status,
     name: encounter.name,
+    campaignShortId: encounter.campaignShortId,
     round: session.round,
     currentActor: actor
       ? {

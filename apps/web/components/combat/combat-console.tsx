@@ -22,6 +22,7 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
+import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantDrawer } from "./combatant-drawer"
 import { CombatantRail } from "./combatant-rail"
 import { EndCombatDialog } from "./end-combat-dialog"
@@ -49,9 +50,11 @@ import { ZoneLayout } from "./zone-layout"
  */
 export function CombatConsole({
   encounter,
+  campaignShortId,
   pcDetailById,
 }: {
   encounter: EncounterRow
+  campaignShortId: string
   pcDetailById: Record<string, PcCombatantDetail>
 }) {
   const { session, isPending, dispatch, endEncounter } = useCombatConsole(
@@ -103,6 +106,9 @@ export function CombatConsole({
 
   return (
     <main className="flex w-full flex-1 flex-col gap-4 p-4 sm:p-6">
+      {campaignShortId ? (
+        <CampaignBackLink campaignShortId={campaignShortId} />
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Combat · <span className="text-foreground">{encounter.name}</span>

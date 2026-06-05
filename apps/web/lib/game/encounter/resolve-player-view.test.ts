@@ -32,6 +32,7 @@ function snapshot(
   return {
     status: "live",
     name: "Test",
+    campaignShortId: "camp-1",
     round: 1,
     currentActor: null,
     combatants,

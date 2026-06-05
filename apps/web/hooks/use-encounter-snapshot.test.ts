@@ -14,6 +14,7 @@ function makeSnapshot(
   return {
     status: "live",
     name: "Test Encounter",
+    campaignShortId: "camp-1",
     round: 1,
     currentActor: null,
     combatants: [],

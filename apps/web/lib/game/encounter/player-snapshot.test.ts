@@ -58,7 +58,12 @@ const ARIA: PcCombatantDetail = {
 }
 
 function encounter(session: CombatSession, status: "draft" | "live" | "ended") {
-  return { name: "Ambush at the Bridge", status, session }
+  return {
+    name: "Ambush at the Bridge",
+    status,
+    campaignShortId: "camp-1",
+    session,
+  }
 }
 
 describe("projectPlayerSnapshot", () => {
@@ -218,6 +223,7 @@ describe("projectPlayerSnapshot", () => {
 
     expect(snapshot.status).toBe("ended")
     expect(snapshot.name).toBe("Ambush at the Bridge")
+    expect(snapshot.campaignShortId).toBe("camp-1")
     expect(snapshot.round).toBe(3)
     expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
   })

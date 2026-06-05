@@ -1,3 +1,4 @@
+import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   projectPlayerSnapshot,
@@ -31,13 +32,17 @@ export async function getEncounterSnapshot(
     combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
   )
 
-  const hydrated = await Promise.all(
-    pcCharacterIds.map((id) => loadHydratedCharacterById(id))
-  )
+  const [campaign, hydrated] = await Promise.all([
+    loadCampaignRowById(encounter.campaignId),
+    Promise.all(pcCharacterIds.map((id) => loadHydratedCharacterById(id))),
+  ])
 
   const pcDetailById: Record<string, PcCombatantDetail> = Object.fromEntries(
     hydrated.filter((character) => character !== null).map((c) => [c.id, c])
   )
 
-  return projectPlayerSnapshot(encounter, pcDetailById)
+  return projectPlayerSnapshot(
+    { ...encounter, campaignShortId: campaign?.shortId ?? "" },
+    pcDetailById
+  )
 }
