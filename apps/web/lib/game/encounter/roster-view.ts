@@ -225,8 +225,10 @@ function combatantOverlay(combatant: Combatant): CombatantOverlay {
 
 /** An inline enemy carries current/max on its stat block; a catalog enemy
  *  carries working HP inline on the ref, each value defaulting to the
- *  definition's `maxHP` until first adjusted (UNN-309). */
-function enemyHp(combatant: Combatant): Pool {
+ *  definition's `maxHP` until first adjusted (UNN-309). Exported so the player
+ *  snapshot projection reuses the same catalog-working-HP-default rule rather
+ *  than duplicating it (UNN-322/324). */
+export function enemyHp(combatant: Combatant): Pool {
   const ref = combatant.ref
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
