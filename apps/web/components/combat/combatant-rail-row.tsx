@@ -90,7 +90,7 @@ export function CombatantRailRow({
           </Badge>
           <Badge variant="outline" className="gap-1">
             <MapPinIcon />
-            {row.zoneId || "Unzoned"}
+            {row.zoneName ?? "Unzoned"}
           </Badge>
           <Badge
             variant="outline"

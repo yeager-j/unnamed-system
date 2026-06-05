@@ -12,6 +12,7 @@ import {
   buildConsoleView,
   buildRosterView,
   combatantDetail,
+  resolveZoneLayout,
   type PcCombatantDetail,
 } from "@/lib/game/encounter"
 import {
@@ -27,6 +28,7 @@ import { EndCombatDialog } from "./end-combat-dialog"
 import { EndOfTurnModal } from "./end-of-turn-modal"
 import { TurnOrderStrip, type ConsolePhase } from "./turn-order-strip"
 import { useCombatConsole } from "./use-combat-console"
+import { ZoneLayout } from "./zone-layout"
 
 /**
  * The live DM combat console (UNN-344) — the post-`startCombat` turn-driving
@@ -41,9 +43,9 @@ import { useCombatConsole } from "./use-combat-console"
  * - current actor, acted, modal open → **resolving** (End turn pressed);
  * - current actor, acted, modal closed → **drafting** the next actor.
  *
- * Below the spine sits the combatant **rail** (UNN-345) and the battlefield
- * placeholder (the zone map is UNN-314); tapping a rail row opens the
- * per-combatant **detail drawer** (UNN-345).
+ * Below the spine sits the combatant **rail** (UNN-345) and the **battlefield**
+ * zone layout (UNN-314, read-only; movement is UNN-315); tapping a rail row opens
+ * the per-combatant **detail drawer** (UNN-345).
  */
 export function CombatConsole({
   encounter,
@@ -197,12 +199,7 @@ export function CombatConsole({
       ) : (
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
           <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
-          <div
-            className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
-            data-testid="combat-console-battlefield-placeholder"
-          >
-            Battlefield — Zones &amp; engagement (UNN-314).
-          </div>
+          <ZoneLayout view={resolveZoneLayout(session, pcDetailById)} />
         </div>
       )}
 

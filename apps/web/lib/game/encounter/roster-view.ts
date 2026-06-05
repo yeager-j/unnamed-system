@@ -92,7 +92,10 @@ export interface RailRow {
   sp: Pool | null
   portraitUrl: string | null
   engagement: Engagement
-  zoneId: string
+  /** The combatant's zone *display name* (resolved from `session.zones`), or
+   *  `null` when unplaced / unzoned — the rail renders the name, never the raw
+   *  zone id. */
+  zoneName: string | null
   reactionAvailable: boolean
 }
 
@@ -212,7 +215,8 @@ function railRow(
   combatant: Combatant,
   pcDetailById: Record<string, PcCombatantDetail>,
   fallenIds: Set<string>,
-  currentActorId: string | null
+  currentActorId: string | null,
+  zones: CombatSession["zones"]
 ): RailRow {
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
@@ -231,7 +235,7 @@ function railRow(
     sp: isPc ? pcPool(pcDetail, "sp") : null,
     portraitUrl: pcDetail?.portraitUrl ?? null,
     engagement: combatant.engagement,
-    zoneId: combatant.zoneId,
+    zoneName: zones[combatant.zoneId]?.name ?? null,
     reactionAvailable: combatant.reactionAvailable,
   }
 }
@@ -257,7 +261,13 @@ export function buildRosterView(
 ): RosterView {
   const fallenIds = fallenCombatantIds(session, pcCurrentHpById(pcDetailById))
   const rows = session.combatants.map((combatant) =>
-    railRow(combatant, pcDetailById, fallenIds, session.currentActorId)
+    railRow(
+      combatant,
+      pcDetailById,
+      fallenIds,
+      session.currentActorId,
+      session.zones
+    )
   )
   const enemies = rows.filter((row) => row.side === "enemies")
 

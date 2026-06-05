@@ -52,9 +52,7 @@ test("create → import a placed PC → Start → live console", async ({ page }
     .getByRole("dialog")
     .getByRole("button", { name: "Start combat" })
     .click()
-  await expect(
-    page.getByTestId("combat-console-battlefield-placeholder")
-  ).toBeVisible()
+  await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
 })
 
 test("import panel toggles a placed PC in and out of the roster", async ({
@@ -116,9 +114,7 @@ test("single-live guard blocks starting a second encounter", async ({
     .getByRole("button", { name: "Start combat" })
     .click()
   await expect(page.getByText("already has a live encounter")).toBeVisible()
-  await expect(
-    page.getByTestId("combat-console-battlefield-placeholder")
-  ).toBeHidden()
+  await expect(page.getByTestId("combat-console-battlefield")).toBeHidden()
 })
 
 test("start dialog: a Players ambush opens the live console with a Player-start badge (UNN-303)", async ({
@@ -141,9 +137,7 @@ test("start dialog: a Players ambush opens the live console with a Player-start 
 
 test("live encounter renders the console", async ({ page }) => {
   await page.goto(encounterTarget.live.url)
-  await expect(
-    page.getByTestId("combat-console-battlefield-placeholder")
-  ).toBeVisible()
+  await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
 })
 
 test("live console: draft → end turn → modal → hand off to the other side", async ({
@@ -313,9 +307,7 @@ test("End encounter flips the live console to the ended stub (UNN-320)", async (
   // Status lives on the encounter row, which `resetEncounterFixtures` restores
   // per test — so ending the shared live encounter here is self-cleaning.
   await page.goto(encounterTarget.live.url)
-  await expect(
-    page.getByTestId("combat-console-battlefield-placeholder")
-  ).toBeVisible()
+  await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
 
   await page.getByRole("button", { name: "End encounter" }).click()
   const confirm = page.getByRole("alertdialog")
