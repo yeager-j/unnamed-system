@@ -94,12 +94,14 @@ function activeMechanicState(
   mechanicKind: MechanicKind
 ): { activeId: string; current: MechanicState } | null {
   const activeId = raw.row.activeArchetypeId
+  // Stryker disable next-line ConditionalExpression: equivalent — a null activeId matches no row, so the `!archetype` guard below returns null anyway.
   if (!activeId) return null
 
   const archetype = raw.archetypeRows.find((row) => row.id === activeId)
   if (!archetype) return null
 
   const current = archetype.mechanicState ?? initialStateFor(mechanicKind)
+  // Stryker disable next-line ConditionalExpression: equivalent — initialStateFor returns a state for every known MechanicKind, so `current` is never nullish here.
   if (!current) return null
 
   return { activeId, current }
