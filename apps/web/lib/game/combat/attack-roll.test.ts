@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest"
 
 import type { StatComputationCharacter } from "../character"
+import { evilTouch } from "../skills/ailment/evil-touch"
 import { ailmentBoost } from "../skills/passive/ailment-boost"
 import { magicCircle } from "../skills/passive/magic-circle"
 import { slashBoost } from "../skills/passive/slash-boost"
-import { resolveAttackRoll, type AttackRollContext } from "./attack-roll"
+import { garu } from "../skills/wind/garu"
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type AttackRollContext,
+} from "./attack-roll"
 
 function makeWarrior(
   overrides: Partial<StatComputationCharacter> = {}
@@ -227,5 +233,27 @@ describe("resolveAttackRoll — composition", () => {
       { source: "Strength", amount: -1 },
       { source: "Slash Boost", amount: 2 },
     ])
+  })
+})
+
+describe("skillAttackRollContext", () => {
+  it("derives the attack arm with damage type + delivery", () => {
+    expect(skillAttackRollContext(garu)).toEqual({
+      kind: "attack",
+      damageType: garu.damageType,
+      delivery: garu.delivery,
+      attribute: garu.attackRoll!.attribute,
+    })
+  })
+
+  it("derives the ailment arm — attribute only, no damage type or delivery", () => {
+    expect(skillAttackRollContext(evilTouch)).toEqual({
+      kind: "ailment",
+      attribute: evilTouch.attackRoll.attribute,
+    })
+  })
+
+  it("returns null for a Skill that makes no Attack Roll", () => {
+    expect(skillAttackRollContext(slashBoost)).toBeNull()
   })
 })
