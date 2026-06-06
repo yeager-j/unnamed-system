@@ -1,12 +1,59 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  coerceVirtueAllocation,
   describeAllocationProgress,
   isValidCreationAllocation,
   wouldExceedAllocationCap,
   ZERO_VIRTUE_ALLOCATION,
   type VirtueAllocation,
 } from "./utils"
+
+describe("ZERO_VIRTUE_ALLOCATION", () => {
+  it("is every Virtue at Rank 0", () => {
+    expect(ZERO_VIRTUE_ALLOCATION).toStrictEqual({
+      expression: 0,
+      empathy: 0,
+      wisdom: 0,
+      focus: 0,
+    })
+  })
+})
+
+describe("coerceVirtueAllocation", () => {
+  it("passes through in-domain ranks unchanged", () => {
+    expect(
+      coerceVirtueAllocation({
+        expression: 2,
+        empathy: 1,
+        wisdom: 0,
+        focus: 1,
+      })
+    ).toStrictEqual({ expression: 2, empathy: 1, wisdom: 0, focus: 1 })
+  })
+
+  it("maps out-of-domain ranks (negative, >2, non-integer) to 0", () => {
+    expect(
+      coerceVirtueAllocation({
+        expression: 3,
+        empathy: -1,
+        wisdom: 5,
+        focus: 1.5,
+      })
+    ).toStrictEqual({ expression: 0, empathy: 0, wisdom: 0, focus: 0 })
+  })
+
+  it("clamps each Virtue independently to its own input", () => {
+    expect(
+      coerceVirtueAllocation({
+        expression: 1,
+        empathy: 2,
+        wisdom: 9,
+        focus: 0,
+      })
+    ).toStrictEqual({ expression: 1, empathy: 2, wisdom: 0, focus: 0 })
+  })
+})
 
 describe("isValidCreationAllocation", () => {
   it("accepts the canonical one-+2-two-+1s shape", () => {
@@ -149,5 +196,55 @@ describe("wouldExceedAllocationCap", () => {
 
   it("blocks a third +1", () => {
     expect(wouldExceedAllocationCap(oneTwoTwoOnes, "focus", 1)).toBe(true)
+  })
+
+  it("allows a first +2 when none exists yet", () => {
+    const empty: VirtueAllocation = {
+      expression: 0,
+      empathy: 0,
+      wisdom: 0,
+      focus: 0,
+    }
+    expect(wouldExceedAllocationCap(empty, "empathy", 2)).toBe(false)
+  })
+
+  it("allows the second +1 (the count exactly hits the cap, not past it)", () => {
+    const onePlusOne: VirtueAllocation = {
+      expression: 2,
+      empathy: 1,
+      wisdom: 0,
+      focus: 0,
+    }
+    expect(wouldExceedAllocationCap(onePlusOne, "wisdom", 1)).toBe(false)
+  })
+
+  it("allows the first +2 (the count exactly hits the cap, not past it)", () => {
+    const noTwos: VirtueAllocation = {
+      expression: 0,
+      empathy: 1,
+      wisdom: 1,
+      focus: 0,
+    }
+    expect(wouldExceedAllocationCap(noTwos, "expression", 2)).toBe(false)
+  })
+
+  it("does not block clearing a key even when the rest already exceed the cap", () => {
+    const overCap: VirtueAllocation = {
+      expression: 2,
+      empathy: 2,
+      wisdom: 2,
+      focus: 0,
+    }
+    expect(wouldExceedAllocationCap(overCap, "expression", 0)).toBe(false)
+  })
+
+  it("does not block re-selecting the current rank even when the rest exceed the cap", () => {
+    const overCap: VirtueAllocation = {
+      expression: 2,
+      empathy: 2,
+      wisdom: 1,
+      focus: 0,
+    }
+    expect(wouldExceedAllocationCap(overCap, "expression", 2)).toBe(false)
   })
 })
