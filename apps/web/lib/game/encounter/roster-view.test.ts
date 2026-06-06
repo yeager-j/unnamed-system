@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 import { DAMAGE_TYPES, type Affinity, type DamageType } from "@/lib/game/combat"
+import { getEnemy } from "@/lib/game/enemies"
 
 import {
   buildRosterView,
@@ -250,6 +251,11 @@ describe("combatantDetail", () => {
         expect(skill.name).not.toBe(skill.key)
         expect(skill.name.length).toBeGreaterThan(0)
       }
+      // Skills are hydrated against the enemy's flat Attributes (UNN-350 seam):
+      // garu/zio roll Magic, so the resolved Attack Roll is the captain's Magic.
+      const magic = getEnemy("bandit-captain")!.attributes.magic
+      const garu = detail.skills.find((skill) => skill.key === "garu")
+      expect(garu?.resolvedAttackRoll?.total).toBe(magic)
     }
   })
 

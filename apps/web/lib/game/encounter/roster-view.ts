@@ -3,10 +3,10 @@ import type {
   AttributeScores,
   BattleConditions,
   HydratedCharacter,
+  HydratedSkill,
 } from "@/lib/game/character"
 import type { Affinity, AffinityDamageType } from "@/lib/game/combat"
-import { getEnemy } from "@/lib/game/enemies"
-import { getSkill, type Skill } from "@/lib/game/skills"
+import { getEnemy, hydrateEnemySkills } from "@/lib/game/enemies"
 
 import { combatantName } from "./console-view"
 import { fallenCombatantIds } from "./fallen"
@@ -184,12 +184,12 @@ export type CombatantDetail = CombatantOverlay & {
         hp: Pool
         attributes: AttributeScores
         affinities: AffinityChart | null
-        /** The catalog enemy's resolved skills and its freeform `abilities`
-         *  Markdown (both empty/`null` for an inline enemy). The drawer renders
-         *  each skill as a popover showing the **un-hydrated** skill (no
-         *  character-resolved cost / Attack Roll table — that needs a
-         *  {@link HydratedSkill}, which only a character can produce). */
-        skills: Skill[]
+        /** The catalog enemy's hydrated skills and its freeform `abilities`
+         *  Markdown (both empty/`null` for an inline enemy). Hydrated against the
+         *  enemy's flat Attributes (see {@link hydrateEnemySkills}) so the drawer
+         *  reuses the shared `SkillCard` — same Attack Roll readout a character
+         *  gets, with the cost row suppressed (enemies pay no Skill costs). */
+        skills: HydratedSkill[]
         abilities: string | null
       }
   )
@@ -402,11 +402,7 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: def?.affinities ?? null,
-      skills:
-        def?.skillKeys.flatMap((key) => {
-          const skill = getSkill(key)
-          return skill ? [skill] : []
-        }) ?? [],
+      skills: def ? hydrateEnemySkills(def) : [],
       abilities: def?.abilities ?? null,
     }
   }

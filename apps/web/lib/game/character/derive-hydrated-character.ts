@@ -12,7 +12,7 @@ import {
   type AttackRollContext,
 } from "../combat"
 import { getEquippedItem, getItem, type IntrinsicAttack } from "../items"
-import { hydrateSkill, type CastingCharacter } from "../skills"
+import { hydrateSkill } from "../skills"
 import type { HydratedCharacter } from "./hydrated-character"
 import { buildStatComputationCharacter } from "./stats/stat-character"
 import {
@@ -99,11 +99,7 @@ export function deriveHydratedCharacter(
 
   const stats = statComputationCharacter(raw)
   const bonuses = accumulatedBonuses(stats)
-  const casting: CastingCharacter = {
-    ...stats,
-    currentHP: row.currentHP,
-    currentSP: row.currentSP,
-  }
+  const maxHP = computeMaxHP(stats, bonuses)
 
   const inventory = inventoryRows.map((inventoryRow) => ({
     ...inventoryRow,
@@ -128,7 +124,7 @@ export function deriveHydratedCharacter(
     inventory,
     activeArchetypeKey: stats.activeArchetypeKey,
     attributes: computeAttributes(stats, bonuses),
-    maxHP: computeMaxHP(stats, bonuses),
+    maxHP,
     maxSP: computeMaxSP(stats, bonuses),
     maxHitDice: computeMaxHitDice(row.level),
     maxSkillDice: computeMaxSkillDice(row.level),
@@ -139,7 +135,7 @@ export function deriveHydratedCharacter(
       const context = skillAttackRollContext(skill)
       return hydrateSkill(
         skill,
-        casting,
+        maxHP,
         context ? resolveAttackRoll(context, stats, row.partyComposition) : null
       )
     }),

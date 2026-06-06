@@ -76,13 +76,13 @@ export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
  */
 export function hydrateSkill(
   skill: Skill,
-  casting: CastingCharacter,
+  maxHP: number,
   resolvedAttackRoll: ResolvedAttackRoll | null
 ): HydratedSkill {
   if ("cost" in skill) {
     return {
       ...skill,
-      resolvedCost: resolveCost(skill.cost, casting),
+      resolvedCost: resolveCost(skill.cost, maxHP),
       resolvedAttackRoll,
     }
   }
@@ -101,32 +101,29 @@ export interface CastingCharacter extends StatComputationCharacter {
 
 /**
  * Resolves a Skill's cost for display and affordability checks. A flat SP cost
- * passes through unchanged; an HP-percentage cost resolves against the
- * character's current (derived) max HP, rounded down to an integer with a
- * floor of 1 (PRD §7.2, rulebook `3.3 On Your Turn` "Skill Costs"). The
- * floor-at-1 stops a Skill that declares a non-zero `hp-percent` cost from
- * resolving to a free cast at very low max HP — a Skill defined to cost HP
- * should always charge at least 1. Returns `null` for Skills with no cost
- * (passive Skills carry none), meaning there is nothing to pay.
+ * passes through unchanged; an HP-percentage cost resolves against the given
+ * (derived) max HP, rounded down to an integer with a floor of 1 (PRD §7.2,
+ * rulebook `3.3 On Your Turn` "Skill Costs"). The floor-at-1 stops a Skill that
+ * declares a non-zero `hp-percent` cost from resolving to a free cast at very
+ * low max HP — a Skill defined to cost HP should always charge at least 1.
+ * Takes the resolved `maxHP` rather than the whole character so an enemy stat
+ * block (flat `maxHP`, no archetype) can resolve a cost too. Returns `null` for
+ * Skills with no cost (passive Skills carry none), meaning there is nothing to pay.
  */
 export function resolveSkillCost(
   skill: Skill,
-  character: CastingCharacter
+  maxHP: number
 ): ResolvedSkillCost | null {
   if (!("cost" in skill)) return null
-  return resolveCost(skill.cost, character)
+  return resolveCost(skill.cost, maxHP)
 }
 
 /** Resolves a raw {@link SkillCost} to its concrete pool + integer amount.
  *  The non-null path of {@link resolveSkillCost}, extracted so the hydration
  *  helper (and any future consumer that already knows the Skill is
  *  cost-bearing) can resolve a cost without re-discriminating the skill. */
-export function resolveCost(
-  cost: SkillCost,
-  character: CastingCharacter
-): ResolvedSkillCost {
+export function resolveCost(cost: SkillCost, maxHP: number): ResolvedSkillCost {
   if (cost.kind === "sp") return { kind: "sp", amount: cost.amount }
-  const maxHP = computeMaxHP(character)
   const amount = Math.max(1, Math.floor((maxHP * cost.amount) / 100))
   return { kind: "hp", amount }
 }
@@ -186,7 +183,7 @@ export function applyResolvedCost(
  * always castable.
  */
 export function canCast(skill: Skill, character: CastingCharacter): boolean {
-  const cost = resolveSkillCost(skill, character)
+  const cost = resolveSkillCost(skill, computeMaxHP(character))
   if (cost === null) return true
   return canAfford(cost, character)
 }
@@ -203,7 +200,7 @@ export function applyCast(
   skill: Skill,
   character: CastingCharacter
 ): Result<CastingCharacter, CastError> {
-  const cost = resolveSkillCost(skill, character)
+  const cost = resolveSkillCost(skill, computeMaxHP(character))
   if (cost === null) return ok(character)
 
   const result = applyResolvedCost(cost, character)

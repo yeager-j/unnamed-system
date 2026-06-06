@@ -26,6 +26,12 @@ interface SkillCardProps {
    * read-only sheet simply omit this prop and the footer never mounts.
    */
   cast?: CastBindings
+  /**
+   * Whether to show the resolved cost row. Defaults to `true` (characters pay
+   * for Skills). Catalog enemies pay no Skill costs, so the combat drawer passes
+   * `false` to drop the cost row while keeping the Attack Roll readout.
+   */
+  showCost?: boolean
 }
 
 /**
@@ -35,7 +41,12 @@ interface SkillCardProps {
  * have one), and any freeform Effect prose. Damage and healing formulas and
  * the Attack Roll header hydrate with the passed-in attribute scores.
  */
-export function SkillCard({ skill, attributes, cast }: SkillCardProps) {
+export function SkillCard({
+  skill,
+  attributes,
+  cast,
+  showCost = true,
+}: SkillCardProps) {
   return (
     <PopoverCardShell
       title={skill.name}
@@ -48,7 +59,13 @@ export function SkillCard({ skill, attributes, cast }: SkillCardProps) {
       }
     >
       <SkillText>{skill.description}</SkillText>
-      <StatsGrid rows={skillStatRows(skill, skill.resolvedCost, attributes)} />
+      <StatsGrid
+        rows={skillStatRows(
+          skill,
+          showCost ? skill.resolvedCost : null,
+          attributes
+        )}
+      />
       {"attackRoll" in skill && skill.attackRoll && skill.resolvedAttackRoll ? (
         <AttackRollTable
           roll={skill.attackRoll}
