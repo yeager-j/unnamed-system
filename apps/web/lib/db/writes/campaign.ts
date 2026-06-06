@@ -1,12 +1,13 @@
 import { and, eq } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { characters } from "@/lib/db/schema/character"
 import { insertWithShortId } from "@/lib/db/short-id"
-import { err, ok, type Result } from "@/lib/result"
 
 /**
  * Persistence for the `campaigns` aggregate — the campaign row and its

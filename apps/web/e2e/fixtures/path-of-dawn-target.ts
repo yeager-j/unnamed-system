@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm"
 
+import { type PathOfDawnState } from "@workspace/game/engine"
+
 import { characterArchetypes, getDb } from "@/lib/db"
-import type { PathOfDawnState } from "@/lib/game/mechanics"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

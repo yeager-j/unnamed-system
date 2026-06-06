@@ -1,4 +1,5 @@
-import type { Mastery } from "@/lib/game/archetypes"
+import { type Mastery } from "@workspace/game/foundation"
+
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 
 /** Signed Attribute modifier with a true Unicode minus: `+4`, `0`, `−3`. */

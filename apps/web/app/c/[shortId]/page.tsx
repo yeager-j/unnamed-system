@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { cache } from "react"
 
+import { archetypeDisplayName } from "@workspace/game/data"
+
 import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
 import { Affinities } from "@/components/character-sheet/affinities"
@@ -24,7 +26,6 @@ import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 /**
  * The public, read-only character sheet at `/c/{shortId}`. UNN-143 landed the

@@ -1,5 +1,6 @@
-import type { AtlasRecommendation } from "@/lib/game/archetypes"
-import type { PathChoice } from "@/lib/game/character"
+import { type AtlasRecommendation } from "@workspace/game/engine"
+import { type PathChoice } from "@workspace/game/foundation"
+
 import {
   LINEAGE_DISPLAY,
   PATH_CHOICE_LABELS,

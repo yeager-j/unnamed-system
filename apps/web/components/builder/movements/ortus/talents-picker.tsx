@@ -4,6 +4,11 @@ import { LockIcon } from "@phosphor-icons/react"
 import { Fragment } from "react"
 import { toast } from "sonner"
 
+import { resolveTalentsForBuilder } from "@workspace/game/engine"
+import {
+  MAX_PLAYER_ADDED_TALENTS,
+  type TalentKey,
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,
@@ -29,11 +34,6 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
-import {
-  MAX_PLAYER_ADDED_TALENTS,
-  resolveTalentsForBuilder,
-  type TalentKey,
-} from "@/lib/game/character"
 import { talentLabel } from "@/lib/ui/labels"
 
 /**
@@ -60,7 +60,11 @@ import { talentLabel } from "@/lib/ui/labels"
  * read-modify-write inside a transaction with the identity-class bump.
  */
 export function TalentsPicker() {
-  const { id: characterId, originArchetypeKey, gainedTalents } = useBuilderDraft()
+  const {
+    id: characterId,
+    originArchetypeKey,
+    gainedTalents,
+  } = useBuilderDraft()
   const { pending, write } = useBuilderWrite()
   const anchor = useComboboxAnchor()
 

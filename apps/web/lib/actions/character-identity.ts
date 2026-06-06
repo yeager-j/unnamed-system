@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   clearCharacterPortrait,
@@ -8,7 +10,6 @@ import {
   updateCharacterPronouns,
   type CharacterIdentityPersistenceSuccess,
 } from "@/lib/db/writes/identity"
-import { err, type Result } from "@/lib/result"
 import { uploadPortrait } from "@/lib/storage/portrait-upload"
 
 import {

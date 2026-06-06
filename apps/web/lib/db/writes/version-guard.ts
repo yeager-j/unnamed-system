@@ -1,13 +1,14 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import {
   characterExists,
   type CharacterWriteExecutor,
 } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
 import type { VersionClass } from "@/lib/db/version-classes"
-import { err, ok, type Result } from "@/lib/result"
 
 /**
  * The shared optimistic-concurrency primitive every character write composes

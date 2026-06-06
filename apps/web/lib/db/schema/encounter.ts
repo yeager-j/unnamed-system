@@ -1,7 +1,11 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import { combatSessionSchema, type CombatSession } from "@/lib/game/encounter"
+import {
+  combatSessionSchema,
+  type CombatSession,
+  type EncounterStatus,
+} from "@workspace/game/foundation"
 
 import { campaigns } from "./campaign"
 
@@ -15,9 +19,8 @@ import { campaigns } from "./campaign"
  *
  * `shortId` backs the signed-out-visible player watch view; `status` gates the
  * single-live-encounter-per-campaign rule (enforced app-side, UNN-302).
+ * {@link EncounterStatus} is owned by the game domain (`@workspace/game/foundation`).
  */
-export type EncounterStatus = "draft" | "live" | "ended"
-
 export const encounters = pgTable("encounter", {
   id: text("id")
     .primaryKey()
@@ -43,4 +46,5 @@ export const insertEncounterSchema = createInsertSchema(encounters, {
 })
 export const selectEncounterSchema = createSelectSchema(encounters)
 
+export type { EncounterStatus }
 export type EncounterRow = typeof encounters.$inferSelect

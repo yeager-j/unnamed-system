@@ -1,16 +1,17 @@
 import { eq } from "drizzle-orm"
 
 import {
-  archetypeId,
-  buildSeedStatCharacter,
-  type SeedCharacter,
-} from "../__fixtures__/seed-characters"
-import {
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-} from "../game/character"
+} from "@workspace/game/engine"
+
+import {
+  archetypeId,
+  buildSeedStatCharacter,
+  type SeedCharacter,
+} from "../__fixtures__/seed-characters"
 import {
   characterArchetypes,
   characterChains,

@@ -4,17 +4,17 @@ import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useState } from "react"
 
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-
-import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   buildConsoleView,
   buildRosterView,
   combatantDetail,
   resolveZoneLayout,
   type PcCombatantDetail,
-} from "@/lib/game/encounter"
+} from "@workspace/game/engine"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,

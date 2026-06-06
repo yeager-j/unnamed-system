@@ -2,8 +2,9 @@
 
 import { MoonIcon, SunIcon } from "@phosphor-icons/react"
 
+import { type PathOfDuskState } from "@workspace/game/engine"
+
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { type PathOfDuskState } from "@/lib/game/mechanics"
 
 import { DuskModeToggle } from "./warlock/dusk-mode-toggle"
 

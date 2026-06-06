@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react"
 import { useState } from "react"
 
+import { canLevelUp, VICTORIES_PER_LEVEL } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
@@ -30,7 +31,6 @@ import {
   spendSPAction,
 } from "@/lib/actions/adjust-pools"
 import { awardVictoriesAction } from "@/lib/actions/leveling"
-import { canLevelUp, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 
 import { LevelUpDialog } from "./level-up-dialog"
 import { RestDialog } from "./rest-dialog"

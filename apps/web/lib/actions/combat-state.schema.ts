@@ -1,11 +1,12 @@
 import { z } from "zod/v4"
 
-import type { CombatStatePersistenceError } from "@/lib/db/writes/combat-state"
 import {
   ailmentsSchema,
   BATTLE_CONDITION_STATES,
   battleConditionsSchema,
-} from "@/lib/game/character/state"
+} from "@workspace/game/foundation"
+
+import type { CombatStatePersistenceError } from "@/lib/db/writes/combat-state"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

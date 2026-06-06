@@ -1,7 +1,8 @@
 import type { z } from "zod/v4"
 
+import { combatEventSchema } from "@workspace/game/foundation"
+
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
-import { combatEventSchema } from "@/lib/game/encounter"
 
 import { encounterMutationBase } from "./encounter-mutation.schema"
 

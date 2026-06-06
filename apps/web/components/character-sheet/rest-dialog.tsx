@@ -3,6 +3,8 @@
 import { useTransition } from "react"
 import { toast } from "sonner"
 
+import { getPathDice } from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 import {
   Dialog,
   DialogContent,
@@ -24,7 +26,6 @@ import {
   partialRestAction,
   respiteAction,
 } from "@/lib/actions/rest"
-import { getPathDice, type HydratedCharacter } from "@/lib/game/character"
 
 import { DiceReadout } from "./rest/dice-readout"
 import { FullRestForm } from "./rest/full-rest-form"

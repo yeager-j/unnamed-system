@@ -4,6 +4,7 @@ import { CheckIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
+import { archetypeDisplayName } from "@workspace/game/data"
 import { Button } from "@workspace/ui/components/button"
 import {
   Command,
@@ -26,7 +27,6 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { setCharacterCampaignAction } from "@/lib/actions/set-character-campaign"
 import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
 import {
   CHARACTER_PLACEMENT_CONSENT,
   CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,

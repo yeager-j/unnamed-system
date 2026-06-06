@@ -1,7 +1,8 @@
 import { z } from "zod/v4"
 
+import { PATH_CHOICES } from "@workspace/game/foundation"
+
 import type { CharacterPathPersistenceError } from "@/lib/db/writes/path"
-import { PATH_CHOICES } from "@/lib/game/character"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

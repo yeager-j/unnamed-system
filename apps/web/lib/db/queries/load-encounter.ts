@@ -1,12 +1,13 @@
 import { and, desc, eq } from "drizzle-orm"
 
+import { combatSessionSchema } from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import {
   encounters,
   type EncounterRow,
   type EncounterStatus,
 } from "@/lib/db/schema/encounter"
-import { combatSessionSchema } from "@/lib/game/encounter"
 
 /**
  * Reads for the `encounters` table. Unlike the character loader there is no

@@ -1,0 +1,183 @@
+import { getEquippedItem, getItem } from "@workspace/game/data/items/registry"
+import { buildStatComputationCharacter } from "@workspace/game/engine/character/stats/stat-character"
+import {
+  accumulatedBonuses,
+  computeAffinityChart,
+  computeAttributes,
+  computeMaxHitDice,
+  computeMaxHP,
+  computeMaxSkillDice,
+  computeMaxSP,
+  type StatComputationCharacter,
+} from "@workspace/game/engine/character/stats/stats"
+import { resolveTalents } from "@workspace/game/engine/character/talents/utils"
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type AttackRollContext,
+} from "@workspace/game/engine/combat/attack-roll"
+import { hydrateSkill } from "@workspace/game/engine/skills/utils"
+import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
+import type {
+  CharacterArchetypeRow,
+  CharacterChainRow,
+  CharacterKnifeRow,
+  CharacterRow,
+  InventoryItemRow,
+} from "@workspace/game/foundation/character/records"
+import { type IntrinsicAttack } from "@workspace/game/foundation/items/schema"
+
+/**
+ * The persisted inputs a {@link HydratedCharacter} is derived from: the
+ * `characters` row plus its four child-row sets. The DB owns *fetching* these
+ * ({@link loadHydratedCharacterById} et al.); {@link deriveHydratedCharacter}
+ * turns them into the sheet view with no I/O, so the same derivation runs on
+ * the server (after a query) and on the client (for an optimistic frame, after
+ * {@link toRawInputs}). Row shapes are type-only imports from the db layer —
+ * erased at runtime, so this module stays db-free and client-safe.
+ */
+export interface RawCharacterInputs {
+  row: CharacterRow
+  archetypeRows: CharacterArchetypeRow[]
+  inventoryRows: InventoryItemRow[]
+  knives: CharacterKnifeRow[]
+  chains: CharacterChainRow[]
+}
+
+/**
+ * Projects the persisted state onto the pure engine input. Only equipped
+ * inventory items are passed through so item effects stay gated to what the
+ * character actually has equipped.
+ */
+function statComputationCharacter({
+  row,
+  archetypeRows,
+  inventoryRows,
+}: RawCharacterInputs): StatComputationCharacter {
+  return buildStatComputationCharacter(
+    {
+      pathChoice: row.pathChoice,
+      level: row.level,
+      manualBonuses: row.manualBonuses,
+      activeCharacterArchetypeId: row.activeArchetypeId,
+    },
+    archetypeRows.map((archetype) => ({
+      id: archetype.id,
+      archetypeKey: archetype.archetypeKey,
+      rank: archetype.rank,
+      inheritanceSlots: archetype.inheritanceSlots,
+      mechanicState: archetype.mechanicState,
+    })),
+    inventoryRows
+      .filter((item) => item.equipped)
+      .map((item) => item.catalogItemKey)
+  )
+}
+
+function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
+  return {
+    kind: "attack",
+    damageType: attack.damageType,
+    delivery: attack.delivery,
+    attribute: attack.attackRoll.attribute,
+  }
+}
+
+/**
+ * The pure half of character hydration: turns {@link RawCharacterInputs} into
+ * the complete {@link HydratedCharacter} sheet view — every persisted column
+ * spread flat, the child rows, and every engine-derived value. No I/O, so it is
+ * the single source of truth shared by the server loader and any client
+ * optimistic frame; deriving twice from the same inputs yields the same view by
+ * construction, so an optimistic frame can never structurally drift from the
+ * server's.
+ */
+export function deriveHydratedCharacter(
+  raw: RawCharacterInputs
+): HydratedCharacter {
+  const { row, archetypeRows, inventoryRows, knives, chains } = raw
+
+  const stats = statComputationCharacter(raw)
+  const bonuses = accumulatedBonuses(stats)
+  const maxHP = computeMaxHP(stats, bonuses)
+
+  const inventory = inventoryRows.map((inventoryRow) => ({
+    ...inventoryRow,
+    item: getItem(inventoryRow.catalogItemKey),
+  }))
+
+  const weapon = getEquippedItem(inventory, "weapon")
+  const weaponAttackRoll = weapon
+    ? resolveAttackRoll(
+        weaponAttackContext(weapon.equip.intrinsicAttack),
+        stats,
+        row.partyComposition
+      )
+    : null
+
+  return {
+    ...row,
+    archetypeRows,
+    knives,
+    chains,
+    talents: resolveTalents(row.gainedTalents, stats.activeArchetypeKey),
+    inventory,
+    activeArchetypeKey: stats.activeArchetypeKey,
+    attributes: computeAttributes(stats, bonuses),
+    maxHP,
+    maxSP: computeMaxSP(stats, bonuses),
+    maxHitDice: computeMaxHitDice(row.level),
+    maxSkillDice: computeMaxSkillDice(row.level),
+    affinityChart: computeAffinityChart(stats),
+    weaponAttackRoll,
+    activeMechanic: stats.activeMechanic,
+    skills: stats.activeSkills.map((skill) => {
+      const context = skillAttackRollContext(skill)
+      return hydrateSkill(
+        skill,
+        maxHP,
+        context ? resolveAttackRoll(context, stats, row.partyComposition) : null
+      )
+    }),
+  }
+}
+
+/**
+ * The inverse projection: recovers the {@link RawCharacterInputs} a
+ * {@link HydratedCharacter} was derived from, by stripping the derived fields
+ * back off. Lets a client optimistic reducer round-trip through the pure
+ * engine — `deriveHydratedCharacter(applyEdit(toRawInputs(current)))` — instead
+ * of hand-patching the derived view. `deriveHydratedCharacter(toRawInputs(c))`
+ * deep-equals `c`; the derive-tests assert this so a new derived field that
+ * isn't mirrored here is caught.
+ */
+export function toRawInputs(character: HydratedCharacter): RawCharacterInputs {
+  const {
+    archetypeRows,
+    knives,
+    chains,
+    inventory,
+    talents: _talents,
+    activeArchetypeKey: _activeArchetypeKey,
+    attributes: _attributes,
+    maxHP: _maxHP,
+    maxSP: _maxSP,
+    maxHitDice: _maxHitDice,
+    maxSkillDice: _maxSkillDice,
+    affinityChart: _affinityChart,
+    weaponAttackRoll: _weaponAttackRoll,
+    activeMechanic: _activeMechanic,
+    skills: _skills,
+    ...row
+  } = character
+
+  return {
+    row,
+    archetypeRows,
+    inventoryRows: inventory.map(
+      ({ item: _item, ...inventoryRow }) => inventoryRow
+    ),
+    knives,
+    chains,
+  }
+}

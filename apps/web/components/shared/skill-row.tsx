@@ -1,6 +1,14 @@
 "use client"
 
 import {
+  type AttributeScores,
+  type ResolvedAttackRoll,
+} from "@workspace/game/engine"
+import {
+  type EquippedWeapon,
+  type HydratedSkill,
+} from "@workspace/game/foundation"
+import {
   Item,
   ItemActions,
   ItemContent,
@@ -13,11 +21,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-
-import type { HydratedSkill } from "@/lib/game/character"
-import type { AttributeScores } from "@/lib/game/character/stats/stats"
-import type { ResolvedAttackRoll } from "@/lib/game/combat/attack-roll"
-import type { EquippedWeapon } from "@/lib/game/items/schema"
 
 import { CastButton, type CastBindings } from "./cast-button"
 import { IntrinsicAttackCard } from "./intrinsic-attack-card"

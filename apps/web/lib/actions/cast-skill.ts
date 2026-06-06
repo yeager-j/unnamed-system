@@ -1,11 +1,12 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyCastForCharacter,
   type CastPersistenceSuccess,
 } from "@/lib/db/writes/cast-skill"
-import { err, type Result } from "@/lib/result"
 
 import {
   CastSkillSchema,

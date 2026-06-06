@@ -4,13 +4,13 @@ import { Radio as RadioPrimitive } from "@base-ui/react/radio"
 import { useOptimistic } from "react"
 import { toast } from "sonner"
 
+import { getPathStats } from "@workspace/game/engine"
+import { PATH_CHOICES, type PathChoice } from "@workspace/game/foundation"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
-import { PATH_CHOICES, type PathChoice } from "@/lib/game/character/state"
-import { getPathStats } from "@/lib/game/character/stats/stats"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -1,9 +1,10 @@
+import { isValidCreationAllocation } from "@workspace/game/engine"
+
 import type {
   CharacterChainRow,
   CharacterKnifeRow,
 } from "@/lib/db/schema/character"
 
-import { isValidCreationAllocation } from "../../lib/game/character/virtues/utils"
 import type { MovementSlug } from "./builder-steps"
 
 /**

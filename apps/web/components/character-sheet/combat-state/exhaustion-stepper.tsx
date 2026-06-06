@@ -2,11 +2,11 @@
 
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
 
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { adjustExhaustionAction } from "@/lib/actions/combat-state"
-import { MAX_EXHAUSTION_LEVEL } from "@/lib/game/combat"
 
 /**
  * The owner-mode +/- stepper for Exhaustion (UNN-226). Manual correction

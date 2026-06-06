@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwnerOrCampaignDM } from "@/lib/auth/campaign-access"
 import {
   applyDamageForCharacter,
@@ -13,7 +15,6 @@ import {
   type SpendSPPersistenceSuccess,
   type UsePrismaPersistenceSuccess,
 } from "@/lib/db/writes/adjust-pools"
-import { err, type Result } from "@/lib/result"
 
 import {
   DamageSchema,

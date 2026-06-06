@@ -1,9 +1,10 @@
 import type { ElementType, ReactNode } from "react"
 
+import { MASTERY_RANK } from "@workspace/game/engine"
+import { type Archetype } from "@workspace/game/foundation"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
-import { MASTERY_RANK, type Archetype } from "@/lib/game/archetypes"
 import { LINEAGE_LABELS, TIER_LABELS, TIER_ROMAN_LABELS } from "@/lib/ui/labels"
 
 /**

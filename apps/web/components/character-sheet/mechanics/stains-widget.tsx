@@ -2,10 +2,10 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 
+import { type StainsState } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { type StainsState } from "@/lib/game/mechanics"
 
 import { OwnerStainSlot, StainTile } from "./mage/stain-slot"
 import { useStainsControls } from "./mage/use-stains-controls"

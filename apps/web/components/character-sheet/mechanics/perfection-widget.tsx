@@ -1,13 +1,14 @@
 "use client"
 
-import { OwnerOnly } from "@/components/shell/viewer-role"
 import {
   attackBonusForRank,
+  formatSignedBonus,
   PERFECTION_RANK_LABELS,
   rankLabel,
   type PerfectionState,
-} from "@/lib/game/mechanics"
-import { formatSignedBonus } from "@/lib/game/skills"
+} from "@workspace/game/engine"
+
+import { OwnerOnly } from "@/components/shell/viewer-role"
 
 import { usePerfectionControls } from "./warrior/perfection-controls"
 

@@ -2,10 +2,11 @@
 
 import type { RefObject } from "react"
 
+import { type Result } from "@workspace/game/foundation"
+
 import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
-import type { Result } from "../lib/result"
 import { broadcastCharacterVersion } from "./use-character-versions-broadcast"
 
 /**

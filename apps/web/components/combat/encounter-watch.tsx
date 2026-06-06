@@ -1,7 +1,11 @@
 "use client"
 
+import {
+  resolvePlayerView,
+  type EncounterSnapshot,
+} from "@workspace/game/engine"
+
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
-import { resolvePlayerView, type EncounterSnapshot } from "@/lib/game/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { CampaignBackLink } from "./campaign-back-link"

@@ -1,0 +1,64 @@
+import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
+import {
+  addSpark,
+  rankUpVirtue,
+  type SparkCharacter,
+} from "@workspace/game/engine/character/leveling"
+import {
+  patchRow,
+  type SliceResult,
+} from "@workspace/game/engine/character/reduce/shared"
+import type { ProgressionEdit } from "@workspace/game/foundation/character/character-edit"
+import type { CharacterRow } from "@workspace/game/foundation/character/records"
+
+/**
+ * Progression slice: banking Victories and the Spark log (adding a Spark,
+ * ranking up a Virtue). Victories patch a single column; the Spark operations
+ * round-trip through the leveling engine and reject (`null`) when it does.
+ */
+export function reduceProgressionEdit(
+  raw: RawCharacterInputs,
+  edit: ProgressionEdit
+): SliceResult {
+  switch (edit.kind) {
+    case "victories":
+      return patchRow(raw, {
+        victories: Math.max(0, raw.row.victories + edit.delta),
+      })
+
+    case "addSpark": {
+      const result = addSpark(sparkCharacter(raw), edit.virtue)
+      return result.ok ? patchRow(raw, sparkRow(result.value)) : null
+    }
+
+    case "rankUpVirtue": {
+      const result = rankUpVirtue(sparkCharacter(raw), edit.virtue)
+      return result.ok ? patchRow(raw, sparkRow(result.value)) : null
+    }
+  }
+}
+
+/** Projects the spark/virtue columns into the {@link SparkCharacter} the
+ *  leveling engine reads. */
+function sparkCharacter(raw: RawCharacterInputs): SparkCharacter {
+  return {
+    sparkLog: raw.row.sparkLog,
+    virtues: {
+      expression: raw.row.virtueExpression,
+      empathy: raw.row.virtueEmpathy,
+      wisdom: raw.row.virtueWisdom,
+      focus: raw.row.virtueFocus,
+    },
+  }
+}
+
+/** Maps a spark/virtue engine result back onto the flat `characters` columns. */
+function sparkRow(value: SparkCharacter): Partial<CharacterRow> {
+  return {
+    sparkLog: value.sparkLog,
+    virtueExpression: value.virtues.expression,
+    virtueEmpathy: value.virtues.empathy,
+    virtueWisdom: value.virtues.wisdom,
+    virtueFocus: value.virtues.focus,
+  }
+}

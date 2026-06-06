@@ -3,6 +3,10 @@
 import { MapPinIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, type KeyboardEvent } from "react"
 
+import {
+  type CombatSession,
+  type ZoneGraphEvent,
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Input } from "@workspace/ui/components/input"
@@ -12,8 +16,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-
-import type { CombatSession, ZoneGraphEvent } from "@/lib/game/encounter"
 
 /**
  * The encounter-setup **Zones** panel (UNN-301): the DM authors the encounter's

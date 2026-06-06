@@ -1,5 +1,6 @@
 import Image from "next/image"
 
+import { archetypeDisplayName } from "@workspace/game/data"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Item,
@@ -15,7 +16,6 @@ import {
   slugForStepIndex,
 } from "@/components/builder/builder-steps"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CharacterCardActions } from "./character-card-actions"

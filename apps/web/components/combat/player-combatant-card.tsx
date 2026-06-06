@@ -1,3 +1,9 @@
+import { getAilment } from "@workspace/game/data"
+import {
+  activeConditions,
+  type ActiveCondition,
+  type PlayerVisibleCombatant,
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -7,12 +13,6 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { getAilment } from "@/lib/game/combat"
-import {
-  activeConditions,
-  type ActiveCondition,
-  type PlayerVisibleCombatant,
-} from "@/lib/game/encounter"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,

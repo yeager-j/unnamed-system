@@ -5,14 +5,6 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
-import { Button } from "@workspace/ui/components/button"
-import { Spinner } from "@workspace/ui/components/spinner"
-
-import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
-import { applyCombatEvent } from "@/lib/actions/encounter/events"
-import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
-import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   buildSetupCombatantLabels,
   compareInitiative,
@@ -21,13 +13,23 @@ import {
   normalizeEngagements,
   setEngagementTargets,
   toCombatantSetup,
+  type InitiativeStats,
+} from "@workspace/game/engine"
+import {
   type CombatAdvantage,
   type CombatantSetup,
   type CombatSide,
   type Engagement,
-  type InitiativeStats,
   type ZoneGraphEvent,
-} from "@/lib/game/encounter"
+} from "@workspace/game/foundation"
+import { Button } from "@workspace/ui/components/button"
+import { Spinner } from "@workspace/ui/components/spinner"
+
+import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
+import { applyCombatEvent } from "@/lib/actions/encounter/events"
+import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
+import type { CharacterSummary } from "@/lib/db/queries/character-list"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantSetupRow } from "./combatant-setup-row"

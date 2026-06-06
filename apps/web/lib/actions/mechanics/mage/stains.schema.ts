@@ -1,7 +1,8 @@
 import { z } from "zod/v4"
 
+import { STAIN_ELEMENTS, STAIN_SLOT_COUNT } from "@workspace/game/engine"
+
 import type { MechanicPersistenceError } from "@/lib/db/writes/mechanic-state"
-import { STAIN_ELEMENTS, STAIN_SLOT_COUNT } from "@/lib/game/mechanics"
 
 import { characterMutationBase } from "../../character-mutation.schema"
 

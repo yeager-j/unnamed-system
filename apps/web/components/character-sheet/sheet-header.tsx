@@ -1,5 +1,8 @@
 "use client"
 
+import { archetypeDisplayName } from "@workspace/game/data"
+import { VICTORIES_PER_LEVEL } from "@workspace/game/engine"
+import { isFallen } from "@workspace/game/foundation"
 import {
   Avatar,
   AvatarFallback,
@@ -10,8 +13,6 @@ import { Card, CardContent } from "@workspace/ui/components/card"
 
 import { NonOwner, OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
-import { isFallen, VICTORIES_PER_LEVEL } from "@/lib/game/character"
 import { initials } from "@/lib/ui/initials"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 

@@ -1,8 +1,9 @@
 import { z } from "zod/v4"
 
+import { MAX_CURRENCY, type InventoryItemState } from "@workspace/game/engine"
+import { itemKeySchema } from "@workspace/game/foundation"
+
 import type { InventoryPersistenceError } from "@/lib/db/writes/inventory"
-import { MAX_CURRENCY } from "@/lib/game/character"
-import { itemKeySchema, type InventoryItemState } from "@/lib/game/items"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

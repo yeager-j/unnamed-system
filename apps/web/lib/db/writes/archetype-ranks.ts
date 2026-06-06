@@ -1,14 +1,12 @@
 import { eq } from "drizzle-orm"
 
+import { getArchetype } from "@workspace/game/data"
+import { MASTERY_RANK, unmetPrerequisites } from "@workspace/game/engine"
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import {
-  getArchetype,
-  MASTERY_RANK,
-  unmetPrerequisites,
-} from "@/lib/game/archetypes"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

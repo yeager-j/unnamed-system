@@ -1,3 +1,18 @@
+import { getArchetype, type WeaponKey } from "@workspace/game/data"
+import {
+  buildStatComputationCharacter,
+  computeMaxHitDice,
+  computeMaxHP,
+  computeMaxSkillDice,
+  computeMaxSP,
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
+  startingWeaponForLineage,
+  type Result,
+} from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import {
   inventoryItems,
@@ -5,17 +20,6 @@ import {
   type CharacterRow,
 } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { getArchetype } from "@/lib/game/archetypes"
-import {
-  buildStatComputationCharacter,
-  computeMaxHitDice,
-  computeMaxHP,
-  computeMaxSkillDice,
-  computeMaxSP,
-  startingWeaponForLineage,
-} from "@/lib/game/character"
-import { type WeaponKey } from "@/lib/game/items"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

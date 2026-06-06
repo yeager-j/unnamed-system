@@ -7,14 +7,14 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
 
+import { type CombatantDetail } from "@workspace/game/engine"
+import {
+  type ActionEconomyAction,
+  type CombatEvent,
+} from "@workspace/game/foundation"
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import type {
-  ActionEconomyAction,
-  CombatantDetail,
-  CombatEvent,
-} from "@/lib/game/encounter"
 import { ACTION_ECONOMY_LABELS } from "@/lib/ui/labels"
 
 /**

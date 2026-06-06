@@ -1,11 +1,12 @@
 "use client"
 
+import { type StainElement } from "@workspace/game/engine"
+
 import { useCharacterWrite } from "@/hooks/use-character"
 import {
   clearStainsAction,
   setStainSlotAction,
 } from "@/lib/actions/mechanics/mage/stains"
-import { type StainElement } from "@/lib/game/mechanics"
 
 /**
  * Owner-mode write handlers for the Mage's Stains (UNN-229). `setSlot`

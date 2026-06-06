@@ -1,6 +1,9 @@
+import {
+  AFFINITY_DAMAGE_TYPES,
+  type Archetype,
+} from "@workspace/game/foundation"
+
 import { DetailSection } from "@/components/shared/detail-section"
-import type { Archetype } from "@/lib/game/archetypes"
-import { AFFINITY_DAMAGE_TYPES } from "@/lib/game/combat"
 
 import { ArchetypeAffinityChip } from "./archetype-affinity-chips"
 

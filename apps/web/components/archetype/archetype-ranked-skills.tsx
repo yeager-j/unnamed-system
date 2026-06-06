@@ -1,10 +1,13 @@
+import {
+  hasUnlockedRank,
+  type AttributeScores,
+  type RankedSkill,
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import { hasUnlockedRank, type RankedSkill } from "@/lib/game/archetypes"
-import type { AttributeScores } from "@/lib/game/character"
 
 /**
  * Per-rank Skill list shared by every Archetype detail surface.

@@ -1,14 +1,16 @@
 import {
   buildStatComputationCharacter,
+  type StatComputationCharacter,
+} from "@workspace/game/engine"
+import {
   type BattleConditions,
   type ManualBonuses,
+  type MechanicState,
   type PartyComposition,
   type PathChoice,
   type SparkLog,
-  type StatComputationCharacter,
   type TalentKey,
-} from "../game/character"
-import type { MechanicState } from "../game/mechanics"
+} from "@workspace/game/foundation"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

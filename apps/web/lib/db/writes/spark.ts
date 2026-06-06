@@ -1,16 +1,21 @@
 import { eq } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
-import { characters } from "@/lib/db/schema/character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   addSpark,
   rankUpVirtue,
   type SparkCharacter,
   type SparkError,
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
+  type Result,
   type VirtueKey,
-} from "@/lib/game/character"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/foundation"
+
+import { db } from "@/lib/db/client"
+import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

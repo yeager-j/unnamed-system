@@ -1,9 +1,8 @@
 "use client"
 
+import { type CombatantView } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
-
-import type { CombatantView } from "@/lib/game/encounter"
 
 export type ConsolePhase = "active" | "resolving" | "drafting"
 

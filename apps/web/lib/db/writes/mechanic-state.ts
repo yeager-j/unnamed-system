@@ -1,16 +1,19 @@
 import { eq } from "drizzle-orm"
 
+import { initialStateFor } from "@workspace/game/engine"
+import {
+  err,
+  mechanicStateSchema,
+  ok,
+  type MechanicKind,
+  type MechanicState,
+  type Result,
+} from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { characterExists } from "@/lib/db/queries/load-character"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import {
-  initialStateFor,
-  mechanicStateSchema,
-  type MechanicKind,
-  type MechanicState,
-} from "@/lib/game/mechanics"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

@@ -1,9 +1,9 @@
+import {
+  type PlayerCurrentActor,
+  type PlayerVisibleCombatant,
+} from "@workspace/game/engine"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type {
-  PlayerCurrentActor,
-  PlayerVisibleCombatant,
-} from "@/lib/game/encounter"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**

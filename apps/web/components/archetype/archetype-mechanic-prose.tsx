@@ -1,8 +1,8 @@
+import { getMechanic } from "@workspace/game/engine"
+import { type Archetype } from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { Prose } from "@/components/shared/prose"
-import type { Archetype } from "@/lib/game/archetypes"
-import { getMechanic } from "@/lib/game/mechanics"
 
 /**
  * Optional per-Archetype unique-mechanic prose block — name + description.

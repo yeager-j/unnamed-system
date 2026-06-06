@@ -5,6 +5,8 @@ import {
   MapPinIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
+import { type CombatantDetail } from "@workspace/game/engine"
+import { type CombatEvent } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Select,
@@ -15,7 +17,6 @@ import {
 } from "@workspace/ui/components/select"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail, CombatEvent } from "@/lib/game/encounter"
 
 /**
  * The drawer's **POSITION** section (UNN-315): the combatant's current zone plus

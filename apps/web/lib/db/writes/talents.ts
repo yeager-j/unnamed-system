@@ -1,10 +1,16 @@
 import { eq } from "drizzle-orm"
 
+import {
+  err,
+  ok,
+  TALENT_KEYS,
+  type Result,
+  type TalentKey,
+} from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { TALENT_KEYS, type TalentKey } from "@/lib/game/character"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

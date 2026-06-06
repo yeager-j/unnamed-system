@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   rankUpArchetype,
@@ -7,7 +9,6 @@ import {
   type RankUpArchetypeSuccess,
   type UnlockArchetypeSuccess,
 } from "@/lib/db/writes/archetype-ranks"
-import { err, type Result } from "@/lib/result"
 
 import {
   RankUpArchetypeSchema,

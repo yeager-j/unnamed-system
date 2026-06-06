@@ -1,5 +1,6 @@
 "use client"
 
+import { getExhaustionLevel } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,
@@ -9,7 +10,6 @@ import {
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
-import { getExhaustionLevel } from "@/lib/game/combat"
 
 import { ExhaustionStepper } from "./exhaustion-stepper"
 

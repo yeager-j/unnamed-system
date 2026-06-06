@@ -3,6 +3,7 @@
 import { TreeStructureIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 
+import { getArchetypeDisplay } from "@workspace/game/engine"
 import { buttonVariants } from "@workspace/ui/components/button"
 import {
   Card,
@@ -12,7 +13,6 @@ import {
 } from "@workspace/ui/components/card"
 
 import { useCharacter } from "@/hooks/use-character"
-import { getArchetypeDisplay } from "@/lib/game/archetypes"
 
 import { ActiveArchetypeCard } from "./archetypes/active-archetype-card"
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@/lib/result"
+import { err, ok } from "@workspace/game/foundation"
 
 import { leaveCampaignAction } from "./leave-campaign"
 

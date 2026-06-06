@@ -1,10 +1,11 @@
 import { z } from "zod/v4"
 
-import type { RestPersistenceError } from "@/lib/db/writes/rest"
 import {
   partialRestInputSchema,
   respiteInputSchema,
-} from "@/lib/game/combat/rest"
+} from "@workspace/game/engine"
+
+import type { RestPersistenceError } from "@/lib/db/writes/rest"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

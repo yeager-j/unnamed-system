@@ -34,9 +34,9 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/my-feature`.
 - Reuse existing `Result` utility where appropriate.
 - Avoid prop-drilling. `HydratedCharacter` is supplied via `useCharacter()`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
-- Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `apps/web/lib/game/mechanics`.
+- Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `packages/game/src/engine/mechanics`.
 - **Display labels live in `apps/web/lib/ui/labels.ts`.** Any `Record<X, string>` map that turns a domain key into a human-readable string (damage types, attributes, lineages, ranges, etc.) goes there — don't redefine inline, even for a one-off consumer.
-- **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `lib/game/<domain>/` (e.g. `resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
+- **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `packages/game/src/engine/<domain>/` (e.g. `resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
 - Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
 - **Owner-mode writes that touch one of several fields on a shared column: use per-field Server Actions, not "client builds the full object."** When multiple controls (toggles, segmented selects) all write to one jsonb column, do not have each control compose the full post-state from `useOptimistic`'s value in a closure and POST that — back-to-back clicks read a stale outer-scope value, the second write silently overwrites the first, the optimistic UI lies, and the test catches it before you do. Instead, expose one action per field (`setBattleConditionAxisAction(axis, state)`, `setBattleConditionFlagAction(flag, value)`), let the server read the row and merge. UNN-226's Charged/Concentrating bug is the cautionary tale; `apps/web/lib/actions/combat-state.ts` is the worked example.
 
@@ -65,6 +65,7 @@ Turborepo monorepo with npm workspaces:
 
 ```
 apps/web/          Next.js 16 app (App Router, RSC, Server Actions)
+packages/game/     Pure game engine + data (@workspace/game) — foundation/data/engine layers; see below
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
@@ -86,7 +87,7 @@ apps/web/
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
-│   ├── combat/                DM combat console (UNN-335): the encounter setup shell (CombatantSetup[] state container + Start-combat transition), stub setup panels (UNN-298–301), and the live/ended status-branch stubs rendered by app/combat/[shortId]/. combat/enemies/ is the catalog browse-and-add surface (UNN-346, route app/combat/[shortId]/enemies/): a three-column master-detail (searchable/family-filtered/level-grouped list + a standalone statblock card + a localStorage-backed "Queued enemies" staging rail via hooks/use-encounter-enemy-queue) that commits queued catalog enemies as `catalog-enemy` combatants through the existing setup save path. The statblock card deliberately duplicates UNN-345/UNN-324 rendering (end-of-project dedup sweep). app/combat/[shortId]/encounter-access.ts holds the shared DM-only `getEncounterForDM` loader both the console page and the enemies sub-route memoize. The signed-out **player watch view** (UNN-322/323/324) is a separate set of read-only components here — encounter-watch (client root + draft/live/ended status branch, consumes hooks/use-encounter-snapshot), player-turn-order, player-zone-map, player-combatant-card — rendered by app/c/encounter/[shortId]/. They read a **redacted** EncounterSnapshot (enemy attributes/affinities stripped server-side in lib/db/queries/load-encounter-snapshot.ts → lib/game/encounter/player-snapshot.ts; shaped by resolve-player-view.ts), polled from the public app/api/encounter/[shortId]/snapshot route
+│   ├── combat/                DM combat console (UNN-335): the encounter setup shell (CombatantSetup[] state container + Start-combat transition), stub setup panels (UNN-298–301), and the live/ended status-branch stubs rendered by app/combat/[shortId]/. combat/enemies/ is the catalog browse-and-add surface (UNN-346, route app/combat/[shortId]/enemies/): a three-column master-detail (searchable/family-filtered/level-grouped list + a standalone statblock card + a localStorage-backed "Queued enemies" staging rail via hooks/use-encounter-enemy-queue) that commits queued catalog enemies as `catalog-enemy` combatants through the existing setup save path. The statblock card deliberately duplicates UNN-345/UNN-324 rendering (end-of-project dedup sweep). app/combat/[shortId]/encounter-access.ts holds the shared DM-only `getEncounterForDM` loader both the console page and the enemies sub-route memoize. The signed-out **player watch view** (UNN-322/323/324) is a separate set of read-only components here — encounter-watch (client root + draft/live/ended status branch, consumes hooks/use-encounter-snapshot), player-turn-order, player-zone-map, player-combatant-card — rendered by app/c/encounter/[shortId]/. They read a **redacted** EncounterSnapshot (enemy attributes/affinities stripped server-side in lib/db/queries/load-encounter-snapshot.ts → @workspace/game/engine/encounter/player-snapshot; shaped by resolve-player-view.ts), polled from the public app/api/encounter/[shortId]/snapshot route
 │   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns cards + create dialog, and the manage page's invite-link card (copy/regenerate), roster (+ remove player), encounter list + create dialog, and live-encounter banner. Also the owner's character-placement section (UNN-328): a card grid of the viewer's characters placed here + an "Add character" combobox dialog (place/move, with consent + single-campaign move confirmation) and a per-card remove (unplace) control — all setting characters.campaignId via setCharacterCampaignAction. Plus the lifecycle controls (UNN-330): a member's "Leave campaign" button and the DM's type-to-confirm "Delete campaign" button. Rendered by app/campaigns/ + app/campaigns/[shortId]/
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
@@ -95,7 +96,7 @@ apps/web/
 └── lib/
     ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
-    ├── game/                  Game data + per-domain helpers and display shaping (the owner-edit optimistic reducer is sliced by domain under game/character/reduce/, orchestrated by game/character/reduce-character.ts). game/encounter/ is the initiative tracker's second pure engine — the immutable CombatSession shape + (later) reducer (UNN-291+), parallel to game/character/. game/enemies/ is the hardcoded enemy catalog (UNN-336) — immutable EnemyDefinition by key, mirroring game/items/; per-entry modules under game/enemies/5e/<5e-creature-type>/ (these are 5e statblocks used for playtesting), resolved by the `{ kind: "catalog-enemy", enemyKey }` combatant-ref arm. The directory's family (humanoid/beast/…) is lifted to a display/filter vocabulary by `getEnemyFamily` (registry.ts, derived from the slices — never on the entry); `catalog-rows.ts` + `enemy-detail-view.ts` are the pure browse-table/statblock view-models the UNN-346 surface renders. game/encounter/setup-roster-view.ts's `buildSetupCombatantLabels` derives disambiguated combatant labels ("Goblin", "Goblin 2") from a setup roster. game/catalog/ is the shared data-catalog factory (UNN-341): `createCatalog(byKey, validate?)` → `{ all, get, keys }` with load-time validation, used by the skills/items/enemies registries so they don't drift; `registered-entries.ts` is the test-only (node:fs) meta-test helper that walks each catalog's entry files and asserts every one is registered (closing the forget-to-register gap). Each of those three registries shards its `*_BY_KEY` object across per-category `index.ts` slices (e.g. game/skills/fire/index.ts exports FIRE_SKILLS) that registry.ts spreads — adding an entry touches one slice, and the load-bearing `keyof typeof *_BY_KEY` literal union is preserved. mechanics/registry.ts is deliberately NOT a createCatalog catalog (keyed by `kind` over a closed union, carries behavior).
+    ├── (game/ extracted to packages/game — see "packages/game" below)
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── db/                    Persistence, grouped by role (see below)
     ├── storage/               Vercel Blob storage
@@ -110,7 +111,7 @@ lib/db/
 ├── index.ts         Barrel: re-exports client + schema (import via @/lib/db)
 ├── env.ts           DB env resolution
 ├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
-├── schema/          Drizzle table + column definitions + inferred row types (CharacterRow, …)
+├── schema/          Drizzle tables + columns; row types (CharacterRow, …) are owned by @workspace/game/foundation, conformance.test.ts proves the tables match
 ├── migrations/      drizzle-kit SQL migrations + meta
 ├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes)
 └── writes/          Per-concern persistence wrappers + the version-guard primitive
@@ -126,6 +127,40 @@ when the whole character is the operation's object: `queries/load-character.ts`,
 `writes/start-character-draft.ts`. Every write composes through
 `writes/version-guard.ts` (UNN-248); the README in `lib/actions/` documents the
 owner-mode write pattern these back.
+
+### `packages/game` (`@workspace/game`)
+
+The pure game engine + data, extracted from `apps/web/lib/game` (see
+`docs/engine-reorg`). A runtime-pure leaf — no React/Next/DB — split into three
+layers under `src/`, each its own barrel entry point:
+
+```
+packages/game/src/
+├── foundation/   types, Zod schemas, fixed vocabulary (LINEAGES, VIRTUE_KEYS, DAMAGE_TYPES),
+│                 scalar constants, the generic Result primitive (result.ts), and the
+│                 persisted-row contract (records.ts: CharacterRow etc.). No real logic.
+├── data/         the hardcoded catalogs (skills/items/archetypes/enemies + their per-category
+│                 index.ts slices and get* registries; catalog/createCatalog). Authored truth.
+└── engine/       the pure functions — char optimistic reducer (character/reduce/* +
+                  reduce-character.ts), encounter tracker (encounter/reduce/* + reduce-session +
+                  selectors + view-shapers), stats/leveling/derive, combat math, the mechanics
+                  behavior modules + registry, the enemy view-models. The Stryker target.
+```
+
+- **Imports:** consumers (apps/web) import a layer barrel — `@workspace/game/{foundation,data,engine}`;
+  package-internal files import the **deep module** (`@workspace/game/<layer>/<file>`), never a
+  layer barrel (cycles). `sideEffects: false` + Next `optimizePackageImports` neutralize the
+  barrel cost.
+- **Dependency rule:** `engine → data → foundation`. Type-only imports across layers are free;
+  `engine → data` **value** imports are the inversion-debt backlog (paid down via the seam
+  pattern, e.g. `buildLineageAtlas`'s optional `catalog`). `foundation` still has a few value
+  imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a known follow-up.
+- The persisted-row types (`CharacterRow`, …) are **owned in `foundation/records.ts`**; the
+  Drizzle tables in `lib/db/schema` import them and a `conformance.test.ts` proves the table
+  matches (so they can't drift). `EnemyDefinition` family (humanoid/beast/…) is lifted to a
+  display/filter vocab by `getEnemyFamily` in the enemies registry. `mechanics/registry.ts` is
+  keyed by `kind` over a closed union (carries behavior), **not** a `createCatalog` catalog.
+- **Tests + fixtures live in the package** (`src/**/*.test.ts`, `src/engine/__fixtures__/`).
 
 ## Commands
 
@@ -143,14 +178,14 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 
 ## Testing
 
-- **Unit (Vitest):** pure game mechanics in `apps/web/lib/game` — no DB, no network.
+- **Unit (Vitest):** pure game mechanics in `packages/game/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.)
 - **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database.
 
-**Test-signal tooling for the `lib/game` engine (UNN-351) — run from `apps/web`:**
+**Test-signal tooling for the engine (UNN-351) — run from `packages/game`:**
 
-- `npm run test:coverage` — Vitest branch coverage **scoped to `lib/game/**`** (config lives in `vitest.config.ts`). This is a **gap-finder, not a gate**: no thresholds, no CI check. Read the *uncovered-branch* list (browsable HTML under `apps/web/coverage/`); ignore the headline %. The scope is deliberate — `lib/game` is where almost every branch is a rule, so an un-executed branch is a rule no test ran; a repo-wide % (React, server actions) is noise, and a 100% quota would just invite low-value line-touching tests. Don't add a threshold.
-- `npm run test:mutation` — Stryker mutation testing (`stryker.conf.mjs`): the measure coverage can't give — of the plausible mistakes one could introduce, what fraction the tests catch (the *mutation score*). **`mutate` is scoped to one module** (`combat/attack-roll.ts`) as a prototype; a full-engine run is far slower than the ~1s suite and is **not** on the PR critical path. Widen `mutate` to `lib/game/**` only after weighing runtime — if it ever runs in CI, scope to changed `lib/game` files or run nightly, never block a PR on a full run. Triage survivors as real-gap vs equivalent-mutant (HTML report under `apps/web/reports/mutation/`). Mutation testing finds gaps branch coverage rates "fine" — e.g. it flagged `skillAttackRollContext`'s entirely-unexercised ailment arm in an 85%-branch-covered file.
-- **Hardening a slice's tests** (decouple from catalog data via fixtures, then drive the mutation score up): use the shared kit + follow the rubric in `apps/web/lib/game/__fixtures__/README.md` (UNN-352). Build inputs from `@/lib/game/__fixtures__` (`makeRawCharacterInputs`, `makeStatComputationCharacter`, …) so logic tests assert behavior, not balance numbers; document genuine equivalent mutants with `// Stryker disable` + a reason; never `as any` impossible inputs or disable just to lift the score.
+- `npm run test:coverage` — Vitest branch coverage **scoped to `src/engine/**`** (config in `packages/game/vitest.config.ts`). A **gap-finder, not a gate**: no thresholds, no CI check. Read the *uncovered-branch* list (HTML under `packages/game/coverage/`); ignore the headline %. The engine is where almost every branch is a rule, so an un-executed branch is a rule no test ran; a quota would just invite low-value line-touching tests. Don't add a threshold.
+- `npm run test:mutation` — Stryker (`packages/game/stryker.conf.mjs`): the measure coverage can't give — of the plausible mistakes one could introduce, what fraction the tests catch (the *mutation score*). `mutate` is the whole engine layer (`src/engine/**`; `__fixtures__` excluded). A full run is ~2.5 min — **not** on the PR critical path: run it nightly or scope `mutate` to changed engine files when iterating; never block a PR on a full run. Triage survivors as real-gap vs equivalent-mutant (HTML under `packages/game/reports/mutation/`). Mutation finds gaps branch coverage rates "fine" — e.g. it flagged `skillAttackRollContext`'s entirely-unexercised ailment arm in an 85%-branch-covered file.
+- **Hardening a slice's tests** (decouple from catalog data via fixtures, then drive the mutation score up): use the shared kit + follow the rubric in `packages/game/src/engine/__fixtures__/README.md` (UNN-352). Build inputs from the fixtures (`makeRawCharacterInputs`, `makeStatComputationCharacter`, …) so logic tests assert behavior, not balance numbers; document genuine equivalent mutants with `// Stryker disable` + a reason; never `as any` impossible inputs or disable just to lift the score.
 
 **E2E database:**
 
@@ -176,7 +211,7 @@ Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, p
 - **Hosting**: Vercel + Neon + Vercel Blob
 - **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 
-Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database. Demo-only Archetypes (`lib/game/archetypes/demo/`) are merged into the runtime catalog only when `NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES=true` (local dev + Vercel Preview), never in Production — they let the Lineage Atlas exercise tier trees before the real higher-tier data ships.
+Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database. Demo-only Archetypes (`packages/game/src/data/archetypes/demo/`) are merged into the runtime catalog only when `NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES=true` (local dev + Vercel Preview), never in Production — they let the Lineage Atlas exercise tier trees before the real higher-tier data ships.
 
 ## Game Rules
 
@@ -184,7 +219,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `lib/game/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `packages/game/src/foundation/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
 
 See PRD §8 for the full field list.
 

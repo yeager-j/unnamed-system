@@ -1,10 +1,11 @@
-import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   projectPlayerSnapshot,
   type EncounterSnapshot,
   type PcCombatantDetail,
-} from "@/lib/game/encounter"
+} from "@workspace/game/engine"
+
+import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 
 import { loadEncounterRowByShortId } from "./load-encounter"
 

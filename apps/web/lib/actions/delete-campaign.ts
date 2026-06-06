@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { deleteCampaign } from "@/lib/db/writes/campaign"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   DeleteCampaignSchema,

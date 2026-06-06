@@ -4,19 +4,19 @@ import { ArrowLeftIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
 
-import { Label } from "@workspace/ui/components/label"
-import { Separator } from "@workspace/ui/components/separator"
-import { Switch } from "@workspace/ui/components/switch"
-
-import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useCharacter } from "@/hooks/use-character"
 import {
   buildLineageAtlas,
   filterAtlasLineagesToUnlocked,
   getAtlasRecommendations,
   type AtlasLineage,
   type AtlasNode,
-} from "@/lib/game/archetypes"
+} from "@workspace/game/engine"
+import { Label } from "@workspace/ui/components/label"
+import { Separator } from "@workspace/ui/components/separator"
+import { Switch } from "@workspace/ui/components/switch"
+
+import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useCharacter } from "@/hooks/use-character"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"
 import { AtlasSidebar } from "./atlas-sidebar"

@@ -1,7 +1,8 @@
 import { z } from "zod/v4"
 
+import { VIRTUE_KEYS } from "@workspace/game/foundation"
+
 import type { SparkPersistenceError } from "@/lib/db/writes/spark"
-import { VIRTUE_KEYS } from "@/lib/game/character"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

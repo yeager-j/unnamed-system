@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache"
 import { forbidden } from "next/navigation"
 
+import { ok, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   isCampaignMember,
   loadCampaignRowById,
 } from "@/lib/db/queries/load-campaign"
 import { setCharacterCampaign } from "@/lib/db/writes/campaign-placement"
-import { ok, type Result } from "@/lib/result"
 
 import {
   SetCharacterCampaignSchema,

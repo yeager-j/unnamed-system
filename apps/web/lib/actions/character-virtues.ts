@@ -1,11 +1,12 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   setCharacterVirtues,
   type CharacterVirtuesPersistenceSuccess,
 } from "@/lib/db/writes/virtues"
-import { err, type Result } from "@/lib/result"
 
 import {
   SetVirtuesSchema,

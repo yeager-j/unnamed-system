@@ -1,12 +1,13 @@
 "use server"
 
+import { adjustValor } from "@workspace/game/engine"
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyMechanicStateForCharacter,
   type MechanicWriteSuccess,
 } from "@/lib/db/writes/mechanic-state"
-import { adjustValor } from "@/lib/game/mechanics"
-import { err, type Result } from "@/lib/result"
 
 import { revalidateCharacter } from "../../revalidate"
 import {

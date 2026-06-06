@@ -1,14 +1,18 @@
 import { eq } from "drizzle-orm"
 
+import { getArchetype } from "@workspace/game/data"
+import { isInheritableSkill } from "@workspace/game/engine"
+import {
+  err,
+  inheritanceSlotsSchema,
+  ok,
+  type InheritanceSlots,
+  type Result,
+} from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { characterArchetypes } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { getArchetype, isInheritableSkill } from "@/lib/game/archetypes"
-import {
-  inheritanceSlotsSchema,
-  type InheritanceSlots,
-} from "@/lib/game/character"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

@@ -1,11 +1,11 @@
 "use client"
 
+import { COMBAT_SIDES, type CombatSide } from "@workspace/game/foundation"
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 
-import { COMBAT_SIDES, type CombatSide } from "@/lib/game/encounter"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**

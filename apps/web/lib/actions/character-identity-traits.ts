@@ -1,11 +1,12 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterIdentityTrait,
   type CharacterIdentityTraitPersistenceSuccess,
 } from "@/lib/db/writes/identity-traits"
-import { err, type Result } from "@/lib/result"
 
 import {
   UpdateCharacterIdentityTraitSchema,

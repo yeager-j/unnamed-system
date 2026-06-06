@@ -1,10 +1,11 @@
 import type { useRouter } from "next/navigation"
 import { describe, expect, it, vi } from "vitest"
 
+import { deriveHydratedCharacter } from "@workspace/game/engine"
+
 import type { useCharacterWrite } from "@/hooks/use-character"
 import type { ViewerRole } from "@/lib/auth/viewer-role"
 import type { CharacterRow } from "@/lib/db/schema/character"
-import { deriveHydratedCharacter } from "@/lib/game/character/derive-hydrated-character"
 
 import { resolveCommands } from "./registry"
 import type { CommandContext } from "./types"

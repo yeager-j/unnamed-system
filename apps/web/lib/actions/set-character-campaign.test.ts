@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { err, ok } from "@workspace/game/foundation"
+
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { CharacterRow } from "@/lib/db/schema/character"
-import { err, ok } from "@/lib/result"
 
 import { setCharacterCampaignAction } from "./set-character-campaign"
 

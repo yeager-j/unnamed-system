@@ -1,5 +1,6 @@
+import { type Result } from "@workspace/game/foundation"
+
 import { characterKnives } from "@/lib/db/schema/character"
-import { type Result } from "@/lib/result"
 
 import {
   addNamedEntry,

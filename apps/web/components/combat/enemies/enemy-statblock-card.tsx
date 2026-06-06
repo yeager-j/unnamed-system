@@ -1,6 +1,7 @@
 import { PlusIcon, SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
 
+import { type EnemyDetailView } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -12,7 +13,6 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { Prose } from "@/components/shared/prose"
-import type { EnemyDetailView } from "@/lib/game/enemies"
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   AFFINITY_LABELS,

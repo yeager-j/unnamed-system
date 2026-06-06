@@ -1,36 +1,33 @@
-import type { EncounterStatus } from "@/lib/db/schema/encounter"
-import type {
-  ArchetypeTier,
-  AttributeKey,
-  Lineage,
-  RecommendationReason,
-} from "@/lib/game/archetypes"
+import { getTalent } from "@workspace/game/data"
 import {
-  getTalent,
+  type Delivery,
+  type Range,
+  type RecommendationReason,
+  type ResolvedSkillCost,
+  type StainElement,
+} from "@workspace/game/engine"
+import {
+  type Affinity,
+  type AffinityDamageType,
+  type ArchetypeTier,
+  type AttributeKey,
   type BattleConditionState,
+  type BonusTargetKey,
+  type CombatAdvantage,
+  type CombatSide,
+  type DamageType,
+  type EnemyFamily,
+  type Engagement,
+  type EquipSlot,
+  type Lineage,
   type PathChoice,
+  type SkillKind,
   type SuggestedPath,
   type TalentKey,
   type VirtueKey,
-} from "@/lib/game/character"
-import type {
-  Affinity,
-  AffinityDamageType,
-  BonusTargetKey,
-  DamageType,
-  Delivery,
-  Range,
-} from "@/lib/game/combat"
-import type {
-  CombatAdvantage,
-  CombatSide,
-  Engagement,
-} from "@/lib/game/encounter"
-import type { EnemyFamily } from "@/lib/game/enemies"
-import type { EquipSlot } from "@/lib/game/items"
-import type { StainElement } from "@/lib/game/mechanics"
-import type { SkillKind } from "@/lib/game/skills"
-import type { ResolvedSkillCost } from "@/lib/game/skills/utils"
+} from "@workspace/game/foundation"
+
+import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
  * Canonical display labels for the game-data vocabularies. Every UI surface

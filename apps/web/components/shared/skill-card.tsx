@@ -1,4 +1,5 @@
-import type { AttributeScores, HydratedSkill } from "@/lib/game/character"
+import { type AttributeScores } from "@workspace/game/engine"
+import { type HydratedSkill } from "@workspace/game/foundation"
 
 import { AttackRollTable } from "./attack-roll-table"
 import { CastButton, type CastBindings } from "./cast-button"

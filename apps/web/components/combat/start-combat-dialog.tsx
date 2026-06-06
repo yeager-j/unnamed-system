@@ -3,6 +3,11 @@
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
+import { type InitiativeComparison } from "@workspace/game/engine"
+import {
+  type CombatAdvantage,
+  type CombatSide,
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -19,11 +24,6 @@ import {
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
 
-import {
-  type CombatAdvantage,
-  type CombatSide,
-  type InitiativeComparison,
-} from "@/lib/game/encounter"
 import {
   COMBAT_ADVANTAGE_SETUP_HINTS,
   COMBAT_ADVANTAGE_SETUP_LABELS,

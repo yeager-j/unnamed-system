@@ -1,5 +1,7 @@
 "use client"
 
+import { getEquippedItem } from "@workspace/game/data"
+import { sortSkillsByKind } from "@workspace/game/engine"
 import {
   Card,
   CardContent,
@@ -11,8 +13,6 @@ import { ItemGroup } from "@workspace/ui/components/item"
 import { IntrinsicAttackRow, SkillRow } from "@/components/shared/skill-row"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { castSkillAction } from "@/lib/actions/cast-skill"
-import { getEquippedItem } from "@/lib/game/items"
-import { sortSkillsByKind } from "@/lib/game/skills"
 
 /**
  * The Combat-tab Skills surface (PRD §6.1 / §7.2): every Skill currently

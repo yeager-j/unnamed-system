@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addInventoryItem,
@@ -9,7 +11,6 @@ import {
   setInventoryItemQuantity,
   unequipInventoryItem,
 } from "@/lib/db/writes/inventory"
-import { err, type Result } from "@/lib/result"
 
 import {
   AddInventoryItemSchema,

@@ -4,14 +4,15 @@ import { useRouter } from "next/navigation"
 import { useEffect, useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
+import { reduceCombatSession } from "@workspace/game/engine"
+import {
+  type CombatEvent,
+  type CombatSession,
+} from "@workspace/game/foundation"
+
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
-import {
-  reduceCombatSession,
-  type CombatEvent,
-  type CombatSession,
-} from "@/lib/game/encounter"
 
 /**
  * The live DM console's owner-mode write surface (UNN-344) — the encounter

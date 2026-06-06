@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { isCharacterLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { characters } from "@/lib/db/schema/character"
-import { err, ok, type Result } from "@/lib/result"
 
 /**
  * Persistence for character placement — the owner setting `characters.campaignId`

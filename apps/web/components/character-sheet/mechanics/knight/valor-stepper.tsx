@@ -2,11 +2,11 @@
 
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
 
+import { VALOR_MAX } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacterWrite } from "@/hooks/use-character"
 import { adjustValorAction } from "@/lib/actions/mechanics/knight/valor"
-import { VALOR_MAX } from "@/lib/game/mechanics"
 
 /**
  * Owner-mode +/- stepper for the Knight's Valor counter (UNN-227). Dispatches

@@ -1,12 +1,12 @@
 "use client"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setBattleConditionFlagAction } from "@/lib/actions/combat-state"
-import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 import { BATTLE_CONDITION_FLAG_LABELS } from "@/lib/ui/labels"
 
 type FlagKey = "charged" | "concentrating"

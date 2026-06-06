@@ -1,12 +1,13 @@
 "use server"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {
   loadEncounterCampaignId,
   loadEncounterRowById,
 } from "@/lib/db/queries/load-encounter"
 import { setEncounterStatus } from "@/lib/db/writes/encounter"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   EndEncounterSchema,

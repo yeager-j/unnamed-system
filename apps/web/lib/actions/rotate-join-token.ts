@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
+import { ok, type Result } from "@workspace/game/foundation"
+
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { rotateJoinToken } from "@/lib/db/writes/campaign"
-import { ok, type Result } from "@/lib/result"
 
 import {
   RotateJoinTokenSchema,

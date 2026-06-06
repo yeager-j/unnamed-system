@@ -1,11 +1,12 @@
 "use server"
 
+import { err, ok, type Result } from "@workspace/game/foundation"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   loadCharacterVersions,
   type CharacterVersions,
 } from "@/lib/db/queries/versions"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   GetCharacterVersionsSchema,

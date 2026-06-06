@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm"
 
+import { STAIN_SLOT_COUNT, type StainsState } from "@workspace/game/engine"
+
 import { characterArchetypes, getDb } from "@/lib/db"
-import { STAIN_SLOT_COUNT, type StainsState } from "@/lib/game/mechanics"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

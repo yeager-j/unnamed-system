@@ -1,7 +1,8 @@
+import { ok, type Result } from "@workspace/game/foundation"
+
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
-import { ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 
