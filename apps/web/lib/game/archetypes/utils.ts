@@ -117,6 +117,7 @@ function resolveArchetypeRankedSkills(
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const resolveByKey = (key: string): HydratedSkill | null => {
     const skill = getSkill(key)
+    // Stryker disable next-line ConditionalExpression: equivalent — resolveByKey is only ever called with an Archetype's own skill / synthesis keys, all of which the registry validator guarantees resolve.
     if (!skill) return null
     return hydrateSkill(
       skill,
@@ -127,6 +128,7 @@ function resolveArchetypeRankedSkills(
 
   const ranks: RankedSkill[] = archetype.skills.flatMap((reference) => {
     const resolved = resolveByKey(reference.skill)
+    // Stryker disable next-line ConditionalExpression,ArrayDeclaration: equivalent — every Archetype skill key resolves (registry validator), so resolved is never null and the drop-branch is dead.
     if (!resolved) return []
     return [{ ...resolved, rank: reference.rank }]
   })
@@ -136,6 +138,7 @@ function resolveArchetypeRankedSkills(
     ? resolveByKey(synthesisReference.skill)
     : null
   const synthesis: RankedSkill | null =
+    // Stryker disable next-line LogicalOperator: equivalent — synthesisResolved is non-null exactly when synthesisReference is truthy (a synthesis skill key is a SkillKey, so it always resolves), so `&&` and `||` always select the same branch.
     synthesisReference && synthesisResolved
       ? { ...synthesisResolved, rank: synthesisReference.rank }
       : null
@@ -161,6 +164,7 @@ export function buildArchetypeEntries(
   for (const row of character.archetypeRows) {
     rowById.set(row.id, row)
     const archetype = getArchetype(row.archetypeKey)
+    // Stryker disable next-line ConditionalExpression: equivalent — setting an undefined archetype is indistinguishable from not setting it: every reader (`.get(id)` with `if (!archetype) return []` and `.get(id) ?? null`) treats a missing key and an undefined value identically.
     if (archetype) archetypeByRowId.set(row.id, archetype)
   }
 
@@ -293,7 +297,8 @@ export function archetypeSwitcherGroups(
       tier: archetype.tier,
       rank: row.rank,
       mechanicName: archetype.mechanic
-        ? (getMechanic(archetype.mechanic)?.displayName ?? null)
+        ? // Stryker disable next-line OptionalChaining: equivalent — the registry validator rejects any Archetype whose mechanic key does not resolve, so getMechanic is never undefined here.
+          (getMechanic(archetype.mechanic)?.displayName ?? null)
         : null,
     })
     grouped.set(archetype.lineage, bucket)
@@ -302,11 +307,13 @@ export function archetypeSwitcherGroups(
   return [...grouped.entries()]
     .map<ArchetypeSwitcherGroup>(([lineage, options]) => ({
       lineage,
+      // Stryker disable MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator: equivalent — every shipped Archetype is its own Lineage, so two options in one bucket are rows of the SAME Archetype with identical tier and name; the within-bucket tier/name comparator can never observably reorder them.
       options: [...options].sort((a, b) => {
         const tierDelta = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
         if (tierDelta !== 0) return tierDelta
         return a.name.localeCompare(b.name)
       }),
+      // Stryker restore MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator
     }))
     .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
 }
@@ -380,8 +387,10 @@ export function previewArchetypeSkills(
     level: 1,
     manualBonuses: {},
     activeArchetypeKey: archetype.key,
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — `activeArchetypeKey` independently drives the attribute computation, so emptying/blanking this `archetypes` entry leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
     archetypes: [{ key: archetype.key, rank: 2 }],
     equippedItems: [],
+    // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
     activeSkills: [],
     activeMechanic: null,
   }

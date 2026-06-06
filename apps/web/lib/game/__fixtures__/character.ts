@@ -6,7 +6,11 @@ import type {
   InventoryItemRow,
 } from "@/lib/db/schema/character"
 
-import type { RawCharacterInputs } from "../character/derive-hydrated-character"
+import {
+  deriveHydratedCharacter,
+  type RawCharacterInputs,
+} from "../character/derive-hydrated-character"
+import type { HydratedCharacter } from "../character/hydrated-character"
 import type { StatComputationCharacter } from "../character/stats/stats"
 
 /**
@@ -138,4 +142,17 @@ export function makeStatComputationCharacter(
     activeMechanic: null,
     ...overrides,
   }
+}
+
+/**
+ * A fully derived {@link HydratedCharacter} for tests that consume one directly
+ * (the Archetypes display builders, command palette, …). Builds the raw inputs
+ * with {@link makeRawCharacterInputs} and runs them through the real
+ * {@link deriveHydratedCharacter}, so the derived fields are honest rather than
+ * hand-stubbed.
+ */
+export function makeHydratedCharacter(
+  overrides: Parameters<typeof makeRawCharacterInputs>[0] = {}
+): HydratedCharacter {
+  return deriveHydratedCharacter(makeRawCharacterInputs(overrides))
 }
