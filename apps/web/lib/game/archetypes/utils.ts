@@ -2,7 +2,6 @@ import type { CharacterArchetypeRow } from "@/lib/db/schema/character"
 
 import {
   computeMaxHP,
-  computeMaxSP,
   LINEAGE_SUGGESTED_PATH,
   toStatComputationCharacter,
   type HydratedCharacter,
@@ -17,12 +16,7 @@ import {
   type ResolvedAttackRoll,
 } from "../combat"
 import { getMechanic } from "../mechanics"
-import {
-  getSkill,
-  hydrateSkill,
-  type CastingCharacter,
-  type Skill,
-} from "../skills"
+import { getSkill, hydrateSkill, type Skill } from "../skills"
 import { isInheritableSkill } from "./inheritance"
 import { getArchetype } from "./registry"
 import {
@@ -111,13 +105,13 @@ function resolveAttackRollForSkill(
  * Resolves an Archetype's Rank-keyed Skills and Synthesis Skill into the
  * {@link RankedSkill} shape both the live display and the builder preview
  * consume. The only thing that varies between call sites is the source stats:
- * the live sheet passes the character's hydrated `stats`/`casting`/party, the
+ * the live sheet passes the character's hydrated `stats`/`maxHP`/party, the
  * builder preview passes a synthetic Rank-2, equipment-less character. Skill
  * references whose `skillKey` no longer resolves are dropped.
  */
 function resolveArchetypeRankedSkills(
   archetype: Archetype,
-  casting: CastingCharacter,
+  maxHP: number,
   stats: StatComputationCharacter,
   partyComposition: HydratedCharacter["partyComposition"]
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
@@ -126,7 +120,7 @@ function resolveArchetypeRankedSkills(
     if (!skill) return null
     return hydrateSkill(
       skill,
-      casting,
+      maxHP,
       resolveAttackRollForSkill(skill, stats, partyComposition)
     )
   }
@@ -161,11 +155,6 @@ export function buildArchetypeEntries(
   character: HydratedCharacter
 ): ArchetypeEntry[] {
   const stats = toStatComputationCharacter(character)
-  const casting: CastingCharacter = {
-    ...stats,
-    currentHP: character.currentHP,
-    currentSP: character.currentSP,
-  }
 
   const archetypeByRowId = new Map<string, Archetype>()
   const rowById = new Map<string, CharacterArchetypeRow>()
@@ -180,7 +169,7 @@ export function buildArchetypeEntries(
     if (!skill) return null
     return hydrateSkill(
       skill,
-      casting,
+      character.maxHP,
       resolveAttackRollForSkill(skill, stats, character.partyComposition)
     )
   }
@@ -191,7 +180,7 @@ export function buildArchetypeEntries(
 
     const { ranks, synthesis } = resolveArchetypeRankedSkills(
       archetype,
-      casting,
+      character.maxHP,
       stats,
       character.partyComposition
     )
@@ -396,11 +385,10 @@ export function previewArchetypeSkills(
     activeSkills: [],
     activeMechanic: null,
   }
-  const casting: CastingCharacter = {
-    ...stats,
-    currentHP: computeMaxHP(stats),
-    currentSP: computeMaxSP(stats),
-  }
-
-  return resolveArchetypeRankedSkills(archetype, casting, stats, null)
+  return resolveArchetypeRankedSkills(
+    archetype,
+    computeMaxHP(stats),
+    stats,
+    null
+  )
 }

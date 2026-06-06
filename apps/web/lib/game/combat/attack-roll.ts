@@ -1,5 +1,9 @@
 import { getArchetype } from "../archetypes"
-import { computeAttributes, type StatComputationCharacter } from "../character"
+import {
+  computeAttributes,
+  type AttributeScores,
+  type StatComputationCharacter,
+} from "../character"
 import type { PartyComposition } from "../character/state"
 import { mechanicEffectsFor } from "../mechanics"
 import type { SkillKind } from "../skills"
@@ -109,7 +113,30 @@ export function resolveAttackRoll(
   character: StatComputationCharacter,
   partyComposition: PartyComposition | null
 ): ResolvedAttackRoll {
-  const attributes = computeAttributes(character)
+  return resolveAttackRollFrom(
+    context,
+    computeAttributes(character),
+    collectAttackRollEffects(character),
+    (effect) => resolveAmount(effect, character, partyComposition)
+  )
+}
+
+/**
+ * The source-agnostic core of {@link resolveAttackRoll}: given already-resolved
+ * Attributes and a list of candidate {@link AttackRollEffect}s, folds the
+ * rolling Attribute and every matching effect into one labelled, summed
+ * readout. The character path supplies computed Attributes plus its active
+ * mechanic / passive-Skill effects; an enemy stat block supplies its flat
+ * Attributes plus the effects of its own passive Skills. `resolveEffectAmount`
+ * lets each caller resolve scaler effects against whatever context it has —
+ * party composition for a character, a fixed amount for an enemy.
+ */
+export function resolveAttackRollFrom(
+  context: AttackRollContext,
+  attributes: AttributeScores,
+  effects: readonly AttackRollEffect[],
+  resolveEffectAmount: (effect: AttackRollEffect) => number
+): ResolvedAttackRoll {
   const attributeAmount = resolveAttackAttribute(context.attribute, attributes)
   const sources: AttackRollSource[] = [
     {
@@ -119,9 +146,9 @@ export function resolveAttackRoll(
   ]
   let total = attributeAmount
 
-  for (const effect of collectAttackRollEffects(character)) {
+  for (const effect of effects) {
     if (!matchesFilter(effect.when, context)) continue
-    const amount = resolveAmount(effect, character, partyComposition)
+    const amount = resolveEffectAmount(effect)
     if (amount === 0) continue
     total += amount
     sources.push({ source: effect.source ?? "Bonus", amount })
@@ -144,13 +171,27 @@ function collectAttackRollEffects(
     }
   }
 
-  for (const skill of character.activeSkills) {
+  effects.push(...attackRollEffectsFromSkills(character.activeSkills))
+
+  return effects
+}
+
+/**
+ * The `attackRoll` effects declared by the passive Skills in a list. Shared by
+ * the character path (its active Archetype's passive Skills) and the enemy path
+ * (a stat block's own Skills) so both fold passive Attack-Roll bonuses
+ * identically. Non-passive Skills carry no structured effects and are skipped.
+ */
+export function attackRollEffectsFromSkills(
+  skills: readonly Skill[]
+): AttackRollEffect[] {
+  const effects: AttackRollEffect[] = []
+  for (const skill of skills) {
     if (skill.kind !== "passive") continue
     for (const effect of skill.effects ?? []) {
       if (effect.type === "attackRoll") effects.push(effect)
     }
   }
-
   return effects
 }
 

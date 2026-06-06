@@ -131,38 +131,33 @@ function withMaxHP(maxHP: number, overrides: Partial<CastingCharacter> = {}) {
 
 describe("resolveSkillCost", () => {
   it("passes a flat SP cost through unchanged", () => {
-    expect(resolveSkillCost(dia, makeCharacter())).toEqual({
+    expect(resolveSkillCost(dia, 20)).toEqual({
       kind: "sp",
       amount: 3,
     })
   })
 
-  it("resolves an HP-percentage cost against current max HP", () => {
-    expect(resolveSkillCost(cleave, withMaxHP(100))).toEqual({
+  it("resolves an HP-percentage cost against the given max HP", () => {
+    expect(resolveSkillCost(cleave, 100)).toEqual({
       kind: "hp",
       amount: 5,
     })
   })
 
   it("rounds the HP cost down across varying max HP values", () => {
-    expect(resolveSkillCost(cleave, withMaxHP(20))?.amount).toBe(1)
-    expect(resolveSkillCost(cleave, withMaxHP(30))?.amount).toBe(1)
-    expect(resolveSkillCost(cleave, withMaxHP(105))?.amount).toBe(5)
-    expect(resolveSkillCost(cleave, withMaxHP(194))?.amount).toBe(9)
+    expect(resolveSkillCost(cleave, 20)?.amount).toBe(1)
+    expect(resolveSkillCost(cleave, 30)?.amount).toBe(1)
+    expect(resolveSkillCost(cleave, 105)?.amount).toBe(5)
+    expect(resolveSkillCost(cleave, 194)?.amount).toBe(9)
   })
 
   it("floors the resolved HP cost at 1, never 0", () => {
-    expect(resolveSkillCost(cleave, withMaxHP(16))?.amount).toBe(1)
-    expect(resolveSkillCost(cleave, withMaxHP(5))?.amount).toBe(1)
-  })
-
-  it("resolves against current max HP, not current HP", () => {
-    const character = withMaxHP(100, { currentHP: 12 })
-    expect(resolveSkillCost(cleave, character)?.amount).toBe(5)
+    expect(resolveSkillCost(cleave, 16)?.amount).toBe(1)
+    expect(resolveSkillCost(cleave, 5)?.amount).toBe(1)
   })
 
   it("returns null for a costless passive Skill", () => {
-    expect(resolveSkillCost(healersInsight, makeCharacter())).toBeNull()
+    expect(resolveSkillCost(healersInsight, 20)).toBeNull()
   })
 })
 

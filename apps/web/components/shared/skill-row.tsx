@@ -42,6 +42,12 @@ interface SkillRowProps {
    * Cast affordance renders.
    */
   cast?: CastBindings
+  /**
+   * Whether to show the resolved cost — the row's right-hand cost chip and the
+   * popover's Cost row. Defaults to `true` (characters pay for Skills). Catalog
+   * enemies pay no Skill costs, so the combat drawer passes `false`.
+   */
+  showCost?: boolean
 }
 
 /**
@@ -54,7 +60,12 @@ interface SkillRowProps {
  * intentionally not paired with a hover-popover to avoid stealing the user's
  * intent away from Cast.
  */
-export function SkillRow({ skill, attributes, cast }: SkillRowProps) {
+export function SkillRow({
+  skill,
+  attributes,
+  cast,
+  showCost = true,
+}: SkillRowProps) {
   return (
     <Popover>
       <PopoverTrigger
@@ -76,9 +87,11 @@ export function SkillRow({ skill, attributes, cast }: SkillRowProps) {
           <ItemTitle>{skill.name}</ItemTitle>
           <ItemDescription>{skill.tagline}</ItemDescription>
         </ItemContent>
-        <ItemActions className="w-16 justify-center">
-          <SkillCostBadge cost={skill.resolvedCost} className="w-full" />
-        </ItemActions>
+        {showCost ? (
+          <ItemActions className="w-16 justify-center">
+            <SkillCostBadge cost={skill.resolvedCost} className="w-full" />
+          </ItemActions>
+        ) : null}
       </PopoverTrigger>
       <PopoverContent
         align="start"
@@ -86,7 +99,12 @@ export function SkillRow({ skill, attributes, cast }: SkillRowProps) {
         className="w-80"
         initialFocus={false}
       >
-        <SkillCard skill={skill} attributes={attributes} cast={cast} />
+        <SkillCard
+          skill={skill}
+          attributes={attributes}
+          cast={cast}
+          showCost={showCost}
+        />
       </PopoverContent>
     </Popover>
   )

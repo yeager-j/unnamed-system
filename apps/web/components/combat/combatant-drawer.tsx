@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 
+import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -16,6 +17,7 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { Prose } from "@/components/shared/prose"
+import { SkillRow } from "@/components/shared/skill-row"
 import type { CombatantDetail, CombatEvent } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
@@ -25,7 +27,6 @@ import { CombatantConditionsSection } from "./combatant-conditions-section"
 import { CombatantEngagementSection } from "./combatant-engagement-section"
 import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
-import { EnemySkillPopover } from "./enemy-skill-popover"
 
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a
@@ -37,8 +38,9 @@ import { EnemySkillPopover } from "./enemy-skill-popover"
  * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
  * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
  * read-only (shared grids); a catalog enemy additionally shows read-only SKILLS
- * (each an {@link EnemySkillPopover} with the un-hydrated skill — no
- * character-resolved cost/Attack Roll) and its freeform ABILITIES Markdown.
+ * (each a shared {@link SkillRow}, hydrated against the enemy's flat Attributes
+ * so the Attack Roll readout matches a character's, with the cost row dropped —
+ * enemies pay no Skill costs) and its freeform ABILITIES Markdown.
  */
 export function CombatantDrawer({
   detail,
@@ -118,11 +120,16 @@ function DrawerBody({
 
         {detail.kind === "enemy" && detail.skills.length > 0 ? (
           <DetailSection title="Skills">
-            <div className="flex flex-wrap gap-1.5">
+            <ItemGroup className="gap-0">
               {detail.skills.map((skill) => (
-                <EnemySkillPopover key={skill.key} skill={skill} />
+                <SkillRow
+                  key={skill.key}
+                  skill={skill}
+                  attributes={detail.attributes}
+                  showCost={false}
+                />
               ))}
-            </div>
+            </ItemGroup>
           </DetailSection>
         ) : null}
 
