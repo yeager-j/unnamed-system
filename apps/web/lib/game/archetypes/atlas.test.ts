@@ -4,6 +4,7 @@ import type {
   CharacterArchetypeRow,
   CharacterRow,
 } from "@/lib/db/schema/character"
+import { makeArchetype } from "@/lib/game/__fixtures__"
 
 import {
   deriveHydratedCharacter,
@@ -106,19 +107,12 @@ function makeCharacter(options: {
 
 /** A synthetic Adept that advances from Knight at Rank 5, for prerequisite
  *  logic that the shipped Initiate-only catalog can't exercise on its own. */
-const syntheticAdept = {
+const syntheticAdept = makeArchetype({
   key: "synthetic-adept",
-  name: "Synthetic Adept",
   lineage: "knight",
   tier: "adept",
   prerequisites: [{ archetype: "knight", rank: 5 }],
-  inheritanceSlots: 3,
-  talents: [],
-  mastery: { kind: "hp", amount: 20 },
-  attributes: { strength: 3, magic: -1, agility: 1, luck: 0 },
-  affinities: {},
-  skills: [],
-} satisfies Archetype
+})
 
 describe("unmetPrerequisites", () => {
   it("is empty when the prerequisite Rank is met", () => {
@@ -253,6 +247,72 @@ describe("buildLineageAtlas", () => {
     }
   })
 
+  it("ignores an owned row whose Archetype key is not in the catalog", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+          archetypeRow({
+            id: "a2",
+            archetypeKey: "not-a-real-archetype",
+            rank: 4,
+          }),
+        ],
+      })
+    )
+    expect(view.unlockedCount).toBe(1)
+    const warrior = view.lineages.find((entry) => entry.lineage === "warrior")!
+    expect(warrior.progress).toEqual({ owned: 1, total: 1 })
+  })
+
+  it("leaves Origin Lineage null when the Origin row points at an unknown Archetype", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({
+            id: "a1",
+            archetypeKey: "not-a-real-archetype",
+            rank: 2,
+          }),
+        ],
+        originCharacterArchetypeId: "a1",
+      })
+    )
+    expect(view.originLineage).toBeNull()
+    for (const entry of view.lineages) expect(entry.isOrigin).toBeFalsy()
+  })
+
+  it("leaves Origin Lineage null when no Origin row is set", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+        ],
+        originCharacterArchetypeId: null,
+      })
+    )
+    expect(view.originLineage).toBeNull()
+  })
+
+  it("resolves Origin Lineage from the matching Origin row, not just any owned row", () => {
+    const view = buildLineageAtlas(
+      makeCharacter({
+        archetypeRows: [
+          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+          archetypeRow({ id: "a2", archetypeKey: "mage", rank: 1 }),
+        ],
+        originCharacterArchetypeId: "a2",
+      })
+    )
+    expect(view.originLineage).toBe("mage")
+    expect(
+      view.lineages.find((entry) => entry.lineage === "mage")!.isOrigin
+    ).toBe(true)
+    expect(
+      view.lineages.find((entry) => entry.lineage === "warrior")!.isOrigin
+    ).toBeFalsy()
+  })
+
   it("carries an Archetype's prerequisite keys as its parent links", () => {
     const view = buildLineageAtlas(makeCharacter({}))
     const knightNode = view.lineages
@@ -316,27 +376,90 @@ describe("filterAtlasLineagesToUnlocked", () => {
   })
 })
 
-/**
- * Hand-built Atlas views let the recommendation tests exercise every node state
- * — including `locked` and `mastered`, which the shipped Initiate-only catalog
- * can't produce on its own — and reach the full three-slot fill the small
- * catalog otherwise can't.
- */
-function makeArchetype(
-  archetype: Pick<Archetype, "key" | "lineage" | "tier"> & Partial<Archetype>
-): Archetype {
-  return {
-    name: archetype.key,
-    prerequisites: [],
-    inheritanceSlots: 3,
-    talents: [],
-    mastery: { kind: "hp", amount: 10 },
-    attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
-    affinities: {},
-    skills: [],
-    ...archetype,
-  }
-}
+// Inject a fixture catalog so buildLineageAtlas exercises the multi-tier
+// sort and prerequisite resolution the shipped one-per-Lineage/no-prereq
+// catalog can't reach. (Only the demo catalog has these in the running app.)
+describe("buildLineageAtlas — injected multi-Archetype catalog", () => {
+  const fxInitiate = makeArchetype({
+    key: "fx-initiate",
+    lineage: "warrior",
+    tier: "initiate",
+  })
+  const fxAdeptA = makeArchetype({
+    key: "fx-adept-a",
+    lineage: "warrior",
+    tier: "adept",
+    prerequisites: [{ archetype: "fx-initiate", rank: 5 }],
+  })
+  const fxAdeptB = makeArchetype({
+    key: "fx-adept-b",
+    lineage: "warrior",
+    tier: "adept",
+  })
+  // Deliberately out of key/tier order so the within-tier sort must reorder.
+  const CATALOG = [fxAdeptB, fxAdeptA, fxInitiate]
+
+  const warriorColumns = (view: LineageAtlasView) =>
+    view.lineages.find((l) => l.lineage === "warrior")!.columns
+  const nodeFor = (view: LineageAtlasView, key: string) =>
+    view.lineages
+      .flatMap((l) => l.columns)
+      .flatMap((c) => c.nodes)
+      .find((n) => n.archetype.key === key)!
+
+  it("orders same-tier Archetypes within a column by key", () => {
+    const adept = warriorColumns(
+      buildLineageAtlas(makeCharacter({}), CATALOG)
+    ).find((c) => c.tier === "adept")!
+    expect(adept.nodes.map((n) => n.archetype.key)).toEqual([
+      "fx-adept-a",
+      "fx-adept-b",
+    ])
+  })
+
+  it("groups Archetypes into their tier columns", () => {
+    const columns = warriorColumns(
+      buildLineageAtlas(makeCharacter({}), CATALOG)
+    )
+    expect(
+      columns
+        .find((c) => c.tier === "initiate")!
+        .nodes.map((n) => n.archetype.key)
+    ).toEqual(["fx-initiate"])
+    expect(columns.find((c) => c.tier === "adept")!.nodes).toHaveLength(2)
+    expect(columns.find((c) => c.tier === "elite")!.nodes).toEqual([])
+  })
+
+  it("leaves a Lineage with no catalog Archetypes empty", () => {
+    const mage = buildLineageAtlas(makeCharacter({}), CATALOG).lineages.find(
+      (l) => l.lineage === "mage"
+    )!
+    expect(mage.columns.every((c) => c.nodes.length === 0)).toBe(true)
+  })
+
+  it("locks an Archetype with an unmet prerequisite, listing it + parent keys", () => {
+    const adeptA = nodeFor(
+      buildLineageAtlas(makeCharacter({}), CATALOG),
+      "fx-adept-a"
+    )
+    expect(adeptA.state).toEqual({
+      kind: "locked",
+      unmetPrerequisites: [{ archetype: "fx-initiate", rank: 5 }],
+    })
+    expect(adeptA.parentKeys).toEqual(["fx-initiate"])
+  })
+
+  it("unlocks it once the prerequisite Archetype is owned at the required rank", () => {
+    const character = makeCharacter({
+      archetypeRows: [
+        archetypeRow({ id: "r1", archetypeKey: "fx-initiate", rank: 5 }),
+      ],
+    })
+    expect(
+      nodeFor(buildLineageAtlas(character, CATALOG), "fx-adept-a").state
+    ).toEqual({ kind: "unlockable" })
+  })
+})
 
 function node(
   state: AtlasNodeState,
@@ -838,6 +961,336 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(getAtlasRecommendations(view, "skill-focused", 5)).toEqual([])
+  })
+
+  it("prefers a rank-up over a fresh unlock at the same tier in the Origin Lineage", () => {
+    // Both Origin-Lineage nodes are Initiate, so tier can't decide: the owned
+    // (rank-up) node must win over the unlockable one via actionRank. The owned
+    // node's key sorts later, so the localeCompare tie-break alone would pick the
+    // fresh one — isolating actionRank as the discriminator.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            { key: "a-fresh", lineage: "warrior", tier: "initiate" }
+          ),
+          node(
+            { kind: "owned", rank: 2 },
+            { key: "z-owned", lineage: "warrior", tier: "initiate" },
+            "a1"
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+      "z-owned"
+    )
+  })
+
+  it("breaks an Origin tie by Archetype key when tier and action match", () => {
+    // Two unlockable Initiates in the Origin Lineage: only localeCompare on key
+    // can order them, so the lexicographically-smaller key must lead.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            { key: "zeta", lineage: "warrior", tier: "initiate" }
+          ),
+          node(
+            { kind: "unlockable" },
+            { key: "alpha", lineage: "warrior", tier: "initiate" }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+      "alpha"
+    )
+  })
+
+  it("orders the Origin pick by tier ahead of action and key", () => {
+    // The Initiate is a fresh unlock (actionRank 1, key 'z') and the Adept is a
+    // rank-up (actionRank 0, key 'a'). If tier did not lead the sort, actionRank
+    // would surface the Adept; tier must put the Initiate first.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            { key: "z-initiate", lineage: "warrior", tier: "initiate" }
+          ),
+          node(
+            { kind: "owned", rank: 2 },
+            { key: "a-adept", lineage: "warrior", tier: "adept" },
+            "a1"
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+      "z-initiate"
+    )
+  })
+
+  it("orders two same-tier Origin candidates by key, not by their summed tier", () => {
+    // Both Origin candidates are Adepts (tier rank 1), enumerated z-then-y. The
+    // correct tier *difference* is 0, so the key tie-break must surface 'y'
+    // first. A tier *sum* (1+1=2) would be non-zero, short-circuit the key, and
+    // leave the input order — so 'z' would wrongly lead.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            { key: "z-adept", lineage: "warrior", tier: "adept" }
+          ),
+          node(
+            { kind: "unlockable" },
+            { key: "y-adept", lineage: "warrior", tier: "adept" }
+          ),
+        ]),
+      ],
+    })
+
+    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+      "y-adept"
+    )
+  })
+
+  it("draws Slot 1 only from the Origin Lineage when one is actionable", () => {
+    // A non-origin Initiate sorts before the Origin Adept on every tie-break
+    // except the Origin filter. Slot 1 must still be the Origin Archetype,
+    // badged origin-lineage, and the non-origin node fills a later slot.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            { key: "warrior-adept", lineage: "warrior", tier: "adept" }
+          ),
+        ]),
+        lineageEntry(
+          "knight",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "aaa-knight", lineage: "knight", tier: "initiate" }
+            ),
+          ],
+          1
+        ),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "health-focused", 5)
+
+    expect(result[0]!.archetype.key).toBe("warrior-adept")
+    expect(result[0]!.reason).toBe("origin-lineage")
+    expect(result.map((r) => r.archetype.key)).toEqual([
+      "warrior-adept",
+      "aaa-knight",
+    ])
+  })
+
+  it("skips the Origin slot entirely when the Origin Lineage offers nothing", () => {
+    // Origin Lineage's only node is mastered (not recommendable). The fill pool
+    // must still produce a pick, and it must not be badged origin-lineage.
+    const view = makeView({
+      originLineage: "warrior",
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "mastered", rank: 5 },
+            { key: "warrior", lineage: "warrior", tier: "initiate" },
+            "a1"
+          ),
+        ]),
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            { key: "mage", lineage: "mage", tier: "initiate" }
+          ),
+        ]),
+      ],
+    })
+
+    const result = getAtlasRecommendations(view, "skill-focused", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual(["mage"])
+    expect(result[0]!.reason).toBe("fits-path")
+  })
+
+  it("ranks in-progress Lineages strictly ahead of untouched on-Path ones", () => {
+    // Both nodes are unlockable Initiates, so actionRank and tierRank tie; the
+    // on-Path untouched node even has the earlier key, so the localeCompare
+    // tie-break favors it. Only the ownedInLineage primary key — which reads
+    // '> 0', not '>= 0' (else both sides are 1 and the rule vanishes) — keeps
+    // the in-progress Lineage ahead.
+    const view = makeView({
+      lineages: [
+        lineageEntry("bard", [
+          node(
+            { kind: "unlockable" },
+            { key: "aaa-onpath", lineage: "bard", tier: "initiate" }
+          ),
+        ]),
+        lineageEntry(
+          "mage",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "zzz-inprogress", lineage: "mage", tier: "initiate" }
+            ),
+          ],
+          1
+        ),
+      ],
+    })
+
+    expect(
+      getAtlasRecommendations(view, "skill-focused", 5).map(
+        (r) => r.archetype.key
+      )
+    ).toEqual(["zzz-inprogress", "aaa-onpath"])
+  })
+
+  it("within one fill pool, prefers a rank-up before a fresh unlock", () => {
+    // Two in-progress on-Path nodes, same tier: the owned one (actionRank 0)
+    // leads the unlockable one (actionRank 1) despite a later key.
+    const view = makeView({
+      lineages: [
+        lineageEntry(
+          "mage",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "aaa-fresh", lineage: "mage", tier: "initiate" }
+            ),
+            node(
+              { kind: "owned", rank: 2 },
+              { key: "zzz-rankup", lineage: "mage", tier: "initiate" },
+              "a1"
+            ),
+          ],
+          2
+        ),
+      ],
+    })
+
+    expect(
+      getAtlasRecommendations(view, "skill-focused", 5).map(
+        (r) => r.archetype.key
+      )
+    ).toEqual(["zzz-rankup", "aaa-fresh"])
+  })
+
+  it("orders fill candidates by tier even across Lineages", () => {
+    // The Elite is enumerated first (its Lineage comes first), so candidate
+    // order is tier-descending; only a real tier subtraction can re-sort the
+    // Initiate ahead. The Elite also has the earlier key, so the localeCompare
+    // tie-break would keep it first if tierRank were dropped — isolating tier.
+    const view = makeView({
+      lineages: [
+        lineageEntry(
+          "warrior",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "aaa-elite", lineage: "warrior", tier: "elite" }
+            ),
+          ],
+          1
+        ),
+        lineageEntry(
+          "mage",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "zzz-initiate", lineage: "mage", tier: "initiate" }
+            ),
+          ],
+          1
+        ),
+      ],
+    })
+
+    expect(
+      getAtlasRecommendations(view, "skill-focused", 5).map(
+        (r) => r.archetype.key
+      )
+    ).toEqual(["zzz-initiate", "aaa-elite"])
+  })
+
+  it("breaks an otherwise-equal fill tie by Archetype key", () => {
+    // Two in-progress unlockable Initiates: only localeCompare can order them.
+    const view = makeView({
+      lineages: [
+        lineageEntry(
+          "mage",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "zeta", lineage: "mage", tier: "initiate" }
+            ),
+            node(
+              { kind: "unlockable" },
+              { key: "alpha", lineage: "mage", tier: "initiate" }
+            ),
+          ],
+          2
+        ),
+      ],
+    })
+
+    expect(
+      getAtlasRecommendations(view, "skill-focused", 5).map(
+        (r) => r.archetype.key
+      )
+    ).toEqual(["alpha", "zeta"])
+  })
+
+  it("caps the list at exactly three even when more are eligible", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry(
+          "mage",
+          [
+            node(
+              { kind: "unlockable" },
+              { key: "m1", lineage: "mage", tier: "initiate" }
+            ),
+            node(
+              { kind: "unlockable" },
+              { key: "m2", lineage: "mage", tier: "adept" }
+            ),
+            node(
+              { kind: "unlockable" },
+              { key: "m3", lineage: "mage", tier: "elite" }
+            ),
+            node(
+              { kind: "unlockable" },
+              { key: "m4", lineage: "mage", tier: "paragon" }
+            ),
+          ],
+          4
+        ),
+      ],
+    })
+
+    const keys = getAtlasRecommendations(view, "skill-focused", 5).map(
+      (r) => r.archetype.key
+    )
+    expect(keys).toEqual(["m1", "m2", "m3"])
   })
 
   it("composes with the real view builder over the shipped catalog", () => {

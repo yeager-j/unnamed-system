@@ -10,7 +10,7 @@ import {
 } from "../character/lineage"
 import type { PathChoice } from "../character/state"
 import { hasMasteryBonus } from "./rank"
-import { ARCHETYPES, getArchetype } from "./registry"
+import { ARCHETYPES } from "./registry"
 import {
   ARCHETYPE_TIERS,
   type Archetype,
@@ -154,23 +154,27 @@ export function atlasNodeState(
  * uses for connection lines. Owned state is resolved from the character's
  * `characterArchetype` rows (keyed by Archetype slug — a character owns at most
  * one row per Archetype).
+ *
+ * `catalog` defaults to the full {@link ARCHETYPES} registry; it is a parameter
+ * so tests can inject a fixture catalog with the multi-tier lineages and
+ * prerequisites the shipped set doesn't yet carry (the demo set does), to
+ * exercise the tier sort and prerequisite resolution.
  */
 export function buildLineageAtlas(
-  character: HydratedCharacter
+  character: HydratedCharacter,
+  catalog: readonly Archetype[] = ARCHETYPES
 ): LineageAtlasView {
+  const byKey = new Map(catalog.map((archetype) => [archetype.key, archetype]))
   const ownedRowByKey = new Map<string, CharacterArchetypeRow>()
   for (const row of character.archetypeRows) {
-    if (getArchetype(row.archetypeKey)) ownedRowByKey.set(row.archetypeKey, row)
+    if (byKey.has(row.archetypeKey)) ownedRowByKey.set(row.archetypeKey, row)
   }
   const ownedRankByKey = new Map<string, number>(
     [...ownedRowByKey].map(([key, row]) => [key, row.rank])
   )
 
-  const tierIndex = new Map<ArchetypeTier, number>(
-    ARCHETYPE_TIERS.map((tier, index) => [tier, index])
-  )
   const byLineage = new Map<Lineage, Archetype[]>()
-  for (const archetype of ARCHETYPES) {
+  for (const archetype of catalog) {
     const bucket = byLineage.get(archetype.lineage) ?? []
     bucket.push(archetype)
     byLineage.set(archetype.lineage, bucket)
@@ -182,16 +186,15 @@ export function buildLineageAtlas(
       )
     : undefined
   const originLineage =
-    (originRow && getArchetype(originRow.archetypeKey)?.lineage) ?? null
+    (originRow && byKey.get(originRow.archetypeKey)?.lineage) ?? null
 
   const lineages: AtlasLineage[] = LINEAGES.map((lineage) => {
+    // Sort by key only; the `columns` projection below already orders by tier
+    // (it filters into ARCHETYPE_TIERS-ordered buckets), so a tier sort here
+    // would be redundant.
     const archetypes = (byLineage.get(lineage) ?? [])
       .slice()
-      .sort(
-        (a, b) =>
-          tierIndex.get(a.tier)! - tierIndex.get(b.tier)! ||
-          a.key.localeCompare(b.key)
-      )
+      .sort((a, b) => a.key.localeCompare(b.key))
 
     const nodes: AtlasNode[] = archetypes.map((archetype) => {
       const ownedRow = ownedRowByKey.get(archetype.key)
@@ -203,9 +206,7 @@ export function buildLineageAtlas(
           ownedRankByKey
         ),
         characterArchetypeId: ownedRow?.id ?? null,
-        parentKeys: archetype.prerequisites.map(
-          (prerequisite) => prerequisite.archetype
-        ),
+        parentKeys: archetype.prerequisites.map((p) => p.archetype),
       }
     })
 
@@ -274,6 +275,7 @@ const SUGGESTED_PATH_BY_CHOICE: Record<PathChoice, SuggestedPath> = {
 }
 
 const TIER_RANK = new Map<ArchetypeTier, number>(
+  // Stryker disable next-line ArrowFunction: a `() => undefined` mutant breaks this module-level Map at import; Stryker (coverageAnalysis "off") can't observe an import-time throw, so it can't kill it. The sibling ArrayDeclaration mutant on this line IS killed by the recommendation tier-ordering tests, proving the value is load-bearing.
   ARCHETYPE_TIERS.map((tier, index) => [tier, index])
 )
 
