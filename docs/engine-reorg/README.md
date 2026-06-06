@@ -1,7 +1,8 @@
-# `lib/game` reorg — Data / Engine / Foundation
+# Extract `lib/game` → `packages/game` (Data / Engine / Foundation)
 
-Status: **planned** (move not yet executed). This doc is both the decision record
-and the execution checklist for splitting `apps/web/lib/game` into three layers.
+Status: **planned** (not yet executed). Decision record + execution checklist for
+extracting `apps/web/lib/game` into its own Turborepo package, `packages/game`,
+internally split into three layers (`foundation` / `data` / `engine`).
 
 ## Why
 
@@ -10,12 +11,29 @@ and the execution checklist for splitting `apps/web/lib/game` into three layers.
 **data** (catalog definitions), pure **engine** logic, and the shared
 **type/vocabulary** layer both depend on. That muddiness is why mutation testing
 needs the `--ignoreStatic` workaround and why `mutate`/CI can't cleanly target
-"the engine." Separating the layers lets us:
+"the engine."
 
-- scope Stryker to `engine/**` and drop `--ignoreStatic`,
-- trigger the mutation job in CI only when engine code changes,
-- make the data→engine dependency direction **greppable** (and lintable), and
-- give "should this be tested?" a crisp answer per layer.
+A **coupling audit** (2026-06) found `lib/game` is already a runtime-pure leaf:
+no React / Next / `server-only`, no auth / storage / actions / components imports.
+Its *only* tether to the app is a **type-only** edge to `@/lib/db/schema` — 8
+files importing 4 Drizzle row types. db→game is heavy (22 files) and correct;
+game→db is the one wrong-direction edge. Severing it (Step 0) makes `game` a
+clean leaf, which is why a package — not just a directory split — is on the table.
+
+The package buys, over a directory reorg + lint rule:
+
+- **Boundary by module resolution, not convention** — the package `exports` map
+  *is* the public API; the three layers become entry points
+  (`@unnamed/game/{foundation,data,engine}`) the app physically can't bypass.
+- **Turbo caching at the package graph** — "test / mutate only when the engine
+  changes" becomes natural (the package is a cache node), not a CI path-filter hack.
+- **Purity as a structural invariant** — once packaged, an accidental
+  `import "next/…"` won't resolve.
+- and the layer wins: scope Stryker to `engine/**`, drop `--ignoreStatic`, give
+  "should this be tested?" a crisp per-layer answer.
+
+**Not for reuse** — there's no second consumer and MVP scope rules out separate
+tooling. The win is enforcement + a clean test-signal home + forced purity.
 
 ## The three layers and the one rule
 
@@ -36,12 +54,20 @@ not swappable content).
 ## Target tree
 
 ```
-lib/game/
-  foundation/
-  data/
-  engine/
-  __fixtures__/        (move under engine/__fixtures__ — they're engine-test doubles)
+packages/game/
+  package.json          (name "@unnamed/game"; mirror packages/ui — source, transpilePackages, no build step)
+  tsconfig.json
+  vitest.config.ts      (moves from apps/web — owns the engine test signal)
+  stryker.conf.mjs      (moves from apps/web — mutate scoped to src/engine/**)
+  src/
+    foundation/
+    data/
+    engine/
+    __fixtures__/        (engine-test doubles)
 ```
+
+`apps/web` depends on `@unnamed/game`; all destination paths in the move map
+below are under `packages/game/src/`.
 
 ## Decisions locked
 
@@ -105,6 +131,32 @@ with the top-level domain barrels (deleted in step 5).
 - `engine/skills/`: `utils`
 - `engine/items/`: `utils`, `mutate`
 
+## Step 0 — sever the `game → db` type cycle (do first; required for packaging)
+
+`game` is a clean leaf except for **8 files** importing 4 Drizzle row types from
+`@/lib/db/schema`: `CharacterRow`, `CharacterArchetypeRow`, `InventoryItemRow`
+(`schema/character.ts`), `EncounterStatus` (`schema/encounter.ts`). A package
+can't import from the app, so this edge must be severed first.
+
+The wrinkle: those types are `typeof <table>.$inferSelect` — **inferred from**
+the Drizzle tables, which can't move (they pull in `drizzle-orm`, FK refs,
+`drizzle-zod`). So game must *re-declare* the persisted contract; db conforms.
+
+**Approach (pending confirmation — see the PR thread):** `foundation/` declares
+the persisted record types (`CharacterRecord`, `CharacterArchetypeRecord`,
+`InventoryItemRecord`; `EncounterStatus` as a plain union), reusing the game
+jsonb types it already owns — so only the ~20 scalar columns are newly listed.
+`db/schema` keeps its tables and adds a compile-time conformance assert
+(`typeof characters.$inferSelect` must satisfy `CharacterRecord` and vice-versa),
+so adding a column without updating both is a compile error, not silent drift.
+The 8 game files import the records from `foundation`; `HydratedCharacter` stays
+structurally identical (`CharacterRecord & { …derived }`), so no consumer breaks.
+
+**Cost:** the column list lives in two places (the Drizzle table + the game
+record), kept honest by the assert. That's the price of `game` being a leaf.
+
+After this, `grep -r "@/lib/db" lib/game` is empty and the package can be cut.
+
 ## The four splits (do these *first*, as IDE "move members to file" refactors)
 
 Each separates a file along the layer boundary. The data/engine half imports the
@@ -152,29 +204,37 @@ schema half; the schema half imports neither — no cycles.
 
 ## Tooling changes (land in the move PR)
 
-- **`stryker.conf.mjs`:** `mutate: ["lib/game/engine/**/*.ts", "!lib/game/engine/**/*.test.ts"]`;
-  remove the `--ignoreStatic` workaround from the workflow; consider revisiting
-  `coverageAnalysis: "perTest"` for speed now that static-heavy data is excluded.
-- **`vitest.config.ts`:** scope coverage `include` to `lib/game/engine/**`.
-- **CI:** a mutation job gated on a `lib/game/engine/**` paths filter (runs only
-  when engine code changes; never blocks on a full run).
-- **ESLint:** a `no-restricted-imports` (or import-boundary) rule forbidding
-  `engine` from value-importing `data` (type-only allowed) — turns the inversion
-  debt into a lint signal.
-- Update `CLAUDE.md` Repo Structure + the Testing section to describe the layers.
+These move *into* the package (it owns its own test signal):
+
+- **`packages/game/stryker.conf.mjs`:** `mutate: ["src/engine/**/*.ts", "!src/engine/**/*.test.ts"]`;
+  drop the `--ignoreStatic` workaround; consider `coverageAnalysis: "perTest"` for
+  speed now that static-heavy data is excluded.
+- **`packages/game/vitest.config.ts`:** coverage `include` scoped to `src/engine/**`.
+- **CI:** the mutation job keys off the `@unnamed/game` package (Turbo cache) —
+  runs only when the package changes; never blocks on a full run.
+- **ESLint:** an import-boundary rule forbidding `engine` from value-importing
+  `data` (type-only allowed) — turns the inversion debt into a lint signal. (The
+  package `exports` map already blocks reaching *internals* from `apps/web`.)
+- Update root `CLAUDE.md` (Repo Structure + Testing) to describe `packages/game`
+  and its layers; the `apps/web/CLAUDE.md` pointers that reference `lib/game/*`.
 
 ## Execution order
 
-1. Branch (zero other open `lib/game` branches — this conflicts with everything).
-2. Create `foundation/`, `data/`, `engine/`.
-3. Do the **four splits** (IDE move-members-to-file).
-4. **Whole-file moves** per the map (IDE move; let it fix imports).
-5. Delete the **top-level domain barrels** (`skills/index.ts`, `combat/index.ts`,
+1. **Step 0** — sever the `game → db` type cycle (above). After this `lib/game`
+   has zero app coupling.
+2. Branch (zero other open `lib/game` branches — this conflicts with everything).
+3. Scaffold `packages/game` (`package.json` + `tsconfig` mirroring `packages/ui`;
+   add `@unnamed/game` to `apps/web` deps + `transpilePackages`).
+4. Do the **four splits** (IDE move-members-to-file).
+5. **Whole-file moves** per the map into `packages/game/src/{foundation,data,engine}`
+   (IDE move; let it fix imports).
+6. Delete the **top-level domain barrels** (`skills/index.ts`, `combat/index.ts`,
    …) — **not** the per-category slice indexes (`skills/fire/index.ts` & friends),
-   which move with their data — and repoint stragglers to layered paths.
-6. Tooling changes + `CLAUDE.md` + this doc's status → done.
-7. Verify: `npm run typecheck`, `npm run test`, `npm run lint` all green.
-8. Scoped Stryker on `engine/**` to confirm parity (~same scores as today).
+   which move with their data — and repoint stragglers to the package entry points.
+7. Move the Stryker/Vitest configs into the package; add the ESLint boundary rule;
+   update `CLAUDE.md`; flip this doc's status → done.
+8. Verify: `npm run typecheck`, `npm run test`, `npm run lint`, `npm run build` green.
+9. Scoped Stryker on the package's `engine/**` to confirm parity (~same scores).
 
 ## Verification & follow-up
 
