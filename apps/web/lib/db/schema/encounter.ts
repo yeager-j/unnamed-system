@@ -19,7 +19,7 @@ import { campaigns } from "./campaign"
  *
  * `shortId` backs the signed-out-visible player watch view; `status` gates the
  * single-live-encounter-per-campaign rule (enforced app-side, UNN-302).
- * {@link EncounterStatus} is owned by the game domain (`@/lib/game/encounter`).
+ * {@link EncounterStatus} is owned by the game domain (`@workspace/game/foundation`).
  */
 export const encounters = pgTable("encounter", {
   id: text("id")

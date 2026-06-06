@@ -15,7 +15,7 @@ import {
 
 /**
  * Drift guard for the type-ownership inversion (Step 0, docs/engine-reorg): the
- * game domain owns the persisted-record shapes (`@/lib/game/character` →
+ * game domain owns the persisted-record shapes (`@workspace/game/foundation` →
  * records.ts) and the Drizzle tables here must conform. These are type-level
  * assertions — a column added or changed without updating the game record fails
  * `npm run typecheck` (and this suite), so the two can never silently drift.

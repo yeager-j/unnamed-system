@@ -41,7 +41,7 @@ import { users } from "./user"
  * values (displayed Attributes, Affinity chart, max HP/SP) are never stored —
  * they are derived from this row plus hardcoded game data. The row's TypeScript
  * shape ({@link CharacterRow}) and its lifecycle status ({@link CharacterStatus})
- * are owned by the game domain (`@/lib/game/character`); the conformance asserts
+ * are owned by the game domain (`@workspace/game/foundation`); the conformance asserts
  * at the bottom of this file prove this table matches that contract.
  */
 export const characters = pgTable("character", {
@@ -293,7 +293,7 @@ export const selectActionLogEntrySchema = createSelectSchema(actionLogEntries)
 /**
  * The persisted row shapes the pure derivation layer reads. `CharacterRow`,
  * `CharacterArchetypeRow`, and `InventoryItemRow` are **owned by the game
- * domain** (`@/lib/game/character` → `records.ts`) so the engine never depends
+ * domain** (`@workspace/game/foundation` → `records.ts`) so the engine never depends
  * on this persistence layer; the asserts below prove each table's inferred shape
  * conforms to that contract, so the two can't drift. `CharacterKnife`/
  * `CharacterChain` have no engine consumer, so they stay inferred here. The
