@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { makeArchetypeRow, makeRawCharacterInputs } from "../../__fixtures__"
+import {
+  makeArchetype,
+  makeArchetypeRow,
+  makeRawCharacterInputs,
+} from "../../__fixtures__"
 import { MASTERY_RANK } from "../../archetypes/rank"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { reduceArchetypeEdit } from "./archetypes"
@@ -230,6 +234,75 @@ describe("reduceArchetypeEdit — rankUpArchetype", () => {
         raw,
         { kind: "rankUpArchetype", characterArchetypeId: "ghost" },
         STABLE_ID
+      )
+    ).toBeNull()
+  })
+})
+
+describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalog)", () => {
+  const PREREQ_CATALOG = [
+    makeArchetype({ key: "base" }),
+    makeArchetype({
+      key: "advanced",
+      prerequisites: [{ archetype: "base", rank: 5 }],
+    }),
+  ]
+
+  it("is a no-op when a prerequisite Rank is not yet met", () => {
+    const raw = makeRawCharacterInputs({
+      row: { savedArchetypeRanks: 2 },
+      archetypeRows: [
+        makeArchetypeRow({ id: "a1", archetypeKey: "base", rank: 4 }),
+      ],
+    })
+    expect(
+      reduceArchetypeEdit(
+        raw,
+        { kind: "unlockArchetype", archetypeKey: "advanced" },
+        STABLE_ID,
+        PREREQ_CATALOG
+      )
+    ).toBeNull()
+  })
+
+  it("unlocks once every prerequisite is met", () => {
+    const raw = makeRawCharacterInputs({
+      row: { savedArchetypeRanks: 2 },
+      archetypeRows: [
+        makeArchetypeRow({ id: "a1", archetypeKey: "base", rank: 5 }),
+      ],
+    })
+    const next = reduceArchetypeEdit(
+      raw,
+      { kind: "unlockArchetype", archetypeKey: "advanced" },
+      STABLE_ID,
+      PREREQ_CATALOG
+    )
+    expect(
+      next?.archetypeRows.find((row) => row.id === "minted-id")?.archetypeKey
+    ).toBe("advanced")
+    expect(next?.row.savedArchetypeRanks).toBe(1)
+  })
+
+  it("does not count an owned row outside the catalog toward prerequisites", () => {
+    const catalog = [
+      makeArchetype({
+        key: "advanced",
+        prerequisites: [{ archetype: "phantom", rank: 5 }],
+      }),
+    ]
+    const raw = makeRawCharacterInputs({
+      row: { savedArchetypeRanks: 2 },
+      archetypeRows: [
+        makeArchetypeRow({ id: "a1", archetypeKey: "phantom", rank: 9 }),
+      ],
+    })
+    expect(
+      reduceArchetypeEdit(
+        raw,
+        { kind: "unlockArchetype", archetypeKey: "advanced" },
+        STABLE_ID,
+        catalog
       )
     ).toBeNull()
   })

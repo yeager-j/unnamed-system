@@ -102,14 +102,8 @@ export function describeAllocationProgress(allocation: RawVirtueAllocation): {
   remaining: { plusTwo: boolean; plusOnes: number }
   valid: boolean
 } {
-  const plusTwoEntries = VIRTUE_KEYS.filter((key) => allocation[key] === 2)
-  const plusOneEntries = VIRTUE_KEYS.filter((key) => allocation[key] === 1)
-  const plusTwo = plusTwoEntries[0] ?? null
-  const plusOnes = plusOneEntries
-
-  const tooManyPlusTwos = plusTwoEntries.length > 1
-  const tooManyPlusOnes = plusOneEntries.length > 2
-  const overflow = tooManyPlusTwos || tooManyPlusOnes
+  const plusOnes = VIRTUE_KEYS.filter((key) => allocation[key] === 1)
+  const plusTwo = VIRTUE_KEYS.filter((key) => allocation[key] === 2)[0] ?? null
 
   return {
     plusTwo,
@@ -118,6 +112,6 @@ export function describeAllocationProgress(allocation: RawVirtueAllocation): {
       plusTwo: plusTwo === null,
       plusOnes: Math.max(0, 2 - plusOnes.length),
     },
-    valid: !overflow && isValidCreationAllocation(allocation),
+    valid: isValidCreationAllocation(allocation),
   }
 }
