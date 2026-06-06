@@ -24,7 +24,7 @@ The package buys, over a directory reorg + lint rule:
 
 - **Boundary by module resolution, not convention** — the package `exports` map
   *is* the public API; the three layers become entry points
-  (`@unnamed/game/{foundation,data,engine}`) the app physically can't bypass.
+  (`@workspace/game/{foundation,data,engine}`) the app physically can't bypass.
 - **Turbo caching at the package graph** — "test / mutate only when the engine
   changes" becomes natural (the package is a cache node), not a CI path-filter hack.
 - **Purity as a structural invariant** — once packaged, an accidental
@@ -55,7 +55,7 @@ not swappable content).
 
 ```
 packages/game/
-  package.json          (name "@unnamed/game"; mirror packages/ui — source, transpilePackages, no build step)
+  package.json          (name "@workspace/game"; mirror packages/ui — source, transpilePackages, no build step)
   tsconfig.json
   vitest.config.ts      (moves from apps/web — owns the engine test signal)
   stryker.conf.mjs      (moves from apps/web — mutate scoped to src/engine/**)
@@ -66,7 +66,7 @@ packages/game/
     __fixtures__/        (engine-test doubles)
 ```
 
-`apps/web` depends on `@unnamed/game`; all destination paths in the move map
+`apps/web` depends on `@workspace/game`; all destination paths in the move map
 below are under `packages/game/src/`.
 
 ## Decisions locked
@@ -220,7 +220,7 @@ These move *into* the package (it owns its own test signal):
   drop the `--ignoreStatic` workaround; consider `coverageAnalysis: "perTest"` for
   speed now that static-heavy data is excluded.
 - **`packages/game/vitest.config.ts`:** coverage `include` scoped to `src/engine/**`.
-- **CI:** the mutation job keys off the `@unnamed/game` package (Turbo cache) —
+- **CI:** the mutation job keys off the `@workspace/game` package (Turbo cache) —
   runs only when the package changes; never blocks on a full run.
 - **ESLint:** an import-boundary rule forbidding `engine` from value-importing
   `data` (type-only allowed) — turns the inversion debt into a lint signal. (The
@@ -233,8 +233,12 @@ These move *into* the package (it owns its own test signal):
 1. ✅ **Step 0** — sever the `game → db` type cycle (done, this PR). `lib/game`
    now has zero app coupling (source + tests).
 2. Branch (zero other open `lib/game` branches — this conflicts with everything).
-3. Scaffold `packages/game` (`package.json` + `tsconfig` mirroring `packages/ui`;
-   add `@unnamed/game` to `apps/web` deps + `transpilePackages`).
+3. ✅ Scaffold `packages/game` (done, this PR): `@workspace/game` — source-consumed
+   (no build, `transpilePackages`), non-React (`base.json` + Bundler resolution),
+   `zod`/`immer` deps, vitest + stryker configs, `exports` for `./{foundation,data,
+   engine}/*`. Wired into `apps/web` (dep + `transpilePackages` + tsconfig path).
+   `src/_scaffold.ts` + the `.gitkeep`s are a temporary empty-package placeholder —
+   delete once the first real modules move in.
 4. Do the **four splits** (IDE move-members-to-file).
 5. **Whole-file moves** per the map into `packages/game/src/{foundation,data,engine}`
    (IDE move; let it fix imports).
@@ -255,7 +259,7 @@ These move *into* the package (it owns its own test signal):
   `engine/enemies/` with the new tooling.
 - **Future `packages/db`** — when a second app (mobile, a second Next.js app)
   needs persistence, lift `lib/db` into its own package depending on
-  `@unnamed/game` (db → game is the correct direction; Step 0 guarantees game
+  `@workspace/game` (db → game is the correct direction; Step 0 guarantees game
   never imports db, so no cycle). It sits *above* game in the graph: `game`
   (leaf) ← `db` ← `apps/*`. Not worth doing until a second consumer is real —
   but Step 0 is what unlocks it.
