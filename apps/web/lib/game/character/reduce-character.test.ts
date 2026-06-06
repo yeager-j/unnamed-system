@@ -120,6 +120,22 @@ describe("toRawInputs / deriveHydratedCharacter round-trip", () => {
   })
 })
 
+describe("deriveHydratedCharacter skill hydration", () => {
+  it("resolves an hp-percent Skill cost against the character's derived max HP", () => {
+    // Level 5 Balanced → 20 + 6*4 = 44 max HP. Cleave (Warrior Rank 1) costs
+    // 5% HP, so the resolved cost is floor(44 * 0.05) = 2. Pinned above 40 max
+    // HP on purpose: the floor-at-1 in resolveCost would otherwise mask a wrong
+    // value flowing into hydrateSkill at this call site (UNN-350 seam) — at 20
+    // max HP, maxSP/currentHP/level would all still resolve to 1.
+    const raw = makeRaw()
+    raw.row.level = 5
+    const character = deriveHydratedCharacter(raw)
+
+    const cleave = character.skills.find((skill) => skill.key === "cleave")
+    expect(cleave?.resolvedCost).toEqual({ kind: "hp", amount: 2 })
+  })
+})
+
 describe("reduceCharacter", () => {
   it("equipping armor re-derives the affinity chart", () => {
     const character = make()
