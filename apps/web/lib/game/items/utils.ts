@@ -51,7 +51,6 @@ export function equipItem(
 
   const next = items.map((item) => {
     if (item.id === itemId) return { ...item, equipped: true }
-    if (!item.equipped) return item
     const itsSlot = getEquippableItem(item.catalogItemKey)?.equip.slot
     return itsSlot === targetSlot ? { ...item, equipped: false } : item
   })

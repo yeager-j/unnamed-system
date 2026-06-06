@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest"
 
+import type { HydratedInventoryItem } from "../character"
+import {
+  magicAccessory,
+  nullWeapon,
+  spAccessory,
+  weaknessArmor,
+} from "../__fixtures__"
 import { getEquippableItem, getItem } from "./registry"
-import { isConsumable, isEquippable, isStackable } from "./schema"
+import {
+  isConsumable,
+  isEquippable,
+  isStackable,
+  type Item,
+} from "./schema"
 import {
   addItem,
   equipItem,
   removeItem,
+  resolveInventory,
   setItemQuantity,
   unequipItem,
   type InventoryItemState,
@@ -161,6 +174,23 @@ describe("unequipItem", () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value).toEqual([longswordA])
+  })
+
+  it("leaves other equipped rows untouched", () => {
+    const result = unequipItem(
+      [
+        { ...longswordA, equipped: true },
+        { ...bladeturnMailA, equipped: true },
+      ],
+      longswordA.id
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value).toEqual([
+      longswordA,
+      { ...bladeturnMailA, equipped: true },
+    ])
   })
 
   it("returns item-not-found when no row matches the id", () => {
@@ -342,6 +372,29 @@ describe("setItemQuantity", () => {
     expect(result.value).toEqual([longswordA])
   })
 
+  it("clamps an orphaned (unshipped) row to a stackSize of 1", () => {
+    const orphan: InventoryItemState = {
+      id: "row-orphan",
+      catalogItemKey: "unshipped-item",
+      equipped: false,
+      quantity: 1,
+    }
+
+    const result = setItemQuantity([orphan], orphan.id, 9)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value).toEqual([orphan])
+  })
+
+  it("leaves rows other than the target unchanged", () => {
+    const result = setItemQuantity([longswordA, soulDropA], soulDropA.id, 12)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value).toEqual([longswordA, { ...soulDropA, quantity: 12 }])
+  })
+
   it("returns item-not-found when no row matches", () => {
     const result = setItemQuantity([soulDropA], "row-missing", 2)
 
@@ -412,5 +465,136 @@ describe("capability traits", () => {
     expect(isConsumable(soulDrop)).toBe(true)
     expect(soulDrop.stackSize).toBe(999)
     expect(getEquippableItem("soul-drop")).toBeUndefined()
+  })
+})
+
+/** A bare material: neither equippable (no `equip`) nor consumable. */
+const material: Item = {
+  key: "fixture-material",
+  name: "Fixture Material",
+  description: "Test-only: a plain material.",
+  stackSize: 1,
+}
+
+/** A consumable elixir, so resolveInventory has a consumables branch to fill. */
+const elixir: Item = {
+  key: "fixture-elixir",
+  name: "Fixture Elixir",
+  description: "Test-only: a consumable.",
+  stackSize: 5,
+  consumable: true,
+}
+
+/** Builds a hydrated inventory row from a resolved catalog `item`. */
+function row(
+  id: string,
+  item: Item | undefined,
+  overrides: { equipped?: boolean; quantity?: number } = {}
+): HydratedInventoryItem {
+  return {
+    id,
+    characterId: "char-1",
+    catalogItemKey: item?.key ?? "unshipped",
+    equipped: overrides.equipped ?? false,
+    quantity: overrides.quantity ?? 1,
+    item,
+  }
+}
+
+describe("resolveInventory", () => {
+  it("groups equippable rows by their slot", () => {
+    const resolved = resolveInventory([
+      row("w", nullWeapon),
+      row("a", weaknessArmor),
+      row("c", magicAccessory),
+    ])
+
+    expect(resolved.itemsBySlot.weapon.map((e) => e.id)).toEqual(["w"])
+    expect(resolved.itemsBySlot.armor.map((e) => e.id)).toEqual(["a"])
+    expect(resolved.itemsBySlot.accessory.map((e) => e.id)).toEqual(["c"])
+  })
+
+  it("carries each row's id, equip state, and quantity onto the entry", () => {
+    const resolved = resolveInventory([
+      row("w", nullWeapon, { equipped: true, quantity: 3 }),
+    ])
+
+    expect(resolved.itemsBySlot.weapon).toEqual([
+      { id: "w", item: nullWeapon, equipped: true, quantity: 3 },
+    ])
+  })
+
+  it("resolves the equipped item per slot", () => {
+    const resolved = resolveInventory([
+      row("w", nullWeapon, { equipped: true }),
+      row("a", weaknessArmor, { equipped: true }),
+      row("c", magicAccessory, { equipped: true }),
+    ])
+
+    expect(resolved.equippedWeapon).toBe(nullWeapon)
+    expect(resolved.equippedArmor).toBe(weaknessArmor)
+    expect(resolved.equippedAccessory).toBe(magicAccessory)
+  })
+
+  it("leaves each equipped slot null when nothing in it is equipped", () => {
+    const resolved = resolveInventory([
+      row("w", nullWeapon),
+      row("a", weaknessArmor),
+      row("c", magicAccessory),
+    ])
+
+    expect(resolved.equippedWeapon).toBeNull()
+    expect(resolved.equippedArmor).toBeNull()
+    expect(resolved.equippedAccessory).toBeNull()
+  })
+
+  it("picks the equipped accessory rather than the first one in the slot", () => {
+    const resolved = resolveInventory([
+      row("sp", spAccessory, { equipped: true }),
+      row("magic", magicAccessory),
+    ])
+
+    expect(resolved.equippedAccessory).toBe(spAccessory)
+  })
+
+  it("sorts entries within a slot alphabetically by name", () => {
+    const resolved = resolveInventory([
+      row("sp", spAccessory),
+      row("magic", magicAccessory),
+    ])
+
+    expect(resolved.itemsBySlot.accessory.map((e) => e.item.name)).toEqual([
+      "Fixture Magic Accessory",
+      "Fixture SP Accessory",
+    ])
+  })
+
+  it("collects consumable rows and sorts them by name", () => {
+    const second: Item = { ...elixir, key: "fixture-elixir-2", name: "Zelixir" }
+    const resolved = resolveInventory([
+      row("z", second, { quantity: 2 }),
+      row("e", elixir, { quantity: 4 }),
+    ])
+
+    expect(resolved.consumables).toEqual([
+      { id: "e", item: elixir, quantity: 4 },
+      { id: "z", item: second, quantity: 2 },
+    ])
+  })
+
+  it("drops rows whose catalog item failed to resolve", () => {
+    const resolved = resolveInventory([row("ghost", undefined), row("w", nullWeapon)])
+
+    expect(resolved.itemsBySlot.weapon.map((e) => e.id)).toEqual(["w"])
+    expect(resolved.consumables).toEqual([])
+  })
+
+  it("drops rows that are neither equippable nor consumable", () => {
+    const resolved = resolveInventory([row("m", material), row("e", elixir)])
+
+    expect(resolved.itemsBySlot.weapon).toEqual([])
+    expect(resolved.itemsBySlot.armor).toEqual([])
+    expect(resolved.itemsBySlot.accessory).toEqual([])
+    expect(resolved.consumables).toEqual([{ id: "e", item: elixir, quantity: 1 }])
   })
 })
