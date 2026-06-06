@@ -252,12 +252,21 @@ These move *into* the package (it owns its own test signal):
    symbol-resolving codemod then replaced them (433 imports retargeted, 0
    unresolved) — external consumers import the layer barrel, package-internal files
    import the deep module. Added `"sideEffects": false` + `optimizePackageImports`.
-6. ⏭️ **The four splits are deferred to the naming/cleanup pass** — whole files
-   moved to their dominant layer (the 4 mixed files all landed in `foundation`),
-   so the only cost is the mutation scope temporarily missing `resolveAffinity` /
-   `createCombatSession` / `getAilment` / `getTalent` until they're split out.
-7. ⏳ Still TODO: ESLint engine→data boundary rule; `CLAUDE.md` Repo-Structure +
-   Testing updates; the naming/cleanup pass (splits + file-name review).
+6. ✅ **The four splits are done** — `resolveAffinity` → `engine/archetypes/affinity`;
+   the session builders → `engine/encounter/session-factory`; the ailments catalog
+   → `data/combat/ailments`; talents `registry.ts` → `foundation/.../schema.ts`
+   (vocab) + `data/character/talents/registry.ts` (`TALENTS`/`getTalent`). Those
+   four functions are now mutation-scored.
+7. ⏳ Still TODO: **foundation purity** — `foundation` still has **9 value imports**
+   from `engine`/`data` (pre-existing from the move, not the splits): `DELIVERIES`/
+   `attackRollSchema`/`rangeSchema` live in `engine/combat/attack` but are needed by
+   `foundation` schema files, and `foundation/mechanics/schema` aggregates the 5
+   per-mechanic state schemas that live in the `engine` behavior modules. Closing
+   these needs *more* re-classification (lift that vocab/those schemas to
+   `foundation`) — its own pass. (Type-only foundation→data/engine imports —
+   `SkillKey`, `WeaponKey`, … — are fine; type-only is erased.) Then the ESLint
+   `engine ↛ data` rule (surfaces the catalog-read seam backlog), `CLAUDE.md`
+   updates, the `result` placement call, and the file-name review.
 8. ✅ Verified green: `typecheck` (3/3), `test` (1042, no loss — 906 game + 136
    web), `lint` (0 errors), `build`.
 
