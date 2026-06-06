@@ -1,5 +1,3 @@
-import type { CharacterArchetypeRow } from "@/lib/db/schema/character"
-
 import {
   computeMaxHP,
   LINEAGE_SUGGESTED_PATH,
@@ -10,6 +8,7 @@ import {
   type StatComputationCharacter,
   type SuggestedPath,
 } from "../character"
+import type { CharacterArchetypeRow } from "../character/records"
 import {
   resolveAttackRoll,
   skillAttackRollContext,

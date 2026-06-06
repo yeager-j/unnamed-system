@@ -22,6 +22,7 @@ import {
   sparkLogSchema,
   type Ailments,
   type BattleConditions,
+  type CharacterStatus,
   type InheritanceSlots,
   type ManualBonuses,
   type PartyComposition,
@@ -38,18 +39,11 @@ import { users } from "./user"
  * (manual bonuses, Spark log, Ailments, Battle Conditions, identity
  * lists). Computed
  * values (displayed Attributes, Affinity chart, max HP/SP) are never stored —
- * they are derived from this row plus hardcoded game data.
+ * they are derived from this row plus hardcoded game data. The row's TypeScript
+ * shape ({@link CharacterRow}) and its lifecycle status ({@link CharacterStatus})
+ * are owned by the game domain (`@/lib/game/character`); the conformance asserts
+ * at the bottom of this file prove this table matches that contract.
  */
-/**
- * A character is either a `draft` (under construction in the wizard, hidden
- * from the public sheet and rendered with a draft affordance on the owner's
- * roster) or `finalized` (a normal, shareable character). The builder
- * (UNN-204+) flips this to `"finalized"` once the player completes the
- * Review step; until then, public `/c/{shortId}` requests return the WIP
- * dialog for non-owners and redirect the owner into the builder.
- */
-export type CharacterStatus = "draft" | "finalized"
-
 export const characters = pgTable("character", {
   id: text("id")
     .primaryKey()
@@ -297,14 +291,19 @@ export const insertActionLogEntrySchema = createInsertSchema(actionLogEntries)
 export const selectActionLogEntrySchema = createSelectSchema(actionLogEntries)
 
 /**
- * Persisted row shapes, inferred straight from the tables above. These are the
- * contract the pure derivation layer reads: `HydratedCharacter` (in `lib/game`)
- * is `CharacterRow & { …derived }`, and both server and client re-derive the
- * sheet view from the same raw rows. They live here, beside the tables they're
- * inferred from, rather than in any loader — the schema is their single source.
+ * The persisted row shapes the pure derivation layer reads. `CharacterRow`,
+ * `CharacterArchetypeRow`, and `InventoryItemRow` are **owned by the game
+ * domain** (`@/lib/game/character` → `records.ts`) so the engine never depends
+ * on this persistence layer; the asserts below prove each table's inferred shape
+ * conforms to that contract, so the two can't drift. `CharacterKnife`/
+ * `CharacterChain` have no engine consumer, so they stay inferred here. The
+ * drift guard lives in `conformance.test.ts` (a typechecked `expectTypeOf`).
  */
-export type CharacterRow = typeof characters.$inferSelect
-export type CharacterArchetypeRow = typeof characterArchetypes.$inferSelect
-export type CharacterKnifeRow = typeof characterKnives.$inferSelect
-export type CharacterChainRow = typeof characterChains.$inferSelect
-export type InventoryItemRow = typeof inventoryItems.$inferSelect
+export type {
+  CharacterArchetypeRow,
+  CharacterChainRow,
+  CharacterKnifeRow,
+  CharacterRow,
+  CharacterStatus,
+  InventoryItemRow,
+} from "../../game/character"

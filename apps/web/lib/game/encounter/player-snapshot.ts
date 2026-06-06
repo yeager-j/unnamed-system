@@ -1,9 +1,9 @@
-import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import type { AttributeScores, BattleConditions } from "@/lib/game/character"
 
 import { combatantName } from "./console-view"
 import { enemyHp, type PcCombatantDetail, type Pool } from "./roster-view"
 import type { Combatant, CombatSession, CombatSide, Zone } from "./session"
+import type { EncounterStatus } from "./status"
 
 /**
  * The **player watch view's** wire payload (UNN-322) and its server-side

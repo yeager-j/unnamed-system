@@ -1,11 +1,3 @@
-import type {
-  CharacterArchetypeRow,
-  CharacterChainRow,
-  CharacterKnifeRow,
-  CharacterRow,
-  InventoryItemRow,
-} from "@/lib/db/schema/character"
-
 import {
   resolveAttackRoll,
   skillAttackRollContext,
@@ -14,6 +6,13 @@ import {
 import { getEquippedItem, getItem, type IntrinsicAttack } from "../items"
 import { hydrateSkill } from "../skills"
 import type { HydratedCharacter } from "./hydrated-character"
+import type {
+  CharacterArchetypeRow,
+  CharacterChainRow,
+  CharacterKnifeRow,
+  CharacterRow,
+  InventoryItemRow,
+} from "./records"
 import { buildStatComputationCharacter } from "./stats/stat-character"
 import {
   accumulatedBonuses,

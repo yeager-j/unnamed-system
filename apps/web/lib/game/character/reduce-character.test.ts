@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import type { CharacterRow, InventoryItemRow } from "@/lib/db/schema/character"
-
 import { MAX_CURRENCY } from "./currency"
 import {
   deriveHydratedCharacter,
@@ -9,6 +7,7 @@ import {
   type RawCharacterInputs,
 } from "./derive-hydrated-character"
 import type { HydratedCharacter } from "./hydrated-character"
+import type { CharacterRow, InventoryItemRow } from "./records"
 import { reduceCharacter } from "./reduce-character"
 
 const CHARACTER_ID = "char-1"

@@ -102,7 +102,8 @@ below are under `packages/game/src/`.
 - `common.ts` (the stray top-level file: `SKILL_KINDS` / `SkillKind` vocabulary, zod-free)
 - `combat/affinity.ts`, `combat/effects.ts`
 - `character/state.ts`, `character/hydrated-character.ts`, `character/character-edit.ts`, `character/lineage.ts`
-- `encounter/session-event.ts`
+- `character/records.ts` (the persisted-row contract — added in Step 0)
+- `encounter/session-event.ts`, `encounter/status.ts` (added in Step 0)
 - `mechanics/types.ts`, `mechanics/schema.ts`
 - `skills/schema.ts`, `items/schema.ts`, `enemies/schema.ts`
 - *(plus the schema/type halves of the four splits)*
@@ -142,20 +143,29 @@ The wrinkle: those types are `typeof <table>.$inferSelect` — **inferred from**
 the Drizzle tables, which can't move (they pull in `drizzle-orm`, FK refs,
 `drizzle-zod`). So game must *re-declare* the persisted contract; db conforms.
 
-**Approach (pending confirmation — see the PR thread):** `foundation/` declares
-the persisted record types (`CharacterRecord`, `CharacterArchetypeRecord`,
-`InventoryItemRecord`; `EncounterStatus` as a plain union), reusing the game
-jsonb types it already owns — so only the ~20 scalar columns are newly listed.
-`db/schema` keeps its tables and adds a compile-time conformance assert
-(`typeof characters.$inferSelect` must satisfy `CharacterRecord` and vice-versa),
-so adding a column without updating both is a compile error, not silent drift.
-The 8 game files import the records from `foundation`; `HydratedCharacter` stays
-structurally identical (`CharacterRecord & { …derived }`), so no consumer breaks.
+**Status: done (this PR).** The game domain now owns the persisted contract:
+
+- `lib/game/character/records.ts` declares `CharacterRow`, `CharacterArchetypeRow`,
+  `InventoryItemRow`, `CharacterKnifeRow`, `CharacterChainRow`, and
+  `CharacterStatus`; `lib/game/encounter/status.ts` declares `EncounterStatus`.
+  They reuse the game jsonb types game already owns, so only the flat scalar
+  columns are hand-listed. (Names are **kept** — not `*Record` — so there are no
+  usage renames; only import sources change. Knife/Chain rows turned out to be
+  consumed by the hydration layer too, so all five row types moved.)
+- `lib/db/schema` imports these (db → game, the correct direction), uses them for
+  its `.$type<>()` columns, and **re-exports** them under the same names — so the
+  ~22 db consumers and every app importer are untouched.
+- The drift guard is `lib/db/schema/conformance.test.ts`: a typechecked
+  `expectTypeOf<typeof <table>.$inferSelect>().toEqualTypeOf<…Row>()` for all five
+  tables. A column added/changed without updating the game record fails
+  `npm run typecheck`, so the table and the contract can't silently drift.
+- `HydratedCharacter` is unchanged (`CharacterRow & { …derived }`), so nothing
+  downstream breaks.
+
+`grep -r "@/lib/db" lib/game` is now empty (source *and* tests) — the package can be cut.
 
 **Cost:** the column list lives in two places (the Drizzle table + the game
-record), kept honest by the assert. That's the price of `game` being a leaf.
-
-After this, `grep -r "@/lib/db" lib/game` is empty and the package can be cut.
+record), kept honest by the conformance test. That's the price of `game` being a leaf.
 
 ## The four splits (do these *first*, as IDE "move members to file" refactors)
 
@@ -220,8 +230,8 @@ These move *into* the package (it owns its own test signal):
 
 ## Execution order
 
-1. **Step 0** — sever the `game → db` type cycle (above). After this `lib/game`
-   has zero app coupling.
+1. ✅ **Step 0** — sever the `game → db` type cycle (done, this PR). `lib/game`
+   now has zero app coupling (source + tests).
 2. Branch (zero other open `lib/game` branches — this conflicts with everything).
 3. Scaffold `packages/game` (`package.json` + `tsconfig` mirroring `packages/ui`;
    add `@unnamed/game` to `apps/web` deps + `transpilePackages`).
@@ -243,3 +253,9 @@ These move *into* the package (it owns its own test signal):
 - **UNN-350** (boundary + stats + enemy view-models) is authored *after* this, so
   it lands directly in `engine/encounter/`, `engine/character/stats/`,
   `engine/enemies/` with the new tooling.
+- **Future `packages/db`** — when a second app (mobile, a second Next.js app)
+  needs persistence, lift `lib/db` into its own package depending on
+  `@unnamed/game` (db → game is the correct direction; Step 0 guarantees game
+  never imports db, so no cycle). It sits *above* game in the graph: `game`
+  (leaf) ← `db` ← `apps/*`. Not worth doing until a second consumer is real —
+  but Step 0 is what unlocks it.

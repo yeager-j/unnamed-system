@@ -1,16 +1,15 @@
+import {
+  deriveHydratedCharacter,
+  type RawCharacterInputs,
+} from "../character/derive-hydrated-character"
+import type { HydratedCharacter } from "../character/hydrated-character"
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
   CharacterKnifeRow,
   CharacterRow,
   InventoryItemRow,
-} from "@/lib/db/schema/character"
-
-import {
-  deriveHydratedCharacter,
-  type RawCharacterInputs,
-} from "../character/derive-hydrated-character"
-import type { HydratedCharacter } from "../character/hydrated-character"
+} from "../character/records"
 import type { StatComputationCharacter } from "../character/stats/stats"
 
 /**

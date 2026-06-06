@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import type {
-  CharacterArchetypeRow,
-  CharacterRow,
-} from "@/lib/db/schema/character"
-
 import { makeArchetype } from "../__fixtures__"
 import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "../character/derive-hydrated-character"
+import type { CharacterArchetypeRow, CharacterRow } from "../character/records"
 import { inheritanceSourceGroups, isInheritableSkill } from "./inheritance"
 import { mage } from "./mage/mage"
 import {

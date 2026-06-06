@@ -1,5 +1,3 @@
-import type { CharacterArchetypeRow } from "@/lib/db/schema/character"
-
 import type { HydratedCharacter } from "../character/hydrated-character"
 import { MAX_LEVEL } from "../character/leveling"
 import {
@@ -8,6 +6,7 @@ import {
   type Lineage,
   type SuggestedPath,
 } from "../character/lineage"
+import type { CharacterArchetypeRow } from "../character/records"
 import type { PathChoice } from "../character/state"
 import { hasMasteryBonus } from "./rank"
 import { ARCHETYPES } from "./registry"

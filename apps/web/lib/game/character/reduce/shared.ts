@@ -1,7 +1,6 @@
-import type { CharacterRow } from "@/lib/db/schema/character"
-
 import type { Result } from "../../../result"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
+import type { CharacterRow } from "../records"
 
 /**
  * What a domain slice returns: the next {@link RawCharacterInputs} to re-derive

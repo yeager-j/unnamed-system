@@ -1,8 +1,7 @@
-import type { CharacterRow } from "@/lib/db/schema/character"
-
 import type { ProgressionEdit } from "../character-edit"
 import type { RawCharacterInputs } from "../derive-hydrated-character"
 import { addSpark, rankUpVirtue, type SparkCharacter } from "../leveling"
+import type { CharacterRow } from "../records"
 import { patchRow, type SliceResult } from "./shared"
 
 /**

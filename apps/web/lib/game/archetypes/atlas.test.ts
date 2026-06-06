@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import type {
-  CharacterArchetypeRow,
-  CharacterRow,
-} from "@/lib/db/schema/character"
 import { makeArchetype } from "@/lib/game/__fixtures__"
 
 import {
@@ -11,6 +7,7 @@ import {
   type RawCharacterInputs,
 } from "../character/derive-hydrated-character"
 import { LINEAGES, type Lineage } from "../character/lineage"
+import type { CharacterArchetypeRow, CharacterRow } from "../character/records"
 import {
   atlasNodeState,
   buildLineageAtlas,
