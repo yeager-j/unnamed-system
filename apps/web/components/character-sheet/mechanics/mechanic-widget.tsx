@@ -1,5 +1,7 @@
 "use client"
 
+import { getArchetype } from "@workspace/game/archetypes"
+import { getMechanic } from "@workspace/game/mechanics"
 import {
   Card,
   CardContent,
@@ -8,8 +10,6 @@ import {
 } from "@workspace/ui/components/card"
 
 import { useCharacter } from "@/hooks/use-character"
-import { getArchetype } from "@/lib/game/archetypes"
-import { getMechanic } from "@/lib/game/mechanics"
 
 import { renderMechanicWidget } from "./widget-registry"
 

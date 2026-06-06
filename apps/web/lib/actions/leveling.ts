@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyLevelUpForCharacter,
@@ -7,7 +9,6 @@ import {
   type AwardVictoriesPersistenceSuccess,
   type LevelUpPersistenceSuccess,
 } from "@/lib/db/writes/leveling"
-import { err, type Result } from "@/lib/result"
 
 import {
   AwardVictoriesSchema,

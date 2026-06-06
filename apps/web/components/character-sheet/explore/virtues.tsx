@@ -4,6 +4,14 @@ import { SparkleIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 import { toast } from "sonner"
 
+import {
+  eligibleVirtuesForRankUp,
+  MAX_VIRTUE_RANK,
+  SPARK_LOG_CAPACITY,
+  sparkLogBreakdown,
+  VIRTUE_KEYS,
+  type VirtueKey,
+} from "@workspace/game/character"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -24,14 +32,6 @@ import {
   addSparkAction,
   rankUpVirtueAction,
 } from "@/lib/actions/character-spark"
-import {
-  eligibleVirtuesForRankUp,
-  MAX_VIRTUE_RANK,
-  SPARK_LOG_CAPACITY,
-  sparkLogBreakdown,
-  VIRTUE_KEYS,
-  type VirtueKey,
-} from "@/lib/game/character"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**

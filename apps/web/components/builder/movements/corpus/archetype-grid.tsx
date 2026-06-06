@@ -3,15 +3,15 @@
 import { useOptimistic, useState } from "react"
 import { toast } from "sonner"
 
-import { Button } from "@workspace/ui/components/button"
-
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import {
   INITIATE_ARCHETYPES,
   sortArchetypesByPath,
   type ArchetypeKey,
-} from "@/lib/game/archetypes"
+} from "@workspace/game/archetypes"
+import { Button } from "@workspace/ui/components/button"
+
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
+import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeCard } from "./archetype-card"

@@ -1,10 +1,10 @@
 "use client"
 
+import type { HydratedCostSkill } from "@workspace/game/character"
+import { canAfford } from "@workspace/game/skills"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import type { HydratedCostSkill } from "@/lib/game/character"
-import { canAfford } from "@/lib/game/skills"
 
 /**
  * Pool state the Cast button checks affordability against. Sourced from the

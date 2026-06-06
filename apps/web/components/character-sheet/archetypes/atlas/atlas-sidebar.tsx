@@ -1,8 +1,8 @@
 "use client"
 
+import type { AtlasLineage } from "@workspace/game/archetypes"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { AtlasLineage } from "@/lib/game/archetypes"
 import { LINEAGE_DISPLAY } from "@/lib/ui/labels"
 import { LINEAGE_ICONS } from "@/lib/ui/lineage-icons"
 

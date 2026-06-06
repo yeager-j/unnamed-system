@@ -7,10 +7,10 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
 
+import type { Pool, RailRow } from "@workspace/game/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { Pool, RailRow } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"

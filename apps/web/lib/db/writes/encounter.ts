@@ -1,11 +1,12 @@
 import { and, eq, sql } from "drizzle-orm"
 
+import type { CombatSession } from "@workspace/game/encounter"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
 import { db } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertWithShortId } from "@/lib/db/short-id"
-import type { CombatSession } from "@/lib/game/encounter"
-import { err, ok, type Result } from "@/lib/result"
 
 /**
  * Persistence for an encounter and its serialized {@link CombatSession}

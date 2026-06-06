@@ -1,8 +1,9 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
+import { toCombatantSetup } from "@workspace/game/encounter"
+
 import { EnemyCatalogBrowser } from "@/components/combat/enemies/enemy-catalog-browser"
-import { toCombatantSetup } from "@/lib/game/encounter"
 
 import { getEncounterForDM } from "../encounter-access"
 

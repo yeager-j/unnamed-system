@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm"
 
-import { characters, getDb } from "@/lib/db"
 import {
   DEFAULT_BATTLE_CONDITIONS,
   type Ailments,
   type BattleConditions,
-} from "@/lib/game/character"
+} from "@workspace/game/character"
+
+import { characters, getDb } from "@/lib/db"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

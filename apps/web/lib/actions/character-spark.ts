@@ -1,12 +1,13 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addSparkForCharacter,
   rankUpVirtueForCharacter,
   type SparkPersistenceSuccess,
 } from "@/lib/db/writes/spark"
-import { err, type Result } from "@/lib/result"
 
 import {
   AddSparkSchema,

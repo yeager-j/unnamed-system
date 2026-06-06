@@ -1,6 +1,3 @@
-import { db } from "@/lib/db/client"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   applyDamage,
   applyHeal,
@@ -9,8 +6,12 @@ import {
   applyUsePrisma,
   type AdjustAmountError,
   type UsePrismaError,
-} from "@/lib/game/character/adjust-pools"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/engine/character/adjust-pools"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
+import { db } from "@/lib/db/client"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

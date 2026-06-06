@@ -1,5 +1,6 @@
 import Image from "next/image"
 
+import { archetypeDisplayName } from "@workspace/game/archetypes"
 import {
   Item,
   ItemActions,
@@ -10,7 +11,6 @@ import {
 } from "@workspace/ui/components/item"
 
 import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 import { RemovePlacementButton } from "./remove-placement-button"
 

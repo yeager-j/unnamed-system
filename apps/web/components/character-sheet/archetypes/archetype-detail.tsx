@@ -1,3 +1,8 @@
+import {
+  hasUnlockedRank,
+  type ArchetypeEntry,
+} from "@workspace/game/archetypes"
+import type { AttributeScores } from "@workspace/game/character"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
 
@@ -8,8 +13,6 @@ import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-s
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import { hasUnlockedRank, type ArchetypeEntry } from "@/lib/game/archetypes"
-import type { AttributeScores } from "@/lib/game/character"
 
 import { InheritanceSlots } from "./inheritance-slots"
 

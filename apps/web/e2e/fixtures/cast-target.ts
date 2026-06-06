@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm"
 
-import { characters, getDb } from "@/lib/db"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import {
   computeMaxHP,
   computeMaxSP,
   toStatComputationCharacter,
-} from "@/lib/game/character"
+} from "@workspace/game/character"
+
+import { characters, getDb } from "@/lib/db"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

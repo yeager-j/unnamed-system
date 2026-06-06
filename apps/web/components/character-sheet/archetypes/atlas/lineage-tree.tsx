@@ -2,10 +2,10 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
+import type { AtlasLineage } from "@workspace/game/archetypes"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
-import type { AtlasLineage } from "@/lib/game/archetypes"
 import {
   LINEAGE_DISPLAY,
   LINEAGE_LABELS,

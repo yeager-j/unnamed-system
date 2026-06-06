@@ -1,11 +1,12 @@
 import { eq } from "drizzle-orm"
 
+import { getArchetype } from "@workspace/game/archetypes"
+import type { TalentKey } from "@workspace/game/character"
+import { ok, type Result } from "@workspace/game/foundation/result"
+
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { getArchetype } from "@/lib/game/archetypes"
-import type { TalentKey } from "@/lib/game/character"
-import { ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

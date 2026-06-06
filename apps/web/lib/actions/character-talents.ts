@@ -1,12 +1,13 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addGainedTalent,
   removeGainedTalent,
   type CharacterTalentPersistenceSuccess,
 } from "@/lib/db/writes/talents"
-import { err, type Result } from "@/lib/result"
 
 import {
   AddGainedTalentSchema,

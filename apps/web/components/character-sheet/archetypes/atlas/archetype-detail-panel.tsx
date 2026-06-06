@@ -3,6 +3,18 @@
 import { LockSimpleIcon } from "@phosphor-icons/react"
 import { useRef } from "react"
 
+import {
+  getArchetype,
+  hasUnlockedRank,
+  MASTERY_RANK,
+  previewArchetypeSkills,
+  type AtlasNode,
+} from "@workspace/game/archetypes"
+import {
+  LINEAGE_SUGGESTED_PATH,
+  type AttributeScores,
+  type PathChoice,
+} from "@workspace/game/character"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ItemGroup } from "@workspace/ui/components/item"
@@ -26,18 +38,6 @@ import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import {
-  getArchetype,
-  hasUnlockedRank,
-  MASTERY_RANK,
-  previewArchetypeSkills,
-  type AtlasNode,
-} from "@/lib/game/archetypes"
-import {
-  LINEAGE_SUGGESTED_PATH,
-  type AttributeScores,
-  type PathChoice,
-} from "@/lib/game/character"
 import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"

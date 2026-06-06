@@ -239,16 +239,34 @@ These move *into* the package (it owns its own test signal):
    engine}/*`. Wired into `apps/web` (dep + `transpilePackages` + tsconfig path).
    `src/_scaffold.ts` + the `.gitkeep`s are a temporary empty-package placeholder —
    delete once the first real modules move in.
-4. Do the **four splits** (IDE move-members-to-file).
-5. **Whole-file moves** per the map into `packages/game/src/{foundation,data,engine}`
-   (IDE move; let it fix imports).
-6. Delete the **top-level domain barrels** (`skills/index.ts`, `combat/index.ts`,
-   …) — **not** the per-category slice indexes (`skills/fire/index.ts` & friends),
-   which move with their data — and repoint stragglers to the package entry points.
-7. Move the Stryker/Vitest configs into the package; add the ESLint boundary rule;
-   update `CLAUDE.md`; flip this doc's status → done.
-8. Verify: `npm run typecheck`, `npm run test`, `npm run lint`, `npm run build` green.
-9. Scoped Stryker on the package's `engine/**` to confirm parity (~same scores).
+4. ✅ **Whole-file move** (done, this PR) — a ts-morph codemod relocated all 249
+   `lib/game` files into `packages/game/src/{foundation,data,engine}`, rewriting
+   955 import/export specifiers to `@workspace/game/<layer>/…` (or
+   `@workspace/game/<domain>` for the 9 kept barrels). The package `exports` gained
+   per-domain barrel entries so the ~454 wholesale imports resolve.
+5. **Kept the barrels** as the package's entry points (reversed the earlier
+   drop-barrels plan — 454 sites made dropping them a symbol-by-symbol refactor not
+   worth bundling into the move; engine-internal purity is the ESLint/seam
+   follow-up instead).
+6. ⏭️ **The four splits are deferred to the naming/cleanup pass** — whole files
+   moved to their dominant layer (the 4 mixed files all landed in `foundation`),
+   so the only cost is the mutation scope temporarily missing `resolveAffinity` /
+   `createCombatSession` / `getAilment` / `getTalent` until they're split out.
+7. ⏳ Still TODO: ESLint engine→data boundary rule; `CLAUDE.md` Repo-Structure +
+   Testing updates; the naming/cleanup pass (splits + file-name review).
+8. ✅ Verified green: `typecheck` (3/3), `test` (1042, no loss — 906 game + 136
+   web), `lint` (0 errors), `build`.
+
+### Deviations worth noting
+- **`lib/result.ts` moved into `foundation/result.ts`.** The engine depends on
+  the shared `Result` primitive (a relative `../../result` import the coupling
+  audit missed); it has 160 other consumers in `apps/web`, all repointed to
+  `@workspace/game/foundation/result`. "App imports `Result` from the game package"
+  is slightly odd — a candidate for a future `@workspace/core` or a rename in the
+  cleanup pass.
+- **`character-sheet.test.ts` moved back to `apps/web/lib/__tests__/`.** It's an
+  app-integration test (uses `lib/__fixtures__/seed-characters`, shared with the
+  db seed + e2e), so it doesn't belong in the pure package.
 
 ## Verification & follow-up
 

@@ -2,6 +2,15 @@
 
 import { WarningIcon } from "@phosphor-icons/react"
 
+import {
+  buildArchetypeEntries,
+  inheritanceSourceGroups,
+  type ArchetypeEntry,
+  type InheritanceSourceGroup,
+  type RankedSkill,
+  type ResolvedInheritanceSlot,
+} from "@workspace/game/archetypes"
+import type { AttributeScores } from "@workspace/game/character"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,
@@ -23,15 +32,6 @@ import { SkillRow } from "@/components/shared/skill-row"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setInheritanceSlotAction } from "@/lib/actions/inheritance-slots"
-import {
-  buildArchetypeEntries,
-  inheritanceSourceGroups,
-  type ArchetypeEntry,
-  type InheritanceSourceGroup,
-  type RankedSkill,
-  type ResolvedInheritanceSlot,
-} from "@/lib/game/archetypes"
-import type { AttributeScores } from "@/lib/game/character"
 
 /**
  * Per-Archetype Inheritance Slots block (PRD §7.8, UNN-241). Each slot holds a

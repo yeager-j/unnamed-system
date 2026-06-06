@@ -1,10 +1,13 @@
+import type { AttributeScores } from "@workspace/game/engine/character/stats/stats"
+import type { AttackRange } from "@workspace/game/engine/combat/attack"
+import {
+  hydrateFormula,
+  type ResolvedSkillCost,
+} from "@workspace/game/engine/skills/utils"
+import type { IntrinsicAttack } from "@workspace/game/foundation/items/schema"
+import type { Skill } from "@workspace/game/foundation/skills/schema"
 import { Badge } from "@workspace/ui/components/badge"
 
-import type { AttributeScores } from "@/lib/game/character/stats/stats"
-import type { AttackRange } from "@/lib/game/combat/attack"
-import type { IntrinsicAttack } from "@/lib/game/items/schema"
-import type { Skill } from "@/lib/game/skills/schema"
-import { hydrateFormula, type ResolvedSkillCost } from "@/lib/game/skills/utils"
 import {
   DAMAGE_TYPE_LABELS,
   DELIVERY_LABELS,

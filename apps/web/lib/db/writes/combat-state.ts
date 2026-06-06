@@ -1,17 +1,18 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
-import { loadCharacterRowById } from "@/lib/db/queries/load-character"
-import { characters } from "@/lib/db/schema/character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine/combat/exhaustion"
 import {
   DEFAULT_BATTLE_CONDITIONS,
   type Ailments,
   type BattleConditions,
   type BattleConditionState,
-} from "@/lib/game/character/state"
-import { MAX_EXHAUSTION_LEVEL } from "@/lib/game/combat/exhaustion"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/foundation/character/state"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
+import { db } from "@/lib/db/client"
+import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import { characters } from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import {
   bumpCharacterVersionGuarded,

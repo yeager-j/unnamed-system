@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addCharacterKnife,
@@ -9,7 +11,6 @@ import {
   type AddKnifeSuccess,
   type CharacterKnifePersistenceSuccess,
 } from "@/lib/db/writes/knives"
-import { err, type Result } from "@/lib/result"
 
 import {
   AddKnifeSchema,

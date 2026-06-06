@@ -1,9 +1,10 @@
 import type { useRouter } from "next/navigation"
 
+import type { HydratedCharacter } from "@workspace/game/character"
+
 import type { SheetTabKey } from "@/components/character-sheet/sheet-tab-keys"
 import type { useCharacterWrite } from "@/hooks/use-character"
 import type { ViewerRole } from "@/lib/auth/viewer-role"
-import type { HydratedCharacter } from "@/lib/game/character"
 
 /**
  * The command registry for the character-sheet ⌘K palette (UNN-261, per the

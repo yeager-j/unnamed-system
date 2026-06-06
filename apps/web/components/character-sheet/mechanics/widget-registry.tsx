@@ -5,7 +5,8 @@ import {
   VALOR_MAX,
   type MechanicKind,
   type MechanicState,
-} from "@/lib/game/mechanics"
+} from "@workspace/game/mechanics"
+
 import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
 import { PathOfDawnWidget } from "./path-of-dawn-widget"

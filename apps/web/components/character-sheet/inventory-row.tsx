@@ -2,6 +2,7 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 
+import { isEquippable, isStackable, type Item } from "@workspace/game/items"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -18,7 +19,6 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { isEquippable, isStackable, type Item } from "@/lib/game/items"
 import { SLOT_LABELS } from "@/lib/ui/labels"
 
 import { InventoryQuantityStepper } from "./inventory-quantity-stepper"

@@ -5,6 +5,14 @@ import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
+import { isFallen } from "@workspace/game/character"
+import type {
+  CombatantDetail,
+  CombatEvent,
+  EnemyVitalsField,
+  Pool,
+} from "@workspace/game/encounter"
+import type { Result } from "@workspace/game/foundation/result"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
@@ -17,14 +25,6 @@ import {
   spendSPAction,
 } from "@/lib/actions/adjust-pools"
 import type { AdjustPoolActionError } from "@/lib/actions/adjust-pools.schema"
-import { isFallen } from "@/lib/game/character"
-import type {
-  CombatantDetail,
-  CombatEvent,
-  EnemyVitalsField,
-  Pool,
-} from "@/lib/game/encounter"
-import type { Result } from "@/lib/result"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 import { VitalBar } from "./vital-bar"

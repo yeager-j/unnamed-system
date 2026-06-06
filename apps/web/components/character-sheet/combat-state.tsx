@@ -1,5 +1,6 @@
 "use client"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
 import {
   Card,
   CardContent,
@@ -9,7 +10,6 @@ import {
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
-import { DEFAULT_BATTLE_CONDITIONS } from "@/lib/game/character"
 
 import { AilmentEditor } from "./combat-state/ailment-editor"
 import { BattleConditionRow } from "./combat-state/battle-condition-row"

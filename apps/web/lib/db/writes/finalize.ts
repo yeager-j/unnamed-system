@@ -1,11 +1,4 @@
-import { db } from "@/lib/db/client"
-import {
-  inventoryItems,
-  type CharacterArchetypeRow,
-  type CharacterRow,
-} from "@/lib/db/schema/character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
-import { getArchetype } from "@/lib/game/archetypes"
+import { getArchetype } from "@workspace/game/archetypes"
 import {
   buildStatComputationCharacter,
   computeMaxHitDice,
@@ -13,9 +6,17 @@ import {
   computeMaxSkillDice,
   computeMaxSP,
   startingWeaponForLineage,
-} from "@/lib/game/character"
-import { type WeaponKey } from "@/lib/game/items"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/character"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { type WeaponKey } from "@workspace/game/items"
+
+import { db } from "@/lib/db/client"
+import {
+  inventoryItems,
+  type CharacterArchetypeRow,
+  type CharacterRow,
+} from "@/lib/db/schema/character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

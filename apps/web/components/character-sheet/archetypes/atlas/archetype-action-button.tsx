@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 
+import type { Archetype, AtlasNodeState } from "@workspace/game/archetypes"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +21,6 @@ import {
   rankUpArchetypeAction,
   unlockArchetypeAction,
 } from "@/lib/actions/archetype-ranks"
-import type { Archetype, AtlasNodeState } from "@/lib/game/archetypes"
 
 const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
 

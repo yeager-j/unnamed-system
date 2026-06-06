@@ -1,0 +1,6 @@
+export * from "@workspace/game/engine/archetypes/atlas"
+export * from "@workspace/game/engine/archetypes/inheritance"
+export * from "@workspace/game/engine/archetypes/rank"
+export * from "@workspace/game/data/archetypes/registry"
+export * from "@workspace/game/foundation/archetypes/schema"
+export * from "@workspace/game/engine/archetypes/utils"

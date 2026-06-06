@@ -3,11 +3,6 @@
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { Button } from "@workspace/ui/components/button"
-import { ButtonGroup } from "@workspace/ui/components/button-group"
-
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
 import {
   coerceVirtueAllocation,
   describeAllocationProgress,
@@ -15,7 +10,12 @@ import {
   wouldExceedAllocationCap,
   type VirtueAllocation,
   type VirtueKey,
-} from "@/lib/game/character"
+} from "@workspace/game/character"
+import { Button } from "@workspace/ui/components/button"
+import { ButtonGroup } from "@workspace/ui/components/button-group"
+
+import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
+import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
 import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/lib/ui/labels"
 
 const RANKS = [0, 1, 2] as const

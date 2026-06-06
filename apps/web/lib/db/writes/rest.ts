@@ -1,10 +1,7 @@
-import { db } from "@/lib/db/client"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
-} from "@/lib/game/character"
+} from "@workspace/game/character"
 import {
   applyFullRest,
   applyPartialRest,
@@ -13,8 +10,12 @@ import {
   type RespiteInput,
   type RestError,
   type RestingCharacter,
-} from "@/lib/game/combat"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/combat"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
+import { db } from "@/lib/db/client"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

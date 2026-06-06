@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyAdjustExhaustionForCharacter,
@@ -13,7 +15,6 @@ import {
   type SetAilmentsSuccess,
   type SetBattleConditionsSuccess,
 } from "@/lib/db/writes/combat-state"
-import { err, type Result } from "@/lib/result"
 
 import {
   AdjustExhaustionSchema,

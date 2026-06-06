@@ -11,16 +11,17 @@ import {
 import { toast } from "sonner"
 
 import {
+  reduceCharacter,
+  type CharacterEdit,
+  type HydratedCharacter,
+} from "@workspace/game/character"
+import type { Result } from "@workspace/game/foundation/result"
+
+import {
   EDIT_SURFACE_CLASS,
   type EditSurface,
   type VersionClass,
 } from "@/lib/db/version-classes"
-import {
-  reduceCharacter,
-  type CharacterEdit,
-  type HydratedCharacter,
-} from "@/lib/game/character"
-import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"

@@ -2,6 +2,7 @@
 
 import { toast } from "sonner"
 
+import type { Result } from "@workspace/game/foundation/result"
 import {
   Field,
   FieldDescription,
@@ -14,7 +15,6 @@ import { Separator } from "@workspace/ui/components/separator"
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { useBuilderAutoSave } from "@/hooks/use-builder-draft"
 import type { EditSurface } from "@/lib/db/version-classes"
-import type { Result } from "@/lib/result"
 
 /**
  * The title + Markdown body pair the Movement 3 writer renders for the

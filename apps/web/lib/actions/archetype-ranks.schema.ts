@@ -1,10 +1,11 @@
 import { z } from "zod/v4"
 
+import { getArchetype } from "@workspace/game/archetypes"
+
 import type {
   RankUpArchetypeError,
   UnlockArchetypeError,
 } from "@/lib/db/writes/archetype-ranks"
-import { getArchetype } from "@/lib/game/archetypes"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

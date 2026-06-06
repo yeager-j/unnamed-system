@@ -1,11 +1,12 @@
 "use client"
 
-import { DetailSection } from "@/components/shared/detail-section"
 import type {
   CombatantDetail,
   CombatEvent,
   Engagement,
-} from "@/lib/game/encounter"
+} from "@workspace/game/encounter"
+
+import { DetailSection } from "@/components/shared/detail-section"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { EngagementControl } from "./engagement-control"

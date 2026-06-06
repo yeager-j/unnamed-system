@@ -2,6 +2,8 @@
 
 import { eq } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
 import { findStepGateFailures } from "@/components/builder/builder-step-gates"
 import { requireOwner } from "@/lib/auth/viewer-role"
 import { db } from "@/lib/db"
@@ -12,7 +14,6 @@ import {
   type CharacterFinalizePersistenceSuccess,
 } from "@/lib/db/writes/finalize"
 import { loadCharacterKnives } from "@/lib/db/writes/knives"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   FinalizeCharacterSchema,

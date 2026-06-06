@@ -1,5 +1,7 @@
 "use client"
 
+import type { InventoryMutation } from "@workspace/game/items"
+
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {
   addInventoryItemAction,
@@ -9,7 +11,6 @@ import {
   setInventoryItemQuantityAction,
   unequipInventoryItemAction,
 } from "@/lib/actions/inventory"
-import type { InventoryMutation } from "@/lib/game/items"
 
 /**
  * The Inventory tab's owner-mode write surface. Reads the shared optimistic

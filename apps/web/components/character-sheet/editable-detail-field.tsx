@@ -1,12 +1,12 @@
 "use client"
 
+import type { Result } from "@workspace/game/foundation/result"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useCharacterAutoSave } from "@/hooks/use-character"
 import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
 import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
 import type { EditSurface } from "@/lib/db/version-classes"
-import type { Result } from "@/lib/result"
 
 /**
  * Owner-only inline editor for a single-line identity detail (Pronouns,

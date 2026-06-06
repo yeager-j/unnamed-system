@@ -2,13 +2,17 @@ import { randomUUID } from "node:crypto"
 import { eq, inArray } from "drizzle-orm"
 
 import {
+  createCombatSession,
+  type CombatantSetup,
+} from "@workspace/game/encounter"
+
+import {
   makeSeedCharacter,
   type SeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
 import { campaigns, characters, encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertCharacter } from "@/lib/db/seed-character"
-import { createCombatSession, type CombatantSetup } from "@/lib/game/encounter"
 
 /**
  * Ephemeral E2E test-data factory (UNN-343). Write-path specs mint exactly the

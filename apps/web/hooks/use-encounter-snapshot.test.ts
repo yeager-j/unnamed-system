@@ -2,7 +2,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { EncounterSnapshot } from "@/lib/game/encounter"
+import type { EncounterSnapshot } from "@workspace/game/encounter"
 
 import { useEncounterSnapshot } from "./use-encounter-snapshot"
 

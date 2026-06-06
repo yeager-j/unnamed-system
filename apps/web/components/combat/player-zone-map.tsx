@@ -1,4 +1,7 @@
-import type { PlayerView, PlayerVisibleCombatant } from "@/lib/game/encounter"
+import type {
+  PlayerView,
+  PlayerVisibleCombatant,
+} from "@workspace/game/encounter"
 
 import { PlayerCombatantCard } from "./player-combatant-card"
 

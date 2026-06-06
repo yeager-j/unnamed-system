@@ -9,8 +9,9 @@ import {
 } from "react"
 import { toast } from "sonner"
 
+import type { Result } from "@workspace/game/foundation/result"
+
 import type { EditSurface } from "@/lib/db/version-classes"
-import type { Result } from "@/lib/result"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 

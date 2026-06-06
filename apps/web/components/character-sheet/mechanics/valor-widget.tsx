@@ -1,12 +1,13 @@
 "use client"
 
-import { OwnerOnly } from "@/components/shell/viewer-role"
 import {
   VALOR_MAX,
   VALOR_THRESHOLD_DESCRIPTIONS,
   VALOR_THRESHOLDS,
   type ValorState,
-} from "@/lib/game/mechanics"
+} from "@workspace/game/mechanics"
+
+import { OwnerOnly } from "@/components/shell/viewer-role"
 
 import { ValorStepper } from "./knight/valor-stepper"
 

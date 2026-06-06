@@ -1,7 +1,7 @@
+import type { DamageType } from "@workspace/game/foundation/combat/affinity"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { DamageType } from "@/lib/game/combat/affinity"
 import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
 
 /**

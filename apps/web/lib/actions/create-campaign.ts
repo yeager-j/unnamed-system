@@ -2,9 +2,10 @@
 
 import { unauthorized } from "next/navigation"
 
+import { ok, type Result } from "@workspace/game/foundation/result"
+
 import { auth } from "@/lib/auth"
 import { createCampaign } from "@/lib/db/writes/campaign"
-import { ok, type Result } from "@/lib/result"
 
 import {
   CreateCampaignSchema,

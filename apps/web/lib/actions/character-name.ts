@@ -1,11 +1,12 @@
 "use server"
 
+import { type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterName,
   type CharacterNamePersistenceSuccess,
 } from "@/lib/db/writes/name"
-import { type Result } from "@/lib/result"
 
 import {
   UpdateCharacterNameSchema,

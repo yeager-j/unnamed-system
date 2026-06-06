@@ -2,6 +2,7 @@
 
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 
+import type { EngageableTarget, Engagement } from "@workspace/game/encounter"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Label } from "@workspace/ui/components/label"
@@ -11,7 +12,6 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import type { EngageableTarget, Engagement } from "@/lib/game/encounter"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**

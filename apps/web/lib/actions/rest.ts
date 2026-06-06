@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyFullRestForCharacter,
@@ -7,7 +9,6 @@ import {
   applyRespiteForCharacter,
   type RestPersistenceSuccess,
 } from "@/lib/db/writes/rest"
-import { err, type Result } from "@/lib/result"
 
 import {
   FullRestSchema,

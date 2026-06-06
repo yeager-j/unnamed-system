@@ -1,14 +1,13 @@
+import {
+  getSideEffect,
+  type SideEffectKey,
+} from "@workspace/game/engine/combat/side-effects"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-
-import {
-  getSideEffect,
-  type SideEffectKey,
-} from "@/lib/game/combat/side-effects"
 
 import { Prose } from "./prose"
 

@@ -3,6 +3,7 @@
 import { ArrowCounterClockwiseIcon, TrophyIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
+import { VICTORIES_PER_LEVEL } from "@workspace/game/character"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -16,8 +17,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-
-import { VICTORIES_PER_LEVEL } from "@/lib/game/character"
 
 /**
  * Victories ± UI primitives (PRD §7.4, UNN-157). Three buttons (Standard /

@@ -1,11 +1,12 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   updateCharacterNarrative,
   type CharacterNarrativePersistenceSuccess,
 } from "@/lib/db/writes/narrative"
-import { err, type Result } from "@/lib/result"
 
 import {
   UpdateCharacterNarrativeSchema,

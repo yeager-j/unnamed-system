@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm"
 
+import type { ValorState } from "@workspace/game/mechanics"
+
 import { characterArchetypes, getDb } from "@/lib/db"
-import type { ValorState } from "@/lib/game/mechanics"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

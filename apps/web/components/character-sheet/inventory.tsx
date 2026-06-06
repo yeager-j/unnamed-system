@@ -1,6 +1,12 @@
 "use client"
 
 import {
+  resolveInventory,
+  type EquipSlot,
+  type InventoryMutation,
+  type ResolvedInventory,
+} from "@workspace/game/items"
+import {
   Card,
   CardAction,
   CardContent,
@@ -10,12 +16,6 @@ import {
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import {
-  resolveInventory,
-  type EquipSlot,
-  type InventoryMutation,
-  type ResolvedInventory,
-} from "@/lib/game/items"
 import { ITEM_GROUP_LABELS } from "@/lib/ui/labels"
 
 import { AddItemDialog } from "./add-item-dialog"

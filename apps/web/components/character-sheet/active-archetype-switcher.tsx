@@ -3,6 +3,11 @@
 import { InfoIcon } from "@phosphor-icons/react"
 
 import {
+  archetypeDisplayName,
+  archetypeSwitcherGroups,
+  type ArchetypeSwitcherOption,
+} from "@workspace/game/archetypes"
+import {
   Combobox,
   ComboboxCollection,
   ComboboxContent,
@@ -17,11 +22,6 @@ import {
 
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setActiveArchetypeAction } from "@/lib/actions/active-archetype"
-import {
-  archetypeDisplayName,
-  archetypeSwitcherGroups,
-  type ArchetypeSwitcherOption,
-} from "@/lib/game/archetypes"
 import { LINEAGE_LABELS, TIER_LABELS } from "@/lib/ui/labels"
 
 interface SwitcherGroup {

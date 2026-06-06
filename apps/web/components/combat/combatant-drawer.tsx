@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 
+import type { CombatantDetail, CombatEvent } from "@workspace/game/encounter"
 import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
@@ -18,7 +19,6 @@ import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { Prose } from "@/components/shared/prose"
 import { SkillRow } from "@/components/shared/skill-row"
-import type { CombatantDetail, CombatEvent } from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 

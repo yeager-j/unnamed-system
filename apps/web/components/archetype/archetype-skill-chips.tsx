@@ -1,6 +1,5 @@
+import type { RankedSkill } from "@workspace/game/archetypes"
 import { Badge } from "@workspace/ui/components/badge"
-
-import type { RankedSkill } from "@/lib/game/archetypes"
 
 /**
  * Compact name-only chips for a list of (already-filtered) Skills. The caller

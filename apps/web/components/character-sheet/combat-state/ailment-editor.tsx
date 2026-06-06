@@ -2,6 +2,7 @@
 
 import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react"
 
+import { AILMENTS, getAilment } from "@workspace/game/combat"
 import { Button } from "@workspace/ui/components/button"
 import {
   Popover,
@@ -17,7 +18,6 @@ import { Toggle } from "@workspace/ui/components/toggle"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setAilmentsAction } from "@/lib/actions/combat-state"
-import { AILMENTS, getAilment } from "@/lib/game/combat"
 
 import { AilmentEntries, AilmentList } from "./ailment-list"
 

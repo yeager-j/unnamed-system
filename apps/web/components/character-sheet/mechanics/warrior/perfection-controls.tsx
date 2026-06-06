@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react"
 import { type ReactNode } from "react"
 
+import { PERFECTION_RANK_LABELS } from "@workspace/game/mechanics"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacterWrite } from "@/hooks/use-character"
@@ -14,7 +15,6 @@ import {
   adjustPerfectionAction,
   resetPerfectionAction,
 } from "@/lib/actions/mechanics/warrior/perfection"
-import { PERFECTION_RANK_LABELS } from "@/lib/game/mechanics"
 
 const MAX_RANK = PERFECTION_RANK_LABELS.length - 1
 

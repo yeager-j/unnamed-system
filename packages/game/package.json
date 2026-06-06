@@ -12,6 +12,15 @@
     "test:mutation": "stryker run"
   },
   "exports": {
+    "./character": "./src/character/index.ts",
+    "./combat": "./src/combat/index.ts",
+    "./encounter": "./src/encounter/index.ts",
+    "./archetypes": "./src/archetypes/index.ts",
+    "./mechanics": "./src/mechanics/index.ts",
+    "./items": "./src/items/index.ts",
+    "./skills": "./src/skills/index.ts",
+    "./enemies": "./src/enemies/index.ts",
+    "./catalog": "./src/catalog/index.ts",
     "./foundation/*": "./src/foundation/*.ts",
     "./data/*": "./src/data/*.ts",
     "./engine/*": "./src/engine/*.ts"

@@ -7,6 +7,14 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
+import {
+  BATTLE_CONDITION_AXIS_KEYS,
+  type BattleConditionAxisKey,
+  type BattleConditionFlagKey,
+  type BattleConditionState,
+} from "@workspace/game/character"
+import { AILMENTS, getAilment, type AilmentKey } from "@workspace/game/combat"
+import type { CombatantDetail, CombatEvent } from "@workspace/game/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -25,14 +33,6 @@ import {
 } from "@workspace/ui/components/toggle-group"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import {
-  BATTLE_CONDITION_AXIS_KEYS,
-  type BattleConditionAxisKey,
-  type BattleConditionFlagKey,
-  type BattleConditionState,
-} from "@/lib/game/character"
-import { AILMENTS, getAilment, type AilmentKey } from "@/lib/game/combat"
-import type { CombatantDetail, CombatEvent } from "@/lib/game/encounter"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,

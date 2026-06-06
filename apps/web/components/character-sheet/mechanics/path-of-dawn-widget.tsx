@@ -2,8 +2,9 @@
 
 import { MoonIcon, SunIcon } from "@phosphor-icons/react"
 
+import { type PathOfDawnState } from "@workspace/game/mechanics"
+
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { type PathOfDawnState } from "@/lib/game/mechanics"
 
 import { DawnModeToggle } from "./healer/dawn-mode-toggle"
 

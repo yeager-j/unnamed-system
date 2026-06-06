@@ -1,11 +1,12 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   setActiveArchetype,
   type ActiveArchetypePersistenceSuccess,
 } from "@/lib/db/writes/active-archetype"
-import { err, type Result } from "@/lib/result"
 
 import {
   SetActiveArchetypeSchema,

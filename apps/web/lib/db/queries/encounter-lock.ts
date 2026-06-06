@@ -1,12 +1,13 @@
 import { and, eq, inArray } from "drizzle-orm"
 
-import { db } from "@/lib/db/client"
-import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
-import { characters } from "@/lib/db/schema/character"
 import {
   pcCombatantCharacterIds,
   sessionIncludesPc,
-} from "@/lib/game/encounter"
+} from "@workspace/game/encounter"
+
+import { db } from "@/lib/db/client"
+import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
+import { characters } from "@/lib/db/schema/character"
 
 /**
  * The **live-encounter lock** (ADR lifecycle rulings, UNN-330): a character that

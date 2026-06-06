@@ -1,5 +1,7 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   addCharacterChain,
@@ -9,7 +11,6 @@ import {
   type AddChainSuccess,
   type CharacterChainPersistenceSuccess,
 } from "@/lib/db/writes/chains"
-import { err, type Result } from "@/lib/result"
 
 import {
   AddChainSchema,

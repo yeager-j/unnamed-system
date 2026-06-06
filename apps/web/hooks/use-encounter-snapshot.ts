@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 
-import type { EncounterSnapshot } from "@/lib/game/encounter"
+import type { EncounterSnapshot } from "@workspace/game/encounter"
 
 /** How often the watch view polls for the DM's latest changes — the ~1.5s
  *  freshness target of UNN-323. */

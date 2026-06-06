@@ -10,8 +10,6 @@ import {
 } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import { MechanicState } from "@/lib/game/mechanics"
-
 import {
   ailmentsSchema,
   battleConditionsSchema,
@@ -29,7 +27,9 @@ import {
   type PathChoice,
   type SparkLog,
   type TalentKey,
-} from "../../game/character"
+} from "@workspace/game/character"
+import { MechanicState } from "@workspace/game/mechanics"
+
 import { campaigns } from "./campaign"
 import { users } from "./user"
 
@@ -306,4 +306,4 @@ export type {
   CharacterRow,
   CharacterStatus,
   InventoryItemRow,
-} from "../../game/character"
+} from "@workspace/game/character"

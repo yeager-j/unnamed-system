@@ -1,7 +1,8 @@
 import { z } from "zod/v4"
 
+import { ORIGIN_ARCHETYPE_KEYS } from "@workspace/game/archetypes"
+
 import type { OriginArchetypePersistenceError } from "@/lib/db/writes/origin-archetype"
-import { ORIGIN_ARCHETYPE_KEYS } from "@/lib/game/archetypes"
 
 import { characterMutationBase } from "./character-mutation.schema"
 

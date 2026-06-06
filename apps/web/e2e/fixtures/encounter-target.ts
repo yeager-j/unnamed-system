@@ -1,14 +1,15 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
-import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
-import { encounters, getDb } from "@/lib/db"
-import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import {
   createCombatSession,
   reduceCombatSession,
   type CombatantSetup,
   type CombatSession,
-} from "@/lib/game/encounter"
+} from "@workspace/game/encounter"
+
+import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
+import { encounters, getDb } from "@/lib/db"
+import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,

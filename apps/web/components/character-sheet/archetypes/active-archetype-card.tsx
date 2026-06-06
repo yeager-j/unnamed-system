@@ -1,3 +1,8 @@
+import {
+  hasMasteryBonus,
+  type ArchetypeEntry,
+} from "@workspace/game/archetypes"
+import type { AttributeScores } from "@workspace/game/character"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -10,8 +15,6 @@ import {
 import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import { formatMasteryDescription } from "@/components/archetype/format"
 import { ArchetypeDetail } from "@/components/character-sheet/archetypes/archetype-detail"
-import { hasMasteryBonus, type ArchetypeEntry } from "@/lib/game/archetypes"
-import type { AttributeScores } from "@/lib/game/character"
 
 export function ActiveArchetypeCard({
   entry,

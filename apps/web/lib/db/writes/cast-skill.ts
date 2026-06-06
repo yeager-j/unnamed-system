@@ -1,16 +1,17 @@
-import { db } from "@/lib/db/client"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 import {
   toStatComputationCharacter,
   type HydratedCharacter,
-} from "@/lib/game/character"
+} from "@workspace/game/character"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
 import {
   applyCast,
   type CastError,
   type CastingCharacter,
-} from "@/lib/game/skills"
-import { err, ok, type Result } from "@/lib/result"
+} from "@workspace/game/skills"
+
+import { db } from "@/lib/db/client"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

@@ -10,12 +10,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
-import { Separator } from "@workspace/ui/components/separator"
-
-import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
-import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
-import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
-import type { CombatantSetup } from "@/lib/game/encounter"
+import type { CombatantSetup } from "@workspace/game/encounter"
 import {
   buildEnemyCatalogRows,
   buildEnemyDetailView,
@@ -24,7 +19,12 @@ import {
   getEnemy,
   groupEnemyRowsByLevel,
   type EnemyFamily,
-} from "@/lib/game/enemies"
+} from "@workspace/game/enemies"
+import { Separator } from "@workspace/ui/components/separator"
+
+import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
+import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
+import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
 import { EnemyQueueRail } from "./enemy-queue-rail"

@@ -2,6 +2,12 @@
 
 import { XIcon } from "@phosphor-icons/react/dist/ssr"
 
+import type {
+  CombatSession,
+  CombatSide,
+  EngageableTarget,
+  Engagement,
+} from "@workspace/game/encounter"
 import { Button } from "@workspace/ui/components/button"
 import {
   Select,
@@ -10,13 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-
-import type {
-  CombatSession,
-  CombatSide,
-  EngageableTarget,
-  Engagement,
-} from "@/lib/game/encounter"
 
 import { EngagementControl } from "./engagement-control"
 import { SideToggle } from "./side-toggle"

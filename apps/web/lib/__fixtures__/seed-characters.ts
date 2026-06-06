@@ -7,8 +7,8 @@ import {
   type SparkLog,
   type StatComputationCharacter,
   type TalentKey,
-} from "../game/character"
-import type { MechanicState } from "../game/mechanics"
+} from "@workspace/game/character"
+import type { MechanicState } from "@workspace/game/mechanics"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

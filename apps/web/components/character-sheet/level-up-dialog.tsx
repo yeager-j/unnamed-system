@@ -5,6 +5,14 @@ import Link from "next/link"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
+import {
+  ARCHETYPE_RANKS_PER_LEVEL,
+  computeMaxHitDice,
+  computeMaxSkillDice,
+  getPathStats,
+  VICTORIES_PER_LEVEL,
+  type HydratedCharacter,
+} from "@workspace/game/character"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -17,14 +25,6 @@ import {
 
 import { broadcastCharacterVersion } from "@/hooks/use-character-versions-broadcast"
 import { levelUpAction } from "@/lib/actions/leveling"
-import {
-  ARCHETYPE_RANKS_PER_LEVEL,
-  computeMaxHitDice,
-  computeMaxSkillDice,
-  getPathStats,
-  VICTORIES_PER_LEVEL,
-  type HydratedCharacter,
-} from "@/lib/game/character"
 
 /**
  * The header-launched level-up dialog (PRD §7.4, UNN-157). Single-pane

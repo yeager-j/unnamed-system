@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import { deleteCharacter } from "@/lib/db/writes/delete-character"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   DeleteCharacterSchema,

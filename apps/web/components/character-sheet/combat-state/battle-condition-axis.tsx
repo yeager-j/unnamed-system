@@ -3,6 +3,11 @@
 import { CaretDownIcon, CaretUpIcon, MinusIcon } from "@phosphor-icons/react"
 
 import {
+  BATTLE_CONDITION_STATES,
+  DEFAULT_BATTLE_CONDITIONS,
+  type BattleConditionState,
+} from "@workspace/game/character"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -13,11 +18,6 @@ import {
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setBattleConditionAxisAction } from "@/lib/actions/combat-state"
-import {
-  BATTLE_CONDITION_STATES,
-  DEFAULT_BATTLE_CONDITIONS,
-  type BattleConditionState,
-} from "@/lib/game/character"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_LABELS,

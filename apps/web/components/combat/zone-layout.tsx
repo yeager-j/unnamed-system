@@ -1,5 +1,10 @@
 import Image from "next/image"
 
+import type {
+  ZoneLayoutEntry,
+  ZoneLayoutView,
+  ZoneToken,
+} from "@workspace/game/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -11,11 +16,6 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type {
-  ZoneLayoutEntry,
-  ZoneLayoutView,
-  ZoneToken,
-} from "@/lib/game/encounter"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 

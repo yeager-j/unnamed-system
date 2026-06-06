@@ -1,13 +1,17 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import type {
+  InitiativeStats,
+  PcCombatantDetail,
+} from "@workspace/game/encounter"
+
 import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
 import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import type { InitiativeStats, PcCombatantDetail } from "@/lib/game/encounter"
 
 import { getEncounterForDM } from "./encounter-access"
 

@@ -3,6 +3,14 @@
 import { PlusIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
+import {
+  ACCESSORIES,
+  ARMOR,
+  CONSUMABLES,
+  isStackable,
+  WEAPONS,
+  type Item,
+} from "@workspace/game/items"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -13,14 +21,6 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
 
-import {
-  ACCESSORIES,
-  ARMOR,
-  CONSUMABLES,
-  isStackable,
-  WEAPONS,
-  type Item,
-} from "@/lib/game/items"
 import { ITEM_GROUP_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache"
 import { unauthorized } from "next/navigation"
 
+import { ok, type Result } from "@workspace/game/foundation/result"
+
 import { auth } from "@/lib/auth"
 import { startCharacterDraft } from "@/lib/db/writes/start-character-draft"
-import { ok, type Result } from "@/lib/result"
 
 /**
  * Inserts a fresh `status: "draft"` character row for the signed-in caller

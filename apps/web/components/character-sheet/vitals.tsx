@@ -1,9 +1,9 @@
 "use client"
 
+import { isFallen } from "@workspace/game/character"
 import { Progress } from "@workspace/ui/components/progress"
 
 import { useCharacter } from "@/hooks/use-character"
-import { isFallen } from "@/lib/game/character"
 
 /**
  * The read-only Vitals block (PRD §6.1 Vitals): current/max HP and SP with bars

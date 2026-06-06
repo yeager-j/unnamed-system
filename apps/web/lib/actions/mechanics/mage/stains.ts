@@ -1,12 +1,13 @@
 "use server"
 
+import { err, type Result } from "@workspace/game/foundation/result"
+import { clearStains, setStainSlot } from "@workspace/game/mechanics"
+
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   applyMechanicStateForCharacter,
   type MechanicWriteSuccess,
 } from "@/lib/db/writes/mechanic-state"
-import { clearStains, setStainSlot } from "@/lib/game/mechanics"
-import { err, type Result } from "@/lib/result"
 
 import { revalidateCharacter } from "../../revalidate"
 import {

@@ -2,10 +2,10 @@
 
 import { CheckIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
 
+import { archetypeDisplayName } from "@workspace/game/archetypes"
 import { Button } from "@workspace/ui/components/button"
 
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import { archetypeDisplayName } from "@/lib/game/archetypes"
 
 import { SetupPanelStub } from "./setup-panels"
 

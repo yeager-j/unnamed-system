@@ -1,10 +1,10 @@
-import { cn } from "@workspace/ui/lib/utils"
-
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-} from "@/lib/game/combat"
+} from "@workspace/game/combat"
+import { cn } from "@workspace/ui/lib/utils"
+
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
 /**

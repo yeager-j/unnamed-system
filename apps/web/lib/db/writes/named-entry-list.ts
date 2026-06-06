@@ -1,9 +1,10 @@
 import { and, asc, eq, max } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
 import { db } from "@/lib/db/client"
 import { characterChains, characterKnives } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
-import { err, ok, type Result } from "@/lib/result"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

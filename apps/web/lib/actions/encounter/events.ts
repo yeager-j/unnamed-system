@@ -1,5 +1,8 @@
 "use server"
 
+import { reduceCombatSession } from "@workspace/game/encounter"
+import { err, ok, type Result } from "@workspace/game/foundation/result"
+
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {
   loadEncounterCampaignId,
@@ -10,8 +13,6 @@ import {
   saveEncounterSession,
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
-import { reduceCombatSession } from "@/lib/game/encounter"
-import { err, ok, type Result } from "@/lib/result"
 
 import {
   ApplyCombatEventSchema,
