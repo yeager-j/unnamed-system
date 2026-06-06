@@ -11,6 +11,8 @@ node_modules
 
 # Testing
 coverage
+/apps/web/reports/
+/apps/web/.stryker-tmp/
 /apps/web/test-results/
 /apps/web/playwright-report/
 /apps/web/.playwright/

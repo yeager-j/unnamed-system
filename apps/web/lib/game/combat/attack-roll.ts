@@ -75,11 +75,6 @@ export interface AttackRollContext {
   attribute: AttackAttribute
 }
 
-export const EMPTY_RESOLVED_ATTACK_ROLL: ResolvedAttackRoll = {
-  total: 0,
-  sources: [],
-}
-
 /**
  * Derives the {@link AttackRollContext} for a Skill, returning `null` for
  * kinds that make no Attack Roll (passive / heal / support) or for attack
@@ -160,13 +155,16 @@ export function resolveAttackRollFrom(
 function collectAttackRollEffects(
   character: StatComputationCharacter
 ): AttackRollEffect[] {
+  // Stryker disable next-line ArrayDeclaration: equivalent — a junk seed element resolves to a 0 contribution and is dropped in the fold.
   const effects: AttackRollEffect[] = []
 
   const active = character.activeMechanic
   if (active) {
+    // Stryker disable next-line ObjectLiteral: equivalent — no current mechanic reads the `stats` context, so dropping it changes nothing.
     for (const effect of mechanicEffectsFor(active.kind, active.state, {
       stats: character,
     })) {
+      // Stryker disable next-line ConditionalExpression: equivalent — non-attackRoll mechanic effects (e.g. Valor's affinity) carry no amount, so including one resolves to 0 and is dropped downstream.
       if (effect.type === "attackRoll") effects.push(effect)
     }
   }
@@ -187,7 +185,9 @@ export function attackRollEffectsFromSkills(
 ): AttackRollEffect[] {
   const effects: AttackRollEffect[] = []
   for (const skill of skills) {
+    // Stryker disable next-line ConditionalExpression: equivalent — non-passive Skills carry no `effects`, so not skipping them adds nothing.
     if (skill.kind !== "passive") continue
+    // Stryker disable next-line ArrayDeclaration: equivalent — a junk fallback element is filtered out by the attackRoll type check below.
     for (const effect of skill.effects ?? []) {
       if (effect.type === "attackRoll") effects.push(effect)
     }
@@ -216,6 +216,7 @@ function axisMatches<T>(
   values: readonly T[],
   candidate: T | undefined
 ): boolean {
+  // Stryker disable next-line ConditionalExpression: equivalent — the undefined guard is for typing; values.includes(undefined) is already false.
   return candidate !== undefined && values.includes(candidate)
 }
 
@@ -225,6 +226,7 @@ function resolveAmount(
   partyComposition: PartyComposition | null
 ): number {
   if (effect.amount !== undefined) return effect.amount
+  // Stryker disable next-line ConditionalExpression: equivalent — when reached (amount is undefined) a valid effect always carries a scaler.
   if (effect.scaler)
     return resolveScaler(effect.scaler, character, partyComposition)
   return 0
@@ -235,6 +237,7 @@ function resolveScaler(
   character: StatComputationCharacter,
   partyComposition: PartyComposition | null
 ): number {
+  // Stryker disable next-line ConditionalExpression: equivalent — perPartyLineage is currently the only scaler kind.
   if (scaler.kind === "perPartyLineage") {
     let count = partyComposition?.[scaler.lineage] ?? 0
     if (!scaler.includesSelf && shareActiveLineage(character, scaler.lineage)) {
@@ -250,6 +253,7 @@ function shareActiveLineage(
   lineage: AttackRollScaler["lineage"]
 ): boolean {
   const key = character.activeArchetypeKey
+  // Stryker disable next-line ConditionalExpression: equivalent — getArchetype(null) is undefined, so the fallthrough returns false for a null key anyway.
   if (!key) return false
   return getArchetype(key)?.lineage === lineage
 }
