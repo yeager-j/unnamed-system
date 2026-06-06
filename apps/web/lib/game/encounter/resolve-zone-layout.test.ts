@@ -104,6 +104,26 @@ describe("resolveZoneLayout", () => {
     expect(view.unplaced.map((c) => c.name)).toEqual(["Brannis"])
   })
 
+  it("reports hasZones true and no unplaced when every combatant is in a real zone", () => {
+    const session = sessionWith([pc("char1", "zone-a"), goblin("zone-b")])
+
+    const view = resolveZoneLayout(session, PC_DETAIL)
+
+    expect(view.hasZones).toBe(true)
+    expect(view.unplaced).toEqual([])
+  })
+
+  it("renders a PC with no detail entry with a null portrait (detail miss is safe)", () => {
+    const session = sessionWith([pc("char-unknown", "zone-a")])
+
+    const token = resolveZoneLayout(session, PC_DETAIL).zones.find(
+      (z) => z.id === "zone-a"
+    )!.combatants[0]!
+
+    expect(token.isPc).toBe(true)
+    expect(token.portraitUrl).toBeNull()
+  })
+
   it("is undefined-safe when an adjacency entry points at a removed zone", () => {
     const session = sessionWith([])
     const withDangling = {

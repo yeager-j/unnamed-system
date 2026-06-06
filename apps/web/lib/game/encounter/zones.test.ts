@@ -113,6 +113,22 @@ describe("reduceCombatSession — removeZone", () => {
 
     expect(next).toBe(session)
   })
+
+  it("leaves a dangling adjacency entry untouched when its zone is unknown", () => {
+    const { session } = sessionWithEdge()
+    const withOrphan: CombatSession = {
+      ...session,
+      adjacency: { ...session.adjacency, orphan: ["zone-0"] },
+    }
+
+    const next = reduceCombatSession(withOrphan, {
+      kind: "removeZone",
+      zoneId: "orphan",
+    })
+
+    expect(next).toBe(withOrphan)
+    expect(next.adjacency).toHaveProperty("orphan")
+  })
 })
 
 describe("reduceCombatSession — setZoneAdjacency", () => {
@@ -162,6 +178,89 @@ describe("reduceCombatSession — setZoneAdjacency", () => {
     })
 
     expect(next).toBe(session)
+  })
+
+  it("is a no-op when the first zone is unknown", () => {
+    const { session, zoneB } = sessionWithEdge()
+
+    const next = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: "ghost",
+      zoneIdB: zoneB,
+      adjacent: true,
+    })
+
+    expect(next).toBe(session)
+  })
+
+  it("is a no-op when clearing an edge that does not exist", () => {
+    const ids = sequentialIds()
+    let session = createCombatSession(SETUP, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "A" }, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "B" }, ids)
+    const [zoneA, zoneB] = Object.keys(session.zones)
+
+    const next = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: zoneA!,
+      zoneIdB: zoneB!,
+      adjacent: false,
+    })
+
+    expect(next).toBe(session)
+  })
+
+  it("leaves existing neighbors untouched when clearing a non-existent edge", () => {
+    const ids = sequentialIds()
+    let session = createCombatSession(SETUP, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "A" }, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "B" }, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "C" }, ids)
+    const [zoneA, zoneB, zoneC] = Object.keys(session.zones)
+    session = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: zoneA!,
+      zoneIdB: zoneB!,
+      adjacent: true,
+    })
+    expect(session.adjacency[zoneA!]).toEqual([zoneB])
+
+    const next = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: zoneA!,
+      zoneIdB: zoneC!,
+      adjacent: false,
+    })
+
+    expect(next.adjacency[zoneA!]).toEqual([zoneB])
+  })
+
+  it("removes only the named edge, leaving other neighbors intact", () => {
+    const ids = sequentialIds()
+    let session = createCombatSession(SETUP, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "A" }, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "B" }, ids)
+    session = reduceCombatSession(session, { kind: "addZone", name: "C" }, ids)
+    const [zoneA, zoneB, zoneC] = Object.keys(session.zones)
+    for (const other of [zoneB!, zoneC!]) {
+      session = reduceCombatSession(session, {
+        kind: "setZoneAdjacency",
+        zoneIdA: zoneA!,
+        zoneIdB: other,
+        adjacent: true,
+      })
+    }
+    expect(session.adjacency[zoneA!]).toEqual([zoneB, zoneC])
+
+    const next = reduceCombatSession(session, {
+      kind: "setZoneAdjacency",
+      zoneIdA: zoneA!,
+      zoneIdB: zoneC!,
+      adjacent: false,
+    })
+
+    expect(next.adjacency[zoneA!]).toEqual([zoneB])
+    expect(next.adjacency[zoneC!] ?? []).not.toContain(zoneA)
   })
 
   it("is a no-op when the two zone ids are equal (no self-loop)", () => {

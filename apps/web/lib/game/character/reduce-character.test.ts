@@ -8,6 +8,7 @@ import {
   toRawInputs,
   type RawCharacterInputs,
 } from "./derive-hydrated-character"
+import type { HydratedCharacter } from "./hydrated-character"
 import { reduceCharacter } from "./reduce-character"
 
 const CHARACTER_ID = "char-1"
@@ -277,6 +278,106 @@ describe("reduceCharacter", () => {
     const mechanic = next.activeMechanic?.state
     expect(mechanic?.kind).toBe("perfection")
     expect(mechanic).toMatchObject({ rank: 1 })
+  })
+
+  /** A character whose single (active) Archetype is `archetypeKey`, so a
+   *  mechanic edit for that Archetype's mechanic resolves and applies. */
+  function makeWithActiveArchetype(archetypeKey: string): HydratedCharacter {
+    const raw = makeRaw()
+    raw.archetypeRows = [
+      {
+        id: "arch-1",
+        characterId: CHARACTER_ID,
+        archetypeKey,
+        rank: 1,
+        inheritanceSlots: [],
+        mechanicState: null,
+      },
+    ]
+    return deriveHydratedCharacter(raw)
+  }
+
+  it("steps the active Archetype's Valor mechanic", () => {
+    const knight = makeWithActiveArchetype("knight")
+    const next = reduceCharacter(knight, {
+      kind: "valor",
+      direction: "increment",
+    })
+    expect(next.activeMechanic?.state.kind).toBe("valor")
+    expect(next.activeMechanic?.state).not.toEqual(knight.activeMechanic?.state)
+  })
+
+  it("sets a slot on the active Archetype's Stains mechanic", () => {
+    const mage = makeWithActiveArchetype("mage")
+    const next = reduceCharacter(mage, {
+      kind: "stains",
+      op: "setSlot",
+      slotIndex: 0,
+      element: "fire",
+    })
+    expect(next.activeMechanic?.state.kind).toBe("stains")
+    expect(next.activeMechanic?.state).not.toEqual(mage.activeMechanic?.state)
+  })
+
+  it("toggles the active Archetype's Path of Dawn mode", () => {
+    const healer = makeWithActiveArchetype("healer")
+    const next = reduceCharacter(healer, { kind: "pathOfDawn", dawnMode: true })
+    expect(next.activeMechanic?.state.kind).toBe("path-of-dawn")
+    expect(next.activeMechanic?.state).not.toEqual(healer.activeMechanic?.state)
+  })
+
+  it("toggles the active Archetype's Path of Dusk mode", () => {
+    const warlock = makeWithActiveArchetype("warlock")
+    const next = reduceCharacter(warlock, {
+      kind: "pathOfDusk",
+      duskMode: true,
+    })
+    expect(next.activeMechanic?.state.kind).toBe("path-of-dusk")
+    expect(next.activeMechanic?.state).not.toEqual(
+      warlock.activeMechanic?.state
+    )
+  })
+
+  it("toggles a battle-condition flag", () => {
+    const character = make()
+    const next = reduceCharacter(character, {
+      kind: "battleConditionFlag",
+      flag: "charged",
+      value: true,
+    })
+    expect(next.battleConditions?.charged).toBe(true)
+  })
+
+  it("spends and recovers SP", () => {
+    const character = make()
+    const spent = reduceCharacter(character, { kind: "spendSP", amount: 5 })
+    expect(spent.currentSP).toBe(character.currentSP - 5)
+
+    const recovered = reduceCharacter(spent, { kind: "recoverSP", amount: 3 })
+    expect(recovered.currentSP).toBe(spent.currentSP + 3)
+  })
+
+  it("casts a Skill, paying its resolved cost", () => {
+    const character = make()
+    const next = reduceCharacter(character, {
+      kind: "cast",
+      skillKey: "cleave",
+    })
+    expect(next.currentHP).toBeLessThan(character.currentHP)
+  })
+
+  it("ranks up a Virtue once the Spark log is full", () => {
+    const raw = makeRaw()
+    raw.row.sparkLog = Array(7).fill("wisdom")
+    const character = deriveHydratedCharacter(raw)
+
+    const next = reduceCharacter(character, {
+      kind: "rankUpVirtue",
+      virtue: "wisdom",
+    })
+
+    expect(next.virtueWisdom).toBe(character.virtueWisdom + 1)
+    expect(next.sparkLog).toEqual([])
   })
 
   it("ignores a mechanic edit that doesn't match the active Archetype's mechanic", () => {

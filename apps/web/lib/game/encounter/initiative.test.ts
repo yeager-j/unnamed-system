@@ -91,6 +91,38 @@ describe("compareInitiative", () => {
       { p1: { agility: 0, luck: 0 } }
     )
     expect(result.enemies.highestAgility).not.toBeNull()
+    expect(Number.isFinite(result.enemies.highestAgility)).toBe(true)
+    expect(Number.isFinite(result.enemies.highestLuck)).toBe(true)
+    expect(result.suggested).toBe("enemies")
+  })
+
+  it("takes the highest Luck (not the lowest) across a side when breaking an Agility tie", () => {
+    const result = compareInitiative(
+      [pc("p1", "players"), pc("p2", "players"), inlineEnemy(4, 5)],
+      { p1: { agility: 4, luck: 3 }, p2: { agility: 4, luck: 9 } }
+    )
+    expect(result.players.highestLuck).toBe(9)
+    expect(result.suggested).toBe("players")
+  })
+
+  it("suggests players on a Luck tiebreak when their Luck is higher", () => {
+    const result = compareInitiative([pc("p1", "players"), inlineEnemy(4, 1)], {
+      p1: { agility: 4, luck: 6 },
+    })
+    expect(result.suggested).toBe("players")
+  })
+
+  it("yields to a non-positive-Agility populated side when the other is empty", () => {
+    const result = compareInitiative([pc("p1", "players")], {
+      p1: { agility: 0, luck: 0 },
+    })
+    expect(result.enemies.highestAgility).toBeNull()
+    expect(result.suggested).toBe("players")
+  })
+
+  it("yields to the enemies even when their only Agility is negative", () => {
+    const result = compareInitiative([inlineEnemy(-1, 0)], {})
+    expect(result.players.highestAgility).toBeNull()
     expect(result.suggested).toBe("enemies")
   })
 

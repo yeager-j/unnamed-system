@@ -121,6 +121,38 @@ describe("applyPartialRest", () => {
     expect(result).toEqual({ ok: false, error: "insufficient-skill-dice" })
   })
 
+  it("fails on a negative Skill Dice spend", () => {
+    const result = applyPartialRest(makeCharacter({ skillDiceRemaining: 5 }), {
+      skillDiceSpent: -1,
+      spRecovered: 0,
+    })
+
+    expect(result).toStrictEqual({
+      ok: false,
+      error: "insufficient-skill-dice",
+    })
+  })
+
+  it("succeeds when spending exactly the remaining Skill Dice", () => {
+    const result = applyPartialRest(makeCharacter({ skillDiceRemaining: 2 }), {
+      skillDiceSpent: 2,
+      spRecovered: 0,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.skillDiceRemaining).toBe(0)
+  })
+
+  it("succeeds on a zero spend with zero remaining", () => {
+    const result = applyPartialRest(makeCharacter({ skillDiceRemaining: 0 }), {
+      skillDiceSpent: 0,
+      spRecovered: 0,
+    })
+
+    expect(result.ok).toBe(true)
+  })
+
   it("does not mutate its input", () => {
     const character = makeCharacter({ currentSP: 10, skillDiceRemaining: 4 })
     const snapshot = structuredClone(character)
@@ -172,6 +204,35 @@ describe("applyRespite", () => {
     })
 
     expect(result).toEqual({ ok: false, error: "insufficient-hit-dice" })
+  })
+
+  it("fails on a negative Hit Dice spend", () => {
+    const result = applyRespite(makeCharacter({ hitDiceRemaining: 3 }), {
+      hitDiceSpent: -1,
+      hpRecovered: 0,
+    })
+
+    expect(result).toStrictEqual({ ok: false, error: "insufficient-hit-dice" })
+  })
+
+  it("succeeds when spending exactly the remaining Hit Dice", () => {
+    const result = applyRespite(makeCharacter({ hitDiceRemaining: 2 }), {
+      hitDiceSpent: 2,
+      hpRecovered: 0,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.hitDiceRemaining).toBe(0)
+  })
+
+  it("succeeds on a zero spend with zero remaining", () => {
+    const result = applyRespite(makeCharacter({ hitDiceRemaining: 0 }), {
+      hitDiceSpent: 0,
+      hpRecovered: 0,
+    })
+
+    expect(result.ok).toBe(true)
   })
 
   it("does not mutate its input", () => {

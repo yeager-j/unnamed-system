@@ -12,8 +12,8 @@ const STAT_BLOCK = {
   name: "Cave Bat",
   maxHP: 8,
   currentHP: 8,
-  maxSP: 0,
-  currentSP: 0,
+  maxSP: 10,
+  currentSP: 10,
   attributes: { strength: 0, magic: 0, agility: 2, luck: 0 },
 }
 
@@ -47,6 +47,72 @@ function catalogRefOf(session: ReturnType<typeof build>, id: string) {
 }
 
 describe("adjustEnemyVitals", () => {
+  it("sets an inline enemy's currentSP to the given value", () => {
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-1",
+      field: "currentSP",
+      value: 4,
+    })
+    expect(statBlockOf(next, "combatant-1")?.currentSP).toBe(4)
+  })
+
+  it("floors an inline enemy's currentSP at 0", () => {
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-1",
+      field: "currentSP",
+      value: -2,
+    })
+    expect(statBlockOf(next, "combatant-1")?.currentSP).toBe(0)
+  })
+
+  it("sets an inline enemy's maxSP", () => {
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-1",
+      field: "maxSP",
+      value: 20,
+    })
+    expect(statBlockOf(next, "combatant-1")?.maxSP).toBe(20)
+  })
+
+  it("clamps an inline enemy's currentSP when maxSP drops below it", () => {
+    // Cave Bat is at 10/10 SP; lowering max to 4 caps current at 4.
+    const next = reduceCombatSession(build(), {
+      kind: "adjustEnemyVitals",
+      combatantId: "combatant-1",
+      field: "maxSP",
+      value: 4,
+    })
+    expect(statBlockOf(next, "combatant-1")).toMatchObject({
+      maxSP: 4,
+      currentSP: 4,
+    })
+  })
+
+  it("falls back to 0 for an unknown catalog enemy's max when setting maxHP", () => {
+    const session = createCombatSession(
+      [
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+          zoneId: "z",
+        },
+      ],
+      () => "lone"
+    )
+
+    const next = reduceCombatSession(session, {
+      kind: "adjustEnemyVitals",
+      combatantId: "lone",
+      field: "maxHP",
+      value: 7,
+    })
+
+    expect(catalogRefOf(next, "lone")).toMatchObject({ maxHP: 7, currentHP: 0 })
+  })
+
   it("sets an inline enemy's currentHP to the given value", () => {
     const next = reduceCombatSession(build(), {
       kind: "adjustEnemyVitals",

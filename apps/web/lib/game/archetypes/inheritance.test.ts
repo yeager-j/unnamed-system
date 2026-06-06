@@ -5,13 +5,18 @@ import type {
   CharacterRow,
 } from "@/lib/db/schema/character"
 
+import { makeArchetype } from "../__fixtures__"
 import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "../character/derive-hydrated-character"
 import { inheritanceSourceGroups, isInheritableSkill } from "./inheritance"
 import { mage } from "./mage/mage"
-import { buildArchetypeEntries } from "./utils"
+import {
+  buildArchetypeEntries,
+  type ArchetypeEntry,
+  type RankedSkill,
+} from "./utils"
 
 describe("isInheritableSkill", () => {
   it("accepts a Rank-keyed Skill the source has unlocked", () => {
@@ -133,6 +138,55 @@ describe("inheritanceSourceGroups", () => {
       "tempest-slash",
       "windblade",
     ])
+  })
+})
+
+describe("inheritanceSourceGroups source filtering", () => {
+  const sampleRankedSkill: RankedSkill = buildArchetypeEntries(
+    deriveHydratedCharacter(makeRaw())
+  )[0]!.ranks[0]!
+
+  function entry(
+    id: string,
+    rank: number,
+    rankedSkillRanks: number[]
+  ): ArchetypeEntry {
+    return {
+      archetype: makeArchetype({ key: `arch-${id}` }),
+      row: {
+        id,
+        characterId: CHARACTER_ID,
+        archetypeKey: "warrior",
+        rank,
+        inheritanceSlots: [],
+        mechanicState: null,
+      },
+      isActive: false,
+      ranks: rankedSkillRanks.map((r) => ({ ...sampleRankedSkill, rank: r })),
+      synthesis: null,
+      slots: [],
+    }
+  }
+
+  it("drops a source whose Skills are all above its current Rank", () => {
+    const groups = inheritanceSourceGroups(
+      [entry("owner", 5, [1]), entry("locked", 1, [3, 4])],
+      "owner"
+    )
+
+    expect(groups).toEqual([])
+  })
+
+  it("keeps a source with at least one in-Rank Skill", () => {
+    const groups = inheritanceSourceGroups(
+      [entry("owner", 5, [1]), entry("available", 2, [1, 3])],
+      "owner"
+    )
+
+    expect(groups.map((g) => g.sourceCharacterArchetypeId)).toEqual([
+      "available",
+    ])
+    expect(groups[0]?.skills.map((s) => s.rank)).toEqual([1])
   })
 })
 
