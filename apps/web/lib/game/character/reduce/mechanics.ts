@@ -2,7 +2,7 @@ import {
   adjustPerfection,
   adjustValor,
   clearStains,
-  initialStateFor,
+  getTypedMechanic,
   resetPerfection,
   setDawnMode,
   setDuskMode,
@@ -85,9 +85,10 @@ export function reduceMechanicEdit(
 
 /**
  * Resolves the active Archetype's current mechanic state, coercing a null
- * `mechanicState` to {@link initialStateFor}`(mechanicKind)` — so a first edit
- * on a fresh Archetype starts from the empty state. Returns `null` when no
- * Archetype is active, its row is missing, or `mechanicKind` is unknown.
+ * `mechanicState` to the mechanic's initial state (via {@link getTypedMechanic},
+ * which yields a state for every {@link MechanicKind}) — so a first edit on a
+ * fresh Archetype starts from the empty state. Returns `null` when no Archetype
+ * is active or its row is missing.
  */
 function activeMechanicState(
   raw: RawCharacterInputs,
@@ -100,9 +101,8 @@ function activeMechanicState(
   const archetype = raw.archetypeRows.find((row) => row.id === activeId)
   if (!archetype) return null
 
-  const current = archetype.mechanicState ?? initialStateFor(mechanicKind)
-  // Stryker disable next-line ConditionalExpression: equivalent — initialStateFor returns a state for every known MechanicKind, so `current` is never nullish here.
-  if (!current) return null
+  const current =
+    archetype.mechanicState ?? getTypedMechanic(mechanicKind).initialState()
 
   return { activeId, current }
 }
