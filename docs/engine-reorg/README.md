@@ -45,10 +45,15 @@ lib/game/
 
 ## Decisions locked
 
-- **Barrels: dropped.** The per-domain `index.ts` barrels currently re-export
-  across all three layers, which is the muddiness we're removing. Delete them;
-  repoint importers to layered paths. (IDE "move file" updates most refs; the
-  barrel deletions are the manual repoint.)
+- **Barrels: dropped.** The **top-level domain barrels** (`skills/index.ts`,
+  `combat/index.ts`, `character/index.ts`, `encounter/index.ts`,
+  `archetypes/index.ts`, `items/index.ts`, `enemies/index.ts`, `mechanics/index.ts`)
+  re-export across all three layers, which is the muddiness we're removing. Delete
+  them; repoint importers to layered paths. **This does *not* include the
+  per-category slice indexes** (`skills/fire/index.ts`, `items/weapon/index.ts`,
+  `enemies/5e/beast/index.ts`, …) — those are data and move to `data/` with their
+  slice. (IDE "move file" updates most refs; the barrel deletions are the manual
+  repoint.)
 - **`character/lineage.ts` → `foundation/` whole.** It's lineage vocab + maps +
   one trivial `startingWeaponForLineage` lookup; not worth a 5th split. We accept
   that one-line lookup isn't mutation-tested.
@@ -68,6 +73,7 @@ lib/game/
 `*.test.ts` always moves with its `*.ts`.
 
 ### → `foundation/` (whole-file)
+- `common.ts` (the stray top-level file: `SKILL_KINDS` / `SkillKind` vocabulary, zod-free)
 - `combat/affinity.ts`, `combat/effects.ts`
 - `character/state.ts`, `character/hydrated-character.ts`, `character/character-edit.ts`, `character/lineage.ts`
 - `encounter/session-event.ts`
@@ -76,6 +82,12 @@ lib/game/
 - *(plus the schema/type halves of the four splits)*
 
 ### → `data/` (directory-level; per-entry files confirmed logic-free)
+
+The per-category **slice indexes** (`skills/fire/index.ts` → `FIRE_SKILLS`,
+`items/weapon/index.ts`, `enemies/5e/beast/index.ts`, …) are **data** — they
+move with their slice under the `*` wildcards below. Do **not** confuse these
+with the top-level domain barrels (deleted in step 5).
+
 - `skills/<element>/*` + `skills/registry.ts`
 - `items/<slot>/*` + `items/registry.ts`
 - `archetypes/<lineage>/*` + `archetypes/demo/*` + `archetypes/registry.ts`
@@ -157,7 +169,9 @@ schema half; the schema half imports neither — no cycles.
 2. Create `foundation/`, `data/`, `engine/`.
 3. Do the **four splits** (IDE move-members-to-file).
 4. **Whole-file moves** per the map (IDE move; let it fix imports).
-5. Delete the per-domain `index.ts` barrels; repoint any stragglers to layered paths.
+5. Delete the **top-level domain barrels** (`skills/index.ts`, `combat/index.ts`,
+   …) — **not** the per-category slice indexes (`skills/fire/index.ts` & friends),
+   which move with their data — and repoint stragglers to layered paths.
 6. Tooling changes + `CLAUDE.md` + this doc's status → done.
 7. Verify: `npm run typecheck`, `npm run test`, `npm run lint` all green.
 8. Scoped Stryker on `engine/**` to confirm parity (~same scores as today).
