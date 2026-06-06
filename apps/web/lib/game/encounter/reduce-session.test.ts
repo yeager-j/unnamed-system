@@ -81,6 +81,18 @@ describe("reduceCombatSession — endTurn", () => {
 
     expect(next).toBe(session)
   })
+
+  it("mints a real id via the default generator when none is supplied", () => {
+    const session = createCombatSession(SETUP, sequentialIds())
+
+    const next = reduceCombatSession(session, { kind: "addZone", name: "Gate" })
+
+    const zones = Object.values(next.zones)
+    expect(zones).toHaveLength(1)
+    expect(typeof zones[0]!.id).toBe("string")
+    expect(zones[0]!.id).not.toBe("undefined")
+    expect(zones[0]!.id.length).toBeGreaterThan(0)
+  })
 })
 
 describe("reduceCombatSession — startCombat", () => {
@@ -676,5 +688,36 @@ describe("reduceCombatSession — endTurn duration clock", () => {
     expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
     expect(next.combatants[0]!.battleConditions.defense).toBe("increased")
     expect(next.combatants[0]!.conditionDurations.defense).toBe(2)
+  })
+
+  it("leaves an axis with no duration untouched", () => {
+    const session = startedWithOverlay(
+      { ...DEFAULT_BATTLE_CONDITIONS, attack: "increased" },
+      {}
+    )
+
+    const next = reduceCombatSession(session, { kind: "endTurn" })
+
+    expect(next.combatants[0]!.battleConditions.attack).toBe("increased")
+    expect(next.combatants[0]!.conditionDurations.attack).toBeUndefined()
+  })
+
+  it("marks the actual current actor as acted, not merely the first combatant", () => {
+    const base = createCombatSession(SETUP, sequentialIds())
+    const session = { ...base, currentActorId: base.combatants[1]!.id }
+
+    const next = reduceCombatSession(session, { kind: "endTurn" })
+
+    expect(next.combatants[1]!.hasActedThisRound).toBe(true)
+    expect(next.combatants[0]!.hasActedThisRound).toBe(false)
+  })
+
+  it("is a no-op when the current actor id matches no combatant", () => {
+    const base = createCombatSession(SETUP, sequentialIds())
+    const session = { ...base, currentActorId: "ghost" }
+
+    const next = reduceCombatSession(session, { kind: "endTurn" })
+
+    expect(next).toBe(session)
   })
 })

@@ -91,6 +91,26 @@ describe("reduceCombatSession — setEngagement", () => {
     })
   })
 
+  it("keeps a dropped partner's other links when set-engaging to fewer targets", () => {
+    // B engaged with A and C; re-setting A to [] drops A↔B but must keep B↔C.
+    let next = reduceCombatSession(session(), {
+      kind: "setEngagement",
+      combatantId: "combatant-1",
+      targetCombatantIds: ["combatant-0", "combatant-2"],
+    })
+    next = reduceCombatSession(next, {
+      kind: "setEngagement",
+      combatantId: "combatant-0",
+      targetCombatantIds: [],
+    })
+
+    expect(engagementOf(next, "combatant-0")).toEqual({ status: "free" })
+    expect(engagementOf(next, "combatant-1")).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["combatant-2"],
+    })
+  })
+
   it("is a no-op when the combatant id is unknown", () => {
     const s = session()
     const next = reduceCombatSession(s, {

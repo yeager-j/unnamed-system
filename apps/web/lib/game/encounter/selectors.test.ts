@@ -213,6 +213,43 @@ describe("nextDraftingSide", () => {
     })
     expect(nextDraftingSide(session, new Set(["combatant-0"]))).toBe("enemies")
   })
+
+  it("alternates from an enemy lead to the players after the lead acts", () => {
+    const session = build({
+      setup: FOUR,
+      firstSide: "enemies",
+      advantage: "neutral",
+      acted: ["combatant-2"],
+    })
+    expect(nextDraftingSide(session, NONE)).toBe("players")
+  })
+
+  it("returns the lead side (players) when both sides are exhausted", () => {
+    const session = build({
+      setup: FOUR,
+      firstSide: "players",
+      acted: ["combatant-0", "combatant-1", "combatant-2", "combatant-3"],
+    })
+    expect(nextDraftingSide(session, NONE)).toBe("players")
+  })
+
+  it("falls back to the players lead when firstSide is null", () => {
+    const base = build({ setup: FOUR })
+    const session = { ...base, firstSide: null }
+    expect(nextDraftingSide(session, NONE)).toBe("players")
+  })
+
+  it("keeps drafting a players advantage through the round-1 opening phase", () => {
+    // advantage=players, one player already acted: normal alternation would flip
+    // to enemies, but the opening phase keeps players until they are exhausted.
+    const session = build({
+      setup: FOUR,
+      firstSide: "players",
+      advantage: "players",
+      acted: ["combatant-0"],
+    })
+    expect(nextDraftingSide(session, NONE)).toBe("players")
+  })
 })
 
 describe("eligibleCombatants", () => {

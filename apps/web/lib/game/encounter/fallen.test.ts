@@ -90,6 +90,47 @@ describe("fallenCombatantIds", () => {
     expect(fallen.has("combatant-2")).toBe(true)
   })
 
+  it("treats an unknown catalog enemy with unset HP as Fallen (max falls back to 0)", () => {
+    const s = createCombatSession(
+      [
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+          zoneId: "z",
+        },
+      ],
+      () => "lone"
+    )
+
+    const fallen = fallenCombatantIds(s, {})
+
+    expect(fallen.has("lone")).toBe(true)
+  })
+
+  it("does not treat the inline enemy as Fallen when only the catalog enemy is downed", () => {
+    const base = session(20)
+    const downed = {
+      ...base,
+      combatants: base.combatants.map((c) =>
+        c.id === "combatant-2"
+          ? {
+              ...c,
+              ref: {
+                kind: "catalog-enemy" as const,
+                enemyKey: "goblin",
+                currentHP: 0,
+              },
+            }
+          : c
+      ),
+    }
+
+    const fallen = fallenCombatantIds(downed, { "char-1": 20 })
+
+    expect(fallen.has("combatant-1")).toBe(false)
+    expect(fallen.has("combatant-2")).toBe(true)
+  })
+
   it("treats a PC with no injected HP entry as not Fallen", () => {
     const fallen = fallenCombatantIds(session(20), {})
     expect(fallen.has("combatant-0")).toBe(false)
