@@ -14,7 +14,13 @@ export default {
   packageManager: "npm",
   testRunner: "vitest",
   coverageAnalysis: "off",
-  mutate: ["src/engine/**/*.ts", "!src/engine/**/*.test.ts"],
+  mutate: [
+    "src/engine/**/*.ts",
+    "!src/engine/**/*.test.ts",
+    // Test doubles, not engine rules — mutating them is noise (no test asserts on
+    // a fixture's internals). Mirrors vitest.config's coverage exclude.
+    "!src/engine/**/__fixtures__/**",
+  ],
   reporters: ["html", "json", "clear-text", "progress"],
   vitest: { configFile: "vitest.config.ts" },
 }
