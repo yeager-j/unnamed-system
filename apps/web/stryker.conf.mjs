@@ -19,10 +19,12 @@
 export default {
   packageManager: "npm",
   testRunner: "vitest",
-  // perTest only re-runs the tests that actually cover each mutant (after one
-  // full dry run to map them) — the suite is pure and deterministic, so this is
-  // safe and keeps the run tractable.
-  coverageAnalysis: "perTest",
+  // `off` runs the full suite per mutant: slower, but deterministic. `perTest`
+  // (only the covering tests) is the speed play for an engine-wide rollout, but
+  // on this module it gave flaky timeout classification — the same mutant
+  // flipping killed/survived between runs — which makes the score untrustworthy.
+  // For a one-module prototype, determinism wins; revisit perTest when widening.
+  coverageAnalysis: "off",
   mutate: ["lib/game/combat/attack-roll.ts"],
   reporters: ["html", "json", "clear-text", "progress"],
   // No `thresholds.break`: like the coverage report, the score is informational

@@ -5,8 +5,10 @@ import { evilTouch } from "../skills/ailment/evil-touch"
 import { ailmentBoost } from "../skills/passive/ailment-boost"
 import { magicCircle } from "../skills/passive/magic-circle"
 import { slashBoost } from "../skills/passive/slash-boost"
+import type { Skill } from "../skills/schema"
 import { garu } from "../skills/wind/garu"
 import {
+  attackRollEffectsFromSkills,
   resolveAttackRoll,
   skillAttackRollContext,
   type AttackRollContext,
@@ -238,7 +240,10 @@ describe("resolveAttackRoll — composition", () => {
 
 describe("skillAttackRollContext", () => {
   it("derives the attack arm with damage type + delivery", () => {
-    expect(skillAttackRollContext(garu)).toEqual({
+    // toStrictEqual (not toEqual) so the ailment arm's absence of damageType /
+    // delivery is meaningful — toEqual treats undefined props as absent, which
+    // would let the attack/ailment arms blur together.
+    expect(skillAttackRollContext(garu)).toStrictEqual({
       kind: "attack",
       damageType: garu.damageType,
       delivery: garu.delivery,
@@ -247,7 +252,7 @@ describe("skillAttackRollContext", () => {
   })
 
   it("derives the ailment arm — attribute only, no damage type or delivery", () => {
-    expect(skillAttackRollContext(evilTouch)).toEqual({
+    expect(skillAttackRollContext(evilTouch)).toStrictEqual({
       kind: "ailment",
       attribute: evilTouch.attackRoll.attribute,
     })
@@ -255,5 +260,110 @@ describe("skillAttackRollContext", () => {
 
   it("returns null for a Skill that makes no Attack Roll", () => {
     expect(skillAttackRollContext(slashBoost)).toBeNull()
+  })
+})
+
+// A passive carrying a non-attackRoll (attribute) effect: schema-legal, but no
+// catalog passive currently uses one — so it exists only to prove the type
+// filter actually excludes non-attackRoll effects.
+const attributePassive = {
+  kind: "passive",
+  key: "test-attribute-passive",
+  name: "Attribute Passive",
+  tagline: "+5 Strength",
+  description: "+5 Strength.",
+  isSynthesis: false,
+  effects: [{ type: "attribute", target: "strength", amount: 5 }],
+} satisfies Skill
+
+// An attackRoll effect with no explicit `source` label (source is optional).
+const unsourcedBonus = {
+  kind: "passive",
+  key: "test-unsourced-bonus",
+  name: "Unsourced Bonus",
+  tagline: "+3 to all Attack Rolls",
+  description: "+3 to all Attack Rolls.",
+  isSynthesis: false,
+  effects: [{ type: "attackRoll", amount: 3 }],
+} satisfies Skill
+
+describe("attackRollEffectsFromSkills", () => {
+  it("returns exactly the attackRoll effects of passive Skills", () => {
+    expect(attackRollEffectsFromSkills([slashBoost])).toEqual(
+      slashBoost.effects
+    )
+  })
+
+  it("excludes non-attackRoll effects (e.g. an attribute effect)", () => {
+    expect(attackRollEffectsFromSkills([attributePassive])).toEqual([])
+  })
+
+  it("ignores non-passive Skills", () => {
+    expect(attackRollEffectsFromSkills([garu])).toEqual([])
+  })
+})
+
+describe("resolveAttackRoll — source labelling", () => {
+  it("labels an effect with no explicit source as Bonus", () => {
+    const character = makeWarrior({ activeSkills: [unsourcedBonus] })
+    const resolved = resolveAttackRoll(SLASH_ST, character, null)
+    expect(resolved.sources).toContainEqual({ source: "Bonus", amount: 3 })
+  })
+})
+
+// shareActiveLineage only fires for an includesSelf:false scaler. These assert
+// the scaler's own source amount (not the total), isolating self-exclusion from
+// attribute math: with a party of 3 mages and amount 1, NOT subtracting self
+// yields 3, subtracting self yields 2.
+describe("resolveAttackRoll — perPartyLineage self-exclusion", () => {
+  function selfExcludingMageSkill() {
+    return {
+      ...magicCircle,
+      key: "magic-circle-self-excluding",
+      effects: [
+        {
+          type: "attackRoll" as const,
+          when: { deliveries: ["magical" as const] },
+          scaler: {
+            kind: "perPartyLineage" as const,
+            lineage: "mage" as const,
+            amount: 1,
+            includesSelf: false,
+          },
+          source: "MC",
+        },
+      ],
+    }
+  }
+
+  const mcAmount = (character: StatComputationCharacter) =>
+    resolveAttackRoll(FIRE_MAGICAL_MA, character, { mage: 3 }).sources.find(
+      (s) => s.source === "MC"
+    )?.amount
+
+  it("subtracts self when the active Archetype shares the lineage", () => {
+    const character = makeMage({ activeSkills: [selfExcludingMageSkill()] })
+    expect(mcAmount(character)).toBe(2)
+  })
+
+  it("does not subtract self when there is no active Archetype", () => {
+    const character = makeMage({
+      activeArchetypeKey: null,
+      activeSkills: [selfExcludingMageSkill()],
+    })
+    expect(mcAmount(character)).toBe(3)
+  })
+
+  it("does not subtract self when the active Archetype's lineage differs", () => {
+    const character = makeWarrior({ activeSkills: [selfExcludingMageSkill()] })
+    expect(mcAmount(character)).toBe(3)
+  })
+
+  it("does not subtract self when the active Archetype key does not resolve", () => {
+    const character = makeWarrior({
+      activeArchetypeKey: "does-not-exist",
+      activeSkills: [selfExcludingMageSkill()],
+    })
+    expect(mcAmount(character)).toBe(3)
   })
 })
