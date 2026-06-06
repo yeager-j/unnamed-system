@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
-  createCombatSession,
   type CombatantSetup,
   type EnemyStatBlock,
 } from "@workspace/game/foundation/encounter/session"

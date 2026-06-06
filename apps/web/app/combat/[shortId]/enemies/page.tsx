@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { toCombatantSetup } from "@workspace/game/foundation"
+import { toCombatantSetup } from "@workspace/game/engine"
 
 import { EnemyCatalogBrowser } from "@/components/combat/enemies/enemy-catalog-browser"
 

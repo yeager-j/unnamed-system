@@ -1,8 +1,6 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import {
-  getTalent,
-  type TalentKey,
-} from "@workspace/game/foundation/character/talents/registry"
+import { getTalent } from "@workspace/game/data/character/talents/registry"
+import { type TalentKey } from "@workspace/game/foundation/character/talents/schema"
 
 /**
  * The character's full Talent roster, derived rather than stored. Per rulebook

@@ -1,10 +1,7 @@
 "use server"
 
-import {
-  createCombatSession,
-  err,
-  type Result,
-} from "@workspace/game/foundation"
+import { createCombatSession } from "@workspace/game/engine"
+import { err, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadEncounterRowById } from "@/lib/db/queries/load-encounter"

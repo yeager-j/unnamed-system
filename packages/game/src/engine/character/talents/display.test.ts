@@ -4,7 +4,7 @@ import {
   resolveTalentsForBuilder,
   resolveTalentsForSheet,
 } from "@workspace/game/engine/character/talents/display"
-import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/registry"
+import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/schema"
 
 describe("resolveTalentsForSheet", () => {
   it("returns the active Archetype's Talents as inherited chips, alpha", () => {

@@ -11,7 +11,7 @@ import type {
   CharacterRow,
   InventoryItemRow,
 } from "@workspace/game/foundation/character/records"
-import { type TalentKey } from "@workspace/game/foundation/character/talents/registry"
+import { type TalentKey } from "@workspace/game/foundation/character/talents/schema"
 import {
   type Affinity,
   type DamageType,

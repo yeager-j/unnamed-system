@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { createCombatSession } from "@workspace/game/engine"
 import {
-  createCombatSession,
   err,
   ok,
   type CombatantSetup,

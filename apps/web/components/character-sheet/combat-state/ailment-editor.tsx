@@ -2,7 +2,7 @@
 
 import { PencilSimpleIcon, PlusIcon } from "@phosphor-icons/react"
 
-import { AILMENTS, getAilment } from "@workspace/game/foundation"
+import { AILMENTS, getAilment } from "@workspace/game/data"
 import { Button } from "@workspace/ui/components/button"
 import {
   Popover,

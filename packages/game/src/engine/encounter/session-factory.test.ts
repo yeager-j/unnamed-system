@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 
+import {
+  createCombatSession,
+  toCombatantSetup,
+} from "@workspace/game/engine/encounter/session-factory"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   combatSessionSchema,
-  createCombatSession,
-  toCombatantSetup,
   type CombatantSetup,
   type CombatSession,
 } from "@workspace/game/foundation/encounter/session"

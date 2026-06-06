@@ -7,11 +7,10 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
+import { AILMENTS, getAilment } from "@workspace/game/data"
 import { type CombatantDetail } from "@workspace/game/engine"
 import {
-  AILMENTS,
   BATTLE_CONDITION_AXIS_KEYS,
-  getAilment,
   type AilmentKey,
   type BattleConditionAxisKey,
   type BattleConditionFlagKey,

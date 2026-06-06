@@ -9,12 +9,10 @@ import {
   getArchetype,
 } from "@workspace/game/data/archetypes/registry"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
-import {
-  archetypeSchema,
-  resolveAffinity,
-} from "@workspace/game/foundation/archetypes/schema"
+import { getTalent } from "@workspace/game/data/character/talents/registry"
+import { resolveAffinity } from "@workspace/game/engine/archetypes/affinity"
+import { archetypeSchema } from "@workspace/game/foundation/archetypes/schema"
 import { LINEAGES } from "@workspace/game/foundation/character/lineage"
-import { getTalent } from "@workspace/game/foundation/character/talents/registry"
 
 describe("archetype data", () => {
   it("exposes a non-empty catalog", () => {

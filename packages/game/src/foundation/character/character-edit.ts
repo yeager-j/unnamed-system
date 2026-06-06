@@ -5,7 +5,7 @@ import type {
   BattleConditionState,
   VirtueKey,
 } from "@workspace/game/foundation/character/state"
-import type { TalentKey } from "@workspace/game/foundation/character/talents/registry"
+import type { TalentKey } from "@workspace/game/foundation/character/talents/schema"
 
 export type BattleConditionFlagKey = "charged" | "concentrating"
 

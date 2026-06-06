@@ -6,6 +6,7 @@ import {
   combatantDetail,
   type PcCombatantDetail,
 } from "@workspace/game/engine/encounter/roster-view"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   DAMAGE_TYPES,
@@ -13,7 +14,6 @@ import {
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
 import {
-  createCombatSession,
   type Combatant,
   type CombatantSetup,
   type CombatSession,

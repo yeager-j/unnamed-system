@@ -2,10 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import { resolveCombatantEngagement } from "@workspace/game/engine/encounter/resolve-engagement"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
-import {
-  createCombatSession,
-  type CombatantSetup,
-} from "@workspace/game/foundation/encounter/session"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
+import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 function sequentialIds() {
   let n = 0

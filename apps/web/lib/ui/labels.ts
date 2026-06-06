@@ -1,3 +1,4 @@
+import { getTalent } from "@workspace/game/data"
 import {
   type Delivery,
   type Range,
@@ -6,7 +7,6 @@ import {
   type StainElement,
 } from "@workspace/game/engine"
 import {
-  getTalent,
   type Affinity,
   type AffinityDamageType,
   type ArchetypeTier,

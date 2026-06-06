@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  AILMENT_KEYS,
-  AILMENTS,
-  getAilment,
-} from "@workspace/game/foundation/combat/ailments"
+import { AILMENTS, getAilment } from "@workspace/game/data/combat/ailments"
+import { AILMENT_KEYS } from "@workspace/game/foundation/combat/ailments"
 
 describe("ailment data", () => {
   it("exposes exactly the 12 canonical Ailments (Downed included)", () => {

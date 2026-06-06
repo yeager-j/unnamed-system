@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
-import { createCombatSession } from "@workspace/game/foundation/encounter/session"
 
 function sessionWithGraph() {
   const base = createCombatSession([])

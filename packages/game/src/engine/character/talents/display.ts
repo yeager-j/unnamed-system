@@ -1,9 +1,9 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { getTalent } from "@workspace/game/data/character/talents/registry"
 import {
-  getTalent,
   TALENT_KEYS,
   type TalentKey,
-} from "@workspace/game/foundation/character/talents/registry"
+} from "@workspace/game/foundation/character/talents/schema"
 
 const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
 

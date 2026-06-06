@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest"
 
 import {
   getTalent,
-  TALENT_KEYS,
   TALENTS,
-} from "@workspace/game/foundation/character/talents/registry"
+} from "@workspace/game/data/character/talents/registry"
+import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/schema"
 
 describe("talent data", () => {
   it("exposes exactly the 28 canonical Talents", () => {

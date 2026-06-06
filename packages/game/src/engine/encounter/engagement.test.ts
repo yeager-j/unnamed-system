@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
-  createCombatSession,
   type Combatant,
   type CombatantSetup,
   type CombatSession,

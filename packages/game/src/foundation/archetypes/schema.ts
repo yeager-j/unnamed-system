@@ -5,12 +5,8 @@ import {
   LINEAGES,
   type Lineage,
 } from "@workspace/game/foundation/character/lineage"
-import type { TalentKey } from "@workspace/game/foundation/character/talents/registry"
-import {
-  AFFINITIES,
-  type Affinity,
-  type DamageType,
-} from "@workspace/game/foundation/combat/affinity"
+import type { TalentKey } from "@workspace/game/foundation/character/talents/schema"
+import { AFFINITIES } from "@workspace/game/foundation/combat/affinity"
 import { type MechanicKind } from "@workspace/game/foundation/mechanics/schema"
 
 export { LINEAGES, type Lineage }
@@ -142,20 +138,4 @@ export type Archetype = Omit<
   synthesisSkill?: SkillReference
   talents: TalentKey[]
   mechanic?: MechanicKind
-}
-
-/**
- * Resolves the effective Affinity an Archetype has to a damage type. Damage
- * types absent from the Archetype's chart are Neutral, and Almighty is always
- * Neutral because it cannot be resisted.
- */
-export function resolveAffinity(
-  archetype: Archetype,
-  damageType: DamageType
-): Affinity {
-  if (damageType === "almighty") {
-    return "neutral"
-  }
-
-  return archetype.affinities[damageType] ?? "neutral"
 }

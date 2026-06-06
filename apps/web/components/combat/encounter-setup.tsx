@@ -12,10 +12,10 @@ import {
   isRosterFullyPlaced,
   normalizeEngagements,
   setEngagementTargets,
+  toCombatantSetup,
   type InitiativeStats,
 } from "@workspace/game/engine"
 import {
-  toCombatantSetup,
   type CombatAdvantage,
   type CombatantSetup,
   type CombatSide,

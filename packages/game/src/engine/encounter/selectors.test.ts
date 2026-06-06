@@ -8,8 +8,8 @@ import {
   pendingCombatants,
   sessionIncludesPc,
 } from "@workspace/game/engine/encounter/selectors"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
-  createCombatSession,
   type CombatAdvantage,
   type CombatantSetup,
   type CombatSession,

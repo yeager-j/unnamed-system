@@ -7,7 +7,7 @@ import type {
   PathChoice,
   SparkLog,
 } from "@workspace/game/foundation/character/state"
-import type { TalentKey } from "@workspace/game/foundation/character/talents/registry"
+import type { TalentKey } from "@workspace/game/foundation/character/talents/schema"
 import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 /**

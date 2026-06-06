@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
 import type { SkillKey } from "@workspace/game/data/skills/registry"
-import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/registry"
+import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/schema"
 import {
   AFFINITIES,
   AFFINITY_DAMAGE_TYPES,

@@ -5,8 +5,8 @@ import {
   combatantName,
   type PcInfo,
 } from "@workspace/game/engine/encounter/console-view"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
-  createCombatSession,
   type CombatantSetup,
   type CombatSession,
 } from "@workspace/game/foundation/encounter/session"

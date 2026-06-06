@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
-import {
-  createCombatSession,
-  type CombatantSetup,
-} from "@workspace/game/foundation/encounter/session"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
+import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 function sequentialIds() {
   let n = 0

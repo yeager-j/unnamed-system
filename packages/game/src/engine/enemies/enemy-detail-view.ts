@@ -1,6 +1,6 @@
+import { getTalent } from "@workspace/game/data/character/talents/registry"
 import { getEnemyFamily } from "@workspace/game/data/enemies/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
-import { getTalent } from "@workspace/game/foundation/character/talents/registry"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,

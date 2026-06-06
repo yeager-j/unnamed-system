@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import {
-  createCombatSession,
-  err,
-  ok,
-  type CombatSession,
-} from "@workspace/game/foundation"
+import { createCombatSession } from "@workspace/game/engine"
+import { err, ok, type CombatSession } from "@workspace/game/foundation"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 

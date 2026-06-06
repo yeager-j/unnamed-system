@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import { endOfTurnReminders } from "@workspace/game/engine/encounter/end-of-turn"
+import { makeCombatant } from "@workspace/game/engine/encounter/session-factory"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
-import {
-  makeCombatant,
-  type Combatant,
-} from "@workspace/game/foundation/encounter/session"
+import { type Combatant } from "@workspace/game/foundation/encounter/session"
 
 function combatant(patch: Partial<Combatant> = {}): Combatant {
   return {

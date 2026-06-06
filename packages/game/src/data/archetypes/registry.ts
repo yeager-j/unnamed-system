@@ -5,13 +5,13 @@ import { knight } from "@workspace/game/data/archetypes/knight/knight"
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
 import { warlock } from "@workspace/game/data/archetypes/warlock/warlock"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
+import { getTalent } from "@workspace/game/data/character/talents/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 import {
   archetypeSchema,
   type Archetype,
 } from "@workspace/game/foundation/archetypes/schema"
-import { getTalent } from "@workspace/game/foundation/character/talents/registry"
 
 /**
  * Structurally validates an Archetype, then asserts every cross-reference

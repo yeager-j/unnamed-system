@@ -1,9 +1,9 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { resolveAffinity } from "@workspace/game/engine/archetypes/affinity"
 import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import {
   ATTRIBUTE_KEYS,
-  resolveAffinity,
   type AttributeKey,
 } from "@workspace/game/foundation/archetypes/schema"
 import type {

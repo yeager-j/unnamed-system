@@ -1,9 +1,9 @@
+import { getAilment } from "@workspace/game/data"
 import {
   activeConditions,
   type ActiveCondition,
   type PlayerVisibleCombatant,
 } from "@workspace/game/engine"
-import { getAilment } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,

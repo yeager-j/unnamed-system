@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto"
 import { eq, inArray } from "drizzle-orm"
 
-import {
-  createCombatSession,
-  type CombatantSetup,
-} from "@workspace/game/foundation"
+import { createCombatSession } from "@workspace/game/engine"
+import { type CombatantSetup } from "@workspace/game/foundation"
 
 import {
   makeSeedCharacter,

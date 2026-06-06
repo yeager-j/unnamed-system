@@ -1,9 +1,7 @@
 import { produce } from "immer"
 
-import {
-  makeCombatant,
-  type CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import { makeCombatant } from "@workspace/game/engine/encounter/session-factory"
+import { type CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { RoundEvent } from "@workspace/game/foundation/encounter/session-event"
 
 /**

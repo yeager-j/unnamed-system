@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest"
 import { goblin } from "@workspace/game/data/enemies/5e/humanoid/goblin"
 import { projectPlayerSnapshot } from "@workspace/game/engine/encounter/player-snapshot"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
+import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
-  createCombatSession,
   type CombatantSetup,
   type CombatSession,
 } from "@workspace/game/foundation/encounter/session"
