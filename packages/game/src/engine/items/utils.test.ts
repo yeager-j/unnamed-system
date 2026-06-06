@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { HydratedInventoryItem } from "@workspace/game/character"
 import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
 import {
   magicAccessory,
   nullWeapon,
   spAccessory,
   weaknessArmor,
-} from "@workspace/game/engine/__fixtures__/index"
+} from "@workspace/game/engine/__fixtures__/fixtures"
 import {
   addItem,
   equipItem,
@@ -17,6 +16,7 @@ import {
   unequipItem,
   type InventoryItemState,
 } from "@workspace/game/engine/items/utils"
+import { type HydratedInventoryItem } from "@workspace/game/foundation/character/hydrated-character"
 import {
   isConsumable,
   isEquippable,

@@ -1,7 +1,7 @@
 "use server"
 
-import { reduceCombatSession } from "@workspace/game/encounter"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { reduceCombatSession } from "@workspace/game/engine"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {

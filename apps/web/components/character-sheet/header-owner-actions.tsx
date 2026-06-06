@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import { canLevelUp, VICTORIES_PER_LEVEL } from "@workspace/game/character"
+import { canLevelUp, VICTORIES_PER_LEVEL } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {

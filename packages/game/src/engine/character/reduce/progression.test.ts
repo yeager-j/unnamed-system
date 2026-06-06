@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/index"
+import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/character"
 import { reduceProgressionEdit } from "@workspace/game/engine/character/reduce/progression"
 
 describe("reduceProgressionEdit — victories", () => {

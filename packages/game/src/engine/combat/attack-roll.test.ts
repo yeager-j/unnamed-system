@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "@workspace/game/character"
 import { evilTouch } from "@workspace/game/data/skills/ailment/evil-touch"
 import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
 import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
 import { garu } from "@workspace/game/data/skills/wind/garu"
+import { type StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRoll,

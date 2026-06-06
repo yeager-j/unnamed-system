@@ -1,17 +1,20 @@
-import { getArchetype, hasUnlockedRank } from "@workspace/game/archetypes"
-import type {
-  HydratedCharacter,
-  InheritanceSlots,
-  ManualBonuses,
-  PathChoice,
-} from "@workspace/game/character"
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { getEquippableItem } from "@workspace/game/data/items/registry"
+import { getSkill } from "@workspace/game/data/skills/registry"
+import { hasUnlockedRank } from "@workspace/game/engine/archetypes/rank"
 import type {
   ActiveMechanic,
   StatComputationCharacter,
 } from "@workspace/game/engine/character/stats/stats"
-import { getEquippableItem, type EquippableItem } from "@workspace/game/items"
-import { getMechanic, type MechanicState } from "@workspace/game/mechanics"
-import { getSkill } from "@workspace/game/skills"
+import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
+import {
+  type InheritanceSlots,
+  type ManualBonuses,
+  type PathChoice,
+} from "@workspace/game/foundation/character/state"
+import { type EquippableItem } from "@workspace/game/foundation/items/schema"
+import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * Assembles the pure {@link StatComputationCharacter} the derived-value engine

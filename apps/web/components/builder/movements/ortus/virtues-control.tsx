@@ -6,11 +6,10 @@ import { toast } from "sonner"
 import {
   coerceVirtueAllocation,
   describeAllocationProgress,
-  VIRTUE_KEYS,
   wouldExceedAllocationCap,
   type VirtueAllocation,
-  type VirtueKey,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
+import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 

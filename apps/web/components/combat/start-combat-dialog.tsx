@@ -3,11 +3,11 @@
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
+import { type InitiativeComparison } from "@workspace/game/engine"
 import {
   type CombatAdvantage,
   type CombatSide,
-  type InitiativeComparison,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,

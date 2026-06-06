@@ -2,7 +2,11 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 
-import { isEquippable, isStackable, type Item } from "@workspace/game/items"
+import {
+  isEquippable,
+  isStackable,
+  type Item,
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {

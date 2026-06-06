@@ -4,11 +4,11 @@ import { LockIcon } from "@phosphor-icons/react"
 import { Fragment } from "react"
 import { toast } from "sonner"
 
+import { resolveTalentsForBuilder } from "@workspace/game/engine"
 import {
   MAX_PLAYER_ADDED_TALENTS,
-  resolveTalentsForBuilder,
   type TalentKey,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,

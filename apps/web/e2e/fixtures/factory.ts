@@ -4,7 +4,7 @@ import { eq, inArray } from "drizzle-orm"
 import {
   createCombatSession,
   type CombatantSetup,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 
 import {
   makeSeedCharacter,

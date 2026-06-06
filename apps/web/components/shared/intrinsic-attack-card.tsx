@@ -1,6 +1,8 @@
-import type { AttributeScores } from "@workspace/game/engine/character/stats/stats"
-import type { ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
-import type { EquippedWeapon } from "@workspace/game/foundation/items/schema"
+import {
+  type AttributeScores,
+  type ResolvedAttackRoll,
+} from "@workspace/game/engine"
+import { type EquippedWeapon } from "@workspace/game/foundation"
 
 import { AttackRollTable } from "./attack-roll-table"
 import { DamageTypeBadge } from "./damage-type-badge"

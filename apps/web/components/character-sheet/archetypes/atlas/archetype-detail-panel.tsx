@@ -3,18 +3,18 @@
 import { LockSimpleIcon } from "@phosphor-icons/react"
 import { useRef } from "react"
 
+import { getArchetype } from "@workspace/game/data"
 import {
-  getArchetype,
   hasUnlockedRank,
   MASTERY_RANK,
   previewArchetypeSkills,
   type AtlasNode,
-} from "@workspace/game/archetypes"
+  type AttributeScores,
+} from "@workspace/game/engine"
 import {
   LINEAGE_SUGGESTED_PATH,
-  type AttributeScores,
   type PathChoice,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ItemGroup } from "@workspace/ui/components/item"

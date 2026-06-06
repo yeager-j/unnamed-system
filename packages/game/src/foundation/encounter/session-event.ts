@@ -1,13 +1,16 @@
 import { z } from "zod/v4"
 
+import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_STATES,
   type BattleConditionAxisKey,
-  type BattleConditionFlagKey,
   type BattleConditionState,
-} from "@workspace/game/character"
-import { AILMENT_KEYS, type AilmentKey } from "@workspace/game/combat"
+} from "@workspace/game/foundation/character/state"
+import {
+  AILMENT_KEYS,
+  type AilmentKey,
+} from "@workspace/game/foundation/combat/ailments"
 import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,

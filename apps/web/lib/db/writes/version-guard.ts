@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import {
   characterExists,

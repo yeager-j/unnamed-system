@@ -1,7 +1,7 @@
 "use client"
 
-import { getArchetype } from "@workspace/game/archetypes"
-import { getMechanic } from "@workspace/game/mechanics"
+import { getArchetype } from "@workspace/game/data"
+import { getMechanic } from "@workspace/game/engine"
 import {
   Card,
   CardContent,

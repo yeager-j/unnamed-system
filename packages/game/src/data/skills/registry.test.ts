@@ -13,6 +13,7 @@ import { media } from "@workspace/game/data/skills/heal/media"
 import { divineJudgment } from "@workspace/game/data/skills/light/divine-judgment"
 import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
 import { hammerOfJustice } from "@workspace/game/data/skills/pierce/hammer-of-justice"
+import { getSkill, SKILLS } from "@workspace/game/data/skills/registry"
 import { cleave } from "@workspace/game/data/skills/slash/cleave"
 import { criticalStrike } from "@workspace/game/data/skills/slash/critical-strike"
 import { peerlessStonecleaver } from "@workspace/game/data/skills/slash/peerless-stonecleaver"
@@ -24,7 +25,6 @@ import {
   attackSkillSchema,
   skillSchema,
 } from "@workspace/game/foundation/skills/schema"
-import { getSkill, SKILLS } from "@workspace/game/skills"
 
 describe("skill data", () => {
   it("exposes a non-empty catalog", () => {

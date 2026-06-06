@@ -2,7 +2,7 @@
 
 import { CaretDoubleDownIcon } from "@phosphor-icons/react/dist/ssr"
 
-import type { RailRow, RosterView } from "@workspace/game/encounter"
+import { type RailRow, type RosterView } from "@workspace/game/engine"
 
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 

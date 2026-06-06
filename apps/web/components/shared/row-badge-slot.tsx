@@ -1,4 +1,4 @@
-import type { SkillKind } from "@workspace/game/skills"
+import { type SkillKind } from "@workspace/game/foundation"
 
 import { DamageTypeBadge, type SkillRowDamageType } from "./damage-type-badge"
 import { SkillKindBadge } from "./skill-kind-badge"

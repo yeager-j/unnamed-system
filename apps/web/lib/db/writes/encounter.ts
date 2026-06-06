@@ -1,7 +1,11 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import type { CombatSession } from "@workspace/game/encounter"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import {
+  err,
+  ok,
+  type CombatSession,
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"

@@ -1,7 +1,7 @@
 "use client"
 
-import type { HydratedCostSkill } from "@workspace/game/character"
-import { canAfford } from "@workspace/game/skills"
+import { canAfford } from "@workspace/game/engine"
+import { type HydratedCostSkill } from "@workspace/game/foundation"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"

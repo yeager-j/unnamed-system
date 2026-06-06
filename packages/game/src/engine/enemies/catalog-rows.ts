@@ -1,5 +1,5 @@
-import type { AffinityDamageType } from "@workspace/game/combat"
 import { ENEMIES, getEnemyFamily } from "@workspace/game/data/enemies/registry"
+import { type AffinityDamageType } from "@workspace/game/foundation/combat/affinity"
 import type { EnemyFamily } from "@workspace/game/foundation/enemies/schema"
 
 /**

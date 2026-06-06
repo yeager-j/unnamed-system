@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { cache } from "react"
 
-import { archetypeDisplayName } from "@workspace/game/archetypes"
+import { archetypeDisplayName } from "@workspace/game/data"
 
 import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"

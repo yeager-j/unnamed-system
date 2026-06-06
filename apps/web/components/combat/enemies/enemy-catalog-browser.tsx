@@ -10,16 +10,18 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
-import type { CombatantSetup } from "@workspace/game/encounter"
+import { getEnemy } from "@workspace/game/data"
 import {
   buildEnemyCatalogRows,
   buildEnemyDetailView,
   enemyFamilyCounts,
   filterEnemyCatalogRows,
-  getEnemy,
   groupEnemyRowsByLevel,
+} from "@workspace/game/engine"
+import {
+  type CombatantSetup,
   type EnemyFamily,
-} from "@workspace/game/enemies"
+} from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"

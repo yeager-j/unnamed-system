@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { STAIN_SLOT_COUNT, type StainsState } from "@workspace/game/mechanics"
+import { STAIN_SLOT_COUNT, type StainsState } from "@workspace/game/engine"
 
 import { characterArchetypes, getDb } from "@/lib/db"
 

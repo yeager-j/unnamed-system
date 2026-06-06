@@ -1,13 +1,9 @@
-import type {
-  ActiveMechanic,
-  AttributeScores,
-  TalentKey,
-} from "@workspace/game/character"
-import type {
-  Affinity,
-  DamageType,
-  ResolvedAttackRoll,
-} from "@workspace/game/combat"
+import {
+  type ActiveMechanic,
+  type AttributeScores,
+} from "@workspace/game/engine/character/stats/stats"
+import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
+import { type ResolvedSkillCost } from "@workspace/game/engine/skills/utils"
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
@@ -15,12 +11,16 @@ import type {
   CharacterRow,
   InventoryItemRow,
 } from "@workspace/game/foundation/character/records"
-import type { Item } from "@workspace/game/items"
-import type {
-  ResolvedSkillCost,
-  Skill,
-  SkillCost,
-} from "@workspace/game/skills"
+import { type TalentKey } from "@workspace/game/foundation/character/talents/registry"
+import {
+  type Affinity,
+  type DamageType,
+} from "@workspace/game/foundation/combat/affinity"
+import { type Item } from "@workspace/game/foundation/items/schema"
+import {
+  type Skill,
+  type SkillCost,
+} from "@workspace/game/foundation/skills/schema"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every

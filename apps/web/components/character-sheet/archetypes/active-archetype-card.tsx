@@ -1,8 +1,8 @@
 import {
   hasMasteryBonus,
   type ArchetypeEntry,
-} from "@workspace/game/archetypes"
-import type { AttributeScores } from "@workspace/game/character"
+  type AttributeScores,
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,

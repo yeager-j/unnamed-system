@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"

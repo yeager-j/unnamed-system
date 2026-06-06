@@ -1,8 +1,8 @@
+import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   type BattleConditionAxisKey,
-  type BattleConditionFlagKey,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation/character/state"
 import type { Combatant } from "@workspace/game/foundation/encounter/session"
 
 /**

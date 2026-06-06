@@ -1,11 +1,11 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
+import { reduceCombatSession } from "@workspace/game/engine"
 import {
   createCombatSession,
-  reduceCombatSession,
   type CombatantSetup,
   type CombatSession,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, getDb } from "@/lib/db"

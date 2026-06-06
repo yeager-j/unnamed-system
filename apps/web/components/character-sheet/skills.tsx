@@ -1,7 +1,7 @@
 "use client"
 
-import { getEquippedItem } from "@workspace/game/items"
-import { sortSkillsByKind } from "@workspace/game/skills"
+import { getEquippedItem } from "@workspace/game/data"
+import { sortSkillsByKind } from "@workspace/game/engine"
 import {
   Card,
   CardContent,

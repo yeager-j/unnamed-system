@@ -1,5 +1,5 @@
-import type { HydratedInventoryItem } from "@workspace/game/character"
 import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
+import { type HydratedInventoryItem } from "@workspace/game/foundation/character/hydrated-character"
 import {
   isConsumable,
   isEquippable,

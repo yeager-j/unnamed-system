@@ -1,4 +1,4 @@
-import { createCatalog } from "@workspace/game/catalog"
+import { createCatalog } from "@workspace/game/data/catalog/create-catalog"
 import { AILMENT_SKILLS } from "@workspace/game/data/skills/ailment/index"
 import { DARK_SKILLS } from "@workspace/game/data/skills/dark/index"
 import { ELEC_SKILLS } from "@workspace/game/data/skills/elec/index"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
-import { makeArchetype } from "@workspace/game/engine/__fixtures__/index"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   inheritanceSourceGroups,
   isInheritableSkill,

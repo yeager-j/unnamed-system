@@ -1,5 +1,5 @@
-import type { Archetype } from "@workspace/game/archetypes"
-import { getMechanic } from "@workspace/game/mechanics"
+import { getMechanic } from "@workspace/game/engine"
+import { type Archetype } from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { Prose } from "@/components/shared/prose"

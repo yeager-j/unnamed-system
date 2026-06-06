@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import type { PerfectionState } from "@workspace/game/mechanics"
+import { type PerfectionState } from "@workspace/game/engine"
 
 import { characterArchetypes, getDb } from "@/lib/db"
 

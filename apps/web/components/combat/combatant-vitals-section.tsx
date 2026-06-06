@@ -5,14 +5,13 @@ import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
-import { isFallen } from "@workspace/game/character"
-import type {
-  CombatantDetail,
-  CombatEvent,
-  EnemyVitalsField,
-  Pool,
-} from "@workspace/game/encounter"
-import type { Result } from "@workspace/game/foundation/result"
+import { type CombatantDetail, type Pool } from "@workspace/game/engine"
+import {
+  isFallen,
+  type CombatEvent,
+  type EnemyVitalsField,
+  type Result,
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"

@@ -1,8 +1,9 @@
-import { createCatalog } from "@workspace/game/catalog"
+import { createCatalog } from "@workspace/game/data/catalog/create-catalog"
 import { ACCESSORY_ITEMS } from "@workspace/game/data/items/accessory/index"
 import { ARMOR_ITEMS } from "@workspace/game/data/items/armor/index"
 import { CONSUMABLE_ITEMS } from "@workspace/game/data/items/consumable/index"
 import { WEAPON_ITEMS } from "@workspace/game/data/items/weapon/index"
+import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   isConsumable,
   isEquippable,
@@ -14,7 +15,6 @@ import {
   type Item,
   type ItemForSlot,
 } from "@workspace/game/foundation/items/schema"
-import { getSkill } from "@workspace/game/skills"
 
 /**
  * Structurally validates an item, then asserts every granted-Skill effect

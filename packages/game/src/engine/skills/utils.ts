@@ -1,14 +1,12 @@
 import {
   computeMaxHP,
   type AttributeScores,
-  type HydratedSkill,
   type StatComputationCharacter,
-} from "@workspace/game/character"
-import {
-  DAMAGE_TYPES,
-  type AttackAttribute,
-  type ResolvedAttackRoll,
-} from "@workspace/game/combat"
+} from "@workspace/game/engine/character/stats/stats"
+import { type AttackAttribute } from "@workspace/game/engine/combat/attack"
+import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
+import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
+import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
 import type { SkillKind } from "@workspace/game/foundation/common"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
 import type { Skill, SkillCost } from "@workspace/game/foundation/skills/schema"

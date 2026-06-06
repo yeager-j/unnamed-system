@@ -1,4 +1,4 @@
-import { type WeaponKey } from "@workspace/game/items"
+import { type WeaponKey } from "@workspace/game/data/items/registry"
 
 /**
  * Lineage vocabulary shared across game-data domains (Archetypes, Skill

@@ -9,9 +9,8 @@ import {
   MAX_VIRTUE_RANK,
   SPARK_LOG_CAPACITY,
   sparkLogBreakdown,
-  VIRTUE_KEYS,
-  type VirtueKey,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
+import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,

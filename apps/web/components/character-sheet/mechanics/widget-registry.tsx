@@ -1,11 +1,10 @@
 import { type ReactNode } from "react"
 
+import { rankLabel, VALOR_MAX } from "@workspace/game/engine"
 import {
-  rankLabel,
-  VALOR_MAX,
   type MechanicKind,
   type MechanicState,
-} from "@workspace/game/mechanics"
+} from "@workspace/game/foundation"
 
 import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 

@@ -5,7 +5,8 @@ import {
   MapPinIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
-import type { CombatantDetail, CombatEvent } from "@workspace/game/encounter"
+import { type CombatantDetail } from "@workspace/game/engine"
+import { type CombatEvent } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Select,

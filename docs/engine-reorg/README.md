@@ -71,15 +71,18 @@ below are under `packages/game/src/`.
 
 ## Decisions locked
 
-- **Barrels: dropped.** The **top-level domain barrels** (`skills/index.ts`,
-  `combat/index.ts`, `character/index.ts`, `encounter/index.ts`,
-  `archetypes/index.ts`, `items/index.ts`, `enemies/index.ts`, `mechanics/index.ts`)
-  re-export across all three layers, which is the muddiness we're removing. Delete
-  them; repoint importers to layered paths. **This does *not* include the
-  per-category slice indexes** (`skills/fire/index.ts`, `items/weapon/index.ts`,
-  `enemies/5e/beast/index.ts`, …) — those are data and move to `data/` with their
-  slice. (IDE "move file" updates most refs; the barrel deletions are the manual
-  repoint.)
+- **Barrels: one per layer** (final — superseded the interim per-domain barrels).
+  Consumers import `@workspace/game/{foundation,data,engine}`; the layer is
+  first-class in the import path, so the `engine ↛ data` boundary is lintable and
+  every consumer sees which layer it's touching. **Package-internal** files import
+  the deep module (`@workspace/game/<layer>/<file>`), never the layer barrel (that
+  would cycle). The barrel-file perf cost is neutralized by `"sideEffects": false`
+  (prod tree-shaking) + Next `optimizePackageImports` on the three layer entries
+  (rewrites barrel imports to direct ones in the app). The layer barrels re-export
+  **relative** (`export * from "./combat/attack-roll"`) so `optimizePackageImports`
+  can map them. Per-category slice indexes (`data/skills/fire/index.ts` →
+  `FIRE_SKILLS`) stay — they're data aggregation within `data/`, not cross-layer
+  facades.
 - **`character/lineage.ts` → `foundation/` whole.** It's lineage vocab + maps +
   one trivial `startingWeaponForLineage` lookup; not worth a 5th split. We accept
   that one-line lookup isn't mutation-tested.
@@ -244,10 +247,11 @@ These move *into* the package (it owns its own test signal):
    955 import/export specifiers to `@workspace/game/<layer>/…` (or
    `@workspace/game/<domain>` for the 9 kept barrels). The package `exports` gained
    per-domain barrel entries so the ~454 wholesale imports resolve.
-5. **Kept the barrels** as the package's entry points (reversed the earlier
-   drop-barrels plan — 454 sites made dropping them a symbol-by-symbol refactor not
-   worth bundling into the move; engine-internal purity is the ESLint/seam
-   follow-up instead).
+5. **Barrels: now one per layer** (`@workspace/game/{foundation,data,engine}`). The
+   move kept interim per-domain barrels to stay tractable; a follow-up
+   symbol-resolving codemod then replaced them (433 imports retargeted, 0
+   unresolved) — external consumers import the layer barrel, package-internal files
+   import the deep module. Added `"sideEffects": false` + `optimizePackageImports`.
 6. ⏭️ **The four splits are deferred to the naming/cleanup pass** — whole files
    moved to their dominant layer (the 4 mixed files all landed in `foundation`),
    so the only cost is the mutation scope temporarily missing `resolveAffinity` /

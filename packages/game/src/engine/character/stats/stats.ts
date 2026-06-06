@@ -1,32 +1,34 @@
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
+import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import {
   ATTRIBUTE_KEYS,
-  getArchetype,
-  hasMasteryBonus,
   resolveAffinity,
   type AttributeKey,
-} from "@workspace/game/archetypes"
-import {
-  BONUS_TARGET_KEYS,
-  DAMAGE_TYPES,
-  type Affinity,
-  type AffinityEffect,
-  type AttackRollEffect,
-  type AttributeEffect,
-  type BonusTargetKey,
-  type DamageType,
-} from "@workspace/game/combat"
+} from "@workspace/game/foundation/archetypes/schema"
 import type {
   ManualBonuses,
   PathChoice,
 } from "@workspace/game/foundation/character/state"
-import type { EquippableItem } from "@workspace/game/items"
 import {
-  mechanicEffectsFor,
-  type MechanicEffect,
+  DAMAGE_TYPES,
+  type Affinity,
+  type DamageType,
+} from "@workspace/game/foundation/combat/affinity"
+import {
+  BONUS_TARGET_KEYS,
+  type AffinityEffect,
+  type AttackRollEffect,
+  type AttributeEffect,
+  type BonusTargetKey,
+} from "@workspace/game/foundation/combat/effects"
+import { type EquippableItem } from "@workspace/game/foundation/items/schema"
+import {
   type MechanicKind,
   type MechanicState,
-} from "@workspace/game/mechanics"
-import type { Skill } from "@workspace/game/skills"
+} from "@workspace/game/foundation/mechanics/schema"
+import { type MechanicEffect } from "@workspace/game/foundation/mechanics/types"
+import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**
  * The core derived-value module. Attribute scores, max HP/SP, and the Affinity

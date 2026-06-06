@@ -1,15 +1,15 @@
-import { getTalent } from "@workspace/game/character"
+import { getEnemyFamily } from "@workspace/game/data/enemies/registry"
+import { getSkill } from "@workspace/game/data/skills/registry"
+import { getTalent } from "@workspace/game/foundation/character/talents/registry"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-} from "@workspace/game/combat"
-import { getEnemyFamily } from "@workspace/game/data/enemies/registry"
+} from "@workspace/game/foundation/combat/affinity"
 import type {
   EnemyDefinition,
   EnemyFamily,
 } from "@workspace/game/foundation/enemies/schema"
-import { getSkill } from "@workspace/game/skills"
 
 /**
  * NOTE (end-of-project tech-debt sweep): this statblock view-model — and the

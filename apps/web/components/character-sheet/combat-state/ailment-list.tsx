@@ -1,4 +1,4 @@
-import { getAilment } from "@workspace/game/combat"
+import { getAilment } from "@workspace/game/foundation"
 
 /**
  * The Ailment column wrapper used by the public sheet. Renders the heading

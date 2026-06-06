@@ -2,7 +2,7 @@ import {
   projectPlayerSnapshot,
   type EncounterSnapshot,
   type PcCombatantDetail,
-} from "@workspace/game/encounter"
+} from "@workspace/game/engine"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

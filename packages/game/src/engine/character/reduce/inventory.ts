@@ -4,11 +4,9 @@ import {
   patchRow,
   type SliceResult,
 } from "@workspace/game/engine/character/reduce/shared"
+import { applyInventoryMutation } from "@workspace/game/engine/items/mutate"
+import { type InventoryItemState } from "@workspace/game/engine/items/utils"
 import type { InventoryEdit } from "@workspace/game/foundation/character/character-edit"
-import {
-  applyInventoryMutation,
-  type InventoryItemState,
-} from "@workspace/game/items"
 
 /**
  * Inventory + currency slice: the gold-piece pool and inventory-row mutations

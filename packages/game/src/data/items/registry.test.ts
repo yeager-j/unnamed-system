@@ -5,9 +5,6 @@ import {
   loadCatalogEntryModules,
 } from "@workspace/game/data/catalog/registered-entries"
 import { bladeturnMail } from "@workspace/game/data/items/armor/bladeturn-mail"
-import { longsword } from "@workspace/game/data/items/weapon/longsword"
-import { runedCane } from "@workspace/game/data/items/weapon/runed-cane"
-import { itemSchema } from "@workspace/game/foundation/items/schema"
 import {
   ACCESSORIES,
   ARMOR,
@@ -16,8 +13,11 @@ import {
   getItem,
   getWeapon,
   WEAPONS,
-} from "@workspace/game/items"
-import { getSkill } from "@workspace/game/skills"
+} from "@workspace/game/data/items/registry"
+import { longsword } from "@workspace/game/data/items/weapon/longsword"
+import { runedCane } from "@workspace/game/data/items/weapon/runed-cane"
+import { getSkill } from "@workspace/game/data/skills/registry"
+import { itemSchema } from "@workspace/game/foundation/items/schema"
 
 const CATALOG = [...WEAPONS, ...ARMOR, ...ACCESSORIES]
 

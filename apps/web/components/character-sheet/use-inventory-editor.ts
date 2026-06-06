@@ -1,6 +1,6 @@
 "use client"
 
-import type { InventoryMutation } from "@workspace/game/items"
+import { type InventoryMutation } from "@workspace/game/engine"
 
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import {

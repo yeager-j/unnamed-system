@@ -7,7 +7,7 @@ import {
   STAIN_ELEMENTS,
   type StainElement,
   type StainsState,
-} from "@workspace/game/mechanics"
+} from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import {
   Popover,

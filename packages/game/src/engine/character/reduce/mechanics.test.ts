@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest"
 import {
   makeArchetypeRow,
   makeRawCharacterInputs,
-} from "@workspace/game/engine/__fixtures__/index"
+} from "@workspace/game/engine/__fixtures__/character"
 import { reduceMechanicEdit } from "@workspace/game/engine/character/reduce/mechanics"
 import type { MechanicEdit } from "@workspace/game/foundation/character/character-edit"
-import type { MechanicState } from "@workspace/game/mechanics"
+import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 const ACTIVE = "active-arch"
 

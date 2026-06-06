@@ -1,6 +1,6 @@
 "use client"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Toggle } from "@workspace/ui/components/toggle"
 

@@ -16,6 +16,7 @@ import {
   gainedTalentsSchema,
   inheritanceSlotsSchema,
   manualBonusesSchema,
+  MechanicState,
   partyCompositionSchema,
   sparkLogSchema,
   type Ailments,
@@ -27,8 +28,7 @@ import {
   type PathChoice,
   type SparkLog,
   type TalentKey,
-} from "@workspace/game/character"
-import { MechanicState } from "@workspace/game/mechanics"
+} from "@workspace/game/foundation"
 
 import { campaigns } from "./campaign"
 import { users } from "./user"
@@ -306,4 +306,4 @@ export type {
   CharacterRow,
   CharacterStatus,
   InventoryItemRow,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation"

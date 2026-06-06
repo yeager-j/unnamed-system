@@ -1,4 +1,4 @@
-import { getArchetype } from "@workspace/game/archetypes"
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import {
   getTalent,
   TALENT_KEYS,

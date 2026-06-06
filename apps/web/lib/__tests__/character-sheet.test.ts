@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest"
 
-import { getArchetype, hasMasteryBonus } from "@workspace/game/archetypes"
-import { resolveAttackRoll } from "@workspace/game/combat"
+import {
+  getArchetype,
+  getEquippableItem,
+  getItem,
+  getSkill,
+} from "@workspace/game/data"
 import {
   computeAffinityChart,
   computeAttributes,
   computeMaxHP,
   computeMaxSP,
-} from "@workspace/game/engine/character/stats/stats"
-import { resolveTalents } from "@workspace/game/engine/character/talents/utils"
-import { VIRTUE_KEYS } from "@workspace/game/foundation/character/state"
-import { getEquippableItem, getItem } from "@workspace/game/items"
-import { getSkill } from "@workspace/game/skills"
+  hasMasteryBonus,
+  resolveAttackRoll,
+  resolveTalents,
+} from "@workspace/game/engine"
+import { VIRTUE_KEYS } from "@workspace/game/foundation"
 
 import {
   buildSeedStatCharacter,

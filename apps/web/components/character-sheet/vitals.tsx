@@ -1,6 +1,6 @@
 "use client"
 
-import { isFallen } from "@workspace/game/character"
+import { isFallen } from "@workspace/game/foundation"
 import { Progress } from "@workspace/ui/components/progress"
 
 import { useCharacter } from "@/hooks/use-character"

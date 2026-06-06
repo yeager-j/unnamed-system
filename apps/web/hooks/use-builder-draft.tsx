@@ -9,7 +9,7 @@ import {
 } from "react"
 import { toast } from "sonner"
 
-import type { Result } from "@workspace/game/foundation/result"
+import { type Result } from "@workspace/game/foundation"
 
 import type { BuilderCharacter } from "@/app/builder/[shortId]/_loader"
 import type { EditSurface } from "@/lib/db/version-classes"

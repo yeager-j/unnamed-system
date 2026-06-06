@@ -2,11 +2,11 @@
 
 import { InfoIcon } from "@phosphor-icons/react"
 
+import { archetypeDisplayName } from "@workspace/game/data"
 import {
-  archetypeDisplayName,
   archetypeSwitcherGroups,
   type ArchetypeSwitcherOption,
-} from "@workspace/game/archetypes"
+} from "@workspace/game/engine"
 import {
   Combobox,
   ComboboxCollection,

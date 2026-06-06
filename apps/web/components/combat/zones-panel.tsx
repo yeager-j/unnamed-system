@@ -3,7 +3,10 @@
 import { MapPinIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, type KeyboardEvent } from "react"
 
-import type { CombatSession, ZoneGraphEvent } from "@workspace/game/encounter"
+import {
+  type CombatSession,
+  type ZoneGraphEvent,
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Input } from "@workspace/ui/components/input"

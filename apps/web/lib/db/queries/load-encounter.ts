@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm"
 
-import { combatSessionSchema } from "@workspace/game/encounter"
+import { combatSessionSchema } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import {

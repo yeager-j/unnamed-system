@@ -6,7 +6,7 @@ import {
   BATTLE_CONDITION_STATES,
   DEFAULT_BATTLE_CONDITIONS,
   type BattleConditionState,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation"
 import {
   Select,
   SelectContent,

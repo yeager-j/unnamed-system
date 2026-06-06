@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
-import {
-  DAMAGE_TYPES,
-  type Affinity,
-  type DamageType,
-} from "@workspace/game/combat"
-import { getEnemy } from "@workspace/game/enemies"
+import { getEnemy } from "@workspace/game/data/enemies/registry"
 import {
   buildRosterView,
   combatantDetail,
   type PcCombatantDetail,
 } from "@workspace/game/engine/encounter/roster-view"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
+import {
+  DAMAGE_TYPES,
+  type Affinity,
+  type DamageType,
+} from "@workspace/game/foundation/combat/affinity"
 import {
   createCombatSession,
   type Combatant,

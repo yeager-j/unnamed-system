@@ -1,5 +1,5 @@
-import { ATTRIBUTE_KEYS } from "@workspace/game/archetypes"
-import type { AttributeScores } from "@workspace/game/character"
+import { type AttributeScores } from "@workspace/game/engine"
+import { ATTRIBUTE_KEYS } from "@workspace/game/foundation"
 
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 

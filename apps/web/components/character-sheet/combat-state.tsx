@@ -1,6 +1,6 @@
 "use client"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation"
 import {
   Card,
   CardContent,

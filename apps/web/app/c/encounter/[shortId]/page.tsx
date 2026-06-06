@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import type { EncounterSnapshot } from "@workspace/game/encounter"
+import { type EncounterSnapshot } from "@workspace/game/engine"
 
 import { EncounterWatch } from "@/components/combat/encounter-watch"
 import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"

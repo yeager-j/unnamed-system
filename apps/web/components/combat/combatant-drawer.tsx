@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 
-import type { CombatantDetail, CombatEvent } from "@workspace/game/encounter"
+import { type CombatantDetail } from "@workspace/game/engine"
+import { type CombatEvent } from "@workspace/game/foundation"
 import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,

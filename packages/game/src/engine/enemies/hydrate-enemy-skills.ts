@@ -1,11 +1,12 @@
-import type { HydratedSkill } from "@workspace/game/character"
+import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRollFrom,
   skillAttackRollContext,
-} from "@workspace/game/combat"
+} from "@workspace/game/engine/combat/attack-roll"
+import { hydrateSkill } from "@workspace/game/engine/skills/utils"
+import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
-import { getSkill, hydrateSkill } from "@workspace/game/skills"
 
 /**
  * Hydrates a catalog enemy's `skillKeys` into the {@link HydratedSkill} shape

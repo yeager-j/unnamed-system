@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
 import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   createCombatSession,
   type CombatantSetup,

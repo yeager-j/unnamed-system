@@ -1,12 +1,6 @@
-import { getArchetype } from "@workspace/game/archetypes"
-import type {
-  AttributeScores,
-  BattleConditions,
-  HydratedCharacter,
-  HydratedSkill,
-} from "@workspace/game/character"
-import type { Affinity, AffinityDamageType } from "@workspace/game/combat"
-import { getEnemy, hydrateEnemySkills } from "@workspace/game/enemies"
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
@@ -14,6 +8,16 @@ import {
   type CombatantEngagement,
 } from "@workspace/game/engine/encounter/resolve-engagement"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
+import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
+import {
+  type HydratedCharacter,
+  type HydratedSkill,
+} from "@workspace/game/foundation/character/hydrated-character"
+import { type BattleConditions } from "@workspace/game/foundation/character/state"
+import {
+  type Affinity,
+  type AffinityDamageType,
+} from "@workspace/game/foundation/combat/affinity"
 import type {
   Combatant,
   CombatSession,

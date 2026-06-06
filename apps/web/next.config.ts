@@ -25,6 +25,16 @@ const nextConfig: NextConfig = {
      * authInterrupts.
      */
     authInterrupts: true,
+    /**
+     * Rewrites the `@workspace/game/{foundation,data,engine}` barrel imports to
+     * direct module imports at build time, so the layer barrels give clean DX
+     * without the barrel-file cost (no whole-layer graph pulled per import).
+     */
+    optimizePackageImports: [
+      "@workspace/game/foundation",
+      "@workspace/game/data",
+      "@workspace/game/engine",
+    ],
   },
   images: {
     remotePatterns: [

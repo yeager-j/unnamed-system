@@ -1,12 +1,12 @@
-import {
-  BATTLE_CONDITION_AXIS_KEYS,
-  type BattleConditionAxisKey,
-  type BattleConditions,
-} from "@workspace/game/character"
 import type {
   EncounterSnapshot,
   PlayerVisibleCombatant,
 } from "@workspace/game/engine/encounter/player-snapshot"
+import {
+  BATTLE_CONDITION_AXIS_KEYS,
+  type BattleConditionAxisKey,
+  type BattleConditions,
+} from "@workspace/game/foundation/character/state"
 import type { Zone } from "@workspace/game/foundation/encounter/session"
 
 /**

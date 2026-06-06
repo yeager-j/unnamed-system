@@ -1,6 +1,6 @@
 "use client"
 
-import { COMBAT_SIDES, type CombatSide } from "@workspace/game/encounter"
+import { COMBAT_SIDES, type CombatSide } from "@workspace/game/foundation"
 import {
   ToggleGroup,
   ToggleGroupItem,

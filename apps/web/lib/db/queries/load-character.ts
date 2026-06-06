@@ -2,9 +2,9 @@ import { asc, eq } from "drizzle-orm"
 
 import {
   deriveHydratedCharacter,
-  type HydratedCharacter,
   type RawCharacterInputs,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import {

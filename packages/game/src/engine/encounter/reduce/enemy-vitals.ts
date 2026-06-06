@@ -1,6 +1,6 @@
 import { produce } from "immer"
 
-import { getEnemy } from "@workspace/game/enemies"
+import { getEnemy } from "@workspace/game/data/enemies/registry"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { EnemyVitalsEvent } from "@workspace/game/foundation/encounter/session-event"
 

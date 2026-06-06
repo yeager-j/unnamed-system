@@ -1,10 +1,10 @@
-import type { AttributeScores } from "@workspace/game/engine/character/stats/stats"
-import type { AttackRoll } from "@workspace/game/engine/combat/attack"
-import type { ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
 import {
   formatSignedBonus,
   hydrateFormula,
-} from "@workspace/game/engine/skills/utils"
+  type AttackRoll,
+  type AttributeScores,
+  type ResolvedAttackRoll,
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AttackRollBreakdown } from "./attack-roll-breakdown"

@@ -5,7 +5,7 @@ import {
   combatSessionSchema,
   type CombatSession,
   type EncounterStatus,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 
 import { campaigns } from "./campaign"
 

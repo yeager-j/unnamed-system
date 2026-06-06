@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   combatSessionSchema,
   createCombatSession,

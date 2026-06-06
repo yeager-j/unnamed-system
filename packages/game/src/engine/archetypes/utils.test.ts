@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import { ARCHETYPES } from "@workspace/game/data/archetypes/registry"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
-  makeArchetype,
   makeArchetypeRow,
   makeHydratedCharacter,
-} from "@workspace/game/engine/__fixtures__/index"
+} from "@workspace/game/engine/__fixtures__/character"
 import {
   archetypeSwitcherGroups,
   buildArchetypeEntries,
@@ -14,7 +14,7 @@ import {
   previewArchetypeSkills,
   sortArchetypesByPath,
 } from "@workspace/game/engine/archetypes/utils"
-import { getMechanic } from "@workspace/game/mechanics"
+import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 
 describe("sortArchetypesByPath", () => {
   const initiates = ARCHETYPES.filter((a) => a.tier === "initiate")

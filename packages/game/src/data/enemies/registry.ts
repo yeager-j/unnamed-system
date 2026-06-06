@@ -1,16 +1,16 @@
-import { createCatalog } from "@workspace/game/catalog"
+import { createCatalog } from "@workspace/game/data/catalog/create-catalog"
 import { ABERRATION_ENEMIES } from "@workspace/game/data/enemies/5e/aberration/index"
 import { BEAST_ENEMIES } from "@workspace/game/data/enemies/5e/beast/index"
 import { HUMANOID_ENEMIES } from "@workspace/game/data/enemies/5e/humanoid/index"
 import { MONSTROSITY_ENEMIES } from "@workspace/game/data/enemies/5e/monstrosity/index"
 import { UNDEAD_ENEMIES } from "@workspace/game/data/enemies/5e/undead/index"
+import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   ENEMY_FAMILIES,
   enemyDefinitionSchema,
   type EnemyDefinition,
   type EnemyFamily,
 } from "@workspace/game/foundation/enemies/schema"
-import { getSkill } from "@workspace/game/skills"
 
 /**
  * Structurally validates a catalog enemy, then asserts every referenced

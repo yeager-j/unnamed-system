@@ -1,6 +1,6 @@
 "use client"
 
-import type { Result } from "@workspace/game/foundation/result"
+import { type Result } from "@workspace/game/foundation"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useCharacterAutoSave } from "@/hooks/use-character"

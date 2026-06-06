@@ -1,4 +1,4 @@
-import type { Archetype } from "@workspace/game/archetypes"
+import { type Archetype } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { DetailSection } from "@/components/shared/detail-section"

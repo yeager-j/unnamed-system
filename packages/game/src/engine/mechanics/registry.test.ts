@@ -4,7 +4,7 @@ import {
   getMechanic,
   initialStateFor,
   MECHANICS,
-} from "@workspace/game/mechanics"
+} from "@workspace/game/engine/mechanics/registry"
 
 /**
  * Registry sanity checks. Each MVP mechanic is reachable by key and exposes

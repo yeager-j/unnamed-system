@@ -2,12 +2,12 @@
 
 import { XIcon } from "@phosphor-icons/react/dist/ssr"
 
-import type {
-  CombatSession,
-  CombatSide,
-  EngageableTarget,
-  Engagement,
-} from "@workspace/game/encounter"
+import { type EngageableTarget } from "@workspace/game/engine"
+import {
+  type CombatSession,
+  type CombatSide,
+  type Engagement,
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Select,

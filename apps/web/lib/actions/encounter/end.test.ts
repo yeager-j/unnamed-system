@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game/foundation/result"
+import { err, ok } from "@workspace/game/foundation"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 

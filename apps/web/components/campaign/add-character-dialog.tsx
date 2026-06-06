@@ -4,7 +4,7 @@ import { CheckIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
-import { archetypeDisplayName } from "@workspace/game/archetypes"
+import { archetypeDisplayName } from "@workspace/game/data"
 import { Button } from "@workspace/ui/components/button"
 import {
   Command,

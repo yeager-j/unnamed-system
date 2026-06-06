@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
 
-import type { Pool, RailRow } from "@workspace/game/encounter"
+import { type Pool, type RailRow } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 

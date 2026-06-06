@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { AFFINITY_DAMAGE_TYPES } from "@workspace/game/combat"
 import { getEnemy } from "@workspace/game/data/enemies/registry"
 import { buildEnemyDetailView } from "@workspace/game/engine/enemies/enemy-detail-view"
+import { AFFINITY_DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
 
 const goblin = getEnemy("goblin")!
 

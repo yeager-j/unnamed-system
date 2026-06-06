@@ -5,7 +5,7 @@ import {
   BATTLE_CONDITION_AXIS_KEYS,
   battleConditionsSchema,
   DEFAULT_BATTLE_CONDITIONS,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation/character/state"
 
 /**
  * The immutable state the initiative tracker's reducer operates over — the

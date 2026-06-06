@@ -1,11 +1,8 @@
 import { eq } from "drizzle-orm"
 
-import {
-  getArchetype,
-  MASTERY_RANK,
-  unmetPrerequisites,
-} from "@workspace/game/archetypes"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { getArchetype } from "@workspace/game/data"
+import { MASTERY_RANK, unmetPrerequisites } from "@workspace/game/engine"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"

@@ -1,10 +1,7 @@
 import { LockSimpleIcon } from "@phosphor-icons/react"
 
-import {
-  ATTRIBUTE_KEYS,
-  MASTERY_RANK,
-  type AtlasNode,
-} from "@workspace/game/archetypes"
+import { MASTERY_RANK, type AtlasNode } from "@workspace/game/engine"
+import { ATTRIBUTE_KEYS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 

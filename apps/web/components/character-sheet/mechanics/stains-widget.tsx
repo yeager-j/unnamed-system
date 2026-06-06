@@ -2,7 +2,7 @@
 
 import { TrashIcon } from "@phosphor-icons/react"
 
-import { type StainsState } from "@workspace/game/mechanics"
+import { type StainsState } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useViewerRole } from "@/components/shell/viewer-role"

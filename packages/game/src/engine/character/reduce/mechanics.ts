@@ -1,18 +1,22 @@
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import type { SliceResult } from "@workspace/game/engine/character/reduce/shared"
-import type { MechanicEdit } from "@workspace/game/foundation/character/character-edit"
+import { setDawnMode } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
+import { adjustValor } from "@workspace/game/engine/mechanics/knight/valor"
+import {
+  clearStains,
+  setStainSlot,
+} from "@workspace/game/engine/mechanics/mage/stains"
+import { getTypedMechanic } from "@workspace/game/engine/mechanics/registry"
+import { setDuskMode } from "@workspace/game/engine/mechanics/warlock/path-of-dusk"
 import {
   adjustPerfection,
-  adjustValor,
-  clearStains,
-  getTypedMechanic,
   resetPerfection,
-  setDawnMode,
-  setDuskMode,
-  setStainSlot,
+} from "@workspace/game/engine/mechanics/warrior/perfection"
+import type { MechanicEdit } from "@workspace/game/foundation/character/character-edit"
+import {
   type MechanicKind,
   type MechanicState,
-} from "@workspace/game/mechanics"
+} from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * Mechanics slice: steps the active Archetype's unique mechanic (Valor /

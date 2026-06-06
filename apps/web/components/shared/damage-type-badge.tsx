@@ -1,4 +1,4 @@
-import type { DamageType } from "@workspace/game/foundation/combat/affinity"
+import { type DamageType } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 

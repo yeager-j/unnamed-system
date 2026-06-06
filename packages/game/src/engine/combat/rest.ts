@@ -6,7 +6,7 @@ import {
   computeMaxSkillDice,
   computeMaxSP,
   type StatComputationCharacter,
-} from "@workspace/game/character"
+} from "@workspace/game/engine/character/stats/stats"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
 
 /**

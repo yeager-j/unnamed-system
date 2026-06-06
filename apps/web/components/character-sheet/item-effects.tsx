@@ -1,5 +1,5 @@
-import type { ItemEffect } from "@workspace/game/items"
-import { getSkill } from "@workspace/game/skills"
+import { getSkill } from "@workspace/game/data"
+import { type ItemEffect } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import {

@@ -2,7 +2,7 @@
 
 import { toast } from "sonner"
 
-import type { Result } from "@workspace/game/foundation/result"
+import { type Result } from "@workspace/game/foundation"
 import {
   Field,
   FieldDescription,

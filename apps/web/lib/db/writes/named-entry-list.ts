@@ -1,6 +1,6 @@
 import { and, asc, eq, max } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characterChains, characterKnives } from "@/lib/db/schema/character"

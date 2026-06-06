@@ -2,7 +2,7 @@ import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-} from "@workspace/game/combat"
+} from "@workspace/game/foundation"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"

@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
 import { useDebouncedAutoSave } from "./use-debounced-auto-save"

@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { combatantSetupSchema } from "@workspace/game/encounter"
+import { combatantSetupSchema } from "@workspace/game/foundation"
 
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 

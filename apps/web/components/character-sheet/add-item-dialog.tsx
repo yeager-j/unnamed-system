@@ -3,14 +3,8 @@
 import { PlusIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import {
-  ACCESSORIES,
-  ARMOR,
-  CONSUMABLES,
-  isStackable,
-  WEAPONS,
-  type Item,
-} from "@workspace/game/items"
+import { ACCESSORIES, ARMOR, CONSUMABLES, WEAPONS } from "@workspace/game/data"
+import { isStackable, type Item } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,

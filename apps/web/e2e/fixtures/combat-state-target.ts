@@ -4,7 +4,7 @@ import {
   DEFAULT_BATTLE_CONDITIONS,
   type Ailments,
   type BattleConditions,
-} from "@workspace/game/character"
+} from "@workspace/game/foundation"
 
 import { characters, getDb } from "@/lib/db"
 

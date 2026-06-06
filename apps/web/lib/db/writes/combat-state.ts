@@ -1,13 +1,15 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine/combat/exhaustion"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine"
 import {
   DEFAULT_BATTLE_CONDITIONS,
+  err,
+  ok,
   type Ailments,
   type BattleConditions,
   type BattleConditionState,
-} from "@workspace/game/foundation/character/state"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"

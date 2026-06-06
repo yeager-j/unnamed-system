@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import type { AttributeScores, HydratedSkill } from "@workspace/game/character"
-import type { DamageType } from "@workspace/game/combat"
 import { dia } from "@workspace/game/data/skills/heal/dia"
 import { healersInsight } from "@workspace/game/data/skills/passive/healers-insight"
 import { cleave } from "@workspace/game/data/skills/slash/cleave"
+import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import {
   applyCast,
   applyResolvedCost,
@@ -17,6 +16,8 @@ import {
   sortSkillsByKind,
   type CastingCharacter,
 } from "@workspace/game/engine/skills/utils"
+import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
+import { type DamageType } from "@workspace/game/foundation/combat/affinity"
 import type { SkillKind } from "@workspace/game/foundation/common"
 
 function makeSortable(

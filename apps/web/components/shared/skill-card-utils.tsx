@@ -1,11 +1,10 @@
-import type { AttributeScores } from "@workspace/game/engine/character/stats/stats"
-import type { AttackRange } from "@workspace/game/engine/combat/attack"
 import {
   hydrateFormula,
+  type AttackRange,
+  type AttributeScores,
   type ResolvedSkillCost,
-} from "@workspace/game/engine/skills/utils"
-import type { IntrinsicAttack } from "@workspace/game/foundation/items/schema"
-import type { Skill } from "@workspace/game/foundation/skills/schema"
+} from "@workspace/game/engine"
+import { type IntrinsicAttack, type Skill } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import {

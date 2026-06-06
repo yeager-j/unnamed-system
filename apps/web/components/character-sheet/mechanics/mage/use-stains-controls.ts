@@ -1,6 +1,6 @@
 "use client"
 
-import { type StainElement } from "@workspace/game/mechanics"
+import { type StainElement } from "@workspace/game/engine"
 
 import { useCharacterWrite } from "@/hooks/use-character"
 import {

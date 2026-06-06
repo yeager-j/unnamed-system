@@ -5,12 +5,16 @@ import {
   loadCatalogEntryModules,
 } from "@workspace/game/data/catalog/registered-entries"
 import { goblin } from "@workspace/game/data/enemies/5e/humanoid/goblin"
-import { ENEMIES, getEnemy, getEnemyFamily } from "@workspace/game/enemies"
+import {
+  ENEMIES,
+  getEnemy,
+  getEnemyFamily,
+} from "@workspace/game/data/enemies/registry"
+import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   ENEMY_FAMILIES,
   enemyDefinitionSchema,
 } from "@workspace/game/foundation/enemies/schema"
-import { getSkill } from "@workspace/game/skills"
 
 describe("enemy catalog data", () => {
   it("has a unique, slug-shaped key for every enemy", () => {

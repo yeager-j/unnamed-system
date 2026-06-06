@@ -2,7 +2,8 @@
 
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 
-import type { EngageableTarget, Engagement } from "@workspace/game/encounter"
+import { type EngageableTarget } from "@workspace/game/engine"
+import { type Engagement } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Label } from "@workspace/ui/components/label"

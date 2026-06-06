@@ -1,8 +1,4 @@
-import {
-  resolveAttackRoll,
-  skillAttackRollContext,
-  type AttackRollContext,
-} from "@workspace/game/combat"
+import { getEquippedItem, getItem } from "@workspace/game/data/items/registry"
 import { buildStatComputationCharacter } from "@workspace/game/engine/character/stats/stat-character"
 import {
   accumulatedBonuses,
@@ -15,6 +11,12 @@ import {
   type StatComputationCharacter,
 } from "@workspace/game/engine/character/stats/stats"
 import { resolveTalents } from "@workspace/game/engine/character/talents/utils"
+import {
+  resolveAttackRoll,
+  skillAttackRollContext,
+  type AttackRollContext,
+} from "@workspace/game/engine/combat/attack-roll"
+import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
   CharacterArchetypeRow,
@@ -23,12 +25,7 @@ import type {
   CharacterRow,
   InventoryItemRow,
 } from "@workspace/game/foundation/character/records"
-import {
-  getEquippedItem,
-  getItem,
-  type IntrinsicAttack,
-} from "@workspace/game/items"
-import { hydrateSkill } from "@workspace/game/skills"
+import { type IntrinsicAttack } from "@workspace/game/foundation/items/schema"
 
 /**
  * The persisted inputs a {@link HydratedCharacter} is derived from: the

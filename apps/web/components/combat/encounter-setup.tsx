@@ -12,14 +12,16 @@ import {
   isRosterFullyPlaced,
   normalizeEngagements,
   setEngagementTargets,
+  type InitiativeStats,
+} from "@workspace/game/engine"
+import {
   toCombatantSetup,
   type CombatAdvantage,
   type CombatantSetup,
   type CombatSide,
   type Engagement,
-  type InitiativeStats,
   type ZoneGraphEvent,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 

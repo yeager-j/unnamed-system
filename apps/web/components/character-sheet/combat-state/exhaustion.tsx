@@ -1,6 +1,6 @@
 "use client"
 
-import { getExhaustionLevel } from "@workspace/game/combat"
+import { getExhaustionLevel } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,

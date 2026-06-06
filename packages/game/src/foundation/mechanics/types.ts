@@ -1,11 +1,11 @@
 import type { z } from "zod/v4"
 
-import type { StatComputationCharacter } from "@workspace/game/character"
-import type {
-  AffinityEffect,
-  AttackRollEffect,
-  AttributeEffect,
-} from "@workspace/game/combat"
+import { type StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import {
+  type AffinityEffect,
+  type AttackRollEffect,
+  type AttributeEffect,
+} from "@workspace/game/foundation/combat/effects"
 
 /**
  * Per-Archetype unique mechanic vocabulary. Each Archetype with a unique

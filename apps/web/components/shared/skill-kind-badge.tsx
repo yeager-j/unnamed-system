@@ -1,4 +1,4 @@
-import type { SkillKind } from "@workspace/game/skills"
+import { type SkillKind } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { SKILL_KIND_LABELS } from "@/lib/ui/labels"

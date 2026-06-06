@@ -1,4 +1,4 @@
-import { type Result } from "@workspace/game/foundation/result"
+import { type Result } from "@workspace/game/foundation"
 
 import { characterChains } from "@/lib/db/schema/character"
 

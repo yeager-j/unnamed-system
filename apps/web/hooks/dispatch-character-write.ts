@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react"
 
-import type { Result } from "@workspace/game/foundation/result"
+import { type Result } from "@workspace/game/foundation"
 
 import { EDIT_SURFACE_CLASS, type EditSurface } from "@/lib/db/version-classes"
 

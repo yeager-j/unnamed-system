@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
 import { endOfTurnReminders } from "@workspace/game/engine/encounter/end-of-turn"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   makeCombatant,
   type Combatant,

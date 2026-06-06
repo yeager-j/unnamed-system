@@ -3,7 +3,8 @@
 import { useTransition } from "react"
 import { toast } from "sonner"
 
-import { getPathDice, type HydratedCharacter } from "@workspace/game/character"
+import { getPathDice } from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 import {
   Dialog,
   DialogContent,

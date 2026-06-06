@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { TALENT_KEYS } from "@workspace/game/character"
+import { TALENT_KEYS } from "@workspace/game/foundation"
 
 import type { CharacterTalentPersistenceError } from "@/lib/db/writes/talents"
 

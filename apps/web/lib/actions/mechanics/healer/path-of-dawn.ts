@@ -1,7 +1,7 @@
 "use server"
 
-import { err, type Result } from "@workspace/game/foundation/result"
-import { setDawnMode } from "@workspace/game/mechanics"
+import { setDawnMode } from "@workspace/game/engine"
+import { err, type Result } from "@workspace/game/foundation"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {

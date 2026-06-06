@@ -1,30 +1,36 @@
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { getSkill } from "@workspace/game/data/skills/registry"
+import { isInheritableSkill } from "@workspace/game/engine/archetypes/inheritance"
+import { toStatComputationCharacter } from "@workspace/game/engine/character/stats/stat-character"
 import {
   computeMaxHP,
-  LINEAGE_SUGGESTED_PATH,
-  toStatComputationCharacter,
-  type HydratedCharacter,
-  type HydratedSkill,
-  type PathChoice,
   type StatComputationCharacter,
-  type SuggestedPath,
-} from "@workspace/game/character"
+} from "@workspace/game/engine/character/stats/stats"
 import {
   resolveAttackRoll,
   skillAttackRollContext,
   type ResolvedAttackRoll,
-} from "@workspace/game/combat"
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { isInheritableSkill } from "@workspace/game/engine/archetypes/inheritance"
+} from "@workspace/game/engine/combat/attack-roll"
+import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import {
   ARCHETYPE_TIERS,
-  LINEAGES,
   type Archetype,
   type ArchetypeTier,
-  type Lineage,
 } from "@workspace/game/foundation/archetypes/schema"
+import {
+  type HydratedCharacter,
+  type HydratedSkill,
+} from "@workspace/game/foundation/character/hydrated-character"
+import {
+  LINEAGE_SUGGESTED_PATH,
+  LINEAGES,
+  type Lineage,
+  type SuggestedPath,
+} from "@workspace/game/foundation/character/lineage"
 import type { CharacterArchetypeRow } from "@workspace/game/foundation/character/records"
-import { getMechanic } from "@workspace/game/mechanics"
-import { getSkill, hydrateSkill, type Skill } from "@workspace/game/skills"
+import { type PathChoice } from "@workspace/game/foundation/character/state"
+import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**
  * Per-character resolution of an unlocked Archetype: the catalog entry, the

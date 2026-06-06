@@ -5,7 +5,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
 
 import {
   archetypeId,

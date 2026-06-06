@@ -1,10 +1,10 @@
 import Image from "next/image"
 
-import type {
-  ZoneLayoutEntry,
-  ZoneLayoutView,
-  ZoneToken,
-} from "@workspace/game/encounter"
+import {
+  type ZoneLayoutEntry,
+  type ZoneLayoutView,
+  type ZoneToken,
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,

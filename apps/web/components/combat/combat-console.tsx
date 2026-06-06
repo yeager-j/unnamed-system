@@ -10,7 +10,7 @@ import {
   combatantDetail,
   resolveZoneLayout,
   type PcCombatantDetail,
-} from "@workspace/game/encounter"
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 

@@ -1,7 +1,7 @@
 import { PlusIcon, SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
 
-import type { EnemyDetailView } from "@workspace/game/enemies"
+import { type EnemyDetailView } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {

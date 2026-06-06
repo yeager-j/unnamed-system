@@ -1,35 +1,31 @@
-import type {
-  ArchetypeTier,
-  AttributeKey,
-  Lineage,
-  RecommendationReason,
-} from "@workspace/game/archetypes"
+import {
+  type Delivery,
+  type Range,
+  type RecommendationReason,
+  type ResolvedSkillCost,
+  type StainElement,
+} from "@workspace/game/engine"
 import {
   getTalent,
+  type Affinity,
+  type AffinityDamageType,
+  type ArchetypeTier,
+  type AttributeKey,
   type BattleConditionState,
+  type BonusTargetKey,
+  type CombatAdvantage,
+  type CombatSide,
+  type DamageType,
+  type EnemyFamily,
+  type Engagement,
+  type EquipSlot,
+  type Lineage,
   type PathChoice,
+  type SkillKind,
   type SuggestedPath,
   type TalentKey,
   type VirtueKey,
-} from "@workspace/game/character"
-import type {
-  Affinity,
-  AffinityDamageType,
-  BonusTargetKey,
-  DamageType,
-  Delivery,
-  Range,
-} from "@workspace/game/combat"
-import type {
-  CombatAdvantage,
-  CombatSide,
-  Engagement,
-} from "@workspace/game/encounter"
-import type { EnemyFamily } from "@workspace/game/enemies"
-import type { ResolvedSkillCost } from "@workspace/game/engine/skills/utils"
-import type { EquipSlot } from "@workspace/game/items"
-import type { StainElement } from "@workspace/game/mechanics"
-import type { SkillKind } from "@workspace/game/skills"
+} from "@workspace/game/foundation"
 
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 

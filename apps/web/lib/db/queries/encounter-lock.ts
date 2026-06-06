@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm"
 import {
   pcCombatantCharacterIds,
   sessionIncludesPc,
-} from "@workspace/game/encounter"
+} from "@workspace/game/engine"
 
 import { db } from "@/lib/db/client"
 import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"

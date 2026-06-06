@@ -5,9 +5,13 @@ import {
   rankUpVirtue,
   type SparkCharacter,
   type SparkError,
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
+  type Result,
   type VirtueKey,
-} from "@workspace/game/character"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characters } from "@/lib/db/schema/character"

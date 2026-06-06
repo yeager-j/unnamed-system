@@ -2,7 +2,7 @@
 
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
 
-import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/combat"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"

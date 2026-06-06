@@ -1,6 +1,6 @@
 import { produce } from "immer"
 
-import { BATTLE_CONDITION_AXIS_KEYS } from "@workspace/game/character"
+import { BATTLE_CONDITION_AXIS_KEYS } from "@workspace/game/foundation/character/state"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { EndTurnEvent } from "@workspace/game/foundation/encounter/session-event"
 

@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react"
 import { type ReactNode } from "react"
 
-import { PERFECTION_RANK_LABELS } from "@workspace/game/mechanics"
+import { PERFECTION_RANK_LABELS } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacterWrite } from "@/hooks/use-character"

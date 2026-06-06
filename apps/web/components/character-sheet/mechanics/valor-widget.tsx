@@ -5,7 +5,7 @@ import {
   VALOR_THRESHOLD_DESCRIPTIONS,
   VALOR_THRESHOLDS,
   type ValorState,
-} from "@workspace/game/mechanics"
+} from "@workspace/game/engine"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 

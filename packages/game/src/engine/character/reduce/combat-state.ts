@@ -1,9 +1,9 @@
-import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/combat"
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import {
   patchRow,
   type SliceResult,
 } from "@workspace/game/engine/character/reduce/shared"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine/combat/exhaustion"
 import type { CombatStateEdit } from "@workspace/game/foundation/character/character-edit"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 

@@ -10,12 +10,12 @@ import {
 } from "react"
 import { toast } from "sonner"
 
+import { reduceCharacter } from "@workspace/game/engine"
 import {
-  reduceCharacter,
   type CharacterEdit,
   type HydratedCharacter,
-} from "@workspace/game/character"
-import type { Result } from "@workspace/game/foundation/result"
+  type Result,
+} from "@workspace/game/foundation"
 
 import {
   EDIT_SURFACE_CLASS,

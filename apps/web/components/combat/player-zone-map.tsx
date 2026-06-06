@@ -1,7 +1,7 @@
-import type {
-  PlayerView,
-  PlayerVisibleCombatant,
-} from "@workspace/game/encounter"
+import {
+  type PlayerView,
+  type PlayerVisibleCombatant,
+} from "@workspace/game/engine"
 
 import { PlayerCombatantCard } from "./player-combatant-card"
 

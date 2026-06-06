@@ -5,11 +5,10 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 
 import {
-  ENEMY_FAMILIES,
   type EnemyCatalogLevelGroup,
   type EnemyCatalogRow,
-  type EnemyFamily,
-} from "@workspace/game/enemies"
+} from "@workspace/game/engine"
+import { ENEMY_FAMILIES, type EnemyFamily } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"

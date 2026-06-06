@@ -1,14 +1,17 @@
-import { getArchetype } from "@workspace/game/archetypes"
+import { getArchetype, type WeaponKey } from "@workspace/game/data"
 import {
   buildStatComputationCharacter,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
   startingWeaponForLineage,
-} from "@workspace/game/character"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
-import { type WeaponKey } from "@workspace/game/items"
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import {

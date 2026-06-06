@@ -1,6 +1,6 @@
 import type { useRouter } from "next/navigation"
 
-import type { HydratedCharacter } from "@workspace/game/character"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 
 import type { SheetTabKey } from "@/components/character-sheet/sheet-tab-keys"
 import type { useCharacterWrite } from "@/hooks/use-character"

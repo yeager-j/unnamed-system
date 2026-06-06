@@ -3,7 +3,7 @@
 import {
   resolvePlayerView,
   type EncounterSnapshot,
-} from "@workspace/game/encounter"
+} from "@workspace/game/engine"
 
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"

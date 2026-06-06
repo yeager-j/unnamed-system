@@ -3,11 +3,8 @@
 import { useOptimistic, useState } from "react"
 import { toast } from "sonner"
 
-import {
-  INITIATE_ARCHETYPES,
-  sortArchetypesByPath,
-  type ArchetypeKey,
-} from "@workspace/game/archetypes"
+import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@workspace/game/data"
+import { sortArchetypesByPath } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 
 import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"

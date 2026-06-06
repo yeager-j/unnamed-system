@@ -4,7 +4,7 @@ import {
   ailmentsSchema,
   BATTLE_CONDITION_STATES,
   battleConditionsSchema,
-} from "@workspace/game/foundation/character/state"
+} from "@workspace/game/foundation"
 
 import type { CombatStatePersistenceError } from "@/lib/db/writes/combat-state"
 

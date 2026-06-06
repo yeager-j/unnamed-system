@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 
-import type { Archetype, AtlasNodeState } from "@workspace/game/archetypes"
+import { type AtlasNodeState } from "@workspace/game/engine"
+import { type Archetype } from "@workspace/game/foundation"
 import {
   AlertDialog,
   AlertDialogAction,

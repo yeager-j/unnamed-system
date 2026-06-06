@@ -2,11 +2,11 @@
 
 import {
   attackBonusForRank,
+  formatSignedBonus,
   PERFECTION_RANK_LABELS,
   rankLabel,
   type PerfectionState,
-} from "@workspace/game/mechanics"
-import { formatSignedBonus } from "@workspace/game/skills"
+} from "@workspace/game/engine"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 

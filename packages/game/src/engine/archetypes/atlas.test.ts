@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { makeArchetype } from "@workspace/game/engine/__fixtures__/index"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   atlasNodeState,
   buildLineageAtlas,

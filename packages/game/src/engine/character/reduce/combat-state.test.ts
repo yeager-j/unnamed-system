@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/combat"
-import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/index"
+import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/character"
 import { reduceCombatStateEdit } from "@workspace/game/engine/character/reduce/combat-state"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game/engine/combat/exhaustion"
 import {
   DEFAULT_BATTLE_CONDITIONS,
   type BattleConditions,

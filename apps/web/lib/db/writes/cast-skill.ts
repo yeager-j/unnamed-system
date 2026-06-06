@@ -1,13 +1,15 @@
 import {
-  toStatComputationCharacter,
-  type HydratedCharacter,
-} from "@workspace/game/character"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
-import {
   applyCast,
+  toStatComputationCharacter,
   type CastError,
   type CastingCharacter,
-} from "@workspace/game/skills"
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
+  type HydratedCharacter,
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

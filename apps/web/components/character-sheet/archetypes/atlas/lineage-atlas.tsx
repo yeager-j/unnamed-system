@@ -10,7 +10,7 @@ import {
   getAtlasRecommendations,
   type AtlasLineage,
   type AtlasNode,
-} from "@workspace/game/archetypes"
+} from "@workspace/game/engine"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"

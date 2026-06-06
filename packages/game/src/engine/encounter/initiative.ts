@@ -1,4 +1,4 @@
-import { getEnemy } from "@workspace/game/enemies"
+import { getEnemy } from "@workspace/game/data/enemies/registry"
 import type {
   CombatantSetup,
   CombatSide,

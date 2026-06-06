@@ -2,13 +2,14 @@
 
 import { CheckIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { ATTRIBUTE_KEYS, type Archetype } from "@workspace/game/archetypes"
+import { getMechanic } from "@workspace/game/engine"
 import {
   AFFINITY_DAMAGE_TYPES,
+  ATTRIBUTE_KEYS,
   type Affinity,
   type AffinityDamageType,
-} from "@workspace/game/combat"
-import { getMechanic } from "@workspace/game/mechanics"
+  type Archetype,
+} from "@workspace/game/foundation"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatModifier } from "@/components/archetype/format"

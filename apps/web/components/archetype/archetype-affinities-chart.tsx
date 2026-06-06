@@ -1,5 +1,7 @@
-import type { Archetype } from "@workspace/game/archetypes"
-import { AFFINITY_DAMAGE_TYPES } from "@workspace/game/combat"
+import {
+  AFFINITY_DAMAGE_TYPES,
+  type Archetype,
+} from "@workspace/game/foundation"
 
 import { DetailSection } from "@/components/shared/detail-section"
 

@@ -4,7 +4,7 @@ import {
   computeMaxHP,
   computeMaxSP,
   toStatComputationCharacter,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

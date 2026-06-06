@@ -1,7 +1,8 @@
 "use client"
 
-import { archetypeDisplayName } from "@workspace/game/archetypes"
-import { isFallen, VICTORIES_PER_LEVEL } from "@workspace/game/character"
+import { archetypeDisplayName } from "@workspace/game/data"
+import { VICTORIES_PER_LEVEL } from "@workspace/game/engine"
+import { isFallen } from "@workspace/game/foundation"
 import {
   Avatar,
   AvatarFallback,

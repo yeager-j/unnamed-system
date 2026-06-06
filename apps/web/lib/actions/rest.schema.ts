@@ -3,7 +3,7 @@ import { z } from "zod/v4"
 import {
   partialRestInputSchema,
   respiteInputSchema,
-} from "@workspace/game/engine/combat/rest"
+} from "@workspace/game/engine"
 
 import type { RestPersistenceError } from "@/lib/db/writes/rest"
 

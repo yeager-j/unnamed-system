@@ -11,8 +11,8 @@ import {
   computeMaxSkillDice,
   getPathStats,
   VICTORIES_PER_LEVEL,
-  type HydratedCharacter,
-} from "@workspace/game/character"
+} from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,

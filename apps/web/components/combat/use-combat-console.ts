@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation"
 import { useEffect, useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
+import { reduceCombatSession } from "@workspace/game/engine"
 import {
-  reduceCombatSession,
   type CombatEvent,
   type CombatSession,
-} from "@workspace/game/encounter"
+} from "@workspace/game/foundation"
 
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"

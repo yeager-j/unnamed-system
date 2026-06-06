@@ -10,9 +10,9 @@ import {
   fromResult,
   type SliceResult,
 } from "@workspace/game/engine/character/reduce/shared"
+import { applyResolvedCost } from "@workspace/game/engine/skills/utils"
 import type { PoolsEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
-import { applyResolvedCost } from "@workspace/game/skills"
 
 /**
  * Pools / casting slice: the manual HP/SP/Prisma affordances plus Skill casts.

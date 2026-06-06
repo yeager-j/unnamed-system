@@ -1,5 +1,5 @@
-import { isFallen } from "@workspace/game/character"
-import { getEnemy } from "@workspace/game/enemies"
+import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { isFallen } from "@workspace/game/foundation/character/state"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 
 /**

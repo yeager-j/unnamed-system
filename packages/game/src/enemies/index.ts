@@ -1,5 +1,0 @@
-export * from "@workspace/game/data/enemies/registry"
-export * from "@workspace/game/foundation/enemies/schema"
-export * from "@workspace/game/engine/enemies/catalog-rows"
-export * from "@workspace/game/engine/enemies/enemy-detail-view"
-export * from "@workspace/game/engine/enemies/hydrate-enemy-skills"

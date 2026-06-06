@@ -1,4 +1,4 @@
-import type { RankedSkill } from "@workspace/game/archetypes"
+import { type RankedSkill } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 
 /**

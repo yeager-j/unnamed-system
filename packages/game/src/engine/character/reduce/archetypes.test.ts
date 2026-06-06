@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
-  makeArchetype,
   makeArchetypeRow,
   makeRawCharacterInputs,
-} from "@workspace/game/engine/__fixtures__/index"
+} from "@workspace/game/engine/__fixtures__/character"
 import { MASTERY_RANK } from "@workspace/game/engine/archetypes/rank"
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import { reduceArchetypeEdit } from "@workspace/game/engine/character/reduce/archetypes"

@@ -1,13 +1,11 @@
-import type {
-  AttributeScores,
-  BattleConditions,
-} from "@workspace/game/character"
+import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import {
   enemyHp,
   type PcCombatantDetail,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
+import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import type {
   Combatant,
   CombatSession,

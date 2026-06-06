@@ -4,11 +4,8 @@ import { Radio as RadioPrimitive } from "@base-ui/react/radio"
 import { useOptimistic } from "react"
 import { toast } from "sonner"
 
-import { getPathStats } from "@workspace/game/engine/character/stats/stats"
-import {
-  PATH_CHOICES,
-  type PathChoice,
-} from "@workspace/game/foundation/character/state"
+import { getPathStats } from "@workspace/game/engine"
+import { PATH_CHOICES, type PathChoice } from "@workspace/game/foundation"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 

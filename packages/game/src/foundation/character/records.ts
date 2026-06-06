@@ -8,7 +8,7 @@ import type {
   SparkLog,
 } from "@workspace/game/foundation/character/state"
 import type { TalentKey } from "@workspace/game/foundation/character/talents/registry"
-import type { MechanicState } from "@workspace/game/mechanics"
+import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * The persisted-character contract — the shape the pure derivation layer reads

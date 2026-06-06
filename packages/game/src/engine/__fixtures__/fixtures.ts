@@ -1,10 +1,10 @@
-import type {
-  EquippableItem,
-  IntrinsicAttack,
-  Item,
-  ItemEffects,
-} from "@workspace/game/items"
-import type { Skill } from "@workspace/game/skills"
+import {
+  type EquippableItem,
+  type IntrinsicAttack,
+  type Item,
+  type ItemEffects,
+} from "@workspace/game/foundation/items/schema"
+import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**
  * Shared, test-only game-data fixtures. These deliberately model items no sane

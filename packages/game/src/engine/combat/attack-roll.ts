@@ -1,14 +1,15 @@
-import { getArchetype } from "@workspace/game/archetypes"
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import {
   computeAttributes,
   type AttributeScores,
   type StatComputationCharacter,
-} from "@workspace/game/character"
+} from "@workspace/game/engine/character/stats/stats"
 import {
   ATTACK_ATTRIBUTE_LABELS,
   type AttackAttribute,
   type Delivery,
 } from "@workspace/game/engine/combat/attack"
+import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import { resolveAttackAttribute } from "@workspace/game/engine/skills/utils"
 import type { PartyComposition } from "@workspace/game/foundation/character/state"
 import type { DamageType } from "@workspace/game/foundation/combat/affinity"
@@ -17,9 +18,8 @@ import type {
   AttackRollFilter,
   AttackRollScaler,
 } from "@workspace/game/foundation/combat/effects"
+import { type SkillKind } from "@workspace/game/foundation/common"
 import type { Skill } from "@workspace/game/foundation/skills/schema"
-import { mechanicEffectsFor } from "@workspace/game/mechanics"
-import type { SkillKind } from "@workspace/game/skills"
 
 /**
  * Per-Skill / per-weapon Attack Roll resolution. Walks every contributor

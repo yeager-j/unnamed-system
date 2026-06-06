@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import type {
-  InitiativeStats,
-  PcCombatantDetail,
-} from "@workspace/game/encounter"
+import {
+  type InitiativeStats,
+  type PcCombatantDetail,
+} from "@workspace/game/engine"
 
 import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"

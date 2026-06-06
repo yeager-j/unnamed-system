@@ -6,8 +6,8 @@ import {
   applyUsePrisma,
   type AdjustAmountError,
   type UsePrismaError,
-} from "@workspace/game/engine/character/adjust-pools"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+} from "@workspace/game/engine"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

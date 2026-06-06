@@ -1,5 +1,6 @@
 import { z } from "zod/v4"
 
+import { type SkillKey } from "@workspace/game/data/skills/registry"
 import {
   LINEAGES,
   type Lineage,
@@ -10,8 +11,7 @@ import {
   type Affinity,
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
-import type { MechanicKind } from "@workspace/game/mechanics"
-import type { SkillKey } from "@workspace/game/skills"
+import { type MechanicKind } from "@workspace/game/foundation/mechanics/schema"
 
 export { LINEAGES, type Lineage }
 

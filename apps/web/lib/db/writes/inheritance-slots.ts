@@ -1,11 +1,14 @@
 import { eq } from "drizzle-orm"
 
-import { getArchetype, isInheritableSkill } from "@workspace/game/archetypes"
+import { getArchetype } from "@workspace/game/data"
+import { isInheritableSkill } from "@workspace/game/engine"
 import {
+  err,
   inheritanceSlotsSchema,
+  ok,
   type InheritanceSlots,
-} from "@workspace/game/character"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes } from "@/lib/db/schema/character"

@@ -6,11 +6,11 @@ import {
   buildArchetypeEntries,
   inheritanceSourceGroups,
   type ArchetypeEntry,
+  type AttributeScores,
   type InheritanceSourceGroup,
   type RankedSkill,
   type ResolvedInheritanceSlot,
-} from "@workspace/game/archetypes"
-import type { AttributeScores } from "@workspace/game/character"
+} from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,

@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { VIRTUE_KEYS } from "@workspace/game/character"
+import { VIRTUE_KEYS } from "@workspace/game/foundation"
 
 import type { SparkPersistenceError } from "@/lib/db/writes/spark"
 

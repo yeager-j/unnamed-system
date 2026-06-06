@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/character"
 import type {
   EncounterSnapshot,
   PlayerVisibleCombatant,
@@ -9,6 +8,7 @@ import {
   activeConditions,
   resolvePlayerView,
 } from "@workspace/game/engine/encounter/resolve-player-view"
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 
 function enemy(id: string, zoneId: string): PlayerVisibleCombatant {
   return {

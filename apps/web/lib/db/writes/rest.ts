@@ -1,17 +1,19 @@
 import {
-  toStatComputationCharacter,
-  type HydratedCharacter,
-} from "@workspace/game/character"
-import {
   applyFullRest,
   applyPartialRest,
   applyRespite,
+  toStatComputationCharacter,
   type PartialRestInput,
   type RespiteInput,
   type RestError,
   type RestingCharacter,
-} from "@workspace/game/combat"
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+} from "@workspace/game/engine"
+import {
+  err,
+  ok,
+  type HydratedCharacter,
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

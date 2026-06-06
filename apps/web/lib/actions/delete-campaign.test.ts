@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game/foundation/result"
+import { err, ok } from "@workspace/game/foundation"
 
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 

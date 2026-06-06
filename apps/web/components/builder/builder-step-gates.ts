@@ -1,4 +1,4 @@
-import { isValidCreationAllocation } from "@workspace/game/engine/character/virtues/utils"
+import { isValidCreationAllocation } from "@workspace/game/engine"
 
 import type {
   CharacterChainRow,

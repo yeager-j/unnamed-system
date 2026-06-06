@@ -2,7 +2,7 @@
 
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { findStepGateFailures } from "@/components/builder/builder-step-gates"
 import { requireOwner } from "@/lib/auth/viewer-role"

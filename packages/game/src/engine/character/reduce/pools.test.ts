@@ -4,7 +4,7 @@ import {
   makeArchetypeRow,
   makeHydratedCharacter,
   makeRawCharacterInputs,
-} from "@workspace/game/engine/__fixtures__/index"
+} from "@workspace/game/engine/__fixtures__/character"
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import { reducePoolsEdit } from "@workspace/game/engine/character/reduce/pools"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"

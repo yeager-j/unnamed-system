@@ -1,8 +1,5 @@
-import {
-  previewArchetypeSkills,
-  type Archetype,
-} from "@workspace/game/archetypes"
-import type { PathChoice } from "@workspace/game/character"
+import { previewArchetypeSkills } from "@workspace/game/engine"
+import { type Archetype, type PathChoice } from "@workspace/game/foundation"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
 

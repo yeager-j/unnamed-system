@@ -1,12 +1,14 @@
 import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game/foundation/result"
+import { initialStateFor } from "@workspace/game/engine"
 import {
-  initialStateFor,
+  err,
   mechanicStateSchema,
+  ok,
   type MechanicKind,
   type MechanicState,
-} from "@workspace/game/mechanics"
+  type Result,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characterExists } from "@/lib/db/queries/load-character"

@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm"
 
-import { getArchetype } from "@workspace/game/archetypes"
-import type { TalentKey } from "@workspace/game/character"
-import { ok, type Result } from "@workspace/game/foundation/result"
+import { getArchetype } from "@workspace/game/data"
+import { ok, type Result, type TalentKey } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characterArchetypes, characters } from "@/lib/db/schema/character"

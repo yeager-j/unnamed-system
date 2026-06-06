@@ -3,7 +3,7 @@
 import { ArrowCounterClockwiseIcon, TrophyIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import { VICTORIES_PER_LEVEL } from "@workspace/game/character"
+import { VICTORIES_PER_LEVEL } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,

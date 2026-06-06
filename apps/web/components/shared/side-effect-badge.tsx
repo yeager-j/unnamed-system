@@ -1,7 +1,4 @@
-import {
-  getSideEffect,
-  type SideEffectKey,
-} from "@workspace/game/engine/combat/side-effects"
+import { getSideEffect, type SideEffectKey } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { forbidden } from "next/navigation"
 
-import { ok, type Result } from "@workspace/game/foundation/result"
+import { ok, type Result } from "@workspace/game/foundation"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {

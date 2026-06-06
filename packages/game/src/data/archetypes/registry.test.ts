@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { getTalent } from "@workspace/game/character"
 import { healer } from "@workspace/game/data/archetypes/healer/healer"
 import { knight } from "@workspace/game/data/archetypes/knight/knight"
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
@@ -12,9 +11,10 @@ import {
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import {
   archetypeSchema,
-  LINEAGES,
   resolveAffinity,
 } from "@workspace/game/foundation/archetypes/schema"
+import { LINEAGES } from "@workspace/game/foundation/character/lineage"
+import { getTalent } from "@workspace/game/foundation/character/talents/registry"
 
 describe("archetype data", () => {
   it("exposes a non-empty catalog", () => {
