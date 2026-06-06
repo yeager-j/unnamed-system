@@ -47,7 +47,7 @@ export function AccountMenu({ user }: AccountMenuProps) {
           <AvatarFallback>{initials}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent className="min-w-48" align="end">
         <DropdownMenuGroup>
           <DropdownMenuLabel>
             <div className="flex flex-col gap-0.5">
@@ -67,6 +67,9 @@ export function AccountMenu({ user }: AccountMenuProps) {
         <DropdownMenuSeparator />
         <DropdownMenuItem render={<Link href="/" />}>
           My Characters
+        </DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/campaigns" />}>
+          My Campaigns
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOutAction}>
