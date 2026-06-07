@@ -12,7 +12,9 @@ import {
 } from "@workspace/game/engine/mechanics/warrior/perfection"
 
 const baseStats = makeStatContext({
-  archetypes: [{ key: "warrior", rank: 1 }],
+  archetypes: [
+    { key: "warrior", rank: 1, mastery: { kind: "hp", amount: 20 } },
+  ],
 })
 
 describe("perfection", () => {

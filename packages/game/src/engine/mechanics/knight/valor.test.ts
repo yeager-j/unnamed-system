@@ -10,7 +10,7 @@ import { VALOR_MAX } from "@workspace/game/foundation/mechanics/schema"
 
 const baseStats = makeStatContext({
   activeArchetypeKey: "knight",
-  archetypes: [{ key: "knight", rank: 1 }],
+  archetypes: [{ key: "knight", rank: 1, mastery: { kind: "hp", amount: 20 } }],
 })
 
 describe("valor", () => {

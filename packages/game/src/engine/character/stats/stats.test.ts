@@ -30,7 +30,7 @@ import {
 
 function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
   return makeStatContext({
-    archetypes: [{ key: "warrior", rank: 2 }],
+    archetypes: [{ key: "warrior", rank: 2, mastery: warrior.mastery }],
     ...overrides,
   })
 }
@@ -93,11 +93,27 @@ describe("computeAttributes", () => {
   it("layers manual bonuses on top of derived Mastery without double-counting", () => {
     const character = makeCharacter({
       activeArchetypeKey: "warrior",
-      archetypes: [{ key: "warrior", rank: 5 }],
+      archetypes: [{ key: "warrior", rank: 5, mastery: warrior.mastery }],
       manualBonuses: { strength: 2 },
     })
     expect(computeAttributes(character).strength).toBe(
       warrior.attributes.strength + 2
+    )
+  })
+
+  it("applies an attribute-kind Mastery bonus to the rolling Attribute", () => {
+    const character = makeCharacter({
+      activeArchetypeKey: "warrior",
+      archetypes: [
+        {
+          key: "warrior",
+          rank: 5,
+          mastery: { kind: "attribute", attribute: "strength", amount: 3 },
+        },
+      ],
+    })
+    expect(computeAttributes(character).strength).toBe(
+      warrior.attributes.strength + 3
     )
   })
 
@@ -151,18 +167,20 @@ describe("computeMaxHP / computeMaxSP", () => {
       level: 1,
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 2 },
-        { key: "warrior", rank: 5 },
+        { key: "mage", rank: 2, mastery: mage.mastery },
+        { key: "warrior", rank: 5, mastery: { kind: "hp", amount: 12 } },
       ],
     })
-    expect(computeMaxHP(character)).toBe(20 + 20)
+    expect(computeMaxHP(character)).toBe(20 + 12)
   })
 
   it("does not apply Mastery below the Mastery Rank", () => {
     const character = makeCharacter({
       pathChoice: "balanced",
       activeArchetypeKey: "warrior",
-      archetypes: [{ key: "warrior", rank: 4 }],
+      archetypes: [
+        { key: "warrior", rank: 4, mastery: { kind: "hp", amount: 12 } },
+      ],
     })
     expect(computeMaxHP(character)).toBe(20)
   })
@@ -172,22 +190,26 @@ describe("computeMaxHP / computeMaxSP", () => {
       pathChoice: "balanced",
       level: 1,
       activeArchetypeKey: "warrior",
-      archetypes: [{ key: "warrior", rank: 5 }],
+      archetypes: [
+        { key: "warrior", rank: 5, mastery: { kind: "hp", amount: 12 } },
+      ],
       equippedItems: [
         accessoryWithEffects([{ type: "attribute", target: "hp", amount: 10 }]),
       ],
       manualBonuses: { hp: 5 },
     })
-    expect(computeMaxHP(character)).toBe(20 + 20 + 10 + 5)
+    expect(computeMaxHP(character)).toBe(20 + 12 + 10 + 5)
   })
 
-  it("applies an SP Mastery bonus (Mage) to max SP", () => {
+  it("applies an SP-kind Mastery bonus to max SP", () => {
     const character = makeCharacter({
       pathChoice: "balanced",
       activeArchetypeKey: "mage",
-      archetypes: [{ key: "mage", rank: 5 }],
+      archetypes: [
+        { key: "mage", rank: 5, mastery: { kind: "sp", amount: 15 } },
+      ],
     })
-    expect(computeMaxSP(character)).toBe(50 + 20)
+    expect(computeMaxSP(character)).toBe(50 + 15)
   })
 
   it("adds an equipped accessory's SP bonus to max SP", () => {
@@ -312,8 +334,8 @@ describe("purity", () => {
       level: 4,
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 5 },
-        { key: "warrior", rank: 5 },
+        { key: "mage", rank: 5, mastery: mage.mastery },
+        { key: "warrior", rank: 5, mastery: warrior.mastery },
       ],
       equippedItems: [
         accessoryWithEffects([
@@ -341,8 +363,8 @@ describe("shared bonus pool", () => {
     const character = makeCharacter({
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 5 },
-        { key: "warrior", rank: 5 },
+        { key: "mage", rank: 5, mastery: mage.mastery },
+        { key: "warrior", rank: 5, mastery: warrior.mastery },
       ],
       equippedItems: [
         accessoryWithEffects([
@@ -372,7 +394,9 @@ describe("mechanic Effects flow through the existing pipeline", () => {
   it("applies Valor's stage-3+ Resist to Slash / Pierce / Strike via the Affinity chart", () => {
     const character = makeCharacter({
       activeArchetypeKey: "knight",
-      archetypes: [{ key: "knight", rank: 5 }],
+      archetypes: [
+        { key: "knight", rank: 5, mastery: { kind: "hp", amount: 20 } },
+      ],
       activeMechanic: { kind: "valor", state: { kind: "valor", value: 3 } },
     })
     const chart = computeAffinityChart(character)
@@ -384,7 +408,9 @@ describe("mechanic Effects flow through the existing pipeline", () => {
   it("does not apply Valor's affinity Effect below value 3", () => {
     const character = makeCharacter({
       activeArchetypeKey: "knight",
-      archetypes: [{ key: "knight", rank: 5 }],
+      archetypes: [
+        { key: "knight", rank: 5, mastery: { kind: "hp", amount: 20 } },
+      ],
       activeMechanic: { kind: "valor", state: { kind: "valor", value: 2 } },
     })
     // Knight's base Slash affinity is Resist; we only assert Pierce/Strike to

@@ -1,4 +1,3 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import {
   computeAttributes,
   type AttributeScores,
@@ -238,20 +237,10 @@ function resolveScaler(
   // Stryker disable next-line ConditionalExpression: equivalent — perPartyLineage is currently the only scaler kind.
   if (scaler.kind === "perPartyLineage") {
     let count = partyComposition?.[scaler.lineage] ?? 0
-    if (!scaler.includesSelf && shareActiveLineage(character, scaler.lineage)) {
+    if (!scaler.includesSelf && character.activeLineage === scaler.lineage) {
       count = Math.max(0, count - 1)
     }
     return scaler.amount * count
   }
   return 0
-}
-
-function shareActiveLineage(
-  character: StatContext,
-  lineage: AttackRollScaler["lineage"]
-): boolean {
-  const key = character.activeArchetypeKey
-  // Stryker disable next-line ConditionalExpression: equivalent — getArchetype(null) is undefined, so the fallthrough returns false for a null key anyway.
-  if (!key) return false
-  return getArchetype(key)?.lineage === lineage
 }

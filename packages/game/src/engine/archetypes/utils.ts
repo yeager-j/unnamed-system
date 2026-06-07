@@ -394,8 +394,9 @@ export function previewArchetypeSkills(
     level: 1,
     manualBonuses: {},
     activeArchetypeKey: archetype.key,
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — `baseAttributes` (below) independently drives the attribute computation, so emptying/blanking this `archetypes` entry leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
-    archetypes: [{ key: archetype.key, rank: 2 }],
+    activeLineage: archetype.lineage,
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — Rank 2 is below every Archetype's Mastery Rank, so this entry contributes no Mastery; `baseAttributes` (below) independently drives the attribute computation, so emptying/blanking it leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
+    archetypes: [{ key: archetype.key, rank: 2, mastery: archetype.mastery }],
     equippedItems: [],
     // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
     activeSkills: [],

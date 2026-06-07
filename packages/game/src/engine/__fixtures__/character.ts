@@ -1,3 +1,4 @@
+import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
@@ -144,7 +145,16 @@ export function makeStatContext(
     level: 1,
     manualBonuses: {},
     activeArchetypeKey,
-    archetypes: [{ key: "warrior", rank: 5 }],
+    activeLineage: activeArchetypeKey
+      ? (getArchetype(activeArchetypeKey)?.lineage ?? null)
+      : null,
+    archetypes: [
+      {
+        key: "warrior",
+        rank: 5,
+        mastery: getArchetype("warrior")?.mastery ?? { kind: "hp", amount: 20 },
+      },
+    ],
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,

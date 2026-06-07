@@ -111,7 +111,9 @@ describe("sortSkillsByKind", () => {
  */
 function makeCharacter(overrides: Partial<CastContext> = {}): CastContext {
   return makeCastContext({
-    archetypes: [{ key: "warrior", rank: 2 }],
+    archetypes: [
+      { key: "warrior", rank: 2, mastery: { kind: "hp", amount: 20 } },
+    ],
     ...overrides,
   })
 }
