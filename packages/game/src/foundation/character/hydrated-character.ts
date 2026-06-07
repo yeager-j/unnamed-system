@@ -1,9 +1,4 @@
-import {
-  type ActiveMechanic,
-  type AttributeScores,
-} from "@workspace/game/engine/character/stats/stats"
-import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
-import { type ResolvedSkillCost } from "@workspace/game/engine/skills/utils"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
@@ -16,8 +11,11 @@ import {
   type Affinity,
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
+import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
 import { type Item } from "@workspace/game/foundation/items/schema"
+import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 import {
+  type ResolvedSkillCost,
   type Skill,
   type SkillCost,
 } from "@workspace/game/foundation/skills/schema"
@@ -41,12 +39,11 @@ import {
  * in `apps/web/lib/db/schema` import them and a `conformance.test.ts` proves the
  * table matches, so the contract and the table can't drift.
  *
- * The four engine-derived value types referenced below (`AttributeScores`,
- * `ActiveMechanic`, `ResolvedAttackRoll`, `ResolvedSkillCost`) are currently
- * imported type-only from `engine/` (where they are computed). Those imports are
- * erased at compile time — no runtime cycle — but they leave `foundation` with
- * upward *type* edges; lifting those definitions down into `foundation` is
- * tracked in UNN-359.
+ * The four derived-value types referenced below (`AttributeScores`,
+ * `ActiveMechanic`, `ResolvedAttackRoll`, `ResolvedSkillCost`) live in
+ * `foundation` beside the vocabulary they extend — their *computation* stays in
+ * `engine` — so this module, and `foundation` as a whole, has no upward edge
+ * into `engine` (UNN-359).
  */
 
 /** An inventory row spread flat, with the resolved catalog entry alongside

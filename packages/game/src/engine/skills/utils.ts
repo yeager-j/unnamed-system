@@ -9,7 +9,11 @@ import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
 import { type AttackAttribute } from "@workspace/game/foundation/combat/attack"
 import type { SkillKind } from "@workspace/game/foundation/common"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
-import type { Skill, SkillCost } from "@workspace/game/foundation/skills/schema"
+import type {
+  ResolvedSkillCost,
+  Skill,
+  SkillCost,
+} from "@workspace/game/foundation/skills/schema"
 
 /**
  * Display order for the Combat-tab Skills list (UNN-198): attackers should
@@ -60,8 +64,9 @@ export function sortSkillsByKind(skills: HydratedSkill[]): HydratedSkill[] {
   })
 }
 
-/** A Skill's cost resolved to a concrete pool and integer amount. */
-export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
+/** Re-exported from `foundation/skills/schema` (a logic-free derived-value
+ *  type) so existing deep imports of this module keep resolving. */
+export type { ResolvedSkillCost }
 
 /**
  * Assembles a {@link HydratedSkill} from a {@link Skill} and its derived

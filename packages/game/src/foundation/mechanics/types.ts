@@ -1,6 +1,6 @@
 import type { z } from "zod/v4"
 
-import { type StatContext } from "@workspace/game/engine/character/stats/stats"
+import { type StatContext } from "@workspace/game/foundation/character/stat-context"
 import {
   type AffinityEffect,
   type AttackRollEffect,

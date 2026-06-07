@@ -10,19 +10,12 @@ import {
   type QuantityError,
 } from "@workspace/game/engine/items/utils"
 import { type ItemLookup } from "@workspace/game/engine/ports"
+import { type InventoryMutation } from "@workspace/game/foundation/items/schema"
 import type { Result } from "@workspace/game/foundation/result"
 
-/**
- * The vocabulary of owner-mode inventory edits, shared by the optimistic
- * reducer here and the Server Action dispatcher in the UI. Each variant maps to
- * one pure engine transition.
- */
-export type InventoryMutation =
-  | { kind: "equip"; itemId: string }
-  | { kind: "unequip"; itemId: string }
-  | { kind: "add"; catalogItemKey: string; quantity: number }
-  | { kind: "setQuantity"; itemId: string; quantity: number }
-  | { kind: "remove"; itemId: string }
+/** Re-exported from `foundation/items/schema` (a logic-free command type) so
+ *  existing deep imports of this module keep resolving. */
+export type { InventoryMutation }
 
 /** Every recoverable failure the underlying engines can surface. */
 export type InventoryMutationError = EquipError | AddError | QuantityError

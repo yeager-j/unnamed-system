@@ -80,3 +80,26 @@ export const attackRollSchema = z.object({
 export type AttackRange = z.infer<typeof rangeSchema>
 export type AttackTier = z.infer<typeof attackTierSchema>
 export type AttackRoll = z.infer<typeof attackRollSchema>
+
+/** One labelled contributor to a resolved Attack Roll. Surfaced to the UI
+ *  so the Skill card renders `Magic +4  Magic Circle +2` instead of an
+ *  opaque `+6`. */
+export interface AttackRollSource {
+  source: string
+  amount: number
+}
+
+/**
+ * The complete labelled readout for one Attack Roll: every contributor
+ * already summed and labelled, with the rolling Attribute as the first
+ * source. Components only render — no addition happens client-side. The
+ * engine-derived readout that pairs with the authored {@link AttackRoll}.
+ */
+export interface ResolvedAttackRoll {
+  /** Grand total — rolling Attribute plus every matching effect contribution. */
+  total: number
+  /** Per-source breakdown, attribute first, then effects in collection order.
+   *  Effect contributions resolving to 0 are omitted; the attribute is
+   *  always present even at 0 so the player can see the base. */
+  sources: AttackRollSource[]
+}

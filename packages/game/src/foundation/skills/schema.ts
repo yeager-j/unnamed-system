@@ -131,6 +131,10 @@ export const skillSchema = z.discriminatedUnion("kind", [
 ])
 
 export type SkillCost = z.infer<typeof costSchema>
+
+/** A Skill's cost resolved to a concrete pool and integer amount — the
+ *  engine-derived counterpart to the authored {@link SkillCost}. */
+export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
 export type AttackSkill = z.infer<typeof attackSkillSchema>
 export type HealSkill = z.infer<typeof healSkillSchema>
 export type SupportSkill = z.infer<typeof supportSkillSchema>
