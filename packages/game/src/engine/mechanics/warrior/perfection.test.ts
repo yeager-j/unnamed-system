@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatContext } from "@workspace/game/engine/character/stats/stats"
+import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+  type StatContext,
+} from "@workspace/game/engine/character/stats/stats"
 import {
   adjustPerfection,
   attackBonusForRank,
@@ -20,6 +24,8 @@ const baseStats: StatContext = {
   equippedItems: [],
   activeSkills: [],
   activeMechanic: null,
+  baseAttributes: baseAttributesForArchetype("warrior"),
+  baseAffinities: baseAffinitiesForArchetype("warrior"),
 }
 
 describe("perfection", () => {

@@ -14,6 +14,8 @@ import {
 } from "@workspace/game/engine/__fixtures__/fixtures"
 import {
   accumulatedBonuses,
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
@@ -24,15 +26,21 @@ import {
 } from "@workspace/game/engine/character/stats/stats"
 
 function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
+  const activeArchetypeKey =
+    overrides.activeArchetypeKey === undefined
+      ? "warrior"
+      : overrides.activeArchetypeKey
   return {
     pathChoice: "balanced",
     level: 1,
     manualBonuses: {},
-    activeArchetypeKey: "warrior",
+    activeArchetypeKey,
     archetypes: [{ key: "warrior", rank: 2 }],
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,
+    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
     ...overrides,
   }
 }

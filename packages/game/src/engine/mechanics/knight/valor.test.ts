@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatContext } from "@workspace/game/engine/character/stats/stats"
+import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+  type StatContext,
+} from "@workspace/game/engine/character/stats/stats"
 import {
   adjustValor,
   valor,
@@ -17,6 +21,8 @@ const baseStats: StatContext = {
   equippedItems: [],
   activeSkills: [],
   activeMechanic: null,
+  baseAttributes: baseAttributesForArchetype("knight"),
+  baseAffinities: baseAffinitiesForArchetype("knight"),
 }
 
 describe("valor", () => {

@@ -79,9 +79,63 @@ export interface StatContext {
   activeSkills: readonly Skill[]
   /** The active Archetype's unique mechanic + state, or null when absent. */
   activeMechanic: ActiveMechanic | null
+  /**
+   * The provenance-neutral **base** Attribute scores the bonus pool stacks on
+   * top of: a character fills these from its active Archetype's intrinsics (or
+   * zeros when none), an enemy from its flat stat block. Resolved once at the
+   * assembly site ({@link buildStatContext}) via {@link baseAttributesForArchetype}
+   * so {@link computeAttributes} owns no Archetype lookup and works for any
+   * combatant.
+   */
+  baseAttributes: AttributeScores
+  /**
+   * The provenance-neutral **base** Affinity chart the equipment / passive /
+   * mechanic layers override (see {@link computeAffinityChart}). A character
+   * fills it from its Archetype chart via {@link baseAffinitiesForArchetype}, an
+   * enemy from its flat affinities — so the chart resolver, like
+   * {@link computeAttributes}, no longer reaches into the Archetype catalog.
+   */
+  baseAffinities: Record<DamageType, Affinity>
 }
 
 export type AttributeScores = Record<AttributeKey, number>
+
+/**
+ * The base Attribute scores an Archetype confers (its intrinsic scores), or all
+ * zeros when there is no active Archetype. The {@link StatContext} assembly site
+ * calls this so the pure {@link computeAttributes} reads a plain field instead of
+ * looking up the catalog — which is what lets a non-character combatant (an enemy
+ * with flat scores) flow through the same computation.
+ */
+export function baseAttributesForArchetype(
+  archetypeKey: string | null
+): AttributeScores {
+  const archetype = archetypeKey ? getArchetype(archetypeKey) : undefined
+  const scores = {} as AttributeScores
+  for (const key of ATTRIBUTE_KEYS) {
+    scores[key] = archetype ? archetype.attributes[key] : 0
+  }
+  return scores
+}
+
+/**
+ * The base Affinity chart an Archetype confers (every damage type resolved via
+ * {@link resolveAffinity}; uncharted types and Almighty are Neutral), or an
+ * all-Neutral chart when there is no active Archetype. The peer of
+ * {@link baseAttributesForArchetype} for {@link computeAffinityChart}.
+ */
+export function baseAffinitiesForArchetype(
+  archetypeKey: string | null
+): Record<DamageType, Affinity> {
+  const archetype = archetypeKey ? getArchetype(archetypeKey) : undefined
+  const chart = {} as Record<DamageType, Affinity>
+  for (const damageType of DAMAGE_TYPES) {
+    chart[damageType] = archetype
+      ? resolveAffinity(archetype, damageType)
+      : "neutral"
+  }
+  return chart
+}
 
 const ATTRIBUTE_MIN = -7
 const ATTRIBUTE_MAX = 7
@@ -284,14 +338,13 @@ export function computeAttributes(
   character: StatContext,
   bonuses: BonusPool = accumulatedBonuses(character)
 ): AttributeScores {
-  const active = character.activeArchetypeKey
-    ? getArchetype(character.activeArchetypeKey)
-    : undefined
-
   const scores = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS) {
-    const base = active ? active.attributes[key] : 0
-    scores[key] = clamp(base + bonuses[key], ATTRIBUTE_MIN, ATTRIBUTE_MAX)
+    scores[key] = clamp(
+      character.baseAttributes[key] + bonuses[key],
+      ATTRIBUTE_MIN,
+      ATTRIBUTE_MAX
+    )
   }
   return scores
 }
@@ -391,10 +444,6 @@ export function computeAffinityChart(
   character: StatContext,
   overrides?: Partial<Record<DamageType, Affinity>>
 ): Record<DamageType, Affinity> {
-  const active = character.activeArchetypeKey
-    ? getArchetype(character.activeArchetypeKey)
-    : undefined
-
   const candidatesByType = new Map<DamageType, Affinity[]>()
   const addCandidate = (damageType: DamageType, affinity: Affinity) => {
     const list = candidatesByType.get(damageType) ?? []
@@ -444,7 +493,7 @@ export function computeAffinityChart(
       continue
     }
 
-    chart[damageType] = active ? resolveAffinity(active, damageType) : "neutral"
+    chart[damageType] = character.baseAffinities[damageType]
   }
   return chart
 }

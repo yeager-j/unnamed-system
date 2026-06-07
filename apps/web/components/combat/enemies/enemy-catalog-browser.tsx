@@ -10,13 +10,13 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
-import { getEnemy } from "@workspace/game/data"
+import { getEnemy, getEnemyFamily } from "@workspace/game/data"
 import {
   buildEnemyCatalogRows,
-  buildEnemyDetailView,
   enemyFamilyCounts,
   filterEnemyCatalogRows,
   groupEnemyRowsByLevel,
+  statblockFromEnemy,
 } from "@workspace/game/engine"
 import {
   type CombatantSetup,
@@ -72,8 +72,8 @@ export function EnemyCatalogBrowser({
   const familyCounts = enemyFamilyCounts(rows)
 
   const selectedDefinition = selectedKey ? getEnemy(selectedKey) : undefined
-  const detailView = selectedDefinition
-    ? buildEnemyDetailView(selectedDefinition)
+  const selectedStatblock = selectedDefinition
+    ? statblockFromEnemy(selectedDefinition)
     : null
 
   const queueItems = queue.queue.map((entry) => ({
@@ -182,10 +182,11 @@ export function EnemyCatalogBrowser({
         </div>
 
         <div className="border-b p-6 lg:min-h-0 lg:overflow-y-auto lg:border-b-0">
-          {detailView ? (
+          {selectedStatblock && selectedKey ? (
             <EnemyStatblockCard
-              view={detailView}
-              onAdd={() => queue.add(detailView.key)}
+              statblock={selectedStatblock}
+              family={getEnemyFamily(selectedKey) ?? null}
+              onAdd={() => queue.add(selectedKey)}
             />
           ) : (
             <p className="text-sm text-muted-foreground">

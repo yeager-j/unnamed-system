@@ -11,9 +11,10 @@ import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 /**
  * Hydrates a catalog enemy's `skillKeys` into the {@link HydratedSkill} shape
  * the shared `SkillCard` renders — the enemy counterpart to the character
- * pipeline's skills map in `derive-hydrated-character`. The Attack Roll resolves
- * against the enemy's **flat** Attributes (a stat block has no Archetype to
- * derive scores from), folding in any Attack-Roll effects declared by the
+ * pipeline's skills map in `derive-hydrated-character`, called by
+ * {@link import("../combatant/statblock").statblockFromEnemy}. The Attack Roll
+ * resolves against the enemy's **flat** Attributes (a stat block has no Archetype
+ * to derive scores from), folding in any Attack-Roll effects declared by the
  * enemy's own passive Skills. Enemies have no party/Lineage scalers, so a
  * scaler effect resolves to its fixed `amount` (or 0).
  *

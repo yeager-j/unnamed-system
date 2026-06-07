@@ -4,7 +4,6 @@ import Image from "next/image"
 
 import { type CombatantDetail } from "@workspace/game/engine"
 import { type CombatEvent } from "@workspace/game/foundation"
-import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -18,8 +17,6 @@ import { cn } from "@workspace/ui/lib/utils"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
-import { Prose } from "@/components/shared/prose"
-import { SkillRow } from "@/components/shared/skill-row"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
@@ -28,6 +25,7 @@ import { CombatantConditionsSection } from "./combatant-conditions-section"
 import { CombatantEngagementSection } from "./combatant-engagement-section"
 import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
+import { EnemyStatblock } from "./enemy-statblock"
 
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a
@@ -104,41 +102,22 @@ function DrawerBody({
           onCombatEvent={onCombatEvent}
         />
 
-        <DetailSection title="Attributes">
-          <AttributeGrid attributes={detail.attributes} />
-        </DetailSection>
+        {detail.kind === "pc" ? (
+          <>
+            <DetailSection title="Attributes">
+              <AttributeGrid attributes={detail.attributes} />
+            </DetailSection>
 
-        <DetailSection title="Affinities">
-          {detail.affinities ? (
-            <AffinityGrid
-              chart={detail.affinities}
-              columnsClassName="grid-cols-4"
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">No affinity data.</p>
-          )}
-        </DetailSection>
-
-        {detail.kind === "enemy" && detail.skills.length > 0 ? (
-          <DetailSection title="Skills">
-            <ItemGroup className="gap-0">
-              {detail.skills.map((skill) => (
-                <SkillRow
-                  key={skill.key}
-                  skill={skill}
-                  attributes={detail.attributes}
-                  showCost={false}
-                />
-              ))}
-            </ItemGroup>
-          </DetailSection>
-        ) : null}
-
-        {detail.kind === "enemy" && detail.abilities ? (
-          <DetailSection title="Abilities">
-            <Prose>{detail.abilities}</Prose>
-          </DetailSection>
-        ) : null}
+            <DetailSection title="Affinities">
+              <AffinityGrid
+                chart={detail.affinities}
+                columnsClassName="grid-cols-4"
+              />
+            </DetailSection>
+          </>
+        ) : (
+          <EnemyStatblock statblock={detail.statblock} />
+        )}
       </div>
 
       <ResponsiveDialogFooter className="border-t">
@@ -160,7 +139,10 @@ function subtitle(detail: CombatantDetail): string {
       .filter(Boolean)
       .join(" · ")
   }
-  return [detail.level ? `Level ${detail.level}` : null, "Enemy"]
+  return [
+    detail.statblock.level ? `Level ${detail.statblock.level}` : null,
+    "Enemy",
+  ]
     .filter(Boolean)
     .join(" · ")
 }

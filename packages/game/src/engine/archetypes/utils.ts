@@ -3,6 +3,8 @@ import { getSkill } from "@workspace/game/data/skills/registry"
 import { isInheritableSkill } from "@workspace/game/engine/archetypes/inheritance"
 import { toStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
   computeMaxHP,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
@@ -392,12 +394,14 @@ export function previewArchetypeSkills(
     level: 1,
     manualBonuses: {},
     activeArchetypeKey: archetype.key,
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — `activeArchetypeKey` independently drives the attribute computation, so emptying/blanking this `archetypes` entry leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — `baseAttributes` (below) independently drives the attribute computation, so emptying/blanking this `archetypes` entry leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
     archetypes: [{ key: archetype.key, rank: 2 }],
     equippedItems: [],
     // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
     activeSkills: [],
     activeMechanic: null,
+    baseAttributes: baseAttributesForArchetype(archetype.key),
+    baseAffinities: baseAffinitiesForArchetype(archetype.key),
   }
   return resolveArchetypeRankedSkills(
     archetype,
