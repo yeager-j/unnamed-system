@@ -1,6 +1,7 @@
 import { gameData } from "@workspace/game/data"
 import {
   buildArchetypeEntries as buildArchetypeEntriesCore,
+  buildEnemyCatalogRows as buildEnemyCatalogRowsCore,
   buildStatContext as buildStatContextCore,
   deriveHydratedCharacter as deriveHydratedCharacterCore,
   getArchetypeDisplay as getArchetypeDisplayCore,
@@ -47,3 +48,5 @@ export const getArchetypeDisplay = (
 export const buildArchetypeEntries = (
   character: Parameters<typeof buildArchetypeEntriesCore>[0]
 ) => buildArchetypeEntriesCore(character, gameData)
+
+export const buildEnemyCatalogRows = () => buildEnemyCatalogRowsCore(gameData)

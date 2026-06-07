@@ -1,8 +1,14 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import {
+  ENEMIES,
+  getEnemy,
+  getEnemyFamily,
+} from "@workspace/game/data/enemies/registry"
 import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   type ArchetypeLookup,
+  type EnemyLookup,
   type ItemLookup,
   type SkillLookup,
 } from "@workspace/game/engine/ports"
@@ -16,9 +22,15 @@ import {
  * assembly), and centralizes the demo-flag env-dependence the registries carry.
  * Engine tests inject this or a narrow stub directly, never a hidden default.
  */
-export const gameData: ArchetypeLookup & SkillLookup & ItemLookup = {
+export const gameData: ArchetypeLookup &
+  SkillLookup &
+  ItemLookup &
+  EnemyLookup = {
   getArchetype,
   getSkill,
   getItem,
   getEquippableItem,
+  getEnemy,
+  getEnemyFamily,
+  allEnemies: () => ENEMIES,
 }
