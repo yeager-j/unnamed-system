@@ -55,9 +55,7 @@ export const MECHANICS: ReadonlyArray<MechanicDefinition<MechanicState>> =
 export function getMechanic(
   kind: string
 ): MechanicDefinition<MechanicState> | undefined {
-  return (
-    MECHANICS_BY_KIND as Record<string, MechanicDefinition<MechanicState>>
-  )[kind]
+  return MECHANICS.find((mechanic) => mechanic.kind === kind)
 }
 
 /**

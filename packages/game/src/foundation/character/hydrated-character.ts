@@ -24,15 +24,29 @@ import {
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every
- * persisted column plus the engine-derived values. Lives in `lib/game/` so
- * game-layer code (mechanic transforms, mutation engines) can operate on a
- * hydrated character without crossing into the persistence layer; only the
- * thin assembler in [lib/db/queries/load-character.ts](../db/queries/load-character.ts)
- * constructs values of these shapes.
+ * persisted column (spread flat) plus the engine-derived values.
  *
- * The DB row shapes are defined alongside the tables
- * (`lib/db/schema/character.ts`) since they're inferred from Drizzle — they're
- * type-imported here.
+ * **Why this lives in `foundation/`** — the layer split is *types-vs-functions*
+ * (`foundation` owns types/vocabulary, `engine` owns the pure functions), and
+ * this is a logic-free type. Concretely it is `CharacterRow & { …derived }`, an
+ * extension of the persisted-row contract in
+ * {@link import("@workspace/game/foundation/character/records") records.ts} (the
+ * leaf-package boundary that severed the `game → db` cycle), so it must sit with
+ * its base rather than fracture one conceptual type across two layers. It is also
+ * the lingua franca every layer imports: the thin assembler in
+ * `apps/web/lib/db/queries/load-character.ts` is the only place that *constructs*
+ * these shapes — the engine and every sheet surface only *consume* them.
+ *
+ * The persisted-row types are **owned here** in `records.ts`; the Drizzle tables
+ * in `apps/web/lib/db/schema` import them and a `conformance.test.ts` proves the
+ * table matches, so the contract and the table can't drift.
+ *
+ * The four engine-derived value types referenced below (`AttributeScores`,
+ * `ActiveMechanic`, `ResolvedAttackRoll`, `ResolvedSkillCost`) are currently
+ * imported type-only from `engine/` (where they are computed). Those imports are
+ * erased at compile time — no runtime cycle — but they leave `foundation` with
+ * upward *type* edges; lifting those definitions down into `foundation` is
+ * tracked in UNN-359.
  */
 
 /** An inventory row spread flat, with the resolved catalog entry alongside
