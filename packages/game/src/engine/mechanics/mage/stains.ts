@@ -1,31 +1,18 @@
-import { z } from "zod/v4"
-
+import {
+  STAIN_SLOT_COUNT,
+  stainsStateSchema,
+  type StainElement,
+  type StainsState,
+} from "@workspace/game/foundation/mechanics/schema"
 import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Mage — Stains. Elemental Skills cast on the Mage's turn leave residue that
  * empowers later Skills (rulebook `Skills/Mechanics/Stains.md`). The Mage may
  * hold up to four Stains at once; some Skills consume matching Stains
- * automatically when cast.
- *
- * State is a fixed-length slot list (4 slots), each holding an element token
- * or null. Skill-cast generation/consumption is a write path — out of MVP
- * scope; this module just owns the persisted shape. The element set is
- * restricted to Fire, Ice, Elec, Wind, and Light per the rulebook's elemental
- * Skill coverage.
+ * automatically when cast. The persisted shape, the element set, and the slot
+ * count live in `foundation/mechanics/schema`; this module owns the behaviour.
  */
-
-export const STAIN_ELEMENTS = ["fire", "ice", "elec", "wind", "light"] as const
-export type StainElement = (typeof STAIN_ELEMENTS)[number]
-
-export const STAIN_SLOT_COUNT = 4
-
-export const stainsStateSchema = z.object({
-  kind: z.literal("stains"),
-  tokens: z.array(z.enum(STAIN_ELEMENTS).nullable()).length(STAIN_SLOT_COUNT),
-})
-
-export type StainsState = z.infer<typeof stainsStateSchema>
 
 /**
  * Pure transition the owner-mode controls compose through the persistence

@@ -1,7 +1,8 @@
 import { type ReactNode } from "react"
 
-import { rankLabel, VALOR_MAX } from "@workspace/game/engine"
+import { rankLabel } from "@workspace/game/engine"
 import {
+  VALOR_MAX,
   type MechanicKind,
   type MechanicState,
 } from "@workspace/game/foundation"

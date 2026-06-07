@@ -1,5 +1,8 @@
-import { z } from "zod/v4"
-
+import {
+  VALOR_MAX,
+  valorStateSchema,
+  type ValorState,
+} from "@workspace/game/foundation/mechanics/schema"
 import type {
   MechanicDefinition,
   MechanicEffect,
@@ -21,7 +24,6 @@ import type {
  * effects surfaced on the widget but not modelled as data.
  */
 
-export const VALOR_MAX = 7
 export const VALOR_THRESHOLDS = [1, 2, 3, 4, 5] as const
 
 export const VALOR_THRESHOLD_DESCRIPTIONS: Record<
@@ -36,13 +38,6 @@ export const VALOR_THRESHOLD_DESCRIPTIONS: Record<
 }
 
 const PHYSICAL_AFFINITY_DAMAGE_TYPES = ["slash", "pierce", "strike"] as const
-
-export const valorStateSchema = z.object({
-  kind: z.literal("valor"),
-  value: z.number().int().min(0).max(VALOR_MAX),
-})
-
-export type ValorState = z.infer<typeof valorStateSchema>
 
 /**
  * Pure transition the owner-mode stepper composes through the persistence

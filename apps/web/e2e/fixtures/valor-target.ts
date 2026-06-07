@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { type ValorState } from "@workspace/game/engine"
+import { type ValorState } from "@workspace/game/foundation"
 
 import { characterArchetypes, getDb } from "@/lib/db"
 

@@ -1,5 +1,7 @@
-import { z } from "zod/v4"
-
+import {
+  perfectionStateSchema,
+  type PerfectionState,
+} from "@workspace/game/foundation/mechanics/schema"
 import type {
   MechanicDefinition,
   MechanicEffect,
@@ -21,13 +23,6 @@ export type PerfectionRankLabel = (typeof PERFECTION_RANK_LABELS)[number]
 
 /** Attack Roll bonus per rank index (D contributes nothing). */
 export const PERFECTION_ATTACK_BONUSES = [0, 1, 2, 3, 4] as const
-
-export const perfectionStateSchema = z.object({
-  kind: z.literal("perfection"),
-  rank: z.number().int().min(0).max(4),
-})
-
-export type PerfectionState = z.infer<typeof perfectionStateSchema>
 
 export function rankLabel(rank: PerfectionState["rank"]): PerfectionRankLabel {
   return PERFECTION_RANK_LABELS[rank] ?? "D"

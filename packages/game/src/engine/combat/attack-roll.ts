@@ -4,15 +4,15 @@ import {
   type AttributeScores,
   type StatComputationCharacter,
 } from "@workspace/game/engine/character/stats/stats"
-import {
-  ATTACK_ATTRIBUTE_LABELS,
-  type AttackAttribute,
-  type Delivery,
-} from "@workspace/game/engine/combat/attack"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import { resolveAttackAttribute } from "@workspace/game/engine/skills/utils"
 import type { PartyComposition } from "@workspace/game/foundation/character/state"
 import type { DamageType } from "@workspace/game/foundation/combat/affinity"
+import {
+  ATTACK_ATTRIBUTE_LABELS,
+  type AttackAttribute,
+  type Delivery,
+} from "@workspace/game/foundation/combat/attack"
 import type {
   AttackRollEffect,
   AttackRollFilter,

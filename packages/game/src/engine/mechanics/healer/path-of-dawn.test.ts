@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest"
 import {
   pathOfDawn,
   setDawnMode,
-  type PathOfDawnState,
 } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
-import { mechanicStateSchema } from "@workspace/game/foundation/mechanics/schema"
+import {
+  mechanicStateSchema,
+  type PathOfDawnState,
+} from "@workspace/game/foundation/mechanics/schema"
 
 describe("path of dawn", () => {
   it("starts with Dawn Mode off", () => {

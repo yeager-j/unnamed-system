@@ -257,16 +257,20 @@ These move *into* the package (it owns its own test signal):
    → `data/combat/ailments`; talents `registry.ts` → `foundation/.../schema.ts`
    (vocab) + `data/character/talents/registry.ts` (`TALENTS`/`getTalent`). Those
    four functions are now mutation-scored.
-7. ⏳ Still TODO: **foundation purity** — `foundation` still has **9 value imports**
-   from `engine`/`data` (pre-existing from the move, not the splits): `DELIVERIES`/
-   `attackRollSchema`/`rangeSchema` live in `engine/combat/attack` but are needed by
-   `foundation` schema files, and `foundation/mechanics/schema` aggregates the 5
-   per-mechanic state schemas that live in the `engine` behavior modules. Closing
-   these needs *more* re-classification (lift that vocab/those schemas to
-   `foundation`) — its own pass. (Type-only foundation→data/engine imports —
-   `SkillKey`, `WeaponKey`, … — are fine; type-only is erased.) Then the ESLint
-   `engine ↛ data` rule (surfaces the catalog-read seam backlog), `CLAUDE.md`
-   updates, the `result` placement call, and the file-name review.
+7. ✅ Done: **foundation purity** — `foundation` now imports **zero runtime values**
+   from `engine`/`data`. Two moves closed the 9: (A) `engine/combat/attack.ts`
+   (pure vocab + zod schemas) moved to `foundation/combat/attack.ts`, and
+   `engine/combat/side-effects.ts` split into a foundation vocab/schema module +
+   a `data/combat/side-effects.ts` catalog (mirrors the ailments split); (B) the
+   5 per-mechanic state schemas + their referenced constants (`VALOR_MAX`,
+   `STAIN_ELEMENTS`/`StainElement`, `STAIN_SLOT_COUNT`) lifted into
+   `foundation/mechanics/schema.ts` (where the `MechanicState` union that
+   `records.ts` depends on already lived); each mechanic's behaviour + display
+   vocab stays in `engine/mechanics/*` and imports its schema back. The only
+   remaining foundation→engine/data imports are type-only (`SkillKey`,
+   `WeaponKey`, `ResolvedAttackRoll`, `StatComputationCharacter`, …) — erased at
+   compile time, so permitted. Still TODO: the ESLint `engine ↛ data` rule
+   (surfaces the catalog-read seam backlog) and the file-name review.
 8. ✅ Verified green: `typecheck` (3/3), `test` (1042, no loss — 906 game + 136
    web), `lint` (0 errors), `build`.
 
@@ -275,8 +279,11 @@ These move *into* the package (it owns its own test signal):
   the shared `Result` primitive (a relative `../../result` import the coupling
   audit missed); it has 160 other consumers in `apps/web`, all repointed to
   `@workspace/game/foundation/result`. "App imports `Result` from the game package"
-  is slightly odd — a candidate for a future `@workspace/core` or a rename in the
-  cleanup pass.
+  is slightly odd, but `@workspace/core` was considered and **declined**: a repo
+  sweep found no other cross-cutting framework-free primitive to join it (the one
+  other util, `lib/ui/format-currency.ts`, is UI-specific), so a one-file package
+  is premature. `Result` stays in `foundation`; revisit if a second shared
+  primitive ever appears.
 - **`character-sheet.test.ts` moved back to `apps/web/lib/__tests__/`.** It's an
   app-integration test (uses `lib/__fixtures__/seed-characters`, shared with the
   db seed + e2e), so it doesn't belong in the pure package.

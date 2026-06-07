@@ -2,7 +2,7 @@
 
 import { MoonIcon, SunIcon } from "@phosphor-icons/react"
 
-import { type PathOfDawnState } from "@workspace/game/engine"
+import { type PathOfDawnState } from "@workspace/game/foundation"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
 

@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest"
 import {
   clearStains,
   setStainSlot,
+  stains,
+} from "@workspace/game/engine/mechanics/mage/stains"
+import {
+  mechanicStateSchema,
   STAIN_ELEMENTS,
   STAIN_SLOT_COUNT,
-  stains,
   type StainsState,
-} from "@workspace/game/engine/mechanics/mage/stains"
-import { mechanicStateSchema } from "@workspace/game/foundation/mechanics/schema"
+} from "@workspace/game/foundation/mechanics/schema"
 
 const empty: StainsState = stains.initialState()
 

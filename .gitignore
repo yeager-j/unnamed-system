@@ -13,6 +13,8 @@ node_modules
 coverage
 /apps/web/reports/
 /apps/web/.stryker-tmp/
+/packages/game/reports/
+/packages/game/.stryker-tmp/
 /apps/web/test-results/
 /apps/web/playwright-report/
 /apps/web/.playwright/

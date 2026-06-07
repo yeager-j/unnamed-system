@@ -1,5 +1,7 @@
-import { z } from "zod/v4"
-
+import {
+  pathOfDuskStateSchema,
+  type PathOfDuskState,
+} from "@workspace/game/foundation/mechanics/schema"
 import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/types"
 
 /**
@@ -13,13 +15,6 @@ import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/ty
  * ticket gives that data a real consumer (Skill-cast generation/consumption is
  * likewise out of scope).
  */
-
-export const pathOfDuskStateSchema = z.object({
-  kind: z.literal("path-of-dusk"),
-  duskMode: z.boolean(),
-})
-
-export type PathOfDuskState = z.infer<typeof pathOfDuskStateSchema>
 
 /**
  * Pure transition the owner-mode toggle composes through the persistence

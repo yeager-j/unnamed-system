@@ -4,9 +4,9 @@ import type { StatComputationCharacter } from "@workspace/game/engine/character/
 import {
   adjustValor,
   valor,
-  VALOR_MAX,
   VALOR_THRESHOLDS,
 } from "@workspace/game/engine/mechanics/knight/valor"
+import { VALOR_MAX } from "@workspace/game/foundation/mechanics/schema"
 
 const baseStats: StatComputationCharacter = {
   pathChoice: "balanced",

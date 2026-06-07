@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest"
 import {
   pathOfDusk,
   setDuskMode,
-  type PathOfDuskState,
 } from "@workspace/game/engine/mechanics/warlock/path-of-dusk"
-import { mechanicStateSchema } from "@workspace/game/foundation/mechanics/schema"
+import {
+  mechanicStateSchema,
+  type PathOfDuskState,
+} from "@workspace/game/foundation/mechanics/schema"
 
 describe("path of Dusk", () => {
   it("starts with Dusk Mode off", () => {
