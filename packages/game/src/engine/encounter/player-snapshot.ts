@@ -1,4 +1,3 @@
-import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import {
@@ -6,6 +5,7 @@ import {
   type PcCombatantDetail,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import type {
   Combatant,

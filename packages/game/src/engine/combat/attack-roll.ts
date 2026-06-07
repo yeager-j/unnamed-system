@@ -1,16 +1,18 @@
 import {
   computeAttributes,
-  type AttributeScores,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import { resolveAttackAttribute } from "@workspace/game/engine/skills/utils"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import type { PartyComposition } from "@workspace/game/foundation/character/state"
 import type { DamageType } from "@workspace/game/foundation/combat/affinity"
 import {
   ATTACK_ATTRIBUTE_LABELS,
   type AttackAttribute,
+  type AttackRollSource,
   type Delivery,
+  type ResolvedAttackRoll,
 } from "@workspace/game/foundation/combat/attack"
 import type {
   AttackRollEffect,
@@ -35,28 +37,6 @@ import type { Skill } from "@workspace/game/foundation/skills/schema"
  * {@link ./items/schema}'s `IntrinsicAttack`; Skills extract the same fields
  * from their definition via {@link skillAttackRollContext}.
  */
-
-/** One labelled contributor to a resolved Attack Roll. Surfaced to the UI
- *  so the Skill card renders `Magic +4  Magic Circle +2` instead of an
- *  opaque `+6`. */
-export interface AttackRollSource {
-  source: string
-  amount: number
-}
-
-/**
- * The complete labelled readout for one Attack Roll: every contributor
- * already summed and labelled, with the rolling Attribute as the first
- * source. Components only render — no addition happens client-side.
- */
-export interface ResolvedAttackRoll {
-  /** Grand total — rolling Attribute plus every matching effect contribution. */
-  total: number
-  /** Per-source breakdown, attribute first, then effects in collection order.
-   *  Effect contributions resolving to 0 are omitted; the attribute is
-   *  always present even at 0 so the player can see the base. */
-  sources: AttackRollSource[]
-}
 
 /**
  * "What's making this Attack Roll" — the smallest view {@link resolveAttackRoll}

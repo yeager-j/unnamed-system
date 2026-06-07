@@ -5,11 +5,11 @@ import { WarningIcon } from "@phosphor-icons/react"
 import {
   inheritanceSourceGroups,
   type ArchetypeEntry,
-  type AttributeScores,
   type InheritanceSourceGroup,
   type RankedSkill,
   type ResolvedInheritanceSlot,
 } from "@workspace/game/engine"
+import { type AttributeScores } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,

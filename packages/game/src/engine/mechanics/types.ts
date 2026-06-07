@@ -11,14 +11,19 @@ import {
  * Per-Archetype unique mechanic vocabulary. Each Archetype with a unique
  * mechanic (Warrior's Perfection, Knight's Valor, Healer's Path of Dawn,
  * Mage's Stains, future Lineages) provides a {@link MechanicDefinition}; the
- * registry in {@link ./index} composes them.
+ * registry in {@link ./registry} composes them.
+ *
+ * Lives in `engine` (not `foundation`): this is the mechanic **behavior**
+ * contract the engine's mechanic modules implement — not persisted state (that
+ * is `foundation/mechanics/schema`), not authored catalog data, and not UI. It
+ * sits beside the behavior modules and registry that consume it.
  *
  * Two complementary pathways are supported:
  *
  * 1. **Effects** (`effects`) — additive, declarative modifiers that flow through
- *    the existing item/passive-Skill pipeline (see {@link ../effects}). Most
- *    mechanics live here. Perfection emits an {@link AttackRollEffect}; Valor's
- *    stage-3+ Affinity changes emit {@link AffinityEffect}s.
+ *    the existing item/passive-Skill pipeline (see {@link ../../foundation/combat/effects}).
+ *    Most mechanics live here. Perfection emits an {@link AttackRollEffect};
+ *    Valor's stage-3+ Affinity changes emit {@link AffinityEffect}s.
  *
  * 2. **Transform** (`transform`) — a wholesale character-rewrite escape hatch
  *    reserved for mechanics that can't be expressed as additive Effects (the

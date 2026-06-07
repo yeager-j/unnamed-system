@@ -1,10 +1,9 @@
+import { formatSignedBonus, hydrateFormula } from "@workspace/game/engine"
 import {
-  formatSignedBonus,
-  hydrateFormula,
+  type AttackRoll,
   type AttributeScores,
   type ResolvedAttackRoll,
-} from "@workspace/game/engine"
-import { type AttackRoll } from "@workspace/game/foundation"
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AttackRollBreakdown } from "./attack-roll-breakdown"

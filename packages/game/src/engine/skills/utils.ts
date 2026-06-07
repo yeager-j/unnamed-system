@@ -1,15 +1,21 @@
 import {
   computeMaxHP,
-  type AttributeScores,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
-import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
-import { type AttackAttribute } from "@workspace/game/foundation/combat/attack"
+import {
+  type AttackAttribute,
+  type ResolvedAttackRoll,
+} from "@workspace/game/foundation/combat/attack"
 import type { SkillKind } from "@workspace/game/foundation/common"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
-import type { Skill, SkillCost } from "@workspace/game/foundation/skills/schema"
+import type {
+  ResolvedSkillCost,
+  Skill,
+  SkillCost,
+} from "@workspace/game/foundation/skills/schema"
 
 /**
  * Display order for the Combat-tab Skills list (UNN-198): attackers should
@@ -59,9 +65,6 @@ export function sortSkillsByKind(skills: HydratedSkill[]): HydratedSkill[] {
     return a.name.localeCompare(b.name)
   })
 }
-
-/** A Skill's cost resolved to a concrete pool and integer amount. */
-export type ResolvedSkillCost = { kind: "sp" | "hp"; amount: number }
 
 /**
  * Assembles a {@link HydratedSkill} from a {@link Skill} and its derived

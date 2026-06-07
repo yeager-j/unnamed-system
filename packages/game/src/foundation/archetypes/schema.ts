@@ -27,6 +27,14 @@ export const ATTRIBUTE_KEYS = ["strength", "magic", "agility", "luck"] as const
 export type ArchetypeTier = (typeof ARCHETYPE_TIERS)[number]
 export type AttributeKey = (typeof ATTRIBUTE_KEYS)[number]
 
+/**
+ * A full set of Attribute scores — one integer per {@link AttributeKey}. The
+ * shape the stat engine derives and every Attribute readout renders; lives here
+ * beside the Attribute vocabulary it is keyed by (a logic-free type, so it
+ * belongs in `foundation`, not with the functions that compute it).
+ */
+export type AttributeScores = Record<AttributeKey, number>
+
 const attributeScore = z.number().int().min(-7).max(7)
 
 const archetypeKey = z.string().regex(/^[a-z0-9-]+$/)

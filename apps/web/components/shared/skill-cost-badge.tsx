@@ -1,4 +1,4 @@
-import { type ResolvedSkillCost } from "@workspace/game/engine"
+import { type ResolvedSkillCost } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 

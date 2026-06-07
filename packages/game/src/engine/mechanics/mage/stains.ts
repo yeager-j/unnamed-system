@@ -1,10 +1,10 @@
+import type { MechanicDefinition } from "@workspace/game/engine/mechanics/types"
 import {
   STAIN_SLOT_COUNT,
   stainsStateSchema,
   type StainElement,
   type StainsState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Mage — Stains. Elemental Skills cast on the Mage's turn leave residue that

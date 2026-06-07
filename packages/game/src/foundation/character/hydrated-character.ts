@@ -1,9 +1,4 @@
-import {
-  type ActiveMechanic,
-  type AttributeScores,
-} from "@workspace/game/engine/character/stats/stats"
-import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
-import { type ResolvedSkillCost } from "@workspace/game/engine/skills/utils"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import type {
   CharacterArchetypeRow,
   CharacterChainRow,
@@ -16,23 +11,39 @@ import {
   type Affinity,
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
+import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
 import { type Item } from "@workspace/game/foundation/items/schema"
+import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 import {
+  type ResolvedSkillCost,
   type Skill,
   type SkillCost,
 } from "@workspace/game/foundation/skills/schema"
 
 /**
  * The complete sheet view consumed by every character-sheet surface: every
- * persisted column plus the engine-derived values. Lives in `lib/game/` so
- * game-layer code (mechanic transforms, mutation engines) can operate on a
- * hydrated character without crossing into the persistence layer; only the
- * thin assembler in [lib/db/queries/load-character.ts](../db/queries/load-character.ts)
- * constructs values of these shapes.
+ * persisted column (spread flat) plus the engine-derived values.
  *
- * The DB row shapes are defined alongside the tables
- * (`lib/db/schema/character.ts`) since they're inferred from Drizzle — they're
- * type-imported here.
+ * **Why this lives in `foundation/`** — the layer split is *types-vs-functions*
+ * (`foundation` owns types/vocabulary, `engine` owns the pure functions), and
+ * this is a logic-free type. Concretely it is `CharacterRow & { …derived }`, an
+ * extension of the persisted-row contract in
+ * {@link import("@workspace/game/foundation/character/records") records.ts} (the
+ * leaf-package boundary that severed the `game → db` cycle), so it must sit with
+ * its base rather than fracture one conceptual type across two layers. It is also
+ * the lingua franca every layer imports: the thin assembler in
+ * `apps/web/lib/db/queries/load-character.ts` is the only place that *constructs*
+ * these shapes — the engine and every sheet surface only *consume* them.
+ *
+ * The persisted-row types are **owned here** in `records.ts`; the Drizzle tables
+ * in `apps/web/lib/db/schema` import them and a `conformance.test.ts` proves the
+ * table matches, so the contract and the table can't drift.
+ *
+ * The four derived-value types referenced below (`AttributeScores`,
+ * `ActiveMechanic`, `ResolvedAttackRoll`, `ResolvedSkillCost`) live in
+ * `foundation` beside the vocabulary they extend — their *computation* stays in
+ * `engine` — so this module, and `foundation` as a whole, has no upward edge
+ * into `engine` (UNN-359).
  */
 
 /** An inventory row spread flat, with the resolved catalog entry alongside

@@ -1,10 +1,11 @@
 import { resolveAffinity } from "@workspace/game/engine/archetypes/affinity"
 import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
+import { type MechanicEffect } from "@workspace/game/engine/mechanics/types"
 import {
   ATTRIBUTE_KEYS,
   type Archetype,
-  type AttributeKey,
+  type AttributeScores,
   type Mastery,
 } from "@workspace/game/foundation/archetypes/schema"
 import { type Lineage } from "@workspace/game/foundation/character/lineage"
@@ -25,11 +26,7 @@ import {
   type BonusTargetKey,
 } from "@workspace/game/foundation/combat/effects"
 import { type EquippableItem } from "@workspace/game/foundation/items/schema"
-import {
-  type MechanicKind,
-  type MechanicState,
-} from "@workspace/game/foundation/mechanics/schema"
-import { type MechanicEffect } from "@workspace/game/foundation/mechanics/types"
+import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**
@@ -40,17 +37,6 @@ import { type Skill } from "@workspace/game/foundation/skills/schema"
  */
 
 /**
- * The active Archetype's unique mechanic, paired with its persisted state.
- * Null when the active Archetype has no declared mechanic. Mechanics from
- * inactive Archetypes contribute nothing to derived values — their state is
- * still persisted per row but only the active one drives the engine.
- */
-export interface ActiveMechanic {
-  kind: MechanicKind
-  state: MechanicState
-}
-
-/**
  * The minimal, persistence-agnostic view of a character these computations
  * need. Callers hydrate this from the `characters` row, its
  * `characterArchetypes`, and the resolved catalog entries of equipped
@@ -59,6 +45,11 @@ export interface ActiveMechanic {
  * catalog lookup and stay pure and trivially testable; Archetypes are
  * referenced by key because the Archetype catalog is the canonical,
  * test-usable source of their intrinsic data.
+ *
+ * Lives in `engine` (not `foundation`) because it is the stat engine's internal
+ * computation context: assembled by {@link buildStatContext} and consumed only
+ * by these pure functions — persistence and UI never reference it (it is
+ * deliberately *not* embedded in `HydratedCharacter`).
  */
 export interface StatContext {
   pathChoice: PathChoice
@@ -112,8 +103,6 @@ export interface StatContext {
    */
   baseAffinities: Record<DamageType, Affinity>
 }
-
-export type AttributeScores = Record<AttributeKey, number>
 
 /**
  * The base Attribute scores an Archetype confers (its intrinsic scores), or all

@@ -93,3 +93,15 @@ export type MechanicState =
   | PathOfDuskState
 
 export type MechanicKind = MechanicState["kind"]
+
+/**
+ * The active Archetype's unique mechanic, paired with its persisted state.
+ * Null (at the use site) when the active Archetype has no declared mechanic.
+ * Mechanics from inactive Archetypes contribute nothing to derived values —
+ * their state is still persisted per row but only the active one drives the
+ * engine.
+ */
+export interface ActiveMechanic {
+  kind: MechanicKind
+  state: MechanicState
+}

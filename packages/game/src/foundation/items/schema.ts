@@ -162,3 +162,16 @@ export function isStackable(item: Item): boolean {
 export function isConsumable(item: Item): boolean {
   return item.consumable === true
 }
+
+/**
+ * The vocabulary of owner-mode inventory edits, shared by the optimistic
+ * reducer (`engine/items/mutate`) and the Server Action dispatcher in the UI.
+ * Each variant maps to one pure engine transition. A logic-free command type,
+ * so it lives in `foundation` beside the item vocabulary it edits.
+ */
+export type InventoryMutation =
+  | { kind: "equip"; itemId: string }
+  | { kind: "unequip"; itemId: string }
+  | { kind: "add"; catalogItemKey: string; quantity: number }
+  | { kind: "setQuantity"; itemId: string; quantity: number }
+  | { kind: "remove"; itemId: string }

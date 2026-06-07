@@ -1,11 +1,11 @@
+import type {
+  MechanicDefinition,
+  MechanicEffect,
+} from "@workspace/game/engine/mechanics/types"
 import {
   perfectionStateSchema,
   type PerfectionState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type {
-  MechanicDefinition,
-  MechanicEffect,
-} from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Warrior — Perfection. A linear chain D → C → B → A → S that climbs on hits

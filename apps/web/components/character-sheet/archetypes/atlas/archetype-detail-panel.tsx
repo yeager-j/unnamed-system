@@ -8,10 +8,10 @@ import {
   hasUnlockedRank,
   MASTERY_RANK,
   type AtlasNode,
-  type AttributeScores,
 } from "@workspace/game/engine"
 import {
   LINEAGE_SUGGESTED_PATH,
+  type AttributeScores,
   type PathChoice,
 } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
