@@ -39,7 +39,37 @@ describe("buildStatContext", () => {
     expect(result.pathChoice).toBe("balanced")
     expect(result.level).toBe(3)
     expect(result.manualBonuses).toEqual({ hp: 5 })
-    expect(result.archetypes).toEqual([{ key: "warrior", rank: 2 }])
+    expect(result.archetypes).toEqual([
+      { key: "warrior", rank: 2, mastery: warrior.mastery },
+    ])
+  })
+
+  it("resolves the active Archetype's Lineage onto the context", () => {
+    const result = buildStatContext(baseCharacter, [warriorRow()], [])
+    expect(result.activeLineage).toBe(warrior.lineage)
+  })
+
+  it("has a null Lineage when no Archetype is active", () => {
+    const result = buildStatContext(
+      { ...baseCharacter, activeCharacterArchetypeId: null },
+      [warriorRow()],
+      []
+    )
+    expect(result.activeLineage).toBeNull()
+  })
+
+  it("drops an archetype whose key resolves to no catalog entry", () => {
+    const result = buildStatContext(
+      baseCharacter,
+      [
+        warriorRow(),
+        warriorRow({ id: "ca-ghost", archetypeKey: "does-not-exist" }),
+      ],
+      []
+    )
+    expect(result.archetypes).toEqual([
+      { key: "warrior", rank: 2, mastery: warrior.mastery },
+    ])
   })
 
   it("resolves the active Archetype via the surrogate id", () => {
@@ -286,7 +316,11 @@ describe("toStatContext", () => {
     const ctx = toStatContext(character)
 
     expect(ctx.activeArchetypeKey).toBe("warrior")
-    expect(ctx.archetypes).toContainEqual({ key: "warrior", rank: 5 })
+    expect(ctx.archetypes).toContainEqual({
+      key: "warrior",
+      rank: 5,
+      mastery: warrior.mastery,
+    })
     expect(ctx.level).toBe(4)
     // Only the equipped item is threaded through (the stowed Spear is dropped).
     expect(ctx.equippedItems.map((item) => item.key)).toEqual(["longsword"])

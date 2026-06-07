@@ -148,13 +148,22 @@ export function buildStatContext(
     .filter((item) => item !== undefined)
 
   const activeArchetypeKey = active?.archetypeKey ?? null
+  const activeArchetype = activeArchetypeKey
+    ? getArchetype(activeArchetypeKey)
+    : undefined
 
   return {
     pathChoice: character.pathChoice,
     level: character.level,
     manualBonuses: character.manualBonuses,
     activeArchetypeKey,
-    archetypes: archetypes.map((a) => ({ key: a.archetypeKey, rank: a.rank })),
+    activeLineage: activeArchetype?.lineage ?? null,
+    archetypes: archetypes.flatMap((a) => {
+      const archetype = getArchetype(a.archetypeKey)
+      return archetype
+        ? [{ key: a.archetypeKey, rank: a.rank, mastery: archetype.mastery }]
+        : []
+    }),
     equippedItems,
     activeSkills: active ? activeSkillsFor(active, equippedItems) : [],
     activeMechanic: activeMechanicFor(active),

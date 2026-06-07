@@ -23,7 +23,7 @@ function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
 function makeMage(overrides: Partial<StatContext> = {}): StatContext {
   return makeWarrior({
     activeArchetypeKey: "mage",
-    archetypes: [{ key: "mage", rank: 5 }],
+    archetypes: [{ key: "mage", rank: 5, mastery: { kind: "sp", amount: 20 } }],
     ...overrides,
   })
 }
@@ -299,10 +299,10 @@ describe("resolveAttackRoll — source labelling", () => {
   })
 })
 
-// shareActiveLineage only fires for an includesSelf:false scaler. These assert
-// the scaler's own source amount (not the total), isolating self-exclusion from
-// attribute math: with a party of 3 mages and amount 1, NOT subtracting self
-// yields 3, subtracting self yields 2.
+// Self-exclusion (activeLineage matching the scaler's lineage) only fires for an
+// includesSelf:false scaler. These assert the scaler's own source amount (not the
+// total), isolating self-exclusion from attribute math: with a party of 3 mages
+// and amount 1, NOT subtracting self yields 3, subtracting self yields 2.
 describe("resolveAttackRoll — perPartyLineage self-exclusion", () => {
   function selfExcludingMageSkill() {
     return {

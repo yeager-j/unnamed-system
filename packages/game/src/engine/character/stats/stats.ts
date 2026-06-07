@@ -5,7 +5,9 @@ import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import {
   ATTRIBUTE_KEYS,
   type AttributeKey,
+  type Mastery,
 } from "@workspace/game/foundation/archetypes/schema"
+import { type Lineage } from "@workspace/game/foundation/character/lineage"
 import type {
   ManualBonuses,
   PathChoice,
@@ -65,8 +67,21 @@ export interface StatContext {
   manualBonuses: ManualBonuses
   /** Slug key of the active Archetype, or null when none is set. */
   activeArchetypeKey: string | null
-  /** Every unlocked Archetype with its current Rank (active or not). */
-  archetypes: ReadonlyArray<{ key: string; rank: number }>
+  /**
+   * The active Archetype's Lineage, or null when none is active. Resolved once
+   * at the assembly site ({@link buildStatContext}) so the Attack-Roll Lineage
+   * scaler ({@link import("../../combat/attack-roll").resolveAttackRoll}) reads a
+   * plain field instead of looking up the catalog.
+   */
+  activeLineage: Lineage | null
+  /**
+   * Every unlocked Archetype with its current Rank **and** its resolved
+   * {@link Mastery} descriptor (active or not). The descriptor is the only
+   * catalog-coupled value {@link masteryBonuses} needs; resolving it here (at
+   * {@link buildStatContext}) keeps that read at the boundary while the
+   * Rank-gate and kind→pool mapping stay engine rules.
+   */
+  archetypes: ReadonlyArray<{ key: string; rank: number; mastery: Mastery }>
   /** The resolved catalog entries of currently-equipped inventory items. */
   equippedItems: readonly EquippableItem[]
   /**
@@ -263,12 +278,8 @@ function activeMechanicEffects(character: StatContext): MechanicEffect[] {
  */
 function masteryBonuses(character: StatContext): BonusPool {
   const pool = emptyBonusPool()
-  for (const { key, rank } of character.archetypes) {
+  for (const { rank, mastery } of character.archetypes) {
     if (!hasMasteryBonus(rank)) continue
-    const archetype = getArchetype(key)
-    if (!archetype) continue
-
-    const { mastery } = archetype
     switch (mastery.kind) {
       case "hp":
         pool.hp += mastery.amount
@@ -276,10 +287,9 @@ function masteryBonuses(character: StatContext): BonusPool {
       case "sp":
         pool.sp += mastery.amount
         break
-      // Stryker disable next-line ConditionalExpression: equivalent — the default (attribute-kind Mastery) is demo-only (absent from the test catalog), so removing it changes nothing here; reachable once UNN-354 lifts the catalog lookup to the assembly boundary.
-      default:
-        // Stryker disable next-line AssignmentOperator: equivalent — attribute-kind Mastery is demo-only (see above / UNN-354).
+      case "attribute":
         pool[mastery.attribute] += mastery.amount
+        break
     }
   }
   return pool
