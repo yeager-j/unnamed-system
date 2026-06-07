@@ -1,4 +1,4 @@
-import { getEquippedItem, getItem } from "@workspace/game/data/items/registry"
+import { getEquippedItem } from "@workspace/game/data/items/registry"
 import { buildStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
   accumulatedBonuses,
@@ -16,6 +16,11 @@ import {
   skillAttackRollContext,
   type AttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
+import {
+  type ArchetypeLookup,
+  type ItemLookup,
+  type SkillLookup,
+} from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
@@ -49,11 +54,10 @@ export interface RawCharacterInputs {
  * inventory items are passed through so item effects stay gated to what the
  * character actually has equipped.
  */
-function statContext({
-  row,
-  archetypeRows,
-  inventoryRows,
-}: RawCharacterInputs): StatContext {
+function statContext(
+  { row, archetypeRows, inventoryRows }: RawCharacterInputs,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+): StatContext {
   return buildStatContext(
     {
       pathChoice: row.pathChoice,
@@ -70,7 +74,8 @@ function statContext({
     })),
     inventoryRows
       .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
+      .map((item) => item.catalogItemKey),
+    lookups
   )
 }
 
@@ -93,17 +98,18 @@ function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
  * server's.
  */
 export function deriveHydratedCharacter(
-  raw: RawCharacterInputs
+  raw: RawCharacterInputs,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
 ): HydratedCharacter {
   const { row, archetypeRows, inventoryRows, knives, chains } = raw
 
-  const stats = statContext(raw)
+  const stats = statContext(raw, lookups)
   const bonuses = accumulatedBonuses(stats)
   const maxHP = computeMaxHP(stats, bonuses)
 
   const inventory = inventoryRows.map((inventoryRow) => ({
     ...inventoryRow,
-    item: getItem(inventoryRow.catalogItemKey),
+    item: lookups.getItem(inventoryRow.catalogItemKey),
   }))
 
   const weapon = getEquippedItem(inventory, "weapon")

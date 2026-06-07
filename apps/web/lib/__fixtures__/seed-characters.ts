@@ -1,4 +1,4 @@
-import { buildStatContext, type StatContext } from "@workspace/game/engine"
+import { type StatContext } from "@workspace/game/engine"
 import {
   type BattleConditions,
   type ManualBonuses,
@@ -8,6 +8,8 @@ import {
   type SparkLog,
   type TalentKey,
 } from "@workspace/game/foundation"
+
+import { buildStatContext } from "@/lib/game-engine"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

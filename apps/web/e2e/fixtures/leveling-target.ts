@@ -5,11 +5,11 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  toStatContext,
 } from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { toStatContext } from "@/lib/game-engine"
 
 import { createTestCharacter, type CleanupTracker } from "./factory"
 

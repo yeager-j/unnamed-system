@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { ARCHETYPES } from "@workspace/game/data/archetypes/registry"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
+import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
@@ -142,7 +143,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
       ],
     })
-    const entries = buildArchetypeEntries(character)
+    const entries = buildArchetypeEntries(character, gameData)
     expect(entries.map((e) => e.archetype.key)).toEqual(["warrior", "mage"])
   })
 
@@ -153,7 +154,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "ghost", archetypeKey: "no-such-archetype" }),
       ],
     })
-    const entries = buildArchetypeEntries(character)
+    const entries = buildArchetypeEntries(character, gameData)
     expect(entries.map((e) => e.archetype.key)).toEqual(["warrior"])
   })
 
@@ -165,7 +166,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
       ],
     })
-    const entries = buildArchetypeEntries(character)
+    const entries = buildArchetypeEntries(character, gameData)
     expect(entries.find((e) => e.row.id === "a")?.isActive).toBe(false)
     expect(entries.find((e) => e.row.id === "b")?.isActive).toBe(true)
   })
@@ -174,7 +175,7 @@ describe("buildArchetypeEntries", () => {
     const character = makeHydratedCharacter({
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    const [entry] = buildArchetypeEntries(character)
+    const [entry] = buildArchetypeEntries(character, gameData)
     expect(entry!.ranks.map((r) => r.rank).sort()).toEqual(
       [...warrior.skills].map((s) => s.rank).sort()
     )
@@ -184,7 +185,7 @@ describe("buildArchetypeEntries", () => {
     const character = makeHydratedCharacter({
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    const [entry] = buildArchetypeEntries(character)
+    const [entry] = buildArchetypeEntries(character, gameData)
     expect(entry!.synthesis).toMatchObject({
       key: warrior.synthesisSkill!.skill,
       rank: warrior.synthesisSkill!.rank,
@@ -204,7 +205,7 @@ describe("buildArchetypeEntries", () => {
         }),
       ],
     })
-    const [entry] = buildArchetypeEntries(character)
+    const [entry] = buildArchetypeEntries(character, gameData)
     expect(entry!.slots.map((s) => s.slotIndex)).toEqual([0, 1])
   })
 
@@ -220,7 +221,7 @@ describe("buildArchetypeEntries", () => {
         }),
       ],
     })
-    const [entry] = buildArchetypeEntries(character)
+    const [entry] = buildArchetypeEntries(character, gameData)
     expect(entry!.slots[0]).toMatchObject({
       sourceArchetype: null,
       resolved: null,
@@ -245,7 +246,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "src", archetypeKey: "knight", rank: 5 }),
       ],
     })
-    const owner = buildArchetypeEntries(character).find(
+    const owner = buildArchetypeEntries(character, gameData).find(
       (e) => e.row.id === "owner"
     )!
     expect(owner.slots[0]!.sourceArchetype?.key).toBe("knight")
@@ -270,7 +271,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "src", archetypeKey: "knight", rank: 1 }),
       ],
     })
-    const owner = buildArchetypeEntries(character).find(
+    const owner = buildArchetypeEntries(character, gameData).find(
       (e) => e.row.id === "owner"
     )!
     expect(owner.slots[0]!.isValid).toBe(false)
@@ -292,7 +293,7 @@ describe("buildArchetypeEntries", () => {
         }),
       ],
     })
-    const [owner] = buildArchetypeEntries(character)
+    const [owner] = buildArchetypeEntries(character, gameData)
     expect(owner!.slots[0]!.sourceArchetype).toBeNull()
     expect(owner!.slots[0]!.isValid).toBe(false)
   })
@@ -314,7 +315,7 @@ describe("buildArchetypeEntries", () => {
         makeArchetypeRow({ id: "src", archetypeKey: "knight", rank: 5 }),
       ],
     })
-    const owner = buildArchetypeEntries(character).find(
+    const owner = buildArchetypeEntries(character, gameData).find(
       (e) => e.row.id === "owner"
     )!
     expect(owner.slots[0]!.resolved).toBeNull()
@@ -331,7 +332,9 @@ describe("getArchetypeDisplay", () => {
         makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
       ],
     })
-    expect(getArchetypeDisplay(character).activeEntry?.row.id).toBe("b")
+    expect(getArchetypeDisplay(character, gameData).activeEntry?.row.id).toBe(
+      "b"
+    )
   })
 
   it("returns a null spotlight when no row is active", () => {
@@ -339,7 +342,7 @@ describe("getArchetypeDisplay", () => {
       row: { activeArchetypeId: null },
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    expect(getArchetypeDisplay(character).activeEntry).toBeNull()
+    expect(getArchetypeDisplay(character, gameData).activeEntry).toBeNull()
   })
 })
 

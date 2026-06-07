@@ -2,7 +2,6 @@ import {
   applyFullRest,
   applyPartialRest,
   applyRespite,
-  toStatContext,
   type PartialRestInput,
   type RespiteInput,
   type RestError,
@@ -18,6 +17,7 @@ import {
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { toStatContext } from "@/lib/game-engine"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
+import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   inheritanceSourceGroups,
@@ -19,6 +20,12 @@ import type {
   CharacterArchetypeRow,
   CharacterRow,
 } from "@workspace/game/foundation/character/records"
+
+/** Test wrappers binding the production catalog (`gameData`). */
+const derive = (raw: RawCharacterInputs) =>
+  deriveHydratedCharacter(raw, gameData)
+const buildEntries = (character: Parameters<typeof buildArchetypeEntries>[0]) =>
+  buildArchetypeEntries(character, gameData)
 
 describe("isInheritableSkill", () => {
   it("accepts a Rank-keyed Skill the source has unlocked", () => {
@@ -117,7 +124,7 @@ function makeRaw(): RawCharacterInputs {
 }
 
 describe("inheritanceSourceGroups", () => {
-  const entries = buildArchetypeEntries(deriveHydratedCharacter(makeRaw()))
+  const entries = buildEntries(derive(makeRaw()))
 
   it("excludes the owner Archetype and lists every other unlocked one", () => {
     const groups = inheritanceSourceGroups(entries, "arch-warrior")
@@ -144,9 +151,8 @@ describe("inheritanceSourceGroups", () => {
 })
 
 describe("inheritanceSourceGroups source filtering", () => {
-  const sampleRankedSkill: RankedSkill = buildArchetypeEntries(
-    deriveHydratedCharacter(makeRaw())
-  )[0]!.ranks[0]!
+  const sampleRankedSkill: RankedSkill = buildEntries(derive(makeRaw()))[0]!
+    .ranks[0]!
 
   function entry(
     id: string,
@@ -206,17 +212,13 @@ describe("buildArchetypeEntries inheritance-slot validity", () => {
   }
 
   it("marks an in-Rank inherited Skill valid", () => {
-    const entries = buildArchetypeEntries(
-      deriveHydratedCharacter(rawWithSlot("agi"))
-    )
+    const entries = buildEntries(derive(rawWithSlot("agi")))
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(true)
   })
 
   it("marks a now-over-Rank inherited Skill invalid", () => {
-    const entries = buildArchetypeEntries(
-      deriveHydratedCharacter(rawWithSlot("zio"))
-    )
+    const entries = buildEntries(derive(rawWithSlot("zio")))
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(false)
   })
@@ -226,7 +228,7 @@ describe("buildArchetypeEntries inheritance-slot validity", () => {
     raw.archetypeRows[0]!.inheritanceSlots = [
       { slotIndex: 0, sourceCharacterArchetypeId: null, skillKey: null },
     ]
-    const entries = buildArchetypeEntries(deriveHydratedCharacter(raw))
+    const entries = buildEntries(derive(raw))
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(true)
     expect(warriorEntry?.slots[0]?.resolved).toBeNull()

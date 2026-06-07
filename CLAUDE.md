@@ -154,9 +154,16 @@ packages/game/src/
   layer barrel (cycles). `sideEffects: false` + Next `optimizePackageImports` neutralize the
   barrel cost.
 - **Dependency rule:** `engine → data → foundation`. Type-only imports across layers are free;
-  `engine → data` **value** imports are the inversion-debt backlog (paid down via the seam
-  pattern, e.g. `buildLineageAtlas`'s optional `catalog`). `foundation` still has a few value
-  imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a known follow-up.
+  `engine → data` **value** imports are the inversion-debt backlog being paid down by **UNN-354**
+  via lookup **ports**: `engine/ports.ts` declares interfaces (`ArchetypeLookup`/`SkillLookup`/…)
+  over foundation types that the engine owns and `data` implements — `data/game-data.ts` exports
+  the single `gameData` adapter satisfying them. Boundary functions (`buildStatContext`,
+  `deriveHydratedCharacter`, `reduceCharacter`, the archetype display shapers) take the lookups
+  **explicitly** (no global default); `apps/web/lib/game-engine.ts` is the **composition root**
+  that binds `gameData` once and re-exports the pre-bound versions app code calls. Mechanics
+  registry (`getMechanic`) is engine-owned behavior, **not** a data port (carved out). `foundation`
+  still has a few value imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a
+  known follow-up.
 - The persisted-row types (`CharacterRow`, …) are **owned in `foundation/records.ts`**; the
   Drizzle tables in `lib/db/schema` import them and a `conformance.test.ts` proves the table
   matches (so they can't drift). `EnemyDefinition` family (humanoid/beast/…) is lifted to a

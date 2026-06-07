@@ -1,6 +1,3 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { getEquippableItem } from "@workspace/game/data/items/registry"
-import { getSkill } from "@workspace/game/data/skills/registry"
 import { hasUnlockedRank } from "@workspace/game/engine/archetypes/rank"
 import {
   baseAffinitiesForArchetype,
@@ -9,6 +6,11 @@ import {
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import {
+  type ArchetypeLookup,
+  type ItemLookup,
+  type SkillLookup,
+} from "@workspace/game/engine/ports"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import {
   type InheritanceSlots,
@@ -53,9 +55,10 @@ export interface PersistedArchetypeState {
 
 function activeSkillsFor(
   active: PersistedArchetypeState,
-  equippedItems: readonly EquippableItem[]
+  equippedItems: readonly EquippableItem[],
+  lookups: ArchetypeLookup & SkillLookup
 ): StatContext["activeSkills"] {
-  const archetype = getArchetype(active.archetypeKey)
+  const archetype = lookups.getArchetype(active.archetypeKey)
   if (!archetype) return []
 
   const keys = new Set<string>()
@@ -82,7 +85,7 @@ function activeSkillsFor(
   }
 
   return [...keys]
-    .map((key) => getSkill(key))
+    .map((key) => lookups.getSkill(key))
     .filter((skill) => skill !== undefined)
 }
 
@@ -93,15 +96,16 @@ function activeSkillsFor(
  * Archetype or the Archetype has no mechanic.
  */
 function activeMechanicFor(
-  active: PersistedArchetypeState | undefined
+  active: PersistedArchetypeState | undefined,
+  lookups: ArchetypeLookup
 ): ActiveMechanic | null {
   if (!active) return null
 
-  const archetype = getArchetype(active.archetypeKey)
+  const archetype = lookups.getArchetype(active.archetypeKey)
   if (!archetype?.mechanic) return null
 
   const mechanic = getMechanic(archetype.mechanic)
-  // Stryker disable next-line ConditionalExpression: equivalent — every Archetype's declared mechanic is registered, so getMechanic never misses; this guards corrupt data only.
+  // Stryker disable next-line ConditionalExpression: equivalent — `archetype.mechanic` is a closed `MechanicKind` union and the mechanics registry is exhaustive over it, so getMechanic never misses for a real Archetype; this guards only runtime-corrupt data (untypeable without a cast). Not the catalog-globalness UNN-354 removes.
   if (!mechanic) return null
 
   const state = active.mechanicState ?? mechanic.initialState()
@@ -113,7 +117,10 @@ function activeMechanicFor(
  * character. The single shared row→engine mapping so engine callers (e.g. the
  * rest wrapper) need not re-hand-roll it.
  */
-export function toStatContext(character: HydratedCharacter): StatContext {
+export function toStatContext(
+  character: HydratedCharacter,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+): StatContext {
   return buildStatContext(
     {
       pathChoice: character.pathChoice,
@@ -130,26 +137,28 @@ export function toStatContext(character: HydratedCharacter): StatContext {
     })),
     character.inventory
       .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
+      .map((item) => item.catalogItemKey),
+    lookups
   )
 }
 
 export function buildStatContext(
   character: PersistedCharacterState,
   archetypes: readonly PersistedArchetypeState[],
-  equippedItemKeys: readonly string[]
+  equippedItemKeys: readonly string[],
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
 ): StatContext {
   const active = archetypes.find(
     (a) => a.id === character.activeCharacterArchetypeId
   )
 
   const equippedItems = equippedItemKeys
-    .map((key) => getEquippableItem(key))
+    .map((key) => lookups.getEquippableItem(key))
     .filter((item) => item !== undefined)
 
   const activeArchetypeKey = active?.archetypeKey ?? null
   const activeArchetype = activeArchetypeKey
-    ? getArchetype(activeArchetypeKey)
+    ? lookups.getArchetype(activeArchetypeKey)
     : undefined
 
   return {
@@ -159,15 +168,15 @@ export function buildStatContext(
     activeArchetypeKey,
     activeLineage: activeArchetype?.lineage ?? null,
     archetypes: archetypes.flatMap((a) => {
-      const archetype = getArchetype(a.archetypeKey)
+      const archetype = lookups.getArchetype(a.archetypeKey)
       return archetype
         ? [{ key: a.archetypeKey, rank: a.rank, mastery: archetype.mastery }]
         : []
     }),
     equippedItems,
-    activeSkills: active ? activeSkillsFor(active, equippedItems) : [],
-    activeMechanic: activeMechanicFor(active),
-    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
+    activeSkills: active ? activeSkillsFor(active, equippedItems, lookups) : [],
+    activeMechanic: activeMechanicFor(active, lookups),
+    baseAttributes: baseAttributesForArchetype(activeArchetype),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetype),
   }
 }

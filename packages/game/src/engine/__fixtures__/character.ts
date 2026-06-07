@@ -1,4 +1,5 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import { gameData } from "@workspace/game/data/game-data"
 import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
@@ -140,14 +141,15 @@ export function makeStatContext(
     overrides.activeArchetypeKey === undefined
       ? "warrior"
       : overrides.activeArchetypeKey
+  const activeArchetype = activeArchetypeKey
+    ? getArchetype(activeArchetypeKey)
+    : undefined
   return {
     pathChoice: "balanced",
     level: 1,
     manualBonuses: {},
     activeArchetypeKey,
-    activeLineage: activeArchetypeKey
-      ? (getArchetype(activeArchetypeKey)?.lineage ?? null)
-      : null,
+    activeLineage: activeArchetype?.lineage ?? null,
     archetypes: [
       {
         key: "warrior",
@@ -158,8 +160,8 @@ export function makeStatContext(
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
+    baseAttributes: baseAttributesForArchetype(activeArchetype),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetype),
     ...overrides,
   }
 }
@@ -191,5 +193,5 @@ export function makeCastContext(
 export function makeHydratedCharacter(
   overrides: Parameters<typeof makeRawCharacterInputs>[0] = {}
 ): HydratedCharacter {
-  return deriveHydratedCharacter(makeRawCharacterInputs(overrides))
+  return deriveHydratedCharacter(makeRawCharacterInputs(overrides), gameData)
 }

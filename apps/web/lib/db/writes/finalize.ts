@@ -1,6 +1,5 @@
 import { getArchetype, type WeaponKey } from "@workspace/game/data"
 import {
-  buildStatContext,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
@@ -20,6 +19,7 @@ import {
   type CharacterRow,
 } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { buildStatContext } from "@/lib/game-engine"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

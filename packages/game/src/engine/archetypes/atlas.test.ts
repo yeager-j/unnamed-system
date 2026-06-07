@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   atlasNodeState,
@@ -107,7 +108,7 @@ function makeCharacter(options: {
     knives: [],
     chains: [],
   }
-  return deriveHydratedCharacter(raw)
+  return deriveHydratedCharacter(raw, gameData)
 }
 
 /** A synthetic Adept that advances from Knight at Rank 5, for prerequisite

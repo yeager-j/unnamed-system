@@ -452,11 +452,11 @@ describe("getPathStats / getPathDice", () => {
 
 describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
   it("returns the Archetype's intrinsic Attribute scores", () => {
-    expect(baseAttributesForArchetype("warrior")).toEqual(warrior.attributes)
+    expect(baseAttributesForArchetype(warrior)).toEqual(warrior.attributes)
   })
 
   it("returns all-zero scores when there is no active Archetype", () => {
-    expect(baseAttributesForArchetype(null)).toEqual({
+    expect(baseAttributesForArchetype(undefined)).toEqual({
       strength: 0,
       magic: 0,
       agility: 0,
@@ -465,7 +465,7 @@ describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
   })
 
   it("resolves the Archetype's chart, Almighty and uncharted types neutral", () => {
-    const chart = baseAffinitiesForArchetype("warrior")
+    const chart = baseAffinitiesForArchetype(warrior)
     expect(chart.fire).toBe("resist")
     expect(chart.wind).toBe("weak")
     expect(chart.slash).toBe("neutral")
@@ -473,7 +473,7 @@ describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
   })
 
   it("returns an all-neutral chart when there is no active Archetype", () => {
-    const chart = baseAffinitiesForArchetype(null)
+    const chart = baseAffinitiesForArchetype(undefined)
     expect(chart.fire).toBe("neutral")
     expect(chart.slash).toBe("neutral")
     expect(chart.almighty).toBe("neutral")

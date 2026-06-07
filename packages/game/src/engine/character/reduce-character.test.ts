@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import { MAX_CURRENCY } from "@workspace/game/engine/character/currency"
 import {
   deriveHydratedCharacter,
@@ -7,11 +8,22 @@ import {
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
 import { reduceCharacter } from "@workspace/game/engine/character/reduce-character"
+import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
   CharacterRow,
   InventoryItemRow,
 } from "@workspace/game/foundation/character/records"
+
+/** Test wrappers binding the production catalog (`gameData`) so the boundary
+ *  call sites stay terse; the engine itself takes the lookups explicitly. */
+const derive = (raw: RawCharacterInputs) =>
+  deriveHydratedCharacter(raw, gameData)
+const reduce = (
+  character: HydratedCharacter,
+  edit: CharacterEdit,
+  newId?: () => string
+) => reduceCharacter(character, edit, gameData, newId)
 
 const CHARACTER_ID = "char-1"
 
@@ -114,12 +126,12 @@ function makeRaw(): RawCharacterInputs {
   }
 }
 
-const make = () => deriveHydratedCharacter(makeRaw())
+const make = () => derive(makeRaw())
 
 describe("toRawInputs / deriveHydratedCharacter round-trip", () => {
   it("re-deriving from the stripped inputs reproduces the character", () => {
     const character = make()
-    expect(deriveHydratedCharacter(toRawInputs(character))).toEqual(character)
+    expect(derive(toRawInputs(character))).toEqual(character)
   })
 })
 
@@ -132,7 +144,7 @@ describe("deriveHydratedCharacter skill hydration", () => {
     // max HP, maxSP/currentHP/level would all still resolve to 1.
     const raw = makeRaw()
     raw.row.level = 5
-    const character = deriveHydratedCharacter(raw)
+    const character = derive(raw)
 
     const cleave = character.skills.find((skill) => skill.key === "cleave")
     expect(cleave?.resolvedCost).toEqual({ kind: "hp", amount: 2 })
@@ -144,7 +156,7 @@ describe("reduceCharacter", () => {
     const character = make()
     expect(character.affinityChart.slash).not.toBe("resist")
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "inventory",
       mutation: { kind: "equip", itemId: "row-mail" },
     })
@@ -157,7 +169,7 @@ describe("reduceCharacter", () => {
     const character = make()
     expect(character.weaponAttackRoll).toBeNull()
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "inventory",
       mutation: { kind: "equip", itemId: "row-cane" },
     })
@@ -167,7 +179,7 @@ describe("reduceCharacter", () => {
   })
 
   it("adding a stackable consumable tops up the existing stack", () => {
-    const next = reduceCharacter(
+    const next = reduce(
       make(),
       {
         kind: "inventory",
@@ -182,7 +194,7 @@ describe("reduceCharacter", () => {
   })
 
   it("setting a stack to 0 removes the row", () => {
-    const next = reduceCharacter(make(), {
+    const next = reduce(make(), {
       kind: "inventory",
       mutation: { kind: "setQuantity", itemId: "row-drop", quantity: 0 },
     })
@@ -192,18 +204,17 @@ describe("reduceCharacter", () => {
 
   it("clamps currency to [0, MAX_CURRENCY]", () => {
     const character = make()
+    expect(reduce(character, { kind: "currency", delta: -1000 }).currency).toBe(
+      0
+    )
     expect(
-      reduceCharacter(character, { kind: "currency", delta: -1000 }).currency
-    ).toBe(0)
-    expect(
-      reduceCharacter(character, { kind: "currency", delta: 1_000_000_000 })
-        .currency
+      reduce(character, { kind: "currency", delta: 1_000_000_000 }).currency
     ).toBe(MAX_CURRENCY)
   })
 
   it("returns the input unchanged when the engine rejects the edit", () => {
     const character = make()
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "inventory",
       mutation: { kind: "remove", itemId: "does-not-exist" },
     })
@@ -212,68 +223,66 @@ describe("reduceCharacter", () => {
 
   it("awards victories and clamps at 0", () => {
     const character = make()
-    expect(
-      reduceCharacter(character, { kind: "victories", delta: 2 }).victories
-    ).toBe(2)
-    expect(
-      reduceCharacter(character, { kind: "victories", delta: -5 }).victories
-    ).toBe(0)
+    expect(reduce(character, { kind: "victories", delta: 2 }).victories).toBe(2)
+    expect(reduce(character, { kind: "victories", delta: -5 }).victories).toBe(
+      0
+    )
   })
 
   it("applies damage and clamps heal at max HP", () => {
     const character = make()
-    const hurt = reduceCharacter(character, { kind: "damage", amount: 5 })
+    const hurt = reduce(character, { kind: "damage", amount: 5 })
     expect(hurt.currentHP).toBe(character.currentHP - 5)
-    const healed = reduceCharacter(hurt, { kind: "heal", amount: 9999 })
+    const healed = reduce(hurt, { kind: "heal", amount: 9999 })
     expect(healed.currentHP).toBe(character.maxHP)
   })
 
   it("steps exhaustion and clamps at 0", () => {
     const character = make()
-    const up = reduceCharacter(character, {
+    const up = reduce(character, {
       kind: "exhaustion",
       direction: "increment",
     })
     expect(up.exhaustion).toBe(1)
     expect(
-      reduceCharacter(character, { kind: "exhaustion", direction: "decrement" })
+      reduce(character, { kind: "exhaustion", direction: "decrement" })
         .exhaustion
     ).toBe(0)
   })
 
   it("sets ailments and battle conditions, and clearCombatState wipes them", () => {
     const character = make()
-    const ailing = reduceCharacter(character, {
+    const ailing = reduce(character, {
       kind: "ailments",
       ailments: ["downed"],
     })
     expect(ailing.ailments).toEqual(["downed"])
 
-    const buffed = reduceCharacter(ailing, {
+    const buffed = reduce(ailing, {
       kind: "battleConditionAxis",
       axis: "attack",
       state: "increased",
     })
     expect(buffed.battleConditions?.attack).toBe("increased")
 
-    const cleared = reduceCharacter(buffed, { kind: "clearCombatState" })
+    const cleared = reduce(buffed, { kind: "clearCombatState" })
     expect(cleared.ailments).toEqual([])
     expect(cleared.battleConditions?.attack).toBe("neutral")
   })
 
   it("spends a Prisma charge and refuses at 0", () => {
     const character = make()
-    const used = reduceCharacter(character, { kind: "usePrisma" })
+    const used = reduce(character, { kind: "usePrisma" })
     expect(used.prismaCharges).toBe(character.prismaCharges - 1)
 
-    const empty = reduceCharacter(character, { kind: "currency", delta: 0 })
+    const empty = reduce(character, { kind: "currency", delta: 0 })
     const drained = { ...empty, prismaCharges: 0 }
-    expect(reduceCharacter(drained, { kind: "usePrisma" })).toBe(drained)
+    expect(reduce(drained, { kind: "usePrisma" })).toBe(drained)
   })
 
   it("steps the active Archetype's Perfection mechanic", () => {
     const character = make()
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "perfection",
       op: "increment",
     })
@@ -296,12 +305,12 @@ describe("reduceCharacter", () => {
         mechanicState: null,
       },
     ]
-    return deriveHydratedCharacter(raw)
+    return derive(raw)
   }
 
   it("steps the active Archetype's Valor mechanic", () => {
     const knight = makeWithActiveArchetype("knight")
-    const next = reduceCharacter(knight, {
+    const next = reduce(knight, {
       kind: "valor",
       direction: "increment",
     })
@@ -311,7 +320,7 @@ describe("reduceCharacter", () => {
 
   it("sets a slot on the active Archetype's Stains mechanic", () => {
     const mage = makeWithActiveArchetype("mage")
-    const next = reduceCharacter(mage, {
+    const next = reduce(mage, {
       kind: "stains",
       op: "setSlot",
       slotIndex: 0,
@@ -323,14 +332,14 @@ describe("reduceCharacter", () => {
 
   it("toggles the active Archetype's Path of Dawn mode", () => {
     const healer = makeWithActiveArchetype("healer")
-    const next = reduceCharacter(healer, { kind: "pathOfDawn", dawnMode: true })
+    const next = reduce(healer, { kind: "pathOfDawn", dawnMode: true })
     expect(next.activeMechanic?.state.kind).toBe("path-of-dawn")
     expect(next.activeMechanic?.state).not.toEqual(healer.activeMechanic?.state)
   })
 
   it("toggles the active Archetype's Path of Dusk mode", () => {
     const warlock = makeWithActiveArchetype("warlock")
-    const next = reduceCharacter(warlock, {
+    const next = reduce(warlock, {
       kind: "pathOfDusk",
       duskMode: true,
     })
@@ -342,7 +351,7 @@ describe("reduceCharacter", () => {
 
   it("toggles a battle-condition flag", () => {
     const character = make()
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "battleConditionFlag",
       flag: "charged",
       value: true,
@@ -352,16 +361,16 @@ describe("reduceCharacter", () => {
 
   it("spends and recovers SP", () => {
     const character = make()
-    const spent = reduceCharacter(character, { kind: "spendSP", amount: 5 })
+    const spent = reduce(character, { kind: "spendSP", amount: 5 })
     expect(spent.currentSP).toBe(character.currentSP - 5)
 
-    const recovered = reduceCharacter(spent, { kind: "recoverSP", amount: 3 })
+    const recovered = reduce(spent, { kind: "recoverSP", amount: 3 })
     expect(recovered.currentSP).toBe(spent.currentSP + 3)
   })
 
   it("casts a Skill, paying its resolved cost", () => {
     const character = make()
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "cast",
       skillKey: "cleave",
     })
@@ -371,9 +380,9 @@ describe("reduceCharacter", () => {
   it("ranks up a Virtue once the Spark log is full", () => {
     const raw = makeRaw()
     raw.row.sparkLog = Array(7).fill("wisdom")
-    const character = deriveHydratedCharacter(raw)
+    const character = derive(raw)
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "rankUpVirtue",
       virtue: "wisdom",
     })
@@ -386,23 +395,23 @@ describe("reduceCharacter", () => {
     // Establish a Perfection state on the active Archetype, then dispatch a
     // Valor edit: it must be a no-op rather than corrupting the Perfection
     // state through the transform's cast.
-    const perfected = reduceCharacter(make(), {
+    const perfected = reduce(make(), {
       kind: "perfection",
       op: "increment",
     })
-    expect(
-      reduceCharacter(perfected, { kind: "valor", direction: "increment" })
-    ).toBe(perfected)
+    expect(reduce(perfected, { kind: "valor", direction: "increment" })).toBe(
+      perfected
+    )
   })
 
   it("adds and removes gained talents", () => {
     const character = make()
-    const added = reduceCharacter(character, {
+    const added = reduce(character, {
       kind: "talentAdd",
       talentKey: "alchemy",
     })
     expect(added.gainedTalents).toContain("alchemy")
-    const removed = reduceCharacter(added, {
+    const removed = reduce(added, {
       kind: "talentRemove",
       talentKey: "alchemy",
     })
@@ -411,7 +420,7 @@ describe("reduceCharacter", () => {
 
   it("adds a spark tagged with a virtue", () => {
     const character = make()
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "addSpark",
       virtue: "wisdom",
     })
@@ -428,10 +437,10 @@ describe("reduceCharacter", () => {
       inheritanceSlots: [],
       mechanicState: null,
     })
-    const character = deriveHydratedCharacter(raw)
+    const character = derive(raw)
     expect(character.activeArchetypeKey).toBe("warrior")
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "switchActiveArchetype",
       characterArchetypeId: "arch-2",
     })
@@ -456,14 +465,14 @@ describe("reduceCharacter", () => {
       inheritanceSlots: [],
       mechanicState: null,
     })
-    return deriveHydratedCharacter(raw)
+    return derive(raw)
   }
 
   it("threads a slot inherited by the active Archetype into the Skills list", () => {
     const character = makeWithMage()
     expect(character.skills.some((s) => s.key === "agi")).toBe(false)
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "setInheritanceSlot",
       characterArchetypeId: "arch-1",
       slotIndex: 0,
@@ -482,7 +491,7 @@ describe("reduceCharacter", () => {
   it("persists a slot on an inactive Archetype without touching the Skills list", () => {
     const character = makeWithMage()
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "setInheritanceSlot",
       characterArchetypeId: "arch-2",
       slotIndex: 0,
@@ -503,7 +512,7 @@ describe("reduceCharacter", () => {
   })
 
   it("clears a configured slot, dropping the inherited Skill", () => {
-    const filled = reduceCharacter(makeWithMage(), {
+    const filled = reduce(makeWithMage(), {
       kind: "setInheritanceSlot",
       characterArchetypeId: "arch-1",
       slotIndex: 0,
@@ -512,7 +521,7 @@ describe("reduceCharacter", () => {
     })
     expect(filled.skills.some((s) => s.key === "agi")).toBe(true)
 
-    const cleared = reduceCharacter(filled, {
+    const cleared = reduce(filled, {
       kind: "setInheritanceSlot",
       characterArchetypeId: "arch-1",
       slotIndex: 0,
@@ -531,7 +540,7 @@ describe("reduceCharacter", () => {
   it("returns the input unchanged when the owner Archetype row is unknown", () => {
     const character = makeWithMage()
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "setInheritanceSlot",
         characterArchetypeId: "does-not-exist",
         slotIndex: 0,
@@ -545,7 +554,7 @@ describe("reduceCharacter", () => {
   function makeWithSavedRanks(savedRanks: number) {
     const raw = makeRaw()
     raw.row.savedArchetypeRanks = savedRanks
-    return deriveHydratedCharacter(raw)
+    return derive(raw)
   }
 
   it("unlocks a new Archetype at Rank 1 and spends a Saved Rank", () => {
@@ -554,7 +563,7 @@ describe("reduceCharacter", () => {
       false
     )
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "unlockArchetype",
       archetypeKey: "mage",
     })
@@ -568,7 +577,7 @@ describe("reduceCharacter", () => {
   it("does not unlock an already-owned Archetype", () => {
     const character = makeWithSavedRanks(2)
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "unlockArchetype",
         archetypeKey: "warrior",
       })
@@ -578,7 +587,7 @@ describe("reduceCharacter", () => {
   it("does not unlock when no Saved Rank is available", () => {
     const character = makeWithSavedRanks(0)
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "unlockArchetype",
         archetypeKey: "mage",
       })
@@ -588,7 +597,7 @@ describe("reduceCharacter", () => {
   it("does not unlock an unknown Archetype key", () => {
     const character = makeWithSavedRanks(2)
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "unlockArchetype",
         archetypeKey: "not-a-real-archetype",
       })
@@ -599,7 +608,7 @@ describe("reduceCharacter", () => {
     const character = makeWithSavedRanks(2)
     const rankTwoSkills = character.skills.length
 
-    const next = reduceCharacter(character, {
+    const next = reduce(character, {
       kind: "rankUpArchetype",
       characterArchetypeId: "arch-1",
     })
@@ -614,10 +623,10 @@ describe("reduceCharacter", () => {
     const raw = makeRaw()
     raw.row.savedArchetypeRanks = 2
     raw.archetypeRows[0]!.rank = 5
-    const character = deriveHydratedCharacter(raw)
+    const character = derive(raw)
 
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "rankUpArchetype",
         characterArchetypeId: "arch-1",
       })
@@ -627,7 +636,7 @@ describe("reduceCharacter", () => {
   it("does not rank up when no Saved Rank is available", () => {
     const character = makeWithSavedRanks(0)
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "rankUpArchetype",
         characterArchetypeId: "arch-1",
       })
@@ -637,7 +646,7 @@ describe("reduceCharacter", () => {
   it("does not rank up an unknown Archetype row", () => {
     const character = makeWithSavedRanks(2)
     expect(
-      reduceCharacter(character, {
+      reduce(character, {
         kind: "rankUpArchetype",
         characterArchetypeId: "does-not-exist",
       })

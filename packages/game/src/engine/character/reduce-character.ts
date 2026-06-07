@@ -11,6 +11,11 @@ import { reducePoolsEdit } from "@workspace/game/engine/character/reduce/pools"
 import { reduceProgressionEdit } from "@workspace/game/engine/character/reduce/progression"
 import type { SliceResult } from "@workspace/game/engine/character/reduce/shared"
 import { reduceTalentEdit } from "@workspace/game/engine/character/reduce/talents"
+import {
+  type ArchetypeLookup,
+  type ItemLookup,
+  type SkillLookup,
+} from "@workspace/game/engine/ports"
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 
@@ -29,11 +34,12 @@ const randomId = () => crypto.randomUUID()
 export function reduceCharacter(
   character: HydratedCharacter,
   edit: CharacterEdit,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
   newId: () => string = randomId
 ): HydratedCharacter {
   const raw = toRawInputs(character)
   const next = routeEdit(raw, character, edit, newId)
-  return next ? deriveHydratedCharacter(next) : character
+  return next ? deriveHydratedCharacter(next, lookups) : character
 }
 
 /**
