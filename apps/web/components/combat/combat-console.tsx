@@ -15,6 +15,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -67,15 +68,21 @@ export function CombatConsole({
     null
   )
 
-  const view = buildConsoleView(session, pcDetailById)
+  const enemyStatblockById = resolveCatalogEnemyStatblocks(session.combatants)
+  const view = buildConsoleView(session, pcDetailById, enemyStatblockById)
   const { currentActor } = view
-  const roster = buildRosterView(session, pcDetailById)
+  const roster = buildRosterView(session, pcDetailById, enemyStatblockById)
   const fallenPcNames = roster.players
     .filter((row) => row.isFallen)
     .map((row) => row.name)
   const selectedDetail =
     selectedCombatantId !== null
-      ? combatantDetail(session, selectedCombatantId, pcDetailById)
+      ? combatantDetail(
+          session,
+          selectedCombatantId,
+          pcDetailById,
+          enemyStatblockById
+        )
       : null
 
   const phase: ConsolePhase =
@@ -205,7 +212,9 @@ export function CombatConsole({
       ) : (
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
           <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
-          <ZoneLayout view={resolveZoneLayout(session, pcDetailById)} />
+          <ZoneLayout
+            view={resolveZoneLayout(session, pcDetailById, enemyStatblockById)}
+          />
         </div>
       )}
 

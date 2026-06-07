@@ -30,6 +30,7 @@ import { applyCombatEvent } from "@/lib/actions/encounter/events"
 import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantSetupRow } from "./combatant-setup-row"
@@ -88,14 +89,23 @@ export function EncounterSetup({
     )
   )
 
+  const enemyStatblockById = resolveCatalogEnemyStatblocks(combatants)
   const placed = isRosterFullyPlaced(combatants, zones)
   const canStart = combatants.length > 0 && placed
-  const comparison = compareInitiative(combatants, pcStatsById)
+  const comparison = compareInitiative(
+    combatants,
+    pcStatsById,
+    enemyStatblockById
+  )
 
   const pcNameById = Object.fromEntries(
     placedCharacters.map((character) => [character.id, character.name])
   )
-  const combatantLabels = buildSetupCombatantLabels(combatants, pcNameById)
+  const combatantLabels = buildSetupCombatantLabels(
+    combatants,
+    pcNameById,
+    enemyStatblockById
+  )
 
   function togglePc(characterId: string) {
     setCombatants((current) => {

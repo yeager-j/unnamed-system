@@ -1,4 +1,4 @@
-import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import type {
   CombatantSetup,
   CombatSide,
@@ -44,7 +44,8 @@ export interface InitiativeComparison {
  */
 function resolveStats(
   combatant: CombatantSetup,
-  pcStatsById: Record<string, InitiativeStats>
+  pcStatsById: Record<string, InitiativeStats>,
+  enemyStatblockById: Record<string, Statblock>
 ): InitiativeStats | null {
   const ref = combatant.ref
   if (ref.kind === "pc") return pcStatsById[ref.characterId] ?? null
@@ -52,11 +53,11 @@ function resolveStats(
     const { agility, luck } = ref.statBlock.attributes
     return { agility, luck }
   }
-  const definition = getEnemy(ref.enemyKey)
-  return definition
+  const statblock = enemyStatblockById[ref.enemyKey]
+  return statblock
     ? {
-        agility: definition.attributes.agility,
-        luck: definition.attributes.luck,
+        agility: statblock.attributes.agility,
+        luck: statblock.attributes.luck,
       }
     : null
 }
@@ -95,12 +96,15 @@ function suggestedSide(
  */
 export function compareInitiative(
   combatants: readonly CombatantSetup[],
-  pcStatsById: Record<string, InitiativeStats>
+  pcStatsById: Record<string, InitiativeStats>,
+  enemyStatblockById: Record<string, Statblock>
 ): InitiativeComparison {
   const statsForSide = (side: CombatSide): InitiativeStats[] =>
     combatants
       .filter((combatant) => combatant.side === side)
-      .map((combatant) => resolveStats(combatant, pcStatsById))
+      .map((combatant) =>
+        resolveStats(combatant, pcStatsById, enemyStatblockById)
+      )
       .filter((stats): stats is InitiativeStats => stats !== null)
 
   const players = sideInitiative(statsForSide("players"))

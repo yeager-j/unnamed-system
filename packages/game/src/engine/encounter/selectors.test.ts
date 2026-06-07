@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import {
   eligibleCombatants,
   nextDraftingSide,
@@ -300,8 +300,8 @@ describe("Fallen + override integration", () => {
   it("re-derives guidance from the session after a setActed override", () => {
     const session = build({ setup: FOUR, firstSide: "players" })
 
-    const afterPlayersActed = reduceCombatSession(
-      reduceCombatSession(session, {
+    const afterPlayersActed = reduceCombat(
+      reduceCombat(session, {
         kind: "setActed",
         combatantId: "combatant-0",
         hasActed: true,

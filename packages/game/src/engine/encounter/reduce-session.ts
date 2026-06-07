@@ -10,6 +10,7 @@ import { reduceRoundEvent } from "@workspace/game/engine/encounter/reduce/round"
 import { reduceTurnEvent } from "@workspace/game/engine/encounter/reduce/turn"
 import { reduceStartCombatEvent } from "@workspace/game/engine/encounter/reduce/turn-start"
 import { reduceZoneGraphEvent } from "@workspace/game/engine/encounter/reduce/zones"
+import { type EnemyLookup } from "@workspace/game/engine/ports"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
 
@@ -38,6 +39,7 @@ export type { CombatEvent } from "@workspace/game/foundation/encounter/session-e
 export function reduceCombatSession(
   session: CombatSession,
   event: CombatEvent,
+  lookups: Pick<EnemyLookup, "getEnemy">,
   newId: () => string = () => crypto.randomUUID()
 ): CombatSession {
   switch (event.kind) {
@@ -68,7 +70,7 @@ export function reduceCombatSession(
       return reduceActionEconomyEvent(session, event)
 
     case "adjustEnemyVitals":
-      return reduceEnemyVitalsEvent(session, event)
+      return reduceEnemyVitalsEvent(session, event, lookups)
 
     case "setCurrentActor":
     case "setActed":

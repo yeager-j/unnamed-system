@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { goblin } from "@workspace/game/data/enemies/5e/humanoid/goblin"
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import { projectPlayerSnapshot } from "@workspace/game/engine/encounter/player-snapshot"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
@@ -53,6 +54,7 @@ const ARIA: PcCombatantDetail = {
   attributes: { strength: 3, magic: 5, agility: 2, luck: 1 },
   affinityChart: { fire: "weak" } as PcCombatantDetail["affinityChart"],
   activeArchetypeKey: null,
+  className: null,
   vitalsVersion: 0,
 }
 
@@ -65,6 +67,19 @@ function encounter(session: CombatSession, status: "draft" | "live" | "ended") {
   }
 }
 
+/** Projects with the resolved enemy statblocks for the encounter's own roster —
+ *  the redaction tests still pass real catalog data in, proving the projection
+ *  drops it rather than never having it. */
+const snap = (
+  enc: Parameters<typeof projectPlayerSnapshot>[0],
+  pcDetailById: Parameters<typeof projectPlayerSnapshot>[1]
+) =>
+  projectPlayerSnapshot(
+    enc,
+    pcDetailById,
+    enemyStatblocks(enc.session.combatants)
+  )
+
 describe("projectPlayerSnapshot", () => {
   it("redacts enemy attributes and affinities entirely (UNN-324)", () => {
     const session = createCombatSession(
@@ -72,7 +87,7 @@ describe("projectPlayerSnapshot", () => {
       sequentialIds()
     )
 
-    const snapshot = projectPlayerSnapshot(encounter(session, "live"), {
+    const snapshot = snap(encounter(session, "live"), {
       "char-aria": ARIA,
     })
 
@@ -87,7 +102,7 @@ describe("projectPlayerSnapshot", () => {
   it("keeps PC HP, SP, and attributes fully visible (UNN-324)", () => {
     const session = createCombatSession([pc("char-aria")], sequentialIds())
 
-    const snapshot = projectPlayerSnapshot(encounter(session, "live"), {
+    const snapshot = snap(encounter(session, "live"), {
       "char-aria": ARIA,
     })
 
@@ -103,10 +118,7 @@ describe("projectPlayerSnapshot", () => {
   it("defaults a PC's pools and attributes to zero when its detail is missing", () => {
     const session = createCombatSession([pc("char-ghost")], sequentialIds())
 
-    const [player] = projectPlayerSnapshot(
-      encounter(session, "live"),
-      {}
-    ).combatants
+    const [player] = snap(encounter(session, "live"), {}).combatants
 
     expect(player).toMatchObject({
       kind: "pc",
@@ -122,10 +134,7 @@ describe("projectPlayerSnapshot", () => {
       sequentialIds()
     )
 
-    const [enemy] = projectPlayerSnapshot(
-      encounter(session, "live"),
-      {}
-    ).combatants
+    const [enemy] = snap(encounter(session, "live"), {}).combatants
     expect(enemy).toMatchObject({
       kind: "enemy",
       name: "Goblin",
@@ -137,10 +146,7 @@ describe("projectPlayerSnapshot", () => {
   it("carries an inline enemy's working HP and SP off its stat block", () => {
     const session = createCombatSession([inlineEnemy()], sequentialIds())
 
-    const [enemy] = projectPlayerSnapshot(
-      encounter(session, "live"),
-      {}
-    ).combatants
+    const [enemy] = snap(encounter(session, "live"), {}).combatants
     expect(enemy).toMatchObject({
       kind: "enemy",
       name: "Brigand",
@@ -162,7 +168,7 @@ describe("projectPlayerSnapshot", () => {
       ),
     }
 
-    const snapshot = projectPlayerSnapshot(encounter(session, "live"), {
+    const snapshot = snap(encounter(session, "live"), {
       "char-aria": ARIA,
     })
 
@@ -198,7 +204,7 @@ describe("projectPlayerSnapshot", () => {
       ),
     }
 
-    const { combatants } = projectPlayerSnapshot(encounter(session, "live"), {
+    const { combatants } = snap(encounter(session, "live"), {
       "char-aria": ARIA,
     })
 
@@ -211,13 +217,11 @@ describe("projectPlayerSnapshot", () => {
 
     const live: CombatSession = { ...base, currentActorId: "c-0" }
     expect(
-      projectPlayerSnapshot(encounter(live, "live"), { "char-aria": ARIA })
-        .currentActor
+      snap(encounter(live, "live"), { "char-aria": ARIA }).currentActor
     ).toEqual({ id: "c-0", name: "Aria", side: "players" })
 
     expect(
-      projectPlayerSnapshot(encounter(base, "live"), { "char-aria": ARIA })
-        .currentActor
+      snap(encounter(base, "live"), { "char-aria": ARIA }).currentActor
     ).toBeNull()
   })
 
@@ -232,7 +236,7 @@ describe("projectPlayerSnapshot", () => {
       },
     }
 
-    const snapshot = projectPlayerSnapshot(encounter(session, "ended"), {
+    const snapshot = snap(encounter(session, "ended"), {
       "char-aria": ARIA,
     })
 

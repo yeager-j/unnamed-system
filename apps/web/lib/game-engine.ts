@@ -6,6 +6,9 @@ import {
   deriveHydratedCharacter as deriveHydratedCharacterCore,
   getArchetypeDisplay as getArchetypeDisplayCore,
   reduceCharacter as reduceCharacterCore,
+  reduceCombatSession as reduceCombatSessionCore,
+  resolveCatalogEnemyStatblocks as resolveCatalogEnemyStatblocksCore,
+  statblockFromEnemy as statblockFromEnemyCore,
   toStatContext as toStatContextCore,
 } from "@workspace/game/engine"
 
@@ -50,3 +53,21 @@ export const buildArchetypeEntries = (
 ) => buildArchetypeEntriesCore(character, gameData)
 
 export const buildEnemyCatalogRows = () => buildEnemyCatalogRowsCore(gameData)
+
+/** Resolves the `enemyStatblockById` map the encounter read shapers take, for a
+ *  roster's catalog enemies. Built once per render at the (client or server)
+ *  view boundary and threaded into `buildConsoleView` / `buildRosterView` /
+ *  `combatantDetail` / `compareInitiative` / etc. */
+export const resolveCatalogEnemyStatblocks = (
+  combatants: Parameters<typeof resolveCatalogEnemyStatblocksCore>[0]
+) => resolveCatalogEnemyStatblocksCore(combatants, gameData)
+
+export const statblockFromEnemy = (
+  enemy: Parameters<typeof statblockFromEnemyCore>[0]
+) => statblockFromEnemyCore(enemy, gameData)
+
+export const reduceCombatSession = (
+  session: Parameters<typeof reduceCombatSessionCore>[0],
+  event: Parameters<typeof reduceCombatSessionCore>[1],
+  newId?: Parameters<typeof reduceCombatSessionCore>[3]
+) => reduceCombatSessionCore(session, event, gameData, newId)

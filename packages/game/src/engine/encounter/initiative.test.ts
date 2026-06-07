@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest"
 
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import { compareInitiative } from "@workspace/game/engine/encounter/initiative"
 import type { CombatantSetup } from "@workspace/game/foundation/encounter/session"
+
+/** Binds the resolved enemy statblocks for the roster under test so the
+ *  catalog-enemy case reads real attributes; non-catalog rosters get `{}`. */
+const cmp = (
+  combatants: Parameters<typeof compareInitiative>[0],
+  pcStats: Parameters<typeof compareInitiative>[1]
+) => compareInitiative(combatants, pcStats, enemyStatblocks(combatants))
 
 function pc(characterId: string, side: "players" | "enemies"): CombatantSetup {
   return { side, ref: { kind: "pc", characterId }, zoneId: "z" }
@@ -39,7 +47,7 @@ function catalogEnemy(enemyKey: string): CombatantSetup {
 
 describe("compareInitiative", () => {
   it("suggests the side with the higher highest-Agility", () => {
-    const result = compareInitiative([pc("p1", "players"), inlineEnemy(3, 9)], {
+    const result = cmp([pc("p1", "players"), inlineEnemy(3, 9)], {
       p1: { agility: 5, luck: 0 },
     })
     expect(result.players.highestAgility).toBe(5)
@@ -48,7 +56,7 @@ describe("compareInitiative", () => {
   })
 
   it("takes the highest Agility across a side's combatants", () => {
-    const result = compareInitiative(
+    const result = cmp(
       [pc("p1", "players"), pc("p2", "players"), inlineEnemy(4, 0)],
       { p1: { agility: 2, luck: 0 }, p2: { agility: 6, luck: 0 } }
     )
@@ -57,39 +65,38 @@ describe("compareInitiative", () => {
   })
 
   it("breaks an Agility tie on the highest Luck", () => {
-    const result = compareInitiative([pc("p1", "players"), inlineEnemy(4, 7)], {
+    const result = cmp([pc("p1", "players"), inlineEnemy(4, 7)], {
       p1: { agility: 4, luck: 2 },
     })
     expect(result.suggested).toBe("enemies")
   })
 
   it("returns null when tied through Luck (DM's call)", () => {
-    const result = compareInitiative([pc("p1", "players"), inlineEnemy(4, 2)], {
+    const result = cmp([pc("p1", "players"), inlineEnemy(4, 2)], {
       p1: { agility: 4, luck: 2 },
     })
     expect(result.suggested).toBeNull()
   })
 
   it("yields to the only populated side when the other is empty", () => {
-    const result = compareInitiative(
-      [pc("p1", "players"), pc("p2", "players")],
-      { p1: { agility: 1, luck: 1 }, p2: { agility: 2, luck: 2 } }
-    )
+    const result = cmp([pc("p1", "players"), pc("p2", "players")], {
+      p1: { agility: 1, luck: 1 },
+      p2: { agility: 2, luck: 2 },
+    })
     expect(result.enemies.highestAgility).toBeNull()
     expect(result.suggested).toBe("players")
   })
 
   it("returns null when there are no combatants at all", () => {
-    const result = compareInitiative([], {})
+    const result = cmp([], {})
     expect(result.suggested).toBeNull()
   })
 
   it("resolves a catalog enemy's attributes from its definition", () => {
     // goblin is a known catalog enemy; its Agility comes from the definition.
-    const result = compareInitiative(
-      [pc("p1", "players"), catalogEnemy("goblin")],
-      { p1: { agility: 0, luck: 0 } }
-    )
+    const result = cmp([pc("p1", "players"), catalogEnemy("goblin")], {
+      p1: { agility: 0, luck: 0 },
+    })
     expect(result.enemies.highestAgility).not.toBeNull()
     expect(Number.isFinite(result.enemies.highestAgility)).toBe(true)
     expect(Number.isFinite(result.enemies.highestLuck)).toBe(true)
@@ -97,7 +104,7 @@ describe("compareInitiative", () => {
   })
 
   it("takes the highest Luck (not the lowest) across a side when breaking an Agility tie", () => {
-    const result = compareInitiative(
+    const result = cmp(
       [pc("p1", "players"), pc("p2", "players"), inlineEnemy(4, 5)],
       { p1: { agility: 4, luck: 3 }, p2: { agility: 4, luck: 9 } }
     )
@@ -106,14 +113,14 @@ describe("compareInitiative", () => {
   })
 
   it("suggests players on a Luck tiebreak when their Luck is higher", () => {
-    const result = compareInitiative([pc("p1", "players"), inlineEnemy(4, 1)], {
+    const result = cmp([pc("p1", "players"), inlineEnemy(4, 1)], {
       p1: { agility: 4, luck: 6 },
     })
     expect(result.suggested).toBe("players")
   })
 
   it("yields to a non-positive-Agility populated side when the other is empty", () => {
-    const result = compareInitiative([pc("p1", "players")], {
+    const result = cmp([pc("p1", "players")], {
       p1: { agility: 0, luck: 0 },
     })
     expect(result.enemies.highestAgility).toBeNull()
@@ -121,16 +128,13 @@ describe("compareInitiative", () => {
   })
 
   it("yields to the enemies even when their only Agility is negative", () => {
-    const result = compareInitiative([inlineEnemy(-1, 0)], {})
+    const result = cmp([inlineEnemy(-1, 0)], {})
     expect(result.players.highestAgility).toBeNull()
     expect(result.suggested).toBe("enemies")
   })
 
   it("ignores a PC whose stats weren't supplied", () => {
-    const result = compareInitiative(
-      [pc("missing", "players"), inlineEnemy(3, 3)],
-      {}
-    )
+    const result = cmp([pc("missing", "players"), inlineEnemy(3, 3)], {})
     expect(result.players.highestAgility).toBeNull()
     expect(result.suggested).toBe("enemies")
   })

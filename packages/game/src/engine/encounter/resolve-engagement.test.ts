@@ -34,7 +34,8 @@ describe("resolveCombatantEngagement", () => {
     const view = resolveCombatantEngagement(
       session,
       find(session, "c-0"),
-      PC_DETAIL
+      PC_DETAIL,
+      {}
     )
 
     expect(view.candidates).toEqual([{ id: "c-1", label: "Bram" }])
@@ -65,7 +66,8 @@ describe("resolveCombatantEngagement", () => {
     const view = resolveCombatantEngagement(
       session,
       find(session, "c-0"),
-      PC_DETAIL
+      PC_DETAIL,
+      {}
     )
 
     expect(view.targetNames).toEqual(["Bram"])
@@ -96,7 +98,8 @@ describe("resolveCombatantEngagement", () => {
     const view = resolveCombatantEngagement(
       session,
       find(session, "c-0"),
-      PC_DETAIL
+      PC_DETAIL,
+      {}
     )
 
     expect(view.candidates).toEqual([{ id: "c-1", label: "Bram" }])
@@ -111,7 +114,8 @@ describe("resolveCombatantEngagement", () => {
     const view = resolveCombatantEngagement(
       session,
       find(session, "c-0"),
-      PC_DETAIL
+      PC_DETAIL,
+      {}
     )
 
     expect(view.candidates.map((candidate) => candidate.id)).toEqual([

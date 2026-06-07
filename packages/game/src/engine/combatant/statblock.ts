@@ -2,6 +2,10 @@ import { type AttributeScores } from "@workspace/game/engine/character/stats/sta
 import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
 import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
 import {
+  type EnemyLookup,
+  type SkillLookup,
+} from "@workspace/game/engine/ports"
+import {
   type HydratedCharacter,
   type HydratedSkill,
 } from "@workspace/game/foundation/character/hydrated-character"
@@ -10,6 +14,7 @@ import {
   type Affinity,
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
+import { type CombatantRef } from "@workspace/game/foundation/encounter/session"
 import { type EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 
 /**
@@ -89,7 +94,10 @@ export function statblockFromCharacter(
  * Enemies have no equipped weapon, so `weaponAttackRoll` is `null` (weapon
  * attacks are authored in `abilities`).
  */
-export function statblockFromEnemy(enemy: EnemyDefinition): Statblock {
+export function statblockFromEnemy(
+  enemy: EnemyDefinition,
+  lookups: SkillLookup
+): Statblock {
   return {
     source: "enemy",
     name: enemy.name,
@@ -97,9 +105,33 @@ export function statblockFromEnemy(enemy: EnemyDefinition): Statblock {
     attributes: enemy.attributes,
     maxHP: enemy.maxHP,
     affinities: enemy.affinities,
-    skills: hydrateEnemySkills(enemy),
+    skills: hydrateEnemySkills(enemy, lookups),
     talents: enemy.talents,
     weaponAttackRoll: null,
     abilities: enemy.abilities ?? null,
   }
+}
+
+/**
+ * Resolves the {@link Statblock} of every **catalog-enemy** combatant in a roster
+ * (session combatants or setup combatants — both carry a {@link CombatantRef}),
+ * keyed by `enemyKey`. The encounter read shapers (rail/console/initiative/…)
+ * take this map and read names / HP / attributes off it instead of touching the
+ * catalog — the #3 boundary-resolution peer of the PC-detail map each already
+ * injects. Built once per render at the assembly boundary (UNN-354); a key that
+ * resolves to no definition is omitted (the shaper falls back to the raw key).
+ */
+export function resolveCatalogEnemyStatblocks(
+  combatants: readonly { ref: CombatantRef }[],
+  lookups: SkillLookup & Pick<EnemyLookup, "getEnemy">
+): Record<string, Statblock> {
+  const byKey: Record<string, Statblock> = {}
+  for (const { ref } of combatants) {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — the `kind` test narrows the union so `ref.enemyKey` type-checks, but is runtime-redundant with the `if (definition)` guard below (a non-catalog ref has no `enemyKey`, so `getEnemy(undefined)` returns undefined and it's skipped either way); `byKey[...]` is a resolve-once optimization that yields the same map.
+    if (ref.kind !== "catalog-enemy" || byKey[ref.enemyKey]) continue
+    const definition = lookups.getEnemy(ref.enemyKey)
+    if (definition)
+      byKey[ref.enemyKey] = statblockFromEnemy(definition, lookups)
+  }
+  return byKey
 }

@@ -1,4 +1,4 @@
-import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { isFallen } from "@workspace/game/foundation/character/state"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 
@@ -25,7 +25,8 @@ import type { CombatSession } from "@workspace/game/foundation/encounter/session
  */
 export function fallenCombatantIds(
   session: CombatSession,
-  pcCurrentHpById: Record<string, number>
+  pcCurrentHpById: Record<string, number>,
+  enemyStatblockById: Record<string, Statblock>
 ): Set<string> {
   const fallen = new Set<string>()
 
@@ -37,7 +38,8 @@ export function fallenCombatantIds(
     } else if (ref.kind === "enemy") {
       if (isFallen(ref.statBlock.currentHP)) fallen.add(combatant.id)
     } else if (ref.kind === "catalog-enemy") {
-      const currentHP = ref.currentHP ?? getEnemy(ref.enemyKey)?.maxHP ?? 0
+      const currentHP =
+        ref.currentHP ?? enemyStatblockById[ref.enemyKey]?.maxHP ?? 0
       if (isFallen(currentHP)) fallen.add(combatant.id)
     }
   }

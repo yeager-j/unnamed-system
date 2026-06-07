@@ -1,6 +1,6 @@
 import { produce } from "immer"
 
-import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type EnemyLookup } from "@workspace/game/engine/ports"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { EnemyVitalsEvent } from "@workspace/game/foundation/encounter/session-event"
 
@@ -23,7 +23,8 @@ import type { EnemyVitalsEvent } from "@workspace/game/foundation/encounter/sess
  */
 export function reduceEnemyVitalsEvent(
   session: CombatSession,
-  event: EnemyVitalsEvent
+  event: EnemyVitalsEvent,
+  lookups: Pick<EnemyLookup, "getEnemy">
 ): CombatSession {
   switch (event.kind) {
     case "adjustEnemyVitals":
@@ -59,7 +60,7 @@ export function reduceEnemyVitalsEvent(
           if (event.field === "currentHP") {
             ref.currentHP = value
           } else if (event.field === "maxHP") {
-            const definitionMax = getEnemy(ref.enemyKey)?.maxHP ?? 0
+            const definitionMax = lookups.getEnemy(ref.enemyKey)?.maxHP ?? 0
             const current = ref.currentHP ?? definitionMax
             ref.maxHP = value
             ref.currentHP = Math.min(current, value)

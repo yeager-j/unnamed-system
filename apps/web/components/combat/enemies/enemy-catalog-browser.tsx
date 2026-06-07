@@ -15,7 +15,6 @@ import {
   enemyFamilyCounts,
   filterEnemyCatalogRows,
   groupEnemyRowsByLevel,
-  statblockFromEnemy,
 } from "@workspace/game/engine"
 import {
   type CombatantSetup,
@@ -26,7 +25,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
-import { buildEnemyCatalogRows } from "@/lib/game-engine"
+import { buildEnemyCatalogRows, statblockFromEnemy } from "@/lib/game-engine"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
 import { EnemyQueueRail } from "./enemy-queue-rail"

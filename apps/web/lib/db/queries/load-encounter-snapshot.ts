@@ -1,3 +1,4 @@
+import { getArchetype } from "@workspace/game/data"
 import {
   projectPlayerSnapshot,
   type EncounterSnapshot,
@@ -6,6 +7,7 @@ import {
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { loadEncounterRowByShortId } from "./load-encounter"
 
@@ -39,11 +41,22 @@ export async function getEncounterSnapshot(
   ])
 
   const pcDetailById: Record<string, PcCombatantDetail> = Object.fromEntries(
-    hydrated.filter((character) => character !== null).map((c) => [c.id, c])
+    hydrated
+      .filter((character) => character !== null)
+      .map((c) => [
+        c.id,
+        {
+          ...c,
+          className: c.activeArchetypeKey
+            ? (getArchetype(c.activeArchetypeKey)?.name ?? null)
+            : null,
+        },
+      ])
   )
 
   return projectPlayerSnapshot(
     { ...encounter, campaignShortId: campaign?.shortId ?? "" },
-    pcDetailById
+    pcDetailById,
+    resolveCatalogEnemyStatblocks(encounter.session.combatants)
   )
 }

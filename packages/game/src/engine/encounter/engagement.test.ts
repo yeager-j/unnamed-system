@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
   type Combatant,
@@ -29,7 +29,7 @@ function engagementOf(s: CombatSession, id: string): Combatant["engagement"] {
 
 describe("reduceCombatSession — setEngagement", () => {
   it("engages the combatant and mirrors onto the target (free → engaged)", () => {
-    const next = reduceCombatSession(session(), {
+    const next = reduceCombat(session(), {
       kind: "setEngagement",
       combatantId: "combatant-0",
       targetCombatantIds: ["combatant-1"],
@@ -47,12 +47,12 @@ describe("reduceCombatSession — setEngagement", () => {
 
   it("replaces the prior engagement, freeing the dropped partner and engaging the new", () => {
     // A engaged with B, then re-set A to C.
-    let next = reduceCombatSession(session(), {
+    let next = reduceCombat(session(), {
       kind: "setEngagement",
       combatantId: "combatant-0",
       targetCombatantIds: ["combatant-1"],
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "setEngagement",
       combatantId: "combatant-0",
       targetCombatantIds: ["combatant-2"],
@@ -71,12 +71,12 @@ describe("reduceCombatSession — setEngagement", () => {
 
   it("leaves a partner's other links intact when one is dropped", () => {
     // B engaged with A and C; re-setting A to [] (via clear) keeps B↔C.
-    let next = reduceCombatSession(session(), {
+    let next = reduceCombat(session(), {
       kind: "setEngagement",
       combatantId: "combatant-1",
       targetCombatantIds: ["combatant-0", "combatant-2"],
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "clearEngagement",
       combatantId: "combatant-0",
     })
@@ -93,12 +93,12 @@ describe("reduceCombatSession — setEngagement", () => {
 
   it("keeps a dropped partner's other links when set-engaging to fewer targets", () => {
     // B engaged with A and C; re-setting A to [] drops A↔B but must keep B↔C.
-    let next = reduceCombatSession(session(), {
+    let next = reduceCombat(session(), {
       kind: "setEngagement",
       combatantId: "combatant-1",
       targetCombatantIds: ["combatant-0", "combatant-2"],
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "setEngagement",
       combatantId: "combatant-0",
       targetCombatantIds: [],
@@ -113,7 +113,7 @@ describe("reduceCombatSession — setEngagement", () => {
 
   it("is a no-op when the combatant id is unknown", () => {
     const s = session()
-    const next = reduceCombatSession(s, {
+    const next = reduceCombat(s, {
       kind: "setEngagement",
       combatantId: "ghost",
       targetCombatantIds: ["combatant-1"],
@@ -124,13 +124,13 @@ describe("reduceCombatSession — setEngagement", () => {
 
 describe("reduceCombatSession — clearEngagement", () => {
   it("frees the combatant and its partner (engaged → free)", () => {
-    const engaged = reduceCombatSession(session(), {
+    const engaged = reduceCombat(session(), {
       kind: "setEngagement",
       combatantId: "combatant-0",
       targetCombatantIds: ["combatant-1"],
     })
 
-    const next = reduceCombatSession(engaged, {
+    const next = reduceCombat(engaged, {
       kind: "clearEngagement",
       combatantId: "combatant-0",
     })
@@ -141,7 +141,7 @@ describe("reduceCombatSession — clearEngagement", () => {
 
   it("is a no-op (unchanged session) when the combatant is already Free", () => {
     const s = session()
-    const next = reduceCombatSession(s, {
+    const next = reduceCombat(s, {
       kind: "clearEngagement",
       combatantId: "combatant-0",
     })
@@ -150,7 +150,7 @@ describe("reduceCombatSession — clearEngagement", () => {
 
   it("is a no-op when the combatant id is unknown", () => {
     const s = session()
-    const next = reduceCombatSession(s, {
+    const next = reduceCombat(s, {
       kind: "clearEngagement",
       combatantId: "ghost",
     })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
@@ -42,7 +42,7 @@ function ailmentsOf(
 
 describe("reduceCombatSession — setAilment / clearAilment", () => {
   it("setAilment adds an ailment key", () => {
-    const next = reduceCombatSession(build(), {
+    const next = reduceCombat(build(), {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "burn",
@@ -51,12 +51,12 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
   })
 
   it("setAilment is idempotent (no duplicate key)", () => {
-    const once = reduceCombatSession(build(), {
+    const once = reduceCombat(build(), {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "burn",
     })
-    const twice = reduceCombatSession(once, {
+    const twice = reduceCombat(once, {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "burn",
@@ -65,17 +65,17 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
   })
 
   it("permits multiple co-existing ailments (no one-at-a-time enforcement)", () => {
-    let next = reduceCombatSession(build(), {
+    let next = reduceCombat(build(), {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "burn",
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "freeze",
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "downed",
@@ -88,17 +88,17 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
   })
 
   it("clearAilment removes one key, leaving the rest", () => {
-    let next = reduceCombatSession(build(), {
+    let next = reduceCombat(build(), {
       kind: "setAilment",
       combatantId: "combatant-1",
       ailment: "burn",
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "setAilment",
       combatantId: "combatant-1",
       ailment: "downed",
     })
-    next = reduceCombatSession(next, {
+    next = reduceCombat(next, {
       kind: "clearAilment",
       combatantId: "combatant-1",
       ailment: "burn",
@@ -107,7 +107,7 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
   })
 
   it("clearAilment for an absent key is a harmless no-change", () => {
-    const next = reduceCombatSession(build(), {
+    const next = reduceCombat(build(), {
       kind: "clearAilment",
       combatantId: "combatant-0",
       ailment: "burn",
@@ -116,7 +116,7 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
   })
 
   it("works on an enemy combatant (overlay is identical to a PC's)", () => {
-    const next = reduceCombatSession(build(), {
+    const next = reduceCombat(build(), {
       kind: "setAilment",
       combatantId: "combatant-1",
       ailment: "shock",
@@ -126,7 +126,7 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
 
   it("is a no-op for an unknown combatant id", () => {
     const session = build()
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "setAilment",
       combatantId: "nobody",
       ailment: "burn",
@@ -140,7 +140,7 @@ describe("reduceCombatSession — setAilment / clearAilment", () => {
     Object.freeze(session.combatants)
     session.combatants.forEach((c) => Object.freeze(c))
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "setAilment",
       combatantId: "combatant-0",
       ailment: "burn",

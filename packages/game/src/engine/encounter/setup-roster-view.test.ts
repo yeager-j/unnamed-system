@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import {
   buildSetupCombatantLabels,
   engageableTargets,
@@ -11,6 +12,13 @@ import type {
   CombatantSetup,
   CombatSession,
 } from "@workspace/game/foundation/encounter/session"
+
+/** Resolves the enemy statblocks for the setup roster under test so catalog
+ *  enemies render their real names. */
+const setupLabels = (
+  setups: Parameters<typeof buildSetupCombatantLabels>[0],
+  pcNameById: Parameters<typeof buildSetupCombatantLabels>[1]
+) => buildSetupCombatantLabels(setups, pcNameById, enemyStatblocks(setups))
 
 function catalogEnemy(enemyKey: string): CombatantSetup {
   return {
@@ -26,7 +34,7 @@ function pc(characterId: string): CombatantSetup {
 
 describe("buildSetupCombatantLabels", () => {
   it("resolves catalog enemy names and numbers duplicates in roster order", () => {
-    const labels = buildSetupCombatantLabels(
+    const labels = setupLabels(
       [catalogEnemy("goblin"), catalogEnemy("goblin"), catalogEnemy("goblin")],
       {}
     )
@@ -34,9 +42,7 @@ describe("buildSetupCombatantLabels", () => {
   })
 
   it("leaves a singleton un-numbered", () => {
-    expect(buildSetupCombatantLabels([catalogEnemy("goblin")], {})).toEqual([
-      "Goblin",
-    ])
+    expect(setupLabels([catalogEnemy("goblin")], {})).toEqual(["Goblin"])
   })
 
   it("reads an inline enemy's name off its stat block", () => {
@@ -55,11 +61,11 @@ describe("buildSetupCombatantLabels", () => {
       },
       zoneId: "",
     }
-    expect(buildSetupCombatantLabels([inline], {})).toEqual(["Brigand"])
+    expect(setupLabels([inline], {})).toEqual(["Brigand"])
   })
 
   it("resolves PC names from the injected map and numbers per base name", () => {
-    const labels = buildSetupCombatantLabels(
+    const labels = setupLabels(
       [pc("char-1"), catalogEnemy("goblin"), catalogEnemy("goblin")],
       { "char-1": "Brannis" }
     )
@@ -67,16 +73,14 @@ describe("buildSetupCombatantLabels", () => {
   })
 
   it("falls back to the raw key when a catalog lookup misses", () => {
-    expect(buildSetupCombatantLabels([catalogEnemy("nope")], {})).toEqual([
-      "nope",
-    ])
+    expect(setupLabels([catalogEnemy("nope")], {})).toEqual(["nope"])
   })
 
   it("is index-aligned to the input", () => {
     const setups = [catalogEnemy("goblin"), pc("char-1")]
-    expect(
-      buildSetupCombatantLabels(setups, { "char-1": "Roan" })
-    ).toHaveLength(setups.length)
+    expect(setupLabels(setups, { "char-1": "Roan" })).toHaveLength(
+      setups.length
+    )
   })
 })
 

@@ -1,4 +1,5 @@
 import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import {
   enemyHp,
@@ -116,7 +117,8 @@ function projectCombatant(
   combatant: Combatant,
   currentActorId: string | null,
   nameById: Map<string, string>,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): PlayerVisibleCombatant {
   const engagedWith =
     combatant.engagement.status === "engaged"
@@ -157,7 +159,7 @@ function projectCombatant(
   return {
     ...base,
     kind: "enemy",
-    hp: enemyHp(combatant),
+    hp: enemyHp(combatant, enemyStatblockById),
     sp: enemySp(combatant),
   }
 }
@@ -178,13 +180,14 @@ export function projectPlayerSnapshot(
     campaignShortId: string
     session: CombatSession
   },
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): EncounterSnapshot {
   const { session } = encounter
   const nameById = new Map(
     session.combatants.map((combatant) => [
       combatant.id,
-      combatantName(combatant, pcDetailById),
+      combatantName(combatant, pcDetailById, enemyStatblockById),
     ])
   )
   const actor = session.combatants.find(
@@ -208,7 +211,8 @@ export function projectPlayerSnapshot(
         combatant,
         session.currentActorId,
         nameById,
-        pcDetailById
+        pcDetailById,
+        enemyStatblockById
       )
     ),
     zones: Object.values(session.zones),
