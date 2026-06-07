@@ -39,6 +39,25 @@ describe("buildSetupCombatantLabels", () => {
     ])
   })
 
+  it("reads an inline enemy's name off its stat block", () => {
+    const inline: CombatantSetup = {
+      side: "enemies",
+      ref: {
+        kind: "enemy",
+        statBlock: {
+          name: "Brigand",
+          maxHP: 10,
+          currentHP: 10,
+          maxSP: 0,
+          currentSP: 0,
+          attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
+        },
+      },
+      zoneId: "",
+    }
+    expect(buildSetupCombatantLabels([inline], {})).toEqual(["Brigand"])
+  })
+
   it("resolves PC names from the injected map and numbers per base name", () => {
     const labels = buildSetupCombatantLabels(
       [pc("char-1"), catalogEnemy("goblin"), catalogEnemy("goblin")],
@@ -173,6 +192,16 @@ describe("normalizeEngagements", () => {
       targetCombatantIds: ["b"],
     })
   })
+
+  it("leaves an explicitly Free combatant untouched", () => {
+    const roster = [
+      combatant("a", "z", { status: "free" }),
+      combatant("b", "z"),
+    ]
+    expect(normalizeEngagements(roster)[0]!.engagement).toEqual({
+      status: "free",
+    })
+  })
 })
 
 describe("engageableTargets", () => {
@@ -211,6 +240,21 @@ describe("engageableTargets", () => {
     expect(
       engageableTargets(roster, 0, ["A", "B", "C"]).map((t) => t.id)
     ).toEqual(["b", "c"])
+  })
+
+  it("returns no targets for an out-of-range index", () => {
+    const roster = [combatant("a", "z"), combatant("b", "z")]
+    expect(engageableTargets(roster, 5, ["A", "B"])).toEqual([])
+  })
+
+  it("skips a same-zone combatant that has no id (can't be a target)", () => {
+    const idless: CombatantSetup = {
+      side: "players",
+      ref: { kind: "pc", characterId: "x" },
+      zoneId: "z",
+    }
+    const roster = [combatant("a", "z"), idless]
+    expect(engageableTargets(roster, 0, ["A", "X"])).toEqual([])
   })
 })
 
@@ -271,5 +315,37 @@ describe("setEngagementTargets", () => {
       status: "engaged",
       targetCombatantIds: ["a"],
     })
+  })
+
+  it("clears a non-first combatant's link on both sides", () => {
+    const roster = [
+      combatant("a", "z", { status: "engaged", targetCombatantIds: ["b"] }),
+      combatant("b", "z", { status: "engaged", targetCombatantIds: ["a"] }),
+    ]
+    // Edit the *second* combatant — exercises that prev is read from the edited
+    // combatant, not whichever happens to be first.
+    const next = setEngagementTargets(roster, "b", [])
+    expect(next.find((s) => s.id === "b")!.engagement).toEqual({
+      status: "free",
+    })
+    expect(next.find((s) => s.id === "a")!.engagement).toEqual({
+      status: "free",
+    })
+  })
+
+  it("leaves an unaffected bystander's engagement untouched", () => {
+    // c has no engagement at all; editing a↔b must not stamp it to Free.
+    const roster = [
+      combatant("a", "z"),
+      combatant("b", "z"),
+      combatant("c", "z"),
+    ]
+    const next = setEngagementTargets(roster, "a", ["b"])
+    expect(next.find((s) => s.id === "c")!.engagement).toBeUndefined()
+  })
+
+  it("does not crash when the edited combatant is not in the roster", () => {
+    const roster = [combatant("a", "z"), combatant("b", "z")]
+    expect(() => setEngagementTargets(roster, "ghost", [])).not.toThrow()
   })
 })

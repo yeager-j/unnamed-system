@@ -41,17 +41,12 @@ export function buildSetupCombatantLabels(
   setups: CombatantSetup[],
   pcNameById: Record<string, string>
 ): string[] {
-  const totals = new Map<string, number>()
-  for (const setup of setups) {
-    const name = baseName(setup, pcNameById)
-    totals.set(name, (totals.get(name) ?? 0) + 1)
-  }
-
+  // The first (or only) occurrence of a base name renders bare; later repeats get
+  // their roster-order ordinal — so a singleton naturally stays un-numbered with
+  // no separate up-front count.
   const seen = new Map<string, number>()
   return setups.map((setup) => {
     const name = baseName(setup, pcNameById)
-    if (totals.get(name) === 1) return name
-
     const ordinal = (seen.get(name) ?? 0) + 1
     seen.set(name, ordinal)
     return ordinal === 1 ? name : `${name} ${ordinal}`
@@ -148,6 +143,7 @@ export function setEngagementTargets(
   )
   return setups.map((setup) => {
     if (setup.id === combatantId) return withEngagementTargets(setup, targetIds)
+    // Stryker disable next-line ConditionalExpression: equivalent — a setup with no id can't be a target (targetIds are real ids), so it falls through to the unchanged-return below either way.
     if (setup.id === undefined) return setup
 
     const isTarget = next.has(setup.id)
@@ -177,10 +173,10 @@ export function setEngagementTargets(
 export function normalizeEngagements(
   setups: CombatantSetup[]
 ): CombatantSetup[] {
+  // An id-less setup can never be referenced as an engagement target, so a
+  // harmless `undefined` key in the lookup is fine — no need to filter it out.
   const zoneById = new Map(
-    setups.flatMap((setup) =>
-      setup.id === undefined ? [] : [[setup.id, setup.zoneId] as const]
-    )
+    setups.map((setup) => [setup.id, setup.zoneId] as const)
   )
   return setups.map((setup) => {
     const engagement = setup.engagement
@@ -189,6 +185,7 @@ export function normalizeEngagements(
     const valid = engagement.targetCombatantIds.filter(
       (id) => zoneById.get(id) === setup.zoneId
     )
+    // Stryker disable next-line ConditionalExpression: equivalent — when every target is valid the rebuild below reproduces the same engagement value; this early return is only a re-allocation optimization.
     if (valid.length === engagement.targetCombatantIds.length) return setup
     return {
       ...setup,

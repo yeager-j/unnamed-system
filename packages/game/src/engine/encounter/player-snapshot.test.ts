@@ -100,6 +100,22 @@ describe("projectPlayerSnapshot", () => {
     })
   })
 
+  it("defaults a PC's pools and attributes to zero when its detail is missing", () => {
+    const session = createCombatSession([pc("char-ghost")], sequentialIds())
+
+    const [player] = projectPlayerSnapshot(
+      encounter(session, "live"),
+      {}
+    ).combatants
+
+    expect(player).toMatchObject({
+      kind: "pc",
+      hp: { current: 0, max: 0 },
+      sp: { current: 0, max: 0 },
+      attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
+    })
+  })
+
   it("resolves a catalog enemy's HP to its definition max and gives it no SP", () => {
     const session = createCombatSession(
       [catalogEnemy("goblin")],

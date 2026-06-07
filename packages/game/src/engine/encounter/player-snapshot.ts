@@ -143,6 +143,7 @@ function projectCombatant(
       ...base,
       kind: "pc",
       hp: pcPool(detail, "hp"),
+      // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind, so mutating the "sp" literal selects the same branch.
       sp: pcPool(detail, "sp"),
       attributes: detail?.attributes ?? {
         strength: 0,
