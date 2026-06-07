@@ -1,17 +1,17 @@
 import { pathOfDawn } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { valor } from "@workspace/game/engine/mechanics/knight/valor"
 import { stains } from "@workspace/game/engine/mechanics/mage/stains"
+import type {
+  MechanicDefinition,
+  MechanicEffect,
+  MechanicEffectContext,
+} from "@workspace/game/engine/mechanics/types"
 import { pathOfDusk } from "@workspace/game/engine/mechanics/warlock/path-of-dusk"
 import { perfection } from "@workspace/game/engine/mechanics/warrior/perfection"
 import type {
   MechanicKind,
   MechanicState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type {
-  MechanicDefinition,
-  MechanicEffect,
-  MechanicEffectContext,
-} from "@workspace/game/foundation/mechanics/types"
 
 /**
  * The Archetype-mechanic registry. Each module owns its own state shape,

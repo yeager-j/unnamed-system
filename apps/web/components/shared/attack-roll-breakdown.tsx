@@ -1,7 +1,5 @@
-import {
-  formatSignedBonus,
-  type ResolvedAttackRoll,
-} from "@workspace/game/engine"
+import { formatSignedBonus } from "@workspace/game/engine"
+import { type ResolvedAttackRoll } from "@workspace/game/foundation"
 
 /**
  * Inline attribution row under the Attack Roll header. Hidden when only the

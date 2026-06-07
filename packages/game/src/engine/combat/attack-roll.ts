@@ -1,10 +1,10 @@
 import {
   computeAttributes,
-  type AttributeScores,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import { resolveAttackAttribute } from "@workspace/game/engine/skills/utils"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import type { PartyComposition } from "@workspace/game/foundation/character/state"
 import type { DamageType } from "@workspace/game/foundation/combat/affinity"
 import {
@@ -37,13 +37,6 @@ import type { Skill } from "@workspace/game/foundation/skills/schema"
  * {@link ./items/schema}'s `IntrinsicAttack`; Skills extract the same fields
  * from their definition via {@link skillAttackRollContext}.
  */
-
-/**
- * `AttackRollSource` and `ResolvedAttackRoll` are logic-free derived-value
- * types that now live in `foundation/combat/attack`; re-exported here so
- * existing deep imports of this module keep resolving.
- */
-export type { AttackRollSource, ResolvedAttackRoll }
 
 /**
  * "What's making this Attack Roll" — the smallest view {@link resolveAttackRoll}

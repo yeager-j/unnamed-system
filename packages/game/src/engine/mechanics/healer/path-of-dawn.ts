@@ -1,8 +1,8 @@
+import type { MechanicDefinition } from "@workspace/game/engine/mechanics/types"
 import {
   pathOfDawnStateSchema,
   type PathOfDawnState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Healer — Path of Dawn. Light-damage Skills apply Lumina counters to enemies

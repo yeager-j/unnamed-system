@@ -13,10 +13,6 @@ import { type ItemLookup } from "@workspace/game/engine/ports"
 import { type InventoryMutation } from "@workspace/game/foundation/items/schema"
 import type { Result } from "@workspace/game/foundation/result"
 
-/** Re-exported from `foundation/items/schema` (a logic-free command type) so
- *  existing deep imports of this module keep resolving. */
-export type { InventoryMutation }
-
 /** Every recoverable failure the underlying engines can surface. */
 export type InventoryMutationError = EquipError | AddError | QuantityError
 

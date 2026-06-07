@@ -2,11 +2,9 @@
 
 import {
   type AttributeScores,
-  type ResolvedAttackRoll,
-} from "@workspace/game/engine"
-import {
   type EquippedWeapon,
   type HydratedSkill,
+  type ResolvedAttackRoll,
 } from "@workspace/game/foundation"
 import {
   Item,

@@ -2,7 +2,6 @@ import { hasUnlockedRank } from "@workspace/game/engine/archetypes/rank"
 import {
   baseAffinitiesForArchetype,
   baseAttributesForArchetype,
-  type ActiveMechanic,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
@@ -18,7 +17,10 @@ import {
   type PathChoice,
 } from "@workspace/game/foundation/character/state"
 import { type EquippableItem } from "@workspace/game/foundation/items/schema"
-import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
+import {
+  type ActiveMechanic,
+  type MechanicState,
+} from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * Assembles the pure {@link StatContext} the derived-value engine

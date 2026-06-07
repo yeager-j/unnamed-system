@@ -1,4 +1,3 @@
-import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
@@ -7,6 +6,7 @@ import {
   type CombatantEngagement,
 } from "@workspace/game/engine/encounter/resolve-engagement"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import {

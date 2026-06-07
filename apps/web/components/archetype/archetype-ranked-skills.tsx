@@ -1,8 +1,5 @@
-import {
-  hasUnlockedRank,
-  type AttributeScores,
-  type RankedSkill,
-} from "@workspace/game/engine"
+import { hasUnlockedRank, type RankedSkill } from "@workspace/game/engine"
+import { type AttributeScores } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 

@@ -9,7 +9,6 @@ import {
 import {
   resolveAttackRoll,
   skillAttackRollContext,
-  type ResolvedAttackRoll,
 } from "@workspace/game/engine/combat/attack-roll"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 import {
@@ -35,6 +34,7 @@ import {
 } from "@workspace/game/foundation/character/lineage"
 import type { CharacterArchetypeRow } from "@workspace/game/foundation/character/records"
 import { type PathChoice } from "@workspace/game/foundation/character/state"
+import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
 import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**

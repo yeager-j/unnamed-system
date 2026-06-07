@@ -1,10 +1,9 @@
-import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
-import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
 import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
 import {
   type EnemyLookup,
   type SkillLookup,
 } from "@workspace/game/engine/ports"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import {
   type HydratedCharacter,
   type HydratedSkill,
@@ -14,6 +13,7 @@ import {
   type Affinity,
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
+import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
 import { type CombatantRef } from "@workspace/game/foundation/encounter/session"
 import { type EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 

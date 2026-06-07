@@ -1,8 +1,5 @@
 import { getTalent } from "@workspace/game/data"
-import {
-  type RecommendationReason,
-  type ResolvedSkillCost,
-} from "@workspace/game/engine"
+import { type RecommendationReason } from "@workspace/game/engine"
 import {
   type Affinity,
   type AffinityDamageType,
@@ -20,6 +17,7 @@ import {
   type Lineage,
   type PathChoice,
   type Range,
+  type ResolvedSkillCost,
   type SkillKind,
   type StainElement,
   type SuggestedPath,

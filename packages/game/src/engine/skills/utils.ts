@@ -1,12 +1,14 @@
 import {
   computeMaxHP,
-  type AttributeScores,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
-import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
+import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
-import { type AttackAttribute } from "@workspace/game/foundation/combat/attack"
+import {
+  type AttackAttribute,
+  type ResolvedAttackRoll,
+} from "@workspace/game/foundation/combat/attack"
 import type { SkillKind } from "@workspace/game/foundation/common"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
 import type {
@@ -63,10 +65,6 @@ export function sortSkillsByKind(skills: HydratedSkill[]): HydratedSkill[] {
     return a.name.localeCompare(b.name)
   })
 }
-
-/** Re-exported from `foundation/skills/schema` (a logic-free derived-value
- *  type) so existing deep imports of this module keep resolving. */
-export type { ResolvedSkillCost }
 
 /**
  * Assembles a {@link HydratedSkill} from a {@link Skill} and its derived

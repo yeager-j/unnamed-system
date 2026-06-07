@@ -2,10 +2,12 @@
 
 import {
   resolveInventory,
-  type InventoryMutation,
   type ResolvedInventory,
 } from "@workspace/game/engine"
-import { type EquipSlot } from "@workspace/game/foundation"
+import {
+  type EquipSlot,
+  type InventoryMutation,
+} from "@workspace/game/foundation"
 import {
   Card,
   CardAction,

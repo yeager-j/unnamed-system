@@ -1,8 +1,8 @@
 import {
   type AttributeScores,
+  type EquippedWeapon,
   type ResolvedAttackRoll,
-} from "@workspace/game/engine"
-import { type EquippedWeapon } from "@workspace/game/foundation"
+} from "@workspace/game/foundation"
 
 import { AttackRollTable } from "./attack-roll-table"
 import { DamageTypeBadge } from "./damage-type-badge"

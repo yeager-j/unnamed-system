@@ -1,8 +1,5 @@
-import {
-  hasUnlockedRank,
-  type ArchetypeEntry,
-  type AttributeScores,
-} from "@workspace/game/engine"
+import { hasUnlockedRank, type ArchetypeEntry } from "@workspace/game/engine"
+import { type AttributeScores } from "@workspace/game/foundation"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
 

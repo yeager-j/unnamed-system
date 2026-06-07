@@ -1,12 +1,12 @@
+import type {
+  MechanicDefinition,
+  MechanicEffect,
+} from "@workspace/game/engine/mechanics/types"
 import {
   VALOR_MAX,
   valorStateSchema,
   type ValorState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type {
-  MechanicDefinition,
-  MechanicEffect,
-} from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Knight — Valor. A 0–7 counter built up by acting as a bulwark for the party

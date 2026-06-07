@@ -1,8 +1,8 @@
+import type { MechanicDefinition } from "@workspace/game/engine/mechanics/types"
 import {
   pathOfDuskStateSchema,
   type PathOfDuskState,
 } from "@workspace/game/foundation/mechanics/schema"
-import type { MechanicDefinition } from "@workspace/game/foundation/mechanics/types"
 
 /**
  * Warlock — Path of Dusk. Ailment Skills apply Lumina counters to enemies
