@@ -1,7 +1,4 @@
-import {
-  buildStatComputationCharacter,
-  type StatComputationCharacter,
-} from "@workspace/game/engine"
+import { buildStatContext, type StatContext } from "@workspace/game/engine"
 import {
   type BattleConditions,
   type ManualBonuses,
@@ -584,16 +581,14 @@ export function archetypeId(slug: string, archetypeKey: string): string {
 }
 
 /**
- * Maps a seed spec onto the pure {@link StatComputationCharacter} the
+ * Maps a seed spec onto the pure {@link StatContext} the
  * derived-value engine consumes — the exact hydration the database seed and the
  * public sheet both rely on. Inheritance-Slot `sourceArchetypeKey`s are
  * resolved to sibling-row ids via {@link archetypeId} so cross-Archetype
  * inheritance is exercised end to end.
  */
-export function buildSeedStatCharacter(
-  character: SeedCharacter
-): StatComputationCharacter {
-  return buildStatComputationCharacter(
+export function buildSeedStatCharacter(character: SeedCharacter): StatContext {
+  return buildStatContext(
     {
       pathChoice: character.pathChoice,
       level: character.level,

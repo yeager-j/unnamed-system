@@ -5,7 +5,7 @@ import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
 import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
 import { garu } from "@workspace/game/data/skills/wind/garu"
-import { type StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import { type StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRoll,
@@ -14,9 +14,7 @@ import {
 } from "@workspace/game/engine/combat/attack-roll"
 import type { Skill } from "@workspace/game/foundation/skills/schema"
 
-function makeWarrior(
-  overrides: Partial<StatComputationCharacter> = {}
-): StatComputationCharacter {
+function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
   return {
     pathChoice: "balanced",
     level: 1,
@@ -30,9 +28,7 @@ function makeWarrior(
   }
 }
 
-function makeMage(
-  overrides: Partial<StatComputationCharacter> = {}
-): StatComputationCharacter {
+function makeMage(overrides: Partial<StatContext> = {}): StatContext {
   return makeWarrior({
     activeArchetypeKey: "mage",
     archetypes: [{ key: "mage", rank: 5 }],
@@ -336,7 +332,7 @@ describe("resolveAttackRoll — perPartyLineage self-exclusion", () => {
     }
   }
 
-  const mcAmount = (character: StatComputationCharacter) =>
+  const mcAmount = (character: StatContext) =>
     resolveAttackRoll(FIRE_MAGICAL_MA, character, { mage: 3 }).sources.find(
       (s) => s.source === "MC"
     )?.amount

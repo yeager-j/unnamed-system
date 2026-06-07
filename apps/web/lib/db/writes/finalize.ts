@@ -1,6 +1,6 @@
 import { getArchetype, type WeaponKey } from "@workspace/game/data"
 import {
-  buildStatComputationCharacter,
+  buildStatContext,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
@@ -79,7 +79,7 @@ export async function finalizeCharacter(
   const startingWeaponKey = startingWeaponForLineage(archetype.lineage)
   if (!startingWeaponKey) return err("no-starting-weapon-for-lineage")
 
-  const stats = buildStatComputationCharacter(
+  const stats = buildStatContext(
     {
       pathChoice: characterRow.pathChoice,
       level: characterRow.level,

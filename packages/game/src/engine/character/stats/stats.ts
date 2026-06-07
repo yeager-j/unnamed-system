@@ -58,7 +58,7 @@ export interface ActiveMechanic {
  * referenced by key because the Archetype catalog is the canonical,
  * test-usable source of their intrinsic data.
  */
-export interface StatComputationCharacter {
+export interface StatContext {
   pathChoice: PathChoice
   /** Character level (1–30). Level 1 is the starting value, no Hit/Skill Dice. */
   level: number
@@ -168,7 +168,7 @@ function sumBonuses(...pools: BonusPool[]): BonusPool {
  * skipped.
  */
 function activePassiveEffects(
-  character: StatComputationCharacter
+  character: StatContext
 ): Array<AffinityEffect | AttributeEffect | AttackRollEffect> {
   const effects: Array<AffinityEffect | AttributeEffect | AttackRollEffect> = []
   for (const skill of character.activeSkills) {
@@ -184,9 +184,7 @@ function activePassiveEffects(
  * the mechanic has no `effects` method (e.g. display-only mechanics like
  * Path of Dawn and Stains in MVP).
  */
-function activeMechanicEffects(
-  character: StatComputationCharacter
-): MechanicEffect[] {
+function activeMechanicEffects(character: StatContext): MechanicEffect[] {
   const active = character.activeMechanic
   if (!active) return []
   return mechanicEffectsFor(active.kind, active.state, { stats: character })
@@ -197,7 +195,7 @@ function activeMechanicEffects(
  * contributes its Mastery effect. Derived from Rank here, never read from
  * storage, so an inactive Mastered Archetype still contributes.
  */
-function masteryBonuses(character: StatComputationCharacter): BonusPool {
+function masteryBonuses(character: StatContext): BonusPool {
   const pool = emptyBonusPool()
   for (const { key, rank } of character.archetypes) {
     if (!hasMasteryBonus(rank)) continue
@@ -235,24 +233,24 @@ function attributeEffectBonuses(
 }
 
 /** Attribute effects conferred by currently-equipped items. */
-function itemBonuses(character: StatComputationCharacter): BonusPool {
+function itemBonuses(character: StatContext): BonusPool {
   return attributeEffectBonuses(
     character.equippedItems.flatMap((item) => item.equip.effects ?? [])
   )
 }
 
 /** Attribute effects of the active Archetype's passive Skills. */
-function passiveSkillBonuses(character: StatComputationCharacter): BonusPool {
+function passiveSkillBonuses(character: StatContext): BonusPool {
   return attributeEffectBonuses(activePassiveEffects(character))
 }
 
 /** Attribute effects emitted by the active Archetype's mechanic. */
-function mechanicBonuses(character: StatComputationCharacter): BonusPool {
+function mechanicBonuses(character: StatContext): BonusPool {
   return attributeEffectBonuses(activeMechanicEffects(character))
 }
 
 /** The character's manually-entered bonuses. */
-function manualBonusPool(character: StatComputationCharacter): BonusPool {
+function manualBonusPool(character: StatContext): BonusPool {
   const pool = emptyBonusPool()
   for (const target of BONUS_TARGET_KEYS) {
     pool[target] = character.manualBonuses[target] ?? 0
@@ -267,9 +265,7 @@ function manualBonusPool(character: StatComputationCharacter): BonusPool {
  * derive and shared across {@link computeAttributes}, {@link computeMaxHP}, and
  * {@link computeMaxSP} so the sources are walked a single time.
  */
-export function accumulatedBonuses(
-  character: StatComputationCharacter
-): BonusPool {
+export function accumulatedBonuses(character: StatContext): BonusPool {
   return sumBonuses(
     masteryBonuses(character),
     itemBonuses(character),
@@ -285,7 +281,7 @@ export function accumulatedBonuses(
  * after all sources are summed.
  */
 export function computeAttributes(
-  character: StatComputationCharacter,
+  character: StatContext,
   bonuses: BonusPool = accumulatedBonuses(character)
 ): AttributeScores {
   const active = character.activeArchetypeKey
@@ -310,7 +306,7 @@ function levelsGained(level: number): number {
  * MVP uses averaged Hit Dice only — no rolled values.
  */
 export function computeMaxHP(
-  character: StatComputationCharacter,
+  character: StatContext,
   bonuses: BonusPool = accumulatedBonuses(character)
 ): number {
   const path = PATH_STATS[character.pathChoice]
@@ -324,7 +320,7 @@ export function computeMaxHP(
  * permanent SP bonuses.
  */
 export function computeMaxSP(
-  character: StatComputationCharacter,
+  character: StatContext,
   bonuses: BonusPool = accumulatedBonuses(character)
 ): number {
   const path = PATH_STATS[character.pathChoice]
@@ -392,7 +388,7 @@ function strongest(candidates: readonly Affinity[]): Affinity | undefined {
  * of scope; only the `overrides` parameter is supported here.
  */
 export function computeAffinityChart(
-  character: StatComputationCharacter,
+  character: StatContext,
   overrides?: Partial<Record<DamageType, Affinity>>
 ): Record<DamageType, Affinity> {
   const active = character.activeArchetypeKey

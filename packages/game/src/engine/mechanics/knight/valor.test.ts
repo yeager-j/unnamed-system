@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import type { StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   adjustValor,
   valor,
@@ -8,7 +8,7 @@ import {
 } from "@workspace/game/engine/mechanics/knight/valor"
 import { VALOR_MAX } from "@workspace/game/foundation/mechanics/schema"
 
-const baseStats: StatComputationCharacter = {
+const baseStats: StatContext = {
   pathChoice: "balanced",
   level: 1,
   manualBonuses: {},

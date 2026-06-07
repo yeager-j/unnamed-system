@@ -2,7 +2,7 @@ import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import {
   computeAttributes,
   type AttributeScores,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import { resolveAttackAttribute } from "@workspace/game/engine/skills/utils"
@@ -105,7 +105,7 @@ export function skillAttackRollContext(skill: Skill): AttackRollContext | null {
  */
 export function resolveAttackRoll(
   context: AttackRollContext,
-  character: StatComputationCharacter,
+  character: StatContext,
   partyComposition: PartyComposition | null
 ): ResolvedAttackRoll {
   return resolveAttackRollFrom(
@@ -152,9 +152,7 @@ export function resolveAttackRollFrom(
   return { total, sources }
 }
 
-function collectAttackRollEffects(
-  character: StatComputationCharacter
-): AttackRollEffect[] {
+function collectAttackRollEffects(character: StatContext): AttackRollEffect[] {
   // Stryker disable next-line ArrayDeclaration: equivalent — a junk seed element resolves to a 0 contribution and is dropped in the fold.
   const effects: AttackRollEffect[] = []
 
@@ -222,7 +220,7 @@ function axisMatches<T>(
 
 function resolveAmount(
   effect: AttackRollEffect,
-  character: StatComputationCharacter,
+  character: StatContext,
   partyComposition: PartyComposition | null
 ): number {
   if (effect.amount !== undefined) return effect.amount
@@ -234,7 +232,7 @@ function resolveAmount(
 
 function resolveScaler(
   scaler: AttackRollScaler,
-  character: StatComputationCharacter,
+  character: StatContext,
   partyComposition: PartyComposition | null
 ): number {
   // Stryker disable next-line ConditionalExpression: equivalent — perPartyLineage is currently the only scaler kind.
@@ -249,7 +247,7 @@ function resolveScaler(
 }
 
 function shareActiveLineage(
-  character: StatComputationCharacter,
+  character: StatContext,
   lineage: AttackRollScaler["lineage"]
 ): boolean {
   const key = character.activeArchetypeKey

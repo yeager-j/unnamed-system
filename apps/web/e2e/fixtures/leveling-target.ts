@@ -5,7 +5,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  toStatComputationCharacter,
+  toStatContext,
 } from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
@@ -28,7 +28,7 @@ export async function createLevelingTarget(tracker: CleanupTracker) {
   async function reset(): Promise<void> {
     const character = await loadHydratedCharacterById(id)
     if (!character) throw new Error("leveling target character not present")
-    const stats = toStatComputationCharacter({ ...character, level: 1 })
+    const stats = toStatContext({ ...character, level: 1 })
     await getDb()
       .update(characters)
       .set({

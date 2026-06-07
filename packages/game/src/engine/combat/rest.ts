@@ -5,7 +5,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
 
@@ -18,17 +18,17 @@ import { err, ok, type Result } from "@workspace/game/foundation/result"
  * mutates its input; persistence is the thin DB wrapper's job.
  *
  * Max HP/SP are derived (not stored) and need the full hydrated character, so
- * this independently extends the neutral {@link StatComputationCharacter} and
- * derives the maxes itself — the same shape `skill-cost`'s `CastingCharacter`
+ * this independently extends the neutral {@link StatContext} and
+ * derives the maxes itself — the same shape `skill-cost`'s `CastContext`
  * uses, kept separate to avoid coupling the two engines.
  */
 
 /**
- * A {@link StatComputationCharacter} plus the live, tracked pools rest
+ * A {@link StatContext} plus the live, tracked pools rest
  * recovers. The derived maxes (HP/SP/Hit/Skill Dice) are computed here from
  * the hydrated view and `level`, never read from storage.
  */
-export interface RestingCharacter extends StatComputationCharacter {
+export interface RestingCharacter extends StatContext {
   currentHP: number
   currentSP: number
   hitDiceRemaining: number

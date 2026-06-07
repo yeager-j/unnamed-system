@@ -21,7 +21,7 @@ everything else from fixtures.
 - `character.ts` — input-shape builders:
   - `makeRawCharacterInputs({ row?, archetypeRows?, inventoryRows?, knives?, chains? })` — the `RawCharacterInputs` the reducers + `deriveHydratedCharacter` consume. `row` merges shallowly over a Level-1 balanced default; collections default to empty.
   - `makeArchetypeRow(overrides)` — a `characterArchetype` row; pass `mechanicState` to seed a mechanic mid-state.
-  - `makeStatComputationCharacter(overrides)` — the stat-computation view (generalizes the inline `makeWarrior`/`makeMage` the combat tests grew).
+  - `makeStatContext(overrides)` — the stat-computation view (generalizes the inline `makeWarrior`/`makeMage` the combat tests grew).
 - `fixtures.ts` — item + passive-Skill data fixtures (`weaknessArmor`, `magicAccessory`, `nullElecSkill`, `accessoryWithEffects(...)`, …).
 - `index.ts` — barrel; import from `@/lib/game/__fixtures__`.
 

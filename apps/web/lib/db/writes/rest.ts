@@ -2,7 +2,7 @@ import {
   applyFullRest,
   applyPartialRest,
   applyRespite,
-  toStatComputationCharacter,
+  toStatContext,
   type PartialRestInput,
   type RespiteInput,
   type RestError,
@@ -36,7 +36,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
 /** Projects a hydrated character onto the pure rest engine's input. */
 function toRestingCharacter(character: HydratedCharacter): RestingCharacter {
   return {
-    ...toStatComputationCharacter(character),
+    ...toStatContext(character),
     currentHP: character.currentHP,
     currentSP: character.currentSP,
     hitDiceRemaining: character.hitDiceRemaining,

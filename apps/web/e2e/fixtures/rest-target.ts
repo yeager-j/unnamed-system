@@ -5,7 +5,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  toStatComputationCharacter,
+  toStatContext,
 } from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
@@ -31,7 +31,7 @@ export async function createRestTarget(tracker: CleanupTracker) {
   async function reset(): Promise<void> {
     const character = await loadHydratedCharacterById(id)
     if (!character) throw new Error("rest target character not present")
-    const stats = toStatComputationCharacter(character)
+    const stats = toStatContext(character)
     const maxHP = computeMaxHP(stats)
     const maxSP = computeMaxSP(stats)
     const maxHD = computeMaxHitDice(character.level)

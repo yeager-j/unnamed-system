@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import {
-  buildStatComputationCharacter,
+  buildStatContext,
   type PersistedArchetypeState,
   type PersistedCharacterState,
 } from "@workspace/game/engine/character/stats/stat-character"
@@ -27,13 +27,9 @@ function warriorRow(
   }
 }
 
-describe("buildStatComputationCharacter", () => {
+describe("buildStatContext", () => {
   it("passes character scalars straight through", () => {
-    const result = buildStatComputationCharacter(
-      baseCharacter,
-      [warriorRow()],
-      []
-    )
+    const result = buildStatContext(baseCharacter, [warriorRow()], [])
     expect(result.pathChoice).toBe("balanced")
     expect(result.level).toBe(3)
     expect(result.manualBonuses).toEqual({ hp: 5 })
@@ -41,7 +37,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("resolves the active Archetype via the surrogate id", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [
         warriorRow(),
@@ -59,7 +55,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("returns no active Archetype or Skills when none is active", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       { ...baseCharacter, activeCharacterArchetypeId: null },
       [warriorRow()],
       []
@@ -69,7 +65,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("includes only Skills unlocked at or below the active Rank", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [warriorRow({ rank: 2 })],
       []
@@ -79,7 +75,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("includes the Synthesis Skill once the active Rank reaches it", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [warriorRow({ rank: 5 })],
       []
@@ -90,7 +86,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("includes Skills inherited into the active Archetype's slots", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [
         warriorRow({
@@ -114,7 +110,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("resolves equipped catalog keys and drops unknown ones", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [warriorRow()],
       ["longsword", "does-not-exist"]
@@ -123,7 +119,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("includes Skills granted by equipped item effects", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [warriorRow({ rank: 1 })],
       ["zephyr-band"]
@@ -134,7 +130,7 @@ describe("buildStatComputationCharacter", () => {
   })
 
   it("does not duplicate an equipment-granted Skill the Archetype already provides", () => {
-    const result = buildStatComputationCharacter(
+    const result = buildStatContext(
       baseCharacter,
       [
         warriorRow({
@@ -156,7 +152,7 @@ describe("buildStatComputationCharacter", () => {
 
   describe("active mechanic", () => {
     it("populates activeMechanic from the active row's mechanicState", () => {
-      const result = buildStatComputationCharacter(
+      const result = buildStatContext(
         baseCharacter,
         [warriorRow({ mechanicState: { kind: "perfection", rank: 3 } })],
         []
@@ -168,7 +164,7 @@ describe("buildStatComputationCharacter", () => {
     })
 
     it("coerces a null mechanicState to the mechanic's initialState", () => {
-      const result = buildStatComputationCharacter(
+      const result = buildStatContext(
         baseCharacter,
         [warriorRow({ mechanicState: null })],
         []
@@ -180,7 +176,7 @@ describe("buildStatComputationCharacter", () => {
     })
 
     it("returns null when no Archetype is active", () => {
-      const result = buildStatComputationCharacter(
+      const result = buildStatContext(
         { ...baseCharacter, activeCharacterArchetypeId: null },
         [warriorRow()],
         []
@@ -192,7 +188,7 @@ describe("buildStatComputationCharacter", () => {
       // No Archetype in the shipped catalog omits `mechanic` today, so this
       // case is guarded by an unknown archetypeKey — exercises the same
       // null-on-missing-mechanic branch.
-      const result = buildStatComputationCharacter(
+      const result = buildStatContext(
         {
           ...baseCharacter,
           activeCharacterArchetypeId: "ca-unknown",
