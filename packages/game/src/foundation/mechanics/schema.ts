@@ -54,10 +54,17 @@ export const stainsStateSchema = z.object({
 
 export type StainsState = z.infer<typeof stainsStateSchema>
 
-/** Warrior — Perfection: the current step on the D → S chain (rulebook `Perfection.md`). */
+/**
+ * Warrior — Perfection: the current step on the D → S chain (rulebook
+ * `Perfection.md`). The rank is a 0-based index; `PERFECTION_MAX_RANK` (S) must
+ * stay in lockstep with the length-5 `PERFECTION_RANK_LABELS` /
+ * `PERFECTION_ATTACK_BONUSES` tuples in `engine/mechanics/warrior/perfection.ts`.
+ */
+export const PERFECTION_MAX_RANK = 4
+
 export const perfectionStateSchema = z.object({
   kind: z.literal("perfection"),
-  rank: z.number().int().min(0).max(4),
+  rank: z.number().int().min(0).max(PERFECTION_MAX_RANK),
 })
 
 export type PerfectionState = z.infer<typeof perfectionStateSchema>
