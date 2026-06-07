@@ -1,6 +1,10 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import { getEnemy } from "@workspace/game/data/enemies/registry"
 import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
+import {
+  statblockFromEnemy,
+  type Statblock,
+} from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
@@ -8,11 +12,7 @@ import {
   type CombatantEngagement,
 } from "@workspace/game/engine/encounter/resolve-engagement"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
-import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
-import {
-  type HydratedCharacter,
-  type HydratedSkill,
-} from "@workspace/game/foundation/character/hydrated-character"
+import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import {
   type Affinity,
@@ -183,17 +183,12 @@ export type CombatantDetail = CombatantOverlay & {
         id: string
         name: string
         side: CombatSide
-        level: number | null
         hp: Pool
-        attributes: AttributeScores
-        affinities: AffinityChart | null
-        /** The catalog enemy's hydrated skills and its freeform `abilities`
-         *  Markdown (both empty/`null` for an inline enemy). Hydrated against the
-         *  enemy's flat Attributes (see {@link hydrateEnemySkills}) so the drawer
-         *  reuses the shared `SkillCard` — same Attack Roll readout a character
-         *  gets, with the cost row suppressed (enemies pay no Skill costs). */
-        skills: HydratedSkill[]
-        abilities: string | null
+        /** The enemy's resolved {@link Statblock} (attributes, affinity chart,
+         *  hydrated skills, abilities, level) — the same model the catalog browse
+         *  statblock renders. The session overlay (working HP, ailments,
+         *  position) layers on top; working HP stays on {@link hp}. */
+        statblock: Statblock
       }
   )
 
@@ -252,6 +247,35 @@ export function enemyHp(combatant: Combatant): Pool {
     }
   }
   return { current: 0, max: 0 }
+}
+
+const ZERO_ATTRIBUTES: AttributeScores = {
+  strength: 0,
+  magic: 0,
+  agility: 0,
+  luck: 0,
+}
+
+/** A minimal {@link Statblock} for a provisional inline enemy (or a catalog ref
+ *  whose definition can't be resolved): flat Attributes + working HP only, with
+ *  no level, affinity chart, structured skills, or abilities yet (UNN-299).
+ *  Working HP rides on the {@link CombatantDetail}'s `hp` pool, not here. */
+function inlineEnemyStatblock(
+  name: string,
+  attributes: AttributeScores = ZERO_ATTRIBUTES
+): Statblock {
+  return {
+    source: "enemy",
+    name,
+    level: null,
+    attributes,
+    maxHP: 0,
+    affinities: null,
+    skills: [],
+    talents: [],
+    weaponAttackRoll: null,
+    abilities: null,
+  }
 }
 
 function pcPool(
@@ -396,22 +420,13 @@ export function combatantDetail(
       id: combatant.id,
       name,
       side: combatant.side,
-      level: def?.level ?? null,
       hp: enemyHp(combatant),
-      attributes: def?.attributes ?? {
-        strength: 0,
-        magic: 0,
-        agility: 0,
-        luck: 0,
-      },
-      affinities: def?.affinities ?? null,
-      skills: def ? hydrateEnemySkills(def) : [],
-      abilities: def?.abilities ?? null,
+      statblock: def ? statblockFromEnemy(def) : inlineEnemyStatblock(name),
     }
   }
 
-  // inline enemy stat block (UNN-299 provisional: no level, no affinity chart,
-  // no structured skills/abilities)
+  // inline enemy stat block (UNN-299 provisional: flat Attributes + working HP
+  // only — no level, affinity chart, structured skills, or abilities yet)
   return {
     ...overlay,
     position,
@@ -420,11 +435,7 @@ export function combatantDetail(
     id: combatant.id,
     name,
     side: combatant.side,
-    level: null,
     hp: enemyHp(combatant),
-    attributes: ref.statBlock.attributes,
-    affinities: null,
-    skills: [],
-    abilities: null,
+    statblock: inlineEnemyStatblock(name, ref.statBlock.attributes),
   }
 }

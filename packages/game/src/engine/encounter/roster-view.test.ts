@@ -224,12 +224,12 @@ describe("combatantDetail", () => {
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
-      expect(detail.level).toBeTypeOf("number")
-      expect(detail.affinities).not.toBeNull()
+      expect(detail.statblock.level).toBeTypeOf("number")
+      expect(detail.statblock.affinities).not.toBeNull()
       expect(detail.hp.current).toBe(detail.hp.max)
       // The Goblin has no skills but carries freeform abilities Markdown.
-      expect(detail.skills).toEqual([])
-      expect(detail.abilities).toBeTypeOf("string")
+      expect(detail.statblock.skills).toEqual([])
+      expect(detail.statblock.abilities).toBeTypeOf("string")
     }
   })
 
@@ -248,16 +248,19 @@ describe("combatantDetail", () => {
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
-      expect(detail.skills.map((skill) => skill.key)).toEqual(["garu", "zio"])
+      expect(detail.statblock.skills.map((skill) => skill.key)).toEqual([
+        "garu",
+        "zio",
+      ])
       // Resolved through the skill registry, never the raw key.
-      for (const skill of detail.skills) {
+      for (const skill of detail.statblock.skills) {
         expect(skill.name).not.toBe(skill.key)
         expect(skill.name.length).toBeGreaterThan(0)
       }
       // Skills are hydrated against the enemy's flat Attributes (UNN-350 seam):
       // garu/zio roll Magic, so the resolved Attack Roll is the captain's Magic.
       const magic = getEnemy("bandit-captain")!.attributes.magic
-      const garu = detail.skills.find((skill) => skill.key === "garu")
+      const garu = detail.statblock.skills.find((skill) => skill.key === "garu")
       expect(garu?.resolvedAttackRoll?.total).toBe(magic)
     }
   })
@@ -267,12 +270,12 @@ describe("combatantDetail", () => {
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
-      expect(detail.level).toBeNull()
-      expect(detail.affinities).toBeNull()
-      expect(detail.attributes.agility).toBe(2)
+      expect(detail.statblock.level).toBeNull()
+      expect(detail.statblock.affinities).toBeNull()
+      expect(detail.statblock.attributes.agility).toBe(2)
       expect(detail.hp).toEqual({ current: 5, max: 8 })
-      expect(detail.skills).toEqual([])
-      expect(detail.abilities).toBeNull()
+      expect(detail.statblock.skills).toEqual([])
+      expect(detail.statblock.abilities).toBeNull()
     }
   })
 
