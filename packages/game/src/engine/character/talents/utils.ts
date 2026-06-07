@@ -1,5 +1,7 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { getTalent } from "@workspace/game/data/character/talents/registry"
+import {
+  type ArchetypeLookup,
+  type TalentLookup,
+} from "@workspace/game/engine/ports"
 import { type TalentKey } from "@workspace/game/foundation/character/talents/schema"
 
 /**
@@ -20,12 +22,15 @@ import { type TalentKey } from "@workspace/game/foundation/character/talents/sch
  */
 export function resolveTalents(
   gainedTalents: TalentKey[],
-  activeArchetypeKey: string | null
+  activeArchetypeKey: string | null,
+  lookups: Pick<ArchetypeLookup, "getArchetype"> & TalentLookup
 ): TalentKey[] {
   const archetypeTalents = activeArchetypeKey
-    ? (getArchetype(activeArchetypeKey)?.talents ?? [])
+    ? (lookups.getArchetype(activeArchetypeKey)?.talents ?? [])
     : []
   return [...new Set([...gainedTalents, ...archetypeTalents])].sort((a, b) =>
-    (getTalent(a)?.name ?? a).localeCompare(getTalent(b)?.name ?? b)
+    (lookups.getTalent(a)?.name ?? a).localeCompare(
+      lookups.getTalent(b)?.name ?? b
+    )
   )
 }

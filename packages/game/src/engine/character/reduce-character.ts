@@ -15,6 +15,7 @@ import {
   type ArchetypeLookup,
   type ItemLookup,
   type SkillLookup,
+  type TalentLookup,
 } from "@workspace/game/engine/ports"
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
@@ -34,11 +35,11 @@ const randomId = () => crypto.randomUUID()
 export function reduceCharacter(
   character: HydratedCharacter,
   edit: CharacterEdit,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup,
   newId: () => string = randomId
 ): HydratedCharacter {
   const raw = toRawInputs(character)
-  const next = routeEdit(raw, character, edit, newId)
+  const next = routeEdit(raw, character, edit, lookups, newId)
   return next ? deriveHydratedCharacter(next, lookups) : character
 }
 
@@ -52,12 +53,13 @@ function routeEdit(
   raw: RawCharacterInputs,
   character: HydratedCharacter,
   edit: CharacterEdit,
+  lookups: ArchetypeLookup & ItemLookup,
   newId: () => string
 ): SliceResult {
   switch (edit.kind) {
     case "inventory":
     case "currency":
-      return reduceInventoryEdit(raw, edit, newId)
+      return reduceInventoryEdit(raw, edit, newId, lookups)
 
     case "ailments":
     case "battleConditionAxis":
@@ -94,6 +96,6 @@ function routeEdit(
     case "setInheritanceSlot":
     case "unlockArchetype":
     case "rankUpArchetype":
-      return reduceArchetypeEdit(raw, edit, newId)
+      return reduceArchetypeEdit(raw, edit, newId, lookups.allArchetypes())
   }
 }

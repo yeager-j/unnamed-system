@@ -1,4 +1,8 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
+import {
+  ARCHETYPES,
+  getArchetype,
+} from "@workspace/game/data/archetypes/registry"
+import { getTalent } from "@workspace/game/data/character/talents/registry"
 import {
   ENEMIES,
   getEnemy,
@@ -11,6 +15,7 @@ import {
   type EnemyLookup,
   type ItemLookup,
   type SkillLookup,
+  type TalentLookup,
 } from "@workspace/game/engine/ports"
 
 /**
@@ -25,12 +30,15 @@ import {
 export const gameData: ArchetypeLookup &
   SkillLookup &
   ItemLookup &
-  EnemyLookup = {
+  EnemyLookup &
+  TalentLookup = {
   getArchetype,
+  allArchetypes: () => ARCHETYPES,
   getSkill,
   getItem,
   getEquippableItem,
   getEnemy,
   getEnemyFamily,
   allEnemies: () => ENEMIES,
+  getTalent,
 }

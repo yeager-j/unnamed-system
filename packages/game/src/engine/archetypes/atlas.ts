@@ -1,4 +1,3 @@
-import { ARCHETYPES } from "@workspace/game/data/archetypes/registry"
 import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
 import { MAX_LEVEL } from "@workspace/game/engine/character/leveling"
 import {
@@ -154,14 +153,15 @@ export function atlasNodeState(
  * `characterArchetype` rows (keyed by Archetype slug — a character owns at most
  * one row per Archetype).
  *
- * `catalog` defaults to the full {@link ARCHETYPES} registry; it is a parameter
- * so tests can inject a fixture catalog with the multi-tier lineages and
- * prerequisites the shipped set doesn't yet carry (the demo set does), to
- * exercise the tier sort and prerequisite resolution.
+ * `catalog` is the full Archetype list, injected by the assembly boundary
+ * (UNN-354) — the composition root passes `gameData.allArchetypes()`; tests inject
+ * a fixture catalog with the multi-tier lineages and prerequisites the shipped set
+ * doesn't yet carry (the demo set does), to exercise the tier sort and
+ * prerequisite resolution.
  */
 export function buildLineageAtlas(
   character: HydratedCharacter,
-  catalog: readonly Archetype[] = ARCHETYPES
+  catalog: readonly Archetype[]
 ): LineageAtlasView {
   const byKey = new Map(catalog.map((archetype) => [archetype.key, archetype]))
   const ownedRowByKey = new Map<string, CharacterArchetypeRow>()

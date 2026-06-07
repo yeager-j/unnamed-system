@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useState } from "react"
 
 import {
-  buildLineageAtlas,
   filterAtlasLineagesToUnlocked,
   getAtlasRecommendations,
   type AtlasLineage,
@@ -17,6 +16,7 @@ import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
+import { buildLineageAtlas } from "@/lib/game-engine"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"
 import { AtlasSidebar } from "./atlas-sidebar"

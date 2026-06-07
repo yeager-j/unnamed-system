@@ -1,4 +1,5 @@
 import { type Archetype } from "@workspace/game/foundation/archetypes/schema"
+import { type Talent } from "@workspace/game/foundation/character/talents/schema"
 import {
   type EnemyDefinition,
   type EnemyFamily,
@@ -28,14 +29,21 @@ import { type Skill } from "@workspace/game/foundation/skills/schema"
  * `getMechanic` stays a direct in-engine call.
  */
 
-/** Resolves an Archetype by its slug key. */
+/** Resolves an Archetype by its slug key, plus the whole catalog (the Lineage
+ *  Atlas and the unlock-archetype reducer walk every Archetype). */
 export interface ArchetypeLookup {
   getArchetype(key: string): Archetype | undefined
+  allArchetypes(): readonly Archetype[]
 }
 
 /** Resolves a Skill by its slug key. */
 export interface SkillLookup {
   getSkill(key: string): Skill | undefined
+}
+
+/** Resolves a Talent by its slug key. */
+export interface TalentLookup {
+  getTalent(key: string): Talent | undefined
 }
 
 /** Resolves catalog items by slug key — any item, and the equippable narrowing. */

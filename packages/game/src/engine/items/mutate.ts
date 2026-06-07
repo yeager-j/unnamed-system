@@ -9,6 +9,7 @@ import {
   type InventoryItemState,
   type QuantityError,
 } from "@workspace/game/engine/items/utils"
+import { type ItemLookup } from "@workspace/game/engine/ports"
 import type { Result } from "@workspace/game/foundation/result"
 
 /**
@@ -37,17 +38,24 @@ const randomId = () => crypto.randomUUID()
 export function applyInventoryMutation(
   items: readonly InventoryItemState[],
   mutation: InventoryMutation,
+  lookups: ItemLookup,
   newId: () => string = randomId
 ): Result<InventoryItemState[], InventoryMutationError> {
   switch (mutation.kind) {
     case "equip":
-      return equipItem(items, mutation.itemId)
+      return equipItem(items, mutation.itemId, lookups)
     case "unequip":
       return unequipItem(items, mutation.itemId)
     case "add":
-      return addItem(items, mutation.catalogItemKey, mutation.quantity, newId)
+      return addItem(
+        items,
+        mutation.catalogItemKey,
+        mutation.quantity,
+        newId,
+        lookups
+      )
     case "setQuantity":
-      return setItemQuantity(items, mutation.itemId, mutation.quantity)
+      return setItemQuantity(items, mutation.itemId, mutation.quantity, lookups)
     case "remove":
       return removeItem(items, mutation.itemId)
   }

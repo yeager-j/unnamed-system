@@ -1,8 +1,9 @@
-import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
+import { type ItemLookup } from "@workspace/game/engine/ports"
 import { type HydratedInventoryItem } from "@workspace/game/foundation/character/hydrated-character"
 import {
   isConsumable,
   isEquippable,
+  isItemForSlot,
   type EquippableItem,
   type EquippedWeapon,
   type EquipSlot,
@@ -39,19 +40,20 @@ export type EquipError = "item-not-found" | "catalog-item-unknown"
  */
 export function equipItem(
   items: readonly InventoryItemState[],
-  itemId: string
+  itemId: string,
+  lookups: Pick<ItemLookup, "getEquippableItem">
 ): Result<InventoryItemState[], EquipError> {
   const target = items.find((item) => item.id === itemId)
   if (!target) return err("item-not-found")
 
-  const targetCatalogItem = getEquippableItem(target.catalogItemKey)
+  const targetCatalogItem = lookups.getEquippableItem(target.catalogItemKey)
   if (!targetCatalogItem) return err("catalog-item-unknown")
 
   const targetSlot = targetCatalogItem.equip.slot
 
   const next = items.map((item) => {
     if (item.id === itemId) return { ...item, equipped: true }
-    const itsSlot = getEquippableItem(item.catalogItemKey)?.equip.slot
+    const itsSlot = lookups.getEquippableItem(item.catalogItemKey)?.equip.slot
     return itsSlot === targetSlot ? { ...item, equipped: false } : item
   })
 
@@ -92,9 +94,10 @@ export function addItem(
   items: readonly InventoryItemState[],
   catalogItemKey: string,
   requestedQuantity: number,
-  newId: () => string
+  newId: () => string,
+  lookups: Pick<ItemLookup, "getItem">
 ): Result<InventoryItemState[], AddError> {
-  const item = getItem(catalogItemKey)
+  const item = lookups.getItem(catalogItemKey)
   if (!item) return err("catalog-item-unknown")
   if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
     return err("invalid-quantity")
@@ -141,12 +144,13 @@ export type QuantityError = "item-not-found"
 export function setItemQuantity(
   items: readonly InventoryItemState[],
   itemId: string,
-  quantity: number
+  quantity: number,
+  lookups: Pick<ItemLookup, "getItem">
 ): Result<InventoryItemState[], QuantityError> {
   const target = items.find((item) => item.id === itemId)
   if (!target) return err("item-not-found")
 
-  const stackSize = getItem(target.catalogItemKey)?.stackSize ?? 1
+  const stackSize = lookups.getItem(target.catalogItemKey)?.stackSize ?? 1
   const clamped = Math.max(0, Math.min(stackSize, Math.floor(quantity)))
 
   if (clamped === 0) {
@@ -268,4 +272,31 @@ function filterAndSort<S extends EquipSlot>(
         entry.item.equip.slot === slot
     )
     .sort((a, b) => a.item.name.localeCompare(b.item.name))
+}
+
+/** Structural inventory slice {@link getEquippedItem} reads — a hydrated row's
+ *  equipped flag + its resolved catalog item. */
+type InventorySlice = readonly {
+  equipped: boolean
+  item: Item | undefined
+}[]
+
+/**
+ * Returns the equipped item in `slot` from a character's hydrated inventory,
+ * narrowed to the concrete slot type, or `null` when nothing is equipped. A
+ * character may equip only one item per slot; if the persisted state ever
+ * contains more than one, the first match wins. A **pure** filter over the
+ * already-resolved inventory (no catalog access), so it lives in the engine
+ * (UNN-354) rather than the data registry where it used to sit.
+ */
+export function getEquippedItem<S extends EquipSlot>(
+  inventory: InventorySlice,
+  slot: S
+): ItemForSlot<S> | null {
+  for (const entry of inventory) {
+    if (entry.equipped && entry.item && isItemForSlot(entry.item, slot)) {
+      return entry.item
+    }
+  }
+  return null
 }

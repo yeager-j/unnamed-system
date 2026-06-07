@@ -1,4 +1,3 @@
-import { ARCHETYPES } from "@workspace/game/data/archetypes/registry"
 import { unmetPrerequisites } from "@workspace/game/engine/archetypes/atlas"
 import { MASTERY_RANK } from "@workspace/game/engine/archetypes/rank"
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
@@ -29,7 +28,7 @@ export function reduceArchetypeEdit(
   raw: RawCharacterInputs,
   edit: ArchetypeEdit,
   newId: () => string,
-  catalog: readonly Archetype[] = ARCHETYPES
+  catalog: readonly Archetype[]
 ): SliceResult {
   switch (edit.kind) {
     case "switchActiveArchetype":

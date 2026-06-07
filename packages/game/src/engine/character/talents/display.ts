@@ -1,17 +1,20 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { getTalent } from "@workspace/game/data/character/talents/registry"
+import {
+  type ArchetypeLookup,
+  type TalentLookup,
+} from "@workspace/game/engine/ports"
 import {
   TALENT_KEYS,
   type TalentKey,
 } from "@workspace/game/foundation/character/talents/schema"
 
-const labelFor = (key: TalentKey): string => getTalent(key)?.name ?? key
+const labelFor = (key: TalentKey, lookups: TalentLookup): string =>
+  lookups.getTalent(key)?.name ?? key
 
-const byLabel = (a: TalentKey, b: TalentKey): number =>
-  labelFor(a).localeCompare(labelFor(b))
-
-const archetypeTalents = (archetypeKey: string | null): TalentKey[] =>
-  archetypeKey ? (getArchetype(archetypeKey)?.talents ?? []) : []
+const archetypeTalents = (
+  archetypeKey: string | null,
+  lookups: Pick<ArchetypeLookup, "getArchetype">
+): TalentKey[] =>
+  archetypeKey ? (lookups.getArchetype(archetypeKey)?.talents ?? []) : []
 
 export interface TalentChip {
   key: TalentKey
@@ -37,22 +40,25 @@ export interface ResolvedSheetTalents {
  */
 export function resolveTalentsForSheet(
   gainedTalents: TalentKey[],
-  activeArchetypeKey: string | null
+  activeArchetypeKey: string | null,
+  lookups: Pick<ArchetypeLookup, "getArchetype"> & TalentLookup
 ): ResolvedSheetTalents {
-  const inherited = archetypeTalents(activeArchetypeKey)
+  const byLabel = (a: TalentKey, b: TalentKey): number =>
+    labelFor(a, lookups).localeCompare(labelFor(b, lookups))
+  const inherited = archetypeTalents(activeArchetypeKey, lookups)
   const chips: TalentChip[] = [
     ...[...inherited]
       .sort(byLabel)
-      .map((key) => ({ key, label: labelFor(key), inherited: true })),
+      .map((key) => ({ key, label: labelFor(key, lookups), inherited: true })),
     ...[...gainedTalents]
       .sort(byLabel)
-      .map((key) => ({ key, label: labelFor(key), inherited: false })),
+      .map((key) => ({ key, label: labelFor(key, lookups), inherited: false })),
   ]
 
   const known = new Set<TalentKey>([...inherited, ...gainedTalents])
   const remaining = TALENT_KEYS.filter((key) => !known.has(key))
     .sort(byLabel)
-    .map((key) => ({ key, label: labelFor(key) }))
+    .map((key) => ({ key, label: labelFor(key, lookups) }))
 
   return { chips, remaining }
 }
@@ -77,9 +83,10 @@ export interface ResolvedBuilderTalents {
  * (the picker keeps them visible), so this depends only on the Origin key.
  */
 export function resolveTalentsForBuilder(
-  originArchetypeKey: string | null
+  originArchetypeKey: string | null,
+  lookups: Pick<ArchetypeLookup, "getArchetype">
 ): ResolvedBuilderTalents {
-  const origin = [...archetypeTalents(originArchetypeKey)]
+  const origin = [...archetypeTalents(originArchetypeKey, lookups)]
   const originSet = new Set(origin)
   const selectable = TALENT_KEYS.filter((key) => !originSet.has(key))
   return { origin, selectable }

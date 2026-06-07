@@ -1,11 +1,8 @@
 import { eq } from "drizzle-orm"
 
 import {
-  addItem,
-  equipItem,
   MAX_CURRENCY,
   removeItem,
-  setItemQuantity,
   unequipItem,
   type AddError,
   type EquipError,
@@ -17,6 +14,7 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 import { db } from "@/lib/db/client"
 import { characters, inventoryItems } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { addItem, equipItem, setItemQuantity } from "@/lib/game-engine"
 
 import { bumpCharacterVersionGuarded } from "./version-guard"
 

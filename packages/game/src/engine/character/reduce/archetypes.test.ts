@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
@@ -11,6 +12,15 @@ import { reduceArchetypeEdit } from "@workspace/game/engine/character/reduce/arc
 
 const STABLE_ID = () => "minted-id"
 
+/** Binds the catalog: defaults to the production set, or takes an injected
+ *  fixture catalog for the prerequisite cases. */
+const reduceArch = (
+  raw: Parameters<typeof reduceArchetypeEdit>[0],
+  edit: Parameters<typeof reduceArchetypeEdit>[1],
+  newId: Parameters<typeof reduceArchetypeEdit>[2],
+  catalog: Parameters<typeof reduceArchetypeEdit>[3] = gameData.allArchetypes()
+) => reduceArchetypeEdit(raw, edit, newId, catalog)
+
 function rowsById(raw: RawCharacterInputs | null) {
   return new Map(raw?.archetypeRows.map((row) => [row.id, row]))
 }
@@ -21,7 +31,7 @@ describe("reduceArchetypeEdit — switchActiveArchetype", () => {
       archetypeRows: [makeArchetypeRow({ id: "a1" })],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "switchActiveArchetype", characterArchetypeId: "a1" },
         STABLE_ID
@@ -52,7 +62,7 @@ describe("reduceArchetypeEdit — setInheritanceSlot", () => {
       ],
     })
 
-    const next = reduceArchetypeEdit(
+    const next = reduceArch(
       raw,
       {
         kind: "setInheritanceSlot",
@@ -85,7 +95,7 @@ describe("reduceArchetypeEdit — setInheritanceSlot", () => {
       archetypeRows: [makeArchetypeRow({ id: "a1" })],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         {
           kind: "setInheritanceSlot",
@@ -107,7 +117,7 @@ describe("reduceArchetypeEdit — unlockArchetype", () => {
       archetypeRows: [makeArchetypeRow({ id: "a1", archetypeKey: "warrior" })],
     })
 
-    const next = reduceArchetypeEdit(
+    const next = reduceArch(
       raw,
       { kind: "unlockArchetype", archetypeKey: "mage" },
       STABLE_ID
@@ -124,7 +134,7 @@ describe("reduceArchetypeEdit — unlockArchetype", () => {
   it("is a no-op for an unknown Archetype key", () => {
     const raw = makeRawCharacterInputs({ row: { savedArchetypeRanks: 2 } })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "unlockArchetype", archetypeKey: "not-a-real-archetype" },
         STABLE_ID
@@ -141,7 +151,7 @@ describe("reduceArchetypeEdit — unlockArchetype", () => {
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "unlockArchetype", archetypeKey: "mage" },
         STABLE_ID
@@ -155,7 +165,7 @@ describe("reduceArchetypeEdit — unlockArchetype", () => {
       archetypeRows: [makeArchetypeRow({ id: "a1", archetypeKey: "warrior" })],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "unlockArchetype", archetypeKey: "mage" },
         STABLE_ID
@@ -174,7 +184,7 @@ describe("reduceArchetypeEdit — rankUpArchetype", () => {
       ],
     })
 
-    const next = reduceArchetypeEdit(
+    const next = reduceArch(
       raw,
       { kind: "rankUpArchetype", characterArchetypeId: "a1" },
       STABLE_ID
@@ -198,7 +208,7 @@ describe("reduceArchetypeEdit — rankUpArchetype", () => {
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "rankUpArchetype", characterArchetypeId: "a1" },
         STABLE_ID
@@ -214,7 +224,7 @@ describe("reduceArchetypeEdit — rankUpArchetype", () => {
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "rankUpArchetype", characterArchetypeId: "a1" },
         STABLE_ID
@@ -230,7 +240,7 @@ describe("reduceArchetypeEdit — rankUpArchetype", () => {
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "rankUpArchetype", characterArchetypeId: "ghost" },
         STABLE_ID
@@ -256,7 +266,7 @@ describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalo
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "unlockArchetype", archetypeKey: "advanced" },
         STABLE_ID,
@@ -272,7 +282,7 @@ describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalo
         makeArchetypeRow({ id: "a1", archetypeKey: "base", rank: 5 }),
       ],
     })
-    const next = reduceArchetypeEdit(
+    const next = reduceArch(
       raw,
       { kind: "unlockArchetype", archetypeKey: "advanced" },
       STABLE_ID,
@@ -298,7 +308,7 @@ describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalo
       ],
     })
     expect(
-      reduceArchetypeEdit(
+      reduceArch(
         raw,
         { kind: "unlockArchetype", archetypeKey: "advanced" },
         STABLE_ID,
