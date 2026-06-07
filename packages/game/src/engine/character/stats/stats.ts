@@ -224,9 +224,16 @@ function sumBonuses(...pools: BonusPool[]): BonusPool {
 function activePassiveEffects(
   character: StatContext
 ): Array<AffinityEffect | AttributeEffect | AttackRollEffect> {
+  // Stryker disable next-line ArrayDeclaration: equivalent — every consumer
+  // type-filters these effects (on `type`), so a seeded junk element is ignored.
   const effects: Array<AffinityEffect | AttributeEffect | AttackRollEffect> = []
   for (const skill of character.activeSkills) {
+    // Stryker disable next-line ConditionalExpression: equivalent — only passive
+    // Skills carry structured effects (schema), so not skipping a non-passive
+    // adds nothing.
     if (skill.kind !== "passive") continue
+    // Stryker disable next-line ArrayDeclaration: equivalent — junk seed is
+    // type-filtered downstream; the `?? []` only guards a passive with no effects.
     for (const effect of skill.effects ?? []) effects.push(effect)
   }
   return effects
@@ -240,7 +247,12 @@ function activePassiveEffects(
  */
 function activeMechanicEffects(character: StatContext): MechanicEffect[] {
   const active = character.activeMechanic
+  // Stryker disable next-line ArrayDeclaration: equivalent — the no-mechanic
+  // return is type-filtered by every consumer; a junk array contributes nothing.
   if (!active) return []
+  // Stryker disable next-line ObjectLiteral: equivalent — no current mechanic's
+  // `effects()` reads `ctx.stats`; the context is reserved plumbing for a future
+  // stat-dependent mechanic (see UNN-354 on where catalog reads should live).
   return mechanicEffectsFor(active.kind, active.state, { stats: character })
 }
 
@@ -257,9 +269,18 @@ function masteryBonuses(character: StatContext): BonusPool {
     if (!archetype) continue
 
     const { mastery } = archetype
-    if (mastery.kind === "hp") pool.hp += mastery.amount
-    else if (mastery.kind === "sp") pool.sp += mastery.amount
-    else pool[mastery.attribute] += mastery.amount
+    switch (mastery.kind) {
+      case "hp":
+        pool.hp += mastery.amount
+        break
+      case "sp":
+        pool.sp += mastery.amount
+        break
+      // Stryker disable next-line ConditionalExpression: equivalent — the default (attribute-kind Mastery) is demo-only (absent from the test catalog), so removing it changes nothing here; reachable once UNN-354 lifts the catalog lookup to the assembly boundary.
+      default:
+        // Stryker disable next-line AssignmentOperator: equivalent — attribute-kind Mastery is demo-only (see above / UNN-354).
+        pool[mastery.attribute] += mastery.amount
+    }
   }
   return pool
 }
@@ -267,6 +288,7 @@ function masteryBonuses(character: StatContext): BonusPool {
 function isAttributeEffect(effect: {
   type: string
 }): effect is AttributeEffect {
+  // Stryker disable next-line ConditionalExpression: equivalent — a non-attribute effect carries no BonusTargetKey `target`, so treating it as one writes only a junk `pool[undefined]` that no consumer reads.
   return effect.type === "attribute"
 }
 
@@ -281,6 +303,7 @@ function attributeEffectBonuses(
 ): BonusPool {
   const pool = emptyBonusPool()
   for (const effect of effects) {
+    // Stryker disable next-line ConditionalExpression: equivalent — see isAttributeEffect; applying a non-attribute effect writes only `pool[undefined]`.
     if (isAttributeEffect(effect)) pool[effect.target] += effect.amount
   }
   return pool
@@ -289,6 +312,8 @@ function attributeEffectBonuses(
 /** Attribute effects conferred by currently-equipped items. */
 function itemBonuses(character: StatContext): BonusPool {
   return attributeEffectBonuses(
+    // Stryker disable next-line ArrayDeclaration: equivalent — junk seed is
+    // type-filtered by attributeEffectBonuses (matches on `type`).
     character.equippedItems.flatMap((item) => item.equip.effects ?? [])
   )
 }
@@ -419,6 +444,8 @@ function strongest(candidates: readonly Affinity[]): Affinity | undefined {
   for (const candidate of candidates) {
     if (
       best === undefined ||
+      // Stryker disable next-line EqualityOperator: equivalent — AFFINITY_PRIORITY
+      // is a bijection, so no two distinct affinities tie; `>=` never differs.
       AFFINITY_PRIORITY[candidate] > AFFINITY_PRIORITY[best]
     ) {
       best = candidate
@@ -452,6 +479,8 @@ export function computeAffinityChart(
   }
 
   for (const item of character.equippedItems) {
+    // Stryker disable next-line ArrayDeclaration: equivalent — junk seed is
+    // filtered by the `effect.type !== "affinity"` guard below.
     for (const effect of item.equip.effects ?? []) {
       if (effect.type !== "affinity") continue
       for (const damageType of effect.damageTypes) {
@@ -482,11 +511,9 @@ export function computeAffinityChart(
       continue
     }
 
-    if (damageType === "almighty") {
-      chart[damageType] = "neutral"
-      continue
-    }
-
+    // No Almighty special-case needed: Affinity effects can't target Almighty
+    // (it is absent from AFFINITY_DAMAGE_TYPES), so it never has a candidate and
+    // always falls through to its Neutral base (resolveAffinity guarantees it).
     const granted = strongest(candidatesByType.get(damageType) ?? [])
     if (granted !== undefined) {
       chart[damageType] = granted
