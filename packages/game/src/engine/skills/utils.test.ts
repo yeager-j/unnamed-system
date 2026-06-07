@@ -3,11 +3,8 @@ import { describe, expect, it } from "vitest"
 import { dia } from "@workspace/game/data/skills/heal/dia"
 import { healersInsight } from "@workspace/game/data/skills/passive/healers-insight"
 import { cleave } from "@workspace/game/data/skills/slash/cleave"
-import {
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
-  type AttributeScores,
-} from "@workspace/game/engine/character/stats/stats"
+import { makeCastContext } from "@workspace/game/engine/__fixtures__/character"
+import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
 import {
   applyCast,
   applyResolvedCost,
@@ -113,25 +110,10 @@ describe("sortSkillsByKind", () => {
  * `healersInsight` a costless passive.
  */
 function makeCharacter(overrides: Partial<CastContext> = {}): CastContext {
-  const activeArchetypeKey =
-    overrides.activeArchetypeKey === undefined
-      ? "warrior"
-      : overrides.activeArchetypeKey
-  return {
-    pathChoice: "balanced",
-    level: 1,
-    manualBonuses: {},
-    activeArchetypeKey,
+  return makeCastContext({
     archetypes: [{ key: "warrior", rank: 2 }],
-    equippedItems: [],
-    activeSkills: [],
-    activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
-    currentHP: 100,
-    currentSP: 100,
     ...overrides,
-  }
+  })
 }
 
 function withMaxHP(maxHP: number, overrides: Partial<CastContext> = {}) {

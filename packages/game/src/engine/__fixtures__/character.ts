@@ -7,6 +7,7 @@ import {
   baseAttributesForArchetype,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
+import { type CastContext } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
   CharacterArchetypeRow,
@@ -149,6 +150,23 @@ export function makeStatContext(
     activeMechanic: null,
     baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
     baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
+    ...overrides,
+  }
+}
+
+/**
+ * The {@link makeStatContext} view plus the two live, tracked combat pools — the
+ * cast-flow input. Defaults the pools high (100/100) so affordability is never
+ * the constraint unless a test sets it; pass `currentHP`/`currentSP` to probe a
+ * gate. Generalizes the inline `makeCharacter` the skill-cost tests grew.
+ */
+export function makeCastContext(
+  overrides: Partial<CastContext> = {}
+): CastContext {
+  return {
+    ...makeStatContext(overrides),
+    currentHP: 100,
+    currentSP: 100,
     ...overrides,
   }
 }

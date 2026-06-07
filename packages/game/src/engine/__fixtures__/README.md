@@ -28,11 +28,11 @@ everything else from fixtures.
 Grow the kit per slice. New builders are welcome — keep them override-driven and
 cloned per call.
 
-## Running the tools (from `apps/web`)
+## Running the tools (from `packages/game`)
 
 ```bash
-npm run test:coverage                                   # branch gap-list (lib/game), HTML under coverage/
-npx stryker run --mutate lib/game/<slice>.ts            # mutation score for one slice
+npm run test:coverage                                       # branch gap-list (src/engine), HTML under coverage/
+npx stryker run --mutate "src/engine/<slice>.ts"           # mutation score for one slice
 ```
 
 Coverage is a **gap-finder, not a gate** — read the uncovered-*branch* list,

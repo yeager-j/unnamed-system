@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import { cleave } from "@workspace/game/data/skills/slash/cleave"
+import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
   accessoryWithEffects,
   magicAccessory,
@@ -14,8 +15,6 @@ import {
 } from "@workspace/game/engine/__fixtures__/fixtures"
 import {
   accumulatedBonuses,
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
@@ -26,23 +25,10 @@ import {
 } from "@workspace/game/engine/character/stats/stats"
 
 function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
-  const activeArchetypeKey =
-    overrides.activeArchetypeKey === undefined
-      ? "warrior"
-      : overrides.activeArchetypeKey
-  return {
-    pathChoice: "balanced",
-    level: 1,
-    manualBonuses: {},
-    activeArchetypeKey,
+  return makeStatContext({
     archetypes: [{ key: "warrior", rank: 2 }],
-    equippedItems: [],
-    activeSkills: [],
-    activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
     ...overrides,
-  }
+  })
 }
 
 describe("computeAttributes", () => {

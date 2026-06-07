@@ -5,11 +5,8 @@ import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
 import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
 import { garu } from "@workspace/game/data/skills/wind/garu"
-import {
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
-  type StatContext,
-} from "@workspace/game/engine/character/stats/stats"
+import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
+import { type StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRoll,
@@ -18,24 +15,9 @@ import {
 } from "@workspace/game/engine/combat/attack-roll"
 import type { Skill } from "@workspace/game/foundation/skills/schema"
 
+// Warrior rank-5 is `makeStatContext`'s default.
 function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
-  const activeArchetypeKey =
-    overrides.activeArchetypeKey === undefined
-      ? "warrior"
-      : overrides.activeArchetypeKey
-  return {
-    pathChoice: "balanced",
-    level: 1,
-    manualBonuses: {},
-    activeArchetypeKey,
-    archetypes: [{ key: "warrior", rank: 5 }],
-    equippedItems: [],
-    activeSkills: [],
-    activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
-    ...overrides,
-  }
+  return makeStatContext(overrides)
 }
 
 function makeMage(overrides: Partial<StatContext> = {}): StatContext {

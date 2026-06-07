@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
-  type StatContext,
-} from "@workspace/game/engine/character/stats/stats"
+import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
   adjustPerfection,
   attackBonusForRank,
@@ -15,18 +11,9 @@ import {
   resetPerfection,
 } from "@workspace/game/engine/mechanics/warrior/perfection"
 
-const baseStats: StatContext = {
-  pathChoice: "balanced",
-  level: 1,
-  manualBonuses: {},
-  activeArchetypeKey: "warrior",
+const baseStats = makeStatContext({
   archetypes: [{ key: "warrior", rank: 1 }],
-  equippedItems: [],
-  activeSkills: [],
-  activeMechanic: null,
-  baseAttributes: baseAttributesForArchetype("warrior"),
-  baseAffinities: baseAffinitiesForArchetype("warrior"),
-}
+})
 
 describe("perfection", () => {
   it("starts at rank D (0)", () => {
