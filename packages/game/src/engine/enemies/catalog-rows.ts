@@ -43,6 +43,7 @@ export function buildEnemyCatalogRows(): EnemyCatalogRow[] {
   return ENEMIES.map((enemy) => ({
     key: enemy.key,
     name: enemy.name,
+    // Stryker disable next-line StringLiteral: equivalent — every catalog enemy has a registered family, so this defensive fallback is unreachable at runtime.
     family: getEnemyFamily(enemy.key) ?? "humanoid",
     level: enemy.level,
     maxHP: enemy.maxHP,
@@ -61,8 +62,9 @@ export function filterEnemyCatalogRows(
   const needle = search.trim().toLowerCase()
   return rows.filter((row) => {
     const matchesFamily = family === null || row.family === family
-    const matchesSearch =
-      needle === "" || row.name.toLowerCase().includes(needle)
+    // An empty needle matches every row via `includes("")`, so no explicit
+    // empty-search short-circuit is needed.
+    const matchesSearch = row.name.toLowerCase().includes(needle)
     return matchesFamily && matchesSearch
   })
 }

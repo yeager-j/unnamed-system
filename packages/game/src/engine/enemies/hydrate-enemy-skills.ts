@@ -25,6 +25,7 @@ import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 export function hydrateEnemySkills(enemy: EnemyDefinition): HydratedSkill[] {
   const skills = enemy.skillKeys.flatMap((key) => {
     const skill = getSkill(key)
+    // Stryker disable next-line ArrayDeclaration: equivalent — skillKeys are validated SkillKeys (registry load-time check), so getSkill always resolves; the `[]` (skill-missing) branch is unreachable at runtime and exists only to satisfy the Skill[] return type. The `[skill]` construction it also covers is independently asserted by the Attack Roll tests below.
     return skill ? [skill] : []
   })
   const effects = attackRollEffectsFromSkills(skills)

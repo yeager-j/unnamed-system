@@ -30,6 +30,15 @@ describe("buildEnemyCatalogRows", () => {
   it("resolves a family for every row", () => {
     expect(rows.every((row) => row.family)).toBe(true)
   })
+
+  it("lists only Weak affinities as weaknesses", () => {
+    // Bandit Captain resists Slash/Fire and is Weak to nothing.
+    const captain = rows.find((row) => row.key === "bandit-captain")
+    expect(captain?.weaknesses).toEqual([])
+    // Goblin is Weak to Wind only (Dark is Resist, not a weakness).
+    const goblin = rows.find((row) => row.key === "goblin")
+    expect(goblin?.weaknesses).toEqual(["wind"])
+  })
 })
 
 describe("filterEnemyCatalogRows", () => {
@@ -79,6 +88,14 @@ describe("groupEnemyRowsByLevel", () => {
       expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)))
       expect(group.rows.every((row) => row.level === group.level)).toBe(true)
     }
+  })
+
+  it("preserves every row and places it in its level group", () => {
+    const rows = buildEnemyCatalogRows()
+    const groups = groupEnemyRowsByLevel(rows)
+    expect(groups.flatMap((group) => group.rows)).toHaveLength(rows.length)
+    const level1 = groups.find((group) => group.level === 1)
+    expect(level1?.rows.map((row) => row.key)).toContain("goblin")
   })
 })
 
