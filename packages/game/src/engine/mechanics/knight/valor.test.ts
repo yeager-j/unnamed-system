@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
-  type StatContext,
-} from "@workspace/game/engine/character/stats/stats"
+import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
   adjustValor,
   valor,
@@ -12,18 +8,10 @@ import {
 } from "@workspace/game/engine/mechanics/knight/valor"
 import { VALOR_MAX } from "@workspace/game/foundation/mechanics/schema"
 
-const baseStats: StatContext = {
-  pathChoice: "balanced",
-  level: 1,
-  manualBonuses: {},
+const baseStats = makeStatContext({
   activeArchetypeKey: "knight",
   archetypes: [{ key: "knight", rank: 1 }],
-  equippedItems: [],
-  activeSkills: [],
-  activeMechanic: null,
-  baseAttributes: baseAttributesForArchetype("knight"),
-  baseAffinities: baseAffinitiesForArchetype("knight"),
-}
+})
 
 describe("valor", () => {
   it("starts at 0", () => {

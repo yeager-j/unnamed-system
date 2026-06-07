@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import {
+  FIXTURE_CHARACTER_ID,
+  makeArchetypeRow,
+  makeHydratedCharacter,
+} from "@workspace/game/engine/__fixtures__/character"
+import {
   buildStatContext,
+  toStatContext,
   type PersistedArchetypeState,
   type PersistedCharacterState,
 } from "@workspace/game/engine/character/stats/stat-character"
@@ -109,6 +115,44 @@ describe("buildStatContext", () => {
     expect(keys).not.toContain("windblade")
   })
 
+  it("returns no Skills when the active Archetype key is unknown", () => {
+    const result = buildStatContext(
+      { ...baseCharacter, activeCharacterArchetypeId: "ca-unknown" },
+      [
+        {
+          id: "ca-unknown",
+          archetypeKey: "not-a-real-archetype",
+          rank: 5,
+          inheritanceSlots: [],
+          mechanicState: null,
+        },
+      ],
+      []
+    )
+    expect(result.activeSkills).toEqual([])
+  })
+
+  it("drops an inherited slot whose Skill key resolves to nothing", () => {
+    const result = buildStatContext(
+      baseCharacter,
+      [
+        warriorRow({
+          rank: 1,
+          inheritanceSlots: [
+            {
+              slotIndex: 0,
+              sourceCharacterArchetypeId: "ca-mage",
+              skillKey: "not-a-real-skill",
+            },
+          ],
+        }),
+      ],
+      []
+    )
+    // The unresolvable key is filtered out, leaving only the rank-1 Archetype Skill.
+    expect(result.activeSkills.map((skill) => skill.key)).toEqual(["cleave"])
+  })
+
   it("resolves equipped catalog keys and drops unknown ones", () => {
     const result = buildStatContext(
       baseCharacter,
@@ -206,5 +250,45 @@ describe("buildStatContext", () => {
       )
       expect(result.activeMechanic).toBeNull()
     })
+  })
+})
+
+describe("toStatContext", () => {
+  it("maps a hydrated character's archetypes, level, and equipped items", () => {
+    const character = makeHydratedCharacter({
+      row: {
+        activeArchetypeId: "arch-1",
+        pathChoice: "balanced",
+        level: 4,
+        manualBonuses: { hp: 2 },
+      },
+      archetypeRows: [
+        makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 5 }),
+      ],
+      inventoryRows: [
+        {
+          id: "inv-equipped",
+          characterId: FIXTURE_CHARACTER_ID,
+          catalogItemKey: "longsword",
+          equipped: true,
+          quantity: 1,
+        },
+        {
+          id: "inv-stowed",
+          characterId: FIXTURE_CHARACTER_ID,
+          catalogItemKey: "spear",
+          equipped: false,
+          quantity: 1,
+        },
+      ],
+    })
+
+    const ctx = toStatContext(character)
+
+    expect(ctx.activeArchetypeKey).toBe("warrior")
+    expect(ctx.archetypes).toContainEqual({ key: "warrior", rank: 5 })
+    expect(ctx.level).toBe(4)
+    // Only the equipped item is threaded through (the stowed Spear is dropped).
+    expect(ctx.equippedItems.map((item) => item.key)).toEqual(["longsword"])
   })
 })

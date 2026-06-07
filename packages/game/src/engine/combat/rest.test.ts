@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  baseAffinitiesForArchetype,
-  baseAttributesForArchetype,
-} from "@workspace/game/engine/character/stats/stats"
+import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
   applyFullRest,
   applyPartialRest,
@@ -20,16 +17,7 @@ function makeCharacter(
   overrides: Partial<RestingCharacter> = {}
 ): RestingCharacter {
   return {
-    pathChoice: "balanced",
-    level: 1,
-    manualBonuses: {},
-    activeArchetypeKey: null,
-    archetypes: [],
-    equippedItems: [],
-    activeSkills: [],
-    activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(null),
-    baseAffinities: baseAffinitiesForArchetype(null),
+    ...makeStatContext({ activeArchetypeKey: null, archetypes: [] }),
     currentHP: 5,
     currentSP: 5,
     hitDiceRemaining: 0,

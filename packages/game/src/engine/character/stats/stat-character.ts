@@ -70,10 +70,13 @@ function activeSkillsFor(
     keys.add(archetype.synthesisSkill.skill)
   }
   for (const slot of active.inheritanceSlots) {
+    // Stryker disable next-line ConditionalExpression: equivalent — an empty slot.skillKey resolves to undefined via getSkill and is dropped by the filter below, so always-adding changes nothing.
     if (slot.skillKey) keys.add(slot.skillKey)
   }
   for (const item of equippedItems) {
+    // Stryker disable next-line ArrayDeclaration: equivalent — a seeded junk element has no `type === "skill"`, so the guard below drops it.
     for (const effect of item.equip.effects ?? []) {
+      // Stryker disable next-line ConditionalExpression: equivalent — a non-skill effect has no skillKey, so adding it adds `undefined`, which getSkill drops via the filter below.
       if (effect.type === "skill") keys.add(effect.skillKey)
     }
   }
@@ -98,6 +101,7 @@ function activeMechanicFor(
   if (!archetype?.mechanic) return null
 
   const mechanic = getMechanic(archetype.mechanic)
+  // Stryker disable next-line ConditionalExpression: equivalent — every Archetype's declared mechanic is registered, so getMechanic never misses; this guards corrupt data only.
   if (!mechanic) return null
 
   const state = active.mechanicState ?? mechanic.initialState()
