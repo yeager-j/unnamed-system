@@ -19,6 +19,7 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
+import { type GameData } from "@workspace/game/engine/ports"
 import {
   ARCHETYPE_TIERS,
   type Archetype,
@@ -64,12 +65,15 @@ function archetypeRow(
   }
 }
 
-function makeCharacter(options: {
-  archetypeRows?: CharacterArchetypeRow[]
-  savedArchetypeRanks?: number
-  activeArchetypeId?: string | null
-  originCharacterArchetypeId?: string | null
-}) {
+function makeCharacter(
+  options: {
+    archetypeRows?: CharacterArchetypeRow[]
+    savedArchetypeRanks?: number
+    activeArchetypeId?: string | null
+    originCharacterArchetypeId?: string | null
+  },
+  data: GameData = TEST_DATA
+) {
   const archetypeRows = options.archetypeRows ?? []
   const row: CharacterRow = {
     id: CHARACTER_ID,
@@ -128,7 +132,7 @@ function makeCharacter(options: {
     knives: [],
     chains: [],
   }
-  return deriveHydratedCharacter(raw, TEST_DATA)
+  return deriveHydratedCharacter(raw, data)
 }
 
 /** A synthetic Adept that advances from Knight at Rank 5, for prerequisite
@@ -1318,12 +1322,15 @@ describe("getAtlasRecommendations", () => {
 describe("buildLineageAtlas + getAtlasRecommendations — real catalog (smoke)", () => {
   it("composes the view builder and recommendations over the shipped catalog", () => {
     const view = buildLineageAtlas(
-      makeCharacter({
-        archetypeRows: [
-          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
-        ],
-        originCharacterArchetypeId: "a1",
-      }),
+      makeCharacter(
+        {
+          archetypeRows: [
+            archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+          ],
+          originCharacterArchetypeId: "a1",
+        },
+        gameData
+      ),
       gameData.allArchetypes()
     )
 
