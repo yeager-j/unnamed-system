@@ -33,6 +33,13 @@ import type {
 
 const CHARACTER_ID = "char-1"
 
+/** Binds the catalog: defaults to the production set (`gameData.allArchetypes()`),
+ *  or takes an injected fixture catalog for the multi-tier prerequisite cases. */
+const atlasOf = (
+  character: Parameters<typeof buildLineageAtlas>[0],
+  catalog: Parameters<typeof buildLineageAtlas>[1] = gameData.allArchetypes()
+) => buildLineageAtlas(character, catalog)
+
 function archetypeRow(
   partial: Pick<CharacterArchetypeRow, "id" | "archetypeKey" | "rank">
 ): CharacterArchetypeRow {
@@ -173,12 +180,12 @@ describe("atlasNodeState", () => {
 
 describe("buildLineageAtlas", () => {
   it("lists all twelve Lineages in canonical order", () => {
-    const view = buildLineageAtlas(makeCharacter({}))
+    const view = atlasOf(makeCharacter({}))
     expect(view.lineages.map((entry) => entry.lineage)).toEqual([...LINEAGES])
   })
 
   it("gives every Lineage all four tier columns in order", () => {
-    const view = buildLineageAtlas(makeCharacter({}))
+    const view = atlasOf(makeCharacter({}))
     for (const entry of view.lineages) {
       expect(entry.columns.map((column) => column.tier)).toEqual([
         "initiate",
@@ -190,7 +197,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("places a shipped Initiate in its Lineage's Initiate column as unlockable when unowned", () => {
-    const view = buildLineageAtlas(makeCharacter({}))
+    const view = atlasOf(makeCharacter({}))
     const knight = view.lineages.find((entry) => entry.lineage === "knight")!
     expect(knight.progress).toEqual({ owned: 0, total: 1 })
     const initiateColumn = knight.columns.find(
@@ -202,7 +209,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("marks an owned Archetype owned and bumps the Lineage progress", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "knight", rank: 2 }),
@@ -218,7 +225,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("marks a Rank-5 Archetype mastered", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "mage", rank: 5 }),
@@ -232,7 +239,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("passes through Saved Ranks, unlocked count, and Origin Lineage", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 3 }),
@@ -254,7 +261,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("ignores an owned row whose Archetype key is not in the catalog", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
@@ -272,7 +279,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("leaves Origin Lineage null when the Origin row points at an unknown Archetype", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({
@@ -289,7 +296,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("leaves Origin Lineage null when no Origin row is set", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
@@ -301,7 +308,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("resolves Origin Lineage from the matching Origin row, not just any owned row", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
@@ -320,7 +327,7 @@ describe("buildLineageAtlas", () => {
   })
 
   it("carries an Archetype's prerequisite keys as its parent links", () => {
-    const view = buildLineageAtlas(makeCharacter({}))
+    const view = atlasOf(makeCharacter({}))
     const knightNode = view.lineages
       .find((entry) => entry.lineage === "knight")!
       .columns.find((column) => column.tier === "initiate")!.nodes[0]!
@@ -344,7 +351,7 @@ describe("isAtlasNodeUnlocked", () => {
 
 describe("filterAtlasLineagesToUnlocked", () => {
   it("keeps only owned/mastered nodes and drops Lineages with none", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 3 }),
@@ -363,7 +370,7 @@ describe("filterAtlasLineagesToUnlocked", () => {
   })
 
   it("leaves progress counts untouched on a surviving Lineage", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 3 }),
@@ -377,7 +384,7 @@ describe("filterAtlasLineagesToUnlocked", () => {
   })
 
   it("returns nothing when no Archetype is unlocked", () => {
-    const view = buildLineageAtlas(makeCharacter({}))
+    const view = atlasOf(makeCharacter({}))
     expect(filterAtlasLineagesToUnlocked(view.lineages)).toEqual([])
   })
 })
@@ -414,9 +421,9 @@ describe("buildLineageAtlas — injected multi-Archetype catalog", () => {
       .find((n) => n.archetype.key === key)!
 
   it("orders same-tier Archetypes within a column by key", () => {
-    const adept = warriorColumns(
-      buildLineageAtlas(makeCharacter({}), CATALOG)
-    ).find((c) => c.tier === "adept")!
+    const adept = warriorColumns(atlasOf(makeCharacter({}), CATALOG)).find(
+      (c) => c.tier === "adept"
+    )!
     expect(adept.nodes.map((n) => n.archetype.key)).toEqual([
       "fx-adept-a",
       "fx-adept-b",
@@ -424,9 +431,7 @@ describe("buildLineageAtlas — injected multi-Archetype catalog", () => {
   })
 
   it("groups Archetypes into their tier columns", () => {
-    const columns = warriorColumns(
-      buildLineageAtlas(makeCharacter({}), CATALOG)
-    )
+    const columns = warriorColumns(atlasOf(makeCharacter({}), CATALOG))
     expect(
       columns
         .find((c) => c.tier === "initiate")!
@@ -437,17 +442,14 @@ describe("buildLineageAtlas — injected multi-Archetype catalog", () => {
   })
 
   it("leaves a Lineage with no catalog Archetypes empty", () => {
-    const mage = buildLineageAtlas(makeCharacter({}), CATALOG).lineages.find(
+    const mage = atlasOf(makeCharacter({}), CATALOG).lineages.find(
       (l) => l.lineage === "mage"
     )!
     expect(mage.columns.every((c) => c.nodes.length === 0)).toBe(true)
   })
 
   it("locks an Archetype with an unmet prerequisite, listing it + parent keys", () => {
-    const adeptA = nodeFor(
-      buildLineageAtlas(makeCharacter({}), CATALOG),
-      "fx-adept-a"
-    )
+    const adeptA = nodeFor(atlasOf(makeCharacter({}), CATALOG), "fx-adept-a")
     expect(adeptA.state).toEqual({
       kind: "locked",
       unmetPrerequisites: [{ archetype: "fx-initiate", rank: 5 }],
@@ -461,9 +463,9 @@ describe("buildLineageAtlas — injected multi-Archetype catalog", () => {
         archetypeRow({ id: "r1", archetypeKey: "fx-initiate", rank: 5 }),
       ],
     })
-    expect(
-      nodeFor(buildLineageAtlas(character, CATALOG), "fx-adept-a").state
-    ).toEqual({ kind: "unlockable" })
+    expect(nodeFor(atlasOf(character, CATALOG), "fx-adept-a").state).toEqual({
+      kind: "unlockable",
+    })
   })
 })
 
@@ -1300,7 +1302,7 @@ describe("getAtlasRecommendations", () => {
   })
 
   it("composes with the real view builder over the shipped catalog", () => {
-    const view = buildLineageAtlas(
+    const view = atlasOf(
       makeCharacter({
         archetypeRows: [
           archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),

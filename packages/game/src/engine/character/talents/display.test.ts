@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import {
   resolveTalentsForBuilder,
   resolveTalentsForSheet,
@@ -8,7 +9,7 @@ import { TALENT_KEYS } from "@workspace/game/foundation/character/talents/schema
 
 describe("resolveTalentsForSheet", () => {
   it("returns the active Archetype's Talents as inherited chips, alpha", () => {
-    const { chips, remaining } = resolveTalentsForSheet([], "warrior")
+    const { chips, remaining } = resolveTalentsForSheet([], "warrior", gameData)
 
     expect(chips).toEqual([
       { key: "athletics", label: "Athletics", inherited: true },
@@ -19,7 +20,11 @@ describe("resolveTalentsForSheet", () => {
   })
 
   it("returns gained Talents as removable chips when no Archetype is active", () => {
-    const { chips } = resolveTalentsForSheet(["history", "arcana"], null)
+    const { chips } = resolveTalentsForSheet(
+      ["history", "arcana"],
+      null,
+      gameData
+    )
 
     expect(chips).toEqual([
       { key: "arcana", label: "Arcana", inherited: false },
@@ -28,7 +33,11 @@ describe("resolveTalentsForSheet", () => {
   })
 
   it("orders inherited chips before gained chips, each block alpha", () => {
-    const { chips } = resolveTalentsForSheet(["sneak", "lockpick"], "warrior")
+    const { chips } = resolveTalentsForSheet(
+      ["sneak", "lockpick"],
+      "warrior",
+      gameData
+    )
 
     expect(chips.map((chip) => chip.key)).toEqual([
       "athletics",
@@ -45,7 +54,7 @@ describe("resolveTalentsForSheet", () => {
   })
 
   it("excludes both inherited and gained Talents from remaining", () => {
-    const { remaining } = resolveTalentsForSheet(["sneak"], "warrior")
+    const { remaining } = resolveTalentsForSheet(["sneak"], "warrior", gameData)
     const keys = remaining.map((option) => option.key)
 
     for (const known of ["climb", "lift", "athletics", "sneak"]) {
@@ -55,7 +64,11 @@ describe("resolveTalentsForSheet", () => {
   })
 
   it("treats an unknown Archetype key as no inherited Talents", () => {
-    const { chips } = resolveTalentsForSheet(["climb"], "not-a-real-archetype")
+    const { chips } = resolveTalentsForSheet(
+      ["climb"],
+      "not-a-real-archetype",
+      gameData
+    )
 
     expect(chips).toEqual([{ key: "climb", label: "Climb", inherited: false }])
   })
@@ -63,13 +76,13 @@ describe("resolveTalentsForSheet", () => {
 
 describe("resolveTalentsForBuilder", () => {
   it("returns the Origin's Talents in Archetype order, not sorted", () => {
-    const { origin } = resolveTalentsForBuilder("warrior")
+    const { origin } = resolveTalentsForBuilder("warrior", gameData)
 
     expect(origin).toEqual(["climb", "lift", "athletics"])
   })
 
   it("excludes Origin Talents from selectable, preserving TALENT_KEYS order", () => {
-    const { selectable } = resolveTalentsForBuilder("warrior")
+    const { selectable } = resolveTalentsForBuilder("warrior", gameData)
 
     expect(selectable).toEqual(
       TALENT_KEYS.filter((key) => !["climb", "lift", "athletics"].includes(key))
@@ -77,11 +90,11 @@ describe("resolveTalentsForBuilder", () => {
   })
 
   it("returns an empty Origin and every Talent selectable when no Origin is set", () => {
-    expect(resolveTalentsForBuilder(null)).toEqual({
+    expect(resolveTalentsForBuilder(null, gameData)).toEqual({
       origin: [],
       selectable: [...TALENT_KEYS],
     })
-    expect(resolveTalentsForBuilder("not-a-real-archetype")).toEqual({
+    expect(resolveTalentsForBuilder("not-a-real-archetype", gameData)).toEqual({
       origin: [],
       selectable: [...TALENT_KEYS],
     })

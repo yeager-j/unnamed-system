@@ -6,6 +6,7 @@ import {
 } from "@workspace/game/engine/character/reduce/shared"
 import { applyInventoryMutation } from "@workspace/game/engine/items/mutate"
 import { type InventoryItemState } from "@workspace/game/engine/items/utils"
+import { type ItemLookup } from "@workspace/game/engine/ports"
 import type { InventoryEdit } from "@workspace/game/foundation/character/character-edit"
 
 /**
@@ -17,7 +18,8 @@ import type { InventoryEdit } from "@workspace/game/foundation/character/charact
 export function reduceInventoryEdit(
   raw: RawCharacterInputs,
   edit: InventoryEdit,
-  newId: () => string
+  newId: () => string,
+  lookups: ItemLookup
 ): SliceResult {
   if (edit.kind === "currency") {
     return patchRow(raw, {
@@ -32,7 +34,12 @@ export function reduceInventoryEdit(
     quantity: row.quantity,
   }))
 
-  const result = applyInventoryMutation(projection, edit.mutation, newId)
+  const result = applyInventoryMutation(
+    projection,
+    edit.mutation,
+    lookups,
+    newId
+  )
   if (!result.ok) return null
 
   const inventoryRows = result.value.map((state) => ({

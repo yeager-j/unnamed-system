@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  gameData,
   getArchetype,
   getEquippableItem,
   getItem,
@@ -92,7 +93,7 @@ describe("seed roster structural invariants", () => {
       for (const list of [
         c.knives,
         c.chains,
-        resolveTalents(c.gainedTalents, c.activeArchetypeKey),
+        resolveTalents(c.gainedTalents, c.activeArchetypeKey, gameData),
       ]) {
         expect(list.length).toBeGreaterThan(0)
       }

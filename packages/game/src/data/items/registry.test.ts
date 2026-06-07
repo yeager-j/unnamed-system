@@ -4,18 +4,15 @@ import {
   findUnregisteredEntries,
   loadCatalogEntryModules,
 } from "@workspace/game/data/catalog/registered-entries"
-import { bladeturnMail } from "@workspace/game/data/items/armor/bladeturn-mail"
 import {
   ACCESSORIES,
   ARMOR,
   getEquippableItem,
-  getEquippedItem,
   getItem,
   getWeapon,
   WEAPONS,
 } from "@workspace/game/data/items/registry"
 import { longsword } from "@workspace/game/data/items/weapon/longsword"
-import { runedCane } from "@workspace/game/data/items/weapon/runed-cane"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import { itemSchema } from "@workspace/game/foundation/items/schema"
 
@@ -65,45 +62,6 @@ describe("getWeapon", () => {
 
   it("returns undefined for an unknown key", () => {
     expect(getWeapon("nope")).toBeUndefined()
-  })
-})
-
-describe("getEquippedItem (weapon)", () => {
-  it("returns the equipped Weapon when one is equipped", () => {
-    const inventory = [
-      { equipped: false, item: bladeturnMail },
-      { equipped: true, item: longsword },
-    ]
-    expect(getEquippedItem(inventory, "weapon")).toBe(longsword)
-  })
-
-  it("returns null when no item is equipped", () => {
-    const inventory = [
-      { equipped: false, item: longsword },
-      { equipped: false, item: bladeturnMail },
-    ]
-    expect(getEquippedItem(inventory, "weapon")).toBeNull()
-  })
-
-  it("returns null when the only equipped item is not a weapon", () => {
-    const inventory = [
-      { equipped: true, item: bladeturnMail },
-      { equipped: false, item: longsword },
-    ]
-    expect(getEquippedItem(inventory, "weapon")).toBeNull()
-  })
-
-  it("ignores unequipped weapons in favor of the equipped one", () => {
-    const inventory = [
-      { equipped: false, item: longsword },
-      { equipped: true, item: runedCane },
-    ]
-    expect(getEquippedItem(inventory, "weapon")).toBe(runedCane)
-  })
-
-  it("returns null when the entry's catalog item is undefined", () => {
-    const inventory = [{ equipped: true, item: undefined }]
-    expect(getEquippedItem(inventory, "weapon")).toBeNull()
   })
 })
 

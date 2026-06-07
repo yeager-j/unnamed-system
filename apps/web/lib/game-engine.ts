@@ -1,13 +1,21 @@
 import { gameData } from "@workspace/game/data"
 import {
+  addItem as addItemCore,
+  archetypeSwitcherGroups as archetypeSwitcherGroupsCore,
   buildArchetypeEntries as buildArchetypeEntriesCore,
   buildEnemyCatalogRows as buildEnemyCatalogRowsCore,
+  buildLineageAtlas as buildLineageAtlasCore,
   buildStatContext as buildStatContextCore,
   deriveHydratedCharacter as deriveHydratedCharacterCore,
+  equipItem as equipItemCore,
   getArchetypeDisplay as getArchetypeDisplayCore,
+  previewArchetypeSkills as previewArchetypeSkillsCore,
   reduceCharacter as reduceCharacterCore,
   reduceCombatSession as reduceCombatSessionCore,
   resolveCatalogEnemyStatblocks as resolveCatalogEnemyStatblocksCore,
+  resolveTalentsForBuilder as resolveTalentsForBuilderCore,
+  resolveTalentsForSheet as resolveTalentsForSheetCore,
+  setItemQuantity as setItemQuantityCore,
   statblockFromEnemy as statblockFromEnemyCore,
   toStatContext as toStatContextCore,
 } from "@workspace/game/engine"
@@ -71,3 +79,43 @@ export const reduceCombatSession = (
   event: Parameters<typeof reduceCombatSessionCore>[1],
   newId?: Parameters<typeof reduceCombatSessionCore>[3]
 ) => reduceCombatSessionCore(session, event, gameData, newId)
+
+export const buildLineageAtlas = (
+  character: Parameters<typeof buildLineageAtlasCore>[0]
+) => buildLineageAtlasCore(character, gameData.allArchetypes())
+
+export const archetypeSwitcherGroups = (
+  character: Parameters<typeof archetypeSwitcherGroupsCore>[0]
+) => archetypeSwitcherGroupsCore(character, gameData)
+
+export const previewArchetypeSkills = (
+  archetype: Parameters<typeof previewArchetypeSkillsCore>[0],
+  pathChoice: Parameters<typeof previewArchetypeSkillsCore>[1]
+) => previewArchetypeSkillsCore(archetype, pathChoice, gameData)
+
+export const resolveTalentsForSheet = (
+  gainedTalents: Parameters<typeof resolveTalentsForSheetCore>[0],
+  activeArchetypeKey: Parameters<typeof resolveTalentsForSheetCore>[1]
+) => resolveTalentsForSheetCore(gainedTalents, activeArchetypeKey, gameData)
+
+export const resolveTalentsForBuilder = (
+  originArchetypeKey: Parameters<typeof resolveTalentsForBuilderCore>[0]
+) => resolveTalentsForBuilderCore(originArchetypeKey, gameData)
+
+export const equipItem = (
+  items: Parameters<typeof equipItemCore>[0],
+  itemId: Parameters<typeof equipItemCore>[1]
+) => equipItemCore(items, itemId, gameData)
+
+export const addItem = (
+  items: Parameters<typeof addItemCore>[0],
+  catalogItemKey: Parameters<typeof addItemCore>[1],
+  requestedQuantity: Parameters<typeof addItemCore>[2],
+  newId: Parameters<typeof addItemCore>[3]
+) => addItemCore(items, catalogItemKey, requestedQuantity, newId, gameData)
+
+export const setItemQuantity = (
+  items: Parameters<typeof setItemQuantityCore>[0],
+  itemId: Parameters<typeof setItemQuantityCore>[1],
+  quantity: Parameters<typeof setItemQuantityCore>[2]
+) => setItemQuantityCore(items, itemId, quantity, gameData)

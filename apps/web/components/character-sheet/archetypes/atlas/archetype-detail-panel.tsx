@@ -7,7 +7,6 @@ import { getArchetype } from "@workspace/game/data"
 import {
   hasUnlockedRank,
   MASTERY_RANK,
-  previewArchetypeSkills,
   type AtlasNode,
   type AttributeScores,
 } from "@workspace/game/engine"
@@ -38,6 +37,7 @@ import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { previewArchetypeSkills } from "@/lib/game-engine"
 import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"

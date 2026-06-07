@@ -1,4 +1,3 @@
-import { getEquippedItem } from "@workspace/game/data/items/registry"
 import { buildStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
   accumulatedBonuses,
@@ -16,10 +15,12 @@ import {
   skillAttackRollContext,
   type AttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
+import { getEquippedItem } from "@workspace/game/engine/items/utils"
 import {
   type ArchetypeLookup,
   type ItemLookup,
   type SkillLookup,
+  type TalentLookup,
 } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
@@ -56,7 +57,7 @@ export interface RawCharacterInputs {
  */
 function statContext(
   { row, archetypeRows, inventoryRows }: RawCharacterInputs,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup
 ): StatContext {
   return buildStatContext(
     {
@@ -99,7 +100,7 @@ function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
  */
 export function deriveHydratedCharacter(
   raw: RawCharacterInputs,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup
 ): HydratedCharacter {
   const { row, archetypeRows, inventoryRows, knives, chains } = raw
 
@@ -126,7 +127,11 @@ export function deriveHydratedCharacter(
     archetypeRows,
     knives,
     chains,
-    talents: resolveTalents(row.gainedTalents, stats.activeArchetypeKey),
+    talents: resolveTalents(
+      row.gainedTalents,
+      stats.activeArchetypeKey,
+      lookups
+    ),
     inventory,
     activeArchetypeKey: stats.activeArchetypeKey,
     attributes: computeAttributes(stats, bonuses),

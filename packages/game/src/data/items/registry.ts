@@ -107,28 +107,3 @@ export function getWeapon(key: string): EquippedWeapon | undefined {
   const item = getItem(key)
   return item && isItemForSlot(item, "weapon") ? item : undefined
 }
-
-/** Structural inventory slice that the slot helper accepts. */
-type InventorySlice = readonly {
-  equipped: boolean
-  item: Item | undefined
-}[]
-
-/**
- * Returns the equipped item in `slot` from a character's hydrated inventory,
- * narrowed to the concrete slot type, or `null` when nothing is equipped. A
- * character may equip only one item per slot; if the persisted state ever
- * contains more than one, the first match wins. Accepts a structural slice so
- * the helper can stay in `lib/game/` without importing from `lib/db/`.
- */
-export function getEquippedItem<S extends EquipSlot>(
-  inventory: InventorySlice,
-  slot: S
-): ItemForSlot<S> | null {
-  for (const entry of inventory) {
-    if (entry.equipped && entry.item && isItemForSlot(entry.item, slot)) {
-      return entry.item
-    }
-  }
-  return null
-}

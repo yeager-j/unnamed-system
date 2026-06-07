@@ -3,7 +3,6 @@
 import { LockIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
-import { resolveTalentsForSheet } from "@workspace/game/engine"
 import { type TalentKey } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -27,6 +26,7 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
+import { resolveTalentsForSheet } from "@/lib/game-engine"
 
 /**
  * Talents block on the Explore tab (PRD §6.1 / §5.3, UNN-222). Owners can

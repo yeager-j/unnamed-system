@@ -80,21 +80,21 @@ describe("sortArchetypesByPath", () => {
 
 describe("previewArchetypeSkills", () => {
   it("returns every rank-keyed Skill the Archetype declares", () => {
-    const { ranks } = previewArchetypeSkills(warrior, "balanced")
+    const { ranks } = previewArchetypeSkills(warrior, "balanced", gameData)
     expect(ranks).toHaveLength(warrior.skills.length)
     const sortedByRank = [...ranks].sort((a, b) => a.rank - b.rank)
     expect(sortedByRank.map((skill) => skill.rank)).toEqual([1, 2, 3, 4, 5])
   })
 
   it("resolves percentage-HP costs against the picked path's max HP", () => {
-    const { ranks } = previewArchetypeSkills(warrior, "balanced")
+    const { ranks } = previewArchetypeSkills(warrior, "balanced", gameData)
     const cleave = ranks.find((ranked) => ranked.key === "cleave")
     expect(cleave?.resolvedCost).toEqual({ kind: "hp", amount: 1 })
   })
 
   it("re-resolves percentage costs when the path changes", () => {
-    const health = previewArchetypeSkills(warrior, "health-focused")
-    const skill = previewArchetypeSkills(warrior, "skill-focused")
+    const health = previewArchetypeSkills(warrior, "health-focused", gameData)
+    const skill = previewArchetypeSkills(warrior, "skill-focused", gameData)
     expect(health.ranks.find((r) => r.key === "cleave")?.resolvedCost).toEqual({
       kind: "hp",
       amount: 1,
@@ -106,7 +106,7 @@ describe("previewArchetypeSkills", () => {
   })
 
   it("resolves the Attack Roll against the previewed Archetype's intrinsic stats", () => {
-    const { ranks } = previewArchetypeSkills(warrior, "balanced")
+    const { ranks } = previewArchetypeSkills(warrior, "balanced", gameData)
     const attackSkill = ranks.find(
       (ranked) => ranked.kind === "attack" && ranked.attackRoll
     )
@@ -119,7 +119,7 @@ describe("previewArchetypeSkills", () => {
   })
 
   it("resolves the Synthesis Skill alongside the ranked Skills", () => {
-    const { synthesis } = previewArchetypeSkills(warrior, "balanced")
+    const { synthesis } = previewArchetypeSkills(warrior, "balanced", gameData)
     expect(synthesis).toMatchObject({
       key: warrior.synthesisSkill!.skill,
       rank: warrior.synthesisSkill!.rank,
@@ -129,7 +129,8 @@ describe("previewArchetypeSkills", () => {
   it("has no synthesis when the Archetype declares none", () => {
     const { synthesis } = previewArchetypeSkills(
       makeArchetype({ synthesisSkill: undefined }),
-      "balanced"
+      "balanced",
+      gameData
     )
     expect(synthesis).toBeNull()
   })
@@ -354,7 +355,7 @@ describe("archetypeSwitcherGroups", () => {
         makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
       ],
     })
-    const groups = archetypeSwitcherGroups(character)
+    const groups = archetypeSwitcherGroups(character, gameData)
     expect(groups.map((g) => g.lineage)).toEqual(["warrior", "mage"])
     expect(groups[0]!.options.map((o) => o.id)).toEqual(["a"])
     expect(groups[1]!.options.map((o) => o.id)).toEqual(["b"])
@@ -367,7 +368,7 @@ describe("archetypeSwitcherGroups", () => {
         makeArchetypeRow({ id: "ghost", archetypeKey: "no-such-archetype" }),
       ],
     })
-    const groups = archetypeSwitcherGroups(character)
+    const groups = archetypeSwitcherGroups(character, gameData)
     expect(groups).toHaveLength(1)
     expect(groups[0]!.options.map((o) => o.id)).toEqual(["a"])
   })
@@ -380,7 +381,7 @@ describe("archetypeSwitcherGroups", () => {
         makeArchetypeRow({ id: "m", archetypeKey: "mage" }),
       ],
     })
-    const groups = archetypeSwitcherGroups(character)
+    const groups = archetypeSwitcherGroups(character, gameData)
     expect(groups.map((g) => g.lineage)).toEqual(["mage", "knight", "warlock"])
   })
 
@@ -390,7 +391,7 @@ describe("archetypeSwitcherGroups", () => {
         makeArchetypeRow({ id: "a", archetypeKey: "warrior", rank: 3 }),
       ],
     })
-    const [group] = archetypeSwitcherGroups(character)
+    const [group] = archetypeSwitcherGroups(character, gameData)
     expect(group!.options[0]).toMatchObject({
       id: "a",
       name: warrior.name,
@@ -406,7 +407,7 @@ describe("archetypeSwitcherGroups", () => {
         makeArchetypeRow({ id: "w2", archetypeKey: "warrior", rank: 4 }),
       ],
     })
-    const groups = archetypeSwitcherGroups(character)
+    const groups = archetypeSwitcherGroups(character, gameData)
     expect(groups).toHaveLength(1)
     expect(groups[0]!.lineage).toBe("warrior")
     expect(groups[0]!.options.map((o) => o.id).sort()).toEqual(["w1", "w2"])
@@ -416,7 +417,7 @@ describe("archetypeSwitcherGroups", () => {
     const character = makeHydratedCharacter({
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    const [group] = archetypeSwitcherGroups(character)
+    const [group] = archetypeSwitcherGroups(character, gameData)
     expect(group!.options[0]!.mechanicName).toBe(
       getMechanic(warrior.mechanic!)!.displayName
     )

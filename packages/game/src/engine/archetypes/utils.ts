@@ -1,5 +1,3 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { getSkill } from "@workspace/game/data/skills/registry"
 import { isInheritableSkill } from "@workspace/game/engine/archetypes/inheritance"
 import { toStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
@@ -125,10 +123,11 @@ function resolveArchetypeRankedSkills(
   archetype: Archetype,
   maxHP: number,
   stats: StatContext,
-  partyComposition: HydratedCharacter["partyComposition"]
+  partyComposition: HydratedCharacter["partyComposition"],
+  lookups: SkillLookup
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const resolveByKey = (key: string): HydratedSkill | null => {
-    const skill = getSkill(key)
+    const skill = lookups.getSkill(key)
     // Stryker disable next-line ConditionalExpression: equivalent — resolveByKey is only ever called with an Archetype's own skill / synthesis keys, all of which the registry validator guarantees resolve.
     if (!skill) return null
     return hydrateSkill(
@@ -176,13 +175,13 @@ export function buildArchetypeEntries(
   const rowById = new Map<string, CharacterArchetypeRow>()
   for (const row of character.archetypeRows) {
     rowById.set(row.id, row)
-    const archetype = getArchetype(row.archetypeKey)
+    const archetype = lookups.getArchetype(row.archetypeKey)
     // Stryker disable next-line ConditionalExpression: equivalent — setting an undefined archetype is indistinguishable from not setting it: every reader (`.get(id)` with `if (!archetype) return []` and `.get(id) ?? null`) treats a missing key and an undefined value identically.
     if (archetype) archetypeByRowId.set(row.id, archetype)
   }
 
   function resolveSkillByKey(key: string): HydratedSkill | null {
-    const skill = getSkill(key)
+    const skill = lookups.getSkill(key)
     if (!skill) return null
     return hydrateSkill(
       skill,
@@ -199,7 +198,8 @@ export function buildArchetypeEntries(
       archetype,
       character.maxHP,
       stats,
-      character.partyComposition
+      character.partyComposition,
+      lookups
     )
 
     const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(
@@ -298,11 +298,12 @@ export interface ArchetypeSwitcherGroup {
  * Archetype are omitted.
  */
 export function archetypeSwitcherGroups(
-  character: HydratedCharacter
+  character: HydratedCharacter,
+  lookups: Pick<ArchetypeLookup, "getArchetype">
 ): ArchetypeSwitcherGroup[] {
   const grouped = new Map<Lineage, ArchetypeSwitcherOption[]>()
   for (const row of character.archetypeRows) {
-    const archetype = getArchetype(row.archetypeKey)
+    const archetype = lookups.getArchetype(row.archetypeKey)
     if (!archetype) continue
     const bucket = grouped.get(archetype.lineage) ?? []
     bucket.push({
@@ -394,7 +395,8 @@ export function sortArchetypesByPath<T extends Archetype>(
  */
 export function previewArchetypeSkills(
   archetype: Archetype,
-  pathChoice: PathChoice
+  pathChoice: PathChoice,
+  lookups: SkillLookup
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const stats: StatContext = {
     pathChoice,
@@ -415,6 +417,7 @@ export function previewArchetypeSkills(
     archetype,
     computeMaxHP(stats),
     stats,
-    null
+    null,
+    lookups
   )
 }

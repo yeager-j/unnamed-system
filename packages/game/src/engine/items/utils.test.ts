@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
+import { bladeturnMail } from "@workspace/game/data/items/armor/bladeturn-mail"
 import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
+import { longsword } from "@workspace/game/data/items/weapon/longsword"
+import { runedCane } from "@workspace/game/data/items/weapon/runed-cane"
 import {
   magicAccessory,
   nullWeapon,
@@ -10,6 +14,7 @@ import {
 import {
   addItem,
   equipItem,
+  getEquippedItem,
   removeItem,
   resolveInventory,
   setItemQuantity,
@@ -23,6 +28,23 @@ import {
   isStackable,
   type Item,
 } from "@workspace/game/foundation/items/schema"
+
+/** Bind the catalog so the item-mutation call sites stay terse. */
+const doEquip = (
+  items: Parameters<typeof equipItem>[0],
+  itemId: Parameters<typeof equipItem>[1]
+) => equipItem(items, itemId, gameData)
+const doAdd = (
+  items: Parameters<typeof addItem>[0],
+  key: Parameters<typeof addItem>[1],
+  qty: Parameters<typeof addItem>[2],
+  newId: Parameters<typeof addItem>[3]
+) => addItem(items, key, qty, newId, gameData)
+const doSetQty = (
+  items: Parameters<typeof setItemQuantity>[0],
+  itemId: Parameters<typeof setItemQuantity>[1],
+  qty: Parameters<typeof setItemQuantity>[2]
+) => setItemQuantity(items, itemId, qty, gameData)
 
 const longswordA: InventoryItemState = {
   id: "row-longsword",
@@ -63,7 +85,7 @@ function sequentialIds() {
 
 describe("equipItem", () => {
   it("equips the targeted item when its slot is empty", () => {
-    const result = equipItem([longswordA, bladeturnMailA], longswordA.id)
+    const result = doEquip([longswordA, bladeturnMailA], longswordA.id)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -74,7 +96,7 @@ describe("equipItem", () => {
   })
 
   it("auto-unequips the previously equipped item in the same slot", () => {
-    const result = equipItem(
+    const result = doEquip(
       [{ ...longswordA, equipped: true }, runedCaneA, bladeturnMailA],
       runedCaneA.id
     )
@@ -89,7 +111,7 @@ describe("equipItem", () => {
   })
 
   it("does not touch equipped items in other slots", () => {
-    const result = equipItem(
+    const result = doEquip(
       [longswordA, { ...bladeturnMailA, equipped: true }, zephyrBandA],
       zephyrBandA.id
     )
@@ -104,7 +126,7 @@ describe("equipItem", () => {
   })
 
   it("returns item-not-found when no row matches the id", () => {
-    const result = equipItem([longswordA], "row-missing")
+    const result = doEquip([longswordA], "row-missing")
 
     expect(result).toEqual({ ok: false, error: "item-not-found" })
   })
@@ -117,13 +139,13 @@ describe("equipItem", () => {
       quantity: 1,
     }
 
-    const result = equipItem([orphan], orphan.id)
+    const result = doEquip([orphan], orphan.id)
 
     expect(result).toEqual({ ok: false, error: "catalog-item-unknown" })
   })
 
   it("returns catalog-item-unknown for a non-equippable consumable", () => {
-    const result = equipItem([soulDropA], soulDropA.id)
+    const result = doEquip([soulDropA], soulDropA.id)
 
     expect(result).toEqual({ ok: false, error: "catalog-item-unknown" })
   })
@@ -132,7 +154,7 @@ describe("equipItem", () => {
     const items = [longswordA, runedCaneA]
     const before = JSON.stringify(items)
 
-    equipItem(items, longswordA.id)
+    doEquip(items, longswordA.id)
 
     expect(JSON.stringify(items)).toBe(before)
   })
@@ -145,7 +167,7 @@ describe("equipItem", () => {
       quantity: 1,
     }
 
-    const result = equipItem([orphanEquipped, longswordA], longswordA.id)
+    const result = doEquip([orphanEquipped, longswordA], longswordA.id)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -211,7 +233,7 @@ describe("unequipItem", () => {
 
 describe("addItem", () => {
   it("creates one new row when adding a single non-stackable item", () => {
-    const result = addItem([], "longsword", 1, sequentialIds())
+    const result = doAdd([], "longsword", 1, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -226,7 +248,7 @@ describe("addItem", () => {
   })
 
   it("creates separate rows for each unit of a non-stackable item", () => {
-    const result = addItem([longswordA], "longsword", 2, sequentialIds())
+    const result = doAdd([longswordA], "longsword", 2, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -248,7 +270,7 @@ describe("addItem", () => {
   })
 
   it("stacks a stackable item into one new row", () => {
-    const result = addItem([], "soul-drop", 7, sequentialIds())
+    const result = doAdd([], "soul-drop", 7, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -263,7 +285,7 @@ describe("addItem", () => {
   })
 
   it("tops up an existing stackable row before creating a new one", () => {
-    const result = addItem([soulDropA], "soul-drop", 3, sequentialIds())
+    const result = doAdd([soulDropA], "soul-drop", 3, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -273,7 +295,7 @@ describe("addItem", () => {
   it("overflows into a new row once the existing stack is full", () => {
     const nearFull: InventoryItemState = { ...soulDropA, quantity: 998 }
 
-    const result = addItem([nearFull], "soul-drop", 5, sequentialIds())
+    const result = doAdd([nearFull], "soul-drop", 5, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -289,7 +311,7 @@ describe("addItem", () => {
   })
 
   it("chains overflow rows when adding beyond one stack from empty", () => {
-    const result = addItem([], "soul-drop", 1000, sequentialIds())
+    const result = doAdd([], "soul-drop", 1000, sequentialIds())
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -310,13 +332,13 @@ describe("addItem", () => {
   })
 
   it("returns catalog-item-unknown for an unshipped key", () => {
-    const result = addItem([], "nope", 1, sequentialIds())
+    const result = doAdd([], "nope", 1, sequentialIds())
 
     expect(result).toEqual({ ok: false, error: "catalog-item-unknown" })
   })
 
   it.each([0, -1, 1.5])("returns invalid-quantity for %s", (quantity) => {
-    const result = addItem([], "soul-drop", quantity, sequentialIds())
+    const result = doAdd([], "soul-drop", quantity, sequentialIds())
 
     expect(result).toEqual({ ok: false, error: "invalid-quantity" })
   })
@@ -325,7 +347,7 @@ describe("addItem", () => {
     const items = [soulDropA]
     const before = JSON.stringify(items)
 
-    addItem(items, "soul-drop", 3, sequentialIds())
+    doAdd(items, "soul-drop", 3, sequentialIds())
 
     expect(JSON.stringify(items)).toBe(before)
   })
@@ -333,7 +355,7 @@ describe("addItem", () => {
 
 describe("setItemQuantity", () => {
   it("sets a stackable row's quantity", () => {
-    const result = setItemQuantity([soulDropA], soulDropA.id, 12)
+    const result = doSetQty([soulDropA], soulDropA.id, 12)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -341,7 +363,7 @@ describe("setItemQuantity", () => {
   })
 
   it("clamps above stackSize", () => {
-    const result = setItemQuantity([soulDropA], soulDropA.id, 5000)
+    const result = doSetQty([soulDropA], soulDropA.id, 5000)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -349,7 +371,7 @@ describe("setItemQuantity", () => {
   })
 
   it("removes the row when set to 0", () => {
-    const result = setItemQuantity([soulDropA, longswordA], soulDropA.id, 0)
+    const result = doSetQty([soulDropA, longswordA], soulDropA.id, 0)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -357,7 +379,7 @@ describe("setItemQuantity", () => {
   })
 
   it("removes the row when set negative (clamped to 0)", () => {
-    const result = setItemQuantity([soulDropA], soulDropA.id, -3)
+    const result = doSetQty([soulDropA], soulDropA.id, -3)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -365,7 +387,7 @@ describe("setItemQuantity", () => {
   })
 
   it("clamps a non-stackable row to 1", () => {
-    const result = setItemQuantity([longswordA], longswordA.id, 9)
+    const result = doSetQty([longswordA], longswordA.id, 9)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -380,7 +402,7 @@ describe("setItemQuantity", () => {
       quantity: 1,
     }
 
-    const result = setItemQuantity([orphan], orphan.id, 9)
+    const result = doSetQty([orphan], orphan.id, 9)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -388,7 +410,7 @@ describe("setItemQuantity", () => {
   })
 
   it("leaves rows other than the target unchanged", () => {
-    const result = setItemQuantity([longswordA, soulDropA], soulDropA.id, 12)
+    const result = doSetQty([longswordA, soulDropA], soulDropA.id, 12)
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -396,7 +418,7 @@ describe("setItemQuantity", () => {
   })
 
   it("returns item-not-found when no row matches", () => {
-    const result = setItemQuantity([soulDropA], "row-missing", 2)
+    const result = doSetQty([soulDropA], "row-missing", 2)
 
     expect(result).toEqual({ ok: false, error: "item-not-found" })
   })
@@ -405,7 +427,7 @@ describe("setItemQuantity", () => {
     const items = [soulDropA]
     const before = JSON.stringify(items)
 
-    setItemQuantity(items, soulDropA.id, 0)
+    doSetQty(items, soulDropA.id, 0)
 
     expect(JSON.stringify(items)).toBe(before)
   })
@@ -601,5 +623,44 @@ describe("resolveInventory", () => {
     expect(resolved.consumables).toEqual([
       { id: "e", item: elixir, quantity: 1 },
     ])
+  })
+})
+
+describe("getEquippedItem (weapon)", () => {
+  it("returns the equipped Weapon when one is equipped", () => {
+    const inventory = [
+      { equipped: false, item: bladeturnMail },
+      { equipped: true, item: longsword },
+    ]
+    expect(getEquippedItem(inventory, "weapon")).toBe(longsword)
+  })
+
+  it("returns null when no item is equipped", () => {
+    const inventory = [
+      { equipped: false, item: longsword },
+      { equipped: false, item: bladeturnMail },
+    ]
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
+  })
+
+  it("returns null when the only equipped item is not a weapon", () => {
+    const inventory = [
+      { equipped: true, item: bladeturnMail },
+      { equipped: false, item: longsword },
+    ]
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
+  })
+
+  it("ignores unequipped weapons in favor of the equipped one", () => {
+    const inventory = [
+      { equipped: false, item: longsword },
+      { equipped: true, item: runedCane },
+    ]
+    expect(getEquippedItem(inventory, "weapon")).toBe(runedCane)
+  })
+
+  it("returns null when the entry's catalog item is undefined", () => {
+    const inventory = [{ equipped: true, item: undefined }]
+    expect(getEquippedItem(inventory, "weapon")).toBeNull()
   })
 })

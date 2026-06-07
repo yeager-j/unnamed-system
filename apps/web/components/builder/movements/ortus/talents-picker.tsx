@@ -4,7 +4,6 @@ import { LockIcon } from "@phosphor-icons/react"
 import { Fragment } from "react"
 import { toast } from "sonner"
 
-import { resolveTalentsForBuilder } from "@workspace/game/engine"
 import {
   MAX_PLAYER_ADDED_TALENTS,
   type TalentKey,
@@ -34,6 +33,7 @@ import {
   addGainedTalentAction,
   removeGainedTalentAction,
 } from "@/lib/actions/character-talents"
+import { resolveTalentsForBuilder } from "@/lib/game-engine"
 import { talentLabel } from "@/lib/ui/labels"
 
 /**
