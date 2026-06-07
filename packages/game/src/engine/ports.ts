@@ -1,5 +1,9 @@
 import { type Archetype } from "@workspace/game/foundation/archetypes/schema"
 import {
+  type EnemyDefinition,
+  type EnemyFamily,
+} from "@workspace/game/foundation/enemies/schema"
+import {
   type EquippableItem,
   type Item,
 } from "@workspace/game/foundation/items/schema"
@@ -38,4 +42,12 @@ export interface SkillLookup {
 export interface ItemLookup {
   getItem(key: string): Item | undefined
   getEquippableItem(key: string): EquippableItem | undefined
+}
+
+/** Resolves catalog enemies by slug key, their {@link EnemyFamily}, and the whole
+ *  catalog (the browse surface walks every enemy). */
+export interface EnemyLookup {
+  getEnemy(key: string): EnemyDefinition | undefined
+  getEnemyFamily(key: string): EnemyFamily | undefined
+  allEnemies(): readonly EnemyDefinition[]
 }

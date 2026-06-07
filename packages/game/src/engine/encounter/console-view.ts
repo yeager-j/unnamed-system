@@ -1,4 +1,4 @@
-import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
   eligibleCombatants,
@@ -76,7 +76,8 @@ export interface ConsoleView {
  */
 export function combatantName(
   combatant: Combatant,
-  pcInfoById: Record<string, PcInfo>
+  pcInfoById: Record<string, PcInfo>,
+  enemyStatblockById: Record<string, Statblock>
 ): string {
   const ref = combatant.ref
   switch (ref.kind) {
@@ -85,7 +86,7 @@ export function combatantName(
     case "enemy":
       return ref.statBlock.name
     case "catalog-enemy":
-      return getEnemy(ref.enemyKey)?.name ?? ref.enemyKey
+      return enemyStatblockById[ref.enemyKey]?.name ?? ref.enemyKey
   }
 }
 
@@ -97,13 +98,18 @@ export function combatantName(
  */
 export function buildConsoleView(
   session: CombatSession,
-  pcInfoById: Record<string, PcInfo>
+  pcInfoById: Record<string, PcInfo>,
+  enemyStatblockById: Record<string, Statblock>
 ): ConsoleView {
   const pcCurrentHpById = Object.fromEntries(
     Object.entries(pcInfoById).map(([id, info]) => [id, info.currentHP])
   )
 
-  const fallenIds = fallenCombatantIds(session, pcCurrentHpById)
+  const fallenIds = fallenCombatantIds(
+    session,
+    pcCurrentHpById,
+    enemyStatblockById
+  )
 
   const eligibleIds = new Set(
     eligibleCombatants(session, fallenIds).map((c) => c.id)
@@ -111,7 +117,7 @@ export function buildConsoleView(
 
   const rows: CombatantView[] = session.combatants.map((combatant) => ({
     id: combatant.id,
-    name: combatantName(combatant, pcInfoById),
+    name: combatantName(combatant, pcInfoById, enemyStatblockById),
     side: combatant.side,
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === session.currentActorId,
@@ -128,7 +134,7 @@ export function buildConsoleView(
     currentActor: actor
       ? {
           id: actor.id,
-          name: combatantName(actor, pcInfoById),
+          name: combatantName(actor, pcInfoById, enemyStatblockById),
           side: actor.side,
           hasActed: actor.hasActedThisRound,
         }

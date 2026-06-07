@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
@@ -34,7 +34,7 @@ describe("reduceCombatSession — moveCombatant", () => {
   it("moves the combatant to the target zone", () => {
     const session = placedSession()
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "moveCombatant",
       combatantId: "combatant-0",
       toZoneId: "zone-b",
@@ -53,7 +53,7 @@ describe("reduceCombatSession — moveCombatant", () => {
       zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
     }
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "moveCombatant",
       combatantId: "combatant-0",
       toZoneId: "zone-a",
@@ -65,7 +65,7 @@ describe("reduceCombatSession — moveCombatant", () => {
   it("is a no-op when moving to the already-occupied zone", () => {
     const session = placedSession()
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "moveCombatant",
       combatantId: "combatant-0",
       toZoneId: "zone-a",
@@ -77,7 +77,7 @@ describe("reduceCombatSession — moveCombatant", () => {
   it("is a no-op when the combatant id is unknown", () => {
     const session = placedSession()
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "moveCombatant",
       combatantId: "ghost",
       toZoneId: "zone-b",
@@ -89,7 +89,7 @@ describe("reduceCombatSession — moveCombatant", () => {
   it("applies a non-adjacent target verbatim (guides, does not block)", () => {
     const session = placedSession()
 
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "moveCombatant",
       combatantId: "combatant-0",
       toZoneId: "zone-detached",

@@ -1,9 +1,6 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
-import {
-  createCombatSession,
-  reduceCombatSession,
-} from "@workspace/game/engine"
+import { createCombatSession } from "@workspace/game/engine"
 import {
   type CombatantSetup,
   type CombatSession,
@@ -12,6 +9,7 @@ import {
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
+import { reduceCombatSession } from "@/lib/game-engine"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,

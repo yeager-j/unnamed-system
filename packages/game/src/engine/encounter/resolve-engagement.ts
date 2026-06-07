@@ -1,3 +1,4 @@
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import type { EngageableTarget } from "@workspace/game/engine/encounter/setup-roster-view"
@@ -33,11 +34,15 @@ export interface CombatantEngagement {
 export function resolveCombatantEngagement(
   session: CombatSession,
   combatant: Combatant,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): CombatantEngagement {
   const value = combatant.engagement
   const nameById = new Map(
-    session.combatants.map((c) => [c.id, combatantName(c, pcDetailById)])
+    session.combatants.map((c) => [
+      c.id,
+      combatantName(c, pcDetailById, enemyStatblockById),
+    ])
   )
 
   const engagedIds =

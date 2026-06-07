@@ -1,9 +1,9 @@
-import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRollFrom,
   skillAttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
+import { type SkillLookup } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
@@ -22,10 +22,12 @@ import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
  * type, but catalog enemies never pay Skill costs (no SP pool, full every
  * encounter), so the drawer renders these with the cost row suppressed.
  */
-export function hydrateEnemySkills(enemy: EnemyDefinition): HydratedSkill[] {
+export function hydrateEnemySkills(
+  enemy: EnemyDefinition,
+  lookups: SkillLookup
+): HydratedSkill[] {
   const skills = enemy.skillKeys.flatMap((key) => {
-    const skill = getSkill(key)
-    // Stryker disable next-line ArrayDeclaration: equivalent — skillKeys are validated SkillKeys (registry load-time check), so getSkill always resolves; the `[]` (skill-missing) branch is unreachable at runtime and exists only to satisfy the Skill[] return type. The `[skill]` construction it also covers is independently asserted by the Attack Roll tests below.
+    const skill = lookups.getSkill(key)
     return skill ? [skill] : []
   })
   const effects = attackRollEffectsFromSkills(skills)

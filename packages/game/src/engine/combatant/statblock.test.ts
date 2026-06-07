@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest"
 
 import { banditCaptain } from "@workspace/game/data/enemies/5e/humanoid/bandit-captain"
+import { gameData } from "@workspace/game/data/game-data"
 import { makeHydratedCharacter } from "@workspace/game/engine/__fixtures__/character"
 import {
+  resolveCatalogEnemyStatblocks,
   statblockFromCharacter,
   statblockFromEnemy,
 } from "@workspace/game/engine/combatant/statblock"
+import { type CombatantRef } from "@workspace/game/foundation/encounter/session"
 import { type EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 
 describe("statblockFromCharacter", () => {
@@ -30,7 +33,7 @@ describe("statblockFromCharacter", () => {
 
 describe("statblockFromEnemy", () => {
   it("derives the catalog enemy's flat sheet, hydrated skills, and abilities", () => {
-    const statblock = statblockFromEnemy(banditCaptain)
+    const statblock = statblockFromEnemy(banditCaptain, gameData)
 
     expect(statblock.source).toBe("enemy")
     expect(statblock.name).toBe(banditCaptain.name)
@@ -44,7 +47,7 @@ describe("statblockFromEnemy", () => {
   })
 
   it("hydrates one Skill per skillKey against the enemy's flat Attributes", () => {
-    const statblock = statblockFromEnemy(banditCaptain)
+    const statblock = statblockFromEnemy(banditCaptain, gameData)
     expect(statblock.skills).toHaveLength(banditCaptain.skillKeys.length)
     // garu / zio are attack Skills, so each resolves an Attack Roll off the
     // enemy's flat Attributes (the SkillCard reuse this whole ticket enabled).
@@ -64,9 +67,34 @@ describe("statblockFromEnemy", () => {
       skillKeys: [],
       talents: [],
     }
-    const statblock = statblockFromEnemy(bare)
+    const statblock = statblockFromEnemy(bare, gameData)
 
     expect(statblock.abilities).toBeNull()
     expect(statblock.skills).toEqual([])
+  })
+})
+
+describe("resolveCatalogEnemyStatblocks", () => {
+  const ref = (r: CombatantRef) => ({ ref: r })
+
+  it("resolves each catalog enemy once; skips pcs, inline enemies, and unknown keys", () => {
+    const map = resolveCatalogEnemyStatblocks(
+      [
+        ref({ kind: "pc", characterId: "char-1" }),
+        ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
+        ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
+        ref({ kind: "catalog-enemy", enemyKey: "not-a-real-enemy" }),
+      ],
+      gameData
+    )
+
+    // Only the resolvable catalog enemy lands in the map (pc / unknown excluded).
+    expect(Object.keys(map)).toEqual(["goblin"])
+    expect(map.goblin?.source).toBe("enemy")
+    expect(map.goblin?.name).toBe("Goblin")
+  })
+
+  it("returns an empty map for a roster with no catalog enemies", () => {
+    expect(resolveCatalogEnemyStatblocks([], gameData)).toEqual({})
   })
 })

@@ -50,6 +50,7 @@
 			- [ ] Samurai
 			- [ ] Psionic Warrior
 - [ ] Mage — Wizard equivalent. Casts Fire, Ice, Elec, and Wind.
+	- [ ] Stains
 	- [x] Mage
 		- [ ] Wizard
 			- [ ] Elemental Master
@@ -71,6 +72,7 @@
 		- [ ] Cleric
 			- [ ] Savior
 - [ ] Thief — Rogue equivalent. Faster movement
+	- [ ] 
 	- [ ] Thief
 		- [ ] Assassin
 			- [ ] Ninja

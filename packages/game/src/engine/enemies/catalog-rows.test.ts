@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { ENEMIES } from "@workspace/game/data/enemies/registry"
+import { gameData } from "@workspace/game/data/game-data"
 import {
   buildEnemyCatalogRows,
   enemyFamilyCounts,
@@ -9,7 +10,7 @@ import {
 } from "@workspace/game/engine/enemies/catalog-rows"
 
 describe("buildEnemyCatalogRows", () => {
-  const rows = buildEnemyCatalogRows()
+  const rows = buildEnemyCatalogRows(gameData)
 
   it("builds one row per catalog enemy", () => {
     expect(rows).toHaveLength(ENEMIES.length)
@@ -42,7 +43,7 @@ describe("buildEnemyCatalogRows", () => {
 })
 
 describe("filterEnemyCatalogRows", () => {
-  const rows = buildEnemyCatalogRows()
+  const rows = buildEnemyCatalogRows(gameData)
 
   it("matches a case-insensitive name substring", () => {
     const matched = filterEnemyCatalogRows(rows, {
@@ -78,7 +79,7 @@ describe("filterEnemyCatalogRows", () => {
 
 describe("groupEnemyRowsByLevel", () => {
   it("groups rows by ascending level, names sorted within a group", () => {
-    const groups = groupEnemyRowsByLevel(buildEnemyCatalogRows())
+    const groups = groupEnemyRowsByLevel(buildEnemyCatalogRows(gameData))
 
     const levels = groups.map((group) => group.level)
     expect(levels).toEqual([...levels].sort((a, b) => a - b))
@@ -91,7 +92,7 @@ describe("groupEnemyRowsByLevel", () => {
   })
 
   it("preserves every row and places it in its level group", () => {
-    const rows = buildEnemyCatalogRows()
+    const rows = buildEnemyCatalogRows(gameData)
     const groups = groupEnemyRowsByLevel(rows)
     expect(groups.flatMap((group) => group.rows)).toHaveLength(rows.length)
     const level1 = groups.find((group) => group.level === 1)
@@ -101,7 +102,7 @@ describe("groupEnemyRowsByLevel", () => {
 
 describe("enemyFamilyCounts", () => {
   it("counts rows per family, totalling the catalog", () => {
-    const rows = buildEnemyCatalogRows()
+    const rows = buildEnemyCatalogRows(gameData)
     const counts = enemyFamilyCounts(rows)
     const total = Object.values(counts).reduce<number>(
       (sum, n) => sum + (n ?? 0),

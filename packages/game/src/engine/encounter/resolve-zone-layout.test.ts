@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import { resolveZoneLayout } from "@workspace/game/engine/encounter/resolve-zone-layout"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
@@ -44,7 +45,11 @@ describe("resolveZoneLayout", () => {
   it("groups combatants under the zone their zoneId references", () => {
     const session = sessionWith([pc("char1", "zone-a"), goblin("zone-b")])
 
-    const view = resolveZoneLayout(session, PC_DETAIL)
+    const view = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    )
 
     const courtyard = view.zones.find((z) => z.id === "zone-a")!
     const hall = view.zones.find((z) => z.id === "zone-b")!
@@ -55,7 +60,11 @@ describe("resolveZoneLayout", () => {
   it("resolves each zone's adjacency to display names", () => {
     const session = sessionWith([])
 
-    const view = resolveZoneLayout(session, PC_DETAIL)
+    const view = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    )
 
     expect(
       view.zones.find((z) => z.id === "zone-a")!.adjacentZoneNames
@@ -68,7 +77,11 @@ describe("resolveZoneLayout", () => {
   it("buckets unplaced (empty zoneId) and stale-zone combatants into unplaced", () => {
     const session = sessionWith([pc("char1", ""), goblin("zone-gone")])
 
-    const view = resolveZoneLayout(session, PC_DETAIL)
+    const view = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    )
 
     expect(view.unplaced.map((c) => c.name)).toEqual(["Brannis", "Goblin"])
     expect(view.zones.every((z) => z.combatants.length === 0)).toBe(true)
@@ -77,9 +90,11 @@ describe("resolveZoneLayout", () => {
   it("shapes the token's side, isPc, and portrait", () => {
     const session = sessionWith([pc("char1", "zone-a"), goblin("zone-a")])
 
-    const tokens = resolveZoneLayout(session, PC_DETAIL).zones.find(
-      (z) => z.id === "zone-a"
-    )!.combatants
+    const tokens = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    ).zones.find((z) => z.id === "zone-a")!.combatants
 
     expect(tokens[0]).toMatchObject({
       name: "Brannis",
@@ -98,7 +113,11 @@ describe("resolveZoneLayout", () => {
   it("reports hasZones false and everyone unplaced for an unzoned encounter", () => {
     const session = createCombatSession([pc("char1", "")], sequentialIds())
 
-    const view = resolveZoneLayout(session, PC_DETAIL)
+    const view = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    )
 
     expect(view.hasZones).toBe(false)
     expect(view.zones).toEqual([])
@@ -108,7 +127,11 @@ describe("resolveZoneLayout", () => {
   it("reports hasZones true and no unplaced when every combatant is in a real zone", () => {
     const session = sessionWith([pc("char1", "zone-a"), goblin("zone-b")])
 
-    const view = resolveZoneLayout(session, PC_DETAIL)
+    const view = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    )
 
     expect(view.hasZones).toBe(true)
     expect(view.unplaced).toEqual([])
@@ -117,9 +140,11 @@ describe("resolveZoneLayout", () => {
   it("renders a PC with no detail entry with a null portrait (detail miss is safe)", () => {
     const session = sessionWith([pc("char-unknown", "zone-a")])
 
-    const token = resolveZoneLayout(session, PC_DETAIL).zones.find(
-      (z) => z.id === "zone-a"
-    )!.combatants[0]!
+    const token = resolveZoneLayout(
+      session,
+      PC_DETAIL,
+      enemyStatblocks(session.combatants)
+    ).zones.find((z) => z.id === "zone-a")!.combatants[0]!
 
     expect(token.isPc).toBe(true)
     expect(token.portraitUrl).toBeNull()
@@ -132,7 +157,11 @@ describe("resolveZoneLayout", () => {
       adjacency: { "zone-a": ["zone-b", "ghost"], "zone-b": ["zone-a"] },
     }
 
-    const view = resolveZoneLayout(withDangling, PC_DETAIL)
+    const view = resolveZoneLayout(
+      withDangling,
+      PC_DETAIL,
+      enemyStatblocks(withDangling.combatants)
+    )
 
     expect(
       view.zones.find((z) => z.id === "zone-a")!.adjacentZoneNames

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import {
   buildConsoleView,
   combatantName,
@@ -44,6 +45,8 @@ const PC_INFO: Record<string, PcInfo> = {
   "char-1": { name: "Brannis", currentHP: 30 },
 }
 
+const ENEMY_SB = enemyStatblocks(SETUP)
+
 function build(): CombatSession {
   return {
     ...createCombatSession(SETUP, sequentialIds()),
@@ -55,24 +58,28 @@ function build(): CombatSession {
 describe("combatantName", () => {
   it("resolves a PC name from the injected vitals map", () => {
     const session = build()
-    expect(combatantName(session.combatants[0]!, PC_INFO)).toBe("Brannis")
+    expect(combatantName(session.combatants[0]!, PC_INFO, ENEMY_SB)).toBe(
+      "Brannis"
+    )
   })
 
   it("falls back to the characterId when the PC is missing from the map", () => {
     const session = build()
-    expect(combatantName(session.combatants[0]!, {})).toBe("char-1")
+    expect(combatantName(session.combatants[0]!, {}, ENEMY_SB)).toBe("char-1")
   })
 
   it("reads an inline enemy's name off its stat block", () => {
     const session = build()
-    expect(combatantName(session.combatants[1]!, PC_INFO)).toBe(
+    expect(combatantName(session.combatants[1]!, PC_INFO, ENEMY_SB)).toBe(
       "Practice Dummy"
     )
   })
 
   it("resolves a catalog enemy through the hardcoded catalog", () => {
     const session = build()
-    expect(combatantName(session.combatants[2]!, PC_INFO)).toBe("Goblin")
+    expect(combatantName(session.combatants[2]!, PC_INFO, ENEMY_SB)).toBe(
+      "Goblin"
+    )
   })
 
   it("falls back to the raw key for an unknown catalog enemy", () => {
@@ -90,7 +97,7 @@ describe("combatantName", () => {
       advantage: "neutral" as const,
       firstSide: "players" as const,
     }
-    expect(combatantName(session.combatants[0]!, PC_INFO)).toBe(
+    expect(combatantName(session.combatants[0]!, PC_INFO, ENEMY_SB)).toBe(
       "not-a-real-enemy"
     )
   })
@@ -98,7 +105,7 @@ describe("combatantName", () => {
 
 describe("buildConsoleView", () => {
   it("names every combatant and reports no current actor before a draft", () => {
-    const view = buildConsoleView(build(), PC_INFO)
+    const view = buildConsoleView(build(), PC_INFO, ENEMY_SB)
 
     expect(view.rows.map((r) => r.name)).toEqual([
       "Brannis",
@@ -111,7 +118,7 @@ describe("buildConsoleView", () => {
 
   it("flags the current actor and the eligible draft picks", () => {
     const session = { ...build(), currentActorId: "combatant-0" }
-    const view = buildConsoleView(session, PC_INFO)
+    const view = buildConsoleView(session, PC_INFO, ENEMY_SB)
 
     expect(view.currentActor).toMatchObject({
       id: "combatant-0",
@@ -133,9 +140,11 @@ describe("buildConsoleView", () => {
 
   it("marks a low-HP PC Fallen and excludes it from the draft", () => {
     const session = build()
-    const view = buildConsoleView(session, {
-      "char-1": { name: "Brannis", currentHP: 0 },
-    })
+    const view = buildConsoleView(
+      session,
+      { "char-1": { name: "Brannis", currentHP: 0 } },
+      ENEMY_SB
+    )
 
     const pc = view.rows.find((r) => r.id === "combatant-0")!
     expect(pc.isFallen).toBe(true)
@@ -152,7 +161,7 @@ describe("buildConsoleView", () => {
         c.id === "combatant-0" ? { ...c, ailments: ["downed"] } : c
       ),
     }
-    const view = buildConsoleView(session, PC_INFO)
+    const view = buildConsoleView(session, PC_INFO, ENEMY_SB)
 
     // Players lead and the Downed PC is on that side — still a valid pick. The
     // draft slice clears Downed on draft (rulebook: "recover at the start of
@@ -171,7 +180,7 @@ describe("buildConsoleView", () => {
         hasActedThisRound: true,
       })),
     }
-    const view = buildConsoleView(session, PC_INFO)
+    const view = buildConsoleView(session, PC_INFO, ENEMY_SB)
 
     expect(view.roundComplete).toBe(true)
   })

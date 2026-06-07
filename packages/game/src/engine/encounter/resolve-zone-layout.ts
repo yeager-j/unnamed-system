@@ -1,3 +1,4 @@
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
@@ -56,7 +57,8 @@ export interface ZoneLayoutView {
  *  the injected detail; an enemy has none (the initials-square fallback). */
 function zoneToken(
   combatant: Combatant,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): ZoneToken {
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
@@ -67,7 +69,7 @@ function zoneToken(
 
   return {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById),
+    name: combatantName(combatant, pcDetailById, enemyStatblockById),
     side: combatant.side,
     isPc,
     portraitUrl,
@@ -85,7 +87,8 @@ function zoneToken(
  */
 export function resolveZoneLayout(
   session: CombatSession,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): ZoneLayoutView {
   const zoneEntries = Object.values(session.zones)
   const zoneIds = new Set(zoneEntries.map((zone) => zone.id))
@@ -96,12 +99,14 @@ export function resolveZoneLayout(
     adjacentZoneNames: adjacentZones(session, zone.id).map((z) => z.name),
     combatants: session.combatants
       .filter((combatant) => combatant.zoneId === zone.id)
-      .map((combatant) => zoneToken(combatant, pcDetailById)),
+      .map((combatant) =>
+        zoneToken(combatant, pcDetailById, enemyStatblockById)
+      ),
   }))
 
   const unplaced = session.combatants
     .filter((combatant) => !zoneIds.has(combatant.zoneId))
-    .map((combatant) => zoneToken(combatant, pcDetailById))
+    .map((combatant) => zoneToken(combatant, pcDetailById, enemyStatblockById))
 
   return { zones, unplaced, hasZones: zoneEntries.length > 0 }
 }

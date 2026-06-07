@@ -1,4 +1,4 @@
-import { ENEMIES, getEnemyFamily } from "@workspace/game/data/enemies/registry"
+import { type EnemyLookup } from "@workspace/game/engine/ports"
 import { type AffinityDamageType } from "@workspace/game/foundation/combat/affinity"
 import type { EnemyFamily } from "@workspace/game/foundation/enemies/schema"
 
@@ -39,12 +39,14 @@ function weaknessesOf(
  * one per enemy. A row's family always resolves (every key has one), so the
  * fallback is a defensive `"humanoid"` that can't be hit at runtime.
  */
-export function buildEnemyCatalogRows(): EnemyCatalogRow[] {
-  return ENEMIES.map((enemy) => ({
+export function buildEnemyCatalogRows(
+  lookups: Pick<EnemyLookup, "allEnemies" | "getEnemyFamily">
+): EnemyCatalogRow[] {
+  return lookups.allEnemies().map((enemy) => ({
     key: enemy.key,
     name: enemy.name,
     // Stryker disable next-line StringLiteral: equivalent — every catalog enemy has a registered family, so this defensive fallback is unreachable at runtime.
-    family: getEnemyFamily(enemy.key) ?? "humanoid",
+    family: lookups.getEnemyFamily(enemy.key) ?? "humanoid",
     level: enemy.level,
     maxHP: enemy.maxHP,
     weaknesses: weaknessesOf(enemy.affinities),

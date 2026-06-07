@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
+import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
   type Combatant,
@@ -44,7 +44,7 @@ describe("reduceCombatSession — setActionEconomy", () => {
 
   for (const action of ACTION_ECONOMY_ACTIONS) {
     it(`toggles ${action} off and back on`, () => {
-      const off = reduceCombatSession(build(), {
+      const off = reduceCombat(build(), {
         kind: "setActionEconomy",
         combatantId: "combatant-0",
         action,
@@ -52,7 +52,7 @@ describe("reduceCombatSession — setActionEconomy", () => {
       })
       expect(combatantOf(off, "combatant-0")![FIELD[action]]).toBe(false)
 
-      const on = reduceCombatSession(off, {
+      const on = reduceCombat(off, {
         kind: "setActionEconomy",
         combatantId: "combatant-0",
         action,
@@ -63,7 +63,7 @@ describe("reduceCombatSession — setActionEconomy", () => {
   }
 
   it("touches only the named action, leaving the others", () => {
-    const next = reduceCombatSession(build(), {
+    const next = reduceCombat(build(), {
       kind: "setActionEconomy",
       combatantId: "combatant-0",
       action: "standard",
@@ -77,7 +77,7 @@ describe("reduceCombatSession — setActionEconomy", () => {
 
   it("is a no-op for an unknown combatant id", () => {
     const session = build()
-    const next = reduceCombatSession(session, {
+    const next = reduceCombat(session, {
       kind: "setActionEconomy",
       combatantId: "nobody",
       action: "move",

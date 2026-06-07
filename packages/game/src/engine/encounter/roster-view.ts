@@ -1,10 +1,5 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { getEnemy } from "@workspace/game/data/enemies/registry"
 import { type AttributeScores } from "@workspace/game/engine/character/stats/stats"
-import {
-  statblockFromEnemy,
-  type Statblock,
-} from "@workspace/game/engine/combatant/statblock"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
@@ -49,9 +44,11 @@ import type {
 
 /**
  * Exactly the {@link HydratedCharacter} fields the rail + drawer read off a PC —
- * a lean slice, so a loaded hydrated character is directly assignable (no
- * mapper) yet the client payload skips the skills/inventory/child rows the
- * console never renders.
+ * a lean slice, so a loaded hydrated character is directly assignable, plus
+ * `className`: the active Archetype's **resolved display name**, injected at the
+ * assembly boundary (UNN-354) so {@link combatantDetail} reads a plain field
+ * instead of looking the Archetype up in the catalog. The client payload still
+ * skips the skills/inventory/child rows the console never renders.
  */
 export type PcCombatantDetail = Pick<
   HydratedCharacter,
@@ -70,7 +67,11 @@ export type PcCombatantDetail = Pick<
   // The vitals-class optimistic token the DM's HP/SP pools writes condition on
   // (UNN-309) — the only version the combat console touches.
   | "vitalsVersion"
->
+> & {
+  /** The active Archetype's display name (or `null` when none), resolved at the
+   *  boundary so the drawer needn't reach into the Archetype catalog. */
+  className: string | null
+}
 
 /** A current/max pool, the shape both vitals bars render. */
 export interface Pool {
@@ -234,14 +235,17 @@ function combatantOverlay(combatant: Combatant): CombatantOverlay {
  *  definition's `maxHP` until first adjusted (UNN-309). Exported so the player
  *  snapshot projection reuses the same catalog-working-HP-default rule rather
  *  than duplicating it (UNN-322/324). */
-export function enemyHp(combatant: Combatant): Pool {
+export function enemyHp(
+  combatant: Combatant,
+  enemyStatblockById: Record<string, Statblock>
+): Pool {
   const ref = combatant.ref
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
   }
   // Stryker disable next-line ConditionalExpression: equivalent — the `enemy` branch already returned and enemyHp is only ever called for an enemy/catalog-enemy ref, so a catalog-enemy is the only kind that reaches here.
   if (ref.kind === "catalog-enemy") {
-    const definitionMax = getEnemy(ref.enemyKey)?.maxHP ?? 0
+    const definitionMax = enemyStatblockById[ref.enemyKey]?.maxHP ?? 0
     return {
       current: ref.currentHP ?? definitionMax,
       max: ref.maxHP ?? definitionMax,
@@ -293,6 +297,7 @@ function pcPool(
 function railRow(
   combatant: Combatant,
   pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>,
   fallenIds: Set<string>,
   currentActorId: string | null,
   zones: CombatSession["zones"]
@@ -304,14 +309,14 @@ function railRow(
 
   return {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById),
+    name: combatantName(combatant, pcDetailById, enemyStatblockById),
     side: combatant.side,
     isPc,
     isCurrent: combatant.id === currentActorId,
     hasActed: combatant.hasActedThisRound,
     isFallen: fallenIds.has(combatant.id),
     isDowned: isDowned(combatant),
-    hp: isPc ? pcPool(pcDetail, "hp") : enemyHp(combatant),
+    hp: isPc ? pcPool(pcDetail, "hp") : enemyHp(combatant, enemyStatblockById),
     // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind.
     sp: isPc ? pcPool(pcDetail, "sp") : null,
     portraitUrl: pcDetail?.portraitUrl ?? null,
@@ -338,13 +343,19 @@ function pcCurrentHpById(
  */
 export function buildRosterView(
   session: CombatSession,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): RosterView {
-  const fallenIds = fallenCombatantIds(session, pcCurrentHpById(pcDetailById))
+  const fallenIds = fallenCombatantIds(
+    session,
+    pcCurrentHpById(pcDetailById),
+    enemyStatblockById
+  )
   const rows = session.combatants.map((combatant) =>
     railRow(
       combatant,
       pcDetailById,
+      enemyStatblockById,
       fallenIds,
       session.currentActorId,
       session.zones
@@ -369,19 +380,21 @@ export function buildRosterView(
 export function combatantDetail(
   session: CombatSession,
   combatantId: string,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  enemyStatblockById: Record<string, Statblock>
 ): CombatantDetail | null {
   const combatant = session.combatants.find((c) => c.id === combatantId)
   if (!combatant) return null
 
   const ref = combatant.ref
-  const name = combatantName(combatant, pcDetailById)
+  const name = combatantName(combatant, pcDetailById, enemyStatblockById)
   const overlay = combatantOverlay(combatant)
   const position = combatantPosition(session, combatant)
   const engagement = resolveCombatantEngagement(
     session,
     combatant,
-    pcDetailById
+    pcDetailById,
+    enemyStatblockById
   )
 
   if (ref.kind === "pc") {
@@ -397,9 +410,7 @@ export function combatantDetail(
       name,
       side: combatant.side,
       level: detail?.level ?? 1,
-      className: detail?.activeArchetypeKey
-        ? (getArchetype(detail.activeArchetypeKey)?.name ?? null)
-        : null,
+      className: detail?.className ?? null,
       pronouns: detail?.pronouns ?? null,
       portraitUrl: detail?.portraitUrl ?? null,
       hp: pcPool(detail, "hp"),
@@ -416,7 +427,6 @@ export function combatantDetail(
   }
 
   if (ref.kind === "catalog-enemy") {
-    const def = getEnemy(ref.enemyKey)
     return {
       ...overlay,
       position,
@@ -425,8 +435,8 @@ export function combatantDetail(
       id: combatant.id,
       name,
       side: combatant.side,
-      hp: enemyHp(combatant),
-      statblock: def ? statblockFromEnemy(def) : inlineEnemyStatblock(name),
+      hp: enemyHp(combatant, enemyStatblockById),
+      statblock: enemyStatblockById[ref.enemyKey] ?? inlineEnemyStatblock(name),
     }
   }
 
@@ -440,7 +450,7 @@ export function combatantDetail(
     id: combatant.id,
     name,
     side: combatant.side,
-    hp: enemyHp(combatant),
+    hp: enemyHp(combatant, enemyStatblockById),
     statblock: inlineEnemyStatblock(name, ref.statBlock.attributes),
   }
 }

@@ -1,4 +1,4 @@
-import { getEnemy } from "@workspace/game/data/enemies/registry"
+import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import type {
   CombatantSetup,
   CombatSession,
@@ -15,7 +15,8 @@ import type {
  */
 function baseName(
   setup: CombatantSetup,
-  pcNameById: Record<string, string>
+  pcNameById: Record<string, string>,
+  enemyStatblockById: Record<string, Statblock>
 ): string {
   const ref = setup.ref
   switch (ref.kind) {
@@ -24,7 +25,7 @@ function baseName(
     case "enemy":
       return ref.statBlock.name
     case "catalog-enemy":
-      return getEnemy(ref.enemyKey)?.name ?? ref.enemyKey
+      return enemyStatblockById[ref.enemyKey]?.name ?? ref.enemyKey
   }
 }
 
@@ -39,14 +40,15 @@ function baseName(
  */
 export function buildSetupCombatantLabels(
   setups: CombatantSetup[],
-  pcNameById: Record<string, string>
+  pcNameById: Record<string, string>,
+  enemyStatblockById: Record<string, Statblock>
 ): string[] {
   // The first (or only) occurrence of a base name renders bare; later repeats get
   // their roster-order ordinal — so a singleton naturally stays un-numbered with
   // no separate up-front count.
   const seen = new Map<string, number>()
   return setups.map((setup) => {
-    const name = baseName(setup, pcNameById)
+    const name = baseName(setup, pcNameById, enemyStatblockById)
     const ordinal = (seen.get(name) ?? 0) + 1
     seen.set(name, ordinal)
     return ordinal === 1 ? name : `${name} ${ordinal}`

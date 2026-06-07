@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
@@ -45,19 +46,23 @@ function session(enemyHP: number) {
   return createCombatSession(setup, sequentialIds())
 }
 
+/** Resolved statblocks for the catalog goblin in {@link session} (so an unset
+ *  working-HP goblin defaults to its real, >0 maxHP — not Fallen). */
+const ENEMY_SB = enemyStatblocks(session(0).combatants)
+
 describe("fallenCombatantIds", () => {
   it("includes an enemy whose inline statBlock HP is 0 or less", () => {
-    const fallen = fallenCombatantIds(session(0), { "char-1": 10 })
+    const fallen = fallenCombatantIds(session(0), { "char-1": 10 }, ENEMY_SB)
     expect(fallen.has("combatant-1")).toBe(true)
   })
 
   it("includes a PC whose injected HP is 0 or less", () => {
-    const fallen = fallenCombatantIds(session(20), { "char-1": 0 })
+    const fallen = fallenCombatantIds(session(20), { "char-1": 0 }, ENEMY_SB)
     expect(fallen.has("combatant-0")).toBe(true)
   })
 
   it("excludes healthy combatants", () => {
-    const fallen = fallenCombatantIds(session(20), { "char-1": 10 })
+    const fallen = fallenCombatantIds(session(20), { "char-1": 10 }, ENEMY_SB)
     expect(fallen.has("combatant-0")).toBe(false)
     expect(fallen.has("combatant-1")).toBe(false)
   })
@@ -65,7 +70,7 @@ describe("fallenCombatantIds", () => {
   it("excludes a catalog enemy whose working HP is unset (full by default)", () => {
     // The goblin ref carries no `currentHP`, so it defaults to the definition's
     // maxHP — full, hence not Fallen.
-    const fallen = fallenCombatantIds(session(0), { "char-1": 0 })
+    const fallen = fallenCombatantIds(session(0), { "char-1": 0 }, ENEMY_SB)
     expect(fallen.has("combatant-2")).toBe(false)
   })
 
@@ -86,7 +91,7 @@ describe("fallenCombatantIds", () => {
           : c
       ),
     }
-    const fallen = fallenCombatantIds(downed, { "char-1": 10 })
+    const fallen = fallenCombatantIds(downed, { "char-1": 10 }, ENEMY_SB)
     expect(fallen.has("combatant-2")).toBe(true)
   })
 
@@ -102,7 +107,7 @@ describe("fallenCombatantIds", () => {
       () => "lone"
     )
 
-    const fallen = fallenCombatantIds(s, {})
+    const fallen = fallenCombatantIds(s, {}, ENEMY_SB)
 
     expect(fallen.has("lone")).toBe(true)
   })
@@ -125,23 +130,27 @@ describe("fallenCombatantIds", () => {
       ),
     }
 
-    const fallen = fallenCombatantIds(downed, { "char-1": 20 })
+    const fallen = fallenCombatantIds(downed, { "char-1": 20 }, ENEMY_SB)
 
     expect(fallen.has("combatant-1")).toBe(false)
     expect(fallen.has("combatant-2")).toBe(true)
   })
 
   it("treats a PC with no injected HP entry as not Fallen", () => {
-    const fallen = fallenCombatantIds(session(20), {})
+    const fallen = fallenCombatantIds(session(20), {}, ENEMY_SB)
     expect(fallen.has("combatant-0")).toBe(false)
   })
 
   it("drops a revived PC from the set (HP back above 0)", () => {
     expect(
-      fallenCombatantIds(session(20), { "char-1": 0 }).has("combatant-0")
+      fallenCombatantIds(session(20), { "char-1": 0 }, ENEMY_SB).has(
+        "combatant-0"
+      )
     ).toBe(true)
     expect(
-      fallenCombatantIds(session(20), { "char-1": 5 }).has("combatant-0")
+      fallenCombatantIds(session(20), { "char-1": 5 }, ENEMY_SB).has(
+        "combatant-0"
+      )
     ).toBe(false)
   })
 })

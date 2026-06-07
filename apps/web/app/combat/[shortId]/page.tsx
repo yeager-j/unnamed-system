@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { getArchetype } from "@workspace/game/data"
 import {
   type InitiativeStats,
   type PcCombatantDetail,
@@ -95,7 +96,17 @@ export default async function CombatPage({ params }: PageProps) {
       )
       const pcDetailById: Record<string, PcCombatantDetail> =
         Object.fromEntries(
-          hydrated.filter((c) => c !== null).map((c) => [c.id, c])
+          hydrated
+            .filter((c) => c !== null)
+            .map((c) => [
+              c.id,
+              {
+                ...c,
+                className: c.activeArchetypeKey
+                  ? (getArchetype(c.activeArchetypeKey)?.name ?? null)
+                  : null,
+              },
+            ])
         )
       return (
         <CombatConsole
