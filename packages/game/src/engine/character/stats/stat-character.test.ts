@@ -2,24 +2,75 @@ import { describe, expect, it } from "vitest"
 
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import { gameData } from "@workspace/game/data/game-data"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   FIXTURE_CHARACTER_ID,
   makeArchetypeRow,
   makeHydratedCharacter,
 } from "@workspace/game/engine/__fixtures__/character"
 import {
+  makeAccessory,
+  makeWeapon,
+} from "@workspace/game/engine/__fixtures__/fixtures"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { makePassiveSkill } from "@workspace/game/engine/__fixtures__/skills"
+import {
   buildStatContext,
   toStatContext,
   type PersistedArchetypeState,
   type PersistedCharacterState,
 } from "@workspace/game/engine/character/stats/stat-character"
+import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 
-/** Binds the production catalog so the boundary call sites stay terse. */
+/**
+ * Real catalog keys used as **opaque ids**: every Rank/Skill/Lineage below is a
+ * value this file *assigns* on a fixture, so the assertions prove the
+ * stat-context assembly *behavior* (Rank gating, inheritance folding, mechanic
+ * coercion) and never the shipped catalog's balance — a rebalance can't break
+ * this slice.
+ */
+const W1 = "cleave" // Warrior Rank 1
+const W2 = "windblade" // Warrior Rank 2
+const SYN = "elemental-apocalypse" // Warrior Synthesis @5
+const M1 = "zio" // Mage Rank 1, also inherited across Archetypes
+const GRANTED = "garu" // granted by the fixture accessory
+
+const fxWarrior = makeArchetype({
+  key: "warrior",
+  lineage: "warrior",
+  mechanic: "perfection",
+  mastery: { kind: "hp", amount: 20 },
+  skills: [
+    { skill: W1, rank: 1 },
+    { skill: W2, rank: 2 },
+  ],
+  synthesisSkill: { skill: SYN, rank: 5 },
+})
+const fxMage = makeArchetype({
+  key: "mage",
+  lineage: "mage",
+  skills: [{ skill: M1, rank: 1 }],
+})
+/** A fixture Archetype with no declared mechanic — the real catalog has none,
+ *  so only a fixture can exercise the "Archetype has no mechanic" branch. */
+const fxNoMechanic = makeArchetype({ key: "nomech", lineage: "warlock" })
+
+const grantAccessory = makeAccessory("zephyr-band", [
+  { type: "skill", skillKey: GRANTED },
+])
+
+const TEST_DATA = makeTestGameData({
+  archetypes: [fxWarrior, fxMage, fxNoMechanic],
+  skills: [W1, W2, SYN, M1, GRANTED].map((key) => makePassiveSkill({ key })),
+  items: [makeWeapon("longsword"), makeWeapon("spear"), grantAccessory],
+})
+
+/** Binds the fixture catalog so the boundary call sites stay terse. */
 const build = (
   character: PersistedCharacterState,
   archetypes: readonly PersistedArchetypeState[],
   equippedItemKeys: readonly string[]
-) => buildStatContext(character, archetypes, equippedItemKeys, gameData)
+) => buildStatContext(character, archetypes, equippedItemKeys, TEST_DATA)
 
 const baseCharacter: PersistedCharacterState = {
   pathChoice: "balanced",
@@ -48,13 +99,13 @@ describe("buildStatContext", () => {
     expect(result.level).toBe(3)
     expect(result.manualBonuses).toEqual({ hp: 5 })
     expect(result.archetypes).toEqual([
-      { key: "warrior", rank: 2, mastery: warrior.mastery },
+      { key: "warrior", rank: 2, mastery: fxWarrior.mastery },
     ])
   })
 
   it("resolves the active Archetype's Lineage onto the context", () => {
     const result = build(baseCharacter, [warriorRow()], [])
-    expect(result.activeLineage).toBe(warrior.lineage)
+    expect(result.activeLineage).toBe(fxWarrior.lineage)
   })
 
   it("has a null Lineage when no Archetype is active", () => {
@@ -76,7 +127,7 @@ describe("buildStatContext", () => {
       []
     )
     expect(result.archetypes).toEqual([
-      { key: "warrior", rank: 2, mastery: warrior.mastery },
+      { key: "warrior", rank: 2, mastery: fxWarrior.mastery },
     ])
   })
 
@@ -111,14 +162,14 @@ describe("buildStatContext", () => {
   it("includes only Skills unlocked at or below the active Rank", () => {
     const result = build(baseCharacter, [warriorRow({ rank: 2 })], [])
     const keys = result.activeSkills.map((skill) => skill.key)
-    expect(keys).toEqual(["cleave", "windblade"])
+    expect(keys).toEqual([W1, W2])
   })
 
   it("includes the Synthesis Skill once the active Rank reaches it", () => {
     const result = build(baseCharacter, [warriorRow({ rank: 5 })], [])
     const keys = result.activeSkills.map((skill) => skill.key)
-    expect(keys).toContain(warrior.synthesisSkill?.skill)
-    expect(keys).toHaveLength(warrior.skills.length + 1)
+    expect(keys).toContain(SYN)
+    expect(keys).toHaveLength(fxWarrior.skills.length + 1)
   })
 
   it("includes Skills inherited into the active Archetype's slots", () => {
@@ -131,7 +182,7 @@ describe("buildStatContext", () => {
             {
               slotIndex: 0,
               sourceCharacterArchetypeId: "ca-mage",
-              skillKey: "zio",
+              skillKey: M1,
             },
             { slotIndex: 1, sourceCharacterArchetypeId: null, skillKey: null },
           ],
@@ -140,9 +191,9 @@ describe("buildStatContext", () => {
       []
     )
     const keys = result.activeSkills.map((skill) => skill.key)
-    expect(keys).toContain("cleave")
-    expect(keys).toContain("zio")
-    expect(keys).not.toContain("windblade")
+    expect(keys).toContain(W1)
+    expect(keys).toContain(M1)
+    expect(keys).not.toContain(W2)
   })
 
   it("returns no Skills when the active Archetype key is unknown", () => {
@@ -180,7 +231,7 @@ describe("buildStatContext", () => {
       []
     )
     // The unresolvable key is filtered out, leaving only the rank-1 Archetype Skill.
-    expect(result.activeSkills.map((skill) => skill.key)).toEqual(["cleave"])
+    expect(result.activeSkills.map((skill) => skill.key)).toEqual([W1])
   })
 
   it("resolves equipped catalog keys and drops unknown ones", () => {
@@ -199,8 +250,8 @@ describe("buildStatContext", () => {
       ["zephyr-band"]
     )
     const keys = result.activeSkills.map((skill) => skill.key)
-    expect(keys).toContain("garu")
-    expect(keys).toContain("cleave")
+    expect(keys).toContain(GRANTED)
+    expect(keys).toContain(W1)
   })
 
   it("does not duplicate an equipment-granted Skill the Archetype already provides", () => {
@@ -213,15 +264,17 @@ describe("buildStatContext", () => {
             {
               slotIndex: 0,
               sourceCharacterArchetypeId: "ca-mage",
-              skillKey: "garu",
+              skillKey: GRANTED,
             },
           ],
         }),
       ],
       ["zephyr-band"]
     )
-    const garuKeys = result.activeSkills.filter((skill) => skill.key === "garu")
-    expect(garuKeys).toHaveLength(1)
+    const grantedKeys = result.activeSkills.filter(
+      (skill) => skill.key === GRANTED
+    )
+    expect(grantedKeys).toHaveLength(1)
   })
 
   describe("active mechanic", () => {
@@ -245,7 +298,7 @@ describe("buildStatContext", () => {
       )
       expect(result.activeMechanic).toEqual({
         kind: "perfection",
-        state: { kind: "perfection", rank: 0 },
+        state: getMechanic("perfection")!.initialState(),
       })
     })
 
@@ -259,18 +312,12 @@ describe("buildStatContext", () => {
     })
 
     it("returns null when the active Archetype has no declared mechanic", () => {
-      // No Archetype in the shipped catalog omits `mechanic` today, so this
-      // case is guarded by an unknown archetypeKey — exercises the same
-      // null-on-missing-mechanic branch.
       const result = build(
-        {
-          ...baseCharacter,
-          activeCharacterArchetypeId: "ca-unknown",
-        },
+        { ...baseCharacter, activeCharacterArchetypeId: "ca-nomech" },
         [
           {
-            id: "ca-unknown",
-            archetypeKey: "not-a-real-archetype",
+            id: "ca-nomech",
+            archetypeKey: "nomech",
             rank: 1,
             inheritanceSlots: [],
             mechanicState: null,
@@ -285,44 +332,65 @@ describe("buildStatContext", () => {
 
 describe("toStatContext", () => {
   it("maps a hydrated character's archetypes, level, and equipped items", () => {
-    const character = makeHydratedCharacter({
-      row: {
-        activeArchetypeId: "arch-1",
-        pathChoice: "balanced",
-        level: 4,
-        manualBonuses: { hp: 2 },
+    const character = makeHydratedCharacter(
+      {
+        row: {
+          activeArchetypeId: "arch-1",
+          pathChoice: "balanced",
+          level: 4,
+          manualBonuses: { hp: 2 },
+        },
+        archetypeRows: [
+          makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 5 }),
+        ],
+        inventoryRows: [
+          {
+            id: "inv-equipped",
+            characterId: FIXTURE_CHARACTER_ID,
+            catalogItemKey: "longsword",
+            equipped: true,
+            quantity: 1,
+          },
+          {
+            id: "inv-stowed",
+            characterId: FIXTURE_CHARACTER_ID,
+            catalogItemKey: "spear",
+            equipped: false,
+            quantity: 1,
+          },
+        ],
       },
-      archetypeRows: [
-        makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 5 }),
-      ],
-      inventoryRows: [
-        {
-          id: "inv-equipped",
-          characterId: FIXTURE_CHARACTER_ID,
-          catalogItemKey: "longsword",
-          equipped: true,
-          quantity: 1,
-        },
-        {
-          id: "inv-stowed",
-          characterId: FIXTURE_CHARACTER_ID,
-          catalogItemKey: "spear",
-          equipped: false,
-          quantity: 1,
-        },
-      ],
-    })
+      TEST_DATA
+    )
 
-    const ctx = toStatContext(character, gameData)
+    const ctx = toStatContext(character, TEST_DATA)
 
     expect(ctx.activeArchetypeKey).toBe("warrior")
     expect(ctx.archetypes).toContainEqual({
       key: "warrior",
       rank: 5,
-      mastery: warrior.mastery,
+      mastery: fxWarrior.mastery,
     })
     expect(ctx.level).toBe(4)
     // Only the equipped item is threaded through (the stowed Spear is dropped).
     expect(ctx.equippedItems.map((item) => item.key)).toEqual(["longsword"])
+  })
+})
+
+describe("buildStatContext — real catalog (smoke)", () => {
+  it("resolves a shipped Archetype's Lineage, Mastery, and active Skills", () => {
+    const result = buildStatContext(
+      baseCharacter,
+      [warriorRow({ rank: 2 })],
+      [],
+      gameData
+    )
+    expect(result.activeLineage).toBe(warrior.lineage)
+    expect(result.archetypes).toContainEqual({
+      key: "warrior",
+      rank: 2,
+      mastery: warrior.mastery,
+    })
+    expect(result.activeSkills.length).toBeGreaterThan(0)
   })
 })

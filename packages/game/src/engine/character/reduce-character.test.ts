@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest"
 
 import { gameData } from "@workspace/game/data/game-data"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
+import {
+  FIXTURE_CHARACTER_ID,
+  makeArchetypeRow,
+  makeRawCharacterInputs,
+} from "@workspace/game/engine/__fixtures__/character"
+import {
+  makeArmor,
+  makeConsumable,
+  makeWeapon,
+} from "@workspace/game/engine/__fixtures__/fixtures"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import {
+  makeAttackSkill,
+  makePassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
+import { makeTalent } from "@workspace/game/engine/__fixtures__/talents"
 import { MAX_CURRENCY } from "@workspace/game/engine/character/currency"
 import {
   deriveHydratedCharacter,
@@ -10,96 +27,110 @@ import {
 import { reduceCharacter } from "@workspace/game/engine/character/reduce-character"
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
-import type {
-  CharacterRow,
-  InventoryItemRow,
-} from "@workspace/game/foundation/character/records"
+import type { InventoryItemRow } from "@workspace/game/foundation/character/records"
 
-/** Test wrappers binding the production catalog (`gameData`) so the boundary
- *  call sites stay terse; the engine itself takes the lookups explicitly. */
+/**
+ * A synthetic catalog covering the whole reduce pipeline. Every key below is a
+ * real catalog slug used as an **opaque id** — the Archetypes, Skills, items,
+ * Talent, and the cleave HP cost are values this file *assigns*, so the tests
+ * assert the reducer's *behavior* (re-derive, clamp, no-op, mechanic dispatch)
+ * and never the shipped catalog's balance. A rebalance can't break this slice.
+ *
+ * The five Archetypes carry the five distinct mechanics, and Warrior vs Mage
+ * differ in attributes / affinities / Skills so a switch is observable.
+ */
+const CLEAVE_HP_PERCENT = 10
+
+const fxWarrior = makeArchetype({
+  key: "warrior",
+  lineage: "warrior",
+  mechanic: "perfection",
+  attributes: { strength: 3, magic: 0, agility: 1, luck: 0 },
+  affinities: { fire: "weak" },
+  mastery: { kind: "hp", amount: 20 },
+  skills: [
+    { skill: "cleave", rank: 1 },
+    { skill: "windblade", rank: 2 },
+  ],
+  synthesisSkill: { skill: "elemental-apocalypse", rank: 5 },
+})
+const fxMage = makeArchetype({
+  key: "mage",
+  lineage: "mage",
+  mechanic: "stains",
+  attributes: { strength: 0, magic: 3, agility: 0, luck: 1 },
+  affinities: { ice: "resist" },
+  mastery: { kind: "sp", amount: 20 },
+  skills: [
+    { skill: "zio", rank: 1 },
+    { skill: "agi", rank: 1 },
+  ],
+})
+const fxKnight = makeArchetype({
+  key: "knight",
+  lineage: "knight",
+  mechanic: "valor",
+})
+const fxHealer = makeArchetype({
+  key: "healer",
+  lineage: "healer",
+  mechanic: "path-of-dawn",
+})
+const fxWarlock = makeArchetype({
+  key: "warlock",
+  lineage: "warlock",
+  mechanic: "path-of-dusk",
+})
+
+const TEST_DATA = makeTestGameData({
+  archetypes: [fxWarrior, fxMage, fxKnight, fxHealer, fxWarlock],
+  skills: [
+    makeAttackSkill({
+      key: "cleave",
+      cost: { kind: "hp-percent", amount: CLEAVE_HP_PERCENT },
+    }),
+    makePassiveSkill({ key: "windblade" }),
+    makePassiveSkill({ key: "elemental-apocalypse" }),
+    makePassiveSkill({ key: "zio" }),
+    makePassiveSkill({ key: "agi" }),
+  ],
+  items: [
+    makeArmor("bladeturn-mail", [
+      { type: "affinity", damageTypes: ["slash"], affinity: "resist" },
+    ]),
+    makeWeapon("runed-cane", [
+      { type: "attribute", target: "magic", amount: 1 },
+    ]),
+    makeConsumable("soul-drop"),
+  ],
+  talents: [makeTalent("alchemy", "Alchemy")],
+})
+
+/** Test wrappers binding the fixture catalog so the boundary call sites stay
+ *  terse; the engine itself takes the lookups + id generator explicitly. */
 const derive = (raw: RawCharacterInputs) =>
-  deriveHydratedCharacter(raw, gameData)
+  deriveHydratedCharacter(raw, TEST_DATA)
 const reduce = (
   character: HydratedCharacter,
   edit: CharacterEdit,
   newId: () => string = () => crypto.randomUUID()
-) => reduceCharacter(character, edit, gameData, newId)
-
-const CHARACTER_ID = "char-1"
+) => reduceCharacter(character, edit, TEST_DATA, newId)
 
 const inventoryRow = (
   partial: Pick<
     InventoryItemRow,
     "id" | "catalogItemKey" | "equipped" | "quantity"
   >
-): InventoryItemRow => ({ characterId: CHARACTER_ID, ...partial })
+): InventoryItemRow => ({ characterId: FIXTURE_CHARACTER_ID, ...partial })
 
-/** A minimal-but-valid Warrior with an unequipped affinity-armor, an
- *  attribute-granting weapon, and a consumable stack — enough to prove every
- *  derived field re-computes. Cloned per call so tests can't leak. */
+/** A Warrior (active) with an unequipped affinity-armor, an attribute-granting
+ *  weapon, and a consumable stack — enough to prove every derived field
+ *  re-computes. Cloned per call so tests can't leak. */
 function makeRaw(): RawCharacterInputs {
-  const row: CharacterRow = {
-    id: CHARACTER_ID,
-    shortId: "char-1-short",
-    ownerId: "user-1",
-    campaignId: null,
-    status: "finalized",
-    builderStep: 0,
-    name: "Test Character",
-    pronouns: "they/them",
-    portraitUrl: null,
-    level: 1,
-    pathChoice: "balanced",
-    currentHP: 20,
-    currentSP: 20,
-    hitDiceRemaining: 0,
-    skillDiceRemaining: 0,
-    manualBonuses: {},
-    virtueExpression: 0,
-    virtueEmpathy: 0,
-    virtueWisdom: 0,
-    virtueFocus: 0,
-    sparkLog: [],
-    victories: 0,
-    currency: 100,
-    prismaCharges: 2,
-    prismaMaxCharges: 2,
-    exhaustion: 0,
-    ailments: [],
-    battleConditions: null,
-    partyComposition: null,
-    activeArchetypeId: "arch-1",
-    originCharacterArchetypeId: "arch-1",
-    savedArchetypeRanks: 0,
-    ancestryText: null,
-    backgroundText: null,
-    backstoryText: null,
-    personalityTraits: null,
-    hopes: null,
-    dreams: null,
-    fears: null,
-    secrets: null,
-    gainedTalents: [],
-    notes: null,
-    identityVersion: 0,
-    vitalsVersion: 0,
-    inventoryVersion: 0,
-    progressionVersion: 0,
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-  }
-
-  return {
-    row,
+  return makeRawCharacterInputs({
+    row: { activeArchetypeId: "arch-1", originCharacterArchetypeId: "arch-1" },
     archetypeRows: [
-      {
-        id: "arch-1",
-        characterId: CHARACTER_ID,
-        archetypeKey: "warrior",
-        rank: 1,
-        inheritanceSlots: [],
-        mechanicState: null,
-      },
+      makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 1 }),
     ],
     inventoryRows: [
       inventoryRow({
@@ -121,9 +152,7 @@ function makeRaw(): RawCharacterInputs {
         quantity: 5,
       }),
     ],
-    knives: [],
-    chains: [],
-  }
+  })
 }
 
 const make = () => derive(makeRaw())
@@ -137,17 +166,20 @@ describe("toRawInputs / deriveHydratedCharacter round-trip", () => {
 
 describe("deriveHydratedCharacter skill hydration", () => {
   it("resolves an hp-percent Skill cost against the character's derived max HP", () => {
-    // Level 5 Balanced → 20 + 6*4 = 44 max HP. Cleave (Warrior Rank 1) costs
-    // 5% HP, so the resolved cost is floor(44 * 0.05) = 2. Pinned above 40 max
-    // HP on purpose: the floor-at-1 in resolveCost would otherwise mask a wrong
-    // value flowing into hydrateSkill at this call site (UNN-350 seam) — at 20
-    // max HP, maxSP/currentHP/level would all still resolve to 1.
+    // Pinned at a higher Level so the derived max HP is well above the
+    // floor-at-1 in resolveCost: the resolved amount must equal
+    // floor(maxHP * pct / 100) and be > 1, so a wrong max HP flowing into the
+    // hydration call site (UNN-350 seam) can't be masked by the floor.
     const raw = makeRaw()
     raw.row.level = 5
     const character = derive(raw)
 
     const cleave = character.skills.find((skill) => skill.key === "cleave")
-    expect(cleave?.resolvedCost).toEqual({ kind: "hp", amount: 2 })
+    expect(cleave?.resolvedCost).toEqual({
+      kind: "hp",
+      amount: Math.floor((character.maxHP * CLEAVE_HP_PERCENT) / 100),
+    })
+    expect(cleave?.resolvedCost?.amount).toBeGreaterThan(1)
   })
 })
 
@@ -296,14 +328,7 @@ describe("reduceCharacter", () => {
   function makeWithActiveArchetype(archetypeKey: string): HydratedCharacter {
     const raw = makeRaw()
     raw.archetypeRows = [
-      {
-        id: "arch-1",
-        characterId: CHARACTER_ID,
-        archetypeKey,
-        rank: 1,
-        inheritanceSlots: [],
-        mechanicState: null,
-      },
+      makeArchetypeRow({ id: "arch-1", archetypeKey, rank: 1 }),
     ]
     return derive(raw)
   }
@@ -429,14 +454,9 @@ describe("reduceCharacter", () => {
 
   it("switches the active Archetype and re-derives attributes, affinities, skills, and mechanic", () => {
     const raw = makeRaw()
-    raw.archetypeRows.push({
-      id: "arch-2",
-      characterId: CHARACTER_ID,
-      archetypeKey: "mage",
-      rank: 1,
-      inheritanceSlots: [],
-      mechanicState: null,
-    })
+    raw.archetypeRows.push(
+      makeArchetypeRow({ id: "arch-2", archetypeKey: "mage", rank: 1 })
+    )
     const character = derive(raw)
     expect(character.activeArchetypeKey).toBe("warrior")
 
@@ -457,14 +477,9 @@ describe("reduceCharacter", () => {
   /** Warrior (active) + Mage so a slot can inherit across Archetypes. */
   function makeWithMage() {
     const raw = makeRaw()
-    raw.archetypeRows.push({
-      id: "arch-2",
-      characterId: CHARACTER_ID,
-      archetypeKey: "mage",
-      rank: 1,
-      inheritanceSlots: [],
-      mechanicState: null,
-    })
+    raw.archetypeRows.push(
+      makeArchetypeRow({ id: "arch-2", archetypeKey: "mage", rank: 1 })
+    )
     return derive(raw)
   }
 
@@ -606,7 +621,7 @@ describe("reduceCharacter", () => {
 
   it("ranks up an owned Archetype, spends a Rank, and re-derives active Skills", () => {
     const character = makeWithSavedRanks(2)
-    const rankTwoSkills = character.skills.length
+    const rankOneSkills = character.skills.length
 
     const next = reduce(character, {
       kind: "rankUpArchetype",
@@ -616,7 +631,7 @@ describe("reduceCharacter", () => {
     expect(next.archetypeRows.find((a) => a.id === "arch-1")?.rank).toBe(2)
     expect(next.savedArchetypeRanks).toBe(1)
     // Warrior's Rank-2 Skill becomes active once the row reaches Rank 2.
-    expect(next.skills.length).toBeGreaterThan(rankTwoSkills)
+    expect(next.skills.length).toBeGreaterThan(rankOneSkills)
   })
 
   it("does not rank up at the Mastery Rank", () => {
@@ -651,5 +666,44 @@ describe("reduceCharacter", () => {
         characterArchetypeId: "does-not-exist",
       })
     ).toBe(character)
+  })
+})
+
+describe("reduceCharacter — real catalog (smoke)", () => {
+  /** A finalized Warrior built straight from the shipped catalog. */
+  const realCharacter = () =>
+    deriveHydratedCharacter(
+      makeRawCharacterInputs({
+        row: {
+          activeArchetypeId: "arch-1",
+          originCharacterArchetypeId: "arch-1",
+        },
+        archetypeRows: [
+          makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 1 }),
+        ],
+      }),
+      gameData
+    )
+
+  it("derives a shipped Archetype's vitals and Skills end-to-end", () => {
+    const character = realCharacter()
+    expect(character.maxHP).toBeGreaterThan(0)
+    expect(character.skills.length).toBeGreaterThan(0)
+  })
+
+  it("casts a shipped Skill through the reducer, spending a pool", () => {
+    const character = realCharacter()
+    const castable = character.skills.find((skill) => skill.resolvedCost)
+    expect(castable).toBeDefined()
+
+    const next = reduceCharacter(
+      character,
+      { kind: "cast", skillKey: castable!.key },
+      gameData,
+      () => "smoke-id"
+    )
+    expect(next.currentHP + next.currentSP).toBeLessThan(
+      character.currentHP + character.currentSP
+    )
   })
 })

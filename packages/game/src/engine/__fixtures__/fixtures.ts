@@ -99,6 +99,57 @@ export function accessoryWithEffects(effects: ItemEffects): EquippableItem {
   } satisfies EquippableItem
 }
 
+/**
+ * An equippable weapon under an explicit `key`, carrying a throwaway intrinsic
+ * attack (so the schema is satisfied and the derived weapon Attack Roll is
+ * non-null) plus optional passive `effects`.
+ */
+export function makeWeapon(key: string, effects?: ItemEffects): EquippableItem {
+  return {
+    key,
+    name: key,
+    description: "Test-only weapon.",
+    stackSize: 1,
+    equip: { slot: "weapon", intrinsicAttack: STUB_INTRINSIC_ATTACK, effects },
+  }
+}
+
+/** An equippable armor under an explicit `key`, carrying passive `effects`. */
+export function makeArmor(key: string, effects: ItemEffects): EquippableItem {
+  return {
+    key,
+    name: key,
+    description: "Test-only armor.",
+    stackSize: 1,
+    equip: { slot: "armor", effects },
+  }
+}
+
+/** An equippable accessory under an explicit `key`, carrying passive `effects`. */
+export function makeAccessory(
+  key: string,
+  effects: ItemEffects
+): EquippableItem {
+  return {
+    key,
+    name: key,
+    description: "Test-only accessory.",
+    stackSize: 1,
+    equip: { slot: "accessory", effects },
+  }
+}
+
+/** A non-equippable, stackable consumable under an explicit `key`. */
+export function makeConsumable(key: string, stackSize = 99): Item {
+  return {
+    key,
+    name: key,
+    description: "Test-only consumable.",
+    stackSize,
+    consumable: true,
+  }
+}
+
 /** Passive Skill whose only effect is Nulling Elec. */
 export const nullElecSkill = {
   kind: "passive",
