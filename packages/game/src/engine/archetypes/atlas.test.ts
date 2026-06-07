@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   atlasNodeState,
   buildLineageAtlas,
@@ -18,6 +19,7 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
+import { type GameData } from "@workspace/game/engine/ports"
 import {
   ARCHETYPE_TIERS,
   type Archetype,
@@ -33,11 +35,23 @@ import type {
 
 const CHARACTER_ID = "char-1"
 
-/** Binds the catalog: defaults to the production set (`gameData.allArchetypes()`),
- *  or takes an injected fixture catalog for the multi-tier prerequisite cases. */
+/** A synthetic one-Initiate-per-Lineage catalog standing in for the shipped set:
+ *  the slice's row/state/origin logic only needs keys + lineages + tiers to
+ *  resolve, never balance numbers, so behavior tests stay decoupled from the
+ *  roster. The multi-tier/prerequisite blocks inject their own richer catalogs. */
+const FIXTURE_CATALOG = [
+  makeArchetype({ key: "warrior", lineage: "warrior", tier: "initiate" }),
+  makeArchetype({ key: "knight", lineage: "knight", tier: "initiate" }),
+  makeArchetype({ key: "healer", lineage: "healer", tier: "initiate" }),
+  makeArchetype({ key: "mage", lineage: "mage", tier: "initiate" }),
+]
+const TEST_DATA = makeTestGameData({ archetypes: FIXTURE_CATALOG })
+
+/** Binds the catalog: defaults to {@link FIXTURE_CATALOG}, or takes an injected
+ *  fixture catalog for the multi-tier prerequisite cases. */
 const atlasOf = (
   character: Parameters<typeof buildLineageAtlas>[0],
-  catalog: Parameters<typeof buildLineageAtlas>[1] = gameData.allArchetypes()
+  catalog: Parameters<typeof buildLineageAtlas>[1] = FIXTURE_CATALOG
 ) => buildLineageAtlas(character, catalog)
 
 function archetypeRow(
@@ -51,12 +65,15 @@ function archetypeRow(
   }
 }
 
-function makeCharacter(options: {
-  archetypeRows?: CharacterArchetypeRow[]
-  savedArchetypeRanks?: number
-  activeArchetypeId?: string | null
-  originCharacterArchetypeId?: string | null
-}) {
+function makeCharacter(
+  options: {
+    archetypeRows?: CharacterArchetypeRow[]
+    savedArchetypeRanks?: number
+    activeArchetypeId?: string | null
+    originCharacterArchetypeId?: string | null
+  },
+  data: GameData = TEST_DATA
+) {
   const archetypeRows = options.archetypeRows ?? []
   const row: CharacterRow = {
     id: CHARACTER_ID,
@@ -115,7 +132,7 @@ function makeCharacter(options: {
     knives: [],
     chains: [],
   }
-  return deriveHydratedCharacter(raw, gameData)
+  return deriveHydratedCharacter(raw, data)
 }
 
 /** A synthetic Adept that advances from Knight at Rank 5, for prerequisite
@@ -196,7 +213,7 @@ describe("buildLineageAtlas", () => {
     }
   })
 
-  it("places a shipped Initiate in its Lineage's Initiate column as unlockable when unowned", () => {
+  it("places a catalog Initiate in its Lineage's Initiate column as unlockable when unowned", () => {
     const view = atlasOf(makeCharacter({}))
     const knight = view.lineages.find((entry) => entry.lineage === "knight")!
     expect(knight.progress).toEqual({ owned: 0, total: 1 })
@@ -1300,15 +1317,21 @@ describe("getAtlasRecommendations", () => {
     )
     expect(keys).toEqual(["m1", "m2", "m3"])
   })
+})
 
-  it("composes with the real view builder over the shipped catalog", () => {
-    const view = atlasOf(
-      makeCharacter({
-        archetypeRows: [
-          archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
-        ],
-        originCharacterArchetypeId: "a1",
-      })
+describe("buildLineageAtlas + getAtlasRecommendations — real catalog (smoke)", () => {
+  it("composes the view builder and recommendations over the shipped catalog", () => {
+    const view = buildLineageAtlas(
+      makeCharacter(
+        {
+          archetypeRows: [
+            archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
+          ],
+          originCharacterArchetypeId: "a1",
+        },
+        gameData
+      ),
+      gameData.allArchetypes()
     )
 
     const result = getAtlasRecommendations(view, "health-focused", 1)

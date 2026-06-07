@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { mage } from "@workspace/game/data/archetypes/mage/mage"
 import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
+import {
+  makeArchetypeRow,
+  makeHydratedCharacter,
+  makeRawCharacterInputs,
+} from "@workspace/game/engine/__fixtures__/character"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   inheritanceSourceGroups,
   isInheritableSkill,
@@ -16,112 +21,103 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
-import type {
-  CharacterArchetypeRow,
-  CharacterRow,
-} from "@workspace/game/foundation/character/records"
+import { type Skill } from "@workspace/game/foundation/skills/schema"
 
-/** Test wrappers binding the production catalog (`gameData`). */
-const derive = (raw: RawCharacterInputs) =>
-  deriveHydratedCharacter(raw, gameData)
-const buildEntries = (character: Parameters<typeof buildArchetypeEntries>[0]) =>
-  buildArchetypeEntries(character, gameData)
+/**
+ * Real {@link import("@workspace/game/foundation/skills/schema").SkillKey}s used
+ * as **opaque identifiers** — these tests assign each one's unlock Rank in the
+ * fixture below, so they assert inheritance *logic*, never the shipped catalog's
+ * balance. A rebalance of any of these Skills can't break this slice.
+ */
+const LOW = "agi" // fixture: unlocked at Rank 1
+const MID = "bufu" // fixture: unlocked at Rank 2
+const HIGH = "zio" // fixture: unlocked at Rank 4
+const SYNTH = "elemental-apocalypse" // fixture: the Mage's Synthesis Skill
+const W_LOW = "cleave" // fixture: Warrior Rank 1
+const W_MID = "windblade" // fixture: Warrior Rank 2
+const W_HIGH = "tempest-slash" // fixture: Warrior Rank 5
+
+/** A minimal passive Skill carrying no effects — enough for `buildArchetypeEntries`
+ *  to hydrate the reference; the content is irrelevant to inheritance logic. */
+const fxSkill = (key: string): Skill => ({
+  kind: "passive",
+  key,
+  name: key,
+  tagline: key,
+  description: key,
+  isSynthesis: false,
+  effects: [],
+})
+
+const fxMage = makeArchetype({
+  key: "fx-mage",
+  lineage: "mage",
+  skills: [
+    { skill: LOW, rank: 1 },
+    { skill: MID, rank: 2 },
+    { skill: HIGH, rank: 4 },
+  ],
+  synthesisSkill: { skill: SYNTH, rank: 5 },
+})
+
+const fxWarrior = makeArchetype({
+  key: "fx-warrior",
+  lineage: "warrior",
+  skills: [
+    { skill: W_LOW, rank: 1 },
+    { skill: W_MID, rank: 2 },
+    { skill: W_HIGH, rank: 5 },
+  ],
+})
+
+const TEST_DATA = makeTestGameData({
+  archetypes: [fxWarrior, fxMage],
+  skills: [LOW, MID, HIGH, SYNTH, W_LOW, W_MID, W_HIGH].map(fxSkill),
+})
 
 describe("isInheritableSkill", () => {
   it("accepts a Rank-keyed Skill the source has unlocked", () => {
-    expect(isInheritableSkill(mage, 2, "agi")).toBe(true)
-    expect(isInheritableSkill(mage, 2, "bufu")).toBe(true)
+    expect(isInheritableSkill(fxMage, 2, LOW)).toBe(true)
+    expect(isInheritableSkill(fxMage, 2, MID)).toBe(true)
   })
 
   it("rejects a Skill above the source's current Rank", () => {
-    expect(isInheritableSkill(mage, 2, "zio")).toBe(false)
+    expect(isInheritableSkill(fxMage, 2, HIGH)).toBe(false)
   })
 
   it("rejects the Synthesis Skill (not in the Rank-keyed list)", () => {
-    expect(isInheritableSkill(mage, 5, "elemental-apocalypse")).toBe(false)
+    expect(isInheritableSkill(fxMage, 5, SYNTH)).toBe(false)
   })
 
   it("rejects a Skill the source Archetype does not declare", () => {
-    expect(isInheritableSkill(mage, 5, "cleave")).toBe(false)
+    expect(isInheritableSkill(fxMage, 5, W_LOW)).toBe(false)
   })
-})
-
-const CHARACTER_ID = "char-inherit"
-
-const archetypeRow = (
-  partial: Pick<CharacterArchetypeRow, "id" | "archetypeKey" | "rank">
-): CharacterArchetypeRow => ({
-  characterId: CHARACTER_ID,
-  inheritanceSlots: [],
-  mechanicState: null,
-  ...partial,
 })
 
 /** Warrior (active, Rank 3) + Mage (Rank 2), no equipment — enough to resolve
  *  every Archetype's ranked Skills for the picker-group assertions. */
 function makeRaw(): RawCharacterInputs {
-  const row: CharacterRow = {
-    id: CHARACTER_ID,
-    shortId: "char-inherit-short",
-    ownerId: "user-1",
-    campaignId: null,
-    status: "finalized",
-    builderStep: 0,
-    name: "Inheritor",
-    pronouns: "they/them",
-    portraitUrl: null,
-    level: 5,
-    pathChoice: "balanced",
-    currentHP: 20,
-    currentSP: 20,
-    hitDiceRemaining: 0,
-    skillDiceRemaining: 0,
-    manualBonuses: {},
-    virtueExpression: 0,
-    virtueEmpathy: 0,
-    virtueWisdom: 0,
-    virtueFocus: 0,
-    sparkLog: [],
-    victories: 0,
-    currency: 0,
-    prismaCharges: 2,
-    prismaMaxCharges: 2,
-    exhaustion: 0,
-    ailments: [],
-    battleConditions: null,
-    partyComposition: null,
-    activeArchetypeId: "arch-warrior",
-    originCharacterArchetypeId: "arch-warrior",
-    savedArchetypeRanks: 0,
-    ancestryText: null,
-    backgroundText: null,
-    backstoryText: null,
-    personalityTraits: null,
-    hopes: null,
-    dreams: null,
-    fears: null,
-    secrets: null,
-    gainedTalents: [],
-    notes: null,
-    identityVersion: 0,
-    vitalsVersion: 0,
-    inventoryVersion: 0,
-    progressionVersion: 0,
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-  }
-
-  return {
-    row,
+  return makeRawCharacterInputs({
+    row: {
+      level: 5,
+      activeArchetypeId: "arch-warrior",
+      originCharacterArchetypeId: "arch-warrior",
+    },
     archetypeRows: [
-      archetypeRow({ id: "arch-warrior", archetypeKey: "warrior", rank: 3 }),
-      archetypeRow({ id: "arch-mage", archetypeKey: "mage", rank: 2 }),
+      makeArchetypeRow({
+        id: "arch-warrior",
+        archetypeKey: "fx-warrior",
+        rank: 3,
+      }),
+      makeArchetypeRow({ id: "arch-mage", archetypeKey: "fx-mage", rank: 2 }),
     ],
-    inventoryRows: [],
-    knives: [],
-    chains: [],
-  }
+  })
 }
+
+const derive = (raw: RawCharacterInputs) =>
+  deriveHydratedCharacter(raw, TEST_DATA)
+const buildEntries = (character: Parameters<typeof buildArchetypeEntries>[0]) =>
+  buildArchetypeEntries(character, TEST_DATA)
 
 describe("inheritanceSourceGroups", () => {
   const entries = buildEntries(derive(makeRaw()))
@@ -131,22 +127,23 @@ describe("inheritanceSourceGroups", () => {
     expect(groups.map((g) => g.sourceCharacterArchetypeId)).toEqual([
       "arch-mage",
     ])
-    expect(groups[0]?.archetype.key).toBe("mage")
+    expect(groups[0]?.archetype.key).toBe("fx-mage")
   })
 
   it("offers only Skills unlocked at the source's current Rank", () => {
     const [mageGroup] = inheritanceSourceGroups(entries, "arch-warrior")
-    expect(mageGroup?.skills.map((s) => s.key).sort()).toEqual(["agi", "bufu"])
+    expect(mageGroup?.skills.map((s) => s.key).sort()).toEqual(
+      [LOW, MID].sort()
+    )
   })
 
-  it("offers the owner's Skills when grouping for the Mage's slots", () => {
+  it("offers the owner's Skills (gated by its Rank) when grouping for the Mage's slots", () => {
     const [warriorGroup] = inheritanceSourceGroups(entries, "arch-mage")
-    expect(warriorGroup?.archetype.key).toBe("warrior")
-    expect(warriorGroup?.skills.map((s) => s.key).sort()).toEqual([
-      "cleave",
-      "tempest-slash",
-      "windblade",
-    ])
+    expect(warriorGroup?.archetype.key).toBe("fx-warrior")
+    // Warrior is Rank 3, so its Rank-5 Skill (W_HIGH) is excluded.
+    expect(warriorGroup?.skills.map((s) => s.key).sort()).toEqual(
+      [W_LOW, W_MID].sort()
+    )
   })
 })
 
@@ -163,8 +160,8 @@ describe("inheritanceSourceGroups source filtering", () => {
       archetype: makeArchetype({ key: `arch-${id}` }),
       row: {
         id,
-        characterId: CHARACTER_ID,
-        archetypeKey: "warrior",
+        characterId: "char-inherit",
+        archetypeKey: "fx-warrior",
         rank,
         inheritanceSlots: [],
         mechanicState: null,
@@ -212,13 +209,13 @@ describe("buildArchetypeEntries inheritance-slot validity", () => {
   }
 
   it("marks an in-Rank inherited Skill valid", () => {
-    const entries = buildEntries(derive(rawWithSlot("agi")))
+    const entries = buildEntries(derive(rawWithSlot(LOW)))
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(true)
   })
 
   it("marks a now-over-Rank inherited Skill invalid", () => {
-    const entries = buildEntries(derive(rawWithSlot("zio")))
+    const entries = buildEntries(derive(rawWithSlot(HIGH)))
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(false)
   })
@@ -232,5 +229,23 @@ describe("buildArchetypeEntries inheritance-slot validity", () => {
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(true)
     expect(warriorEntry?.slots[0]?.resolved).toBeNull()
+  })
+})
+
+describe("inheritance — real catalog (smoke)", () => {
+  it("resolves inheritable Skills between two shipped Archetypes", () => {
+    const character = makeHydratedCharacter({
+      row: { activeArchetypeId: "w", originCharacterArchetypeId: "w" },
+      archetypeRows: [
+        makeArchetypeRow({ id: "w", archetypeKey: "warrior", rank: 3 }),
+        makeArchetypeRow({ id: "m", archetypeKey: "mage", rank: 2 }),
+      ],
+    })
+    const groups = inheritanceSourceGroups(
+      buildArchetypeEntries(character, gameData),
+      "w"
+    )
+    expect(groups.map((g) => g.archetype.key)).toEqual(["mage"])
+    expect(groups[0]!.skills.length).toBeGreaterThan(0)
   })
 })

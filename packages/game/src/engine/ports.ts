@@ -59,3 +59,15 @@ export interface EnemyLookup {
   getEnemyFamily(key: string): EnemyFamily | undefined
   allEnemies(): readonly EnemyDefinition[]
 }
+
+/**
+ * Every catalog-lookup port the engine depends on, as a single intersection.
+ * {@link createGameEngine} takes one of these (the production `gameData` adapter
+ * structurally satisfies exactly this), and `makeTestGameData` builds a
+ * fixture-backed one for tests.
+ */
+export type GameData = ArchetypeLookup &
+  SkillLookup &
+  TalentLookup &
+  ItemLookup &
+  EnemyLookup

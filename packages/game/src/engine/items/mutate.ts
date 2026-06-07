@@ -16,19 +16,17 @@ import type { Result } from "@workspace/game/foundation/result"
 /** Every recoverable failure the underlying engines can surface. */
 export type InventoryMutationError = EquipError | AddError | QuantityError
 
-const randomId = () => crypto.randomUUID()
-
 /**
  * Routes an {@link InventoryMutation} to its pure engine transition over the
  * minimal {@link InventoryItemState} projection. `newId` mints ids for rows the
- * `add` transition creates — the server passes its own generator; the
- * optimistic frame defaults to `crypto.randomUUID`.
+ * `add` transition creates — the caller (ultimately the composition root) passes
+ * the generator; the engine core keeps no default seam.
  */
 export function applyInventoryMutation(
   items: readonly InventoryItemState[],
   mutation: InventoryMutation,
   lookups: ItemLookup,
-  newId: () => string = randomId
+  newId: () => string
 ): Result<InventoryItemState[], InventoryMutationError> {
   switch (mutation.kind) {
     case "equip":

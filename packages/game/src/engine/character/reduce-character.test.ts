@@ -22,7 +22,7 @@ const derive = (raw: RawCharacterInputs) =>
 const reduce = (
   character: HydratedCharacter,
   edit: CharacterEdit,
-  newId?: () => string
+  newId: () => string = () => crypto.randomUUID()
 ) => reduceCharacter(character, edit, gameData, newId)
 
 const CHARACTER_ID = "char-1"

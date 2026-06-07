@@ -10,13 +10,7 @@ import {
 } from "@workspace/game/data/enemies/registry"
 import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
-import {
-  type ArchetypeLookup,
-  type EnemyLookup,
-  type ItemLookup,
-  type SkillLookup,
-  type TalentLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 
 /**
  * The single adapter wiring the hardcoded catalog to the engine's lookup
@@ -27,11 +21,7 @@ import {
  * assembly), and centralizes the demo-flag env-dependence the registries carry.
  * Engine tests inject this or a narrow stub directly, never a hidden default.
  */
-export const gameData: ArchetypeLookup &
-  SkillLookup &
-  ItemLookup &
-  EnemyLookup &
-  TalentLookup = {
+export const gameData: GameData = {
   getArchetype,
   allArchetypes: () => ARCHETYPES,
   getSkill,
