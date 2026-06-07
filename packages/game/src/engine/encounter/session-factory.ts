@@ -60,12 +60,13 @@ export function toCombatantSetup(combatant: Combatant): CombatantSetup {
  * are `null` until the `startCombat` event, UNN-303), and every combatant fresh
  * and not-yet-acted (see {@link makeCombatant}). A combatant's stable id is its
  * own `setup.id` when supplied (so a setup-authored roster keeps the same ids
- * across saves — UNN-301), falling back to `newId` otherwise (mirrors
- * `reduceCharacter`'s injectable id so tests can be deterministic).
+ * across saves — UNN-301), falling back to `newId` otherwise. `newId` is bound
+ * at the composition root ({@link createGameEngine}) so the engine core carries
+ * no default seam; tests inject a deterministic generator.
  */
 export function createCombatSession(
   setup: CombatantSetup[],
-  newId: () => string = () => crypto.randomUUID()
+  newId: () => string
 ): CombatSession {
   return {
     round: 1,

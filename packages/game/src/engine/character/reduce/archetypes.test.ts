@@ -12,13 +12,21 @@ import { reduceArchetypeEdit } from "@workspace/game/engine/character/reduce/arc
 
 const STABLE_ID = () => "minted-id"
 
-/** Binds the catalog: defaults to the production set, or takes an injected
+/** A fixture catalog carrying the keys these tests unlock/own — the slice only
+ *  needs the *keys* to resolve, not any balance numbers, so synthetic Archetypes
+ *  keep the no-op guards honest without coupling to the shipped roster. */
+const FIXTURE_CATALOG = [
+  makeArchetype({ key: "warrior" }),
+  makeArchetype({ key: "mage" }),
+]
+
+/** Binds the catalog: defaults to {@link FIXTURE_CATALOG}, or takes an injected
  *  fixture catalog for the prerequisite cases. */
 const reduceArch = (
   raw: Parameters<typeof reduceArchetypeEdit>[0],
   edit: Parameters<typeof reduceArchetypeEdit>[1],
   newId: Parameters<typeof reduceArchetypeEdit>[2],
-  catalog: Parameters<typeof reduceArchetypeEdit>[3] = gameData.allArchetypes()
+  catalog: Parameters<typeof reduceArchetypeEdit>[3] = FIXTURE_CATALOG
 ) => reduceArchetypeEdit(raw, edit, newId, catalog)
 
 function rowsById(raw: RawCharacterInputs | null) {
@@ -315,5 +323,20 @@ describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalo
         catalog
       )
     ).toBeNull()
+  })
+})
+
+describe("reduceArchetypeEdit — real catalog (smoke)", () => {
+  it("unlocks a shipped Archetype against the production catalog", () => {
+    const raw = makeRawCharacterInputs({ row: { savedArchetypeRanks: 1 } })
+    const next = reduceArch(
+      raw,
+      { kind: "unlockArchetype", archetypeKey: "warrior" },
+      STABLE_ID,
+      gameData.allArchetypes()
+    )
+    expect(
+      next?.archetypeRows.find((row) => row.id === "minted-id")?.archetypeKey
+    ).toBe("warrior")
   })
 })

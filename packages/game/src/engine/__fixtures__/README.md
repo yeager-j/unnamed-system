@@ -23,6 +23,19 @@ everything else from fixtures.
   - `makeArchetypeRow(overrides)` — a `characterArchetype` row; pass `mechanicState` to seed a mechanic mid-state.
   - `makeStatContext(overrides)` — the stat-computation view (generalizes the inline `makeWarrior`/`makeMage` the combat tests grew).
 - `fixtures.ts` — item + passive-Skill data fixtures (`weaknessArmor`, `magicAccessory`, `nullElecSkill`, `accessoryWithEffects(...)`, …).
+- `game-data.ts` — `makeTestGameData(overrides?)`: the fixture-backed
+  {@link GameData} adapter — the test-time counterpart to production `gameData`,
+  for `createGameEngine(makeTestGameData({...}))` or for the boundary `*Core`
+  functions / `deriveHydratedCharacter` that take a lookup explicitly. Backed by
+  `Map`s over the provided fixtures; every collection (`archetypes`, `skills`,
+  `talents`, `items`, `enemies`, `enemyFamilies`) defaults empty, so a test seeds
+  only the catalog slice its subject reads (an unseeded lookup simply misses).
+  `getEquippableItem` narrows the seeded `items` exactly as the real registry
+  does. Build fixture Archetypes/Skills with `makeArchetype` + a minimal
+  `Skill` literal; reference real `SkillKey`s as **opaque ids** and assign their
+  Ranks in the fixture, so logic tests never depend on shipped balance.
+  `makeHydratedCharacter(overrides, makeTestGameData({...}))` derives a character
+  against a fixture catalog.
 - `index.ts` — barrel; import from `@/lib/game/__fixtures__`.
 
 Grow the kit per slice. New builders are welcome — keep them override-driven and

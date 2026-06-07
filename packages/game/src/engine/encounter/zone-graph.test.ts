@@ -4,7 +4,7 @@ import { createCombatSession } from "@workspace/game/engine/encounter/session-fa
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
 
 function sessionWithGraph() {
-  const base = createCombatSession([])
+  const base = createCombatSession([], () => "unused-id")
   return {
     ...base,
     zones: {

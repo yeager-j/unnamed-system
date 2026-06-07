@@ -20,23 +20,22 @@ import {
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 
-const randomId = () => crypto.randomUUID()
-
 /**
  * Applies a {@link CharacterEdit} to a {@link HydratedCharacter} by projecting
  * back to {@link RawCharacterInputs}, routing to the matching per-domain slice
  * (in `./reduce/`), and re-deriving with {@link deriveHydratedCharacter} — the
  * same function the server loader uses. `newId` mints ids for inventory rows an
- * `add` creates (the optimistic frame defaults to `crypto.randomUUID`; the
- * server's revalidate later replaces them with persisted rows). A slice returns
- * `null` when the edit is a no-op or the underlying engine rejects it; this is
- * the one place that maps that to "leave the character unchanged".
+ * `add` creates (the server's revalidate later replaces them with persisted
+ * rows); it is bound at the composition root ({@link createGameEngine}) so the
+ * engine core stays seam-free and tests inject a deterministic generator. A
+ * slice returns `null` when the edit is a no-op or the underlying engine rejects
+ * it; this is the one place that maps that to "leave the character unchanged".
  */
 export function reduceCharacter(
   character: HydratedCharacter,
   edit: CharacterEdit,
   lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup,
-  newId: () => string = randomId
+  newId: () => string
 ): HydratedCharacter {
   const raw = toRawInputs(character)
   const next = routeEdit(raw, character, edit, lookups, newId)

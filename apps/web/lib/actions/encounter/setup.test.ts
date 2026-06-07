@@ -46,7 +46,7 @@ const ROSTER: CombatantSetup[] = [
 
 /** A persisted session carrying an authored zone graph the roster save must keep. */
 function persistedSessionWithZones(): CombatSession {
-  const base = createCombatSession([])
+  const base = createCombatSession([], () => "unused-id")
   return {
     ...base,
     zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },

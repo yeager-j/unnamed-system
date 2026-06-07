@@ -9,6 +9,7 @@ import {
   baseAttributesForArchetype,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type CastContext } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
@@ -189,9 +190,14 @@ export function makeCastContext(
  * with {@link makeRawCharacterInputs} and runs them through the real
  * {@link deriveHydratedCharacter}, so the derived fields are honest rather than
  * hand-stubbed.
+ *
+ * `data` defaults to the production catalog so existing callers are unchanged;
+ * pass a {@link makeTestGameData} adapter to derive against fixture Archetypes/
+ * Skills (so a behavior test never depends on shipped balance numbers).
  */
 export function makeHydratedCharacter(
-  overrides: Parameters<typeof makeRawCharacterInputs>[0] = {}
+  overrides: Parameters<typeof makeRawCharacterInputs>[0] = {},
+  data: GameData = gameData
 ): HydratedCharacter {
-  return deriveHydratedCharacter(makeRawCharacterInputs(overrides), gameData)
+  return deriveHydratedCharacter(makeRawCharacterInputs(overrides), data)
 }

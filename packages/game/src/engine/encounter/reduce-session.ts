@@ -33,14 +33,15 @@ export type { CombatEvent } from "@workspace/game/foundation/encounter/session-e
  * state, e.g. `endTurn` with no current actor) are handled inside their slice.
  *
  * `newId` mints stable ids for combatants an `addCombatant` event joins (mirrors
- * `reduceCharacter`'s injectable id so tests can be deterministic); it defaults
- * to `crypto.randomUUID`, matching `createCombatSession`.
+ * `reduceCharacter`'s injectable id so tests can be deterministic); it is bound
+ * at the composition root ({@link createGameEngine}) so the engine core carries
+ * no default seam.
  */
 export function reduceCombatSession(
   session: CombatSession,
   event: CombatEvent,
   lookups: Pick<EnemyLookup, "getEnemy">,
-  newId: () => string = () => crypto.randomUUID()
+  newId: () => string
 ): CombatSession {
   switch (event.kind) {
     case "endTurn":

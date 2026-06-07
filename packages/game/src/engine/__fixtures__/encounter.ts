@@ -18,7 +18,7 @@ import type { CombatEvent } from "@workspace/game/foundation/encounter/session-e
 export const reduceCombat = (
   session: CombatSession,
   event: CombatEvent,
-  newId?: () => string
+  newId: () => string = () => crypto.randomUUID()
 ): CombatSession => reduceCombatSession(session, event, gameData, newId)
 
 export const enemyStatblocks = (
