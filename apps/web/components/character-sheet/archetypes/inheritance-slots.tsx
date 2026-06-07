@@ -3,7 +3,6 @@
 import { WarningIcon } from "@phosphor-icons/react"
 
 import {
-  buildArchetypeEntries,
   inheritanceSourceGroups,
   type ArchetypeEntry,
   type AttributeScores,
@@ -32,6 +31,7 @@ import { SkillRow } from "@/components/shared/skill-row"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setInheritanceSlotAction } from "@/lib/actions/inheritance-slots"
+import { buildArchetypeEntries } from "@/lib/game-engine"
 
 /**
  * Per-Archetype Inheritance Slots block (PRD §7.8, UNN-241). Each slot holds a

@@ -14,6 +14,11 @@ import {
   type ResolvedAttackRoll,
 } from "@workspace/game/engine/combat/attack-roll"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import {
+  type ArchetypeLookup,
+  type ItemLookup,
+  type SkillLookup,
+} from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import {
   ARCHETYPE_TIERS,
@@ -162,9 +167,10 @@ function resolveArchetypeRankedSkills(
  * drift after a deploy).
  */
 export function buildArchetypeEntries(
-  character: HydratedCharacter
+  character: HydratedCharacter,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
 ): ArchetypeEntry[] {
-  const stats = toStatContext(character)
+  const stats = toStatContext(character, lookups)
 
   const archetypeByRowId = new Map<string, Archetype>()
   const rowById = new Map<string, CharacterArchetypeRow>()
@@ -257,9 +263,10 @@ export interface ArchetypeDisplay {
  * layout.
  */
 export function getArchetypeDisplay(
-  character: HydratedCharacter
+  character: HydratedCharacter,
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup
 ): ArchetypeDisplay {
-  const entries = buildArchetypeEntries(character)
+  const entries = buildArchetypeEntries(character, lookups)
   return {
     activeEntry: entries.find((entry) => entry.isActive) ?? null,
   }
@@ -401,8 +408,8 @@ export function previewArchetypeSkills(
     // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
     activeSkills: [],
     activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(archetype.key),
-    baseAffinities: baseAffinitiesForArchetype(archetype.key),
+    baseAttributes: baseAttributesForArchetype(archetype),
+    baseAffinities: baseAffinitiesForArchetype(archetype),
   }
   return resolveArchetypeRankedSkills(
     archetype,

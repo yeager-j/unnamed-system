@@ -1,9 +1,9 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import { resolveAffinity } from "@workspace/game/engine/archetypes/affinity"
 import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
 import { mechanicEffectsFor } from "@workspace/game/engine/mechanics/registry"
 import {
   ATTRIBUTE_KEYS,
+  type Archetype,
   type AttributeKey,
   type Mastery,
 } from "@workspace/game/foundation/archetypes/schema"
@@ -117,15 +117,15 @@ export type AttributeScores = Record<AttributeKey, number>
 
 /**
  * The base Attribute scores an Archetype confers (its intrinsic scores), or all
- * zeros when there is no active Archetype. The {@link StatContext} assembly site
- * calls this so the pure {@link computeAttributes} reads a plain field instead of
- * looking up the catalog — which is what lets a non-character combatant (an enemy
- * with flat scores) flow through the same computation.
+ * zeros when there is no active Archetype. Takes the **already-resolved**
+ * Archetype (the {@link StatContext} assembly site does the catalog lookup once)
+ * so the pure {@link computeAttributes} reads a plain field instead of touching
+ * the catalog — which is what lets a non-character combatant (an enemy with flat
+ * scores) flow through the same computation.
  */
 export function baseAttributesForArchetype(
-  archetypeKey: string | null
+  archetype: Archetype | undefined
 ): AttributeScores {
-  const archetype = archetypeKey ? getArchetype(archetypeKey) : undefined
   const scores = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS) {
     scores[key] = archetype ? archetype.attributes[key] : 0
@@ -136,13 +136,13 @@ export function baseAttributesForArchetype(
 /**
  * The base Affinity chart an Archetype confers (every damage type resolved via
  * {@link resolveAffinity}; uncharted types and Almighty are Neutral), or an
- * all-Neutral chart when there is no active Archetype. The peer of
- * {@link baseAttributesForArchetype} for {@link computeAffinityChart}.
+ * all-Neutral chart when there is no active Archetype. Takes the already-resolved
+ * Archetype — the peer of {@link baseAttributesForArchetype} for
+ * {@link computeAffinityChart}.
  */
 export function baseAffinitiesForArchetype(
-  archetypeKey: string | null
+  archetype: Archetype | undefined
 ): Record<DamageType, Affinity> {
-  const archetype = archetypeKey ? getArchetype(archetypeKey) : undefined
   const chart = {} as Record<DamageType, Affinity>
   for (const damageType of DAMAGE_TYPES) {
     chart[damageType] = archetype
