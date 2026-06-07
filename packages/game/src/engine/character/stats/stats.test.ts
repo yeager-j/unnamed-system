@@ -15,12 +15,16 @@ import {
 } from "@workspace/game/engine/__fixtures__/fixtures"
 import {
   accumulatedBonuses,
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
+  getPathDice,
+  getPathStats,
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 
@@ -78,6 +82,11 @@ describe("computeAttributes", () => {
 
   it("ignores non-passive active Skills", () => {
     const character = makeCharacter({ activeSkills: [cleave] })
+    expect(computeAttributes(character)).toEqual(warrior.attributes)
+  })
+
+  it("ignores an equipped item's non-attribute (affinity) effects", () => {
+    const character = makeCharacter({ equippedItems: [weaknessArmor] })
     expect(computeAttributes(character)).toEqual(warrior.attributes)
   })
 
@@ -241,6 +250,19 @@ describe("computeAffinityChart", () => {
     expect(computeAffinityChart(character).fire).toBe("null")
   })
 
+  it("keeps the strongest even when a weaker affinity collides after it", () => {
+    // Strongest listed first, so a naive "last write wins" picks the weaker one.
+    const character = makeCharacter({
+      equippedItems: [
+        accessoryWithEffects([
+          { type: "affinity", damageTypes: ["fire"], affinity: "null" },
+          { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
+        ]),
+      ],
+    })
+    expect(computeAffinityChart(character).fire).toBe("null")
+  })
+
   it("applies an active passive Skill's Affinity change", () => {
     const character = makeCharacter({ activeSkills: [nullElecSkill] })
     expect(computeAffinityChart(character).elec).toBe("null")
@@ -370,5 +392,64 @@ describe("mechanic Effects flow through the existing pipeline", () => {
     const chart = computeAffinityChart(character)
     expect(chart.pierce).toBe("neutral")
     expect(chart.strike).toBe("neutral")
+  })
+})
+
+describe("getPathStats / getPathDice", () => {
+  it("exposes each path's published starting + per-level HP/SP", () => {
+    expect(getPathStats("balanced")).toEqual({
+      startHP: 20,
+      startSP: 50,
+      hpPerLevel: 6,
+      spPerLevel: 11,
+    })
+    expect(getPathStats("health-focused")).toEqual({
+      startHP: 24,
+      startSP: 40,
+      hpPerLevel: 7,
+      spPerLevel: 9,
+    })
+    expect(getPathStats("skill-focused")).toEqual({
+      startHP: 16,
+      startSP: 60,
+      hpPerLevel: 5,
+      spPerLevel: 13,
+    })
+  })
+
+  it("exposes each path's Hit / Skill die size", () => {
+    expect(getPathDice("balanced")).toEqual({ hitDie: 10, skillDie: 10 })
+    expect(getPathDice("health-focused")).toEqual({ hitDie: 12, skillDie: 8 })
+    expect(getPathDice("skill-focused")).toEqual({ hitDie: 8, skillDie: 12 })
+  })
+})
+
+describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
+  it("returns the Archetype's intrinsic Attribute scores", () => {
+    expect(baseAttributesForArchetype("warrior")).toEqual(warrior.attributes)
+  })
+
+  it("returns all-zero scores when there is no active Archetype", () => {
+    expect(baseAttributesForArchetype(null)).toEqual({
+      strength: 0,
+      magic: 0,
+      agility: 0,
+      luck: 0,
+    })
+  })
+
+  it("resolves the Archetype's chart, Almighty and uncharted types neutral", () => {
+    const chart = baseAffinitiesForArchetype("warrior")
+    expect(chart.fire).toBe("resist")
+    expect(chart.wind).toBe("weak")
+    expect(chart.slash).toBe("neutral")
+    expect(chart.almighty).toBe("neutral")
+  })
+
+  it("returns an all-neutral chart when there is no active Archetype", () => {
+    const chart = baseAffinitiesForArchetype(null)
+    expect(chart.fire).toBe("neutral")
+    expect(chart.slash).toBe("neutral")
+    expect(chart.almighty).toBe("neutral")
   })
 })
