@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { SIDE_EFFECT_KEYS } from "@workspace/game/engine/combat/side-effects"
+import { SIDE_EFFECT_KEYS } from "@workspace/game/foundation/combat/side-effects"
 
 /**
  * The Attack Roll mechanic (rulebook 3.3) is identical for Skills and weapons:

@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest"
 
 import { WEAPONS } from "@workspace/game/data/items/registry"
 import { SKILLS } from "@workspace/game/data/skills/registry"
-import {
-  getSideEffect,
-  SIDE_EFFECT_KEYS,
-  SIDE_EFFECTS,
-} from "@workspace/game/engine/combat/side-effects"
+import { SIDE_EFFECT_KEYS } from "@workspace/game/foundation/combat/side-effects"
+
+import { getSideEffect, SIDE_EFFECTS } from "./side-effects"
 
 describe("side-effect data", () => {
   it("exposes a non-empty registry", () => {

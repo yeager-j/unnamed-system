@@ -1,12 +1,12 @@
 import { z } from "zod/v4"
 
-import { DELIVERIES } from "@workspace/game/engine/combat/attack"
 import { LINEAGES } from "@workspace/game/foundation/character/lineage"
 import {
   AFFINITIES,
   AFFINITY_DAMAGE_TYPES,
   DAMAGE_TYPES,
 } from "@workspace/game/foundation/combat/affinity"
+import { DELIVERIES } from "@workspace/game/foundation/combat/attack"
 import { SKILL_KINDS } from "@workspace/game/foundation/common"
 
 /**

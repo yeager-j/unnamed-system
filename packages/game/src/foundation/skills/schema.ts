@@ -1,11 +1,11 @@
 import { z } from "zod/v4"
 
+import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
 import {
   attackRollSchema,
   DELIVERIES,
   rangeSchema,
-} from "@workspace/game/engine/combat/attack"
-import { DAMAGE_TYPES } from "@workspace/game/foundation/combat/affinity"
+} from "@workspace/game/foundation/combat/attack"
 import {
   affinityEffectSchema,
   attackRollEffectSchema,

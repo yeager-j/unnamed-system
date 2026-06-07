@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
-import { type PathOfDawnState } from "@workspace/game/engine"
+import { type PathOfDawnState } from "@workspace/game/foundation"
 
 import { characterArchetypes, getDb } from "@/lib/db"
 

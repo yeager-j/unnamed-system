@@ -1,10 +1,13 @@
 import {
   hydrateFormula,
-  type AttackRange,
   type AttributeScores,
   type ResolvedSkillCost,
 } from "@workspace/game/engine"
-import { type IntrinsicAttack, type Skill } from "@workspace/game/foundation"
+import {
+  type AttackRange,
+  type IntrinsicAttack,
+  type Skill,
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import {

@@ -2,7 +2,7 @@
 
 import { MinusIcon, PlusIcon } from "@phosphor-icons/react"
 
-import { VALOR_MAX } from "@workspace/game/engine"
+import { VALOR_MAX } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 
 import { useCharacterWrite } from "@/hooks/use-character"

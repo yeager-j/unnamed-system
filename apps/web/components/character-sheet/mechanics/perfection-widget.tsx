@@ -5,8 +5,8 @@ import {
   formatSignedBonus,
   PERFECTION_RANK_LABELS,
   rankLabel,
-  type PerfectionState,
 } from "@workspace/game/engine"
+import { type PerfectionState } from "@workspace/game/foundation"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 

@@ -1,11 +1,11 @@
 import { type InventoryMutation } from "@workspace/game/engine/items/mutate"
-import { type StainElement } from "@workspace/game/engine/mechanics/mage/stains"
 import type {
   BattleConditionAxisKey,
   BattleConditionState,
   VirtueKey,
 } from "@workspace/game/foundation/character/state"
 import type { TalentKey } from "@workspace/game/foundation/character/talents/schema"
+import { type StainElement } from "@workspace/game/foundation/mechanics/schema"
 
 export type BattleConditionFlagKey = "charged" | "concentrating"
 

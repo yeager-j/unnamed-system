@@ -1,11 +1,10 @@
 "use client"
 
 import {
-  VALOR_MAX,
   VALOR_THRESHOLD_DESCRIPTIONS,
   VALOR_THRESHOLDS,
-  type ValorState,
 } from "@workspace/game/engine"
+import { VALOR_MAX, type ValorState } from "@workspace/game/foundation"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 
