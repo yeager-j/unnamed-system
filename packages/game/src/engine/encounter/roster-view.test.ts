@@ -190,12 +190,89 @@ describe("buildRosterView", () => {
 
     expect(view.players[0]!.hasActed).toBe(true)
     expect(view.enemies[0]!.isCurrent).toBe(true)
+    // A non-acting combatant is not flagged current.
+    expect(view.players[0]!.isCurrent).toBe(false)
+  })
+
+  it("marks a PC with no current HP as Fallen via the injected detail", () => {
+    const view = buildRosterView(build(), {
+      "char-roan": { ...ROAN, currentHP: 0 },
+    })
+    expect(view.players[0]!.isFallen).toBe(true)
   })
 })
 
 describe("combatantDetail", () => {
   it("returns null for an unknown combatant", () => {
     expect(combatantDetail(build(), "nope", PC_DETAIL)).toBeNull()
+  })
+
+  it("falls back to defaults for a PC whose detail is absent", () => {
+    const detail = combatantDetail(build(), "combatant-0", {})!
+
+    expect(detail.kind).toBe("pc")
+    if (detail.kind === "pc") {
+      expect(detail.vitalsVersion).toBe(0)
+      expect(detail.level).toBe(1)
+      expect(detail.className).toBeNull()
+      expect(detail.pronouns).toBeNull()
+      expect(detail.portraitUrl).toBeNull()
+      expect(detail.hp).toEqual({ current: 0, max: 0 })
+      expect(detail.sp).toEqual({ current: 0, max: 0 })
+      expect(detail.attributes).toEqual({
+        strength: 0,
+        magic: 0,
+        agility: 0,
+        luck: 0,
+      })
+      expect(detail.affinities).toEqual({})
+    }
+  })
+
+  it("resolves a PC's className from its active Archetype", () => {
+    const detail = combatantDetail(build(), "combatant-0", {
+      "char-roan": { ...ROAN, activeArchetypeKey: "warrior" },
+    })!
+    if (detail.kind === "pc") expect(detail.className).toBe("Warrior")
+  })
+
+  it("leaves className null when the active Archetype key is unknown", () => {
+    const detail = combatantDetail(build(), "combatant-0", {
+      "char-roan": { ...ROAN, activeArchetypeKey: "not-a-real-archetype" },
+    })!
+    if (detail.kind === "pc") expect(detail.className).toBeNull()
+  })
+
+  it("defaults an unknown catalog enemy's HP and Attributes to zero", () => {
+    const session = {
+      ...createCombatSession(
+        [
+          {
+            side: "enemies" as const,
+            ref: {
+              kind: "catalog-enemy" as const,
+              enemyKey: "not-a-real-enemy",
+            },
+            zoneId: "z",
+          },
+        ],
+        sequentialIds()
+      ),
+      advantage: "neutral" as const,
+      firstSide: "players" as const,
+    }
+    const detail = combatantDetail(session, "combatant-0", {})!
+
+    expect(detail.kind).toBe("enemy")
+    if (detail.kind === "enemy") {
+      expect(detail.hp).toEqual({ current: 0, max: 0 })
+      expect(detail.statblock.attributes).toEqual({
+        strength: 0,
+        magic: 0,
+        agility: 0,
+        luck: 0,
+      })
+    }
   })
 
   it("shapes a PC: identity, vitals, attributes, affinities", () => {
@@ -274,6 +351,8 @@ describe("combatantDetail", () => {
       expect(detail.statblock.affinities).toBeNull()
       expect(detail.statblock.attributes.agility).toBe(2)
       expect(detail.hp).toEqual({ current: 5, max: 8 })
+      expect(detail.statblock.source).toBe("enemy")
+      expect(detail.statblock.talents).toEqual([])
       expect(detail.statblock.skills).toEqual([])
       expect(detail.statblock.abilities).toBeNull()
     }

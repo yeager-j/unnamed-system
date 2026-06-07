@@ -239,6 +239,7 @@ export function enemyHp(combatant: Combatant): Pool {
   if (ref.kind === "enemy") {
     return { current: ref.statBlock.currentHP, max: ref.statBlock.maxHP }
   }
+  // Stryker disable next-line ConditionalExpression: equivalent — the `enemy` branch already returned and enemyHp is only ever called for an enemy/catalog-enemy ref, so a catalog-enemy is the only kind that reaches here.
   if (ref.kind === "catalog-enemy") {
     const definitionMax = getEnemy(ref.enemyKey)?.maxHP ?? 0
     return {
@@ -246,6 +247,7 @@ export function enemyHp(combatant: Combatant): Pool {
       max: ref.maxHP ?? definitionMax,
     }
   }
+  // Stryker disable next-line ObjectLiteral: equivalent — unreachable: enemyHp is only called for enemy / catalog-enemy refs (a PC's pools come from pcPool).
   return { current: 0, max: 0 }
 }
 
@@ -297,6 +299,7 @@ function railRow(
 ): RailRow {
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
+  // Stryker disable next-line ConditionalExpression: equivalent — an enemy ref has no characterId, so pcDetailById[undefined] is undefined either way; pcDetail is read only when isPc.
   const pcDetail = ref.kind === "pc" ? pcDetailById[ref.characterId] : undefined
 
   return {
@@ -309,6 +312,7 @@ function railRow(
     isFallen: fallenIds.has(combatant.id),
     isDowned: isDowned(combatant),
     hp: isPc ? pcPool(pcDetail, "hp") : enemyHp(combatant),
+    // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind.
     sp: isPc ? pcPool(pcDetail, "sp") : null,
     portraitUrl: pcDetail?.portraitUrl ?? null,
     engagement: combatant.engagement,
@@ -399,6 +403,7 @@ export function combatantDetail(
       pronouns: detail?.pronouns ?? null,
       portraitUrl: detail?.portraitUrl ?? null,
       hp: pcPool(detail, "hp"),
+      // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind.
       sp: pcPool(detail, "sp"),
       attributes: detail?.attributes ?? {
         strength: 0,

@@ -121,6 +121,10 @@ describe("buildConsoleView", () => {
     })
     const current = view.rows.find((r) => r.id === "combatant-0")!
     expect(current.isCurrent).toBe(true)
+    // A non-current combatant is not flagged current.
+    expect(view.rows.find((r) => r.id === "combatant-1")!.isCurrent).toBe(false)
+    // Picks remain, so the round is not yet complete.
+    expect(view.roundComplete).toBe(false)
     // Players lead and only the PC is on that side, so it is the lone candidate.
     expect(view.rows.filter((r) => r.isEligible).map((r) => r.id)).toEqual([
       "combatant-0",
