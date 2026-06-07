@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import {
   computeMaxHP,
   computeMaxSP,
-  toStatComputationCharacter,
+  toStatContext,
 } from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
@@ -36,7 +36,7 @@ export async function createCastTarget(tracker: CleanupTracker) {
   async function reset(): Promise<void> {
     const character = await loadHydratedCharacterById(id)
     if (!character) throw new Error("cast target character not present")
-    const stats = toStatComputationCharacter(character)
+    const stats = toStatContext(character)
     await getDb()
       .update(characters)
       .set({ currentHP: computeMaxHP(stats), currentSP: computeMaxSP(stats) })

@@ -78,10 +78,10 @@ export type HydratedCostSkill = Extract<HydratedSkill, { cost: SkillCost }>
  * The complete sheet view: every persisted `characters` column (spread flat),
  * the character's child rows, and the engine-derived values every PRD §6
  * section needs — each datum present exactly once. The pure
- * `StatComputationCharacter` is intentionally *not* embedded: it re-bundles
+ * `StatContext` is intentionally *not* embedded: it re-bundles
  * `level` / `pathChoice` / `manualBonuses`, so storing it here would
  * duplicate them. Engine callers reconstruct it on demand via
- * `buildStatComputationCharacter` in [lib/game/stat-character.ts](./stat-character.ts).
+ * `buildStatContext` in [lib/game/stat-character.ts](./stat-character.ts).
  */
 export type HydratedCharacter = CharacterRow & {
   archetypeRows: CharacterArchetypeRow[]

@@ -1,10 +1,10 @@
 import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import { isInheritableSkill } from "@workspace/game/engine/archetypes/inheritance"
-import { toStatComputationCharacter } from "@workspace/game/engine/character/stats/stat-character"
+import { toStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
   computeMaxHP,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import {
   resolveAttackRoll,
@@ -98,7 +98,7 @@ export interface ArchetypeEntry {
 
 function resolveAttackRollForSkill(
   skill: Skill,
-  stats: StatComputationCharacter,
+  stats: StatContext,
   partyComposition: HydratedCharacter["partyComposition"]
 ): ResolvedAttackRoll | null {
   const context = skillAttackRollContext(skill)
@@ -117,7 +117,7 @@ function resolveAttackRollForSkill(
 function resolveArchetypeRankedSkills(
   archetype: Archetype,
   maxHP: number,
-  stats: StatComputationCharacter,
+  stats: StatContext,
   partyComposition: HydratedCharacter["partyComposition"]
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const resolveByKey = (key: string): HydratedSkill | null => {
@@ -162,7 +162,7 @@ function resolveArchetypeRankedSkills(
 export function buildArchetypeEntries(
   character: HydratedCharacter
 ): ArchetypeEntry[] {
-  const stats = toStatComputationCharacter(character)
+  const stats = toStatContext(character)
 
   const archetypeByRowId = new Map<string, Archetype>()
   const rowById = new Map<string, CharacterArchetypeRow>()
@@ -375,7 +375,7 @@ export function sortArchetypesByPath<T extends Archetype>(
  * `RankedSkill` shape the shared archetype display components consume.
  *
  * `resolvedCost` and `resolvedAttackRoll` are both computed against a synthetic
- * {@link StatComputationCharacter} carrying the player's already-picked
+ * {@link StatContext} carrying the player's already-picked
  * `pathChoice` and the previewed Archetype at Rank 2 (Origin's auto-assigned
  * Rank, PRD §5.1) — no equipment, no other Archetypes, no Mastery yet. That
  * yields the same concrete readout the live-sheet popover does once the
@@ -387,7 +387,7 @@ export function previewArchetypeSkills(
   archetype: Archetype,
   pathChoice: PathChoice
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
-  const stats: StatComputationCharacter = {
+  const stats: StatContext = {
     pathChoice,
     level: 1,
     manualBonuses: {},

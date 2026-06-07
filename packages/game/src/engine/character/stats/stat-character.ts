@@ -4,7 +4,7 @@ import { getSkill } from "@workspace/game/data/skills/registry"
 import { hasUnlockedRank } from "@workspace/game/engine/archetypes/rank"
 import type {
   ActiveMechanic,
-  StatComputationCharacter,
+  StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
@@ -17,7 +17,7 @@ import { type EquippableItem } from "@workspace/game/foundation/items/schema"
 import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 /**
- * Assembles the pure {@link StatComputationCharacter} the derived-value engine
+ * Assembles the pure {@link StatContext} the derived-value engine
  * consumes from a character's persisted state. This is the one place the
  * Rank/inheritance Skill selection lives, so neither the (pure) stats
  * functions nor every call site has to re-derive it.
@@ -52,7 +52,7 @@ export interface PersistedArchetypeState {
 function activeSkillsFor(
   active: PersistedArchetypeState,
   equippedItems: readonly EquippableItem[]
-): StatComputationCharacter["activeSkills"] {
+): StatContext["activeSkills"] {
   const archetype = getArchetype(active.archetypeKey)
   if (!archetype) return []
 
@@ -103,14 +103,12 @@ function activeMechanicFor(
 }
 
 /**
- * Reconstructs the pure {@link StatComputationCharacter} from a hydrated
+ * Reconstructs the pure {@link StatContext} from a hydrated
  * character. The single shared row→engine mapping so engine callers (e.g. the
  * rest wrapper) need not re-hand-roll it.
  */
-export function toStatComputationCharacter(
-  character: HydratedCharacter
-): StatComputationCharacter {
-  return buildStatComputationCharacter(
+export function toStatContext(character: HydratedCharacter): StatContext {
+  return buildStatContext(
     {
       pathChoice: character.pathChoice,
       level: character.level,
@@ -130,11 +128,11 @@ export function toStatComputationCharacter(
   )
 }
 
-export function buildStatComputationCharacter(
+export function buildStatContext(
   character: PersistedCharacterState,
   archetypes: readonly PersistedArchetypeState[],
   equippedItemKeys: readonly string[]
-): StatComputationCharacter {
+): StatContext {
   const active = archetypes.find(
     (a) => a.id === character.activeCharacterArchetypeId
   )

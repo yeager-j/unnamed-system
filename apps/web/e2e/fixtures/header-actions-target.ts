@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 import {
   computeMaxHP,
   computeMaxSP,
-  toStatComputationCharacter,
+  toStatContext,
 } from "@workspace/game/engine"
 
 import { characters, getDb } from "@/lib/db"
@@ -29,7 +29,7 @@ export async function createHeaderActionsTarget(tracker: CleanupTracker) {
   async function reset(): Promise<void> {
     const character = await loadHydratedCharacterById(id)
     if (!character) throw new Error("header-actions target not present")
-    const stats = toStatComputationCharacter(character)
+    const stats = toStatContext(character)
     await getDb()
       .update(characters)
       .set({

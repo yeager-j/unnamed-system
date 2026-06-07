@@ -14,7 +14,7 @@ import {
   resolveAttackAttribute,
   resolveSkillCost,
   sortSkillsByKind,
-  type CastingCharacter,
+  type CastContext,
 } from "@workspace/game/engine/skills/utils"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import { type DamageType } from "@workspace/game/foundation/combat/affinity"
@@ -108,9 +108,7 @@ describe("sortSkillsByKind", () => {
  * precisely. `cleave` is a 5%-HP Skill, `dia` a flat 3 SP Skill,
  * `healersInsight` a costless passive.
  */
-function makeCharacter(
-  overrides: Partial<CastingCharacter> = {}
-): CastingCharacter {
+function makeCharacter(overrides: Partial<CastContext> = {}): CastContext {
   return {
     pathChoice: "balanced",
     level: 1,
@@ -126,7 +124,7 @@ function makeCharacter(
   }
 }
 
-function withMaxHP(maxHP: number, overrides: Partial<CastingCharacter> = {}) {
+function withMaxHP(maxHP: number, overrides: Partial<CastContext> = {}) {
   return makeCharacter({ manualBonuses: { hp: maxHP - 20 }, ...overrides })
 }
 

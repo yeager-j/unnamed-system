@@ -2,7 +2,7 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
-import type { StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import type { StatContext } from "@workspace/game/engine/character/stats/stats"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
   CharacterArchetypeRow,
@@ -127,9 +127,9 @@ export function makeRawCharacterInputs(
  * Warrior with no equipment, skills, or mechanic. Generalizes the inline
  * `makeWarrior`/`makeMage` helpers the combat tests grew.
  */
-export function makeStatComputationCharacter(
-  overrides: Partial<StatComputationCharacter> = {}
-): StatComputationCharacter {
+export function makeStatContext(
+  overrides: Partial<StatContext> = {}
+): StatContext {
   return {
     pathChoice: "balanced",
     level: 1,

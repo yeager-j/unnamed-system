@@ -1,7 +1,7 @@
 import {
   computeMaxHP,
   type AttributeScores,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { type ResolvedAttackRoll } from "@workspace/game/engine/combat/attack-roll"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
@@ -88,11 +88,11 @@ export function hydrateSkill(
 }
 
 /**
- * A {@link StatComputationCharacter} plus the two live, tracked combat pools.
+ * A {@link StatContext} plus the two live, tracked combat pools.
  * `currentHP`/`currentSP` are mutable session state (not derived), so they
  * stay off the pure derived-value view and ride along here for the cast check.
  */
-export interface CastingCharacter extends StatComputationCharacter {
+export interface CastContext extends StatContext {
   currentHP: number
   currentSP: number
 }
@@ -127,7 +127,7 @@ export function resolveCost(cost: SkillCost, maxHP: number): ResolvedSkillCost {
 }
 
 /** The two combat pools every pool-mutating engine operates on. Subset of
- *  {@link CastingCharacter} so the optimistic reducer and the Cast button —
+ *  {@link CastContext} so the optimistic reducer and the Cast button —
  *  which only have the live pools, not the full computation context — can
  *  share the engine's affordability + deduction logic via {@link canAfford}
  *  and {@link applyResolvedCost}. */
@@ -180,7 +180,7 @@ export function applyResolvedCost(
  * {@link resolveSkillCost} with {@link canAfford}; costless passives are
  * always castable.
  */
-export function canCast(skill: Skill, character: CastingCharacter): boolean {
+export function canCast(skill: Skill, character: CastContext): boolean {
   const cost = resolveSkillCost(skill, computeMaxHP(character))
   if (cost === null) return true
   return canAfford(cost, character)
@@ -188,7 +188,7 @@ export function canCast(skill: Skill, character: CastingCharacter): boolean {
 
 /**
  * Deducts a Skill's resolved cost from the matching pool (PRD §7.2). Pure
- * and side-effect free: returns a fresh {@link CastingCharacter} and never
+ * and side-effect free: returns a fresh {@link CastContext} and never
  * mutates its input. Cost-less Skills (passives) return the character
  * unchanged so the engine stays total; the UI gates whether a Cast button
  * exists. Affordability + deduction route through the shared
@@ -196,8 +196,8 @@ export function canCast(skill: Skill, character: CastingCharacter): boolean {
  */
 export function applyCast(
   skill: Skill,
-  character: CastingCharacter
-): Result<CastingCharacter, CastError> {
+  character: CastContext
+): Result<CastContext, CastError> {
   const cost = resolveSkillCost(skill, computeMaxHP(character))
   if (cost === null) return ok(character)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import type { StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   adjustPerfection,
   attackBonusForRank,
@@ -11,7 +11,7 @@ import {
   resetPerfection,
 } from "@workspace/game/engine/mechanics/warrior/perfection"
 
-const baseStats: StatComputationCharacter = {
+const baseStats: StatContext = {
   pathChoice: "balanced",
   level: 1,
   manualBonuses: {},

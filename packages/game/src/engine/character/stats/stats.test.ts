@@ -20,12 +20,10 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 
-function makeCharacter(
-  overrides: Partial<StatComputationCharacter> = {}
-): StatComputationCharacter {
+function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
   return {
     pathChoice: "balanced",
     level: 1,

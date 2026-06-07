@@ -1,8 +1,8 @@
 import {
   applyCast,
-  toStatComputationCharacter,
+  toStatContext,
+  type CastContext,
   type CastError,
-  type CastingCharacter,
 } from "@workspace/game/engine"
 import {
   err,
@@ -21,7 +21,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * Persistence for the pure cast engine (PRD §7.2): hydrate the character via
  * {@link loadHydratedCharacterById} (max HP/SP and the active Skill set are
  * derived from its view), find the Skill the caller named in the hydrated
- * Skill list, project the character onto the engine's {@link CastingCharacter}
+ * Skill list, project the character onto the engine's {@link CastContext}
  * input, run the pure {@link applyCast} transition, then write back the
  * deducted pool via a single-row `UPDATE` conditioned on
  * `(id, vitalsVersion)` — Cast is a vitals-class write per the UNN-140
@@ -30,9 +30,9 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * edit bumps a different column and does not race.
  */
 
-function toCastingCharacter(character: HydratedCharacter): CastingCharacter {
+function toCastContext(character: HydratedCharacter): CastContext {
   return {
-    ...toStatComputationCharacter(character),
+    ...toStatContext(character),
     currentHP: character.currentHP,
     currentSP: character.currentSP,
   }
@@ -78,7 +78,7 @@ export async function applyCastForCharacter(
   const skill = character.skills.find((entry) => entry.key === skillKey)
   if (!skill) return err("skill-not-found")
 
-  const result = applyCast(skill, toCastingCharacter(character))
+  const result = applyCast(skill, toCastContext(character))
   if (!result.ok) return result
 
   const bumped = await bumpCharacterVersionGuarded(

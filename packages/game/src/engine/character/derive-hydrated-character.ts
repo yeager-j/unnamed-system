@@ -1,5 +1,5 @@
 import { getEquippedItem, getItem } from "@workspace/game/data/items/registry"
-import { buildStatComputationCharacter } from "@workspace/game/engine/character/stats/stat-character"
+import { buildStatContext } from "@workspace/game/engine/character/stats/stat-character"
 import {
   accumulatedBonuses,
   computeAffinityChart,
@@ -8,7 +8,7 @@ import {
   computeMaxHP,
   computeMaxSkillDice,
   computeMaxSP,
-  type StatComputationCharacter,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { resolveTalents } from "@workspace/game/engine/character/talents/utils"
 import {
@@ -49,12 +49,12 @@ export interface RawCharacterInputs {
  * inventory items are passed through so item effects stay gated to what the
  * character actually has equipped.
  */
-function statComputationCharacter({
+function statContext({
   row,
   archetypeRows,
   inventoryRows,
-}: RawCharacterInputs): StatComputationCharacter {
-  return buildStatComputationCharacter(
+}: RawCharacterInputs): StatContext {
+  return buildStatContext(
     {
       pathChoice: row.pathChoice,
       level: row.level,
@@ -97,7 +97,7 @@ export function deriveHydratedCharacter(
 ): HydratedCharacter {
   const { row, archetypeRows, inventoryRows, knives, chains } = raw
 
-  const stats = statComputationCharacter(raw)
+  const stats = statContext(raw)
   const bonuses = accumulatedBonuses(stats)
   const maxHP = computeMaxHP(stats, bonuses)
 

@@ -268,7 +268,7 @@ These move *into* the package (it owns its own test signal):
    `records.ts` depends on already lived); each mechanic's behaviour + display
    vocab stays in `engine/mechanics/*` and imports its schema back. The only
    remaining foundation→engine/data imports are type-only (`SkillKey`,
-   `WeaponKey`, `ResolvedAttackRoll`, `StatComputationCharacter`, …) — erased at
+   `WeaponKey`, `ResolvedAttackRoll`, `StatContext`, …) — erased at
    compile time, so permitted. Still TODO: the ESLint `engine ↛ data` rule
    (surfaces the catalog-read seam backlog) and the file-name review.
 8. ✅ Verified green: `typecheck` (3/3), `test` (1042, no loss — 906 game + 136

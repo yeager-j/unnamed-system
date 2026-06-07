@@ -1,6 +1,6 @@
 import type { z } from "zod/v4"
 
-import { type StatComputationCharacter } from "@workspace/game/engine/character/stats/stats"
+import { type StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   type AffinityEffect,
   type AttackRollEffect,
@@ -34,7 +34,7 @@ export type MechanicEffect = AffinityEffect | AttributeEffect | AttackRollEffect
 export interface MechanicEffectContext {
   /** The pure engine input. Mechanics may read e.g. attribute scores from it
    *  by re-running pure computes; they must not mutate it. */
-  stats: StatComputationCharacter
+  stats: StatContext
 }
 
 export interface MechanicDefinition<TState> {
