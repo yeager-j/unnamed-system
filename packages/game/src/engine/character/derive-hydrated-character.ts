@@ -49,7 +49,7 @@ export interface RawCharacterInputs {
  * inventory items are passed through so item effects stay gated to what the
  * character actually has equipped.
  */
-function statComputationCharacter({
+function statContext({
   row,
   archetypeRows,
   inventoryRows,
@@ -97,7 +97,7 @@ export function deriveHydratedCharacter(
 ): HydratedCharacter {
   const { row, archetypeRows, inventoryRows, knives, chains } = raw
 
-  const stats = statComputationCharacter(raw)
+  const stats = statContext(raw)
   const bonuses = accumulatedBonuses(stats)
   const maxHP = computeMaxHP(stats, bonuses)
 
