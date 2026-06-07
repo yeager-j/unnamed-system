@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+} from "@workspace/game/engine/character/stats/stats"
+import {
   applyFullRest,
   applyPartialRest,
   applyRespite,
@@ -24,6 +28,8 @@ function makeCharacter(
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,
+    baseAttributes: baseAttributesForArchetype(null),
+    baseAffinities: baseAffinitiesForArchetype(null),
     currentHP: 5,
     currentSP: 5,
     hitDiceRemaining: 0,

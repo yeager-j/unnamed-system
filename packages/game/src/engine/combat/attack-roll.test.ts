@@ -5,7 +5,11 @@ import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
 import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
 import { garu } from "@workspace/game/data/skills/wind/garu"
-import { type StatContext } from "@workspace/game/engine/character/stats/stats"
+import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+  type StatContext,
+} from "@workspace/game/engine/character/stats/stats"
 import {
   attackRollEffectsFromSkills,
   resolveAttackRoll,
@@ -15,15 +19,21 @@ import {
 import type { Skill } from "@workspace/game/foundation/skills/schema"
 
 function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
+  const activeArchetypeKey =
+    overrides.activeArchetypeKey === undefined
+      ? "warrior"
+      : overrides.activeArchetypeKey
   return {
     pathChoice: "balanced",
     level: 1,
     manualBonuses: {},
-    activeArchetypeKey: "warrior",
+    activeArchetypeKey,
     archetypes: [{ key: "warrior", rank: 5 }],
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,
+    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
     ...overrides,
   }
 }

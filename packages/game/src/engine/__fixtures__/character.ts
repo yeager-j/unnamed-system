@@ -2,7 +2,11 @@ import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
-import type { StatContext } from "@workspace/game/engine/character/stats/stats"
+import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+  type StatContext,
+} from "@workspace/game/engine/character/stats/stats"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
   CharacterArchetypeRow,
@@ -130,15 +134,21 @@ export function makeRawCharacterInputs(
 export function makeStatContext(
   overrides: Partial<StatContext> = {}
 ): StatContext {
+  const activeArchetypeKey =
+    overrides.activeArchetypeKey === undefined
+      ? "warrior"
+      : overrides.activeArchetypeKey
   return {
     pathChoice: "balanced",
     level: 1,
     manualBonuses: {},
-    activeArchetypeKey: "warrior",
+    activeArchetypeKey,
     archetypes: [{ key: "warrior", rank: 5 }],
     equippedItems: [],
     activeSkills: [],
     activeMechanic: null,
+    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
     ...overrides,
   }
 }

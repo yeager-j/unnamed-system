@@ -2,9 +2,11 @@ import { getArchetype } from "@workspace/game/data/archetypes/registry"
 import { getEquippableItem } from "@workspace/game/data/items/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import { hasUnlockedRank } from "@workspace/game/engine/archetypes/rank"
-import type {
-  ActiveMechanic,
-  StatContext,
+import {
+  baseAffinitiesForArchetype,
+  baseAttributesForArchetype,
+  type ActiveMechanic,
+  type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
@@ -141,14 +143,18 @@ export function buildStatContext(
     .map((key) => getEquippableItem(key))
     .filter((item) => item !== undefined)
 
+  const activeArchetypeKey = active?.archetypeKey ?? null
+
   return {
     pathChoice: character.pathChoice,
     level: character.level,
     manualBonuses: character.manualBonuses,
-    activeArchetypeKey: active?.archetypeKey ?? null,
+    activeArchetypeKey,
     archetypes: archetypes.map((a) => ({ key: a.archetypeKey, rank: a.rank })),
     equippedItems,
     activeSkills: active ? activeSkillsFor(active, equippedItems) : [],
     activeMechanic: activeMechanicFor(active),
+    baseAttributes: baseAttributesForArchetype(activeArchetypeKey),
+    baseAffinities: baseAffinitiesForArchetype(activeArchetypeKey),
   }
 }
