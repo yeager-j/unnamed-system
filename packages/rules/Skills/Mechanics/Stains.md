@@ -1,6 +1,6 @@
 ---
 description: The elemental Skills you cast on your turn leave behind residue that empowers the Skills you cast in the future.
-type: Passive
+type: Mechanic
 ---
 > [!skill] Stains
 > The elemental Skills you cast on your turn leave behind residue that empowers the Skills you cast in the future.

@@ -13,6 +13,6 @@ range: Same/Adjacent Zone
 > **Attack Roll + Ma**
 > **`1-10`** `1d4 + Ma`
 > **`11-19`** `1d8 + Ma`
-> **`20+`** `1d8 + Ma`
+> **`20+`** `1d8 + Ma` *No-Cure*
 
 ^ed109c
