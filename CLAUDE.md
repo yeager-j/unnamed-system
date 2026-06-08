@@ -178,9 +178,8 @@ packages/game/src/
   `statblock`); `src/engine/__contract__/*.contract.test.ts` are the **only** engine
   tests that import the real catalog (`@workspace/game/data`, `gameData`) — a thin
   real-data smoke layer, excluded from the Stryker run via `vitest.mutation.config.ts`.
-  Four still-coupled slices (`stats`, `combat/attack-roll`, `skills/utils`,
-  `reduce/pools`) are the UNN-361 follow-up. Run a layer with
-  `npm run test:contract` / `test:integration`.
+  As of UNN-361 the suite is **fully data-pure outside `__contract__`** — no
+  exceptions. Run a layer with `npm run test:contract` / `test:integration`.
 
 ## Commands
 
