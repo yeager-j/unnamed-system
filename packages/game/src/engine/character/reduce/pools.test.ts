@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import {
   makeArchetypeRow,
   makeHydratedCharacter,
@@ -23,13 +24,18 @@ function warriorInputs(row: Partial<RawCharacterInputs["row"]> = {}) {
 }
 
 function hydrate(raw: RawCharacterInputs): HydratedCharacter {
-  return makeHydratedCharacter({
-    row: raw.row,
-    archetypeRows: raw.archetypeRows,
-    inventoryRows: raw.inventoryRows,
-    knives: raw.knives,
-    chains: raw.chains,
-  })
+  // `gameData`: this slice derives real cost-bearing Warrior Skills to exercise
+  // the cast/pool arithmetic (a balance dependency, fixture-hardened separately).
+  return makeHydratedCharacter(
+    {
+      row: raw.row,
+      archetypeRows: raw.archetypeRows,
+      inventoryRows: raw.inventoryRows,
+      knives: raw.knives,
+      chains: raw.chains,
+    },
+    gameData
+  )
 }
 
 const skillCost = (character: HydratedCharacter, key: string) =>

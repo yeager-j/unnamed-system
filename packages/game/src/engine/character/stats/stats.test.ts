@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
+import { gameData } from "@workspace/game/data/game-data"
 import { cleave } from "@workspace/game/data/skills/slash/cleave"
 import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
@@ -29,10 +30,16 @@ import {
 } from "@workspace/game/engine/character/stats/stats"
 
 function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
-  return makeStatContext({
-    archetypes: [{ key: "warrior", rank: 2, mastery: warrior.mastery }],
-    ...overrides,
-  })
+  // `gameData` opts into the real catalog so the base Attributes/Affinities are
+  // the shipped Warrior's — this slice asserts shipped balance (UNN-361 will
+  // fixture-harden it).
+  return makeStatContext(
+    {
+      archetypes: [{ key: "warrior", rank: 2, mastery: warrior.mastery }],
+      ...overrides,
+    },
+    gameData
+  )
 }
 
 describe("computeAttributes", () => {

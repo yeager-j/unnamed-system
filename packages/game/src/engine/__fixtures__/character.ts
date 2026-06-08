@@ -1,5 +1,4 @@
-import { getArchetype } from "@workspace/game/data/archetypes/registry"
-import { gameData } from "@workspace/game/data/game-data"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   deriveHydratedCharacter,
   type RawCharacterInputs,
@@ -134,16 +133,24 @@ export function makeRawCharacterInputs(
  * The persistence-agnostic stat-computation view, defaulting to a Rank-5
  * Warrior with no equipment, skills, or mechanic. Generalizes the inline
  * `makeWarrior`/`makeMage` helpers the combat tests grew.
+ *
+ * `data` resolves the Archetype the base Attributes/Affinities/Lineage derive
+ * from. It defaults to an **empty** fixture catalog, so the default context has
+ * zeroed base stats and a null Lineage — pass `gameData` (or a
+ * {@link makeTestGameData} adapter) to derive against shipped or fixture
+ * Archetypes. Keeping the lookup explicit means a behavior test can never
+ * silently reach the real catalog through this helper.
  */
 export function makeStatContext(
-  overrides: Partial<StatContext> = {}
+  overrides: Partial<StatContext> = {},
+  data: GameData = makeTestGameData()
 ): StatContext {
   const activeArchetypeKey =
     overrides.activeArchetypeKey === undefined
       ? "warrior"
       : overrides.activeArchetypeKey
   const activeArchetype = activeArchetypeKey
-    ? getArchetype(activeArchetypeKey)
+    ? data.getArchetype(activeArchetypeKey)
     : undefined
   return {
     pathChoice: "balanced",
@@ -155,7 +162,10 @@ export function makeStatContext(
       {
         key: "warrior",
         rank: 5,
-        mastery: getArchetype("warrior")?.mastery ?? { kind: "hp", amount: 20 },
+        mastery: data.getArchetype("warrior")?.mastery ?? {
+          kind: "hp",
+          amount: 20,
+        },
       },
     ],
     equippedItems: [],
@@ -172,12 +182,16 @@ export function makeStatContext(
  * cast-flow input. Defaults the pools high (100/100) so affordability is never
  * the constraint unless a test sets it; pass `currentHP`/`currentSP` to probe a
  * gate. Generalizes the inline `makeCharacter` the skill-cost tests grew.
+ *
+ * `data` is threaded into {@link makeStatContext} (same empty-catalog default —
+ * pass `gameData` to opt into shipped balance).
  */
 export function makeCastContext(
-  overrides: Partial<CastContext> = {}
+  overrides: Partial<CastContext> = {},
+  data: GameData = makeTestGameData()
 ): CastContext {
   return {
-    ...makeStatContext(overrides),
+    ...makeStatContext(overrides, data),
     currentHP: 100,
     currentSP: 100,
     ...overrides,
@@ -191,13 +205,14 @@ export function makeCastContext(
  * {@link deriveHydratedCharacter}, so the derived fields are honest rather than
  * hand-stubbed.
  *
- * `data` defaults to the production catalog so existing callers are unchanged;
- * pass a {@link makeTestGameData} adapter to derive against fixture Archetypes/
- * Skills (so a behavior test never depends on shipped balance numbers).
+ * `data` defaults to an **empty** fixture catalog, so a behavior test never
+ * depends on shipped balance numbers by accident; pass a {@link makeTestGameData}
+ * adapter to derive against fixture Archetypes/Skills, or `gameData` to derive
+ * against the real catalog (a visible opt-in).
  */
 export function makeHydratedCharacter(
   overrides: Parameters<typeof makeRawCharacterInputs>[0] = {},
-  data: GameData = gameData
+  data: GameData = makeTestGameData()
 ): HydratedCharacter {
   return deriveHydratedCharacter(makeRawCharacterInputs(overrides), data)
 }

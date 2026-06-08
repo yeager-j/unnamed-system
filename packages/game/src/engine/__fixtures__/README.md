@@ -21,7 +21,10 @@ everything else from fixtures.
 - `character.ts` — input-shape builders:
   - `makeRawCharacterInputs({ row?, archetypeRows?, inventoryRows?, knives?, chains? })` — the `RawCharacterInputs` the reducers + `deriveHydratedCharacter` consume. `row` merges shallowly over a Level-1 balanced default; collections default to empty.
   - `makeArchetypeRow(overrides)` — a `characterArchetype` row; pass `mechanicState` to seed a mechanic mid-state.
-  - `makeStatContext(overrides)` — the stat-computation view (generalizes the inline `makeWarrior`/`makeMage` the combat tests grew).
+  - `makeStatContext(overrides, data?)` / `makeCastContext(overrides, data?)` — the stat-computation view (and its cast-flow superset with live pools); generalizes the inline `makeWarrior`/`makeMage` the combat tests grew.
+  - `makeHydratedCharacter(overrides, data?)` — derives a full `HydratedCharacter` through the real `deriveHydratedCharacter`.
+
+  **Catalog default (UNN-360):** the three derived-view builders above resolve their Archetypes/Skills through an injected `GameData` that **defaults to an empty `makeTestGameData()`** — so a behavior test is fixture-backed by default and can never *silently* reach the real catalog through the kit. Pass a `makeTestGameData({...})` adapter to derive against fixtures, or pass the real `gameData` as a **visible opt-in** when a slice deliberately asserts shipped balance (a forgotten arg yields an empty catalog that fails loud, not a hidden coupling).
 - `fixtures.ts` — item + passive-Skill data fixtures (`weaknessArmor`, `magicAccessory`, `nullElecSkill`, `accessoryWithEffects(...)`, …).
 - `skills.ts` — minimal `Skill` builders: `makePassiveSkill(overrides)` (the default "this key resolves" fixture) and `makeAttackSkill(overrides)` (carries a payable `cost` for the cast flow). Keys are opaque ids — assert behavior, not the shipped Skill's balance.
 - `talents.ts` — `makeTalent(key, name)`: a minimal `Talent` for label-resolution tests. `key` is a real `TalentKey` used as an opaque id; tests assert alpha-by-name ordering against the fixture `name`, never the shipped label.
@@ -38,7 +41,8 @@ everything else from fixtures.
   `Skill` literal; reference real `SkillKey`s as **opaque ids** and assign their
   Ranks in the fixture, so logic tests never depend on shipped balance.
   `makeHydratedCharacter(overrides, makeTestGameData({...}))` derives a character
-  against a fixture catalog.
+  against a fixture catalog (and is the default — see the catalog-default note
+  above).
 - `index.ts` — barrel; import from `@/lib/game/__fixtures__`.
 
 Grow the kit per slice. New builders are welcome — keep them override-driven and
