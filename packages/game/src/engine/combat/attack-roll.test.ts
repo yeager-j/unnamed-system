@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
-import { evilTouch } from "@workspace/game/data/skills/ailment/evil-touch"
-import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
-import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
-import { slashBoost } from "@workspace/game/data/skills/passive/slash-boost"
-import { garu } from "@workspace/game/data/skills/wind/garu"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import {
+  makeAttackSkill,
+  makePassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
 import { type StatContext } from "@workspace/game/engine/character/stats/stats"
 import {
   attackRollEffectsFromSkills,
@@ -16,11 +16,25 @@ import {
 } from "@workspace/game/engine/combat/attack-roll"
 import type { Skill } from "@workspace/game/foundation/skills/schema"
 
-// Warrior rank-5 is `makeStatContext`'s default; `gameData` opts into the real
-// catalog so the base Attributes are the shipped Warrior's (a balance test —
-// fixture-hardening it is tracked separately).
+// Fixture Warrior/Mage with **assigned** base Attributes (real lineage keys as
+// opaque ids), resolved through a fixture catalog so `activeLineage` derives
+// from the key exactly as production — keeping the self-exclusion tests honest.
+// Warrior attributes — { strength: 2, magic: -1, agility: 1, luck: 1 }.
+// Mage attributes — { strength: -1, magic: 2, agility: 1, luck: 1 }.
+const fxWarrior = makeArchetype({
+  key: "warrior",
+  lineage: "warrior",
+  attributes: { strength: 2, magic: -1, agility: 1, luck: 1 },
+})
+const fxMage = makeArchetype({
+  key: "mage",
+  lineage: "mage",
+  attributes: { strength: -1, magic: 2, agility: 1, luck: 1 },
+})
+const TEST_DATA = makeTestGameData({ archetypes: [fxWarrior, fxMage] })
+
 function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
-  return makeStatContext(overrides, gameData)
+  return makeStatContext(overrides, TEST_DATA)
 }
 
 function makeMage(overrides: Partial<StatContext> = {}): StatContext {
@@ -31,8 +45,68 @@ function makeMage(overrides: Partial<StatContext> = {}): StatContext {
   })
 }
 
-// Warrior attributes — { strength: 2, magic: -1, agility: 1, luck: 1 }.
-// Mage attributes — { strength: -1, magic: 2, agility: 1, luck: 1 }.
+// Fixture Skills carrying **assigned** Attack-Roll effects (real keys as opaque
+// ids): a Slash-filtered +2, a Magic-Circle per-mage scaler, an Ailment-filtered
+// +2, plus a wind attack Skill and an ailment Skill for the context derivation.
+const slashBoost = makePassiveSkill({
+  key: "slash-boost",
+  name: "Slash Boost",
+  effects: [
+    {
+      type: "attackRoll",
+      when: { damageTypes: ["slash"] },
+      amount: 2,
+      source: "Slash Boost",
+    },
+  ],
+})
+const magicCircle = makePassiveSkill({
+  key: "magic-circle",
+  name: "Magic Circle",
+  effects: [
+    {
+      type: "attackRoll",
+      when: { deliveries: ["magical"] },
+      scaler: {
+        kind: "perPartyLineage",
+        lineage: "mage",
+        amount: 1,
+        includesSelf: true,
+      },
+      source: "Magic Circle",
+    },
+  ],
+})
+const ailmentBoost = makePassiveSkill({
+  key: "ailment-boost",
+  name: "Ailment Boost",
+  effects: [
+    {
+      type: "attackRoll",
+      when: { skillKinds: ["ailment"] },
+      amount: 2,
+      source: "Ailment Boost",
+    },
+  ],
+})
+const garu = makeAttackSkill({
+  key: "garu",
+  damageType: "wind",
+  delivery: "magical",
+  attackRoll: { attribute: "ma", tiers: [] },
+})
+const evilTouch = {
+  kind: "ailment",
+  key: "evil-touch",
+  name: "Evil Touch",
+  tagline: "Inflicts Fear.",
+  description: "Inflicts Fear.",
+  isSynthesis: false,
+  cost: { kind: "sp", amount: 5 },
+  range: { kind: "known", value: "engaged" },
+  attackRoll: { attribute: "lu", tiers: [] },
+} satisfies Skill
+
 const SLASH_ST: AttackRollContext = {
   kind: "attack",
   damageType: "slash",
@@ -234,11 +308,13 @@ describe("skillAttackRollContext", () => {
     // toStrictEqual (not toEqual) so the ailment arm's absence of damageType /
     // delivery is meaningful — toEqual treats undefined props as absent, which
     // would let the attack/ailment arms blur together.
+    // The fixture garu's assigned wind/magical/Magic arm — assert behavior, not
+    // a shipped Skill's fields.
     expect(skillAttackRollContext(garu)).toStrictEqual({
       kind: "attack",
-      damageType: garu.damageType,
-      delivery: garu.delivery,
-      attribute: garu.attackRoll!.attribute,
+      damageType: "wind",
+      delivery: "magical",
+      attribute: "ma",
     })
   })
 

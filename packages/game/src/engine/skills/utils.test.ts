@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { dia } from "@workspace/game/data/skills/heal/dia"
-import { healersInsight } from "@workspace/game/data/skills/passive/healers-insight"
-import { cleave } from "@workspace/game/data/skills/slash/cleave"
 import { makeCastContext } from "@workspace/game/engine/__fixtures__/character"
+import {
+  makeAttackSkill,
+  makePassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
 import {
   applyCast,
   applyResolvedCost,
@@ -104,10 +105,22 @@ describe("sortSkillsByKind", () => {
 })
 
 /**
+ * Fixture Skills with **assigned** costs (real keys used as opaque ids), so the
+ * cost/affordability assertions prove `resolveSkillCost`/`canCast`/`applyCast`
+ * behavior, never a shipped Skill's balance: `cleave` a 5%-HP Skill, `dia` a flat
+ * 3 SP Skill, `healersInsight` a costless passive.
+ */
+const cleave = makeAttackSkill({
+  key: "cleave",
+  cost: { kind: "hp-percent", amount: 5 },
+})
+const dia = makeAttackSkill({ key: "dia", cost: { kind: "sp", amount: 3 } })
+const healersInsight = makePassiveSkill({ key: "healers-insight" })
+
+/**
  * Balanced path at level 1 has 20 max HP with no bonuses; `hp` manual bonus
  * shifts max HP to an exact target so HP-percentage rounding can be asserted
- * precisely. `cleave` is a 5%-HP Skill, `dia` a flat 3 SP Skill,
- * `healersInsight` a costless passive.
+ * precisely.
  */
 function makeCharacter(overrides: Partial<CastContext> = {}): CastContext {
   return makeCastContext({

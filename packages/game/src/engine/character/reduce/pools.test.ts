@@ -1,19 +1,42 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
   makeHydratedCharacter,
   makeRawCharacterInputs,
 } from "@workspace/game/engine/__fixtures__/character"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { makeAttackSkill } from "@workspace/game/engine/__fixtures__/skills"
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import { reducePoolsEdit } from "@workspace/game/engine/character/reduce/pools"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 
 const ACTIVE = "active-arch"
 
+/** A fixture Warrior whose Rank-1 Skills carry **assigned** costs — `windblade`
+ *  an SP cost, `cleave` a %-HP cost (real keys as opaque ids) — so the `cast`
+ *  arm has a resolved cost to deduct without depending on shipped balance. */
+const TEST_DATA = makeTestGameData({
+  archetypes: [
+    makeArchetype({
+      key: "warrior",
+      lineage: "warrior",
+      mastery: { kind: "hp", amount: 20 },
+      skills: [
+        { skill: "windblade", rank: 1 },
+        { skill: "cleave", rank: 1 },
+      ],
+    }),
+  ],
+  skills: [
+    makeAttackSkill({ key: "windblade", cost: { kind: "sp", amount: 4 } }),
+    makeAttackSkill({ key: "cleave", cost: { kind: "hp-percent", amount: 5 } }),
+  ],
+})
+
 /** A Level-5 Warrior whose active Archetype contributes cost-bearing Skills, so
- *  the `cast` arm has a real `resolvedCost` to deduct. */
+ *  the `cast` arm has a `resolvedCost` to deduct. */
 function warriorInputs(row: Partial<RawCharacterInputs["row"]> = {}) {
   return makeRawCharacterInputs({
     row: { level: 5, activeArchetypeId: ACTIVE, ...row },
@@ -24,8 +47,6 @@ function warriorInputs(row: Partial<RawCharacterInputs["row"]> = {}) {
 }
 
 function hydrate(raw: RawCharacterInputs): HydratedCharacter {
-  // `gameData`: this slice derives real cost-bearing Warrior Skills to exercise
-  // the cast/pool arithmetic (a balance dependency, fixture-hardened separately).
   return makeHydratedCharacter(
     {
       row: raw.row,
@@ -34,7 +55,7 @@ function hydrate(raw: RawCharacterInputs): HydratedCharacter {
       knives: raw.knives,
       chains: raw.chains,
     },
-    gameData
+    TEST_DATA
   )
 }
 

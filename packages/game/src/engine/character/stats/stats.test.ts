@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { mage } from "@workspace/game/data/archetypes/mage/mage"
-import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
-import { gameData } from "@workspace/game/data/game-data"
-import { cleave } from "@workspace/game/data/skills/slash/cleave"
+import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import {
   accessoryWithEffects,
@@ -14,6 +11,8 @@ import {
   spAccessory,
   weaknessArmor,
 } from "@workspace/game/engine/__fixtures__/fixtures"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { makeAttackSkill } from "@workspace/game/engine/__fixtures__/skills"
 import {
   accumulatedBonuses,
   baseAffinitiesForArchetype,
@@ -29,22 +28,52 @@ import {
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 
+/**
+ * Fixture Archetypes with **assigned** Attributes/Affinities/Mastery (real
+ * lineage keys as opaque ids), resolved through a fixture catalog so the base
+ * stats the assertions reference are this file's, not the shipped roster's — a
+ * rebalance can't redden a logic test. `fxWarrior` carries a Fire-Resist /
+ * Wind-Weak chart; `fxKnight` a base Slash-Resist for the Valor mechanic tests.
+ */
+const fxWarrior = makeArchetype({
+  key: "warrior",
+  lineage: "warrior",
+  attributes: { strength: 2, magic: -1, agility: 1, luck: 1 },
+  affinities: { fire: "resist", wind: "weak" },
+  mastery: { kind: "hp", amount: 20 },
+})
+const fxMage = makeArchetype({
+  key: "mage",
+  lineage: "mage",
+  attributes: { strength: -1, magic: 2, agility: 1, luck: 1 },
+  affinities: { ice: "resist" },
+  mastery: { kind: "sp", amount: 20 },
+})
+const fxKnight = makeArchetype({
+  key: "knight",
+  lineage: "knight",
+  affinities: { slash: "resist" },
+  mastery: { kind: "hp", amount: 20 },
+})
+const cleave = makeAttackSkill({ key: "cleave" })
+
+const TEST_DATA = makeTestGameData({
+  archetypes: [fxWarrior, fxMage, fxKnight],
+})
+
 function makeCharacter(overrides: Partial<StatContext> = {}): StatContext {
-  // `gameData` opts into the real catalog so the base Attributes/Affinities are
-  // the shipped Warrior's — this slice asserts shipped balance (UNN-361 will
-  // fixture-harden it).
   return makeStatContext(
     {
-      archetypes: [{ key: "warrior", rank: 2, mastery: warrior.mastery }],
+      archetypes: [{ key: "warrior", rank: 2, mastery: fxWarrior.mastery }],
       ...overrides,
     },
-    gameData
+    TEST_DATA
   )
 }
 
 describe("computeAttributes", () => {
   it("uses the active Archetype's scores for a baseline character", () => {
-    expect(computeAttributes(makeCharacter())).toEqual(warrior.attributes)
+    expect(computeAttributes(makeCharacter())).toEqual(fxWarrior.attributes)
   })
 
   it("returns zeroes when no Archetype is active", () => {
@@ -69,42 +98,42 @@ describe("computeAttributes", () => {
       ],
     })
     expect(computeAttributes(character).strength).toBe(
-      warrior.attributes.strength + 3
+      fxWarrior.attributes.strength + 3
     )
   })
 
   it("adds an equipped accessory's Magic bonus", () => {
     const character = makeCharacter({ equippedItems: [magicAccessory] })
     expect(computeAttributes(character).magic).toBe(
-      warrior.attributes.magic + 2
+      fxWarrior.attributes.magic + 2
     )
   })
 
   it("adds an active passive Skill's Attribute bonus", () => {
     const character = makeCharacter({ activeSkills: [reservesSkill] })
     expect(computeAttributes(character).magic).toBe(
-      warrior.attributes.magic + 2
+      fxWarrior.attributes.magic + 2
     )
   })
 
   it("ignores non-passive active Skills", () => {
     const character = makeCharacter({ activeSkills: [cleave] })
-    expect(computeAttributes(character)).toEqual(warrior.attributes)
+    expect(computeAttributes(character)).toEqual(fxWarrior.attributes)
   })
 
   it("ignores an equipped item's non-attribute (affinity) effects", () => {
     const character = makeCharacter({ equippedItems: [weaknessArmor] })
-    expect(computeAttributes(character)).toEqual(warrior.attributes)
+    expect(computeAttributes(character)).toEqual(fxWarrior.attributes)
   })
 
   it("layers manual bonuses on top of derived Mastery without double-counting", () => {
     const character = makeCharacter({
       activeArchetypeKey: "warrior",
-      archetypes: [{ key: "warrior", rank: 5, mastery: warrior.mastery }],
+      archetypes: [{ key: "warrior", rank: 5, mastery: fxWarrior.mastery }],
       manualBonuses: { strength: 2 },
     })
     expect(computeAttributes(character).strength).toBe(
-      warrior.attributes.strength + 2
+      fxWarrior.attributes.strength + 2
     )
   })
 
@@ -120,7 +149,7 @@ describe("computeAttributes", () => {
       ],
     })
     expect(computeAttributes(character).strength).toBe(
-      warrior.attributes.strength + 3
+      fxWarrior.attributes.strength + 3
     )
   })
 
@@ -174,7 +203,7 @@ describe("computeMaxHP / computeMaxSP", () => {
       level: 1,
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 2, mastery: mage.mastery },
+        { key: "mage", rank: 2, mastery: fxMage.mastery },
         { key: "warrior", rank: 5, mastery: { kind: "hp", amount: 12 } },
       ],
     })
@@ -341,8 +370,8 @@ describe("purity", () => {
       level: 4,
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 5, mastery: mage.mastery },
-        { key: "warrior", rank: 5, mastery: warrior.mastery },
+        { key: "mage", rank: 5, mastery: fxMage.mastery },
+        { key: "warrior", rank: 5, mastery: fxWarrior.mastery },
       ],
       equippedItems: [
         accessoryWithEffects([
@@ -370,8 +399,8 @@ describe("shared bonus pool", () => {
     const character = makeCharacter({
       activeArchetypeKey: "mage",
       archetypes: [
-        { key: "mage", rank: 5, mastery: mage.mastery },
-        { key: "warrior", rank: 5, mastery: warrior.mastery },
+        { key: "mage", rank: 5, mastery: fxMage.mastery },
+        { key: "warrior", rank: 5, mastery: fxWarrior.mastery },
       ],
       equippedItems: [
         accessoryWithEffects([
@@ -388,12 +417,6 @@ describe("shared bonus pool", () => {
     )
     expect(computeMaxHP(character, bonuses)).toBe(computeMaxHP(character))
     expect(computeMaxSP(character, bonuses)).toBe(computeMaxSP(character))
-  })
-})
-
-describe("transcription guard", () => {
-  it("keeps the Mage SP Mastery wired through max SP", () => {
-    expect(mage.mastery).toEqual({ kind: "sp", amount: 20 })
   })
 })
 
@@ -459,7 +482,7 @@ describe("getPathStats / getPathDice", () => {
 
 describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
   it("returns the Archetype's intrinsic Attribute scores", () => {
-    expect(baseAttributesForArchetype(warrior)).toEqual(warrior.attributes)
+    expect(baseAttributesForArchetype(fxWarrior)).toEqual(fxWarrior.attributes)
   })
 
   it("returns all-zero scores when there is no active Archetype", () => {
@@ -472,7 +495,7 @@ describe("baseAttributesForArchetype / baseAffinitiesForArchetype", () => {
   })
 
   it("resolves the Archetype's chart, Almighty and uncharted types neutral", () => {
-    const chart = baseAffinitiesForArchetype(warrior)
+    const chart = baseAffinitiesForArchetype(fxWarrior)
     expect(chart.fire).toBe("resist")
     expect(chart.wind).toBe("weak")
     expect(chart.slash).toBe("neutral")

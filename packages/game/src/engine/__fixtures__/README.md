@@ -18,9 +18,9 @@ everything else from fixtures.
 
 ## Test taxonomy: unit / integration / contract (UNN-363)
 
-Engine tests live in three places, split by **two independent axes** — *does it
-touch real game data?* and *does it test one piece in isolation or several wired
-together?*
+Engine tests live in three places, split by **two independent axes** — _does it
+touch real game data?_ and _does it test one piece in isolation or several wired
+together?_
 
 ```
                  real catalog?              collaboration?
@@ -32,13 +32,13 @@ together?*
                                                       │ no  → co-located <slice>.test.ts (unit)
 ```
 
-- **`__contract__/`** — the *only* place a real catalog import
+- **`__contract__/`** — the _only_ place a real catalog import
   (`@workspace/game/data/*`, `gameData`) appears in an engine test. A thin smoke
   layer that catches catalog drift the fixture tests can't (e.g. a shipped enemy
   whose `skillKeys` no longer resolve). Excluded from the Stryker mutation run
   (see `vitest.mutation.config.ts`) so real-data tests can't mask a fixture gap.
-- **`__integration__/`** — fixture-backed tests whose subject *composes two or
-  more engine concerns across a boundary* (collaboration): the whole
+- **`__integration__/`** — fixture-backed tests whose subject _composes two or
+  more engine concerns across a boundary_ (collaboration): the whole
   derive→reduce pipeline (`reduce-character`), the session reducer/factory, the
   encounter view-shapers (`console-view`, `roster-view`, `resolve-*`,
   `player-snapshot`), `buildStatContext`, the `statblock` derivers.
@@ -46,14 +46,27 @@ together?*
   function/module in isolation (a single sub-reducer, selector, or math util),
   even when a fixture helper produced its input.
 
-The line is *isolation vs collaboration*, not size. Run a layer in isolation
+The line is _isolation vs collaboration_, not size. Run a layer in isolation
 with `npm run test:contract` / `npm run test:integration`; `npm run test` runs
 all three.
 
-**Known gap (UNN-361):** four slices still assert shipped balance throughout and
-were left untouched — `character/stats/stats`, `combat/attack-roll`,
-`skills/utils`, `character/reduce/pools`. Until UNN-361 fixture-hardens them, the
-suite is data-pure outside `__contract__` *except* these four.
+**The charter (UNN-361 — the arc is closed).** The engine test suite is now
+**data-pure outside `__contract__`**, no exceptions: every slice asserts behavior
+via fixtures, and real catalog entries appear only in the smoke layer. This is
+the finish line — the standing rules for new engine code, not a backlog to keep
+grinding:
+
+1. **Logic via fixtures.** A rebalance must never redden a logic test.
+2. **Real data only in `__contract__`.** A thin drift-detector; nothing else in
+   the engine imports `@workspace/game/data`.
+3. **Unit vs integration by isolation vs collaboration**, not size.
+4. **Harden by judgment, not by score.** Kill mutants where a bug would bite a
+   real session (combat math, leveling, the reducers); shrug at equivalents and
+   low-stakes slices. Coverage and mutation score are gap-finders, never gates —
+   chasing 100% is a time sink with near-zero bug yield.
+
+If a change here feels like moving files for tidiness rather than buying
+confidence, it's out of scope.
 
 ## The kit
 
@@ -63,7 +76,8 @@ suite is data-pure outside `__contract__` *except* these four.
   - `makeStatContext(overrides, data?)` / `makeCastContext(overrides, data?)` — the stat-computation view (and its cast-flow superset with live pools); generalizes the inline `makeWarrior`/`makeMage` the combat tests grew.
   - `makeHydratedCharacter(overrides, data?)` — derives a full `HydratedCharacter` through the real `deriveHydratedCharacter`.
 
-  **Catalog default (UNN-360):** the three derived-view builders above resolve their Archetypes/Skills through an injected `GameData` that **defaults to an empty `makeTestGameData()`** — so a behavior test is fixture-backed by default and can never *silently* reach the real catalog through the kit. Pass a `makeTestGameData({...})` adapter to derive against fixtures, or pass the real `gameData` as a **visible opt-in** when a slice deliberately asserts shipped balance (a forgotten arg yields an empty catalog that fails loud, not a hidden coupling).
+  **Catalog default (UNN-360):** the three derived-view builders above resolve their Archetypes/Skills through an injected `GameData` that **defaults to an empty `makeTestGameData()`** — so a behavior test is fixture-backed by default and can never _silently_ reach the real catalog through the kit. Pass a `makeTestGameData({...})` adapter to derive against fixtures, or pass the real `gameData` as a **visible opt-in** when a slice deliberately asserts shipped balance (a forgotten arg yields an empty catalog that fails loud, not a hidden coupling).
+
 - `fixtures.ts` — item + passive-Skill data fixtures (`weaknessArmor`, `magicAccessory`, `nullElecSkill`, `accessoryWithEffects(...)`, …).
 - `skills.ts` — minimal `Skill` builders: `makePassiveSkill(overrides)` (the default "this key resolves" fixture) and `makeAttackSkill(overrides)` (carries a payable `cost` for the cast flow). Keys are opaque ids — assert behavior, not the shipped Skill's balance.
 - `talents.ts` — `makeTalent(key, name)`: a minimal `Talent` for label-resolution tests. `key` is a real `TalentKey` used as an opaque id; tests assert alpha-by-name ordering against the fixture `name`, never the shipped label.
@@ -94,7 +108,7 @@ npm run test:coverage                                       # branch gap-list (s
 npx stryker run --mutate "src/engine/<slice>.ts"           # mutation score for one slice
 ```
 
-Coverage is a **gap-finder, not a gate** — read the uncovered-*branch* list,
+Coverage is a **gap-finder, not a gate** — read the uncovered-_branch_ list,
 ignore the %. Mutation score is the real measure: of plausible mistakes, what
 fraction the tests catch.
 
