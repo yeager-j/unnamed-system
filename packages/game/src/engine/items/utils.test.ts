@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest"
 
 import { gameData } from "@workspace/game/data/game-data"
-import { bladeturnMail } from "@workspace/game/data/items/armor/bladeturn-mail"
-import { getEquippableItem, getItem } from "@workspace/game/data/items/registry"
-import { longsword } from "@workspace/game/data/items/weapon/longsword"
-import { runedCane } from "@workspace/game/data/items/weapon/runed-cane"
 import {
   magicAccessory,
+  makeAccessory,
+  makeArmor,
+  makeConsumable,
+  makeWeapon,
   nullWeapon,
   spAccessory,
   weaknessArmor,
 } from "@workspace/game/engine/__fixtures__/fixtures"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   addItem,
   equipItem,
@@ -29,22 +30,42 @@ import {
   type Item,
 } from "@workspace/game/foundation/items/schema"
 
-/** Bind the catalog so the item-mutation call sites stay terse. */
+/**
+ * A synthetic item catalog. Keys are opaque ids and the capabilities (slot,
+ * stackSize, consumable) are assigned here, so the mutation tests assert the
+ * equip/stack/clamp *behavior* against fixtures rather than a shipped item's
+ * balance. `soul-drop`'s 999 stack cap is a fixture value, not the catalog's.
+ */
+const longsword = makeWeapon("longsword")
+const runedCane = makeWeapon("runed-cane")
+const bladeturnMail = makeArmor("bladeturn-mail", [
+  { type: "affinity", damageTypes: ["slash"], affinity: "resist" },
+])
+const zephyrBand = makeAccessory("zephyr-band", [
+  { type: "attribute", target: "agility", amount: 1 },
+])
+const soulDrop = makeConsumable("soul-drop", 999)
+
+const TEST_DATA = makeTestGameData({
+  items: [longsword, runedCane, bladeturnMail, zephyrBand, soulDrop],
+})
+
+/** Bind the fixture catalog so the item-mutation call sites stay terse. */
 const doEquip = (
   items: Parameters<typeof equipItem>[0],
   itemId: Parameters<typeof equipItem>[1]
-) => equipItem(items, itemId, gameData)
+) => equipItem(items, itemId, TEST_DATA)
 const doAdd = (
   items: Parameters<typeof addItem>[0],
   key: Parameters<typeof addItem>[1],
   qty: Parameters<typeof addItem>[2],
   newId: Parameters<typeof addItem>[3]
-) => addItem(items, key, qty, newId, gameData)
+) => addItem(items, key, qty, newId, TEST_DATA)
 const doSetQty = (
   items: Parameters<typeof setItemQuantity>[0],
   itemId: Parameters<typeof setItemQuantity>[1],
   qty: Parameters<typeof setItemQuantity>[2]
-) => setItemQuantity(items, itemId, qty, gameData)
+) => setItemQuantity(items, itemId, qty, TEST_DATA)
 
 const longswordA: InventoryItemState = {
   id: "row-longsword",
@@ -470,23 +491,23 @@ describe("removeItem", () => {
 
 describe("capability traits", () => {
   it("classifies an equippable weapon", () => {
-    const longsword = getItem("longsword")
-    expect(longsword).toBeDefined()
-    if (!longsword) return
-    expect(isEquippable(longsword)).toBe(true)
-    expect(isStackable(longsword)).toBe(false)
-    expect(isConsumable(longsword)).toBe(false)
+    const item = TEST_DATA.getItem("longsword")
+    expect(item).toBeDefined()
+    if (!item) return
+    expect(isEquippable(item)).toBe(true)
+    expect(isStackable(item)).toBe(false)
+    expect(isConsumable(item)).toBe(false)
   })
 
-  it("classifies Soul Drop as a stackable consumable that cannot be equipped", () => {
-    const soulDrop = getItem("soul-drop")
-    expect(soulDrop).toBeDefined()
-    if (!soulDrop) return
-    expect(isEquippable(soulDrop)).toBe(false)
-    expect(isStackable(soulDrop)).toBe(true)
-    expect(isConsumable(soulDrop)).toBe(true)
-    expect(soulDrop.stackSize).toBe(999)
-    expect(getEquippableItem("soul-drop")).toBeUndefined()
+  it("classifies the stackable consumable that cannot be equipped", () => {
+    const item = TEST_DATA.getItem("soul-drop")
+    expect(item).toBeDefined()
+    if (!item) return
+    expect(isEquippable(item)).toBe(false)
+    expect(isStackable(item)).toBe(true)
+    expect(isConsumable(item)).toBe(true)
+    expect(item.stackSize).toBe(999)
+    expect(TEST_DATA.getEquippableItem("soul-drop")).toBeUndefined()
   })
 })
 
@@ -662,5 +683,15 @@ describe("getEquippedItem (weapon)", () => {
   it("returns null when the entry's catalog item is undefined", () => {
     const inventory = [{ equipped: true, item: undefined }]
     expect(getEquippedItem(inventory, "weapon")).toBeNull()
+  })
+})
+
+describe("item utils — real catalog (smoke)", () => {
+  it("classifies a shipped equippable item via the real registry", () => {
+    const item = gameData.getItem("longsword")
+    expect(item).toBeDefined()
+    if (!item) return
+    expect(isEquippable(item)).toBe(true)
+    expect(gameData.getEquippableItem("longsword")).toBeDefined()
   })
 })
