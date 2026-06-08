@@ -3,12 +3,12 @@ description: Weak psy damage to a single target
 damage: 1d10
 cost: 4 SP
 type: Psy
-range: Same/Adjacent Zone
+range: Engaged
 ---
 > [!skill] Memory Blow
 > Deals weak psy damage to one enemy.
 > 
-> SP: **4**; Range: **Same/Adjacent Zone**; Damage: **Psy (Magical)**
+> SP: **4**; Range: **Engaged**; Damage: **Psy (Magical)**
 > 
 > **Attack Roll + Ag**
 > **`1-10`** `1d6 + Ag`
