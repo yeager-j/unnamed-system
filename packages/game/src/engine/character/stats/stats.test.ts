@@ -33,7 +33,9 @@ import {
  * lineage keys as opaque ids), resolved through a fixture catalog so the base
  * stats the assertions reference are this file's, not the shipped roster's — a
  * rebalance can't redden a logic test. `fxWarrior` carries a Fire-Resist /
- * Wind-Weak chart; `fxKnight` a base Slash-Resist for the Valor mechanic tests.
+ * Wind-Weak chart; `fxKnight` an **all-neutral** chart so Valor's Slash / Pierce
+ * / Strike Resist is observable on every arm (not pre-satisfied by a base
+ * affinity).
  */
 const fxWarrior = makeArchetype({
   key: "warrior",
@@ -52,7 +54,6 @@ const fxMage = makeArchetype({
 const fxKnight = makeArchetype({
   key: "knight",
   lineage: "knight",
-  affinities: { slash: "resist" },
   mastery: { kind: "hp", amount: 20 },
 })
 const cleave = makeAttackSkill({ key: "cleave" })
@@ -443,9 +444,10 @@ describe("mechanic Effects flow through the existing pipeline", () => {
       ],
       activeMechanic: { kind: "valor", state: { kind: "valor", value: 2 } },
     })
-    // Knight's base Slash affinity is Resist; we only assert Pierce/Strike to
-    // isolate the mechanic's contribution.
+    // fxKnight's base chart is all-neutral, so each arm staying Neutral proves
+    // the mechanic did not fire below value 3.
     const chart = computeAffinityChart(character)
+    expect(chart.slash).toBe("neutral")
     expect(chart.pierce).toBe("neutral")
     expect(chart.strike).toBe("neutral")
   })
