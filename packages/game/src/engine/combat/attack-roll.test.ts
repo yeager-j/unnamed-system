@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { gameData } from "@workspace/game/data/game-data"
 import { evilTouch } from "@workspace/game/data/skills/ailment/evil-touch"
 import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
@@ -15,9 +16,11 @@ import {
 } from "@workspace/game/engine/combat/attack-roll"
 import type { Skill } from "@workspace/game/foundation/skills/schema"
 
-// Warrior rank-5 is `makeStatContext`'s default.
+// Warrior rank-5 is `makeStatContext`'s default; `gameData` opts into the real
+// catalog so the base Attributes are the shipped Warrior's (a balance test —
+// fixture-hardening it is tracked separately).
 function makeWarrior(overrides: Partial<StatContext> = {}): StatContext {
-  return makeStatContext(overrides)
+  return makeStatContext(overrides, gameData)
 }
 
 function makeMage(overrides: Partial<StatContext> = {}): StatContext {
