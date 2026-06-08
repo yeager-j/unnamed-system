@@ -1,57 +1,105 @@
 import { describe, expect, it } from "vitest"
 
-import { banditCaptain } from "@workspace/game/data/enemies/5e/humanoid/bandit-captain"
+import { ENEMIES } from "@workspace/game/data/enemies/registry"
 import { gameData } from "@workspace/game/data/game-data"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import {
+  makeAttackSkill,
+  makePassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
 import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
-import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
+
+/**
+ * Fixture Skills that exercise the (engine-owned, real) Attack-Roll resolver:
+ * an attack Skill rolling Magic, an attack Skill rolling Strength + slash damage,
+ * and a passive carrying a slash-filtered Attack-Roll bonus. Keys are opaque ids
+ * and the rolls/effects are *assigned here*, so the tests assert folding behavior
+ * against the enemy's flat Attributes — never a shipped Skill's balance.
+ */
+const garu = makeAttackSkill({
+  key: "garu",
+  damageType: "wind",
+  attackRoll: { attribute: "ma", tiers: [{ band: "1+", sideEffects: [] }] },
+})
+const cleave = makeAttackSkill({
+  key: "cleave",
+  damageType: "slash",
+  attackRoll: { attribute: "st", tiers: [{ band: "1+", sideEffects: [] }] },
+})
+const slashBoost = makePassiveSkill({
+  key: "slash-boost",
+  name: "Slash Boost",
+  effects: [
+    {
+      type: "attackRoll",
+      when: { damageTypes: ["slash"] },
+      amount: 2,
+      source: "Slash Boost",
+    },
+  ],
+})
+
+const TEST_DATA = makeTestGameData({ skills: [garu, cleave, slashBoost] })
 
 describe("hydrateEnemySkills", () => {
   it("resolves an attack Skill's Attack Roll against the enemy's flat Attributes", () => {
-    // garu / zio roll Magic; the Bandit Captain has none of the Archetype
-    // machinery, so the total is just its flat Magic with a single source.
-    const garu = hydrateEnemySkills(banditCaptain, gameData).find(
+    // garu rolls Magic; a flat stat block has no Archetype machinery, so the
+    // total is just its flat Magic with a single source.
+    const enemy = makeEnemy({
+      attributes: { strength: 0, magic: 4, agility: 0, luck: 0 },
+      skillKeys: ["garu"],
+    })
+
+    const resolved = hydrateEnemySkills(enemy, TEST_DATA).find(
       (s) => s.key === "garu"
     )
-    expect(garu?.resolvedAttackRoll?.total).toBe(banditCaptain.attributes.magic)
-    expect(garu?.resolvedAttackRoll?.sources).toHaveLength(1)
+    expect(resolved?.resolvedAttackRoll?.total).toBe(enemy.attributes.magic)
+    expect(resolved?.resolvedAttackRoll?.sources).toHaveLength(1)
   })
 
   it("folds an enemy's own passive Attack-Roll effect into the total", () => {
-    const enemy = {
-      key: "test-brute",
-      level: 3,
+    const enemy = makeEnemy({
       name: "Test Brute",
+      level: 3,
       maxHP: 40,
       attributes: { strength: 3, magic: 0, agility: 0, luck: 0 },
-      affinities: {},
       skillKeys: ["cleave", "slash-boost"],
-      talents: [],
-    } satisfies EnemyDefinition
+    })
 
-    const cleave = hydrateEnemySkills(enemy, gameData).find(
+    const resolved = hydrateEnemySkills(enemy, TEST_DATA).find(
       (s) => s.key === "cleave"
     )
     // Strength 3 + Slash Boost +2 (cleave deals slash damage).
-    expect(cleave?.resolvedAttackRoll?.total).toBe(5)
-    expect(cleave?.resolvedAttackRoll?.sources).toContainEqual({
+    expect(resolved?.resolvedAttackRoll?.total).toBe(5)
+    expect(resolved?.resolvedAttackRoll?.sources).toContainEqual({
       source: "Slash Boost",
       amount: 2,
     })
   })
 
-  it("leaves a non-attacking Skill with no Attack Roll", () => {
-    const enemy = {
-      key: "test-caster",
-      level: 1,
-      name: "Test Caster",
-      maxHP: 20,
-      attributes: { strength: 0, magic: 2, agility: 0, luck: 0 },
-      affinities: {},
-      skillKeys: ["slash-boost"],
-      talents: [],
-    } satisfies EnemyDefinition
+  it("does not fold a passive bonus whose filter the Skill misses", () => {
+    // Slash Boost filters to slash; garu deals wind, so the bonus must not apply
+    // — total is just the rolling Attribute, pinning the damage-type filter.
+    const enemy = makeEnemy({
+      attributes: { strength: 0, magic: 4, agility: 0, luck: 0 },
+      skillKeys: ["garu", "slash-boost"],
+    })
 
-    const passive = hydrateEnemySkills(enemy, gameData).find(
+    const resolved = hydrateEnemySkills(enemy, TEST_DATA).find(
+      (s) => s.key === "garu"
+    )
+    expect(resolved?.resolvedAttackRoll?.total).toBe(enemy.attributes.magic)
+    expect(resolved?.resolvedAttackRoll?.sources).toHaveLength(1)
+  })
+
+  it("leaves a non-attacking Skill with no Attack Roll", () => {
+    const enemy = makeEnemy({
+      attributes: { strength: 0, magic: 2, agility: 0, luck: 0 },
+      skillKeys: ["slash-boost"],
+    })
+
+    const passive = hydrateEnemySkills(enemy, TEST_DATA).find(
       (s) => s.key === "slash-boost"
     )
     expect(passive?.resolvedAttackRoll).toBeNull()
@@ -60,8 +108,17 @@ describe("hydrateEnemySkills", () => {
   it("drops a skillKey the lookup can't resolve", () => {
     // Validated catalog keys always resolve at runtime; a stubbed lookup that
     // misses exercises the skill-missing branch the real catalog never hits.
-    expect(
-      hydrateEnemySkills(banditCaptain, { getSkill: () => undefined })
-    ).toEqual([])
+    const enemy = makeEnemy({ skillKeys: ["garu", "cleave"] })
+    expect(hydrateEnemySkills(enemy, { getSkill: () => undefined })).toEqual([])
+  })
+})
+
+describe("hydrateEnemySkills — real catalog (smoke)", () => {
+  it("hydrates a shipped enemy's attack Skills against the real catalog", () => {
+    const enemy = ENEMIES.find((e) => e.skillKeys.length > 0)
+    expect(enemy).toBeDefined()
+
+    const skills = hydrateEnemySkills(enemy!, gameData)
+    expect(skills).toHaveLength(enemy!.skillKeys.length)
   })
 })

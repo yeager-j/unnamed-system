@@ -25,6 +25,7 @@ everything else from fixtures.
 - `fixtures.ts` — item + passive-Skill data fixtures (`weaknessArmor`, `magicAccessory`, `nullElecSkill`, `accessoryWithEffects(...)`, …).
 - `skills.ts` — minimal `Skill` builders: `makePassiveSkill(overrides)` (the default "this key resolves" fixture) and `makeAttackSkill(overrides)` (carries a payable `cost` for the cast flow). Keys are opaque ids — assert behavior, not the shipped Skill's balance.
 - `talents.ts` — `makeTalent(key, name)`: a minimal `Talent` for label-resolution tests. `key` is a real `TalentKey` used as an opaque id; tests assert alpha-by-name ordering against the fixture `name`, never the shipped label.
+- `enemies.ts` — `makeEnemy(overrides)`: a minimal `EnemyDefinition` (bare Level-1 stat block) for the enemy view-model + statblock slices. Seed only what the subject reads (`skillKeys`, `affinities`, …); real slugs are opaque ids.
 - `game-data.ts` — `makeTestGameData(overrides?)`: the fixture-backed
   {@link GameData} adapter — the test-time counterpart to production `gameData`,
   for `createGameEngine(makeTestGameData({...}))` or for the boundary `*Core`
