@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { makeTalent } from "@workspace/game/engine/__fixtures__/talents"
@@ -148,16 +147,5 @@ describe("resolveTalentsForBuilder", () => {
         selectable: [...TALENT_KEYS],
       }
     )
-  })
-})
-
-describe("talents display — real catalog (smoke)", () => {
-  it("shapes a shipped Archetype's inherited chips and Origin from the real catalog", () => {
-    const { chips } = resolveTalentsForSheet([], "warrior", gameData)
-    expect(chips.length).toBeGreaterThan(0)
-    expect(chips.every((chip) => chip.inherited)).toBe(true)
-
-    const { origin } = resolveTalentsForBuilder("warrior", gameData)
-    expect(origin.length).toBeGreaterThan(0)
   })
 })

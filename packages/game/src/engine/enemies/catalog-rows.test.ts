@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { ENEMIES } from "@workspace/game/data/enemies/registry"
-import { gameData } from "@workspace/game/data/game-data"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
@@ -167,13 +165,5 @@ describe("enemyFamilyCounts", () => {
     expect(total).toBe(rows.length)
     // Goblin + Bandit Captain are both humanoid.
     expect(counts.humanoid).toBe(2)
-  })
-})
-
-describe("buildEnemyCatalogRows — real catalog (smoke)", () => {
-  it("builds one row per shipped enemy, each with a resolved family", () => {
-    const rows = buildEnemyCatalogRows(gameData)
-    expect(rows).toHaveLength(ENEMIES.length)
-    expect(rows.every((row) => row.family)).toBe(true)
   })
 })

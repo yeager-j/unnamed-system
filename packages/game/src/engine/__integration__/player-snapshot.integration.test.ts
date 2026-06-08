@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { goblin } from "@workspace/game/data/enemies/5e/humanoid/goblin"
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { projectPlayerSnapshot } from "@workspace/game/engine/encounter/player-snapshot"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
@@ -67,8 +68,21 @@ function encounter(session: CombatSession, status: "draft" | "live" | "ended") {
   }
 }
 
+/** A fixture catalog whose "goblin" carries a name, a definition max HP, and
+ *  attributes/affinities — all assigned here — so the redaction tests prove the
+ *  projection *drops* enemy attributes/affinities it was handed, not that it
+ *  never had them. The real-catalog redaction smoke lives in `__contract__`. */
+const GOBLIN = makeEnemy({
+  key: "goblin",
+  name: "Goblin",
+  maxHP: 16,
+  attributes: { strength: 1, magic: -1, agility: 2, luck: 0 },
+  affinities: { fire: "weak" },
+})
+const CATALOG = makeTestGameData({ enemies: [GOBLIN] })
+
 /** Projects with the resolved enemy statblocks for the encounter's own roster —
- *  the redaction tests still pass real catalog data in, proving the projection
+ *  the redaction tests pass the fixture goblin's data in, proving the projection
  *  drops it rather than never having it. */
 const snap = (
   enc: Parameters<typeof projectPlayerSnapshot>[0],
@@ -77,7 +91,7 @@ const snap = (
   projectPlayerSnapshot(
     enc,
     pcDetailById,
-    enemyStatblocks(enc.session.combatants)
+    enemyStatblocks(enc.session.combatants, CATALOG)
   )
 
 describe("projectPlayerSnapshot", () => {
@@ -95,8 +109,8 @@ describe("projectPlayerSnapshot", () => {
     expect("attributes" in enemy).toBe(false)
     expect("affinities" in enemy).toBe(false)
     // The source definition carries both — proving the absence is redaction.
-    expect(goblin.attributes).toBeDefined()
-    expect(goblin.affinities).toBeDefined()
+    expect(GOBLIN.attributes).toBeDefined()
+    expect(GOBLIN.affinities).toBeDefined()
   })
 
   it("keeps PC HP, SP, and attributes fully visible (UNN-324)", () => {
@@ -138,7 +152,7 @@ describe("projectPlayerSnapshot", () => {
     expect(enemy).toMatchObject({
       kind: "enemy",
       name: "Goblin",
-      hp: { current: goblin.maxHP, max: goblin.maxHP },
+      hp: { current: GOBLIN.maxHP, max: GOBLIN.maxHP },
       sp: null,
     })
   })

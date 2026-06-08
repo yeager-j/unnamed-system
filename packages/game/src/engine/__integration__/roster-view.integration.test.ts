@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { getEnemy } from "@workspace/game/data/enemies/registry"
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { makeAttackSkill } from "@workspace/game/engine/__fixtures__/skills"
 import {
   buildRosterView,
   combatantDetail,
@@ -84,9 +86,24 @@ const SETUP: CombatantSetup[] = [
 
 const PC_DETAIL: Record<string, PcCombatantDetail> = { "char-roan": ROAN }
 
+/** A fixture catalog whose "goblin" carries the name, a positive definition max
+ *  HP, an affinity chart, and freeform abilities the detail shaper reads — all
+ *  opaque values assigned here, not the shipped creature's. */
+const CATALOG = makeTestGameData({
+  enemies: [
+    makeEnemy({
+      key: "goblin",
+      name: "Goblin",
+      maxHP: 16,
+      affinities: { fire: "weak" },
+      abilities: "Nimble Escape.",
+    }),
+  ],
+})
+
 /** Resolved enemy statblocks for {@link SETUP}'s catalog goblin (the inline Cave
  *  Bat and PCs don't read from this map). */
-const ENEMY_SB = enemyStatblocks(SETUP)
+const ENEMY_SB = enemyStatblocks(SETUP, CATALOG)
 
 function build(): CombatSession {
   return {
@@ -321,6 +338,31 @@ describe("combatantDetail", () => {
   })
 
   it("resolves a catalog enemy's skill keys to display names", () => {
+    // A fixture captain whose seeded skills (garu/zio as opaque ids, named
+    // distinctly from their keys) roll Magic, so the resolved Attack Roll equals
+    // the seeded Magic — behavior, not the shipped creature's balance.
+    const captainMagic = 7
+    const captainCatalog = makeTestGameData({
+      enemies: [
+        makeEnemy({
+          key: "bandit-captain",
+          attributes: { strength: 0, magic: captainMagic, agility: 0, luck: 0 },
+          skillKeys: ["garu", "zio"],
+        }),
+      ],
+      skills: [
+        makeAttackSkill({
+          key: "garu",
+          name: "Garu",
+          attackRoll: { attribute: "ma", tiers: [] },
+        }),
+        makeAttackSkill({
+          key: "zio",
+          name: "Zio",
+          attackRoll: { attribute: "ma", tiers: [] },
+        }),
+      ],
+    })
     const session = createCombatSession(
       [
         {
@@ -335,7 +377,7 @@ describe("combatantDetail", () => {
       session,
       "combatant-0",
       PC_DETAIL,
-      enemyStatblocks(session.combatants)
+      enemyStatblocks(session.combatants, captainCatalog)
     )!
 
     expect(detail.kind).toBe("enemy")
@@ -344,16 +386,15 @@ describe("combatantDetail", () => {
         "garu",
         "zio",
       ])
-      // Resolved through the skill registry, never the raw key.
+      // Resolved through the skill lookup, never the raw key.
       for (const skill of detail.statblock.skills) {
         expect(skill.name).not.toBe(skill.key)
         expect(skill.name.length).toBeGreaterThan(0)
       }
       // Skills are hydrated against the enemy's flat Attributes (UNN-350 seam):
-      // garu/zio roll Magic, so the resolved Attack Roll is the captain's Magic.
-      const magic = getEnemy("bandit-captain")!.attributes.magic
+      // garu/zio roll Magic, so the resolved Attack Roll is the seeded Magic.
       const garu = detail.statblock.skills.find((skill) => skill.key === "garu")
-      expect(garu?.resolvedAttackRoll?.total).toBe(magic)
+      expect(garu?.resolvedAttackRoll?.total).toBe(captainMagic)
     }
   })
 

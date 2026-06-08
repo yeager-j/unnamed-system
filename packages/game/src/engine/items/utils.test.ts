@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import {
   magicAccessory,
   makeAccessory,
@@ -683,15 +682,5 @@ describe("getEquippedItem (weapon)", () => {
   it("returns null when the entry's catalog item is undefined", () => {
     const inventory = [{ equipped: true, item: undefined }]
     expect(getEquippedItem(inventory, "weapon")).toBeNull()
-  })
-})
-
-describe("item utils — real catalog (smoke)", () => {
-  it("classifies a shipped equippable item via the real registry", () => {
-    const item = gameData.getItem("longsword")
-    expect(item).toBeDefined()
-    if (!item) return
-    expect(isEquippable(item)).toBe(true)
-    expect(gameData.getEquippableItem("longsword")).toBeDefined()
   })
 })

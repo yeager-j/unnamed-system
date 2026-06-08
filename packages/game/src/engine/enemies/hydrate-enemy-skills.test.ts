@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { ENEMIES } from "@workspace/game/data/enemies/registry"
-import { gameData } from "@workspace/game/data/game-data"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
@@ -110,15 +108,5 @@ describe("hydrateEnemySkills", () => {
     // misses exercises the skill-missing branch the real catalog never hits.
     const enemy = makeEnemy({ skillKeys: ["garu", "cleave"] })
     expect(hydrateEnemySkills(enemy, { getSkill: () => undefined })).toEqual([])
-  })
-})
-
-describe("hydrateEnemySkills — real catalog (smoke)", () => {
-  it("hydrates a shipped enemy's attack Skills against the real catalog", () => {
-    const enemy = ENEMIES.find((e) => e.skillKeys.length > 0)
-    expect(enemy).toBeDefined()
-
-    const skills = hydrateEnemySkills(enemy!, gameData)
-    expect(skills).toHaveLength(enemy!.skillKeys.length)
   })
 })

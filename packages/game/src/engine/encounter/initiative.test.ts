@@ -1,15 +1,30 @@
 import { describe, expect, it } from "vitest"
 
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { compareInitiative } from "@workspace/game/engine/encounter/initiative"
 import type { CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
+/** A fixture catalog whose "goblin" carries positive Agility/Luck — assigned
+ *  here, not the shipped creature's — so the catalog-enemy case has a definition
+ *  to resolve. */
+const CATALOG = makeTestGameData({
+  enemies: [
+    makeEnemy({
+      key: "goblin",
+      attributes: { strength: 0, magic: 0, agility: 3, luck: 1 },
+    }),
+  ],
+})
+
 /** Binds the resolved enemy statblocks for the roster under test so the
- *  catalog-enemy case reads real attributes; non-catalog rosters get `{}`. */
+ *  catalog-enemy case reads its fixture attributes; non-catalog rosters get `{}`. */
 const cmp = (
   combatants: Parameters<typeof compareInitiative>[0],
   pcStats: Parameters<typeof compareInitiative>[1]
-) => compareInitiative(combatants, pcStats, enemyStatblocks(combatants))
+) =>
+  compareInitiative(combatants, pcStats, enemyStatblocks(combatants, CATALOG))
 
 function pc(characterId: string, side: "players" | "enemies"): CombatantSetup {
   return { side, ref: { kind: "pc", characterId }, zoneId: "z" }
@@ -93,7 +108,7 @@ describe("compareInitiative", () => {
   })
 
   it("resolves a catalog enemy's attributes from its definition", () => {
-    // goblin is a known catalog enemy; its Agility comes from the definition.
+    // The fixture goblin's Agility/Luck come from its seeded definition.
     const result = cmp([pc("p1", "players"), catalogEnemy("goblin")], {
       p1: { agility: 0, luck: 0 },
     })

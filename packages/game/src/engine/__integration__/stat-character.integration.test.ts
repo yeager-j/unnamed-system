@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   FIXTURE_CHARACTER_ID,
@@ -374,23 +372,5 @@ describe("toStatContext", () => {
     expect(ctx.level).toBe(4)
     // Only the equipped item is threaded through (the stowed Spear is dropped).
     expect(ctx.equippedItems.map((item) => item.key)).toEqual(["longsword"])
-  })
-})
-
-describe("buildStatContext — real catalog (smoke)", () => {
-  it("resolves a shipped Archetype's Lineage, Mastery, and active Skills", () => {
-    const result = buildStatContext(
-      baseCharacter,
-      [warriorRow({ rank: 2 })],
-      [],
-      gameData
-    )
-    expect(result.activeLineage).toBe(warrior.lineage)
-    expect(result.archetypes).toContainEqual({
-      key: "warrior",
-      rank: 2,
-      mastery: warrior.mastery,
-    })
-    expect(result.activeSkills.length).toBeGreaterThan(0)
   })
 })

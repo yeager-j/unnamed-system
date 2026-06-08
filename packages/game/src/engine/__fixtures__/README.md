@@ -16,6 +16,45 @@ attribute effect, an Archetype mid-mechanic-state).
 Reserve real catalog entries for a thin layer of integration/smoke tests; build
 everything else from fixtures.
 
+## Test taxonomy: unit / integration / contract (UNN-363)
+
+Engine tests live in three places, split by **two independent axes** — *does it
+touch real game data?* and *does it test one piece in isolation or several wired
+together?*
+
+```
+                 real catalog?              collaboration?
+  test ──────────────┬───────────────────────────┬───────────────────────────
+   asserts vs        │ yes → src/engine/__contract__/ │
+   shipped data      │      <slice>.contract.test.ts  │
+                     │ no  ───────────────────────────┤ yes → src/engine/__integration__/
+                                                      │      <slice>.integration.test.ts
+                                                      │ no  → co-located <slice>.test.ts (unit)
+```
+
+- **`__contract__/`** — the *only* place a real catalog import
+  (`@workspace/game/data/*`, `gameData`) appears in an engine test. A thin smoke
+  layer that catches catalog drift the fixture tests can't (e.g. a shipped enemy
+  whose `skillKeys` no longer resolve). Excluded from the Stryker mutation run
+  (see `vitest.mutation.config.ts`) so real-data tests can't mask a fixture gap.
+- **`__integration__/`** — fixture-backed tests whose subject *composes two or
+  more engine concerns across a boundary* (collaboration): the whole
+  derive→reduce pipeline (`reduce-character`), the session reducer/factory, the
+  encounter view-shapers (`console-view`, `roster-view`, `resolve-*`,
+  `player-snapshot`), `buildStatContext`, the `statblock` derivers.
+- **co-located `<slice>.test.ts`** — fixture-backed **unit** tests: one
+  function/module in isolation (a single sub-reducer, selector, or math util),
+  even when a fixture helper produced its input.
+
+The line is *isolation vs collaboration*, not size. Run a layer in isolation
+with `npm run test:contract` / `npm run test:integration`; `npm run test` runs
+all three.
+
+**Known gap (UNN-361):** four slices still assert shipped balance throughout and
+were left untouched — `character/stats/stats`, `combat/attack-roll`,
+`skills/utils`, `character/reduce/pools`. Until UNN-361 fixture-hardens them, the
+suite is data-pure outside `__contract__` *except* these four.
+
 ## The kit
 
 - `character.ts` — input-shape builders:

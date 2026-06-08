@@ -22,5 +22,8 @@ export default {
     "!src/engine/**/__fixtures__/**",
   ],
   reporters: ["html", "json", "clear-text", "progress"],
-  vitest: { configFile: "vitest.config.ts" },
+  // Run against the mutation config so `__contract__` (real-catalog) tests are
+  // excluded — the mutation score must reflect the fixture-backed unit +
+  // integration tests, not real-data smoke (UNN-363).
+  vitest: { configFile: "vitest.mutation.config.ts" },
 }

@@ -8,6 +8,8 @@
     "format": "eslint --fix \"**/*.ts\" && prettier --write \"**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:contract": "vitest run --passWithNoTests src/engine/__contract__",
+    "test:integration": "vitest run --passWithNoTests src/engine/__integration__",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "test:mutation": "stryker run"
   },

@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
-  makeHydratedCharacter,
   makeRawCharacterInputs,
 } from "@workspace/game/engine/__fixtures__/character"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
@@ -229,23 +227,5 @@ describe("buildArchetypeEntries inheritance-slot validity", () => {
     const warriorEntry = entries.find((e) => e.row.id === "arch-warrior")
     expect(warriorEntry?.slots[0]?.isValid).toBe(true)
     expect(warriorEntry?.slots[0]?.resolved).toBeNull()
-  })
-})
-
-describe("inheritance — real catalog (smoke)", () => {
-  it("resolves inheritable Skills between two shipped Archetypes", () => {
-    const character = makeHydratedCharacter({
-      row: { activeArchetypeId: "w", originCharacterArchetypeId: "w" },
-      archetypeRows: [
-        makeArchetypeRow({ id: "w", archetypeKey: "warrior", rank: 3 }),
-        makeArchetypeRow({ id: "m", archetypeKey: "mage", rank: 2 }),
-      ],
-    })
-    const groups = inheritanceSourceGroups(
-      buildArchetypeEntries(character, gameData),
-      "w"
-    )
-    expect(groups.map((g) => g.archetype.key)).toEqual(["mage"])
-    expect(groups[0]!.skills.length).toBeGreaterThan(0)
   })
 })
