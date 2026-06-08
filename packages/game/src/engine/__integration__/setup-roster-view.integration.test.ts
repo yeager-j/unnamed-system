@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   buildSetupCombatantLabels,
   engageableTargets,
@@ -13,12 +15,23 @@ import type {
   CombatSession,
 } from "@workspace/game/foundation/encounter/session"
 
+/** A fixture catalog whose "goblin" carries the name the dedup/numbering logic
+ *  reads — an opaque id assigned here, not the shipped creature. */
+const CATALOG = makeTestGameData({
+  enemies: [makeEnemy({ key: "goblin", name: "Goblin" })],
+})
+
 /** Resolves the enemy statblocks for the setup roster under test so catalog
- *  enemies render their real names. */
+ *  enemies render their fixture names. */
 const setupLabels = (
   setups: Parameters<typeof buildSetupCombatantLabels>[0],
   pcNameById: Parameters<typeof buildSetupCombatantLabels>[1]
-) => buildSetupCombatantLabels(setups, pcNameById, enemyStatblocks(setups))
+) =>
+  buildSetupCombatantLabels(
+    setups,
+    pcNameById,
+    enemyStatblocks(setups, CATALOG)
+  )
 
 function catalogEnemy(enemyKey: string): CombatantSetup {
   return {

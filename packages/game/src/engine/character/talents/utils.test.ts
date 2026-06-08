@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { makeTalent } from "@workspace/game/engine/__fixtures__/talents"
@@ -93,13 +92,5 @@ describe("resolveTalents", () => {
       "climb",
       "lift",
     ])
-  })
-})
-
-describe("resolveTalents — real catalog (smoke)", () => {
-  it("resolves a shipped Archetype's Talents against the real catalog", () => {
-    const result = resolveTalents([], "warrior", gameData)
-    expect(result.length).toBeGreaterThan(0)
-    expect(new Set(result).size).toBe(result.length)
   })
 })

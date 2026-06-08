@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest"
 
 import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
-import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
+import {
+  type CombatantSetup,
+  type CombatSession,
+} from "@workspace/game/foundation/encounter/session"
+
+/** A fixture catalog whose "goblin" carries a definition max HP the
+ *  working-HP-defaults-to-max clamp reads — an assigned number, not the shipped
+ *  creature's. */
+const GOBLIN_MAX_HP = 16
+const CATALOG = makeTestGameData({
+  enemies: [makeEnemy({ key: "goblin", maxHP: GOBLIN_MAX_HP })],
+})
+
+/** `reduceCombat` bound to the fixture catalog so a `catalog-enemy` ref resolves
+ *  its definition. */
+const reduce = (
+  session: CombatSession,
+  event: Parameters<typeof reduceCombat>[1],
+  newId: () => string = () => crypto.randomUUID()
+) => reduceCombat(session, event, newId, CATALOG)
 
 function sequentialIds() {
   let n = 0
@@ -49,7 +70,7 @@ function catalogRefOf(session: ReturnType<typeof build>, id: string) {
 
 describe("adjustEnemyVitals", () => {
   it("sets an inline enemy's currentSP to the given value", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "currentSP",
@@ -59,7 +80,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("floors an inline enemy's currentSP at 0", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "currentSP",
@@ -69,7 +90,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("sets an inline enemy's maxSP", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "maxSP",
@@ -80,7 +101,7 @@ describe("adjustEnemyVitals", () => {
 
   it("clamps an inline enemy's currentSP when maxSP drops below it", () => {
     // Cave Bat is at 10/10 SP; lowering max to 4 caps current at 4.
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "maxSP",
@@ -104,7 +125,7 @@ describe("adjustEnemyVitals", () => {
       () => "lone"
     )
 
-    const next = reduceCombat(session, {
+    const next = reduce(session, {
       kind: "adjustEnemyVitals",
       combatantId: "lone",
       field: "maxHP",
@@ -115,7 +136,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("sets an inline enemy's currentHP to the given value", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "currentHP",
@@ -125,7 +146,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("floors currentHP at 0 (overkill can't go negative)", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "currentHP",
@@ -135,7 +156,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("floors maxHP at 0", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "maxHP",
@@ -145,7 +166,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("sets maxHP to a positive value", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "maxHP",
@@ -156,7 +177,7 @@ describe("adjustEnemyVitals", () => {
 
   it("clamps an inline enemy's currentHP when maxHP drops below it", () => {
     // Cave Bat is at 8/8; lowering max to 3 caps current at 3 (no 8/3).
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-1",
       field: "maxHP",
@@ -171,7 +192,7 @@ describe("adjustEnemyVitals", () => {
   it("clamps a catalog enemy's currentHP when maxHP drops below it", () => {
     // The goblin's working HP defaults to its definition max; lowering max to 5
     // caps current at 5 (the 16/0 bug).
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-2",
       field: "maxHP",
@@ -185,7 +206,7 @@ describe("adjustEnemyVitals", () => {
 
   it("is a no-op for a PC combatant", () => {
     const session = build()
-    const next = reduceCombat(session, {
+    const next = reduce(session, {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-0",
       field: "currentHP",
@@ -195,7 +216,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("sets a catalog enemy's working currentHP inline on the ref", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-2",
       field: "currentHP",
@@ -205,7 +226,7 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("sets and floors a catalog enemy's maxHP", () => {
-    const next = reduceCombat(build(), {
+    const next = reduce(build(), {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-2",
       field: "maxHP",
@@ -216,7 +237,7 @@ describe("adjustEnemyVitals", () => {
 
   it("ignores SP fields for a catalog enemy (no SP)", () => {
     const session = build()
-    const next = reduceCombat(session, {
+    const next = reduce(session, {
       kind: "adjustEnemyVitals",
       combatantId: "combatant-2",
       field: "currentSP",
@@ -227,7 +248,7 @@ describe("adjustEnemyVitals", () => {
 
   it("is a no-op for an unknown combatant id", () => {
     const session = build()
-    const next = reduceCombat(session, {
+    const next = reduce(session, {
       kind: "adjustEnemyVitals",
       combatantId: "nope",
       field: "currentHP",

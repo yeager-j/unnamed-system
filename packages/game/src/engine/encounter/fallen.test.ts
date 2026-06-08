@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import {
@@ -46,9 +48,16 @@ function session(enemyHP: number) {
   return createCombatSession(setup, sequentialIds())
 }
 
+/** A fixture catalog whose "goblin" carries a positive definition max HP, so an
+ *  unset working-HP goblin defaults to full — an assigned number, not the
+ *  shipped creature's. */
+const CATALOG = makeTestGameData({
+  enemies: [makeEnemy({ key: "goblin", maxHP: 16 })],
+})
+
 /** Resolved statblocks for the catalog goblin in {@link session} (so an unset
- *  working-HP goblin defaults to its real, >0 maxHP — not Fallen). */
-const ENEMY_SB = enemyStatblocks(session(0).combatants)
+ *  working-HP goblin defaults to its fixture >0 maxHP — not Fallen). */
+const ENEMY_SB = enemyStatblocks(session(0).combatants, CATALOG)
 
 describe("fallenCombatantIds", () => {
   it("includes an enemy whose inline statBlock HP is 0 or less", () => {

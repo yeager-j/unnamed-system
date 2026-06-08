@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   FIXTURE_CHARACTER_ID,
@@ -666,44 +665,5 @@ describe("reduceCharacter", () => {
         characterArchetypeId: "does-not-exist",
       })
     ).toBe(character)
-  })
-})
-
-describe("reduceCharacter — real catalog (smoke)", () => {
-  /** A finalized Warrior built straight from the shipped catalog. */
-  const realCharacter = () =>
-    deriveHydratedCharacter(
-      makeRawCharacterInputs({
-        row: {
-          activeArchetypeId: "arch-1",
-          originCharacterArchetypeId: "arch-1",
-        },
-        archetypeRows: [
-          makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 1 }),
-        ],
-      }),
-      gameData
-    )
-
-  it("derives a shipped Archetype's vitals and Skills end-to-end", () => {
-    const character = realCharacter()
-    expect(character.maxHP).toBeGreaterThan(0)
-    expect(character.skills.length).toBeGreaterThan(0)
-  })
-
-  it("casts a shipped Skill through the reducer, spending a pool", () => {
-    const character = realCharacter()
-    const castable = character.skills.find((skill) => skill.resolvedCost)
-    expect(castable).toBeDefined()
-
-    const next = reduceCharacter(
-      character,
-      { kind: "cast", skillKey: castable!.key },
-      gameData,
-      () => "smoke-id"
-    )
-    expect(next.currentHP + next.currentSP).toBeLessThan(
-      character.currentHP + character.currentSP
-    )
   })
 })

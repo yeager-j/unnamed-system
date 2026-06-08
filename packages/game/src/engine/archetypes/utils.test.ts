@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
@@ -537,34 +535,5 @@ describe("archetypeSwitcherGroups", () => {
       TEST_DATA
     )
     expect(group!.options[0]!.mechanicName).toBeNull()
-  })
-})
-
-describe("archetype utils — real catalog (smoke)", () => {
-  it("resolves a shipped Archetype's %HP costs and Attack Rolls in the builder preview", () => {
-    const { ranks, synthesis } = previewArchetypeSkills(
-      warrior,
-      "balanced",
-      gameData
-    )
-    expect(ranks).toHaveLength(warrior.skills.length)
-    expect(synthesis?.key).toBe(warrior.synthesisSkill!.skill)
-
-    const cleave = ranks.find((ranked) => ranked.key === "cleave")
-    expect(cleave?.resolvedCost).toMatchObject({ kind: "hp" })
-
-    const attackSkill = ranks.find(
-      (ranked) => ranked.kind === "attack" && ranked.attackRoll
-    )
-    expect(attackSkill?.resolvedAttackRoll).not.toBeNull()
-  })
-
-  it("builds entries and switcher groups over the shipped catalog", () => {
-    const c = makeHydratedCharacter({
-      row: { activeArchetypeId: "a" },
-      archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
-    })
-    expect(buildArchetypeEntries(c, gameData)[0]?.archetype.key).toBe("warrior")
-    expect(archetypeSwitcherGroups(c, gameData)[0]?.lineage).toBe("warrior")
   })
 })

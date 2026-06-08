@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
@@ -323,20 +322,5 @@ describe("reduceArchetypeEdit — unlockArchetype prerequisites (injected catalo
         catalog
       )
     ).toBeNull()
-  })
-})
-
-describe("reduceArchetypeEdit — real catalog (smoke)", () => {
-  it("unlocks a shipped Archetype against the production catalog", () => {
-    const raw = makeRawCharacterInputs({ row: { savedArchetypeRanks: 1 } })
-    const next = reduceArch(
-      raw,
-      { kind: "unlockArchetype", archetypeKey: "warrior" },
-      STABLE_ID,
-      gameData.allArchetypes()
-    )
-    expect(
-      next?.archetypeRows.find((row) => row.id === "minted-id")?.archetypeKey
-    ).toBe("warrior")
   })
 })

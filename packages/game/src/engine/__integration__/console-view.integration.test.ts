@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
+import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
   buildConsoleView,
   combatantName,
@@ -45,7 +47,13 @@ const PC_INFO: Record<string, PcInfo> = {
   "char-1": { name: "Brannis", currentHP: 30 },
 }
 
-const ENEMY_SB = enemyStatblocks(SETUP)
+/** A fixture catalog whose "goblin" carries the name the resolver reads — an
+ *  opaque id assigned here, not the shipped creature. */
+const CATALOG = makeTestGameData({
+  enemies: [makeEnemy({ key: "goblin", name: "Goblin" })],
+})
+
+const ENEMY_SB = enemyStatblocks(SETUP, CATALOG)
 
 function build(): CombatSession {
   return {
@@ -75,7 +83,7 @@ describe("combatantName", () => {
     )
   })
 
-  it("resolves a catalog enemy through the hardcoded catalog", () => {
+  it("resolves a catalog enemy through the injected catalog", () => {
     const session = build()
     expect(combatantName(session.combatants[2]!, PC_INFO, ENEMY_SB)).toBe(
       "Goblin"

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data/game-data"
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
@@ -1316,29 +1315,5 @@ describe("getAtlasRecommendations", () => {
       (r) => r.archetype.key
     )
     expect(keys).toEqual(["m1", "m2", "m3"])
-  })
-})
-
-describe("buildLineageAtlas + getAtlasRecommendations — real catalog (smoke)", () => {
-  it("composes the view builder and recommendations over the shipped catalog", () => {
-    const view = buildLineageAtlas(
-      makeCharacter(
-        {
-          archetypeRows: [
-            archetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
-          ],
-          originCharacterArchetypeId: "a1",
-        },
-        gameData
-      ),
-      gameData.allArchetypes()
-    )
-
-    const result = getAtlasRecommendations(view, "health-focused", 1)
-
-    expect(result[0]!.archetype.key).toBe("warrior")
-    expect(result[0]!.reason).toBe("origin-lineage")
-    expect(result.map((r) => r.archetype.key)).toContain("knight")
-    expect(new Set(result.map((r) => r.archetype.key)).size).toBe(result.length)
   })
 })

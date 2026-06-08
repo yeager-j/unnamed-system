@@ -170,6 +170,17 @@ packages/game/src/
   display/filter vocab by `getEnemyFamily` in the enemies registry. `mechanics/registry.ts` is
   keyed by `kind` over a closed union (carries behavior), **not** a `createCatalog` catalog.
 - **Tests + fixtures live in the package** (`src/**/*.test.ts`, `src/engine/__fixtures__/`).
+  Engine tests are split three ways (UNN-363; rubric in `__fixtures__/README.md`):
+  co-located `<slice>.test.ts` are fixture-backed **unit** tests (one module in
+  isolation); `src/engine/__integration__/*.integration.test.ts` are fixture-backed
+  **collaboration** tests (a subject composing ≥2 concerns — the derive→reduce
+  pipeline, session reducer/factory, encounter view-shapers, `buildStatContext`,
+  `statblock`); `src/engine/__contract__/*.contract.test.ts` are the **only** engine
+  tests that import the real catalog (`@workspace/game/data`, `gameData`) — a thin
+  real-data smoke layer, excluded from the Stryker run via `vitest.mutation.config.ts`.
+  Four still-coupled slices (`stats`, `combat/attack-roll`, `skills/utils`,
+  `reduce/pools`) are the UNN-361 follow-up. Run a layer with
+  `npm run test:contract` / `test:integration`.
 
 ## Commands
 
