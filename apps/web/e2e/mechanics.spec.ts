@@ -97,13 +97,13 @@ test("Mage Evil Touch Attack Roll shows base Luck with no party context on the s
   // Boost's `skillKinds: ["ailment"]` filter matches, but — like Magic Circle —
   // it is a perPartyLineage scaler, so with no combat context on the standalone
   // sheet (UNN-334) it contributes nothing. The readout is just Calliope's Luck
-  // +1; the skillKinds filter and the accessory-granted passive (Warlock's Pact
-  // grants Ailment Boost) still reach the card — they simply resolve to zero
-  // without an encounter roster (deferred to UNN-367).
+  // +1, and with Luck the *only* contributor the per-source breakdown is
+  // suppressed (single-source readout — same as the physical Magic Circle case
+  // above), so the card shows the total alone with no "Ailment Boost" source.
+  // The scaled bonus returns once an encounter supplies the roster (UNN-367).
   await page.getByRole("button", { name: /Evil Touch/ }).click()
   const card = page.getByRole("dialog")
   await expect(card).toContainText(/Attack Roll\s*\+\s*1/)
-  await expect(card).toContainText("Luck")
   await expect(card.getByText("Ailment Boost")).toHaveCount(0)
 })
 
