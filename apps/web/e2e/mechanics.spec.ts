@@ -13,9 +13,11 @@ import { expect, test } from "@playwright/test"
  *  - seed-knight:   Valor 3 on active Knight
  *  - seed-healer:   Dawn Mode on, active Healer
  *  - seed-mage:     Stains [fire, ice, null, null] on active Mage Rank 5;
- *                   partyComposition { mage: 2, warlock: 1 }; equips
- *                   Warlock's Pact (grants Ailment Boost) + Shadow Charm
- *                   (grants Evil Touch)
+ *                   partyComposition { mage: 2, warlock: 1 } — seeded but no
+ *                   longer read by the standalone-sheet derivation (UNN-334:
+ *                   party-scaling is a combat-context display, base on the
+ *                   sheet); equips Warlock's Pact (grants Ailment Boost) +
+ *                   Shadow Charm (grants Evil Touch)
  *  - seed-fallen:   Perfection rank S (4) on active Warrior
  */
 
@@ -51,20 +53,22 @@ test("Warrior at Perfection S + Slash Boost + Strength +2 reads Cleave Attack Ro
   await expect(card).toContainText("Slash Boost")
 })
 
-test("Mage at Rank 5 with 2 Mage allies reads Bufu Attack Roll with Magic Circle +2", async ({
+test("Mage Bufu Attack Roll shows base Magic with no party context on the standalone sheet", async ({
   page,
 }) => {
   await page.goto("/c/seed-mage")
 
-  // Bufu is Ice + Magical: Magic Circle's `deliveries: ["magical"]` filter
-  // matches, and its perPartyLineage scaler resolves against partyComposition
-  // `{ mage: 2 }` (includesSelf=true) for +2. Calliope's Magic is +4
-  // (Mage base +2, manual +1, Runed Cane +1) — total Attack Roll +6.
+  // Bufu is Ice + Magical, so Magic Circle's `deliveries: ["magical"]` filter
+  // matches — but the standalone sheet supplies no combat context (UNN-334), so
+  // its perPartyLineage scaler resolves at zero allies and contributes nothing.
+  // The readout is just Calliope's Magic +4 (Mage base +2, manual +1, Runed
+  // Cane +1); the party-scaled bonus surfaces only where an encounter supplies
+  // the roster (deferred to UNN-367).
   await page.getByRole("button", { name: /Bufu/ }).click()
   const card = page.getByRole("dialog")
-  await expect(card).toContainText(/Attack Roll\s*\+\s*6/)
+  await expect(card).toContainText(/Attack Roll\s*\+\s*4/)
   await expect(card).toContainText("Magic")
-  await expect(card).toContainText("Magic Circle")
+  await expect(card.getByText("Magic Circle")).toHaveCount(0)
 })
 
 test("Magic Circle is filtered out on Physical-delivery Attack Rolls", async ({
@@ -84,22 +88,23 @@ test("Magic Circle is filtered out on Physical-delivery Attack Rolls", async ({
   await expect(card.getByText("Magic Circle")).toHaveCount(0)
 })
 
-test("Mage with Warlock's Pact reads Evil Touch Attack Roll with Ailment Boost +2", async ({
+test("Mage Evil Touch Attack Roll shows base Luck with no party context on the standalone sheet", async ({
   page,
 }) => {
   await page.goto("/c/seed-mage")
 
   // Evil Touch is an Ailment Skill (kind: "ailment", rolls on Luck). Ailment
-  // Boost's `skillKinds: ["ailment"]` filter matches, and its perPartyLineage
-  // scaler resolves against `{ warlock: 1 }` for +2. Calliope's Luck is +1,
-  // so the readout is Luck (+1) + Ailment Boost (+2) = +3 — proving the
-  // skillKinds filter plus a Skill-granted-via-accessory passive (Warlock's
-  // Pact grants Ailment Boost) both reach the Skill card.
+  // Boost's `skillKinds: ["ailment"]` filter matches, but — like Magic Circle —
+  // it is a perPartyLineage scaler, so with no combat context on the standalone
+  // sheet (UNN-334) it contributes nothing. The readout is just Calliope's Luck
+  // +1; the skillKinds filter and the accessory-granted passive (Warlock's Pact
+  // grants Ailment Boost) still reach the card — they simply resolve to zero
+  // without an encounter roster (deferred to UNN-367).
   await page.getByRole("button", { name: /Evil Touch/ }).click()
   const card = page.getByRole("dialog")
-  await expect(card).toContainText(/Attack Roll\s*\+\s*3/)
+  await expect(card).toContainText(/Attack Roll\s*\+\s*1/)
   await expect(card).toContainText("Luck")
-  await expect(card).toContainText("Ailment Boost")
+  await expect(card.getByText("Ailment Boost")).toHaveCount(0)
 })
 
 test("Knight at Valor 3 has Resist on every physical damage type", async ({
