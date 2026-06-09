@@ -13,6 +13,7 @@ import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PathOfDuskWidget } from "./path-of-dusk-widget"
 import { PerfectionWidget } from "./perfection-widget"
 import { StainsWidget } from "./stains-widget"
+import { ThiefsInsightWidget } from "./thief/thiefs-insight-widget"
 import { ValorWidget } from "./valor-widget"
 
 /**
@@ -67,6 +68,10 @@ const REGISTRY: MechanicWidgetRegistry = {
       if (filled.length === 0) return "No Stains"
       return filled.map((token) => STAIN_ELEMENT_LABELS[token]).join(", ")
     },
+  },
+  "thiefs-insight": {
+    render: () => <ThiefsInsightWidget />,
+    summary: () => "Tells tracked at the table",
   },
 }
 

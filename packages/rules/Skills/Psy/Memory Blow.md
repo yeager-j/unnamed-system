@@ -8,7 +8,7 @@ range: Engaged
 > [!skill] Memory Blow
 > Deals weak psy damage to one enemy.
 > 
-> SP: **4**; Range: **Engaged**; Damage: **Psy (Magical)**
+> SP: **4**; Range: **Engaged**; Damage: **Psy (Physical)**
 > 
 > **Attack Roll + Ag**
 > **`1-10`** `1d6 + Ag`

@@ -11,6 +11,7 @@ describe("startingWeaponForLineage", () => {
     expect(startingWeaponForLineage("knight")).toBe("spear")
     expect(startingWeaponForLineage("mage")).toBe("staff")
     expect(startingWeaponForLineage("healer")).toBe("censer")
+    expect(startingWeaponForLineage("thief")).toBe("dagger")
   })
 
   it("returns null for Lineages with no shipped Archetype", () => {

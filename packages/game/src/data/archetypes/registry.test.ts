@@ -7,12 +7,16 @@ import {
   archetypeDisplayName,
   ARCHETYPES,
   getArchetype,
+  INITIATE_ARCHETYPES,
 } from "@workspace/game/data/archetypes/registry"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import { getTalent } from "@workspace/game/data/character/talents/registry"
 import { resolveAffinity } from "@workspace/game/engine/archetypes/affinity"
 import { archetypeSchema } from "@workspace/game/foundation/archetypes/schema"
-import { LINEAGES } from "@workspace/game/foundation/character/lineage"
+import {
+  LINEAGES,
+  startingWeaponForLineage,
+} from "@workspace/game/foundation/character/lineage"
 
 describe("archetype data", () => {
   it("exposes a non-empty catalog", () => {
@@ -110,6 +114,20 @@ describe("talent cross-references", () => {
       for (const talent of archetype.talents) {
         expect(getTalent(talent)).toBeDefined()
       }
+    }
+  })
+})
+
+describe("starting-weapon cross-references", () => {
+  it("resolves a starting weapon for every shipped initiate Lineage", () => {
+    // Initiate Archetypes are the only ones selectable as Origin, so each
+    // one's Lineage must have a canonical starter — otherwise finalize fails
+    // at runtime with `no-starting-weapon-for-lineage` (the gap that shipped
+    // Thief without a Dagger). `startingWeaponForLineage`'s return type is a
+    // shipped `WeaponKey | null`, so a non-null result already proves the key
+    // resolves to a real Weapon.
+    for (const archetype of INITIATE_ARCHETYPES) {
+      expect(startingWeaponForLineage(archetype.lineage)).not.toBeNull()
     }
   })
 })

@@ -3,6 +3,7 @@ import { DEMO_ARCHETYPES } from "@workspace/game/data/archetypes/demo/index"
 import { healer } from "@workspace/game/data/archetypes/healer/healer"
 import { knight } from "@workspace/game/data/archetypes/knight/knight"
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
+import { thief } from "@workspace/game/data/archetypes/thief/thief"
 import { warlock } from "@workspace/game/data/archetypes/warlock/warlock"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
 import { getTalent } from "@workspace/game/data/character/talents/registry"
@@ -59,6 +60,7 @@ const ARCHETYPES_BY_KEY = {
   mage: validate(mage),
   healer: validate(healer),
   warlock: validate(warlock),
+  thief: validate(thief),
 } as const satisfies Record<string, Archetype>
 
 /**
