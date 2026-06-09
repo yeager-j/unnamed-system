@@ -11,7 +11,7 @@ synthesis: true
 > 
 > HP: **20%**; Range: **Engaged**; Damage: **12d10 Slash (Physical)**
 > 
-> **Rogue Effect (1+ Tells):** The target's previously increased stats are decreased instead of being set to neutral. The DM does not roll for Suspicion.
+> **Thief Effect (1+ Tells):** The target's previously increased stats are decreased instead of being set to neutral. The DM does not roll for Suspicion.
 
 ^e72188
 

@@ -2,7 +2,7 @@
 description: Weak strike damage to multiple targets
 damage: 1d4
 ailment:
-cost: 4 SP
+cost: 6 SP
 type: Strike
 range: Same/Adjacent Zone
 ---

@@ -15,6 +15,6 @@ range: Engaged
 > **`11-19`** `1d10 + Ag`
 > **`20+`** `1d10 + Ag` *Forget*
 > 
-> **Thief Effect (+4 Tells):** You can steal one of the target's Skills. Until the end of your next turn, the target cannot use the stolen Skill. While stolen, you can cast it using your own Attributes.
+> **Thief Effect (4+ Tells):** You can steal one of the target's Skills. Until the end of your next turn, the target cannot use the stolen Skill. While stolen, you can cast it using your own Attributes.
 
 ^ed109c

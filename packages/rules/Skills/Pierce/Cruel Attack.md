@@ -1,7 +1,7 @@
 ---
 description: A weak piercing attack targeting a single enemy. Extra damage to Downed enemies.
 damage: 1d8
-cost: 5% HP
+cost: 10% HP
 type: Pierce
 range: Engaged
 ---
