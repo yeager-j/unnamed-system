@@ -27,6 +27,19 @@ export const pathOfDuskStateSchema = z.object({
 
 export type PathOfDuskState = z.infer<typeof pathOfDuskStateSchema>
 
+/**
+ * Thief — Thief's Insight: no per-character state. The mechanic's data is the
+ * count of "Tells" learned per enemy, which is tracked at the table rather
+ * than in the app (mirroring Path of Dawn's per-enemy Lumina). The state shape
+ * carries only its discriminant so the mechanic can still own a Combat-tab
+ * widget and an Archetypes-tab summary (rulebook `Thief's Insight.md`).
+ */
+export const thiefsInsightStateSchema = z.object({
+  kind: z.literal("thiefs-insight"),
+})
+
+export type ThiefsInsightState = z.infer<typeof thiefsInsightStateSchema>
+
 /** Knight — Valor: a 0–7 counter (rulebook `Valor.md`). */
 export const VALOR_MAX = 7
 
@@ -83,6 +96,7 @@ export const mechanicStateSchema = z.discriminatedUnion("kind", [
   pathOfDawnStateSchema,
   pathOfDuskStateSchema,
   stainsStateSchema,
+  thiefsInsightStateSchema,
 ])
 
 export type MechanicState =
@@ -91,6 +105,7 @@ export type MechanicState =
   | PathOfDawnState
   | StainsState
   | PathOfDuskState
+  | ThiefsInsightState
 
 export type MechanicKind = MechanicState["kind"]
 

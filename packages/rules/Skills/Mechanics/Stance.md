@@ -1,6 +1,6 @@
 ---
 description: "Your fighting style is represented by four stances: Stanceless, Offensive, Defensive, and Virtuose."
-type: Passive
+type: Mechanic
 ---
 > [!skill] Stance
 > Your fighting style is represented by four stances: Stanceless, Offensive, Defensive, and Virtuose. When you begin combat, your Stance is set to Stanceless.

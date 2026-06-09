@@ -1,6 +1,6 @@
 ---
 description: Searing light magic rains down on your enemies when you take mercy on your allies.
-type: Passive
+type: Mechanic
 ---
 > [!skill] Path of Dawn
 >  Searing light magic rains down on your enemies when you take mercy on your allies. When you use a Skill that deals Light damage, you enter into ***Dawn Mode*** and you apply one ***Lumina*** counter on any enemies that took damage (an enemy with Lumina counters is ***Illuminated***). An enemy can have a maximum number of Lumina equal to your Luck.

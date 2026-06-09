@@ -1,6 +1,6 @@
 ---
 description: The flawlessness of your fighting ability is represented by your Perfection, which ranges from D at the lowest to S at the highest.
-type: Passive
+type: Mechanic
 ---
 > [!skill] Perfection
 > The flawlessness of your fighting ability is represented by your Perfection, which ranges from D at the lowest to S at the highest. When you begin combat, your Perfection is set to D. When your Perfection increases or decreases, it follows the order of:

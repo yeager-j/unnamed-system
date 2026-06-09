@@ -93,7 +93,7 @@ When a scene branches—a fork in the road, three doors in a hallway, a choice o
 > 
 > **Barbarian:** Let's go kill whatever's making those noises!
 > 
-> **Rogue:** What? Why get ourselves into trouble? Let's try the dark path!
+> **Thief:** What? Why get ourselves into trouble? Let's try the dark path!
 > 
 > **Bard:** I don’t care what we do as long as it doesn’t involve the smelly gross middle path.
 

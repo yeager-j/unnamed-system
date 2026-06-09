@@ -1,6 +1,6 @@
 ---
 description: Burning dark magic rains down on your enemies as you sap their will to fight
-type: Passive
+type: Mechanic
 ---
 > [!skill] Path of Dusk
 >  Burning dark magic rains down on your enemies as you sap their will to fight. When you use a Skill that lowers stats or inflicts an Ailment, you enter into ***Dusk Mode*** and you apply one ***Lumina*** counter on any enemies that were affected (an enemy with Lumina counters is ***Illuminated***). An enemy can have a maximum number of Lumina equal to your Luck.

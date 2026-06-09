@@ -71,11 +71,13 @@
 	- [x] Healer
 		- [ ] Cleric
 			- [ ] Savior
-- [ ] Thief — Rogue equivalent. Faster movement
+- [ ] Thief. Faster movement
 	- [ ] 
 	- [ ] Thief
 		- [ ] Assassin
 			- [ ] Ninja
+		- [ ] Con Artist
+			- [ ] Trickster
 - [ ] Berserker — Barbarian equivalent. Rage dice that build up from taking damage?
 	- [ ] Berserker
 		- [ ] Gladiator
@@ -143,3 +145,19 @@
 ## Obsidian
 
 - [ ] Rules glossary
+
+
+| Lineage      | Damage                |
+| ------------ | --------------------- |
+| Mage         | Fire, Ice, Elec, Wind |
+| Brawler      | Fire                  |
+| Hunter       | Ice                   |
+| Knight       | Elec                  |
+| Warrior      | Wind                  |
+| Thief        | Psy                   |
+| Berserker    | Soul                  |
+| Healer       | Light                 |
+| Warlock      | Dark                  |
+| Bard         | —                     |
+| Shapechanger | —                     |
+| Summoner     | —                     |

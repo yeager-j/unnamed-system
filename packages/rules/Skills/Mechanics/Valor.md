@@ -1,6 +1,6 @@
 ---
 description: You have a Valor rating, which is equal to the combined levels of enemies you are Engaged with.
-type: Passive
+type: Mechanic
 ---
 > [!skill] Valor
 > You have a Valor score (max 7), which accumulates as you act as the heroic bulwark of your party. Some Skills gain additional effects by consuming Valor. You also gain the following benefits provided your Valor meets the threshold:

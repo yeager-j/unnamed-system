@@ -11,32 +11,30 @@ inheritance_slots: 2
 | **Prerequisites**     | —                      |
 | **Inheritance Slots** | 2                      |
 | **Talents**           | Climb, Sneak, Lockpick |
+| **Mastery**           | +20 HP                 |
 
 | Strength | Magic | Agility | Luck |
 | -------- | ----- | ------- | ---- |
-| 0        | -1    | 2       | 2    |
+| -1       | 0     | 2       | 2    |
 
 | Slash | Pierce | Strike | Fire | Ice  | Wind | Elec | Aether | Psy | Light | Dark   |
 | ----- | ------ | ------ | ---- | ---- | ---- | ---- | ------ | --- | ----- | ------ |
 | —     | —      | —      | —    | Weak | —    | —    | —      | —   | —     | Resist |
 
-
-> [!skill] Thief
-> Contents
-
+![[Thief's Insight#^25ba15]]
 
 ## Skills
 
-| Rank | Skill |
-| ---- | ----- |
-| 1    |       |
-| 2    |       |
-| 3    |       |
-| 4    |       |
-| 5    |       |
+| Rank | Skill                      |
+| ---- | -------------------------- |
+| 1    | ![[Feint#^fb6b38]]         |
+| 2    | ![[Cruel Attack#^fb6b38]]  |
+| 3    | ![[Flash Bomb#^ed109c]]    |
+| 4    | ![[Memory Blow#^ed109c]]   |
+| 5    | ![[Auto-Sukukaja#^1eae18]] |
 
 ## Synthesis Skills
 
-| Rank | Synthesis Skill |
-| ---- | --------------- |
-| 5    |                 |
+| Rank | Synthesis Skill             |
+| ---- | --------------------------- |
+| 5    | ![[Phantom Tracer#^e72188]] |

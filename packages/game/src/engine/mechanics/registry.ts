@@ -1,6 +1,7 @@
 import { pathOfDawn } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { valor } from "@workspace/game/engine/mechanics/knight/valor"
 import { stains } from "@workspace/game/engine/mechanics/mage/stains"
+import { thiefsInsight } from "@workspace/game/engine/mechanics/thief/thiefs-insight"
 import type {
   MechanicDefinition,
   MechanicEffect,
@@ -24,7 +25,9 @@ import type {
  *  - Perfection — Warrior
  *  - Valor — Knight
  *  - Path of Dawn — Healer
+ *  - Path of Dusk — Warlock
  *  - Stains — Mage
+ *  - Thief's Insight — Thief
  */
 
 const MECHANIC_LIST = [
@@ -33,6 +36,7 @@ const MECHANIC_LIST = [
   pathOfDawn,
   pathOfDusk,
   stains,
+  thiefsInsight,
 ] as const
 
 type MechanicMap = {

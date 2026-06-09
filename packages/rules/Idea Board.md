@@ -39,6 +39,23 @@
 
 - [ ] Wilderness-type dude: can Full Rest in wilderness but not in civilization (turns into partial rest)
 
+## Mastery Bonus
+
+| Lineage      | Initiate | Adept | Elite | Paragon |
+| ------------ | -------- | ----- | ----- | ------- |
+| Warrior      | +HP      | +HP   | +St   |         |
+| Berserker    | +HP      | +HP   | +St   |         |
+| Brawler      | +HP      | +HP   | +St   |         |
+| Thief        | +HP      | +HP   | +Ag   |         |
+| Hunter       | +HP      | +HP   | +Ag   |         |
+| Knight       | +HP      | +HP   | +Lu   |         |
+| Mage         | +SP      | +SP   | +Ma   |         |
+| Bard         | +SP      | +SP   | +Ma   |         |
+| Summoner     | +SP      | +SP   | +Ma   |         |
+| Shapechanger | +SP      | +SP   | +Ag   |         |
+| Healer       | +SP      | +SP   | +Lu   |         |
+| Warlock      | +SP      | +SP   | +Lu   |         |
+
 
 ## Standard Skill Damage
 

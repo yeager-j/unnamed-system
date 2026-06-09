@@ -19,6 +19,7 @@ describe("mechanic registry", () => {
       "path-of-dusk",
       "perfection",
       "stains",
+      "thiefs-insight",
       "valor",
     ])
   })
