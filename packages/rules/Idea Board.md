@@ -4,6 +4,8 @@
 - spend gold on expression tests
 - rename "weak" damage
 - NPCs based on Very Important People.
+
+**Bosses get “stumbled” state if they’re Downed. Requires you to Down them again before it works. Recover at the start of their turn**
 ## Campaigns
 
 - Persona style. Mementos for main dungeon, solve murder like P4 or fix bad guys like P5
@@ -14,17 +16,18 @@
 
 ## Archetypes
 
+### General
+
 - [ ] Passives that provide ribbon features. For example, Trickster could provide advantage on Expression Tests when lying.
 - [ ] Utilities: Abilities to use outside of combat
-- [ ] Blue mage Archetype. Replace Summoner lineage
-	- [ ] Fight the dream monster?
-- [x] Each Archetype lineage has unique, defining passive
-- [x] Knight’s mechanic: ?
-	- [x] Skill that pulls an enemy into Engage range
-- [ ] Shapechanger: Monoco beast wheel?
-	- [ ] Eikons from FF?
-- [x] Healer
-	- [x] Adept Path of the Sun improves Insta-Kill with Foretell.
+
+### Summoner
+
+- [ ] Fight dream monster to get skill
+
+### Bard
+
+- [ ] Can enchant a Zone. Multiple levels of enchantment. Provide global effects to both enemies and allies
 
 ## General Gameplay
 

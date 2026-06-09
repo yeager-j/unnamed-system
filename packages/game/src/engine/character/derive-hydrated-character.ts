@@ -31,6 +31,7 @@ import type {
   CharacterRow,
   InventoryItemRow,
 } from "@workspace/game/foundation/character/records"
+import { type CombatContext } from "@workspace/game/foundation/character/state"
 import { type IntrinsicAttack } from "@workspace/game/foundation/items/schema"
 
 /**
@@ -97,12 +98,20 @@ function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
  * optimistic frame; deriving twice from the same inputs yields the same view by
  * construction, so an optimistic frame can never structurally drift from the
  * server's.
+ *
+ * `context` carries the optional encounter-scoped inputs the `perPartyLineage`
+ * Attack-Roll scaler needs (party composition), supplied only by an
+ * encounter-aware caller (the tracker). Omitted on the standalone sheet, so
+ * Magic Circle / Ailment Boost resolve at zero allies — their **base** values;
+ * party-scaling is a combat-context display, not a sheet field.
  */
 export function deriveHydratedCharacter(
   raw: RawCharacterInputs,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup,
+  context?: CombatContext
 ): HydratedCharacter {
   const { row, archetypeRows, inventoryRows, knives, chains } = raw
+  const partyComposition = context?.partyComposition ?? null
 
   const stats = statContext(raw, lookups)
   const bonuses = accumulatedBonuses(stats)
@@ -118,7 +127,7 @@ export function deriveHydratedCharacter(
     ? resolveAttackRoll(
         weaponAttackContext(weapon.equip.intrinsicAttack),
         stats,
-        row.partyComposition
+        partyComposition
       )
     : null
 
@@ -143,11 +152,13 @@ export function deriveHydratedCharacter(
     weaponAttackRoll,
     activeMechanic: stats.activeMechanic,
     skills: stats.activeSkills.map((skill) => {
-      const context = skillAttackRollContext(skill)
+      const skillContext = skillAttackRollContext(skill)
       return hydrateSkill(
         skill,
         maxHP,
-        context ? resolveAttackRoll(context, stats, row.partyComposition) : null
+        skillContext
+          ? resolveAttackRoll(skillContext, stats, partyComposition)
+          : null
       )
     }),
   }

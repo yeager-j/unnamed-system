@@ -5,7 +5,10 @@ import {
   getArchetypeDisplay as getArchetypeDisplayCore,
   previewArchetypeSkills as previewArchetypeSkillsCore,
 } from "@workspace/game/engine/archetypes/utils"
-import { deriveHydratedCharacter as deriveHydratedCharacterCore } from "@workspace/game/engine/character/derive-hydrated-character"
+import {
+  deriveHydratedCharacter as deriveHydratedCharacterCore,
+  type RawCharacterInputs,
+} from "@workspace/game/engine/character/derive-hydrated-character"
 import { reduceCharacter as reduceCharacterCore } from "@workspace/game/engine/character/reduce-character"
 import {
   buildStatContext as buildStatContextCore,
@@ -29,6 +32,7 @@ import {
 } from "@workspace/game/engine/items/utils"
 import { type GameData } from "@workspace/game/engine/ports"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
+import { type CombatContext } from "@workspace/game/foundation/character/state"
 
 /**
  * Binds the pure engine's boundary functions to one {@link GameData} adapter and
@@ -68,12 +72,21 @@ export function createGameEngine(
       fn(...args, newId)
 
   return {
-    deriveHydratedCharacter: bindData(deriveHydratedCharacterCore),
+    deriveHydratedCharacter: (
+      raw: RawCharacterInputs,
+      context?: CombatContext
+    ) => deriveHydratedCharacterCore(raw, data, context),
     toStatContext: bindData(toStatContextCore),
     buildStatContext: bindData(buildStatContextCore),
     reduceCharacter: bindDataAndNewId(reduceCharacterCore),
-    getArchetypeDisplay: bindData(getArchetypeDisplayCore),
-    buildArchetypeEntries: bindData(buildArchetypeEntriesCore),
+    getArchetypeDisplay: (
+      character: HydratedCharacter,
+      context?: CombatContext
+    ) => getArchetypeDisplayCore(character, data, context),
+    buildArchetypeEntries: (
+      character: HydratedCharacter,
+      context?: CombatContext
+    ) => buildArchetypeEntriesCore(character, data, context),
     buildEnemyCatalogRows: () => buildEnemyCatalogRowsCore(data),
     resolveCatalogEnemyStatblocks: bindData(resolveCatalogEnemyStatblocksCore),
     statblockFromEnemy: bindData(statblockFromEnemyCore),

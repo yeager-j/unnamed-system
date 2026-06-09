@@ -33,7 +33,11 @@ import {
   type SuggestedPath,
 } from "@workspace/game/foundation/character/lineage"
 import type { CharacterArchetypeRow } from "@workspace/game/foundation/character/records"
-import { type PathChoice } from "@workspace/game/foundation/character/state"
+import {
+  type CombatContext,
+  type PartyComposition,
+  type PathChoice,
+} from "@workspace/game/foundation/character/state"
 import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
 import { type Skill } from "@workspace/game/foundation/skills/schema"
 
@@ -104,7 +108,7 @@ export interface ArchetypeEntry {
 function resolveAttackRollForSkill(
   skill: Skill,
   stats: StatContext,
-  partyComposition: HydratedCharacter["partyComposition"]
+  partyComposition: PartyComposition | null
 ): ResolvedAttackRoll | null {
   const context = skillAttackRollContext(skill)
   if (!context) return null
@@ -123,7 +127,7 @@ function resolveArchetypeRankedSkills(
   archetype: Archetype,
   maxHP: number,
   stats: StatContext,
-  partyComposition: HydratedCharacter["partyComposition"],
+  partyComposition: PartyComposition | null,
   lookups: SkillLookup
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const resolveByKey = (key: string): HydratedSkill | null => {
@@ -167,9 +171,11 @@ function resolveArchetypeRankedSkills(
  */
 export function buildArchetypeEntries(
   character: HydratedCharacter,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
+  context?: CombatContext
 ): ArchetypeEntry[] {
   const stats = toStatContext(character, lookups)
+  const partyComposition = context?.partyComposition ?? null
 
   const archetypeByRowId = new Map<string, Archetype>()
   const rowById = new Map<string, CharacterArchetypeRow>()
@@ -186,7 +192,7 @@ export function buildArchetypeEntries(
     return hydrateSkill(
       skill,
       character.maxHP,
-      resolveAttackRollForSkill(skill, stats, character.partyComposition)
+      resolveAttackRollForSkill(skill, stats, partyComposition)
     )
   }
 
@@ -198,7 +204,7 @@ export function buildArchetypeEntries(
       archetype,
       character.maxHP,
       stats,
-      character.partyComposition,
+      partyComposition,
       lookups
     )
 
@@ -264,9 +270,10 @@ export interface ArchetypeDisplay {
  */
 export function getArchetypeDisplay(
   character: HydratedCharacter,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
+  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
+  context?: CombatContext
 ): ArchetypeDisplay {
-  const entries = buildArchetypeEntries(character, lookups)
+  const entries = buildArchetypeEntries(character, lookups, context)
   return {
     activeEntry: entries.find((entry) => entry.isActive) ?? null,
   }
