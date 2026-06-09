@@ -59,7 +59,7 @@ describe("stains", () => {
     expect(() =>
       mechanicStateSchema.parse({
         kind: "stains",
-        tokens: ["fire", "psy", null, null],
+        tokens: ["fire", "mind", null, null],
       })
     ).toThrow()
   })

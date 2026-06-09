@@ -8,7 +8,7 @@ Goblins are small, black-hearted humanoids that lair in despoiled dungeons and o
 | -------- | ----- | ------- | ---- |
 | 0        | -1    | 2       | 0    |
 
-| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy | Light | Dark   |
+| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Soul | Mind | Light | Dark   |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | --- | ----- | ------ |
 | —     | —      | —      | Weak | —   | —    | —    | —      | —   | —     | Resist |
 

@@ -269,7 +269,7 @@ The app ships with the canonical Unnamed System rules data transcribed from this
   - **Armor & Accessories.** Equippable into their slot; optional effects, no intrinsic attack.
   - **Consumables.** Non-equippable, stackable items. The MVP catalog ships one — **Soul Drop** (`stackSize 999`). A use/consume action is out of scope for now; the description carries the intended effect text.
 - **Talents.** The canonical Talent list from rules 2.1.
-- **Affinity types.** The 11 damage types (Slash, Pierce, Strike, Fire, Ice, Wind, Elec, Aether, Psy, Light, Dark) plus Almighty.
+- **Affinity types.** The 11 damage types (Slash, Pierce, Strike, Fire, Ice, Wind, Elec, Soul, Mind, Light, Dark) plus Almighty.
 - **Ailments.** The 13 ailments from the rulebook (Downed plus the 12 listed in CLAUDE.md).
 - **Battle Conditions.** The Attack/Defense/Hit-Eva model plus Charged/Concentrating.
 

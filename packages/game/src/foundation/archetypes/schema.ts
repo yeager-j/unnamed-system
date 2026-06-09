@@ -67,8 +67,8 @@ const affinityChartSchema = z.object({
   ice: affinity.optional(),
   wind: affinity.optional(),
   elec: affinity.optional(),
-  aether: affinity.optional(),
-  psy: affinity.optional(),
+  soul: affinity.optional(),
+  mind: affinity.optional(),
   light: affinity.optional(),
   dark: affinity.optional(),
 })

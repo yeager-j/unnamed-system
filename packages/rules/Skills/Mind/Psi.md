@@ -1,14 +1,14 @@
 ---
-description: Weak psy damage to a single target
+description: Weak mind damage to a single target
 damage: 1d8
 cost: 4 SP
-type: Psy
+type: Mind
 range: Same/Adjacent Zone
 ---
 > [!skill] Psi
-> Deals weak psy damage to one enemy.
+> Deals weak mind damage to one enemy.
 > 
-> SP: **4**; Range: **Same/Adjacent Zone**; Damage: **Psy (Magical)**
+> SP: **4**; Range: **Same/Adjacent Zone**; Damage: **Mind (Magical)**
 > 
 > **Attack Roll + Ma**
 > **`1-10`** `1d4 + Ma`

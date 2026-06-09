@@ -1,14 +1,14 @@
 ---
-description: Weak psy damage to a single target
+description: Weak mind damage to a single target
 damage: 1d10
 cost: 4 SP
-type: Psy
+type: Mind
 range: Engaged
 ---
 > [!skill] Memory Blow
-> Deals weak psy damage to one enemy.
+> Deals weak mind damage to one enemy.
 > 
-> SP: **4**; Range: **Engaged**; Damage: **Psy (Physical)**
+> SP: **4**; Range: **Engaged**; Damage: **Mind (Physical)**
 > 
 > **Attack Roll + Ag**
 > **`1-10`** `1d6 + Ag`

@@ -8,7 +8,7 @@ Shadows are undead that resemble dark exaggerations of humanoid shadows.
 | -------- | ----- | ------- | ---- |
 | 0        | 2     | 1       | 0    |
 
-| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy | Light | Dark  |
+| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Soul | Mind | Light | Dark  |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | --- | ----- | ----- |
 | Null  | Null   | Null   | —    | —   | —    | —    | —      | —   | Weak  | Drain |
 

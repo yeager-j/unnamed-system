@@ -8,7 +8,7 @@ Bugbears are hairy goblinoids born for battle and mayhem. They survive by raidin
 | -------- | ----- | ------- | ---- |
 | 2        | -1    | 1       | 0    |
 
-| Slash  | Pierce | Strike | Fire | Ice | Wind | Elec   | Aether | Psy | Light | Dark |
+| Slash  | Pierce | Strike | Fire | Ice | Wind | Elec   | Soul | Mind | Light | Dark |
 | ------ | ------ | ------ | ---- | --- | ---- | ------ | ------ | --- | ----- | ---- |
 | Resist | —      | —      | —    | —   | —    | Resist | —      | —   | Weak  | —    |
 

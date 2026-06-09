@@ -8,7 +8,7 @@ Doppelgangers are devious shapeshifters that take on the appearance of other hum
 | -------- | ----- | ------- | ---- |
 | 3        | 0     | 2       | 1    |
 
-| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy  | Light | Dark |
+| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Soul | Mind  | Light | Dark |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | ---- | ----- | ---- |
 | —     | —      | Resist | —    | —   | —    | Weak | —      | Null | —     | —    |
 
