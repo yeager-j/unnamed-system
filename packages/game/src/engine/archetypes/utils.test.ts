@@ -7,6 +7,10 @@ import {
 } from "@workspace/game/engine/__fixtures__/character"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import {
+  makeAttackSkill,
+  makePassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
+import {
   archetypeSwitcherGroups,
   buildArchetypeEntries,
   getArchetypeDisplay,
@@ -535,5 +539,87 @@ describe("archetypeSwitcherGroups", () => {
       TEST_DATA
     )
     expect(group!.options[0]!.mechanicName).toBeNull()
+  })
+})
+
+// A fixture Mage whose active Archetype declares (a) a magical attack Skill that
+// makes an MA Attack Roll and (b) a Magic-Circle-style `perPartyLineage` passive
+// filtered on magical delivery — so the passive boosts the attack Skill's card
+// by the party count. Proves the new combat-context arg threads
+// `partyComposition` into `buildArchetypeEntries`'s per-Skill Attack Rolls.
+describe("buildArchetypeEntries — perPartyLineage combat context", () => {
+  const PARTY_ATTACK = "garu"
+  const PARTY_CIRCLE = "magic-circle"
+
+  const partyMage = makeArchetype({
+    key: "party-mage",
+    name: "Party Mage",
+    lineage: "mage",
+    skills: [
+      { skill: PARTY_ATTACK, rank: 1 },
+      { skill: PARTY_CIRCLE, rank: 1 },
+    ],
+  })
+
+  const PARTY_DATA = makeTestGameData({
+    archetypes: [partyMage],
+    skills: [
+      makeAttackSkill({
+        key: PARTY_ATTACK,
+        delivery: "magical",
+        attackRoll: { attribute: "ma", tiers: [] },
+      }),
+      makePassiveSkill({
+        key: PARTY_CIRCLE,
+        name: "Magic Circle",
+        effects: [
+          {
+            type: "attackRoll",
+            when: { deliveries: ["magical"] },
+            scaler: {
+              kind: "perPartyLineage",
+              lineage: "mage",
+              amount: 1,
+              includesSelf: true,
+            },
+            source: "Magic Circle",
+          },
+        ],
+      }),
+    ],
+  })
+
+  const partyMageCharacter = makeHydratedCharacter(
+    {
+      row: { activeArchetypeId: "pm" },
+      archetypeRows: [
+        makeArchetypeRow({ id: "pm", archetypeKey: "party-mage", rank: 1 }),
+      ],
+    },
+    PARTY_DATA
+  )
+
+  const attackRollOf = (
+    context?: Parameters<typeof buildArchetypeEntries>[2]
+  ) =>
+    buildArchetypeEntries(
+      partyMageCharacter,
+      PARTY_DATA,
+      context
+    )[0]!.ranks.find((rank) => rank.key === PARTY_ATTACK)!.resolvedAttackRoll
+
+  it("resolves base Attack values with no combat context", () => {
+    const base = attackRollOf()
+    expect(base!.sources.some((s) => s.source === "Magic Circle")).toBe(false)
+  })
+
+  it("scales the per-party passive by the supplied composition", () => {
+    const base = attackRollOf()
+    const scaled = attackRollOf({ partyComposition: { mage: 3 } })
+    expect(scaled!.total - base!.total).toBe(3)
+    expect(scaled!.sources).toContainEqual({
+      source: "Magic Circle",
+      amount: 3,
+    })
   })
 })

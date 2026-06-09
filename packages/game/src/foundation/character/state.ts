@@ -137,6 +137,21 @@ export const partyCompositionSchema = z.partialRecord(
 export type PartyComposition = z.infer<typeof partyCompositionSchema>
 
 /**
+ * The optional combat context a caller supplies when deriving a character's
+ * sheet view: the encounter-scoped inputs the `perPartyLineage` Attack-Roll
+ * scaler (Magic Circle, Ailment Boost) needs but that no longer live on the
+ * character row. An encounter-aware caller (the tracker) passes
+ * `partyComposition`; the standalone sheet passes nothing, so party-scaling
+ * resolves at zero allies (base values). Keeping it a caller arg lets
+ * {@link import("@workspace/game/engine/character/derive-hydrated-character").deriveHydratedCharacter}
+ * stay a pure function of the character — the sheet never has to know about an
+ * encounter.
+ */
+export interface CombatContext {
+  partyComposition?: PartyComposition | null
+}
+
+/**
  * Inheritance Slot configuration for one Archetype. `sourceCharacterArchetypeId`
  * points at the `characterArchetype` row the inherited Skill comes from; both
  * it and `skillKey` are null for an empty slot.
