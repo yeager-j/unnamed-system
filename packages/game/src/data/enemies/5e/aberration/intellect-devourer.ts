@@ -6,10 +6,10 @@ export const intellectDevourer = {
   name: "Intellect Devourer",
   maxHP: 28,
   attributes: { strength: -2, magic: 2, agility: 1, luck: 0 },
-  affinities: { aether: "weak", psy: "drain", light: "weak" },
+  affinities: { soul: "weak", mind: "drain", light: "weak" },
   skillKeys: ["psi"],
   talents: ["sneak"],
-  abilities: `**Devour Intellect** — If a target takes Psy damage dealt by this creature's Skills, they are Downed if the Attack Roll was 20+.
+  abilities: `**Devour Intellect** — If a target takes Mind damage dealt by this creature's Skills, they are Downed if the Attack Roll was 20+.
 
 **Body Thief** — The Intellect Devourer psychically seizes control of their body.
 

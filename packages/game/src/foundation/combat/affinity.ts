@@ -18,8 +18,8 @@ export const AFFINITY_DAMAGE_TYPES = [
   "ice",
   "wind",
   "elec",
-  "aether",
-  "psy",
+  "soul",
+  "mind",
   "light",
   "dark",
 ] as const

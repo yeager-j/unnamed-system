@@ -17,7 +17,7 @@ inheritance_slots: 2
 | -------- | ----- | ------- | ---- |
 | -1       | 1     | 1       | 2    |
 
-| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy | Light | Dark   |
+| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Soul | Mind | Light | Dark   |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | --- | ----- | ------ |
 | —     | —      | Weak   | —    | —   | —    | —    | —      | —   | Weak  | Resist |
 

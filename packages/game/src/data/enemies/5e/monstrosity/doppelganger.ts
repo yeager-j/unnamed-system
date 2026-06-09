@@ -6,7 +6,7 @@ export const doppelganger = {
   name: "Doppelganger",
   maxHP: 60,
   attributes: { strength: 3, magic: -1, agility: 2, luck: 1 },
-  affinities: { strike: "resist", elec: "weak", psy: "null" },
+  affinities: { strike: "resist", elec: "weak", mind: "null" },
   skillKeys: ["psi"],
   talents: ["lie", "interrogate"],
   abilities: `**Slam** — The Doppelganger slams its fist into a target twice.

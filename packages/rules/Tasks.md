@@ -117,8 +117,8 @@
 - [ ] Ice Skills
 - [ ] Elec Skills
 - [ ] Wind Skills
-- [ ] Psy Skills
-- [ ] Aether Skills
+- [ ] Mind Skills
+- [ ] Soul Skills
 - [ ] Light Skills
 - [ ] Dark Skills
 - [ ] Almighty Skills
@@ -154,7 +154,7 @@
 | Hunter       | Ice                   |
 | Knight       | Elec                  |
 | Warrior      | Wind                  |
-| Thief        | Psy                   |
+| Thief        | Mind                   |
 | Berserker    | Soul                  |
 | Healer       | Light                 |
 | Warlock      | Dark                  |

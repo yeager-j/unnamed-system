@@ -6,9 +6,9 @@ import { FIRE_SKILLS } from "@workspace/game/data/skills/fire/index"
 import { HEAL_SKILLS } from "@workspace/game/data/skills/heal/index"
 import { ICE_SKILLS } from "@workspace/game/data/skills/ice/index"
 import { LIGHT_SKILLS } from "@workspace/game/data/skills/light/index"
+import { MIND_SKILLS } from "@workspace/game/data/skills/mind/index"
 import { PASSIVE_SKILLS } from "@workspace/game/data/skills/passive/index"
 import { PIERCE_SKILLS } from "@workspace/game/data/skills/pierce/index"
-import { PSY_SKILLS } from "@workspace/game/data/skills/psy/index"
 import { SLASH_SKILLS } from "@workspace/game/data/skills/slash/index"
 import { SPECIAL_SKILLS } from "@workspace/game/data/skills/special/index"
 import { STRIKE_SKILLS } from "@workspace/game/data/skills/strike/index"
@@ -27,7 +27,7 @@ const SKILLS_BY_KEY = {
   ...ICE_SKILLS,
   ...ELEC_SKILLS,
   ...WIND_SKILLS,
-  ...PSY_SKILLS,
+  ...MIND_SKILLS,
   ...LIGHT_SKILLS,
   ...DARK_SKILLS,
   ...HEAL_SKILLS,

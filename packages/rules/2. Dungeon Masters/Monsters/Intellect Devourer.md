@@ -8,7 +8,7 @@ An intellect devourer resembles a walking brain protected by a crusty covering a
 | -------- | ----- | ------- | ---- |
 | -2       | 2     | 1       | 0    |
 
-| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Aether | Psy   | Light | Dark |
+| Slash | Pierce | Strike | Fire | Ice | Wind | Elec | Soul | Mind   | Light | Dark |
 | ----- | ------ | ------ | ---- | --- | ---- | ---- | ------ | ----- | ----- | ---- |
 | —     | —      | —      | —    | —   | —    | —    | Weak   | Drain | Weak  | —    |
 
@@ -16,7 +16,7 @@ An intellect devourer resembles a walking brain protected by a crusty covering a
 
 
 > [!skill] Devour Intellect
-> If a target takes Psy damage dealt by this creature’s Skills, they are Downed if the Attack Roll was 20+.
+> If a target takes Mind damage dealt by this creature’s Skills, they are Downed if the Attack Roll was 20+.
 
 
 > [!skill] Body Thief

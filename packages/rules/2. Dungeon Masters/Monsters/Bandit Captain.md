@@ -8,7 +8,7 @@ Bandit captains command gangs of scoundrels and conduct straightforward heists. 
 | -------- | ----- | ------- | ---- |
 | 1        | 0     | 2       | 1    |
 
-| Slash  | Pierce | Strike | Fire   | Ice | Wind | Elec | Aether | Psy | Light | Dark |
+| Slash  | Pierce | Strike | Fire   | Ice | Wind | Elec | Soul | Mind | Light | Dark |
 | ------ | ------ | ------ | ------ | --- | ---- | ---- | ------ | --- | ----- | ---- |
 | Resist | —      | —      | Resist | —   | —    | —    | —      | —   | —     | —    |
 

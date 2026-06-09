@@ -86,8 +86,8 @@ export const AFFINITY_DAMAGE_TYPE_LABELS: Record<AffinityDamageType, string> = {
   ice: "Ice",
   wind: "Wind",
   elec: "Elec",
-  aether: "Aether",
-  psy: "Psy",
+  soul: "Soul",
+  mind: "Mind",
   light: "Light",
   dark: "Dark",
 }

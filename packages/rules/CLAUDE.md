@@ -124,7 +124,7 @@ Individual Skill definition files used for transclusion across the rulebook. Eac
 - **Side effects** (Crits, Ailments): a high Attack Roll result triggers a *chance* at the side effect, which is then confirmed by comparing your Luck to the target's Luck (your Luck must be higher); *Auto-* prefix skips the comparison; natural 20 auto-applies all side effects
 - **Critical Hits**: doubled damage + target is Downed. **Ailments**: inflicted if Luck check passes. **Insta-Kill**: target drops to 0 HP if Luck check passes; immune if their level ≥ caster's; becomes Auto-Insta-Kill if target is Weak to the type; no effect if target Resists/Nulls/Repels/Drains
 - **Attack classes**: Physical (uses St or Ag for roll and damage), Magical (uses Ma), Healing, Ailment, Support
-- **Affinities**: Neutral / Weak (1.5×, Downed) / Resist (0.5×) / Null / Repel (reflects) / Drain (heals); Almighty bypasses all; damage types include **Aether** (formerly Nuke)
+- **Affinities**: Neutral / Weak (1.5×, Downed) / Resist (0.5×) / Null / Repel (reflects) / Drain (heals); Almighty bypasses all; damage types include **Soul** (formerly Nuke → Aether) and **Mind** (formerly Psy)
 - **Battle Conditions**: Attack, Defense, Hit/Evasion can be raised or lowered; Charged/Concentrating multiplies next attack by 2.5×
 - **Follow-Ups**: Downing an enemy grants a bonus Standard Action (no Move, no Reaction); **Shift** passes it to an ailment-free ally; if attacker also becomes Downed on the same attack (e.g., natural 1 crit failure, or Repel blowback), no Follow-Up is granted
 - **All-Out Attack**: when all enemies Downed; each ally rolls their weapon damage + higher of Str/Mag; combined total applied as Almighty damage to every enemy; ailment/Fallen characters excluded; no Follow-Up after
@@ -227,7 +227,7 @@ Individual Skill definition files used for transclusion across the rulebook. Eac
 - Old 3.3 On Your Turn content preserved in `Archive/Archived On Your Turn.md` (replaced by a full rewrite)
 - Dungeons are intended to be composed of Zones; dungeon turns represent ~10 minutes to fully search a Zone (from Idea Board — not yet written up)
 - **Downed** is full incapacitation (no move, no action, no reaction); clears at start of very next turn; **can coexist with another ailment simultaneously** (previous rule was "cannot be overwritten" — this is the corrected version)
-- **Nuke** damage type renamed to **Aether** throughout
+- **Nuke** damage type renamed to **Aether**, then to **Soul**, throughout; **Psy** damage type renamed to **Mind** (one syllable, and avoids confusion with the **Psi** Skill)
 - **Attributes** redesigned from 1–30 scale (with level-up point allocation) to −7 to +7 scale (set entirely by active Archetype). Endurance removed as an Attribute — it no longer appears in combat math as a damage-reduction stat for normal attacks.
 - **"Extra Turns"** renamed to **"Follow-Ups"** throughout; file 3.6 renamed accordingly
 - **"D20 Tests"** renamed to **"Talent Tests"**; new Talent system added (proficiencies giving +3 bonus); roll formula changed to d20 + raw Attribute score or Virtue Rank (no division or modifier table)

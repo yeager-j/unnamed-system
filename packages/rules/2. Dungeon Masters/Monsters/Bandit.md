@@ -8,7 +8,7 @@ Bandits are inexperienced ne’er-do-wells who typically follow the orders of hi
 | -------- | ----- | ------- | ---- |
 | 0        | -1    | 1       | 0    |
 
-| Slash | Pierce | Strike | Fire   | Ice  | Wind | Elec | Aether | Psy | Light | Dark |
+| Slash | Pierce | Strike | Fire   | Ice  | Wind | Elec | Soul | Mind | Light | Dark |
 | ----- | ------ | ------ | ------ | ---- | ---- | ---- | ------ | --- | ----- | ---- |
 | —     | —      | —      | Resist | Weak | —    | —    | —      | —   | —     | —    |
 

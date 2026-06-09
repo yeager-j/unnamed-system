@@ -38,8 +38,8 @@ test("public character sheet renders for a seeded character", async ({
     "Ice",
     "Wind",
     "Elec",
-    "Aether",
-    "Psy",
+    "Soul",
+    "Mind",
     "Light",
     "Dark",
   ]) {
