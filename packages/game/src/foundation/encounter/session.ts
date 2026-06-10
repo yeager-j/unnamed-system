@@ -5,6 +5,7 @@ import {
   BATTLE_CONDITION_AXIS_KEYS,
   battleConditionsSchema,
 } from "@workspace/game/foundation/character/state"
+import { countersSchema } from "@workspace/game/foundation/combat/counters"
 
 /**
  * The immutable state the initiative tracker's reducer operates over — the
@@ -142,7 +143,8 @@ export type ConditionDurations = z.infer<typeof conditionDurationsSchema>
 /**
  * One combatant in the encounter. Owns everything about itself: identity
  * ({@link CombatantRef}), the encounter overlay (`ailments` + `battleConditions`
- * state and their `conditionDurations`), turn bookkeeping, position (`zoneId`),
+ * state and their `conditionDurations`, plus named `counters` like Lumina), turn
+ * bookkeeping, position (`zoneId`),
  * and engagement. The overlay is identical for PCs and enemies (ADR Decision 1)
  * — it holds the combat state the rules clear at end of combat, which the
  * character row no longer carries. The Zone *graph* (zones + adjacency) is
@@ -161,6 +163,7 @@ export const combatantSchema = z.object({
   zoneId: z.string(),
   engagement: engagementSchema,
   conditionDurations: conditionDurationsSchema,
+  counters: countersSchema.default({}),
 })
 export type Combatant = z.infer<typeof combatantSchema>
 

@@ -7,6 +7,7 @@ import {
 } from "@workspace/game/engine/encounter/roster-view"
 import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
+import { type Counters } from "@workspace/game/foundation/combat/counters"
 import type {
   Combatant,
   CombatSession,
@@ -45,6 +46,9 @@ interface PlayerCombatantBase {
   isCurrent: boolean
   ailments: string[]
   battleConditions: BattleConditions
+  /** Named counters (Lumina, …). Public — an Illuminated enemy lights up its Zone
+   *  (rulebook Path of Dawn), so this is observable, not redacted enemy data. */
+  counters: Counters
   /** The display names of the combatants this one is melee-locked with — empty
    *  when Free. Engagement is observable battlefield state (not hidden enemy
    *  data), so it is shown for both sides; target ids are resolved to names here
@@ -136,6 +140,7 @@ function projectCombatant(
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
     battleConditions: combatant.battleConditions,
+    counters: combatant.counters,
     engagedWith,
   }
 

@@ -22,6 +22,7 @@ import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CombatantActionsSection } from "./combatant-actions-section"
 import { CombatantConditionsSection } from "./combatant-conditions-section"
+import { CombatantCountersSection } from "./combatant-counters-section"
 import { CombatantEngagementSection } from "./combatant-engagement-section"
 import { CombatantPositionSection } from "./combatant-position-section"
 import { CombatantVitalsSection } from "./combatant-vitals-section"
@@ -90,6 +91,10 @@ function DrawerBody({
         />
         <CombatantVitalsSection detail={detail} onCombatEvent={onCombatEvent} />
         <CombatantConditionsSection
+          detail={detail}
+          onCombatEvent={onCombatEvent}
+        />
+        <CombatantCountersSection
           detail={detail}
           onCombatEvent={onCombatEvent}
         />

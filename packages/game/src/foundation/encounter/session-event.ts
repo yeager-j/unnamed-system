@@ -10,6 +10,10 @@ import {
   type AilmentKey,
 } from "@workspace/game/foundation/combat/ailments"
 import {
+  COUNTER_KEYS,
+  type CounterKey,
+} from "@workspace/game/foundation/combat/counters"
+import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,
   combatantSetupSchema,
@@ -146,6 +150,28 @@ export type BattleConditionEvent =
 export type AilmentEvent =
   | { kind: "setAilment"; combatantId: string; ailment: AilmentKey }
   | { kind: "clearAilment"; combatantId: string; ailment: AilmentKey }
+
+/**
+ * Counter overlay events — adjust a named tally (Lumina, …) on a combatant. Like
+ * the ailment events, **permissive**: the app tracks whatever the DM records and
+ * never enforces a cap (Lumina's per-caster Luck max is the DM's call).
+ *
+ * - `adjustCounter` nudges the counter by a signed `delta`. **Delta, not an
+ *   absolute** so the reducer merges against the loaded session: back-to-back +1
+ *   clicks can't each read a stale count and overwrite one another. The count is
+ *   floored at 0 and its key dropped when it reaches 0.
+ * - `clearCounter` removes the counter outright (the "remove" affordance) — its
+ *   own primitive because a client can't compute `delta = -current` without a
+ *   stale read.
+ */
+export type CounterEvent =
+  | {
+      kind: "adjustCounter"
+      combatantId: string
+      counter: CounterKey
+      delta: number
+    }
+  | { kind: "clearCounter"; combatantId: string; counter: CounterKey }
 
 /**
  * The three per-turn actions the (non-enforcing) action economy tracks. `move`
@@ -286,6 +312,7 @@ export type CombatEvent =
   | RoundEvent
   | BattleConditionEvent
   | AilmentEvent
+  | CounterEvent
   | ActionEconomyEvent
   | EnemyVitalsEvent
   | OverrideEvent
@@ -333,6 +360,17 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("clearAilment"),
     combatantId: z.string(),
     ailment: z.enum(AILMENT_KEYS),
+  }),
+  z.object({
+    kind: z.literal("adjustCounter"),
+    combatantId: z.string(),
+    counter: z.enum(COUNTER_KEYS),
+    delta: z.number().int(),
+  }),
+  z.object({
+    kind: z.literal("clearCounter"),
+    combatantId: z.string(),
+    counter: z.enum(COUNTER_KEYS),
   }),
   z.object({
     kind: z.literal("setActionEconomy"),

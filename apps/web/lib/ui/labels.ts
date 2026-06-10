@@ -9,6 +9,7 @@ import {
   type BonusTargetKey,
   type CombatAdvantage,
   type CombatSide,
+  type CounterKey,
   type DamageType,
   type Delivery,
   type EnemyFamily,
@@ -328,6 +329,24 @@ export const BATTLE_CONDITION_FLAG_LABELS = {
   charged: "Charged",
   concentrating: "Concentrating",
 } as const
+
+/** Display names for the named combat counters (Lumina, …). */
+export const COUNTER_LABELS: Record<CounterKey, string> = {
+  lumina: "Lumina",
+}
+
+/** The status a combatant gains while it holds any of a counter — shown on the
+ *  rail + player watch (e.g. Lumina ⇒ "Illuminated"). */
+export const COUNTER_STATUS_LABELS: Record<CounterKey, string> = {
+  lumina: "Illuminated",
+}
+
+/** One-line hint shown in the drawer's "Add counter" popover — what the counter
+ *  is and the (unenforced) cap. */
+export const COUNTER_HINTS: Record<CounterKey, string> = {
+  lumina:
+    "Illuminated by Path of Dawn. Max equals the caster's Luck (not enforced).",
+}
 
 /** The three per-turn actions the (non-enforcing) action economy tracks in the
  *  combatant drawer (UNN-310). */

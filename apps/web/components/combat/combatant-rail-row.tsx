@@ -8,11 +8,12 @@ import {
 import Image from "next/image"
 
 import { type Pool, type RailRow } from "@workspace/game/engine"
+import { COUNTER_KEYS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { initials } from "@/lib/ui/initials"
-import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
+import { COMBATANT_DOWN_LABELS, COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 import { VitalBar } from "./vital-bar"
@@ -63,6 +64,13 @@ export function CombatantRailRow({
                   Downed
                 </Badge>
               ) : null}
+              {COUNTER_KEYS.filter((key) => (row.counters[key] ?? 0) > 0).map(
+                (key) => (
+                  <Badge key={key} variant="outline" className="shrink-0">
+                    {COUNTER_STATUS_LABELS[key]} ×{row.counters[key]}
+                  </Badge>
+                )
+              )}
             </span>
             <span className="flex shrink-0 items-center gap-1.5">
               {row.isCurrent ? (
