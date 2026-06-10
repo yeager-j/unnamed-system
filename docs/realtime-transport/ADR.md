@@ -109,6 +109,33 @@ A relevant property of `packages/game`: the reducers are a **runtime-pure leaf**
 
 ---
 
+## Environments (dev / preview / production)
+
+We need three standing environments, and **E2E runs against per-PR Preview deploys** where the workflow already provisions a fresh `preview/<branch>` Neon branch (migrate + seed), runs Playwright against the Vercel preview URL, and deletes the branch on PR close (`.github/workflows/e2e.yml`, `.github/workflows/neon.yml`). Any realtime layer has to slot into that flow without weakening its isolation — two concurrent preview deploys must not cross-talk on a shared channel.
+
+The two products isolate at **different grains**, and this is a real differentiator:
+
+| | Ably | PartyKit |
+| -- | -- | -- |
+| **Unit of isolation** | An **app** (own keys, own channel namespace, own quota) — and, *within* an app, the **channel namespace** | A **deploy** (`partykit deploy --preview <name>` → its own URL + running DOs) |
+| **Standing dev/preview/prod** | **Three apps**, three API keys, wired through Vercel's per-environment env-var scoping (Development / Preview / Production) — no automation needed | A standing prod deploy + named deploys; env vars per deploy |
+| **Per-PR isolation** | A **channel-name prefix** (e.g. `preview-<branch>:encounter:<shortId>`) on the shared *preview* app — **nothing to create or tear down** | `partykit deploy --preview pr-<n>` in CI + teardown on close — a second per-PR provision/deploy parallel to the Neon branch |
+| **Teardown** | None — idle channels auto-close | Must delete the preview deploy on PR close (another `neon.yml`-style job) |
+| **Programmatic provisioning** | **Control API** can create/delete apps + keys in CI if you ever want app-per-PR ([Control API](https://ably.com/blog/introducing-control-api-provision-configure-ably-programmatically)) | The deploy *is* the provisioning step ([Preview environments](https://docs.partykit.io/guides/preview-environments/)) |
+
+**Yes, Ably supports distinct environments — but the natural mapping is lighter than PartyKit's, not heavier.** Two layers:
+
+1. **Three standing apps for dev / preview / production.** Ably apps are fully isolated (separate keys, channels, quotas). Vercel already scopes env vars per environment, so you set `ABLY_API_KEY` (server publish) and the public client key three times — once per Vercel environment — each pointing at its own Ably app. This is the standard Ably multi-env pattern and needs **zero CI automation**.
+2. **Per-PR isolation by channel prefix, not by a new app.** This is the part that maps to "a fresh Neon branch per PR." Because two preview deploys share the *preview* app and the seed mints deterministic `shortId`s, they could both publish to `encounter:<sameShortId>` and cross-talk. The fix is a **deploy-scoped channel prefix** — derive it from `VERCEL_GIT_COMMIT_REF` (or the Vercel deployment id) and inject it as `ABLY_CHANNEL_PREFIX`, used identically on the publish side (`applyCombatEvent`) and the subscribe side (`useEncounterSnapshot`). Channels are namespaces, not provisioned resources, so there is **nothing to migrate and nothing to delete** — they wink out when idle. It is strictly *less* machinery than the Neon-branch-per-PR step it rides alongside.
+
+If we ever want a literal 1:1 with the Neon-branch flow (an ephemeral, fully-quota-isolated app per PR), the **Control API** can create the app + key in the existing dispatch workflow and delete it from the `neon.yml` PR-close job. **Recommendation: don't.** Channel-prefixing gives the same isolation guarantee for E2E for none of the create/teardown cost; reserve app-per-PR for the day a preview needs its own quota or rate-limit envelope.
+
+**PartyKit's `--preview` is the closer literal match** — a per-PR environment with its own URL — and if we were already standing up a Cloudflare deploy it would compose neatly with CI. But that match exists *because PartyKit is a deploy target*: every preview is another running server to deploy, (in Model B) seed, and tear down, on top of the Neon branch and Vercel preview we already manage. For E2E, Ably's "no deploy, just a key + a prefix" is less to break.
+
+> **Net:** environments are **not** a reason to pick PartyKit. Ably covers dev/preview/prod with three keys and covers per-PR E2E isolation with a one-string channel prefix — fewer moving parts than the Neon-branch step it sits beside, and no new teardown job.
+
+---
+
 ## Recommendation
 
 **Adopt Ably, in Model A, behind `useEncounterSnapshot`, using the "broadcast a `version` ping → client re-fetches the redacted snapshot" pattern.**
@@ -135,7 +162,7 @@ None of these are in current scope (DM sole writer, no dice, read-only player vi
 
 - **`reduceCharacter` / `reduceCombatSession` stay exactly where they are** — in the Server Action (authoritative) and the DM client (`useOptimistic`). The realtime layer never calls them. This is the opposite of the brief's working assumption, and it is the *point*: the seam was designed so the reducer doesn't have to move.
 - **`useEncounterSnapshot` gains an Ably-backed fetcher**; its public signature (and every consumer) is unchanged. The existing polling path stays as the fallback, so the change is additive and reversible.
-- **One new env var** (Ably API key) on Vercel, **one tiny token endpoint**, and **one publish line** at the end of `applyCombatEvent`. No migrations, no new tables, no new service.
+- **Env vars per Vercel environment** — `ABLY_API_KEY` (+ the public client key) set three times, once each for Development / Preview / Production, pointing at three isolated Ably apps; plus an `ABLY_CHANNEL_PREFIX` derived per deploy for per-PR E2E isolation (see _Environments_). **One tiny token endpoint** and **one publish line** at the end of `applyCombatEvent`. No migrations, no new tables, no new service, no new CI teardown job.
 - **Character-sheet live co-viewing** (if ever wanted) reuses the identical pattern: publish a ping on the owner's write, subscribers re-fetch. No reducer relocation.
 - **Presence becomes available** as a cheap future feature (live "who's watching", campaign online dots) at no extra infrastructure.
 
@@ -151,7 +178,8 @@ None of these are in current scope (DM sole writer, no dice, read-only player vi
 
 ## Sources
 
-- Ably — [Limits](https://ably.com/docs/pricing/limits) · [Free package](https://ably.com/docs/platform/pricing/free) · [Pricing](https://ably.com/pricing) · [Pricing overview](https://ably.com/docs/platform/pricing)
+- Ably — [Limits](https://ably.com/docs/pricing/limits) · [Free package](https://ably.com/docs/platform/pricing/free) · [Pricing](https://ably.com/pricing) · [Pricing overview](https://ably.com/docs/platform/pricing) · [Control API: provision & configure Ably programmatically](https://ably.com/blog/introducing-control-api-provision-configure-ably-programmatically)
+- PartyKit — [Preview environments](https://docs.partykit.io/guides/preview-environments/) · [CI/CD with GitHub Actions](https://docs.partykit.io/guides/setting-up-ci-cd-with-github-actions/)
 - PartyKit / Cloudflare — [Cloudflare acquires PartyKit](https://blog.cloudflare.com/cloudflare-acquires-partykit/) · [cloudflare/partykit (PartyServer)](https://github.com/cloudflare/partykit) · [Deploy to your own Cloudflare account](https://docs.partykit.io/guides/deploy-to-cloudflare/) · [How PartyKit works](https://docs.partykit.io/how-partykit-works/)
 - Cloudflare Durable Objects — [Pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) · [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)
 - This repo — `docs/initiative-tracker/ADR.md` (Decisions 3–5) · `apps/web/hooks/use-encounter-snapshot.ts` · `apps/web/lib/actions/encounter/events.ts` · `apps/web/app/api/encounter/[shortId]/snapshot/route.ts` · `packages/game/src/engine/{character/reduce-character,encounter/reduce-session}.ts`
