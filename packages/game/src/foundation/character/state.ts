@@ -67,6 +67,14 @@ export const BATTLE_CONDITION_AXIS_KEYS = [
 export type BattleConditionAxisKey = (typeof BATTLE_CONDITION_AXIS_KEYS)[number]
 
 /**
+ * The standard kaja/nda duration — every kaja/nda lasts 3 turns (rulebook 3.8).
+ * The DM drawer's increase/decrease control supplies this as the turn count, and
+ * the tracker reducer falls back to it when an `adjustBattleConditionAxis` event
+ * omits `turns`. Custom durations travel on the event itself.
+ */
+export const DEFAULT_BATTLE_CONDITION_TURNS = 3
+
+/**
  * Manual, source-agnostic bonuses entered directly on the sheet (e.g. a bonus
  * granted by a Background or DM ruling). Mastery is NOT stored here — it is
  * derived from Archetype Rank at compute time and summed on top of these.

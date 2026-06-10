@@ -58,9 +58,8 @@ export function reduceCombatSession(
     case "removeCombatant":
       return reduceRoundEvent(session, event, newId)
 
-    case "setBattleConditionAxis":
+    case "adjustBattleConditionAxis":
     case "setBattleConditionFlag":
-    case "applyBattleConditionDuration":
       return reduceBattleConditionEvent(session, event)
 
     case "setAilment":

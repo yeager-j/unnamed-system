@@ -3,9 +3,7 @@ import { z } from "zod/v4"
 import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
-  BATTLE_CONDITION_STATES,
   type BattleConditionAxisKey,
-  type BattleConditionState,
 } from "@workspace/game/foundation/character/state"
 import {
   AILMENT_KEYS,
@@ -93,40 +91,48 @@ export type RoundEvent =
   | { kind: "addCombatant"; setup: CombatantSetup }
   | { kind: "removeCombatant"; combatantId: string }
 
+/** The three DM intents on a Battle Condition axis — nudge it up, nudge it down,
+ *  or clear it back to neutral. */
+export const BATTLE_CONDITION_AXIS_ACTIONS = [
+  "increase",
+  "decrease",
+  "clear",
+] as const
+export type BattleConditionAxisAction =
+  (typeof BATTLE_CONDITION_AXIS_ACTIONS)[number]
+
 /**
  * Battle-condition overlay events — the *state* a combatant carries plus *how
  * long* it lasts (ADR Decision 1), all on the combatant overlay:
  *
- * - `setBattleConditionAxis` sets one tri-state axis (Attack / Defense /
- *   Hit-Evasion) to `neutral` / `increased` / `decreased` directly (UNN-310).
+ * - `adjustBattleConditionAxis` nudges one tri-state axis (Attack / Defense /
+ *   Hit-Evasion) and drives its duration clock in a single intent (UNN-310):
+ *   `increase`/`decrease` set the axis to `increased`/`decreased` and start a
+ *   `turns`-long clock; re-applying the same direction **extends** rather than
+ *   stacks (rulebook 3.8 — Tarukaja twice → 6 turns); `clear` resets the axis to
+ *   `neutral` and drops the clock. `turns` is optional — the reducer falls back to
+ *   {@link DEFAULT_BATTLE_CONDITION_TURNS} (the DM drawer supplies it; custom
+ *   durations ride the event). Decrement and expiry happen on `endTurn`, which
+ *   resets the axis state back to `neutral` at 0.
  * - `setBattleConditionFlag` toggles a single-use flag (Charged / Concentrating)
  *   on **or** off — manual, no auto-consume, no duration tick (UNN-294 policy).
- * - `applyBattleConditionDuration` sets or extends an axis's remaining turns —
- *   re-application **extends** rather than stacks (UNN-293 / rulebook 3.8); it
- *   owns *how long* only. Decrement and expiry happen on `endTurn`, which mutates
- *   the axis state back to `neutral`.
  *
  * The DM sets axis/flag state from the combatant drawer (UNN-310); the same
  * overlay lives on the character sheet too until UNN-333 retires that copy.
  */
 export type BattleConditionEvent =
   | {
-      kind: "setBattleConditionAxis"
+      kind: "adjustBattleConditionAxis"
       combatantId: string
       axis: BattleConditionAxisKey
-      state: BattleConditionState
+      action: BattleConditionAxisAction
+      turns?: number
     }
   | {
       kind: "setBattleConditionFlag"
       combatantId: string
       flag: BattleConditionFlagKey
       value: boolean
-    }
-  | {
-      kind: "applyBattleConditionDuration"
-      combatantId: string
-      axis: BattleConditionAxisKey
-      turns: number
     }
 
 /**
@@ -306,22 +312,17 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("addCombatant"), setup: combatantSetupSchema }),
   z.object({ kind: z.literal("removeCombatant"), combatantId: z.string() }),
   z.object({
-    kind: z.literal("setBattleConditionAxis"),
+    kind: z.literal("adjustBattleConditionAxis"),
     combatantId: z.string(),
     axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
-    state: z.enum(BATTLE_CONDITION_STATES),
+    action: z.enum(BATTLE_CONDITION_AXIS_ACTIONS),
+    turns: z.number().int().positive().optional(),
   }),
   z.object({
     kind: z.literal("setBattleConditionFlag"),
     combatantId: z.string(),
     flag: z.enum(["charged", "concentrating"]),
     value: z.boolean(),
-  }),
-  z.object({
-    kind: z.literal("applyBattleConditionDuration"),
-    combatantId: z.string(),
-    axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
-    turns: z.number().int().positive(),
   }),
   z.object({
     kind: z.literal("setAilment"),
