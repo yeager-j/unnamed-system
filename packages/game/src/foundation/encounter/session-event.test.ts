@@ -19,10 +19,17 @@ describe("combatEventSchema", () => {
       },
       { kind: "removeCombatant", combatantId: "combatant-1" },
       {
-        kind: "applyBattleConditionDuration",
+        kind: "adjustBattleConditionAxis",
         combatantId: "combatant-1",
         axis: "attack",
+        action: "increase",
         turns: 3,
+      },
+      {
+        kind: "adjustBattleConditionAxis",
+        combatantId: "combatant-1",
+        axis: "defense",
+        action: "clear",
       },
     ]
 
@@ -54,10 +61,21 @@ describe("combatEventSchema", () => {
   it("rejects an unknown battle-condition axis", () => {
     expect(
       combatEventSchema.safeParse({
-        kind: "applyBattleConditionDuration",
+        kind: "adjustBattleConditionAxis",
         combatantId: "combatant-1",
         axis: "speed",
-        turns: 2,
+        action: "increase",
+      }).success
+    ).toBe(false)
+  })
+
+  it("rejects an unknown battle-condition action", () => {
+    expect(
+      combatEventSchema.safeParse({
+        kind: "adjustBattleConditionAxis",
+        combatantId: "combatant-1",
+        axis: "attack",
+        action: "obliterate",
       }).success
     ).toBe(false)
   })
@@ -65,9 +83,10 @@ describe("combatEventSchema", () => {
   it("rejects a non-positive duration", () => {
     expect(
       combatEventSchema.safeParse({
-        kind: "applyBattleConditionDuration",
+        kind: "adjustBattleConditionAxis",
         combatantId: "combatant-1",
         axis: "attack",
+        action: "increase",
         turns: 0,
       }).success
     ).toBe(false)

@@ -5,13 +5,16 @@ import {
   CaretUpIcon,
   MinusIcon,
   PlusIcon,
+  XIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
 import { AILMENTS, getAilment } from "@workspace/game/data"
 import { type CombatantDetail } from "@workspace/game/engine"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  DEFAULT_BATTLE_CONDITION_TURNS,
   type AilmentKey,
+  type BattleConditionAxisAction,
   type BattleConditionAxisKey,
   type BattleConditionFlagKey,
   type BattleConditionState,
@@ -19,6 +22,7 @@ import {
 } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
   Popover,
   PopoverContent,
@@ -29,10 +33,6 @@ import {
 } from "@workspace/ui/components/popover"
 import { Separator } from "@workspace/ui/components/separator"
 import { Toggle } from "@workspace/ui/components/toggle"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@workspace/ui/components/toggle-group"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import {
@@ -47,21 +47,15 @@ const FLAG_KEYS: readonly BattleConditionFlagKey[] = [
   "concentrating",
 ]
 
-/** Axis states in low→high display order (the data order is neutral-first). */
-const AXIS_DISPLAY_ORDER: readonly BattleConditionState[] = [
-  "decreased",
-  "neutral",
-  "increased",
-]
-
 /**
  * The drawer's **AILMENT & CONDITIONS** section (UNN-310) — the session-overlay
  * state the DM edits per combatant, all dispatched through `onCombatEvent`:
  *
  * - **Ailments** — a permissive multi-select (no one-at-a-time enforcement;
  *   co-existence is the DM's call). Each toggle is one `setAilment`/`clearAilment`.
- * - **Battle-condition axes** — a tri-state segmented control per axis with its
- *   live duration countdown (`setBattleConditionAxis`).
+ * - **Battle-condition axes** — a read-only state + duration display per axis,
+ *   plus increase / clear / decrease controls that drive both the state and its
+ *   countdown (`adjustBattleConditionAxis`).
  * - **Charged / Concentrating** — manual on/off flags, no auto-consume
  *   (`setBattleConditionFlag`).
  *
@@ -77,12 +71,16 @@ export function CombatantConditionsSection({
   const combatantId = detail.id
   const { battleConditions, conditionDurations } = detail
 
-  function setAxis(axis: BattleConditionAxisKey, state: BattleConditionState) {
+  function adjustAxis(
+    axis: BattleConditionAxisKey,
+    action: BattleConditionAxisAction
+  ) {
     onCombatEvent({
-      kind: "setBattleConditionAxis",
+      kind: "adjustBattleConditionAxis",
       combatantId,
       axis,
-      state,
+      action,
+      ...(action === "clear" ? {} : { turns: DEFAULT_BATTLE_CONDITION_TURNS }),
     })
   }
 
@@ -110,7 +108,7 @@ export function CombatantConditionsSection({
               axis={axis}
               state={battleConditions[axis]}
               duration={conditionDurations[axis] ?? null}
-              onSet={(state) => setAxis(axis, state)}
+              onAdjust={(action) => adjustAxis(axis, action)}
             />
           ))}
         </div>
@@ -134,61 +132,96 @@ export function CombatantConditionsSection({
   )
 }
 
-/** One tri-state axis (Attack / Defense / Hit-Evasion): label · duration · a
- *  Decreased/Neutral/Increased segmented control. */
+/** One tri-state axis (Attack / Defense / Hit-Evasion): a read-only state +
+ *  duration display, then decrease / clear / increase controls. */
 function AxisRow({
   axis,
   state,
   duration,
-  onSet,
+  onAdjust,
 }: {
   axis: BattleConditionAxisKey
   state: BattleConditionState
   duration: number | null
-  onSet: (state: BattleConditionState) => void
+  onAdjust: (action: BattleConditionAxisAction) => void
 }) {
+  const axisLabel = BATTLE_CONDITION_AXIS_LABELS[axis]
+  const isNeutral = state === "neutral"
+  const canClear = !isNeutral || duration !== null
+
   return (
     <div className="flex items-center justify-between gap-2">
-      <span className="text-sm">{BATTLE_CONDITION_AXIS_LABELS[axis]}</span>
-      <div className="flex items-center gap-2">
-        {duration ? (
-          <Badge variant="secondary" className="tabular-nums">
-            {duration}t
-          </Badge>
-        ) : null}
-        <ToggleGroup
-          aria-label={`${BATTLE_CONDITION_AXIS_LABELS[axis]} state`}
-          variant="outline"
-          size="sm"
-          spacing={0}
-          value={[state]}
-          onValueChange={(value) => {
-            const next = value[0] as BattleConditionState | undefined
-            if (next) onSet(next)
-          }}
-        >
-          {AXIS_DISPLAY_ORDER.map((option) => (
-            <ToggleGroupItem
-              key={option}
-              value={option}
-              aria-label={BATTLE_CONDITION_LABELS[option]}
-              className={
-                option === "decreased" ? "data-[pressed]:text-destructive" : ""
-              }
-            >
-              <AxisStateIcon state={option} />
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-sm">{axisLabel}</span>
+        <AxisStateDisplay state={state} duration={duration} />
       </div>
+      <ButtonGroup aria-label={`Adjust ${axisLabel}`}>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Decrease ${axisLabel}`}
+          className="text-destructive"
+          onClick={() => onAdjust("decrease")}
+        >
+          <CaretDownIcon weight="bold" aria-hidden />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Clear ${axisLabel}`}
+          disabled={!canClear}
+          onClick={() => onAdjust("clear")}
+        >
+          <XIcon weight="bold" aria-hidden />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Increase ${axisLabel}`}
+          onClick={() => onAdjust("increase")}
+        >
+          <CaretUpIcon weight="bold" aria-hidden />
+        </Button>
+      </ButtonGroup>
     </div>
   )
 }
 
+/** The live read-out for one axis: state icon + label, with the turns-remaining
+ *  countdown when a duration clock is running. */
+function AxisStateDisplay({
+  state,
+  duration,
+}: {
+  state: BattleConditionState
+  duration: number | null
+}) {
+  const tone =
+    state === "increased"
+      ? "font-medium"
+      : state === "decreased"
+        ? "font-medium text-destructive"
+        : "text-muted-foreground"
+
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs ${tone}`}>
+      <AxisStateIcon state={state} />
+      {BATTLE_CONDITION_LABELS[state]}
+      {duration !== null ? (
+        <Badge variant="secondary" className="tabular-nums">
+          {duration}t
+        </Badge>
+      ) : null}
+    </span>
+  )
+}
+
 function AxisStateIcon({ state }: { state: BattleConditionState }) {
-  if (state === "increased") return <CaretUpIcon weight="bold" aria-hidden />
-  if (state === "decreased") return <CaretDownIcon weight="bold" aria-hidden />
-  return <MinusIcon weight="bold" aria-hidden />
+  if (state === "increased")
+    return <CaretUpIcon weight="bold" aria-hidden className="size-3.5" />
+  if (state === "decreased")
+    return <CaretDownIcon weight="bold" aria-hidden className="size-3.5" />
+  return <MinusIcon weight="bold" aria-hidden className="size-3.5" />
 }
 
 /** A permissive multi-select of the 12 ailments (Downed pinned on top), each an

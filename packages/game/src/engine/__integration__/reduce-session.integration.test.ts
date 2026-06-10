@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import { reduceCombat } from "@workspace/game/engine/__fixtures__/encounter"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
+import {
+  DEFAULT_BATTLE_CONDITION_TURNS,
+  DEFAULT_BATTLE_CONDITIONS,
+} from "@workspace/game/foundation/character/state"
 import {
   type CombatantSetup,
   type CombatSession,
@@ -47,7 +50,7 @@ function startedSession() {
  * A started session whose current actor (combatant[0]) carries an explicit
  * battle-condition overlay + durations — the state an expiry resets to neutral.
  * Spreads the overlay directly so the expiry tests stay independent of the
- * `setBattleConditionAxis` setter they don't exercise.
+ * `adjustBattleConditionAxis` setter they don't exercise.
  */
 function startedWithOverlay(
   battleConditions: CombatSession["combatants"][number]["battleConditions"],
@@ -524,74 +527,121 @@ describe("reduceCombatSession — purity", () => {
   })
 })
 
-describe("reduceCombatSession — applyBattleConditionDuration", () => {
-  it("extends rather than stacks (Tarukaja twice → 6)", () => {
+describe("reduceCombatSession — adjustBattleConditionAxis", () => {
+  it("increase sets the axis and starts the supplied clock", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const next = reduceCombat(started, {
+      kind: "adjustBattleConditionAxis",
+      combatantId: actorId,
+      axis: "attack",
+      action: "increase",
+      turns: 3,
+    })
+
+    expect(next.combatants[0]!.battleConditions.attack).toBe("increased")
+    expect(next.combatants[0]!.conditionDurations.attack).toBe(3)
+  })
+
+  it("re-applying the same direction extends rather than stacks (Tarukaja twice → 6)", () => {
     const started = startedSession()
     const actorId = started.currentActorId!
 
     const once = reduceCombat(started, {
-      kind: "applyBattleConditionDuration",
+      kind: "adjustBattleConditionAxis",
       combatantId: actorId,
       axis: "attack",
+      action: "increase",
       turns: 3,
     })
     const twice = reduceCombat(once, {
-      kind: "applyBattleConditionDuration",
+      kind: "adjustBattleConditionAxis",
       combatantId: actorId,
       axis: "attack",
+      action: "increase",
       turns: 3,
     })
 
+    expect(twice.combatants[0]!.battleConditions.attack).toBe("increased")
     expect(twice.combatants[0]!.conditionDurations.attack).toBe(6)
   })
 
-  it("is a no-op for an unknown combatant", () => {
-    const started = startedSession()
-
-    const next = reduceCombat(started, {
-      kind: "applyBattleConditionDuration",
-      combatantId: "nobody",
-      axis: "attack",
-      turns: 2,
-    })
-
-    expect(next.combatants).toEqual(started.combatants)
-  })
-})
-
-describe("reduceCombatSession — setBattleConditionAxis / Flag", () => {
-  it("sets a tri-state axis directly", () => {
+  it("honors a custom turn count", () => {
     const started = startedSession()
     const actorId = started.currentActorId!
 
     const next = reduceCombat(started, {
-      kind: "setBattleConditionAxis",
+      kind: "adjustBattleConditionAxis",
       combatantId: actorId,
-      axis: "attack",
-      state: "increased",
+      axis: "defense",
+      action: "increase",
+      turns: 5,
     })
 
-    expect(next.combatants[0]!.battleConditions.attack).toBe("increased")
+    expect(next.combatants[0]!.conditionDurations.defense).toBe(5)
   })
 
-  it("can set an axis back to neutral", () => {
+  it("falls back to the default duration when turns is omitted", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const next = reduceCombat(started, {
+      kind: "adjustBattleConditionAxis",
+      combatantId: actorId,
+      axis: "defense",
+      action: "decrease",
+    })
+
+    expect(next.combatants[0]!.battleConditions.defense).toBe("decreased")
+    expect(next.combatants[0]!.conditionDurations.defense).toBe(
+      DEFAULT_BATTLE_CONDITION_TURNS
+    )
+  })
+
+  it("flipping direction resets the clock instead of extending", () => {
     const started = startedSession()
     const actorId = started.currentActorId!
 
     const increased = reduceCombat(started, {
-      kind: "setBattleConditionAxis",
+      kind: "adjustBattleConditionAxis",
+      combatantId: actorId,
+      axis: "attack",
+      action: "increase",
+      turns: 3,
+    })
+    const flipped = reduceCombat(increased, {
+      kind: "adjustBattleConditionAxis",
+      combatantId: actorId,
+      axis: "attack",
+      action: "decrease",
+      turns: 3,
+    })
+
+    expect(flipped.combatants[0]!.battleConditions.attack).toBe("decreased")
+    expect(flipped.combatants[0]!.conditionDurations.attack).toBe(3)
+  })
+
+  it("clear returns the axis to neutral and drops the clock", () => {
+    const started = startedSession()
+    const actorId = started.currentActorId!
+
+    const increased = reduceCombat(started, {
+      kind: "adjustBattleConditionAxis",
       combatantId: actorId,
       axis: "defense",
-      state: "decreased",
+      action: "increase",
+      turns: 3,
     })
     const cleared = reduceCombat(increased, {
-      kind: "setBattleConditionAxis",
+      kind: "adjustBattleConditionAxis",
       combatantId: actorId,
       axis: "defense",
-      state: "neutral",
+      action: "clear",
     })
 
     expect(cleared.combatants[0]!.battleConditions.defense).toBe("neutral")
+    expect(cleared.combatants[0]!.conditionDurations.defense).toBeUndefined()
   })
 
   it("toggles a single-use flag on and off", () => {
@@ -619,10 +669,11 @@ describe("reduceCombatSession — setBattleConditionAxis / Flag", () => {
     const started = startedSession()
 
     const next = reduceCombat(started, {
-      kind: "setBattleConditionAxis",
+      kind: "adjustBattleConditionAxis",
       combatantId: "nobody",
       axis: "attack",
-      state: "increased",
+      action: "increase",
+      turns: 3,
     })
 
     expect(next).toBe(started)
@@ -634,19 +685,14 @@ describe("reduceCombatSession — endTurn duration clock", () => {
   function startedWithDurations() {
     const fresh = createCombatSession(SETUP, sequentialIds())
     const [first, second] = fresh.combatants
-    const afterFirst = reduceCombat(fresh, {
-      kind: "applyBattleConditionDuration",
-      combatantId: first!.id,
-      axis: "attack",
-      turns: 2,
-    })
-    const afterBoth = reduceCombat(afterFirst, {
-      kind: "applyBattleConditionDuration",
-      combatantId: second!.id,
-      axis: "attack",
-      turns: 2,
-    })
-    return { ...afterBoth, currentActorId: first!.id }
+    return {
+      ...fresh,
+      currentActorId: first!.id,
+      combatants: [
+        { ...first!, conditionDurations: { attack: 2 } },
+        { ...second!, conditionDurations: { attack: 2 } },
+      ],
+    }
   }
 
   it("decrements only the current actor's durations", () => {
