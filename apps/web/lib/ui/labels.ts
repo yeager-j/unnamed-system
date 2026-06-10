@@ -330,15 +330,17 @@ export const BATTLE_CONDITION_FLAG_LABELS = {
   concentrating: "Concentrating",
 } as const
 
-/** Display names for the named combat counters (Lumina, …). */
+/** Display names for the named combat counters (Lumina, Tells, …). */
 export const COUNTER_LABELS: Record<CounterKey, string> = {
   lumina: "Lumina",
+  tells: "Tells",
 }
 
 /** The status a combatant gains while it holds any of a counter — shown on the
- *  rail + player watch (e.g. Lumina ⇒ "Illuminated"). */
+ *  rail + player watch (e.g. Lumina ⇒ "Illuminated", Tells ⇒ "Tells"). */
 export const COUNTER_STATUS_LABELS: Record<CounterKey, string> = {
   lumina: "Illuminated",
+  tells: "Tells",
 }
 
 /** One-line hint shown in the drawer's "Add counter" popover — what the counter
@@ -346,6 +348,8 @@ export const COUNTER_STATUS_LABELS: Record<CounterKey, string> = {
 export const COUNTER_HINTS: Record<CounterKey, string> = {
   lumina:
     "Illuminated by Path of Dawn. Max equals the caster's Luck (not enforced).",
+  tells:
+    "Learned by Thief's Insight (+1 Attack Roll each). Max per enemy equals the Thief's Archetype Rank (not enforced).",
 }
 
 /** The three per-turn actions the (non-enforcing) action economy tracks in the
