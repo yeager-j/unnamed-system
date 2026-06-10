@@ -48,19 +48,33 @@ async function fetchRealtimeToken(
   return (await response.json()) as RealtimeTokenResponse
 }
 
-export function useRealtimeChannel({
-  domain,
-  shortId,
-  onPing,
-  onReconnect,
-}: {
+interface UseRealtimeChannelArgs {
   domain: RealtimeDomain
   shortId: string
   /** Receives each ping's payload, untrusted — narrow before use. */
   onPing: (data: unknown) => void
   /** Fires when a dropped connection comes back, to close the offline gap. */
   onReconnect?: () => void
-}): void {
+}
+
+/**
+ * The mountable form of {@link useRealtimeChannel} for surfaces that subscribe
+ * to a *dynamic list* of channels (one per PC combatant, one per campaign
+ * encounter): render one listener per item and React's mount/unmount keeps the
+ * subscription set in lockstep with the list — no imperative attach/detach
+ * bookkeeping.
+ */
+export function RealtimeChannelListener(props: UseRealtimeChannelArgs): null {
+  useRealtimeChannel(props)
+  return null
+}
+
+export function useRealtimeChannel({
+  domain,
+  shortId,
+  onPing,
+  onReconnect,
+}: UseRealtimeChannelArgs): void {
   const onPingRef = useRef(onPing)
   const onReconnectRef = useRef(onReconnect)
   useEffect(() => {

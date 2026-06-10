@@ -2,7 +2,7 @@
 
 import { HeartIcon, LightningIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useTransition } from "react"
+import { useTransition, type RefObject } from "react"
 import { toast } from "sonner"
 
 import { type CombatantDetail, type Pool } from "@workspace/game/engine"
@@ -16,7 +16,6 @@ import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
 import {
   damageAction,
   healAction,
@@ -42,14 +41,17 @@ type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>
 export function CombatantVitalsSection({
   detail,
   onCombatEvent,
+  pcVitalsVersions,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent) => void
+  /** The console-owned per-PC vitals tokens the pools writes share (UNN-373). */
+  pcVitalsVersions: RefObject<Record<string, number>>
 }) {
   return (
     <DetailSection title="Vitals">
       {detail.kind === "pc" ? (
-        <PcVitals detail={detail} />
+        <PcVitals detail={detail} pcVitalsVersions={pcVitalsVersions} />
       ) : (
         <EnemyVitals
           detail={detail}
@@ -80,16 +82,23 @@ function poolErrorMessage(error: AdjustPoolActionError): string {
 }
 
 /**
- * PC vitals via the pools actions. The console has no `CharacterProvider`, so we
- * thread the vitals token through `useCharacterTokenRef` (the same hook
- * `rest-dialog.tsx` uses outside a provider): a rapid second click reads the
- * freshly-bumped token instead of a stale render frame; `router.refresh()`
- * re-reads the new vitals.
+ * PC vitals via the pools actions. The console has no `CharacterProvider`; the
+ * vitals token lives in the console-owned `pcVitalsVersions` map (UNN-373) so
+ * the realtime ping compare and these writes read/bump the *same* value — a
+ * rapid second click sees the fresh token, and the write's own echo ping
+ * arrives ≤ the map and is dropped. The map is prop-synced (forward-only) by
+ * `useCombatConsole`; the hydrated prop is the fallback for a PC the map
+ * hasn't seen yet.
  */
-function PcVitals({ detail }: { detail: PcDetail }) {
+function PcVitals({
+  detail,
+  pcVitalsVersions,
+}: {
+  detail: PcDetail
+  pcVitalsVersions: RefObject<Record<string, number>>
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  const versionRef = useCharacterTokenRef(detail.vitalsVersion)
 
   function run(
     action: (input: {
@@ -103,13 +112,14 @@ function PcVitals({ detail }: { detail: PcDetail }) {
       const result = await action({
         characterId: detail.characterId,
         amount,
-        expectedVersion: versionRef.current,
+        expectedVersion:
+          pcVitalsVersions.current[detail.characterId] ?? detail.vitalsVersion,
       })
       if (!result.ok) {
         toast.error(poolErrorMessage(result.error))
         return
       }
-      versionRef.current = result.value.version
+      pcVitalsVersions.current[detail.characterId] = result.value.version
       router.refresh()
     })
   }

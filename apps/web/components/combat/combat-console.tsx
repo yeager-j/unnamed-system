@@ -14,6 +14,7 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
+import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 import {
@@ -53,16 +54,22 @@ export function CombatConsole({
   encounter,
   campaignShortId,
   pcDetailById,
+  pcShortIdById,
 }: {
   encounter: EncounterRow
   campaignShortId: string
   pcDetailById: Record<string, PcCombatantDetail>
+  /** Each PC combatant's public shortId — the realtime channel key (UNN-373). */
+  pcShortIdById: Record<string, string>
 }) {
-  const { session, isPending, dispatch, endEncounter } = useCombatConsole(
-    encounter.id,
-    encounter.session,
-    encounter.version
-  )
+  const {
+    session,
+    isPending,
+    dispatch,
+    endEncounter,
+    pcVitalsVersions,
+    onPcPing,
+  } = useCombatConsole(encounter, pcDetailById)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedCombatantId, setSelectedCombatantId] = useState<string | null>(
     null
@@ -111,8 +118,30 @@ export function CombatConsole({
     dispatch({ kind: "advanceRound" })
   }
 
+  // One realtime listener per PC combatant in the (optimistic) session, keyed
+  // by shortId — adding or removing a PC mounts/unmounts its channel (UNN-373).
+  const pcChannelIds = session.combatants.flatMap((combatant) =>
+    combatant.ref.kind === "pc" &&
+    pcShortIdById[combatant.ref.characterId] !== undefined
+      ? [
+          {
+            characterId: combatant.ref.characterId,
+            shortId: pcShortIdById[combatant.ref.characterId]!,
+          },
+        ]
+      : []
+  )
+
   return (
     <main className="flex w-full flex-1 flex-col gap-4 p-4 sm:p-6">
+      {pcChannelIds.map(({ characterId, shortId }) => (
+        <RealtimeChannelListener
+          key={shortId}
+          domain="character"
+          shortId={shortId}
+          onPing={(data) => onPcPing(characterId, data)}
+        />
+      ))}
       {campaignShortId ? (
         <CampaignBackLink campaignShortId={campaignShortId} />
       ) : null}
@@ -228,6 +257,7 @@ export function CombatConsole({
         detail={selectedDetail}
         onClose={() => setSelectedCombatantId(null)}
         onCombatEvent={dispatch}
+        pcVitalsVersions={pcVitalsVersions}
       />
     </main>
   )
