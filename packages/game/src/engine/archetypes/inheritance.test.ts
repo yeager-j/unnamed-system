@@ -113,9 +113,8 @@ function makeRaw(): RawCharacterInputs {
 }
 
 const derive = (raw: RawCharacterInputs) =>
-  deriveHydratedCharacter(raw, TEST_DATA)
-const buildEntries = (character: Parameters<typeof buildArchetypeEntries>[0]) =>
-  buildArchetypeEntries(character, TEST_DATA)
+  deriveHydratedCharacter(TEST_DATA)(raw)
+const buildEntries = buildArchetypeEntries(TEST_DATA)
 
 describe("inheritanceSourceGroups", () => {
   const entries = buildEntries(derive(makeRaw()))

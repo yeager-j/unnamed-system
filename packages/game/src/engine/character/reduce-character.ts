@@ -1,6 +1,7 @@
 import {
   deriveHydratedCharacter,
   toRawInputs,
+  type CharacterLookups,
   type RawCharacterInputs,
 } from "@workspace/game/engine/character/derive-hydrated-character"
 import { reduceArchetypeEdit } from "@workspace/game/engine/character/reduce/archetypes"
@@ -11,12 +12,7 @@ import { reducePoolsEdit } from "@workspace/game/engine/character/reduce/pools"
 import { reduceProgressionEdit } from "@workspace/game/engine/character/reduce/progression"
 import type { SliceResult } from "@workspace/game/engine/character/reduce/shared"
 import { reduceTalentEdit } from "@workspace/game/engine/character/reduce/talents"
-import {
-  type ArchetypeLookup,
-  type ItemLookup,
-  type SkillLookup,
-  type TalentLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 
@@ -32,14 +28,17 @@ import type { HydratedCharacter } from "@workspace/game/foundation/character/hyd
  * it; this is the one place that maps that to "leave the character unchanged".
  */
 export function reduceCharacter(
-  character: HydratedCharacter,
-  edit: CharacterEdit,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup,
+  lookups: CharacterLookups & Pick<GameData, "allArchetypes">,
   newId: () => string
-): HydratedCharacter {
-  const raw = toRawInputs(character)
-  const next = routeEdit(raw, character, edit, lookups, newId)
-  return next ? deriveHydratedCharacter(next, lookups) : character
+) {
+  return (
+    character: HydratedCharacter,
+    edit: CharacterEdit
+  ): HydratedCharacter => {
+    const raw = toRawInputs(character)
+    const next = routeEdit(raw, character, edit, lookups, newId)
+    return next ? deriveHydratedCharacter(lookups)(next) : character
+  }
 }
 
 /**
@@ -52,7 +51,7 @@ function routeEdit(
   raw: RawCharacterInputs,
   character: HydratedCharacter,
   edit: CharacterEdit,
-  lookups: ArchetypeLookup & ItemLookup,
+  lookups: Pick<GameData, "getItem" | "getEquippableItem" | "allArchetypes">,
   newId: () => string
 ): SliceResult {
   switch (edit.kind) {

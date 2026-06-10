@@ -65,7 +65,7 @@ function build(opts: {
   round?: number
   acted?: string[]
 }): CombatSession {
-  const base = createCombatSession(opts.setup, sequentialIds())
+  const base = createCombatSession(sequentialIds())(opts.setup)
   const acted = new Set(opts.acted ?? [])
   return {
     ...base,
@@ -80,7 +80,7 @@ function build(opts: {
 
 describe("pendingCombatants", () => {
   it("returns everyone when no one has acted and none are Fallen", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const pending = pendingCombatants(session, new Set())
 
@@ -92,7 +92,7 @@ describe("pendingCombatants", () => {
   })
 
   it("excludes combatants who have already acted this round", () => {
-    const fresh = createCombatSession(SETUP, sequentialIds())
+    const fresh = createCombatSession(sequentialIds())(SETUP)
     const session = {
       ...fresh,
       combatants: fresh.combatants.map((c, i) =>
@@ -106,7 +106,7 @@ describe("pendingCombatants", () => {
   })
 
   it("excludes Fallen combatants by injected id", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const pending = pendingCombatants(session, new Set(["combatant-1"]))
 
@@ -114,7 +114,7 @@ describe("pendingCombatants", () => {
   })
 
   it("excludes a combatant that is both acted and Fallen without double-counting", () => {
-    const fresh = createCombatSession(SETUP, sequentialIds())
+    const fresh = createCombatSession(sequentialIds())(SETUP)
     const session = {
       ...fresh,
       combatants: fresh.combatants.map((c, i) =>
@@ -316,38 +316,37 @@ describe("Fallen + override integration", () => {
 
 describe("sessionIncludesPc", () => {
   const session = createCombatSession(
-    [
-      {
-        side: "players",
-        ref: { kind: "pc", characterId: "char-1" },
-        zoneId: "zone-a",
-      },
-      {
-        side: "enemies",
-        ref: {
-          kind: "enemy",
-          statBlock: {
-            name: "Shadow",
-            maxHP: 10,
-            currentHP: 10,
-            maxSP: 0,
-            currentSP: 0,
-            attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
-          },
-        },
-        zoneId: "zone-a",
-      },
-      {
-        side: "enemies",
-        ref: { kind: "catalog-enemy", enemyKey: "goblin" },
-        zoneId: "zone-a",
-      },
-    ],
     (() => {
       let n = 0
       return () => `combatant-${n++}`
     })()
-  )
+  )([
+    {
+      side: "players",
+      ref: { kind: "pc", characterId: "char-1" },
+      zoneId: "zone-a",
+    },
+    {
+      side: "enemies",
+      ref: {
+        kind: "enemy",
+        statBlock: {
+          name: "Shadow",
+          maxHP: 10,
+          currentHP: 10,
+          maxSP: 0,
+          currentSP: 0,
+          attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
+        },
+      },
+      zoneId: "zone-a",
+    },
+    {
+      side: "enemies",
+      ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+      zoneId: "zone-a",
+    },
+  ])
 
   it("matches a PC combatant by characterId", () => {
     expect(sessionIncludesPc(session, "char-1")).toBe(true)
@@ -365,58 +364,54 @@ describe("sessionIncludesPc", () => {
 describe("pcCombatantCharacterIds", () => {
   it("returns only PC character ids, skipping enemy and catalog-enemy refs", () => {
     const session = createCombatSession(
-      [
-        {
-          side: "players",
-          ref: { kind: "pc", characterId: "char-1" },
-          zoneId: "z",
-        },
-        {
-          side: "enemies",
-          ref: {
-            kind: "enemy",
-            statBlock: {
-              name: "Shadow",
-              maxHP: 10,
-              currentHP: 10,
-              maxSP: 0,
-              currentSP: 0,
-              attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
-            },
-          },
-          zoneId: "z",
-        },
-        {
-          side: "players",
-          ref: { kind: "pc", characterId: "char-2" },
-          zoneId: "z",
-        },
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "goblin" },
-          zoneId: "z",
-        },
-      ],
       (() => {
         let n = 0
         return () => `combatant-${n++}`
       })()
-    )
+    )([
+      {
+        side: "players",
+        ref: { kind: "pc", characterId: "char-1" },
+        zoneId: "z",
+      },
+      {
+        side: "enemies",
+        ref: {
+          kind: "enemy",
+          statBlock: {
+            name: "Shadow",
+            maxHP: 10,
+            currentHP: 10,
+            maxSP: 0,
+            currentSP: 0,
+            attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
+          },
+        },
+        zoneId: "z",
+      },
+      {
+        side: "players",
+        ref: { kind: "pc", characterId: "char-2" },
+        zoneId: "z",
+      },
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+        zoneId: "z",
+      },
+    ])
 
     expect(pcCombatantCharacterIds(session)).toEqual(["char-1", "char-2"])
   })
 
   it("returns an empty array when there are no PC combatants", () => {
-    const session = createCombatSession(
-      [
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "g" },
-          zoneId: "z",
-        },
-      ],
-      () => "combatant-0"
-    )
+    const session = createCombatSession(() => "combatant-0")([
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "g" },
+        zoneId: "z",
+      },
+    ])
     expect(pcCombatantCharacterIds(session)).toEqual([])
   })
 })

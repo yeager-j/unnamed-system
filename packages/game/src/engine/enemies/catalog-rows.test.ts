@@ -64,7 +64,7 @@ const TEST_DATA = makeTestGameData({
 })
 
 describe("buildEnemyCatalogRows", () => {
-  const rows = buildEnemyCatalogRows(TEST_DATA)
+  const rows = buildEnemyCatalogRows(TEST_DATA)()
 
   it("builds one row per catalog enemy", () => {
     expect(rows).toHaveLength(FIXTURE_ENEMIES.length)
@@ -96,7 +96,7 @@ describe("buildEnemyCatalogRows", () => {
 })
 
 describe("filterEnemyCatalogRows", () => {
-  const rows = buildEnemyCatalogRows(TEST_DATA)
+  const rows = buildEnemyCatalogRows(TEST_DATA)()
 
   it("matches a case-insensitive name substring", () => {
     const matched = filterEnemyCatalogRows(rows, {
@@ -132,7 +132,7 @@ describe("filterEnemyCatalogRows", () => {
 
 describe("groupEnemyRowsByLevel", () => {
   it("groups rows by ascending level, names sorted within a group", () => {
-    const groups = groupEnemyRowsByLevel(buildEnemyCatalogRows(TEST_DATA))
+    const groups = groupEnemyRowsByLevel(buildEnemyCatalogRows(TEST_DATA)())
 
     const levels = groups.map((group) => group.level)
     expect(levels).toEqual([...levels].sort((a, b) => a - b))
@@ -145,7 +145,7 @@ describe("groupEnemyRowsByLevel", () => {
   })
 
   it("preserves every row and places it in its level group", () => {
-    const rows = buildEnemyCatalogRows(TEST_DATA)
+    const rows = buildEnemyCatalogRows(TEST_DATA)()
     const groups = groupEnemyRowsByLevel(rows)
     expect(groups.flatMap((group) => group.rows)).toHaveLength(rows.length)
     // Both Goblin and Skeleton are Level 1; the group sorts them by name.
@@ -156,7 +156,7 @@ describe("groupEnemyRowsByLevel", () => {
 
 describe("enemyFamilyCounts", () => {
   it("counts rows per family, totalling the catalog", () => {
-    const rows = buildEnemyCatalogRows(TEST_DATA)
+    const rows = buildEnemyCatalogRows(TEST_DATA)()
     const counts = enemyFamilyCounts(rows)
     const total = Object.values(counts).reduce<number>(
       (sum, n) => sum + (n ?? 0),

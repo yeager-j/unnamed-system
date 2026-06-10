@@ -165,7 +165,7 @@ export async function createLiveEncounter(
       campaignId: opts.campaignId,
       name: "E2E encounter",
       status: opts.status ?? "live",
-      session: createCombatSession(setups, () => `${id}-c${n++}`),
+      session: createCombatSession(() => `${id}-c${n++}`)(setups),
       version: 0,
     })
   tracker.encounterIds.push(id)

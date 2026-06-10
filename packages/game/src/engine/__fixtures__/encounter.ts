@@ -30,9 +30,9 @@ export const reduceCombat = (
   event: CombatEvent,
   newId: () => string = () => crypto.randomUUID(),
   data: GameData = EMPTY_CATALOG
-): CombatSession => reduceCombatSession(session, event, data, newId)
+): CombatSession => reduceCombatSession(data, newId)(session, event)
 
 export const enemyStatblocks = (
   combatants: readonly { ref: CombatantSetup["ref"] }[],
   data: GameData = EMPTY_CATALOG
-) => resolveCatalogEnemyStatblocks(combatants, data)
+) => resolveCatalogEnemyStatblocks(data)(combatants)

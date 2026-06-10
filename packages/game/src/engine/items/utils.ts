@@ -1,4 +1,4 @@
-import { type ItemLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type HydratedInventoryItem } from "@workspace/game/foundation/character/hydrated-character"
 import {
   isConsumable,
@@ -38,26 +38,27 @@ export type EquipError = "item-not-found" | "catalog-item-unknown"
  * input is never mutated. The slot is read from the hardcoded catalog via
  * {@link getEquippableItem}.
  */
-export function equipItem(
-  items: readonly InventoryItemState[],
-  itemId: string,
-  lookups: Pick<ItemLookup, "getEquippableItem">
-): Result<InventoryItemState[], EquipError> {
-  const target = items.find((item) => item.id === itemId)
-  if (!target) return err("item-not-found")
+export function equipItem(lookups: Pick<GameData, "getEquippableItem">) {
+  return (
+    items: readonly InventoryItemState[],
+    itemId: string
+  ): Result<InventoryItemState[], EquipError> => {
+    const target = items.find((item) => item.id === itemId)
+    if (!target) return err("item-not-found")
 
-  const targetCatalogItem = lookups.getEquippableItem(target.catalogItemKey)
-  if (!targetCatalogItem) return err("catalog-item-unknown")
+    const targetCatalogItem = lookups.getEquippableItem(target.catalogItemKey)
+    if (!targetCatalogItem) return err("catalog-item-unknown")
 
-  const targetSlot = targetCatalogItem.equip.slot
+    const targetSlot = targetCatalogItem.equip.slot
 
-  const next = items.map((item) => {
-    if (item.id === itemId) return { ...item, equipped: true }
-    const itsSlot = lookups.getEquippableItem(item.catalogItemKey)?.equip.slot
-    return itsSlot === targetSlot ? { ...item, equipped: false } : item
-  })
+    const next = items.map((item) => {
+      if (item.id === itemId) return { ...item, equipped: true }
+      const itsSlot = lookups.getEquippableItem(item.catalogItemKey)?.equip.slot
+      return itsSlot === targetSlot ? { ...item, equipped: false } : item
+    })
 
-  return ok(next)
+    return ok(next)
+  }
 }
 
 /**
@@ -90,47 +91,48 @@ export type AddError = "catalog-item-unknown" | "invalid-quantity"
  * get their id from `newId` (the server's `crypto.randomUUID`, or a client
  * temp id for the optimistic frame). Returns a fresh array; never mutates.
  */
-export function addItem(
-  items: readonly InventoryItemState[],
-  catalogItemKey: string,
-  requestedQuantity: number,
-  newId: () => string,
-  lookups: Pick<ItemLookup, "getItem">
-): Result<InventoryItemState[], AddError> {
-  const item = lookups.getItem(catalogItemKey)
-  if (!item) return err("catalog-item-unknown")
-  if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
-    return err("invalid-quantity")
-  }
+export function addItem(lookups: Pick<GameData, "getItem">) {
+  return (
+    items: readonly InventoryItemState[],
+    catalogItemKey: string,
+    requestedQuantity: number,
+    newId: () => string
+  ): Result<InventoryItemState[], AddError> => {
+    const item = lookups.getItem(catalogItemKey)
+    if (!item) return err("catalog-item-unknown")
+    if (!Number.isInteger(requestedQuantity) || requestedQuantity < 1) {
+      return err("invalid-quantity")
+    }
 
-  const { stackSize } = item
-  const next = items.map((row) => ({ ...row }))
-  let remaining = requestedQuantity
+    const { stackSize } = item
+    const next = items.map((row) => ({ ...row }))
+    let remaining = requestedQuantity
 
-  if (stackSize > 1) {
-    for (const row of next) {
-      if (remaining <= 0) break
-      if (row.catalogItemKey !== catalogItemKey) continue
-      const capacity = stackSize - row.quantity
-      if (capacity <= 0) continue
-      const added = Math.min(capacity, remaining)
-      row.quantity += added
+    if (stackSize > 1) {
+      for (const row of next) {
+        if (remaining <= 0) break
+        if (row.catalogItemKey !== catalogItemKey) continue
+        const capacity = stackSize - row.quantity
+        if (capacity <= 0) continue
+        const added = Math.min(capacity, remaining)
+        row.quantity += added
+        remaining -= added
+      }
+    }
+
+    while (remaining > 0) {
+      const added = Math.min(stackSize, remaining)
+      next.push({
+        id: newId(),
+        catalogItemKey,
+        equipped: false,
+        quantity: added,
+      })
       remaining -= added
     }
-  }
 
-  while (remaining > 0) {
-    const added = Math.min(stackSize, remaining)
-    next.push({
-      id: newId(),
-      catalogItemKey,
-      equipped: false,
-      quantity: added,
-    })
-    remaining -= added
+    return ok(next)
   }
-
-  return ok(next)
 }
 
 /** Recoverable failure: no inventory row matches the given id. */
@@ -141,27 +143,28 @@ export type QuantityError = "item-not-found"
  * value of 0 drops the row entirely — no phantom zero-quantity rows. Returns a
  * fresh array; never mutates.
  */
-export function setItemQuantity(
-  items: readonly InventoryItemState[],
-  itemId: string,
-  quantity: number,
-  lookups: Pick<ItemLookup, "getItem">
-): Result<InventoryItemState[], QuantityError> {
-  const target = items.find((item) => item.id === itemId)
-  if (!target) return err("item-not-found")
+export function setItemQuantity(lookups: Pick<GameData, "getItem">) {
+  return (
+    items: readonly InventoryItemState[],
+    itemId: string,
+    quantity: number
+  ): Result<InventoryItemState[], QuantityError> => {
+    const target = items.find((item) => item.id === itemId)
+    if (!target) return err("item-not-found")
 
-  const stackSize = lookups.getItem(target.catalogItemKey)?.stackSize ?? 1
-  const clamped = Math.max(0, Math.min(stackSize, Math.floor(quantity)))
+    const stackSize = lookups.getItem(target.catalogItemKey)?.stackSize ?? 1
+    const clamped = Math.max(0, Math.min(stackSize, Math.floor(quantity)))
 
-  if (clamped === 0) {
-    return ok(items.filter((item) => item.id !== itemId))
-  }
+    if (clamped === 0) {
+      return ok(items.filter((item) => item.id !== itemId))
+    }
 
-  return ok(
-    items.map((item) =>
-      item.id === itemId ? { ...item, quantity: clamped } : item
+    return ok(
+      items.map((item) =>
+        item.id === itemId ? { ...item, quantity: clamped } : item
+      )
     )
-  )
+  }
 }
 
 /**

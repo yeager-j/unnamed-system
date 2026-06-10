@@ -5,11 +5,7 @@ import {
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
-import {
-  type ArchetypeLookup,
-  type ItemLookup,
-  type SkillLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import {
   type InheritanceSlots,
@@ -55,10 +51,16 @@ export interface PersistedArchetypeState {
   mechanicState: MechanicState | null
 }
 
+/** The catalog slice {@link buildStatContext} (and {@link toStatContext}) read. */
+export type StatContextLookups = Pick<
+  GameData,
+  "getArchetype" | "getSkill" | "getEquippableItem"
+>
+
 function activeSkillsFor(
   active: PersistedArchetypeState,
   equippedItems: readonly EquippableItem[],
-  lookups: ArchetypeLookup & SkillLookup
+  lookups: Pick<GameData, "getArchetype" | "getSkill">
 ): StatContext["activeSkills"] {
   const archetype = lookups.getArchetype(active.archetypeKey)
   if (!archetype) return []
@@ -99,7 +101,7 @@ function activeSkillsFor(
  */
 function activeMechanicFor(
   active: PersistedArchetypeState | undefined,
-  lookups: ArchetypeLookup
+  lookups: Pick<GameData, "getArchetype">
 ): ActiveMechanic | null {
   if (!active) return null
 
@@ -119,66 +121,66 @@ function activeMechanicFor(
  * character. The single shared row→engine mapping so engine callers (e.g. the
  * rest wrapper) need not re-hand-roll it.
  */
-export function toStatContext(
-  character: HydratedCharacter,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
-): StatContext {
-  return buildStatContext(
-    {
+export function toStatContext(lookups: StatContextLookups) {
+  return (character: HydratedCharacter): StatContext =>
+    buildStatContext(lookups)(
+      {
+        pathChoice: character.pathChoice,
+        level: character.level,
+        manualBonuses: character.manualBonuses,
+        activeCharacterArchetypeId: character.activeArchetypeId,
+      },
+      character.archetypeRows.map((archetype) => ({
+        id: archetype.id,
+        archetypeKey: archetype.archetypeKey,
+        rank: archetype.rank,
+        inheritanceSlots: archetype.inheritanceSlots,
+        mechanicState: archetype.mechanicState,
+      })),
+      character.inventory
+        .filter((item) => item.equipped)
+        .map((item) => item.catalogItemKey)
+    )
+}
+
+export function buildStatContext(lookups: StatContextLookups) {
+  return (
+    character: PersistedCharacterState,
+    archetypes: readonly PersistedArchetypeState[],
+    equippedItemKeys: readonly string[]
+  ): StatContext => {
+    const active = archetypes.find(
+      (a) => a.id === character.activeCharacterArchetypeId
+    )
+
+    const equippedItems = equippedItemKeys
+      .map((key) => lookups.getEquippableItem(key))
+      .filter((item) => item !== undefined)
+
+    const activeArchetypeKey = active?.archetypeKey ?? null
+    const activeArchetype = activeArchetypeKey
+      ? lookups.getArchetype(activeArchetypeKey)
+      : undefined
+
+    return {
       pathChoice: character.pathChoice,
       level: character.level,
       manualBonuses: character.manualBonuses,
-      activeCharacterArchetypeId: character.activeArchetypeId,
-    },
-    character.archetypeRows.map((archetype) => ({
-      id: archetype.id,
-      archetypeKey: archetype.archetypeKey,
-      rank: archetype.rank,
-      inheritanceSlots: archetype.inheritanceSlots,
-      mechanicState: archetype.mechanicState,
-    })),
-    character.inventory
-      .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey),
-    lookups
-  )
-}
-
-export function buildStatContext(
-  character: PersistedCharacterState,
-  archetypes: readonly PersistedArchetypeState[],
-  equippedItemKeys: readonly string[],
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup
-): StatContext {
-  const active = archetypes.find(
-    (a) => a.id === character.activeCharacterArchetypeId
-  )
-
-  const equippedItems = equippedItemKeys
-    .map((key) => lookups.getEquippableItem(key))
-    .filter((item) => item !== undefined)
-
-  const activeArchetypeKey = active?.archetypeKey ?? null
-  const activeArchetype = activeArchetypeKey
-    ? lookups.getArchetype(activeArchetypeKey)
-    : undefined
-
-  return {
-    pathChoice: character.pathChoice,
-    level: character.level,
-    manualBonuses: character.manualBonuses,
-    activeArchetypeKey,
-    activeLineage: activeArchetype?.lineage ?? null,
-    archetypes: archetypes.flatMap((a) => {
-      const archetype = lookups.getArchetype(a.archetypeKey)
-      return archetype
-        ? [{ key: a.archetypeKey, rank: a.rank, mastery: archetype.mastery }]
-        : []
-    }),
-    equippedItems,
-    activeSkills: active ? activeSkillsFor(active, equippedItems, lookups) : [],
-    activeMechanic: activeMechanicFor(active, lookups),
-    baseAttributes: baseAttributesForArchetype(activeArchetype),
-    baseAffinities: baseAffinitiesForArchetype(activeArchetype),
+      activeArchetypeKey,
+      activeLineage: activeArchetype?.lineage ?? null,
+      archetypes: archetypes.flatMap((a) => {
+        const archetype = lookups.getArchetype(a.archetypeKey)
+        return archetype
+          ? [{ key: a.archetypeKey, rank: a.rank, mastery: archetype.mastery }]
+          : []
+      }),
+      equippedItems,
+      activeSkills: active
+        ? activeSkillsFor(active, equippedItems, lookups)
+        : [],
+      activeMechanic: activeMechanicFor(active, lookups),
+      baseAttributes: baseAttributesForArchetype(activeArchetype),
+      baseAffinities: baseAffinitiesForArchetype(activeArchetype),
+    }
   }
 }

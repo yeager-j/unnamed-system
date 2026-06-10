@@ -144,7 +144,7 @@ describe("combatSessionSchema", () => {
 
 describe("createCombatSession", () => {
   it("yields a valid initial session", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
     expect(combatSessionSchema.safeParse(session).success).toBe(true)
     expect(session.round).toBe(1)
     expect(session.currentActorId).toBeNull()
@@ -154,7 +154,7 @@ describe("createCombatSession", () => {
   })
 
   it("mints a stable id per combatant and starts everyone fresh", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
     expect(session.combatants.map((c) => c.id)).toEqual([
       "combatant-0",
       "combatant-1",
@@ -172,16 +172,13 @@ describe("createCombatSession", () => {
   })
 
   it("accepts a catalog enemy ref as a stable pointer", () => {
-    const session = createCombatSession(
-      [
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "goblin" },
-          zoneId: "zone-b",
-        },
-      ],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+        zoneId: "zone-b",
+      },
+    ])
     expect(combatSessionSchema.safeParse(session).success).toBe(true)
     expect(session.combatants[0]!.ref).toEqual({
       kind: "catalog-enemy",
@@ -190,15 +187,12 @@ describe("createCombatSession", () => {
   })
 
   it("preserves an explicit engagement from setup", () => {
-    const session = createCombatSession(
-      [
-        {
-          ...SETUP[0]!,
-          engagement: { status: "engaged", targetCombatantIds: ["x"] },
-        },
-      ],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      {
+        ...SETUP[0]!,
+        engagement: { status: "engaged", targetCombatantIds: ["x"] },
+      },
+    ])
     expect(session.combatants[0]!.engagement).toEqual({
       status: "engaged",
       targetCombatantIds: ["x"],
@@ -206,31 +200,25 @@ describe("createCombatSession", () => {
   })
 
   it("honors a setup-supplied id over the minted fallback (UNN-301)", () => {
-    const session = createCombatSession(
-      [
-        { ...SETUP[0]!, id: "stable-a" },
-        SETUP[1]!, // no id → falls back to newId
-      ],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      { ...SETUP[0]!, id: "stable-a" },
+      SETUP[1]!, // no id → falls back to newId
+    ])
     expect(session.combatants[0]!.id).toBe("stable-a")
     expect(session.combatants[1]!.id).toBe("combatant-0")
   })
 
   it("round-trips a stable id through toCombatantSetup so engagement refs survive a re-save", () => {
-    const first = createCombatSession(
-      [
-        { ...SETUP[0]!, id: "a" },
-        {
-          ...SETUP[1]!,
-          id: "b",
-          engagement: { status: "engaged", targetCombatantIds: ["a"] },
-        },
-      ],
-      sequentialIds()
-    )
+    const first = createCombatSession(sequentialIds())([
+      { ...SETUP[0]!, id: "a" },
+      {
+        ...SETUP[1]!,
+        id: "b",
+        engagement: { status: "engaged", targetCombatantIds: ["a"] },
+      },
+    ])
     const reseeded = first.combatants.map(toCombatantSetup)
-    const second = createCombatSession(reseeded, sequentialIds())
+    const second = createCombatSession(sequentialIds())(reseeded)
 
     expect(second.combatants.map((c) => c.id)).toEqual(["a", "b"])
     expect(second.combatants[1]!.engagement).toEqual({
@@ -241,7 +229,7 @@ describe("createCombatSession", () => {
 })
 
 describe("combatSessionSchema rejects malformed sessions", () => {
-  const base = (): CombatSession => createCombatSession(SETUP, sequentialIds())
+  const base = (): CombatSession => createCombatSession(sequentialIds())(SETUP)
 
   it("rejects an unknown side", () => {
     const session = base()

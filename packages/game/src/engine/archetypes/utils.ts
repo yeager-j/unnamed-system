@@ -11,11 +11,7 @@ import {
   skillAttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
-import {
-  type ArchetypeLookup,
-  type ItemLookup,
-  type SkillLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import {
   ARCHETYPE_TIERS,
@@ -128,7 +124,7 @@ function resolveArchetypeRankedSkills(
   maxHP: number,
   stats: StatContext,
   partyComposition: PartyComposition | null,
-  lookups: SkillLookup
+  lookups: Pick<GameData, "getSkill">
 ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
   const resolveByKey = (key: string): HydratedSkill | null => {
     const skill = lookups.getSkill(key)
@@ -170,83 +166,86 @@ function resolveArchetypeRankedSkills(
  * drift after a deploy).
  */
 export function buildArchetypeEntries(
-  character: HydratedCharacter,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
-  context?: CombatContext
-): ArchetypeEntry[] {
-  const stats = toStatContext(character, lookups)
-  const partyComposition = context?.partyComposition ?? null
+  lookups: Pick<GameData, "getArchetype" | "getSkill" | "getEquippableItem">
+) {
+  return (
+    character: HydratedCharacter,
+    context?: CombatContext
+  ): ArchetypeEntry[] => {
+    const stats = toStatContext(lookups)(character)
+    const partyComposition = context?.partyComposition ?? null
 
-  const archetypeByRowId = new Map<string, Archetype>()
-  const rowById = new Map<string, CharacterArchetypeRow>()
-  for (const row of character.archetypeRows) {
-    rowById.set(row.id, row)
-    const archetype = lookups.getArchetype(row.archetypeKey)
-    // Stryker disable next-line ConditionalExpression: equivalent — setting an undefined archetype is indistinguishable from not setting it: every reader (`.get(id)` with `if (!archetype) return []` and `.get(id) ?? null`) treats a missing key and an undefined value identically.
-    if (archetype) archetypeByRowId.set(row.id, archetype)
-  }
+    const archetypeByRowId = new Map<string, Archetype>()
+    const rowById = new Map<string, CharacterArchetypeRow>()
+    for (const row of character.archetypeRows) {
+      rowById.set(row.id, row)
+      const archetype = lookups.getArchetype(row.archetypeKey)
+      // Stryker disable next-line ConditionalExpression: equivalent — setting an undefined archetype is indistinguishable from not setting it: every reader (`.get(id)` with `if (!archetype) return []` and `.get(id) ?? null`) treats a missing key and an undefined value identically.
+      if (archetype) archetypeByRowId.set(row.id, archetype)
+    }
 
-  function resolveSkillByKey(key: string): HydratedSkill | null {
-    const skill = lookups.getSkill(key)
-    if (!skill) return null
-    return hydrateSkill(
-      skill,
-      character.maxHP,
-      resolveAttackRollForSkill(skill, stats, partyComposition)
-    )
-  }
+    function resolveSkillByKey(key: string): HydratedSkill | null {
+      const skill = lookups.getSkill(key)
+      if (!skill) return null
+      return hydrateSkill(
+        skill,
+        character.maxHP,
+        resolveAttackRollForSkill(skill, stats, partyComposition)
+      )
+    }
 
-  return character.archetypeRows.flatMap((row) => {
-    const archetype = archetypeByRowId.get(row.id)
-    if (!archetype) return []
+    return character.archetypeRows.flatMap((row) => {
+      const archetype = archetypeByRowId.get(row.id)
+      if (!archetype) return []
 
-    const { ranks, synthesis } = resolveArchetypeRankedSkills(
-      archetype,
-      character.maxHP,
-      stats,
-      partyComposition,
-      lookups
-    )
-
-    const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(
-      (slot) => {
-        const sourceRow = slot.sourceCharacterArchetypeId
-          ? rowById.get(slot.sourceCharacterArchetypeId)
-          : undefined
-        const sourceArchetype = sourceRow
-          ? (archetypeByRowId.get(sourceRow.id) ?? null)
-          : null
-        const isValid =
-          slot.skillKey === null
-            ? true
-            : sourceArchetype !== null &&
-              isInheritableSkill(
-                sourceArchetype,
-                sourceRow!.rank,
-                slot.skillKey
-              )
-        return {
-          slotIndex: slot.slotIndex,
-          sourceCharacterArchetypeId: slot.sourceCharacterArchetypeId,
-          skillKey: slot.skillKey,
-          sourceArchetype,
-          resolved: slot.skillKey ? resolveSkillByKey(slot.skillKey) : null,
-          isValid,
-        }
-      }
-    )
-
-    return [
-      {
+      const { ranks, synthesis } = resolveArchetypeRankedSkills(
         archetype,
-        row,
-        isActive: row.id === character.activeArchetypeId,
-        ranks,
-        synthesis,
-        slots,
-      },
-    ]
-  })
+        character.maxHP,
+        stats,
+        partyComposition,
+        lookups
+      )
+
+      const slots: ResolvedInheritanceSlot[] = row.inheritanceSlots.map(
+        (slot) => {
+          const sourceRow = slot.sourceCharacterArchetypeId
+            ? rowById.get(slot.sourceCharacterArchetypeId)
+            : undefined
+          const sourceArchetype = sourceRow
+            ? (archetypeByRowId.get(sourceRow.id) ?? null)
+            : null
+          const isValid =
+            slot.skillKey === null
+              ? true
+              : sourceArchetype !== null &&
+                isInheritableSkill(
+                  sourceArchetype,
+                  sourceRow!.rank,
+                  slot.skillKey
+                )
+          return {
+            slotIndex: slot.slotIndex,
+            sourceCharacterArchetypeId: slot.sourceCharacterArchetypeId,
+            skillKey: slot.skillKey,
+            sourceArchetype,
+            resolved: slot.skillKey ? resolveSkillByKey(slot.skillKey) : null,
+            isValid,
+          }
+        }
+      )
+
+      return [
+        {
+          archetype,
+          row,
+          isActive: row.id === character.activeArchetypeId,
+          ranks,
+          synthesis,
+          slots,
+        },
+      ]
+    })
+  }
 }
 
 const LINEAGE_ORDER: Record<Lineage, number> = Object.fromEntries(
@@ -269,13 +268,16 @@ export interface ArchetypeDisplay {
  * layout.
  */
 export function getArchetypeDisplay(
-  character: HydratedCharacter,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup,
-  context?: CombatContext
-): ArchetypeDisplay {
-  const entries = buildArchetypeEntries(character, lookups, context)
-  return {
-    activeEntry: entries.find((entry) => entry.isActive) ?? null,
+  lookups: Pick<GameData, "getArchetype" | "getSkill" | "getEquippableItem">
+) {
+  return (
+    character: HydratedCharacter,
+    context?: CombatContext
+  ): ArchetypeDisplay => {
+    const entries = buildArchetypeEntries(lookups)(character, context)
+    return {
+      activeEntry: entries.find((entry) => entry.isActive) ?? null,
+    }
   }
 }
 
@@ -305,39 +307,40 @@ export interface ArchetypeSwitcherGroup {
  * Archetype are omitted.
  */
 export function archetypeSwitcherGroups(
-  character: HydratedCharacter,
-  lookups: Pick<ArchetypeLookup, "getArchetype">
-): ArchetypeSwitcherGroup[] {
-  const grouped = new Map<Lineage, ArchetypeSwitcherOption[]>()
-  for (const row of character.archetypeRows) {
-    const archetype = lookups.getArchetype(row.archetypeKey)
-    if (!archetype) continue
-    const bucket = grouped.get(archetype.lineage) ?? []
-    bucket.push({
-      id: row.id,
-      name: archetype.name,
-      tier: archetype.tier,
-      rank: row.rank,
-      mechanicName: archetype.mechanic
-        ? // Stryker disable next-line OptionalChaining: equivalent — the registry validator rejects any Archetype whose mechanic key does not resolve, so getMechanic is never undefined here.
-          (getMechanic(archetype.mechanic)?.displayName ?? null)
-        : null,
-    })
-    grouped.set(archetype.lineage, bucket)
-  }
+  lookups: Pick<GameData, "getArchetype">
+) {
+  return (character: HydratedCharacter): ArchetypeSwitcherGroup[] => {
+    const grouped = new Map<Lineage, ArchetypeSwitcherOption[]>()
+    for (const row of character.archetypeRows) {
+      const archetype = lookups.getArchetype(row.archetypeKey)
+      if (!archetype) continue
+      const bucket = grouped.get(archetype.lineage) ?? []
+      bucket.push({
+        id: row.id,
+        name: archetype.name,
+        tier: archetype.tier,
+        rank: row.rank,
+        mechanicName: archetype.mechanic
+          ? // Stryker disable next-line OptionalChaining: equivalent — the registry validator rejects any Archetype whose mechanic key does not resolve, so getMechanic is never undefined here.
+            (getMechanic(archetype.mechanic)?.displayName ?? null)
+          : null,
+      })
+      grouped.set(archetype.lineage, bucket)
+    }
 
-  return [...grouped.entries()]
-    .map<ArchetypeSwitcherGroup>(([lineage, options]) => ({
-      lineage,
-      // Stryker disable MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator: equivalent — every shipped Archetype is its own Lineage, so two options in one bucket are rows of the SAME Archetype with identical tier and name; the within-bucket tier/name comparator can never observably reorder them.
-      options: [...options].sort((a, b) => {
-        const tierDelta = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
-        if (tierDelta !== 0) return tierDelta
-        return a.name.localeCompare(b.name)
-      }),
-      // Stryker restore MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator
-    }))
-    .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
+    return [...grouped.entries()]
+      .map<ArchetypeSwitcherGroup>(([lineage, options]) => ({
+        lineage,
+        // Stryker disable MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator: equivalent — every shipped Archetype is its own Lineage, so two options in one bucket are rows of the SAME Archetype with identical tier and name; the within-bucket tier/name comparator can never observably reorder them.
+        options: [...options].sort((a, b) => {
+          const tierDelta = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
+          if (tierDelta !== 0) return tierDelta
+          return a.name.localeCompare(b.name)
+        }),
+        // Stryker restore MethodExpression,BlockStatement,ArithmeticOperator,ConditionalExpression,EqualityOperator
+      }))
+      .sort((a, b) => LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage])
+  }
 }
 
 /**
@@ -400,31 +403,32 @@ export function sortArchetypesByPath<T extends Archetype>(
  * instead of `"5% HP"` and a missing Attack-Roll section. Switching path
  * re-resolves on the next server revalidate.
  */
-export function previewArchetypeSkills(
-  archetype: Archetype,
-  pathChoice: PathChoice,
-  lookups: SkillLookup
-): { ranks: RankedSkill[]; synthesis: RankedSkill | null } {
-  const stats: StatContext = {
-    pathChoice,
-    level: 1,
-    manualBonuses: {},
-    activeArchetypeKey: archetype.key,
-    activeLineage: archetype.lineage,
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — Rank 2 is below every Archetype's Mastery Rank, so this entry contributes no Mastery; `baseAttributes` (below) independently drives the attribute computation, so emptying/blanking it leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
-    archetypes: [{ key: archetype.key, rank: 2, mastery: archetype.mastery }],
-    equippedItems: [],
-    // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
-    activeSkills: [],
-    activeMechanic: null,
-    baseAttributes: baseAttributesForArchetype(archetype),
-    baseAffinities: baseAffinitiesForArchetype(archetype),
+export function previewArchetypeSkills(lookups: Pick<GameData, "getSkill">) {
+  return (
+    archetype: Archetype,
+    pathChoice: PathChoice
+  ): { ranks: RankedSkill[]; synthesis: RankedSkill | null } => {
+    const stats: StatContext = {
+      pathChoice,
+      level: 1,
+      manualBonuses: {},
+      activeArchetypeKey: archetype.key,
+      activeLineage: archetype.lineage,
+      // Stryker disable next-line ArrayDeclaration,ObjectLiteral: equivalent — Rank 2 is below every Archetype's Mastery Rank, so this entry contributes no Mastery; `baseAttributes` (below) independently drives the attribute computation, so emptying/blanking it leaves the previewed Archetype's attributes, maxHP, and Attack Rolls unchanged.
+      archetypes: [{ key: archetype.key, rank: 2, mastery: archetype.mastery }],
+      equippedItems: [],
+      // Stryker disable next-line ArrayDeclaration: equivalent — a junk activeSkills entry resolves to no passive, so it never changes the resolved cost or Attack Roll the preview surfaces.
+      activeSkills: [],
+      activeMechanic: null,
+      baseAttributes: baseAttributesForArchetype(archetype),
+      baseAffinities: baseAffinitiesForArchetype(archetype),
+    }
+    return resolveArchetypeRankedSkills(
+      archetype,
+      computeMaxHP(stats),
+      stats,
+      null,
+      lookups
+    )
   }
-  return resolveArchetypeRankedSkills(
-    archetype,
-    computeMaxHP(stats),
-    stats,
-    null,
-    lookups
-  )
 }

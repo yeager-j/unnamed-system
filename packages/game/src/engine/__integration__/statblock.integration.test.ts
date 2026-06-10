@@ -96,7 +96,7 @@ describe("statblockFromCharacter", () => {
 
 describe("statblockFromEnemy", () => {
   it("derives the catalog enemy's flat sheet, hydrated skills, and abilities", () => {
-    const statblock = statblockFromEnemy(fxEnemy, TEST_DATA)
+    const statblock = statblockFromEnemy(TEST_DATA)(fxEnemy)
 
     expect(statblock.source).toBe("enemy")
     expect(statblock.name).toBe(fxEnemy.name)
@@ -110,7 +110,7 @@ describe("statblockFromEnemy", () => {
   })
 
   it("hydrates one Skill per skillKey against the enemy's flat Attributes", () => {
-    const statblock = statblockFromEnemy(fxEnemy, TEST_DATA)
+    const statblock = statblockFromEnemy(TEST_DATA)(fxEnemy)
     expect(statblock.skills).toHaveLength(fxEnemy.skillKeys.length)
     // garu / zio are attack Skills, so each resolves an Attack Roll off the
     // enemy's flat Attributes.
@@ -121,7 +121,7 @@ describe("statblockFromEnemy", () => {
 
   it("carries null abilities and no skills for a bare stat block", () => {
     const bare = makeEnemy({ key: "test-dummy", name: "Test Dummy" })
-    const statblock = statblockFromEnemy(bare, TEST_DATA)
+    const statblock = statblockFromEnemy(TEST_DATA)(bare)
 
     expect(statblock.abilities).toBeNull()
     expect(statblock.skills).toEqual([])
@@ -132,15 +132,12 @@ describe("resolveCatalogEnemyStatblocks", () => {
   const ref = (r: CombatantRef) => ({ ref: r })
 
   it("resolves each catalog enemy once; skips pcs, inline enemies, and unknown keys", () => {
-    const map = resolveCatalogEnemyStatblocks(
-      [
-        ref({ kind: "pc", characterId: "char-1" }),
-        ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
-        ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
-        ref({ kind: "catalog-enemy", enemyKey: "not-a-real-enemy" }),
-      ],
-      TEST_DATA
-    )
+    const map = resolveCatalogEnemyStatblocks(TEST_DATA)([
+      ref({ kind: "pc", characterId: "char-1" }),
+      ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
+      ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
+      ref({ kind: "catalog-enemy", enemyKey: "not-a-real-enemy" }),
+    ])
 
     // Only the resolvable catalog enemy lands in the map (pc / unknown excluded).
     expect(Object.keys(map)).toEqual(["goblin"])
@@ -149,6 +146,6 @@ describe("resolveCatalogEnemyStatblocks", () => {
   })
 
   it("returns an empty map for a roster with no catalog enemies", () => {
-    expect(resolveCatalogEnemyStatblocks([], TEST_DATA)).toEqual({})
+    expect(resolveCatalogEnemyStatblocks(TEST_DATA)([])).toEqual({})
   })
 })

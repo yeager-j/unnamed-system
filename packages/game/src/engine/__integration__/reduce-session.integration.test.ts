@@ -42,7 +42,7 @@ function enemyStatBlock() {
 
 /** A fresh session with the first combatant drafted as the current actor. */
 function startedSession() {
-  const session = createCombatSession(SETUP, sequentialIds())
+  const session = createCombatSession(sequentialIds())(SETUP)
   return { ...session, currentActorId: session.combatants[0]!.id }
 }
 
@@ -77,7 +77,7 @@ describe("reduceCombatSession — endTurn", () => {
   })
 
   it("is a no-op when there is no current actor", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, { kind: "endTurn" })
 
@@ -85,7 +85,7 @@ describe("reduceCombatSession — endTurn", () => {
   })
 
   it("mints a real id via the default generator when none is supplied", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, { kind: "addZone", name: "Gate" })
 
@@ -99,7 +99,7 @@ describe("reduceCombatSession — endTurn", () => {
 
 describe("reduceCombatSession — startCombat", () => {
   it("records advantage and firstSide on a fresh draft session", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "startCombat",
@@ -112,7 +112,7 @@ describe("reduceCombatSession — startCombat", () => {
   })
 
   it("records firstSide even when advantage is neutral", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "startCombat",
@@ -125,7 +125,7 @@ describe("reduceCombatSession — startCombat", () => {
   })
 
   it("records a non-neutral advantage and firstSide verbatim, without normalising them", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "startCombat",
@@ -138,7 +138,7 @@ describe("reduceCombatSession — startCombat", () => {
   })
 
   it("is a no-op on an already-started session (cannot start twice)", () => {
-    const started = reduceCombat(createCombatSession(SETUP, sequentialIds()), {
+    const started = reduceCombat(createCombatSession(sequentialIds())(SETUP), {
       kind: "startCombat",
       advantage: "players",
       firstSide: "players",
@@ -156,7 +156,7 @@ describe("reduceCombatSession — startCombat", () => {
   })
 
   it("does not mutate a frozen draft input", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
     Object.freeze(session)
     Object.freeze(session.combatants)
 
@@ -178,7 +178,7 @@ describe("reduceCombatSession — draftCombatant", () => {
     ailments: string[],
     reactionAvailable: boolean
   ): CombatSession {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
     const [first, ...rest] = session.combatants
     return {
       ...session,
@@ -187,7 +187,7 @@ describe("reduceCombatSession — draftCombatant", () => {
   }
 
   it("sets currentActorId to the drafted combatant", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "draftCombatant",
@@ -210,7 +210,7 @@ describe("reduceCombatSession — draftCombatant", () => {
   })
 
   it("refreshes the whole action economy (move + standard + reaction)", () => {
-    const fresh = createCombatSession(SETUP, sequentialIds())
+    const fresh = createCombatSession(sequentialIds())(SETUP)
     const [first, ...rest] = fresh.combatants
     const spent: CombatSession = {
       ...fresh,
@@ -236,7 +236,7 @@ describe("reduceCombatSession — draftCombatant", () => {
   })
 
   it("does not mark the drafted combatant as acted", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "draftCombatant",
@@ -247,7 +247,7 @@ describe("reduceCombatSession — draftCombatant", () => {
   })
 
   it("is a no-op for an unknown combatant id (returns the same session)", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "draftCombatant",
@@ -260,7 +260,7 @@ describe("reduceCombatSession — draftCombatant", () => {
 
 describe("reduceCombatSession — DM overrides", () => {
   it("setCurrentActor points the actor at any combatant without touching acted flags", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(session, {
       kind: "setCurrentActor",
@@ -298,7 +298,7 @@ describe("reduceCombatSession — DM overrides", () => {
   })
 
   it("setActed can un-flag a combatant (hasActed: false)", () => {
-    const fresh = createCombatSession(SETUP, sequentialIds())
+    const fresh = createCombatSession(sequentialIds())(SETUP)
     const session: CombatSession = {
       ...fresh,
       combatants: [
@@ -683,7 +683,7 @@ describe("reduceCombatSession — adjustBattleConditionAxis", () => {
 describe("reduceCombatSession — endTurn duration clock", () => {
   /** Both combatants get `attack: 2`; the first is the current actor. */
   function startedWithDurations() {
-    const fresh = createCombatSession(SETUP, sequentialIds())
+    const fresh = createCombatSession(sequentialIds())(SETUP)
     const [first, second] = fresh.combatants
     return {
       ...fresh,
@@ -749,7 +749,7 @@ describe("reduceCombatSession — endTurn duration clock", () => {
   })
 
   it("marks the actual current actor as acted, not merely the first combatant", () => {
-    const base = createCombatSession(SETUP, sequentialIds())
+    const base = createCombatSession(sequentialIds())(SETUP)
     const session = { ...base, currentActorId: base.combatants[1]!.id }
 
     const next = reduceCombat(session, { kind: "endTurn" })
@@ -759,7 +759,7 @@ describe("reduceCombatSession — endTurn duration clock", () => {
   })
 
   it("is a no-op when the current actor id matches no combatant", () => {
-    const base = createCombatSession(SETUP, sequentialIds())
+    const base = createCombatSession(sequentialIds())(SETUP)
     const session = { ...base, currentActorId: "ghost" }
 
     const next = reduceCombat(session, { kind: "endTurn" })

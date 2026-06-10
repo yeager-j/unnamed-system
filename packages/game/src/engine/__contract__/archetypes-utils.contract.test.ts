@@ -20,10 +20,9 @@ import {
  */
 describe("archetype utils — real catalog (smoke)", () => {
   it("resolves a shipped Archetype's %HP costs and Attack Rolls in the builder preview", () => {
-    const { ranks, synthesis } = previewArchetypeSkills(
+    const { ranks, synthesis } = previewArchetypeSkills(gameData)(
       warrior,
-      "balanced",
-      gameData
+      "balanced"
     )
     expect(ranks).toHaveLength(warrior.skills.length)
     expect(synthesis?.key).toBe(warrior.synthesisSkill!.skill)
@@ -42,7 +41,7 @@ describe("archetype utils — real catalog (smoke)", () => {
       row: { activeArchetypeId: "a" },
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    expect(buildArchetypeEntries(c, gameData)[0]?.archetype.key).toBe("warrior")
-    expect(archetypeSwitcherGroups(c, gameData)[0]?.lineage).toBe("warrior")
+    expect(buildArchetypeEntries(gameData)(c)[0]?.archetype.key).toBe("warrior")
+    expect(archetypeSwitcherGroups(gameData)(c)[0]?.lineage).toBe("warrior")
   })
 })

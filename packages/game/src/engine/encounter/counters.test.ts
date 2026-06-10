@@ -30,7 +30,7 @@ const SETUP: CombatantSetup[] = [
 ]
 
 function build() {
-  return createCombatSession(SETUP, sequentialIds())
+  return createCombatSession(sequentialIds())(SETUP)
 }
 
 function countersOf(

@@ -19,7 +19,7 @@ function sequentialIds() {
 
 /** A session with one combatant placed in `zone-a` and a `zone-b` it can move to. */
 function placedSession() {
-  const base = createCombatSession(SETUP, sequentialIds())
+  const base = createCombatSession(sequentialIds())(SETUP)
   return {
     ...base,
     zones: {
@@ -44,10 +44,9 @@ describe("reduceCombatSession — moveCombatant", () => {
   })
 
   it("places an unplaced combatant into a starting zone", () => {
-    const base = createCombatSession(
-      [{ side: "players", ref: { kind: "pc", characterId: "x" }, zoneId: "" }],
-      sequentialIds()
-    )
+    const base = createCombatSession(sequentialIds())([
+      { side: "players", ref: { kind: "pc", characterId: "x" }, zoneId: "" },
+    ])
     const session = {
       ...base,
       zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },

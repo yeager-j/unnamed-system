@@ -96,10 +96,10 @@ const snap = (
 
 describe("projectPlayerSnapshot", () => {
   it("redacts enemy attributes and affinities entirely (UNN-324)", () => {
-    const session = createCombatSession(
-      [pc("char-aria"), catalogEnemy("goblin")],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      pc("char-aria"),
+      catalogEnemy("goblin"),
+    ])
 
     const snapshot = snap(encounter(session, "live"), {
       "char-aria": ARIA,
@@ -114,7 +114,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("surfaces an enemy's counters (Illuminated is public, not redacted)", () => {
-    const base = createCombatSession([catalogEnemy("goblin")], sequentialIds())
+    const base = createCombatSession(sequentialIds())([catalogEnemy("goblin")])
     const session: CombatSession = {
       ...base,
       combatants: base.combatants.map((c) => ({
@@ -130,7 +130,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("keeps PC HP, SP, and attributes fully visible (UNN-324)", () => {
-    const session = createCombatSession([pc("char-aria")], sequentialIds())
+    const session = createCombatSession(sequentialIds())([pc("char-aria")])
 
     const snapshot = snap(encounter(session, "live"), {
       "char-aria": ARIA,
@@ -146,7 +146,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("defaults a PC's pools and attributes to zero when its detail is missing", () => {
-    const session = createCombatSession([pc("char-ghost")], sequentialIds())
+    const session = createCombatSession(sequentialIds())([pc("char-ghost")])
 
     const [player] = snap(encounter(session, "live"), {}).combatants
 
@@ -159,10 +159,9 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves a catalog enemy's HP to its definition max and gives it no SP", () => {
-    const session = createCombatSession(
-      [catalogEnemy("goblin")],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      catalogEnemy("goblin"),
+    ])
 
     const [enemy] = snap(encounter(session, "live"), {}).combatants
     expect(enemy).toMatchObject({
@@ -174,7 +173,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("carries an inline enemy's working HP and SP off its stat block", () => {
-    const session = createCombatSession([inlineEnemy()], sequentialIds())
+    const session = createCombatSession(sequentialIds())([inlineEnemy()])
 
     const [enemy] = snap(encounter(session, "live"), {}).combatants
     expect(enemy).toMatchObject({
@@ -186,10 +185,10 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("lists combatants in session order with acted + current flags", () => {
-    const base = createCombatSession(
-      [pc("char-aria"), catalogEnemy("goblin")],
-      sequentialIds()
-    )
+    const base = createCombatSession(sequentialIds())([
+      pc("char-aria"),
+      catalogEnemy("goblin"),
+    ])
     const session: CombatSession = {
       ...base,
       currentActorId: "c-0",
@@ -214,10 +213,10 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves engagement target ids to names; Free combatants list none", () => {
-    const base = createCombatSession(
-      [pc("char-aria"), catalogEnemy("goblin")],
-      sequentialIds()
-    )
+    const base = createCombatSession(sequentialIds())([
+      pc("char-aria"),
+      catalogEnemy("goblin"),
+    ])
     // c-0 (Aria) engaged with c-1 (Goblin); the Goblin is left Free.
     const session: CombatSession = {
       ...base,
@@ -243,7 +242,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves the current actor's name + side, or null when none is acting", () => {
-    const base = createCombatSession([pc("char-aria")], sequentialIds())
+    const base = createCombatSession(sequentialIds())([pc("char-aria")])
 
     const live: CombatSession = { ...base, currentActorId: "c-0" }
     expect(
@@ -256,7 +255,7 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("passes through status, name, round, and the ordered zone list", () => {
-    const base = createCombatSession([pc("char-aria", "z1")], sequentialIds())
+    const base = createCombatSession(sequentialIds())([pc("char-aria", "z1")])
     const session: CombatSession = {
       ...base,
       round: 3,

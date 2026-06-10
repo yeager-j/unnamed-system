@@ -50,16 +50,13 @@ const CAMPAIGN_ID = "campaign-1"
 
 /** A started session: one combatant drafted as the current actor, still a draft. */
 function startedSession(): CombatSession {
-  const session = createCombatSession(
-    [
-      {
-        side: "players",
-        ref: { kind: "pc", characterId: "char-1" },
-        zoneId: "z",
-      },
-    ],
-    () => "combatant-0"
-  )
+  const session = createCombatSession(() => "combatant-0")([
+    {
+      side: "players",
+      ref: { kind: "pc", characterId: "char-1" },
+      zoneId: "z",
+    },
+  ])
   return { ...session, currentActorId: "combatant-0" }
 }
 

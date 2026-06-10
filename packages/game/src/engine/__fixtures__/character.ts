@@ -214,5 +214,5 @@ export function makeHydratedCharacter(
   overrides: Parameters<typeof makeRawCharacterInputs>[0] = {},
   data: GameData = makeTestGameData()
 ): HydratedCharacter {
-  return deriveHydratedCharacter(makeRawCharacterInputs(overrides), data)
+  return deriveHydratedCharacter(data)(makeRawCharacterInputs(overrides))
 }

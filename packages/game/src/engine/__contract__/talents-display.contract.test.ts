@@ -13,11 +13,11 @@ import {
  */
 describe("talents display — real catalog (smoke)", () => {
   it("shapes a shipped Archetype's inherited chips and Origin from the real catalog", () => {
-    const { chips } = resolveTalentsForSheet([], "warrior", gameData)
+    const { chips } = resolveTalentsForSheet(gameData)([], "warrior")
     expect(chips.length).toBeGreaterThan(0)
     expect(chips.every((chip) => chip.inherited)).toBe(true)
 
-    const { origin } = resolveTalentsForBuilder("warrior", gameData)
+    const { origin } = resolveTalentsForBuilder(gameData)("warrior")
     expect(origin.length).toBeGreaterThan(0)
   })
 })

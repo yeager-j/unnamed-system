@@ -11,7 +11,7 @@ import { reduceRoundEvent } from "@workspace/game/engine/encounter/reduce/round"
 import { reduceTurnEvent } from "@workspace/game/engine/encounter/reduce/turn"
 import { reduceStartCombatEvent } from "@workspace/game/engine/encounter/reduce/turn-start"
 import { reduceZoneGraphEvent } from "@workspace/game/engine/encounter/reduce/zones"
-import { type EnemyLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
 
@@ -39,60 +39,60 @@ export type { CombatEvent } from "@workspace/game/foundation/encounter/session-e
  * no default seam.
  */
 export function reduceCombatSession(
-  session: CombatSession,
-  event: CombatEvent,
-  lookups: Pick<EnemyLookup, "getEnemy">,
+  lookups: Pick<GameData, "getEnemy">,
   newId: () => string
-): CombatSession {
-  switch (event.kind) {
-    case "endTurn":
-      return reduceTurnEvent(session, event)
+) {
+  return (session: CombatSession, event: CombatEvent): CombatSession => {
+    switch (event.kind) {
+      case "endTurn":
+        return reduceTurnEvent(session, event)
 
-    case "startCombat":
-      return reduceStartCombatEvent(session, event)
+      case "startCombat":
+        return reduceStartCombatEvent(session, event)
 
-    case "draftCombatant":
-      return reduceDraftCombatantEvent(session, event)
+      case "draftCombatant":
+        return reduceDraftCombatantEvent(session, event)
 
-    case "advanceRound":
-    case "addCombatant":
-    case "removeCombatant":
-      return reduceRoundEvent(session, event, newId)
+      case "advanceRound":
+      case "addCombatant":
+      case "removeCombatant":
+        return reduceRoundEvent(session, event, newId)
 
-    case "adjustBattleConditionAxis":
-    case "setBattleConditionFlag":
-      return reduceBattleConditionEvent(session, event)
+      case "adjustBattleConditionAxis":
+      case "setBattleConditionFlag":
+        return reduceBattleConditionEvent(session, event)
 
-    case "setAilment":
-    case "clearAilment":
-      return reduceAilmentEvent(session, event)
+      case "setAilment":
+      case "clearAilment":
+        return reduceAilmentEvent(session, event)
 
-    case "adjustCounter":
-    case "clearCounter":
-      return reduceCounterEvent(session, event)
+      case "adjustCounter":
+      case "clearCounter":
+        return reduceCounterEvent(session, event)
 
-    case "setActionEconomy":
-      return reduceActionEconomyEvent(session, event)
+      case "setActionEconomy":
+        return reduceActionEconomyEvent(session, event)
 
-    case "adjustEnemyVitals":
-      return reduceEnemyVitalsEvent(session, event, lookups)
+      case "adjustEnemyVitals":
+        return reduceEnemyVitalsEvent(session, event, lookups)
 
-    case "setCurrentActor":
-    case "setActed":
-    case "setRound":
-      return reduceOverrideEvent(session, event)
+      case "setCurrentActor":
+      case "setActed":
+      case "setRound":
+        return reduceOverrideEvent(session, event)
 
-    case "addZone":
-    case "removeZone":
-    case "setZoneAdjacency":
-    case "renameZone":
-      return reduceZoneGraphEvent(session, event, newId)
+      case "addZone":
+      case "removeZone":
+      case "setZoneAdjacency":
+      case "renameZone":
+        return reduceZoneGraphEvent(session, event, newId)
 
-    case "moveCombatant":
-      return reducePlacementEvent(session, event)
+      case "moveCombatant":
+        return reducePlacementEvent(session, event)
 
-    case "setEngagement":
-    case "clearEngagement":
-      return reduceEngagementEvent(session, event)
+      case "setEngagement":
+      case "clearEngagement":
+        return reduceEngagementEvent(session, event)
+    }
   }
 }
