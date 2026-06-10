@@ -89,6 +89,13 @@ export interface EncounterSnapshot {
   name: string
   /** The owning campaign's public `shortId`, for the watch view's back link. */
   campaignShortId: string
+  /**
+   * The encounter row's optimistic version token at projection time (UNN-371).
+   * The watch hook compares it against realtime ping versions to decide
+   * whether a refetch is needed — the same advisory number the invalidation
+   * ping already publishes on the public channel, so it leaks nothing new.
+   */
+  version: number
   round: number
   currentActor: PlayerCurrentActor | null
   combatants: PlayerVisibleCombatant[]
@@ -183,6 +190,7 @@ export function projectPlayerSnapshot(
     name: string
     status: EncounterStatus
     campaignShortId: string
+    version: number
     session: CombatSession
   },
   pcDetailById: Record<string, PcCombatantDetail>,
@@ -203,6 +211,7 @@ export function projectPlayerSnapshot(
     status: encounter.status,
     name: encounter.name,
     campaignShortId: encounter.campaignShortId,
+    version: encounter.version,
     round: session.round,
     currentActor: actor
       ? {
