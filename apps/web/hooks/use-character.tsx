@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import {
   createContext,
   useContext,
@@ -23,6 +24,11 @@ import {
 } from "@/lib/db/version-classes"
 import { reduceCharacter } from "@/lib/game-engine"
 
+import {
+  mergePingedVersions,
+  parseCharacterPing,
+  type PingedVersions,
+} from "./character-version-sync"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useCharacterTokenRef } from "./use-character-token-ref"
 import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
@@ -31,6 +37,7 @@ import {
   type UseDebouncedAutoSaveArgs,
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
+import { useRealtimeChannel } from "./use-realtime-channel"
 
 /**
  * The single client-side source of truth for the character sheet. The provider
@@ -49,8 +56,13 @@ import {
  * On a read-only sheet nothing dispatches, so `useCharacter()` simply returns
  * the never-mutated server value.
  *
- * Also mounts the per-character `BroadcastChannel` listener (UNN-203) so a
- * sibling tab's successful write refreshes this tab.
+ * Also mounts both remote-change listeners — the per-character
+ * `BroadcastChannel` (UNN-203, cross-tab) and the Ably invalidation channel
+ * (UNN-372, cross-user) — funneled through one version-compare: a ping whose
+ * versions beat the local refs forwards them and `router.refresh()`es; the
+ * writer's own tab (and any tab the other transport already reached) sees
+ * nothing fresher and skips. Works signed-out too: the public sheet
+ * subscribes by knowledge of the shortId, same as the snapshot API.
  */
 
 const CharacterContext = createContext<HydratedCharacter | null>(null)
@@ -83,7 +95,7 @@ export function CharacterProvider({
   character: HydratedCharacter
   children: React.ReactNode
 }) {
-  useCharacterVersionBroadcast(character.id)
+  const router = useRouter()
 
   const [optimisticCharacter, applyEdit] = useOptimistic(
     character,
@@ -117,6 +129,25 @@ export function CharacterProvider({
       progression: progressionQueue,
     },
   }
+
+  // The shared remote-change handler (UNN-372): both transports — the Ably
+  // ping and the UNN-203 cross-tab broadcast — funnel here, so a tab whose
+  // refs are already current (the writer itself, or a tab the other transport
+  // reached first) skips the redundant refresh.
+  function applyRemoteVersions(versions: PingedVersions) {
+    if (mergePingedVersions(versions, editor.versionRefs)) router.refresh()
+  }
+
+  useCharacterVersionBroadcast(character.id, applyRemoteVersions)
+  useRealtimeChannel({
+    domain: "character",
+    shortId: character.shortId,
+    onPing: (data) => {
+      const versions = parseCharacterPing(data)
+      if (versions) applyRemoteVersions(versions)
+    },
+    onReconnect: () => router.refresh(),
+  })
 
   return (
     <CharacterEditorContext.Provider value={editor}>

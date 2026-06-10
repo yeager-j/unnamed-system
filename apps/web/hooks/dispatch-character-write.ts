@@ -19,8 +19,8 @@ import { broadcastCharacterVersion } from "./use-character-versions-broadcast"
  *
  * Pipeline:
  * 1. Call `action` with the current `versionRef` value.
- * 2. On success: update `versionRef` from the response, broadcast a
- *    class-tagged invalidation to sibling tabs, return the result.
+ * 2. On success: update `versionRef` from the response, broadcast the
+ *    class's new version to sibling tabs, return the result.
  * 3. On `"stale"`: refetch the fresh version for the affected class,
  *    update `versionRef`, retry `action` *once*. A second `"stale"` means a
  *    real concurrent third-party write — fall through to the caller's
@@ -36,7 +36,7 @@ import { broadcastCharacterVersion } from "./use-character-versions-broadcast"
  * waiting for React commit + effects to propagate the new prop.
  *
  * Callers name the edit `surface`, not the version class (UNN-254): the
- * class — needed only for the cross-tab broadcast tag and the
+ * class — needed only for the cross-tab broadcast key and the
  * `${class}Version` refetch field — is resolved here from
  * {@link EDIT_SURFACE_CLASS}, the one place surface→class lives (UNN-233).
  * Every client call site therefore names a surface and nothing else.
@@ -59,7 +59,9 @@ export async function dispatchCharacterWriteWithRetry<
   const first = await action(versionRef.current)
   if (first.ok) {
     versionRef.current = first.value.version
-    broadcastCharacterVersion(characterId, [characterClass])
+    broadcastCharacterVersion(characterId, {
+      [characterClass]: first.value.version,
+    })
     return first
   }
   if (first.error !== "stale") return first
@@ -71,7 +73,9 @@ export async function dispatchCharacterWriteWithRetry<
   const second = await action(versionRef.current)
   if (second.ok) {
     versionRef.current = second.value.version
-    broadcastCharacterVersion(characterId, [characterClass])
+    broadcastCharacterVersion(characterId, {
+      [characterClass]: second.value.version,
+    })
   }
   return second
 }

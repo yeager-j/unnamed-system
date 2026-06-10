@@ -76,7 +76,7 @@ export function LevelUpDialog({
       })
 
       if (result.ok) {
-        broadcastCharacterVersion(character.id, ["progression", "vitals"])
+        broadcastCharacterVersion(character.id, result.value.versions)
         onOpenChange(false)
         toast.success(`Leveled up to Level ${nextLevel}.`)
         return
