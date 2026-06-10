@@ -12,6 +12,7 @@ import { CharacterPlacementSection } from "@/components/campaign/character-place
 import { CreateEncounterButton } from "@/components/campaign/create-encounter-button"
 import { DeleteCampaignButton } from "@/components/campaign/delete-campaign-button"
 import { EncounterList } from "@/components/campaign/encounter-list"
+import { EncounterStatusListener } from "@/components/campaign/encounter-status-listener"
 import { JoinLinkCard } from "@/components/campaign/join-link-card"
 import { LeaveCampaignButton } from "@/components/campaign/leave-campaign-button"
 import { LiveEncounterBanner } from "@/components/campaign/live-encounter-banner"
@@ -25,12 +26,24 @@ import {
 import {
   loadEncountersForCampaign,
   loadLiveEncounterForCampaign,
+  type EncounterSummary,
 } from "@/lib/db/queries/load-encounter"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import { initials } from "@/lib/ui/initials"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
+}
+
+/**
+ * The live-banner listener's subscribe set: every **non-ended** encounter,
+ * drafts included — a draft going live is exactly the transition the banner
+ * must hear without a reload (UNN-373).
+ */
+function activeEncounters(encounters: EncounterSummary[]) {
+  return encounters
+    .filter((encounter) => encounter.status !== "ended")
+    .map(({ shortId, status }) => ({ shortId, status }))
 }
 
 /** Per-request memoized campaign lookup so `generateMetadata` and the page share
@@ -100,6 +113,7 @@ async function DmManageView({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-6">
+      <EncounterStatusListener encounters={activeEncounters(encounters)} />
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-xl font-medium">{campaign.name}</h1>
         {campaign.description ? (
@@ -155,13 +169,15 @@ async function MemberOverview({
   campaign: CampaignRow
   viewerId: string
 }) {
-  const [roster, liveEncounter] = await Promise.all([
+  const [roster, encounters, liveEncounter] = await Promise.all([
     loadCampaignRoster(campaign.id),
+    loadEncountersForCampaign(campaign.id),
     loadLiveEncounterForCampaign(campaign.id),
   ])
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-6">
+      <EncounterStatusListener encounters={activeEncounters(encounters)} />
       <header className="flex flex-col gap-1">
         <h1 className="font-heading text-xl font-medium">{campaign.name}</h1>
         {campaign.description ? (

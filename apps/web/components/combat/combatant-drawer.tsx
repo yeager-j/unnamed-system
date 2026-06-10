@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import type { RefObject } from "react"
 
 import { type CombatantDetail } from "@workspace/game/engine"
 import { type CombatEvent } from "@workspace/game/foundation"
@@ -46,10 +47,13 @@ export function CombatantDrawer({
   detail,
   onClose,
   onCombatEvent,
+  pcVitalsVersions,
 }: {
   detail: CombatantDetail | null
   onClose: () => void
   onCombatEvent: (event: CombatEvent) => void
+  /** The console-owned per-PC vitals tokens the pools writes share (UNN-373). */
+  pcVitalsVersions: RefObject<Record<string, number>>
 }) {
   return (
     <ResponsiveDialog
@@ -57,7 +61,11 @@ export function CombatantDrawer({
       onOpenChange={(open) => !open && onClose()}
     >
       {detail ? (
-        <DrawerBody detail={detail} onCombatEvent={onCombatEvent} />
+        <DrawerBody
+          detail={detail}
+          onCombatEvent={onCombatEvent}
+          pcVitalsVersions={pcVitalsVersions}
+        />
       ) : null}
     </ResponsiveDialog>
   )
@@ -66,9 +74,11 @@ export function CombatantDrawer({
 function DrawerBody({
   detail,
   onCombatEvent,
+  pcVitalsVersions,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent) => void
+  pcVitalsVersions: RefObject<Record<string, number>>
 }) {
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
@@ -89,7 +99,11 @@ function DrawerBody({
           detail={detail}
           onCombatEvent={onCombatEvent}
         />
-        <CombatantVitalsSection detail={detail} onCombatEvent={onCombatEvent} />
+        <CombatantVitalsSection
+          detail={detail}
+          onCombatEvent={onCombatEvent}
+          pcVitalsVersions={pcVitalsVersions}
+        />
         <CombatantConditionsSection
           detail={detail}
           onCombatEvent={onCombatEvent}

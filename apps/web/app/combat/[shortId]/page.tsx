@@ -108,11 +108,17 @@ export default async function CombatPage({ params }: PageProps) {
               },
             ])
         )
+      // The realtime channel key per PC (UNN-373) — app-layer transport data,
+      // deliberately not part of the engine's PcCombatantDetail view-model.
+      const pcShortIdById: Record<string, string> = Object.fromEntries(
+        hydrated.filter((c) => c !== null).map((c) => [c.id, c.shortId])
+      )
       return (
         <CombatConsole
           encounter={encounter}
           campaignShortId={campaignShortId}
           pcDetailById={pcDetailById}
+          pcShortIdById={pcShortIdById}
         />
       )
     }
