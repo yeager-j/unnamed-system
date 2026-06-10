@@ -36,9 +36,13 @@ export async function POST(request: Request) {
   }
 
   const channel = realtimeChannelName(parsed.data.domain, parsed.data.shortId)
-  const tokenRequest = await client.auth.createTokenRequest({
-    capability: { [channel]: ["subscribe"] },
-  })
-
-  return Response.json({ channel, tokenRequest })
+  try {
+    const tokenRequest = await client.auth.createTokenRequest({
+      capability: { [channel]: ["subscribe"] },
+    })
+    return Response.json({ channel, tokenRequest })
+  } catch (error) {
+    console.error(`Realtime token request failed for ${channel}`, error)
+    return Response.json({ available: false }, { status: 503 })
+  }
 }
