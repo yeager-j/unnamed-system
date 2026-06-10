@@ -73,15 +73,27 @@ export function useEncounterSnapshot(
     fetcherRef.current = fetcher
   })
 
+  // The same don't-set-state-after-unmount guard the polling effect carries,
+  // for the ping/reconnect-triggered fetches below.
+  const unmountedRef = useRef(false)
+  useEffect(() => {
+    unmountedRef.current = false
+    return () => {
+      unmountedRef.current = true
+    }
+  }, [])
+
   function refetch() {
     fetcherRef
       .current(shortId)
       .then((next) => {
+        if (unmountedRef.current) return
         versionRef.current = next.version
         setSnapshot(next)
         setStale(false)
       })
       .catch(() => {
+        if (unmountedRef.current) return
         setStale(true)
       })
   }

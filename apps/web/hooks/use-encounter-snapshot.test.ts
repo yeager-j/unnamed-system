@@ -183,6 +183,25 @@ describe("useEncounterSnapshot — realtime transport (UNN-371)", () => {
     expect(fetcher.mock.calls.length).toBe(callsWhenHealthy)
   })
 
+  it("flags stale when a ping-triggered refetch fails, keeping the last good snapshot", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new Error("network"))
+    const { result } = renderHook(() =>
+      useEncounterSnapshot(
+        "s1",
+        makeSnapshot({ round: 1, version: 1 }),
+        fetcher
+      )
+    )
+    act(() => channelArgs().onAvailabilityChange?.(true))
+
+    await act(async () => {
+      channelArgs().onPing({ version: 2, status: "live" })
+    })
+
+    expect(result.current.stale).toBe(true)
+    expect(result.current.snapshot.round).toBe(1)
+  })
+
   it("refetches exactly once on reconnect to close the offline gap", async () => {
     const fetcher = vi.fn().mockResolvedValue(makeSnapshot({ version: 4 }))
     renderHook(() => useEncounterSnapshot("s1", makeSnapshot(), fetcher))
