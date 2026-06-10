@@ -67,6 +67,7 @@ describe("combatSessionSchema", () => {
           zoneId: "zone-a",
           engagement: { status: "engaged", targetCombatantIds: ["c-2"] },
           conditionDurations: { attack: 3, defense: 1 },
+          counters: {},
         },
         {
           id: "c-2",
@@ -92,6 +93,7 @@ describe("combatSessionSchema", () => {
           zoneId: "zone-a",
           engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
           conditionDurations: {},
+          counters: { lumina: 2 },
         },
       ],
       zones: {

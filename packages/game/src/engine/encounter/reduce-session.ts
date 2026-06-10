@@ -1,6 +1,7 @@
 import { reduceActionEconomyEvent } from "@workspace/game/engine/encounter/reduce/action-economy"
 import { reduceAilmentEvent } from "@workspace/game/engine/encounter/reduce/ailments"
 import { reduceBattleConditionEvent } from "@workspace/game/engine/encounter/reduce/conditions"
+import { reduceCounterEvent } from "@workspace/game/engine/encounter/reduce/counters"
 import { reduceDraftCombatantEvent } from "@workspace/game/engine/encounter/reduce/draft"
 import { reduceEnemyVitalsEvent } from "@workspace/game/engine/encounter/reduce/enemy-vitals"
 import { reduceEngagementEvent } from "@workspace/game/engine/encounter/reduce/engagement"
@@ -65,6 +66,10 @@ export function reduceCombatSession(
     case "setAilment":
     case "clearAilment":
       return reduceAilmentEvent(session, event)
+
+    case "adjustCounter":
+    case "clearCounter":
+      return reduceCounterEvent(session, event)
 
     case "setActionEconomy":
       return reduceActionEconomyEvent(session, event)

@@ -4,6 +4,7 @@ import {
   type ActiveCondition,
   type PlayerVisibleCombatant,
 } from "@workspace/game/engine"
+import { COUNTER_KEYS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -17,6 +18,7 @@ import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,
   COMBAT_SIDE_LABELS,
+  COUNTER_STATUS_LABELS,
 } from "@/lib/ui/labels"
 
 import { VitalBar } from "./vital-bar"
@@ -35,6 +37,9 @@ export function PlayerCombatantCard({
   combatant: PlayerVisibleCombatant
 }) {
   const conditions = activeConditions(combatant.battleConditions)
+  const counters = COUNTER_KEYS.filter(
+    (key) => (combatant.counters[key] ?? 0) > 0
+  )
   // Only combatants with an actual SP resource get a bar — a catalog enemy has
   // none (`sp` is null) and an inline enemy may declare 0 max.
   const sp = combatant.sp && combatant.sp.max > 0 ? combatant.sp : null
@@ -57,7 +62,9 @@ export function PlayerCombatantCard({
         <Pool label="HP" pool={combatant.hp} kind="hp" />
         {sp ? <Pool label="SP" pool={sp} kind="sp" /> : null}
 
-        {combatant.ailments.length > 0 || conditions.length > 0 ? (
+        {combatant.ailments.length > 0 ||
+        conditions.length > 0 ||
+        counters.length > 0 ? (
           <div className="flex flex-wrap gap-1 pt-0.5">
             {combatant.ailments.map((key) => (
               <Badge key={key} variant="destructive">
@@ -69,6 +76,11 @@ export function PlayerCombatantCard({
                 key={conditionKey(condition)}
                 condition={condition}
               />
+            ))}
+            {counters.map((key) => (
+              <Badge key={key} variant="outline">
+                {COUNTER_STATUS_LABELS[key]} ×{combatant.counters[key]}
+              </Badge>
             ))}
           </div>
         ) : null}

@@ -113,6 +113,22 @@ describe("projectPlayerSnapshot", () => {
     expect(GOBLIN.affinities).toBeDefined()
   })
 
+  it("surfaces an enemy's counters (Illuminated is public, not redacted)", () => {
+    const base = createCombatSession([catalogEnemy("goblin")], sequentialIds())
+    const session: CombatSession = {
+      ...base,
+      combatants: base.combatants.map((c) => ({
+        ...c,
+        counters: { lumina: 2 },
+      })),
+    }
+
+    const enemy = snap(encounter(session, "live"), {}).combatants.find(
+      (c) => c.kind === "enemy"
+    )!
+    expect(enemy.counters).toEqual({ lumina: 2 })
+  })
+
   it("keeps PC HP, SP, and attributes fully visible (UNN-324)", () => {
     const session = createCombatSession([pc("char-aria")], sequentialIds())
 

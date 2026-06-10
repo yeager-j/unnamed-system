@@ -8,7 +8,8 @@ import {
 /**
  * Builds one fresh {@link Combatant} from a {@link CombatantSetup} and a minted
  * `id`: no ailments, all battle conditions neutral, every action (move/standard/
- * reaction) available, no active durations, and Free unless setup says otherwise.
+ * reaction) available, no active durations, no counters, and Free unless setup
+ * says otherwise.
  * `hasActedThisRound` is the
  * caller's call — `false` for combatants present at encounter start, `true` for a
  * mid-round joiner so it is queued for the next round (UNN-306). Shared by
@@ -33,6 +34,7 @@ export function makeCombatant(
     zoneId: setup.zoneId,
     engagement: setup.engagement ?? { status: "free" },
     conditionDurations: {},
+    counters: {},
   }
 }
 

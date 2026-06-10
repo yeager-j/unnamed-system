@@ -426,6 +426,7 @@ describe("combatantDetail", () => {
       moveAvailable: false,
       standardAvailable: true,
       reactionAvailable: false,
+      counters: { lumina: 2 },
     })
 
     const detail = combatantDetail(session, "combatant-2", PC_DETAIL, ENEMY_SB)!
@@ -434,6 +435,7 @@ describe("combatantDetail", () => {
     expect(detail.battleConditions.attack).toBe("increased")
     expect(detail.battleConditions.charged).toBe(true)
     expect(detail.conditionDurations).toEqual({ attack: 3 })
+    expect(detail.counters).toEqual({ lumina: 2 })
     expect(detail.actionEconomy).toEqual({
       move: false,
       standard: true,
@@ -444,6 +446,7 @@ describe("combatantDetail", () => {
   it("surfaces the overlay for a PC too (identical shape)", () => {
     const detail = combatantDetail(build(), "combatant-0", PC_DETAIL, ENEMY_SB)!
     expect(detail.ailments).toEqual([])
+    expect(detail.counters).toEqual({})
     expect(detail.actionEconomy).toEqual({
       move: true,
       standard: true,

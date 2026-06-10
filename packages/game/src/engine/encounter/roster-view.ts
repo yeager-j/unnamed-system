@@ -13,6 +13,7 @@ import {
   type Affinity,
   type AffinityDamageType,
 } from "@workspace/game/foundation/combat/affinity"
+import { type Counters } from "@workspace/game/foundation/combat/counters"
 import type {
   Combatant,
   CombatSession,
@@ -108,6 +109,8 @@ export interface RailRow {
    *  zone id. */
   zoneName: string | null
   reactionAvailable: boolean
+  /** Named counters (Lumina, …), sparse — drives the rail's Illuminated badge. */
+  counters: Counters
 }
 
 /** The grouped rail: combatants split by side (session order preserved), plus
@@ -137,6 +140,8 @@ export interface CombatantOverlay {
   battleConditions: BattleConditions
   conditionDurations: ConditionDurations
   actionEconomy: ActionEconomy
+  /** Named counters (Lumina, …), sparse — absent key ⇒ 0. */
+  counters: Counters
 }
 
 /**
@@ -227,6 +232,7 @@ function combatantOverlay(combatant: Combatant): CombatantOverlay {
       standard: combatant.standardAvailable,
       reaction: combatant.reactionAvailable,
     },
+    counters: combatant.counters,
   }
 }
 
@@ -323,6 +329,7 @@ function railRow(
     engagement: combatant.engagement,
     zoneName: zones[combatant.zoneId]?.name ?? null,
     reactionAvailable: combatant.reactionAvailable,
+    counters: combatant.counters,
   }
 }
 
