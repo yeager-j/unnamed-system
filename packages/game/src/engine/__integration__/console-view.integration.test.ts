@@ -57,7 +57,7 @@ const ENEMY_SB = enemyStatblocks(SETUP, CATALOG)
 
 function build(): CombatSession {
   return {
-    ...createCombatSession(SETUP, sequentialIds()),
+    ...createCombatSession(sequentialIds())(SETUP),
     advantage: "neutral",
     firstSide: "players",
   }
@@ -92,16 +92,13 @@ describe("combatantName", () => {
 
   it("falls back to the raw key for an unknown catalog enemy", () => {
     const session = {
-      ...createCombatSession(
-        [
-          {
-            side: "enemies",
-            ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
-            zoneId: "z",
-          },
-        ],
-        sequentialIds()
-      ),
+      ...createCombatSession(sequentialIds())([
+        {
+          side: "enemies",
+          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+          zoneId: "z",
+        },
+      ]),
       advantage: "neutral" as const,
       firstSide: "players" as const,
     }

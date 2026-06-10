@@ -68,7 +68,7 @@ const build = (
   character: PersistedCharacterState,
   archetypes: readonly PersistedArchetypeState[],
   equippedItemKeys: readonly string[]
-) => buildStatContext(character, archetypes, equippedItemKeys, TEST_DATA)
+) => buildStatContext(TEST_DATA)(character, archetypes, equippedItemKeys)
 
 const baseCharacter: PersistedCharacterState = {
   pathChoice: "balanced",
@@ -361,7 +361,7 @@ describe("toStatContext", () => {
       TEST_DATA
     )
 
-    const ctx = toStatContext(character, TEST_DATA)
+    const ctx = toStatContext(TEST_DATA)(character)
 
     expect(ctx.activeArchetypeKey).toBe("warrior")
     expect(ctx.archetypes).toContainEqual({

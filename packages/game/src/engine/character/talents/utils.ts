@@ -1,7 +1,4 @@
-import {
-  type ArchetypeLookup,
-  type TalentLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type TalentKey } from "@workspace/game/foundation/character/talents/schema"
 
 /**
@@ -23,7 +20,7 @@ import { type TalentKey } from "@workspace/game/foundation/character/talents/sch
 export function resolveTalents(
   gainedTalents: TalentKey[],
   activeArchetypeKey: string | null,
-  lookups: Pick<ArchetypeLookup, "getArchetype"> & TalentLookup
+  lookups: Pick<GameData, "getArchetype" | "getTalent">
 ): TalentKey[] {
   const archetypeTalents = activeArchetypeKey
     ? (lookups.getArchetype(activeArchetypeKey)?.talents ?? [])

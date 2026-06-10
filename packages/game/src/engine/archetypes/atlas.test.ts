@@ -49,9 +49,9 @@ const TEST_DATA = makeTestGameData({ archetypes: FIXTURE_CATALOG })
 /** Binds the catalog: defaults to {@link FIXTURE_CATALOG}, or takes an injected
  *  fixture catalog for the multi-tier prerequisite cases. */
 const atlasOf = (
-  character: Parameters<typeof buildLineageAtlas>[0],
-  catalog: Parameters<typeof buildLineageAtlas>[1] = FIXTURE_CATALOG
-) => buildLineageAtlas(character, catalog)
+  character: Parameters<ReturnType<typeof buildLineageAtlas>>[0],
+  catalog: readonly Archetype[] = FIXTURE_CATALOG
+) => buildLineageAtlas({ allArchetypes: () => catalog })(character)
 
 function archetypeRow(
   partial: Pick<CharacterArchetypeRow, "id" | "archetypeKey" | "rank">
@@ -131,7 +131,7 @@ function makeCharacter(
     knives: [],
     chains: [],
   }
-  return deriveHydratedCharacter(raw, data)
+  return deriveHydratedCharacter(data)(raw)
 }
 
 /** A synthetic Adept that advances from Knight at Rank 5, for prerequisite

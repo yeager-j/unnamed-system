@@ -37,11 +37,10 @@ function warriorRow(
 
 describe("buildStatContext — real catalog (smoke)", () => {
   it("resolves a shipped Archetype's Lineage, Mastery, and active Skills", () => {
-    const result = buildStatContext(
+    const result = buildStatContext(gameData)(
       baseCharacter,
       [warriorRow({ rank: 2 })],
-      [],
-      gameData
+      []
     )
     expect(result.activeLineage).toBe(warrior.lineage)
     expect(result.archetypes).toContainEqual({

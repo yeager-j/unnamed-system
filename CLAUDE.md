@@ -3,6 +3,7 @@
 A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
 
 ## Installation & Running the App
+
 This is a Turborepo project, so most commands are run from the root directory. To install dependencies, run `npm install`. To start the dev server, run `npm run dev` from the root directory.
 
 shadcn/ui primitives should be installed from the `packages/ui` directory, not the root. Similarly, when installing dependencies to the `apps/web` directory, run `npm install` from there (not the root).
@@ -14,15 +15,13 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 
 ## Code Style
 
-> *Perfection is lots of little things done well*
->
+> _Perfection is lots of little things done well_
 >
 > — Marco Pierre White
->
 
-1. **Keep it simple; don't get clever.** As the great Brian Kernighan said, *"Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it?"*
+1. **Keep it simple; don't get clever.** As the great Brian Kernighan said, _"Everyone knows that debugging is twice as hard as writing a program in the first place. So if you're as clever as you can be when you write it, how will you ever debug it?"_
 2. **Give functions and files clear names and purposes.** Each function should have one job and do it well. Avoid side effects where possible. Pure, single-purpose functions are easy to test and maintain. The same principle applies to files; each file should do one thing well.
-3. **Avoid inline comments.** If your code needs a comment to be understood, try refactoring it by extracting variables or creating functions. Barring some unusual techniques for performance reasons, your code should read like a sentence. Again, as the great Brian Kernighan said, *“Don’t comment bad code — rewrite it!”* However, always write documentation (e.g. JSDocs).
+3. **Avoid inline comments.** If your code needs a comment to be understood, try refactoring it by extracting variables or creating functions. Barring some unusual techniques for performance reasons, your code should read like a sentence. Again, as the great Brian Kernighan said, _“Don’t comment bad code — rewrite it!”_ However, always write documentation (e.g. JSDocs).
 4. **Resist premature abstraction.** Just because two pieces of code look similar doesn't mean they should be combined. Every abstraction introduces coupling, creating dependencies that make future changes more difficult.
 5. **Favor composition over inheritance.** This creates more flexible code with fewer hidden dependencies. Inheritance expects you to bundle common behavior into a parent type, but as soon as you find an exception to the commonality, an expensive refactor is required. If you think your inheritance structure is perfect, remember that change is the enemy of perfect design.
 6. **Avoid nesting the Happy Path.** If your Happy Path is nested within a bunch of conditionals, try inverting the conditions and using early return statements. If the conditionals are complex, it might be worth extracting them into their own bite-sized functions.
@@ -156,15 +155,18 @@ packages/game/src/
   barrel cost.
 - **Dependency rule:** `engine → data → foundation`. Type-only imports across layers are free;
   `engine → data` **value** imports are the inversion-debt backlog being paid down by **UNN-354**
-  via lookup **ports**: `engine/ports.ts` declares interfaces (`ArchetypeLookup`/`SkillLookup`/…)
-  over foundation types that the engine owns and `data` implements — `data/game-data.ts` exports
-  the single `gameData` adapter satisfying them. Boundary functions (`buildStatContext`,
-  `deriveHydratedCharacter`, `reduceCharacter`, the archetype display shapers) take the lookups
-  **explicitly** (no global default); `apps/web/lib/game-engine.ts` is the **composition root**
-  that binds `gameData` once and re-exports the pre-bound versions app code calls. Mechanics
-  registry (`getMechanic`) is engine-owned behavior, **not** a data port (carved out). `foundation`
-  still has a few value imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a
-  known follow-up.
+  via the lookup **port**: `engine/ports.ts` declares the single `GameData` interface over
+  foundation types that the engine owns and `data` implements — `data/game-data.ts` exports the
+  single `gameData` adapter satisfying it. Each engine function declares the **exact slice it
+  calls** as an inline `Pick<GameData, ...>` (so a signature documents precisely which lookups it
+  touches), and every factory-bound boundary function (`buildStatContext`,
+  `deriveHydratedCharacter`, `reduceCharacter`, the archetype display shapers, …) is curried
+  **deps-first**: an outer call takes its lookup slice (+ `newId` where it mints ids), the inner
+  call takes the runtime args. `createGameEngine` is one uniform sweep of those outer calls;
+  `apps/web/lib/game-engine.ts` is the **composition root** that binds `gameData` once and
+  re-exports the pre-bound versions app code calls. Mechanics registry (`getMechanic`) is
+  engine-owned behavior, **not** a data port (carved out). `foundation` still has a few value
+  imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a known follow-up.
 - The persisted-row types (`CharacterRow`, …) are **owned in `foundation/records.ts`**; the
   Drizzle tables in `lib/db/schema` import them and a `conformance.test.ts` proves the table
   matches (so they can't drift). `EnemyDefinition` family (humanoid/beast/…) is lifted to a
@@ -204,7 +206,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 **Test-signal tooling for the engine (UNN-351) — run from `packages/game`:**
 
 - `npm run test:coverage` — Vitest branch coverage **scoped to `src/engine/**`** (config in `packages/game/vitest.config.ts`). A **gap-finder, not a gate**: no thresholds, no CI check. Read the *uncovered-branch* list (HTML under `packages/game/coverage/`); ignore the headline %. The engine is where almost every branch is a rule, so an un-executed branch is a rule no test ran; a quota would just invite low-value line-touching tests. Don't add a threshold.
-- `npm run test:mutation` — Stryker (`packages/game/stryker.conf.mjs`): the measure coverage can't give — of the plausible mistakes one could introduce, what fraction the tests catch (the *mutation score*). `mutate` is the whole engine layer (`src/engine/**`; `__fixtures__` excluded). A full run is ~2.5 min — **not** on the PR critical path: run it nightly or scope `mutate` to changed engine files when iterating; never block a PR on a full run. Triage survivors as real-gap vs equivalent-mutant (HTML under `packages/game/reports/mutation/`). Mutation finds gaps branch coverage rates "fine" — e.g. it flagged `skillAttackRollContext`'s entirely-unexercised ailment arm in an 85%-branch-covered file.
+- `npm run test:mutation` — Stryker (`packages/game/stryker.conf.mjs`): the measure coverage can't give — of the plausible mistakes one could introduce, what fraction the tests catch (the _mutation score_). `mutate` is the whole engine layer (`src/engine/**`; `__fixtures__` excluded). A full run is ~2.5 min — **not** on the PR critical path: run it nightly or scope `mutate` to changed engine files when iterating; never block a PR on a full run. Triage survivors as real-gap vs equivalent-mutant (HTML under `packages/game/reports/mutation/`). Mutation finds gaps branch coverage rates "fine" — e.g. it flagged `skillAttackRollContext`'s entirely-unexercised ailment arm in an 85%-branch-covered file.
 - **Hardening a slice's tests** (decouple from catalog data via fixtures, then drive the mutation score up): use the shared kit + follow the rubric in `packages/game/src/engine/__fixtures__/README.md` (UNN-352). Build inputs from the fixtures (`makeRawCharacterInputs`, `makeStatContext`, …) so logic tests assert behavior, not balance numbers; document genuine equivalent mutants with `// Stryker disable` + a reason; never `as any` impossible inputs or disable just to lift the score.
 
 **E2E database:**

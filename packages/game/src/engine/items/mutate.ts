@@ -9,7 +9,7 @@ import {
   type InventoryItemState,
   type QuantityError,
 } from "@workspace/game/engine/items/utils"
-import { type ItemLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type InventoryMutation } from "@workspace/game/foundation/items/schema"
 import type { Result } from "@workspace/game/foundation/result"
 
@@ -25,24 +25,23 @@ export type InventoryMutationError = EquipError | AddError | QuantityError
 export function applyInventoryMutation(
   items: readonly InventoryItemState[],
   mutation: InventoryMutation,
-  lookups: ItemLookup,
+  lookups: Pick<GameData, "getItem" | "getEquippableItem">,
   newId: () => string
 ): Result<InventoryItemState[], InventoryMutationError> {
   switch (mutation.kind) {
     case "equip":
-      return equipItem(items, mutation.itemId, lookups)
+      return equipItem(lookups)(items, mutation.itemId)
     case "unequip":
       return unequipItem(items, mutation.itemId)
     case "add":
-      return addItem(
+      return addItem(lookups)(
         items,
         mutation.catalogItemKey,
         mutation.quantity,
-        newId,
-        lookups
+        newId
       )
     case "setQuantity":
-      return setItemQuantity(items, mutation.itemId, mutation.quantity, lookups)
+      return setItemQuantity(lookups)(items, mutation.itemId, mutation.quantity)
     case "remove":
       return removeItem(items, mutation.itemId)
   }

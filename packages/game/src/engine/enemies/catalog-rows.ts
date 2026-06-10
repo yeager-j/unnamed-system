@@ -1,4 +1,4 @@
-import { type EnemyLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type AffinityDamageType } from "@workspace/game/foundation/combat/affinity"
 import type { EnemyFamily } from "@workspace/game/foundation/enemies/schema"
 
@@ -40,17 +40,18 @@ function weaknessesOf(
  * fallback is a defensive `"humanoid"` that can't be hit at runtime.
  */
 export function buildEnemyCatalogRows(
-  lookups: Pick<EnemyLookup, "allEnemies" | "getEnemyFamily">
-): EnemyCatalogRow[] {
-  return lookups.allEnemies().map((enemy) => ({
-    key: enemy.key,
-    name: enemy.name,
-    // Stryker disable next-line StringLiteral: equivalent — every catalog enemy has a registered family, so this defensive fallback is unreachable at runtime.
-    family: lookups.getEnemyFamily(enemy.key) ?? "humanoid",
-    level: enemy.level,
-    maxHP: enemy.maxHP,
-    weaknesses: weaknessesOf(enemy.affinities),
-  }))
+  lookups: Pick<GameData, "allEnemies" | "getEnemyFamily">
+) {
+  return (): EnemyCatalogRow[] =>
+    lookups.allEnemies().map((enemy) => ({
+      key: enemy.key,
+      name: enemy.name,
+      // Stryker disable next-line StringLiteral: equivalent — every catalog enemy has a registered family, so this defensive fallback is unreachable at runtime.
+      family: lookups.getEnemyFamily(enemy.key) ?? "humanoid",
+      level: enemy.level,
+      maxHP: enemy.maxHP,
+      weaknesses: weaknessesOf(enemy.affinities),
+    }))
 }
 
 /**

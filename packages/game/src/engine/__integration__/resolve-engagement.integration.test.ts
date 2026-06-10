@@ -20,16 +20,20 @@ const PC_DETAIL: Record<string, PcCombatantDetail> = {
   c: { name: "Cole" } as PcCombatantDetail,
 }
 
-function find(session: ReturnType<typeof createCombatSession>, id: string) {
+function find(
+  session: ReturnType<ReturnType<typeof createCombatSession>>,
+  id: string
+) {
   return session.combatants.find((combatant) => combatant.id === id)!
 }
 
 describe("resolveCombatantEngagement", () => {
   it("offers other combatants in the same zone as candidates (by name)", () => {
-    const session = createCombatSession(
-      [pc("a", "z1"), pc("b", "z1"), pc("c", "z2")],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      pc("a", "z1"),
+      pc("b", "z1"),
+      pc("c", "z2"),
+    ])
 
     const view = resolveCombatantEngagement(
       session,
@@ -44,10 +48,10 @@ describe("resolveCombatantEngagement", () => {
   })
 
   it("resolves engaged target ids to display names", () => {
-    const base = createCombatSession(
-      [pc("a", "z1"), pc("b", "z1")],
-      sequentialIds()
-    )
+    const base = createCombatSession(sequentialIds())([
+      pc("a", "z1"),
+      pc("b", "z1"),
+    ])
     const session = {
       ...base,
       combatants: base.combatants.map((combatant) =>
@@ -76,10 +80,10 @@ describe("resolveCombatantEngagement", () => {
   it("keeps a current target as a candidate even if it's now in another zone", () => {
     // c-0 (z1) engaged with c-1, then c-1 moved to z2 (engagement isn't coupled
     // to position — UNN-315). The stale partner must stay clearable.
-    const base = createCombatSession(
-      [pc("a", "z1"), pc("b", "z2")],
-      sequentialIds()
-    )
+    const base = createCombatSession(sequentialIds())([
+      pc("a", "z1"),
+      pc("b", "z2"),
+    ])
     const session = {
       ...base,
       combatants: base.combatants.map((combatant) =>
@@ -106,10 +110,11 @@ describe("resolveCombatantEngagement", () => {
   })
 
   it("offers everyone in an unzoned encounter (all empty zoneId)", () => {
-    const session = createCombatSession(
-      [pc("a", ""), pc("b", ""), pc("c", "")],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      pc("a", ""),
+      pc("b", ""),
+      pc("c", ""),
+    ])
 
     const view = resolveCombatantEngagement(
       session,

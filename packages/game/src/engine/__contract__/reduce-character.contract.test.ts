@@ -18,7 +18,7 @@ import { reduceCharacter } from "@workspace/game/engine/character/reduce-charact
 describe("reduceCharacter — real catalog (smoke)", () => {
   /** A finalized Warrior built straight from the shipped catalog. */
   const realCharacter = () =>
-    deriveHydratedCharacter(
+    deriveHydratedCharacter(gameData)(
       makeRawCharacterInputs({
         row: {
           activeArchetypeId: "arch-1",
@@ -27,8 +27,7 @@ describe("reduceCharacter — real catalog (smoke)", () => {
         archetypeRows: [
           makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 1 }),
         ],
-      }),
-      gameData
+      })
     )
 
   it("derives a shipped Archetype's vitals and Skills end-to-end", () => {
@@ -42,12 +41,10 @@ describe("reduceCharacter — real catalog (smoke)", () => {
     const castable = character.skills.find((skill) => skill.resolvedCost)
     expect(castable).toBeDefined()
 
-    const next = reduceCharacter(
-      character,
-      { kind: "cast", skillKey: castable!.key },
-      gameData,
-      () => "smoke-id"
-    )
+    const next = reduceCharacter(gameData, () => "smoke-id")(character, {
+      kind: "cast",
+      skillKey: castable!.key,
+    })
     expect(next.currentHP + next.currentSP).toBeLessThan(
       character.currentHP + character.currentSP
     )

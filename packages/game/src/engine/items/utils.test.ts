@@ -50,21 +50,9 @@ const TEST_DATA = makeTestGameData({
 })
 
 /** Bind the fixture catalog so the item-mutation call sites stay terse. */
-const doEquip = (
-  items: Parameters<typeof equipItem>[0],
-  itemId: Parameters<typeof equipItem>[1]
-) => equipItem(items, itemId, TEST_DATA)
-const doAdd = (
-  items: Parameters<typeof addItem>[0],
-  key: Parameters<typeof addItem>[1],
-  qty: Parameters<typeof addItem>[2],
-  newId: Parameters<typeof addItem>[3]
-) => addItem(items, key, qty, newId, TEST_DATA)
-const doSetQty = (
-  items: Parameters<typeof setItemQuantity>[0],
-  itemId: Parameters<typeof setItemQuantity>[1],
-  qty: Parameters<typeof setItemQuantity>[2]
-) => setItemQuantity(items, itemId, qty, TEST_DATA)
+const doEquip = equipItem(TEST_DATA)
+const doAdd = addItem(TEST_DATA)
+const doSetQty = setItemQuantity(TEST_DATA)
 
 const longswordA: InventoryItemState = {
   id: "row-longsword",

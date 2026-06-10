@@ -66,11 +66,8 @@ export function toCombatantSetup(combatant: Combatant): CombatantSetup {
  * at the composition root ({@link createGameEngine}) so the engine core carries
  * no default seam; tests inject a deterministic generator.
  */
-export function createCombatSession(
-  setup: CombatantSetup[],
-  newId: () => string
-): CombatSession {
-  return {
+export function createCombatSession(newId: () => string) {
+  return (setup: CombatantSetup[]): CombatSession => ({
     round: 1,
     currentActorId: null,
     advantage: null,
@@ -80,5 +77,5 @@ export function createCombatSession(
     ),
     zones: {},
     adjacency: {},
-  }
+  })
 }

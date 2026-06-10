@@ -107,7 +107,7 @@ const ENEMY_SB = enemyStatblocks(SETUP, CATALOG)
 
 function build(): CombatSession {
   return {
-    ...createCombatSession(SETUP, sequentialIds()),
+    ...createCombatSession(sequentialIds())(SETUP),
     advantage: "neutral",
     firstSide: "players",
   }
@@ -272,19 +272,16 @@ describe("combatantDetail", () => {
 
   it("defaults an unknown catalog enemy's HP and Attributes to zero", () => {
     const session = {
-      ...createCombatSession(
-        [
-          {
-            side: "enemies" as const,
-            ref: {
-              kind: "catalog-enemy" as const,
-              enemyKey: "not-a-real-enemy",
-            },
-            zoneId: "z",
+      ...createCombatSession(sequentialIds())([
+        {
+          side: "enemies" as const,
+          ref: {
+            kind: "catalog-enemy" as const,
+            enemyKey: "not-a-real-enemy",
           },
-        ],
-        sequentialIds()
-      ),
+          zoneId: "z",
+        },
+      ]),
       advantage: "neutral" as const,
       firstSide: "players" as const,
     }
@@ -363,16 +360,13 @@ describe("combatantDetail", () => {
         }),
       ],
     })
-    const session = createCombatSession(
-      [
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "bandit-captain" },
-          zoneId: "z",
-        },
-      ],
-      sequentialIds()
-    )
+    const session = createCombatSession(sequentialIds())([
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "bandit-captain" },
+        zoneId: "z",
+      },
+    ])
     const detail = combatantDetail(
       session,
       "combatant-0",

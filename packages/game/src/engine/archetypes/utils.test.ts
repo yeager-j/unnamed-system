@@ -90,7 +90,7 @@ const character = (
   overrides: Parameters<typeof makeHydratedCharacter>[0] = {}
 ) => makeHydratedCharacter(overrides, TEST_DATA)
 const entriesOf = (c: ReturnType<typeof character>) =>
-  buildArchetypeEntries(c, TEST_DATA)
+  buildArchetypeEntries(TEST_DATA)(c)
 
 describe("sortArchetypesByPath", () => {
   // One synthetic Archetype per Lineage, picked by its foundation-declared
@@ -179,7 +179,7 @@ describe("sortArchetypesByPath", () => {
 
 describe("previewArchetypeSkills", () => {
   it("returns one RankedSkill per declared Skill, preserving the Ranks", () => {
-    const { ranks } = previewArchetypeSkills(fxWarrior, "balanced", TEST_DATA)
+    const { ranks } = previewArchetypeSkills(TEST_DATA)(fxWarrior, "balanced")
     expect(ranks).toHaveLength(fxWarrior.skills.length)
     expect(ranks.map((skill) => skill.rank).sort()).toEqual([1, 2])
   })
@@ -193,29 +193,27 @@ describe("previewArchetypeSkills", () => {
       ],
     })
     const data = makeTestGameData({ archetypes: [arch], skills: [fxSkill(W1)] })
-    const { ranks } = previewArchetypeSkills(arch, "balanced", data)
+    const { ranks } = previewArchetypeSkills(data)(arch, "balanced")
     expect(ranks.map((skill) => skill.key)).toEqual([W1])
   })
 
   it("marks a passive Skill's resolvedAttackRoll null", () => {
-    const { ranks } = previewArchetypeSkills(fxWarrior, "balanced", TEST_DATA)
+    const { ranks } = previewArchetypeSkills(TEST_DATA)(fxWarrior, "balanced")
     expect(ranks.every((skill) => skill.resolvedAttackRoll === null)).toBe(true)
   })
 
   it("resolves the Synthesis Skill alongside the ranked Skills", () => {
-    const { synthesis } = previewArchetypeSkills(
+    const { synthesis } = previewArchetypeSkills(TEST_DATA)(
       fxWarrior,
-      "balanced",
-      TEST_DATA
+      "balanced"
     )
     expect(synthesis).toMatchObject({ key: SYN, rank: 5 })
   })
 
   it("has no synthesis when the Archetype declares none", () => {
-    const { synthesis } = previewArchetypeSkills(
+    const { synthesis } = previewArchetypeSkills(TEST_DATA)(
       makeArchetype({ synthesisSkill: undefined }),
-      "balanced",
-      TEST_DATA
+      "balanced"
     )
     expect(synthesis).toBeNull()
   })
@@ -430,7 +428,7 @@ describe("getArchetypeDisplay", () => {
         makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
       ],
     })
-    expect(getArchetypeDisplay(c, TEST_DATA).activeEntry?.row.id).toBe("b")
+    expect(getArchetypeDisplay(TEST_DATA)(c).activeEntry?.row.id).toBe("b")
   })
 
   it("returns a null spotlight when no row is active", () => {
@@ -438,20 +436,19 @@ describe("getArchetypeDisplay", () => {
       row: { activeArchetypeId: null },
       archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
     })
-    expect(getArchetypeDisplay(c, TEST_DATA).activeEntry).toBeNull()
+    expect(getArchetypeDisplay(TEST_DATA)(c).activeEntry).toBeNull()
   })
 })
 
 describe("archetypeSwitcherGroups", () => {
   it("groups unlocked Archetypes by Lineage", () => {
-    const groups = archetypeSwitcherGroups(
+    const groups = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [
           makeArchetypeRow({ id: "a", archetypeKey: "warrior" }),
           makeArchetypeRow({ id: "b", archetypeKey: "mage" }),
         ],
-      }),
-      TEST_DATA
+      })
     )
     expect(groups.map((g) => g.lineage)).toEqual(["warrior", "mage"])
     expect(groups[0]!.options.map((o) => o.id)).toEqual(["a"])
@@ -459,41 +456,38 @@ describe("archetypeSwitcherGroups", () => {
   })
 
   it("skips a row whose archetypeKey no longer resolves", () => {
-    const groups = archetypeSwitcherGroups(
+    const groups = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [
           makeArchetypeRow({ id: "a", archetypeKey: "warrior" }),
           makeArchetypeRow({ id: "ghost", archetypeKey: "no-such-archetype" }),
         ],
-      }),
-      TEST_DATA
+      })
     )
     expect(groups).toHaveLength(1)
     expect(groups[0]!.options.map((o) => o.id)).toEqual(["a"])
   })
 
   it("orders groups by the canonical LINEAGES order regardless of row order", () => {
-    const groups = archetypeSwitcherGroups(
+    const groups = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [
           makeArchetypeRow({ id: "w", archetypeKey: "warlock" }),
           makeArchetypeRow({ id: "k", archetypeKey: "knight" }),
           makeArchetypeRow({ id: "m", archetypeKey: "mage" }),
         ],
-      }),
-      TEST_DATA
+      })
     )
     expect(groups.map((g) => g.lineage)).toEqual(["mage", "knight", "warlock"])
   })
 
   it("carries each option's id, name, tier, and current rank", () => {
-    const [group] = archetypeSwitcherGroups(
+    const [group] = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [
           makeArchetypeRow({ id: "a", archetypeKey: "warrior", rank: 3 }),
         ],
-      }),
-      TEST_DATA
+      })
     )
     expect(group!.options[0]).toMatchObject({
       id: "a",
@@ -504,14 +498,13 @@ describe("archetypeSwitcherGroups", () => {
   })
 
   it("keeps every unlocked row of one Lineage in that Lineage's single group", () => {
-    const groups = archetypeSwitcherGroups(
+    const groups = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [
           makeArchetypeRow({ id: "w1", archetypeKey: "warrior", rank: 1 }),
           makeArchetypeRow({ id: "w2", archetypeKey: "warrior", rank: 4 }),
         ],
-      }),
-      TEST_DATA
+      })
     )
     expect(groups).toHaveLength(1)
     expect(groups[0]!.lineage).toBe("warrior")
@@ -519,11 +512,10 @@ describe("archetypeSwitcherGroups", () => {
   })
 
   it("resolves the Archetype's Mechanic display name", () => {
-    const [group] = archetypeSwitcherGroups(
+    const [group] = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warrior" })],
-      }),
-      TEST_DATA
+      })
     )
     expect(group!.options[0]!.mechanicName).toBe(
       getMechanic(fxWarrior.mechanic!)!.displayName
@@ -532,11 +524,10 @@ describe("archetypeSwitcherGroups", () => {
   })
 
   it("leaves the Mechanic display name null when the Archetype has no Mechanic", () => {
-    const [group] = archetypeSwitcherGroups(
+    const [group] = archetypeSwitcherGroups(TEST_DATA)(
       character({
         archetypeRows: [makeArchetypeRow({ id: "a", archetypeKey: "warlock" })],
-      }),
-      TEST_DATA
+      })
     )
     expect(group!.options[0]!.mechanicName).toBeNull()
   })
@@ -600,11 +591,10 @@ describe("buildArchetypeEntries — perPartyLineage combat context", () => {
   )
 
   const attackRollOf = (
-    context?: Parameters<typeof buildArchetypeEntries>[2]
+    context?: Parameters<ReturnType<typeof buildArchetypeEntries>>[1]
   ) =>
-    buildArchetypeEntries(
+    buildArchetypeEntries(PARTY_DATA)(
       partyMageCharacter,
-      PARTY_DATA,
       context
     )[0]!.ranks.find((rank) => rank.key === PARTY_ATTACK)!.resolvedAttackRoll
 

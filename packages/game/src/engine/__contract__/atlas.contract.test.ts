@@ -18,16 +18,15 @@ import { deriveHydratedCharacter } from "@workspace/game/engine/character/derive
  */
 describe("buildLineageAtlas + getAtlasRecommendations — real catalog (smoke)", () => {
   it("composes the view builder and recommendations over the shipped catalog", () => {
-    const character = deriveHydratedCharacter(
+    const character = deriveHydratedCharacter(gameData)(
       makeRawCharacterInputs({
         row: { activeArchetypeId: "a1", originCharacterArchetypeId: "a1" },
         archetypeRows: [
           makeArchetypeRow({ id: "a1", archetypeKey: "warrior", rank: 2 }),
         ],
-      }),
-      gameData
+      })
     )
-    const view = buildLineageAtlas(character, gameData.allArchetypes())
+    const view = buildLineageAtlas(gameData)(character)
 
     const result = getAtlasRecommendations(view, "health-focused", 1)
 

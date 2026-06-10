@@ -23,7 +23,7 @@ describe("inheritance — real catalog (smoke)", () => {
       ],
     })
     const groups = inheritanceSourceGroups(
-      buildArchetypeEntries(character, gameData),
+      buildArchetypeEntries(gameData)(character),
       "w"
     )
     expect(groups.map((g) => g.archetype.key)).toEqual(["mage"])

@@ -108,12 +108,12 @@ const TEST_DATA = makeTestGameData({
 /** Test wrappers binding the fixture catalog so the boundary call sites stay
  *  terse; the engine itself takes the lookups + id generator explicitly. */
 const derive = (raw: RawCharacterInputs) =>
-  deriveHydratedCharacter(raw, TEST_DATA)
+  deriveHydratedCharacter(TEST_DATA)(raw)
 const reduce = (
   character: HydratedCharacter,
   edit: CharacterEdit,
   newId: () => string = () => crypto.randomUUID()
-) => reduceCharacter(character, edit, TEST_DATA, newId)
+) => reduceCharacter(TEST_DATA, newId)(character, edit)
 
 const inventoryRow = (
   partial: Pick<

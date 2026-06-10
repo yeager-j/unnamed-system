@@ -25,7 +25,7 @@ function sequentialIds() {
 /** A session seeded with two adjacent zones (`zone-a` ↔ `zone-b`) and the given
  *  combatant roster, built through the constructor so ids are deterministic. */
 function sessionWith(roster: CombatantSetup[]) {
-  const base = createCombatSession(roster, sequentialIds())
+  const base = createCombatSession(sequentialIds())(roster)
   return {
     ...base,
     zones: {
@@ -110,7 +110,7 @@ describe("resolveZoneLayout", () => {
   })
 
   it("reports hasZones false and everyone unplaced for an unzoned encounter", () => {
-    const session = createCombatSession([pc("char1", "")], sequentialIds())
+    const session = createCombatSession(sequentialIds())([pc("char1", "")])
 
     const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
 

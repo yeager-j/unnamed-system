@@ -157,7 +157,7 @@ function seededEncounter(
   roster: CombatantSetup[],
   start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
-  const base = createCombatSession(roster, deterministicIds(slug))
+  const base = createCombatSession(deterministicIds(slug))(roster)
   // A `live` encounter has already run `startCombat`, so its advantage/firstSide
   // are set — replay that event here so the seeded session matches a real live
   // one (the console's advantage chip + drafting order need it).

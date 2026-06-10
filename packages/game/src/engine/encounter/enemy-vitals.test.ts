@@ -55,7 +55,7 @@ const SETUP: CombatantSetup[] = [
 ]
 
 function build() {
-  return createCombatSession(SETUP, sequentialIds())
+  return createCombatSession(sequentialIds())(SETUP)
 }
 
 function statBlockOf(session: ReturnType<typeof build>, id: string) {
@@ -114,16 +114,13 @@ describe("adjustEnemyVitals", () => {
   })
 
   it("falls back to 0 for an unknown catalog enemy's max when setting maxHP", () => {
-    const session = createCombatSession(
-      [
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
-          zoneId: "z",
-        },
-      ],
-      () => "lone"
-    )
+    const session = createCombatSession(() => "lone")([
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+        zoneId: "z",
+      },
+    ])
 
     const next = reduce(session, {
       kind: "adjustEnemyVitals",

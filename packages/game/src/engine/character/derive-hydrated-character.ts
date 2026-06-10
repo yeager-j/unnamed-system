@@ -16,12 +16,7 @@ import {
   type AttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
 import { getEquippedItem } from "@workspace/game/engine/items/utils"
-import {
-  type ArchetypeLookup,
-  type ItemLookup,
-  type SkillLookup,
-  type TalentLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type {
@@ -52,15 +47,25 @@ export interface RawCharacterInputs {
 }
 
 /**
+ * The catalog slice the character hydration pipeline reads — shared verbatim by
+ * {@link deriveHydratedCharacter} and {@link reduceCharacter} (which re-derives
+ * through it after every edit).
+ */
+export type CharacterLookups = Pick<
+  GameData,
+  "getArchetype" | "getSkill" | "getItem" | "getEquippableItem" | "getTalent"
+>
+
+/**
  * Projects the persisted state onto the pure engine input. Only equipped
  * inventory items are passed through so item effects stay gated to what the
  * character actually has equipped.
  */
 function statContext(
   { row, archetypeRows, inventoryRows }: RawCharacterInputs,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup
+  lookups: CharacterLookups
 ): StatContext {
-  return buildStatContext(
+  return buildStatContext(lookups)(
     {
       pathChoice: row.pathChoice,
       level: row.level,
@@ -76,8 +81,7 @@ function statContext(
     })),
     inventoryRows
       .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey),
-    lookups
+      .map((item) => item.catalogItemKey)
   )
 }
 
@@ -105,62 +109,63 @@ function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
  * Magic Circle / Ailment Boost resolve at zero allies — their **base** values;
  * party-scaling is a combat-context display, not a sheet field.
  */
-export function deriveHydratedCharacter(
-  raw: RawCharacterInputs,
-  lookups: ArchetypeLookup & SkillLookup & ItemLookup & TalentLookup,
-  context?: CombatContext
-): HydratedCharacter {
-  const { row, archetypeRows, inventoryRows, knives, chains } = raw
-  const partyComposition = context?.partyComposition ?? null
+export function deriveHydratedCharacter(lookups: CharacterLookups) {
+  return (
+    raw: RawCharacterInputs,
+    context?: CombatContext
+  ): HydratedCharacter => {
+    const { row, archetypeRows, inventoryRows, knives, chains } = raw
+    const partyComposition = context?.partyComposition ?? null
 
-  const stats = statContext(raw, lookups)
-  const bonuses = accumulatedBonuses(stats)
-  const maxHP = computeMaxHP(stats, bonuses)
+    const stats = statContext(raw, lookups)
+    const bonuses = accumulatedBonuses(stats)
+    const maxHP = computeMaxHP(stats, bonuses)
 
-  const inventory = inventoryRows.map((inventoryRow) => ({
-    ...inventoryRow,
-    item: lookups.getItem(inventoryRow.catalogItemKey),
-  }))
+    const inventory = inventoryRows.map((inventoryRow) => ({
+      ...inventoryRow,
+      item: lookups.getItem(inventoryRow.catalogItemKey),
+    }))
 
-  const weapon = getEquippedItem(inventory, "weapon")
-  const weaponAttackRoll = weapon
-    ? resolveAttackRoll(
-        weaponAttackContext(weapon.equip.intrinsicAttack),
-        stats,
-        partyComposition
-      )
-    : null
+    const weapon = getEquippedItem(inventory, "weapon")
+    const weaponAttackRoll = weapon
+      ? resolveAttackRoll(
+          weaponAttackContext(weapon.equip.intrinsicAttack),
+          stats,
+          partyComposition
+        )
+      : null
 
-  return {
-    ...row,
-    archetypeRows,
-    knives,
-    chains,
-    talents: resolveTalents(
-      row.gainedTalents,
-      stats.activeArchetypeKey,
-      lookups
-    ),
-    inventory,
-    activeArchetypeKey: stats.activeArchetypeKey,
-    attributes: computeAttributes(stats, bonuses),
-    maxHP,
-    maxSP: computeMaxSP(stats, bonuses),
-    maxHitDice: computeMaxHitDice(row.level),
-    maxSkillDice: computeMaxSkillDice(row.level),
-    affinityChart: computeAffinityChart(stats),
-    weaponAttackRoll,
-    activeMechanic: stats.activeMechanic,
-    skills: stats.activeSkills.map((skill) => {
-      const skillContext = skillAttackRollContext(skill)
-      return hydrateSkill(
-        skill,
-        maxHP,
-        skillContext
-          ? resolveAttackRoll(skillContext, stats, partyComposition)
-          : null
-      )
-    }),
+    return {
+      ...row,
+      archetypeRows,
+      knives,
+      chains,
+      talents: resolveTalents(
+        row.gainedTalents,
+        stats.activeArchetypeKey,
+        lookups
+      ),
+      inventory,
+      activeArchetypeKey: stats.activeArchetypeKey,
+      attributes: computeAttributes(stats, bonuses),
+      maxHP,
+      maxSP: computeMaxSP(stats, bonuses),
+      maxHitDice: computeMaxHitDice(row.level),
+      maxSkillDice: computeMaxSkillDice(row.level),
+      affinityChart: computeAffinityChart(stats),
+      weaponAttackRoll,
+      activeMechanic: stats.activeMechanic,
+      skills: stats.activeSkills.map((skill) => {
+        const skillContext = skillAttackRollContext(skill)
+        return hydrateSkill(
+          skill,
+          maxHP,
+          skillContext
+            ? resolveAttackRoll(skillContext, stats, partyComposition)
+            : null
+        )
+      }),
+    }
   }
 }
 

@@ -45,7 +45,7 @@ function session(enemyHP: number) {
       zoneId: "z",
     },
   ]
-  return createCombatSession(setup, sequentialIds())
+  return createCombatSession(sequentialIds())(setup)
 }
 
 /** A fixture catalog whose "goblin" carries a positive definition max HP, so an
@@ -105,16 +105,13 @@ describe("fallenCombatantIds", () => {
   })
 
   it("treats an unknown catalog enemy with unset HP as Fallen (max falls back to 0)", () => {
-    const s = createCombatSession(
-      [
-        {
-          side: "enemies",
-          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
-          zoneId: "z",
-        },
-      ],
-      () => "lone"
-    )
+    const s = createCombatSession(() => "lone")([
+      {
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+        zoneId: "z",
+      },
+    ])
 
     const fallen = fallenCombatantIds(s, {}, ENEMY_SB)
 

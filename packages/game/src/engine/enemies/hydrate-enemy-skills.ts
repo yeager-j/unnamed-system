@@ -3,7 +3,7 @@ import {
   resolveAttackRollFrom,
   skillAttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
-import { type SkillLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
 import { type HydratedSkill } from "@workspace/game/foundation/character/hydrated-character"
 import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
@@ -24,7 +24,7 @@ import type { EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
  */
 export function hydrateEnemySkills(
   enemy: EnemyDefinition,
-  lookups: SkillLookup
+  lookups: Pick<GameData, "getSkill">
 ): HydratedSkill[] {
   const skills = enemy.skillKeys.flatMap((key) => {
     const skill = lookups.getSkill(key)

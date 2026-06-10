@@ -1,5 +1,6 @@
 import { hasMasteryBonus } from "@workspace/game/engine/archetypes/rank"
 import { MAX_LEVEL } from "@workspace/game/engine/character/leveling"
+import { type GameData } from "@workspace/game/engine/ports"
 import {
   ARCHETYPE_TIERS,
   type Archetype,
@@ -153,82 +154,84 @@ export function atlasNodeState(
  * `characterArchetype` rows (keyed by Archetype slug — a character owns at most
  * one row per Archetype).
  *
- * `catalog` is the full Archetype list, injected by the assembly boundary
- * (UNN-354) — the composition root passes `gameData.allArchetypes()`; tests inject
- * a fixture catalog with the multi-tier lineages and prerequisites the shipped set
- * doesn't yet carry (the demo set does), to exercise the tier sort and
- * prerequisite resolution.
+ * The Atlas walks the **whole** Archetype catalog, so it takes the
+ * `allArchetypes` port (UNN-354) — the composition root binds the production
+ * catalog; tests inject a fixture catalog with the multi-tier lineages and
+ * prerequisites the shipped set doesn't yet carry (the demo set does), to
+ * exercise the tier sort and prerequisite resolution.
  */
-export function buildLineageAtlas(
-  character: HydratedCharacter,
-  catalog: readonly Archetype[]
-): LineageAtlasView {
-  const byKey = new Map(catalog.map((archetype) => [archetype.key, archetype]))
-  const ownedRowByKey = new Map<string, CharacterArchetypeRow>()
-  for (const row of character.archetypeRows) {
-    if (byKey.has(row.archetypeKey)) ownedRowByKey.set(row.archetypeKey, row)
-  }
-  const ownedRankByKey = new Map<string, number>(
-    [...ownedRowByKey].map(([key, row]) => [key, row.rank])
-  )
+export function buildLineageAtlas(lookups: Pick<GameData, "allArchetypes">) {
+  return (character: HydratedCharacter): LineageAtlasView => {
+    const catalog = lookups.allArchetypes()
+    const byKey = new Map(
+      catalog.map((archetype) => [archetype.key, archetype])
+    )
+    const ownedRowByKey = new Map<string, CharacterArchetypeRow>()
+    for (const row of character.archetypeRows) {
+      if (byKey.has(row.archetypeKey)) ownedRowByKey.set(row.archetypeKey, row)
+    }
+    const ownedRankByKey = new Map<string, number>(
+      [...ownedRowByKey].map(([key, row]) => [key, row.rank])
+    )
 
-  const byLineage = new Map<Lineage, Archetype[]>()
-  for (const archetype of catalog) {
-    const bucket = byLineage.get(archetype.lineage) ?? []
-    bucket.push(archetype)
-    byLineage.set(archetype.lineage, bucket)
-  }
+    const byLineage = new Map<Lineage, Archetype[]>()
+    for (const archetype of catalog) {
+      const bucket = byLineage.get(archetype.lineage) ?? []
+      bucket.push(archetype)
+      byLineage.set(archetype.lineage, bucket)
+    }
 
-  const originRow = character.originCharacterArchetypeId
-    ? character.archetypeRows.find(
-        (row) => row.id === character.originCharacterArchetypeId
-      )
-    : undefined
-  const originLineage =
-    (originRow && byKey.get(originRow.archetypeKey)?.lineage) ?? null
+    const originRow = character.originCharacterArchetypeId
+      ? character.archetypeRows.find(
+          (row) => row.id === character.originCharacterArchetypeId
+        )
+      : undefined
+    const originLineage =
+      (originRow && byKey.get(originRow.archetypeKey)?.lineage) ?? null
 
-  const lineages: AtlasLineage[] = LINEAGES.map((lineage) => {
-    // Sort by key only; the `columns` projection below already orders by tier
-    // (it filters into ARCHETYPE_TIERS-ordered buckets), so a tier sort here
-    // would be redundant.
-    const archetypes = (byLineage.get(lineage) ?? [])
-      .slice()
-      .sort((a, b) => a.key.localeCompare(b.key))
+    const lineages: AtlasLineage[] = LINEAGES.map((lineage) => {
+      // Sort by key only; the `columns` projection below already orders by tier
+      // (it filters into ARCHETYPE_TIERS-ordered buckets), so a tier sort here
+      // would be redundant.
+      const archetypes = (byLineage.get(lineage) ?? [])
+        .slice()
+        .sort((a, b) => a.key.localeCompare(b.key))
 
-    const nodes: AtlasNode[] = archetypes.map((archetype) => {
-      const ownedRow = ownedRowByKey.get(archetype.key)
-      return {
-        archetype,
-        state: atlasNodeState(
+      const nodes: AtlasNode[] = archetypes.map((archetype) => {
+        const ownedRow = ownedRowByKey.get(archetype.key)
+        return {
           archetype,
-          ownedRow?.rank ?? null,
-          ownedRankByKey
-        ),
-        characterArchetypeId: ownedRow?.id ?? null,
-        parentKeys: archetype.prerequisites.map((p) => p.archetype),
+          state: atlasNodeState(
+            archetype,
+            ownedRow?.rank ?? null,
+            ownedRankByKey
+          ),
+          characterArchetypeId: ownedRow?.id ?? null,
+          parentKeys: archetype.prerequisites.map((p) => p.archetype),
+        }
+      })
+
+      return {
+        lineage,
+        isOrigin: originLineage === lineage,
+        progress: {
+          owned: nodes.filter((node) => node.characterArchetypeId !== null)
+            .length,
+          total: nodes.length,
+        },
+        columns: ARCHETYPE_TIERS.map((tier) => ({
+          tier,
+          nodes: nodes.filter((node) => node.archetype.tier === tier),
+        })),
       }
     })
 
     return {
-      lineage,
-      isOrigin: originLineage === lineage,
-      progress: {
-        owned: nodes.filter((node) => node.characterArchetypeId !== null)
-          .length,
-        total: nodes.length,
-      },
-      columns: ARCHETYPE_TIERS.map((tier) => ({
-        tier,
-        nodes: nodes.filter((node) => node.archetype.tier === tier),
-      })),
+      lineages,
+      savedRanks: character.savedArchetypeRanks,
+      unlockedCount: ownedRowByKey.size,
+      originLineage,
     }
-  })
-
-  return {
-    lineages,
-    savedRanks: character.savedArchetypeRanks,
-    unlockedCount: ownedRowByKey.size,
-    originLineage,
   }
 }
 

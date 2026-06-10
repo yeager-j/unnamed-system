@@ -1,8 +1,5 @@
 import { hydrateEnemySkills } from "@workspace/game/engine/enemies/hydrate-enemy-skills"
-import {
-  type EnemyLookup,
-  type SkillLookup,
-} from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import {
   type HydratedCharacter,
@@ -94,11 +91,8 @@ export function statblockFromCharacter(
  * Enemies have no equipped weapon, so `weaponAttackRoll` is `null` (weapon
  * attacks are authored in `abilities`).
  */
-export function statblockFromEnemy(
-  enemy: EnemyDefinition,
-  lookups: SkillLookup
-): Statblock {
-  return {
+export function statblockFromEnemy(lookups: Pick<GameData, "getSkill">) {
+  return (enemy: EnemyDefinition): Statblock => ({
     source: "enemy",
     name: enemy.name,
     level: enemy.level,
@@ -109,7 +103,7 @@ export function statblockFromEnemy(
     talents: enemy.talents,
     weaponAttackRoll: null,
     abilities: enemy.abilities ?? null,
-  }
+  })
 }
 
 /**
@@ -122,16 +116,19 @@ export function statblockFromEnemy(
  * resolves to no definition is omitted (the shaper falls back to the raw key).
  */
 export function resolveCatalogEnemyStatblocks(
-  combatants: readonly { ref: CombatantRef }[],
-  lookups: SkillLookup & Pick<EnemyLookup, "getEnemy">
-): Record<string, Statblock> {
-  const byKey: Record<string, Statblock> = {}
-  for (const { ref } of combatants) {
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — the `kind` test narrows the union so `ref.enemyKey` type-checks, but is runtime-redundant with the `if (definition)` guard below (a non-catalog ref has no `enemyKey`, so `getEnemy(undefined)` returns undefined and it's skipped either way); `byKey[...]` is a resolve-once optimization that yields the same map.
-    if (ref.kind !== "catalog-enemy" || byKey[ref.enemyKey]) continue
-    const definition = lookups.getEnemy(ref.enemyKey)
-    if (definition)
-      byKey[ref.enemyKey] = statblockFromEnemy(definition, lookups)
+  lookups: Pick<GameData, "getSkill" | "getEnemy">
+) {
+  const toStatblock = statblockFromEnemy(lookups)
+  return (
+    combatants: readonly { ref: CombatantRef }[]
+  ): Record<string, Statblock> => {
+    const byKey: Record<string, Statblock> = {}
+    for (const { ref } of combatants) {
+      // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — the `kind` test narrows the union so `ref.enemyKey` type-checks, but is runtime-redundant with the `if (definition)` guard below (a non-catalog ref has no `enemyKey`, so `getEnemy(undefined)` returns undefined and it's skipped either way); `byKey[...]` is a resolve-once optimization that yields the same map.
+      if (ref.kind !== "catalog-enemy" || byKey[ref.enemyKey]) continue
+      const definition = lookups.getEnemy(ref.enemyKey)
+      if (definition) byKey[ref.enemyKey] = toStatblock(definition)
+    }
+    return byKey
   }
-  return byKey
 }

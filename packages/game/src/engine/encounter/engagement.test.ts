@@ -20,7 +20,7 @@ function sequentialIds() {
 }
 
 function session() {
-  return createCombatSession(SETUP, sequentialIds())
+  return createCombatSession(sequentialIds())(SETUP)
 }
 
 function engagementOf(s: CombatSession, id: string): Combatant["engagement"] {

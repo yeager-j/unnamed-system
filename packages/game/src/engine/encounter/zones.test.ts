@@ -28,7 +28,7 @@ function sessionWithEdge(): {
   zoneB: string
 } {
   const ids = sequentialIds()
-  let session = createCombatSession(SETUP, ids)
+  let session = createCombatSession(ids)(SETUP)
   session = reduceCombat(session, { kind: "addZone", name: "Courtyard" }, ids)
   session = reduceCombat(session, { kind: "addZone", name: "Hall" }, ids)
   const [zoneA, zoneB] = Object.keys(session.zones)
@@ -47,7 +47,7 @@ function sessionWithEdge(): {
 
 describe("reduceCombatSession — addZone", () => {
   it("mints a stable id and stores a self-describing zone with name and notes", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(
       session,
@@ -61,7 +61,7 @@ describe("reduceCombatSession — addZone", () => {
   })
 
   it("omits notes when none are supplied", () => {
-    const session = createCombatSession(SETUP, sequentialIds())
+    const session = createCombatSession(sequentialIds())(SETUP)
 
     const next = reduceCombat(
       session,
@@ -191,7 +191,7 @@ describe("reduceCombatSession — setZoneAdjacency", () => {
 
   it("is a no-op when clearing an edge that does not exist", () => {
     const ids = sequentialIds()
-    let session = createCombatSession(SETUP, ids)
+    let session = createCombatSession(ids)(SETUP)
     session = reduceCombat(session, { kind: "addZone", name: "A" }, ids)
     session = reduceCombat(session, { kind: "addZone", name: "B" }, ids)
     const [zoneA, zoneB] = Object.keys(session.zones)
@@ -208,7 +208,7 @@ describe("reduceCombatSession — setZoneAdjacency", () => {
 
   it("leaves existing neighbors untouched when clearing a non-existent edge", () => {
     const ids = sequentialIds()
-    let session = createCombatSession(SETUP, ids)
+    let session = createCombatSession(ids)(SETUP)
     session = reduceCombat(session, { kind: "addZone", name: "A" }, ids)
     session = reduceCombat(session, { kind: "addZone", name: "B" }, ids)
     session = reduceCombat(session, { kind: "addZone", name: "C" }, ids)
@@ -233,7 +233,7 @@ describe("reduceCombatSession — setZoneAdjacency", () => {
 
   it("removes only the named edge, leaving other neighbors intact", () => {
     const ids = sequentialIds()
-    let session = createCombatSession(SETUP, ids)
+    let session = createCombatSession(ids)(SETUP)
     session = reduceCombat(session, { kind: "addZone", name: "A" }, ids)
     session = reduceCombat(session, { kind: "addZone", name: "B" }, ids)
     session = reduceCombat(session, { kind: "addZone", name: "C" }, ids)

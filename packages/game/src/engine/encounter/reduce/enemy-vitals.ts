@@ -1,6 +1,6 @@
 import { produce } from "immer"
 
-import { type EnemyLookup } from "@workspace/game/engine/ports"
+import { type GameData } from "@workspace/game/engine/ports"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { EnemyVitalsEvent } from "@workspace/game/foundation/encounter/session-event"
 
@@ -24,7 +24,7 @@ import type { EnemyVitalsEvent } from "@workspace/game/foundation/encounter/sess
 export function reduceEnemyVitalsEvent(
   session: CombatSession,
   event: EnemyVitalsEvent,
-  lookups: Pick<EnemyLookup, "getEnemy">
+  lookups: Pick<GameData, "getEnemy">
 ): CombatSession {
   switch (event.kind) {
     case "adjustEnemyVitals":

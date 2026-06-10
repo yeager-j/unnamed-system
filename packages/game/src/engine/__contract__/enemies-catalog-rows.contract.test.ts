@@ -12,7 +12,7 @@ import { buildEnemyCatalogRows } from "@workspace/game/engine/enemies/catalog-ro
  */
 describe("buildEnemyCatalogRows — real catalog (smoke)", () => {
   it("builds one row per shipped enemy, each with a resolved family", () => {
-    const rows = buildEnemyCatalogRows(gameData)
+    const rows = buildEnemyCatalogRows(gameData)()
     expect(rows).toHaveLength(ENEMIES.length)
     expect(rows.every((row) => row.family)).toBe(true)
   })
