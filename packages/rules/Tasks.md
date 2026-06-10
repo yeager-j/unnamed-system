@@ -146,18 +146,3 @@
 
 - [ ] Rules glossary
 
-
-| Lineage      | Damage                |
-| ------------ | --------------------- |
-| Mage         | Fire, Ice, Elec, Wind |
-| Brawler      | Fire                  |
-| Hunter       | Ice                   |
-| Knight       | Elec                  |
-| Warrior      | Wind                  |
-| Thief        | Mind                   |
-| Berserker    | Soul                  |
-| Healer       | Light                 |
-| Warlock      | Dark                  |
-| Bard         | —                     |
-| Shapechanger | —                     |
-| Summoner     | —                     |

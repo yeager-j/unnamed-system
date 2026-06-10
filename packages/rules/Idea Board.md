@@ -28,6 +28,10 @@
 ### Bard
 
 - [ ] Can enchant a Zone. Multiple levels of enchantment. Provide global effects to both enemies and allies
+- [ ] **Painter Tree:** Domain Expansion?
+
+### Warrior
+SS, SSS, MAX rank. Other tree caps lower but has different effects
 
 ## General Gameplay
 
@@ -59,6 +63,40 @@
 | Healer       | +SP      | +SP   | +Lu   |         |
 | Warlock      | +SP      | +SP   | +Lu   |         |
 
+## Lineage Damage
+
+| Lineage      | Damage                |
+| ------------ | --------------------- |
+| Mage         | Fire, Ice, Elec, Wind |
+| Brawler      | Fire                  |
+| Hunter       | Ice                   |
+| Knight       | Elec                  |
+| Warrior      | Wind                  |
+| Thief        | Mind                  |
+| Berserker    | Soul                  |
+| Healer       | Light                 |
+| Warlock      | Dark                  |
+| Bard         | —                     |
+| Shapechanger | —                     |
+| Summoner     | —                     |
+
+## Lineage Affinities
+
+| Lineage      | Weak          | Resist |
+| ------------ | ------------- | ------ |
+| Summoner     | Slash         | Elec   |
+| Mage         | Pierce        | Ice    |
+| Warlock      | Strike, Light | Dark   |
+| Healer       | Strike, Dark  | Light  |
+| Knight       | Fire          | Slash  |
+| Thief        | Ice           | Dark   |
+| Bard         | Elec          | Mind   |
+| Warrior      | Wind          | Fire   |
+| Brawler      | Soul          | Strike |
+| Hunter       | Soul          | Pierce |
+| Berserker    | Mind          | Wind   |
+| Shapechanger | Mind          | Soul   |
+
 
 ## Standard Skill Damage
 
@@ -89,3 +127,4 @@
 DUNGEONS ARE COMPOSED OF ZONES. Dungeon Turns work with Zones (15 mins to fully search a Zone)
 - BEN 10 DRUID??
 - Twitch streamer warlock
+
