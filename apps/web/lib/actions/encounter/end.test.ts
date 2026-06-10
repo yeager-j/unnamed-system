@@ -16,6 +16,7 @@ const loadEncounterCampaignId = vi.fn()
 const loadEncounterRowById = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
+const publishEncounterPing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -32,6 +33,10 @@ vi.mock("./revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
     revalidateEncounter(encounter),
 }))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishEncounterPing: (shortId: string, ping: unknown) =>
+    publishEncounterPing(shortId, ping),
+}))
 
 const ENCOUNTER_ID = "enc-1"
 const CAMPAIGN_ID = "camp-1"
@@ -44,6 +49,7 @@ beforeEach(() => {
   loadEncounterRowById.mockReset().mockResolvedValue(encounterRow)
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 3 }))
   revalidateEncounter.mockReset()
+  publishEncounterPing.mockReset()
 })
 
 describe("endEncounterAction", () => {
@@ -56,6 +62,10 @@ describe("endEncounterAction", () => {
     expect(result).toEqual(ok({ version: 3 }))
     expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "ended", 2)
     expect(revalidateEncounter).toHaveBeenCalledWith(encounterRow)
+    expect(publishEncounterPing).toHaveBeenCalledExactlyOnceWith("enc1", {
+      version: 3,
+      status: "ended",
+    })
   })
 
   it("rejects a non-DM before writing", async () => {
@@ -92,6 +102,7 @@ describe("endEncounterAction", () => {
 
     expect(result).toEqual(err("stale"))
     expect(revalidateEncounter).not.toHaveBeenCalled()
+    expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 
   it("rejects an invalid payload before any I/O", async () => {

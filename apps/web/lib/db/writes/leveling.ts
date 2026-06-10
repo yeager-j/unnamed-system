@@ -11,6 +11,7 @@ import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { publishCharacterPing } from "@/lib/realtime/publish"
 
 import {
   bumpCharacterVersionGuarded,
@@ -159,15 +160,22 @@ export async function applyLevelUpForCharacter(
     .returning({
       progressionVersion: characters.progressionVersion,
       vitalsVersion: characters.vitalsVersion,
+      shortId: characters.shortId,
     })
 
   if (updated.length === 0) return staleOrMissing(db, characterId)
 
+  const { progressionVersion, vitalsVersion, shortId } = updated[0]!
+  publishCharacterPing(shortId, {
+    progression: progressionVersion,
+    vitals: vitalsVersion,
+  })
+
   return ok({
     character: result.value,
     versions: {
-      progression: updated[0]!.progressionVersion,
-      vitals: updated[0]!.vitalsVersion,
+      progression: progressionVersion,
+      vitals: vitalsVersion,
     },
   })
 }

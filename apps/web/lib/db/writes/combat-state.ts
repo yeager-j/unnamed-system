@@ -15,6 +15,7 @@ import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"
+import { publishCharacterPing } from "@/lib/realtime/publish"
 
 import {
   bumpCharacterVersionGuarded,
@@ -163,13 +164,17 @@ export async function applyAdjustExhaustionForCharacter(
     .returning({
       exhaustion: characters.exhaustion,
       vitalsVersion: characters.vitalsVersion,
+      shortId: characters.shortId,
     })
 
   if (updated.length === 0) return staleOrMissing(db, characterId)
 
+  const { exhaustion, vitalsVersion, shortId } = updated[0]!
+  publishCharacterPing(shortId, { vitals: vitalsVersion })
+
   return ok({
-    value: updated[0]!.exhaustion,
-    version: updated[0]!.vitalsVersion,
+    value: exhaustion,
+    version: vitalsVersion,
   })
 }
 

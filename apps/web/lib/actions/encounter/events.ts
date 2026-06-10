@@ -13,6 +13,7 @@ import {
   setEncounterStatus,
 } from "@/lib/db/writes/encounter"
 import { reduceCombatSession } from "@/lib/game-engine"
+import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import {
   ApplyCombatEventSchema,
@@ -81,6 +82,11 @@ export async function applyCombatEvent(
     if (!live.ok) return live
     version = live.value.version
   }
+
+  publishEncounterPing(encounter.shortId, {
+    version,
+    status: event.kind === "startCombat" ? "live" : encounter.status,
+  })
 
   revalidateEncounter(encounter)
   return ok({ version })

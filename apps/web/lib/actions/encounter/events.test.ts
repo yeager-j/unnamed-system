@@ -19,6 +19,7 @@ const loadLiveEncounterForCampaign = vi.fn()
 const saveEncounterSession = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
+const publishEncounterPing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -38,6 +39,10 @@ vi.mock("@/lib/db/writes/encounter", () => ({
 vi.mock("./revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
     revalidateEncounter(encounter),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishEncounterPing: (shortId: string, ping: unknown) =>
+    publishEncounterPing(shortId, ping),
 }))
 
 const ENCOUNTER_ID = "encounter-1"
@@ -80,6 +85,7 @@ beforeEach(() => {
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
   revalidateEncounter.mockReset()
+  publishEncounterPing.mockReset()
 })
 
 describe("applyCombatEvent", () => {
@@ -119,6 +125,11 @@ describe("applyCombatEvent", () => {
 
     expect(setEncounterStatus).not.toHaveBeenCalled()
     expect(revalidateEncounter).toHaveBeenCalledOnce()
+    // Exactly one advisory ping with the new version + unchanged status.
+    expect(publishEncounterPing).toHaveBeenCalledExactlyOnceWith("enc1", {
+      version: 1,
+      status: "draft",
+    })
   })
 
   it("flips status to live on startCombat, guarded on the bumped version", async () => {
@@ -135,6 +146,12 @@ describe("applyCombatEvent", () => {
     expect(saveEncounterSession).toHaveBeenCalledOnce()
     expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "live", 1)
     expect(result).toEqual(ok({ version: 2 }))
+    // One ping for the whole action despite the two guarded writes, carrying
+    // the final version and the flipped status.
+    expect(publishEncounterPing).toHaveBeenCalledExactlyOnceWith("enc1", {
+      version: 2,
+      status: "live",
+    })
   })
 
   it("rejects startCombat when the campaign already has a different live encounter", async () => {
@@ -189,6 +206,7 @@ describe("applyCombatEvent", () => {
     expect(result).toEqual(err("stale"))
     expect(setEncounterStatus).not.toHaveBeenCalled()
     expect(revalidateEncounter).not.toHaveBeenCalled()
+    expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 
   it("rejects a malformed event before any DB read", async () => {
@@ -244,5 +262,6 @@ describe("applyCombatEvent", () => {
     expect(saveEncounterSession).toHaveBeenCalledOnce()
     expect(result).toEqual(err("encounter-not-found"))
     expect(revalidateEncounter).not.toHaveBeenCalled()
+    expect(publishEncounterPing).not.toHaveBeenCalled()
   })
 })
