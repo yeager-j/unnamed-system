@@ -40,7 +40,7 @@ Three facts shape the decision:
 | 4 | Channels + auth | Per-entity channels keyed by **public shortId** (`encounter:{shortId}`, `character:{shortId}`); a token route issues **subscribe-only** capabilities. "You know the shortId, you may subscribe" — the same knowledge-based model the public sheet and snapshot API already use. |
 | 5 | Publish point | The **write shells** publish after a successful guarded write (`applyCombatEvent`, the character write wrappers) — the single choke points that already exist. Fire-and-forget; a failed ping degrades to polling, never fails the write. |
 | 6 | Escape hatch | **PartyKit/PartyServer on Cloudflare Durable Objects**, documented below. The ping design makes the transport swappable: only the publish helper and subscribe hooks change. |
-| 7 | Environments | **One Ably app per environment (dev / preview / prod), key scoped via Vercel env vars, plus an environment-derived channel namespace** so concurrent PR previews — which share a seed and therefore collide on shortIds — can't cross-talk. Channel naming is server-owned. |
+| 7 | Environments | **One Ably app shared by all environments plus an environment-derived channel namespace** so concurrent PR previews — which share a seed and therefore collide on shortIds — can't cross-talk. Channel naming is server-owned. Per-environment apps remain the documented expansion path. |
 
 ---
 
@@ -78,7 +78,7 @@ Three facts shape the decision:
 
 **Integration shape (all in `apps/web`):**
 
-* `ABLY_API_KEY` in Vercel env, scoped per environment (Decision 7). That is the entire deployment.
+* `ABLY_API_KEY` in Vercel env (one app for all environments — Decision 7). That is the entire deployment.
 * **Publish:** a small `lib/realtime/publish.ts` using Ably's REST client — one HTTP POST per successful write from the write shells. Serverless-safe; no connection held; failure is logged and swallowed (Decision 3 covers the gap).
 * **Subscribe auth:** a route handler issuing Ably token requests scoped subscribe-only to the requested `encounter:{shortId}` / `character:{shortId}` channel.
 * **Client:** `ably/react` provider + channel hooks wired *inside* the existing seams — `useEncounterSnapshot` (whose JSDoc promised exactly this swap) and `CharacterProvider`. Use the v2 modular SDK to control bundle size.
@@ -131,17 +131,16 @@ Cost of switching later: the publish helper + the subscribe hooks — nothing el
 
 **Context.** The app runs in three environments: **dev** (local `npm run dev`), **preview** (one Vercel deployment per PR — each PR gets its own Neon branch `preview/<branch>`, migrated and seeded, with Playwright run against the deployment via the `vercel.deployment.success` dispatch), and **prod**. The Neon-branch-per-PR model makes each preview a fully isolated data world — but every preview is seeded *identically*, so public shortIds **collide across previews by construction**: every concurrent PR has the same seeded encounter and character shortIds. A shared realtime namespace would cross-wire them — the DM console on PR A's preview pinging watchers on PR B's preview — producing phantom refetches and flaky E2E. The realtime layer must reproduce the isolation the database already has.
 
-**Decision.** Two nested mechanisms, both server-side:
+**Decision.** One Ably app shared by all environments, isolated by **an environment-derived channel namespace**: the full channel name is `{ns}:{domain}:{shortId}`, where `ns` is `prod` in production, `pr-` + the slugified `VERCEL_GIT_COMMIT_REF` in preview (the same per-branch identity the `preview/<branch>` Neon branch name derives from), and `dev` locally. The single `ABLY_API_KEY` is set across Vercel environments.
 
-1. **One Ably app per environment** — three apps (`dev` / `preview` / `prod`) under the one Ably account, three API keys, all stored as the same `ABLY_API_KEY` variable scoped per Vercel environment (Development / Preview / Production) — exactly how `DATABASE_URL` is already handled. Hard isolation at the environment boundary: a leaked or misconfigured preview key cannot publish into prod's channels. Ably's free-tier limits apply at the account level, so the three-app split costs no quota (~400× headroom stands).
-2. **An environment-derived channel namespace** for per-PR isolation *within* the shared preview app: the full channel name is `{ns}:{domain}:{shortId}`, where `ns` is `prod` in production, the slugified `VERCEL_GIT_COMMIT_REF` in preview (the same per-branch identity the `preview/<branch>` Neon branch name derives from), and `dev` locally.
+> **Amended at implementation (UNN-370, 2026-06-10):** the original decision split this into one Ably app per environment (dev / preview / prod, key scoped per Vercel environment like `DATABASE_URL`) as a hard credential boundary on top of the namespace. We start with one app instead: the namespace alone provides all the cross-talk isolation, and because pings are advisory metadata only (Decision 4), the blast radius of a cross-environment key is phantom refetches — never data exposure. It's a two-way door: the per-environment split needs no code change (create the apps, re-scope the env var) and remains the expansion path if a harder credential boundary is ever wanted.
 
-**Server-owned naming keeps the namespace out of client hands.** One helper — `lib/realtime/channels.ts` — composes channel names from its own environment; the publish helper uses it, and the token route takes `{domain, shortId}`, resolves the full name itself, and returns it alongside a token whose capability is scoped to exactly that channel. Clients never assemble channel names (no `NEXT_PUBLIC_` namespace exposure), so a client on one preview can't attach to another preview's channels even inside the shared preview app. The threat model here is cross-talk correctness, not secrecy — pings are advisory metadata either way (Decision 4) — but flaky-by-collision E2E is reason enough.
+**Server-owned naming keeps the namespace out of client hands.** One helper — `lib/realtime/channels.ts` — composes channel names from its own environment; the publish helper uses it, and the token route takes `{domain, shortId}`, resolves the full name itself, and returns it alongside a token whose capability is scoped to exactly that channel. Clients never assemble channel names (no `NEXT_PUBLIC_` namespace exposure), so a client on one preview can't attach to another preview's channels even inside the shared app. The threat model here is cross-talk correctness, not secrecy — pings are advisory metadata either way (Decision 4) — but flaky-by-collision E2E is reason enough.
 
 Consequences:
 
-* **Local dev needs zero Ably setup.** With `ABLY_API_KEY` unset, the publish helper no-ops and the token route reports unavailable, so clients run the Decision 3 polling fallback. The dev app key is opt-in for when the realtime feature itself is being worked on. Parallel worktrees share the local database, so sharing the `dev` namespace is correct, not a leak — same data, same versions.
-* **E2E is unaffected by design** (Decision 3: specs assert via `expect.poll` against the DB, never through the channel). With the preview key set, realtime is simply live during E2E under that PR's namespace, isolated from concurrent runs on other PRs.
+* **Local dev needs zero Ably setup.** With `ABLY_API_KEY` unset, the publish helper no-ops and the token route reports unavailable, so clients run the Decision 3 polling fallback. The key is opt-in in `.env.local` for when the realtime feature itself is being worked on. Parallel worktrees share the local database, so sharing the `dev` namespace is correct, not a leak — same data, same versions.
+* **E2E is unaffected by design** (Decision 3: specs assert via `expect.poll` against the DB, never through the channel). With the key set, realtime is simply live during E2E under that PR's namespace, isolated from concurrent runs on other PRs.
 * **No teardown analog to `neon.yml`'s branch deletion is needed:** Ably channels are ephemeral — garbage-collected minutes after the last attach — so a closed PR leaves nothing behind.
 
 ---
@@ -170,7 +169,7 @@ Estimated usage (~10–15k messages/mo, ≤10 concurrent connections) vs. Ably f
 
 ## Suggested ticket breakdown
 
-1. **Realtime foundation** — Ably account + the three per-environment apps/keys, `lib/realtime/channels.ts` (env-namespaced naming, Decision 7), `lib/realtime/publish.ts`, token route, publish calls in `applyCombatEvent` / `endEncounterAction` / the character write wrappers.
+1. **Realtime foundation** — Ably account + app/key, `lib/realtime/channels.ts` (env-namespaced naming, Decision 7), `lib/realtime/publish.ts`, token route, publish calls in `applyCombatEvent` / `endEncounterAction` / the character write wrappers.
 2. **Watch view** — swap `useEncounterSnapshot` internals to subscribe-with-poll-fallback (the seam built for this).
 3. **DM console** — subscribe to encounter + PC character channels → `router.refresh()`.
 4. **Character sheet** — subscribe in `CharacterProvider`; version-compare → `router.refresh()`; decide [UNN-203](https://linear.app/unnamed-system/issue/UNN-203/make-stale-self-healing-auto-refetch-and-retry-cross-tab-broadcast) retirement after soak.

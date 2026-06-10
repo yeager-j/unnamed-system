@@ -8,6 +8,7 @@ import {
   loadEncounterRowById,
 } from "@/lib/db/queries/load-encounter"
 import { setEncounterStatus } from "@/lib/db/writes/encounter"
+import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import {
   EndEncounterSchema,
@@ -48,7 +49,13 @@ export async function endEncounterAction(
   if (!result.ok) return result
 
   const encounter = await loadEncounterRowById(encounterId)
-  if (encounter !== null) revalidateEncounter(encounter)
+  if (encounter !== null) {
+    publishEncounterPing(encounter.shortId, {
+      version: result.value.version,
+      status: "ended",
+    })
+    revalidateEncounter(encounter)
+  }
 
   return ok({ version: result.value.version })
 }

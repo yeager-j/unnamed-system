@@ -9,6 +9,7 @@ import {
 } from "@/lib/db/queries/load-character"
 import { characters } from "@/lib/db/schema/character"
 import type { VersionClass } from "@/lib/db/version-classes"
+import { publishCharacterPing } from "@/lib/realtime/publish"
 
 /**
  * The shared optimistic-concurrency primitive every character write composes
@@ -75,6 +76,10 @@ export async function staleOrMissing(
  * the `versionClass` increment in one `SET`, conditioned on
  * `(id, <class>Version === expectedVersion)`, and returns the bumped version.
  * On zero affected rows it returns {@link staleOrMissing}'s verdict.
+ *
+ * On success it also fires the realtime invalidation ping (UNN-370) — this is
+ * the single choke point nearly every character write composes through, so the
+ * ping can't be forgotten per write. A guard-rejected write publishes nothing.
  */
 export async function bumpCharacterVersionGuarded(
   executor: CharacterWriteExecutor,
@@ -89,9 +94,12 @@ export async function bumpCharacterVersionGuarded(
     .update(characters)
     .set({ ...patch, ...characterVersionIncrement(versionClass) })
     .where(and(eq(characters.id, characterId), eq(column, expectedVersion)))
-    .returning({ version: column })
+    .returning({ version: column, shortId: characters.shortId })
 
   if (updated.length === 0) return staleOrMissing(executor, characterId)
 
-  return ok({ version: updated[0]!.version })
+  const { version, shortId } = updated[0]!
+  publishCharacterPing(shortId, { [versionClass]: version })
+
+  return ok({ version })
 }
