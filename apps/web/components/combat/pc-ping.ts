@@ -38,7 +38,8 @@ export function decidePcPing(
     ([versionClass, version]) =>
       versionClass !== ("vitals" satisfies VersionClass) &&
       VERSION_CLASSES.has(versionClass) &&
-      typeof version === "number"
+      typeof version === "number" &&
+      Number.isFinite(version)
   )
 
   return {

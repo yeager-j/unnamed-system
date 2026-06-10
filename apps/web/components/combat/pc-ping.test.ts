@@ -33,5 +33,8 @@ describe("decidePcPing", () => {
     expect(decidePcPing({ bogus: 99, vitals: "8" } as never, 7)).toEqual({
       refresh: false,
     })
+    expect(decidePcPing({ inventory: Number.NaN }, 7)).toEqual({
+      refresh: false,
+    })
   })
 })

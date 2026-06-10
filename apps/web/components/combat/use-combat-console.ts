@@ -42,8 +42,12 @@ import { decidePcPing } from "./pc-ping"
  * tokens, so the console's *own* writes — which bump the tokens before their
  * ping returns — never double-refresh, while another writer's change (a
  * player's self-heal, a second DM tab's event) refreshes the page. Refreshes
- * are microtask-coalesced: an AoE pinging several PCs at once costs one
- * `router.refresh()`.
+ * are microtask-deduped: pings that land in the same event-loop task (and a
+ * handler's own re-entrancy) collapse into one `router.refresh()`. Pings
+ * arriving in separate tasks — e.g. an AoE's per-PC pings delivered as
+ * separate WebSocket messages — may each refresh; that's accepted (each
+ * refresh is a cheap re-read), with a wider debounce window as the known
+ * lever if it ever shows up as churn in practice.
  */
 export function useCombatConsole(
   encounter: Pick<EncounterRow, "id" | "shortId" | "session" | "version">,
