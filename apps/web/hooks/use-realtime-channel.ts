@@ -1,5 +1,6 @@
 "use client"
 
+import type { TokenRequest } from "ably"
 import { BaseRealtime, FetchRequest, WebSocketTransport } from "ably/modular"
 import { useEffect, useRef } from "react"
 
@@ -31,7 +32,7 @@ import type { RealtimeDomain } from "@/lib/realtime/channels"
 
 interface RealtimeTokenResponse {
   channel: string
-  tokenRequest: object
+  tokenRequest: TokenRequest
 }
 
 async function fetchRealtimeToken(
@@ -75,18 +76,18 @@ export function useRealtimeChannel({
       const first = await fetchRealtimeToken(domain, shortId).catch(() => null)
       if (!first || cancelled) return
 
-      let prefetchedTokenRequest: object | null = first.tokenRequest
+      let prefetchedTokenRequest: TokenRequest | null = first.tokenRequest
       client = new BaseRealtime({
         authCallback: (_params, callback) => {
           if (prefetchedTokenRequest) {
-            callback(null, prefetchedTokenRequest as never)
+            callback(null, prefetchedTokenRequest)
             prefetchedTokenRequest = null
             return
           }
           fetchRealtimeToken(domain, shortId)
             .then((next) =>
               next
-                ? callback(null, next.tokenRequest as never)
+                ? callback(null, next.tokenRequest)
                 : callback("realtime unavailable", null)
             )
             .catch((error: unknown) => callback(String(error), null))
