@@ -1,61 +1,65 @@
 import { expect, test } from "@playwright/test"
 
-test("public character sheet renders for a seeded character", async ({
-  page,
-}) => {
-  const response = await page.goto("/c/seed-warrior")
-  expect(response?.ok()).toBeTruthy()
-  await expect(page.getByRole("heading", { name: "Brann Holt" })).toBeVisible()
-
-  // Header (persistent, above the tabs): level, active Archetype, Victories
-  // progress, currency with unit, portrait placeholder.
-  await expect(page.getByText(/Level 1 · Warrior/)).toBeVisible()
-  await expect(page.getByText(/0\/7 Victories/)).toBeVisible()
-  await expect(page.getByText("BH")).toBeVisible()
-
-  // Vitals: HP + SP each render a bar (Hit/Skill Dice and Prisma are
-  // intentionally not surfaced in the header).
-  await expect(page.getByRole("progressbar")).toHaveCount(2)
-  await expect(page.getByText("HP", { exact: true })).toBeVisible()
-  await expect(page.getByText("SP", { exact: true })).toBeVisible()
-
-  // Attributes: in the persistent header (not a tab). Warrior R1 base, no
-  // Mastery, longsword has no stat effects — the Archetype block, minus on Magic.
-  const attributes = page.getByRole("region", { name: "Attributes" })
-  await expect(attributes.getByText("Strength")).toBeVisible()
-  await expect(attributes.getByText("+2")).toBeVisible()
-  await expect(attributes.getByText("Magic")).toBeVisible()
-  await expect(attributes.getByText("−1")).toBeVisible()
-
-  // Combat is the default tab: Affinities is mounted. All 11 damage types
-  // present; Almighty is never charted.
-  const affinities = page.getByRole("region", { name: "Affinities" })
-  for (const damageType of [
-    "Slash",
-    "Pierce",
-    "Strike",
-    "Fire",
-    "Ice",
-    "Wind",
-    "Elec",
-    "Soul",
-    "Mind",
-    "Light",
-    "Dark",
-  ]) {
+test(
+  "public character sheet renders for a seeded character",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const response = await page.goto("/c/seed-warrior")
+    expect(response?.ok()).toBeTruthy()
     await expect(
-      affinities.getByText(damageType, { exact: true })
+      page.getByRole("heading", { name: "Brann Holt" })
     ).toBeVisible()
-  }
-  await expect(affinities.getByText("Almighty")).toHaveCount(0)
 
-  // Virtues lives on the Explore tab — switch to it (Base UI unmounts inactive
-  // panels by default). Empty Spark log ⇒ count 0/7 and no "×n" breakdown.
-  await page.getByRole("tab", { name: "Explore" }).click()
-  const virtues = page.getByRole("region", { name: "Virtues" })
-  await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
-  await expect(virtues.getByText(/×/)).toHaveCount(0)
-})
+    // Header (persistent, above the tabs): level, active Archetype, Victories
+    // progress, currency with unit, portrait placeholder.
+    await expect(page.getByText(/Level 1 · Warrior/)).toBeVisible()
+    await expect(page.getByText(/0\/7 Victories/)).toBeVisible()
+    await expect(page.getByText("BH")).toBeVisible()
+
+    // Vitals: HP + SP each render a bar (Hit/Skill Dice and Prisma are
+    // intentionally not surfaced in the header).
+    await expect(page.getByRole("progressbar")).toHaveCount(2)
+    await expect(page.getByText("HP", { exact: true })).toBeVisible()
+    await expect(page.getByText("SP", { exact: true })).toBeVisible()
+
+    // Attributes: in the persistent header (not a tab). Warrior R1 base, no
+    // Mastery, longsword has no stat effects — the Archetype block, minus on Magic.
+    const attributes = page.getByRole("region", { name: "Attributes" })
+    await expect(attributes.getByText("Strength")).toBeVisible()
+    await expect(attributes.getByText("+2")).toBeVisible()
+    await expect(attributes.getByText("Magic")).toBeVisible()
+    await expect(attributes.getByText("−1")).toBeVisible()
+
+    // Combat is the default tab: Affinities is mounted. All 11 damage types
+    // present; Almighty is never charted.
+    const affinities = page.getByRole("region", { name: "Affinities" })
+    for (const damageType of [
+      "Slash",
+      "Pierce",
+      "Strike",
+      "Fire",
+      "Ice",
+      "Wind",
+      "Elec",
+      "Soul",
+      "Mind",
+      "Light",
+      "Dark",
+    ]) {
+      await expect(
+        affinities.getByText(damageType, { exact: true })
+      ).toBeVisible()
+    }
+    await expect(affinities.getByText("Almighty")).toHaveCount(0)
+
+    // Virtues lives on the Explore tab — switch to it (Base UI unmounts inactive
+    // panels by default). Empty Spark log ⇒ count 0/7 and no "×n" breakdown.
+    await page.getByRole("tab", { name: "Explore" }).click()
+    const virtues = page.getByRole("region", { name: "Virtues" })
+    await expect(virtues.getByText(/Sparks:\s*0\s*\/\s*7/)).toBeVisible()
+    await expect(virtues.getByText(/×/)).toHaveCount(0)
+  }
+)
 
 test("a Fallen, max-level character is marked Fallen and reads level 30", async ({
   page,

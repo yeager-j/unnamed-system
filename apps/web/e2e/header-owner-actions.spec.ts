@@ -85,18 +85,22 @@ test.describe("owner header actions", () => {
     ).toBeVisible()
   })
 
-  test("Heal raises HP and clamps at max", async ({ page }) => {
-    await target.setCurrentHP(2)
-    await page.goto(target.url)
-    const before = await target.getPools()
+  test(
+    "Heal raises HP and clamps at max",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      await target.setCurrentHP(2)
+      await page.goto(target.url)
+      const before = await target.getPools()
 
-    await fillAdjustPopover(page, "Adjust HP", 999, "Heal")
-    await page.waitForLoadState("networkidle")
+      await fillAdjustPopover(page, "Adjust HP", 999, "Heal")
+      await page.waitForLoadState("networkidle")
 
-    const after = await target.getPools()
-    expect(after.currentHP).toBeGreaterThan(before.currentHP)
-    expect(after.currentHP).toBeLessThanOrEqual(after.currentHP)
-  })
+      const after = await target.getPools()
+      expect(after.currentHP).toBeGreaterThan(before.currentHP)
+      expect(after.currentHP).toBeLessThanOrEqual(after.currentHP)
+    }
+  )
 
   test("Take damage to 0 surfaces the Fallen badge", async ({ page }) => {
     await target.setCurrentHP(2)

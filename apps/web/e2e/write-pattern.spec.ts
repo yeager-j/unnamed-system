@@ -741,28 +741,32 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       await expectNoToast(page)
     })
 
-    test("owner can upload a portrait and remove it", async ({ page }) => {
-      await page.goto(exploreUrl())
-      await expect(
-        page.getByRole("button", { name: "Edit portrait" })
-      ).toBeVisible()
-      expect(await portraitUrl()).toBeNull()
+    test(
+      "owner can upload a portrait and remove it",
+      { tag: "@smoke" },
+      async ({ page }) => {
+        await page.goto(exploreUrl())
+        await expect(
+          page.getByRole("button", { name: "Edit portrait" })
+        ).toBeVisible()
+        expect(await portraitUrl()).toBeNull()
 
-      // The menu item just forwards a click to this hidden input; setting it
-      // directly drives the same onChange → upload → revalidate path.
-      await page.locator('input[type="file"]').setInputFiles({
-        name: "portrait.png",
-        mimeType: "image/png",
-        buffer: PNG_1x1,
-      })
-      await page.waitForLoadState("networkidle")
-      await expect.poll(portraitUrl).not.toBeNull()
+        // The menu item just forwards a click to this hidden input; setting it
+        // directly drives the same onChange → upload → revalidate path.
+        await page.locator('input[type="file"]').setInputFiles({
+          name: "portrait.png",
+          mimeType: "image/png",
+          buffer: PNG_1x1,
+        })
+        await page.waitForLoadState("networkidle")
+        await expect.poll(portraitUrl).not.toBeNull()
 
-      await page.getByRole("button", { name: "Edit portrait" }).click()
-      await page.getByRole("menuitem", { name: "Remove portrait" }).click()
-      await page.waitForLoadState("networkidle")
-      await expect.poll(portraitUrl).toBeNull()
-      await expectNoToast(page)
-    })
+        await page.getByRole("button", { name: "Edit portrait" }).click()
+        await page.getByRole("menuitem", { name: "Remove portrait" }).click()
+        await page.waitForLoadState("networkidle")
+        await expect.poll(portraitUrl).toBeNull()
+        await expectNoToast(page)
+      }
+    )
   })
 })

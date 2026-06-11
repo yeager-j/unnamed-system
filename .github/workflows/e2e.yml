@@ -1,38 +1,33 @@
 name: E2E
 
+# The full Playwright suite, run against a production build served on the
+# runner itself (`next start`) — zero Vercel edge requests. Deployment-specific
+# coverage (env wiring, auth on the deployed domain, Blob) lives in the @smoke
+# subset, which smoke.yml runs against the actual preview deployment.
 on:
-  repository_dispatch:
-    types:
-      - vercel.deployment.success
+  pull_request:
+  push:
+    branches: [main]
 
-run-name: E2E - ${{ github.event.client_payload.project.name }} (${{ github.event.client_payload.git.ref }})
-
-# Rapid pushes to a PR produce multiple preview deploys -> multiple dispatches.
-# All target the same shared preview/<branch> Neon branch; serialize so two runs
-# never migrate/seed it concurrently. Only the latest deploy's run matters - its
-# status posts for the head SHA that branch protection gates on.
 concurrency:
-  group: e2e-${{ github.event.client_payload.git.ref }}
+  group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   e2e:
-    # Only preview deployments have a preview/<branch> Neon branch; never seed production.
-    if: github.event.client_payload.environment == 'preview'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      actions: read
-      statuses: write
+    timeout-minutes: 20
+    env:
+      # The local server never performs a real OAuth round-trip (sessions are
+      # minted directly in the DB by e2e/auth.setup.ts), but lib/auth/env.ts
+      # requires these to be present.
+      AUTH_SECRET: e2e-local-only-not-a-secret
+      GOOGLE_CLIENT_ID: e2e-local-dummy
+      GOOGLE_CLIENT_SECRET: e2e-local-dummy
+      # Match the preview environment the suite was written against.
+      NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES: "true"
     steps:
-      - name: Checkout deployed commit
-        uses: vercel/repository-dispatch/actions/checkout@v1
-
-      - name: Report e2e status on the deployed commit
-        uses: vercel/repository-dispatch/actions/status@v1
-        with:
-          name: e2e
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -52,16 +47,24 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
-      - name: Resolve preview Neon branch connection string
+      # Copy-on-write branch off the project's default branch; created in
+      # seconds, deleted in the always() step below so runs don't accumulate
+      # toward the Neon branch cap.
+      - name: Create ephemeral Neon branch
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: |
           set -euo pipefail
-          REF='${{ github.event.client_payload.git.ref }}'
-          DB_URL=$(npx -y neonctl connection-string "preview/${REF}" \
+          BRANCH="ci/run-${{ github.run_id }}-${{ github.run_attempt }}"
+          npx -y neonctl branches create \
+            --project-id "${{ vars.NEON_PROJECT_ID }}" \
+            --name "$BRANCH" \
+            --api-key "$NEON_API_KEY" > /dev/null
+          DB_URL=$(npx -y neonctl connection-string "$BRANCH" \
             --project-id "${{ vars.NEON_PROJECT_ID }}" \
             --api-key "$NEON_API_KEY")
           echo "::add-mask::$DB_URL"
+          echo "NEON_CI_BRANCH=$BRANCH" >> "$GITHUB_ENV"
           echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
 
       - name: Apply migrations
@@ -72,16 +75,25 @@ jobs:
         working-directory: apps/web
         run: npm run db:seed
 
-      # Playwright's globalSetup (e2e/auth.setup.ts) inherits DATABASE_URL from
-      # the job env (set above via $GITHUB_ENV) to land a session row for the
-      # seeded claude@unnamed-system.local user and write the storage-state
-      # cookie that authenticated specs opt into. No new secrets required.
+      - name: Build
+        run: npm run build
+
+      # No BASE_URL → playwright.config.ts starts `next start` on the runner.
+      # @smoke specs are excluded here; smoke.yml runs them against the
+      # preview deployment.
       - name: Run E2E tests
         working-directory: apps/web
-        run: npx playwright test
+        run: npx playwright test --grep-invert "@smoke"
+
+      - name: Delete ephemeral Neon branch
+        if: always()
         env:
-          BASE_URL: ${{ github.event.client_payload.url }}
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          [ -z "${NEON_CI_BRANCH:-}" ] && exit 0
+          npx -y neonctl branches delete "$NEON_CI_BRANCH" \
+            --project-id "${{ vars.NEON_PROJECT_ID }}" \
+            --api-key "$NEON_API_KEY"
 
       - name: Upload Playwright report
         if: failure()

@@ -31,12 +31,14 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  // No BASE_URL → run against a local server: `next dev` on a laptop, the
+  // production build in CI (.github/workflows/e2e.yml builds before testing).
   webServer: process.env.BASE_URL
     ? undefined
     : {
-        command: "npm run dev",
+        command: isCI ? "npm run start" : "npm run dev",
         url: "http://localhost:3000",
-        reuseExistingServer: true,
+        reuseExistingServer: !isCI,
         timeout: 120_000,
       },
 })
