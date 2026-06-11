@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook } from "@testing-library/react"
+import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { type EncounterSnapshot } from "@workspace/game/engine"
@@ -53,11 +53,30 @@ async function tick(ms = POLL_MS) {
   })
 }
 
+/** Stubs jsdom's (read-only) visibility state and fires the change event. */
+async function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => state,
+  })
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"))
+  })
+}
+
 beforeEach(() => {
   vi.useFakeTimers()
 })
 
 afterEach(() => {
+  // Unmount explicitly: without vitest globals RTL never auto-cleans, and a
+  // hook left mounted would poll on a later test's visibilitychange dispatch.
+  cleanup()
+  // Restore the property only — no dispatch, nothing is mounted to hear it.
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    get: () => "visible",
+  })
   vi.useRealTimers()
   vi.clearAllMocks()
 })
@@ -122,6 +141,38 @@ describe("useEncounterSnapshot — polling fallback (realtime unavailable)", () 
 
     await tick(POLL_MS * 3)
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it("suspends polling while the tab is hidden, catches up immediately on return", async () => {
+    const fetcher = vi.fn().mockResolvedValue(makeSnapshot({ version: 2 }))
+    renderHook(() => useEncounterSnapshot("s1", makeSnapshot(), fetcher))
+
+    await tick()
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await setVisibility("hidden")
+    await tick(POLL_MS * 4)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    // Foregrounding fetches at once (no interval-long stale window)…
+    await setVisibility("visible")
+    expect(fetcher).toHaveBeenCalledTimes(2)
+
+    // …and the interval is running again.
+    await tick()
+    expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+
+  it("does not poll at all when mounted in a hidden tab", async () => {
+    await setVisibility("hidden")
+    const fetcher = vi.fn().mockResolvedValue(makeSnapshot({ version: 2 }))
+    renderHook(() => useEncounterSnapshot("s1", makeSnapshot(), fetcher))
+
+    await tick(POLL_MS * 3)
+    expect(fetcher).not.toHaveBeenCalled()
+
+    await setVisibility("visible")
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 })
 
