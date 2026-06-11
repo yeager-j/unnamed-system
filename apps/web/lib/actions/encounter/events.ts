@@ -1,5 +1,6 @@
 "use server"
 
+import { isRosterFullyPlaced, toCombatantSetup } from "@workspace/game/engine"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
@@ -70,6 +71,17 @@ export async function applyCombatEvent(
 
   const encounter = await loadEncounterRowById(encounterId)
   if (encounter === null) return err("encounter-not-found")
+
+  // Start is the point of no return: once zones are defined, every combatant
+  // must be placed (UNN-347). The setup shell gates this client-side as a
+  // friendly affordance; this is the authoritative server check. Mid-edit
+  // placement events stay permissive (ADR Decision 8).
+  if (event.kind === "startCombat") {
+    const roster = encounter.session.combatants.map(toCombatantSetup)
+    if (!isRosterFullyPlaced(roster, encounter.session.zones)) {
+      return err("encounter-has-unplaced-combatants")
+    }
+  }
 
   const next = reduceCombatSession(encounter.session, event)
 

@@ -1,25 +1,11 @@
 import { produce } from "immer"
 
-import type {
-  Combatant,
-  CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import {
+  engagedWith,
+  setEngaged,
+} from "@workspace/game/engine/encounter/engagement-graph"
+import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { EngagementEvent } from "@workspace/game/foundation/encounter/session-event"
-
-/** The ids a combatant is currently engaged with, or `[]` when Free. */
-function engagedWith(combatant: Combatant): string[] {
-  return combatant.engagement.status === "engaged"
-    ? combatant.engagement.targetCombatantIds
-    : []
-}
-
-/** Re-stamps a combatant's engagement from a target list — Free when empty. */
-function setEngaged(combatant: Combatant, targets: string[]): void {
-  combatant.engagement =
-    targets.length === 0
-      ? { status: "free" }
-      : { status: "engaged", targetCombatantIds: targets }
-}
 
 /**
  * Engagement slice (UNN-316) — the live-combat counterpart of UNN-301's setup

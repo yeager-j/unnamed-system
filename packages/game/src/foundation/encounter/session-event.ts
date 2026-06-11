@@ -83,17 +83,23 @@ export type TurnEvent = EndTurnEvent | StartCombatEvent | DraftCombatantEvent
  * `hasActedThisRound` to `false`, and clears `currentActorId` — the only event
  * that clears those flags (individual flags are set by `endTurn`). It always
  * applies, even when no one has acted, as an idempotent round-end safeguard.
- * `addCombatant` joins a combatant mid-fight: it enters with
- * `hasActedThisRound = true` so it is not eligible until the next round (its
- * stable id is minted by the reducer's injectable `newId`). `removeCombatant`
- * drops a combatant; if it was the current actor, `currentActorId` is cleared.
- * Auto-advancing when everyone has acted is a UI decision, out of scope here
- * (UNN-306).
+ * `addCombatant` joins a combatant: it enters with `hasActedThisRound = true` so
+ * a mid-fight joiner is queued for the next round (`startCombat` resets the flag
+ * for an at-setup roster). Its stable id is the `setup.id` when supplied (the
+ * encounter-setup surface mints it client-side so the optimistic id matches the
+ * persisted one — UNN-347) and the reducer's injectable `newId` otherwise (the
+ * mid-combat join). `removeCombatant` drops a combatant; if it was the current
+ * actor, `currentActorId` is cleared, and the removed id is pruned from every
+ * partner's engagement (symmetric melee-lock — UNN-347). `setSide` flips a
+ * combatant's {@link CombatSide} (the setup side control, also a mid-fight charm/
+ * summon correction). Auto-advancing when everyone has acted is a UI decision,
+ * out of scope here (UNN-306).
  */
 export type RoundEvent =
   | { kind: "advanceRound" }
   | { kind: "addCombatant"; setup: CombatantSetup }
   | { kind: "removeCombatant"; combatantId: string }
+  | { kind: "setSide"; combatantId: string; side: CombatSide }
 
 /** The three DM intents on a Battle Condition axis — nudge it up, nudge it down,
  *  or clear it back to neutral. */
@@ -240,9 +246,12 @@ export type EnemyVitalsEvent = {
  * Zone-graph events (UNN-313) — mutate the spatial graph on the session
  * (`zones` + `adjacency`), never a combatant:
  *
- * - `addZone` mints a new {@link import("./session").Zone} via the reducer's
- *   injectable `newId` (same pattern as `addCombatant`) — the client supplies
- *   only the display `name` and optional `notes`, not the id.
+ * - `addZone` records a new {@link import("./session").Zone}. The client may
+ *   supply the stable `zoneId` (the encounter-setup surface mints it so the
+ *   optimistic id matches the persisted one and a follow-up adjacency/placement
+ *   edit can reference it before any refresh — UNN-347); when omitted the reducer
+ *   mints it via its injectable `newId` (same fallback as `addCombatant`). The
+ *   client always supplies the display `name` and optional `notes`.
  * - `removeZone` drops a zone and prunes it from every adjacency list. It does
  *   **not** touch any `combatant.zoneId` — zone-id cleanup is the caller's job
  *   (placement is UNN-315).
@@ -254,7 +263,7 @@ export type EnemyVitalsEvent = {
  * shape here (UNN-313); rendering is UNN-314 and movement/placement is UNN-315.
  */
 export type ZoneGraphEvent =
-  | { kind: "addZone"; name: string; notes?: string }
+  | { kind: "addZone"; name: string; notes?: string; zoneId?: string }
   | { kind: "removeZone"; zoneId: string }
   | {
       kind: "setZoneAdjacency"
@@ -339,6 +348,11 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("addCombatant"), setup: combatantSetupSchema }),
   z.object({ kind: z.literal("removeCombatant"), combatantId: z.string() }),
   z.object({
+    kind: z.literal("setSide"),
+    combatantId: z.string(),
+    side: z.enum(COMBAT_SIDES),
+  }),
+  z.object({
     kind: z.literal("adjustBattleConditionAxis"),
     combatantId: z.string(),
     axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
@@ -395,6 +409,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("addZone"),
     name: z.string().min(1),
     notes: z.string().optional(),
+    zoneId: z.string().optional(),
   }),
   z.object({ kind: z.literal("removeZone"), zoneId: z.string() }),
   z.object({

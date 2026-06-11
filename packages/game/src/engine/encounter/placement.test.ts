@@ -97,3 +97,76 @@ describe("reduceCombatSession — moveCombatant", () => {
     expect(next.combatants[0]!.zoneId).toBe("zone-detached")
   })
 })
+
+describe("reduceCombatSession — moveCombatant engagement invariant (UNN-347)", () => {
+  /** Two combatants engaged in zone-a, with a zone-b they can move to. */
+  function engagedPair() {
+    const base = createCombatSession(sequentialIds())([
+      {
+        side: "players",
+        ref: { kind: "pc", characterId: "a" },
+        zoneId: "zone-a",
+      },
+      {
+        side: "enemies",
+        ref: { kind: "pc", characterId: "b" },
+        zoneId: "zone-a",
+      },
+    ])
+    const withZones = {
+      ...base,
+      zones: {
+        "zone-a": { id: "zone-a", name: "Courtyard" },
+        "zone-b": { id: "zone-b", name: "Hall" },
+      },
+      adjacency: { "zone-a": ["zone-b"], "zone-b": ["zone-a"] },
+    }
+    return reduceCombat(withZones, {
+      kind: "setEngagement",
+      combatantId: "combatant-0",
+      targetCombatantIds: ["combatant-1"],
+    })
+  }
+
+  it("severs a cross-zone engagement on both combatants when one moves away", () => {
+    const next = reduceCombat(engagedPair(), {
+      kind: "moveCombatant",
+      combatantId: "combatant-0",
+      toZoneId: "zone-b",
+    })
+
+    expect(next.combatants[0]!.engagement).toEqual({ status: "free" })
+    expect(next.combatants[1]!.engagement).toEqual({ status: "free" })
+  })
+
+  it("keeps the engagement when the combatant moves to the target's zone", () => {
+    // Park the partner in zone-b, re-engage across zones (the reducer permits
+    // it — engagement validation is the DM control's job), then move the
+    // combatant to join: co-located, so the lock survives the move.
+    const partnerInB = reduceCombat(engagedPair(), {
+      kind: "moveCombatant",
+      combatantId: "combatant-1",
+      toZoneId: "zone-b",
+    })
+    const reEngaged = reduceCombat(partnerInB, {
+      kind: "setEngagement",
+      combatantId: "combatant-0",
+      targetCombatantIds: ["combatant-1"],
+    })
+
+    const next = reduceCombat(reEngaged, {
+      kind: "moveCombatant",
+      combatantId: "combatant-0",
+      toZoneId: "zone-b",
+    })
+
+    expect(next.combatants[0]!.engagement).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["combatant-1"],
+    })
+    expect(next.combatants[1]!.engagement).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["combatant-0"],
+    })
+  })
+})

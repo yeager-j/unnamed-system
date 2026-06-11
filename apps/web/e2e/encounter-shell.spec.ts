@@ -79,7 +79,7 @@ test("import panel toggles a placed PC in and out of the roster", async ({
   ).toBeVisible()
 })
 
-test("assigns a side and persists it across reload (save / resume)", async ({
+test("assigns a side and persists it per-edit across reload (UNN-347)", async ({
   page,
 }) => {
   await page.goto(encounterTarget.draft.url)
@@ -87,12 +87,12 @@ test("assigns a side and persists it across reload (save / resume)", async ({
   const enemiesToggle = page.getByRole("button", { name: "Enemies" })
   await expect(enemiesToggle).toHaveAttribute("aria-pressed", "false")
 
+  // There is no Save button — the side flip persists optimistically as an event.
   await enemiesToggle.click()
   await expect(enemiesToggle).toHaveAttribute("aria-pressed", "true")
 
-  await page.getByRole("button", { name: "Save draft" }).click()
-  await expect(page.getByText("Draft saved.")).toBeVisible()
-
+  // Let the per-edit write settle, then a reload restores it from the server.
+  await page.waitForLoadState("networkidle")
   await page.reload()
   await expect(page.getByRole("button", { name: "Enemies" })).toHaveAttribute(
     "aria-pressed",

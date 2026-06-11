@@ -187,6 +187,59 @@ describe("applyCombatEvent", () => {
     expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "live", 1)
   })
 
+  it("rejects startCombat when zones are defined and a combatant is unplaced (UNN-347)", async () => {
+    const base = startedSession()
+    const unplaced: CombatSession = {
+      ...base,
+      zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
+      combatants: base.combatants.map((combatant) => ({
+        ...combatant,
+        zoneId: "",
+      })),
+    }
+    loadEncounterRowById.mockResolvedValue(encounterRow(unplaced))
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: {
+        kind: "startCombat",
+        advantage: "players",
+        firstSide: "players",
+      },
+    })
+
+    expect(result).toEqual(err("encounter-has-unplaced-combatants"))
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(setEncounterStatus).not.toHaveBeenCalled()
+  })
+
+  it("allows startCombat when zones are defined and every combatant is placed", async () => {
+    const base = startedSession()
+    const placed: CombatSession = {
+      ...base,
+      zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
+      combatants: base.combatants.map((combatant) => ({
+        ...combatant,
+        zoneId: "zone-a",
+      })),
+    }
+    loadEncounterRowById.mockResolvedValue(encounterRow(placed))
+
+    const result = await applyCombatEvent({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      event: {
+        kind: "startCombat",
+        advantage: "players",
+        firstSide: "players",
+      },
+    })
+
+    expect(result).toEqual(ok({ version: 2 }))
+    expect(setEncounterStatus).toHaveBeenCalledWith(ENCOUNTER_ID, "live", 1)
+  })
+
   it("propagates a stale version and does not flip status or revalidate", async () => {
     saveEncounterSession.mockResolvedValue(err("stale"))
 

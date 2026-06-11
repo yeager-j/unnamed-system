@@ -56,6 +56,7 @@ export function reduceCombatSession(
       case "advanceRound":
       case "addCombatant":
       case "removeCombatant":
+      case "setSide":
         return reduceRoundEvent(session, event, newId)
 
       case "adjustBattleConditionAxis":

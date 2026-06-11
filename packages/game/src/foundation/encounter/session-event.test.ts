@@ -18,6 +18,9 @@ describe("combatEventSchema", () => {
         },
       },
       { kind: "removeCombatant", combatantId: "combatant-1" },
+      { kind: "setSide", combatantId: "combatant-1", side: "enemies" },
+      { kind: "addZone", name: "Courtyard" },
+      { kind: "addZone", name: "Courtyard", zoneId: "client-zone" },
       {
         kind: "adjustBattleConditionAxis",
         combatantId: "combatant-1",
@@ -97,6 +100,16 @@ describe("combatEventSchema", () => {
       combatEventSchema.safeParse({
         kind: "addCombatant",
         setup: { side: "enemies", zoneId: "zone-a" },
+      }).success
+    ).toBe(false)
+  })
+
+  it("rejects setSide with an out-of-range side", () => {
+    expect(
+      combatEventSchema.safeParse({
+        kind: "setSide",
+        combatantId: "combatant-1",
+        side: "wizards",
       }).success
     ).toBe(false)
   })
