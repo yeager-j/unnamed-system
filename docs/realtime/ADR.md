@@ -2,7 +2,7 @@
 
 > **Canonical source.** This document lives in the repo and is the source of truth. A stub in Linear links here. Last ported from Linear: 2026-06-10.
 
-**Status:** Accepted · **Owner:** Jackson · **Date:** 2026-06-10
+**Status:** Accepted · **Implemented** (UNN-369 epic: UNN-370–373, PRs #193–#197, 2026-06-10 — see *Realization notes* at the end) · **Owner:** Jackson · **Date:** 2026-06-10
 **Supersedes:** [Initiative Tracker ADR](../initiative-tracker/ADR.md), Decision 5 (*"polling behind a seam; SSE and third-party realtime are rejected for v1 but remain drop-in behind the seam"*) — this is that drop-in, decided.
 **Related:** [UNN-203](https://linear.app/unnamed-system/issue/UNN-203/make-stale-self-healing-auto-refetch-and-retry-cross-tab-broadcast) (cross-tab BroadcastChannel), [UNN-321](https://linear.app/unnamed-system/issue/UNN-321/real-time-transport-adr)/322/323 (player-view transport + polling), [UNN-324](https://linear.app/unnamed-system/issue/UNN-324/enemy-state-visibility-model) (server-side enemy redaction)
 
@@ -81,7 +81,9 @@ Three facts shape the decision:
 * `ABLY_API_KEY` in Vercel env (one app for all environments — Decision 7). That is the entire deployment.
 * **Publish:** a small `lib/realtime/publish.ts` using Ably's REST client — one HTTP POST per successful write from the write shells. Serverless-safe; no connection held; failure is logged and swallowed (Decision 3 covers the gap).
 * **Subscribe auth:** a route handler issuing Ably token requests scoped subscribe-only to the requested `encounter:{shortId}` / `character:{shortId}` channel.
-* **Client:** `ably/react` provider + channel hooks wired *inside* the existing seams — `useEncounterSnapshot` (whose JSDoc promised exactly this swap) and `CharacterProvider`. Use the v2 modular SDK to control bundle size.
+* **Client:** subscribe hooks wired *inside* the existing seams — `useEncounterSnapshot` (whose JSDoc promised exactly this swap) and `CharacterProvider`.
+
+  > **Amended at implementation (UNN-372):** not `ably/react` as originally sketched — the epic built its own primitive instead: `hooks/use-realtime-channel.ts` (token-route auth, server-resolved channel names, reconnect detection, inert-when-unavailable, an optional availability signal for poll-fallback callers) plus its mountable `RealtimeChannelListener` form for dynamic channel lists. One integration style across all four surfaces beat adopting a second (provider-based) one. The v2 **modular** SDK is used as planned but turned out to be **browser-only** — the server's publish path uses the main package's `Ably.Rest` (`lib/realtime/client.ts`) — and the client import is **lazy** (inside the effect), so no page pays for the SDK until a subscribe token was actually issued.
 * Engine code (`packages/game`) is untouched; this is entirely an `apps/web` transport concern.
 
 ---
@@ -97,10 +99,11 @@ This also keeps E2E and local dev simple: nothing in the test suite depends on t
 ## Decision 4 — Channel and auth model
 
 * `encounter:{shortId}` — pinged by `applyCombatEvent` and `endEncounterAction` with the new session `version` and `status`.
-* `character:{shortId}` — pinged by the character write wrappers with the touched version classes and their new values (mirroring the `BroadcastChannel` message shape).
+* `character:{shortId}` — pinged by the character write wrappers with the touched version classes and their new values. (As implemented the mirroring ran the other way too: UNN-372 extended the `BroadcastChannel` message to carry the versions, and both transports funnel through one shared version-compare — `mergePingedVersions`, defined in `hooks/character-version-sync.ts` and consumed by `CharacterProvider`.)
 * Channels are keyed by **public shortId**, never internal UUIDs — matching the existing rule that public surfaces leak no internal id, and making knowledge-of-the-id the subscribe capability, identical to the snapshot API's auth model. Tokens are subscribe-only; **publish capability never leaves the server.**
 * Payload is advisory metadata only. Even if a channel id leaks, a subscriber learns "something changed, version N" — all data still flows through the authed/redacting read path.
 * Names here are the unqualified form; at runtime every channel is prefixed with the environment namespace from Decision 7.
+* **Known cost of single-channel tokens (accepted):** one token covers one channel, so each subscribing hook holds its own connection — the DM console opens 1 + N sockets for N PC combatants. Comfortably inside Ably's limits at table scale; the documented relaxation (one shared connection per page via per-domain wildcard subscribe tokens, with the security reasoning) is [UNN-376](https://linear.app/unnamed-system/issue/UNN-376/realtime-share-one-ably-connection-per-page-via-wildcard-subscribe), triggered by connection-limit pressure or presence features, not a schedule.
 
 ---
 
@@ -108,14 +111,14 @@ This also keeps E2E and local dev simple: nothing in the test suite depends on t
 
 | Surface | Subscribes to | On ping |
 | -- | -- | -- |
-| **Watch view** | its `encounter:{shortId}` | fetch snapshot (existing API) if `version` > current |
-| **DM console** | its encounter channel + `character:{shortId}` for each PC combatant | `router.refresh()` — re-reads session + hydrated PCs; the existing version-ref prop-sync absorbs it |
+| **Watch view** | its `encounter:{shortId}` | fetch snapshot (existing API) if `version` > current — the snapshot gained a `version` field (UNN-371) to be that "current" |
+| **DM console** | its encounter channel + `character:{shortId}` for each PC combatant (the listener set follows the optimistic roster) | `router.refresh()` (microtask-coalesced) when the pinged version beats the console's tracked tokens — the encounter `versionRef` and a console-owned per-PC vitals map shared with the drawer's pools writes, so its own writes' echoes drop (UNN-373) |
 | **Character sheet** (owner + public) | its `character:{shortId}` | `router.refresh()` if any pinged class version > local |
-| **Campaign page** (live banner) | the campaign's live `encounter` channel (status pings) | `router.refresh()` |
+| **Campaign page** (live banner) | **every non-ended** encounter channel — drafts included, since "the banner appears on combat start" means hearing a draft's `status: "live"` ping (amended in UNN-373 from "the live encounter channel") | `router.refresh()` **only on a status change** — every combat event pings the live channel, and refreshing per turn would be a storm |
 
 **Remote ping vs. in-flight optimistic edits (resolved):** handle it exactly like the cross-tab broadcast already does — `router.refresh()` and let the version guards arbitrate. React rebases `useOptimistic` state onto the refreshed server value; the per-class version refs re-sync from props; the per-class save queues already serialize same-class writes; a genuinely conflicting remote write surfaces as the existing `stale` toast. Deferring the refresh until a pending transition settles is an implementation nicety, not architecture.
 
-**[UNN-203](https://linear.app/unnamed-system/issue/UNN-203/make-stale-self-healing-auto-refetch-and-retry-cross-tab-broadcast)'s `BroadcastChannel` becomes a candidate for retirement:** the server-side ping reaches the sender's sibling tabs too, and the version compare suppresses true echoes. Keep it through the rollout, retire once the Ably path is proven (it remains the no-realtime fallback for cross-tab until then).
+**[UNN-203](https://linear.app/unnamed-system/issue/UNN-203/make-stale-self-healing-auto-refetch-and-retry-cross-tab-broadcast)'s `BroadcastChannel` becomes a candidate for retirement:** the server-side ping reaches the sender's sibling tabs too, and the version compare suppresses true echoes. Keep it through the rollout, retire once the Ably path is proven (it remains the no-realtime fallback for cross-tab until then). *Decision recorded on UNN-203 (UNN-372): **kept** — it is the only cross-tab path when realtime is unavailable, and it now carries versions and routes through the same shared compare as the Ably ping, so the two transports never double-refresh a tab. Revisit after soak.*
 
 ---
 
@@ -167,10 +170,28 @@ Estimated usage (~10–15k messages/mo, ≤10 concurrent connections) vs. Ably f
 * Offline support / conflict-free merging — the version guards + stale toast remain the conflict model.
 * Realtime for the builder, My Characters, or campaign management CRUD — single-writer surfaces; navigation-time freshness is fine.
 
-## Suggested ticket breakdown
+## Ticket breakdown (as shipped)
 
-1. **Realtime foundation** — Ably account + app/key, `lib/realtime/channels.ts` (env-namespaced naming, Decision 7), `lib/realtime/publish.ts`, token route, publish calls in `applyCombatEvent` / `endEncounterAction` / the character write wrappers.
-2. **Watch view** — swap `useEncounterSnapshot` internals to subscribe-with-poll-fallback (the seam built for this).
-3. **DM console** — subscribe to encounter + PC character channels → `router.refresh()`.
-4. **Character sheet** — subscribe in `CharacterProvider`; version-compare → `router.refresh()`; decide [UNN-203](https://linear.app/unnamed-system/issue/UNN-203/make-stale-self-healing-auto-refetch-and-retry-cross-tab-broadcast) retirement after soak.
-5. **Campaign live banner** — status pings.
+1. ✅ **Realtime foundation** — [UNN-370](https://linear.app/unnamed-system/issue/UNN-370/realtime-foundation-ably-apps-channel-namespace-publish-helper-token) (PR #193): `lib/realtime/channels.ts` (env-namespaced naming, Decision 7), `lib/realtime/publish.ts` (pings scheduled via `next/server` `after()`, post-commit), token route, publish calls in `applyCombatEvent` / `endEncounterAction` / the character write choke points.
+2. ✅ **Character sheet** — [UNN-372](https://linear.app/unnamed-system/issue/UNN-372/character-sheet-realtime-subscription-in-characterprovider) (PR #194): `useRealtimeChannel` primitive + subscribe in `CharacterProvider`; shared version-compare unifying the Ably ping and the UNN-203 broadcast; keep decision recorded on UNN-203.
+3. ✅ **DM console + campaign live banner** — [UNN-373](https://linear.app/unnamed-system/issue/UNN-373/dm-console-campaign-live-banner-subscribe-routerrefresh) (PR #195; the banner item folded in as planned).
+4. ✅ **Watch view** — [UNN-371](https://linear.app/unnamed-system/issue/UNN-371/watch-view-realtime-subscription-with-polling-fallback) (PR #197): subscribe-with-poll-fallback inside `useEncounterSnapshot`; `EncounterSnapshot` gained `version`.
+
+---
+
+## Realization notes (2026-06-10, epic complete)
+
+The ADR is fully realized; every Decision shipped as written except the deviations below, each amended inline above:
+
+* **One Ably app, not three** (Decision 7 amendment) — namespace-only isolation; per-environment apps remain the expansion path.
+* **No `ably/react`** (Decision 2 amendment) — the epic's own `useRealtimeChannel` / `RealtimeChannelListener` primitive serves all four surfaces; the modular SDK proved browser-only (server publishes via `Ably.Rest`) and is imported lazily.
+* **Campaign banner subscribes to all non-ended encounters** and refreshes only on a status change (Decision 5 table) — the original "live encounter channel" wording couldn't make the banner *appear*, and per-turn pings made unconditional refresh a storm.
+* **`EncounterSnapshot.version`** was added (UNN-371) so the watch hook has a "current" for the ping compare — the same advisory token the channel already carries.
+* **UNN-203 kept** (decision recorded on the ticket): the broadcast now carries versions through the same shared compare; retirement revisited after soak.
+
+Deferred with tickets, deliberately not built:
+
+* [UNN-374](https://linear.app/unnamed-system/issue/UNN-374/consolidate-version-token-handling-into-a-first-class-client-primitive) — consolidate the spread-out version-token handling into one client primitive (trigger: the next surface that needs tokens).
+* [UNN-375](https://linear.app/unnamed-system/issue/UNN-375/make-startcombats-session-save-status-flip-one-atomic-guarded-write) — make `startCombat`'s session save + status flip one atomic guarded write.
+* [UNN-376](https://linear.app/unnamed-system/issue/UNN-376/realtime-share-one-ably-connection-per-page-via-wildcard-subscribe) — one shared connection per page via wildcard subscribe tokens (trigger: connection-limit pressure or presence features).
+* Decision 5's "defer the refresh until a pending transition settles" nicety — not implemented, per its own text ("an implementation nicety, not architecture"); the version guards arbitrate as designed.
