@@ -55,6 +55,12 @@ export interface EncounterSnapshotState {
  * or crashes the view. Everything stops once `status` is `"ended"` (the
  * subscription suspends and no interval is scheduled), so a concluded
  * encounter generates no further traffic.
+ *
+ * The poll also suspends while the tab is hidden — a backgrounded watch tab
+ * otherwise fires ~57k requests/day against the snapshot route. On return to
+ * the foreground it refetches immediately (no stale flash while waiting out
+ * an interval) and resumes. The realtime path needs no such guard: it only
+ * fetches when pinged.
  */
 export function useEncounterSnapshot(
   shortId: string,
@@ -115,7 +121,9 @@ export function useEncounterSnapshot(
     if (snapshot.status === "ended" || realtimeAvailable) return
 
     let cancelled = false
-    const intervalId = setInterval(() => {
+    let intervalId: ReturnType<typeof setInterval> | undefined
+
+    function poll() {
       fetcherRef
         .current(shortId)
         .then((next) => {
@@ -128,11 +136,33 @@ export function useEncounterSnapshot(
           if (cancelled) return
           setStale(true)
         })
-    }, POLL_INTERVAL_MS)
+    }
+
+    function startInterval() {
+      intervalId ??= setInterval(poll, POLL_INTERVAL_MS)
+    }
+
+    function stopInterval() {
+      clearInterval(intervalId)
+      intervalId = undefined
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        stopInterval()
+        return
+      }
+      poll()
+      startInterval()
+    }
+
+    if (document.visibilityState !== "hidden") startInterval()
+    document.addEventListener("visibilitychange", handleVisibilityChange)
 
     return () => {
       cancelled = true
-      clearInterval(intervalId)
+      stopInterval()
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
     }
   }, [shortId, realtimeAvailable, snapshot.status])
 
