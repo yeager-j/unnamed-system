@@ -27,23 +27,21 @@ import {
  * - Lineage name (serif, the loudest thing on the card)
  * - "**Mechanic.** tagline." — the mechanic's identity sentence
  * - Attribute row in mono
- * - One Resist + one Weak affinity highlight
+ * - Every non-Neutral affinity highlight
  *
- * Clickable to expand: tapping the card body invokes `onToggleExpand`.
- * `selected` flips a quiet selection indicator (a check rule on the corner)
- * — selection is independent of expansion (a player can keep one Archetype
- * selected while expanding another to compare).
+ * Clickable to open: tapping the card body invokes `onOpen`, which surfaces the
+ * full {@link ArchetypeDialog} detail + "Choose as Origin" CTA. `selected`
+ * flips a quiet selection indicator (a check on the corner) — the chosen Origin
+ * keeps its check regardless of which card the player opens next.
  */
 export function ArchetypeCard({
   archetype,
   selected,
-  expanded,
-  onToggleExpand,
+  onOpen,
 }: {
   archetype: Archetype
   selected: boolean
-  expanded: boolean
-  onToggleExpand: () => void
+  onOpen: () => void
 }) {
   const mechanic = archetype.mechanic ? getMechanic(archetype.mechanic) : null
   const highlights = listAffinityHighlights(archetype)
@@ -51,16 +49,14 @@ export function ArchetypeCard({
   return (
     <button
       type="button"
-      onClick={onToggleExpand}
-      aria-expanded={expanded}
-      aria-label={`${expanded ? "Collapse" : "Expand"} ${LINEAGE_LABELS[archetype.lineage]} details`}
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      aria-label={`View ${LINEAGE_LABELS[archetype.lineage]} details`}
       className={cn(
         "group/archetype-card flex h-full w-full flex-col items-stretch gap-3 border bg-background p-5 text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        expanded
-          ? "border-primary"
-          : selected
-            ? "border-primary/60 hover:border-primary"
-            : "border-border hover:border-foreground/40"
+        selected
+          ? "border-primary/60 hover:border-primary"
+          : "border-border hover:border-foreground/40"
       )}
     >
       <header className="flex items-start justify-between gap-2">

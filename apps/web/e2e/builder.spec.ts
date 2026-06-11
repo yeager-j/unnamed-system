@@ -50,18 +50,21 @@ async function readBuilderStep(shortId: string): Promise<number> {
 
 /**
  * Movement 1's Continue is gated on an Origin Archetype being selected
- * (UNN-215). Specs that need to walk past Corpus expand the Warrior card and
- * click its Choose button to satisfy the gate before they ever touch Continue.
+ * (UNN-215). Specs that need to walk past Corpus open the Warrior card's detail
+ * dialog and click its Choose button to satisfy the gate before they ever touch
+ * Continue. Choosing closes the dialog, so we confirm via the card's check.
  */
 async function chooseWarriorOrigin(
   page: import("@playwright/test").Page
 ): Promise<void> {
   await page
-    .getByRole("button", { name: "Expand Warrior Lineage details" })
+    .getByRole("button", { name: "View Warrior Lineage details" })
     .click()
   await page.getByRole("button", { name: "Choose Warrior as Origin" }).click()
   await expect(
-    page.getByRole("button", { name: "Warrior chosen" })
+    page
+      .locator('[data-archetype="warrior"]')
+      .getByLabel("Currently selected as Origin")
   ).toBeVisible()
 }
 
@@ -306,27 +309,31 @@ test.describe("movement 1 — corpus", () => {
     await expect(healerCard).toContainText("Dark Weak")
   })
 
-  test("only one Archetype detail is expanded at a time", async ({ page }) => {
+  test("opening a card surfaces its detail dialog; closing dismisses it", async ({
+    page,
+  }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
     await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
 
-    const mageButton = page.getByRole("button", {
-      name: /Mage Lineage details$/,
-    })
-    const healerButton = page.getByRole("button", {
-      name: /Healer Lineage details$/,
+    const mageCta = page.getByRole("button", { name: "Choose Mage as Origin" })
+    const healerCta = page.getByRole("button", {
+      name: "Choose Healer as Origin",
     })
 
-    await mageButton.click()
-    await expect(mageButton).toHaveAttribute("aria-expanded", "true")
+    await page
+      .getByRole("button", { name: "View Mage Lineage details" })
+      .click()
+    await expect(mageCta).toBeVisible()
 
-    await healerButton.click()
-    await expect(mageButton).toHaveAttribute("aria-expanded", "false")
-    await expect(healerButton).toHaveAttribute("aria-expanded", "true")
+    await page.keyboard.press("Escape")
+    await expect(mageCta).toBeHidden()
 
-    await healerButton.click()
-    await expect(healerButton).toHaveAttribute("aria-expanded", "false")
+    await page
+      .getByRole("button", { name: "View Healer Lineage details" })
+      .click()
+    await expect(healerCta).toBeVisible()
+    await expect(mageCta).toBeHidden()
   })
 })
 

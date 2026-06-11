@@ -12,14 +12,12 @@ import { SkillRow } from "@/components/shared/skill-row"
 import { previewArchetypeSkills } from "@/lib/game-engine"
 
 /**
- * The expanded inline detail panel rendered next to a compact
- * {@link ArchetypeCard} when it's the active card in the Movement 1 grid
- * (UNN-215 / ADR-002 §"The Archetype grid"). Lifts the body previously shown
- * inside the old per-Archetype drawer wholesale — the new design replaces the
- * drawer affordance with this in-place expansion, but the *content* (full
- * Affinity chart, Attributes grid, Talents, Mechanic prose, Ranked Skills,
- * Synthesis) is unchanged. Composes only atoms from `components/archetype/`
- * plus the shared `SkillRow` cross-feature primitive.
+ * The body of the Movement 1 Origin Archetype detail {@link ArchetypeDialog}
+ * (UNN-215 / ADR-002 §"The Archetype grid"): the full Affinity chart,
+ * Attributes grid, Talents, Mechanic prose, Ranked Skills, and Synthesis for
+ * one Archetype. Composes only atoms from `components/archetype/` plus the
+ * shared `SkillRow` cross-feature primitive, so it renders identically wherever
+ * an Origin Archetype is inspected.
  */
 export function ArchetypeDetail({
   archetype,

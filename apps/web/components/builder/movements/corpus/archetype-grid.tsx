@@ -1,28 +1,26 @@
 "use client"
 
+import { motion, MotionConfig } from "motion/react"
 import { useOptimistic, useState } from "react"
 import { toast } from "sonner"
 
 import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@workspace/game/data"
 import { sortArchetypesByPath } from "@workspace/game/engine"
-import { Button } from "@workspace/ui/components/button"
 
 import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeCard } from "./archetype-card"
-import { ArchetypeDetail } from "./archetype-detail"
+import { ArchetypeDialog } from "./archetype-dialog"
 
 /**
  * The Movement 1 Origin Archetype grid (UNN-215 / ADR-002 §"The Archetype
  * grid"). Renders every initiate-tier Archetype as a compact card in a 3-col
- * grid (1-col mobile). One card may be expanded at a time — clicking a
- * different card swaps the expansion, clicking the expanded card collapses.
- * Selection is independent: the player chooses an Origin via a viewport-
- * sticky "Choose [Lineage] as Origin" button rendered while a card is
- * expanded, and the selected Archetype keeps its compact-card check
- * regardless of which (if any) card is currently expanded.
+ * grid (1-col mobile). Tapping a card opens an {@link ArchetypeDialog} with the
+ * full detail and a "Choose [Lineage] as Origin" CTA; choosing commits the
+ * Origin and closes the dialog. The selected Archetype keeps its compact-card
+ * check regardless of which (if any) card is currently open.
  *
  * Sort responds to `pathChoice`: a Health-Focused player sees HP-matched
  * Lineages first (see {@link sortArchetypesByPath}). A draft's row always
@@ -36,15 +34,14 @@ export function ArchetypeGrid() {
     originArchetypeKey,
     (_current: string | null, next: ArchetypeKey) => next
   )
-  const [expandedKey, setExpandedKey] = useState<string | null>(
-    originArchetypeKey
-  )
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
   const sorted = sortArchetypesByPath(INITIATE_ARCHETYPES, pathChoice)
-  const expanded = sorted.find((a) => a.key === expandedKey) ?? null
+  const open = sorted.find((a) => a.key === openKey) ?? null
 
-  function handleToggleExpand(key: string) {
-    setExpandedKey((current) => (current === key ? null : key))
+  function handleChoose(archetypeKey: ArchetypeKey) {
+    handleSelect(archetypeKey)
+    setOpenKey(null)
   }
 
   function handleSelect(archetypeKey: ArchetypeKey) {
@@ -88,68 +85,33 @@ export function ArchetypeGrid() {
         </p>
       </header>
 
-      <ul className="grid grid-cols-1 gap-4 pb-24 md:grid-cols-2 lg:grid-cols-3">
-        {sorted.map((archetype) => (
-          <li
-            key={archetype.key}
-            className="contents"
-            data-archetype={archetype.key}
-          >
-            <ArchetypeCard
-              archetype={archetype}
-              selected={archetype.key === optimisticKey}
-              expanded={archetype.key === expandedKey}
-              onToggleExpand={() => handleToggleExpand(archetype.key)}
-            />
-            {expanded?.key === archetype.key ? (
-              <div className="col-span-full border border-primary bg-muted/40 p-6">
-                <ArchetypeDetail
-                  archetype={archetype}
-                  pathChoice={pathChoice}
-                />
-              </div>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <MotionConfig reducedMotion="user">
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {sorted.map((archetype) => (
+            <motion.li
+              key={archetype.key}
+              layout
+              transition={{ type: "spring", stiffness: 350, damping: 35 }}
+              data-archetype={archetype.key}
+            >
+              <ArchetypeCard
+                archetype={archetype}
+                selected={archetype.key === optimisticKey}
+                onOpen={() => setOpenKey(archetype.key)}
+              />
+            </motion.li>
+          ))}
+        </ul>
+      </MotionConfig>
 
-      {expanded ? (
-        <StickyChooseBar
-          archetypeName={expanded.name}
-          selected={expanded.key === optimisticKey}
-          pending={pending}
-          onChoose={() => handleSelect(expanded.key)}
-        />
-      ) : null}
+      <ArchetypeDialog
+        archetype={open}
+        pathChoice={pathChoice}
+        selected={open?.key === optimisticKey}
+        pending={pending}
+        onChoose={() => open && handleChoose(open.key)}
+        onClose={() => setOpenKey(null)}
+      />
     </section>
-  )
-}
-
-function StickyChooseBar({
-  archetypeName,
-  selected,
-  pending,
-  onChoose,
-}: {
-  archetypeName: string
-  selected: boolean
-  pending: boolean
-  onChoose: () => void
-}) {
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-20 flex justify-center px-6">
-      <Button
-        type="button"
-        size="lg"
-        variant={selected ? "secondary" : "default"}
-        disabled={selected || pending}
-        onClick={onChoose}
-        className="pointer-events-auto shadow-md"
-      >
-        {selected
-          ? `${archetypeName} chosen`
-          : `Choose ${archetypeName} as Origin`}
-      </Button>
-    </div>
   )
 }
