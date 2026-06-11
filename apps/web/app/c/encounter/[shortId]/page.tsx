@@ -5,7 +5,11 @@ import { cache } from "react"
 import { type EncounterSnapshot } from "@workspace/game/engine"
 
 import { EncounterWatch } from "@/components/combat/encounter-watch"
-import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
+import { auth } from "@/lib/auth"
+import {
+  getEncounterSnapshot,
+  loadOwnedEncounterSheets,
+} from "@/lib/db/queries/load-encounter-snapshot"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -38,11 +42,30 @@ export async function generateMetadata({
  * client {@link EncounterWatch}, which polls for the DM's live changes (UNN-323).
  * No auth guard — the watch view is intentionally public; a missing `shortId`
  * 404s rather than erroring.
+ *
+ * For the 3-column upgrade it *also* resolves the signed-in viewer (`auth()`) to
+ * the PC combatant(s) they own in this encounter ({@link loadOwnedEncounterSheets})
+ * and passes their hydrated sheets for the left column. A signed-out spectator
+ * resolves to none and sees the battlefield full-width — the page stays public.
  */
 export default async function EncounterWatchPage({ params }: PageProps) {
   const { shortId } = await params
-  const snapshot = await getSnapshot(shortId)
+  const session = await auth()
+  const viewerId = session?.user?.id
+
+  const [snapshot, ownedSheets] = await Promise.all([
+    getSnapshot(shortId),
+    viewerId
+      ? loadOwnedEncounterSheets(shortId, viewerId)
+      : Promise.resolve([]),
+  ])
   if (!snapshot) notFound()
 
-  return <EncounterWatch shortId={shortId} initialSnapshot={snapshot} />
+  return (
+    <EncounterWatch
+      shortId={shortId}
+      initialSnapshot={snapshot}
+      ownedSheets={ownedSheets}
+    />
+  )
 }

@@ -4,10 +4,7 @@ import type {
   EncounterSnapshot,
   PlayerVisibleCombatant,
 } from "@workspace/game/engine/encounter/player-snapshot"
-import {
-  activeConditions,
-  resolvePlayerView,
-} from "@workspace/game/engine/encounter/resolve-player-view"
+import { resolvePlayerZoneLayout } from "@workspace/game/engine/encounter/resolve-player-view"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 
 function enemy(id: string, zoneId: string): PlayerVisibleCombatant {
@@ -20,17 +17,41 @@ function enemy(id: string, zoneId: string): PlayerVisibleCombatant {
     isCurrent: false,
     ailments: [],
     battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
+    conditionDurations: {},
     counters: {},
     engagedWith: [],
     kind: "enemy",
     hp: { current: 10, max: 10 },
     sp: null,
+    portraitUrl: null,
+  }
+}
+
+function pc(id: string, zoneId: string): PlayerVisibleCombatant {
+  return {
+    id,
+    name: id,
+    side: "players",
+    zoneId,
+    hasActed: false,
+    isCurrent: false,
+    ailments: [],
+    battleConditions: { ...DEFAULT_BATTLE_CONDITIONS },
+    conditionDurations: {},
+    counters: {},
+    engagedWith: [],
+    kind: "pc",
+    hp: { current: 20, max: 20 },
+    sp: { current: 10, max: 10 },
+    attributes: { strength: 1, magic: 1, agility: 1, luck: 1 },
+    portraitUrl: `/portrait/${id}.png`,
   }
 }
 
 function snapshot(
   combatants: PlayerVisibleCombatant[],
-  zones: EncounterSnapshot["zones"]
+  zones: EncounterSnapshot["zones"],
+  adjacency: Record<string, string[]> = {}
 ): EncounterSnapshot {
   return {
     status: "live",
@@ -41,69 +62,61 @@ function snapshot(
     currentActor: null,
     combatants,
     zones,
+    adjacency,
   }
 }
 
-describe("resolvePlayerView", () => {
-  it("groups combatants under their zone, in zone order", () => {
-    const view = resolvePlayerView(
+describe("resolvePlayerZoneLayout", () => {
+  it("groups combatants by zone and resolves adjacency to display names", () => {
+    const view = resolvePlayerZoneLayout(
       snapshot(
-        [enemy("a", "z2"), enemy("b", "z1"), enemy("c", "z1")],
+        [pc("hero", "z1"), enemy("a", "z2"), enemy("b", "z1")],
         [
           { id: "z1", name: "Bridge" },
           { id: "z2", name: "Riverbank" },
-        ]
+        ],
+        { z1: ["z2"], z2: ["z1"] }
       )
     )
 
     expect(view.hasZones).toBe(true)
-    expect(view.zones.map((g) => g.zone.id)).toEqual(["z1", "z2"])
-    expect(view.zones[0]!.combatants.map((c) => c.id)).toEqual(["b", "c"])
-    expect(view.zones[1]!.combatants.map((c) => c.id)).toEqual(["a"])
-    expect(view.unplaced).toEqual([])
+    expect(view.zones.map((z) => z.id)).toEqual(["z1", "z2"])
+    expect(view.zones[0]!.combatants.map((c) => c.id)).toEqual(["hero", "b"])
+    expect(view.zones[0]!.adjacentZoneNames).toEqual(["Riverbank"])
+    expect(view.zones[1]!.adjacentZoneNames).toEqual(["Bridge"])
   })
 
-  it("buckets combatants with no matching zone into unplaced", () => {
-    const view = resolvePlayerView(
+  it("maps the PC/enemy split and portrait onto the token", () => {
+    const view = resolvePlayerZoneLayout(
       snapshot(
-        [enemy("a", "z1"), enemy("b", ""), enemy("c", "stale")],
+        [pc("hero", "z1"), enemy("a", "z1")],
+        [{ id: "z1", name: "Bridge" }]
+      )
+    )
+
+    const [hero, foe] = view.zones[0]!.combatants
+    expect(hero).toMatchObject({
+      isPc: true,
+      portraitUrl: "/portrait/hero.png",
+    })
+    expect(foe).toMatchObject({ isPc: false, portraitUrl: null })
+  })
+
+  it("buckets combatants whose zone is unknown into unplaced", () => {
+    const view = resolvePlayerZoneLayout(
+      snapshot(
+        [enemy("a", "z1"), enemy("b", "stale")],
         [{ id: "z1", name: "Bridge" }]
       )
     )
 
     expect(view.zones[0]!.combatants.map((c) => c.id)).toEqual(["a"])
-    expect(view.unplaced.map((c) => c.id)).toEqual(["b", "c"])
+    expect(view.unplaced.map((c) => c.id)).toEqual(["b"])
   })
 
   it("reports no zones for an unzoned encounter", () => {
-    const view = resolvePlayerView(
-      snapshot([enemy("a", ""), enemy("b", "")], [])
-    )
-
+    const view = resolvePlayerZoneLayout(snapshot([enemy("a", "")], []))
     expect(view.hasZones).toBe(false)
-    expect(view.zones).toEqual([])
-    expect(view.unplaced.map((c) => c.id)).toEqual(["a", "b"])
-  })
-})
-
-describe("activeConditions", () => {
-  it("returns nothing when every axis is neutral and no flag is set", () => {
-    expect(activeConditions(DEFAULT_BATTLE_CONDITIONS)).toEqual([])
-  })
-
-  it("surfaces non-neutral axes and set flags, dropping the rest", () => {
-    expect(
-      activeConditions({
-        attack: "increased",
-        defense: "decreased",
-        hitEvasion: "neutral",
-        charged: true,
-        concentrating: false,
-      })
-    ).toEqual([
-      { kind: "axis", axis: "attack", state: "increased" },
-      { kind: "axis", axis: "defense", state: "decreased" },
-      { kind: "flag", flag: "charged" },
-    ])
+    expect(view.unplaced.map((c) => c.id)).toEqual(["a"])
   })
 })

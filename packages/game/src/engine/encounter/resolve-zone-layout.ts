@@ -29,7 +29,11 @@ export interface ZoneToken {
   side: CombatSide
   isPc: boolean
   portraitUrl: string | null
-  engagement: Engagement
+  /** The combatant's melee-lock, for the UNN-316 token slot. **Optional** so the
+   *  redacted player snapshot — which carries no `Engagement` object — can feed
+   *  the same {@link ZoneLayoutView} (the grid ignores it; the future map ticket
+   *  populates it from both sides). The DM shaper always sets it. */
+  engagement?: Engagement
 }
 
 /** One zone region: its name, the ids→names of the zones it borders (for the

@@ -42,6 +42,7 @@ function makeSnapshot(
     currentActor: null,
     combatants: [],
     zones: [],
+    adjacency: {},
     ...overrides,
   }
 }

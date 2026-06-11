@@ -227,16 +227,19 @@ test("a non-member 404s on the manage URL", async ({ page }) => {
   expect(response?.status()).toBe(404)
 })
 
-test("the player watch view renders a live encounter read-only", async ({
+test("the player watch view renders a live encounter with the owner's sheet", async ({
   page,
 }) => {
   await page.goto(`/c/encounter/${encounterTarget.live.shortId}`)
 
-  // Turn tracker + a combatant from the seeded live roster are visible.
+  // Battlefield: the turn tracker + a combatant from the seeded live roster.
   await expect(page.getByRole("heading", { name: /^Round \d+$/ })).toBeVisible()
   await expect(page.getByText("Roan Vale").first()).toBeVisible()
 
-  // Strictly read-only: the watch surface exposes no controls or inputs.
-  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0)
-  await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0)
+  // The signed-in DM owns Roan Vale in this encounter, so their own character
+  // sheet fills the left column in owner mode — interactive, not read-only (the
+  // watch view is read-only only for spectators / non-participants).
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Adjust HP" })
+  ).toBeVisible()
 })

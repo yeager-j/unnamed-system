@@ -1,87 +1,137 @@
 "use client"
 
 import {
-  resolvePlayerView,
+  resolvePlayerZoneLayout,
   type EncounterSnapshot,
 } from "@workspace/game/engine"
 
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { CampaignBackLink } from "./campaign-back-link"
 import { PlayerTurnOrder } from "./player-turn-order"
-import { PlayerZoneMap } from "./player-zone-map"
+import { WatchEnemiesRail } from "./watch-enemies-rail"
+import { WatchSheetColumn } from "./watch-sheet-column"
+import { ZoneLayout } from "./zone-layout"
 
 /**
- * The signed-out **player watch view** at `/c/encounter/{shortId}` (UNN-322).
- * Seeds from the server-rendered `initialSnapshot` and then subscribes to the
- * DM's live changes via {@link useEncounterSnapshot} (UNN-323) — the polling is
- * fully inside the hook, so this view just re-renders off whatever snapshot it
- * holds. Strictly read-only: it renders no controls, inputs, or actions. Enemy
- * affinities/attributes are already absent from the snapshot (UNN-324), so there
- * is nothing here to redact.
+ * The **player watch view** at `/c/encounter/{shortId}` (UNN-322). Seeds from the
+ * server-rendered `initialSnapshot` and subscribes to the DM's live changes via
+ * {@link useEncounterSnapshot} (realtime, polling fallback — UNN-371).
  *
- * The status fork mirrors the encounter lifecycle: `draft` shows a waiting state,
- * `ended` a concluded banner above the final board, `live` the full tracker.
+ * Three-column layout: when the signed-in viewer owns combatant(s) here
+ * (`ownedSheets`), their character sheet fills the left column
+ * ({@link WatchSheetColumn}) and the battlefield spans the other two; a spectator
+ * (no owned sheet) gets the battlefield full-width. The battlefield reuses the DM
+ * console's {@link ZoneLayout} grid, shaped from the redacted snapshot
+ * ({@link resolvePlayerZoneLayout}) — enemy attributes/affinities are already
+ * absent (UNN-324). The status fork mirrors the lifecycle: `draft` waits, `ended`
+ * a concluded banner, `live` the full tracker.
  */
 export function EncounterWatch({
   shortId,
   initialSnapshot,
+  ownedSheets,
 }: {
   shortId: string
   initialSnapshot: EncounterSnapshot
+  ownedSheets: OwnedEncounterSheet[]
 }) {
   const { snapshot, stale } = useEncounterSnapshot(shortId, initialSnapshot)
+  const hasSheets = ownedSheets.length > 0
+
+  const battlefield =
+    snapshot.status === "draft" ? (
+      <WaitingState />
+    ) : (
+      <Battlefield snapshot={snapshot} ended={snapshot.status === "ended"} />
+    )
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-6">
-      {snapshot.campaignShortId ? (
-        <CampaignBackLink campaignShortId={snapshot.campaignShortId} />
-      ) : null}
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-heading text-xl font-medium">{snapshot.name}</h1>
+    <main className="flex flex-col lg:h-[calc(100svh-3.5rem)] lg:overflow-hidden">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          {snapshot.campaignShortId ? (
+            <CampaignBackLink campaignShortId={snapshot.campaignShortId} />
+          ) : null}
+          <h1 className="truncate font-heading text-xl font-medium">
+            {snapshot.name}
+          </h1>
+        </div>
         <StatusPill status={snapshot.status} stale={stale} />
       </header>
 
-      {snapshot.status === "draft" ? (
-        <WaitingState />
+      {hasSheets ? (
+        <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
+          <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
+            <WatchSheetColumn
+              shortId={shortId}
+              snapshot={snapshot}
+              ownedSheets={ownedSheets}
+            />
+          </div>
+          <div className="flex min-w-0 flex-col lg:col-span-2 lg:min-h-0">
+            {battlefield}
+          </div>
+        </div>
       ) : (
-        <Board snapshot={snapshot} ended={snapshot.status === "ended"} />
+        <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+          {battlefield}
+        </div>
       )}
     </main>
   )
 }
 
-function Board({
+/**
+ * The battlefield column for a `live` / `ended` encounter: the zone map flexes
+ * and scrolls in the upper area, while the redacted {@link WatchEnemiesRail} pins
+ * to the bottom — as the enemy list wraps it grows (up to a cap) and shortens the
+ * map above it, rather than the whole column scrolling as one.
+ */
+function Battlefield({
   snapshot,
   ended,
 }: {
   snapshot: EncounterSnapshot
   ended: boolean
 }) {
-  const view = resolvePlayerView(snapshot)
+  const enemies = snapshot.combatants.filter(
+    (combatant) => combatant.side === "enemies"
+  )
+  const zoneNameById = new Map(
+    snapshot.zones.map((zone) => [zone.id, zone.name])
+  )
 
   return (
-    <div className="flex flex-col gap-6">
-      {ended ? (
-        <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-          This encounter has concluded. Below is how it ended.
-        </p>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
+        {ended ? (
+          <p className="border border-dashed p-4 text-center text-sm text-muted-foreground">
+            This encounter has concluded. Below is how it ended.
+          </p>
+        ) : null}
+        <PlayerTurnOrder
+          round={snapshot.round}
+          currentActor={snapshot.currentActor}
+          combatants={snapshot.combatants}
+        />
+        <ZoneLayout view={resolvePlayerZoneLayout(snapshot)} />
+      </div>
+      {enemies.length > 0 ? (
+        <WatchEnemiesRail enemies={enemies} zoneNameById={zoneNameById} />
       ) : null}
-      <PlayerTurnOrder
-        round={snapshot.round}
-        currentActor={snapshot.currentActor}
-        combatants={snapshot.combatants}
-      />
-      <PlayerZoneMap view={view} />
     </div>
   )
 }
 
 function WaitingState() {
   return (
-    <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-      Waiting for the DM to start combat.
+    <div className="flex min-h-0 flex-1 items-center justify-center p-4">
+      <div className="flex min-h-64 w-full items-center justify-center border border-dashed p-12 text-center text-sm text-muted-foreground">
+        Waiting for the DM to start combat.
+      </div>
     </div>
   )
 }

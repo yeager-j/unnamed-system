@@ -4,9 +4,13 @@ import {
   type EncounterSnapshot,
   type PcCombatantDetail,
 } from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import {
+  loadCharacterRowById,
+  loadHydratedCharacterById,
+} from "@/lib/db/queries/load-character"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { loadEncounterRowByShortId } from "./load-encounter"
@@ -59,4 +63,55 @@ export async function getEncounterSnapshot(
     pcDetailById,
     resolveCatalogEnemyStatblocks(encounter.session.combatants)
   )
+}
+
+/** A PC combatant the watch viewer owns: the combatant id it occupies (the key
+ *  the combat-state control writes overlay events against) + its hydrated sheet. */
+export interface OwnedEncounterSheet {
+  combatantId: string
+  character: HydratedCharacter
+}
+
+/**
+ * The hydrated sheets for the encounter's PC combatants the **signed-in viewer
+ * owns** — what fills the watch view's left column (UNN player watch 3-column).
+ * Empty for a spectator, a signed-out viewer, or a member with no placed
+ * character here. A viewer can own more than one combatant in an encounter (the
+ * column tabs between them).
+ *
+ * Privacy: ownership is decided on the cheap character *row* first, so only the
+ * viewer's own characters are ever hydrated — another player's full sheet is
+ * never loaded, let alone shipped. The redacted snapshot remains the only PC
+ * data a non-owner receives.
+ */
+export async function loadOwnedEncounterSheets(
+  shortId: string,
+  viewerId: string
+): Promise<OwnedEncounterSheet[]> {
+  const encounter = await loadEncounterRowByShortId(shortId)
+  if (!encounter) return []
+
+  const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
+    combatant.ref.kind === "pc"
+      ? [{ combatantId: combatant.id, characterId: combatant.ref.characterId }]
+      : []
+  )
+
+  const owned = (
+    await Promise.all(
+      pcCombatants.map(async (pc) => {
+        const row = await loadCharacterRowById(pc.characterId)
+        return row?.ownerId === viewerId ? pc : null
+      })
+    )
+  ).filter((pc) => pc !== null)
+
+  const sheets = await Promise.all(
+    owned.map(async (pc) => {
+      const character = await loadHydratedCharacterById(pc.characterId)
+      return character ? { combatantId: pc.combatantId, character } : null
+    })
+  )
+
+  return sheets.filter((sheet) => sheet !== null)
 }
