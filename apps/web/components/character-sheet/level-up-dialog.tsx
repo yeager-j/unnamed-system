@@ -1,7 +1,6 @@
 "use client"
 
 import { ArrowRightIcon } from "@phosphor-icons/react"
-import Link from "next/link"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
@@ -26,6 +25,8 @@ import {
 import { broadcastCharacterVersion } from "@/hooks/use-character-versions-broadcast"
 import { levelUpAction } from "@/lib/actions/leveling"
 
+import { useOptionalSheetNav } from "./sheet-nav-context"
+
 /**
  * The header-launched level-up dialog (PRD §7.4, UNN-157). Single-pane
  * confirmation: the app never rolls and MVP uses averaged Hit/Skill Dice (see
@@ -42,7 +43,11 @@ import { levelUpAction } from "@/lib/actions/leveling"
  *
  * Saved Archetype Ranks land in the counter; this dialog deliberately does
  * not advance any Archetype Rank inline (handed off to the Archetype
- * Management surface). A footer link points the player at the Archetypes tab.
+ * Management surface). A footer affordance switches to the Archetypes tab via
+ * `useSheetNav().setActiveTab` — sheet tabs are client state, not routing, so
+ * an `?tab=` link cannot switch them (UNN-385). It renders only when a
+ * `SheetNavProvider` exists: the encounter watch view reuses `SheetHeader`
+ * (and thus this dialog) on a surface with no sheet tabs to switch to.
  */
 export function LevelUpDialog({
   character,
@@ -54,6 +59,7 @@ export function LevelUpDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const [pending, startTransition] = useTransition()
+  const nav = useOptionalSheetNav()
 
   const nextLevel = character.level + 1
   const pathStats = getPathStats(character.pathChoice)
@@ -136,16 +142,24 @@ export function LevelUpDialog({
         </dl>
 
         <p className="text-xs/relaxed text-muted-foreground">
-          You banked {ARCHETYPE_RANKS_PER_LEVEL} Archetype Ranks.{" "}
-          <Link
-            href="?tab=archetypes"
-            className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground"
-            onClick={() => onOpenChange(false)}
-          >
-            Spend them on the Archetypes tab
-            <ArrowRightIcon weight="bold" aria-hidden />
-          </Link>
-          .
+          You banked {ARCHETYPE_RANKS_PER_LEVEL} Archetype Ranks.
+          {nav ? (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground"
+                onClick={() => {
+                  nav.setActiveTab("archetypes")
+                  onOpenChange(false)
+                }}
+              >
+                Spend them on the Archetypes tab
+                <ArrowRightIcon weight="bold" aria-hidden />
+              </button>
+              .
+            </>
+          ) : null}
         </p>
 
         <DialogFooter>

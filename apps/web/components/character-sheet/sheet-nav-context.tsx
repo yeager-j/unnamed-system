@@ -43,9 +43,19 @@ export function SheetNavProvider({
  * so a forgotten wrapper fails loudly (same idiom as `useCharacter`).
  */
 export function useSheetNav(): SheetNavContextValue {
-  const value = useContext(SheetNavContext)
+  const value = useOptionalSheetNav()
   if (!value) {
     throw new Error("useSheetNav must be used within a SheetNavProvider")
   }
   return value
+}
+
+/**
+ * Like {@link useSheetNav}, but returns `null` outside a provider. For sheet
+ * components that are reused on surfaces without tab navigation (the encounter
+ * watch view renders `SheetHeader` bare), where a tab-switching affordance
+ * should disappear rather than crash (UNN-385).
+ */
+export function useOptionalSheetNav(): SheetNavContextValue | null {
+  return useContext(SheetNavContext)
 }
