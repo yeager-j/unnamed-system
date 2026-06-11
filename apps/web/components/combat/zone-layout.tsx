@@ -1,6 +1,9 @@
+import { MusicNotesIcon } from "@phosphor-icons/react"
 import Image from "next/image"
+import { type ReactNode } from "react"
 
 import {
+  type ZoneEnchantmentBadge,
   type ZoneLayoutEntry,
   type ZoneLayoutView,
   type ZoneToken,
@@ -14,6 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { initials } from "@/lib/ui/initials"
@@ -21,13 +29,22 @@ import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
  * The read-only **battlefield** (UNN-314): one card per zone showing the
- * combatants in it and which zones it borders, plus an "Unplaced" overflow.
- * Pure presentation over the {@link ZoneLayoutView} the page shaped — it issues
- * no events (movement is UNN-315) and runs no logic in JSX. Shared shape so the
- * player watch view (UNN-334) can render the same component. An encounter with no
- * zones shows the theater-of-mind note; combatants always remain in the rail.
+ * combatants in it, which zones it borders, and its Enchantment badge when the
+ * session's Enchantment sits on it — plus an "Unplaced" overflow. Pure
+ * presentation over the {@link ZoneLayoutView} the page shaped — it issues no
+ * events and runs no logic in JSX. Shared shape so the player watch view
+ * (UNN-334) can render the same component; the DM console alone passes
+ * `zoneAction` (the per-zone Enchant menu), so the watch view stays read-only.
+ * An encounter with no zones shows the theater-of-mind note; combatants always
+ * remain in the rail.
  */
-export function ZoneLayout({ view }: { view: ZoneLayoutView }) {
+export function ZoneLayout({
+  view,
+  zoneAction,
+}: {
+  view: ZoneLayoutView
+  zoneAction?: (zone: ZoneLayoutEntry) => ReactNode
+}) {
   if (!view.hasZones) {
     return (
       <div
@@ -47,7 +64,7 @@ export function ZoneLayout({ view }: { view: ZoneLayoutView }) {
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {view.zones.map((zone) => (
-          <ZoneCard key={zone.id} zone={zone} />
+          <ZoneCard key={zone.id} zone={zone} action={zoneAction?.(zone)} />
         ))}
       </div>
       {view.unplaced.length > 0 ? (
@@ -57,13 +74,25 @@ export function ZoneLayout({ view }: { view: ZoneLayoutView }) {
   )
 }
 
-function ZoneCard({ zone }: { zone: ZoneLayoutEntry }) {
+function ZoneCard({
+  zone,
+  action,
+}: {
+  zone: ZoneLayoutEntry
+  action?: ReactNode
+}) {
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>{zone.name}</CardTitle>
-        <CardAction className="text-xs text-muted-foreground">
+        <CardTitle className="flex flex-wrap items-center gap-1.5">
+          {zone.name}
+          {zone.enchantment ? (
+            <EnchantmentBadge enchantment={zone.enchantment} />
+          ) : null}
+        </CardTitle>
+        <CardAction className="flex items-center gap-1 text-xs text-muted-foreground">
           {zone.combatants.length}
+          {action}
         </CardAction>
       </CardHeader>
 
@@ -120,6 +149,56 @@ function UnplacedCard({ tokens }: { tokens: ZoneToken[] }) {
         </ul>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * The Zone's Enchantment badge: name + the Forte as its dynamic marking
+ * (*f / ff / fff*, italic serif like a score). Hovering reveals the rules the
+ * current Forte grants — only the reached lines, each prefixed with the Forte
+ * marking that grants it. The marking is decoration for screen readers; the
+ * sr-only text speaks the Forte as a number.
+ */
+function EnchantmentBadge({
+  enchantment,
+}: {
+  enchantment: ZoneEnchantmentBadge
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Badge variant="secondary" data-testid="zone-enchantment-badge">
+            <MusicNotesIcon aria-hidden />
+            {enchantment.name}
+            {" — "}
+            <ForteMarking marking={enchantment.marking} />
+            <span className="sr-only">Forte {enchantment.forte}</span>
+          </Badge>
+        }
+      />
+      <TooltipContent className="flex-col items-start gap-1">
+        {enchantment.lines
+          .filter((line) => line.active)
+          .map((line) => (
+            <p key={line.forte} className="flex gap-1.5">
+              <ForteMarking marking={"f".repeat(line.forte)} />
+              <span className="sr-only">Forte {line.forte}:</span>
+              <span>{line.text}</span>
+            </p>
+          ))}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** A dynamic marking (*f / ff / fff*) rendered as on a score: italic bold
+ *  serif. Decorative — pair with sr-only text naming the Forte. */
+function ForteMarking({ marking }: { marking: string }) {
+  return (
+    <em aria-hidden className="shrink-0 font-serif font-bold italic">
+      {marking}
+    </em>
   )
 }
 

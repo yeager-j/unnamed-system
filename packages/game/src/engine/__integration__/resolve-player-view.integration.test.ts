@@ -63,6 +63,7 @@ function snapshot(
     combatants,
     zones,
     adjacency,
+    enchantment: null,
   }
 }
 
@@ -118,5 +119,26 @@ describe("resolvePlayerZoneLayout", () => {
     const view = resolvePlayerZoneLayout(snapshot([enemy("a", "")], []))
     expect(view.hasZones).toBe(false)
     expect(view.unplaced.map((c) => c.id)).toEqual(["a"])
+  })
+
+  it("badges the Enchanted Zone from the snapshot — others stay bare", () => {
+    const view = resolvePlayerZoneLayout({
+      ...snapshot(
+        [pc("hero", "z1")],
+        [
+          { id: "z1", name: "Bridge" },
+          { id: "z2", name: "Riverbank" },
+        ]
+      ),
+      enchantment: { zoneId: "z2", type: "tarantella", forte: 1 },
+    })
+
+    expect(view.zones.find((z) => z.id === "z2")!.enchantment).toMatchObject({
+      type: "tarantella",
+      name: "Tarantella",
+      forte: 1,
+      marking: "f",
+    })
+    expect(view.zones.find((z) => z.id === "z1")!.enchantment).toBeUndefined()
   })
 })

@@ -11,6 +11,7 @@ import {
   attackRollEffectSchema,
   attributeEffectSchema,
 } from "@workspace/game/foundation/combat/effects"
+import { ENCHANTMENT_TYPES } from "@workspace/game/foundation/combat/enchantment"
 
 const skillKey = z.string().regex(/^[a-z0-9-]+$/)
 
@@ -64,6 +65,14 @@ const baseFields = {
   effect: z.string().min(1).optional(),
   /** Structured, machine-readable modifiers — see {@link skillEffectsSchema}. */
   effects: skillEffectsSchema.optional(),
+  /**
+   * The Zone Enchantment this Skill creates when cast by a Bard (rulebook
+   * `Skills/Mechanics/Enchantment.md`), e.g. Tarukaja → Toccata. The per-level
+   * rule lines stay in the `effect` prose as "(Bard Only)" blocks, mirroring
+   * the rulebook cards; this key is the machine-readable link the cast flow
+   * and the Enchantment definitions resolve through.
+   */
+  enchantment: z.enum(ENCHANTMENT_TYPES).optional(),
 }
 
 export const attackSkillSchema = z.object({

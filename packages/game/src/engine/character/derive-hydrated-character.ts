@@ -59,11 +59,13 @@ export type CharacterLookups = Pick<
 /**
  * Projects the persisted state onto the pure engine input. Only equipped
  * inventory items are passed through so item effects stay gated to what the
- * character actually has equipped.
+ * character actually has equipped; the combat context's zone effects ride in
+ * as {@link StatContext.contextEffects}.
  */
 function statContext(
   { row, archetypeRows, inventoryRows }: RawCharacterInputs,
-  lookups: CharacterLookups
+  lookups: CharacterLookups,
+  context: CombatContext | undefined
 ): StatContext {
   return buildStatContext(lookups)(
     {
@@ -81,7 +83,8 @@ function statContext(
     })),
     inventoryRows
       .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
+      .map((item) => item.catalogItemKey),
+    context?.zoneEffects ?? []
   )
 }
 
@@ -103,11 +106,14 @@ function weaponAttackContext(attack: IntrinsicAttack): AttackRollContext {
  * construction, so an optimistic frame can never structurally drift from the
  * server's.
  *
- * `context` carries the optional encounter-scoped inputs the `perPartyLineage`
- * Attack-Roll scaler needs (party composition), supplied only by an
+ * `context` carries the optional encounter-scoped inputs — the party
+ * composition the `perPartyLineage` Attack-Roll scaler needs, and the
+ * already-resolved effects of the combatant's current Zone (`zoneEffects`,
+ * e.g. a Toccata Enchantment's Attack-Roll bonus) — supplied only by an
  * encounter-aware caller (the tracker). Omitted on the standalone sheet, so
- * Magic Circle / Ailment Boost resolve at zero allies — their **base** values;
- * party-scaling is a combat-context display, not a sheet field.
+ * Magic Circle / Ailment Boost resolve at zero allies and no zone effects
+ * apply — their **base** values; both are combat-context displays, not sheet
+ * fields.
  */
 export function deriveHydratedCharacter(lookups: CharacterLookups) {
   return (
@@ -117,7 +123,7 @@ export function deriveHydratedCharacter(lookups: CharacterLookups) {
     const { row, archetypeRows, inventoryRows, knives, chains } = raw
     const partyComposition = context?.partyComposition ?? null
 
-    const stats = statContext(raw, lookups)
+    const stats = statContext(raw, lookups, context)
     const bonuses = accumulatedBonuses(stats)
     const maxHP = computeMaxHP(stats, bonuses)
 

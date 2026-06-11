@@ -148,6 +148,10 @@ function collectAttackRollEffects(character: StatContext): AttackRollEffect[] {
 
   effects.push(...attackRollEffectsFromSkills(character.activeSkills))
 
+  for (const effect of character.contextEffects) {
+    if (effect.type === "attackRoll") effects.push(effect)
+  }
+
   return effects
 }
 

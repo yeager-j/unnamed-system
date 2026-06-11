@@ -15,7 +15,7 @@ range: Same/Adjacent Zone
 > **`11-19`** `1d8 + Ma`
 > **`20+`** `1d12 + Ma`
 > 
-> **(Bard Only)** If the target occupies an Enchanted Zone, gain +1 to your Attack Roll per Enchantment Level. Additionally:
+> **(Bard Only)** If the target occupies an Enchanted Zone, gain a bonus to your Attack Roll equal to the Zone's Forte. Additionally:
 > - **Toccata:** **`20+`** *Rage*
 > - **Requiem:** Choose one ally in the same Zone as the target; they regain HP equal to half the damage dealt.
 > - **Tarantella:** **`20+`** *Target cannot Move until the end of their next turn* 

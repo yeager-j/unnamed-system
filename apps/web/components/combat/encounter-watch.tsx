@@ -13,6 +13,7 @@ import { CampaignBackLink } from "./campaign-back-link"
 import { PlayerTurnOrder } from "./player-turn-order"
 import { WatchEnemiesRail } from "./watch-enemies-rail"
 import { WatchSheetColumn } from "./watch-sheet-column"
+import { useOwnedSheetZoneEffectsRefresh } from "./watch-sheet-refresh"
 import { ZoneLayout } from "./zone-layout"
 
 /**
@@ -39,6 +40,7 @@ export function EncounterWatch({
   ownedSheets: OwnedEncounterSheet[]
 }) {
   const { snapshot, stale } = useEncounterSnapshot(shortId, initialSnapshot)
+  useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
   const hasSheets = ownedSheets.length > 0
 
   const battlefield =

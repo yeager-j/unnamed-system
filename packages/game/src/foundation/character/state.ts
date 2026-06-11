@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
 
 import { LINEAGES } from "@workspace/game/foundation/character/lineage"
+import { type CombatantEffect } from "@workspace/game/foundation/combat/effects"
 
 /**
  * Character-domain vocabulary and value schemas for the structured (JSON)
@@ -146,17 +147,22 @@ export type PartyComposition = z.infer<typeof partyCompositionSchema>
 
 /**
  * The optional combat context a caller supplies when deriving a character's
- * sheet view: the encounter-scoped inputs the `perPartyLineage` Attack-Roll
- * scaler (Magic Circle, Ailment Boost) needs but that no longer live on the
- * character row. An encounter-aware caller (the tracker) passes
- * `partyComposition`; the standalone sheet passes nothing, so party-scaling
- * resolves at zero allies (base values). Keeping it a caller arg lets
+ * sheet view: the encounter-scoped inputs that no longer live on the character
+ * row. An encounter-aware caller (the tracker) passes `partyComposition` (the
+ * `perPartyLineage` Attack-Roll scaler — Magic Circle, Ailment Boost) and
+ * `zoneEffects` (the already-resolved {@link CombatantEffect}s of the
+ * combatant's current Zone, e.g. a Toccata Enchantment's Attack-Roll bonus —
+ * resolved at the boundary via
+ * {@link import("@workspace/game/engine/encounter/enchantment").zoneEnchantmentEffects}).
+ * The standalone sheet passes nothing, so party-scaling resolves at zero allies
+ * and no zone effects apply (base values). Keeping it a caller arg lets
  * {@link import("@workspace/game/engine/character/derive-hydrated-character").deriveHydratedCharacter}
  * stay a pure function of the character — the sheet never has to know about an
  * encounter.
  */
 export interface CombatContext {
   partyComposition?: PartyComposition | null
+  zoneEffects?: readonly CombatantEffect[] | null
 }
 
 /**

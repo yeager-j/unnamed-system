@@ -8,6 +8,7 @@ import {
 import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import { type Counters } from "@workspace/game/foundation/combat/counters"
+import { type ZoneEnchantment } from "@workspace/game/foundation/combat/enchantment"
 import type {
   Combatant,
   CombatSession,
@@ -115,6 +116,10 @@ export interface EncounterSnapshot {
    *  player battlefield renders the same "Borders" footer the DM grid does.
    *  Observable topology, not redacted enemy data. */
   adjacency: Record<string, string[]>
+  /** The session's active Zone Enchantment (Bard mechanic), or `null`. Public —
+   *  the Enchantment is observable battlefield state ("your music enchants the
+   *  battlefield"), so the watch view badges the same Zone the DM grid does. */
+  enchantment: ZoneEnchantment | null
 }
 
 /** A PC's current/max SP off its hydrated detail; `{0,0}` when the detail is
@@ -249,5 +254,6 @@ export function projectPlayerSnapshot(
     ),
     zones: Object.values(session.zones),
     adjacency: session.adjacency,
+    enchantment: session.enchantment,
   }
 }

@@ -421,6 +421,35 @@ describe("shared bonus pool", () => {
   })
 })
 
+describe("context Effects flow through the existing pipeline", () => {
+  it("folds a contextEffects attribute bonus into Attributes and the HP pool", () => {
+    const character = makeCharacter({
+      contextEffects: [
+        { type: "attribute", target: "strength", amount: 1 },
+        { type: "attribute", target: "hp", amount: 5 },
+      ],
+    })
+    // fxWarrior base Strength is 2; the context bonus lifts it to 3.
+    expect(computeAttributes(character).strength).toBe(3)
+    expect(computeMaxHP(character)).toBe(computeMaxHP(makeCharacter()) + 5)
+  })
+
+  it("folds a contextEffects affinity grant into the Affinity chart", () => {
+    const character = makeCharacter({
+      contextEffects: [
+        { type: "affinity", damageTypes: ["ice"], affinity: "resist" },
+      ],
+    })
+    expect(computeAffinityChart(character).ice).toBe("resist")
+  })
+
+  it("contributes nothing when contextEffects is empty (the standalone sheet)", () => {
+    expect(computeAttributes(makeCharacter({ contextEffects: [] }))).toEqual(
+      computeAttributes(makeCharacter())
+    )
+  })
+})
+
 describe("mechanic Effects flow through the existing pipeline", () => {
   it("applies Valor's stage-3+ Resist to Slash / Pierce / Strike via the Affinity chart", () => {
     const character = makeCharacter({

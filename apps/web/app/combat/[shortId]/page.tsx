@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 
 import { getArchetype } from "@workspace/game/data"
 import {
+  zoneEnchantmentEffects,
   type InitiativeStats,
   type PcCombatantDetail,
 } from "@workspace/game/engine"
@@ -88,22 +89,34 @@ export default async function CombatPage({ params }: PageProps) {
     case "live": {
       const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
         combatant.ref.kind === "pc"
-          ? [{ characterId: combatant.ref.characterId, side: combatant.side }]
+          ? [
+              {
+                characterId: combatant.ref.characterId,
+                side: combatant.side,
+                zoneId: combatant.zoneId,
+              },
+            ]
           : []
       )
       // The skill cards in the drawer scale by the encounter's allied-Lineage
-      // tally (UNN-367), so each PC is hydrated with the party composition for
-      // its own side — the `perPartyLineage` Attack-Roll scalers (Magic Circle /
-      // Ailment Boost) resolve scaled instead of at base.
+      // tally (UNN-367) and by the combatant's Zone Enchantment, so each PC is
+      // hydrated with the party composition for its own side plus its zone's
+      // resolved effects — the `perPartyLineage` Attack-Roll scalers (Magic
+      // Circle / Ailment Boost) and a Toccata bonus resolve scaled instead of
+      // at base.
       const compositionBySide = await resolvePartyCompositionBySide(
         encounter.session
       )
       // The rail/drawer read identity + vitals + attributes + affinities + skills
       // off the hydrated sheet; `PcCombatantDetail` is a narrowing of it (no mapper).
       const hydrated = await Promise.all(
-        pcCombatants.map(({ characterId, side }) =>
+        pcCombatants.map(({ characterId, side, zoneId }) =>
           loadHydratedCharacterById(characterId, {
             partyComposition: compositionBySide[side],
+            zoneEffects: zoneEnchantmentEffects(
+              encounter.session.enchantment,
+              zoneId
+            ),
           })
         )
       )

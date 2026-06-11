@@ -422,6 +422,7 @@ export function previewArchetypeSkills(lookups: Pick<GameData, "getSkill">) {
       activeMechanic: null,
       baseAttributes: baseAttributesForArchetype(archetype),
       baseAffinities: baseAffinitiesForArchetype(archetype),
+      contextEffects: [],
     }
     return resolveArchetypeRankedSkills(
       archetype,

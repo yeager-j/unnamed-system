@@ -6,6 +6,7 @@ import {
   battleConditionsSchema,
 } from "@workspace/game/foundation/character/state"
 import { countersSchema } from "@workspace/game/foundation/combat/counters"
+import { zoneEnchantmentSchema } from "@workspace/game/foundation/combat/enchantment"
 
 /**
  * The immutable state the initiative tracker's reducer operates over — the
@@ -190,6 +191,11 @@ export type Combatant = z.infer<typeof combatantSchema>
  * persisted before zones existed still parse (`load-encounter.ts` re-parses the
  * jsonb). Referential integrity (`combatant.zoneId` ∈ `zones`) is a runtime
  * convention, not enforced by the schema.
+ *
+ * `enchantment` is the Bard mechanic's single active Zone Enchantment (see
+ * {@link import("../combat/enchantment").zoneEnchantmentSchema} for why it is a
+ * session-level singleton, not a Zone field). Defaults to `null` so sessions
+ * persisted before Enchantments existed still parse, matching `zones`.
  */
 export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
@@ -199,6 +205,7 @@ export const combatSessionSchema = z.object({
   firstSide: z.enum(COMBAT_SIDES).nullable(),
   zones: z.record(z.string(), zoneSchema).default({}),
   adjacency: z.record(z.string(), z.array(z.string())).default({}),
+  enchantment: zoneEnchantmentSchema.nullable().default(null),
 })
 export type CombatSession = z.infer<typeof combatSessionSchema>
 

@@ -9,6 +9,7 @@ import {
 
 import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
+import { EnchantmentWidget } from "./bard/enchantment-widget"
 import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PathOfDuskWidget } from "./path-of-dusk-widget"
 import { PerfectionWidget } from "./perfection-widget"
@@ -72,6 +73,10 @@ const REGISTRY: MechanicWidgetRegistry = {
   "thiefs-insight": {
     render: () => <ThiefsInsightWidget />,
     summary: () => "Tells tracked at the table",
+  },
+  enchantment: {
+    render: () => <EnchantmentWidget />,
+    summary: () => "Enchantments live on the battlefield",
   },
 }
 

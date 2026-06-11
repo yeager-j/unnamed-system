@@ -15,6 +15,7 @@ describe("mechanic registry", () => {
   it("registers every MVP mechanic exactly once", () => {
     const kinds = MECHANICS.map((m) => m.kind).sort()
     expect(kinds).toEqual([
+      "enchantment",
       "path-of-dawn",
       "path-of-dusk",
       "perfection",

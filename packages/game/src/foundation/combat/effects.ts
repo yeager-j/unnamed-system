@@ -110,3 +110,16 @@ export type AttributeEffect = z.infer<typeof attributeEffectSchema>
 export type AttackRollFilter = z.infer<typeof attackRollFilterSchema>
 export type AttackRollScaler = z.infer<typeof attackRollScalerSchema>
 export type AttackRollEffect = z.infer<typeof attackRollEffectSchema>
+
+/**
+ * Any of the effect primitives, regardless of which domain emitted it — the
+ * source-agnostic union for channels that carry effects from *outside* the
+ * character's own state (e.g. a Zone Enchantment supplying combat-context
+ * effects to the derive pipeline). Items, passive Skills, and mechanics keep
+ * composing their own unions; this is the neutral name for "an effect from
+ * anywhere".
+ */
+export type CombatantEffect =
+  | AffinityEffect
+  | AttributeEffect
+  | AttackRollEffect

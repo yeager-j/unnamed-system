@@ -40,6 +40,20 @@ export const thiefsInsightStateSchema = z.object({
 
 export type ThiefsInsightState = z.infer<typeof thiefsInsightStateSchema>
 
+/**
+ * Bard — Enchantment: no per-character state. The mechanic's data — which Zone
+ * is Enchanted, with what, at what Forte — is encounter-scoped and lives on the
+ * `CombatSession` (`session.enchantment`), not the character row, mirroring how
+ * Thief's Insight keeps its Tells on the encounter side. The state shape
+ * carries only its discriminant so the mechanic can still own a Combat-tab
+ * widget and an Archetypes-tab summary (rulebook `Enchantment.md`).
+ */
+export const enchantmentStateSchema = z.object({
+  kind: z.literal("enchantment"),
+})
+
+export type EnchantmentState = z.infer<typeof enchantmentStateSchema>
+
 /** Knight — Valor: a 0–7 counter (rulebook `Valor.md`). */
 export const VALOR_MAX = 7
 
@@ -97,6 +111,7 @@ export const mechanicStateSchema = z.discriminatedUnion("kind", [
   pathOfDuskStateSchema,
   stainsStateSchema,
   thiefsInsightStateSchema,
+  enchantmentStateSchema,
 ])
 
 export type MechanicState =
@@ -106,6 +121,7 @@ export type MechanicState =
   | StainsState
   | PathOfDuskState
   | ThiefsInsightState
+  | EnchantmentState
 
 export type MechanicKind = MechanicState["kind"]
 

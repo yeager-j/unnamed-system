@@ -24,6 +24,7 @@ import {
   type AttackRollEffect,
   type AttributeEffect,
   type BonusTargetKey,
+  type CombatantEffect,
 } from "@workspace/game/foundation/combat/effects"
 import { type EquippableItem } from "@workspace/game/foundation/items/schema"
 import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
@@ -102,6 +103,15 @@ export interface StatContext {
    * {@link computeAttributes}, no longer reaches into the Archetype catalog.
    */
   baseAffinities: Record<DamageType, Affinity>
+  /**
+   * Effects supplied by the **combat context** rather than the character's own
+   * state — e.g. a Zone Enchantment's already-resolved effects, threaded in
+   * from `CombatContext.zoneEffects` by the derive boundary. Empty on the
+   * standalone sheet. Folded as a fourth source beside equipment, passive
+   * Skills, and the active mechanic, so any {@link CombatantEffect} kind a
+   * future zone/encounter source emits flows through unchanged.
+   */
+  contextEffects: readonly CombatantEffect[]
 }
 
 /**
@@ -327,6 +337,11 @@ function mechanicBonuses(character: StatContext): BonusPool {
   return attributeEffectBonuses(activeMechanicEffects(character))
 }
 
+/** Attribute effects supplied by the combat context (e.g. a Zone Enchantment). */
+function contextBonuses(character: StatContext): BonusPool {
+  return attributeEffectBonuses(character.contextEffects)
+}
+
 /** The character's manually-entered bonuses. */
 function manualBonusPool(character: StatContext): BonusPool {
   const pool = emptyBonusPool()
@@ -337,11 +352,13 @@ function manualBonusPool(character: StatContext): BonusPool {
 }
 
 /**
- * Sums every permanent, source-agnostic bonus — Mastery, equipped-item
- * Attribute effects, the active Archetype's passive-Skill and mechanic Attribute
- * effects, and the manually-entered bonuses — into one pool. Built once per
- * derive and shared across {@link computeAttributes}, {@link computeMaxHP}, and
- * {@link computeMaxSP} so the sources are walked a single time.
+ * Sums every source-agnostic bonus — Mastery, equipped-item Attribute effects,
+ * the active Archetype's passive-Skill and mechanic Attribute effects, the
+ * manually-entered bonuses, and any combat-context effects (encounter-scoped,
+ * present only when an encounter-aware caller supplies them) — into one pool.
+ * Built once per derive and shared across {@link computeAttributes},
+ * {@link computeMaxHP}, and {@link computeMaxSP} so the sources are walked a
+ * single time.
  */
 export function accumulatedBonuses(character: StatContext): BonusPool {
   return sumBonuses(
@@ -349,6 +366,7 @@ export function accumulatedBonuses(character: StatContext): BonusPool {
     itemBonuses(character),
     passiveSkillBonuses(character),
     mechanicBonuses(character),
+    contextBonuses(character),
     manualBonusPool(character)
   )
 }
@@ -456,10 +474,10 @@ function strongest(candidates: readonly Affinity[]): Affinity | undefined {
 /**
  * The character's displayed Affinity chart, resolved per damage type in
  * layers: an `overrides` entry wins outright; otherwise any Affinity granted
- * by equipment or by the active Archetype's passive Skills replaces the
- * Archetype base (strongest by {@link AFFINITY_PRIORITY} when several
- * collide); otherwise the active Archetype's chart applies (uncharted types
- * and Almighty are Neutral).
+ * by equipment, the active Archetype's passive Skills or mechanic, or the
+ * combat context replaces the Archetype base (strongest by
+ * {@link AFFINITY_PRIORITY} when several collide); otherwise the active
+ * Archetype's chart applies (uncharted types and Almighty are Neutral).
  *
  * `overrides` carry transient, combat-driven changes the UI sets (e.g. an
  * enemy Skill forcing Weak, or a self-cast Resist) — that targeted-effect kind
@@ -496,6 +514,13 @@ export function computeAffinityChart(
   }
 
   for (const effect of activeMechanicEffects(character)) {
+    if (effect.type !== "affinity") continue
+    for (const damageType of effect.damageTypes) {
+      addCandidate(damageType, effect.affinity)
+    }
+  }
+
+  for (const effect of character.contextEffects) {
     if (effect.type !== "affinity") continue
     for (const damageType of effect.damageTypes) {
       addCandidate(damageType, effect.affinity)

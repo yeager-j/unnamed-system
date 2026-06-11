@@ -278,4 +278,21 @@ describe("projectPlayerSnapshot", () => {
     expect(snapshot.round).toBe(3)
     expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
   })
+
+  it("passes through the session's Zone Enchantment (observable, not redacted)", () => {
+    const base = createCombatSession(sequentialIds())([pc("char-aria", "z1")])
+    const session: CombatSession = {
+      ...base,
+      zones: { z1: { id: "z1", name: "Bridge" } },
+      enchantment: { zoneId: "z1", type: "requiem", forte: 2 },
+    }
+
+    const snapshot = snap(encounter(session, "live"), { "char-aria": ARIA })
+
+    expect(snapshot.enchantment).toEqual({
+      zoneId: "z1",
+      type: "requiem",
+      forte: 2,
+    })
+  })
 })

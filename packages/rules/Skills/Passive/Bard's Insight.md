@@ -1,5 +1,5 @@
 ---
-description: Recover 2 HP at the start of each turn while your Attack, Defense, or Hit/Evasion is increased.
+description: Recover 3 HP at the start of each turn while your Attack, Defense, or Hit/Evasion is increased.
 type: Passive
 ---
 > [!skill] Bard's Insight
