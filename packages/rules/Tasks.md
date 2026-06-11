@@ -61,7 +61,7 @@
 		- [ ] Pugilist
 			- [ ] Martial Artist
 			- [ ] Soul Fist
-- [x] Knight — Tank class. Draws aggression, controls enemies with op attacks
+- [ ] Knight — Tank class. Draws aggression, controls enemies with op attacks
 	- [x] Knight
 		- [ ] Lancer
 			- [ ] Dragonrider
@@ -71,9 +71,9 @@
 	- [x] Healer
 		- [ ] Cleric
 			- [ ] Savior
-- [ ] Thief. Faster movement
+- [ ] Thief.
 	- [ ] 
-	- [ ] Thief
+	- [x] Thief
 		- [ ] Assassin
 			- [ ] Ninja
 		- [ ] Con Artist
@@ -83,7 +83,7 @@
 		- [ ] Gladiator
 			- [ ] Destroyer
 - [ ] Bard — Yeah. Buff/debuff allies/enemies. Battlefield control
-	- [ ] Bard
+	- [x] Bard
 		- [ ] Siren
 			- [ ] Muse
 - [ ] Shapechanger — Druid equivalent. Transform into creatures, gaining new skills and affinities
@@ -146,18 +146,3 @@
 
 - [ ] Rules glossary
 
-
-| Lineage      | Damage                |
-| ------------ | --------------------- |
-| Mage         | Fire, Ice, Elec, Wind |
-| Brawler      | Fire                  |
-| Hunter       | Ice                   |
-| Knight       | Elec                  |
-| Warrior      | Wind                  |
-| Thief        | Mind                   |
-| Berserker    | Soul                  |
-| Healer       | Light                 |
-| Warlock      | Dark                  |
-| Bard         | —                     |
-| Shapechanger | —                     |
-| Summoner     | —                     |

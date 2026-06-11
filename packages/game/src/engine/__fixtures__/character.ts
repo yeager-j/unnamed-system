@@ -173,6 +173,7 @@ export function makeStatContext(
     activeMechanic: null,
     baseAttributes: baseAttributesForArchetype(activeArchetype),
     baseAffinities: baseAffinitiesForArchetype(activeArchetype),
+    contextEffects: [],
     ...overrides,
   }
 }

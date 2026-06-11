@@ -14,6 +14,10 @@ import {
   type CounterKey,
 } from "@workspace/game/foundation/combat/counters"
 import {
+  ENCHANTMENT_TYPES,
+  type EnchantmentType,
+} from "@workspace/game/foundation/combat/enchantment"
+import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,
   combatantSetupSchema,
@@ -289,6 +293,26 @@ export type MoveCombatantEvent = {
 }
 
 /**
+ * Zone-Enchantment events — the Bard mechanic's battlefield state, a singleton
+ * on the session (`session.enchantment`; see
+ * {@link import("../combat/enchantment").zoneEnchantmentSchema}):
+ *
+ * - `applyEnchantment` Enchants `zoneId` with `enchantment`: re-applying the
+ *   same type to the already-Enchanted Zone raises its Forte (capped at
+ *   `MAX_FORTE`); anything else — a different Zone or a different type —
+ *   replaces the singleton at Forte 1 (rulebook: "if you Enchant a second
+ *   Zone, the first one loses its Enchantment"). No-op when `zoneId` isn't a
+ *   current zone (zone-graph precedent).
+ * - `clearEnchantment` removes it outright (DM correction; combat's end).
+ *
+ * **DM-only**: deliberately not in {@link PLAYER_OVERLAY_EVENT_KINDS} — those
+ * are gated per owned combatant, and an Enchantment is session-level state.
+ */
+export type EnchantmentEvent =
+  | { kind: "applyEnchantment"; zoneId: string; enchantment: EnchantmentType }
+  | { kind: "clearEnchantment" }
+
+/**
  * Engagement events (UNN-316) — the *who* a combatant is melee-locked with, on
  * the combatant overlay (position is the orthogonal `zoneId`, UNN-315):
  *
@@ -328,6 +352,7 @@ export type CombatEvent =
   | ZoneGraphEvent
   | MoveCombatantEvent
   | EngagementEvent
+  | EnchantmentEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -434,6 +459,12 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     targetCombatantIds: z.array(z.string()).min(1),
   }),
   z.object({ kind: z.literal("clearEngagement"), combatantId: z.string() }),
+  z.object({
+    kind: z.literal("applyEnchantment"),
+    zoneId: z.string(),
+    enchantment: z.enum(ENCHANTMENT_TYPES),
+  }),
+  z.object({ kind: z.literal("clearEnchantment") }),
 ])
 
 /** `true` only when `A` and `B` are mutually assignable (structurally equal). */

@@ -27,6 +27,7 @@ import { reduceCharacter } from "@workspace/game/engine/character/reduce-charact
 import type { CharacterEdit } from "@workspace/game/foundation/character/character-edit"
 import type { HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import type { InventoryItemRow } from "@workspace/game/foundation/character/records"
+import type { CombatContext } from "@workspace/game/foundation/character/state"
 
 /**
  * A synthetic catalog covering the whole reduce pipeline. Every key below is a
@@ -107,8 +108,8 @@ const TEST_DATA = makeTestGameData({
 
 /** Test wrappers binding the fixture catalog so the boundary call sites stay
  *  terse; the engine itself takes the lookups + id generator explicitly. */
-const derive = (raw: RawCharacterInputs) =>
-  deriveHydratedCharacter(TEST_DATA)(raw)
+const derive = (raw: RawCharacterInputs, context?: CombatContext) =>
+  deriveHydratedCharacter(TEST_DATA)(raw, context)
 const reduce = (
   character: HydratedCharacter,
   edit: CharacterEdit,
@@ -160,6 +161,28 @@ describe("toRawInputs / deriveHydratedCharacter round-trip", () => {
   it("re-deriving from the stripped inputs reproduces the character", () => {
     const character = make()
     expect(derive(toRawInputs(character))).toEqual(character)
+  })
+})
+
+describe("deriveHydratedCharacter combat context", () => {
+  it("folds zoneEffects into resolved Attack Rolls with their source label", () => {
+    const raw = makeRaw()
+    raw.inventoryRows = raw.inventoryRows.map((row) =>
+      row.id === "row-cane" ? { ...row, equipped: true } : row
+    )
+
+    const base = derive(raw)
+    const enchanted = derive(raw, {
+      zoneEffects: [{ type: "attackRoll", amount: 2, source: "Toccata" }],
+    })
+
+    expect(enchanted.weaponAttackRoll?.total).toBe(
+      (base.weaponAttackRoll?.total ?? 0) + 2
+    )
+    expect(enchanted.weaponAttackRoll?.sources).toContainEqual({
+      source: "Toccata",
+      amount: 2,
+    })
   })
 })
 

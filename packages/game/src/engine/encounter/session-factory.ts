@@ -77,5 +77,6 @@ export function createCombatSession(newId: () => string) {
     ),
     zones: {},
     adjacency: {},
+    enchantment: null,
   })
 }

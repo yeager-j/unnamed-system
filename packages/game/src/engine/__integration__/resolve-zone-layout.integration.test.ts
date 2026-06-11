@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { ENCHANTMENTS_BY_TYPE } from "@workspace/game/engine/encounter/enchantment"
 import { resolveZoneLayout } from "@workspace/game/engine/encounter/resolve-zone-layout"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
@@ -157,5 +158,29 @@ describe("resolveZoneLayout", () => {
     expect(
       view.zones.find((z) => z.id === "zone-a")!.adjacentZoneNames
     ).toEqual(["Hall"])
+  })
+
+  it("badges the Enchanted Zone with its name, Forte marking, and rule lines — others stay bare", () => {
+    const session = {
+      ...sessionWith([]),
+      enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 } as const,
+    }
+
+    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+
+    expect(view.zones.find((z) => z.id === "zone-a")!.enchantment).toEqual({
+      type: "toccata",
+      name: "Toccata",
+      forte: 2,
+      marking: "ff",
+      lines: ENCHANTMENTS_BY_TYPE.toccata.forteLines.map((text, index) => ({
+        forte: index + 1,
+        text,
+        active: index < 2,
+      })),
+    })
+    expect(
+      view.zones.find((z) => z.id === "zone-b")!.enchantment
+    ).toBeUndefined()
   })
 })

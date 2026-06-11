@@ -12,6 +12,7 @@ import {
   type ManualBonuses,
   type PathChoice,
 } from "@workspace/game/foundation/character/state"
+import { type CombatantEffect } from "@workspace/game/foundation/combat/effects"
 import { type EquippableItem } from "@workspace/game/foundation/items/schema"
 import {
   type ActiveMechanic,
@@ -147,7 +148,8 @@ export function buildStatContext(lookups: StatContextLookups) {
   return (
     character: PersistedCharacterState,
     archetypes: readonly PersistedArchetypeState[],
-    equippedItemKeys: readonly string[]
+    equippedItemKeys: readonly string[],
+    contextEffects: readonly CombatantEffect[] = []
   ): StatContext => {
     const active = archetypes.find(
       (a) => a.id === character.activeCharacterArchetypeId
@@ -181,6 +183,7 @@ export function buildStatContext(lookups: StatContextLookups) {
       activeMechanic: activeMechanicFor(active, lookups),
       baseAttributes: baseAttributesForArchetype(activeArchetype),
       baseAffinities: baseAffinitiesForArchetype(activeArchetype),
+      contextEffects,
     }
   }
 }

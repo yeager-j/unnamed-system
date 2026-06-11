@@ -104,6 +104,7 @@ describe("combatSessionSchema", () => {
         "zone-a": ["zone-b"],
         "zone-b": ["zone-a"],
       },
+      enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 },
     }
 
     const roundTripped = combatSessionSchema.parse(
@@ -139,6 +140,20 @@ describe("combatSessionSchema", () => {
 
     expect(parsed.combatants[0]!.moveAvailable).toBe(true)
     expect(parsed.combatants[0]!.standardAvailable).toBe(true)
+  })
+
+  it("defaults enchantment to null for a pre-Enchantment blob", () => {
+    // A session persisted before Zone Enchantments existed must still parse:
+    // the `.default(null)` fills it so no data migration is needed.
+    const legacySession = {
+      round: 1,
+      currentActorId: null,
+      advantage: null,
+      firstSide: null,
+      combatants: [],
+    }
+
+    expect(combatSessionSchema.parse(legacySession).enchantment).toBeNull()
   })
 })
 

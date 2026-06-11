@@ -3,6 +3,7 @@ import { reduceAilmentEvent } from "@workspace/game/engine/encounter/reduce/ailm
 import { reduceBattleConditionEvent } from "@workspace/game/engine/encounter/reduce/conditions"
 import { reduceCounterEvent } from "@workspace/game/engine/encounter/reduce/counters"
 import { reduceDraftCombatantEvent } from "@workspace/game/engine/encounter/reduce/draft"
+import { reduceEnchantmentEvent } from "@workspace/game/engine/encounter/reduce/enchantment"
 import { reduceEnemyVitalsEvent } from "@workspace/game/engine/encounter/reduce/enemy-vitals"
 import { reduceEngagementEvent } from "@workspace/game/engine/encounter/reduce/engagement"
 import { reduceOverrideEvent } from "@workspace/game/engine/encounter/reduce/override"
@@ -94,6 +95,10 @@ export function reduceCombatSession(
       case "setEngagement":
       case "clearEngagement":
         return reduceEngagementEvent(session, event)
+
+      case "applyEnchantment":
+      case "clearEnchantment":
+        return reduceEnchantmentEvent(session, event)
     }
   }
 }

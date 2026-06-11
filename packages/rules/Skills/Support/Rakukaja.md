@@ -10,7 +10,9 @@ type: Support
 > 
 > SP: **8**; Range: **Same/Adjacent Zone**; Duration: **3**
 > 
-> **Knight Effect:** Gain 1 Valor if used on an ally.
+> **(Bard Only)** *Requiem Enchantment*
+> **`Forte 1`** All damage is reduced by a flat amount equal to the Zone's Forte.
+> **`Forte 2`** Combatants are not Downed via a Technical.
+> **`Forte 3`** Combatants are not Downed via their Weakness.
 
 ^1eae18
-

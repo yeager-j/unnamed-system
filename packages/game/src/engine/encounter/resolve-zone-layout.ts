@@ -1,7 +1,13 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { getEnchantment } from "@workspace/game/engine/encounter/enchantment"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
+import {
+  forteMarking,
+  type EnchantmentType,
+  type ZoneEnchantment,
+} from "@workspace/game/foundation/combat/enchantment"
 import type {
   Combatant,
   CombatSession,
@@ -36,13 +42,58 @@ export interface ZoneToken {
   engagement?: Engagement
 }
 
+/** One rule line in the badge tooltip: the Forte that grants it, its rule
+ *  text, and whether the Zone's current Forte has reached it (a Forte grants
+ *  its own line and all lower Fortes'). */
+export interface ForteLine {
+  forte: number
+  text: string
+  active: boolean
+}
+
+/** The zone's active Enchantment as the badge renders it: the type key (for
+ *  styling/tests), its resolved display name, the current Forte with its
+ *  dynamic `marking` (*f / ff / fff*), and the per-Forte rule lines for the
+ *  badge tooltip. */
+export interface ZoneEnchantmentBadge {
+  type: EnchantmentType
+  name: string
+  forte: number
+  marking: string
+  lines: ForteLine[]
+}
+
 /** One zone region: its name, the ids→names of the zones it borders (for the
- *  adjacency legend), and the tokens currently in it. */
+ *  adjacency legend), the tokens currently in it, and its Enchantment badge
+ *  when the session's singleton Enchantment sits on this zone. */
 export interface ZoneLayoutEntry {
   id: string
   name: string
   adjacentZoneNames: string[]
   combatants: ZoneToken[]
+  enchantment?: ZoneEnchantmentBadge
+}
+
+/** The {@link ZoneEnchantmentBadge} for `zoneId`, or `undefined` when the
+ *  session's Enchantment is absent or sits elsewhere. Shared by the DM shaper
+ *  below and the watch view's {@link import("./resolve-player-view").resolvePlayerZoneLayout}. */
+export function zoneEnchantmentBadge(
+  enchantment: ZoneEnchantment | null,
+  zoneId: string
+): ZoneEnchantmentBadge | undefined {
+  if (!enchantment || enchantment.zoneId !== zoneId) return undefined
+  const definition = getEnchantment(enchantment.type)
+  return {
+    type: enchantment.type,
+    name: definition.name,
+    forte: enchantment.forte,
+    marking: forteMarking(enchantment.forte),
+    lines: definition.forteLines.map((text, index) => ({
+      forte: index + 1,
+      text,
+      active: index + 1 <= enchantment.forte,
+    })),
+  }
 }
 
 /**
@@ -106,6 +157,7 @@ export function resolveZoneLayout(
       .map((combatant) =>
         zoneToken(combatant, pcDetailById, enemyStatblockById)
       ),
+    enchantment: zoneEnchantmentBadge(session.enchantment, zone.id),
   }))
 
   const unplaced = session.combatants

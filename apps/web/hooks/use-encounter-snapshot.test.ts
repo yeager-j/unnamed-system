@@ -43,6 +43,7 @@ function makeSnapshot(
     combatants: [],
     zones: [],
     adjacency: {},
+    enchantment: null,
     ...overrides,
   }
 }

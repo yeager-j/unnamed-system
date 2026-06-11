@@ -35,7 +35,9 @@ function removeEdge(
  *   UNN-347), else a fresh `newId` (same injectable as `addCombatant`). `notes`
  *   is only set when provided, keeping the stored object `undefined`-clean.
  * - `removeZone` deletes the zone and its own adjacency entry, then prunes the
- *   removed id from every *other* zone's adjacency list. It deliberately leaves
+ *   removed id from every *other* zone's adjacency list — and clears the
+ *   session's Enchantment when it sat on the removed zone (session-level state
+ *   is this reducer's own to keep consistent). It deliberately leaves
  *   `combatant.zoneId` untouched — placement cleanup is UNN-315's concern.
  * - `setZoneAdjacency` writes (or clears) an **undirected** edge by mirroring the
  *   change into both zones' lists; idempotent on re-add (see {@link addEdge}). It
@@ -68,6 +70,9 @@ export function reduceZoneGraphEvent(
         delete draft.adjacency[event.zoneId]
         for (const zoneId of Object.keys(draft.adjacency)) {
           removeEdge(draft, zoneId, event.zoneId)
+        }
+        if (draft.enchantment?.zoneId === event.zoneId) {
+          draft.enchantment = null
         }
         return
       }

@@ -1,5 +1,6 @@
 import { createCatalog } from "@workspace/game/data/catalog/create-catalog"
 import { AILMENT_SKILLS } from "@workspace/game/data/skills/ailment/index"
+import { ALMIGHTY_SKILLS } from "@workspace/game/data/skills/almighty/index"
 import { DARK_SKILLS } from "@workspace/game/data/skills/dark/index"
 import { ELEC_SKILLS } from "@workspace/game/data/skills/elec/index"
 import { FIRE_SKILLS } from "@workspace/game/data/skills/fire/index"
@@ -35,6 +36,7 @@ const SKILLS_BY_KEY = {
   ...AILMENT_SKILLS,
   ...PASSIVE_SKILLS,
   ...SPECIAL_SKILLS,
+  ...ALMIGHTY_SKILLS,
 } as const satisfies Record<string, Skill>
 
 export type SkillKey = keyof typeof SKILLS_BY_KEY

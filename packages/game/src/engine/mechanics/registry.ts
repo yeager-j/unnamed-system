@@ -1,3 +1,4 @@
+import { enchantment } from "@workspace/game/engine/mechanics/bard/enchantment"
 import { pathOfDawn } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { valor } from "@workspace/game/engine/mechanics/knight/valor"
 import { stains } from "@workspace/game/engine/mechanics/mage/stains"
@@ -28,6 +29,7 @@ import type {
  *  - Path of Dusk — Warlock
  *  - Stains — Mage
  *  - Thief's Insight — Thief
+ *  - Enchantment — Bard
  */
 
 const MECHANIC_LIST = [
@@ -37,6 +39,7 @@ const MECHANIC_LIST = [
   pathOfDusk,
   stains,
   thiefsInsight,
+  enchantment,
 ] as const
 
 type MechanicMap = {

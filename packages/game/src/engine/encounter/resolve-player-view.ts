@@ -2,9 +2,10 @@ import type {
   EncounterSnapshot,
   PlayerVisibleCombatant,
 } from "@workspace/game/engine/encounter/player-snapshot"
-import type {
-  ZoneLayoutView,
-  ZoneToken,
+import {
+  zoneEnchantmentBadge,
+  type ZoneLayoutView,
+  type ZoneToken,
 } from "@workspace/game/engine/encounter/resolve-zone-layout"
 
 /**
@@ -50,6 +51,7 @@ export function resolvePlayerZoneLayout(
     combatants: snapshot.combatants
       .filter((combatant) => combatant.zoneId === zone.id)
       .map(playerZoneToken),
+    enchantment: zoneEnchantmentBadge(snapshot.enchantment, zone.id),
   }))
 
   const unplaced = snapshot.combatants

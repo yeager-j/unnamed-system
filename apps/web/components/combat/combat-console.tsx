@@ -31,6 +31,7 @@ import { EndCombatDialog } from "./end-combat-dialog"
 import { EndOfTurnModal } from "./end-of-turn-modal"
 import { TurnOrderStrip, type ConsolePhase } from "./turn-order-strip"
 import { useCombatConsole } from "./use-combat-console"
+import { ZoneEnchantmentControl } from "./zone-enchantment-control"
 import { ZoneLayout } from "./zone-layout"
 
 /**
@@ -243,6 +244,15 @@ export function CombatConsole({
           <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
           <ZoneLayout
             view={resolveZoneLayout(session, pcDetailById, enemyStatblockById)}
+            zoneAction={(zone) => (
+              <ZoneEnchantmentControl
+                zoneId={zone.id}
+                zoneName={zone.name}
+                enchantment={zone.enchantment}
+                onCombatEvent={dispatch}
+                disabled={isPending}
+              />
+            )}
           />
         </div>
       )}

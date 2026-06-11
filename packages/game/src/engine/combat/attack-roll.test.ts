@@ -378,6 +378,42 @@ describe("resolveAttackRoll — source labelling", () => {
   })
 })
 
+describe("resolveAttackRoll — context effects (zone Enchantment channel)", () => {
+  it("folds an unfiltered contextEffects attackRoll bonus with its source label", () => {
+    const character = makeWarrior({
+      contextEffects: [{ type: "attackRoll", amount: 2, source: "Toccata" }],
+    })
+    expect(resolveAttackRoll(SLASH_ST, character, null)).toEqual({
+      total: 4,
+      sources: [
+        { source: "Strength", amount: 2 },
+        { source: "Toccata", amount: 2 },
+      ],
+    })
+  })
+
+  it("applies the bonus to every Attack Roll kind — an ailment Skill too", () => {
+    const character = makeWarrior({
+      contextEffects: [{ type: "attackRoll", amount: 3, source: "Toccata" }],
+    })
+    const resolved = resolveAttackRoll(AILMENT_LU, character, null)
+    expect(resolved.sources).toContainEqual({ source: "Toccata", amount: 3 })
+  })
+
+  it("ignores non-attackRoll context effects", () => {
+    const character = makeWarrior({
+      contextEffects: [
+        { type: "attribute", target: "hp", amount: 5 },
+        { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
+      ],
+    })
+    expect(resolveAttackRoll(SLASH_ST, character, null)).toEqual({
+      total: 2,
+      sources: [{ source: "Strength", amount: 2 }],
+    })
+  })
+})
+
 // Self-exclusion (activeLineage matching the scaler's lineage) only fires for an
 // includesSelf:false scaler. These assert the scaler's own source amount (not the
 // total), isolating self-exclusion from attribute math: with a party of 3 mages

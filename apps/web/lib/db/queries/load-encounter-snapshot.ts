@@ -1,6 +1,7 @@
 import { getArchetype } from "@workspace/game/data"
 import {
   projectPlayerSnapshot,
+  zoneEnchantmentEffects,
   type EncounterSnapshot,
   type PcCombatantDetail,
 } from "@workspace/game/engine"
@@ -99,6 +100,7 @@ export async function loadOwnedEncounterSheets(
             combatantId: combatant.id,
             characterId: combatant.ref.characterId,
             side: combatant.side,
+            zoneId: combatant.zoneId,
           },
         ]
       : []
@@ -116,8 +118,9 @@ export async function loadOwnedEncounterSheets(
   if (owned.length === 0) return []
 
   // The owned sheet's `Skills` section scales by the encounter's allied-Lineage
-  // tally (UNN-367), so each is hydrated with the party composition for the
-  // combatant's own side — the same scaled value the DM drawer shows.
+  // tally (UNN-367) and by the combatant's Zone Enchantment, so each is
+  // hydrated with the party composition for the combatant's own side plus its
+  // zone's resolved effects — the same scaled values the DM drawer shows.
   const compositionBySide = await resolvePartyCompositionBySide(
     encounter.session
   )
@@ -126,6 +129,10 @@ export async function loadOwnedEncounterSheets(
     owned.map(async (pc) => {
       const character = await loadHydratedCharacterById(pc.characterId, {
         partyComposition: compositionBySide[pc.side],
+        zoneEffects: zoneEnchantmentEffects(
+          encounter.session.enchantment,
+          pc.zoneId
+        ),
       })
       return character ? { combatantId: pc.combatantId, character } : null
     })
