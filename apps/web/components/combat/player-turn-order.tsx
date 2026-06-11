@@ -7,7 +7,6 @@ import {
   CardAction,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -32,9 +31,7 @@ export function PlayerTurnOrder({
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle className="font-heading text-lg font-medium">
-          Round {round}
-        </CardTitle>
+        <h2 className="font-heading text-lg font-medium">Round {round}</h2>
         <CardAction className="self-center text-sm text-muted-foreground">
           {currentActor ? (
             <>
