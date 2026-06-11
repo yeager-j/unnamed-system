@@ -1,0 +1,97 @@
+name: Smoke
+
+# The @smoke subset of the Playwright suite, run against the actual Vercel
+# preview deployment. This is the tier that validates deployment-specific
+# wiring (env vars, auth on the deployed domain, Vercel Blob); the full suite
+# runs locally on the runner in e2e.yml. Keeping this subset small is what
+# keeps preview edge-request traffic inside the Hobby budget.
+on:
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
+
+run-name: Smoke - ${{ github.event.client_payload.project.name }} (${{ github.event.client_payload.git.ref }})
+
+# Rapid pushes to a PR produce multiple preview deploys -> multiple dispatches.
+# All target the same shared preview/<branch> Neon branch; serialize so two runs
+# never migrate/seed it concurrently. Only the latest deploy's run matters - its
+# status posts for the head SHA that branch protection gates on.
+concurrency:
+  group: smoke-${{ github.event.client_payload.git.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    # Only preview deployments have a preview/<branch> Neon branch; never seed production.
+    if: github.event.client_payload.environment == 'preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      statuses: write
+    steps:
+      - name: Checkout deployed commit
+        uses: vercel/repository-dispatch/actions/checkout@v1
+
+      - name: Report smoke status on the deployed commit
+        uses: vercel/repository-dispatch/actions/status@v1
+        with:
+          name: smoke
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve preview Neon branch connection string
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          set -euo pipefail
+          REF='${{ github.event.client_payload.git.ref }}'
+          DB_URL=$(npx -y neonctl connection-string "preview/${REF}" \
+            --project-id "${{ vars.NEON_PROJECT_ID }}" \
+            --api-key "$NEON_API_KEY")
+          echo "::add-mask::$DB_URL"
+          echo "DATABASE_URL=$DB_URL" >> "$GITHUB_ENV"
+
+      - name: Apply migrations
+        working-directory: apps/web
+        run: npm run db:migrate
+
+      - name: Seed database
+        working-directory: apps/web
+        run: npm run db:seed
+
+      # Playwright's globalSetup (e2e/auth.setup.ts) inherits DATABASE_URL from
+      # the job env (set above via $GITHUB_ENV) to land a session row for the
+      # seeded claude@unnamed-system.local user and write the storage-state
+      # cookie that authenticated specs opt into. No new secrets required.
+      - name: Run smoke tests
+        working-directory: apps/web
+        run: npx playwright test --grep "@smoke"
+        env:
+          BASE_URL: ${{ github.event.client_payload.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-smoke
+          path: apps/web/playwright-report/
+          retention-days: 7

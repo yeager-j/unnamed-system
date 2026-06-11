@@ -135,10 +135,14 @@ test("start dialog: a Players ambush opens the live console with a Player-start 
   ).toBeVisible()
 })
 
-test("live encounter renders the console", async ({ page }) => {
-  await page.goto(encounterTarget.live.url)
-  await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
-})
+test(
+  "live encounter renders the console",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.goto(encounterTarget.live.url)
+    await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
+  }
+)
 
 test("live console: draft → end turn → modal → hand off to the other side", async ({
   page,
