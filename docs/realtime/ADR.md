@@ -99,7 +99,7 @@ This also keeps E2E and local dev simple: nothing in the test suite depends on t
 ## Decision 4 — Channel and auth model
 
 * `encounter:{shortId}` — pinged by `applyCombatEvent` and `endEncounterAction` with the new session `version` and `status`.
-* `character:{shortId}` — pinged by the character write wrappers with the touched version classes and their new values. (As implemented the mirroring ran the other way too: UNN-372 extended the `BroadcastChannel` message to carry the versions, and both transports funnel through one shared version-compare — `mergePingedVersions` in `CharacterProvider`.)
+* `character:{shortId}` — pinged by the character write wrappers with the touched version classes and their new values. (As implemented the mirroring ran the other way too: UNN-372 extended the `BroadcastChannel` message to carry the versions, and both transports funnel through one shared version-compare — `mergePingedVersions`, defined in `hooks/character-version-sync.ts` and consumed by `CharacterProvider`.)
 * Channels are keyed by **public shortId**, never internal UUIDs — matching the existing rule that public surfaces leak no internal id, and making knowledge-of-the-id the subscribe capability, identical to the snapshot API's auth model. Tokens are subscribe-only; **publish capability never leaves the server.**
 * Payload is advisory metadata only. Even if a channel id leaks, a subscriber learns "something changed, version N" — all data still flows through the authed/redacting read path.
 * Names here are the unqualified form; at runtime every channel is prefixed with the environment namespace from Decision 7.
