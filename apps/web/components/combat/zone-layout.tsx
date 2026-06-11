@@ -32,7 +32,7 @@ export function ZoneLayout({ view }: { view: ZoneLayoutView }) {
     return (
       <div
         data-testid="combat-console-battlefield"
-        className="flex flex-1 items-center justify-center rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
+        className="flex flex-1 items-center justify-center border border-dashed p-8 text-center text-sm text-muted-foreground"
       >
         This encounter has no zones — theater of mind. Add zones in setup to map
         the battlefield.

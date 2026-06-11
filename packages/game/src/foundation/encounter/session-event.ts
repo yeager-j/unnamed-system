@@ -449,3 +449,36 @@ const _combatEventSchemaInSync: Equals<
   CombatEvent
 > = true
 void _combatEventSchemaInSync
+
+/**
+ * The subset of {@link CombatEvent} a **player** may issue against their own
+ * combatant from the watch view — the session-overlay condition edits the DM's
+ * combatant-conditions drawer also issues (ailments + the battle-condition
+ * axes/flags). Vitals, turn-loop, zones, engagement, and enemy edits stay
+ * DM-only; PC vitals never travel as events (character row, pools actions). The
+ * player Server Action and the client hook both gate on this one list so they
+ * cannot drift.
+ */
+export const PLAYER_OVERLAY_EVENT_KINDS = [
+  "setAilment",
+  "clearAilment",
+  "adjustBattleConditionAxis",
+  "setBattleConditionFlag",
+] as const
+
+/**
+ * A {@link CombatEvent} narrowed to the player-issuable overlay edits. Every
+ * member carries a `combatantId`, which the Server Action checks the caller owns.
+ */
+export type PlayerOverlayEvent = Extract<
+  CombatEvent,
+  { kind: (typeof PLAYER_OVERLAY_EVENT_KINDS)[number] }
+>
+
+/** Narrows an arbitrary {@link CombatEvent} to a {@link PlayerOverlayEvent} — the
+ *  player-write guard both the action and the client hook share. */
+export function isPlayerOverlayEvent(
+  event: CombatEvent
+): event is PlayerOverlayEvent {
+  return (PLAYER_OVERLAY_EVENT_KINDS as readonly string[]).includes(event.kind)
+}

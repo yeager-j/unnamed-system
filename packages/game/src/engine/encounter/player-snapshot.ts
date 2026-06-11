@@ -12,6 +12,7 @@ import type {
   Combatant,
   CombatSession,
   CombatSide,
+  ConditionDurations,
   Zone,
 } from "@workspace/game/foundation/encounter/session"
 import type { EncounterStatus } from "@workspace/game/foundation/encounter/status"
@@ -46,6 +47,10 @@ interface PlayerCombatantBase {
   isCurrent: boolean
   ailments: string[]
   battleConditions: BattleConditions
+  /** Turns-remaining clocks for the non-neutral battle-condition axes (absent key
+   *  ⇒ no clock). Observable combat state, shown both sides — drives the axis
+   *  duration badge in the player's own combat-state control. */
+  conditionDurations: ConditionDurations
   /** Named counters (Lumina, …). Public — an Illuminated enemy lights up its Zone
    *  (rulebook Path of Dawn), so this is observable, not redacted enemy data. */
   counters: Counters
@@ -62,6 +67,9 @@ export type PlayerVisibleCombatant =
       hp: Pool
       sp: Pool
       attributes: AttributeScores
+      /** The PC's portrait (public sheet data; `null` ⇒ the token's gradient
+       *  fallback) — lets the shared battlefield grid draw PC portraits. */
+      portraitUrl: string | null
     })
   | (PlayerCombatantBase & {
       kind: "enemy"
@@ -69,6 +77,9 @@ export type PlayerVisibleCombatant =
       /** `null` for catalog enemies (the definition declares no SP); a `Pool`
        *  for an inline stat block that carries one. */
       sp: Pool | null
+      /** Always `null` for enemies — the gradient/initials fallback. Present so
+       *  the battlefield token shaper reads one field for either arm. */
+      portraitUrl: null
     })
 
 /** The current actor as the watch header renders it, or `null` before anyone is
@@ -100,6 +111,10 @@ export interface EncounterSnapshot {
   currentActor: PlayerCurrentActor | null
   combatants: PlayerVisibleCombatant[]
   zones: Zone[]
+  /** The undirected zone-adjacency graph (zone id → bordering zone ids), so the
+   *  player battlefield renders the same "Borders" footer the DM grid does.
+   *  Observable topology, not redacted enemy data. */
+  adjacency: Record<string, string[]>
 }
 
 /** A PC's current/max SP off its hydrated detail; `{0,0}` when the detail is
@@ -147,6 +162,7 @@ function projectCombatant(
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
     battleConditions: combatant.battleConditions,
+    conditionDurations: combatant.conditionDurations,
     counters: combatant.counters,
     engagedWith,
   }
@@ -165,6 +181,7 @@ function projectCombatant(
         agility: 0,
         luck: 0,
       },
+      portraitUrl: detail?.portraitUrl ?? null,
     }
   }
 
@@ -173,6 +190,7 @@ function projectCombatant(
     kind: "enemy",
     hp: enemyHp(combatant, enemyStatblockById),
     sp: enemySp(combatant),
+    portraitUrl: null,
   }
 }
 
@@ -230,5 +248,6 @@ export function projectPlayerSnapshot(
       )
     ),
     zones: Object.values(session.zones),
+    adjacency: session.adjacency,
   }
 }
