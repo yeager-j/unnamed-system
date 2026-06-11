@@ -132,4 +132,21 @@ test.describe("owner leveling controls", () => {
     await expect(page.getByText(/Level 2 · Warrior/)).toBeVisible()
     await expect(page.getByText("3/7 Victories")).toBeVisible()
   })
+
+  test("'Spend them on the Archetypes tab' switches the active tab (UNN-385)", async ({
+    page,
+  }) => {
+    await target.setVictories(7)
+    await page.goto(target.url)
+
+    await page.getByRole("button", { name: "Level up", exact: true }).click()
+    await page
+      .getByRole("button", { name: "Spend them on the Archetypes tab" })
+      .click()
+
+    await expect(
+      page.getByRole("tab", { name: "Archetypes", selected: true })
+    ).toBeVisible()
+    await expect(page).toHaveURL(/tab=archetypes/)
+  })
 })
