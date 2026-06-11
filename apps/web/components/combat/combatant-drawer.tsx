@@ -5,6 +5,7 @@ import type { RefObject } from "react"
 
 import { type CombatantDetail } from "@workspace/game/engine"
 import { type CombatEvent } from "@workspace/game/foundation"
+import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -18,6 +19,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
+import { SkillRow } from "@/components/shared/skill-row"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
@@ -38,10 +40,12 @@ import { EnemyStatblock } from "./enemy-statblock"
  * (UNN-310), **POSITION** (UNN-315; the move-between-zones control via the
  * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
  * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
- * read-only (shared grids); a catalog enemy additionally shows read-only SKILLS
- * (each a shared {@link SkillRow}, hydrated against the enemy's flat Attributes
- * so the Attack Roll readout matches a character's, with the cost row dropped —
- * enemies pay no Skill costs) and its freeform ABILITIES Markdown.
+ * read-only (shared grids); both a PC and a catalog enemy additionally show
+ * read-only SKILLS (each a shared {@link SkillRow}). A PC's are derived with the
+ * encounter's `partyComposition` so the `perPartyLineage` Attack-Roll scalers
+ * (Magic Circle / Ailment Boost) read their encounter-scaled values (UNN-367); an
+ * enemy's are hydrated against its flat Attributes with the cost row dropped
+ * (enemies pay no Skill costs) and additionally show freeform ABILITIES Markdown.
  */
 export function CombatantDrawer({
   detail,
@@ -133,6 +137,20 @@ function DrawerBody({
                 columnsClassName="grid-cols-4"
               />
             </DetailSection>
+
+            {detail.skills.length > 0 ? (
+              <DetailSection title="Skills">
+                <ItemGroup className="gap-0">
+                  {detail.skills.map((skill) => (
+                    <SkillRow
+                      key={skill.key}
+                      skill={skill}
+                      attributes={detail.attributes}
+                    />
+                  ))}
+                </ItemGroup>
+              </DetailSection>
+            ) : null}
           </>
         ) : (
           <EnemyStatblock statblock={detail.statblock} />

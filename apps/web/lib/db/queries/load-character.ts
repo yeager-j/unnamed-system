@@ -1,7 +1,10 @@
 import { asc, eq } from "drizzle-orm"
 
 import { type RawCharacterInputs } from "@workspace/game/engine"
-import { type HydratedCharacter } from "@workspace/game/foundation"
+import {
+  type CombatContext,
+  type HydratedCharacter,
+} from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import {
@@ -91,10 +94,13 @@ function assertOriginBelongsToCharacter(
   }
 }
 
-async function hydrate(row: CharacterRow): Promise<HydratedCharacter> {
+async function hydrate(
+  row: CharacterRow,
+  context?: CombatContext
+): Promise<HydratedCharacter> {
   const raw = await fetchRawInputs(row)
   assertOriginBelongsToCharacter(row, raw.archetypeRows)
-  return deriveHydratedCharacter(raw)
+  return deriveHydratedCharacter(raw, context)
 }
 
 /** The raw `characters` row by id, or `null` when no character matches. */
@@ -144,13 +150,17 @@ export async function loadCharacterRowByShortId(
 
 /**
  * The fully hydrated sheet for the character with `characterId`, or `null`
- * when no character has that id.
+ * when no character has that id. An encounter-aware caller passes a
+ * {@link CombatContext} (party composition) so the `perPartyLineage` Attack-Roll
+ * scalers resolve at the encounter's allied-Lineage tally instead of base
+ * (UNN-367); omitted everywhere else → base values.
  */
 export async function loadHydratedCharacterById(
-  characterId: string
+  characterId: string,
+  context?: CombatContext
 ): Promise<HydratedCharacter | null> {
   const row = await loadCharacterRowById(characterId)
-  return row ? hydrate(row) : null
+  return row ? hydrate(row, context) : null
 }
 
 /**

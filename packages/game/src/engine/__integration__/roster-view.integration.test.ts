@@ -52,6 +52,7 @@ const ROAN: PcCombatantDetail = {
   affinityChart: neutralChart({ fire: "weak", ice: "resist" }),
   activeArchetypeKey: null,
   className: null,
+  skills: [],
   vitalsVersion: 4,
 }
 
