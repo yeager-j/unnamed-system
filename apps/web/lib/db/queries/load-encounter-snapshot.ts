@@ -11,6 +11,7 @@ import {
   loadCharacterRowById,
   loadHydratedCharacterById,
 } from "@/lib/db/queries/load-character"
+import { resolvePartyCompositionBySide } from "@/lib/db/queries/party-composition"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { loadEncounterRowByShortId } from "./load-encounter"
@@ -93,7 +94,13 @@ export async function loadOwnedEncounterSheets(
 
   const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
     combatant.ref.kind === "pc"
-      ? [{ combatantId: combatant.id, characterId: combatant.ref.characterId }]
+      ? [
+          {
+            combatantId: combatant.id,
+            characterId: combatant.ref.characterId,
+            side: combatant.side,
+          },
+        ]
       : []
   )
 
@@ -106,9 +113,20 @@ export async function loadOwnedEncounterSheets(
     )
   ).filter((pc) => pc !== null)
 
+  if (owned.length === 0) return []
+
+  // The owned sheet's `Skills` section scales by the encounter's allied-Lineage
+  // tally (UNN-367), so each is hydrated with the party composition for the
+  // combatant's own side — the same scaled value the DM drawer shows.
+  const compositionBySide = await resolvePartyCompositionBySide(
+    encounter.session
+  )
+
   const sheets = await Promise.all(
     owned.map(async (pc) => {
-      const character = await loadHydratedCharacterById(pc.characterId)
+      const character = await loadHydratedCharacterById(pc.characterId, {
+        partyComposition: compositionBySide[pc.side],
+      })
       return character ? { combatantId: pc.combatantId, character } : null
     })
   )

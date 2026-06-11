@@ -13,6 +13,7 @@ import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { resolvePartyCompositionBySide } from "@/lib/db/queries/party-composition"
 
 import { getEncounterForDM } from "./encounter-access"
 
@@ -85,14 +86,26 @@ export default async function CombatPage({ params }: PageProps) {
       )
     }
     case "live": {
-      const pcCharacterIds = encounter.session.combatants.flatMap(
-        (combatant) =>
-          combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
+      const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
+        combatant.ref.kind === "pc"
+          ? [{ characterId: combatant.ref.characterId, side: combatant.side }]
+          : []
       )
-      // The rail/drawer read identity + vitals + attributes + affinities off the
-      // hydrated sheet; `PcCombatantDetail` is a narrowing of it (no mapper).
+      // The skill cards in the drawer scale by the encounter's allied-Lineage
+      // tally (UNN-367), so each PC is hydrated with the party composition for
+      // its own side — the `perPartyLineage` Attack-Roll scalers (Magic Circle /
+      // Ailment Boost) resolve scaled instead of at base.
+      const compositionBySide = await resolvePartyCompositionBySide(
+        encounter.session
+      )
+      // The rail/drawer read identity + vitals + attributes + affinities + skills
+      // off the hydrated sheet; `PcCombatantDetail` is a narrowing of it (no mapper).
       const hydrated = await Promise.all(
-        pcCharacterIds.map((id) => loadHydratedCharacterById(id))
+        pcCombatants.map(({ characterId, side }) =>
+          loadHydratedCharacterById(characterId, {
+            partyComposition: compositionBySide[side],
+          })
+        )
       )
       const pcDetailById: Record<string, PcCombatantDetail> =
         Object.fromEntries(

@@ -56,6 +56,7 @@ const ARIA: PcCombatantDetail = {
   affinityChart: { fire: "weak" } as PcCombatantDetail["affinityChart"],
   activeArchetypeKey: null,
   className: null,
+  skills: [],
   vitalsVersion: 0,
 }
 

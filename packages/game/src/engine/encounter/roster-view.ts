@@ -48,8 +48,12 @@ import type {
  * a lean slice, so a loaded hydrated character is directly assignable, plus
  * `className`: the active Archetype's **resolved display name**, injected at the
  * assembly boundary (UNN-354) so {@link combatantDetail} reads a plain field
- * instead of looking the Archetype up in the catalog. The client payload still
- * skips the skills/inventory/child rows the console never renders.
+ * instead of looking the Archetype up in the catalog. `skills` carries the PC's
+ * hydrated Skill cards so the drawer can render them (UNN-367) — derived with the
+ * encounter's `partyComposition` context at the boundary, so the
+ * `perPartyLineage` Attack-Roll scalers (Magic Circle / Ailment Boost) show their
+ * encounter-scaled values. The client payload still skips the inventory/child
+ * rows the console never renders.
  */
 export type PcCombatantDetail = Pick<
   HydratedCharacter,
@@ -65,6 +69,7 @@ export type PcCombatantDetail = Pick<
   | "attributes"
   | "affinityChart"
   | "activeArchetypeKey"
+  | "skills"
   // The vitals-class optimistic token the DM's HP/SP pools writes condition on
   // (UNN-309) — the only version the combat console touches.
   | "vitalsVersion"
@@ -183,6 +188,11 @@ export type CombatantDetail = CombatantOverlay & {
         sp: Pool
         attributes: AttributeScores
         affinities: AffinityChart
+        /** The PC's hydrated Skill cards, derived with the encounter's
+         *  `partyComposition` so the `perPartyLineage` Attack-Roll scalers show
+         *  their scaled values (UNN-367). The drawer renders them as {@link
+         *  SkillRow}s — the PC peer of the enemy arm's {@link Statblock} skills. */
+        skills: PcCombatantDetail["skills"]
       }
     | {
         kind: "enemy"
@@ -430,6 +440,7 @@ export function combatantDetail(
         luck: 0,
       },
       affinities: detail?.affinityChart ?? {},
+      skills: detail?.skills ?? [],
     }
   }
 
