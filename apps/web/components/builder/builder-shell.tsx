@@ -24,7 +24,9 @@ import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
  * chapter-style header (small mono Roman numeral on a short rule, large
  * serif title, italic serif framing line) sits above the movement's content;
  * a quiet footer below carries a named back-link, the four-movement progress
- * dots, and a named continue-link.
+ * dots, and a named continue-link. The footer is sticky to the bottom of the
+ * viewport so Continue stays reachable on tall movements (e.g. the Corpus
+ * Archetype grid) without scrolling to the end.
  *
  * The footer also owns the wizard's navigation action. The continue link
  * calls `setBuilderStepAction` before navigating so a returning player's
@@ -61,7 +63,7 @@ export function BuilderShell({
   const nextStep = BUILDER_STEPS[currentIndex + 1] ?? null
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 p-6 lg:p-8">
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-6 pt-6 lg:px-8 lg:pt-8">
       {hideHeader ? null : <ChapterHeader step={currentStep} />}
 
       <section className="flex flex-1 flex-col gap-6">{children}</section>
@@ -125,7 +127,7 @@ function BuilderFooter({
   return (
     <footer
       aria-label="Builder navigation"
-      className="mt-8 flex items-center gap-3 border-t border-border pt-6 sm:gap-6"
+      className="sticky bottom-0 z-30 flex items-center gap-3 border-t border-border bg-background py-6 sm:gap-6"
     >
       <div className="flex flex-1 justify-start">
         {previousStep ? (
