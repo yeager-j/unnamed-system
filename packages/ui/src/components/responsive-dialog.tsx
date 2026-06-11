@@ -131,12 +131,17 @@ function ResponsiveDialogContent({
 function ResponsiveDialogHeader({
   className,
   children,
+  ...props
 }: React.ComponentProps<"div">) {
   const isMobile = useResponsiveDialogIsMobile()
   return isMobile ? (
-    <DrawerHeader className={className}>{children}</DrawerHeader>
+    <DrawerHeader className={className} {...props}>
+      {children}
+    </DrawerHeader>
   ) : (
-    <SheetHeader className={className}>{children}</SheetHeader>
+    <SheetHeader className={className} {...props}>
+      {children}
+    </SheetHeader>
   )
 }
 
