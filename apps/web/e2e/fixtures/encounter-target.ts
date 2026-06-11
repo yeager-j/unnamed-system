@@ -218,7 +218,7 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  *     run's started encounter leaves Campaign A with a `live` row and the
  *     single-live guard blocks every subsequent happy-path Start.
  *  2. **Resets** each known seeded encounter's `status`, `version`, and `session`
- *     so a "Save draft" / "Start" from a prior test doesn't carry over.
+ *     so a prior test's per-edit setup writes / "Start" don't carry over.
  *
  * The spec runs `serial` so these resets aren't racing a parallel test mutating
  * the same campaign-level live state.

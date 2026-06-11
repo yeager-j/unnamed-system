@@ -19,8 +19,10 @@ export const ApplyCombatEventSchema = encounterMutationBase.extend({
 export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>
 
 /** A `startCombat` is rejected when the campaign already has a live encounter
- *  (UNN-302's single-live guard). */
+ *  (UNN-302's single-live guard) or when zones are defined and any combatant is
+ *  unplaced (UNN-347's server-side placement enforcement). */
 export type ApplyCombatEventError =
   | "invalid-input"
   | "campaign-already-has-live-encounter"
+  | "encounter-has-unplaced-combatants"
   | EncounterWriteError

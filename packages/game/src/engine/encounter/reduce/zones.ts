@@ -29,9 +29,11 @@ function removeEdge(
  * Zone-graph slice (UNN-313). Mutates the spatial graph on the session — never a
  * combatant — following the Immer-draft style of {@link reduceRoundEvent}:
  *
- * - `addZone` mints a stable id via `newId` (same injectable as `addCombatant`)
- *   and stores a self-describing {@link Zone} under that key. `notes` is only
- *   set when provided, keeping the stored object `undefined`-clean.
+ * - `addZone` stores a self-describing {@link Zone} under its id — the supplied
+ *   `event.zoneId` when present (the setup surface mints it client-side so an
+ *   optimistic adjacency/placement edit can reference it before any refresh —
+ *   UNN-347), else a fresh `newId` (same injectable as `addCombatant`). `notes`
+ *   is only set when provided, keeping the stored object `undefined`-clean.
  * - `removeZone` deletes the zone and its own adjacency entry, then prunes the
  *   removed id from every *other* zone's adjacency list. It deliberately leaves
  *   `combatant.zoneId` untouched — placement cleanup is UNN-315's concern.
@@ -53,7 +55,7 @@ export function reduceZoneGraphEvent(
   return produce(session, (draft) => {
     switch (event.kind) {
       case "addZone": {
-        const id = newId()
+        const id = event.zoneId ?? newId()
         const zone: Zone = { id, name: event.name }
         if (event.notes !== undefined) zone.notes = event.notes
         draft.zones[id] = zone

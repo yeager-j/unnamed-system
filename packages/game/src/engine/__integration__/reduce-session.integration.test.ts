@@ -170,6 +170,35 @@ describe("reduceCombatSession — startCombat", () => {
     expect(session.advantage).toBeNull()
     expect(session.firstSide).toBeNull()
   })
+
+  it("resets hasActedThisRound for an event-assembled roster so all are eligible in round 1 (UNN-347)", () => {
+    // A setup roster built through addCombatant events enters with
+    // hasActedThisRound = true (the mid-round-join default); start must clear it.
+    const empty = createCombatSession(sequentialIds())([])
+    const withRoster = ["a", "b"].reduce(
+      (current, characterId) =>
+        reduceCombat(current, {
+          kind: "addCombatant",
+          setup: {
+            id: characterId,
+            side: "players",
+            ref: { kind: "pc", characterId },
+            zoneId: "",
+          },
+        }),
+      empty
+    )
+    expect(withRoster.combatants.every((c) => c.hasActedThisRound)).toBe(true)
+
+    const next = reduceCombat(withRoster, {
+      kind: "startCombat",
+      advantage: "neutral",
+      firstSide: "players",
+    })
+
+    expect(next.combatants.every((c) => !c.hasActedThisRound)).toBe(true)
+    expect(next.currentActorId).toBeNull()
+  })
 })
 
 describe("reduceCombatSession — draftCombatant", () => {
@@ -407,6 +436,18 @@ describe("reduceCombatSession — addCombatant", () => {
 
     expect(next.combatants.slice(0, 2)).toEqual(session.combatants)
   })
+
+  it("honors a client-supplied setup.id over the minted fallback (UNN-347)", () => {
+    const session = startedSession()
+
+    const next = reduceCombat(
+      session,
+      { kind: "addCombatant", setup: { ...JOINER, id: "client-id" } },
+      () => "should-not-be-used"
+    )
+
+    expect(next.combatants[2]!.id).toBe("client-id")
+  })
 })
 
 describe("reduceCombatSession — removeCombatant", () => {
@@ -452,6 +493,49 @@ describe("reduceCombatSession — removeCombatant", () => {
     const next = reduceCombat(session, {
       kind: "removeCombatant",
       combatantId: "nobody",
+    })
+
+    expect(next).toBe(session)
+  })
+
+  it("prunes the removed combatant from surviving partners' engagement (UNN-347)", () => {
+    const engaged = reduceCombat(startedSession(), {
+      kind: "setEngagement",
+      combatantId: "combatant-0",
+      targetCombatantIds: ["combatant-1"],
+    })
+
+    const next = reduceCombat(engaged, {
+      kind: "removeCombatant",
+      combatantId: "combatant-1",
+    })
+
+    expect(next.combatants).toHaveLength(1)
+    expect(next.combatants[0]!.engagement).toEqual({ status: "free" })
+  })
+})
+
+describe("reduceCombatSession — setSide", () => {
+  it("flips a combatant's side, leaving the rest untouched", () => {
+    const session = startedSession()
+
+    const next = reduceCombat(session, {
+      kind: "setSide",
+      combatantId: "combatant-0",
+      side: "enemies",
+    })
+
+    expect(next.combatants[0]!.side).toBe("enemies")
+    expect(next.combatants[1]!.side).toBe("players")
+  })
+
+  it("is a no-op for an unknown combatant id (returns the same session)", () => {
+    const session = startedSession()
+
+    const next = reduceCombat(session, {
+      kind: "setSide",
+      combatantId: "nobody",
+      side: "enemies",
     })
 
     expect(next).toBe(session)

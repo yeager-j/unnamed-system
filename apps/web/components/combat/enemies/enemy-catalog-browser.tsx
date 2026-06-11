@@ -24,7 +24,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
-import { saveEncounterSetupAction } from "@/lib/actions/encounter/setup"
+import { addSetupCombatantsAction } from "@/lib/actions/encounter/setup"
 import { buildEnemyCatalogRows, statblockFromEnemy } from "@/lib/game-engine"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
@@ -105,10 +105,10 @@ export function EnemyCatalogBrowser({
         }))
       )
 
-      const saved = await saveEncounterSetupAction({
+      const saved = await addSetupCombatantsAction({
         encounterId,
         expectedVersion,
-        combatants: [...existingCombatants, ...newCombatants],
+        combatants: newCombatants,
       })
 
       if (!saved.ok) {

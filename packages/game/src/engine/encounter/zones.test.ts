@@ -72,6 +72,20 @@ describe("reduceCombatSession — addZone", () => {
     expect(next.zones["zone-0"]).toEqual({ id: "zone-0", name: "Hall" })
     expect(next.zones["zone-0"]).not.toHaveProperty("notes")
   })
+
+  it("honors a client-supplied zoneId over the minted fallback (UNN-347)", () => {
+    const session = createCombatSession(sequentialIds())(SETUP)
+
+    const next = reduceCombat(
+      session,
+      { kind: "addZone", name: "Courtyard", zoneId: "client-zone" },
+      () => "should-not-be-used"
+    )
+
+    expect(next.zones).toEqual({
+      "client-zone": { id: "client-zone", name: "Courtyard" },
+    })
+  })
 })
 
 describe("reduceCombatSession — removeZone", () => {

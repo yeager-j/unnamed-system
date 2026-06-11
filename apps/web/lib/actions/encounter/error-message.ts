@@ -1,19 +1,21 @@
 import type { ApplyCombatEventError } from "./events.schema"
-import type { SaveEncounterSetupError } from "./setup.schema"
+import type { AddSetupCombatantsError } from "./setup.schema"
 
 /**
  * Maps an encounter Server Action error to its user-facing toast copy. Shared by
- * every encounter write surface (the setup shell UNN-335 and the live console
- * UNN-344) so the phrasing can't drift between them. Both error unions are
- * covered by the same four cases — `EncounterWriteError`'s `stale` /
- * `encounter-not-found`, plus `invalid-input` and the single-live guard.
+ * every encounter write surface (the setup shell UNN-335/347 and the live console
+ * UNN-344) so the phrasing can't drift between them. The two error unions overlap
+ * on `EncounterWriteError`'s `stale` / `encounter-not-found` plus `invalid-input`;
+ * `applyCombatEvent` adds the two `startCombat` guards (single-live + unplaced).
  */
 export function encounterErrorMessage(
-  error: ApplyCombatEventError | SaveEncounterSetupError
+  error: ApplyCombatEventError | AddSetupCombatantsError
 ): string {
   switch (error) {
     case "campaign-already-has-live-encounter":
       return "This campaign already has a live encounter."
+    case "encounter-has-unplaced-combatants":
+      return "Place every combatant in a zone before starting combat."
     case "stale":
       return "This encounter changed elsewhere. Reload and try again."
     case "encounter-not-found":

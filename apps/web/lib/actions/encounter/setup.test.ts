@@ -10,12 +10,12 @@ import {
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
-import { saveEncounterSetupAction } from "./setup"
+import { addSetupCombatantsAction } from "./setup"
 
-// Stub the same seams as the action: the DM gate, the full-row load (used for
-// both auth and zone preservation), the guarded write, and the provisional
-// revalidate (which imports `server-only`). The schema + `createCombatSession`
-// run for real, so the test asserts the session is built from the wire roster.
+// Stub the same seams as the action: the DM gate, the full-row load, the guarded
+// write, and the provisional revalidate (which imports `server-only`). The schema
+// + the real `reduceCombatSession` (via the action) run for real, so the test
+// asserts the new combatants were appended to the loaded session.
 const requireCampaignDM = vi.fn()
 const loadEncounterRowById = vi.fn()
 const saveEncounterSession = vi.fn()
@@ -39,14 +39,24 @@ vi.mock("./revalidate", () => ({
 const ENCOUNTER_ID = "encounter-1"
 const CAMPAIGN_ID = "campaign-1"
 
-const ROSTER: CombatantSetup[] = [
-  { side: "players", ref: { kind: "pc", characterId: "char-1" }, zoneId: "" },
-  { side: "enemies", ref: { kind: "pc", characterId: "char-2" }, zoneId: "z2" },
+const NEW_ENEMIES: CombatantSetup[] = [
+  {
+    side: "enemies",
+    ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+    zoneId: "",
+  },
+  {
+    side: "enemies",
+    ref: { kind: "catalog-enemy", enemyKey: "goblin" },
+    zoneId: "",
+  },
 ]
 
-/** A persisted session carrying an authored zone graph the roster save must keep. */
-function persistedSessionWithZones(): CombatSession {
-  const base = createCombatSession(() => "unused-id")([])
+/** A persisted session carrying one PC combatant and an authored zone graph. */
+function persistedSession(): CombatSession {
+  const base = createCombatSession(() => "pc-combatant")([
+    { side: "players", ref: { kind: "pc", characterId: "char-1" }, zoneId: "" },
+  ])
   return {
     ...base,
     zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
@@ -67,17 +77,17 @@ beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
   loadEncounterRowById
     .mockReset()
-    .mockResolvedValue(encounterRow(persistedSessionWithZones()))
+    .mockResolvedValue(encounterRow(persistedSession()))
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   revalidateEncounter.mockReset()
 })
 
-describe("saveEncounterSetupAction", () => {
-  it("builds a session from the roster and saves it guarded on the version", async () => {
-    const result = await saveEncounterSetupAction({
+describe("addSetupCombatantsAction", () => {
+  it("appends the new combatants to the loaded roster, keeping the existing ones", async () => {
+    const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      combatants: ROSTER,
+      combatants: NEW_ENEMIES,
     })
 
     expect(result).toEqual(ok({ version: 1 }))
@@ -85,36 +95,20 @@ describe("saveEncounterSetupAction", () => {
     const [id, session, version] = saveEncounterSession.mock.calls[0]!
     expect(id).toBe(ENCOUNTER_ID)
     expect(version).toBe(0)
-    // The roster was turned into a fresh session: one combatant per setup, each
-    // with a minted id and the supplied side.
     const persisted = session as CombatSession
-    expect(persisted.combatants).toHaveLength(2)
-    expect(persisted.combatants.map((c) => c.side)).toEqual([
-      "players",
-      "enemies",
-    ])
-    expect(persisted.combatants.every((c) => c.id.length > 0)).toBe(true)
+    expect(persisted.combatants).toHaveLength(3)
+    expect(persisted.combatants[0]!.id).toBe("pc-combatant")
+    expect(persisted.combatants.slice(1).map((c) => c.ref)).toEqual(
+      NEW_ENEMIES.map((e) => e.ref)
+    )
     expect(revalidateEncounter).toHaveBeenCalledOnce()
   })
 
-  it("preserves a setup-supplied combatant id over a fresh mint (UNN-301)", async () => {
-    await saveEncounterSetupAction({
+  it("preserves the persisted zone graph (appends, never rebuilds)", async () => {
+    await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      combatants: [{ ...ROSTER[0]!, id: "stable-1" }],
-    })
-
-    const persisted = saveEncounterSession.mock.calls[0]![1] as CombatSession
-    expect(persisted.combatants[0]!.id).toBe("stable-1")
-  })
-
-  it("carries the persisted zone graph forward instead of wiping it (UNN-301)", async () => {
-    // Zones are authored on a separate ZoneGraphEvent path; rebuilding the
-    // session from the roster alone would erase them. The action must merge them.
-    await saveEncounterSetupAction({
-      encounterId: ENCOUNTER_ID,
-      expectedVersion: 0,
-      combatants: ROSTER,
+      combatants: NEW_ENEMIES,
     })
 
     const persisted = saveEncounterSession.mock.calls[0]![1] as CombatSession
@@ -125,7 +119,7 @@ describe("saveEncounterSetupAction", () => {
   })
 
   it("rejects a malformed roster before any DB read", async () => {
-    const result = await saveEncounterSetupAction({
+    const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
       combatants: [{ side: "wizards" } as never],
@@ -138,10 +132,10 @@ describe("saveEncounterSetupAction", () => {
   it("returns encounter-not-found before authorizing when the row is gone", async () => {
     loadEncounterRowById.mockResolvedValue(null)
 
-    const result = await saveEncounterSetupAction({
+    const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      combatants: ROSTER,
+      combatants: NEW_ENEMIES,
     })
 
     expect(result).toEqual(err("encounter-not-found"))
@@ -153,10 +147,10 @@ describe("saveEncounterSetupAction", () => {
     requireCampaignDM.mockRejectedValue(new Error("forbidden"))
 
     await expect(
-      saveEncounterSetupAction({
+      addSetupCombatantsAction({
         encounterId: ENCOUNTER_ID,
         expectedVersion: 0,
-        combatants: ROSTER,
+        combatants: NEW_ENEMIES,
       })
     ).rejects.toThrow("forbidden")
 
@@ -166,10 +160,10 @@ describe("saveEncounterSetupAction", () => {
   it("propagates a stale version and does not revalidate", async () => {
     saveEncounterSession.mockResolvedValue(err("stale"))
 
-    const result = await saveEncounterSetupAction({
+    const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      combatants: ROSTER,
+      combatants: NEW_ENEMIES,
     })
 
     expect(result).toEqual(err("stale"))

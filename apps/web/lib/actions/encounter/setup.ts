@@ -5,40 +5,36 @@ import { err, type Result } from "@workspace/game/foundation"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadEncounterRowById } from "@/lib/db/queries/load-encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import { createCombatSession } from "@/lib/game-engine"
+import { reduceCombatSession } from "@/lib/game-engine"
 
 import { revalidateEncounter } from "./revalidate"
 import {
-  SaveEncounterSetupSchema,
-  type SaveEncounterSetupError,
-  type SaveEncounterSetupInput,
+  AddSetupCombatantsSchema,
+  type AddSetupCombatantsError,
+  type AddSetupCombatantsInput,
 } from "./setup.schema"
 
 /**
- * Persists a draft encounter's assembled setup roster (UNN-302). The setup
- * panels (import PCs / sides / …) build an in-progress `CombatantSetup[]` in the
- * client with no DB write per interaction; this action saves the whole roster on
- * explicit "Save draft", version-guarded on the encounter's single `version`.
+ * Appends combatants to a draft encounter's roster (UNN-347). The interactive
+ * setup shell drives add/remove/side/placement/engagement through the optimistic
+ * `applyCombatEvent` path; this batch action backs the catalog enemy-add
+ * sub-route (UNN-346), which commits a staged queue and navigates back.
  *
  * Flow mirrors `applyCombatEvent`: parse → load the encounter → authorize against
  * the owning campaign (`requireCampaignDM` trips `forbidden()` for a non-DM) →
- * build the canonical `CombatSession` server-side from the (validated) setup
- * roster → save guarded on `expectedVersion`. The encounter stays `draft`; the
- * `draft → live` flip is the separate `startCombat` event (UNN-303/332).
- *
- * The roster carries each combatant's own stable `id` (UNN-301), so ids — and the
- * `engagement.targetCombatantIds` / `zoneId` placements that reference them —
- * survive every save. The **zone graph** is authored through `ZoneGraphEvent`s on
- * a separate path (`applyCombatEvent`), so rebuilding the session from the roster
- * alone would wipe it; we carry the persisted `zones`/`adjacency` forward
- * untouched. Placement completeness is **not** enforced here (the catalog
- * enemy-add path saves unplaced enemies, UNN-346); the setup shell gates Save /
- * Start on placement as a UX affordance.
+ * fold each new combatant through the **same** `addCombatant` reducer the live
+ * console uses → save guarded on `expectedVersion`. Because it appends to the
+ * *loaded* session rather than rebuilding from a client-supplied roster, the zone
+ * graph (`zones`/`adjacency`) and the existing combatants survive untouched with
+ * no merge code — the trap the retired `saveEncounterSetupAction` had to dodge by
+ * hand. Placement completeness is **not** enforced here (catalog adds land
+ * unplaced on the enemies side); the `startCombat` path is where placement is
+ * gated server-side.
  */
-export async function saveEncounterSetupAction(
-  input: SaveEncounterSetupInput
-): Promise<Result<{ version: number }, SaveEncounterSetupError>> {
-  const parsed = SaveEncounterSetupSchema.safeParse(input)
+export async function addSetupCombatantsAction(
+  input: AddSetupCombatantsInput
+): Promise<Result<{ version: number }, AddSetupCombatantsError>> {
+  const parsed = AddSetupCombatantsSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
   const { encounterId, expectedVersion, combatants } = parsed.data
@@ -47,12 +43,11 @@ export async function saveEncounterSetupAction(
   if (encounter === null) return err("encounter-not-found")
   await requireCampaignDM(encounter.campaignId)
 
-  const base = createCombatSession(combatants)
-  const session = {
-    ...base,
-    zones: encounter.session.zones,
-    adjacency: encounter.session.adjacency,
-  }
+  const session = combatants.reduce(
+    (current, setup) =>
+      reduceCombatSession(current, { kind: "addCombatant", setup }),
+    encounter.session
+  )
 
   const saved = await saveEncounterSession(
     encounterId,
