@@ -205,8 +205,18 @@ function ForteMarking({ marking }: { marking: string }) {
 /** A combatant token: avatar + name, ringed by side (players vs enemies) so the
  *  side is legible even though zones mix both. */
 function TokenChip({ token }: { token: ZoneToken }) {
+  const bg =
+    token.side === "players"
+      ? "bg-blue-100 border-blue-700"
+      : "bg-red-100 border-red-700"
+
   return (
-    <span className="inline-flex max-w-[10rem] items-center gap-1.5 rounded-md border bg-background py-1 pr-2 pl-1">
+    <span
+      className={cn(
+        "inline-flex max-w-[10rem] items-center gap-1.5 border bg-background py-1 pr-2 pl-1",
+        bg
+      )}
+    >
       <TokenAvatar token={token} />
       <span className="truncate text-xs font-medium">{token.name}</span>
     </span>
