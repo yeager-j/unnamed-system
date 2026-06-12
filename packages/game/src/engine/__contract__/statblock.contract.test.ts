@@ -17,6 +17,8 @@ describe("statblockFromEnemy — real catalog (smoke)", () => {
     const statblock = statblockFromEnemy(gameData)(enemy!)
     expect(statblock.source).toBe("enemy")
     expect(statblock.name).toBe(enemy!.name)
-    expect(statblock.skills).toHaveLength(enemy!.skillKeys.length)
+    expect(statblock.skills).toHaveLength(
+      enemy!.skillKeys.length + (enemy!.inlineSkills?.length ?? 0)
+    )
   })
 })

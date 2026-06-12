@@ -15,10 +15,15 @@ import {
 /**
  * Structurally validates a catalog enemy, then asserts every referenced
  * `skillKey` resolves to a real Skill so a typo in the catalog fails the import
- * rather than a downstream lookup. Runs once per entry at module load via
- * {@link createCatalog}. Mirrors the items registry's validator.
+ * rather than a downstream lookup, and that no two of the enemy's Skills (across
+ * `skillKeys` and `inlineSkills`) share a `key` — a collision would yield a
+ * duplicate React `key` in the rendered Skill list. Runs once per entry at
+ * module load via {@link createCatalog}. Mirrors the items registry's validator.
+ * Exported so the duplicate-key guard can be exercised directly with a
+ * deliberately-colliding enemy (the shipped catalog never collides, so a
+ * data-invariant test alone wouldn't prove the guard throws).
  */
-function validateEnemy(enemy: EnemyDefinition): void {
+export function validateEnemy(enemy: EnemyDefinition): void {
   enemyDefinitionSchema.parse(enemy)
 
   for (const skillKey of enemy.skillKeys) {
@@ -27,6 +32,19 @@ function validateEnemy(enemy: EnemyDefinition): void {
         `Enemy "${enemy.key}" references unknown skill "${skillKey}"`
       )
     }
+  }
+
+  const allSkillKeys = [
+    ...enemy.skillKeys,
+    ...(enemy.inlineSkills ?? []).map((skill) => skill.key),
+  ]
+  const duplicate = allSkillKeys.find(
+    (key, index) => allSkillKeys.indexOf(key) !== index
+  )
+  if (duplicate) {
+    throw new Error(
+      `Enemy "${enemy.key}" has duplicate skill key "${duplicate}"`
+    )
   }
 }
 

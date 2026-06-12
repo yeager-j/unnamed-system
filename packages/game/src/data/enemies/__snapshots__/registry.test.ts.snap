@@ -2,23 +2,6 @@
 
 exports[`Goblin transcription > matches the Goblin snapshot end-to-end 1`] = `
 {
-  "abilities": "**Scimitar** — The Goblin slashes at an enemy with their scimitar.
-
-Range: **Engaged**; Damage: **Slash (Physical)**
-
-Attack Roll + 0:
-- **1–10**: \`1 + 0\`
-- **11–19**: \`1d6 + 0\`
-- **20+**: \`1d6 + 0\` *(Critical)*
-
-**Shortbow** — The Goblin shoots at an enemy with their shortbow.
-
-Range: **Same/Adjacent Zone**; Damage: **Pierce (Physical)**
-
-Attack Roll + 1:
-- **1–10**: \`1 + 1\`
-- **11–19**: \`1d6 + 1\`
-- **20+**: \`1d6 + 1\` *(Critical)*",
   "affinities": {
     "dark": "resist",
     "wind": "weak",
@@ -29,6 +12,88 @@ Attack Roll + 1:
     "magic": -1,
     "strength": 0,
   },
+  "inlineSkills": [
+    {
+      "attackRoll": {
+        "attribute": "st",
+        "tiers": [
+          {
+            "band": "1-10",
+            "formula": "1 + St",
+            "sideEffects": [],
+          },
+          {
+            "band": "11-19",
+            "formula": "1d6 + St",
+            "sideEffects": [],
+          },
+          {
+            "band": "20+",
+            "formula": "1d6 + St",
+            "sideEffects": [
+              "critical",
+            ],
+          },
+        ],
+      },
+      "cost": {
+        "amount": 1,
+        "kind": "sp",
+      },
+      "damageType": "slash",
+      "delivery": "physical",
+      "description": "The Goblin slashes at an enemy with their scimitar.",
+      "isSynthesis": false,
+      "key": "goblin-scimitar",
+      "kind": "attack",
+      "name": "Scimitar",
+      "range": {
+        "kind": "known",
+        "value": "engaged",
+      },
+      "tagline": "The Goblin slashes at an enemy with their scimitar.",
+    },
+    {
+      "attackRoll": {
+        "attribute": "ag",
+        "tiers": [
+          {
+            "band": "1-10",
+            "formula": "1 + Ag",
+            "sideEffects": [],
+          },
+          {
+            "band": "11-19",
+            "formula": "1d6 + Ag",
+            "sideEffects": [],
+          },
+          {
+            "band": "20+",
+            "formula": "1d6 + Ag",
+            "sideEffects": [
+              "critical",
+            ],
+          },
+        ],
+      },
+      "cost": {
+        "amount": 1,
+        "kind": "sp",
+      },
+      "damageType": "pierce",
+      "delivery": "physical",
+      "description": "The Goblin shoots at an enemy with their shortbow.",
+      "isSynthesis": false,
+      "key": "goblin-shortbow",
+      "kind": "attack",
+      "name": "Shortbow",
+      "range": {
+        "kind": "known",
+        "value": "same-or-adjacent-zone",
+      },
+      "tagline": "The Goblin shoots at an enemy with their shortbow.",
+    },
+  ],
   "key": "goblin",
   "level": 1,
   "maxHP": 16,
