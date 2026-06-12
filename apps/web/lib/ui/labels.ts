@@ -425,6 +425,26 @@ export const COMBAT_DRAFT_HEADINGS: Record<CombatSide, string> = {
 export const COMBAT_DRAFT_SUBTITLE =
   "Tap a glowing combatant — players' call, your tap."
 
+/**
+ * The end-of-turn review copy (UNN-317), shown in the modal after "End turn".
+ * `savingThrowPrompt` phrases the per-ailment saving throw the DM rolls in the
+ * real world (`1d20 + Lu`, success over 10); `CLEAR_TOOLTIP` reminds them the
+ * damage tick lands *before* the save clears the ailment.
+ */
+export function savingThrowPrompt(ailmentName: string): string {
+  return `Roll 1d20 + ${ATTRIBUTE_SHORT_LABELS.luck} > 10 for ${ailmentName}`
+}
+
+export const END_OF_TURN_CLEAR_TOOLTIP =
+  "Apply this turn's tick before clearing — the saving throw is rolled after the end-of-turn damage."
+
+export const END_OF_TURN_EMPTY = "Nothing to resolve."
+
+/** The end-of-turn Apply button label for an enemy HP delta (UNN-317). */
+export function endOfTurnApplyLabel(delta: number): string {
+  return `Apply ${delta > 0 ? "+" : "−"}${Math.abs(delta)} HP`
+}
+
 export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
   draft: "Draft",
   live: "Live",

@@ -19,6 +19,7 @@ import {
   resolveCatalogEnemyStatblocks,
   statblockFromEnemy,
 } from "@workspace/game/engine/combatant/statblock"
+import { endOfTurnObligations } from "@workspace/game/engine/encounter/end-of-turn"
 import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
 import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { buildEnemyCatalogRows } from "@workspace/game/engine/enemies/catalog-rows"
@@ -60,6 +61,7 @@ export function createGameEngine(
     resolveCatalogEnemyStatblocks: resolveCatalogEnemyStatblocks(data),
     statblockFromEnemy: statblockFromEnemy(data),
     reduceCombatSession: reduceCombatSession(data, newId),
+    endOfTurnObligations: endOfTurnObligations(data),
     buildLineageAtlas: buildLineageAtlas(data),
     archetypeSwitcherGroups: archetypeSwitcherGroups(data),
     previewArchetypeSkills: previewArchetypeSkills(data),
