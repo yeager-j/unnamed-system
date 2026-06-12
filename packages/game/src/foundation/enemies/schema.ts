@@ -6,6 +6,7 @@ import {
   AFFINITIES,
   AFFINITY_DAMAGE_TYPES,
 } from "@workspace/game/foundation/combat/affinity"
+import { skillSchema } from "@workspace/game/foundation/skills/schema"
 
 /** A catalog enemy slug: lowercase alphanumerics and hyphens. Constrains the
  *  `key` of catalog entry definitions. The `{ kind: "catalog-enemy", enemyKey }`
@@ -53,14 +54,28 @@ const affinitiesSchema = z.partialRecord(
 /**
  * One hardcoded catalog enemy. The `catalog` arm of the combatant-ref union
  * points at one of these by `key`; the definition itself is immutable game data
- * (mirrors {@link ../items/schema}). `skillKeys` are validated structurally here
- * and for existence at load time by the registry's `validate()`.
+ * (mirrors {@link ../items/schema}).
+ *
+ * An enemy's Skills come from two sources, both hydrated into the one
+ * `Statblock.skills` list the shared `SkillRow` renders:
+ * - `skillKeys` — references into the shared Skill catalog, validated
+ *   structurally here and for existence at load time by the registry's
+ *   `validate()`.
+ * - `inlineSkills` — enemy-specific Skills authored in place (a creature's
+ *   weapon attacks and traits) without minting a catalog entry. Each is a full
+ *   {@link skillSchema} object. Attack-kind inline Skills must carry a `cost`
+ *   because the {@link skillSchema} requires one, but it is **inert for
+ *   enemies**: catalog enemies pay no Skill costs (no SP pool, full every
+ *   encounter) and every enemy surface renders with the cost row suppressed —
+ *   exactly as a referenced catalog Skill's cost is ignored. `passive` traits
+ *   carry no cost. Author a nominal `{ kind: "sp", amount: 1 }` on attacks.
  *
  * No `maxSP`: the rulebook gives monsters no SP, and an ephemeral monster that
  * starts every encounter full never hits a `cost ≤ currentSP` gate, so an SP
  * pool would be bookkeeping with no decision value. HP is the one pool an
- * encounter depletes. `abilities` carries weapon attacks and DM-adjudicated
- * traits as freeform Markdown.
+ * encounter depletes. `abilities` remains as a freeform-Markdown escape hatch
+ * for content that fits no Skill kind (unused by the shipped catalog, which
+ * authors everything as `inlineSkills`).
  */
 export const enemyDefinitionSchema = z.object({
   key: enemyKeySchema,
@@ -70,6 +85,7 @@ export const enemyDefinitionSchema = z.object({
   attributes: attributesSchema,
   affinities: affinitiesSchema,
   skillKeys: z.array(z.string().min(1)),
+  inlineSkills: z.array(skillSchema).optional(),
   talents: z.array(z.enum(TALENT_KEYS)),
   abilities: z.string().min(1).optional(),
 })

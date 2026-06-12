@@ -109,4 +109,89 @@ describe("hydrateEnemySkills", () => {
     const enemy = makeEnemy({ skillKeys: ["garu", "cleave"] })
     expect(hydrateEnemySkills(enemy, { getSkill: () => undefined })).toEqual([])
   })
+
+  it("hydrates inline Skills without a catalog lookup", () => {
+    // inlineSkills are full Skill objects, so they resolve even when getSkill
+    // never returns a match — and their Attack Roll resolves against flat stats.
+    const enemy = makeEnemy({
+      attributes: { strength: 0, magic: 4, agility: 0, luck: 0 },
+      inlineSkills: [
+        makeAttackSkill({
+          key: "inline-bolt",
+          damageType: "wind",
+          attackRoll: {
+            attribute: "ma",
+            tiers: [{ band: "1+", sideEffects: [] }],
+          },
+        }),
+        makePassiveSkill({ key: "inline-trait" }),
+      ],
+    })
+
+    const skills = hydrateEnemySkills(enemy, { getSkill: () => undefined })
+    expect(skills.map((s) => s.key)).toEqual(
+      expect.arrayContaining(["inline-bolt", "inline-trait"])
+    )
+    const bolt = skills.find((s) => s.key === "inline-bolt")
+    expect(bolt?.resolvedAttackRoll?.total).toBe(enemy.attributes.magic)
+  })
+
+  it("merges referenced skillKeys with inlineSkills", () => {
+    const enemy = makeEnemy({
+      attributes: { strength: 2, magic: 4, agility: 0, luck: 0 },
+      skillKeys: ["garu"],
+      inlineSkills: [
+        makeAttackSkill({ key: "inline-swipe", damageType: "slash" }),
+      ],
+    })
+
+    const skills = hydrateEnemySkills(enemy, TEST_DATA)
+    expect(skills.map((s) => s.key).sort()).toEqual(["garu", "inline-swipe"])
+  })
+
+  it("folds an inline passive's Attack-Roll effect into a sibling inline attack", () => {
+    const enemy = makeEnemy({
+      attributes: { strength: 3, magic: 0, agility: 0, luck: 0 },
+      inlineSkills: [
+        makeAttackSkill({
+          key: "inline-cleave",
+          damageType: "slash",
+          attackRoll: {
+            attribute: "st",
+            tiers: [{ band: "1+", sideEffects: [] }],
+          },
+        }),
+        makePassiveSkill({
+          key: "inline-slash-boost",
+          name: "Inline Slash Boost",
+          effects: [
+            {
+              type: "attackRoll",
+              when: { damageTypes: ["slash"] },
+              amount: 2,
+              source: "Inline Slash Boost",
+            },
+          ],
+        }),
+      ],
+    })
+
+    const cleave = hydrateEnemySkills(enemy, TEST_DATA).find(
+      (s) => s.key === "inline-cleave"
+    )
+    // Strength 3 + Inline Slash Boost +2 (cleave deals slash damage).
+    expect(cleave?.resolvedAttackRoll?.total).toBe(5)
+  })
+
+  it("returns the merged Skills sorted by kind (attacks before passives)", () => {
+    const enemy = makeEnemy({
+      inlineSkills: [
+        makePassiveSkill({ key: "inline-trait" }),
+        makeAttackSkill({ key: "inline-strike" }),
+      ],
+    })
+
+    const kinds = hydrateEnemySkills(enemy, TEST_DATA).map((s) => s.kind)
+    expect(kinds).toEqual(["attack", "passive"])
+  })
 })

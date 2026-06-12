@@ -45,6 +45,16 @@ describe("enemy catalog data", () => {
     }
   })
 
+  it("has no duplicate skill key across skillKeys + inlineSkills", () => {
+    for (const enemy of ENEMIES) {
+      const keys = [
+        ...enemy.skillKeys,
+        ...(enemy.inlineSkills ?? []).map((skill) => skill.key),
+      ]
+      expect(new Set(keys).size).toBe(keys.length)
+    }
+  })
+
   it("resolves a known family for every enemy", () => {
     for (const enemy of ENEMIES) {
       const family = getEnemyFamily(enemy.key)

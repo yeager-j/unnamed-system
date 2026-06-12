@@ -15,8 +15,10 @@ import {
 /**
  * Structurally validates a catalog enemy, then asserts every referenced
  * `skillKey` resolves to a real Skill so a typo in the catalog fails the import
- * rather than a downstream lookup. Runs once per entry at module load via
- * {@link createCatalog}. Mirrors the items registry's validator.
+ * rather than a downstream lookup, and that no two of the enemy's Skills (across
+ * `skillKeys` and `inlineSkills`) share a `key` — a collision would yield a
+ * duplicate React `key` in the rendered Skill list. Runs once per entry at
+ * module load via {@link createCatalog}. Mirrors the items registry's validator.
  */
 function validateEnemy(enemy: EnemyDefinition): void {
   enemyDefinitionSchema.parse(enemy)
@@ -27,6 +29,19 @@ function validateEnemy(enemy: EnemyDefinition): void {
         `Enemy "${enemy.key}" references unknown skill "${skillKey}"`
       )
     }
+  }
+
+  const skillKeys = [
+    ...enemy.skillKeys,
+    ...(enemy.inlineSkills ?? []).map((skill) => skill.key),
+  ]
+  const duplicate = skillKeys.find(
+    (key, index) => skillKeys.indexOf(key) !== index
+  )
+  if (duplicate) {
+    throw new Error(
+      `Enemy "${enemy.key}" has duplicate skill key "${duplicate}"`
+    )
   }
 }
 
