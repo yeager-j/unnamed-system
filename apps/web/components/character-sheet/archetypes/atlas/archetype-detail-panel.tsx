@@ -26,6 +26,7 @@ import {
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
 import { Separator } from "@workspace/ui/components/separator"
+import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 
 import { ArchetypeAffinitiesChart } from "@/components/archetype/archetype-affinities-chart"
 import { ArchetypeAttributesGrid } from "@/components/archetype/archetype-attributes-grid"
@@ -71,14 +72,15 @@ export function ArchetypeDetailPanel({
   pathChoice: PathChoice
   onClose: () => void
 }) {
+  const shown = useLastPresent(node)
   return (
     <ResponsiveDialog
       open={node !== null}
       onOpenChange={(open) => !open && onClose()}
     >
-      {node ? (
+      {shown ? (
         <PanelBody
-          node={node}
+          node={shown}
           savedRanks={savedRanks}
           attributes={attributes}
           pathChoice={pathChoice}

@@ -33,6 +33,12 @@ import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
  * libraries' diverging APIs (Base UI's `render` / `initialFocus` vs Vaul's
  * `asChild` / `onOpenAutoFocus`). Works controlled (`open` / `onOpenChange`) or
  * trigger-driven ({@link ResponsiveDialogTrigger}).
+ *
+ * When the body is derived from a selection that clears on close
+ * (`open={item !== null}` + `{item && <Body item={item} />}`), gating the body
+ * on that same value unmounts it the instant `open` flips to false, killing the
+ * exit animation. Render the body from {@link useLastPresent}'s retained value
+ * instead so the panel survives the close transition.
  */
 
 const ResponsiveDialogContext = React.createContext<boolean | null>(null)
