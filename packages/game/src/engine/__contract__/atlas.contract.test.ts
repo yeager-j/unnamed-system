@@ -28,7 +28,7 @@ describe("buildLineageAtlas + getAtlasRecommendations — real catalog (smoke)",
     )
     const view = buildLineageAtlas(gameData)(character)
 
-    const result = getAtlasRecommendations(view, "health-focused", 1)
+    const result = getAtlasRecommendations(gameData)(view, "health-focused", 1)
 
     expect(result[0]!.archetype.key).toBe("warrior")
     expect(result[0]!.reason).toBe("origin-lineage")

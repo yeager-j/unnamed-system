@@ -2,6 +2,7 @@ import {
   CompassIcon,
   LockKeyOpenIcon,
   PathIcon,
+  SparkleIcon,
   type Icon,
 } from "@phosphor-icons/react"
 
@@ -20,4 +21,5 @@ export const RECOMMENDATION_REASON_ICONS: Record<
   compass: CompassIcon,
   "lock-key-open": LockKeyOpenIcon,
   path: PathIcon,
+  sparkle: SparkleIcon,
 }

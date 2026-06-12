@@ -27,6 +27,7 @@ export const {
   reduceCombatSession,
   endOfTurnObligations,
   buildLineageAtlas,
+  getAtlasRecommendations,
   archetypeSwitcherGroups,
   previewArchetypeSkills,
   resolveTalentsForSheet,
