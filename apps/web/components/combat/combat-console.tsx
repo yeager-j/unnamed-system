@@ -16,7 +16,10 @@ import { Button } from "@workspace/ui/components/button"
 
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
+import {
+  endOfTurnObligations,
+  resolveCatalogEnemyStatblocks,
+} from "@/lib/game-engine"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -91,6 +94,11 @@ export function CombatConsole({
           pcDetailById,
           enemyStatblockById
         )
+      : null
+
+  const obligations =
+    currentActor !== null
+      ? endOfTurnObligations(session, currentActor.id)
       : null
 
   const phase: ConsolePhase =
@@ -258,8 +266,12 @@ export function CombatConsole({
       )}
 
       <EndOfTurnModal
+        actorId={currentActor?.id ?? ""}
         actorName={currentActor?.name ?? ""}
+        obligations={obligations}
         open={modalOpen && phase === "resolving"}
+        onCombatEvent={dispatch}
+        isPending={isPending}
         onDone={() => setModalOpen(false)}
       />
 
