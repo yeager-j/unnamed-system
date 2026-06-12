@@ -6,7 +6,6 @@ import { useState } from "react"
 
 import {
   filterAtlasLineagesToUnlocked,
-  getAtlasRecommendations,
   type AtlasLineage,
   type AtlasNode,
 } from "@workspace/game/engine"
@@ -16,7 +15,7 @@ import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useCharacter } from "@/hooks/use-character"
-import { buildLineageAtlas } from "@/lib/game-engine"
+import { buildLineageAtlas, getAtlasRecommendations } from "@/lib/game-engine"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"
 import { AtlasSidebar } from "./atlas-sidebar"

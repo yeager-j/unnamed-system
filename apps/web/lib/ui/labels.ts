@@ -289,7 +289,11 @@ export const LINEAGE_DISPLAY: Record<Lineage, LineageDisplay> = {
  * kept as plain strings here for the same server-safe reason as
  * {@link LineageIconKey}.
  */
-export type RecommendationReasonIconKey = "compass" | "lock-key-open" | "path"
+export type RecommendationReasonIconKey =
+  | "compass"
+  | "lock-key-open"
+  | "path"
+  | "sparkle"
 
 export interface RecommendationReasonDisplay {
   label: string
@@ -308,6 +312,7 @@ export const RECOMMENDATION_REASON_DISPLAY: Record<
   "origin-lineage": { label: "Origin Lineage", icon: "compass" },
   "unlocked-archetype": { label: "Unlocked", icon: "lock-key-open" },
   "fits-path": { label: "Fits Your Path", icon: "path" },
+  "new-damage-type": { label: "New Damage Type", icon: "sparkle" },
 }
 
 /** Per-axis Battle Condition state for the Combat State block. */

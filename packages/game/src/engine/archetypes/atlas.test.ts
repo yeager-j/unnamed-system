@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { makeArchetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
+import { makeAttackSkill } from "@workspace/game/engine/__fixtures__/skills"
 import {
   atlasNodeState,
   buildLineageAtlas,
@@ -534,6 +535,12 @@ function makeView(options: {
 const keysOf = (recommendations: AtlasNode["archetype"][]) =>
   recommendations.map((archetype) => archetype.key)
 
+/** The recommender bound to an empty Skill catalog: every node resolves to zero
+ *  damage types, so the `new-damage-type` reason never fires — the baseline for
+ *  the Origin/in-progress/Path-fit cases. The damage-type block binds a seeded
+ *  catalog instead. */
+const recommend = getAtlasRecommendations({ getSkill: () => undefined })
+
 describe("getAtlasRecommendations", () => {
   it("fills Slot 1 from the Origin Lineage and badges it", () => {
     const view = makeView({
@@ -563,7 +570,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "health-focused", 5)
+    const result = recommend(view, "health-focused", 5)
 
     expect(result[0]!.archetype.key).toBe("warrior")
     expect(result[0]!.reason).toBe("origin-lineage")
@@ -596,7 +603,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "balanced", 5)
+    const result = recommend(view, "balanced", 5)
 
     expect(result[0]!.archetype.key).toBe("warrior")
   })
@@ -629,7 +636,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "skill-focused", 5)
+    const result = recommend(view, "skill-focused", 5)
 
     expect(result[0]!.archetype.key).toBe("mage")
     expect(result[0]!.reason).toBe("fits-path")
@@ -673,21 +680,21 @@ describe("getAtlasRecommendations", () => {
 
     expect(
       keysOf(
-        getAtlasRecommendations(view, "skill-focused", 5).map(
+        recommend(view, "skill-focused", 5).map(
           (r) => r.archetype
         )
       )
     ).toEqual(["mage"])
     expect(
       keysOf(
-        getAtlasRecommendations(view, "health-focused", 5).map(
+        recommend(view, "health-focused", 5).map(
           (r) => r.archetype
         )
       )
     ).toEqual(["warrior"])
     expect(
       keysOf(
-        getAtlasRecommendations(view, "balanced", 5).map((r) => r.archetype)
+        recommend(view, "balanced", 5).map((r) => r.archetype)
       )
     ).toEqual(["healer"])
   })
@@ -717,7 +724,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "balanced", 5)
+    const result = recommend(view, "balanced", 5)
 
     expect(result.map((r) => r.archetype.key)).toEqual([
       "knight",
@@ -744,7 +751,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "balanced", 5)).toEqual([])
+    expect(recommend(view, "balanced", 5)).toEqual([])
   })
 
   it("never repeats the Slot 1 Archetype across the three slots", () => {
@@ -783,7 +790,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+    const keys = recommend(view, "health-focused", 5).map(
       (r) => r.archetype.key
     )
 
@@ -822,7 +829,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+    const keys = recommend(view, "health-focused", 5).map(
       (r) => r.archetype.key
     )
 
@@ -863,7 +870,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const keys = getAtlasRecommendations(view, "health-focused", 5).map(
+    const keys = recommend(view, "health-focused", 5).map(
       (r) => r.archetype.key
     )
 
@@ -886,7 +893,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "skill-focused", 5)).toHaveLength(1)
+    expect(recommend(view, "skill-focused", 5)).toHaveLength(1)
   })
 
   it("returns an empty list when nothing is actionable", () => {
@@ -904,7 +911,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "health-focused", 5)).toEqual([])
+    expect(recommend(view, "health-focused", 5)).toEqual([])
   })
 
   it("still recommends with no Saved Ranks below the level ceiling (planning)", () => {
@@ -924,7 +931,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "skill-focused", 1)).toHaveLength(1)
+    expect(recommend(view, "skill-focused", 1)).toHaveLength(1)
   })
 
   it("returns nothing at the level ceiling with no Saved Ranks", () => {
@@ -940,14 +947,14 @@ describe("getAtlasRecommendations", () => {
     ])
 
     expect(
-      getAtlasRecommendations(
+      recommend(
         makeView({ savedRanks: 0, lineages: [candidate] }),
         "skill-focused",
         30
       )
     ).toEqual([])
     expect(
-      getAtlasRecommendations(
+      recommend(
         makeView({ savedRanks: 2, lineages: [candidate] }),
         "skill-focused",
         30
@@ -984,7 +991,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "skill-focused", 5)).toEqual([])
+    expect(recommend(view, "skill-focused", 5)).toEqual([])
   })
 
   it("prefers a rank-up over a fresh unlock at the same tier in the Origin Lineage", () => {
@@ -1009,7 +1016,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
       "z-owned"
     )
   })
@@ -1033,7 +1040,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
       "alpha"
     )
   })
@@ -1059,7 +1066,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
       "z-initiate"
     )
   })
@@ -1085,7 +1092,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(getAtlasRecommendations(view, "balanced", 5)[0]!.archetype.key).toBe(
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
       "y-adept"
     )
   })
@@ -1116,7 +1123,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "health-focused", 5)
+    const result = recommend(view, "health-focused", 5)
 
     expect(result[0]!.archetype.key).toBe("warrior-adept")
     expect(result[0]!.reason).toBe("origin-lineage")
@@ -1148,7 +1155,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const result = getAtlasRecommendations(view, "skill-focused", 5)
+    const result = recommend(view, "skill-focused", 5)
 
     expect(result.map((r) => r.archetype.key)).toEqual(["mage"])
     expect(result[0]!.reason).toBe("fits-path")
@@ -1182,7 +1189,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      getAtlasRecommendations(view, "skill-focused", 5).map(
+      recommend(view, "skill-focused", 5).map(
         (r) => r.archetype.key
       )
     ).toEqual(["zzz-inprogress", "aaa-onpath"])
@@ -1212,7 +1219,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      getAtlasRecommendations(view, "skill-focused", 5).map(
+      recommend(view, "skill-focused", 5).map(
         (r) => r.archetype.key
       )
     ).toEqual(["zzz-rankup", "aaa-fresh"])
@@ -1249,7 +1256,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      getAtlasRecommendations(view, "skill-focused", 5).map(
+      recommend(view, "skill-focused", 5).map(
         (r) => r.archetype.key
       )
     ).toEqual(["zzz-initiate", "aaa-elite"])
@@ -1277,7 +1284,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      getAtlasRecommendations(view, "skill-focused", 5).map(
+      recommend(view, "skill-focused", 5).map(
         (r) => r.archetype.key
       )
     ).toEqual(["alpha", "zeta"])
@@ -1311,9 +1318,185 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const keys = getAtlasRecommendations(view, "skill-focused", 5).map(
+    const keys = recommend(view, "skill-focused", 5).map(
       (r) => r.archetype.key
     )
     expect(keys).toEqual(["m1", "m2", "m3"])
+  })
+})
+
+describe("getAtlasRecommendations — new-damage-type reason (UNN-277)", () => {
+  // A skill catalog mapping fixture Skill keys to concrete damage types, so a
+  // node's Skills resolve to coverage; `passive-x` deliberately carries none.
+  const recommendWith = getAtlasRecommendations(
+    makeTestGameData({
+      skills: [
+        makeAttackSkill({ key: "agi", damageType: "fire" }),
+        makeAttackSkill({ key: "bufu", damageType: "ice" }),
+        makeAttackSkill({ key: "elemental-apocalypse", damageType: "special" }),
+      ],
+    })
+  )
+
+  it("surfaces an off-Path Lineage that teaches a damage type the character lacks", () => {
+    // Skill-focused character, Warrior (a health-Path Lineage) untouched: it is
+    // off-Path, so the Path/in-progress pools never reach it — only the missing
+    // Fire coverage pulls it in, badged new-damage-type.
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "agi" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = recommendWith(view, "skill-focused", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual(["warrior"])
+    expect(result[0]!.reason).toBe("new-damage-type")
+  })
+
+  it("does not surface an off-Path Lineage whose damage type the character already has", () => {
+    // Mage (on-Path, owned) already grants Fire, so the untouched off-Path
+    // Warrior's Fire adds nothing and stays hidden; the untouched off-Path
+    // Knight's Ice is new, so it surfaces.
+    const view = makeView({
+      lineages: [
+        lineageEntry("mage", [
+          node(
+            { kind: "owned", rank: 3 },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "agi" }],
+            },
+            "a1"
+          ),
+        ]),
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "agi" }],
+            }
+          ),
+        ]),
+        lineageEntry("knight", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "knight",
+              lineage: "knight",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "bufu" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = recommendWith(view, "skill-focused", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual(["mage", "knight"])
+    expect(result.map((r) => r.reason)).toEqual([
+      "unlocked-archetype",
+      "new-damage-type",
+    ])
+  })
+
+  it("keeps an on-Path Lineage badged fits-path even when it also adds a new damage type", () => {
+    const view = makeView({
+      lineages: [
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "mage",
+              lineage: "mage",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "agi" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = recommendWith(view, "skill-focused", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual(["mage"])
+    expect(result[0]!.reason).toBe("fits-path")
+  })
+
+  it("ranks a new-damage-type pick below an on-Path fits-path pick", () => {
+    // The off-Path Warrior sorts first alphabetically, so only the strict
+    // fits-path-before-new-damage-type priority can place the Mage ahead.
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "aaa-warrior",
+              lineage: "warrior",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "bufu" }],
+            }
+          ),
+        ]),
+        lineageEntry("mage", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "zzz-mage",
+              lineage: "mage",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "agi" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    const result = recommendWith(view, "skill-focused", 5)
+
+    expect(result.map((r) => r.archetype.key)).toEqual([
+      "zzz-mage",
+      "aaa-warrior",
+    ])
+    expect(result.map((r) => r.reason)).toEqual(["fits-path", "new-damage-type"])
+  })
+
+  it("ignores the multi-element 'special' bucket as a damage type", () => {
+    // The only Skill an off-Path Warrior carries deals 'special' damage, which
+    // is not a single resistible type, so it never counts as new coverage.
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "elemental-apocalypse" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    expect(recommendWith(view, "skill-focused", 5)).toEqual([])
   })
 })

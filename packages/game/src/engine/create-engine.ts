@@ -1,4 +1,7 @@
-import { buildLineageAtlas } from "@workspace/game/engine/archetypes/atlas"
+import {
+  buildLineageAtlas,
+  getAtlasRecommendations,
+} from "@workspace/game/engine/archetypes/atlas"
 import {
   archetypeSwitcherGroups,
   buildArchetypeEntries,
@@ -63,6 +66,7 @@ export function createGameEngine(
     reduceCombatSession: reduceCombatSession(data, newId),
     endOfTurnObligations: endOfTurnObligations(data),
     buildLineageAtlas: buildLineageAtlas(data),
+    getAtlasRecommendations: getAtlasRecommendations(data),
     archetypeSwitcherGroups: archetypeSwitcherGroups(data),
     previewArchetypeSkills: previewArchetypeSkills(data),
     resolveTalentsForSheet: resolveTalentsForSheet(data),
