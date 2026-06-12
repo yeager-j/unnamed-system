@@ -13,6 +13,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
+import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 
 import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 
@@ -45,14 +46,15 @@ export function ArchetypeDialog({
   onChoose: () => void
   onClose: () => void
 }) {
+  const shown = useLastPresent(archetype)
   return (
     <ResponsiveDialog
       open={archetype !== null}
       onOpenChange={(open) => !open && onClose()}
     >
-      {archetype ? (
+      {shown ? (
         <PanelBody
-          archetype={archetype}
+          archetype={shown}
           pathChoice={pathChoice}
           selected={selected}
           pending={pending}

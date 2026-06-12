@@ -14,6 +14,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@workspace/ui/components/responsive-dialog"
+import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { AffinityGrid } from "@/components/shared/affinity-grid"
@@ -59,14 +60,15 @@ export function CombatantDrawer({
   /** The console-owned per-PC vitals tokens the pools writes share (UNN-373). */
   pcVitalsVersions: RefObject<Record<string, number>>
 }) {
+  const shown = useLastPresent(detail)
   return (
     <ResponsiveDialog
       open={detail !== null}
       onOpenChange={(open) => !open && onClose()}
     >
-      {detail ? (
+      {shown ? (
         <DrawerBody
-          detail={detail}
+          detail={shown}
           onCombatEvent={onCombatEvent}
           pcVitalsVersions={pcVitalsVersions}
         />
