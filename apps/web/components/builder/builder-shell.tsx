@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useTransition, type ReactNode } from "react"
 import { toast } from "sonner"
 
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 import {
   Tooltip,
@@ -168,14 +168,16 @@ function BackLink({
   step: (typeof BUILDER_STEPS)[number]
 }) {
   return (
-    <Link
-      href={`/builder/${shortId}/${step.slug}`}
+    <Button
+      variant="link"
+      size="lg"
+      nativeButton={false}
       aria-label={`Back to ${step.label}`}
-      className={buttonVariants({ variant: "link", size: "lg" })}
+      render={<Link href={`/builder/${shortId}/${step.slug}`} />}
     >
       <ArrowLeftIcon weight="bold" className="size-3.5" />
       <span className="hidden sm:inline">{step.label}</span>
-    </Link>
+    </Button>
   )
 }
 

@@ -194,7 +194,7 @@ test.describe("builder shell", () => {
       page.getByRole("button", { name: /^Continue to/ })
     ).toHaveCount(0)
     await expect(
-      page.getByRole("link", { name: "Back to Animus" })
+      page.getByRole("button", { name: "Back to Animus" })
     ).toBeVisible()
   })
 })

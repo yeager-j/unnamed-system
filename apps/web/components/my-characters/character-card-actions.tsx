@@ -4,7 +4,7 @@ import { CaretDownIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useState } from "react"
 
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import {
   DropdownMenu,
@@ -12,7 +12,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { cn } from "@workspace/ui/lib/utils"
 
 import { DeleteCharacterDialog } from "./delete-character-dialog"
 
@@ -60,13 +59,14 @@ export function CharacterCardActions({
   return (
     <>
       <ButtonGroup>
-        <Link
-          href={href}
-          data-slot="button"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link href={href} />}
         >
           {primaryLabel}
-        </Link>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
