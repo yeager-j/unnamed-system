@@ -48,7 +48,7 @@ test.describe("Lineage Atlas owner flows", () => {
   test("Archetypes tab links permanently to the Atlas", async ({ page }) => {
     await page.goto(`${target.url}?tab=archetypes`)
     await expect(
-      page.getByRole("link", { name: "Open Lineage Atlas" })
+      page.getByRole("button", { name: "Open Lineage Atlas" })
     ).toBeVisible()
   })
 

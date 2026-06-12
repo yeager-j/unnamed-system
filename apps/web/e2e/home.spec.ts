@@ -42,7 +42,7 @@ test.describe("signed-in", () => {
       await expect(irisCard).toBeVisible()
       await expect(irisCard.getByText(/Level 1 ·/)).toBeVisible()
       await expect(
-        irisCard.getByRole("link", { name: "Open" })
+        irisCard.getByRole("button", { name: "Open" })
       ).toHaveAttribute("href", "/c/claude-1")
 
       // UNN-204 enabled the Create CTA. It now spins up a draft via

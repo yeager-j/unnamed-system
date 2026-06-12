@@ -67,7 +67,7 @@ test("the Archetypes tab links publicly to the Lineage Atlas", async ({
   await page.goto("/c/seed-knight?tab=archetypes")
 
   await expect(
-    page.getByRole("link", { name: "Open Lineage Atlas" })
+    page.getByRole("button", { name: "Open Lineage Atlas" })
   ).toBeVisible()
 })
 

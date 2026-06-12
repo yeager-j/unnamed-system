@@ -3,7 +3,7 @@
 import { TreeStructureIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 
-import { buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -59,13 +59,14 @@ export function Archetypes() {
             Archetypes.
           </p>
         </div>
-        <Link
-          href={`/c/${character.shortId}/archetypes/atlas`}
-          className={buttonVariants({ variant: "outline" })}
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href={`/c/${character.shortId}/archetypes/atlas`} />}
         >
           <TreeStructureIcon aria-hidden />
           Open Lineage Atlas
-        </Link>
+        </Button>
       </div>
     </div>
   )
