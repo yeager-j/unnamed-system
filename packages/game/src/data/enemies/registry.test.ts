@@ -9,11 +9,13 @@ import {
   ENEMIES,
   getEnemy,
   getEnemyFamily,
+  validateEnemy,
 } from "@workspace/game/data/enemies/registry"
 import { getSkill } from "@workspace/game/data/skills/registry"
 import {
   ENEMY_FAMILIES,
   enemyDefinitionSchema,
+  type EnemyDefinition,
 } from "@workspace/game/foundation/enemies/schema"
 
 describe("enemy catalog data", () => {
@@ -66,6 +68,36 @@ describe("enemy catalog data", () => {
   it("registers every entry file on disk", async () => {
     const modules = await loadCatalogEntryModules(import.meta.dirname)
     expect(findUnregisteredEntries(modules, getEnemy)).toEqual([])
+  })
+})
+
+describe("validateEnemy", () => {
+  it("throws when an inlineSkill key collides with a referenced skillKey", () => {
+    // "garu" resolves (so it clears the unknown-skill check), then the inline
+    // Skill reuses that key — the collision the duplicate guard must catch. A
+    // shipped-data invariant alone wouldn't prove the guard's `.find()` throws.
+    const colliding: EnemyDefinition = {
+      key: "test-colliding",
+      level: 1,
+      name: "Test Colliding",
+      maxHP: 10,
+      attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
+      affinities: {},
+      skillKeys: ["garu"],
+      inlineSkills: [
+        {
+          kind: "passive",
+          key: "garu",
+          name: "Collision",
+          tagline: "Collides with the referenced garu.",
+          description: "Collides with the referenced garu.",
+          isSynthesis: false,
+        },
+      ],
+      talents: [],
+    }
+
+    expect(() => validateEnemy(colliding)).toThrow(/duplicate skill key "garu"/)
   })
 })
 

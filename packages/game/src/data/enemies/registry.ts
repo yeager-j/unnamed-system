@@ -19,8 +19,11 @@ import {
  * `skillKeys` and `inlineSkills`) share a `key` — a collision would yield a
  * duplicate React `key` in the rendered Skill list. Runs once per entry at
  * module load via {@link createCatalog}. Mirrors the items registry's validator.
+ * Exported so the duplicate-key guard can be exercised directly with a
+ * deliberately-colliding enemy (the shipped catalog never collides, so a
+ * data-invariant test alone wouldn't prove the guard throws).
  */
-function validateEnemy(enemy: EnemyDefinition): void {
+export function validateEnemy(enemy: EnemyDefinition): void {
   enemyDefinitionSchema.parse(enemy)
 
   for (const skillKey of enemy.skillKeys) {
@@ -31,12 +34,12 @@ function validateEnemy(enemy: EnemyDefinition): void {
     }
   }
 
-  const skillKeys = [
+  const allSkillKeys = [
     ...enemy.skillKeys,
     ...(enemy.inlineSkills ?? []).map((skill) => skill.key),
   ]
-  const duplicate = skillKeys.find(
-    (key, index) => skillKeys.indexOf(key) !== index
+  const duplicate = allSkillKeys.find(
+    (key, index) => allSkillKeys.indexOf(key) !== index
   )
   if (duplicate) {
     throw new Error(
