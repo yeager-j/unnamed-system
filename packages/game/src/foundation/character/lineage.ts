@@ -68,7 +68,7 @@ export type SuggestedPath = (typeof LINEAGE_SUGGESTED_PATH)[Lineage]
  * creation.").
  *
  * Covers every Lineage that ships an Archetype at MVP (warrior / knight /
- * mage / healer / thief / warlock / bard). The remaining {@link Lineage}s have no
+ * mage / healer / thief / warlock / bard / berserker). The remaining {@link Lineage}s have no
  * Archetypes to select as Origin, so no character can finalize against them —
  * the map is `Partial` so a future Lineage that ships an Archetype before its
  * canonical starter weapon surfaces the structured
@@ -83,6 +83,7 @@ export const LINEAGE_STARTING_WEAPON: Partial<Record<Lineage, WeaponKey>> = {
   thief: "dagger",
   warlock: "grimoire",
   bard: "lute",
+  berserker: "greataxe",
 }
 
 /**

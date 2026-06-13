@@ -97,6 +97,23 @@ export const perfectionStateSchema = z.object({
 export type PerfectionState = z.infer<typeof perfectionStateSchema>
 
 /**
+ * Berserker — Frenzy: a 0–5 Pain Meter plus a Frenzy Mode flag (rulebook
+ * `Skills/Mechanics/Frenzy.md`). Pain builds as the Berserker takes damage;
+ * with at least 1 Pain they can enter Frenzy Mode, adding 1d4 per Pain to their
+ * Physical damage rolls. Pain ticks down 1 at the end of each of their turns,
+ * exiting Frenzy at 0.
+ */
+export const FRENZY_PAIN_MAX = 5
+
+export const frenzyStateSchema = z.object({
+  kind: z.literal("frenzy"),
+  pain: z.number().int().min(0).max(FRENZY_PAIN_MAX),
+  frenzyMode: z.boolean(),
+})
+
+export type FrenzyState = z.infer<typeof frenzyStateSchema>
+
+/**
  * Discriminated union of every mechanic state shape. This schema is the
  * run-time validator for the union as it crosses persistence boundaries (the
  * `characterArchetypes.mechanicState` JSONB column).
@@ -112,6 +129,7 @@ export const mechanicStateSchema = z.discriminatedUnion("kind", [
   stainsStateSchema,
   thiefsInsightStateSchema,
   enchantmentStateSchema,
+  frenzyStateSchema,
 ])
 
 export type MechanicState =
@@ -122,6 +140,7 @@ export type MechanicState =
   | PathOfDuskState
   | ThiefsInsightState
   | EnchantmentState
+  | FrenzyState
 
 export type MechanicKind = MechanicState["kind"]
 

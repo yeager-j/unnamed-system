@@ -12,11 +12,11 @@ describe("startingWeaponForLineage", () => {
     expect(startingWeaponForLineage("mage")).toBe("staff")
     expect(startingWeaponForLineage("healer")).toBe("censer")
     expect(startingWeaponForLineage("thief")).toBe("dagger")
+    expect(startingWeaponForLineage("berserker")).toBe("greataxe")
   })
 
   it("returns null for Lineages with no shipped Archetype", () => {
     expect(startingWeaponForLineage("brawler")).toBeNull()
-    expect(startingWeaponForLineage("berserker")).toBeNull()
   })
 
   it("every entry in the map references a shipped Weapon", () => {

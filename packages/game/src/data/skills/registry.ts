@@ -11,6 +11,7 @@ import { MIND_SKILLS } from "@workspace/game/data/skills/mind/index"
 import { PASSIVE_SKILLS } from "@workspace/game/data/skills/passive/index"
 import { PIERCE_SKILLS } from "@workspace/game/data/skills/pierce/index"
 import { SLASH_SKILLS } from "@workspace/game/data/skills/slash/index"
+import { SOUL_SKILLS } from "@workspace/game/data/skills/soul/index"
 import { SPECIAL_SKILLS } from "@workspace/game/data/skills/special/index"
 import { STRIKE_SKILLS } from "@workspace/game/data/skills/strike/index"
 import { SUPPORT_SKILLS } from "@workspace/game/data/skills/support/index"
@@ -31,6 +32,7 @@ const SKILLS_BY_KEY = {
   ...MIND_SKILLS,
   ...LIGHT_SKILLS,
   ...DARK_SKILLS,
+  ...SOUL_SKILLS,
   ...HEAL_SKILLS,
   ...SUPPORT_SKILLS,
   ...AILMENT_SKILLS,

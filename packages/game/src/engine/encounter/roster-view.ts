@@ -70,6 +70,10 @@ export type PcCombatantDetail = Pick<
   | "affinityChart"
   | "activeArchetypeKey"
   | "skills"
+  // The active Archetype's unique mechanic + state (or null). Carried so the
+  // end-of-turn obligations can surface a Berserker's Frenzy decrement reminder
+  // — mechanic state lives on the character row, not the session overlay.
+  | "activeMechanic"
   // The vitals-class optimistic token the DM's HP/SP pools writes condition on
   // (UNN-309) — the only version the combat console touches.
   | "vitalsVersion"

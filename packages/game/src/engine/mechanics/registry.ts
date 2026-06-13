@@ -1,4 +1,5 @@
 import { enchantment } from "@workspace/game/engine/mechanics/bard/enchantment"
+import { frenzy } from "@workspace/game/engine/mechanics/berserker/frenzy"
 import { pathOfDawn } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { valor } from "@workspace/game/engine/mechanics/knight/valor"
 import { stains } from "@workspace/game/engine/mechanics/mage/stains"
@@ -30,6 +31,7 @@ import type {
  *  - Stains — Mage
  *  - Thief's Insight — Thief
  *  - Enchantment — Bard
+ *  - Frenzy — Berserker
  */
 
 const MECHANIC_LIST = [
@@ -40,6 +42,7 @@ const MECHANIC_LIST = [
   stains,
   thiefsInsight,
   enchantment,
+  frenzy,
 ] as const
 
 type MechanicMap = {

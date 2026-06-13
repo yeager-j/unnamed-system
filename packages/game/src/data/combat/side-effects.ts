@@ -140,6 +140,12 @@ const SIDE_EFFECTS_BY_KEY = {
     description:
       "Compare your Luck with the target's Luck. If your Luck is higher, the target's Hit/Evasion is lowered for 3 turns.",
   },
+  "no-cure": {
+    key: "no-cure",
+    name: "No-Cure",
+    description:
+      "If this damage causes a Technical, the target is not cured of its Ailment.",
+  },
 } as const satisfies Record<SideEffectKey, SideEffect>
 
 export const SIDE_EFFECTS: readonly SideEffect[] =

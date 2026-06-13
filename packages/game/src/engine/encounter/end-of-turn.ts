@@ -13,6 +13,7 @@ import type {
   CombatantRef,
   CombatSession,
 } from "@workspace/game/foundation/encounter/session"
+import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * The content the end-of-turn review surfaces for the combatant whose turn just
@@ -87,6 +88,15 @@ export interface EndOfTurnObligations {
   ailments: EndOfTurnAilment[]
   activeDurations: { axis: BattleConditionAxisKey; turns: number }[]
   heldFlags: BattleConditionFlagKey[]
+  /**
+   * Set when the just-acted combatant is a Berserker **in Frenzy Mode**: the DM
+   * is reminded to decrement their Pain (1 per turn; Frenzy exits at 0,
+   * rulebook `Frenzy.md`). `pain` is the value *before* the decrement, so the
+   * modal can spell out "now N → N−1". Pain lives on the character row, not the
+   * session, so it's looked up from `pcMechanicByCharacterId` rather than the
+   * combatant overlay. `null` when the actor is not a Berserker in Frenzy.
+   */
+  frenzy: { pain: number } | null
 }
 
 /** The working HP an enemy combatant Apply targets — inline enemies carry it on
@@ -130,12 +140,16 @@ function resolveAilmentApply(
  * empty result.
  */
 export function endOfTurnObligations(lookups: Pick<GameData, "getEnemy">) {
-  return (session: CombatSession, actorId: string): EndOfTurnObligations => {
+  return (
+    session: CombatSession,
+    actorId: string,
+    pcMechanicByCharacterId: Record<string, ActiveMechanic | null> = {}
+  ): EndOfTurnObligations => {
     const actor = session.combatants.find(
       (combatant) => combatant.id === actorId
     )
     if (actor === undefined) {
-      return { ailments: [], activeDurations: [], heldFlags: [] }
+      return { ailments: [], activeDurations: [], heldFlags: [], frenzy: null }
     }
 
     const hp = enemyWorkingHP(actor.ref, lookups.getEnemy)
@@ -147,6 +161,21 @@ export function endOfTurnObligations(lookups: Pick<GameData, "getEnemy">) {
       .map((ailment) => ({ ailment, apply: resolveAilmentApply(ailment, hp) }))
 
     const { activeDurations, heldFlags } = endOfTurnReminders(actor)
-    return { ailments, activeDurations, heldFlags }
+    const frenzy = resolveFrenzyReminder(actor.ref, pcMechanicByCharacterId)
+    return { ailments, activeDurations, heldFlags, frenzy }
   }
+}
+
+/** The Frenzy decrement reminder for a PC actor — `{ pain }` when their active
+ *  mechanic is Frenzy *in Frenzy Mode*, `null` otherwise (enemy, non-Berserker,
+ *  or a Berserker not currently in Frenzy). */
+function resolveFrenzyReminder(
+  ref: CombatantRef,
+  pcMechanicByCharacterId: Record<string, ActiveMechanic | null>
+): { pain: number } | null {
+  if (ref.kind !== "pc") return null
+  const mechanic = pcMechanicByCharacterId[ref.characterId]
+  if (mechanic?.state.kind !== "frenzy") return null
+  if (!mechanic.state.frenzyMode) return null
+  return { pain: mechanic.state.pain }
 }

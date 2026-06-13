@@ -96,9 +96,17 @@ export function CombatConsole({
         )
       : null
 
+  // Mechanic state lives on the character row, not the session — pass it through
+  // so the end-of-turn review can surface a Berserker's Frenzy decrement reminder.
+  const pcMechanicByCharacterId = Object.fromEntries(
+    Object.values(pcDetailById).map((detail) => [
+      detail.id,
+      detail.activeMechanic,
+    ])
+  )
   const obligations =
     currentActor !== null
-      ? endOfTurnObligations(session, currentActor.id)
+      ? endOfTurnObligations(session, currentActor.id, pcMechanicByCharacterId)
       : null
 
   const phase: ConsolePhase =

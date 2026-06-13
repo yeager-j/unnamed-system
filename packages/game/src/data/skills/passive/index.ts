@@ -1,6 +1,7 @@
 import { ailmentBoost } from "@workspace/game/data/skills/passive/ailment-boost"
 import { autoRakukaja } from "@workspace/game/data/skills/passive/auto-rakukaja"
 import { autoSukukaja } from "@workspace/game/data/skills/passive/auto-sukukaja"
+import { autoTarukaja } from "@workspace/game/data/skills/passive/auto-tarukaja"
 import { bardsInsight } from "@workspace/game/data/skills/passive/bards-insight"
 import { healersInsight } from "@workspace/game/data/skills/passive/healers-insight"
 import { magicCircle } from "@workspace/game/data/skills/passive/magic-circle"
@@ -11,6 +12,7 @@ export const PASSIVE_SKILLS = {
   "slash-boost": slashBoost,
   "auto-rakukaja": autoRakukaja,
   "auto-sukukaja": autoSukukaja,
+  "auto-tarukaja": autoTarukaja,
   "magic-circle": magicCircle,
   "healers-insight": healersInsight,
   "ailment-boost": ailmentBoost,

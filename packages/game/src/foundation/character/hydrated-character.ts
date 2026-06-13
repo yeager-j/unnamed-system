@@ -12,6 +12,7 @@ import {
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
 import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
+import { type DamageBonus } from "@workspace/game/foundation/combat/effects"
 import { type Item } from "@workspace/game/foundation/items/schema"
 import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 import {
@@ -55,11 +56,13 @@ export type HydratedInventoryItem = InventoryItemRow & {
 
 /**
  * A character's active Skill spread flat, with its concrete payable cost
- * alongside (or `null` for cost-free Skills) and its resolved per-Skill
- * Attack Roll bonus. The catalog's raw `cost` field stays on the Skill; the
- * engine-derived values live on `resolvedCost` and `attackRollBonus` so the
- * pair is distinguishable when both happen to be in scope. `attackRollBonus`
- * is `{ total: 0, sources: [] }` on Skills that make no Attack Roll.
+ * alongside (or `null` for cost-free Skills), its resolved per-Skill Attack
+ * Roll bonus, and any resolved damage-bonus lines (e.g. a Berserker's Frenzy
+ * "+Nd4 Physical"). The catalog's raw `cost` field stays on the Skill; the
+ * engine-derived values live on `resolvedCost` / `resolvedAttackRoll` /
+ * `resolvedDamageBonuses` so they are distinguishable when in scope.
+ * `resolvedAttackRoll` is `null` on Skills that make no Attack Roll;
+ * `resolvedDamageBonuses` is `[]` when nothing applies.
  *
  * Distributed over the {@link Skill} discriminated union (UNN-231): the
  * cost-bearing variants (attack / ailment / heal / support) carry a
@@ -73,10 +76,12 @@ type HydrateSkill<S> = S extends { cost: SkillCost }
   ? S & {
       resolvedCost: ResolvedSkillCost
       resolvedAttackRoll: ResolvedAttackRoll | null
+      resolvedDamageBonuses: DamageBonus[]
     }
   : S & {
       resolvedCost: null
       resolvedAttackRoll: ResolvedAttackRoll | null
+      resolvedDamageBonuses: DamageBonus[]
     }
 
 export type HydratedSkill = HydrateSkill<Skill>
@@ -122,6 +127,13 @@ export type HydratedCharacter = CharacterRow & {
    * need to re-derive it client-side.
    */
   weaponAttackRoll: ResolvedAttackRoll | null
+  /**
+   * Resolved damage bonuses (e.g. a Berserker's Frenzy "+Nd4") that apply to
+   * the equipped weapon's intrinsic attack — the weapon-attack peer of a
+   * {@link HydratedSkill}'s `resolvedDamageBonuses`. Empty when no weapon is
+   * equipped or nothing applies.
+   */
+  weaponDamageBonuses: DamageBonus[]
   /**
    * The active Archetype's unique mechanic + its persisted state, with the
    * mechanic's `initialState` filled in when the row is null. Null when no

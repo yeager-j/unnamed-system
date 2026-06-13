@@ -1,3 +1,4 @@
+export * from "./archetypes/berserker/berserker"
 export * from "./archetypes/demo/include"
 export * from "./archetypes/healer/healer"
 export * from "./archetypes/knight/knight"

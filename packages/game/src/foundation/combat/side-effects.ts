@@ -34,6 +34,7 @@ export const SIDE_EFFECT_KEYS = [
   "insta-kill-light",
   "insta-kill-dark",
   "sukunda",
+  "no-cure",
 ] as const
 
 export type SideEffectKey = (typeof SIDE_EFFECT_KEYS)[number]

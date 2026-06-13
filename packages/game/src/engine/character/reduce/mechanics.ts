@@ -1,5 +1,9 @@
 import type { RawCharacterInputs } from "@workspace/game/engine/character/derive-hydrated-character"
 import type { SliceResult } from "@workspace/game/engine/character/reduce/shared"
+import {
+  adjustPain,
+  setFrenzyMode,
+} from "@workspace/game/engine/mechanics/berserker/frenzy"
 import { setDawnMode } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { adjustValor } from "@workspace/game/engine/mechanics/knight/valor"
 import {
@@ -82,6 +86,26 @@ export function reduceMechanicEdit(
         raw,
         active.activeId,
         setDuskMode(active.current, edit.duskMode)
+      )
+    }
+
+    case "frenzyPain": {
+      const active = activeMechanicState(raw, "frenzy")
+      if (!active || active.current.kind !== "frenzy") return null
+      return writeMechanic(
+        raw,
+        active.activeId,
+        adjustPain(active.current, edit.direction === "increment" ? 1 : -1)
+      )
+    }
+
+    case "frenzyMode": {
+      const active = activeMechanicState(raw, "frenzy")
+      if (!active || active.current.kind !== "frenzy") return null
+      return writeMechanic(
+        raw,
+        active.activeId,
+        setFrenzyMode(active.current, edit.frenzyMode)
       )
     }
   }

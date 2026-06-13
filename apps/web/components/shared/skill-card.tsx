@@ -74,6 +74,7 @@ export function SkillCard({
           roll={skill.attackRoll}
           resolved={skill.resolvedAttackRoll}
           attributes={attributes}
+          damageBonuses={skill.resolvedDamageBonuses}
         />
       ) : null}
       {skill.effect ? (

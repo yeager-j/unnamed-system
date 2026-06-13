@@ -104,6 +104,25 @@ describe("reduceMechanicEdit — transitions", () => {
       )
     ).toEqual({ kind: "path-of-dusk", duskMode: true })
   })
+
+  it("steps Pain and toggles Frenzy Mode", () => {
+    expect(
+      resultState(
+        reduceMechanicEdit(
+          withActiveMechanic({ kind: "frenzy", pain: 2, frenzyMode: false }),
+          { kind: "frenzyPain", direction: "increment" }
+        )
+      )
+    ).toEqual({ kind: "frenzy", pain: 3, frenzyMode: false })
+    expect(
+      resultState(
+        reduceMechanicEdit(
+          withActiveMechanic({ kind: "frenzy", pain: 2, frenzyMode: false }),
+          { kind: "frenzyMode", frenzyMode: true }
+        )
+      )
+    ).toEqual({ kind: "frenzy", pain: 2, frenzyMode: true })
+  })
 })
 
 /**
@@ -148,6 +167,12 @@ const CASES: ReadonlyArray<{
     name: "pathOfDusk",
     edit: { kind: "pathOfDusk", duskMode: true },
     fromInitial: { kind: "path-of-dusk", duskMode: true },
+    mismatch: { kind: "valor", value: 0 },
+  },
+  {
+    name: "frenzyPain",
+    edit: { kind: "frenzyPain", direction: "increment" },
+    fromInitial: { kind: "frenzy", pain: 1, frenzyMode: false },
     mismatch: { kind: "valor", value: 0 },
   },
 ]

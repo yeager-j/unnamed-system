@@ -1,5 +1,6 @@
 import {
   type AttributeScores,
+  type DamageBonus,
   type EquippedWeapon,
   type ResolvedAttackRoll,
 } from "@workspace/game/foundation"
@@ -20,6 +21,8 @@ interface IntrinsicAttackCardProps {
   attributes: AttributeScores
   /** Pre-resolved Attack Roll for this weapon, computed at hydration time. */
   weaponAttackRoll: ResolvedAttackRoll
+  /** Resolved damage bonuses (Frenzy's "+Nd4", …) folded into the tiers. */
+  weaponDamageBonuses: DamageBonus[]
 }
 
 /**
@@ -32,6 +35,7 @@ export function IntrinsicAttackCard({
   weapon,
   attributes,
   weaponAttackRoll,
+  weaponDamageBonuses,
 }: IntrinsicAttackCardProps) {
   const attack = weapon.equip.intrinsicAttack
   return (
@@ -46,6 +50,7 @@ export function IntrinsicAttackCard({
         roll={attack.attackRoll}
         resolved={weaponAttackRoll}
         attributes={attributes}
+        damageBonuses={weaponDamageBonuses}
       />
     </PopoverCardShell>
   )
