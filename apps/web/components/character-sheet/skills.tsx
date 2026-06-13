@@ -35,7 +35,7 @@ export function Skills() {
   const { pending, write, characterId } = useCharacterWrite()
 
   const equippedWeapon = getEquippedItem(character.inventory, "weapon")
-  const { attributes, weaponAttackRoll } = character
+  const { attributes, weaponAttackRoll, weaponDamageBonuses } = character
 
   const sorted = sortSkillsByKind(character.skills)
   const regular = sorted.filter((entry) => !entry.isSynthesis)
@@ -70,6 +70,7 @@ export function Skills() {
               weapon={equippedWeapon}
               attributes={attributes}
               weaponAttackRoll={weaponAttackRoll}
+              weaponDamageBonuses={weaponDamageBonuses}
             />
           </CardContent>
         </Card>

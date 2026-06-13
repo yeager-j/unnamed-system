@@ -445,6 +445,18 @@ export function endOfTurnApplyLabel(delta: number): string {
   return `Apply ${delta > 0 ? "+" : "−"}${Math.abs(delta)} HP`
 }
 
+/**
+ * The Frenzy end-of-turn reminder for a Berserker in Frenzy Mode: the DM
+ * decrements their Pain by 1 (Frenzy exits at 0, rulebook `Frenzy.md`). The
+ * Berserker's player owns the write, so this only *reminds*. `pain` is the
+ * value before the decrement.
+ */
+export function frenzyDecrementReminder(pain: number): string {
+  const next = Math.max(0, pain - 1)
+  const exit = next === 0 ? " — Frenzy ends" : ""
+  return `Lose 1 Pain (${pain} → ${next})${exit}.`
+}
+
 export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
   draft: "Draft",
   live: "Live",

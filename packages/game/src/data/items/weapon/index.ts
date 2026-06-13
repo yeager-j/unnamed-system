@@ -1,5 +1,6 @@
 import { censer } from "@workspace/game/data/items/weapon/censer"
 import { dagger } from "@workspace/game/data/items/weapon/dagger"
+import { greataxe } from "@workspace/game/data/items/weapon/greataxe"
 import { grimoire } from "@workspace/game/data/items/weapon/grimoire"
 import { longsword } from "@workspace/game/data/items/weapon/longsword"
 import { lute } from "@workspace/game/data/items/weapon/lute"
@@ -10,6 +11,7 @@ import type { Item } from "@workspace/game/foundation/items/schema"
 
 export const WEAPON_ITEMS = {
   longsword,
+  greataxe,
   dagger,
   grimoire,
   "runed-cane": runedCane,

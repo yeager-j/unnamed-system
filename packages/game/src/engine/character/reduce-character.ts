@@ -79,6 +79,8 @@ function routeEdit(
     case "stains":
     case "pathOfDawn":
     case "pathOfDusk":
+    case "frenzyPain":
+    case "frenzyMode":
       return reduceMechanicEdit(raw, edit)
 
     case "victories":

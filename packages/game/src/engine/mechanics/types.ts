@@ -5,6 +5,7 @@ import {
   type AffinityEffect,
   type AttackRollEffect,
   type AttributeEffect,
+  type DamageEffect,
 } from "@workspace/game/foundation/combat/effects"
 
 /**
@@ -23,7 +24,8 @@ import {
  * 1. **Effects** (`effects`) — additive, declarative modifiers that flow through
  *    the existing item/passive-Skill pipeline (see {@link ../../foundation/combat/effects}).
  *    Most mechanics live here. Perfection emits an {@link AttackRollEffect};
- *    Valor's stage-3+ Affinity changes emit {@link AffinityEffect}s.
+ *    Valor's stage-3+ Affinity changes emit {@link AffinityEffect}s; Frenzy
+ *    emits a {@link DamageEffect}.
  *
  * 2. **Transform** (`transform`) — a wholesale character-rewrite escape hatch
  *    reserved for mechanics that can't be expressed as additive Effects (the
@@ -34,7 +36,11 @@ import {
  */
 
 /** Effect kinds a mechanic may emit through the existing engine pipeline. */
-export type MechanicEffect = AffinityEffect | AttributeEffect | AttackRollEffect
+export type MechanicEffect =
+  | AffinityEffect
+  | AttributeEffect
+  | AttackRollEffect
+  | DamageEffect
 
 export interface MechanicEffectContext {
   /** The pure engine input. Mechanics may read e.g. attribute scores from it

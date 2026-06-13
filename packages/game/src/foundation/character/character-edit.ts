@@ -45,7 +45,7 @@ export type PoolsEdit =
   | { kind: "cast"; skillKey: string }
 
 /** Mechanics slice: stepping the active Archetype's unique mechanic (Valor,
- *  Perfection, Stains, Path of Dawn). */
+ *  Perfection, Stains, Path of Dawn, Frenzy). */
 export type MechanicEdit =
   | { kind: "valor"; direction: "increment" | "decrement" }
   | { kind: "perfection"; op: "increment" | "decrement" | "reset" }
@@ -58,6 +58,8 @@ export type MechanicEdit =
   | { kind: "stains"; op: "clear" }
   | { kind: "pathOfDawn"; dawnMode: boolean }
   | { kind: "pathOfDusk"; duskMode: boolean }
+  | { kind: "frenzyPain"; direction: "increment" | "decrement" }
+  | { kind: "frenzyMode"; frenzyMode: boolean }
 
 /** Progression slice: banking Victories and the Spark log. */
 export type ProgressionEdit =

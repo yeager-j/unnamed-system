@@ -176,7 +176,15 @@ export function attackRollEffectsFromSkills(
   return effects
 }
 
-function matchesFilter(
+/**
+ * Whether an effect's {@link AttackRollFilter} matches an {@link AttackRollContext}
+ * — each present axis is a positive list the context value must be in; an
+ * omitted axis always matches. Shared with the damage-bonus resolver
+ * ({@link import("./damage-bonus").resolveDamageBonuses}), which filters
+ * {@link import("@workspace/game/foundation/combat/effects").DamageEffect}s by
+ * the same `when` shape.
+ */
+export function matchesFilter(
   filter: AttackRollFilter | undefined,
   context: AttackRollContext
 ): boolean {

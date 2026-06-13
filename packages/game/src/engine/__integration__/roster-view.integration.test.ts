@@ -53,6 +53,7 @@ const ROAN: PcCombatantDetail = {
   activeArchetypeKey: null,
   className: null,
   skills: [],
+  activeMechanic: null,
   vitalsVersion: 4,
 }
 

@@ -57,6 +57,7 @@ const ARIA: PcCombatantDetail = {
   activeArchetypeKey: null,
   className: null,
   skills: [],
+  activeMechanic: null,
   vitalsVersion: 0,
 }
 

@@ -9,6 +9,7 @@ import {
   type AttackAttribute,
   type ResolvedAttackRoll,
 } from "@workspace/game/foundation/combat/attack"
+import { type DamageBonus } from "@workspace/game/foundation/combat/effects"
 import type { SkillKind } from "@workspace/game/foundation/common"
 import { err, ok, type Result } from "@workspace/game/foundation/result"
 import type {
@@ -78,16 +79,23 @@ export function sortSkillsByKind(skills: HydratedSkill[]): HydratedSkill[] {
 export function hydrateSkill(
   skill: Skill,
   maxHP: number,
-  resolvedAttackRoll: ResolvedAttackRoll | null
+  resolvedAttackRoll: ResolvedAttackRoll | null,
+  resolvedDamageBonuses: DamageBonus[] = []
 ): HydratedSkill {
   if ("cost" in skill) {
     return {
       ...skill,
       resolvedCost: resolveCost(skill.cost, maxHP),
       resolvedAttackRoll,
+      resolvedDamageBonuses,
     }
   }
-  return { ...skill, resolvedCost: null, resolvedAttackRoll }
+  return {
+    ...skill,
+    resolvedCost: null,
+    resolvedAttackRoll,
+    resolvedDamageBonuses,
+  }
 }
 
 /**

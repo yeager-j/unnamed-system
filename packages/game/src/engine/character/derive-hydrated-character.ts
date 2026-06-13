@@ -15,6 +15,7 @@ import {
   skillAttackRollContext,
   type AttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
+import { resolveDamageBonuses } from "@workspace/game/engine/combat/damage-bonus"
 import { getEquippedItem } from "@workspace/game/engine/items/utils"
 import { type GameData } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
@@ -133,13 +134,15 @@ export function deriveHydratedCharacter(lookups: CharacterLookups) {
     }))
 
     const weapon = getEquippedItem(inventory, "weapon")
-    const weaponAttackRoll = weapon
-      ? resolveAttackRoll(
-          weaponAttackContext(weapon.equip.intrinsicAttack),
-          stats,
-          partyComposition
-        )
+    const weaponContext = weapon
+      ? weaponAttackContext(weapon.equip.intrinsicAttack)
       : null
+    const weaponAttackRoll = weaponContext
+      ? resolveAttackRoll(weaponContext, stats, partyComposition)
+      : null
+    const weaponDamageBonuses = weaponContext
+      ? resolveDamageBonuses(weaponContext, stats)
+      : []
 
     return {
       ...row,
@@ -160,6 +163,7 @@ export function deriveHydratedCharacter(lookups: CharacterLookups) {
       maxSkillDice: computeMaxSkillDice(row.level),
       affinityChart: computeAffinityChart(stats),
       weaponAttackRoll,
+      weaponDamageBonuses,
       activeMechanic: stats.activeMechanic,
       skills: stats.activeSkills.map((skill) => {
         const skillContext = skillAttackRollContext(skill)
@@ -168,7 +172,8 @@ export function deriveHydratedCharacter(lookups: CharacterLookups) {
           maxHP,
           skillContext
             ? resolveAttackRoll(skillContext, stats, partyComposition)
-            : null
+            : null,
+          skillContext ? resolveDamageBonuses(skillContext, stats) : []
         )
       }),
     }

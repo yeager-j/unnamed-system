@@ -1,4 +1,5 @@
 import { bard } from "@workspace/game/data/archetypes/bard/bard"
+import { berserker } from "@workspace/game/data/archetypes/berserker/berserker"
 import { INCLUDE_DEMO_ARCHETYPES } from "@workspace/game/data/archetypes/demo/include"
 import { DEMO_ARCHETYPES } from "@workspace/game/data/archetypes/demo/index"
 import { healer } from "@workspace/game/data/archetypes/healer/healer"
@@ -63,6 +64,7 @@ const ARCHETYPES_BY_KEY = {
   warlock: validate(warlock),
   thief: validate(thief),
   bard: validate(bard),
+  berserker: validate(berserker),
 } as const satisfies Record<string, Archetype>
 
 /**

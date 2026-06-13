@@ -2,6 +2,7 @@ import { type ReactNode } from "react"
 
 import { rankLabel } from "@workspace/game/engine"
 import {
+  FRENZY_PAIN_MAX,
   VALOR_MAX,
   type MechanicKind,
   type MechanicState,
@@ -10,6 +11,7 @@ import {
 import { STAIN_ELEMENT_LABELS } from "@/lib/ui/labels"
 
 import { EnchantmentWidget } from "./bard/enchantment-widget"
+import { FrenzyWidget } from "./frenzy-widget"
 import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PathOfDuskWidget } from "./path-of-dusk-widget"
 import { PerfectionWidget } from "./perfection-widget"
@@ -77,6 +79,11 @@ const REGISTRY: MechanicWidgetRegistry = {
   enchantment: {
     render: () => <EnchantmentWidget />,
     summary: () => "Enchantments live on the battlefield",
+  },
+  frenzy: {
+    render: (state) => <FrenzyWidget state={state} />,
+    summary: (state) =>
+      `${state.pain} / ${FRENZY_PAIN_MAX}${state.frenzyMode ? " · Frenzy" : ""}`,
   },
 }
 

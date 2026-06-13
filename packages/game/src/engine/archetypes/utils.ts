@@ -10,6 +10,7 @@ import {
   resolveAttackRoll,
   skillAttackRollContext,
 } from "@workspace/game/engine/combat/attack-roll"
+import { resolveDamageBonuses } from "@workspace/game/engine/combat/damage-bonus"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
 import { type GameData } from "@workspace/game/engine/ports"
 import { hydrateSkill } from "@workspace/game/engine/skills/utils"
@@ -35,6 +36,7 @@ import {
   type PathChoice,
 } from "@workspace/game/foundation/character/state"
 import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
+import { type DamageBonus } from "@workspace/game/foundation/combat/effects"
 import { type Skill } from "@workspace/game/foundation/skills/schema"
 
 /**
@@ -111,6 +113,15 @@ function resolveAttackRollForSkill(
   return resolveAttackRoll(context, stats, partyComposition)
 }
 
+function resolveDamageBonusesForSkill(
+  skill: Skill,
+  stats: StatContext
+): DamageBonus[] {
+  const context = skillAttackRollContext(skill)
+  if (!context) return []
+  return resolveDamageBonuses(context, stats)
+}
+
 /**
  * Resolves an Archetype's Rank-keyed Skills and Synthesis Skill into the
  * {@link RankedSkill} shape both the live display and the builder preview
@@ -133,7 +144,8 @@ function resolveArchetypeRankedSkills(
     return hydrateSkill(
       skill,
       maxHP,
-      resolveAttackRollForSkill(skill, stats, partyComposition)
+      resolveAttackRollForSkill(skill, stats, partyComposition),
+      resolveDamageBonusesForSkill(skill, stats)
     )
   }
 
@@ -190,7 +202,8 @@ export function buildArchetypeEntries(
       return hydrateSkill(
         skill,
         character.maxHP,
-        resolveAttackRollForSkill(skill, stats, partyComposition)
+        resolveAttackRollForSkill(skill, stats, partyComposition),
+        resolveDamageBonusesForSkill(skill, stats)
       )
     }
 

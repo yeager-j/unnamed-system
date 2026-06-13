@@ -241,3 +241,49 @@ describe("endOfTurnObligations", () => {
     expect(result.heldFlags).toEqual(["charged"])
   })
 })
+
+describe("endOfTurnObligations — Frenzy reminder", () => {
+  const frenzyMechanic = (pain: number, frenzyMode: boolean) => ({
+    "char-1": {
+      kind: "frenzy" as const,
+      state: { kind: "frenzy" as const, pain, frenzyMode },
+    },
+  })
+
+  it("reminds to decrement Pain when the PC actor is in Frenzy Mode", () => {
+    const result = obligations(
+      session(combatant()),
+      "c-1",
+      frenzyMechanic(3, true)
+    )
+    expect(result.frenzy).toEqual({ pain: 3 })
+  })
+
+  it("is null when the Berserker is not in Frenzy Mode", () => {
+    const result = obligations(
+      session(combatant()),
+      "c-1",
+      frenzyMechanic(3, false)
+    )
+    expect(result.frenzy).toBeNull()
+  })
+
+  it("is null when the PC has no active mechanic", () => {
+    const result = obligations(session(combatant()), "c-1", { "char-1": null })
+    expect(result.frenzy).toBeNull()
+  })
+
+  it("is null for an enemy actor", () => {
+    const result = obligations(
+      session(combatant({ id: "c-1", ref: inlineEnemyRef() })),
+      "c-1",
+      frenzyMechanic(3, true)
+    )
+    expect(result.frenzy).toBeNull()
+  })
+
+  it("defaults to null when no mechanic map is supplied", () => {
+    const result = obligations(session(combatant()), "c-1")
+    expect(result.frenzy).toBeNull()
+  })
+})

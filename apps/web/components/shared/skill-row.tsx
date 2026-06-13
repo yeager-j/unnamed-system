@@ -2,6 +2,7 @@
 
 import {
   type AttributeScores,
+  type DamageBonus,
   type EquippedWeapon,
   type HydratedSkill,
   type ResolvedAttackRoll,
@@ -121,6 +122,8 @@ interface IntrinsicAttackRowProps {
    * stays a leaf component with no context reads.
    */
   weaponAttackRoll: ResolvedAttackRoll
+  /** Resolved damage bonuses (Frenzy's "+Nd4", …) for this weapon attack. */
+  weaponDamageBonuses: DamageBonus[]
 }
 
 /**
@@ -132,6 +135,7 @@ export function IntrinsicAttackRow({
   weapon,
   attributes,
   weaponAttackRoll,
+  weaponDamageBonuses,
 }: IntrinsicAttackRowProps) {
   return (
     <Popover>
@@ -161,6 +165,7 @@ export function IntrinsicAttackRow({
           weapon={weapon}
           attributes={attributes}
           weaponAttackRoll={weaponAttackRoll}
+          weaponDamageBonuses={weaponDamageBonuses}
         />
       </PopoverContent>
     </Popover>

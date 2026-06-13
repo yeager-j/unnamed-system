@@ -39,11 +39,13 @@ import {
   END_OF_TURN_CLEAR_TOOLTIP,
   END_OF_TURN_EMPTY,
   endOfTurnApplyLabel,
+  frenzyDecrementReminder,
   savingThrowPrompt,
 } from "@/lib/ui/labels"
 
 const DURATIONS_KEY = "durations"
 const FLAGS_KEY = "flags"
+const FRENZY_KEY = "frenzy"
 
 /**
  * The end-of-turn modal (UNN-317). End turn always opens it — a deliberate beat,
@@ -121,7 +123,9 @@ export function EndOfTurnModal({
     (snapshot?.activeDurations.length ?? 0) > 0 && !dismissed.has(DURATIONS_KEY)
   const showFlags =
     (snapshot?.heldFlags.length ?? 0) > 0 && !dismissed.has(FLAGS_KEY)
-  const isEmpty = ailments.length === 0 && !showDurations && !showFlags
+  const showFrenzy = snapshot?.frenzy != null && !dismissed.has(FRENZY_KEY)
+  const isEmpty =
+    ailments.length === 0 && !showDurations && !showFlags && !showFrenzy
 
   return (
     <Dialog
@@ -247,6 +251,27 @@ export function EndOfTurnModal({
                     size="icon"
                     className="size-6"
                     onClick={() => dismiss(FLAGS_KEY)}
+                    aria-label="Dismiss"
+                  >
+                    <XIcon />
+                  </Button>
+                </AlertAction>
+              </Alert>
+            ) : null}
+
+            {showFrenzy && snapshot?.frenzy ? (
+              <Alert>
+                <AlertTitle>Frenzy</AlertTitle>
+                <AlertDescription>
+                  {frenzyDecrementReminder(snapshot.frenzy.pain)} The player
+                  updates their own Pain Meter.
+                </AlertDescription>
+                <AlertAction>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6"
+                    onClick={() => dismiss(FRENZY_KEY)}
                     aria-label="Dismiss"
                   >
                     <XIcon />

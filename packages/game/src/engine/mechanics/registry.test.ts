@@ -16,6 +16,7 @@ describe("mechanic registry", () => {
     const kinds = MECHANICS.map((m) => m.kind).sort()
     expect(kinds).toEqual([
       "enchantment",
+      "frenzy",
       "path-of-dawn",
       "path-of-dusk",
       "perfection",

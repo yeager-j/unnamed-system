@@ -112,6 +112,52 @@ export type AttackRollScaler = z.infer<typeof attackRollScalerSchema>
 export type AttackRollEffect = z.infer<typeof attackRollEffectSchema>
 
 /**
+ * A bonus added to a damage roll, scoped by the same {@link attackRollFilterSchema}
+ * an Attack Roll effect uses (so a mechanic can target "Physical deliveries" or
+ * "Fire damage type" the same way). Carries either a fixed `dice` bonus
+ * (Frenzy's `pain`d4) or a flat `amount` — exactly one, mirroring
+ * {@link AttackRollEffect}'s `amount` xor `scaler`. The emitting mechanic
+ * computes the concrete dice count from its own state, so no dynamic scaler is
+ * needed here.
+ *
+ * Damage is rolled at the table (the app accepts player-entered numbers), so
+ * this is **display-only**: the resolver folds matching effects into the
+ * labelled bonus lines the Skill card renders. There is no resolved-damage
+ * total today.
+ */
+export const damageDiceSchema = z.object({
+  count: z.number().int().positive(),
+  sides: z.number().int().positive(),
+})
+
+export const damageEffectSchema = z
+  .object({
+    type: z.literal("damage"),
+    when: attackRollFilterSchema.optional(),
+    dice: damageDiceSchema.optional(),
+    amount: z.number().int().optional(),
+    source: z.string().optional(),
+  })
+  .refine(
+    (effect) => (effect.dice !== undefined) !== (effect.amount !== undefined),
+    { message: "DamageEffect must have exactly one of `dice` or `amount`." }
+  )
+
+export type DamageDice = z.infer<typeof damageDiceSchema>
+export type DamageEffect = z.infer<typeof damageEffectSchema>
+
+/**
+ * One resolved damage-bonus line the Skill card renders — a {@link DamageEffect}
+ * that matched a Skill's context, already formatted (`"+3d4"` / `"+2"`) and
+ * labelled with its source. The engine-derived counterpart to {@link DamageEffect},
+ * the damage analog of {@link import("./attack").AttackRollSource}.
+ */
+export interface DamageBonus {
+  source: string
+  label: string
+}
+
+/**
  * Any of the effect primitives, regardless of which domain emitted it — the
  * source-agnostic union for channels that carry effects from *outside* the
  * character's own state (e.g. a Zone Enchantment supplying combat-context
@@ -123,3 +169,4 @@ export type CombatantEffect =
   | AffinityEffect
   | AttributeEffect
   | AttackRollEffect
+  | DamageEffect
