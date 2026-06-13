@@ -5,6 +5,7 @@ import {
   type StatContext,
 } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import { type MechanicDefinition } from "@workspace/game/engine/mechanics/types"
 import { type GameData } from "@workspace/game/engine/ports"
 import { type HydratedCharacter } from "@workspace/game/foundation/character/hydrated-character"
 import {
@@ -118,6 +119,36 @@ function activeMechanicFor(
 }
 
 /**
+ * Applies the active mechanic's wholesale {@link MechanicDefinition.transform}
+ * — when it declares one — to the freshly-assembled context, replacing the
+ * resolved base attributes / affinities / active Skills with the values the
+ * transform returns (a field it omits keeps its Archetype-resolved value). This
+ * is the replacement-style escape hatch (the planned Shapeshifter Lineage) for
+ * mechanics that swap the active form wholesale and so can't be expressed as
+ * additive Effects. A mechanic with no `transform` — every MVP mechanic —
+ * leaves the context untouched, so the downstream compute functions read the
+ * post-transform base without knowing transforms exist.
+ *
+ * Takes the resolved definition (rather than re-looking it up) so it stays a
+ * pure merge that a test can drive with a synthetic transforming mechanic.
+ */
+export function applyMechanicTransform(
+  context: StatContext,
+  mechanic: Pick<MechanicDefinition<MechanicState>, "transform"> | undefined
+): StatContext {
+  const active = context.activeMechanic
+  if (!active || !mechanic?.transform) return context
+
+  const override = mechanic.transform(active.state, context)
+  return {
+    ...context,
+    baseAttributes: override.baseAttributes ?? context.baseAttributes,
+    baseAffinities: override.baseAffinities ?? context.baseAffinities,
+    activeSkills: override.activeSkills ?? context.activeSkills,
+  }
+}
+
+/**
  * Reconstructs the pure {@link StatContext} from a hydrated
  * character. The single shared row→engine mapping so engine callers (e.g. the
  * rest wrapper) need not re-hand-roll it.
@@ -164,7 +195,7 @@ export function buildStatContext(lookups: StatContextLookups) {
       ? lookups.getArchetype(activeArchetypeKey)
       : undefined
 
-    return {
+    const context: StatContext = {
       pathChoice: character.pathChoice,
       level: character.level,
       manualBonuses: character.manualBonuses,
@@ -185,5 +216,12 @@ export function buildStatContext(lookups: StatContextLookups) {
       baseAffinities: baseAffinitiesForArchetype(activeArchetype),
       contextEffects,
     }
+
+    return applyMechanicTransform(
+      context,
+      context.activeMechanic
+        ? getMechanic(context.activeMechanic.kind)
+        : undefined
+    )
   }
 }
