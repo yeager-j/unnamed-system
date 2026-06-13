@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import { makeStatContext } from "@workspace/game/engine/__fixtures__/character"
 import { type AttackRollContext } from "@workspace/game/engine/combat/attack-roll"
-import { resolveDamageBonuses } from "@workspace/game/engine/combat/damage-bonus"
+import {
+  foldDamageBonusesIntoFormula,
+  resolveDamageBonuses,
+} from "@workspace/game/engine/combat/damage-bonus"
+import { type DamageBonus } from "@workspace/game/foundation/combat/effects"
 import { type ActiveMechanic } from "@workspace/game/foundation/mechanics/schema"
 
 const physicalAttack: AttackRollContext = {
@@ -59,5 +63,37 @@ describe("resolveDamageBonuses", () => {
       { source: "Zone Boon", label: "+2" },
       { source: "Zone Hex", label: "−1" },
     ])
+  })
+})
+
+describe("foldDamageBonusesIntoFormula", () => {
+  const bonus = (label: string): DamageBonus => ({ source: "Frenzy", label })
+
+  it("returns the formula unchanged when there are no bonuses", () => {
+    expect(foldDamageBonusesIntoFormula("1d10 + St", [])).toBe("1d10 + St")
+  })
+
+  it("inserts a dice bonus after the leading damage term, before the Attribute", () => {
+    expect(foldDamageBonusesIntoFormula("1d10 + St", [bonus("+3d4")])).toBe(
+      "1d10 + 3d4 + St"
+    )
+  })
+
+  it("handles a flat leading term (Rampage's `1 + St`)", () => {
+    expect(foldDamageBonusesIntoFormula("1 + St", [bonus("+3d4")])).toBe(
+      "1 + 3d4 + St"
+    )
+  })
+
+  it("appends when the formula has no Attribute term", () => {
+    expect(foldDamageBonusesIntoFormula("1d6", [bonus("+2d4")])).toBe(
+      "1d6 + 2d4"
+    )
+  })
+
+  it("folds multiple bonuses in order", () => {
+    expect(
+      foldDamageBonusesIntoFormula("1d10 + St", [bonus("+3d4"), bonus("+2")])
+    ).toBe("1d10 + 3d4 + 2 + St")
   })
 })

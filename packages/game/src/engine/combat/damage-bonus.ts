@@ -64,3 +64,22 @@ function damageLabel(effect: DamageEffect): string {
   const amount = effect.amount ?? 0
   return amount < 0 ? `−${Math.abs(amount)}` : `+${amount}`
 }
+
+/**
+ * Folds resolved {@link DamageBonus} terms into a damage formula, inserting them
+ * right after the leading damage term so they read `1d10 + 3d4 + St` — dice
+ * grouped before the Attribute. The labels carry a leading sign (`+3d4`); the
+ * `+` is stripped because the join supplies the operator. A pure string
+ * transform shared by the Skill card and the weapon-attack card, so the
+ * presentation layer renders the folded formula without owning the surgery.
+ */
+export function foldDamageBonusesIntoFormula(
+  formula: string,
+  bonuses: DamageBonus[]
+): string {
+  if (bonuses.length === 0) return formula
+  const terms = bonuses.map((bonus) => bonus.label.replace(/^\+/, ""))
+  const parts = formula.split(" + ")
+  parts.splice(1, 0, ...terms)
+  return parts.join(" + ")
+}

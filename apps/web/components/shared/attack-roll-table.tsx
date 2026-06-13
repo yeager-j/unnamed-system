@@ -1,4 +1,8 @@
-import { formatSignedBonus, hydrateFormula } from "@workspace/game/engine"
+import {
+  foldDamageBonusesIntoFormula,
+  formatSignedBonus,
+  hydrateFormula,
+} from "@workspace/game/engine"
 import {
   type AttackRoll,
   type AttributeScores,
@@ -9,21 +13,6 @@ import { Badge } from "@workspace/ui/components/badge"
 
 import { AttackRollBreakdown } from "./attack-roll-breakdown"
 import { SideEffectBadge } from "./side-effect-badge"
-
-/**
- * Folds any resolved damage bonuses (e.g. a Berserker's Frenzy "+Nd4") into a
- * tier's damage formula, inserting them right after the leading damage term so
- * they read `1d10 + 3d4 + St` — dice grouped before the Attribute. The labels
- * carry a leading sign (`+3d4`); the `+` is stripped because the join supplies
- * the operator.
- */
-function withDamageBonuses(formula: string, bonuses: DamageBonus[]): string {
-  if (bonuses.length === 0) return formula
-  const terms = bonuses.map((bonus) => bonus.label.replace(/^\+/, ""))
-  const parts = formula.split(" + ")
-  parts.splice(1, 0, ...terms)
-  return parts.join(" + ")
-}
 
 /**
  * The Attack Roll tier table rendered at the bottom of every Skill or
@@ -61,7 +50,7 @@ export function AttackRollTable({
             {tier.formula ? (
               <span className="font-mono text-sm">
                 {hydrateFormula(
-                  withDamageBonuses(tier.formula, damageBonuses),
+                  foldDamageBonusesIntoFormula(tier.formula, damageBonuses),
                   attributes
                 )}
               </span>
