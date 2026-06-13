@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "ably@ably-agent-skills": true
+  }
+}

@@ -20,6 +20,7 @@
 
 - [ ] Passives that provide ribbon features. For example, Trickster could provide advantage on Expression Tests when lying.
 - [ ] Utilities: Abilities to use outside of combat
+- [ ] **Healer** gets Paladin/Holy Avenger. **Knight** gets a dedicated tank line (Bulwark?) and a more offensive line (Lancer).
 
 ### Summoner
 
@@ -31,6 +32,7 @@
 - [ ] **Painter Tree:** Domain Expansion?
 
 ### Warrior
+
 SS, SSS, MAX rank. Other tree caps lower but has different effects
 
 ## General Gameplay
@@ -93,10 +95,9 @@ SS, SSS, MAX rank. Other tree caps lower but has different effects
 | Bard         | Elec          | Mind   |
 | Warrior      | Wind          | Fire   |
 | Brawler      | Soul          | Strike |
-| Hunter       | Soul          | Pierce |
-| Berserker    | Mind          | Wind   |
+| Hunter       | Soul          | Wind   |
+| Berserker    | Mind          | Pierce |
 | Shapechanger | Mind          | Soul   |
-
 
 ## Standard Skill Damage
 
@@ -123,8 +124,6 @@ SS, SSS, MAX rank. Other tree caps lower but has different effects
 
 
 - Deity has a “deed shop”. Good deeds and bad deeds can be exchanged for rewards
-
-DUNGEONS ARE COMPOSED OF ZONES. Dungeon Turns work with Zones (15 mins to fully search a Zone)
 - BEN 10 DRUID??
 - Twitch streamer warlock
 

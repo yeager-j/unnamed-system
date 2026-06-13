@@ -1145,7 +1145,7 @@ Zero-touch steps (the paved parts, verified): loader (lib/db/queries/load-charac
 
 ## Proposed tickets (54)
 
-> **Filing status (2026-06-11):** the approved P0+P1 set (30 tickets) is fully filed to the Linear project *Frontend Audit* as **UNN-377 … UNN-406** (9 P0s as Urgent, 21 P1s as High). The 23 P2 tickets were intentionally not filed pending hand-triage of their mostly-unverified backing findings.
+> **Filing status (2026-06-11):** all 54 proposed tickets are filed to the Linear project *Frontend Audit*: **UNN-377…385** (9 P0s, Urgent), **UNN-386…406** (21 P1s, High), **UNN-407…430** (24 P2s, Medium). P2 descriptions note that their backing findings are mostly unverified — check the quoted evidence in FINDINGS.md before implementing.
 
 **T1 [P0] UNN-226 sweep: eliminate remaining client-composed post-state writes**
 Convert the ailment editor, enemy vitals section, builder virtues control, and writer-sidebar removal flow to per-field/delta actions (server reads and merges) or functional updates, per the documented combat-state.ts pattern. Add the rapid-double-interaction regression test for each, mirroring the UNN-226 test.
