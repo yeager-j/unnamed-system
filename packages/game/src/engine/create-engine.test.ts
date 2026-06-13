@@ -40,8 +40,11 @@ const setup: CombatantSetup[] = [
 ]
 
 describe("createGameEngine", () => {
-  it("binds every boundary function, each callable", () => {
+  it("binds exactly the expected boundary functions, each callable", () => {
     const engine = createGameEngine(makeTestGameData())
+    // Exact set, not just a subset, so a newly-bound boundary method without a
+    // corresponding entry here fails rather than going unnoticed.
+    expect(Object.keys(engine).sort()).toEqual([...EXPECTED_METHODS].sort())
     for (const name of EXPECTED_METHODS) {
       expect(typeof engine[name]).toBe("function")
     }
