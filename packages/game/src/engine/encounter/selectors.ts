@@ -101,6 +101,7 @@ export function sessionIncludesPc(
 ): boolean {
   return session.combatants.some(
     (combatant) =>
+      // Stryker disable next-line ConditionalExpression: equivalent — dropping the `kind === "pc"` guard leaves `ref.characterId === characterId`, but only pc refs carry a `characterId` (enemy/catalog-enemy have none → undefined), and `characterId` is always a real id, so a non-pc never matches.
       combatant.ref.kind === "pc" && combatant.ref.characterId === characterId
   )
 }

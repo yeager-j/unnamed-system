@@ -12,6 +12,7 @@ import type {
  * itself (UNN-313 forbids self-loops), so `zoneId` never appears in the result.
  */
 export function adjacentZones(session: CombatSession, zoneId: string): Zone[] {
+  // Stryker disable next-line ArrayDeclaration: equivalent — when `zoneId` has no adjacency entry, a junk fallback element resolves through `session.zones[id]` to undefined and is filtered out, yielding the same empty result as `[]`.
   return (session.adjacency[zoneId] ?? []).flatMap((id) => {
     const zone = session.zones[id]
     return zone ? [zone] : []

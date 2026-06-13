@@ -679,23 +679,13 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      keysOf(
-        recommend(view, "skill-focused", 5).map(
-          (r) => r.archetype
-        )
-      )
+      keysOf(recommend(view, "skill-focused", 5).map((r) => r.archetype))
     ).toEqual(["mage"])
     expect(
-      keysOf(
-        recommend(view, "health-focused", 5).map(
-          (r) => r.archetype
-        )
-      )
+      keysOf(recommend(view, "health-focused", 5).map((r) => r.archetype))
     ).toEqual(["warrior"])
     expect(
-      keysOf(
-        recommend(view, "balanced", 5).map((r) => r.archetype)
-      )
+      keysOf(recommend(view, "balanced", 5).map((r) => r.archetype))
     ).toEqual(["healer"])
   })
 
@@ -1016,9 +1006,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
-      "z-owned"
-    )
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe("z-owned")
   })
 
   it("breaks an Origin tie by Archetype key when tier and action match", () => {
@@ -1040,9 +1028,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
-      "alpha"
-    )
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe("alpha")
   })
 
   it("orders the Origin pick by tier ahead of action and key", () => {
@@ -1066,9 +1052,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
-      "z-initiate"
-    )
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe("z-initiate")
   })
 
   it("orders two same-tier Origin candidates by key, not by their summed tier", () => {
@@ -1092,9 +1076,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe(
-      "y-adept"
-    )
+    expect(recommend(view, "balanced", 5)[0]!.archetype.key).toBe("y-adept")
   })
 
   it("draws Slot 1 only from the Origin Lineage when one is actionable", () => {
@@ -1189,9 +1171,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      recommend(view, "skill-focused", 5).map(
-        (r) => r.archetype.key
-      )
+      recommend(view, "skill-focused", 5).map((r) => r.archetype.key)
     ).toEqual(["zzz-inprogress", "aaa-onpath"])
   })
 
@@ -1219,9 +1199,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      recommend(view, "skill-focused", 5).map(
-        (r) => r.archetype.key
-      )
+      recommend(view, "skill-focused", 5).map((r) => r.archetype.key)
     ).toEqual(["zzz-rankup", "aaa-fresh"])
   })
 
@@ -1256,9 +1234,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      recommend(view, "skill-focused", 5).map(
-        (r) => r.archetype.key
-      )
+      recommend(view, "skill-focused", 5).map((r) => r.archetype.key)
     ).toEqual(["zzz-initiate", "aaa-elite"])
   })
 
@@ -1284,9 +1260,7 @@ describe("getAtlasRecommendations", () => {
     })
 
     expect(
-      recommend(view, "skill-focused", 5).map(
-        (r) => r.archetype.key
-      )
+      recommend(view, "skill-focused", 5).map((r) => r.archetype.key)
     ).toEqual(["alpha", "zeta"])
   })
 
@@ -1318,9 +1292,7 @@ describe("getAtlasRecommendations", () => {
       ],
     })
 
-    const keys = recommend(view, "skill-focused", 5).map(
-      (r) => r.archetype.key
-    )
+    const keys = recommend(view, "skill-focused", 5).map((r) => r.archetype.key)
     expect(keys).toEqual(["m1", "m2", "m3"])
   })
 })
@@ -1475,7 +1447,34 @@ describe("getAtlasRecommendations — new-damage-type reason (UNN-277)", () => {
       "zzz-mage",
       "aaa-warrior",
     ])
-    expect(result.map((r) => r.reason)).toEqual(["fits-path", "new-damage-type"])
+    expect(result.map((r) => r.reason)).toEqual([
+      "fits-path",
+      "new-damage-type",
+    ])
+  })
+
+  it("ignores an Archetype Skill reference that does not resolve in the catalog", () => {
+    // "dia" is a real SkillKey but is absent from this block's seeded catalog, so
+    // getSkill returns undefined: the off-Path Warrior's only Skill contributes no
+    // damage type (and `skill?.kind` must short-circuit, not throw), so it is not
+    // surfaced.
+    const view = makeView({
+      lineages: [
+        lineageEntry("warrior", [
+          node(
+            { kind: "unlockable" },
+            {
+              key: "warrior",
+              lineage: "warrior",
+              tier: "initiate",
+              skills: [{ rank: 1, skill: "dia" }],
+            }
+          ),
+        ]),
+      ],
+    })
+
+    expect(recommendWith(view, "skill-focused", 5)).toEqual([])
   })
 
   it("ignores the multi-element 'special' bucket as a damage type", () => {

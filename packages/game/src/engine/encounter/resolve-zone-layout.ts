@@ -118,6 +118,7 @@ function zoneToken(
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
   const portraitUrl =
+    // Stryker disable next-line ConditionalExpression: equivalent — an enemy ref has no `characterId`, so the forced-pc branch reads `pcDetailById[undefined]?.portraitUrl ?? null` → null, the same as the `: null` fallback.
     ref.kind === "pc"
       ? (pcDetailById[ref.characterId]?.portraitUrl ?? null)
       : null

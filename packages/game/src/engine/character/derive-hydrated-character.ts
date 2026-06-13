@@ -85,6 +85,7 @@ function statContext(
     inventoryRows
       .filter((item) => item.equipped)
       .map((item) => item.catalogItemKey),
+    // Stryker disable next-line ArrayDeclaration: equivalent — every contextEffects consumer (attribute, affinity, attack-roll, damage-bonus folds) filters by `effect.type`, so a junk fallback element contributes nothing and is indistinguishable from `[]`.
     context?.zoneEffects ?? []
   )
 }

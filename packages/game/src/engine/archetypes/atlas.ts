@@ -197,9 +197,9 @@ export function buildLineageAtlas(lookups: Pick<GameData, "allArchetypes">) {
       // Sort by key only; the `columns` projection below already orders by tier
       // (it filters into ARCHETYPE_TIERS-ordered buckets), so a tier sort here
       // would be redundant.
-      const archetypes = (byLineage.get(lineage) ?? [])
-        .slice()
-        .sort((a, b) => a.key.localeCompare(b.key))
+      const archetypes = [...(byLineage.get(lineage) ?? [])].sort((a, b) =>
+        a.key.localeCompare(b.key)
+      )
 
       const nodes: AtlasNode[] = archetypes.map((archetype) => {
         const ownedRow = ownedRowByKey.get(archetype.key)

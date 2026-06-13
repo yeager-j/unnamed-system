@@ -67,10 +67,10 @@ export function isValidCreationAllocation(
 ): allocation is VirtueAllocation {
   const ranks = VIRTUE_KEYS.map((key) => allocation[key])
   if (ranks.some((r) => r !== 0 && r !== 1 && r !== 2)) return false
-  return (
-    ranks.filter((r) => r === 2).length === 1 &&
-    ranks.filter((r) => r === 1).length === 2
-  )
+  const twoCount = ranks.filter((r) => r === 2).length
+  // Stryker disable next-line EqualityOperator: equivalent — with exactly four ranks all in {0,1,2} (guarded above) and exactly one at rank 2, counting `r === 1` and `r !== 1` both equal 2 iff there are two 1s and one 0, so `!==` is indistinguishable here.
+  const oneCount = ranks.filter((r) => r === 1).length
+  return twoCount === 1 && oneCount === 2
 }
 
 /**

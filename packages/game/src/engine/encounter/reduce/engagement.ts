@@ -34,6 +34,7 @@ export function reduceEngagementEvent(
       if (combatant.engagement.status === "free") return
       setEngaged(combatant, [])
       for (const other of draft.combatants) {
+        // Stryker disable next-line ConditionalExpression: equivalent — for a combatant not engaged with the cleared one, filtering its (unchanged) target list and re-stamping it via setEngaged is idempotent, so processing it anyway leaves the same state.
         if (engagedWith(other).includes(event.combatantId)) {
           setEngaged(
             other,
@@ -49,8 +50,10 @@ export function reduceEngagementEvent(
     setEngaged(combatant, event.targetCombatantIds)
 
     for (const other of draft.combatants) {
+      // Stryker disable next-line ConditionalExpression: equivalent — for a legal event the combatant never targets itself, so when `other` is the combatant `isTarget === prev.has(self)` (both false) and the next guard `continue`s anyway; the self-skip is redundant.
       if (other.id === combatant.id) continue
       const isTarget = next.has(other.id)
+      // Stryker disable next-line ConditionalExpression: equivalent — for an `other` whose membership is unchanged, the branch below re-stamps the same target list, so not skipping is idempotent.
       if (isTarget === prev.has(other.id)) continue
       setEngaged(
         other,

@@ -137,6 +137,35 @@ describe("endOfTurnObligations", () => {
     expect(result.ailments).toEqual([])
   })
 
+  it("returns a fully empty result for an unknown actor, even when another combatant has obligations", () => {
+    const dirty = combatant({
+      id: "c-1",
+      ailments: ["burn"],
+      conditionDurations: { attack: 2 },
+      battleConditions: { ...DEFAULT_BATTLE_CONDITIONS, charged: true },
+    })
+    const result = obligations(session(dirty), "nope")
+    expect(result).toEqual({
+      ailments: [],
+      activeDurations: [],
+      heldFlags: [],
+      frenzy: null,
+    })
+  })
+
+  it("resolves an unknown catalog-enemy's max HP to 0 via the getEnemy fallback (no throw)", () => {
+    const result = obligations(
+      session(
+        combatant({
+          ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+          ailments: ["burn"],
+        })
+      ),
+      "c-1"
+    )
+    expect(result.ailments).toEqual([{ ailment: "burn", apply: null }])
+  })
+
   it("lists one entry per non-Downed ailment, excluding Downed", () => {
     const result = obligations(
       session(combatant({ ailments: ["downed", "fear"] })),

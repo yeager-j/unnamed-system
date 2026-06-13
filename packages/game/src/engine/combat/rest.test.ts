@@ -5,6 +5,8 @@ import {
   applyFullRest,
   applyPartialRest,
   applyRespite,
+  partialRestInputSchema,
+  respiteInputSchema,
   type RestingCharacter,
 } from "@workspace/game/engine/combat/rest"
 
@@ -236,5 +238,49 @@ describe("applyRespite", () => {
     applyRespite(character, { hitDiceSpent: 1, hpRecovered: 5 })
 
     expect(character).toEqual(snapshot)
+  })
+})
+
+describe("partialRestInputSchema", () => {
+  it("accepts non-negative integer inputs", () => {
+    expect(
+      partialRestInputSchema.safeParse({ skillDiceSpent: 2, spRecovered: 5 })
+        .success
+    ).toBe(true)
+  })
+
+  it("rejects a negative value", () => {
+    expect(
+      partialRestInputSchema.safeParse({ skillDiceSpent: -1, spRecovered: 0 })
+        .success
+    ).toBe(false)
+  })
+
+  it("rejects a non-integer value", () => {
+    expect(
+      partialRestInputSchema.safeParse({ skillDiceSpent: 1.5, spRecovered: 0 })
+        .success
+    ).toBe(false)
+  })
+})
+
+describe("respiteInputSchema", () => {
+  it("accepts non-negative integer inputs", () => {
+    expect(
+      respiteInputSchema.safeParse({ hitDiceSpent: 1, hpRecovered: 4 }).success
+    ).toBe(true)
+  })
+
+  it("rejects a negative value", () => {
+    expect(
+      respiteInputSchema.safeParse({ hitDiceSpent: 0, hpRecovered: -3 }).success
+    ).toBe(false)
+  })
+
+  it("rejects a non-integer value", () => {
+    expect(
+      respiteInputSchema.safeParse({ hitDiceSpent: 2.5, hpRecovered: 0 })
+        .success
+    ).toBe(false)
   })
 })
