@@ -48,6 +48,20 @@ export interface MechanicEffectContext {
   stats: StatContext
 }
 
+/**
+ * The base fields a {@link MechanicDefinition.transform} may replace wholesale
+ * on the freshly-hydrated {@link StatContext}. Every field is optional: a
+ * transform overrides only the parts of the active form it swaps (Shapeshifter
+ * replaces all three; a hypothetical attribute-only transform returns just
+ * `baseAttributes`). A returned field **replaces** the Archetype-resolved value
+ * outright — it is not merged element-wise and does not stack through the
+ * Effect pipeline. Locked to the {@link StatContext} field types so the two
+ * can't drift.
+ */
+export type MechanicStatTransform = Partial<
+  Pick<StatContext, "baseAttributes" | "baseAffinities" | "activeSkills">
+>
+
 export interface MechanicDefinition<TState> {
   /** Unique kebab-case identifier matching the Archetype's `mechanic` key. */
   kind: string
@@ -78,13 +92,17 @@ export interface MechanicDefinition<TState> {
   effects?(state: TState, ctx: MechanicEffectContext): MechanicEffect[]
 
   /**
-   * Replacement / wholesale-rewrite escape hatch. Not wired into the engine
-   * pipeline yet — the call site will be added alongside the first mechanic
-   * that needs it (Shapeshifter Lineage). Declared here so the contract is
-   * established and the shape is reviewable; refine the parameter/return type
-   * when the first user lands.
+   * Replacement / wholesale-rewrite escape hatch for mechanics that swap the
+   * active form's base attributes, Affinity chart, and active Skills wholesale
+   * — the planned Shapeshifter Lineage — which can't be expressed as additive
+   * Effects. Invoked by {@link buildStatContext} right after hydration (via
+   * `applyMechanicTransform`), receiving the mechanic's current `state` and the
+   * assembled {@link StatContext}, and returning the base fields to replace.
+   * Omit it (every MVP mechanic does) to leave the resolved Archetype base
+   * untouched. The compute functions read the post-transform base, so they need
+   * no knowledge of transforms.
    */
-  transform?: unknown
+  transform?(state: TState, context: StatContext): MechanicStatTransform
 
   /** Encounter-reset behavior. Consumed by the future combat tracker and the
    *  Full Rest sweep once write infrastructure lands. */

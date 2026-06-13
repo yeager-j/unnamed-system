@@ -5,6 +5,7 @@ import {
   FIXTURE_CHARACTER_ID,
   makeArchetypeRow,
   makeHydratedCharacter,
+  makeStatContext,
 } from "@workspace/game/engine/__fixtures__/character"
 import {
   makeAccessory,
@@ -13,12 +14,16 @@ import {
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { makePassiveSkill } from "@workspace/game/engine/__fixtures__/skills"
 import {
+  applyMechanicTransform,
   buildStatContext,
   toStatContext,
   type PersistedArchetypeState,
   type PersistedCharacterState,
 } from "@workspace/game/engine/character/stats/stat-character"
+import { type StatContext } from "@workspace/game/engine/character/stats/stats"
 import { getMechanic } from "@workspace/game/engine/mechanics/registry"
+import { type MechanicStatTransform } from "@workspace/game/engine/mechanics/types"
+import { type MechanicState } from "@workspace/game/foundation/mechanics/schema"
 
 /**
  * Real catalog keys used as **opaque ids**: every Rank/Skill/Lineage below is a
@@ -38,6 +43,8 @@ const fxWarrior = makeArchetype({
   lineage: "warrior",
   mechanic: "perfection",
   mastery: { kind: "hp", amount: 20 },
+  attributes: { strength: 2, magic: -1, agility: 1, luck: 0 },
+  affinities: { fire: "weak", ice: "resist" },
   skills: [
     { skill: W1, rank: 1 },
     { skill: W2, rank: 2 },
@@ -99,6 +106,28 @@ describe("buildStatContext", () => {
     expect(result.archetypes).toEqual([
       { key: "warrior", rank: 2, mastery: fxWarrior.mastery },
     ])
+  })
+
+  it("resolves the active Archetype's base attributes and affinities", () => {
+    const result = build(baseCharacter, [warriorRow()], [])
+    expect(result.baseAttributes).toEqual(fxWarrior.attributes)
+    expect(result.baseAffinities.fire).toBe("weak")
+    expect(result.baseAffinities.ice).toBe("resist")
+    // An uncharted type falls through to Neutral.
+    expect(result.baseAffinities.elec).toBe("neutral")
+  })
+
+  it("leaves the resolved base untouched for a mechanic with no transform", () => {
+    // Perfection (the fixture Warrior's mechanic) declares no `transform`, so
+    // the post-hydration transform step is a no-op and the Archetype base flows
+    // through unchanged.
+    const result = build(
+      baseCharacter,
+      [warriorRow({ mechanicState: { kind: "perfection", rank: 3 } })],
+      []
+    )
+    expect(result.baseAttributes).toEqual(fxWarrior.attributes)
+    expect(result.baseAffinities.fire).toBe("weak")
   })
 
   it("resolves the active Archetype's Lineage onto the context", () => {
@@ -372,5 +401,79 @@ describe("toStatContext", () => {
     expect(ctx.level).toBe(4)
     // Only the equipped item is threaded through (the stowed Spear is dropped).
     expect(ctx.equippedItems.map((item) => item.key)).toEqual(["longsword"])
+  })
+})
+
+describe("applyMechanicTransform", () => {
+  const perfectionState: MechanicState = { kind: "perfection", rank: 2 }
+
+  /** A context with an active mechanic, so a transform can fire against it. */
+  const contextWithMechanic = (overrides = {}) =>
+    makeStatContext(
+      {
+        activeMechanic: { kind: "perfection", state: perfectionState },
+        activeSkills: [makePassiveSkill({ key: W1 })],
+        ...overrides,
+      },
+      TEST_DATA
+    )
+
+  const newAttributes = { strength: -3, magic: 4, agility: 0, luck: 2 }
+
+  it("replaces base attributes, affinities, and active Skills the transform returns", () => {
+    const context = contextWithMechanic()
+    const shapeSkill = makePassiveSkill({ key: "shape-claw" })
+    const transform = (_state: MechanicState, ctx: StatContext) =>
+      ({
+        baseAttributes: newAttributes,
+        baseAffinities: { ...ctx.baseAffinities, fire: "drain" },
+        activeSkills: [shapeSkill],
+      }) satisfies MechanicStatTransform
+
+    const result = applyMechanicTransform(context, { transform })
+
+    expect(result.baseAttributes).toEqual(newAttributes)
+    expect(result.baseAffinities.fire).toBe("drain")
+    expect(result.activeSkills).toEqual([shapeSkill])
+  })
+
+  it("keeps a field the transform omits", () => {
+    const context = contextWithMechanic()
+    const transform = () =>
+      ({ baseAttributes: newAttributes }) satisfies MechanicStatTransform
+
+    const result = applyMechanicTransform(context, { transform })
+
+    expect(result.baseAttributes).toEqual(newAttributes)
+    expect(result.baseAffinities).toEqual(context.baseAffinities)
+    expect(result.activeSkills).toEqual(context.activeSkills)
+  })
+
+  it("passes the active mechanic's state and the assembled context to the transform", () => {
+    const context = contextWithMechanic()
+    let received: { state: MechanicState; context: StatContext } | undefined
+    const transform = (state: MechanicState, ctx: StatContext) => {
+      received = { state, context: ctx }
+      return {}
+    }
+
+    applyMechanicTransform(context, { transform })
+
+    expect(received?.state).toBe(perfectionState)
+    expect(received?.context).toBe(context)
+  })
+
+  it("returns the context unchanged when the mechanic declares no transform", () => {
+    const context = contextWithMechanic()
+    expect(applyMechanicTransform(context, {})).toBe(context)
+    expect(applyMechanicTransform(context, undefined)).toBe(context)
+  })
+
+  it("returns the context unchanged when no mechanic is active", () => {
+    const context = makeStatContext({ activeMechanic: null }, TEST_DATA)
+    const transform = () =>
+      ({ baseAttributes: newAttributes }) satisfies MechanicStatTransform
+
+    expect(applyMechanicTransform(context, { transform })).toBe(context)
   })
 })
