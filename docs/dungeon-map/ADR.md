@@ -74,7 +74,36 @@ The occupant key *is* the join between a token and the combat state held elsewhe
 
 ## The spatial refactor (§0)
 
-_[To be written — exactly what lifts off the `CombatSession` (zones/adjacency/zoneId + engagement + enchantment) and what stays (turn order, ailments, conditions, reaction, vitals); the migration of existing encounters into a Map Instance (auto-mint); the "combat behavior unchanged" gate.]_
+Milestone 0 is a **behavior-preserving refactor of the shipped combat tracker**, and the gate for everything downstream: the temporal layers can't sit over a Map Instance until the spatial state has been lifted out of the `CombatSession` to create one. It ships **no new player-visible behavior** — combat plays identically — and is done when the existing combat suite passes green reading position from the Instance.
+
+### What moves off the `CombatSession`
+
+| Today on the session/combatant | Moves to | As |
+| -- | -- | -- |
+| `session.zones`, `session.adjacency` | Map Instance | geometry (the zone graph) |
+| `combatant.zoneId` | Map Instance | occupancy — a **token** `{ zoneId, occupant }` |
+| `combatant.engagement` | Map Instance | engagement (a relation over co-located tokens) |
+| `session.enchantment` | Map Instance | per-Zone enchantment (+ Forte) |
+
+Everything else **stays** — it is non-spatial combat state: turn order (`firstSide` / `advantage` / `round` / `currentActorId`), the per-combatant overlay (ailments, battle conditions + durations, reaction, `side`, `hasActedThisRound`), the Shift chain, enemy identity + inline vitals, and status. The session **gains one field, `mapInstanceId`** — the reference to its spatial truth.
+
+This is a **larger cut than the PRD's §0**, which moves only `zones` / `adjacency` / `zoneId` and has the combatant "retain its overlay and engagement." This ADR moves **engagement and enchantment too** (Decision 3), because they are spatially-determined and co-locating them with occupancy makes a combat move a single-row write. See _Engagement & enchantment on the Map Instance_.
+
+### Schema delta
+
+§0's persistence change is exactly: introduce **`map_instances`** (the extracted spatial state, a versioned jsonb row) and add **`encounters.mapInstanceId`**. The `maps` template table and the `map_instances.mapId` back-reference arrive with authoring (M1); §0-era Instances are **template-less** (`mapId` null) — authored ad hoc inside encounter setup. Full DDL and rollout in _Persistence & concurrency_ and _Database & rollout_.
+
+### Migrating existing encounters
+
+Every existing encounter's inline spatial state migrates into a freshly-minted, **template-less Map Instance**: its `zones` / `adjacency` become the Instance geometry, each `combatant.zoneId` becomes a token, `engagement` and `enchantment` move across, and the encounter gains its `mapInstanceId`. A live encounter migrates in place with no behavior change. The migration mints **an Instance, not a template** — the one-off zones of a past fight aren't worth a reusable Map.
+
+### Encounter setup now authors onto the Instance
+
+With zones off the session, **encounter setup mints the Instance and places tokens** — this *replaces* today's inline zone authoring on the `CombatSession`. A standalone fight authors its geography ad hoc here (or, post-M1, picks a Map template); PC tokens are placed in setup, enemy tokens at combat start. The combat console reads position / engagement / enchantment from the Instance; the reducer is repointed (see _Reducer topology_) but its outputs are unchanged.
+
+### Why it gates everything
+
+The Dungeon, the exploration loop, fog-of-war, and dungeon-combat all assume a Map Instance exists to layer over. Until the spatial state lives on an Instance — addressable, shared, with its own reducer — there is nothing for the temporal layers to invoke. So behavior parity is the acceptance bar: the contract-test smoke layer (`__contract__`, real-catalog combat) passes unchanged, and the standalone-encounter E2E (cast / heal / move) is green, before any temporal layer lands.
 
 ---
 
