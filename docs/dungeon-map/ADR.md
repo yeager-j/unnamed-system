@@ -34,7 +34,41 @@ _[To be written — what's shipped (the combat tracker, its `CombatSession` owni
 
 ## The four-entity model
 
-_[To be written — Map / Map Instance / Dungeon / Encounter; the spatial-vs-temporal split; the data-ownership table (Instance vs Dungeon vs Encounter vs character row); the PC/enemy decomposition (position + engagement → Instance; identity + vitals + non-spatial overlay → Encounter; vitals → character row).]_
+The feature names a separation the combat tracker implied but never drew. Four entities — two new spatial primitives, and the two temporal layers that run over them:
+
+- **Map** — reusable, **user-owned** authored geography. A template belonging to no campaign or dungeon: Zones, connections (with `hidden` / `locked` flags), the node `(x, y)` layout, and per-Zone player-facing descriptions + private DM notes. Authored on the My Maps surface; never holds runtime.
+- **Map Instance** — a **per-run snapshot** of a Map's geometry that owns **all spatial runtime**. Minted when a Map is selected (for a dungeon, or for a standalone encounter). It is the **single spatial truth** the other layers render.
+- **Dungeon** — the **exploration-time** layer over one Instance: the dungeon-turn loop, the delve's lifecycle, and the DM-only reminder settings. Owns **no** geometry.
+- **Encounter** — the existing **combat-time** layer, repointed: turn order, the (now non-spatial) combatant overlay, enemy identity + vitals — **referencing** a Map Instance for position instead of owning it.
+
+`Dungeon : exploration-time :: Encounter : combat-time`. Both are purely temporal; **the Instance owns every spatial transition** (`move → reveal`, `move → break-engagement`, enchant), and the temporal layers **invoke** those transitions rather than reimplementing them.
+
+### What each entity owns
+
+| Layer | State | Lifecycle |
+| -- | -- | -- |
+| **Map** (template) | Zones · connections + `hidden`/`locked` · node `(x,y)` · descriptions · DM notes | Durable, user-owned; edited only on My Maps |
+| **Map Instance** (space) | **Geometry** (snapshot of the Map's, editable in Edit mode) · **occupancy** (tokens) · **reveal-state** (revealed Zones / revealed hidden connections / unlocked connections) · **engagement** · **enchantment** | Per-run; geometry persists across the run, engagement + enchantment are combat-scoped (pruned at combat-end) |
+| **Dungeon** (exploration-time) | Turn counter · `actedCharacterIds` (this turn) · reminder settings · status (`draft`/`active`/`done`) · `campaignId` | Per-delve |
+| **Encounter** (combat-time) | Turn order (`firstSide`/`advantage`/`round`/`currentActorId`) · the **non-spatial** combatant overlay (ailments, battle conditions + durations, reaction, side, `hasActedThisRound`) · enemy identity + inline vitals · `mapInstanceId` · status | Per-fight; ephemeral, dies with the session |
+| **Character row** | `currentHP` / `currentSP` / `exhaustion` | Persistent across encounters |
+
+No value is dual-homed — the property the tracker ADR established, extended across the spatial split. In particular **the delve roster is not stored**: it *is* the set of **PC tokens on the Instance** (placing a token adds a character to the delve; pruning it removes them). The Dungeon's turn-loop holds only *which* of those characters have acted this turn (`actedCharacterIds`) — temporal state keyed by `characterId`, distinct from the Encounter's per-combatant `hasActedThisRound` (different mode, different unit; a character never acts in both at once).
+
+### Every Encounter references an Instance; the Dungeon is optional
+
+Position is never a property of a character or a combatant — it is always a **token in some Map Instance's occupancy**. So **every Encounter references a Map Instance**: a one-off skirmish mints its own (from a template, or authored ad hoc, in encounter setup — this replaces today's inline zone authoring on the `CombatSession`); a dungeon encounter **reuses the dungeon's Instance**. The Dungeon is the optional layer. An Instance is driven by a Dungeon (a delve), or by an Encounter alone (a standalone fight), or — during dungeon combat — by **both at once**. That last case is the shared row the concurrency model is built around: **one Instance is referenced by at most one Dungeon and at most one live Encounter.**
+
+### PC and enemy decompose the same way
+
+A combatant is a **position + a vitals source + a non-spatial overlay**, and PCs and enemies differ on exactly one axis — the same one they already differed on:
+
+| Combatant kind | Position | Vitals source | Non-spatial overlay |
+| -- | -- | -- | -- |
+| **PC** | token on the Instance, keyed by `characterId` (**persistent** — outlives any one encounter) | the **character row** | on the Encounter combatant |
+| **Enemy** | token on the Instance, keyed by `combatant.id` (**ephemeral** — dies with the session) | inline statblock **on the combatant** | on the Encounter combatant |
+
+The occupant key *is* the join between a token and the combat state held elsewhere — which is what lets PC tokens persist while enemy combatants are ephemeral. **Engagement and enchantment are spatial and live on the Instance for both kinds** (see _Engagement & enchantment on the Map Instance_); only the vitals source differs — the one axis that already differed in the shipped tracker.
 
 ---
 
