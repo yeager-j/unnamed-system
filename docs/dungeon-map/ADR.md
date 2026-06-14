@@ -109,7 +109,42 @@ The Dungeon, the exploration loop, fog-of-war, and dungeon-combat all assume a M
 
 ## Engagement & enchantment on the Map Instance
 
-_[To be written — the Position 2 decision with the rules grounding (§3.5: "in combat", "left the Zone → Free"; Enchantment: "in the Zone it targets", "end when combat ends"); the `engagement ⊆ same-Zone token pairs` invariant; the move → break-engagement spatial transition; prune-at-combat-end; the Enchantment Forte/one-at-a-time nuance flagged.]_
+The combat overlay splits. The PRD keeps **engagement** on the combatant ("orthogonal to position"), and the current `CombatSession` keeps **enchantment** as a zone-keyed map on the session. This ADR moves **both onto the Map Instance**, with occupancy and reveal-state — they are the *spatially-determined* slice of combat state, and putting them where the spatial entities live is what makes a combat move a single-row write.
+
+### They are combat-scoped *and* spatial — verified against the rules
+
+| | Combat-scoped? | Spatial? |
+| -- | -- | -- |
+| **Engagement** (§3.5) | "At any moment **in combat**, a character is either Engaged … or Free." | "A character becomes Free … because they are Fallen, Dead, or **have otherwise left the Zone**." — leaving a Zone breaks it. |
+| **Enchantment** (Bard) | "**All Enchantments end when combat ends**." | "The Enchantment is **created in the Zone it targets**." — a per-Zone property. |
+
+Both exist only during a fight and are anchored to Zones — exactly the profile that belongs on the Instance: a spatial home, pruned at combat-end.
+
+### "Orthogonal to position" conflated two things
+
+Pulling the PRD's phrase apart:
+
+- **Not *derivable* from position** — true. Two tokens sharing a Zone aren't necessarily locked; the DM picks. Engagement is independent *data*, not a function of occupancy.
+- **Not *coupled* to position** — false. It has a same-Zone precondition (you can only Engage a co-occupant) and a hard transition (leaving the Zone makes you Free).
+
+So engagement is **independent data with a spatial invariant**: `engagement ⊆ same-Zone token pairs`. The place to maintain an invariant between two pieces of state is the reducer that owns both. Split them — occupancy on the Instance, engagement on the Encounter — and every move must write both rows to keep the invariant true; *that* is the combat-move cross-write. Co-locate them and it collapses to one row, with the `move → break-engagement` rule in the same function as `move → reveal` (both are movement events mutating Instance state).
+
+### The model
+
+- **Engagement** is a relation over co-located tokens — mutual, possibly one-to-many (a swordsman beset by two enemies is Engaged with both). It rides occupancy: a token's engagements are cleared by the same `reduceMapInstance` transition that moves it out of a Zone, by Disengage, and by Fallen/Dead. PC tokens persist across the delve, but an engagement involving an enemy token is pruned when that enemy is — folded into the combat-end enemy-token cleanup.
+- **Enchantment** is a per-Zone effect carrying a **Forte** level (`f → ff → fff`, cap 3; a Zone re-Enchanted with the same type raises Forte). It lives on the Zone in the Instance and ends at combat-end.
+
+### Lifecycle: empty in exploration, pruned at combat-end
+
+These are the one place the Instance carries *combat-scoped* fields. During exploration they are simply empty (no fight ⇒ no engagement, no enchantment). At combat-end the Instance prunes them alongside the enemy tokens it already removes — one cleanup, one row. This is the cost of Decision 3, accepted in exchange for the single-row combat move; it is small because the prune co-occurs with work the Instance does anyway.
+
+### Writer vs. home during combat
+
+Co-locating engagement with occupancy does **not** hand movement authority to the spatial layer during a fight. The **Encounter's movement model still computes** the move — legality, opportunity-attack and interception prompts, engagement consequences (guided-but-overridable), reading both the Instance and the session — then **invokes the Instance's spatial transition to apply** the occupancy + engagement write. Reads span layers freely; only the write needs a guard, and it is one row. See _Reducer topology_.
+
+### Open: Enchantment cardinality
+
+The Enchantment rule reads *"Only one Zone can be Enchanted at any one time; if you Enchant a second Zone, the first one loses its Enchantment"* — ambiguous on whether the cap is **per-Bard** (each Bard maintains one Enchanted Zone) or **global** (one Enchanted Zone in the whole fight). It doesn't affect the home (per-Zone on the Instance either way); it's a `reduceMapInstance` rule to pin down at implementation. Tracked in _Open questions remaining_.
 
 ---
 
