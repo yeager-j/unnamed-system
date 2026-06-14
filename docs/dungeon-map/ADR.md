@@ -10,7 +10,19 @@
 
 ## Context
 
-_[To be written — what's shipped (the combat tracker, its `CombatSession` owning `zones`/`adjacency`/`combatant.zoneId`, the Ably invalidation-ping layer), what the PRD asks for, and the premise this ADR adopts: the Map Instance is the single spatial truth, and **all spatially-determined state — occupancy, reveal, engagement, enchantment — lives on it**. What still stands from the PRD; what this ADR revises.]_
+The combat tracker is shipped (see the [Initiative Tracker ADR](../initiative-tracker/ADR.md)): a **Campaign** is the DM↔player boundary, and an **Encounter** holds the whole combat runtime in one `session` jsonb — turn order, the per-combatant overlay, **and the spatial state: `zones`, `adjacency`, every `combatant.zoneId`, `engagement`, and the Bard `enchantment`**. The pure `reduceCombatSession(session, event) → session'` is the sole writer; a read-only player watch view polls a server-redacted snapshot; and a [realtime invalidation-ping layer](../realtime/ADR.md) (Ably) nudges clients to refetch.
+
+The [PRD](./PRD.md) asks for a DM tool to author and run multi-room dungeons: a reusable **Map** template, instantiated per run as a **Map Instance**, with a **Dungeon** (exploration) and the existing **Encounter** (combat) as temporal layers over it; a fog-of-war player view; and combat that runs *on the dungeon* rather than in a copied arena. The PRD fixes the model and explicitly defers the technical design — data model, migration, reducer topology, atomicity, rendering substrate — to this ADR.
+
+**The premise this ADR adopts, and extends past the PRD:** the Map Instance is the **single spatial truth**, and **all spatially-determined state lives on it — occupancy, reveal-state, _and_ engagement and enchantment.** That extension is the through-line: it makes a combat move a single-row write, collapses the atomicity question, and fixes the §0 cut.
+
+**What stands from the PRD:** the three-runtime-layer model over a reusable Map; snapshot isolation (Instance edits never touch the template; template edits never reach live Instances); fog and reveal-state on the Instance; the polled, redacted, signed-out-visible player view; combat-on-the-dungeon with no copied graph; DM-driven movement; an abstract node-graph (not a tile/VTT map); reminders as pure selectors over the turn counter.
+
+**What this ADR revises:**
+
+- **Engagement and enchantment move to the Instance** (the PRD has engagement on the combatant, enchantment on the session) — _Engagement & enchantment on the Map Instance._
+- **The console gains an Edit ⇄ Play mode toggle with in-run geometry editing in v1** (the PRD defers all Instance editing to M6) — _Console topology & surfaces._
+- **Existing encounters are disposable** — the cutover truncates and reseeds rather than backfilling — _The spatial refactor (§0)._
 
 ---
 
@@ -27,7 +39,7 @@ _[To be written — what's shipped (the combat tracker, its `CombatSession` owni
 | 7 | **Combat on the dungeon** | Starting combat **places enemy combatants onto the live Instance** and layers a turn loop over it — no carved sub-graph, no copy. The whole map is in play (kiting). In exploration the DM moves tokens freely; once combat is live, occupancy is written **only through the Encounter's movement model**. Combat-end prunes enemy tokens + engagement + enchantment, persists PC positions, and advances the consumed dungeon turn. |
 | 8 | **Console topology** | **One `/dungeon/[shortId]` route with an Edit ⇄ Play mode toggle, orthogonal to lifecycle status** (`draft` / `active` / `done`). Edit mode = the full builder toolset on the Instance, available **regardless of status** (in-run geometry editing ships in v1; destructive edits guarded). Map **template** authoring lives on a separate user-owned **My Maps** editor. |
 | 9 | **Rendering substrate** | **React Flow (`@xyflow/react`, MIT core)**, behind a lazy `"use client"` island. Two spikes gate the commit: **token-drag-along-adjacency** and the **graph-keyboard / aria-live accessibility pass**. **Hand-rolled SVG + `d3-zoom`** is the documented escape hatch. |
-| 10 | **Transport** | Reuse the **Ably invalidation-ping**. New `dungeon:{shortId}` + map-instance channels; the watch view subscribes to **both** the encounter and instance channels while combat is live. Polling stays the degraded-mode fallback. No new infra. |
+| 10 | **Transport** | Reuse the **Ably invalidation-ping**. A new `dungeon:{shortId}` channel; while combat is live the dungeon player view subscribes to **both** the dungeon and the live `encounter:{shortId}` channel (the Instance has no channel of its own). Polling stays the degraded-mode fallback. No new infra. |
 | 11 | **Player view** | A **redacted Instance projection**, polled (~1.5s), signed-out-visible. Three element-states (revealed / known-exit silhouette / stripped); DM notes stripped server-side; enemy affinities hidden during combat. **Status-branched** (draft / live / ended). |
 
 ---
@@ -150,70 +162,237 @@ The Enchantment rule reads *"Only one Zone can be Enchanted at any one time; if 
 
 ## Persistence & concurrency
 
-_[To be written — the tables (maps / map_instances / dungeons / encounters.mapInstanceId); per-row versioning; the atomicity model (design-away by default + `guardMany` transaction for the ~4 rare lifecycle gestures); why the Instance is its own table (shared by Dungeon + a live Encounter).]_
+### The tables
+
+Three new tables; one altered.
+
+- **`maps`** — the user-owned template. `id`, `userId` (owner fk), `shortId` (the My Maps URL), `name`, `geometry` (jsonb: Zones, connections + `hidden`/`locked`, node `(x,y)`, descriptions, DM notes), `version`, timestamps. Edited only on My Maps; holds no runtime.
+- **`map_instances`** — the per-run spatial truth. `id`, `mapId` (**nullable** fk → `maps`; null when authored ad hoc), `state` (jsonb: the geometry snapshot **+** occupancy + reveal-state + engagement + enchantment — one nested object, mirroring how the encounter persists its session), `version`, timestamps. **No `shortId`** — an Instance is reached through the Dungeon or Encounter that references it, never a public URL of its own.
+- **`dungeons`** — the exploration layer. `id`, `campaignId` (fk), `shortId` (for `/dungeon/{shortId}` + `/c/dungeon/{shortId}`), `name`, `mapInstanceId` (fk — the delve's Instance), `status` (`draft`/`active`/`done`), `state` (jsonb: turn counter, `actedCharacterIds`, reminder settings), `version`, timestamps.
+- **`encounters`** — **gains `mapInstanceId`** (non-null fk) and **drops** inline `zones`/`adjacency`/`enchantment` from its `session`, plus `zoneId`/`engagement` from each combatant.
+
+The Instance `state` is one jsonb blob with one `version`, exactly as the encounter `session` is — geometry-vs-runtime is a *logical* split, not separate columns. At table scale (dozens of Zones) rewriting the blob per move is fine; it's the shipped pattern.
+
+### Why the Instance is its own table
+
+A Map Instance is referenced by **at most one Dungeon and at most one live Encounter** — and during dungeon combat, by **both at once**. Folding it into the Dungeon row would strand a standalone encounter (an Instance with no Dungeon); folding it into the Encounter would re-create the dual-home the tracker ADR eliminated and lose the persistence of PC positions across fights. A shared spatial truth needs a shared row.
+
+### Concurrency: per-row version guards
+
+Each of `maps`, `map_instances`, `dungeons`, `encounters` carries its own `version`, guarded by the existing [`version-guard`](../initiative-tracker/ADR.md) primitive — reused, not reinvented. A write loads the row, reduces, persists version-guarded; the optimistic client mirrors with the same reducer. The realtime ping carries `(domain, id, version)` per row.
+
+### Atomicity (Decision 5): design the cross-write away, transact the rest
+
+Most gestures are single-row by construction:
+
+| Gesture | Writes | Rows |
+| -- | -- | -- |
+| Normal move (costs no turn) | Instance occupancy | 1 |
+| Reveal / hide / unlock | Instance reveal-state | 1 |
+| **Combat move** (occupancy + engagement) | Instance | **1** (engagement-on-Instance) |
+| Combat event (condition, vitals, turn) | Encounter | 1 |
+| Mark acted / advance turn | Dungeon | 1 |
+
+The genuinely-atomic, multi-container gestures are **few, rare, and confirm-gated** — and they get one transaction composing per-row guards (a small **`guardMany`**, the one new primitive):
+
+| Gesture | Writes |
+| -- | -- |
+| Delve start (place roster) | Dungeon + Instance |
+| Combat start (enemies + tokens + status) | Encounter + Instance |
+| Combat end (end + prune + mark turn) | Encounter + Instance + Dungeon |
+| Search-that-reveals (acted + reveal) | Dungeon + Instance |
+
+No per-move transaction; the hot path stays single-row. (A normal move costs no turn, and "acted" vs "reveal" are separate gestures — so the only forced multi-writes are the four above.)
 
 ---
 
 ## Reducer topology
 
-_[To be written — reduceMapInstance / reduceDungeon / repointed reduceCombatSession; how the temporal layers invoke spatial transitions ("the move event delegates the spatial part to the Instance"); the writer-vs-home seam during combat (encounter movement model computes legality, Instance applies the write).]_
+Three pure reducers, one of them existing-and-repointed; statefulness stays in the DB and React, never the engine.
+
+- **`reduceMapInstance(instance, spatialEvent) → instance'`** — owns **every spatial transition**: `move` (occupancy) with its `→ reveal` (entered Zone + non-hidden neighbors) and `→ break-engagement` (left Zone) consequences; `reveal`/`hide`/`unlock`; `engage`/`disengage`; `enchant`; and the **Edit-mode geometry edits** (`addZone`, `setAdjacency`, `toggleConnectionFlag`, `editDescription`, `repositionNode`, guarded `deleteZone`). One home for the move-rules and the geometry.
+- **`reduceDungeon(dungeon, event) → dungeon'`** — the exploration turn loop: `markActed`, `advanceTurn`, status transitions. The reminders are **pure selectors over the turn counter** (random-encounter cadence, Exhaustion onset), not reducer state. The roster is **derived** from Instance tokens (adding/removing a character is a token op, with `actedCharacterIds` cleanup).
+- **`reduceCombatSession(session, event) → session'`** — the **existing** reducer, repointed: it no longer owns `zoneId`/`engagement`/`enchantment`. Legality selectors (whose turn, reaction, opportunity-attack/interception prompts) take the Instance's occupancy + engagement as **injected context** — the tracker ADR's inject-don't-store pattern — and the reducer writes only the non-spatial session.
+
+### Temporal layers invoke spatial transitions
+
+The principle the PRD names, made concrete in the impure shell:
+
+- **Exploration move** — the DM free-drags; the shell calls `reduceMapInstance` directly. No Dungeon write (a normal move costs no turn).
+- **Combat move** — `reduceCombatSession` computes legality and the move's consequences (engagement, OA prompts), then **delegates the spatial write to `reduceMapInstance`**. The session itself is usually unchanged (a pure reposition); the one row written is the Instance. Movement authority stays with the Encounter; the Instance is just where the write lands.
+- **Search-that-reveals** — `reduceDungeon.markActed` + `reduceMapInstance.reveal`, composed in one `guardMany` transaction.
+
+Engine placement (`packages/game`): `reduceMapInstance` and `reduceDungeon` are new pure modules beside the encounter reducer, data-pure and fixture-tested per the package rubric; the `Statblock` derivers are untouched.
 
 ---
 
 ## Combat on the dungeon
 
-_[To be written — enemies onto the live Instance; whole-map play; movement authority (free-drag in exploration vs the encounter movement model in combat, guided-but-overridable); combat-end cleanup (prune enemy tokens + engagement + enchantment, persist PC positions, mark the consumed dungeon turn).]_
+Starting combat during a delve **places enemies onto the live Instance** — it does not carve a sub-graph or copy anything. The DM adds enemy combatants (catalog or free-entry, through the existing start-combat flow), drops their tokens onto Zones, declares advantage + first side, and the existing turn order proceeds. Combat runs over the **same Map Instance** the delve uses, so the **whole map is in play** (kiting across Zones) and the hidden/locked/fog rules hold automatically — there is exactly one spatial source.
+
+### Movement authority is mode-dependent
+
+- **Exploration** — the DM moves tokens **freely** (`reduceMapInstance` direct), the party can split, a normal move costs no turn.
+- **Combat** — occupancy is written **only through the Encounter's movement model**, so engagement, opportunity attacks, and interception are enforced (guided-but-overridable, as today) rather than bypassed by a free drag. The console emits combat-move events, not free-drag events, while a fight is live.
+
+### Combat end
+
+Enemy tokens, engagement, and enchantment are **pruned from the Instance** (one cleanup, one row); PC tokens **persist** where they ended; the DM marks off the **dungeon turn the fight consumed** (§2.2) via a one-tap confirm. HP/SP already live on the character row, so post-combat state carries over for free. Combat-end is a three-container gesture (Encounter end + Instance prune + Dungeon turn) — one of the `guardMany` transactions.
+
+A **standalone** fight is the same machinery with the Instance 1:1 to the encounter and no Dungeon.
 
 ---
 
 ## Console topology & surfaces
 
-_[To be written — the one `/dungeon/[shortId]` route; the Edit ⇄ Play mode toggle (status vs mode as orthogonal axes; mode is DM-local ephemeral UI); in-run geometry editing in v1 with destructive-edit guards; the My Maps template editor; `/c/dungeon/[shortId]` player view; the dungeons list + create dialog on the campaign page; status-branched player view.]_
+### One route, two orthogonal axes
+
+The DM console is a single route, `/dungeon/{shortId}`, governed by two independent axes:
+
+- **Status** (`draft` / `active` / `done`) — the delve's **persisted lifecycle**. Drives the player-view branch, whether the turn loop runs, and whether combat can start.
+- **Mode** (`Edit` ⇄ `Play`) — **which tools the canvas exposes**, DM-local ephemeral UI (`useState`, not persisted), **orthogonal to status**. **Edit** = the full builder toolset on the Instance (add/rename/move Zones, draw/flag/delete connections, edit descriptions). **Play** = the run toolset (move tokens, reveal/unlock, turn loop, combat).
+
+Because mode is orthogonal to status, the DM can drop into **Edit mid-`active`-delve** to wire a forgotten adjacency, then flip back to Play. The toggle also disambiguates the canvas's overloaded drag: in Edit, dragging a node **repositions** it; in Play, dragging **moves a token**.
+
+### In-run geometry editing ships in v1
+
+Edit mode writes Instance geometry through `reduceMapInstance`. **Non-destructive edits** (add a Zone, add/rename an adjacency, toggle a flag, edit text) are safe anytime, including mid-combat — "add a forgotten adjacency" is exactly this. **Destructive edits** (delete an occupied Zone/connection) are guarded by the PRD's existing block/relocate-with-confirm rule. This pulls the *geometry* slice of the PRD's M6 into v1; **structured-content editing** (markers, monster spawns) stays M6. It also fixes the shipped tracker's "can't edit in progress" pain as a side effect of §0 — a standalone encounter's live console gets the same Edit toggle.
+
+### Surfaces
+
+- **My Maps** — the user-owned template list + the Map editor (autosave). Reachable on its own; authoring a *template* is distinct from editing a delve's *Instance*.
+- **Dungeons list + create dialog** — on the campaign page; the Map picker lists the DM's own Maps, with **New Map** authoring inline.
+- **`/dungeon/{shortId}`** — the DM console (status-forked under the hood: `draft` = prep, `active` = run, `done` = summary; with the Edit/Play toggle).
+- **`/c/dungeon/{shortId}`** — the read-only fog player view (status-branched).
+
+One **shared canvas component** serves builder, console, and player view (route-agnostic) — "the same graph" as code.
 
 ---
 
 ## Rendering substrate
 
-_[To be written — React Flow rationale (DOM/SVG renderer ⇒ rich React nodes + an accessible tree, the two requirements that point the same way); MIT core, lazy island; the two gating spikes (token-drag-along-adjacency; the a11y graph-keyboard / aria-live pass); the SVG + d3-zoom escape hatch; the rejected options (Cytoscape — abandoned React wrapper; Sigma — WebGL fights a11y).]_
+**Decision: React Flow (`@xyflow/react`, MIT core)**, behind a lazy `"use client"` island.
+
+The two hardest requirements point the same way — at a **DOM/SVG renderer**:
+
+- **Rich React node content.** A Zone node is a styled card (name, reveal/lock state, token occupancy); React Flow nodes *are* your React components, so shadcn + Phosphor + Tailwind render natively. Canvas/WebGL renderers (Cytoscape, Sigma) paint pixels — you'd rebuild that as draw calls.
+- **Accessibility (a v1 requirement).** A DOM renderer has an accessible tree to work with; React Flow ships focusable nodes/edges, Tab/arrow traversal, Enter/Space activation, `ariaRole`/`ariaLabelConfig`, and a built-in `aria-live` region. Canvas (Cytoscape) and WebGL (Sigma) have **no DOM to make accessible** — they fight the requirement.
+
+It also hands us, MIT and free, every built-in we'd otherwise hand-roll across three surfaces — pan/zoom, fit-view, touch/pinch, drag, drag-to-connect, even the deferred minimap — at ~58 KB gz, lazy-loaded so non-map pages don't pay. Our scale (dozens–low-hundreds of nodes) is trivial for a DOM renderer.
+
+**Rejected:** **Cytoscape.js** (canvas; no accessible DOM; its React wrapper is abandoned — last release 2022, no React 18/19 declaration). **Sigma.js** (WebGL; actively fights every a11y requirement). **Hand-rolled SVG** (philosophically clean — zero lock-in, total a11y control — but re-implements pan/zoom/drag/connect/fit-view/touch across three surfaces, exactly the work React Flow deletes).
+
+**Two spikes gate the commit:**
+
+1. **Token-drag-along-adjacency** — snapping a token to an *adjacent* Zone (rejecting non-adjacent) is the one interaction React Flow doesn't give for free; build it on the run console and confirm it composes with `onNodeDrag` rather than fighting it.
+2. **The a11y graph-keyboard / aria-live pass** — React Flow's arrow keys move a *node*, not traverse *edges*; our roving-tabindex Zone list + arrow-key adjacency traversal + per-Zone descriptions + reveal/move announcements layer on top, and the fog player view must keep unrevealed Zones out of the tab order and the a11y tree. Validate one screen-reader pass *before* committing — it's the requirement most likely to hit a wall.
+
+**Escape hatch:** hand-rolled SVG + `d3-zoom` — low-friction because each node/edge is already a plain React component we own; also the natural fallback if the a11y spike fails.
 
 ---
 
 ## Transport
 
-_[To be written — reuse the Ably invalidation-ping; new dungeon + map-instance channels; the watch view dual-subscribes (encounter + instance) while combat is live, because a combat move now pings the Instance channel; polling fallback unchanged; channel naming via the env-namespaced server-owned helper.]_
+Reuse the shipped **Ably invalidation-ping** ([Real-Time ADR](../realtime/ADR.md)) wholesale — pings carry `(domain, id, version)`, clients refetch through the existing read paths, **zero new infra**. The additions:
+
+- **A new `dungeon:{shortId}` channel.** Exploration writes — moves, reveals, turn-loop changes (Dungeon + Instance during exploration) — ping it. The dungeon player view subscribes to it.
+- **The watch view dual-subscribes during combat.** A combat move is now an *Instance* write driven by the Encounter, so it pings the `encounter:{shortId}` channel (as combat events already do). The dungeon player view, which composes the combat watch while a fight is live, **subscribes to both `dungeon:{shortId}` and the live `encounter:{shortId}`** (it learns the encounter shortId from the snapshot) — the same multi-channel pattern the DM console already uses.
+- **Channel naming** goes through the env-namespaced, server-owned helper (`lib/realtime/channels.ts`); the `dungeon` domain is added there. Tokens stay subscribe-only; payloads stay advisory metadata.
+
+**Polling remains the degraded-mode fallback**, unchanged — when realtime is unavailable the player view keeps its ~1.5s poll, and E2E asserts through the DB regardless.
 
 ---
 
 ## Player view: redaction & snapshot
 
-_[To be written — the redacted Instance projection (undiscovered Zones hidden, unrevealed hidden connections invisible, DM notes stripped, enemy affinities hidden during combat); the three element-states; the polled snapshot API; status-branching; self-identification; the combat composition (own-sheet column + "Combat — Round N" signal).]_
+The fog player view at `/c/dungeon/{shortId}` consumes a **server-redacted projection of the Map Instance**, polled (~1.5s) and realtime-pinged, signed-out-visible — reusing the encounter watch's transport and visibility model.
+
+**Redaction stays server-side** (the realtime ADR's invariant). A new `projectDungeonSnapshot` strips, per element, into the PRD's **three states**:
+
+- **Fully revealed** — Zone name, description, tokens.
+- **Known-exit silhouette** — *that* an exit exists and *whether it's locked*, nothing more (no neighbor name/description/contents).
+- **Stripped** — undiscovered Zones, unrevealed hidden connections, and DM notes are **absent from the payload**, not hidden client-side.
+
+During combat the projection also **hides enemy affinities** (reusing the UNN-324 enemy redaction) while showing HP/SP.
+
+**Status-branched** like the encounter watch: `draft` ("the delve hasn't begun") / `live` (the fog map) / `ended` (a frozen final reveal) — never a bare canvas. **Self-identifying:** tokens are labeled, and the viewer's own token(s) highlighted (spectator = map only; member = self-highlight).
+
+**During combat** the view composes the encounter watch's **own-character-sheet column + a "Combat — Round N" signal**, with the dungeon map as the battlefield panel — no redirect. **During exploration** it shows only the day's **turn counter** (no turn queue; acted-flags stay DM-only). Served from a public `app/api/dungeon/{shortId}/snapshot` route, analogous to the encounter snapshot.
 
 ---
 
 ## Database & rollout
 
-_[To be written — migration inventory (additive: maps / map_instances / dungeons + encounters.mapInstanceId + the encounter-zone migration); expand/contract sequencing; the destructive vs additive split; migrate-on-deploy considerations.]_
+### Migration inventory
+
+| Migration | Kind | Effect |
+| -- | -- | -- |
+| Create `maps`, `map_instances`, `dungeons` | **Additive** | new tables |
+| `ALTER encounters ADD mapInstanceId` (non-null) | **Additive\*** | \*non-null is safe only because `encounters` is truncated in the same cutover |
+| Drop `zones`/`adjacency`/`enchantment` from `session`; `zoneId`/`engagement` from combatants | **Destructive** | shed the migrated columns |
+| `TRUNCATE encounters` + reseed | **Destructive** | existing encounters are disposable; no backfill |
+
+### Branch & sequencing
+
+- **`feature/dungeons`** is a long-lived integration branch off `main`; per-epic branches (§0, M1…M6) merge into it; it merges to `main` **atomically when the feature is complete**. The visible dungeon feature never ships half-finished.
+- **This ADR merges to `main` when finished** (docs, like the other two ADRs).
+- **The Friday guarantee:** nothing dungeon-related reaches `main`/prod before Friday's game night, which runs on **today's tracker, byte-for-byte**. The destructive cutover rides the feature merge — long after Friday, on a merge the DM controls — so it never races a playtest. (This is why "encounters are disposable" is safe: the truncate is a deliberate, well-after-Friday step, not a live migration.)
+- **Divergence:** §0 refactors *live* tracker code; while `feature/dungeons` is open, freeze parallel tracker changes on `main` (or cherry-pick urgent fixes onto both) to keep the eventual merge clean.
+
+Migrations run via `drizzle-kit migrate` over `DATABASE_URL_UNPOOLED`, as today; the idempotent seed re-creates the showcase under the new model on the feature merge.
 
 ---
 
 ## Impact on already-shipped code
 
-_[To be written — reduceCombatSession sheds zoneId + engagement + enchantment handling; combatantSchema changes; the /combat page + EncounterSetup repoint onto a Map Instance; the watch snapshot projector reads position/engagement/enchantment from the Instance; zoneEnchantmentEffects repointed; the standalone-encounter pain-fix that falls out of §0 + Edit mode.]_
+| Artifact | Change |
+| -- | -- |
+| `reduceCombatSession` | Sheds `zoneId`/`engagement`/`enchantment` handling; legality selectors take the Instance's occupancy + engagement as **injected context**; combat moves **delegate the spatial write** to `reduceMapInstance`. **Combat behavior unchanged** (parity-gated). |
+| `combatantSchema` | Drops `zoneId` + `engagement`; keeps ailments, battle conditions + durations, reaction, `side`, `hasActedThisRound`, `ref`, vitals. |
+| `CombatSession` schema | Drops `zones`, `adjacency`, `enchantment`; the encounter row gains `mapInstanceId`. |
+| `/combat/{shortId}` page + `EncounterSetup` | Repoint onto a Map Instance; **setup mints the Instance + places tokens** (replacing inline zone authoring). Position/enchantment reads come from the Instance. |
+| `projectPlayerSnapshot` (watch) | Reads position / engagement / enchantment from the Instance instead of the session. |
+| `zoneEnchantmentEffects` + PC-hydration zone-effects | Repointed to read the Instance's enchantment. |
+| **New engine modules** | `reduceMapInstance`, `reduceDungeon` (+ fixtures/tests per the rubric); the `Statblock` derivers untouched. |
+| **New app plumbing** | `lib/db/{schema,writes,queries}` for map / map-instance / dungeon; `lib/actions` for the spatial + dungeon events; the `guardMany` primitive; `lib/realtime/channels.ts` gains a `dungeon` domain. |
+| **Free win** | §0 + Edit mode gives the *standalone* combat console in-fight adjacency editing — the shipped tracker's "can't edit in progress" pain, fixed as a side effect. |
 
 ---
 
 ## Milestones & ticket-shape impact
 
-_[To be written — map to the PRD's M0–M6, with the revision: v1 gains **in-run Instance geometry editing** (the Edit-mode toolset); structured-content editing (markers, monster spawns) stays M6. The engagement/enchantment move enlarges M0.]_
+| Milestone | Scope | Notes vs PRD |
+| -- | -- | -- |
+| **M0 — Spatial refactor** | Lift zones/adjacency/zoneId **+ engagement + enchantment** to the Instance; introduce `map_instances` + `encounters.mapInstanceId`; repoint `reduceCombatSession`; parity-gated. | **Enlarged** — engagement + enchantment move too. |
+| **M1 — Map authoring** | `maps` table + My Maps editor + the node-graph builder on the React Flow canvas; `mapId` FK. **The Edit-mode toolset lands here.** | — |
+| **M2 — Exploration run** | `dungeons` table + `reduceDungeon` + the turn loop + reminders (selectors) + token placement + DM movement + reveal; Instance runtime. **Edit/Play toggle available in the run console.** | — |
+| **M3 — Player fog view** | `/c/dungeon/{shortId}` + `projectDungeonSnapshot` + the polled/pinged transport. | — |
+| **M4 — Combat integration** | Enemies onto the live Instance; whole-map play; combat-end cleanup + mark-the-turn. | — |
+| **M5 — Structured Zone features** *(later)* | Markers (loot/monster/trap), monster→combatant spawn. | — |
+| **M6 — Map reuse + structured-content editing** *(later)* | Library browser to pick saved Maps; editing **structured content** on a live Instance. | **Narrowed** — the *geometry*-editing slice moved into v1 (M1/M2). |
+
+Each milestone is an epic; per-epic branches off `feature/dungeons`.
 
 ---
 
 ## Open questions remaining
 
-_[To be written — shared/published map catalog (later); structured Zone features (M5); multi-floor dungeons (later); the Enchantment one-at-a-time cardinality (per-Bard vs global); migrate-on-deploy mechanism.]_
+- **Enchantment cardinality** — *"only one Zone Enchanted at a time"*: per-Bard or global? A `reduceMapInstance` rule, not a home question.
+- **Shared / published map catalog** — v1 Maps are user-owned templates; whether they later become shareable (a global catalog like the enemy catalog) is open.
+- **Structured Zone features (M5)** — the content model (loot/monster/trap markers; monster→combatant spawn) is sketched, not designed.
+- **Multi-floor dungeons** — one Map / one Instance per Dungeon in v1; multiple Maps per Dungeon is a later extension.
+- **Standalone-encounter Map authoring UX** — v1 lets a one-off fight author geometry ad hoc (template-less Instance); whether to nudge toward saving it as a Map is open.
+- **Migrate-on-deploy for the feature merge** — reuse the existing manual/automated prod-migration path; mechanism unchanged.
 
 ---
 
 ## PRD deltas (to apply)
 
-_[To be written — the PRD lines this ADR revises: "engagement is orthogonal to position / the combatant keeps engagement" → engagement moves to the Instance; the enemy-decomposition split; "no in-dungeon authoring" → the Edit/Play mode toggle + in-run geometry editing in v1; M6 scope narrowed to structured-content editing.]_
+When this ADR is accepted, reconcile the PRD:
+
+- **Engagement & enchantment → the Instance.** Revise *"engagement is orthogonal to position / the combatant keeps its overlay and engagement"* and the enemy-decomposition split (Architecture §, Resolved Decisions) — both are spatial and live on the Instance.
+- **Console topology + in-run editing.** Resolve Open Question #1 (console topology) to **one route + an Edit ⇄ Play mode toggle**, and move **in-run geometry editing into v1** (Map Canvas & UX, Suggested Milestones); the PRD's *"no in-dungeon authoring"* framing is retired.
+- **M6 narrowed.** Suggested Milestone 6 keeps the library browser + **structured-content** editing only; geometry editing moved to M1/M2.
+- **Migration → disposable encounters.** Functional Requirement §0 and Open Question (ADR-details #1): no backfill — **truncate + reseed**.
+- **Rendering substrate decided.** Resolved Decision *"the rendering library is an ADR decision"* → **React Flow** (+ the two spikes, + the SVG escape hatch).
+- **Atomicity resolved.** Open Question (ADR-details #2): the single-action-mutates-both-containers concern is resolved — **design-away by default + `guardMany`**, and the combat-move is single-row via engagement-on-the-Instance.
