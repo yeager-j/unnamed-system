@@ -81,12 +81,14 @@ function suggestedSide(
   if (pa === null && ea === null) return null
   if (ea === null) return "players"
   if (pa === null) return "enemies"
-  if (pa !== ea) return pa > ea ? "players" : "enemies"
+  if (pa > ea) return "players"
+  if (ea > pa) return "enemies"
 
   // Agility tied → highest Luck (non-null whenever Agility is non-null).
   const pl = players.highestLuck!
   const el = enemies.highestLuck!
-  if (pl !== el) return pl > el ? "players" : "enemies"
+  if (pl > el) return "players"
+  if (el > pl) return "enemies"
   return null
 }
 

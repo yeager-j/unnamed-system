@@ -43,6 +43,7 @@ export function endOfTurnReminders(combatant: Combatant): EndOfTurnReminders {
 
   const activeDurations = BATTLE_CONDITION_AXIS_KEYS.flatMap((axis) => {
     const turns = combatant.conditionDurations[axis]
+    // Stryker disable next-line LogicalOperator,ConditionalExpression,EqualityOperator: equivalent — these mutants only diverge for a negative `turns`, but a duration countdown is never negative (it is deleted at 0 by reduceTurnEvent); the leading `turns &&` already excludes undefined and 0.
     return turns && turns > 0 ? [{ axis, turns }] : []
   })
 
@@ -110,6 +111,7 @@ function enemyWorkingHP(
   if (ref.kind === "enemy") {
     return { maxHP: ref.statBlock.maxHP, currentHP: ref.statBlock.currentHP }
   }
+  // Stryker disable next-line ConditionalExpression: equivalent — a `pc` ref reaching here carries no `maxHP`/`currentHP`/`enemyKey`, so treating it as a catalog-enemy resolves to `{ maxHP: 0, currentHP: 0 }`, which yields a 0 ailment delta and thus `apply: null` — identical to the `null` the pc path returns.
   if (ref.kind === "catalog-enemy") {
     const maxHP = ref.maxHP ?? getEnemy(ref.enemyKey)?.maxHP ?? 0
     return { maxHP, currentHP: ref.currentHP ?? maxHP }
@@ -173,6 +175,7 @@ function resolveFrenzyReminder(
   ref: CombatantRef,
   pcMechanicByCharacterId: Record<string, ActiveMechanic | null>
 ): { pain: number } | null {
+  // Stryker disable next-line ConditionalExpression: equivalent — a non-pc ref has no `characterId`, so the lookup below misses (`pcMechanicByCharacterId[undefined]` → undefined) and the next guard returns null anyway; the kind check is a type narrow, not a behavioral gate.
   if (ref.kind !== "pc") return null
   const mechanic = pcMechanicByCharacterId[ref.characterId]
   if (mechanic?.state.kind !== "frenzy") return null

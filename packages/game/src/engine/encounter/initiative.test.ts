@@ -70,6 +70,15 @@ describe("compareInitiative", () => {
     expect(result.suggested).toBe("players")
   })
 
+  it("suggests the enemies on higher Agility even when players have higher Luck", () => {
+    // Enemies lead on Agility, players lead on Luck: Agility must decide, so the
+    // Luck tiebreak never runs.
+    const result = cmp([pc("p1", "players"), inlineEnemy(5, 0)], {
+      p1: { agility: 3, luck: 9 },
+    })
+    expect(result.suggested).toBe("enemies")
+  })
+
   it("takes the highest Agility across a side's combatants", () => {
     const result = cmp(
       [pc("p1", "players"), pc("p2", "players"), inlineEnemy(4, 0)],

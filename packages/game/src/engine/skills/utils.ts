@@ -37,6 +37,7 @@ const KIND_INDEX: Record<SkillKind, number> = Object.fromEntries(
 ) as Record<SkillKind, number>
 
 const DAMAGE_TYPE_INDEX: Record<string, number> = Object.fromEntries(
+  // Stryker disable next-line ArrowFunction: a `() => undefined` mutant makes Object.fromEntries throw at import; Stryker (coverageAnalysis "off") can't observe an import-time throw, so it can't kill it. The sibling ArrayDeclaration mutant on this line IS killed by the damage-type ordering tests, proving the value is load-bearing.
   DAMAGE_TYPES.map((type, index) => [type, index])
 )
 
@@ -45,6 +46,7 @@ const DAMAGE_TYPE_INDEX: Record<string, number> = Object.fromEntries(
 const DAMAGE_TYPE_FALLBACK = DAMAGE_TYPES.length
 
 function damageTypeRank(skill: HydratedSkill): number {
+  // Stryker disable next-line ConditionalExpression: equivalent — only attack Skills carry a `damageType` (discriminated union), so for a non-attack Skill `DAMAGE_TYPE_INDEX[skill.damageType]` is `DAMAGE_TYPE_INDEX[undefined]` → undefined → falls back to DAMAGE_TYPE_FALLBACK anyway.
   if (skill.kind !== "attack") return DAMAGE_TYPE_FALLBACK
   const rank = DAMAGE_TYPE_INDEX[skill.damageType]
   return rank ?? DAMAGE_TYPE_FALLBACK
@@ -213,6 +215,7 @@ export function applyCast(
   if (cost === null) return ok(character)
 
   const result = applyResolvedCost(cost, character)
+  // Stryker disable next-line ConditionalExpression: equivalent — applyResolvedCost spreads the full `character` (it takes the CastContext as its pools), so on success `result.value` already equals `{ ...character, ...result.value }`; returning `result` directly is the same value.
   if (!result.ok) return result
   return ok({ ...character, ...result.value })
 }

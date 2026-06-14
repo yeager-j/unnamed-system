@@ -34,10 +34,13 @@ export function fallenCombatantIds(
     const ref = combatant.ref
     if (ref.kind === "pc") {
       const hp = pcCurrentHpById[ref.characterId]
+      // Stryker disable next-line ConditionalExpression: equivalent — dropping the `hp !== undefined` guard leaves `isFallen(hp)`, and `isFallen(undefined)` is `undefined <= 0` → false, so a PC missing from the map is still treated as not-Fallen.
       if (hp !== undefined && isFallen(hp)) fallen.add(combatant.id)
     } else if (ref.kind === "enemy") {
       if (isFallen(ref.statBlock.currentHP)) fallen.add(combatant.id)
-    } else if (ref.kind === "catalog-enemy") {
+    } else {
+      // `catalog-enemy` is the only remaining ref kind; working HP is inline on
+      // the ref, defaulting to the definition's max until first adjusted.
       const currentHP =
         ref.currentHP ?? enemyStatblockById[ref.enemyKey]?.maxHP ?? 0
       if (isFallen(currentHP)) fallen.add(combatant.id)

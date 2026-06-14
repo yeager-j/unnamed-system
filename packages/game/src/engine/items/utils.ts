@@ -108,11 +108,14 @@ export function addItem(lookups: Pick<GameData, "getItem">) {
     const next = items.map((row) => ({ ...row }))
     let remaining = requestedQuantity
 
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — for a non-stackable item (stackSize 1) the top-up loop is a no-op: every existing row is already at quantity 1, so capacity is 0 and each row is skipped. Entering or skipping the loop yields the same result.
     if (stackSize > 1) {
       for (const row of next) {
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — `remaining` never goes negative (added ≤ remaining), so the break only ends the loop one iteration early; without it the remaining iterations add 0 and change nothing.
         if (remaining <= 0) break
         if (row.catalogItemKey !== catalogItemKey) continue
         const capacity = stackSize - row.quantity
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — capacity is never negative for a legal row (quantity ≤ stackSize), and a full row (capacity 0) adds 0 then overflows to a new row regardless, so the guard only saves a no-op iteration.
         if (capacity <= 0) continue
         const added = Math.min(capacity, remaining)
         row.quantity += added

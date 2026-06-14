@@ -24,6 +24,7 @@ export function reduceTurnEvent(
   switch (event.kind) {
     case "endTurn": {
       const actorId = session.currentActorId
+      // Stryker disable next-line ConditionalExpression: equivalent — without this early return, `produce` runs but `find(id === null)` misses, the `actor === undefined` guard returns, and immer yields the original session reference, so the result is identical.
       if (actorId === null) return session
 
       return produce(session, (draft) => {

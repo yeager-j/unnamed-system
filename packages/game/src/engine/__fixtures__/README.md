@@ -130,6 +130,9 @@ Run Stryker on the slice, then for each surviving mutant, in order:
 5. **Never** `as any` to manufacture impossible inputs, and **never** disable a
    mutant just to lift the score. The goal is not "100%" — it is "every
    non-equivalent mutant killed, every survivor documented."
+6. **Seed fixtures in deliberately non-sorted order** so sort logic stays
+   observable — a pre-sorted fixture lets a dropped `.sort()` survive (the
+   `catalog-rows` gap the per-slice Stryker caught in UNN-358).
 
 ### Worked example — `character/reduce/mechanics.ts` (39% → 100%)
 

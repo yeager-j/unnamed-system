@@ -46,6 +46,7 @@ export function resolveCombatantEngagement(
   )
 
   const engagedIds =
+    // Stryker disable next-line ConditionalExpression: equivalent — a Free engagement carries no `targetCombatantIds`, so the forced-`engaged` branch builds `new Set(undefined)`, which is an empty Set — the same as the `: new Set()` fallback.
     value.status === "engaged" ? new Set(value.targetCombatantIds) : new Set()
 
   const targetNames =

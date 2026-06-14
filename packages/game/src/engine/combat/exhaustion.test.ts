@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   EXHAUSTION_LEVEL_ENTRIES,
+  exhaustionLevelSchema,
   getExhaustionLevel,
   MAX_EXHAUSTION_LEVEL,
 } from "@workspace/game/engine/combat/exhaustion"
@@ -35,5 +36,34 @@ describe("getExhaustionLevel", () => {
         getExhaustionLevel(entry.level).description.length
       ).toBeGreaterThan(0)
     }
+  })
+})
+
+describe("exhaustionLevelSchema", () => {
+  it("accepts every canonical entry", () => {
+    for (const entry of EXHAUSTION_LEVEL_ENTRIES) {
+      expect(exhaustionLevelSchema.safeParse(entry).success).toBe(true)
+    }
+  })
+
+  it("rejects a level below zero", () => {
+    expect(
+      exhaustionLevelSchema.safeParse({ level: -1, description: "x" }).success
+    ).toBe(false)
+  })
+
+  it("rejects a level above the maximum", () => {
+    expect(
+      exhaustionLevelSchema.safeParse({
+        level: MAX_EXHAUSTION_LEVEL + 1,
+        description: "x",
+      }).success
+    ).toBe(false)
+  })
+
+  it("rejects an empty description", () => {
+    expect(
+      exhaustionLevelSchema.safeParse({ level: 0, description: "" }).success
+    ).toBe(false)
   })
 })

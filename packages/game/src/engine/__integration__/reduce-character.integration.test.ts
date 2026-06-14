@@ -690,3 +690,110 @@ describe("reduceCharacter", () => {
     ).toBe(character)
   })
 })
+
+describe("deriveHydratedCharacter weapon & skill attack-roll wiring", () => {
+  const KIND_BONUS = 3
+  const PER_ALLY = 2
+
+  /** A Warrior whose passives grant (a) an attack-kind-filtered flat Attack-Roll
+   *  bonus and (b) a party-lineage-scaled bonus, plus a weapon to swing — so the
+   *  weapon Attack Roll's kind discriminant and partyComposition flow are both
+   *  observable, and a passive's (empty) damage bonuses are too. */
+  const wiringWarrior = makeArchetype({
+    key: "warrior",
+    lineage: "warrior",
+    mechanic: "perfection",
+    skills: [
+      { skill: "shield-arts", rank: 1 },
+      { skill: "flash-bomb", rank: 1 },
+    ],
+  })
+  const WIRING_DATA = makeTestGameData({
+    archetypes: [wiringWarrior],
+    skills: [
+      makePassiveSkill({
+        key: "shield-arts",
+        effects: [
+          {
+            type: "attackRoll",
+            when: { skillKinds: ["attack"] },
+            amount: KIND_BONUS,
+            source: "Attack Booster",
+          },
+        ],
+      }),
+      makePassiveSkill({
+        key: "flash-bomb",
+        effects: [
+          {
+            type: "attackRoll",
+            scaler: {
+              kind: "perPartyLineage",
+              lineage: "mage",
+              amount: PER_ALLY,
+              includesSelf: true,
+            },
+            source: "Magic Circle",
+          },
+        ],
+      }),
+    ],
+    items: [makeWeapon("blade")],
+  })
+  const deriveWiring = (raw: RawCharacterInputs, context?: CombatContext) =>
+    deriveHydratedCharacter(WIRING_DATA)(raw, context)
+
+  function wiringRaw(): RawCharacterInputs {
+    return makeRawCharacterInputs({
+      row: {
+        activeArchetypeId: "arch-1",
+        originCharacterArchetypeId: "arch-1",
+      },
+      archetypeRows: [
+        makeArchetypeRow({ id: "arch-1", archetypeKey: "warrior", rank: 1 }),
+      ],
+      inventoryRows: [
+        inventoryRow({
+          id: "row-blade",
+          catalogItemKey: "blade",
+          equipped: true,
+          quantity: 1,
+        }),
+      ],
+    })
+  }
+
+  it("leaves weaponDamageBonuses empty when no weapon is equipped", () => {
+    const raw = wiringRaw()
+    raw.inventoryRows = []
+    const character = deriveWiring(raw)
+    expect(character.weaponAttackRoll).toBeNull()
+    expect(character.weaponDamageBonuses).toEqual([])
+  })
+
+  it("leaves a passive Skill's resolvedDamageBonuses empty (it makes no Attack Roll)", () => {
+    const booster = deriveWiring(wiringRaw()).skills.find(
+      (skill) => skill.key === "shield-arts"
+    )
+    expect(booster?.resolvedDamageBonuses).toEqual([])
+  })
+
+  it("folds an attack-kind-filtered passive bonus into the weapon Attack Roll", () => {
+    const character = deriveWiring(wiringRaw())
+    expect(character.weaponAttackRoll?.sources).toContainEqual({
+      source: "Attack Booster",
+      amount: KIND_BONUS,
+    })
+  })
+
+  it("scales the weapon Attack Roll by party composition", () => {
+    const base = deriveWiring(wiringRaw())
+    const withParty = deriveWiring(wiringRaw(), {
+      partyComposition: { mage: 2 },
+    })
+    expect(
+      (withParty.weaponAttackRoll?.total ?? 0) -
+        (base.weaponAttackRoll?.total ?? 0)
+    ).toBe(PER_ALLY * 2)
+  })
+})

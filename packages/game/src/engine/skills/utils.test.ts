@@ -12,6 +12,7 @@ import {
   canCast,
   formatSignedBonus,
   hydrateFormula,
+  hydrateSkill,
   resolveAttackAttribute,
   resolveSkillCost,
   sortSkillsByKind,
@@ -319,6 +320,32 @@ const attributes: AttributeScores = {
   luck: 2,
 }
 
+describe("hydrateSkill", () => {
+  it("defaults resolvedDamageBonuses to an empty array when none are supplied", () => {
+    const hydrated = hydrateSkill(makePassiveSkill({ key: "x" }), 20, null)
+    expect(hydrated.resolvedDamageBonuses).toEqual([])
+  })
+
+  it("threads the supplied resolvedDamageBonuses through", () => {
+    const bonuses = [{ source: "Slash Boost", label: "+2" }]
+    const hydrated = hydrateSkill(
+      makePassiveSkill({ key: "x" }),
+      20,
+      null,
+      bonuses
+    )
+    expect(hydrated.resolvedDamageBonuses).toEqual(bonuses)
+  })
+
+  it("resolves a cost-bearing Skill's cost and leaves a passive's null", () => {
+    const attack = hydrateSkill(cleave, 100, null)
+    expect(attack.resolvedCost).toEqual({ kind: "hp", amount: 5 })
+
+    const passive = hydrateSkill(healersInsight, 20, null)
+    expect(passive.resolvedCost).toBeNull()
+  })
+})
+
 describe("resolveAttackAttribute", () => {
   it("looks up Strength / Magic / Agility directly", () => {
     expect(resolveAttackAttribute("st", attributes)).toBe(3)
@@ -354,6 +381,10 @@ describe("hydrateFormula", () => {
 
   it("substitutes the Lu attribute with the character's Luck score", () => {
     expect(hydrateFormula("1d6 + Lu", attributes)).toBe("1d6 + 2")
+  })
+
+  it("substitutes every attribute occurrence, not just the first (global flag)", () => {
+    expect(hydrateFormula("1d4 + Ma + Ag", attributes)).toBe("1d4 + 4 − 1")
   })
 })
 
