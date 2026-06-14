@@ -32,9 +32,9 @@ The [PRD](./PRD.md) asks for a DM tool to author and run multi-room dungeons: a 
 | -- | -- | -- |
 | 1 | **The model** | **Four entities: Map / Map Instance / Dungeon / Encounter.** A **Map** is a reusable, user-owned authored template; selecting one mints a **Map Instance** — a per-run snapshot that owns all spatial runtime. A **Dungeon** (exploration-time) and the existing **Encounter** (combat-time) are purely temporal layers over one Instance. The Instance is the single spatial truth; the temporal layers **invoke** its spatial transitions, never reimplement them. |
 | 2 | **Spatial refactor (§0, prerequisite)** | Lift `zones` / `adjacency` / `combatant.zoneId` **+ engagement + enchantment** off the `CombatSession` onto the Map Instance. Existing encounters are disposable — **truncate + reseed, no backfill** (the destructive step rides the feature merge, long after Friday). **Combat behavior unchanged** — this is a refactor, and the gate for everything else. |
-| 3 | **Engagement & enchantment home** | **On the Map Instance**, with occupancy and reveal-state. Both are verified **combat-scoped + spatially-located** (engagement breaks on leaving a Zone; enchantment is per-Zone and ends with combat), so they prune at combat-end. Co-locating engagement with occupancy makes a **combat move a single-row write** and keeps the `move → break-engagement` rule in the same reducer as `move → reveal`. |
+| 3 | **Engagement & enchantment home** | **On the Map Instance**, with occupancy and reveal-state — **relocating the shipped shapes, not re-modelling** (engagement stays the per-combatant `targetCombatantIds` list; enchantment stays the global singleton). Both are verified **combat-scoped + spatially-located** (engagement breaks on leaving a Zone; enchantment is zone-anchored and ends with combat), so they prune at combat-end. Co-locating engagement with occupancy makes a **combat move a single-row write** and keeps the `move → break-engagement` rule in the same reducer as `move → reveal`. |
 | 4 | **Persistence** | `maps` (user-owned template, geometry jsonb, `version`) + `map_instances` (per-run snapshot: geometry + occupancy + reveal + engagement + enchantment, `version`) + `dungeons` (`campaignId`, exploration-state jsonb, `version`). `encounters` **gains `mapInstanceId`** and **drops** inline `zones`/`adjacency`/`enchantment` plus each combatant's `zoneId`/`engagement`. |
-| 5 | **Concurrency & atomicity** | Per-row optimistic `version` guards (reuse `version-guard`). Cross-container writes are **designed away** where the rules allow (a normal move costs no turn ⇒ Instance-only; "act" and "reveal" are separate gestures). The remaining four genuinely-atomic, rare, confirm-gated lifecycle gestures (delve start, combat start, combat end, search-that-reveals) use one transaction composing per-row guards (`guardMany`). **No per-move transaction.** |
+| 5 | **Concurrency & atomicity** | Per-row optimistic `version` guards — one per table following the `version-guard` **pattern** (the existing primitive is character-coupled; encounters already have their own `bumpEncounterVersionGuarded`); **`guardMany`** composes them in a transaction. Cross-container writes are **designed away** where the rules allow (a normal move costs no turn ⇒ Instance-only; "act" and "reveal" are separate gestures). The few genuinely-atomic, rare, confirm-gated gestures (delve start, combat start, combat end, search-that-reveals, remove-combatant) use `guardMany`. **No per-move transaction.** |
 | 6 | **Reducer topology** | `reduceMapInstance` (every spatial transition: `move → reveal`, `move → break-engagement`, enchant, **and the Edit-mode geometry edits**) · `reduceDungeon` (the turn loop) · `reduceCombatSession` **repointed** to read position from the Instance instead of owning `zoneId`. Purity holds; statefulness stays in the DB and React. |
 | 7 | **Combat on the dungeon** | Starting combat **places enemy combatants onto the live Instance** and layers a turn loop over it — no carved sub-graph, no copy. The whole map is in play (kiting). In exploration the DM moves tokens freely; once combat is live, occupancy is written **only through the Encounter's movement model**. Combat-end prunes enemy tokens + engagement + enchantment, persists PC positions, and advances the consumed dungeon turn. |
 | 8 | **Console topology** | **One `/dungeon/[shortId]` route with an Edit ⇄ Play mode toggle, orthogonal to lifecycle status** (`draft` / `active` / `done`). Edit mode = the full builder toolset on the Instance, available **regardless of status** (in-run geometry editing ships in v1; destructive edits guarded). Map **template** authoring lives on a separate user-owned **My Maps** editor. |
@@ -78,7 +78,7 @@ A combatant is a **position + a vitals source + a non-spatial overlay**, and PCs
 | Combatant kind | Position | Vitals source | Non-spatial overlay |
 | -- | -- | -- | -- |
 | **PC** | token on the Instance, keyed by `characterId` (**persistent** — outlives any one encounter) | the **character row** | on the Encounter combatant |
-| **Enemy** | token on the Instance, keyed by `combatant.id` (**ephemeral** — dies with the session) | inline statblock **on the combatant** | on the Encounter combatant |
+| **Enemy** | token on the Instance, keyed by `combatant.id` (**ephemeral** — dies with the session) | inline statblock **on the combatant**, or a `catalog-enemy` key resolved at runtime (`ref` is a 3-arm union: `pc`/`enemy`/`catalog-enemy`) | on the Encounter combatant |
 
 The occupant key *is* the join between a token and the combat state held elsewhere — which is what lets PC tokens persist while enemy combatants are ephemeral. **Engagement and enchantment are spatial and live on the Instance for both kinds** (see _Engagement & enchantment on the Map Instance_); only the vitals source differs — the one axis that already differed in the shipped tracker.
 
@@ -94,12 +94,12 @@ Milestone 0 is a **behavior-preserving refactor of the shipped combat tracker**,
 | -- | -- | -- |
 | `session.zones`, `session.adjacency` | Map Instance | geometry (the zone graph) |
 | `combatant.zoneId` | Map Instance | occupancy — a **token** `{ zoneId, occupant }` |
-| `combatant.engagement` | Map Instance | engagement (a relation over co-located tokens) |
-| `session.enchantment` | Map Instance | per-Zone enchantment (+ Forte) |
+| `combatant.engagement` | Map Instance | engagement — the **same** shipped `{status, targetCombatantIds}` shape, now riding the token (relocation, not re-model) |
+| `session.enchantment` | Map Instance | enchantment — the **same** shipped global-singleton `ZoneEnchantment \| null`, relocated |
 
 Everything else **stays** — it is non-spatial combat state: turn order (`firstSide` / `advantage` / `round` / `currentActorId`), the per-combatant overlay (ailments, battle conditions + durations, reaction, `side`, `hasActedThisRound`), the Shift chain, enemy identity + inline vitals, and status. The session **gains one field, `mapInstanceId`** — the reference to its spatial truth.
 
-This is a **larger cut than the PRD's §0**, which moves only `zones` / `adjacency` / `zoneId` and has the combatant "retain its overlay and engagement." This ADR moves **engagement and enchantment too** (Decision 3), because they are spatially-determined and co-locating them with occupancy makes a combat move a single-row write. See _Engagement & enchantment on the Map Instance_.
+This is a **larger cut than the PRD's §0**, which moves only `zones` / `adjacency` / `zoneId` and has the combatant "retain its overlay and engagement." This ADR moves **engagement and enchantment too** (Decision 3), because they are spatially-determined and co-locating them with occupancy makes a combat move a single-row write. **But it relocates the shipped representations, it does not re-model them** — engagement stays the per-combatant `targetCombatantIds` list (symmetric mirror-writes preserved), enchantment stays the global singleton; any richer shape (a per-Zone enchantment map, a relation-style engagement graph) is a deliberate *post-§0* change kept out of the parity-gated lift. See _Engagement & enchantment on the Map Instance_.
 
 ### Schema delta
 
@@ -115,7 +115,7 @@ With zones off the session, **encounter setup writes its geography to the Instan
 
 ### Why it gates everything
 
-The Dungeon, the exploration loop, fog-of-war, and dungeon-combat all assume a Map Instance exists to layer over. Until the spatial state lives on an Instance — addressable, shared, with its own reducer — there is nothing for the temporal layers to invoke. So behavior parity is the acceptance bar: the contract-test smoke layer (`__contract__`, real-catalog combat) passes unchanged, and the standalone-encounter E2E (cast / heal / move) is green, before any temporal layer lands.
+The Dungeon, the exploration loop, fog-of-war, and dungeon-combat all assume a Map Instance exists to layer over. Until the spatial state lives on an Instance — addressable, shared, with its own reducer — there is nothing for the temporal layers to invoke. So behavior parity is the acceptance bar: the **engine spatial unit suite** (`zones`/`placement`/`engagement`/`enchantment`/`zone-graph` + the `__integration__` shapers — ~930 lines today) and the **`__contract__` smoke layer** (real-catalog combat) pass green reading position from the Instance, and `encounter-shell.spec.ts` still passes. **Caveat:** `moveCombatant` has **no** E2E today (the cast/heal E2Es exercise the character sheet, not an encounter), so §0 must *add* a token-move test — its own riskiest path — rather than lean on one that doesn't exist.
 
 ---
 
@@ -143,8 +143,8 @@ So engagement is **independent data with a spatial invariant**: `engagement ⊆ 
 
 ### The model
 
-- **Engagement** is a relation over co-located tokens — mutual, possibly one-to-many (a swordsman beset by two enemies is Engaged with both). It rides occupancy: a token's engagements are cleared by the same `reduceMapInstance` transition that moves it out of a Zone, by Disengage, and by Fallen/Dead. PC tokens persist across the delve, but an engagement involving an enemy token is pruned when that enemy is — folded into the combat-end enemy-token cleanup.
-- **Enchantment** is a per-Zone effect carrying a **Forte** level (`f → ff → fff`, cap 3; a Zone re-Enchanted with the same type raises Forte). It lives on the Zone in the Instance and ends at combat-end.
+- **Engagement** keeps its **shipped representation** — the per-combatant `Engagement = {status:"free"} | {status:"engaged", targetCombatantIds}`, kept symmetric by mirror-writes (today's `engagement-graph.ts`) — now **riding the token** instead of the combatant. Mutual, possibly one-to-many (a swordsman beset by two enemies is Engaged with both). A token's engagements are cleared by the same `reduceMapInstance` transition that moves it out of a Zone, by Disengage, and by Fallen/Dead; an engagement to an enemy token is pruned when that enemy is (combat-end cleanup, **and the `removeCombatant` case** — see _Reducer topology_ / _Atomicity_).
+- **Enchantment** keeps its **shipped representation** — the **global singleton** `ZoneEnchantment | null` (`{zoneId, type, forte}`; re-Enchanting overwrites, same-Zone+type raises Forte `f → ff → fff`, cap 3) — relocated to the Instance, ending at combat-end. **It is not display-only:** `zoneEnchantmentEffects` folds into PC stat derivation (the Attack-Roll/affinity fold), so re-homing it also repoints the PC-hydration read sites.
 
 ### Lifecycle: empty in exploration, pruned at combat-end
 
@@ -154,9 +154,9 @@ These are the one place the Instance carries *combat-scoped* fields. During expl
 
 Co-locating engagement with occupancy does **not** hand movement authority to the spatial layer during a fight. The **Encounter's movement model still computes** the move — legality, opportunity-attack and interception prompts, engagement consequences (guided-but-overridable), reading both the Instance and the session — then **invokes the Instance's spatial transition to apply** the occupancy + engagement write. Reads span layers freely; only the write needs a guard, and it is one row. See _Reducer topology_.
 
-### Open: Enchantment cardinality
+### Enchantment cardinality — keep the shipped singleton
 
-The Enchantment rule reads *"Only one Zone can be Enchanted at any one time; if you Enchant a second Zone, the first one loses its Enchantment"* — ambiguous on whether the cap is **per-Bard** (each Bard maintains one Enchanted Zone) or **global** (one Enchanted Zone in the whole fight). It doesn't affect the home (per-Zone on the Instance either way); it's a `reduceMapInstance` rule to pin down at implementation. Tracked in _Open questions remaining_.
+The shipped code already resolved this: `session.enchantment` is a **global singleton** (`ZoneEnchantment | null`, overwrite-on-reenchant), matching the rule's plain reading (*"only one Zone Enchanted at any one time"*). §0 **keeps that** — one enchanted Zone, relocated to the Instance. A richer model (per-Bard, so two Bards could enchant two Zones, i.e. a per-Zone map) is a deliberate **future re-model**, not a §0 change. Tracked in _Open questions remaining_.
 
 ---
 
@@ -179,7 +179,7 @@ A Map Instance is referenced by **at most one Dungeon and at most one live Encou
 
 ### Concurrency: per-row version guards
 
-Each of `maps`, `map_instances`, `dungeons`, `encounters` carries its own `version`, guarded by the existing [`version-guard`](../initiative-tracker/ADR.md) primitive — reused, not reinvented. A write loads the row, reduces, persists version-guarded; the optimistic client mirrors with the same reducer. The realtime ping carries `(domain, id, version)` per row.
+Each of `maps`, `map_instances`, `dungeons`, `encounters` carries its own `version`. The character [`version-guard`](../initiative-tracker/ADR.md) is **character-table-coupled** (keyed by `VersionClass`, returns `character-not-found`, fires a character ping) — encounters already use a **separate** `bumpEncounterVersionGuarded`, a deliberate non-reuse per its own docstring. So each new table gets **its own guard following the same pattern**, not the existing primitive; **`guardMany`** composes those per-table guards in one transaction. A write loads the row, reduces, persists version-guarded; the optimistic client mirrors with the same reducer. The realtime ping carries `(domain, id, version)` per row.
 
 ### Atomicity (Decision 5): design the cross-write away, transact the rest
 
@@ -203,8 +203,9 @@ The genuinely-atomic, multi-container gestures are **few, rare, and confirm-gate
 | Combat start (enemies + tokens + status) | Encounter + Instance |
 | Combat end (end + prune + mark turn) | Encounter + Instance + Dungeon |
 | Search-that-reveals (acted + reveal) | Dungeon + Instance |
+| Remove combatant (roster slot + prune token & engagement) | Encounter + Instance |
 
-No per-move transaction; the hot path stays single-row. (A normal move costs no turn, and "acted" vs "reveal" are separate gestures — so the only forced multi-writes are the four above.)
+No per-move transaction; the hot path stays single-row. The last row is the subtle one (the codebase sweep surfaced it): removing a combatant mid-fight drops its Encounter roster slot **and** prunes its token plus every survivor's engagement to it on the Instance — today `removeCombatant` does that engagement unlink inline (`reduce/round.ts`), so after the split the Encounter must invoke an Instance prune event inside the `guardMany`.
 
 > **Validate at implementation:** `guardMany` runs its per-row guards inside one `@neondatabase/serverless` transaction; confirm the driver's `transaction()` support composes with the read-then-write version-guard across two rows before M2 leans on it.
 
@@ -214,9 +215,9 @@ No per-move transaction; the hot path stays single-row. (A normal move costs no 
 
 Three pure reducers, one of them existing-and-repointed; statefulness stays in the DB and React, never the engine.
 
-- **`reduceMapInstance(instance, spatialEvent) → instance'`** — owns **every spatial transition**: `move` (occupancy) with its `→ reveal` (entered Zone + non-hidden neighbors) and `→ break-engagement` (left Zone) consequences; `reveal`/`hide`/`unlock`; `engage`/`disengage`; `enchant`; and the **Edit-mode geometry edits** (`addZone`, `setAdjacency`, `toggleConnectionFlag`, `editDescription`, `repositionNode`, guarded `deleteZone`). One home for the move-rules and the geometry.
-- **`reduceDungeon(dungeon, event) → dungeon'`** — the exploration turn loop: `markActed`, `advanceTurn`, status transitions. The reminders are **pure selectors over the turn counter** (random-encounter cadence, Exhaustion onset), not reducer state. The roster is **derived** from Instance tokens, so adding or removing a character is a **single** token op on the Instance; `actedCharacterIds` is filtered to the current roster at read-time (a stale id for a departed character is ignored), so a removal needs no second-row Dungeon write.
-- **`reduceCombatSession(session, event) → session'`** — the **existing** reducer, repointed: it no longer owns `zoneId`/`engagement`/`enchantment`. Legality selectors (whose turn, reaction, opportunity-attack/interception prompts) take the Instance's occupancy + engagement as **injected context** — the tracker ADR's inject-don't-store pattern — and the reducer writes only the non-spatial session.
+- **`reduceMapInstance(deps)(instance, event) → instance'`** — owns **every spatial transition**: `move` (occupancy) with its `→ reveal` (entered Zone + non-hidden neighbors) and `→ break-engagement` (left Zone) consequences; `reveal`/`hide`/`unlock`; `engage`/`disengage`; `enchant`; and the **Edit-mode geometry edits** (`addZone`, `setAdjacency`, `toggleConnectionFlag`, `editDescription`, `repositionNode`, guarded `deleteZone`). One home for the move-rules and the geometry.
+- **`reduceDungeon(deps)(dungeon, event) → dungeon'`** — the exploration turn loop: `markActed`, `advanceTurn`, status transitions. The reminders are **pure selectors over the turn counter** (random-encounter cadence, Exhaustion onset), not reducer state. The roster is **derived** from Instance tokens, so adding or removing a character is a **single** token op on the Instance; `actedCharacterIds` is filtered to the current roster at read-time (a stale id for a departed character is ignored), so a removal needs no second-row Dungeon write.
+- **`reduceCombatSession(deps)(session, event) → session'`** — the **existing** reducer (real shape `reduceCombatSession(lookups, newId)(session, event)`), repointed: it no longer owns `zoneId`/`engagement`/`enchantment`. Legality selectors (whose turn, reaction, opportunity-attack/interception prompts) take the Instance's occupancy + engagement as **injected context** — the tracker ADR's inject-don't-store pattern — and the reducer writes only the non-spatial session.
 
 ### Temporal layers invoke spatial transitions
 
@@ -226,7 +227,9 @@ The principle the PRD names, made concrete in the impure shell:
 - **Combat move** — `reduceCombatSession` checks legality and surfaces the move's **prompts** (a provoked opportunity attack, an interception offer), then **delegates the spatial write to `reduceMapInstance`**. The move writes **only the Instance** (occupancy + engagement) — never the session. A provoked OA or interception is **adjudicated separately**: the DM resolves it as an ordinary combat event with its own single-Encounter write, exactly as the tracker prompts rather than auto-applies. So the move is single-row; its consequences are follow-on events, not part of its write. Movement authority stays with the Encounter; the Instance is just where the write lands.
 - **Search-that-reveals** — `reduceDungeon.markActed` + `reduceMapInstance.reveal`, composed in one `guardMany` transaction.
 
-Engine placement (`packages/game`): `reduceMapInstance` and `reduceDungeon` are new pure modules beside the encounter reducer, data-pure and fixture-tested per the package rubric; the `Statblock` derivers are untouched.
+**The `CombatEvent` union splits — the structural core of §0.** Today `combatEventSchema` is one discriminated union driving `reduceCombatSession` (`foundation/encounter/session-event.ts`). §0 carves the **spatial events** (`ZoneGraphEvent`, `MoveCombatantEvent`, `EngagementEvent`, `EnchantmentEvent`) onto `reduceMapInstance` and leaves the non-spatial events on the session reducer, re-deriving the `PLAYER_OVERLAY_EVENT_KINDS` player-write allow-list — the compile-time lockstep guard keeps the wire schema honest. This event-union split, **not** the column move, is the load-bearing change.
+
+Engine placement (`packages/game/src/engine/encounter/`): `reduceMapInstance` and `reduceDungeon` are new pure modules beside `reduce-session.ts`, **curried deps-first** (`reduce(deps)(state, event)` — the engine's port/composition-root convention), data-pure and fixture-tested per the package rubric; the `Statblock` derivers and the Fallen injection are untouched (Fallen has zero spatial coupling).
 
 ---
 
@@ -303,8 +306,8 @@ Reuse the shipped **Ably invalidation-ping** ([Real-Time ADR](../realtime/ADR.md
 
 - **A new `dungeon:{shortId}` channel.** Exploration writes — moves, reveals, turn-loop changes (Dungeon + Instance during exploration) — ping it. The dungeon player view subscribes to it.
 - **The watch view dual-subscribes during combat.** A combat move is now an *Instance* write driven by the Encounter, so it pings the `encounter:{shortId}` channel (as combat events already do). The dungeon player view, which composes the combat watch while a fight is live, **subscribes to both `dungeon:{shortId}` and the live `encounter:{shortId}`** (it learns the encounter shortId from the snapshot) — the same multi-channel pattern the DM console already uses.
-- **Channel naming** goes through the env-namespaced, server-owned helper (`lib/realtime/channels.ts`); the `dungeon` domain is added there. Tokens stay subscribe-only; payloads stay advisory metadata.
-- **Snapshot versions are composite.** A combat move bumps only `map_instances.version`, but clients decide refetch by comparing the *snapshot's* version. So the `EncounterSnapshot` and the new `DungeonSnapshot` expose **both** their temporal-layer version (the encounter/dungeon row) **and** their Instance's version; a combat-move ping carries the Instance version, and a client refetches when *either* advances. This preserves the single-row *write* — the optimistic guard is still Instance-only — while making the spatial change visible to the invalidation fast-path (polling catches it regardless).
+- **Channel naming** goes through the env-namespaced, server-owned helper (`lib/realtime/channels.ts`); the `dungeon` domain is added there. (`RealtimeDomain` is a **union, not a registry** — the new domain string must be added in lockstep across `channels.ts`, the token-route enum, and the ping parser, or realtime silently falls back to polling-only.) Tokens stay subscribe-only; payloads stay advisory metadata.
+- **Snapshot versions are composite — and the ping must say *which* version it carries.** A combat move bumps only `map_instances.version`, but clients decide refetch by comparing the *snapshot's* version, so `EncounterSnapshot` / the new `DungeonSnapshot` expose **both** their temporal-layer version (encounter/dungeon row) **and** their Instance's version, and a client refetches when *either* advances. **Sharp edge (from the codebase):** the shipped ping payload is `{version, status}` with **no entity tag**, and an Instance ping and an encounter ping land on the *same* `encounter:{shortId}` channel — indistinguishable, with two independent counters, so a naïve `<=` compare cross-wires (spurious refetch or dropped update). The ping must carry a **version-kind tag** (`encounter` vs `mapInstance`) so each is compared against the right ref. This is the same cross-aggregate-invalidation gap the **frontend audit already flagged** for PC-vitals-on-the-watch (a self-heal pings `character` but the watch only tracks `encounter`) — worth fixing in the same stroke; polling masks it until then. The single-row *write* is preserved either way (the optimistic guard stays Instance-only).
 
 **Polling remains the degraded-mode fallback**, unchanged — when realtime is unavailable the player view keeps its ~1.5s poll, and E2E asserts through the DB regardless.
 
@@ -355,17 +358,23 @@ Migrations run via `drizzle-kit migrate` over `DATABASE_URL_UNPOOLED`, as today;
 
 ## Impact on already-shipped code
 
-| Artifact | Change |
+The spatial state is localized (the `packages/game/src/engine/encounter/` folder + `apps/web/components/combat/`), but a codebase sweep found the real consumer surface is **~30 files**, not the headline few. The load-bearing changes:
+
+| Artifact (path) | Change |
 | -- | -- |
-| `reduceCombatSession` | Sheds `zoneId`/`engagement`/`enchantment` handling; legality selectors take the Instance's occupancy + engagement as **injected context**; combat moves **delegate the spatial write** to `reduceMapInstance`. **Combat behavior unchanged** (parity-gated). |
-| `combatantSchema` | Drops `zoneId` + `engagement`; keeps ailments, battle conditions + durations, reaction, `side`, `hasActedThisRound`, `ref`, vitals. |
-| `CombatSession` schema | Drops `zones`, `adjacency`, `enchantment`; the encounter row gains `mapInstanceId`. |
-| `/combat/{shortId}` page + `EncounterSetup` | Repoint onto a Map Instance; **setup mints the Instance + places tokens** (replacing inline zone authoring). Position/enchantment reads come from the Instance. |
-| `projectPlayerSnapshot` (watch) | Reads position / engagement / enchantment from the Instance instead of the session. |
-| `zoneEnchantmentEffects` + PC-hydration zone-effects | Repointed to read the Instance's enchantment. |
-| **New engine modules** | `reduceMapInstance`, `reduceDungeon` (+ fixtures/tests per the rubric); the `Statblock` derivers untouched. |
-| **New app plumbing** | `lib/db/{schema,writes,queries}` for map / map-instance / dungeon; `lib/actions` for the spatial + dungeon events; the `guardMany` primitive; `lib/realtime/channels.ts` gains a `dungeon` domain. |
-| **Free win** | §0 + Edit mode gives the *standalone* combat console in-fight adjacency editing — the shipped tracker's "can't edit in progress" pain, fixed as a side effect. |
+| **`CombatEvent` union split** (`foundation/encounter/session-event.ts`) | Carve the spatial events (`ZoneGraphEvent`/`MoveCombatantEvent`/`EngagementEvent`/`EnchantmentEvent`) out of `combatEventSchema` + `reduceCombatSession` onto `reduceMapInstance`; re-derive `PLAYER_OVERLAY_EVENT_KINDS`. **The structural core** (compile-time lockstep guard enforces it). |
+| `reduceCombatSession` + slices (`engine/encounter/reduce-session.ts`, `reduce/{zones,placement,engagement,enchantment,round}.ts`) | Spatial slices move to `reduceMapInstance`; session reads occupancy/engagement as injected context. **Cross-cuts to preserve:** `placement.moveCombatant` already does move→break-engagement (gets *easier* on the Instance); `zones.removeZone` clears enchantment; **`round.removeCombatant` unlinks survivor engagement** — now a cross-container prune (see _Atomicity_). |
+| Engine **view-shapers** — `resolve-zone-layout.ts` (reads all five fields), `roster-view.ts`, `resolve-player-view.ts`, `resolve-engagement.ts`, `zone-graph.ts`, `setup-roster-view.ts` (`isRosterFullyPlaced` is also a server-side start-combat guard) | Re-pointed to take Instance **+** session as two inputs (the "reads span layers" case). The hot render path — and the biggest slice the first-draft impact list missed. |
+| `combatantSchema` / `CombatSession` schema (`foundation/encounter/session.ts`) | Drop `zoneId`/`engagement` (combatant), `zones`/`adjacency`/`enchantment` (session); add `encounters.mapInstanceId`. The Drizzle conformance test covers character rows only, so the jsonb shape just follows the schema. |
+| `projectPlayerSnapshot` (`engine/encounter/player-snapshot.ts`) + `loadOwnedEncounterSheets` + `useOwnedSheetZoneEffectsRefresh` (`components/combat/watch-sheet-refresh.ts`) | Read position/engagement/enchantment from the Instance; the client refresh hook diffs `enchantment`/`zoneId` **values** (not versions), so it must follow the reshape or owned sheets go stale. |
+| `zoneEnchantmentEffects` (`engine/encounter/enchantment.ts`) → derive | **Not display-only** — folds into `derive-hydrated-character` → the Attack-Roll/affinity stat fold; re-homing repoints the PC-hydration sites (`app/combat/[shortId]/page.tsx` live branch, `load-encounter-snapshot.ts`). |
+| `ZonesPanel` + ~12 combat UI components (`components/combat/`) | `ZonesPanel` repointed in §0 (canvas in M1); `zone-layout`, `engagement-control`, `combatant-position-section`, `zone-enchantment-control`, the rail/setup rows, `encounter-watch`, `combat-console`, … re-pointed to Instance shapes. |
+| **New engine modules** | `reduceMapInstance`, `reduceDungeon` (curried deps-first, fixture-tested); `Statblock` + Fallen injection untouched. |
+| **New app plumbing** | per-table guards + `guardMany`; `lib/realtime/channels.ts` gains a `dungeon` domain; `projectDungeonSnapshot` + the public snapshot route. |
+| **Parity gate** | the engine spatial unit suite (~930 lines) + `__contract__` + `encounter-shell.spec.ts` — several specs assert the *current* shapes and need rewriting, not just re-running; **add a `moveCombatant` test** (none exists). |
+| **Free win** | §0 + Edit mode gives the *standalone* combat console in-fight adjacency editing — the tracker's "can't edit in progress" pain, fixed as a side effect. |
+
+**What's genuinely clean** (confirmed by the sweep): no range/distance/attack-resolution reads zones — the only zone→combat-math path is the enchantment effect fold; turn order and Fallen injection are fully non-spatial; `combatant.zoneId` has no DB-level FK today (`""` = unplaced), so the token model is a *tightening* to reconcile, not a data migration.
 
 ---
 
@@ -387,7 +396,7 @@ Each milestone is an epic; per-epic branches off `feature/dungeons`.
 
 ## Open questions remaining
 
-- **Enchantment cardinality** — *"only one Zone Enchanted at a time"*: per-Bard or global? A `reduceMapInstance` rule, not a home question.
+- **Enchantment cardinality (resolved for v1)** — keep the **shipped global singleton** (one enchanted Zone, relocated to the Instance). A per-Bard / per-Zone-map re-model (multiple enchanted Zones) is a future change, not v1.
 - **Shared / published map catalog** — v1 Maps are user-owned templates; whether they later become shareable (a global catalog like the enemy catalog) is open.
 - **Structured Zone features (M5)** — the content model (loot/monster/trap markers; monster→combatant spawn) is sketched, not designed.
 - **Multi-floor dungeons** — one Map / one Instance per Dungeon in v1; multiple Maps per Dungeon is a later extension.
