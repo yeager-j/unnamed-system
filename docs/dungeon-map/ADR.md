@@ -109,9 +109,9 @@ This is a **larger cut than the PRD's §0**, which moves only `zones` / `adjacen
 
 §0 ships on `feature/dungeons` and reaches prod only when the whole feature merges — **well after the Friday playtest** — and existing encounters are **disposable** (a deliberate ruling: no production encounter data is worth preserving across the cutover). So §0 carries **no migration backfill**. The cutover **truncates `encounters`**, and the idempotent seed re-creates the showcase encounters under the new model (each minting its Map Instance). This is what lets `encounters.mapInstanceId` be non-null from the start — no legacy rows to leave dangling. Wiping is safe precisely because the destructive step lands long after Friday, on a feature merge the DM controls, never racing a playtest.
 
-### Encounter setup now authors onto the Instance
+### Encounter setup repoints onto the Instance
 
-With zones off the session, **encounter setup mints the Instance and places tokens** — this *replaces* today's inline zone authoring on the `CombatSession`. A standalone fight authors its geography ad hoc here (or, post-M1, picks a Map template); PC tokens are placed in setup, enemy tokens at combat start. The combat console reads position / engagement / enchantment from the Instance; the reducer is repointed (see _Reducer topology_) but its outputs are unchanged.
+With zones off the session, **encounter setup writes its geography to the Instance** instead. §0 keeps today's `ZonesPanel` UI and simply **repoints its write target** — a required call-site update, since the `session` column it wrote is gone — and **mints the Instance + places tokens**; the node-graph **canvas replaces `ZonesPanel` in M1**, not here. A standalone fight still authors its geometry ad hoc here; PC tokens are placed in setup, enemy tokens at combat start. The combat console reads position / engagement / enchantment from the Instance; the reducer is repointed (see _Reducer topology_) but its outputs are unchanged.
 
 ### Why it gates everything
 
@@ -203,6 +203,8 @@ The genuinely-atomic, multi-container gestures are **few, rare, and confirm-gate
 | Search-that-reveals (acted + reveal) | Dungeon + Instance |
 
 No per-move transaction; the hot path stays single-row. (A normal move costs no turn, and "acted" vs "reveal" are separate gestures — so the only forced multi-writes are the four above.)
+
+> **Validate at implementation:** `guardMany` runs its per-row guards inside one `@neondatabase/serverless` transaction; confirm the driver's `transaction()` support composes with the read-then-write version-guard across two rows before M2 leans on it.
 
 ---
 
@@ -298,6 +300,7 @@ Reuse the shipped **Ably invalidation-ping** ([Real-Time ADR](../realtime/ADR.md
 - **A new `dungeon:{shortId}` channel.** Exploration writes — moves, reveals, turn-loop changes (Dungeon + Instance during exploration) — ping it. The dungeon player view subscribes to it.
 - **The watch view dual-subscribes during combat.** A combat move is now an *Instance* write driven by the Encounter, so it pings the `encounter:{shortId}` channel (as combat events already do). The dungeon player view, which composes the combat watch while a fight is live, **subscribes to both `dungeon:{shortId}` and the live `encounter:{shortId}`** (it learns the encounter shortId from the snapshot) — the same multi-channel pattern the DM console already uses.
 - **Channel naming** goes through the env-namespaced, server-owned helper (`lib/realtime/channels.ts`); the `dungeon` domain is added there. Tokens stay subscribe-only; payloads stay advisory metadata.
+- **Snapshot versions are composite.** A combat move bumps only `map_instances.version`, but clients decide refetch by comparing the *snapshot's* version. So the `EncounterSnapshot` and the new `DungeonSnapshot` expose **both** their temporal-layer version (the encounter/dungeon row) **and** their Instance's version; a combat-move ping carries the Instance version, and a client refetches when *either* advances. This preserves the single-row *write* — the optimistic guard is still Instance-only — while making the spatial change visible to the invalidation fast-path (polling catches it regardless).
 
 **Polling remains the degraded-mode fallback**, unchanged — when realtime is unavailable the player view keeps its ~1.5s poll, and E2E asserts through the DB regardless.
 
@@ -364,7 +367,7 @@ Migrations run via `drizzle-kit migrate` over `DATABASE_URL_UNPOOLED`, as today;
 | Milestone | Scope | Notes vs PRD |
 | -- | -- | -- |
 | **M0 — Spatial refactor** | Lift zones/adjacency/zoneId **+ engagement + enchantment** to the Instance; introduce `map_instances` + `encounters.mapInstanceId`; repoint `reduceCombatSession`; parity-gated. | **Enlarged** — engagement + enchantment move too. |
-| **M1 — Map authoring** | `maps` table + My Maps editor + the node-graph builder on the React Flow canvas; `mapId` FK. **The Edit-mode toolset lands here.** | — |
+| **M1 — Map authoring** | `maps` table + My Maps editor + the node-graph builder on the React Flow canvas (replaces §0's repointed `ZonesPanel`); `mapId` FK. **The Edit-mode toolset lands here.** | — |
 | **M2 — Exploration run** | `dungeons` table + `reduceDungeon` + the turn loop + reminders (selectors) + token placement + DM movement + reveal; Instance runtime. **Edit/Play toggle available in the run console.** | — |
 | **M3 — Player fog view** | `/c/dungeon/{shortId}` + `projectDungeonSnapshot` + the polled/pinged transport. | — |
 | **M4 — Combat integration** | Enemies onto the live Instance; whole-map play; combat-end cleanup + mark-the-turn. | — |
