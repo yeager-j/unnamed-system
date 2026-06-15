@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { combatSessionSchema } from "@workspace/game/foundation"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   encounters,
   type EncounterRow,
@@ -86,8 +86,11 @@ export async function loadEncounterCampaignId(
  * `"stale"` (it exists but its `version` moved past the caller's token). Selects
  * only `id` so the read is index-only.
  */
-export async function encounterExists(encounterId: string): Promise<boolean> {
-  const [row] = await db
+export async function encounterExists(
+  encounterId: string,
+  executor: WriteExecutor = db
+): Promise<boolean> {
+  const [row] = await executor
     .select({ id: encounters.id })
     .from(encounters)
     .where(eq(encounters.id, encounterId))
