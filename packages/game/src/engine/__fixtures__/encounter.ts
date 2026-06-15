@@ -1,7 +1,10 @@
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { resolveCatalogEnemyStatblocks } from "@workspace/game/engine/combatant/statblock"
+import { reduceMapInstance } from "@workspace/game/engine/encounter/reduce-map-instance"
 import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
 import { type GameData } from "@workspace/game/engine/ports"
+import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
+import type { MapInstanceEvent } from "@workspace/game/foundation/encounter/map-instance-event"
 import type {
   CombatantSetup,
   CombatSession,
@@ -36,3 +39,32 @@ export const enemyStatblocks = (
   combatants: readonly { ref: CombatantSetup["ref"] }[],
   data: GameData = EMPTY_CATALOG
 ) => resolveCatalogEnemyStatblocks(data)(combatants)
+
+/**
+ * A {@link MapInstanceState} for the `reduceMapInstance` slice tests (UNN-454).
+ * Every slice defaults empty (no zones/occupancy/enchantment); a test seeds only
+ * the spatial state its transition reads — built from fixtures, never balance
+ * numbers. Cloned per call so a mutation in one test can't leak into another.
+ */
+export const makeMapInstanceState = (
+  overrides: Partial<MapInstanceState> = {}
+): MapInstanceState => ({
+  zones: {},
+  adjacency: {},
+  occupancy: {},
+  enchantment: null,
+  ...overrides,
+})
+
+/** Applies one {@link MapInstanceEvent}; `newId` defaults to a stable counter so
+ *  an `addZone` without an id is deterministic. */
+export const reduceInstance = (
+  state: MapInstanceState,
+  event: MapInstanceEvent,
+  newId: () => string = sequentialZoneIds()
+): MapInstanceState => reduceMapInstance(newId)(state, event)
+
+function sequentialZoneIds() {
+  let n = 0
+  return () => `zone-${n++}`
+}
