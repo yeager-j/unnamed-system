@@ -117,7 +117,7 @@ export type CombatantRef = z.infer<typeof combatantRefSchema>
  * combatants. Engagement records *who* a combatant is locked with — never
  * *where* it stands; position is the orthogonal `zoneId` on the combatant.
  */
-const engagementSchema = z.discriminatedUnion("status", [
+export const engagementSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("free") }),
   z.object({
     status: z.literal("engaged"),

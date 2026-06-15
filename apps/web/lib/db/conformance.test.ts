@@ -11,7 +11,7 @@ import {
   type CharacterKnifeRow,
   type CharacterRow,
   type InventoryItemRow,
-} from "./character"
+} from "./schema/character"
 
 /**
  * Drift guard for the type-ownership inversion (Step 0, docs/engine-reorg): the
