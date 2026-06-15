@@ -7,7 +7,7 @@ import {
   type Result,
 } from "@workspace/game/foundation"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertWithShortId } from "@/lib/db/short-id"
@@ -65,9 +65,12 @@ export async function createEncounter(input: {
 export async function saveEncounterSession(
   encounterId: string,
   session: CombatSession,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  return bumpEncounterVersionGuarded(encounterId, expectedVersion, { session })
+  return bumpEncounterVersionGuarded(executor, encounterId, expectedVersion, {
+    session,
+  })
 }
 
 /**
@@ -79,9 +82,12 @@ export async function saveEncounterSession(
 export async function setEncounterStatus(
   encounterId: string,
   status: EncounterStatus,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  return bumpEncounterVersionGuarded(encounterId, expectedVersion, { status })
+  return bumpEncounterVersionGuarded(executor, encounterId, expectedVersion, {
+    status,
+  })
 }
 
 /**
@@ -92,11 +98,12 @@ export async function setEncounterStatus(
  * (row gone) via {@link encounterExists}.
  */
 async function bumpEncounterVersionGuarded(
+  executor: WriteExecutor,
   encounterId: string,
   expectedVersion: number,
   patch: Partial<typeof encounters.$inferInsert>
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  const updated = await db
+  const updated = await executor
     .update(encounters)
     .set({ ...patch, version: sql`${encounters.version} + 1` })
     .where(
@@ -108,7 +115,7 @@ async function bumpEncounterVersionGuarded(
     .returning({ version: encounters.version })
 
   if (updated.length === 0) {
-    return (await encounterExists(encounterId))
+    return (await encounterExists(encounterId, executor))
       ? err("stale")
       : err("encounter-not-found")
   }

@@ -42,3 +42,16 @@ export const db: Database = new Proxy({} as Database, {
     return typeof value === "function" ? value.bind(instance) : value
   },
 })
+
+/**
+ * Either the auto-resolving {@link db} client or the transaction handle passed
+ * to a `db.transaction` callback. A write helper that may run **either**
+ * standalone or inside a {@link guardMany} transaction accepts this, so its
+ * reads/writes share the caller's snapshot rather than escaping to a separate
+ * connection. The neutral, table-agnostic counterpart of the character-coupled
+ * `CharacterWriteExecutor` (`queries/load-character`), shared by the encounter
+ * and Map-Instance guards (UNN-456).
+ */
+export type WriteExecutor =
+  | typeof db
+  | Parameters<Parameters<typeof db.transaction>[0]>[0]
