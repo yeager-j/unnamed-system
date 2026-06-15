@@ -1,4 +1,4 @@
-import type { Combatant } from "@workspace/game/foundation/encounter/session"
+import type { Engagement } from "@workspace/game/foundation/encounter/session"
 
 /**
  * The symmetric melee-lock graph primitives shared by the live-combat reducer
@@ -9,34 +9,38 @@ import type { Combatant } from "@workspace/game/foundation/encounter/session"
  * primitives in one module is the live counterpart of `setup-roster-view.ts`'s
  * `normalizeEngagements`, which enforces the same invariant on the setup roster.
  *
- * The functions accept a {@link Combatant} but are written to mutate it in place —
- * callers pass an Immer `Draft<Combatant>` from inside a `produce`.
+ * They operate on any **engagement holder** — anything carrying an
+ * {@link Engagement} field — so the same invariant is enforced for the session's
+ * combatant (where engagement rides the `Combatant`) and the Map Instance's token
+ * (`MapToken`, where it rides occupancy, UNN-454). Written to mutate in place —
+ * callers pass an Immer draft from inside a `produce`.
  */
+type EngagementHolder = { engagement: Engagement }
 
-/** The ids a combatant is currently engaged with, or `[]` when Free. */
-export function engagedWith(combatant: Combatant): string[] {
-  return combatant.engagement.status === "engaged"
-    ? combatant.engagement.targetCombatantIds
+/** The ids a holder is currently engaged with, or `[]` when Free. */
+export function engagedWith(holder: EngagementHolder): string[] {
+  return holder.engagement.status === "engaged"
+    ? holder.engagement.targetCombatantIds
     : []
 }
 
-/** Re-stamps a combatant's engagement from a target list — Free when empty. */
-export function setEngaged(combatant: Combatant, targets: string[]): void {
-  combatant.engagement =
+/** Re-stamps a holder's engagement from a target list — Free when empty. */
+export function setEngaged(holder: EngagementHolder, targets: string[]): void {
+  holder.engagement =
     targets.length === 0
       ? { status: "free" }
       : { status: "engaged", targetCombatantIds: targets }
 }
 
 /**
- * Removes `otherId` from a combatant's engagement, reverting it to Free when that
- * was its last link. A no-op when the combatant wasn't engaged with `otherId`.
+ * Removes `otherId` from a holder's engagement, reverting it to Free when that
+ * was its last link. A no-op when the holder wasn't engaged with `otherId`.
  */
-export function unlink(combatant: Combatant, otherId: string): void {
-  const current = engagedWith(combatant)
+export function unlink(holder: EngagementHolder, otherId: string): void {
+  const current = engagedWith(holder)
   if (!current.includes(otherId)) return
   setEngaged(
-    combatant,
+    holder,
     current.filter((id) => id !== otherId)
   )
 }
