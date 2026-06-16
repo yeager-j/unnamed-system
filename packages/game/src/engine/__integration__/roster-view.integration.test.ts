@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import {
+  enemyStatblocks,
+  reduceCombat,
+} from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { makeAttackSkill } from "@workspace/game/engine/__fixtures__/skills"
@@ -523,5 +526,61 @@ describe("combatantDetail", () => {
       targetCombatantIds: ["combatant-1"],
     })
     expect(eng.targetNames).toEqual(["Goblin"])
+  })
+})
+
+/**
+ * M0 safety net (UNN-472): characterizes the shipped `move → reveal-adjacent
+ * context` behavior — applying a `moveCombatant` event recomputes the drawer's
+ * move targets to the **new** zone's neighbors. This composes the placement
+ * reducer slice with the `roster-view` position shaper (which the M0 cutover
+ * repoints to read occupancy from the Map Instance), so it must stay green
+ * across that lift. The static `position.targets` case lives above; this pins
+ * the recompute *through a move*, which nothing else asserts.
+ */
+describe("combatantDetail — move recomputes the adjacent-zone targets (UNN-472)", () => {
+  /** combatant-0 placed in `z` (Courtyard) on a three-zone line
+   *  Courtyard ↔ Hall ↔ Cellar. */
+  function lineGraph(): CombatSession {
+    return {
+      ...build(),
+      zones: {
+        z: { id: "z", name: "Courtyard" },
+        z2: { id: "z2", name: "Hall" },
+        z3: { id: "z3", name: "Cellar" },
+      },
+      adjacency: { z: ["z2"], z2: ["z", "z3"], z3: ["z2"] },
+    }
+  }
+
+  it("offers the start zone's neighbors before the move", () => {
+    const pos = combatantDetail(
+      lineGraph(),
+      "combatant-0",
+      PC_DETAIL,
+      ENEMY_SB
+    )!.position!
+
+    expect(pos.current?.name).toBe("Courtyard")
+    expect(pos.targets.map((t) => t.name)).toEqual(["Hall"])
+  })
+
+  it("recomputes to the destination zone's neighbors after the move", () => {
+    const moved = reduceCombat(lineGraph(), {
+      kind: "moveCombatant",
+      combatantId: "combatant-0",
+      toZoneId: "z2",
+    })
+
+    const pos = combatantDetail(
+      moved,
+      "combatant-0",
+      PC_DETAIL,
+      ENEMY_SB
+    )!.position!
+
+    expect(pos.current?.name).toBe("Hall")
+    expect(pos.targets.map((t) => t.name)).toEqual(["Courtyard", "Cellar"])
+    expect(pos.targets.map((t) => t.name)).not.toContain("Hall")
   })
 })
