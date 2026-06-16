@@ -1,11 +1,13 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useOptimistic, useRef, useTransition } from "react"
+import { useOptimistic, useTransition } from "react"
 import { toast } from "sonner"
 
 import { type CombatEvent } from "@workspace/game/foundation"
 
+import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
+import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { applyCombatEvent } from "@/lib/actions/encounter/events"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -20,16 +22,17 @@ import { reduceCombatSession } from "@/lib/game-engine"
  * mirrors it instantly. Setup is single-DM draft authoring, so unlike the console
  * this carries no realtime subscription or PC-vitals ping machinery.
  *
- * The `version` token lives in a **ref synced from the server prop** (the same
- * primitive the console and the sheet use) so a rapid follow-up — add a
- * combatant, then immediately place or engage it — reads the freshly-bumped token
- * synchronously instead of a stale render frame. On success it `router.refresh()`es
- * (load-bearing: it re-syncs `useOptimistic`'s base after the transition commits,
- * so the persisted edit doesn't vanish); on failure the toast fires while React
- * reverts the optimistic state automatically.
+ * Writes go through the shared {@link useQueuedWrite} primitive (UNN-378) — the
+ * same one the live console uses — so a rapid follow-up (add a combatant, then
+ * immediately place or engage it) serializes behind the in-flight write and reads
+ * the freshly-bumped token its predecessor produced instead of a stale render
+ * frame, and a genuine cross-writer `stale` refetches + retries once. On success
+ * it `router.refresh()`es (load-bearing: it re-syncs `useOptimistic`'s base after
+ * the transition commits, so the persisted edit doesn't vanish); on failure the
+ * toast fires while React reverts the optimistic state automatically.
  */
 export function useEncounterSetup(
-  encounter: Pick<EncounterRow, "id" | "session" | "version">
+  encounter: Pick<EncounterRow, "id" | "shortId" | "session" | "version">
 ) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -38,24 +41,21 @@ export function useEncounterSetup(
     (current, event: CombatEvent) => reduceCombatSession(current, event)
   )
 
-  const versionRef = useRef(encounter.version)
-  useEffect(() => {
-    versionRef.current = encounter.version
-  }, [encounter.version])
+  const { enqueue } = useQueuedWrite({
+    serverVersion: encounter.version,
+    refetchVersion: () => fetchEncounterVersion(encounter.shortId),
+  })
 
   function dispatch(event: CombatEvent) {
     startTransition(async () => {
       applyOptimistic(event)
-      const result = await applyCombatEvent({
-        encounterId: encounter.id,
-        expectedVersion: versionRef.current,
-        event,
-      })
+      const result = await enqueue((expectedVersion) =>
+        applyCombatEvent({ encounterId: encounter.id, expectedVersion, event })
+      )
       if (!result.ok) {
         toast.error(encounterErrorMessage(result.error))
         return
       }
-      versionRef.current = result.value.version
       router.refresh()
     })
   }

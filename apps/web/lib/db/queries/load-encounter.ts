@@ -62,6 +62,25 @@ export async function loadEncounterRowByShortId(
 }
 
 /**
+ * The encounter's current optimistic `version` only (by public `shortId`), or
+ * `null` when no encounter matches. Backs the client stale-retry path
+ * (`getEncounterVersionAction`, UNN-378): when a guarded write returns `"stale"`,
+ * the queued-write hook refetches the fresh token here and retries once. Selects
+ * one column, so the read is index-light.
+ */
+export async function loadEncounterVersionByShortId(
+  shortId: string
+): Promise<number | null> {
+  const [row] = await db
+    .select({ version: encounters.version })
+    .from(encounters)
+    .where(eq(encounters.shortId, shortId))
+    .limit(1)
+
+  return row?.version ?? null
+}
+
+/**
  * The encounter's `campaignId` only, or `null` when no encounter matches. Lets
  * the impure shell (`applyCombatEvent`, UNN-332) authorize the caller against the
  * owning campaign (`requireCampaignDM`) *before* loading the `session` blob, so a
