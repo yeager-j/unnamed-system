@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto"
 import { eq, inArray } from "drizzle-orm"
 
 import { createCombatSession } from "@workspace/game/engine"
-import { type CombatantSetup } from "@workspace/game/foundation"
+import {
+  type CombatantSetup,
+  type CombatSession,
+} from "@workspace/game/foundation"
 
 import {
   makeSeedCharacter,
@@ -135,9 +138,12 @@ export interface TestEncounter {
 }
 
 /**
- * Mints an encounter (default `live`) in `campaignId`, optionally seeding PC
- * combatants on the players' side — the live-lock guards key off a live
- * encounter that lists a placed character as a combatant.
+ * Mints an encounter (default `live`) in `campaignId`. By default it seeds the
+ * given PC `combatantCharacterIds` on the players' side (unplaced) — the
+ * live-lock guards key off a live encounter that lists a placed character as a
+ * combatant. Pass a fully-built `session` instead when the spec needs a richer
+ * shape (zones, placement, a started session — see `move-combatant-target.ts`);
+ * it is persisted verbatim and `combatantCharacterIds` is ignored.
  */
 export async function createLiveEncounter(
   tracker: CleanupTracker,
@@ -145,6 +151,7 @@ export async function createLiveEncounter(
     campaignId: string
     combatantCharacterIds?: string[]
     status?: EncounterStatus
+    session?: CombatSession
   }
 ): Promise<TestEncounter> {
   const suffix = uniqueSuffix()
@@ -165,7 +172,8 @@ export async function createLiveEncounter(
       campaignId: opts.campaignId,
       name: "E2E encounter",
       status: opts.status ?? "live",
-      session: createCombatSession(() => `${id}-c${n++}`)(setups),
+      session:
+        opts.session ?? createCombatSession(() => `${id}-c${n++}`)(setups),
       version: 0,
     })
   tracker.encounterIds.push(id)
