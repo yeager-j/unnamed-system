@@ -16,6 +16,7 @@ import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
+import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import {
   damageAction,
   healAction,
@@ -82,13 +83,20 @@ function poolErrorMessage(error: AdjustPoolActionError): string {
 }
 
 /**
- * PC vitals via the pools actions. The console has no `CharacterProvider`; the
- * vitals token lives in the console-owned `pcVitalsVersions` map (UNN-373) so
- * the realtime ping compare and these writes read/bump the *same* value — a
- * rapid second click sees the fresh token, and the write's own echo ping
- * arrives ≤ the map and is dropped. The map is prop-synced (forward-only) by
- * `useCombatConsole`; the hydrated prop is the fallback for a PC the map
- * hasn't seen yet.
+ * PC vitals via the pools actions. HP/SP is a **character-row** write (vitals
+ * class), not an encounter-session edit, so it composes the shared character
+ * pipeline {@link dispatchCharacterWriteWithRetry} (UNN-378) — gaining the
+ * silent stale-retry (most likely to fire here, where a concurrent player
+ * self-write races the DM) and the cross-tab version broadcast it previously
+ * lacked.
+ *
+ * The console has no `CharacterProvider`, so the per-write-class `versionRef` the
+ * pipeline needs is a thin adapter over the console-owned `pcVitalsVersions` map
+ * (UNN-373): reading falls back to the hydrated prop for a PC the map hasn't seen
+ * yet, and the pipeline's success/pre-retry bumps write straight back into the
+ * map — so the realtime ping compare and these writes keep sharing the *same*
+ * token (echo pings stay deduped). The map is prop-synced forward-only by
+ * `useCombatConsole`.
  */
 function PcVitals({
   detail,
@@ -100,6 +108,17 @@ function PcVitals({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
+  const versionRef: RefObject<number> = {
+    get current() {
+      return (
+        pcVitalsVersions.current[detail.characterId] ?? detail.vitalsVersion
+      )
+    },
+    set current(version: number) {
+      pcVitalsVersions.current[detail.characterId] = version
+    },
+  }
+
   function run(
     action: (input: {
       characterId: string
@@ -109,17 +128,17 @@ function PcVitals({
     amount: number
   ) {
     startTransition(async () => {
-      const result = await action({
+      const result = await dispatchCharacterWriteWithRetry({
         characterId: detail.characterId,
-        amount,
-        expectedVersion:
-          pcVitalsVersions.current[detail.characterId] ?? detail.vitalsVersion,
+        surface: "pools",
+        versionRef,
+        action: (expectedVersion) =>
+          action({ characterId: detail.characterId, amount, expectedVersion }),
       })
       if (!result.ok) {
         toast.error(poolErrorMessage(result.error))
         return
       }
-      pcVitalsVersions.current[detail.characterId] = result.value.version
       router.refresh()
     })
   }

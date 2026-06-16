@@ -9,6 +9,8 @@ import { type CombatEvent } from "@workspace/game/foundation"
 
 import { parseCharacterPing } from "@/hooks/character-version-sync"
 import { parseEncounterPing } from "@/hooks/encounter-ping"
+import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
+import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
@@ -28,26 +30,28 @@ import { decidePcPing } from "./pc-ping"
  * state automatically (ADR Decision 4; the optimistic-toggle pattern in
  * `lib/actions/README.md`).
  *
- * The version token lives in a **ref synced to the server prop**, not `useState`
- * — the same primitive the sheet's `useCharacterTokenRef` uses. A rapid
- * follow-up tap (draft → end turn before the first write's state commits) reads
- * the freshly-bumped token synchronously from `versionRef.current` instead of a
- * stale render frame, so the second event isn't spuriously rejected as `stale`;
- * the prop-sync effect absorbs the version `router.refresh()` brings back.
+ * Writes go through the shared {@link useQueuedWrite} primitive (UNN-378): it
+ * owns the encounter `version` in a monotonic ref, **serializes** back-to-back
+ * dispatches (each reads the freshly-bumped token its predecessor produced, so a
+ * rapid draft → end-turn isn't spuriously rejected as `stale`), and on a genuine
+ * cross-writer `stale` refetches the live version and retries the event once
+ * (the Server Action re-reduces onto the current session, so the retry is safe).
  *
  * **Realtime (UNN-373):** the hook also subscribes to the encounter's ping
  * channel and owns the per-PC `vitalsVersion` map the character-channel
  * listeners (mounted by the console root) and the drawer's pools writes share.
- * Every remote ping funnels through one version compare against these local
- * tokens, so the console's *own* writes — which bump the tokens before their
- * ping returns — never double-refresh, while another writer's change (a
- * player's self-heal, a second DM tab's event) refreshes the page. Refreshes
- * are microtask-deduped: pings that land in the same event-loop task (and a
- * handler's own re-entrancy) collapse into one `router.refresh()`. Pings
- * arriving in separate tasks — e.g. an AoE's per-PC pings delivered as
- * separate WebSocket messages — may each refresh; that's accepted (each
- * refresh is a cheap re-read), with a wider debounce window as the known
- * lever if it ever shows up as churn in practice.
+ * The encounter-ping handler only **schedules a refresh** — it never forwards
+ * its version into the write ref. Forwarding it (the old bug, UNN-378) greenlit
+ * an absolute-payload event at a version the client hadn't actually loaded yet,
+ * silently clobbering the change that ping represented. The write ref now tracks
+ * only the *loaded* prop (advanced by the hook's own writes + the monotonic
+ * prop-sync after a refresh), so a stale event is correctly rejected and retried.
+ * Refreshes are microtask-deduped: pings that land in the same event-loop task
+ * (and a handler's own re-entrancy) collapse into one `router.refresh()`. Pings
+ * arriving in separate tasks — e.g. an AoE's per-PC pings delivered as separate
+ * WebSocket messages — may each refresh; that's accepted (each refresh is a
+ * cheap re-read), with a wider debounce window as the known lever if it ever
+ * shows up as churn in practice.
  */
 export function useCombatConsole(
   encounter: Pick<EncounterRow, "id" | "shortId" | "session" | "version">,
@@ -60,10 +64,10 @@ export function useCombatConsole(
     (current, event: CombatEvent) => reduceCombatSession(current, event)
   )
 
-  const versionRef = useRef(encounter.version)
-  useEffect(() => {
-    versionRef.current = encounter.version
-  }, [encounter.version])
+  const { versionRef, enqueue } = useQueuedWrite({
+    serverVersion: encounter.version,
+    refetchVersion: () => fetchEncounterVersion(encounter.shortId),
+  })
 
   /**
    * The tracked `vitalsVersion` per PC combatant — written by the drawer's
@@ -98,7 +102,6 @@ export function useCombatConsole(
       const ping = parseEncounterPing(data)
       if (ping?.version === undefined) return
       if (ping.version <= versionRef.current) return
-      versionRef.current = ping.version
       scheduleRefresh()
     },
     onReconnect: () => router.refresh(),
@@ -121,37 +124,33 @@ export function useCombatConsole(
   function dispatch(event: CombatEvent) {
     startTransition(async () => {
       applyOptimistic(event)
-      const result = await applyCombatEvent({
-        encounterId: encounter.id,
-        expectedVersion: versionRef.current,
-        event,
-      })
+      const result = await enqueue((expectedVersion) =>
+        applyCombatEvent({ encounterId: encounter.id, expectedVersion, event })
+      )
       if (!result.ok) {
         toast.error(encounterErrorMessage(result.error))
         return
       }
-      versionRef.current = result.value.version
       router.refresh()
     })
   }
 
   /**
    * Ends the encounter (UNN-320): a terminal `status` flip, not a session edit,
-   * so it goes straight through {@link endEncounterAction} (guarded on the live
-   * `versionRef`) rather than the optimistic reduce path. On success
+   * so it dispatches {@link endEncounterAction} rather than the optimistic reduce
+   * path — but still through the shared queue, so it serializes behind any
+   * in-flight session write and carries the right version. On success
    * `router.refresh()` re-forks the page to the ended stub.
    */
   function endEncounter() {
     startTransition(async () => {
-      const result = await endEncounterAction({
-        encounterId: encounter.id,
-        expectedVersion: versionRef.current,
-      })
+      const result = await enqueue((expectedVersion) =>
+        endEncounterAction({ encounterId: encounter.id, expectedVersion })
+      )
       if (!result.ok) {
         toast.error(encounterErrorMessage(result.error))
         return
       }
-      versionRef.current = result.value.version
       router.refresh()
     })
   }
