@@ -43,7 +43,7 @@ jobs:
           plugins: 'code-review@claude-code-plugins'
           track_progress: 'true'
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,LS,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr review:*)"
             --model claude-opus-4-8
           prompt: |
             REPO: ${{ github.repository }}
@@ -73,9 +73,23 @@ jobs:
             - [ ] Proper error handling
             - [ ] No sensitive data in logs
 
-            For each item, check if it's satisfied and comment on any that need attention.
-            Post a summary comment with checklist results.
-            
+            How to deliver the review:
+            - For every actionable, line-specific finding, leave an **inline comment
+              on the exact line** using `mcp__github_inline_comment__create_inline_comment`.
+              Read the surrounding code (Read/Grep/Glob) so each comment anchors
+              accurately — do not collapse line-level findings into the summary.
+            - Post one **summary comment** with the checklist results (`gh pr comment`).
+            - As the final step, submit a **formal review verdict**:
+              - If there is at least one **blocking** issue — a correctness bug, a
+                security hole, a missing/broken test or contract, or a cross-silo /
+                engine-purity violation — run
+                `gh pr review ${{ github.event.pull_request.number }} --request-changes --body "<one-line reason>"`.
+              - Otherwise run
+                `gh pr review ${{ github.event.pull_request.number }} --comment --body "Reviewed — no blocking issues."`.
+              Treat pure style/naming nits and optional polish as **non-blocking**.
+              If the review is rejected because you authored the PR, skip the verdict
+              and say so in the summary instead.
+
             Do not attempt external MCP or API calls (except to GitHub), such as to Neon or Vercel, to verify deployment or database details. You also do not need to install dependencies, run tests, or lint.
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
