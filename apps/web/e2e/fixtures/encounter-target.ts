@@ -237,8 +237,25 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  * The spec runs `serial` so these resets aren't racing a parallel test mutating
  * the same campaign-level live state.
  */
+/**
+ * A monotonically-increasing `version` baseline stamped onto the seeded rows by
+ * every reset. The setup specs assert on the **optimistic** UI, so a per-edit
+ * write can still be in flight at test teardown — and post-UNN-459 the roster
+ * add/remove are slower `guardMany` **cross-writes**, so one can straddle into
+ * the next serial test. Giving each reset a fresh baseline higher than any
+ * in-flight write expected makes that stale write fail its version guard
+ * (`"stale"`, a no-op) instead of colliding with a shared `version: 0` and
+ * applying onto the freshly-reset row — which would empty it. The step exceeds
+ * the handful of edits any single test issues, and the counter is per-process so
+ * it never overflows the `integer` column across a run.
+ */
+let resetVersionBaseline = 0
+const RESET_VERSION_STEP = 1000
+
 export async function resetEncounterFixtures(): Promise<void> {
   const db = getDb()
+  resetVersionBaseline += RESET_VERSION_STEP
+  const version = resetVersionBaseline
 
   await db.delete(encounters).where(
     and(
@@ -254,7 +271,7 @@ export async function resetEncounterFixtures(): Promise<void> {
     SEEDED_ENCOUNTERS.map((encounter) =>
       db
         .update(mapInstances)
-        .set({ state: encounter.mapInstanceState, version: 0 })
+        .set({ state: encounter.mapInstanceState, version })
         .where(eq(mapInstances.id, encounter.mapInstanceId))
     )
   )
@@ -265,7 +282,7 @@ export async function resetEncounterFixtures(): Promise<void> {
         .update(encounters)
         .set({
           status: encounter.status,
-          version: 0,
+          version,
           session: encounter.session,
         })
         .where(eq(encounters.id, encounter.id))
