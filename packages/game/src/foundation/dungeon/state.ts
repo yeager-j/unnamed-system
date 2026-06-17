@@ -11,6 +11,20 @@ import { z } from "zod/v4"
 export type DungeonStatus = "draft" | "active" | "done"
 
 /**
+ * The length of a normal dungeon day, in dungeon turns — ~8 hours at ~10 min per
+ * turn (rulebook §2.2). Turns past this incur Exhaustion; the reminder selectors
+ * (UNN-463) use it as the Exhaustion-onset baseline.
+ */
+export const DUNGEON_DAY_TURNS = 48
+
+/**
+ * The cadence, in dungeon turns, at which Exhaustion accrues past
+ * {@link DUNGEON_DAY_TURNS} — one level per additional half-hour (3 turns), so the
+ * onset reminder fires at turns 51, 54, 57… (rulebook §2.2; PRD FR-4).
+ */
+export const EXHAUSTION_ONSET_INTERVAL = 3
+
+/**
  * The interval, in **dungeon turns** (the loop's native unit), at which the
  * random-encounter reminder fires — the PRD's `10m / 20m / 30m / 1h` choices map
  * to `1 / 2 / 3 / 6` turns (PRD FR-4). A ~10-minute dungeon turn is the base.
