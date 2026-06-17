@@ -5,6 +5,7 @@ import { DEMO_ARCHETYPES } from "@workspace/game/data/archetypes/demo/index"
 import { healer } from "@workspace/game/data/archetypes/healer/healer"
 import { knight } from "@workspace/game/data/archetypes/knight/knight"
 import { mage } from "@workspace/game/data/archetypes/mage/mage"
+import { elementalThief } from "@workspace/game/data/archetypes/thief/elemental-thief"
 import { thief } from "@workspace/game/data/archetypes/thief/thief"
 import { warlock } from "@workspace/game/data/archetypes/warlock/warlock"
 import { warrior } from "@workspace/game/data/archetypes/warrior/warrior"
@@ -63,6 +64,7 @@ const ARCHETYPES_BY_KEY = {
   healer: validate(healer),
   warlock: validate(warlock),
   thief: validate(thief),
+  "elemental-thief": validate(elementalThief),
   bard: validate(bard),
   berserker: validate(berserker),
 } as const satisfies Record<string, Archetype>

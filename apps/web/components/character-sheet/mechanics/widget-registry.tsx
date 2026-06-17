@@ -16,6 +16,7 @@ import { PathOfDawnWidget } from "./path-of-dawn-widget"
 import { PathOfDuskWidget } from "./path-of-dusk-widget"
 import { PerfectionWidget } from "./perfection-widget"
 import { StainsWidget } from "./stains-widget"
+import { ElementalLarcenyWidget } from "./thief/elemental-larceny-widget"
 import { ThiefsInsightWidget } from "./thief/thiefs-insight-widget"
 import { ValorWidget } from "./valor-widget"
 
@@ -75,6 +76,10 @@ const REGISTRY: MechanicWidgetRegistry = {
   "thiefs-insight": {
     render: () => <ThiefsInsightWidget />,
     summary: () => "Tells tracked at the table",
+  },
+  "elemental-larceny": {
+    render: () => <ElementalLarcenyWidget />,
+    summary: () => "Tells & planted Weaknesses tracked at the table",
   },
   enchantment: {
     render: () => <EnchantmentWidget />,

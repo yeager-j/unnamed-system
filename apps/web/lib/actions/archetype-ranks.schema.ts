@@ -30,5 +30,8 @@ export const RankUpArchetypeSchema = characterMutationBase.extend({
 export type UnlockArchetypeInput = z.input<typeof UnlockArchetypeSchema>
 export type RankUpArchetypeInput = z.input<typeof RankUpArchetypeSchema>
 
-export type UnlockArchetypeActionError = "invalid-input" | UnlockArchetypeError
+export type UnlockArchetypeActionError =
+  | "invalid-input"
+  | "restricted-archetype"
+  | UnlockArchetypeError
 export type RankUpArchetypeActionError = "invalid-input" | RankUpArchetypeError

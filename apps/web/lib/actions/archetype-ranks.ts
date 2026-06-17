@@ -2,6 +2,8 @@
 
 import { err, type Result } from "@workspace/game/foundation"
 
+import { isArchetypeAllowedFor } from "@/lib/archetypes/restricted"
+import { auth } from "@/lib/auth"
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   rankUpArchetype,
@@ -31,6 +33,11 @@ export async function unlockArchetypeAction(
   if (!parsed.success) return err("invalid-input")
 
   const character = await requireOwner(parsed.data.characterId)
+
+  const session = await auth()
+  if (!isArchetypeAllowedFor(parsed.data.archetypeKey, session?.user?.email)) {
+    return err("restricted-archetype")
+  }
 
   const result = await unlockArchetype(
     character.id,

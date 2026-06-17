@@ -43,10 +43,18 @@ import { RecommendationSlots } from "./recommendation-slots"
  * filled by {@link getAtlasRecommendations} (UNN-256), which returns fewer than
  * three picks — or none, leaving the slots' own empty state — when little is
  * actionable.
+ *
+ * `hiddenArchetypeKeys` are the per-user-gated Archetypes the current viewer may
+ * not see; the page resolves them server-side (it owns viewer identity) and
+ * passes them here so {@link buildLineageAtlas} drops them from the tree.
  */
-export function LineageAtlas() {
+export function LineageAtlas({
+  hiddenArchetypeKeys,
+}: {
+  hiddenArchetypeKeys?: readonly string[]
+}) {
   const character = useCharacter()
-  const view = buildLineageAtlas(character)
+  const view = buildLineageAtlas(character, { hiddenArchetypeKeys })
 
   const [selectedLineage, setSelectedLineage] = useState<string>(
     () =>

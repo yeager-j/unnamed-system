@@ -5,6 +5,8 @@ import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { LineageAtlas } from "@/components/character-sheet/archetypes/atlas/lineage-atlas"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
+import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
+import { auth } from "@/lib/auth"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
 
@@ -48,10 +50,13 @@ export default async function LineageAtlasPage({ params }: PageProps) {
     redirect(`/c/${shortId}`)
   }
 
+  const session = await auth()
+  const hiddenArchetypeKeys = hiddenArchetypeKeysFor(session?.user?.email)
+
   return (
     <ViewerRoleProvider role={role}>
       <CharacterProvider character={character}>
-        <LineageAtlas />
+        <LineageAtlas hiddenArchetypeKeys={hiddenArchetypeKeys} />
       </CharacterProvider>
     </ViewerRoleProvider>
   )
