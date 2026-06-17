@@ -140,7 +140,9 @@ function MapCanvasInner({
   }
 
   function handlePaneDoubleClick(event: MouseEvent) {
-    if (!editable) return
+    // In `addZone` mode the single clicks of a double-click already add via
+    // `handlePaneClick`; double-click-to-add is the `select`-mode affordance only.
+    if (!editable || mode === "addZone") return
     const target = event.target as HTMLElement
     if (!target.classList.contains("react-flow__pane")) return
     addZoneAt(screenToFlowPosition({ x: event.clientX, y: event.clientY }))

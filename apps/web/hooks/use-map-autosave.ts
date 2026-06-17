@@ -140,6 +140,10 @@ export function useMapAutoSave({
   }
 
   const flushOnUnmount = useEffectEvent(() => {
+    if (nameTimerRef.current) {
+      clearTimeout(nameTimerRef.current)
+      void enqueueNameSave(value)
+    }
     if (geometryTimerRef.current && pendingGeometryRef.current) {
       clearTimeout(geometryTimerRef.current)
       void enqueueGeometrySave(pendingGeometryRef.current)
