@@ -78,7 +78,7 @@ Inside `apps/web/`:
 
 ```
 apps/web/
-├── app/                       Next routes
+├── app/                       Next routes. app/dungeon/[shortId]/ is the DM dungeon console (UNN-462, M2): a thin status-aware route stub gated by its co-located dungeon-access.ts `getDungeonForDM` loader (DM-only, 404-collapsing ≅ getEncounterForDM); the React Flow run console (turn loop, token placement/movement, reveal) lands in UNN-463/464
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
@@ -115,7 +115,7 @@ lib/db/
 ├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
 ├── schema/          Drizzle tables + columns; row types (CharacterRow, …) are owned by @workspace/game/foundation, conformance.test.ts proves the tables match
 ├── migrations/      drizzle-kit SQL migrations + meta
-├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes)
+├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes), load-dungeon (UNN-462: by-shortId row + campaignId resolver for the DM-write gate + version for stale-retry)
 └── writes/          Per-concern persistence wrappers + the version-guard primitive
 ```
 
@@ -246,7 +246,7 @@ When you need to read about the rules of the game, first check the `CLAUDE.md` i
 
 ## Data Model (Key Entities)
 
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `packages/game/src/foundation/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
+`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `packages/game/src/foundation/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`), `Dungeon` (UNN-462, M2 exploration layer: `campaignId` cascade, `mapInstanceId` restrict, `shortId` for `/dungeon/{shortId}`, `status` draft/active/done, `state` jsonb = turn counter + actedCharacterIds + reminder settings, `version`; owns no geography — that's the Map Instance it references). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
 
 See PRD §8 for the full field list.
 

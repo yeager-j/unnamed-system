@@ -3,6 +3,11 @@ import { fileURLToPath } from "node:url"
 import { and, eq, inArray } from "drizzle-orm"
 
 import {
+  dungeonStateSchema,
+  mapInstanceStateSchema,
+} from "@workspace/game/foundation"
+
+import {
   makeSeedCharacter,
   SEED_CHARACTERS,
   type SeedCharacter,
@@ -41,7 +46,7 @@ if (!process.env.DATABASE_URL) {
   if (existsSync(envPath)) process.loadEnvFile(envPath)
 }
 
-const { db, users, characters, campaigns, encounters, mapInstances } =
+const { db, users, characters, campaigns, encounters, mapInstances, dungeons } =
   await import("./index")
 
 /**
@@ -193,6 +198,45 @@ async function seedEncounterFixtures(): Promise<void> {
   }
 }
 
+/**
+ * Seeds one showcase dungeon (UNN-462) into the dev-DM Campaign A so the
+ * `/dungeon/{shortId}` route's load + DM gate is verifiable. The dungeon owns a
+ * freshly-minted (empty) Map Instance — the exploration runtime the canvas/turn
+ * loop layer onto in UNN-463/464. All ids are deterministic and upserted, so a
+ * re-seed resets the row in place without duplicating it. The DM is `DEV_USER`
+ * (the Playwright/dev sign-in target), so `getDungeonForDM` admits the dev user
+ * and 404s everyone else.
+ */
+async function seedDungeonFixtures(): Promise<void> {
+  const instanceRow = {
+    id: "seed-dungeon-a-instance",
+    state: mapInstanceStateSchema.parse({}),
+    version: 0,
+  }
+  await db
+    .insert(mapInstances)
+    .values(instanceRow)
+    .onConflictDoUpdate({ target: mapInstances.id, set: instanceRow })
+
+  const dungeonRow = {
+    id: "seed-dungeon-a",
+    shortId: "dungeon-a",
+    campaignId: encounterTarget.campaignA.id,
+    mapInstanceId: instanceRow.id,
+    name: "Delve: The Sunken Vault",
+    status: "active" as const,
+    state: dungeonStateSchema.parse({}),
+    version: 0,
+  }
+  await db
+    .insert(dungeons)
+    .values(dungeonRow)
+    .onConflictDoUpdate({ target: dungeons.id, set: dungeonRow })
+  console.log(
+    `  ✓ dungeon ${dungeonRow.status} (/dungeon/${dungeonRow.shortId})`
+  )
+}
+
 async function seed(): Promise<void> {
   console.log("Seeding…")
 
@@ -230,9 +274,10 @@ async function seed(): Promise<void> {
   await seedCharacter(DEV_USER_CHARACTER, DEV_USER.id)
 
   await seedEncounterFixtures()
+  await seedDungeonFixtures()
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 1} showcase characters, 3 campaigns + ${SEEDED_ENCOUNTERS.length} encounters, and 1 dev user. ` +
+    `Done. Seeded ${SEED_CHARACTERS.length + 1} showcase characters, 3 campaigns + ${SEEDED_ENCOUNTERS.length} encounters + 1 dungeon, and 1 dev user. ` +
       "Write-path E2E rows are minted per-run by e2e/fixtures/factory.ts."
   )
 }
