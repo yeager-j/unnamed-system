@@ -3,8 +3,10 @@ import { eq, inArray } from "drizzle-orm"
 
 import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
+  mapGeometrySchema,
   type CombatantSetup,
   type CombatSession,
+  type MapGeometry,
   type MapInstanceState,
 } from "@workspace/game/foundation"
 
@@ -18,6 +20,7 @@ import {
   encounters,
   getDb,
   mapInstances,
+  maps,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertCharacter } from "@/lib/db/seed-character"
@@ -42,6 +45,7 @@ export interface CleanupTracker {
   characterIds: string[]
   encounterIds: string[]
   mapInstanceIds: string[]
+  mapIds: string[]
 }
 
 export function createTracker(): CleanupTracker {
@@ -50,6 +54,7 @@ export function createTracker(): CleanupTracker {
     characterIds: [],
     encounterIds: [],
     mapInstanceIds: [],
+    mapIds: [],
   }
 }
 
@@ -144,6 +149,58 @@ export async function placeCharacter(
     .where(eq(characters.id, characterId))
 }
 
+export interface TestMap {
+  id: string
+  shortId: string
+  url: string
+  name: string
+}
+
+/** Mints a user-owned Map template (UNN-460) with unique id / shortId. Geometry
+ *  defaults empty; pass one to seed authored zones/connections. */
+export async function createTestMap(
+  tracker: CleanupTracker,
+  opts: { userId?: string; name?: string; geometry?: MapGeometry } = {}
+): Promise<TestMap> {
+  const { userId = DEV_USER_ID, name, geometry } = opts
+  const suffix = uniqueSuffix()
+  const row = {
+    id: `e2e-map-${suffix}`,
+    shortId: `e2e-map-${suffix}`,
+    userId,
+    name: name ?? `E2E Map ${suffix}`,
+    geometry: geometry ?? mapGeometrySchema.parse({}),
+  }
+  await getDb().insert(maps).values(row)
+  tracker.mapIds.push(row.id)
+  return {
+    id: row.id,
+    shortId: row.shortId,
+    url: `/maps/${row.shortId}`,
+    name: row.name,
+  }
+}
+
+/** Mints a standalone Map Instance, optionally back-referencing a Map
+ *  (`mapId`) — for the snapshot-isolation / set-null-FK assertions (UNN-460). */
+export async function createTestMapInstance(
+  tracker: CleanupTracker,
+  opts: { mapId?: string | null; state?: MapInstanceState } = {}
+): Promise<{ id: string }> {
+  const suffix = uniqueSuffix()
+  const id = `e2e-mi-${suffix}`
+  await getDb()
+    .insert(mapInstances)
+    .values({
+      id,
+      mapId: opts.mapId ?? null,
+      state: opts.state ?? createMapInstance(() => "")([]),
+      version: 0,
+    })
+  tracker.mapInstanceIds.push(id)
+  return { id }
+}
+
 export interface TestEncounter {
   id: string
   shortId: string
@@ -232,8 +289,12 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
   if (tracker.campaignIds.length > 0) {
     await db.delete(campaigns).where(inArray(campaigns.id, tracker.campaignIds))
   }
+  if (tracker.mapIds.length > 0) {
+    await db.delete(maps).where(inArray(maps.id, tracker.mapIds))
+  }
   tracker.encounterIds.length = 0
   tracker.mapInstanceIds.length = 0
   tracker.characterIds.length = 0
   tracker.campaignIds.length = 0
+  tracker.mapIds.length = 0
 }
