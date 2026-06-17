@@ -26,6 +26,7 @@ import {
   type VirtueKey,
 } from "@workspace/game/foundation"
 
+import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
@@ -466,6 +467,14 @@ export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
   draft: "Draft",
   live: "Live",
   ended: "Ended",
+}
+
+/** A dungeon's lifecycle status as shown in the campaign-page dungeons list
+ *  (UNN-465): the delve is being prepped, running, or wrapped. */
+export const DUNGEON_STATUS_LABELS: Record<DungeonStatus, string> = {
+  draft: "Draft",
+  active: "Active",
+  done: "Done",
 }
 
 /**
