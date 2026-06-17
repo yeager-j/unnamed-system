@@ -1,8 +1,6 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import type {
-  CombatantSetup,
-  CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
+import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 /**
  * Resolves a setup combatant's *base* display name from its ref — a `pc` defers
@@ -59,14 +57,14 @@ export function buildSetupCombatantLabels(
  * Whether every combatant has a valid zone placement (UNN-301). An encounter
  * with **no** zones defined is always "placed" — it runs unzoned / theater-of-
  * mind, the Phase 4 start path. Once the DM has authored any zones, every
- * combatant's `zoneId` must reference one that exists in `session.zones`. The
+ * combatant's `zoneId` must reference one that exists in the Instance's `zones`. The
  * setup shell consumes this to gate Save draft / Start combat; it is the
  * placement half of the same referential convention the zone graph keeps at
  * runtime (zone ids are not schema-enforced on the combatant — UNN-313).
  */
 export function isRosterFullyPlaced(
   setups: CombatantSetup[],
-  zones: CombatSession["zones"]
+  zones: MapInstanceState["zones"]
 ): boolean {
   if (Object.keys(zones).length === 0) return true
   return setups.every((setup) => setup.zoneId in zones)

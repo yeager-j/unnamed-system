@@ -1,8 +1,7 @@
 import { z } from "zod/v4"
 
 import { zoneEnchantmentSchema } from "@workspace/game/foundation/combat/enchantment"
-
-import { engagementSchema, zoneSchema } from "./session"
+import { engagementSchema } from "@workspace/game/foundation/combat/engagement"
 
 /**
  * The **Map Instance** state — the per-run spatial truth the Dungeon Map feature
@@ -11,21 +10,34 @@ import { engagementSchema, zoneSchema } from "./session"
  * {@link import("./session").CombatSession} persists on the encounter row: the
  * `version` is a row column, never part of this shape.
  *
- * This is **additive M0 scaffolding** (UNN-450) — nothing populates it yet. The
- * destructive cutover (UNN-459) lifts the spatial state off the `CombatSession`
- * onto here, and {@link import("@workspace/game/engine") reduceMapInstance}
- * (UNN-454) becomes its sole writer. Accordingly the shape **relocates the
- * shipped spatial representations, it does not re-model them**: a lean M0 cut of
- * geometry (zones + adjacency), occupancy (tokens carrying engagement), and the
- * Enchantment singleton. Reveal-state, connection hidden/locked flags, node
- * layout, and per-Zone descriptions/DM notes are fog-of-war concepts introduced
- * by Map authoring (M1) and exploration (M2) and are deliberately absent here.
+ * The M0 cutover (UNN-459) lifted the spatial state off the `CombatSession` onto
+ * here, with {@link import("@workspace/game/engine") reduceMapInstance} as its
+ * sole writer. The shape **relocates the shipped spatial representations, it does
+ * not re-model them**: a lean M0 cut of geometry (zones + adjacency), occupancy
+ * (tokens carrying engagement), and the Enchantment singleton. Reveal-state,
+ * connection hidden/locked flags, node layout, and per-Zone descriptions/DM notes
+ * are fog-of-war concepts introduced by Map authoring (M1) and exploration (M2)
+ * and are deliberately absent here.
  *
- * The `zoneSchema`/`engagementSchema` imports from `./session` are a **transient**
- * same-domain reuse: the cutover stops the session exporting them and makes this
- * module their canonical home, so this is debt the cutover resolves — not a
- * permanent coupling.
+ * `Zone` is owned here (the zone graph is purely spatial); `engagementSchema` is
+ * the neutral {@link import("../combat/engagement").Engagement} primitive shared
+ * with the encounter-setup payload.
  */
+
+/**
+ * One Zone — a ~30 ft region of the battlefield (UNN-313). Carries a stable `id`
+ * (also its key in {@link MapInstanceState.zones}, so a Zone is self-describing),
+ * a DM-supplied display `name`, and optional free-text `notes`. The Zone *graph*
+ * (which zones are adjacent) lives in {@link MapInstanceState.adjacency}, not
+ * here — a Zone holds only its own identity. A token's position is the orthogonal
+ * `zoneId` on its {@link MapToken}.
+ */
+export const zoneSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  notes: z.string().optional(),
+})
+export type Zone = z.infer<typeof zoneSchema>
 
 /**
  * One occupancy token — a combatant's spatial presence on the Instance: where it

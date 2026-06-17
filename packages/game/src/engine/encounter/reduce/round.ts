@@ -1,6 +1,5 @@
 import { produce } from "immer"
 
-import { unlink } from "@workspace/game/engine/encounter/engagement-graph"
 import { makeCombatant } from "@workspace/game/engine/encounter/session-factory"
 import { type CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { RoundEvent } from "@workspace/game/foundation/encounter/session-event"
@@ -14,10 +13,12 @@ import type { RoundEvent } from "@workspace/game/foundation/encounter/session-ev
  * mid-round joiner is queued for the next round rather than acting this one; its
  * stable id is the supplied `setup.id` (the setup surface mints it client-side so
  * the optimistic id matches the persisted one — UNN-347), falling back to `newId`
- * for the mid-combat join. `removeCombatant` drops the matching combatant, clears
- * `currentActorId` if it was the one removed, and prunes the removed id from every
- * surviving combatant's engagement so no dangling melee-lock remains (UNN-347). It
- * is a no-op when the id is unknown — Immer returns the original session.
+ * for the mid-combat join. `removeCombatant` drops the matching combatant and
+ * clears `currentActorId` if it was the one removed. Severing the removed id from
+ * survivors' engagement is now an **Instance** concern (engagement rides the
+ * occupancy token — UNN-459): the shell pairs this with `removeOccupant` in one
+ * `guardMany`. It is a no-op when the id is unknown — Immer returns the original
+ * session.
  * `setSide` flips a combatant's side (a no-op on an unknown id). `newId` mints the
  * joiner's stable id (mirrors `reduceCharacter`'s injectable; the other cases
  * don't need it).
@@ -53,9 +54,6 @@ export function reduceRoundEvent(
         draft.combatants.splice(index, 1)
         if (draft.currentActorId === event.combatantId) {
           draft.currentActorId = null
-        }
-        for (const combatant of draft.combatants) {
-          unlink(combatant, event.combatantId)
         }
       })
 

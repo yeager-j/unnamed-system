@@ -1,7 +1,7 @@
 import type {
-  CombatSession,
+  MapInstanceState,
   Zone,
-} from "@workspace/game/foundation/encounter/session"
+} from "@workspace/game/foundation/encounter/map-instance"
 
 /**
  * The zones bordering `zoneId`, resolved to {@link Zone} objects (UNN-313's
@@ -11,10 +11,13 @@ import type {
  * target list (UNN-315) so the graph is read one way. A zone is never adjacent to
  * itself (UNN-313 forbids self-loops), so `zoneId` never appears in the result.
  */
-export function adjacentZones(session: CombatSession, zoneId: string): Zone[] {
-  // Stryker disable next-line ArrayDeclaration: equivalent — when `zoneId` has no adjacency entry, a junk fallback element resolves through `session.zones[id]` to undefined and is filtered out, yielding the same empty result as `[]`.
-  return (session.adjacency[zoneId] ?? []).flatMap((id) => {
-    const zone = session.zones[id]
+export function adjacentZones(
+  instance: MapInstanceState,
+  zoneId: string
+): Zone[] {
+  // Stryker disable next-line ArrayDeclaration: equivalent — when `zoneId` has no adjacency entry, a junk fallback element resolves through `instance.zones[id]` to undefined and is filtered out, yielding the same empty result as `[]`.
+  return (instance.adjacency[zoneId] ?? []).flatMap((id) => {
+    const zone = instance.zones[id]
     return zone ? [zone] : []
   })
 }

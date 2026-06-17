@@ -10,11 +10,15 @@ import { type BattleConditions } from "@workspace/game/foundation/character/stat
 import { type Counters } from "@workspace/game/foundation/combat/counters"
 import { type ZoneEnchantment } from "@workspace/game/foundation/combat/enchantment"
 import type {
+  MapInstanceState,
+  MapToken,
+  Zone,
+} from "@workspace/game/foundation/encounter/map-instance"
+import type {
   Combatant,
   CombatSession,
   CombatSide,
   ConditionDurations,
-  Zone,
 } from "@workspace/game/foundation/encounter/session"
 import type { EncounterStatus } from "@workspace/game/foundation/encounter/status"
 
@@ -146,23 +150,23 @@ function enemySp(combatant: Combatant): Pool | null {
 
 function projectCombatant(
   combatant: Combatant,
+  token: MapToken | undefined,
   currentActorId: string | null,
   nameById: Map<string, string>,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): PlayerVisibleCombatant {
+  const engagement = token?.engagement
   const engagedWith =
-    combatant.engagement.status === "engaged"
-      ? combatant.engagement.targetCombatantIds.map(
-          (id) => nameById.get(id) ?? id
-        )
+    engagement?.status === "engaged"
+      ? engagement.targetCombatantIds.map((id) => nameById.get(id) ?? id)
       : []
 
   const base: PlayerCombatantBase = {
     id: combatant.id,
     name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
-    zoneId: combatant.zoneId,
+    zoneId: token?.zoneId ?? "",
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
@@ -216,6 +220,7 @@ export function projectPlayerSnapshot(
     version: number
     session: CombatSession
   },
+  instance: MapInstanceState,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): EncounterSnapshot {
@@ -246,14 +251,15 @@ export function projectPlayerSnapshot(
     combatants: session.combatants.map((combatant) =>
       projectCombatant(
         combatant,
+        instance.occupancy[combatant.id],
         session.currentActorId,
         nameById,
         pcDetailById,
         enemyStatblockById
       )
     ),
-    zones: Object.values(session.zones),
-    adjacency: session.adjacency,
-    enchantment: session.enchantment,
+    zones: Object.values(instance.zones),
+    adjacency: instance.adjacency,
+    enchantment: instance.enchantment,
   }
 }

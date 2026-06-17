@@ -26,11 +26,11 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { shortId } = await params
-  const encounter = await getEncounterForDM(shortId)
+  const result = await getEncounterForDM(shortId)
 
   return {
-    title: encounter
-      ? `${encounter.name} — Unnamed System`
+    title: result
+      ? `${result.encounter.name} — Unnamed System`
       : "Encounter not found — Unnamed System",
   }
 }
@@ -44,9 +44,10 @@ export async function generateMetadata({
  */
 export default async function CombatPage({ params }: PageProps) {
   const { shortId } = await params
-  const encounter = await getEncounterForDM(shortId)
+  const result = await getEncounterForDM(shortId)
 
-  if (!encounter) notFound()
+  if (!result) notFound()
+  const { encounter, instance } = result
 
   // getEncounterForDM already authorized the viewer against this campaign, so the
   // row exists; resolve its public shortId for the "← Campaign" back link.
@@ -80,6 +81,7 @@ export default async function CombatPage({ params }: PageProps) {
       return (
         <EncounterSetup
           encounter={encounter}
+          instance={instance}
           campaignShortId={campaignShortId}
           placedCharacters={placedCharacters}
           pcStatsById={pcStatsById}
@@ -93,7 +95,7 @@ export default async function CombatPage({ params }: PageProps) {
               {
                 characterId: combatant.ref.characterId,
                 side: combatant.side,
-                zoneId: combatant.zoneId,
+                zoneId: instance.state.occupancy[combatant.id]?.zoneId ?? "",
               },
             ]
           : []
@@ -114,7 +116,7 @@ export default async function CombatPage({ params }: PageProps) {
           loadHydratedCharacterById(characterId, {
             partyComposition: compositionBySide[side],
             zoneEffects: zoneEnchantmentEffects(
-              encounter.session.enchantment,
+              instance.state.enchantment,
               zoneId
             ),
           })
@@ -142,6 +144,7 @@ export default async function CombatPage({ params }: PageProps) {
       return (
         <CombatConsole
           encounter={encounter}
+          instance={instance}
           campaignShortId={campaignShortId}
           pcDetailById={pcDetailById}
           pcShortIdById={pcShortIdById}

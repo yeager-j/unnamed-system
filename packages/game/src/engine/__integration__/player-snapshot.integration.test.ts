@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest"
 
-import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import {
+  enemyStatblocks,
+  makeEncounter,
+} from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { projectPlayerSnapshot } from "@workspace/game/engine/encounter/player-snapshot"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
-import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import {
   type CombatantSetup,
   type CombatSession,
 } from "@workspace/game/foundation/encounter/session"
-
-function sequentialIds() {
-  let n = 0
-  return () => `c-${n++}`
-}
 
 function pc(characterId: string, zoneId = ""): CombatantSetup {
   return { side: "players", ref: { kind: "pc", characterId }, zoneId }
@@ -86,25 +84,28 @@ const CATALOG = makeTestGameData({ enemies: [GOBLIN] })
 
 /** Projects with the resolved enemy statblocks for the encounter's own roster —
  *  the redaction tests pass the fixture goblin's data in, proving the projection
- *  drops it rather than never having it. */
+ *  drops it rather than never having it. The redacted position/engagement now
+ *  comes from the Map Instance. */
 const snap = (
   enc: Parameters<typeof projectPlayerSnapshot>[0],
-  pcDetailById: Parameters<typeof projectPlayerSnapshot>[1]
+  instance: MapInstanceState,
+  pcDetailById: Parameters<typeof projectPlayerSnapshot>[2]
 ) =>
   projectPlayerSnapshot(
     enc,
+    instance,
     pcDetailById,
     enemyStatblocks(enc.session.combatants, CATALOG)
   )
 
 describe("projectPlayerSnapshot", () => {
   it("redacts enemy attributes and affinities entirely (UNN-324)", () => {
-    const session = createCombatSession(sequentialIds())([
+    const { session, instance } = makeEncounter([
       pc("char-aria"),
       catalogEnemy("goblin"),
     ])
 
-    const snapshot = snap(encounter(session, "live"), {
+    const snapshot = snap(encounter(session, "live"), instance, {
       "char-aria": ARIA,
     })
 
@@ -117,25 +118,27 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("surfaces an enemy's counters (Illuminated is public, not redacted)", () => {
-    const base = createCombatSession(sequentialIds())([catalogEnemy("goblin")])
-    const session: CombatSession = {
-      ...base,
-      combatants: base.combatants.map((c) => ({
+    const { session, instance } = makeEncounter([catalogEnemy("goblin")])
+    const withCounters: CombatSession = {
+      ...session,
+      combatants: session.combatants.map((c) => ({
         ...c,
         counters: { lumina: 2 },
       })),
     }
 
-    const enemy = snap(encounter(session, "live"), {}).combatants.find(
-      (c) => c.kind === "enemy"
-    )!
+    const enemy = snap(
+      encounter(withCounters, "live"),
+      instance,
+      {}
+    ).combatants.find((c) => c.kind === "enemy")!
     expect(enemy.counters).toEqual({ lumina: 2 })
   })
 
   it("keeps PC HP, SP, and attributes fully visible (UNN-324)", () => {
-    const session = createCombatSession(sequentialIds())([pc("char-aria")])
+    const { session, instance } = makeEncounter([pc("char-aria")])
 
-    const snapshot = snap(encounter(session, "live"), {
+    const snapshot = snap(encounter(session, "live"), instance, {
       "char-aria": ARIA,
     })
 
@@ -149,9 +152,9 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("defaults a PC's pools and attributes to zero when its detail is missing", () => {
-    const session = createCombatSession(sequentialIds())([pc("char-ghost")])
+    const { session, instance } = makeEncounter([pc("char-ghost")])
 
-    const [player] = snap(encounter(session, "live"), {}).combatants
+    const [player] = snap(encounter(session, "live"), instance, {}).combatants
 
     expect(player).toMatchObject({
       kind: "pc",
@@ -162,11 +165,9 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves a catalog enemy's HP to its definition max and gives it no SP", () => {
-    const session = createCombatSession(sequentialIds())([
-      catalogEnemy("goblin"),
-    ])
+    const { session, instance } = makeEncounter([catalogEnemy("goblin")])
 
-    const [enemy] = snap(encounter(session, "live"), {}).combatants
+    const [enemy] = snap(encounter(session, "live"), instance, {}).combatants
     expect(enemy).toMatchObject({
       kind: "enemy",
       name: "Goblin",
@@ -176,9 +177,9 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("carries an inline enemy's working HP and SP off its stat block", () => {
-    const session = createCombatSession(sequentialIds())([inlineEnemy()])
+    const { session, instance } = makeEncounter([inlineEnemy()])
 
-    const [enemy] = snap(encounter(session, "live"), {}).combatants
+    const [enemy] = snap(encounter(session, "live"), instance, {}).combatants
     expect(enemy).toMatchObject({
       kind: "enemy",
       name: "Brigand",
@@ -188,19 +189,19 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("lists combatants in session order with acted + current flags", () => {
-    const base = createCombatSession(sequentialIds())([
+    const { session, instance } = makeEncounter([
       pc("char-aria"),
       catalogEnemy("goblin"),
     ])
-    const session: CombatSession = {
-      ...base,
+    const patched: CombatSession = {
+      ...session,
       currentActorId: "c-0",
-      combatants: base.combatants.map((combatant, index) =>
+      combatants: session.combatants.map((combatant, index) =>
         index === 1 ? { ...combatant, hasActedThisRound: true } : combatant
       ),
     }
 
-    const snapshot = snap(encounter(session, "live"), {
+    const snapshot = snap(encounter(patched, "live"), instance, {
       "char-aria": ARIA,
     })
 
@@ -216,27 +217,16 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves engagement target ids to names; Free combatants list none", () => {
-    const base = createCombatSession(sequentialIds())([
-      pc("char-aria"),
+    // c-0 (Aria) engaged with c-1 (Goblin) on the Instance; the Goblin is Free.
+    const { session, instance } = makeEncounter([
+      {
+        ...pc("char-aria"),
+        engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
+      },
       catalogEnemy("goblin"),
     ])
-    // c-0 (Aria) engaged with c-1 (Goblin); the Goblin is left Free.
-    const session: CombatSession = {
-      ...base,
-      combatants: base.combatants.map((combatant) =>
-        combatant.id === "c-0"
-          ? {
-              ...combatant,
-              engagement: {
-                status: "engaged" as const,
-                targetCombatantIds: ["c-1"],
-              },
-            }
-          : combatant
-      ),
-    }
 
-    const { combatants } = snap(encounter(session, "live"), {
+    const { combatants } = snap(encounter(session, "live"), instance, {
       "char-aria": ARIA,
     })
 
@@ -245,30 +235,30 @@ describe("projectPlayerSnapshot", () => {
   })
 
   it("resolves the current actor's name + side, or null when none is acting", () => {
-    const base = createCombatSession(sequentialIds())([pc("char-aria")])
+    const { session, instance } = makeEncounter([pc("char-aria")])
 
-    const live: CombatSession = { ...base, currentActorId: "c-0" }
+    const live: CombatSession = { ...session, currentActorId: "c-0" }
     expect(
-      snap(encounter(live, "live"), { "char-aria": ARIA }).currentActor
+      snap(encounter(live, "live"), instance, { "char-aria": ARIA })
+        .currentActor
     ).toEqual({ id: "c-0", name: "Aria", side: "players" })
 
     expect(
-      snap(encounter(base, "live"), { "char-aria": ARIA }).currentActor
+      snap(encounter(session, "live"), instance, { "char-aria": ARIA })
+        .currentActor
     ).toBeNull()
   })
 
   it("passes through status, name, round, and the ordered zone list", () => {
-    const base = createCombatSession(sequentialIds())([pc("char-aria", "z1")])
-    const session: CombatSession = {
-      ...base,
-      round: 3,
+    const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
       zones: {
         z1: { id: "z1", name: "Bridge" },
         z2: { id: "z2", name: "Riverbank" },
       },
-    }
+    })
+    const round3: CombatSession = { ...session, round: 3 }
 
-    const snapshot = snap(encounter(session, "ended"), {
+    const snapshot = snap(encounter(round3, "ended"), instance, {
       "char-aria": ARIA,
     })
 
@@ -280,15 +270,15 @@ describe("projectPlayerSnapshot", () => {
     expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
   })
 
-  it("passes through the session's Zone Enchantment (observable, not redacted)", () => {
-    const base = createCombatSession(sequentialIds())([pc("char-aria", "z1")])
-    const session: CombatSession = {
-      ...base,
+  it("passes through the Instance's Zone Enchantment (observable, not redacted)", () => {
+    const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
       zones: { z1: { id: "z1", name: "Bridge" } },
       enchantment: { zoneId: "z1", type: "requiem", forte: 2 },
-    }
+    })
 
-    const snapshot = snap(encounter(session, "live"), { "char-aria": ARIA })
+    const snapshot = snap(encounter(session, "live"), instance, {
+      "char-aria": ARIA,
+    })
 
     expect(snapshot.enchantment).toEqual({
       zoneId: "z1",

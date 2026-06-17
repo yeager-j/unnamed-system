@@ -15,11 +15,11 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { shortId } = await params
-  const encounter = await getEncounterForDM(shortId)
+  const result = await getEncounterForDM(shortId)
 
   return {
-    title: encounter
-      ? `Add enemies — ${encounter.name} — Unnamed System`
+    title: result
+      ? `Add enemies — ${result.encounter.name} — Unnamed System`
       : "Encounter not found — Unnamed System",
     robots: { index: false, follow: false },
   }
@@ -35,9 +35,10 @@ export async function generateMetadata({
  */
 export default async function CombatEnemiesPage({ params }: PageProps) {
   const { shortId } = await params
-  const encounter = await getEncounterForDM(shortId)
+  const result = await getEncounterForDM(shortId)
 
-  if (!encounter) notFound()
+  if (!result) notFound()
+  const { encounter, instance } = result
   if (encounter.status !== "draft") redirect(`/combat/${shortId}`)
 
   return (
@@ -46,7 +47,10 @@ export default async function CombatEnemiesPage({ params }: PageProps) {
       shortId={shortId}
       encounterName={encounter.name}
       expectedVersion={encounter.version}
-      existingCombatants={encounter.session.combatants.map(toCombatantSetup)}
+      expectedInstanceVersion={instance.version}
+      existingCombatants={encounter.session.combatants.map((combatant) =>
+        toCombatantSetup(combatant, instance.state.occupancy[combatant.id])
+      )}
     />
   )
 }

@@ -10,10 +10,8 @@ import {
   normalizeEngagements,
   setEngagementTargets,
 } from "@workspace/game/engine/encounter/setup-roster-view"
-import type {
-  CombatantSetup,
-  CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
+import type { CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 /** A fixture catalog whose "goblin" carries the name the dedup/numbering logic
  *  reads — an opaque id assigned here, not the shipped creature. */
@@ -97,7 +95,7 @@ describe("buildSetupCombatantLabels", () => {
   })
 })
 
-function zone(id: string): CombatSession["zones"][string] {
+function zone(id: string): MapInstanceState["zones"][string] {
   return { id, name: id }
 }
 

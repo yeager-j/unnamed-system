@@ -4,9 +4,9 @@ import { XIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { type EngageableTarget } from "@workspace/game/engine"
 import {
-  type CombatSession,
   type CombatSide,
   type Engagement,
+  type MapInstanceState,
 } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -43,7 +43,7 @@ export function CombatantSetupRow({
 }: {
   label: string
   side: CombatSide
-  zones: CombatSession["zones"]
+  zones: MapInstanceState["zones"]
   zoneId: string
   engagement: Engagement
   engagementOptions: EngageableTarget[]

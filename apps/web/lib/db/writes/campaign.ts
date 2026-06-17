@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game/foundation"
 
@@ -7,6 +7,8 @@ import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock
 import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { characters } from "@/lib/db/schema/character"
+import { encounters } from "@/lib/db/schema/encounter"
+import { mapInstances } from "@/lib/db/schema/map-instance"
 import { insertWithShortId } from "@/lib/db/short-id"
 
 /**
@@ -110,11 +112,20 @@ export type DeleteCampaignError = "live-encounter-exists"
 
 /**
  * Deletes a campaign (UNN-330). Refuses with `live-encounter-exists` while a
- * `live` encounter is running — the DM must end it first. Otherwise a single
+ * `live` encounter is running — the DM must end it first. Otherwise a
  * `DELETE FROM campaign`: Postgres cascade-deletes the `encounters` and
  * `campaignUsers` rows (`onDelete: "cascade"` FKs) and nulls every placed
  * `characters.campaignId` (`onDelete: "set null"` FK), so the characters survive
  * unplaced — no explicit UPDATE needed.
+ *
+ * The encounters' Map Instances are **app-cleaned** here (UNN-459): the
+ * `encounters.mapInstanceId → mapInstances` FK is `onDelete: "restrict"` (it
+ * guards the *referenced* side), so the campaign cascade drops the encounters but
+ * strands their Instance rows. We collect those ids first, drop the campaign
+ * (cascading the encounters), then delete the now-unreferenced Instances — all in
+ * one transaction so a failure can't half-orphan. In M0 each encounter mints its
+ * own Instance (1:1, no sharing), so this never deletes one another live row
+ * still references.
  */
 export async function deleteCampaign(
   campaignId: string
@@ -122,7 +133,21 @@ export async function deleteCampaign(
   const live = await loadLiveEncounterForCampaign(campaignId)
   if (live) return err("live-encounter-exists")
 
-  await db.delete(campaigns).where(eq(campaigns.id, campaignId))
+  await db.transaction(async (tx) => {
+    const instanceRows = await tx
+      .select({ mapInstanceId: encounters.mapInstanceId })
+      .from(encounters)
+      .where(eq(encounters.campaignId, campaignId))
+
+    await tx.delete(campaigns).where(eq(campaigns.id, campaignId))
+
+    const mapInstanceIds = instanceRows.map((row) => row.mapInstanceId)
+    if (mapInstanceIds.length > 0) {
+      await tx
+        .delete(mapInstances)
+        .where(inArray(mapInstances.id, mapInstanceIds))
+    }
+  })
 
   return ok(undefined)
 }

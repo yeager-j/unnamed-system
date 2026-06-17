@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import {
   createCombatSession,
+  createMapInstance,
   toCombatantSetup,
 } from "@workspace/game/engine/encounter/session-factory"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
+import { mapInstanceStateSchema } from "@workspace/game/foundation/encounter/map-instance"
 import {
   combatSessionSchema,
   type CombatantSetup,
@@ -41,7 +43,7 @@ function sequentialIds() {
 }
 
 describe("combatSessionSchema", () => {
-  it("round-trips a representative session through JSON", () => {
+  it("round-trips a representative (non-spatial) session through JSON", () => {
     const session: CombatSession = {
       round: 2,
       currentActorId: "c-1",
@@ -64,8 +66,6 @@ describe("combatSessionSchema", () => {
           moveAvailable: false,
           standardAvailable: false,
           reactionAvailable: false,
-          zoneId: "zone-a",
-          engagement: { status: "engaged", targetCombatantIds: ["c-2"] },
           conditionDurations: { attack: 3, defense: 1 },
           counters: {},
         },
@@ -90,21 +90,10 @@ describe("combatSessionSchema", () => {
           moveAvailable: true,
           standardAvailable: true,
           reactionAvailable: true,
-          zoneId: "zone-a",
-          engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
           conditionDurations: {},
           counters: { lumina: 2 },
         },
       ],
-      zones: {
-        "zone-a": { id: "zone-a", name: "Courtyard", notes: "muddy" },
-        "zone-b": { id: "zone-b", name: "Hall" },
-      },
-      adjacency: {
-        "zone-a": ["zone-b"],
-        "zone-b": ["zone-a"],
-      },
-      enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 },
     }
 
     const roundTripped = combatSessionSchema.parse(
@@ -124,8 +113,6 @@ describe("combatSessionSchema", () => {
       battleConditions: DEFAULT_BATTLE_CONDITIONS,
       hasActedThisRound: false,
       reactionAvailable: true,
-      zoneId: "zone-a",
-      engagement: { status: "free" },
       conditionDurations: {},
     }
     const legacySession = {
@@ -140,20 +127,6 @@ describe("combatSessionSchema", () => {
 
     expect(parsed.combatants[0]!.moveAvailable).toBe(true)
     expect(parsed.combatants[0]!.standardAvailable).toBe(true)
-  })
-
-  it("defaults enchantment to null for a pre-Enchantment blob", () => {
-    // A session persisted before Zone Enchantments existed must still parse:
-    // the `.default(null)` fills it so no data migration is needed.
-    const legacySession = {
-      round: 1,
-      currentActorId: null,
-      advantage: null,
-      firstSide: null,
-      combatants: [],
-    }
-
-    expect(combatSessionSchema.parse(legacySession).enchantment).toBeNull()
   })
 })
 
@@ -182,7 +155,6 @@ describe("createCombatSession", () => {
       expect(combatant.standardAvailable).toBe(true)
       expect(combatant.reactionAvailable).toBe(true)
       expect(combatant.conditionDurations).toEqual({})
-      expect(combatant.engagement).toEqual({ status: "free" })
     }
   })
 
@@ -201,19 +173,6 @@ describe("createCombatSession", () => {
     })
   })
 
-  it("preserves an explicit engagement from setup", () => {
-    const session = createCombatSession(sequentialIds())([
-      {
-        ...SETUP[0]!,
-        engagement: { status: "engaged", targetCombatantIds: ["x"] },
-      },
-    ])
-    expect(session.combatants[0]!.engagement).toEqual({
-      status: "engaged",
-      targetCombatantIds: ["x"],
-    })
-  })
-
   it("honors a setup-supplied id over the minted fallback (UNN-301)", () => {
     const session = createCombatSession(sequentialIds())([
       { ...SETUP[0]!, id: "stable-a" },
@@ -222,9 +181,11 @@ describe("createCombatSession", () => {
     expect(session.combatants[0]!.id).toBe("stable-a")
     expect(session.combatants[1]!.id).toBe("combatant-0")
   })
+})
 
-  it("round-trips a stable id through toCombatantSetup so engagement refs survive a re-save", () => {
-    const first = createCombatSession(sequentialIds())([
+describe("createMapInstance", () => {
+  it("builds occupancy keyed by combatant id, carrying zone + engagement", () => {
+    const instance = createMapInstance(sequentialIds())([
       { ...SETUP[0]!, id: "a" },
       {
         ...SETUP[1]!,
@@ -232,14 +193,64 @@ describe("createCombatSession", () => {
         engagement: { status: "engaged", targetCombatantIds: ["a"] },
       },
     ])
-    const reseeded = first.combatants.map(toCombatantSetup)
+
+    expect(mapInstanceStateSchema.safeParse(instance).success).toBe(true)
+    expect(instance.occupancy).toEqual({
+      a: { zoneId: "zone-a", engagement: { status: "free" } },
+      b: {
+        zoneId: "zone-b",
+        engagement: { status: "engaged", targetCombatantIds: ["a"] },
+      },
+    })
+    // Geometry + enchantment are authored ad hoc, empty at mint.
+    expect(instance.zones).toEqual({})
+    expect(instance.adjacency).toEqual({})
+    expect(instance.enchantment).toBeNull()
+  })
+
+  it("yields a blank Instance for an empty roster (the create-action shape)", () => {
+    const instance = createMapInstance(sequentialIds())([])
+    expect(instance.occupancy).toEqual({})
+    expect(instance.zones).toEqual({})
+  })
+})
+
+describe("toCombatantSetup", () => {
+  it("round-trips ids + engagement through session + Instance so refs survive a re-save", () => {
+    const roster: CombatantSetup[] = [
+      { ...SETUP[0]!, id: "a" },
+      {
+        ...SETUP[1]!,
+        id: "b",
+        engagement: { status: "engaged", targetCombatantIds: ["a"] },
+      },
+    ]
+    const session = createCombatSession(sequentialIds())(roster)
+    const instance = createMapInstance(sequentialIds())(roster)
+
+    const reseeded = session.combatants.map((c) =>
+      toCombatantSetup(c, instance.occupancy[c.id])
+    )
     const second = createCombatSession(sequentialIds())(reseeded)
+    const secondInstance = createMapInstance(sequentialIds())(reseeded)
 
     expect(second.combatants.map((c) => c.id)).toEqual(["a", "b"])
-    expect(second.combatants[1]!.engagement).toEqual({
+    expect(secondInstance.occupancy["b"]!.engagement).toEqual({
       status: "engaged",
       targetCombatantIds: ["a"],
     })
+    expect(secondInstance.occupancy["a"]!.zoneId).toBe("zone-a")
+  })
+
+  it("defaults an unplaced combatant (no token) to empty zone + Free", () => {
+    const session = createCombatSession(sequentialIds())([
+      { ...SETUP[0]!, id: "a" },
+    ])
+
+    const setup = toCombatantSetup(session.combatants[0]!, undefined)
+
+    expect(setup.zoneId).toBe("")
+    expect(setup.engagement).toBeUndefined()
   })
 })
 
@@ -264,24 +275,9 @@ describe("combatSessionSchema rejects malformed sessions", () => {
     expect(combatSessionSchema.safeParse(session).success).toBe(false)
   })
 
-  it("rejects a combatant with no zoneId", () => {
-    const session = base()
-    delete (session.combatants[0] as { zoneId?: string }).zoneId
-    expect(combatSessionSchema.safeParse(session).success).toBe(false)
-  })
-
   it("rejects a non-positive duration", () => {
     const session = base()
     session.combatants[0]!.conditionDurations = { attack: 0 }
-    expect(combatSessionSchema.safeParse(session).success).toBe(false)
-  })
-
-  it("rejects an engaged status with no targets", () => {
-    const session = base()
-    session.combatants[0]!.engagement = {
-      status: "engaged",
-      targetCombatantIds: [],
-    }
     expect(combatSessionSchema.safeParse(session).success).toBe(false)
   })
 })
