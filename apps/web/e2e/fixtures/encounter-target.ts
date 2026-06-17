@@ -1,14 +1,16 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
-import { createCombatSession } from "@workspace/game/engine"
+import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
   type CombatantSetup,
   type CombatSession,
+  type MapInstanceState,
 } from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
+import { mapInstances } from "@/lib/db/schema/map-instance"
 import { reduceCombatSession } from "@/lib/game-engine"
 
 /**
@@ -148,6 +150,11 @@ interface SeededEncounter {
   url: string
   /** Canonical session — built once, used by both the seed and the reset. */
   session: CombatSession
+  /** The Map Instance this encounter references (UNN-459 — spatial truth moved
+   *  off the session). Deterministic id so a re-seed is idempotent; its
+   *  occupancy keys match the session's combatant ids. */
+  mapInstanceId: string
+  mapInstanceState: MapInstanceState
 }
 
 function seededEncounter(
@@ -157,7 +164,12 @@ function seededEncounter(
   roster: CombatantSetup[],
   start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
-  const base = createCombatSession(deterministicIds(slug))(roster)
+  // Stamp deterministic ids onto the roster up front so the session combatants
+  // and the Instance occupancy tokens (built from the same setups) share ids.
+  const nextId = deterministicIds(slug)
+  const placedRoster = roster.map((setup) => ({ ...setup, id: nextId() }))
+
+  const base = createCombatSession(deterministicIds(slug))(placedRoster)
   // A `live` encounter has already run `startCombat`, so its advantage/firstSide
   // are set — replay that event here so the seeded session matches a real live
   // one (the console's advantage chip + drafting order need it).
@@ -171,6 +183,8 @@ function seededEncounter(
     campaignId,
     url: `/combat/encounter-${slug}`,
     session,
+    mapInstanceId: `seed-mi-encounter-${slug}`,
+    mapInstanceState: createMapInstance(deterministicIds(slug))(placedRoster),
   }
 }
 
@@ -233,6 +247,15 @@ export async function resetEncounterFixtures(): Promise<void> {
         encounters.id,
         SEEDED_ENCOUNTERS.map((encounter) => encounter.id)
       )
+    )
+  )
+
+  await Promise.all(
+    SEEDED_ENCOUNTERS.map((encounter) =>
+      db
+        .update(mapInstances)
+        .set({ state: encounter.mapInstanceState, version: 0 })
+        .where(eq(mapInstances.id, encounter.mapInstanceId))
     )
   )
 

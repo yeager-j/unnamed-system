@@ -23,10 +23,11 @@ import { mapInstances } from "./map-instance"
  * {@link EncounterStatus} is owned by the game domain (`@workspace/game/foundation`).
  *
  * `mapInstanceId` references the encounter's spatial truth — the
- * {@link mapInstances} row that will own zones/occupancy/engagement/enchantment
- * (Dungeon Map ADR). Added **nullable** as additive M0 scaffolding (UNN-450);
- * the cutover (UNN-459) relocates the session's spatial fields onto the Instance
- * and flips this non-null.
+ * {@link mapInstances} row that owns zones/occupancy/engagement/enchantment
+ * (Dungeon Map ADR). The cutover (UNN-459) relocated the session's spatial fields
+ * onto the Instance and flipped this **non-null**: every encounter mints an
+ * Instance at create (the `restrict` FK keeps a referenced Instance alive; its
+ * cleanup is app-managed — see `deleteCampaign`).
  */
 export const encounters = pgTable("encounter", {
   id: text("id")
@@ -38,9 +39,11 @@ export const encounters = pgTable("encounter", {
     .references(() => campaigns.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   notes: text("notes"),
-  mapInstanceId: text("mapInstanceId").references(() => mapInstances.id, {
-    onDelete: "restrict",
-  }),
+  mapInstanceId: text("mapInstanceId")
+    .notNull()
+    .references(() => mapInstances.id, {
+      onDelete: "restrict",
+    }),
   status: text("status").$type<EncounterStatus>().notNull().default("draft"),
   session: jsonb("session").$type<CombatSession>().notNull(),
   version: integer("version").notNull().default(0),

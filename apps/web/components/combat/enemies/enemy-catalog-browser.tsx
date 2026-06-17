@@ -46,12 +46,14 @@ export function EnemyCatalogBrowser({
   shortId,
   encounterName,
   expectedVersion,
+  expectedInstanceVersion,
   existingCombatants,
 }: {
   encounterId: string
   shortId: string
   encounterName: string
   expectedVersion: number
+  expectedInstanceVersion: number
   existingCombatants: CombatantSetup[]
 }) {
   const router = useRouter()
@@ -108,6 +110,7 @@ export function EnemyCatalogBrowser({
       const saved = await addSetupCombatantsAction({
         encounterId,
         expectedVersion,
+        expectedInstanceVersion,
         combatants: newCombatants,
       })
 
