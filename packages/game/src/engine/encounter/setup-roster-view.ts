@@ -1,8 +1,6 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import type {
-  CombatantSetup,
-  CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
+import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 /**
  * Resolves a setup combatant's *base* display name from its ref — a `pc` defers
@@ -66,7 +64,7 @@ export function buildSetupCombatantLabels(
  */
 export function isRosterFullyPlaced(
   setups: CombatantSetup[],
-  zones: CombatSession["zones"]
+  zones: MapInstanceState["zones"]
 ): boolean {
   if (Object.keys(zones).length === 0) return true
   return setups.every((setup) => setup.zoneId in zones)

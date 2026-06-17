@@ -1,4 +1,4 @@
-import type { Engagement } from "@workspace/game/foundation/encounter/session"
+import type { Engagement } from "@workspace/game/foundation/combat/engagement"
 
 /**
  * The symmetric melee-lock graph primitives shared by the live-combat reducer
