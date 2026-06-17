@@ -33,6 +33,7 @@
     "@vercel/blob": "^2.4.0",
     "@workspace/game": "*",
     "@workspace/ui": "*",
+    "@xyflow/react": "^12.11.0",
     "ably": "^2.22.1",
     "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",

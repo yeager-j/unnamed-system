@@ -1,46 +1,59 @@
 "use client"
 
-import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr"
+import dynamic from "next/dynamic"
 
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useMapNameAutoSave } from "@/hooks/use-map-name-autosave"
+import { useMapAutoSave } from "@/hooks/use-map-autosave"
 import type { MapRow } from "@/lib/db/schema/map"
 
 import { DeleteMapButton } from "./delete-map-button"
 
 /**
- * The Map editor shell (UNN-460): an autosaving name field (no Save button) over
- * a placeholder canvas region, plus the delete control. The node-graph canvas
- * itself — add/drag Zones, draw adjacency, toggle hidden/locked, edit
- * descriptions + DM notes — is UNN-461 (React Flow); it drops into the
- * placeholder and autosaves geometry through the same `saveMapAction` this shell
- * already wires for the name.
+ * The Map editor (UNN-460 shell + UNN-461 canvas): an autosaving name field (no
+ * Save button) above the node-graph canvas. The canvas is a `"use client"` React
+ * Flow island, lazy-loaded (`ssr: false`) so it renders only against a measured
+ * DOM and non-map routes don't pay for it. Name and geometry autosave through one
+ * shared version token ({@link useMapAutoSave}).
  */
+const MapCanvas = dynamic(
+  () => import("./canvas/map-canvas").then((module) => module.MapCanvas),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex size-full items-center justify-center">
+        <Spinner className="size-6 text-muted-foreground" />
+      </div>
+    ),
+  }
+)
+
 export function MapEditor({ map }: { map: MapRow }) {
-  const { value, onChange, flush, revert } = useMapNameAutoSave({
+  const { name, saveGeometry } = useMapAutoSave({
     mapId: map.id,
     serverName: map.name,
+    serverGeometry: map.geometry,
     serverVersion: map.version,
   })
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <main className="flex flex-1 flex-col">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b px-6 py-3">
         <input
           type="text"
           aria-label="Map name"
           maxLength={100}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onBlur={flush}
+          value={name.value}
+          onChange={(event) => name.onChange(event.target.value)}
+          onBlur={name.flush}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault()
               event.currentTarget.blur()
             } else if (event.key === "Escape") {
               event.preventDefault()
-              revert()
+              name.revert()
               event.currentTarget.blur()
             }
           }}
@@ -52,19 +65,13 @@ export function MapEditor({ map }: { map: MapRow }) {
             "hover:border-border"
           )}
         />
-        <DeleteMapButton mapId={map.id} mapName={value || map.name} />
+        <DeleteMapButton mapId={map.id} mapName={name.value || map.name} />
       </header>
 
-      <section
-        aria-label="Map builder"
-        className="flex min-h-96 flex-1 flex-col items-center justify-center gap-2 border border-dashed text-center text-muted-foreground"
-      >
-        <MapTrifoldIcon className="size-8" />
-        <p className="text-sm font-medium">Map builder coming soon</p>
-        <p className="max-w-sm text-xs">
-          The node-graph canvas — add zones, wire connections, and write
-          descriptions — arrives next. Your map name autosaves as you type.
-        </p>
+      <section aria-label="Map builder" className="relative min-h-0 flex-1">
+        <div className="absolute inset-0">
+          <MapCanvas geometry={map.geometry} onGeometryChange={saveGeometry} />
+        </div>
       </section>
     </main>
   )
