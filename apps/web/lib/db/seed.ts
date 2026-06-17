@@ -41,7 +41,8 @@ if (!process.env.DATABASE_URL) {
   if (existsSync(envPath)) process.loadEnvFile(envPath)
 }
 
-const { db, users, characters, campaigns, encounters } = await import("./index")
+const { db, users, characters, campaigns, encounters, mapInstances } =
+  await import("./index")
 
 /**
  * Single-purpose "other user" so the E2E `signed-in-non-owner` case has a
@@ -161,6 +162,19 @@ async function seedEncounterFixtures(): Promise<void> {
     .where(eq(characters.id, liveCombatPc.characterId))
 
   for (const encounter of SEEDED_ENCOUNTERS) {
+    // Mint the Map Instance first (UNN-459 — `encounters.mapInstanceId` is
+    // non-null + `restrict`): deterministic id so a re-seed upserts in place,
+    // occupancy keyed to the same combatant ids the session carries.
+    const instanceRow = {
+      id: encounter.mapInstanceId,
+      state: encounter.mapInstanceState,
+      version: 0,
+    }
+    await db
+      .insert(mapInstances)
+      .values(instanceRow)
+      .onConflictDoUpdate({ target: mapInstances.id, set: instanceRow })
+
     const row = {
       id: encounter.id,
       shortId: encounter.shortId,
@@ -168,6 +182,7 @@ async function seedEncounterFixtures(): Promise<void> {
       name: `Encounter: ${encounter.shortId}`,
       status: encounter.status,
       session: encounter.session,
+      mapInstanceId: encounter.mapInstanceId,
       version: 0,
     }
     await db

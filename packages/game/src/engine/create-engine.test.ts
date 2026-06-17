@@ -22,6 +22,7 @@ const EXPECTED_METHODS = [
   "resolveCatalogEnemyStatblocks",
   "statblockFromEnemy",
   "reduceCombatSession",
+  "reduceMapInstance",
   "endOfTurnObligations",
   "buildLineageAtlas",
   "getAtlasRecommendations",
@@ -33,6 +34,7 @@ const EXPECTED_METHODS = [
   "addItem",
   "setItemQuantity",
   "createCombatSession",
+  "createMapInstance",
 ] as const
 
 const setup: CombatantSetup[] = [

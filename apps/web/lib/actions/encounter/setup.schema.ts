@@ -3,6 +3,7 @@ import { z } from "zod/v4"
 import { combatantSetupSchema } from "@workspace/game/foundation"
 
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
+import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
 import { encounterMutationBase } from "./encounter-mutation.schema"
 
@@ -16,11 +17,20 @@ import { encounterMutationBase } from "./encounter-mutation.schema"
  * surface drives every other edit through `applyCombatEvent`; this batch path
  * exists for the catalog enemy-add sub-route (UNN-346), which commits a queue and
  * navigates away rather than dispatching one event per enemy.
+ *
+ * `expectedInstanceVersion` is the Map Instance token: each append now
+ * cross-writes the Instance an occupancy token (UNN-459), so the batch commits
+ * both rows in one `guardMany` transaction.
  */
 export const AddSetupCombatantsSchema = encounterMutationBase.extend({
+  expectedInstanceVersion: z.number().int().nonnegative(),
   combatants: z.array(combatantSetupSchema),
 })
 
 export type AddSetupCombatantsInput = z.input<typeof AddSetupCombatantsSchema>
 
-export type AddSetupCombatantsError = "invalid-input" | EncounterWriteError
+export type AddSetupCombatantsError =
+  | "invalid-input"
+  | "map-instance-not-found"
+  | EncounterWriteError
+  | MapInstanceWriteError

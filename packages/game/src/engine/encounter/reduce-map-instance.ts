@@ -6,15 +6,17 @@ import {
   unlink,
 } from "@workspace/game/engine/encounter/engagement-graph"
 import { MAX_FORTE } from "@workspace/game/foundation/combat/enchantment"
-import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
-import type { MapInstanceEvent } from "@workspace/game/foundation/encounter/map-instance-event"
-import type { Zone } from "@workspace/game/foundation/encounter/session"
+import type {
+  MapInstanceState,
+  Zone,
+} from "@workspace/game/foundation/encounter/map-instance"
 import type {
   EnchantmentEvent,
   EngagementEvent,
+  MapInstanceEvent,
   MoveCombatantEvent,
   ZoneGraphEvent,
-} from "@workspace/game/foundation/encounter/session-event"
+} from "@workspace/game/foundation/encounter/map-instance-event"
 
 /**
  * The pure Map-Instance reducer (UNN-454): applies a {@link MapInstanceEvent} to

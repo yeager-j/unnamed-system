@@ -4,7 +4,7 @@ import { MapPinIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, type KeyboardEvent } from "react"
 
 import {
-  type CombatSession,
+  type MapInstanceState,
   type ZoneGraphEvent,
 } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
@@ -36,8 +36,8 @@ export function ZonesPanel({
   onZoneEvent,
   disabled,
 }: {
-  zones: CombatSession["zones"]
-  adjacency: CombatSession["adjacency"]
+  zones: MapInstanceState["zones"]
+  adjacency: MapInstanceState["adjacency"]
   onZoneEvent: (event: ZoneGraphEvent) => void
   disabled?: boolean
 }) {
@@ -164,8 +164,8 @@ function NeighborsControl({
   onZoneEvent,
   disabled,
 }: {
-  zone: CombatSession["zones"][string]
-  allZones: CombatSession["zones"][string][]
+  zone: MapInstanceState["zones"][string]
+  allZones: MapInstanceState["zones"][string][]
   neighbors: string[]
   onZoneEvent: (event: ZoneGraphEvent) => void
   disabled?: boolean

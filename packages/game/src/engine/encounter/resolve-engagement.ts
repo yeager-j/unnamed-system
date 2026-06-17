@@ -2,10 +2,11 @@ import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import type { EngageableTarget } from "@workspace/game/engine/encounter/setup-roster-view"
+import { type Engagement } from "@workspace/game/foundation/combat/engagement"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import type {
   Combatant,
   CombatSession,
-  Engagement,
 } from "@workspace/game/foundation/encounter/session"
 
 /**
@@ -33,11 +34,15 @@ export interface CombatantEngagement {
  */
 export function resolveCombatantEngagement(
   session: CombatSession,
+  instance: MapInstanceState,
   combatant: Combatant,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): CombatantEngagement {
-  const value = combatant.engagement
+  const value: Engagement = instance.occupancy[combatant.id]?.engagement ?? {
+    status: "free",
+  }
+  const selfZoneId = instance.occupancy[combatant.id]?.zoneId ?? ""
   const nameById = new Map(
     session.combatants.map((c) => [
       c.id,
@@ -54,12 +59,13 @@ export function resolveCombatantEngagement(
       ? value.targetCombatantIds.map((id) => nameById.get(id) ?? id)
       : []
 
-  const candidates = session.combatants.flatMap((other) =>
-    other.id === combatant.id ||
-    (other.zoneId !== combatant.zoneId && !engagedIds.has(other.id))
+  const candidates = session.combatants.flatMap((other) => {
+    const otherZoneId = instance.occupancy[other.id]?.zoneId ?? ""
+    return other.id === combatant.id ||
+      (otherZoneId !== selfZoneId && !engagedIds.has(other.id))
       ? []
       : [{ id: other.id, label: nameById.get(other.id) ?? other.id }]
-  )
+  })
 
   return { value, targetNames, candidates }
 }

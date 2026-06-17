@@ -12,6 +12,7 @@ import {
   loadCharacterRowById,
   loadHydratedCharacterById,
 } from "@/lib/db/queries/load-character"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { resolvePartyCompositionBySide } from "@/lib/db/queries/party-composition"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
@@ -41,10 +42,12 @@ export async function getEncounterSnapshot(
     combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
   )
 
-  const [campaign, hydrated] = await Promise.all([
+  const [campaign, instance, hydrated] = await Promise.all([
     loadCampaignRowById(encounter.campaignId),
+    loadMapInstanceById(encounter.mapInstanceId),
     Promise.all(pcCharacterIds.map((id) => loadHydratedCharacterById(id))),
   ])
+  if (!instance) return null
 
   const pcDetailById: Record<string, PcCombatantDetail> = Object.fromEntries(
     hydrated
@@ -62,6 +65,7 @@ export async function getEncounterSnapshot(
 
   return projectPlayerSnapshot(
     { ...encounter, campaignShortId: campaign?.shortId ?? "" },
+    instance.state,
     pcDetailById,
     resolveCatalogEnemyStatblocks(encounter.session.combatants)
   )
@@ -93,6 +97,9 @@ export async function loadOwnedEncounterSheets(
   const encounter = await loadEncounterRowByShortId(shortId)
   if (!encounter) return []
 
+  const instance = await loadMapInstanceById(encounter.mapInstanceId)
+  if (!instance) return []
+
   const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
     combatant.ref.kind === "pc"
       ? [
@@ -100,7 +107,7 @@ export async function loadOwnedEncounterSheets(
             combatantId: combatant.id,
             characterId: combatant.ref.characterId,
             side: combatant.side,
-            zoneId: combatant.zoneId,
+            zoneId: instance.state.occupancy[combatant.id]?.zoneId ?? "",
           },
         ]
       : []
@@ -130,7 +137,7 @@ export async function loadOwnedEncounterSheets(
       const character = await loadHydratedCharacterById(pc.characterId, {
         partyComposition: compositionBySide[pc.side],
         zoneEffects: zoneEnchantmentEffects(
-          encounter.session.enchantment,
+          instance.state.enchantment,
           pc.zoneId
         ),
       })

@@ -6,7 +6,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 
 import { type CombatantDetail } from "@workspace/game/engine"
-import { type CombatEvent } from "@workspace/game/foundation"
+import { type MapInstanceEvent } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Select,
@@ -34,7 +34,7 @@ export function CombatantPositionSection({
   onCombatEvent,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: MapInstanceEvent) => void
 }) {
   const position = detail.position
 

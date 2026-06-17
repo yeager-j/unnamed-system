@@ -10,8 +10,9 @@ import {
  * `Skills/Mechanics/Enchantment.md`).
  *
  * The Enchantment itself — which Zone, which type, what Level — is battlefield
- * state, so it lives on the encounter session (`session.enchantment`, written
- * by the DM console's `applyEnchantment` event) rather than the character row;
+ * state, so it lives on the Map Instance (`mapInstance.state.enchantment`,
+ * written by the DM console's `applyEnchantment` event) rather than the
+ * character row;
  * its engine-computable effects reach the Bard's (and everyone else's) sheet
  * through the `CombatContext.zoneEffects` channel, resolved per combatant by
  * {@link import("../../encounter/enchantment").zoneEnchantmentEffects}. There

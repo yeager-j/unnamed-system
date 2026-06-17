@@ -8,11 +8,12 @@ import {
   type EnchantmentType,
   type ZoneEnchantment,
 } from "@workspace/game/foundation/combat/enchantment"
+import { type Engagement } from "@workspace/game/foundation/combat/engagement"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import type {
   Combatant,
   CombatSession,
   CombatSide,
-  Engagement,
 } from "@workspace/game/foundation/encounter/session"
 
 /**
@@ -97,7 +98,7 @@ export function zoneEnchantmentBadge(
 }
 
 /**
- * The whole battlefield: one entry per zone (in `session.zones` insertion order),
+ * The whole battlefield: one entry per zone (in `instance.zones` insertion order),
  * the `unplaced` overflow (combatants whose `zoneId` isn't a current zone — the
  * empty-string default or a stale id), and `hasZones` so the component can show
  * the unzoned / theater-of-mind state instead of an empty grid.
@@ -112,6 +113,7 @@ export interface ZoneLayoutView {
  *  the injected detail; an enemy has none (the initials-square fallback). */
 function zoneToken(
   combatant: Combatant,
+  engagement: Engagement,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): ZoneToken {
@@ -129,7 +131,7 @@ function zoneToken(
     side: combatant.side,
     isPc,
     portraitUrl,
-    engagement: combatant.engagement,
+    engagement,
   }
 }
 
@@ -143,27 +145,39 @@ function zoneToken(
  */
 export function resolveZoneLayout(
   session: CombatSession,
+  instance: MapInstanceState,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): ZoneLayoutView {
-  const zoneEntries = Object.values(session.zones)
+  const zoneEntries = Object.values(instance.zones)
   const zoneIds = new Set(zoneEntries.map((zone) => zone.id))
+
+  const tokenOf = (combatant: Combatant) =>
+    zoneToken(
+      combatant,
+      instance.occupancy[combatant.id]?.engagement ?? { status: "free" },
+      pcDetailById,
+      enemyStatblockById
+    )
 
   const zones = zoneEntries.map((zone) => ({
     id: zone.id,
     name: zone.name,
-    adjacentZoneNames: adjacentZones(session, zone.id).map((z) => z.name),
+    adjacentZoneNames: adjacentZones(instance, zone.id).map((z) => z.name),
     combatants: session.combatants
-      .filter((combatant) => combatant.zoneId === zone.id)
-      .map((combatant) =>
-        zoneToken(combatant, pcDetailById, enemyStatblockById)
-      ),
-    enchantment: zoneEnchantmentBadge(session.enchantment, zone.id),
+      .filter(
+        (combatant) => instance.occupancy[combatant.id]?.zoneId === zone.id
+      )
+      .map(tokenOf),
+    enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
   }))
 
   const unplaced = session.combatants
-    .filter((combatant) => !zoneIds.has(combatant.zoneId))
-    .map((combatant) => zoneToken(combatant, pcDetailById, enemyStatblockById))
+    .filter(
+      (combatant) =>
+        !zoneIds.has(instance.occupancy[combatant.id]?.zoneId ?? "")
+    )
+    .map(tokenOf)
 
   return { zones, unplaced, hasZones: zoneEntries.length > 0 }
 }

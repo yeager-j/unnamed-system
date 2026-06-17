@@ -16,6 +16,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import {
   endOfTurnObligations,
   resolveCatalogEnemyStatblocks,
@@ -56,11 +57,13 @@ import { ZoneLayout } from "./zone-layout"
  */
 export function CombatConsole({
   encounter,
+  instance,
   campaignShortId,
   pcDetailById,
   pcShortIdById,
 }: {
   encounter: EncounterRow
+  instance: MapInstanceRow
   campaignShortId: string
   pcDetailById: Record<string, PcCombatantDetail>
   /** Each PC combatant's public shortId — the realtime channel key (UNN-373). */
@@ -68,12 +71,13 @@ export function CombatConsole({
 }) {
   const {
     session,
+    instance: instanceState,
     isPending,
     dispatch,
     endEncounter,
     pcVitalsVersions,
     onPcPing,
-  } = useCombatConsole(encounter, pcDetailById)
+  } = useCombatConsole(encounter, instance, pcDetailById)
   const [modalOpen, setModalOpen] = useState(false)
   const [selectedCombatantId, setSelectedCombatantId] = useState<string | null>(
     null
@@ -82,7 +86,12 @@ export function CombatConsole({
   const enemyStatblockById = resolveCatalogEnemyStatblocks(session.combatants)
   const view = buildConsoleView(session, pcDetailById, enemyStatblockById)
   const { currentActor } = view
-  const roster = buildRosterView(session, pcDetailById, enemyStatblockById)
+  const roster = buildRosterView(
+    session,
+    instanceState,
+    pcDetailById,
+    enemyStatblockById
+  )
   const fallenPcNames = roster.players
     .filter((row) => row.isFallen)
     .map((row) => row.name)
@@ -90,6 +99,7 @@ export function CombatConsole({
     selectedCombatantId !== null
       ? combatantDetail(
           session,
+          instanceState,
           selectedCombatantId,
           pcDetailById,
           enemyStatblockById
@@ -259,7 +269,12 @@ export function CombatConsole({
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
           <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
           <ZoneLayout
-            view={resolveZoneLayout(session, pcDetailById, enemyStatblockById)}
+            view={resolveZoneLayout(
+              session,
+              instanceState,
+              pcDetailById,
+              enemyStatblockById
+            )}
             zoneAction={(zone) => (
               <ZoneEnchantmentControl
                 zoneId={zone.id}

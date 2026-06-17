@@ -43,7 +43,8 @@ export type ThiefsInsightState = z.infer<typeof thiefsInsightStateSchema>
 /**
  * Bard — Enchantment: no per-character state. The mechanic's data — which Zone
  * is Enchanted, with what, at what Forte — is encounter-scoped and lives on the
- * `CombatSession` (`session.enchantment`), not the character row, mirroring how
+ * Map Instance (`mapInstance.state.enchantment`), not the character row,
+ * mirroring how
  * Thief's Insight keeps its Tells on the encounter side. The state shape
  * carries only its discriminant so the mechanic can still own a Combat-tab
  * widget and an Archetypes-tab summary (rulebook `Enchantment.md`).

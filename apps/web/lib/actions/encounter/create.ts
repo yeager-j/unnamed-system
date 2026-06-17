@@ -3,8 +3,10 @@
 import { ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
+import { db } from "@/lib/db/client"
 import { createEncounter } from "@/lib/db/writes/encounter"
-import { createCombatSession } from "@/lib/game-engine"
+import { insertMapInstance } from "@/lib/db/writes/map-instance"
+import { createCombatSession, createMapInstance } from "@/lib/game-engine"
 
 import {
   CreateEncounterSchema,
@@ -20,6 +22,13 @@ import {
  * (`createCombatSession([])`); the four setup panels (UNN-298/299/300/301)
  * populate it and the explicit save (UNN-302) persists it.
  *
+ * Create now touches **two** rows in one transaction (UNN-459): an empty
+ * {@link createMapInstance} Instance (the spatial truth, `mapInstanceId` is
+ * non-null) and the encounter referencing it. Both inserts share the
+ * transaction executor — and the `shortId`-collision retry re-runs the whole
+ * closure in a fresh transaction — so a partial create can't strand an Instance
+ * or an encounter.
+ *
  * Auth is `requireCampaignDM` — only the campaign's DM may create encounters in
  * it; a non-DM trips `forbidden()` (HTTP 403) before any write. No `revalidate`
  * is needed: the new encounter is reached by the returned redirect, not a list
@@ -33,11 +42,19 @@ export async function createEncounterAction(
 
   await requireCampaignDM(parsed.data.campaignId)
 
-  const { shortId } = await createEncounter({
-    campaignId: parsed.data.campaignId,
-    name: parsed.data.name,
-    notes: parsed.data.notes ?? null,
-    session: createCombatSession([]),
+  const mapInstanceId = crypto.randomUUID()
+  const { shortId } = await db.transaction(async (tx) => {
+    await insertMapInstance(tx, mapInstanceId, createMapInstance([]))
+    return createEncounter(
+      {
+        campaignId: parsed.data.campaignId,
+        name: parsed.data.name,
+        notes: parsed.data.notes ?? null,
+        session: createCombatSession([]),
+        mapInstanceId,
+      },
+      tx
+    )
   })
 
   return ok({ shortId })
