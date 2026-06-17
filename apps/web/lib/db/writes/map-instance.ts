@@ -34,6 +34,22 @@ import { mapInstances } from "@/lib/db/schema/map-instance"
 export type MapInstanceWriteError = "map-instance-not-found" | "stale"
 
 /**
+ * Inserts a fresh Map Instance at `version: 0` with the caller-minted `id` and
+ * serialized `state`. The caller mints the id so it can reference the new
+ * Instance (`encounter.mapInstanceId`) inside the same transaction. Runs on the
+ * supplied `executor` so a `guardMany` caller composes it with the encounter
+ * insert; the encounter-create action mints an empty Instance this way (every
+ * draft gets a write target before setup authors its geometry).
+ */
+export async function insertMapInstance(
+  executor: WriteExecutor,
+  id: string,
+  state: MapInstanceState
+): Promise<void> {
+  await executor.insert(mapInstances).values({ id, state })
+}
+
+/**
  * The core guarded write: replaces the whole `state` blob and bumps `version`,
  * conditioned on the caller's `expectedVersion`. Returns the new version on
  * success. Runs on the supplied `executor` so an in-transaction caller writes

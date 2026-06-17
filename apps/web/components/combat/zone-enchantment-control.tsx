@@ -9,7 +9,7 @@ import {
 import {
   ENCHANTMENT_TYPES,
   MAX_FORTE,
-  type CombatEvent,
+  type MapInstanceEvent,
 } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -22,10 +22,10 @@ import {
 interface ZoneEnchantmentControlProps {
   zoneId: string
   zoneName: string
-  /** This zone's active Enchantment badge, or `undefined` when the session's
+  /** This zone's active Enchantment badge, or `undefined` when the Instance's
    *  Enchantment is absent or sits on another zone. */
   enchantment?: ZoneEnchantmentBadge
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: MapInstanceEvent) => void
   disabled?: boolean
 }
 

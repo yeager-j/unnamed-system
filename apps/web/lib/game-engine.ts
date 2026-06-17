@@ -25,6 +25,7 @@ export const {
   resolveCatalogEnemyStatblocks,
   statblockFromEnemy,
   reduceCombatSession,
+  reduceMapInstance,
   endOfTurnObligations,
   buildLineageAtlas,
   getAtlasRecommendations,
@@ -36,4 +37,5 @@ export const {
   addItem,
   setItemQuantity,
   createCombatSession,
+  createMapInstance,
 } = createGameEngine(gameData)

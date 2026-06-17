@@ -33,16 +33,23 @@ export type EncounterWriteError = "encounter-not-found" | "stale"
  * Inserts a fresh `draft` encounter (version 0) for `campaignId` with a minted,
  * collision-retried `shortId`, and returns its `id` + `shortId`. The combatant
  * roster is whatever the caller built (UNN-298/300/301); this layer just
- * persists the assembled session.
+ * persists the assembled session. `mapInstanceId` references the Instance the
+ * create action mints in the same transaction (UNN-459 — the column is non-null,
+ * so every encounter is born with its spatial truth); pass the same `executor`
+ * so the two inserts share one snapshot.
  */
-export async function createEncounter(input: {
-  campaignId: string
-  name: string
-  notes?: string | null
-  session: CombatSession
-}): Promise<{ id: string; shortId: string }> {
+export async function createEncounter(
+  input: {
+    campaignId: string
+    name: string
+    notes?: string | null
+    session: CombatSession
+    mapInstanceId: string
+  },
+  executor: WriteExecutor = db
+): Promise<{ id: string; shortId: string }> {
   return insertWithShortId(async (shortId) => {
-    const [row] = await db
+    const [row] = await executor
       .insert(encounters)
       .values({
         campaignId: input.campaignId,
@@ -50,6 +57,7 @@ export async function createEncounter(input: {
         notes: input.notes ?? null,
         shortId,
         session: input.session,
+        mapInstanceId: input.mapInstanceId,
       })
       .returning({ id: encounters.id, shortId: encounters.shortId })
 

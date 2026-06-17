@@ -22,6 +22,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { CampaignBackLink } from "./campaign-back-link"
@@ -56,21 +57,30 @@ import { ZonesPanel } from "./zones-panel"
  */
 export function EncounterSetup({
   encounter,
+  instance,
   campaignShortId,
   placedCharacters,
   pcStatsById,
 }: {
   encounter: EncounterRow
+  instance: MapInstanceRow
   campaignShortId: string
   placedCharacters: CharacterSummary[]
   pcStatsById: Record<string, InitiativeStats>
 }) {
   const router = useRouter()
-  const { session, isPending, dispatch } = useEncounterSetup(encounter)
+  const {
+    session,
+    instance: instanceState,
+    isPending,
+    dispatch,
+  } = useEncounterSetup(encounter, instance)
 
-  const combatants = session.combatants.map(toCombatantSetup)
-  const zones = session.zones
-  const adjacency = session.adjacency
+  const combatants = session.combatants.map((combatant) =>
+    toCombatantSetup(combatant, instanceState.occupancy[combatant.id])
+  )
+  const zones = instanceState.zones
+  const adjacency = instanceState.adjacency
 
   const addedCharacterIds = new Set(
     combatants.flatMap((combatant) =>
@@ -224,25 +234,25 @@ export function EncounterSetup({
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {session.combatants.map((combatant, index) => (
+            {combatants.map((combatant, index) => (
               <CombatantSetupRow
                 key={combatant.id}
                 label={combatantLabels[index]!}
                 side={combatant.side}
                 zones={zones}
                 zoneId={combatant.zoneId}
-                engagement={combatant.engagement}
+                engagement={combatant.engagement ?? { status: "free" }}
                 engagementOptions={engageableTargets(
                   combatants,
                   index,
                   combatantLabels
                 )}
-                onSideChange={(side) => setSide(combatant.id, side)}
-                onZoneChange={(zoneId) => setZone(combatant.id, zoneId)}
+                onSideChange={(side) => setSide(combatant.id!, side)}
+                onZoneChange={(zoneId) => setZone(combatant.id!, zoneId)}
                 onEngagementChange={(engagement) =>
-                  setEngagement(combatant.id, engagement)
+                  setEngagement(combatant.id!, engagement)
                 }
-                onRemove={() => removeCombatant(combatant.id)}
+                onRemove={() => removeCombatant(combatant.id!)}
               />
             ))}
           </ul>

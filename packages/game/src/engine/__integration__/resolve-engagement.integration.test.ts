@@ -1,14 +1,12 @@
 import { describe, expect, it } from "vitest"
 
+import { makeEncounter } from "@workspace/game/engine/__fixtures__/encounter"
 import { resolveCombatantEngagement } from "@workspace/game/engine/encounter/resolve-engagement"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
-import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
-import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
-
-function sequentialIds() {
-  let n = 0
-  return () => `c-${n++}`
-}
+import {
+  type CombatantSetup,
+  type CombatSession,
+} from "@workspace/game/foundation/encounter/session"
 
 function pc(characterId: string, zoneId: string): CombatantSetup {
   return { side: "players", ref: { kind: "pc", characterId }, zoneId }
@@ -20,16 +18,13 @@ const PC_DETAIL: Record<string, PcCombatantDetail> = {
   c: { name: "Cole" } as PcCombatantDetail,
 }
 
-function find(
-  session: ReturnType<ReturnType<typeof createCombatSession>>,
-  id: string
-) {
+function find(session: CombatSession, id: string) {
   return session.combatants.find((combatant) => combatant.id === id)!
 }
 
 describe("resolveCombatantEngagement", () => {
   it("offers other combatants in the same zone as candidates (by name)", () => {
-    const session = createCombatSession(sequentialIds())([
+    const { session, instance } = makeEncounter([
       pc("a", "z1"),
       pc("b", "z1"),
       pc("c", "z2"),
@@ -37,6 +32,7 @@ describe("resolveCombatantEngagement", () => {
 
     const view = resolveCombatantEngagement(
       session,
+      instance,
       find(session, "c-0"),
       PC_DETAIL,
       {}
@@ -48,27 +44,17 @@ describe("resolveCombatantEngagement", () => {
   })
 
   it("resolves engaged target ids to display names", () => {
-    const base = createCombatSession(sequentialIds())([
-      pc("a", "z1"),
+    const { session, instance } = makeEncounter([
+      {
+        ...pc("a", "z1"),
+        engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
+      },
       pc("b", "z1"),
     ])
-    const session = {
-      ...base,
-      combatants: base.combatants.map((combatant) =>
-        combatant.id === "c-0"
-          ? {
-              ...combatant,
-              engagement: {
-                status: "engaged" as const,
-                targetCombatantIds: ["c-1"],
-              },
-            }
-          : combatant
-      ),
-    }
 
     const view = resolveCombatantEngagement(
       session,
+      instance,
       find(session, "c-0"),
       PC_DETAIL,
       {}
@@ -78,29 +64,19 @@ describe("resolveCombatantEngagement", () => {
   })
 
   it("keeps a current target as a candidate even if it's now in another zone", () => {
-    // c-0 (z1) engaged with c-1, then c-1 moved to z2 (engagement isn't coupled
+    // c-0 (z1) engaged with c-1, then c-1 sits in z2 (engagement isn't coupled
     // to position — UNN-315). The stale partner must stay clearable.
-    const base = createCombatSession(sequentialIds())([
-      pc("a", "z1"),
+    const { session, instance } = makeEncounter([
+      {
+        ...pc("a", "z1"),
+        engagement: { status: "engaged", targetCombatantIds: ["c-1"] },
+      },
       pc("b", "z2"),
     ])
-    const session = {
-      ...base,
-      combatants: base.combatants.map((combatant) =>
-        combatant.id === "c-0"
-          ? {
-              ...combatant,
-              engagement: {
-                status: "engaged" as const,
-                targetCombatantIds: ["c-1"],
-              },
-            }
-          : combatant
-      ),
-    }
 
     const view = resolveCombatantEngagement(
       session,
+      instance,
       find(session, "c-0"),
       PC_DETAIL,
       {}
@@ -110,7 +86,7 @@ describe("resolveCombatantEngagement", () => {
   })
 
   it("offers everyone in an unzoned encounter (all empty zoneId)", () => {
-    const session = createCombatSession(sequentialIds())([
+    const { session, instance } = makeEncounter([
       pc("a", ""),
       pc("b", ""),
       pc("c", ""),
@@ -118,6 +94,7 @@ describe("resolveCombatantEngagement", () => {
 
     const view = resolveCombatantEngagement(
       session,
+      instance,
       find(session, "c-0"),
       PC_DETAIL,
       {}

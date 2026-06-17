@@ -53,9 +53,6 @@ function session(...combatants: Combatant[]): CombatSession {
     currentActorId: combatants[0]?.id ?? null,
     advantage: "neutral",
     firstSide: "players",
-    zones: {},
-    adjacency: {},
-    enchantment: null,
   }
 }
 

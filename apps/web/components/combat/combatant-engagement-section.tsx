@@ -1,7 +1,10 @@
 "use client"
 
 import { type CombatantDetail } from "@workspace/game/engine"
-import { type CombatEvent, type Engagement } from "@workspace/game/foundation"
+import {
+  type Engagement,
+  type MapInstanceEvent,
+} from "@workspace/game/foundation"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
@@ -23,7 +26,7 @@ export function CombatantEngagementSection({
   onCombatEvent,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: MapInstanceEvent) => void
 }) {
   const { value, targetNames, candidates } = detail.engagement
 

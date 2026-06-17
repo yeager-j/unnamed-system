@@ -5,7 +5,10 @@ import { useEffect, useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import { type PcCombatantDetail } from "@workspace/game/engine"
-import { type CombatEvent } from "@workspace/game/foundation"
+import {
+  type CombatEvent,
+  type MapInstanceEvent,
+} from "@workspace/game/foundation"
 
 import { parseCharacterPing } from "@/hooks/character-version-sync"
 import { parseEncounterPing } from "@/hooks/encounter-ping"
@@ -14,28 +17,44 @@ import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
-import { applyCombatEvent } from "@/lib/actions/encounter/events"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { reduceCombatSession } from "@/lib/game-engine"
 
+import {
+  dispatchCombatEvent,
+  reduceInstanceOptimistic,
+} from "./dispatch-combat-event"
 import { decidePcPing } from "./pc-ping"
 
 /**
- * The live DM console's owner-mode write surface (UNN-344) — the encounter
- * analog of `useInventoryEditor`. It mirrors the **same** `reduceCombatSession`
- * the server runs optimistically (`useOptimistic`), so the frame the DM sees is
- * structurally identical to what `applyCombatEvent` will persist; on success it
- * `router.refresh()`es to reconcile the real session (and any PC HP the page
+ * The live DM console's owner-mode write surface (UNN-344 / UNN-459) — the
+ * encounter analog of `useInventoryEditor`. It mirrors the server's reducers
+ * optimistically (`useOptimistic`), so the frame the DM sees is structurally
+ * identical to what `applyCombatEvent` will persist; on success it
+ * `router.refresh()`es to reconcile the real state (and any PC HP the page
  * re-reads), and on failure the toast fires while React reverts the optimistic
  * state automatically (ADR Decision 4; the optimistic-toggle pattern in
  * `lib/actions/README.md`).
  *
- * Writes go through the shared {@link useQueuedWrite} primitive (UNN-378): it
- * owns the encounter `version` in a monotonic ref, **serializes** back-to-back
- * dispatches (each reads the freshly-bumped token its predecessor produced, so a
- * rapid draft → end-turn isn't spuriously rejected as `stale`), and on a genuine
- * cross-writer `stale` refetches the live version and retries the event once
- * (the Server Action re-reduces onto the current session, so the retry is safe).
+ * **Dual optimistic state (UNN-459).** The M0 cutover split spatial state onto
+ * the Map Instance, so this hook holds **two** optimistic containers (`session`
+ * via `reduceCombatSession`, `instance` via {@link reduceInstanceOptimistic})
+ * and **two** {@link useQueuedWrite} version tokens — one per row. The shared
+ * {@link dispatchCombatEvent} routes each event: a spatial edit reduces the
+ * Instance container + enqueues on the Instance queue; a session edit the session
+ * container + the encounter queue; `addCombatant`/`removeCombatant` mirror both
+ * (the cross-write) and advance both refs. Routing through the queue's monotonic
+ * per-row ref — never a stale outer-scope `instance` — is what keeps a rapid
+ * move-then-engage honest (the UNN-226 trap).
+ *
+ * Writes go through {@link useQueuedWrite} (UNN-378): each owns its row's
+ * `version` in a monotonic ref, **serializes** back-to-back dispatches (each
+ * reads the freshly-bumped token its predecessor produced, so a rapid draft →
+ * end-turn isn't spuriously rejected as `stale`), and the encounter queue, on a
+ * genuine cross-writer `stale`, refetches the live version and retries the event
+ * once (the Server Action re-reduces onto the current session, so the retry is
+ * safe).
  *
  * **Realtime (UNN-373):** the hook also subscribes to the encounter's ping
  * channel and owns the per-PC `vitalsVersion` map the character-channel
@@ -55,19 +74,26 @@ import { decidePcPing } from "./pc-ping"
  */
 export function useCombatConsole(
   encounter: Pick<EncounterRow, "id" | "shortId" | "session" | "version">,
+  instance: Pick<MapInstanceRow, "state" | "version">,
   pcDetailById: Record<string, PcCombatantDetail>
 ) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [session, applyOptimistic] = useOptimistic(
+  const [session, applySessionOptimistic] = useOptimistic(
     encounter.session,
     (current, event: CombatEvent) => reduceCombatSession(current, event)
   )
+  const [instanceState, applyInstanceOptimistic] = useOptimistic(
+    instance.state,
+    reduceInstanceOptimistic
+  )
 
-  const { versionRef, enqueue } = useQueuedWrite({
+  const encounterWrite = useQueuedWrite({
     serverVersion: encounter.version,
     refetchVersion: () => fetchEncounterVersion(encounter.shortId),
   })
+  const instanceWrite = useQueuedWrite({ serverVersion: instance.version })
+  const { versionRef, enqueue } = encounterWrite
 
   /**
    * The tracked `vitalsVersion` per PC combatant — written by the drawer's
@@ -121,12 +147,16 @@ export function useCombatConsole(
     if (decision.refresh) scheduleRefresh()
   }
 
-  function dispatch(event: CombatEvent) {
+  function dispatch(event: CombatEvent | MapInstanceEvent) {
     startTransition(async () => {
-      applyOptimistic(event)
-      const result = await enqueue((expectedVersion) =>
-        applyCombatEvent({ encounterId: encounter.id, expectedVersion, event })
-      )
+      const result = await dispatchCombatEvent({
+        event,
+        encounterId: encounter.id,
+        applySessionOptimistic,
+        applyInstanceOptimistic,
+        encounterWrite,
+        instanceWrite,
+      })
       if (!result.ok) {
         toast.error(encounterErrorMessage(result.error))
         return
@@ -157,6 +187,7 @@ export function useCombatConsole(
 
   return {
     session,
+    instance: instanceState,
     isPending,
     dispatch,
     endEncounter,
