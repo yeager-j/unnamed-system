@@ -57,7 +57,7 @@ export function buildSetupCombatantLabels(
  * Whether every combatant has a valid zone placement (UNN-301). An encounter
  * with **no** zones defined is always "placed" — it runs unzoned / theater-of-
  * mind, the Phase 4 start path. Once the DM has authored any zones, every
- * combatant's `zoneId` must reference one that exists in `session.zones`. The
+ * combatant's `zoneId` must reference one that exists in the Instance's `zones`. The
  * setup shell consumes this to gate Save draft / Start combat; it is the
  * placement half of the same referential convention the zone graph keeps at
  * runtime (zone ids are not schema-enforced on the combatant — UNN-313).

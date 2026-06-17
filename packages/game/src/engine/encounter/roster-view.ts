@@ -116,7 +116,7 @@ export interface RailRow {
   sp: Pool | null
   portraitUrl: string | null
   engagement: Engagement
-  /** The combatant's zone *display name* (resolved from `session.zones`), or
+  /** The combatant's zone *display name* (resolved from the Instance's `zones`), or
    *  `null` when unplaced / unzoned — the rail renders the name, never the raw
    *  zone id. */
   zoneName: string | null

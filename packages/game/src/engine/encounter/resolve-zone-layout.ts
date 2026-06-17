@@ -98,7 +98,7 @@ export function zoneEnchantmentBadge(
 }
 
 /**
- * The whole battlefield: one entry per zone (in `session.zones` insertion order),
+ * The whole battlefield: one entry per zone (in `instance.zones` insertion order),
  * the `unplaced` overflow (combatants whose `zoneId` isn't a current zone — the
  * empty-string default or a stale id), and `hasZones` so the component can show
  * the unzoned / theater-of-mind state instead of an empty grid.
