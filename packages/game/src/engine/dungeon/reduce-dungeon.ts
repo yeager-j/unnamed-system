@@ -31,7 +31,6 @@ export function reduceDungeon(
   return produce(state, (draft) => {
     switch (event.kind) {
       case "markActed": {
-        // Stryker disable next-line ConditionalExpression: equivalent — re-marking an already-acted character pushes a duplicate the read-time roster filter still collapses; the dedup guard keeps the stored list clean but is unobservable downstream.
         if (draft.actedCharacterIds.includes(event.characterId)) return
         draft.actedCharacterIds.push(event.characterId)
         return
