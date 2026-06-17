@@ -31,6 +31,11 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
 
 const DM_ID = "dm-user"
 
+// Fixed timestamps so a factory called twice (once for the mock, once for the
+// expected value) yields deep-equal rows — `new Date()` per call differed by ~1ms
+// and made the happy-path `toEqual` flaky.
+const FIXED_DATE = new Date("2026-06-17T00:00:00.000Z")
+
 const dungeonRow = (shortId: string): DungeonRow =>
   ({
     id: `dungeon-${shortId}`,
@@ -47,8 +52,8 @@ const dungeonRow = (shortId: string): DungeonRow =>
       },
     },
     version: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: FIXED_DATE,
+    updatedAt: FIXED_DATE,
   }) satisfies DungeonRow
 
 const campaignRow = (dmUserId: string): CampaignRow =>
@@ -59,8 +64,8 @@ const campaignRow = (dmUserId: string): CampaignRow =>
     dmUserId,
     name: "Campaign",
     description: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: FIXED_DATE,
+    updatedAt: FIXED_DATE,
   }) satisfies CampaignRow
 
 const instanceRow: MapInstanceRow = {
@@ -68,8 +73,8 @@ const instanceRow: MapInstanceRow = {
   mapId: null,
   state: { zones: {}, adjacency: {}, occupancy: {}, enchantment: null },
   version: 0,
-  createdAt: new Date(),
-  updatedAt: new Date(),
+  createdAt: FIXED_DATE,
+  updatedAt: FIXED_DATE,
 }
 
 beforeEach(() => {

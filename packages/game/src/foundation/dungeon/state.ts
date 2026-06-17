@@ -83,3 +83,15 @@ export const dungeonStateSchema = z.object({
   }),
 })
 export type DungeonState = z.infer<typeof dungeonStateSchema>
+
+/**
+ * The state a freshly-minted Dungeon is born with — turn 0, nobody has acted,
+ * reminders off — produced by running {@link dungeonStateSchema}'s defaults. The
+ * exploration-time counterpart of `createMapInstance([])` / `createCombatSession([])`:
+ * the one place the initial blob is defined, so the create write never hand-rolls
+ * the shape. It takes no deps (the turn loop consults no `GameData`), so it stays a
+ * plain foundation factory rather than a `createGameEngine`-bound one.
+ */
+export function createDungeonState(): DungeonState {
+  return dungeonStateSchema.parse({})
+}

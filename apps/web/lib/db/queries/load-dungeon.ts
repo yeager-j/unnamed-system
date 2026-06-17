@@ -1,9 +1,13 @@
-import { eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 import { dungeonStateSchema } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
-import { dungeons, type DungeonRow } from "@/lib/db/schema/dungeon"
+import {
+  dungeons,
+  type DungeonRow,
+  type DungeonStatus,
+} from "@/lib/db/schema/dungeon"
 
 /**
  * Reads for the `dungeon` table — the exploration-time layer over a Map Instance
@@ -67,4 +71,58 @@ export async function loadDungeonVersionByShortId(
     .limit(1)
 
   return row?.version ?? null
+}
+
+/** Summary row for the campaign page's dungeons list (UNN-465) — the columns the
+ *  list renders, never the heavy `state` blob. Mirrors `EncounterSummary`. */
+export interface DungeonSummary {
+  id: string
+  shortId: string
+  name: string
+  status: DungeonStatus
+  createdAt: Date
+}
+
+/**
+ * Every dungeon in a campaign, newest first, as the lightweight
+ * {@link DungeonSummary} projection (no `state` jsonb). Backs the campaign page's
+ * dungeons list (UNN-465); the single active one for the banner + the one-active
+ * guard comes from {@link loadActiveDungeonForCampaign}.
+ */
+export async function loadDungeonsForCampaign(
+  campaignId: string
+): Promise<DungeonSummary[]> {
+  return db
+    .select({
+      id: dungeons.id,
+      shortId: dungeons.shortId,
+      name: dungeons.name,
+      status: dungeons.status,
+      createdAt: dungeons.createdAt,
+    })
+    .from(dungeons)
+    .where(eq(dungeons.campaignId, campaignId))
+    .orderBy(desc(dungeons.createdAt))
+}
+
+/**
+ * The campaign's single `active` dungeon, or `null` if none is active. Backs the
+ * one-active-delve-per-campaign guard (UNN-465, mirroring the one-live-encounter
+ * rule): the draft→active transition reads this before flipping a draft to
+ * `active` and rejects the transition when another delve in the same campaign
+ * already holds the slot. App-side enforcement — there is no DB uniqueness
+ * constraint for MVP, matching {@link loadLiveEncounterForCampaign}.
+ */
+export async function loadActiveDungeonForCampaign(
+  campaignId: string
+): Promise<DungeonRow | null> {
+  const [row] = await db
+    .select()
+    .from(dungeons)
+    .where(
+      and(eq(dungeons.campaignId, campaignId), eq(dungeons.status, "active"))
+    )
+    .limit(1)
+
+  return row ? withParsedState(row) : null
 }

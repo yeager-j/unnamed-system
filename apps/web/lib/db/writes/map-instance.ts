@@ -40,13 +40,21 @@ export type MapInstanceWriteError = "map-instance-not-found" | "stale"
  * supplied `executor` so a `guardMany` caller composes it with the encounter
  * insert; the encounter-create action mints an empty Instance this way (every
  * draft gets a write target before setup authors its geometry).
+ *
+ * `mapId` records the **source Map** the Instance snapshots — set when a delve
+ * (or, later, a standalone encounter) is built by selecting a Map (UNN-465), left
+ * `undefined` for an ad-hoc Instance authored in encounter setup. The fk is
+ * `set null`, so the Instance survives its template's deletion (the snapshot
+ * isolation premise). The geometry snapshot itself rides the `state` blob and is
+ * deferred to UNN-464; recording `mapId` here is the durable link.
  */
 export async function insertMapInstance(
   executor: WriteExecutor,
   id: string,
-  state: MapInstanceState
+  state: MapInstanceState,
+  mapId?: string
 ): Promise<void> {
-  await executor.insert(mapInstances).values({ id, state })
+  await executor.insert(mapInstances).values({ id, state, mapId })
 }
 
 /**
