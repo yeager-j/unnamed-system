@@ -3,6 +3,7 @@ import { frenzy } from "@workspace/game/engine/mechanics/berserker/frenzy"
 import { pathOfDawn } from "@workspace/game/engine/mechanics/healer/path-of-dawn"
 import { valor } from "@workspace/game/engine/mechanics/knight/valor"
 import { stains } from "@workspace/game/engine/mechanics/mage/stains"
+import { elementalLarceny } from "@workspace/game/engine/mechanics/thief/elemental-larceny"
 import { thiefsInsight } from "@workspace/game/engine/mechanics/thief/thiefs-insight"
 import type {
   MechanicDefinition,
@@ -30,6 +31,7 @@ import type {
  *  - Path of Dusk — Warlock
  *  - Stains — Mage
  *  - Thief's Insight — Thief
+ *  - Elemental Larceny — Elemental Thief
  *  - Enchantment — Bard
  *  - Frenzy — Berserker
  */
@@ -41,6 +43,7 @@ const MECHANIC_LIST = [
   pathOfDusk,
   stains,
   thiefsInsight,
+  elementalLarceny,
   enchantment,
   frenzy,
 ] as const

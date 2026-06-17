@@ -225,6 +225,20 @@ describe("buildLineageAtlas", () => {
     expect(initiateColumn.nodes[0]!.state).toEqual({ kind: "unlockable" })
   })
 
+  it("drops Archetypes named in hiddenArchetypeKeys from the catalog", () => {
+    const view = buildLineageAtlas({ allArchetypes: () => FIXTURE_CATALOG })(
+      makeCharacter({}),
+      { hiddenArchetypeKeys: ["knight"] }
+    )
+    const knight = view.lineages.find((entry) => entry.lineage === "knight")!
+    expect(knight.progress).toEqual({ owned: 0, total: 0 })
+    expect(knight.columns.every((column) => column.nodes.length === 0)).toBe(
+      true
+    )
+    const warrior = view.lineages.find((entry) => entry.lineage === "warrior")!
+    expect(warrior.progress.total).toBe(1)
+  })
+
   it("marks an owned Archetype owned and bumps the Lineage progress", () => {
     const view = atlasOf(
       makeCharacter({

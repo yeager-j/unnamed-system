@@ -163,10 +163,21 @@ export function atlasNodeState(
  * catalog; tests inject a fixture catalog with the multi-tier lineages and
  * prerequisites the shipped set doesn't yet carry (the demo set does), to
  * exercise the tier sort and prerequisite resolution.
+ *
+ * `hiddenArchetypeKeys` drops the named Archetypes from the catalog before
+ * shaping — the seam the app uses to keep a per-user-gated Archetype out of the
+ * Atlas for viewers not on its allowlist. The keys are decided in the app layer
+ * (which owns viewer identity); the engine stays a pure key filter.
  */
 export function buildLineageAtlas(lookups: Pick<GameData, "allArchetypes">) {
-  return (character: HydratedCharacter): LineageAtlasView => {
-    const catalog = lookups.allArchetypes()
+  return (
+    character: HydratedCharacter,
+    options: { hiddenArchetypeKeys?: readonly string[] } = {}
+  ): LineageAtlasView => {
+    const hidden = new Set(options.hiddenArchetypeKeys ?? [])
+    const catalog = lookups
+      .allArchetypes()
+      .filter((archetype) => !hidden.has(archetype.key))
     const byKey = new Map(
       catalog.map((archetype) => [archetype.key, archetype])
     )

@@ -41,6 +41,19 @@ export const thiefsInsightStateSchema = z.object({
 export type ThiefsInsightState = z.infer<typeof thiefsInsightStateSchema>
 
 /**
+ * Elemental Thief — Elemental Larceny: a Thief's-Insight variant. Like Thief's
+ * Insight it carries no per-character state — Tells (and which Weaknesses you've
+ * planted with Mark) are tracked at the table — so the shape is its discriminant
+ * only, enough for the mechanic to own a Combat-tab widget and an Archetypes-tab
+ * summary.
+ */
+export const elementalLarcenyStateSchema = z.object({
+  kind: z.literal("elemental-larceny"),
+})
+
+export type ElementalLarcenyState = z.infer<typeof elementalLarcenyStateSchema>
+
+/**
  * Bard — Enchantment: no per-character state. The mechanic's data — which Zone
  * is Enchanted, with what, at what Forte — is encounter-scoped and lives on the
  * `CombatSession` (`session.enchantment`), not the character row, mirroring how
@@ -128,6 +141,7 @@ export const mechanicStateSchema = z.discriminatedUnion("kind", [
   pathOfDuskStateSchema,
   stainsStateSchema,
   thiefsInsightStateSchema,
+  elementalLarcenyStateSchema,
   enchantmentStateSchema,
   frenzyStateSchema,
 ])
@@ -139,6 +153,7 @@ export type MechanicState =
   | StainsState
   | PathOfDuskState
   | ThiefsInsightState
+  | ElementalLarcenyState
   | EnchantmentState
   | FrenzyState
 
