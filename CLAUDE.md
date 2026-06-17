@@ -145,7 +145,9 @@ packages/game/src/
 │                 index.ts slices and get* registries; catalog/createCatalog). Authored truth.
 └── engine/       the pure functions — char optimistic reducer (character/reduce/* +
                   reduce-character.ts), encounter tracker (encounter/reduce/* + reduce-session +
-                  selectors + view-shapers), stats/leveling/derive, combat math, the mechanics
+                  selectors + view-shapers), dungeon/ (the exploration turn loop — reduceDungeon +
+                  reminder/roster selectors, UNN-463; no deps, not in createGameEngine),
+                  stats/leveling/derive, combat math, the mechanics
                   behavior modules + registry, the enemy view-models, and combatant/ (the
                   provenance-neutral `Statblock` + statblockFromCharacter/statblockFromEnemy
                   derivers PCs and enemies share — UNN-350). The Stryker target.
