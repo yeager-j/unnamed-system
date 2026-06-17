@@ -16,9 +16,11 @@ import {
  * the discriminated `patch` routes to the matching version-guarded write
  * (`renameMap` / `saveMapGeometry`), which bumps `version` and returns the new
  * token so the client's optimistic ref advances. A `"stale"` result means a
- * concurrent save moved the token — the client refetches and retries. No
- * `revalidatePath`: the editor renders the optimistic value and the version
- * round-trip keeps it honest (mirrors the character free-text autosave).
+ * concurrent save moved the token (cross-tab only — Map authoring is
+ * single-owner); the standalone editor hook surfaces it by reverting the field +
+ * a toast, *not* the silent refetch-and-retry the character autosave gets from
+ * `dispatchCharacterWriteWithRetry`. No `revalidatePath`: the editor renders the
+ * optimistic value and the version round-trip keeps it honest.
  */
 export async function saveMapAction(
   input: SaveMapInput

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { ok } from "@workspace/game/foundation"
+import { err, ok } from "@workspace/game/foundation"
 
 import type { MapRow } from "@/lib/db/schema/map"
 
@@ -81,5 +81,32 @@ describe("saveMapAction", () => {
 
     expect(result).toEqual({ ok: false, error: "invalid-input" })
     expect(requireMapOwner).not.toHaveBeenCalled()
+  })
+
+  it("propagates a stale write error to the caller", async () => {
+    renameMap.mockResolvedValue(err("stale"))
+
+    const result = await saveMapAction({
+      mapId: MAP_ID,
+      expectedVersion: 0,
+      patch: { field: "name", name: "Crypt" },
+    })
+
+    expect(result).toEqual(err("stale"))
+  })
+
+  it("propagates a map-not-found write error to the caller", async () => {
+    saveMapGeometry.mockResolvedValue(err("map-not-found"))
+
+    const result = await saveMapAction({
+      mapId: MAP_ID,
+      expectedVersion: 0,
+      patch: {
+        field: "geometry",
+        geometry: { zones: {}, connections: {} },
+      },
+    })
+
+    expect(result).toEqual(err("map-not-found"))
   })
 })

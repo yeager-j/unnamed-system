@@ -52,7 +52,7 @@ export function MapEditor({ map }: { map: MapRow }) {
             "hover:border-border"
           )}
         />
-        <DeleteMapButton mapId={map.id} mapName={map.name} />
+        <DeleteMapButton mapId={map.id} mapName={value || map.name} />
       </header>
 
       <section
