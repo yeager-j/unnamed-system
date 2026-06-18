@@ -6,6 +6,7 @@ import { Toaster } from "@workspace/ui/components/sonner"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { HeaderGate } from "@/components/shell/header-gate"
 import { SiteHeader } from "@/components/shell/site-header"
 import { ThemeProvider } from "@/components/shell/theme-provider"
 
@@ -45,7 +46,9 @@ export default function RootLayout({
       <body className="flex min-h-svh flex-col">
         <ThemeProvider>
           <TooltipProvider>
-            <SiteHeader />
+            <HeaderGate>
+              <SiteHeader />
+            </HeaderGate>
             {children}
             <Toaster richColors closeButton position="bottom-right" />
           </TooltipProvider>

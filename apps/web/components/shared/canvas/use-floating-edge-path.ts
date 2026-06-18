@@ -1,17 +1,18 @@
 "use client"
 
-import { getBezierPath, useInternalNode } from "@xyflow/react"
+import { getSmoothStepPath, useInternalNode } from "@xyflow/react"
 
 import { getEdgeParams } from "./floating-edge"
 
 /**
- * The bezier path + midpoint for a **floating edge** between two nodes (UNN-464) —
- * the shared half of the Map editor's {@link import("../../maps/canvas/connection-edge").ConnectionEdge}
+ * The orthogonal **step** path + midpoint for a **floating edge** between two nodes
+ * (UNN-464) — the shared half of the Map editor's {@link import("../../maps/canvas/connection-edge").ConnectionEdge}
  * and the dungeon run console's {@link import("../../dungeon/canvas/dungeon-connection-edge").DungeonConnectionEdge}.
  * Reads each node's live internals ({@link useInternalNode}), computes the facing
- * border points ({@link getEdgeParams}), and bends a curve between them. Returns
- * `null` until both nodes are measured, so callers render nothing on the first
- * frame. Routing only — every surface styles the stroke/label itself.
+ * border points ({@link getEdgeParams}), and routes a right-angled step path between
+ * them (`borderRadius: 0` for sharp corners, matching the canvas's square chrome).
+ * Returns `null` until both nodes are measured, so callers render nothing on the
+ * first frame. Routing only — every surface styles the stroke/label itself.
  */
 export function useFloatingEdgePath(
   source: string,
@@ -26,13 +27,14 @@ export function useFloatingEdgePath(
     sourceNode,
     targetNode
   )
-  const [path, labelX, labelY] = getBezierPath({
+  const [path, labelX, labelY] = getSmoothStepPath({
     sourceX: sx,
     sourceY: sy,
     sourcePosition: sourcePos,
     targetX: tx,
     targetY: ty,
     targetPosition: targetPos,
+    borderRadius: 0,
   })
 
   return { path, labelX, labelY }

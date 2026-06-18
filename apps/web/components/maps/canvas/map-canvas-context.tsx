@@ -17,6 +17,8 @@ export interface MapCanvasContextValue {
   interactivity: "edit" | "readonly"
   /** Opens the Zone's details sheet (name / description / DM notes). */
   openZoneDetails: (zoneId: string) => void
+  /** Clones a Zone (text only, no connections) offset from the original. */
+  duplicateZone: (zoneId: string) => void
   /** Deletes a Zone (cascading its connections) after a confirm. */
   deleteZone: (zoneId: string) => void
   /** Sets one of a connection's independent `hidden`/`locked` flags. */

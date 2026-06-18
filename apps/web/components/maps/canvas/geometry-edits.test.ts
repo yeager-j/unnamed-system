@@ -7,6 +7,7 @@ import {
   addZone,
   deleteConnection,
   deleteZone,
+  duplicateZone,
   moveZone,
   renameZone,
   setConnectionFlag,
@@ -58,6 +59,48 @@ describe("addZone", () => {
 
   it("produces geometry that still parses", () => {
     const geometry = addZone(makeGeometry(), "a", { x: 1, y: 1 })
+    expect(() => mapGeometrySchema.parse(geometry)).not.toThrow()
+  })
+})
+
+describe("duplicateZone", () => {
+  it("copies the source's text to a new id and position, suffixing the name", () => {
+    const base = setZoneText(withZones(["a", "Vault"]), "a", {
+      description: "gilded",
+      dmNotes: "trapped",
+    })
+    const next = duplicateZone(base, "a", "b", { x: 40, y: 40 })
+    expect(next.zones["b"]).toMatchObject({
+      id: "b",
+      name: "Vault copy",
+      description: "gilded",
+      dmNotes: "trapped",
+      position: { x: 40, y: 40 },
+    })
+    expect(next.zones["a"]).toEqual(base.zones["a"])
+  })
+
+  it("carries over no connections", () => {
+    const connected = addConnection(
+      withZones(["a", "A"], ["b", "B"]),
+      "ab",
+      "a",
+      "b"
+    )
+    const next = duplicateZone(connected, "a", "c", { x: 1, y: 1 })
+    expect(Object.keys(next.connections)).toEqual(["ab"])
+  })
+
+  it("no-ops an unknown id", () => {
+    const geometry = withZones(["a", "A"])
+    expect(duplicateZone(geometry, "ghost", "b", { x: 0, y: 0 })).toBe(geometry)
+  })
+
+  it("produces geometry that still parses", () => {
+    const geometry = duplicateZone(withZones(["a", "A"]), "a", "b", {
+      x: 5,
+      y: 5,
+    })
     expect(() => mapGeometrySchema.parse(geometry)).not.toThrow()
   })
 })

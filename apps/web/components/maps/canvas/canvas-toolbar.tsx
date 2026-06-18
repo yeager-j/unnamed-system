@@ -1,14 +1,12 @@
 "use client"
 
 import {
-  CornersOutIcon,
-  CursorIcon,
-  GraphIcon,
+  LineSegmentIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
-  MapPinPlusIcon,
+  PlusSquareIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { Panel, useReactFlow } from "@xyflow/react"
+import { Panel, useReactFlow, useViewport } from "@xyflow/react"
 import type { ReactNode } from "react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -23,10 +21,11 @@ import {
 
 import type { ToolMode } from "./tool-mode"
 
-const MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
-  { mode: "select", label: "Select / Pan", icon: <CursorIcon /> },
-  { mode: "addZone", label: "Add zone", icon: <MapPinPlusIcon /> },
-  { mode: "connect", label: "Connect zones", icon: <GraphIcon /> },
+/** The two authoring tools (icon + label) — what a click creates. Toggling one off
+ *  returns to the neutral `select` mode (scroll-pan + box-select). */
+const CREATE_MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
+  { mode: "addZone", label: "Zone", icon: <PlusSquareIcon /> },
+  { mode: "connect", label: "Connect", icon: <LineSegmentIcon /> },
 ]
 
 function prefersReducedMotion(): boolean {
@@ -37,10 +36,11 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * The bottom-centered floating tool palette (UNN-461) — FigJam-style. A segmented
- * control switches the canvas tool (**Select/Pan** ▸ **Add zone** ▸ **Connect**),
- * then zoom-out / zoom-in / fit-view. Reduced-motion callers get instant
- * (un-animated) viewport changes (PRD a11y).
+ * The bottom-centered floating tool palette (UNN-461) — FigJam-style. The two
+ * authoring tools (**Zone** ▸ **Connect**), then a zoom cluster: zoom-out, a live
+ * zoom-percentage readout that fits the view on click, and zoom-in. There's no
+ * Select/Pan tool — the canvas pans on scroll and box-selects on drag by default.
+ * Reduced-motion callers get instant (un-animated) viewport changes (PRD a11y).
  */
 export function CanvasToolbar({
   mode,
@@ -50,34 +50,28 @@ export function CanvasToolbar({
   onModeChange: (mode: ToolMode) => void
 }) {
   const { zoomIn, zoomOut, fitView } = useReactFlow()
+  const { zoom } = useViewport()
   const duration = prefersReducedMotion() ? 0 : 250
 
   return (
     <Panel position="bottom-center" className="mb-4">
       <TooltipProvider delay={300}>
-        <div className="flex items-center gap-1 rounded-lg border bg-popover p-1 shadow-lg">
+        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
           <ButtonGroup>
-            {MODES.map(({ mode: value, label, icon }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="icon"
-                      variant={mode === value ? "secondary" : "ghost"}
-                      aria-pressed={mode === value}
-                      aria-label={label}
-                      onClick={() => onModeChange(value)}
-                    />
-                  }
-                >
-                  {icon}
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
+            {CREATE_MODES.map(({ mode: value, label, icon }) => (
+              <Button
+                key={value}
+                variant={mode === value ? "secondary" : "ghost"}
+                aria-pressed={mode === value}
+                onClick={() => onModeChange(mode === value ? "select" : value)}
+              >
+                {icon}
+                {label}
+              </Button>
             ))}
           </ButtonGroup>
 
-          <Separator orientation="vertical" className="mx-1 h-6" />
+          <Separator orientation="vertical" />
 
           <Tooltip>
             <TooltipTrigger
@@ -99,6 +93,22 @@ export function CanvasToolbar({
             <TooltipTrigger
               render={
                 <Button
+                  variant="ghost"
+                  className="min-w-14 tabular-nums"
+                  aria-label="Fit view"
+                  onClick={() => void fitView({ duration, padding: 0.2 })}
+                />
+              }
+            >
+              {Math.round(zoom * 100)}%
+            </TooltipTrigger>
+            <TooltipContent>Fit view</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
                   size="icon"
                   variant="ghost"
                   aria-label="Zoom in"
@@ -109,22 +119,6 @@ export function CanvasToolbar({
               <MagnifyingGlassPlusIcon />
             </TooltipTrigger>
             <TooltipContent>Zoom in</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Fit view"
-                  onClick={() => void fitView({ duration, padding: 0.2 })}
-                />
-              }
-            >
-              <CornersOutIcon />
-            </TooltipTrigger>
-            <TooltipContent>Fit view</TooltipContent>
           </Tooltip>
         </div>
       </TooltipProvider>
