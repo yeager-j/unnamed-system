@@ -4,21 +4,26 @@ import { err, ok } from "@workspace/game/foundation"
 
 import { setDungeonStatusAction } from "./status"
 
-// Stub every seam — the campaignId lookup, the DM gate, the active-delve read, the
+// Stub every seam — the dungeon-row lookup, the DM gate, the active-delve read, the
 // guarded status write, and `revalidatePath` (imports `server-only` transitively) —
 // so this is a pure unit test of the one-active-delve orchestration.
 // `requireCampaignDM` returns a campaign row (with `shortId`) on success and is
 // stubbed to throw a sentinel on the non-DM path.
-const loadDungeonCampaignId = vi.fn()
+const loadDungeonRowById = vi.fn()
 const requireCampaignDM = vi.fn()
 const loadActiveDungeonForCampaign = vi.fn()
 const setDungeonStatus = vi.fn()
 const revalidatePath = vi.fn()
+const revalidateDungeon = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
-  loadDungeonCampaignId: (id: string) => loadDungeonCampaignId(id),
+  loadDungeonRowById: (id: string) => loadDungeonRowById(id),
   loadActiveDungeonForCampaign: (id: string) =>
     loadActiveDungeonForCampaign(id),
+}))
+vi.mock("./revalidate", () => ({
+  revalidateDungeon: (dungeon: { shortId: string }) =>
+    revalidateDungeon(dungeon),
 }))
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -43,7 +48,11 @@ const goActive = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  loadDungeonCampaignId.mockResolvedValue(CAMPAIGN_ID)
+  loadDungeonRowById.mockResolvedValue({
+    id: DUNGEON_ID,
+    campaignId: CAMPAIGN_ID,
+    shortId: "dng-short",
+  })
   requireCampaignDM.mockResolvedValue({
     id: CAMPAIGN_ID,
     shortId: "camp-short",
@@ -60,11 +69,11 @@ describe("setDungeonStatusAction", () => {
     })
 
     expect(result).toEqual({ ok: false, error: "invalid-input" })
-    expect(loadDungeonCampaignId).not.toHaveBeenCalled()
+    expect(loadDungeonRowById).not.toHaveBeenCalled()
   })
 
   it("returns dungeon-not-found when the row is gone", async () => {
-    loadDungeonCampaignId.mockResolvedValue(null)
+    loadDungeonRowById.mockResolvedValue(null)
 
     const result = await setDungeonStatusAction(goActive)
 
@@ -100,12 +109,17 @@ describe("setDungeonStatusAction", () => {
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0)
   })
 
-  it("flips the status and revalidates the campaign overview on success", async () => {
+  it("flips the status and revalidates the campaign overview + console on success", async () => {
     const result = await setDungeonStatusAction(goActive)
 
     expect(result).toEqual({ ok: true, value: { version: 1 } })
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0)
     expect(revalidatePath).toHaveBeenCalledWith("/campaigns/camp-short")
+    expect(revalidateDungeon).toHaveBeenCalledWith({
+      id: DUNGEON_ID,
+      campaignId: CAMPAIGN_ID,
+      shortId: "dng-short",
+    })
   })
 
   it("does not run the one-active guard when going done", async () => {
