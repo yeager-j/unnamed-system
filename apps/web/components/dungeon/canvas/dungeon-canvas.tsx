@@ -17,7 +17,6 @@ import { useEffect } from "react"
 import { connectionFogState, isConnectionLocked } from "@workspace/game/engine"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
-import { DungeonCanvasProvider } from "./dungeon-canvas-context"
 import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
@@ -27,6 +26,7 @@ import {
   type DungeonZoneNode as DungeonZoneNodeType,
   type DungeonZoneToken,
 } from "./dungeon-zone-node"
+import { TurnLoopBar } from "./turn-loop-bar"
 
 const nodeTypes = { dungeonZone: DungeonZoneNode }
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
@@ -95,21 +95,19 @@ function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
  *
  * - **Zones** are fixed (non-draggable) cards showing their reveal state and the
  *   party tokens standing in them. Selecting one reveals a floating toolbar
- *   (reveal/hide ▸ move party here ▸ open details); the details button fires
- *   `onSelectZone` → the host opens the Zone details sheet.
+ *   (reveal/hide ▸ move party here ▸ open details) — wired through the
+ *   {@link useDungeonCanvas} context the run console provides.
  * - **Connections** are read-only floating edges (shared routing with the editor),
  *   styled by their player-facing fog/lock state.
+ * - The {@link TurnLoopBar} renders **inside** the flow as a Panel so it can own the
+ *   zoom controls; it too reads the run console's context.
  *
- * Tokens move through the toolbar's "Move party here", the Zone sheet, or the
- * turn-loop rail, not by dragging on the canvas — the board is a fixed read-out.
+ * The canvas itself is presentational — it takes only the board data (`instance` +
+ * `roster`); every dispatcher comes from the context above it.
  */
 export function DungeonCanvas(props: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
-  onRevealZone: (zoneId: string) => void
-  onHideZone: (zoneId: string) => void
-  onMoveParty: (zoneId: string) => void
-  onSelectZone: (zoneId: string) => void
 }) {
   return (
     <ReactFlowProvider>
@@ -121,17 +119,9 @@ export function DungeonCanvas(props: {
 function DungeonCanvasInner({
   instance,
   roster,
-  onRevealZone,
-  onHideZone,
-  onMoveParty,
-  onSelectZone,
 }: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
-  onRevealZone: (zoneId: string) => void
-  onHideZone: (zoneId: string) => void
-  onMoveParty: (zoneId: string) => void
-  onSelectZone: (zoneId: string) => void
 }) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
@@ -148,53 +138,49 @@ function DungeonCanvasInner({
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
-    <DungeonCanvasProvider
-      value={{
-        revealZone: onRevealZone,
-        hideZone: onHideZone,
-        moveParty: onMoveParty,
-        openDetails: onSelectZone,
-      }}
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      nodesDraggable={false}
+      nodesConnectable={false}
+      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+      deleteKeyCode={null}
+      fitView
+      fitViewOptions={{ padding: 0.2 }}
+      proOptions={{ hideAttribution: true }}
+      panOnScroll
+      selectionOnDrag
+      panOnDrag={false}
     >
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-        deleteKeyCode={null}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
-        {isEmpty && (
-          <Panel
-            position="top-center"
-            className="rounded-none border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
-          >
-            This dungeon has no map yet — author it on My Maps, then recreate
-            the delve.
-          </Panel>
-        )}
+      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+      {isEmpty && (
         <Panel
-          position="bottom-left"
-          className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+          position="top-center"
+          className="rounded-none border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
         >
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-4 border border-border bg-card" />
-            Revealed to players
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
-            Hidden from players
-          </span>
+          This dungeon has no map yet — author it on My Maps, then recreate the
+          delve.
         </Panel>
-      </ReactFlow>
-    </DungeonCanvasProvider>
+      )}
+      <Panel
+        position="top-left"
+        className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 border border-border bg-card" />
+          Revealed to players
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
+          Hidden from players
+        </span>
+      </Panel>
+
+      <TurnLoopBar />
+    </ReactFlow>
   )
 }

@@ -113,7 +113,7 @@ export function DungeonZoneNode({
         selected={selected}
         aria-label={`Zone: ${zone.name}${revealed ? "" : " (hidden from players)"}`}
         className={cn(
-          "w-56 cursor-pointer shadow-sm transition-shadow",
+          "min-h-48 w-86 cursor-pointer shadow-sm transition-shadow",
           !revealed && "bg-muted/40"
         )}
       >

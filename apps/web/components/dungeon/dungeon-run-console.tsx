@@ -1,17 +1,21 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState, useSyncExternalStore } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { toast } from "sonner"
 
+import { dungeonReminders } from "@workspace/game/engine"
+import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
-import { DungeonStatusPanel } from "./dungeon-status-panel"
+import { DungeonCanvasProvider } from "./canvas/dungeon-canvas-context"
+import { DungeonPartySidebar } from "./dungeon-party-sidebar"
 import { DungeonZoneSheet } from "./dungeon-zone-sheet"
-import { TurnLoopBar } from "./turn-loop-bar"
 import { useDungeonConsole } from "./use-dungeon-console"
 
 // React Flow measures the DOM, so the canvas renders client-only against a
@@ -91,55 +95,68 @@ function DungeonRunConsoleBody({
     ? (instanceState.geometry.zones[selectedZoneId] ?? null)
     : null
 
+  const moveToken = (characterId: string, toZoneId: string) =>
+    dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
+
+  // Surface the turn-driven reminders as toasts (their new home, replacing the
+  // floating Alert list) — once per turn the counter reaches a threshold. Pinned
+  // top-right (clear of the bottom turn bar) and persistent until the DM dismisses
+  // them, so a nudge can't auto-vanish before it's seen.
+  const lastToastedTurn = useRef<number | null>(null)
+  useEffect(() => {
+    if (lastToastedTurn.current === dungeonState.turnCounter) return
+    lastToastedTurn.current = dungeonState.turnCounter
+    for (const reminder of dungeonReminders(dungeonState)) {
+      const copy = DUNGEON_REMINDER_COPY[reminder.kind]
+      toast.warning(copy.title, {
+        description: copy.body,
+        position: "top-right",
+        duration: Infinity,
+      })
+    }
+  }, [dungeonState])
+
   return (
-    <main className="relative min-h-0 flex-1">
-      <div className="absolute inset-0">
-        <DungeonCanvas
-          instance={instanceState}
-          roster={roster}
-          onRevealZone={(zoneId) => dispatch({ kind: "revealZone", zoneId })}
-          onHideZone={(zoneId) => dispatch({ kind: "hideZone", zoneId })}
-          onMoveParty={(zoneId) => {
-            for (const [characterId, token] of Object.entries(
-              instanceState.occupancy
-            )) {
-              if (token.zoneId !== zoneId) {
-                dispatch({
-                  kind: "moveCombatant",
-                  combatantId: characterId,
-                  toZoneId: zoneId,
-                })
-              }
-            }
-          }}
-          onSelectZone={setSelectedZoneId}
-        />
-      </div>
-
-      <DungeonStatusPanel
-        name={dungeon.name}
-        campaignShortId={campaignShortId}
-        dungeonState={dungeonState}
-      />
-
-      <TurnLoopBar
-        dungeonState={dungeonState}
-        instanceState={instanceState}
+    <SidebarProvider>
+      <DungeonPartySidebar
         roster={roster}
+        instanceState={instanceState}
+        dungeonState={dungeonState}
+        dungeon={dungeon}
+        campaignShortId={campaignShortId}
         disabled={isPending}
-        onAdvanceTurn={() => dispatch({ kind: "advanceTurn" })}
         onMarkActed={(characterId) =>
           dispatch({ kind: "markActed", characterId })
         }
-        onMoveToken={(characterId, toZoneId) =>
-          dispatch({
-            kind: "moveCombatant",
-            combatantId: characterId,
-            toZoneId,
-          })
-        }
-        onFinishDelve={finishDelve}
+        onMoveToken={moveToken}
       />
+
+      <SidebarInset className="relative">
+        <DungeonCanvasProvider
+          value={{
+            revealZone: (zoneId) => dispatch({ kind: "revealZone", zoneId }),
+            hideZone: (zoneId) => dispatch({ kind: "hideZone", zoneId }),
+            moveParty: (zoneId) => {
+              for (const [characterId, token] of Object.entries(
+                instanceState.occupancy
+              )) {
+                if (token.zoneId !== zoneId) {
+                  moveToken(characterId, zoneId)
+                }
+              }
+            },
+            openDetails: setSelectedZoneId,
+            turnCounter: dungeonState.turnCounter,
+            advanceTurn: () => dispatch({ kind: "advanceTurn" }),
+            finishDelve,
+            disabled: isPending,
+          }}
+        >
+          <div className="absolute inset-0">
+            <DungeonCanvas instance={instanceState} roster={roster} />
+          </div>
+        </DungeonCanvasProvider>
+      </SidebarInset>
 
       <DungeonZoneSheet
         zone={selectedZone}
@@ -168,6 +185,6 @@ function DungeonRunConsoleBody({
           dispatch({ kind: "lockConnection", connectionId })
         }
       />
-    </main>
+    </SidebarProvider>
   )
 }

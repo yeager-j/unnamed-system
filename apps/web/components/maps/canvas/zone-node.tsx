@@ -90,7 +90,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
         size="sm"
         selected={selected}
         aria-label={`Zone: ${zone.name}`}
-        className="max-w-48 min-w-28 shadow-sm transition-shadow"
+        className="min-h-48 w-86 shadow-sm transition-shadow"
       >
         <CardHeader>
           <CardTitle className="line-clamp-2 text-base break-words">

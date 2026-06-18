@@ -63,7 +63,7 @@ export function CanvasToolbar({
   return (
     <Panel position="bottom-center" className="mb-4">
       <TooltipProvider delay={300}>
-        <div className="flex items-center gap-1 rounded-none border bg-popover p-1 shadow-lg">
+        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
           <ButtonGroup>
             {NAV_MODES.map(({ mode: value, label, icon }) => (
               <Tooltip key={value}>

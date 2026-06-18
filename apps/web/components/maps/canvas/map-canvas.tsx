@@ -291,6 +291,9 @@ function MapCanvasInner({
           deleteKeyCode={null}
           fitView
           fitViewOptions={{ padding: 0.2 }}
+          panOnScroll
+          selectionOnDrag
+          panOnDrag={false}
           className={cn(
             mode === "addZone" && "cursor-copy",
             mode === "pan" && "cursor-grab"
