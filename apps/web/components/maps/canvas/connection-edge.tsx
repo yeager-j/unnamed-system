@@ -7,25 +7,20 @@ import {
   LockSimpleOpenIcon,
   TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import {
-  BaseEdge,
-  EdgeLabelRenderer,
-  getBezierPath,
-  useInternalNode,
-  type EdgeProps,
-} from "@xyflow/react"
+import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from "@xyflow/react"
 
 import type { MapConnection } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 
-import { getEdgeParams } from "./floating-edge"
+import { useFloatingEdgePath } from "@/components/shared/canvas/use-floating-edge-path"
+
 import type { ConnectionEdge as ConnectionEdgeType } from "./geometry-to-flow"
 import { useMapCanvas } from "./map-canvas-context"
 
 /**
  * A connection rendered as a **floating** React Flow edge (UNN-461) — it attaches
  * to the borders of the two Zones facing each other (see
- * {@link import("./floating-edge").getEdgeParams}), not to fixed handles, since
+ * {@link import("@/components/shared/canvas/floating-edge").getEdgeParams}), not to fixed handles, since
  * connections are undirected and spatial. The two independent `hidden`/`locked`
  * flags are encoded **without relying on color** (PRD a11y): `locked` thickens the
  * stroke + shows a lock glyph, `hidden` dashes the stroke + shows an eye-off glyph,
@@ -51,28 +46,15 @@ export function ConnectionEdge({
   selected,
 }: EdgeProps<ConnectionEdgeType>) {
   const { interactivity, setConnectionFlag, deleteConnection } = useMapCanvas()
-  const sourceNode = useInternalNode(source)
-  const targetNode = useInternalNode(target)
+  const geometry = useFloatingEdgePath(source, target)
 
   const editable = interactivity === "edit"
   const connection = data?.connection
   const hidden = connection?.hidden ?? false
   const locked = connection?.locked ?? false
 
-  if (!sourceNode || !targetNode) return null
-
-  const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
-    sourceNode,
-    targetNode
-  )
-  const [path, labelX, labelY] = getBezierPath({
-    sourceX: sx,
-    sourceY: sy,
-    sourcePosition: sourcePos,
-    targetX: tx,
-    targetY: ty,
-    targetPosition: targetPos,
-  })
+  if (!geometry) return null
+  const { path, labelX, labelY } = geometry
 
   return (
     <>

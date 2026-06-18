@@ -2,6 +2,10 @@ import { z } from "zod/v4"
 
 import { zoneEnchantmentSchema } from "@workspace/game/foundation/combat/enchantment"
 import { engagementSchema } from "@workspace/game/foundation/combat/engagement"
+import {
+  mapGeometrySchema,
+  type MapZone,
+} from "@workspace/game/foundation/map/geometry"
 
 /**
  * The **Map Instance** state — the per-run spatial truth the Dungeon Map feature
@@ -11,43 +15,25 @@ import { engagementSchema } from "@workspace/game/foundation/combat/engagement"
  * `version` is a row column, never part of this shape.
  *
  * The M0 cutover (UNN-459) lifted the spatial state off the `CombatSession` onto
- * here, with {@link import("@workspace/game/engine") reduceMapInstance} as its
- * sole writer. The shape **relocates the shipped spatial representations, it does
- * not re-model them**: a lean M0 cut of geometry (zones + adjacency), occupancy
- * (tokens carrying engagement), and the Enchantment singleton. Reveal-state,
- * connection hidden/locked flags, node layout, and per-Zone descriptions/DM notes
- * are fog-of-war concepts introduced by Map authoring (M1) and exploration (M2)
- * and are deliberately absent here.
- *
- * `Zone` is owned here (the zone graph is purely spatial); `engagementSchema` is
- * the neutral {@link import("../combat/engagement").Engagement} primitive shared
- * with the encounter-setup payload.
+ * here with a **lean** geometry (zones + flat adjacency). M2 (UNN-464) converges
+ * that geometry onto the authored {@link MapGeometry} template shape so the
+ * Instance can be rendered on the React Flow canvas and drive fog-of-war: it now
+ * carries the same node `(x, y)` layout, per-Zone descriptions/DM notes, and
+ * id-keyed `connections` with `hidden`/`locked` flags the Map authors, **plus**
+ * the runtime {@link RevealState} overlay (which Zones / hidden connections are
+ * revealed and which locked connections are unlocked *right now*). Occupancy
+ * (tokens carrying engagement) and the Enchantment singleton are unchanged.
+ * {@link import("@workspace/game/engine") reduceMapInstance} is the sole writer.
  */
-
-/**
- * One Zone — a ~30 ft region of the battlefield (UNN-313). Carries a stable `id`
- * (also its key in {@link MapInstanceState.zones}, so a Zone is self-describing),
- * a DM-supplied display `name`, and optional free-text `notes`. The Zone *graph*
- * (which zones are adjacent) lives in {@link MapInstanceState.adjacency}, not
- * here — a Zone holds only its own identity. A token's position is the orthogonal
- * `zoneId` on its {@link MapToken}.
- */
-export const zoneSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1),
-  notes: z.string().optional(),
-})
-export type Zone = z.infer<typeof zoneSchema>
 
 /**
  * One occupancy token — a combatant's spatial presence on the Instance: where it
  * stands (`zoneId`) and who it's engaged with. Relocates today's per-combatant
  * `zoneId` + `engagement` (see {@link import("./session").combatantSchema}) onto
- * the Instance. Keyed in {@link MapInstanceState.occupancy} by the combatant id —
- * the join back to the (non-spatial) combat state on the Encounter. (The
- * PC-keyed-by-`characterId` cross-encounter persistence refinement and a richer
- * occupant union are left to UNN-454/UNN-459; M0 stays faithful to the shipped
- * per-combatant shape.)
+ * the Instance. Keyed in {@link MapInstanceState.occupancy} by the **combatant
+ * id** during combat; during exploration a PC token is keyed by its
+ * **`characterId`** (UNN-464 Decision 6) so the Dungeon's `actedCharacterIds`
+ * roster derives from occupancy directly.
  */
 export const mapTokenSchema = z.object({
   zoneId: z.string(),
@@ -56,17 +42,51 @@ export const mapTokenSchema = z.object({
 export type MapToken = z.infer<typeof mapTokenSchema>
 
 /**
- * The Map Instance's jsonb `state`. `zones` + `adjacency` are the spatial graph
- * (a zone id → its {@link import("./session").Zone}; a zone id → the ids it
- * borders, undirected); `occupancy` maps a combatant id to its {@link MapToken};
- * `enchantment` is the Bard's single active Zone Enchantment. Every field
- * `.default()`s empty so a freshly-minted Instance parses, matching how the
- * session defaults its spatial fields.
+ * The runtime fog overlay on top of the snapshotted, immutable connection
+ * `hidden`/`locked` flags (UNN-464). All three are sets-as-arrays keyed by
+ * geometry id:
+ *
+ * - `revealedZoneIds` — Zones the party has discovered. The `move → reveal` rule
+ *   adds the entered Zone; the DM may also reveal/hide a Zone manually.
+ * - `revealedConnectionIds` — **hidden** connections the DM has manually surfaced.
+ *   A non-hidden connection needs no entry: it is a *known-exit silhouette* the
+ *   moment one of its endpoints is revealed (derived, never stored here).
+ * - `unlockedConnectionIds` — **locked** connections the DM has opened; a locked
+ *   connection shows as a known-exit but blocks movement until its id is here.
+ */
+export const revealStateSchema = z.object({
+  revealedZoneIds: z.array(z.string()).default([]),
+  revealedConnectionIds: z.array(z.string()).default([]),
+  unlockedConnectionIds: z.array(z.string()).default([]),
+})
+export type RevealState = z.infer<typeof revealStateSchema>
+
+/**
+ * The Map Instance's jsonb `state`. `geometry` is the snapshot of the Map's
+ * authored geometry (Zones with `(x,y)`/description/DM notes; id-keyed
+ * connections with `hidden`/`locked`); `occupancy` maps a token key to its
+ * {@link MapToken}; `reveal` is the runtime fog overlay; `enchantment` is the
+ * Bard's single active Zone Enchantment. Every field `.default()`s empty so a
+ * freshly-minted Instance parses, matching how the session defaults its fields.
  */
 export const mapInstanceStateSchema = z.object({
-  zones: z.record(z.string(), zoneSchema).default({}),
-  adjacency: z.record(z.string(), z.array(z.string())).default({}),
+  geometry: mapGeometrySchema.default({ zones: {}, connections: {} }),
   occupancy: z.record(z.string(), mapTokenSchema).default({}),
   enchantment: zoneEnchantmentSchema.nullable().default(null),
+  reveal: revealStateSchema.default({
+    revealedZoneIds: [],
+    revealedConnectionIds: [],
+    unlockedConnectionIds: [],
+  }),
 })
 export type MapInstanceState = z.infer<typeof mapInstanceStateSchema>
+
+/**
+ * The redacted **display projection** of a {@link MapZone} — `id` + `name` only.
+ * The geometry's full {@link MapZone} carries player-facing `description` and
+ * private `dmNotes`; consumers that surface a Zone to a list, a move target, or
+ * the **public** player snapshot project down to this shape so `dmNotes` never
+ * crosses the wire (the player-snapshot redaction is a release gate — ADR
+ * *Player view: redaction & snapshot*).
+ */
+export type Zone = Pick<MapZone, "id" | "name">

@@ -7,10 +7,11 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {
   loadActiveDungeonForCampaign,
-  loadDungeonCampaignId,
+  loadDungeonRowById,
 } from "@/lib/db/queries/load-dungeon"
 import { setDungeonStatus } from "@/lib/db/writes/dungeon"
 
+import { revalidateDungeon } from "./revalidate"
 import {
   SetDungeonStatusSchema,
   type SetDungeonStatusError,
@@ -28,13 +29,14 @@ import {
  * a `draft → active` transition is rejected when another delve in the same campaign
  * already holds the active slot. (`active → done` has no such guard.)
  *
- * Flow mirrors the encounter writes: resolve the owning campaign, authorize the
- * caller against it (`requireCampaignDM` trips `forbidden()` for a non-DM) **before**
- * the heavy read, run the guard, flip the status guarded on `expectedVersion`, then
- * revalidate the campaign overview (so its dungeons list + live-delve banner refresh).
- * This action has no UI caller yet — the console button that drives it lands in
- * UNN-464 — but it is the AC's server-enforced deliverable. (Revalidating the console
- * route, which is keyed by `shortId`, rides that ticket alongside the button.)
+ * Flow mirrors the encounter writes: load the dungeon row, authorize the caller
+ * against its campaign (`requireCampaignDM` trips `forbidden()` for a non-DM), run
+ * the guard, flip the status guarded on `expectedVersion`, then revalidate the
+ * campaign overview (its dungeons list + live-delve banner) **and** the DM console
+ * route (UNN-464). The `draft → active` start is normally driven by
+ * {@link import("./delve-start").startDelveAction} (which also snapshots geometry +
+ * places tokens); this action backs the `active → done` finish and the
+ * server-enforced one-active-delve guard.
  */
 export async function setDungeonStatusAction(
   input: SetDungeonStatusInput
@@ -44,12 +46,12 @@ export async function setDungeonStatusAction(
 
   const { dungeonId, status, expectedVersion } = parsed.data
 
-  const campaignId = await loadDungeonCampaignId(dungeonId)
-  if (campaignId === null) return err("dungeon-not-found")
-  const campaign = await requireCampaignDM(campaignId)
+  const dungeon = await loadDungeonRowById(dungeonId)
+  if (dungeon === null) return err("dungeon-not-found")
+  const campaign = await requireCampaignDM(dungeon.campaignId)
 
   if (status === "active") {
-    const active = await loadActiveDungeonForCampaign(campaignId)
+    const active = await loadActiveDungeonForCampaign(dungeon.campaignId)
     if (active && active.id !== dungeonId) {
       return err("campaign-already-has-active-delve")
     }
@@ -59,6 +61,7 @@ export async function setDungeonStatusAction(
   if (!result.ok) return result
 
   revalidatePath(`/campaigns/${campaign.shortId}`)
+  revalidateDungeon(dungeon)
 
   return ok({ version: result.value.version })
 }

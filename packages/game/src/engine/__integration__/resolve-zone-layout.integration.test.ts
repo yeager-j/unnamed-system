@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   enemyStatblocks,
+  makeConnection,
   makeEncounter,
+  makeGeometry,
+  makeZone,
 } from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
@@ -21,11 +24,13 @@ const CATALOG = makeTestGameData({
 const sb = (combatants: Parameters<typeof enemyStatblocks>[0]) =>
   enemyStatblocks(combatants, CATALOG)
 
-const ZONES = {
-  "zone-a": { id: "zone-a", name: "Courtyard" },
-  "zone-b": { id: "zone-b", name: "Hall" },
-}
-const ADJACENCY = { "zone-a": ["zone-b"], "zone-b": ["zone-a"] }
+const GEOMETRY = makeGeometry(
+  [
+    makeZone("zone-a", { name: "Courtyard" }),
+    makeZone("zone-b", { name: "Hall" }),
+  ],
+  [makeConnection("conn-ab", "zone-a", "zone-b")]
+)
 
 /** A session + Instance seeded with two adjacent zones (`zone-a` ↔ `zone-b`) and
  *  the given roster placed onto the Instance occupancy. */
@@ -34,8 +39,7 @@ function setupWith(
   instanceOverrides: Partial<MapInstanceState> = {}
 ) {
   return makeEncounter(roster, {
-    zones: ZONES,
-    adjacency: ADJACENCY,
+    geometry: GEOMETRY,
     ...instanceOverrides,
   })
 }
@@ -184,9 +188,18 @@ describe("resolveZoneLayout", () => {
     expect(token.portraitUrl).toBeNull()
   })
 
-  it("is undefined-safe when an adjacency entry points at a removed zone", () => {
+  it("is undefined-safe when a connection points at a removed zone", () => {
     const { session, instance } = setupWith([], {
-      adjacency: { "zone-a": ["zone-b", "ghost"], "zone-b": ["zone-a"] },
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a", { name: "Courtyard" }),
+          makeZone("zone-b", { name: "Hall" }),
+        ],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b"),
+          makeConnection("conn-ag", "zone-a", "ghost"),
+        ]
+      ),
     })
 
     const view = resolveZoneLayout(

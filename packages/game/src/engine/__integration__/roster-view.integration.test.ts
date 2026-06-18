@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import {
   enemyStatblocks,
+  makeConnection,
   makeEncounter,
+  makeGeometry,
+  makeZone,
   reduceInstance,
 } from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
@@ -167,7 +170,7 @@ describe("buildRosterView", () => {
     const { session, instance } = build()
     const placed: MapInstanceState = {
       ...instance,
-      zones: { z: { id: "z", name: "Courtyard" } },
+      geometry: makeGeometry([makeZone("z", { name: "Courtyard" })]),
     }
     expect(
       buildRosterView(session, placed, PC_DETAIL, ENEMY_SB).players[0]!.zoneName
@@ -543,11 +546,13 @@ describe("combatantDetail", () => {
     const { session, instance } = build()
     const placed: MapInstanceState = {
       ...instance,
-      zones: {
-        z: { id: "z", name: "Courtyard" },
-        z2: { id: "z2", name: "Hall" },
-      },
-      adjacency: { z: ["z2"], z2: ["z"] },
+      geometry: makeGeometry(
+        [
+          makeZone("z", { name: "Courtyard" }),
+          makeZone("z2", { name: "Hall" }),
+        ],
+        [makeConnection("conn-z-z2", "z", "z2")]
+      ),
     }
     // combatant-0 is placed in "z" (the SETUP zoneId).
     const pos = combatantDetail(
@@ -566,10 +571,10 @@ describe("combatantDetail", () => {
     const placed: MapInstanceState = {
       ...instance,
       // combatant-0's "z" isn't a defined zone → unplaced.
-      zones: {
-        a: { id: "a", name: "Courtyard" },
-        b: { id: "b", name: "Hall" },
-      },
+      geometry: makeGeometry([
+        makeZone("a", { name: "Courtyard" }),
+        makeZone("b", { name: "Hall" }),
+      ]),
     }
     const pos = combatantDetail(
       session,
@@ -635,12 +640,17 @@ describe("combatantDetail — move recomputes the adjacent-zone targets (UNN-472
       session,
       instance: {
         ...instance,
-        zones: {
-          z: { id: "z", name: "Courtyard" },
-          z2: { id: "z2", name: "Hall" },
-          z3: { id: "z3", name: "Cellar" },
-        },
-        adjacency: { z: ["z2"], z2: ["z", "z3"], z3: ["z2"] },
+        geometry: makeGeometry(
+          [
+            makeZone("z", { name: "Courtyard" }),
+            makeZone("z2", { name: "Hall" }),
+            makeZone("z3", { name: "Cellar" }),
+          ],
+          [
+            makeConnection("conn-z-z2", "z", "z2"),
+            makeConnection("conn-z2-z3", "z2", "z3"),
+          ]
+        ),
       },
     }
   }

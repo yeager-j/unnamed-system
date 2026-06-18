@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   enemyStatblocks,
   makeEncounter,
+  makeGeometry,
+  makeZone,
 } from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
@@ -251,10 +253,10 @@ describe("projectPlayerSnapshot", () => {
 
   it("passes through status, name, round, and the ordered zone list", () => {
     const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
-      zones: {
-        z1: { id: "z1", name: "Bridge" },
-        z2: { id: "z2", name: "Riverbank" },
-      },
+      geometry: makeGeometry([
+        makeZone("z1", { name: "Bridge", dmNotes: "the trap is here" }),
+        makeZone("z2", { name: "Riverbank" }),
+      ]),
     })
     const round3: CombatSession = { ...session, round: 3 }
 
@@ -268,11 +270,15 @@ describe("projectPlayerSnapshot", () => {
     expect(snapshot.version).toBe(4)
     expect(snapshot.round).toBe(3)
     expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
+    // Redaction: the public snapshot projects each zone to { id, name } only —
+    // the DM-private dmNotes (and description/position) never cross the wire.
+    expect(snapshot.zones[0]).toEqual({ id: "z1", name: "Bridge" })
+    expect(snapshot.zones[0]).not.toHaveProperty("dmNotes")
   })
 
   it("passes through the Instance's Zone Enchantment (observable, not redacted)", () => {
     const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
-      zones: { z1: { id: "z1", name: "Bridge" } },
+      geometry: makeGeometry([makeZone("z1", { name: "Bridge" })]),
       enchantment: { zoneId: "z1", type: "requiem", forte: 2 },
     })
 

@@ -35,6 +35,21 @@ export async function loadDungeonRowByShortId(
   return row ? withParsedState(row) : null
 }
 
+/** The `dungeon` row by primary-key `id` (state parsed), or `null` when none
+ *  matches — the lookup a write action resolves after the campaign-DM gate to
+ *  reduce + persist the delve state. Peers {@link loadDungeonRowByShortId}. */
+export async function loadDungeonRowById(
+  dungeonId: string
+): Promise<DungeonRow | null> {
+  const [row] = await db
+    .select()
+    .from(dungeons)
+    .where(eq(dungeons.id, dungeonId))
+    .limit(1)
+
+  return row ? withParsedState(row) : null
+}
+
 /**
  * The dungeon's `campaignId` only, or `null` when no dungeon matches. Lets a
  * write action authorize the caller against the owning campaign

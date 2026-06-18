@@ -6,7 +6,7 @@ import { type EngageableTarget } from "@workspace/game/engine"
 import {
   type CombatSide,
   type Engagement,
-  type MapInstanceState,
+  type MapGeometry,
 } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -43,7 +43,7 @@ export function CombatantSetupRow({
 }: {
   label: string
   side: CombatSide
-  zones: MapInstanceState["zones"]
+  zones: MapGeometry["zones"]
   zoneId: string
   engagement: Engagement
   engagementOptions: EngageableTarget[]

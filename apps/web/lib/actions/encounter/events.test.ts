@@ -316,7 +316,18 @@ describe("applyCombatEvent", () => {
     // Zones + occupancy now live on the Instance: the placed token is moved out.
     const unplaced: MapInstanceState = {
       ...placedInstanceState(),
-      zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
+      geometry: {
+        zones: {
+          "zone-a": {
+            id: "zone-a",
+            name: "Courtyard",
+            description: "",
+            dmNotes: "",
+            position: { x: 0, y: 0 },
+          },
+        },
+        connections: {},
+      },
       occupancy: {
         "combatant-0": { zoneId: "", engagement: { status: "free" } },
       },
@@ -341,7 +352,18 @@ describe("applyCombatEvent", () => {
   it("allows startCombat when zones are defined and every combatant is placed", async () => {
     const placed: MapInstanceState = {
       ...placedInstanceState(),
-      zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
+      geometry: {
+        zones: {
+          "zone-a": {
+            id: "zone-a",
+            name: "Courtyard",
+            description: "",
+            dmNotes: "",
+            position: { x: 0, y: 0 },
+          },
+        },
+        connections: {},
+      },
       occupancy: {
         "combatant-0": { zoneId: "zone-a", engagement: { status: "free" } },
       },

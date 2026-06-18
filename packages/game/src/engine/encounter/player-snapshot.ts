@@ -5,6 +5,7 @@ import {
   type PcCombatantDetail,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
+import { adjacencyMap } from "@workspace/game/engine/encounter/zone-graph"
 import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import { type Counters } from "@workspace/game/foundation/combat/counters"
@@ -258,8 +259,11 @@ export function projectPlayerSnapshot(
         enemyStatblockById
       )
     ),
-    zones: Object.values(instance.zones),
-    adjacency: instance.adjacency,
+    zones: Object.values(instance.geometry.zones).map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+    })),
+    adjacency: adjacencyMap(instance.geometry),
     enchantment: instance.enchantment,
   }
 }

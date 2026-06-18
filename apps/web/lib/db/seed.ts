@@ -208,9 +208,67 @@ async function seedEncounterFixtures(): Promise<void> {
  * and 404s everyone else.
  */
 async function seedDungeonFixtures(): Promise<void> {
+  const tokenPc = encounterTarget.placedPc.characterId
   const instanceRow = {
     id: "seed-dungeon-a-instance",
-    state: mapInstanceStateSchema.parse({}),
+    state: mapInstanceStateSchema.parse({
+      geometry: {
+        zones: {
+          "zone-entry": {
+            id: "zone-entry",
+            name: "Vault Entrance",
+            description: "A cracked stone arch, half-sunk in brackish water.",
+            dmNotes: "",
+            position: { x: 0, y: 0 },
+          },
+          "zone-hall": {
+            id: "zone-hall",
+            name: "Flooded Hall",
+            description: "",
+            dmNotes: "Current pulls toward the crypt.",
+            position: { x: 280, y: -40 },
+          },
+          "zone-crypt": {
+            id: "zone-crypt",
+            name: "Sunken Crypt",
+            description: "",
+            dmNotes: "The vault's prize rests here.",
+            position: { x: 520, y: 60 },
+          },
+        },
+        connections: {
+          "conn-entry-hall": {
+            id: "conn-entry-hall",
+            fromZoneId: "zone-entry",
+            toZoneId: "zone-hall",
+            hidden: false,
+            locked: false,
+          },
+          "conn-hall-crypt": {
+            id: "conn-hall-crypt",
+            fromZoneId: "zone-hall",
+            toZoneId: "zone-crypt",
+            hidden: false,
+            locked: true,
+          },
+          "conn-entry-crypt": {
+            id: "conn-entry-crypt",
+            fromZoneId: "zone-entry",
+            toZoneId: "zone-crypt",
+            hidden: true,
+            locked: false,
+          },
+        },
+      },
+      occupancy: {
+        [tokenPc]: { zoneId: "zone-entry", engagement: { status: "free" } },
+      },
+      reveal: {
+        revealedZoneIds: ["zone-entry"],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    }),
     version: 0,
   }
   await db

@@ -2,7 +2,12 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { CampaignBackLink } from "@/components/combat/campaign-back-link"
+import type { DungeonRosterEntry } from "@/components/dungeon/canvas/dungeon-canvas"
+import { DungeonPrep, type PrepZone } from "@/components/dungeon/dungeon-prep"
+import { DungeonRunConsole } from "@/components/dungeon/dungeon-run-console"
+import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
+import { loadMapRowById } from "@/lib/db/queries/load-map"
 
 import { getDungeonForDM } from "./dungeon-access"
 
@@ -24,42 +29,81 @@ export async function generateMetadata({
 }
 
 /**
- * The DM dungeon console at `/dungeon/{shortId}` (UNN-462), DM-only. Loads through
- * {@link getDungeonForDM}, which 404s for a non-DM (or non-member) without leaking
- * that the dungeon exists. This ticket ships the route + the load/auth gate; the
- * run console — the React Flow canvas, the turn loop, token placement/movement,
- * and reveal — lands in UNN-463/464, so the body here is a minimal status-aware
- * placeholder.
+ * The DM dungeon console at `/dungeon/{shortId}` (UNN-462/464), DM-only. Loads
+ * through {@link getDungeonForDM} (404s for a non-DM without leaking existence),
+ * then **status-forks** like the combat console: `draft` → the prep view (stage
+ * the roster, snapshot + start), `active` → the run console (canvas + turn loop),
+ * `done` → a frozen summary. The delve roster's display names/portraits come from
+ * the campaign's placed characters (exploration needs no full sheet hydration —
+ * that is combat's, M4).
  */
 export default async function DungeonPage({ params }: PageProps) {
   const { shortId } = await params
   const result = await getDungeonForDM(shortId)
 
   if (!result) notFound()
-  const { dungeon } = result
+  const { dungeon, instance } = result
 
-  // getDungeonForDM already authorized the viewer against this campaign, so the
-  // row exists; resolve its public shortId for the "← Campaign" back link.
   const campaign = await loadCampaignRowById(dungeon.campaignId)
   const campaignShortId = campaign?.shortId ?? ""
 
-  return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 p-6">
-      {campaignShortId ? (
-        <CampaignBackLink campaignShortId={campaignShortId} />
-      ) : null}
-      <header>
-        <h1 className="font-heading text-lg font-medium">{dungeon.name}</h1>
-        <p className="text-sm text-muted-foreground capitalize">
-          Dungeon · {dungeon.status}
-        </p>
-      </header>
-      <div
-        className="rounded-lg border p-8 text-center text-sm text-muted-foreground"
-        data-testid="dungeon-console-placeholder"
-      >
-        The dungeon run console is coming in UNN-463/464.
-      </div>
-    </main>
+  const placedCharacters = await loadPlacedCharactersForCampaign(
+    dungeon.campaignId
   )
+  const roster: Record<string, DungeonRosterEntry> = Object.fromEntries(
+    placedCharacters.map((character) => [
+      character.id,
+      { name: character.name, portraitUrl: character.portraitUrl },
+    ])
+  )
+
+  switch (dungeon.status) {
+    case "draft": {
+      // Zones come from the source template — the Instance is blank until start.
+      const map = instance.mapId ? await loadMapRowById(instance.mapId) : null
+      const zones: PrepZone[] = map
+        ? Object.values(map.geometry.zones).map((zone) => ({
+            id: zone.id,
+            name: zone.name,
+          }))
+        : []
+      return (
+        <DungeonPrep
+          dungeon={dungeon}
+          instance={instance}
+          placedCharacters={placedCharacters}
+          zones={zones}
+          campaignShortId={campaignShortId}
+        />
+      )
+    }
+
+    case "active":
+      return (
+        <DungeonRunConsole
+          dungeon={dungeon}
+          instance={instance}
+          roster={roster}
+          campaignShortId={campaignShortId}
+        />
+      )
+
+    case "done":
+      return (
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-6">
+          {campaignShortId ? (
+            <CampaignBackLink campaignShortId={campaignShortId} />
+          ) : null}
+          <header>
+            <h1 className="font-heading text-lg font-medium">{dungeon.name}</h1>
+            <p className="text-sm text-muted-foreground">Delve · complete</p>
+          </header>
+          <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
+            This delve has wrapped. The party explored{" "}
+            {dungeon.state.turnCounter}{" "}
+            {dungeon.state.turnCounter === 1 ? "turn" : "turns"}.
+          </div>
+        </main>
+      )
+  }
 }
