@@ -46,6 +46,8 @@ import {
 } from "@workspace/ui/components/select"
 import { Switch } from "@workspace/ui/components/switch"
 
+import { RANDOM_ENCOUNTER_INTERVAL_LABELS } from "@/lib/ui/labels"
+
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
 
 const REMINDER_COPY = {
@@ -58,13 +60,6 @@ const REMINDER_COPY = {
     body: "Past the 48-turn day: a level of Exhaustion would accrue (tracked on the sheet).",
   },
 } as const
-
-const INTERVAL_LABELS: Record<RandomEncounterInterval, string> = {
-  1: "Every 10 min (1 turn)",
-  2: "Every 20 min (2 turns)",
-  3: "Every 30 min (3 turns)",
-  6: "Every hour (6 turns)",
-}
 
 /**
  * The DM run console's side rail (UNN-464) — the exploration turn loop and its
@@ -244,7 +239,7 @@ export function TurnLoopRail({
             <SelectContent>
               {([1, 2, 3, 6] as const).map((interval) => (
                 <SelectItem key={interval} value={String(interval)}>
-                  {INTERVAL_LABELS[interval]}
+                  {RANDOM_ENCOUNTER_INTERVAL_LABELS[interval]}
                 </SelectItem>
               ))}
             </SelectContent>

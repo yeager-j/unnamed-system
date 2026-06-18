@@ -193,8 +193,13 @@ function DungeonCanvasInner({
   const handleNodeDragStop: OnNodeDrag<CanvasNode> = (_, node) => {
     if (node.type !== "dungeonToken") return
     const target = nearestZoneId(instance, node.position)
-    if (!target) {
-      setNodes(buildNodes(instance, roster)) // snap back
+    const current = instance.occupancy[node.data.characterId]?.zoneId
+    // No move — dropped on empty canvas or back onto the current Zone. Snap the
+    // token to its grid slot here: a same-Zone `moveCombatant` is a server
+    // round-trip the reducer no-ops, and its same-ref optimistic result wouldn't
+    // re-run the sync effect, stranding the token at the dropped pixel offset.
+    if (!target || target === current) {
+      setNodes(buildNodes(instance, roster))
       return
     }
     onMoveToken(node.data.characterId, target)

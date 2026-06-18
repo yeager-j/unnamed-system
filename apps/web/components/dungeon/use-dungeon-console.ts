@@ -72,6 +72,11 @@ export function useDungeonConsole(
       return result.ok ? result.value.version : null
     },
   })
+  // No `refetchVersion` for the Instance: there's no instance-version read
+  // action yet (`getDungeonVersionAction` returns only the dungeon version), and
+  // in M2 the DM is the sole writer so a stale spatial write is rare — it surfaces
+  // an error toast rather than one-shot-retrying. Wire an instance-version refetch
+  // here when realtime / multi-tab lands (M3, UNN-468).
   const instanceWrite = useQueuedWrite({ serverVersion: instance.version })
 
   function dispatch(event: DungeonEvent | MapInstanceEvent) {
