@@ -17,6 +17,7 @@ import {
   type EquipSlot,
   type Lineage,
   type PathChoice,
+  type RandomEncounterInterval,
   type Range,
   type ResolvedSkillCost,
   type SkillKind,
@@ -540,6 +541,17 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "adjacent-zone": "Adjacent Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
+}
+
+/** Random-encounter cadence options on the dungeon run console (1 turn ≈ 10 min). */
+export const RANDOM_ENCOUNTER_INTERVAL_LABELS: Record<
+  RandomEncounterInterval,
+  string
+> = {
+  1: "Every 10 min (1 turn)",
+  2: "Every 20 min (2 turns)",
+  3: "Every 30 min (3 turns)",
+  6: "Every hour (6 turns)",
 }
 
 /** The five Stain elements the Mage can hold. */

@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  makeConnection,
+  makeGeometry,
   makeMapInstanceState,
+  makeZone,
   reduceInstance,
 } from "@workspace/game/engine/__fixtures__/encounter"
+import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
 import type { MapToken } from "@workspace/game/foundation/encounter/map-instance"
 
 const free = (zoneId: string): MapToken => ({
@@ -15,17 +19,25 @@ const engaged = (zoneId: string, targets: string[]): MapToken => ({
   engagement: { status: "engaged", targetCombatantIds: targets },
 })
 
-const TWO_ZONES = {
-  zones: {
-    "zone-a": { id: "zone-a", name: "Courtyard" },
-    "zone-b": { id: "zone-b", name: "Hall" },
-  },
-  adjacency: { "zone-a": ["zone-b"], "zone-b": ["zone-a"] },
-}
+/** Two connected zones (a–b), the M2 rich geometry shape. */
+const twoZones = () => ({
+  geometry: makeGeometry(
+    [
+      makeZone("zone-a", { name: "Courtyard" }),
+      makeZone("zone-b", { name: "Hall" }),
+    ],
+    [makeConnection("conn-ab", "zone-a", "zone-b")]
+  ),
+})
+
+const adjacentIds = (
+  instance: ReturnType<typeof makeMapInstanceState>,
+  zoneId: string
+) => adjacentZones(instance, zoneId).map((zone) => zone.id)
 
 describe("reduceMapInstance — moveCombatant", () => {
   const placed = () =>
-    makeMapInstanceState({ ...TWO_ZONES, occupancy: { c0: free("zone-a") } })
+    makeMapInstanceState({ ...twoZones(), occupancy: { c0: free("zone-a") } })
 
   it("moves the token to the target zone", () => {
     const next = reduceInstance(placed(), {
@@ -70,10 +82,65 @@ describe("reduceMapInstance — moveCombatant", () => {
   })
 })
 
+describe("reduceMapInstance — moveCombatant → reveal", () => {
+  const placed = () =>
+    makeMapInstanceState({ ...twoZones(), occupancy: { c0: free("zone-a") } })
+
+  it("reveals the entered zone to players", () => {
+    const next = reduceInstance(placed(), {
+      kind: "moveCombatant",
+      combatantId: "c0",
+      toZoneId: "zone-b",
+    })
+
+    expect(next.reveal.revealedZoneIds).toContain("zone-b")
+  })
+
+  it("does not reveal a phantom (non-existent) destination zone", () => {
+    const next = reduceInstance(placed(), {
+      kind: "moveCombatant",
+      combatantId: "c0",
+      toZoneId: "zone-detached",
+    })
+
+    expect(next.reveal.revealedZoneIds).not.toContain("zone-detached")
+  })
+
+  it("re-revealing an already-revealed zone does not duplicate it", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-a") },
+      reveal: {
+        revealedZoneIds: ["zone-b"],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    })
+
+    const next = reduceInstance(state, {
+      kind: "moveCombatant",
+      combatantId: "c0",
+      toZoneId: "zone-b",
+    })
+
+    expect(next.reveal.revealedZoneIds).toEqual(["zone-b"])
+  })
+
+  it("does not write the touched connection into revealedConnectionIds (known exits derive)", () => {
+    const next = reduceInstance(placed(), {
+      kind: "moveCombatant",
+      combatantId: "c0",
+      toZoneId: "zone-b",
+    })
+
+    expect(next.reveal.revealedConnectionIds).toEqual([])
+  })
+})
+
 describe("reduceMapInstance — moveCombatant engagement invariant", () => {
   it("severs a cross-zone engagement on both tokens when one moves away", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: {
         c0: engaged("zone-a", ["c1"]),
         c1: engaged("zone-a", ["c0"]),
@@ -92,7 +159,7 @@ describe("reduceMapInstance — moveCombatant engagement invariant", () => {
 
   it("keeps the engagement when the token moves into the target's zone", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: {
         c0: engaged("zone-a", ["c1"]),
         c1: engaged("zone-b", ["c0"]),
@@ -117,7 +184,7 @@ describe("reduceMapInstance — moveCombatant engagement invariant", () => {
 
   it("severs only the cross-zone partner, keeping a co-located one", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: {
         c0: engaged("zone-a", ["c1", "c2"]),
         c1: engaged("zone-b", ["c0"]),
@@ -144,7 +211,7 @@ describe("reduceMapInstance — moveCombatant engagement invariant", () => {
 
   it("tolerates a stale engagement target that has no token", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: { c0: engaged("zone-a", ["c1", "ghost"]), c1: free("zone-a") },
     })
 
@@ -162,7 +229,7 @@ describe("reduceMapInstance — moveCombatant engagement invariant", () => {
 describe("reduceMapInstance — engagement (symmetric)", () => {
   const pair = () =>
     makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: { c0: free("zone-a"), c1: free("zone-a") },
     })
 
@@ -223,7 +290,6 @@ describe("reduceMapInstance — engagement (symmetric)", () => {
       targetCombatantIds: ["c1"],
     })
 
-    // c0 re-targets c3, dropping c1 — c1 must keep its lock with c2.
     const next = reduceInstance(c0WithC1, {
       kind: "setEngagement",
       combatantId: "c0",
@@ -302,7 +368,9 @@ describe("reduceMapInstance — engagement (symmetric)", () => {
 
 describe("reduceMapInstance — enchantment (singleton)", () => {
   const oneZone = () =>
-    makeMapInstanceState({ zones: { "zone-a": { id: "zone-a", name: "A" } } })
+    makeMapInstanceState({
+      geometry: makeGeometry([makeZone("zone-a", { name: "A" })]),
+    })
 
   it("applies a new Enchantment at Forte 1", () => {
     const next = reduceInstance(oneZone(), {
@@ -356,10 +424,10 @@ describe("reduceMapInstance — enchantment (singleton)", () => {
 
   it("replaces (Forte 1) when a second zone is Enchanted", () => {
     const state = makeMapInstanceState({
-      zones: {
-        "zone-a": { id: "zone-a", name: "A" },
-        "zone-b": { id: "zone-b", name: "B" },
-      },
+      geometry: makeGeometry([
+        makeZone("zone-a", { name: "A" }),
+        makeZone("zone-b", { name: "B" }),
+      ]),
       enchantment: { zoneId: "zone-a", type: "toccata", forte: 3 },
     })
 
@@ -401,7 +469,7 @@ describe("reduceMapInstance — enchantment (singleton)", () => {
 })
 
 describe("reduceMapInstance — zone graph", () => {
-  it("adds a zone under a supplied id, with optional notes", () => {
+  it("adds a zone under a supplied id, mapping notes to dmNotes with defaulted layout", () => {
     const next = reduceInstance(makeMapInstanceState(), {
       kind: "addZone",
       zoneId: "zone-a",
@@ -409,34 +477,37 @@ describe("reduceMapInstance — zone graph", () => {
       notes: "fountain",
     })
 
-    expect(next.zones["zone-a"]).toEqual({
+    expect(next.geometry.zones["zone-a"]).toEqual({
       id: "zone-a",
       name: "Courtyard",
-      notes: "fountain",
+      description: "",
+      dmNotes: "fountain",
+      position: { x: 0, y: 0 },
     })
   })
 
-  it("mints an id via newId when none is supplied", () => {
+  it("mints an id via newId when none is supplied, with empty dmNotes", () => {
     const next = reduceInstance(
       makeMapInstanceState(),
       { kind: "addZone", name: "Minted" },
       () => "fresh-zone"
     )
 
-    expect(next.zones["fresh-zone"]).toEqual({
+    expect(next.geometry.zones["fresh-zone"]).toEqual({
       id: "fresh-zone",
       name: "Minted",
+      description: "",
+      dmNotes: "",
+      position: { x: 0, y: 0 },
     })
-    expect(next.zones["fresh-zone"]).not.toHaveProperty("notes")
   })
 
-  it("does not duplicate an existing adjacency edge (idempotent)", () => {
+  it("does not duplicate an existing connection (idempotent)", () => {
     const state = makeMapInstanceState({
-      zones: {
-        "zone-a": { id: "zone-a", name: "A" },
-        "zone-b": { id: "zone-b", name: "B" },
-      },
-      adjacency: { "zone-a": ["zone-b"], "zone-b": ["zone-a"] },
+      geometry: makeGeometry(
+        [makeZone("zone-a", { name: "A" }), makeZone("zone-b", { name: "B" })],
+        [makeConnection("conn-ab", "zone-a", "zone-b")]
+      ),
     })
 
     const next = reduceInstance(state, {
@@ -446,17 +517,20 @@ describe("reduceMapInstance — zone graph", () => {
       adjacent: true,
     })
 
-    expect(next.adjacency["zone-a"]).toEqual(["zone-b"])
+    expect(Object.keys(next.geometry.connections)).toHaveLength(1)
+    expect(adjacentIds(next, "zone-a")).toEqual(["zone-b"])
   })
 
   it("clearing a non-present edge leaves the other neighbors intact", () => {
     const state = makeMapInstanceState({
-      zones: {
-        "zone-a": { id: "zone-a", name: "A" },
-        "zone-b": { id: "zone-b", name: "B" },
-        "zone-c": { id: "zone-c", name: "C" },
-      },
-      adjacency: { "zone-a": ["zone-c"], "zone-c": ["zone-a"] },
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a", { name: "A" }),
+          makeZone("zone-b", { name: "B" }),
+          makeZone("zone-c", { name: "C" }),
+        ],
+        [makeConnection("conn-ac", "zone-a", "zone-c")]
+      ),
     })
 
     // a–b was never linked; clearing it must not disturb a–c.
@@ -467,12 +541,12 @@ describe("reduceMapInstance — zone graph", () => {
       adjacent: false,
     })
 
-    expect(next.adjacency["zone-a"]).toEqual(["zone-c"])
+    expect(adjacentIds(next, "zone-a")).toEqual(["zone-c"])
   })
 
   it("no-ops adjacency when the first zone is missing", () => {
     const state = makeMapInstanceState({
-      zones: { "zone-a": { id: "zone-a", name: "A" } },
+      geometry: makeGeometry([makeZone("zone-a", { name: "A" })]),
     })
 
     expect(
@@ -487,34 +561,34 @@ describe("reduceMapInstance — zone graph", () => {
 
   it("removes a zone with no active Enchantment without error", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       occupancy: { c0: free("zone-a") },
     })
 
     const next = reduceInstance(state, { kind: "removeZone", zoneId: "zone-a" })
 
-    expect(next.zones["zone-a"]).toBeUndefined()
-    expect(next.adjacency["zone-b"]).toEqual([])
+    expect(next.geometry.zones["zone-a"]).toBeUndefined()
+    expect(adjacentIds(next, "zone-b")).toEqual([])
     expect(next.enchantment).toBeNull()
   })
 
-  it("removes a zone, prunes neighbors' adjacency, and clears an Enchantment on it", () => {
+  it("removes a zone, prunes its connections, and clears an Enchantment on it", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 },
     })
 
     const next = reduceInstance(state, { kind: "removeZone", zoneId: "zone-a" })
 
-    expect(next.zones["zone-a"]).toBeUndefined()
-    expect(next.adjacency["zone-a"]).toBeUndefined()
-    expect(next.adjacency["zone-b"]).toEqual([])
+    expect(next.geometry.zones["zone-a"]).toBeUndefined()
+    expect(next.geometry.connections["conn-ab"]).toBeUndefined()
+    expect(adjacentIds(next, "zone-b")).toEqual([])
     expect(next.enchantment).toBeNull()
   })
 
   it("keeps an Enchantment on a different zone when removing", () => {
     const state = makeMapInstanceState({
-      ...TWO_ZONES,
+      ...twoZones(),
       enchantment: { zoneId: "zone-b", type: "toccata", forte: 1 },
     })
 
@@ -527,22 +601,26 @@ describe("reduceMapInstance — zone graph", () => {
     })
   })
 
-  it("writes an undirected adjacency edge and clears it", () => {
+  it("writes an undirected connection and clears it", () => {
     const state = makeMapInstanceState({
-      zones: {
-        "zone-a": { id: "zone-a", name: "A" },
-        "zone-b": { id: "zone-b", name: "B" },
-      },
+      geometry: makeGeometry([
+        makeZone("zone-a", { name: "A" }),
+        makeZone("zone-b", { name: "B" }),
+      ]),
     })
 
-    const linked = reduceInstance(state, {
-      kind: "setZoneAdjacency",
-      zoneIdA: "zone-a",
-      zoneIdB: "zone-b",
-      adjacent: true,
-    })
-    expect(linked.adjacency["zone-a"]).toEqual(["zone-b"])
-    expect(linked.adjacency["zone-b"]).toEqual(["zone-a"])
+    const linked = reduceInstance(
+      state,
+      {
+        kind: "setZoneAdjacency",
+        zoneIdA: "zone-a",
+        zoneIdB: "zone-b",
+        adjacent: true,
+      },
+      () => "conn-1"
+    )
+    expect(adjacentIds(linked, "zone-a")).toEqual(["zone-b"])
+    expect(adjacentIds(linked, "zone-b")).toEqual(["zone-a"])
 
     const unlinked = reduceInstance(linked, {
       kind: "setZoneAdjacency",
@@ -550,13 +628,14 @@ describe("reduceMapInstance — zone graph", () => {
       zoneIdB: "zone-b",
       adjacent: false,
     })
-    expect(unlinked.adjacency["zone-a"]).toEqual([])
-    expect(unlinked.adjacency["zone-b"]).toEqual([])
+    expect(adjacentIds(unlinked, "zone-a")).toEqual([])
+    expect(adjacentIds(unlinked, "zone-b")).toEqual([])
+    expect(Object.keys(unlinked.geometry.connections)).toHaveLength(0)
   })
 
   it("no-ops adjacency for a self-edge or a missing zone", () => {
     const state = makeMapInstanceState({
-      zones: { "zone-a": { id: "zone-a", name: "A" } },
+      geometry: makeGeometry([makeZone("zone-a", { name: "A" })]),
     })
 
     expect(
@@ -580,7 +659,7 @@ describe("reduceMapInstance — zone graph", () => {
 
   it("renames a zone, and no-ops on an unknown id", () => {
     const state = makeMapInstanceState({
-      zones: { "zone-a": { id: "zone-a", name: "Old" } },
+      geometry: makeGeometry([makeZone("zone-a", { name: "Old" })]),
     })
 
     const renamed = reduceInstance(state, {
@@ -588,10 +667,110 @@ describe("reduceMapInstance — zone graph", () => {
       zoneId: "zone-a",
       name: "New",
     })
-    expect(renamed.zones["zone-a"]!.name).toBe("New")
+    expect(renamed.geometry.zones["zone-a"]!.name).toBe("New")
 
     expect(
       reduceInstance(state, { kind: "renameZone", zoneId: "ghost", name: "x" })
     ).toBe(state)
+  })
+})
+
+describe("reduceMapInstance — reveal overlay", () => {
+  const mapWithHidden = () =>
+    makeMapInstanceState({
+      geometry: makeGeometry(
+        [makeZone("zone-a", { name: "A" }), makeZone("zone-b", { name: "B" })],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b", {
+            hidden: true,
+            locked: true,
+          }),
+        ]
+      ),
+    })
+
+  it("revealZone adds the zone, idempotently, and no-ops on an unknown id", () => {
+    const once = reduceInstance(mapWithHidden(), {
+      kind: "revealZone",
+      zoneId: "zone-a",
+    })
+    expect(once.reveal.revealedZoneIds).toEqual(["zone-a"])
+
+    const twice = reduceInstance(once, { kind: "revealZone", zoneId: "zone-a" })
+    expect(twice.reveal.revealedZoneIds).toEqual(["zone-a"])
+
+    const state = mapWithHidden()
+    const ghost = reduceInstance(state, { kind: "revealZone", zoneId: "ghost" })
+    expect(ghost).toBe(state)
+    expect(ghost.reveal.revealedZoneIds).toEqual([])
+  })
+
+  it("hideZone removes a revealed zone and no-ops when absent", () => {
+    const revealed = reduceInstance(mapWithHidden(), {
+      kind: "revealZone",
+      zoneId: "zone-a",
+    })
+    const hidden = reduceInstance(revealed, {
+      kind: "hideZone",
+      zoneId: "zone-a",
+    })
+    expect(hidden.reveal.revealedZoneIds).toEqual([])
+
+    const state = mapWithHidden()
+    expect(reduceInstance(state, { kind: "hideZone", zoneId: "zone-a" })).toBe(
+      state
+    )
+  })
+
+  it("revealConnection surfaces a hidden connection, idempotently, no-op on unknown", () => {
+    const next = reduceInstance(mapWithHidden(), {
+      kind: "revealConnection",
+      connectionId: "conn-ab",
+    })
+    expect(next.reveal.revealedConnectionIds).toEqual(["conn-ab"])
+
+    const ghost = reduceInstance(mapWithHidden(), {
+      kind: "revealConnection",
+      connectionId: "ghost",
+    })
+    expect(ghost.reveal.revealedConnectionIds).toEqual([])
+  })
+
+  it("hideConnection removes a revealed connection", () => {
+    const revealed = reduceInstance(mapWithHidden(), {
+      kind: "revealConnection",
+      connectionId: "conn-ab",
+    })
+    const hidden = reduceInstance(revealed, {
+      kind: "hideConnection",
+      connectionId: "conn-ab",
+    })
+    expect(hidden.reveal.revealedConnectionIds).toEqual([])
+  })
+
+  it("unlockConnection opens a locked connection, idempotently, no-op on unknown", () => {
+    const next = reduceInstance(mapWithHidden(), {
+      kind: "unlockConnection",
+      connectionId: "conn-ab",
+    })
+    expect(next.reveal.unlockedConnectionIds).toEqual(["conn-ab"])
+
+    const ghost = reduceInstance(mapWithHidden(), {
+      kind: "unlockConnection",
+      connectionId: "ghost",
+    })
+    expect(ghost.reveal.unlockedConnectionIds).toEqual([])
+  })
+
+  it("lockConnection re-bars an unlocked connection", () => {
+    const unlocked = reduceInstance(mapWithHidden(), {
+      kind: "unlockConnection",
+      connectionId: "conn-ab",
+    })
+    const locked = reduceInstance(unlocked, {
+      kind: "lockConnection",
+      connectionId: "conn-ab",
+    })
+    expect(locked.reveal.unlockedConnectionIds).toEqual([])
   })
 })

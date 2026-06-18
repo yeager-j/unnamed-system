@@ -248,7 +248,7 @@ async function applyStartCombat(
   const roster = encounter.session.combatants.map((combatant) =>
     toCombatantSetup(combatant, instance.state.occupancy[combatant.id])
   )
-  if (!isRosterFullyPlaced(roster, instance.state.zones)) {
+  if (!isRosterFullyPlaced(roster, instance.state.geometry.zones)) {
     return err("encounter-has-unplaced-combatants")
   }
 

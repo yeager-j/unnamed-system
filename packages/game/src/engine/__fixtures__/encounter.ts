@@ -14,6 +14,11 @@ import type {
   CombatSession,
 } from "@workspace/game/foundation/encounter/session"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
+import type {
+  MapConnection,
+  MapGeometry,
+  MapZone,
+} from "@workspace/game/foundation/map/geometry"
 
 /**
  * Encounter test helpers that take the engine's catalog lookups explicitly
@@ -45,19 +50,65 @@ export const enemyStatblocks = (
 ) => resolveCatalogEnemyStatblocks(data)(combatants)
 
 /**
- * A {@link MapInstanceState} for the `reduceMapInstance` slice tests (UNN-454).
- * Every slice defaults empty (no zones/occupancy/enchantment); a test seeds only
- * the spatial state its transition reads — built from fixtures, never balance
- * numbers. Cloned per call so a mutation in one test can't leak into another.
+ * A {@link MapInstanceState} for the `reduceMapInstance` slice tests (UNN-454/464).
+ * Every slice defaults empty (blank geometry/occupancy/enchantment/reveal); a test
+ * seeds only the spatial state its transition reads — built from fixtures, never
+ * balance numbers. Cloned per call so a mutation in one test can't leak into
+ * another. {@link makeGeometry} / {@link makeZone} / {@link makeConnection} build
+ * the rich M2 geometry overrides pass through `geometry`.
  */
 export const makeMapInstanceState = (
   overrides: Partial<MapInstanceState> = {}
 ): MapInstanceState => ({
-  zones: {},
-  adjacency: {},
+  geometry: { zones: {}, connections: {} },
   occupancy: {},
   enchantment: null,
+  reveal: {
+    revealedZoneIds: [],
+    revealedConnectionIds: [],
+    unlockedConnectionIds: [],
+  },
   ...overrides,
+})
+
+/** A {@link MapZone} with sensible defaults; override what a test asserts. */
+export const makeZone = (
+  id: string,
+  overrides: Partial<MapZone> = {}
+): MapZone => ({
+  id,
+  name: id,
+  description: "",
+  dmNotes: "",
+  position: { x: 0, y: 0 },
+  ...overrides,
+})
+
+/** A {@link MapConnection} between two zones; flags default off. */
+export const makeConnection = (
+  id: string,
+  fromZoneId: string,
+  toZoneId: string,
+  overrides: Partial<MapConnection> = {}
+): MapConnection => ({
+  id,
+  fromZoneId,
+  toZoneId,
+  hidden: false,
+  locked: false,
+  ...overrides,
+})
+
+/**
+ * A {@link MapGeometry} from zone + connection lists, keyed by id — the M2 rich
+ * shape the Instance carries. Pass to `makeMapInstanceState({ geometry })`.
+ */
+export const makeGeometry = (
+  zones: MapZone[] = [],
+  connections: MapConnection[] = []
+): MapGeometry => ({
+  zones: Object.fromEntries(zones.map((zone) => [zone.id, zone])),
+  connections: Object.fromEntries(connections.map((conn) => [conn.id, conn])),
 })
 
 /** Applies one {@link MapInstanceEvent}; `newId` defaults to a stable counter so
@@ -79,9 +130,8 @@ function sequentialZoneIds() {
  * state (zoneId/engagement) lives on the Instance occupancy, the rest on the
  * session. Each setup's id is resolved deterministically (`c-0`, `c-1`, … unless
  * supplied) so occupancy keys and session combatant ids agree. `instanceOverrides`
- * layers the test's geometry/enchantment on top (zones/adjacency/enchantment),
- * leaving the roster-derived occupancy intact. The shaper-collaboration peer of
- * `reduceCombat`/`reduceInstance`.
+ * layers the test's geometry/enchantment/reveal on top, leaving the roster-derived
+ * occupancy intact. The shaper-collaboration peer of `reduceCombat`/`reduceInstance`.
  */
 export const makeEncounter = (
   roster: CombatantSetup[],

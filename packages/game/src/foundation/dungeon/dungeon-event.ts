@@ -1,5 +1,7 @@
 import { z } from "zod/v4"
 
+import type { MapInstanceEvent } from "@workspace/game/foundation/encounter/map-instance-event"
+
 /**
  * The event vocabulary {@link import("@workspace/game/engine") reduceDungeon}
  * dispatches over — the events that mutate the exploration turn loop on a
@@ -65,3 +67,18 @@ const _dungeonEventKindsInSync: Equals<
   DungeonEvent["kind"]
 > = true
 void _dungeonEventKindsInSync
+
+/**
+ * Splits the dungeon console's combined event payload into its two reducer paths:
+ * narrows a {@link DungeonEvent} (the turn loop, written to the dungeon row) from a
+ * {@link MapInstanceEvent} (a spatial move/reveal, written to the Map Instance
+ * row), so the Server Action (`applyDungeonEvent`, UNN-464) routes a parsed event
+ * to the right reducer + row. The mirror of
+ * {@link import("../encounter/map-instance-event").isMapInstanceEvent}; the two
+ * unions share no `kind`, so the membership check is unambiguous.
+ */
+export function isDungeonEvent(
+  event: DungeonEvent | MapInstanceEvent
+): event is DungeonEvent {
+  return (DUNGEON_EVENT_KINDS as readonly string[]).includes(event.kind)
+}

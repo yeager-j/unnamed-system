@@ -81,6 +81,25 @@ export async function setDungeonStatus(
 }
 
 /**
+ * Persists the dungeon's whole {@link DungeonState} blob in one version-guarded
+ * write (the turn-loop `markActed`/`advanceTurn` reducers + the reminder-setting
+ * merges write through here), returning the new version. Mirrors
+ * {@link import("./encounter").saveEncounterSession} / `saveMapInstanceState`;
+ * pass an `executor` to compose inside a `guardMany` (the search-that-reveals
+ * cross-write).
+ */
+export async function saveDungeonState(
+  dungeonId: string,
+  state: DungeonState,
+  expectedVersion: number,
+  executor: WriteExecutor = db
+): Promise<Result<{ version: number }, DungeonWriteError>> {
+  return bumpDungeonVersionGuarded(executor, dungeonId, expectedVersion, {
+    state,
+  })
+}
+
+/**
  * Runs a guarded single-version bump: applies `patch` together with the
  * `version + 1` increment in one `SET`, conditioned on `(id, version ===
  * expectedVersion)`, and returns the bumped version. On zero affected rows it

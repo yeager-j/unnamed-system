@@ -101,8 +101,18 @@ function persistedInstanceState(): MapInstanceState {
   ])
   return {
     ...base,
-    zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
-    adjacency: { "zone-a": [] },
+    geometry: {
+      zones: {
+        "zone-a": {
+          id: "zone-a",
+          name: "Courtyard",
+          description: "",
+          dmNotes: "",
+          position: { x: 0, y: 0 },
+        },
+      },
+      connections: {},
+    },
   }
 }
 
@@ -182,10 +192,16 @@ describe("addSetupCombatantsAction", () => {
     })
 
     const persisted = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
-    expect(persisted.zones).toEqual({
-      "zone-a": { id: "zone-a", name: "Courtyard" },
+    expect(persisted.geometry.zones).toEqual({
+      "zone-a": {
+        id: "zone-a",
+        name: "Courtyard",
+        description: "",
+        dmNotes: "",
+        position: { x: 0, y: 0 },
+      },
     })
-    expect(persisted.adjacency).toEqual({ "zone-a": [] })
+    expect(persisted.geometry.connections).toEqual({})
   })
 
   it("rejects a malformed roster before any DB read", async () => {

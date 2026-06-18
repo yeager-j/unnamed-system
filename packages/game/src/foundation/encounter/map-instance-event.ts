@@ -20,25 +20,30 @@ import type { CombatEvent } from "@workspace/game/foundation/encounter/session-e
  * unions {@link combatEventSchema} with {@link mapInstanceEventSchema} and routes
  * on {@link isMapInstanceEvent}.
  *
- * Reveal/hide/unlock are deliberately absent — they arrive with reveal-state in
- * M1/M2 (UNN-461 / UNN-464), per the lean M0 shape.
+ * Reveal/hide/unlock (the fog overlay) arrive here in M2 (UNN-464) alongside the
+ * reveal-state on {@link import("./map-instance").MapInstanceState}.
  */
 
 /**
- * Zone-graph events (UNN-313) — mutate the spatial graph on the Map Instance
- * (`zones` + `adjacency`), never a combatant:
+ * Zone-graph events (UNN-313) — mutate the Map Instance geometry (its `zones` +
+ * id-keyed `connections`; see {@link import("../map/geometry").MapGeometry}),
+ * never a combatant. M2 (UNN-464) converged the Instance geometry onto the rich
+ * template shape, so these events now write {@link import("../map/geometry").MapZone}s
+ * (the reducer defaults `position`/`description` for the ad-hoc combat-setup
+ * surface that authors only name/notes) and {@link import("../map/geometry").MapConnection}s:
  *
- * - `addZone` records a new {@link import("./session").Zone}. The client may
- *   supply the stable `zoneId` (the encounter-setup surface mints it so the
- *   optimistic id matches the persisted one and a follow-up adjacency/placement
- *   edit can reference it before any refresh — UNN-347); when omitted the reducer
- *   mints it via its injectable `newId`. The client always supplies the display
- *   `name` and optional `notes`.
- * - `removeZone` drops a zone, prunes it from every adjacency list, and clears
+ * - `addZone` records a new Zone. The client may supply the stable `zoneId` (the
+ *   encounter-setup surface mints it so the optimistic id matches the persisted
+ *   one and a follow-up adjacency/placement edit can reference it before any
+ *   refresh — UNN-347); when omitted the reducer mints it via its injectable
+ *   `newId`. The client supplies the display `name` and optional `notes` (stored
+ *   as the Zone's `dmNotes`); `position`/`description` default.
+ * - `removeZone` drops a zone, prunes every connection touching it, and clears
  *   the Enchantment when it sat on the removed zone. It does **not** touch
  *   occupancy — token cleanup is a separate concern.
- * - `setZoneAdjacency` records (or clears) an **undirected** edge between two
- *   zones; idempotent — re-adding an existing edge does not duplicate it.
+ * - `setZoneAdjacency` records (or clears) an **undirected** connection between
+ *   two zones; idempotent — re-adding an existing edge does not duplicate it (the
+ *   reducer mints a connection id + default `hidden`/`locked` flags on add).
  * - `renameZone` updates a zone's display name.
  *
  * Each is a no-op when a referenced zone id is unknown.
@@ -112,6 +117,31 @@ export type EnchantmentEvent =
   | { kind: "clearEnchantment" }
 
 /**
+ * Reveal events (UNN-464) — mutate the runtime fog overlay on the Map Instance
+ * (`reveal`; see {@link import("./map-instance").RevealState}), never the
+ * snapshotted `hidden`/`locked` flags themselves (those are immutable authored
+ * geography — reveal/unlock are overlays *on top of* them):
+ *
+ * - `revealZone` / `hideZone` add/remove a Zone from `revealedZoneIds` (the DM's
+ *   manual override; the `move → reveal` rule reveals on entry automatically).
+ * - `revealConnection` / `hideConnection` add/remove a **hidden** connection from
+ *   `revealedConnectionIds` (surface a secret passage, or re-conceal it).
+ * - `unlockConnection` / `lockConnection` add/remove a **locked** connection from
+ *   `unlockedConnectionIds` (open a barred door, or re-bar it — DM correction).
+ *
+ * Each is idempotent (re-revealing a revealed Zone is a no-op) and a no-op on an
+ * unknown Zone/connection id. Revealing/unlocking is player-visible and socially
+ * irreversible, so the DM control confirms before dispatching (PRD FR-5).
+ */
+export type RevealEvent =
+  | { kind: "revealZone"; zoneId: string }
+  | { kind: "hideZone"; zoneId: string }
+  | { kind: "revealConnection"; connectionId: string }
+  | { kind: "hideConnection"; connectionId: string }
+  | { kind: "unlockConnection"; connectionId: string }
+  | { kind: "lockConnection"; connectionId: string }
+
+/**
  * One spatial event applied to a {@link import("./map-instance").MapInstanceState}.
  * The discriminated union {@link import("@workspace/game/engine") reduceMapInstance}
  * dispatches over; its `kind`s stay in lockstep with that reducer's exhaustive
@@ -122,6 +152,7 @@ export type MapInstanceEvent =
   | MoveCombatantEvent
   | EngagementEvent
   | EnchantmentEvent
+  | RevealEvent
 
 /**
  * Runtime validator for a {@link MapInstanceEvent} arriving over the wire — the
@@ -166,6 +197,18 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
     enchantment: z.enum(ENCHANTMENT_TYPES),
   }),
   z.object({ kind: z.literal("clearEnchantment") }),
+  z.object({ kind: z.literal("revealZone"), zoneId: z.string() }),
+  z.object({ kind: z.literal("hideZone"), zoneId: z.string() }),
+  z.object({
+    kind: z.literal("revealConnection"),
+    connectionId: z.string(),
+  }),
+  z.object({ kind: z.literal("hideConnection"), connectionId: z.string() }),
+  z.object({
+    kind: z.literal("unlockConnection"),
+    connectionId: z.string(),
+  }),
+  z.object({ kind: z.literal("lockConnection"), connectionId: z.string() }),
 ])
 
 /** `true` only when `A` and `B` are mutually assignable (structurally equal). */
@@ -197,6 +240,12 @@ export const MAP_INSTANCE_EVENT_KINDS = [
   "clearEngagement",
   "applyEnchantment",
   "clearEnchantment",
+  "revealZone",
+  "hideZone",
+  "revealConnection",
+  "hideConnection",
+  "unlockConnection",
+  "lockConnection",
 ] as const
 
 const _mapInstanceEventKindsInSync: Equals<

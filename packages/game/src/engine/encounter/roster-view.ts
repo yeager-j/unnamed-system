@@ -229,12 +229,12 @@ function combatantPosition(
   instance: MapInstanceState,
   combatant: Combatant
 ): CombatantPosition | null {
-  if (Object.keys(instance.zones).length === 0) return null
+  if (Object.keys(instance.geometry.zones).length === 0) return null
   const zoneId = instance.occupancy[combatant.id]?.zoneId ?? ""
-  const current = instance.zones[zoneId] ?? null
+  const current = instance.geometry.zones[zoneId] ?? null
   const targets = current
     ? adjacentZones(instance, current.id)
-    : Object.values(instance.zones)
+    : Object.values(instance.geometry.zones)
   return { current, targets }
 }
 
@@ -346,7 +346,9 @@ function railRow(
     sp: isPc ? pcPool(pcDetail, "sp") : null,
     portraitUrl: pcDetail?.portraitUrl ?? null,
     engagement: token?.engagement ?? { status: "free" },
-    zoneName: token ? (instance.zones[token.zoneId]?.name ?? null) : null,
+    zoneName: token
+      ? (instance.geometry.zones[token.zoneId]?.name ?? null)
+      : null,
     reactionAvailable: combatant.reactionAvailable,
     counters: combatant.counters,
   }
