@@ -10,26 +10,19 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
-  type Edge,
+  type NodeMouseHandler,
   type OnNodeDrag,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { connectionFogState, isConnectionLocked } from "@workspace/game/engine"
 import type { MapInstanceState } from "@workspace/game/foundation"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
 
-import { DungeonCanvasProvider } from "./dungeon-canvas-context"
+import {
+  DungeonConnectionEdge,
+  type DungeonConnectionEdge as DungeonConnectionEdgeType,
+} from "./dungeon-connection-edge"
 import {
   DungeonTokenNode,
   type DungeonTokenNode as DungeonTokenNodeType,
@@ -43,6 +36,7 @@ const nodeTypes = {
   dungeonZone: DungeonZoneNode,
   dungeonToken: DungeonTokenNode,
 }
+const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
 export interface DungeonRosterEntry {
   name: string
@@ -131,24 +125,18 @@ function nearestZoneId(
   return bestDistance <= 200 * 200 ? best : null
 }
 
-function buildEdges(instance: MapInstanceState): Edge[] {
-  return Object.values(instance.geometry.connections).map((connection) => {
-    const playersSee =
-      connectionFogState(connection, instance.reveal) !== "stripped"
-    const locked = isConnectionLocked(connection, instance.reveal)
-    return {
-      id: connection.id,
-      source: connection.fromZoneId,
-      target: connection.toZoneId,
-      selectable: false,
-      style: {
-        strokeWidth: locked ? 2.5 : 1.5,
-        strokeDasharray: playersSee ? undefined : "6 4",
-        opacity: playersSee ? 1 : 0.5,
-      },
-      label: locked ? "🔒 locked" : undefined,
-    }
-  })
+function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
+  return Object.values(instance.geometry.connections).map((connection) => ({
+    id: connection.id,
+    type: "dungeonConnection",
+    source: connection.fromZoneId,
+    target: connection.toZoneId,
+    selectable: false,
+    data: {
+      fog: connectionFogState(connection, instance.reveal),
+      locked: isConnectionLocked(connection, instance.reveal),
+    },
+  }))
 }
 
 /**
@@ -158,19 +146,19 @@ function buildEdges(instance: MapInstanceState): Edge[] {
  * {@link MapInstanceState} on every change, so a move or reveal re-lays the board
  * with no extra state:
  *
- * - **Zones** are fixed (non-draggable) cards showing their reveal state.
- * - **Tokens** are draggable PC chips; dropping one onto a Zone fires
- *   `onMoveToken` (the engine guides-not-blocks — any Zone is accepted, the party
- *   can split). A drop landing on no Zone snaps back.
- * - **Reveal** is confirm-gated here (player-visible, socially irreversible — PRD
- *   FR-5); hiding is immediate. Connection reveal/unlock lives in the rail.
+ * - **Zones** are fixed (non-draggable) cards showing their reveal state; clicking
+ *   one fires `onSelectZone` → the host opens the Zone details sheet.
+ * - **Connections** are read-only floating edges (shared routing with the editor),
+ *   styled by their player-facing fog/lock state.
+ * - **Tokens** are draggable PC chips; dropping one onto a Zone fires `onMoveToken`
+ *   (the engine guides-not-blocks — any Zone is accepted, the party can split). A
+ *   drop landing on no Zone snaps back.
  */
 export function DungeonCanvas(props: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
   onMoveToken: (characterId: string, toZoneId: string) => void
-  onRevealZone: (zoneId: string) => void
-  onHideZone: (zoneId: string) => void
+  onSelectZone: (zoneId: string) => void
 }) {
   return (
     <ReactFlowProvider>
@@ -183,21 +171,17 @@ function DungeonCanvasInner({
   instance,
   roster,
   onMoveToken,
-  onRevealZone,
-  onHideZone,
+  onSelectZone,
 }: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
   onMoveToken: (characterId: string, toZoneId: string) => void
-  onRevealZone: (zoneId: string) => void
-  onHideZone: (zoneId: string) => void
+  onSelectZone: (zoneId: string) => void
 }) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
-  const [pendingRevealZoneId, setPendingRevealZoneId] = useState<string | null>(
-    null
-  )
+  const [edges, setEdges, onEdgesChange] =
+    useEdgesState<DungeonConnectionEdgeType>([])
 
   // Re-derive the board from the (optimistic) Instance whenever it changes — a
   // move/reveal snaps tokens + reveal badges to the new truth.
@@ -216,72 +200,52 @@ function DungeonCanvasInner({
     onMoveToken(node.data.characterId, target)
   }
 
-  function toggleZoneReveal(zoneId: string, revealed: boolean) {
-    if (revealed) {
-      setPendingRevealZoneId(zoneId)
-    } else {
-      onHideZone(zoneId)
-    }
+  const handleNodeClick: NodeMouseHandler<CanvasNode> = (_, node) => {
+    if (node.type === "dungeonZone") onSelectZone(node.data.zone.id)
   }
 
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
-    <DungeonCanvasProvider value={{ toggleZoneReveal }}>
-      <div className="relative size-full">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeDragStop={handleNodeDragStop}
-          nodesConnectable={false}
-          colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-          deleteKeyCode={null}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onNodeDragStop={handleNodeDragStop}
+      onNodeClick={handleNodeClick}
+      nodesConnectable={false}
+      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+      deleteKeyCode={null}
+      fitView
+      fitViewOptions={{ padding: 0.2 }}
+      proOptions={{ hideAttribution: true }}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+      {isEmpty && (
+        <Panel
+          position="top-center"
+          className="rounded-md border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
         >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
-          {isEmpty && (
-            <Panel
-              position="top-center"
-              className="rounded-md border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
-            >
-              This dungeon has no map yet — author it on My Maps, then recreate
-              the delve.
-            </Panel>
-          )}
-        </ReactFlow>
-
-        <AlertDialog
-          open={pendingRevealZoneId !== null}
-          onOpenChange={(open) => {
-            if (!open) setPendingRevealZoneId(null)
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reveal this zone to players?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Players will see this zone on their map. Revealing is visible to
-                everyone and can&apos;t be quietly undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  if (pendingRevealZoneId) onRevealZone(pendingRevealZoneId)
-                  setPendingRevealZoneId(null)
-                }}
-              >
-                Reveal
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </DungeonCanvasProvider>
+          This dungeon has no map yet — author it on My Maps, then recreate the
+          delve.
+        </Panel>
+      )}
+      <Panel
+        position="bottom-left"
+        className="flex flex-col gap-1 rounded-md border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 rounded-xs border border-border bg-card" />
+          Revealed to players
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 rounded-xs border border-dashed border-muted-foreground" />
+          Hidden from players
+        </span>
+      </Panel>
+    </ReactFlow>
   )
 }

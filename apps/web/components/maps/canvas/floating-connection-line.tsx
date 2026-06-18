@@ -6,7 +6,7 @@ import {
   type ConnectionLineComponentProps,
 } from "@xyflow/react"
 
-import { getEdgeParams } from "./floating-edge"
+import { getEdgeParams } from "@/components/shared/canvas/floating-edge"
 
 /**
  * The drag preview for a new connection (UNN-461) — a floating line so the preview

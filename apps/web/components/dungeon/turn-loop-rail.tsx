@@ -2,10 +2,7 @@
 
 import {
   ArrowRightIcon,
-  EyeIcon,
   FlagCheckeredIcon,
-  LockIcon,
-  LockOpenIcon,
   WarningIcon,
   XIcon,
 } from "@phosphor-icons/react/dist/ssr"
@@ -69,18 +66,15 @@ const INTERVAL_LABELS: Record<RandomEncounterInterval, string> = {
   6: "Every hour (6 turns)",
 }
 
-type PendingConfirm =
-  | { kind: "reveal-connection"; connectionId: string; label: string }
-  | { kind: "unlock-connection"; connectionId: string; label: string }
-
 /**
  * The DM run console's side rail (UNN-464) — the exploration turn loop and its
  * DM-only surfaces: the dungeon-turn counter + Advance, per-character acted-flags
- * (derived from the Instance tokens), the pure-selector reminders (dismissible,
- * component-local), the fog/lock controls for connections (reveal/unlock are
- * confirm-gated), the random-encounter reminder settings, and Finish delve. The
+ * (derived from the Instance tokens) with a "move to" select (the keyboard-path
+ * counterpart to dragging tokens), the pure-selector reminders (dismissible,
+ * component-local), the random-encounter reminder settings, and Finish delve. The
  * turn counter is the only turn signal the players ever see (no turn queue in
- * exploration — PRD FR-6).
+ * exploration — PRD FR-6). Zone reveal + connection fog/locks live in the Zone
+ * details sheet, opened by clicking a Zone on the canvas.
  */
 export function TurnLoopRail({
   dungeonState,
@@ -89,11 +83,6 @@ export function TurnLoopRail({
   onAdvanceTurn,
   onMarkActed,
   onMoveToken,
-  onRevealConnection,
-  onSearchReveal,
-  onHideConnection,
-  onUnlockConnection,
-  onLockConnection,
   onSetRandomEncountersEnabled,
   onSetRandomEncounterInterval,
   onFinishDelve,
@@ -105,11 +94,6 @@ export function TurnLoopRail({
   onAdvanceTurn: () => void
   onMarkActed: (characterId: string) => void
   onMoveToken: (characterId: string, toZoneId: string) => void
-  onRevealConnection: (connectionId: string) => void
-  onSearchReveal: (characterId: string, connectionId: string) => void
-  onHideConnection: (connectionId: string) => void
-  onUnlockConnection: (connectionId: string) => void
-  onLockConnection: (connectionId: string) => void
   onSetRandomEncountersEnabled: (enabled: boolean) => void
   onSetRandomEncounterInterval: (interval: RandomEncounterInterval) => void
   onFinishDelve: () => void
@@ -119,8 +103,6 @@ export function TurnLoopRail({
   const acted = new Set(activeActedCharacterIds(dungeonState, rosterIds))
   const reminders = dungeonReminders(dungeonState)
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set())
-  const [pending, setPending] = useState<PendingConfirm | null>(null)
-  const [searcherId, setSearcherId] = useState<string>("")
   const [confirmFinish, setConfirmFinish] = useState(false)
 
   const liveReminders = reminders.filter(
@@ -129,28 +111,9 @@ export function TurnLoopRail({
 
   const zoneName = (zoneId: string) =>
     instanceState.geometry.zones[zoneId]?.name ?? "?"
-  const connectionLabel = (connectionId: string) => {
-    const conn = instanceState.geometry.connections[connectionId]
-    return conn
-      ? `${zoneName(conn.fromZoneId)} ↔ ${zoneName(conn.toZoneId)}`
-      : connectionId
-  }
-
-  const hiddenConnections = Object.values(instanceState.geometry.connections)
-    .filter((conn) => conn.hidden)
-    .map((conn) => ({
-      id: conn.id,
-      revealed: instanceState.reveal.revealedConnectionIds.includes(conn.id),
-    }))
-  const lockedConnections = Object.values(instanceState.geometry.connections)
-    .filter((conn) => conn.locked)
-    .map((conn) => ({
-      id: conn.id,
-      unlocked: instanceState.reveal.unlockedConnectionIds.includes(conn.id),
-    }))
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-4 md:w-80">
+    <div className="flex flex-col gap-4 p-4">
       <section className="flex flex-col gap-3 rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -253,83 +216,6 @@ export function TurnLoopRail({
         )}
       </section>
 
-      {(hiddenConnections.length > 0 || lockedConnections.length > 0) && (
-        <section className="flex flex-col gap-3 rounded-lg border p-4">
-          <h2 className="font-heading text-sm font-medium">Fog &amp; locks</h2>
-
-          {hiddenConnections.map(({ id, revealed }) => (
-            <div
-              key={id}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="min-w-0 truncate">{connectionLabel(id)}</span>
-              {revealed ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={disabled}
-                  onClick={() => onHideConnection(id)}
-                >
-                  Hide
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={disabled}
-                  onClick={() =>
-                    setPending({
-                      kind: "reveal-connection",
-                      connectionId: id,
-                      label: connectionLabel(id),
-                    })
-                  }
-                >
-                  <EyeIcon />
-                  Reveal
-                </Button>
-              )}
-            </div>
-          ))}
-
-          {lockedConnections.map(({ id, unlocked }) => (
-            <div
-              key={id}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="min-w-0 truncate">{connectionLabel(id)}</span>
-              {unlocked ? (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={disabled}
-                  onClick={() => onLockConnection(id)}
-                >
-                  <LockIcon />
-                  Re-lock
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={disabled}
-                  onClick={() =>
-                    setPending({
-                      kind: "unlock-connection",
-                      connectionId: id,
-                      label: connectionLabel(id),
-                    })
-                  }
-                >
-                  <LockOpenIcon />
-                  Unlock
-                </Button>
-              )}
-            </div>
-          ))}
-        </section>
-      )}
-
       <section className="flex flex-col gap-3 rounded-lg border p-4">
         <h2 className="font-heading text-sm font-medium">Reminders</h2>
         <Label className="flex items-center justify-between gap-2 text-sm">
@@ -375,73 +261,6 @@ export function TurnLoopRail({
         Finish delve
       </Button>
 
-      <AlertDialog
-        open={pending !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPending(null)
-            setSearcherId("")
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pending?.kind === "reveal-connection"
-                ? "Reveal this passage to players?"
-                : "Unlock this passage?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pending?.label}. This is visible to players and can&apos;t be
-              quietly undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          {pending?.kind === "reveal-connection" && rosterIds.length > 0 && (
-            <Label className="flex flex-col gap-1.5 text-sm">
-              Searched by (optional)
-              <Select
-                value={searcherId}
-                onValueChange={(value) => setSearcherId(value ?? "")}
-                disabled={disabled}
-              >
-                <SelectTrigger size="sm" aria-label="Searched by">
-                  <SelectValue placeholder="No one — just reveal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rosterIds.map((characterId) => (
-                    <SelectItem key={characterId} value={characterId}>
-                      {roster[characterId]?.name ?? "Unknown"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Label>
-          )}
-
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (pending?.kind === "reveal-connection") {
-                  if (searcherId) {
-                    onSearchReveal(searcherId, pending.connectionId)
-                  } else {
-                    onRevealConnection(pending.connectionId)
-                  }
-                } else if (pending?.kind === "unlock-connection") {
-                  onUnlockConnection(pending.connectionId)
-                }
-                setPending(null)
-                setSearcherId("")
-              }}
-            >
-              {pending?.kind === "reveal-connection" ? "Reveal" : "Unlock"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -463,6 +282,6 @@ export function TurnLoopRail({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </aside>
+    </div>
   )
 }
