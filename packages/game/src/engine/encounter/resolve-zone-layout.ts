@@ -149,7 +149,7 @@ export function resolveZoneLayout(
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): ZoneLayoutView {
-  const zoneEntries = Object.values(instance.zones)
+  const zoneEntries = Object.values(instance.geometry.zones)
   const zoneIds = new Set(zoneEntries.map((zone) => zone.id))
 
   const tokenOf = (combatant: Combatant) =>

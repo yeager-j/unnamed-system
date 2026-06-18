@@ -1,20 +1,29 @@
 import { describe, expect, it } from "vitest"
 
-import { makeMapInstanceState } from "@workspace/game/engine/__fixtures__/encounter"
-import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
+import {
+  makeConnection,
+  makeGeometry,
+  makeMapInstanceState,
+  makeZone,
+} from "@workspace/game/engine/__fixtures__/encounter"
+import {
+  adjacencyMap,
+  adjacentZones,
+} from "@workspace/game/engine/encounter/zone-graph"
 
 function instanceWithGraph() {
   return makeMapInstanceState({
-    zones: {
-      "zone-a": { id: "zone-a", name: "Courtyard" },
-      "zone-b": { id: "zone-b", name: "Hall" },
-      "zone-c": { id: "zone-c", name: "Cellar" },
-    },
-    adjacency: {
-      "zone-a": ["zone-b", "zone-c"],
-      "zone-b": ["zone-a"],
-      "zone-c": ["zone-a"],
-    },
+    geometry: makeGeometry(
+      [
+        makeZone("zone-a", { name: "Courtyard" }),
+        makeZone("zone-b", { name: "Hall" }),
+        makeZone("zone-c", { name: "Cellar" }),
+      ],
+      [
+        makeConnection("conn-ab", "zone-a", "zone-b"),
+        makeConnection("conn-ac", "zone-a", "zone-c"),
+      ]
+    ),
   })
 }
 
@@ -25,18 +34,45 @@ describe("adjacentZones", () => {
     ).toEqual(["Hall", "Cellar"])
   })
 
-  it("returns [] for a zone with no adjacency entry", () => {
+  it("returns [] for a zone with no connections", () => {
     expect(adjacentZones(instanceWithGraph(), "zone-orphan")).toEqual([])
   })
 
-  it("skips an adjacency id that points at a removed zone", () => {
-    const instance = instanceWithGraph()
+  it("skips a connection that points at a removed zone", () => {
     const withDangling = makeMapInstanceState({
-      ...instance,
-      adjacency: { ...instance.adjacency, "zone-a": ["zone-b", "ghost"] },
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a", { name: "Courtyard" }),
+          makeZone("zone-b", { name: "Hall" }),
+        ],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b"),
+          makeConnection("conn-ag", "zone-a", "ghost"),
+        ]
+      ),
     })
     expect(adjacentZones(withDangling, "zone-a").map((z) => z.id)).toEqual([
       "zone-b",
     ])
+  })
+})
+
+describe("adjacencyMap", () => {
+  it("derives the undirected zone → neighbor-ids graph from connections", () => {
+    const map = adjacencyMap(instanceWithGraph().geometry)
+    expect(map["zone-a"]).toEqual(["zone-b", "zone-c"])
+    expect(map["zone-b"]).toEqual(["zone-a"])
+    expect(map["zone-c"]).toEqual(["zone-a"])
+  })
+
+  it("omits connections that dangle to a removed zone", () => {
+    const geometry = makeGeometry(
+      [makeZone("zone-a"), makeZone("zone-b")],
+      [
+        makeConnection("conn-ab", "zone-a", "zone-b"),
+        makeConnection("conn-ag", "zone-a", "ghost"),
+      ]
+    )
+    expect(adjacencyMap(geometry)["zone-a"]).toEqual(["zone-b"])
   })
 })

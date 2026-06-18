@@ -4,7 +4,7 @@ import { MapPinIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, type KeyboardEvent } from "react"
 
 import {
-  type MapInstanceState,
+  type MapGeometry,
   type ZoneGraphEvent,
 } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
@@ -36,8 +36,8 @@ export function ZonesPanel({
   onZoneEvent,
   disabled,
 }: {
-  zones: MapInstanceState["zones"]
-  adjacency: MapInstanceState["adjacency"]
+  zones: MapGeometry["zones"]
+  adjacency: Record<string, string[]>
   onZoneEvent: (event: ZoneGraphEvent) => void
   disabled?: boolean
 }) {
@@ -164,8 +164,8 @@ function NeighborsControl({
   onZoneEvent,
   disabled,
 }: {
-  zone: MapInstanceState["zones"][string]
-  allZones: MapInstanceState["zones"][string][]
+  zone: MapGeometry["zones"][string]
+  allZones: MapGeometry["zones"][string][]
   neighbors: string[]
   onZoneEvent: (event: ZoneGraphEvent) => void
   disabled?: boolean

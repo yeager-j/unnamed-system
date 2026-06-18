@@ -203,15 +203,15 @@ describe("createMapInstance", () => {
       },
     })
     // Geometry + enchantment are authored ad hoc, empty at mint.
-    expect(instance.zones).toEqual({})
-    expect(instance.adjacency).toEqual({})
+    expect(instance.geometry.zones).toEqual({})
+    expect(instance.geometry.connections).toEqual({})
     expect(instance.enchantment).toBeNull()
   })
 
   it("yields a blank Instance for an empty roster (the create-action shape)", () => {
     const instance = createMapInstance(sequentialIds())([])
     expect(instance.occupancy).toEqual({})
-    expect(instance.zones).toEqual({})
+    expect(instance.geometry.zones).toEqual({})
   })
 })
 

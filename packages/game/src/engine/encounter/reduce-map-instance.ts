@@ -6,17 +6,19 @@ import {
   unlink,
 } from "@workspace/game/engine/encounter/engagement-graph"
 import { MAX_FORTE } from "@workspace/game/foundation/combat/enchantment"
-import type {
-  MapInstanceState,
-  Zone,
-} from "@workspace/game/foundation/encounter/map-instance"
+import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import type {
   EnchantmentEvent,
   EngagementEvent,
   MapInstanceEvent,
   MoveCombatantEvent,
+  RevealEvent,
   ZoneGraphEvent,
 } from "@workspace/game/foundation/encounter/map-instance-event"
+import type {
+  MapConnection,
+  MapZone,
+} from "@workspace/game/foundation/map/geometry"
 
 /**
  * The pure Map-Instance reducer (UNN-454): applies a {@link MapInstanceEvent} to
@@ -25,19 +27,15 @@ import type {
  * (deterministic, no I/O), **Immer**-drafted, **curried deps-first**
  * (`reduceMapInstance(newId)(state, event)`), and a **grouped exhaustive `switch`
  * with no `default`** so a new {@link MapInstanceEvent} kind fails to compile here
- * ("not all code paths return a value") until it is handled. `newId` mints a Zone
- * id for an `addZone` that omits one (the same injectable as the session reducer);
- * no `GameData` lookup is needed — spatial transitions consult no catalog.
+ * until it is handled. `newId` mints a Zone id for an `addZone` that omits one and
+ * the id for a new `setZoneAdjacency` connection; no `GameData` lookup is needed —
+ * spatial transitions consult no catalog.
  *
  * It owns every spatial transition once the spatial state lives on the Instance:
- * the zone graph, token occupancy (with the move→break-engagement rule),
- * engagement, and the Zone Enchantment. The behavior is the shipped session-slice
- * logic relocated onto the Instance shape — engagement rides each occupancy token
- * (`occupancy[combatantId].engagement`, kept symmetric by mirror-writes) and
- * enchantment is the global singleton. **Additive** (UNN-454): this is built and
- * tested but not yet wired as the spatial owner — the M0 cutover (UNN-459) does
- * that. `reveal`/`hide`/`unlock` + `move→reveal` arrive with reveal-state in
- * M1/M2 (UNN-461 / UNN-464).
+ * the zone graph (geometry — `zones` + id-keyed `connections`, M2/UNN-464), token
+ * occupancy (with the `move → break-engagement` **and** `move → reveal` rules),
+ * engagement, the Zone Enchantment, and the runtime fog overlay (reveal/hide/
+ * unlock over the snapshotted `hidden`/`locked` flags).
  */
 export function reduceMapInstance(newId: () => string) {
   return (
@@ -61,38 +59,46 @@ export function reduceMapInstance(newId: () => string) {
       case "applyEnchantment":
       case "clearEnchantment":
         return reduceEnchantmentEvent(state, event)
+
+      case "revealZone":
+      case "hideZone":
+      case "revealConnection":
+      case "hideConnection":
+      case "unlockConnection":
+      case "lockConnection":
+        return reduceRevealEvent(state, event)
     }
   }
 }
 
-/** Records `to` in `from`'s adjacency list, creating it if absent; idempotent. */
-function addEdge(
-  draft: Draft<MapInstanceState>,
-  from: string,
-  to: string
-): void {
-  const neighbors = (draft.adjacency[from] ??= [])
-  if (!neighbors.includes(to)) neighbors.push(to)
-}
-
-/** Drops `to` from `from`'s adjacency list (a no-op when absent). */
-function removeEdge(
-  draft: Draft<MapInstanceState>,
-  from: string,
-  to: string
-): void {
-  const neighbors = draft.adjacency[from]
-  if (neighbors === undefined) return
-  const index = neighbors.indexOf(to)
-  if (index !== -1) neighbors.splice(index, 1)
+/** The connection id joining the unordered pair `(a, b)`, or `undefined`. */
+function connectionIdBetween(
+  connections: Draft<MapInstanceState>["geometry"]["connections"],
+  a: string,
+  b: string
+): string | undefined {
+  for (const [id, conn] of Object.entries(connections)) {
+    if (
+      (conn.fromZoneId === a && conn.toZoneId === b) ||
+      (conn.fromZoneId === b && conn.toZoneId === a)
+    ) {
+      return id
+    }
+  }
+  return undefined
 }
 
 /**
- * Zone-graph slice, relocated from `reduce/zones.ts`. `removeZone` also clears the
- * Enchantment when it sat on the removed Zone (both are Instance state, so keeping
- * them consistent is this reducer's own job) and leaves occupancy untouched —
- * placement cleanup is a separate concern, the shipped parity. Each event no-ops
- * on an unknown Zone id (Immer returns the input untouched when no draft mutates).
+ * Zone-graph slice — mutates the Instance geometry (`geometry.zones` +
+ * `geometry.connections`). M2 (UNN-464) converged the geometry onto the rich
+ * template shape, so `addZone` records a full {@link MapZone} (defaulting
+ * `position`/`description` for the ad-hoc combat-setup surface that authors only
+ * name/notes) and `setZoneAdjacency` mints an id-keyed {@link MapConnection} with
+ * default flags. `removeZone` also prunes every connection touching the zone and
+ * clears the Enchantment when it sat on the removed Zone (both are Instance state,
+ * so keeping them consistent is this reducer's own job) and leaves occupancy
+ * untouched — placement cleanup is a separate concern. Each event no-ops on an
+ * unknown Zone id (Immer returns the input untouched when no draft mutates).
  */
 function reduceZoneGraphEvent(
   state: MapInstanceState,
@@ -103,19 +109,30 @@ function reduceZoneGraphEvent(
     switch (event.kind) {
       case "addZone": {
         const id = event.zoneId ?? newId()
-        const zone: Zone = { id, name: event.name }
-        if (event.notes !== undefined) zone.notes = event.notes
-        draft.zones[id] = zone
+        const zone: MapZone = {
+          id,
+          name: event.name,
+          description: "",
+          dmNotes: event.notes ?? "",
+          position: { x: 0, y: 0 },
+        }
+        draft.geometry.zones[id] = zone
         return
       }
 
       case "removeZone": {
-        // Stryker disable next-line ConditionalExpression: equivalent — removing an unknown Zone mutates nothing downstream (the deletes/edge-prune/enchantment-check all no-op), so Immer returns the same ref with or without this short-circuit.
-        if (draft.zones[event.zoneId] === undefined) return
-        delete draft.zones[event.zoneId]
-        delete draft.adjacency[event.zoneId]
-        for (const zoneId of Object.keys(draft.adjacency)) {
-          removeEdge(draft, zoneId, event.zoneId)
+        // Stryker disable next-line ConditionalExpression: equivalent — removing an unknown Zone mutates nothing downstream (the deletes/connection-prune/enchantment-check all no-op), so Immer returns the same ref with or without this short-circuit.
+        if (draft.geometry.zones[event.zoneId] === undefined) return
+        delete draft.geometry.zones[event.zoneId]
+        for (const [connId, conn] of Object.entries(
+          draft.geometry.connections
+        )) {
+          if (
+            conn.fromZoneId === event.zoneId ||
+            conn.toZoneId === event.zoneId
+          ) {
+            delete draft.geometry.connections[connId]
+          }
         }
         if (draft.enchantment?.zoneId === event.zoneId) {
           draft.enchantment = null
@@ -126,21 +143,33 @@ function reduceZoneGraphEvent(
       case "setZoneAdjacency": {
         if (event.zoneIdA === event.zoneIdB) return
         const bothExist =
-          draft.zones[event.zoneIdA] !== undefined &&
-          draft.zones[event.zoneIdB] !== undefined
+          draft.geometry.zones[event.zoneIdA] !== undefined &&
+          draft.geometry.zones[event.zoneIdB] !== undefined
         if (!bothExist) return
+        const existing = connectionIdBetween(
+          draft.geometry.connections,
+          event.zoneIdA,
+          event.zoneIdB
+        )
         if (event.adjacent) {
-          addEdge(draft, event.zoneIdA, event.zoneIdB)
-          addEdge(draft, event.zoneIdB, event.zoneIdA)
-        } else {
-          removeEdge(draft, event.zoneIdA, event.zoneIdB)
-          removeEdge(draft, event.zoneIdB, event.zoneIdA)
+          if (existing !== undefined) return
+          const id = newId()
+          const connection: MapConnection = {
+            id,
+            fromZoneId: event.zoneIdA,
+            toZoneId: event.zoneIdB,
+            hidden: false,
+            locked: false,
+          }
+          draft.geometry.connections[id] = connection
+        } else if (existing !== undefined) {
+          delete draft.geometry.connections[existing]
         }
         return
       }
 
       case "renameZone": {
-        const zone = draft.zones[event.zoneId]
+        const zone = draft.geometry.zones[event.zoneId]
         if (zone === undefined) return
         zone.name = event.name
         return
@@ -152,9 +181,16 @@ function reduceZoneGraphEvent(
 /**
  * Placement slice, relocated from `reduce/placement.ts`. Sets the token's `zoneId`
  * verbatim (guides, doesn't block a non-adjacent target). No-op on an unknown
- * combatant (no token) or a move to the occupied Zone. Engagement is a same-Zone
- * lock, so leaving a Zone severs every engagement with a combatant *not* co-located
- * in the destination, symmetrically on both tokens.
+ * combatant (no token) or a move to the occupied Zone. Two consequences of leaving
+ * the old Zone / entering the new one:
+ *
+ * - **`move → break-engagement`**: engagement is a same-Zone lock, so leaving a
+ *   Zone severs every engagement with a combatant *not* co-located in the
+ *   destination, symmetrically on both tokens.
+ * - **`move → reveal`** (UNN-464): entering a Zone reveals it to players
+ *   (idempotent; only a real Zone, so a guides-not-blocks move to a phantom id
+ *   adds no phantom reveal). Non-hidden neighbors surface as *known exits* by
+ *   derivation, never written here — see {@link import("./resolve-reveal").resolveRevealView}.
  */
 function reduceMoveEvent(
   state: MapInstanceState,
@@ -166,6 +202,13 @@ function reduceMoveEvent(
     // Stryker disable next-line ConditionalExpression: equivalent — moving to the occupied Zone writes the same `zoneId` (an Immer no-op ⇒ same ref) and severs nothing (legal engagements are same-Zone), so the short-circuit is unobservable.
     if (token.zoneId === event.toZoneId) return
     token.zoneId = event.toZoneId
+
+    if (
+      draft.geometry.zones[event.toZoneId] !== undefined &&
+      !draft.reveal.revealedZoneIds.includes(event.toZoneId)
+    ) {
+      draft.reveal.revealedZoneIds.push(event.toZoneId)
+    }
 
     for (const targetId of engagedWith(token)) {
       if (draft.occupancy[targetId]?.zoneId === event.toZoneId) continue
@@ -241,7 +284,7 @@ function reduceEnchantmentEvent(
   return produce(state, (draft) => {
     switch (event.kind) {
       case "applyEnchantment": {
-        if (draft.zones[event.zoneId] === undefined) return
+        if (draft.geometry.zones[event.zoneId] === undefined) return
 
         const current = draft.enchantment
         const sameZoneAndType =
@@ -259,6 +302,61 @@ function reduceEnchantmentEvent(
         draft.enchantment = null
         return
       }
+    }
+  })
+}
+
+/** Adds `id` to the set-as-array if absent; idempotent. */
+function addToSet(set: string[], id: string): void {
+  if (!set.includes(id)) set.push(id)
+}
+
+/** Drops `id` from the set-as-array (a no-op when absent). */
+function removeFromSet(set: string[], id: string): void {
+  const index = set.indexOf(id)
+  if (index !== -1) set.splice(index, 1)
+}
+
+/**
+ * Reveal slice (UNN-464) — mutates the runtime fog overlay (`reveal`) over the
+ * immutable authored `hidden`/`locked` flags. Reveal/unlock (the *add* ops) no-op
+ * on an unknown Zone/connection id so a phantom can't enter the set; hide/lock
+ * (the *remove* ops) drop the id, idempotent whether present or not. The
+ * `move → reveal` rule lives in {@link reduceMoveEvent}; these are the DM's manual
+ * corrections.
+ */
+function reduceRevealEvent(
+  state: MapInstanceState,
+  event: RevealEvent
+): MapInstanceState {
+  return produce(state, (draft) => {
+    switch (event.kind) {
+      case "revealZone":
+        if (draft.geometry.zones[event.zoneId] === undefined) return
+        addToSet(draft.reveal.revealedZoneIds, event.zoneId)
+        return
+
+      case "hideZone":
+        removeFromSet(draft.reveal.revealedZoneIds, event.zoneId)
+        return
+
+      case "revealConnection":
+        if (draft.geometry.connections[event.connectionId] === undefined) return
+        addToSet(draft.reveal.revealedConnectionIds, event.connectionId)
+        return
+
+      case "hideConnection":
+        removeFromSet(draft.reveal.revealedConnectionIds, event.connectionId)
+        return
+
+      case "unlockConnection":
+        if (draft.geometry.connections[event.connectionId] === undefined) return
+        addToSet(draft.reveal.unlockedConnectionIds, event.connectionId)
+        return
+
+      case "lockConnection":
+        removeFromSet(draft.reveal.unlockedConnectionIds, event.connectionId)
+        return
     }
   })
 }

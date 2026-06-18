@@ -4,6 +4,7 @@ import { PlusIcon, SkullIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 
 import {
+  adjacencyMap,
   buildSetupCombatantLabels,
   compareInitiative,
   engageableTargets,
@@ -79,8 +80,8 @@ export function EncounterSetup({
   const combatants = session.combatants.map((combatant) =>
     toCombatantSetup(combatant, instanceState.occupancy[combatant.id])
   )
-  const zones = instanceState.zones
-  const adjacency = instanceState.adjacency
+  const zones = instanceState.geometry.zones
+  const adjacency = adjacencyMap(instanceState.geometry)
 
   const addedCharacterIds = new Set(
     combatants.flatMap((combatant) =>

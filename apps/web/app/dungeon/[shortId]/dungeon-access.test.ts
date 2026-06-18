@@ -71,7 +71,16 @@ const campaignRow = (dmUserId: string): CampaignRow =>
 const instanceRow: MapInstanceRow = {
   id: "mi-1",
   mapId: null,
-  state: { zones: {}, adjacency: {}, occupancy: {}, enchantment: null },
+  state: {
+    geometry: { zones: {}, connections: {} },
+    occupancy: {},
+    enchantment: null,
+    reveal: {
+      revealedZoneIds: [],
+      revealedConnectionIds: [],
+      unlockedConnectionIds: [],
+    },
+  },
   version: 0,
   createdAt: FIXED_DATE,
   updatedAt: FIXED_DATE,
