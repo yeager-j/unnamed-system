@@ -3,16 +3,15 @@
 import dynamic from "next/dynamic"
 import { useState, useSyncExternalStore } from "react"
 
-import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { CampaignBackLink } from "@/components/combat/campaign-back-link"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
+import { DungeonStatusPanel } from "./dungeon-status-panel"
 import { DungeonZoneSheet } from "./dungeon-zone-sheet"
-import { TurnLoopRail } from "./turn-loop-rail"
+import { TurnLoopBar } from "./turn-loop-bar"
 import { useDungeonConsole } from "./use-dungeon-console"
 
 // React Flow measures the DOM, so the canvas renders client-only against a
@@ -85,8 +84,6 @@ function DungeonRunConsoleBody({
     dispatch,
     searchReveal,
     finishDelve,
-    setRandomEncountersEnabled,
-    setRandomEncounterInterval,
   } = useDungeonConsole(dungeon, instance)
 
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
@@ -95,58 +92,54 @@ function DungeonRunConsoleBody({
     : null
 
   return (
-    <main className="flex flex-col lg:h-[calc(100svh-3.5rem)] lg:overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          {campaignShortId ? (
-            <CampaignBackLink campaignShortId={campaignShortId} />
-          ) : null}
-          <h1 className="truncate font-heading text-xl font-medium">
-            {dungeon.name}
-          </h1>
-        </div>
-        <Badge variant="secondary">Delve · running</Badge>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="border-b lg:w-80 lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-          <TurnLoopRail
-            dungeonState={dungeonState}
-            instanceState={instanceState}
-            roster={roster}
-            disabled={isPending}
-            onAdvanceTurn={() => dispatch({ kind: "advanceTurn" })}
-            onMarkActed={(characterId) =>
-              dispatch({ kind: "markActed", characterId })
+    <main className="relative min-h-0 flex-1">
+      <div className="absolute inset-0">
+        <DungeonCanvas
+          instance={instanceState}
+          roster={roster}
+          onRevealZone={(zoneId) => dispatch({ kind: "revealZone", zoneId })}
+          onHideZone={(zoneId) => dispatch({ kind: "hideZone", zoneId })}
+          onMoveParty={(zoneId) => {
+            for (const [characterId, token] of Object.entries(
+              instanceState.occupancy
+            )) {
+              if (token.zoneId !== zoneId) {
+                dispatch({
+                  kind: "moveCombatant",
+                  combatantId: characterId,
+                  toZoneId: zoneId,
+                })
+              }
             }
-            onMoveToken={(characterId, toZoneId) =>
-              dispatch({
-                kind: "moveCombatant",
-                combatantId: characterId,
-                toZoneId,
-              })
-            }
-            onSetRandomEncountersEnabled={setRandomEncountersEnabled}
-            onSetRandomEncounterInterval={setRandomEncounterInterval}
-            onFinishDelve={finishDelve}
-          />
-        </div>
-
-        <div className="relative h-[55vh] min-h-0 lg:h-auto lg:flex-1">
-          <DungeonCanvas
-            instance={instanceState}
-            roster={roster}
-            onMoveToken={(characterId, toZoneId) =>
-              dispatch({
-                kind: "moveCombatant",
-                combatantId: characterId,
-                toZoneId,
-              })
-            }
-            onSelectZone={setSelectedZoneId}
-          />
-        </div>
+          }}
+          onSelectZone={setSelectedZoneId}
+        />
       </div>
+
+      <DungeonStatusPanel
+        name={dungeon.name}
+        campaignShortId={campaignShortId}
+        dungeonState={dungeonState}
+      />
+
+      <TurnLoopBar
+        dungeonState={dungeonState}
+        instanceState={instanceState}
+        roster={roster}
+        disabled={isPending}
+        onAdvanceTurn={() => dispatch({ kind: "advanceTurn" })}
+        onMarkActed={(characterId) =>
+          dispatch({ kind: "markActed", characterId })
+        }
+        onMoveToken={(characterId, toZoneId) =>
+          dispatch({
+            kind: "moveCombatant",
+            combatantId: characterId,
+            toZoneId,
+          })
+        }
+        onFinishDelve={finishDelve}
+      />
 
       <DungeonZoneSheet
         zone={selectedZone}

@@ -1,11 +1,6 @@
 "use client"
 
-import {
-  ArrowLeftIcon,
-  CaretDownIcon,
-  CaretUpIcon,
-} from "@phosphor-icons/react/dist/ssr"
-import Link from "next/link"
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -19,6 +14,7 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { CanvasPanel } from "@/components/shared/canvas/canvas-panel"
 import type { MapSaveStatus } from "@/hooks/use-map-autosave"
 
 import { DeleteMapButton } from "./delete-map-button"
@@ -52,81 +48,70 @@ export function MapSettingsPanel({
   const [expanded, setExpanded] = useState(true)
 
   return (
-    <Collapsible
-      open={expanded}
-      onOpenChange={setExpanded}
-      className="w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-none border bg-popover shadow-lg"
-    >
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Back to My Maps"
-          nativeButton={false}
-          render={<Link href="/maps" />}
-        >
-          <ArrowLeftIcon />
-        </Button>
-        <h1 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
-          {name.value || "Untitled map"}
-        </h1>
-        <CollapsibleTrigger
-          render={
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label={
-                expanded ? "Collapse map settings" : "Expand map settings"
-              }
-            />
-          }
-        >
-          {expanded ? <CaretUpIcon /> : <CaretDownIcon />}
-        </CollapsibleTrigger>
-      </div>
-
-      <CollapsibleContent>
-        <div className="flex flex-col gap-4 px-3 pb-3">
-          <div className="flex flex-col gap-1.5">
-            <Label
-              htmlFor="map-name"
-              className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
-            >
-              Map name
-            </Label>
-            <Input
-              id="map-name"
-              value={name.value}
-              maxLength={100}
-              onChange={(event) => name.onChange(event.target.value)}
-              onBlur={name.flush}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault()
-                  event.currentTarget.blur()
-                } else if (event.key === "Escape") {
-                  event.preventDefault()
-                  name.revert()
-                  event.currentTarget.blur()
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CanvasPanel
+        backHref="/maps"
+        backLabel="Back to My Maps"
+        title={name.value || "Untitled map"}
+        actions={
+          <CollapsibleTrigger
+            render={
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={
+                  expanded ? "Collapse map settings" : "Expand map settings"
                 }
-              }}
-            />
+              />
+            }
+          >
+            {expanded ? <CaretUpIcon /> : <CaretDownIcon />}
+          </CollapsibleTrigger>
+        }
+      >
+        <CollapsibleContent>
+          <div className="flex flex-col gap-4 px-3 pb-3">
+            <div className="flex flex-col gap-1.5">
+              <Label
+                htmlFor="map-name"
+                className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+              >
+                Map name
+              </Label>
+              <Input
+                id="map-name"
+                value={name.value}
+                maxLength={100}
+                onChange={(event) => name.onChange(event.target.value)}
+                onBlur={name.flush}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    event.currentTarget.blur()
+                  } else if (event.key === "Escape") {
+                    event.preventDefault()
+                    name.revert()
+                    event.currentTarget.blur()
+                  }
+                }}
+              />
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <SaveStatus save={save} />
+              <span className="tabular-nums">
+                {zoneCount} {zoneCount === 1 ? "zone" : "zones"} ·{" "}
+                {connectionCount}{" "}
+                {connectionCount === 1 ? "connection" : "connections"}
+              </span>
+            </div>
+
+            <DeleteMapButton mapId={mapId} mapName={name.value} />
           </div>
-
-          <Separator />
-
-          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-            <SaveStatus save={save} />
-            <span className="tabular-nums">
-              {zoneCount} {zoneCount === 1 ? "zone" : "zones"} ·{" "}
-              {connectionCount}{" "}
-              {connectionCount === 1 ? "connection" : "connections"}
-            </span>
-          </div>
-
-          <DeleteMapButton mapId={mapId} mapName={name.value} />
-        </div>
-      </CollapsibleContent>
+        </CollapsibleContent>
+      </CanvasPanel>
     </Collapsible>
   )
 }
