@@ -50,11 +50,11 @@ export type DungeonZoneNode = Node<DungeonZoneData, "dungeonZone">
  * the Zone name, the occupant count in the header action, and the party tokens
  * rendered **inside** the card as side-tinted chips. Reveal state reads
  * **non-by-color** — an eye-slash glyph + a muted card when players can't see it
- * yet. Selecting it opens the Zone details sheet (description, DM notes, exits,
- * reveal/unlock + Move party), driven by the host's `onNodeClick`. The hidden
- * source/target handles only need to *exist* — React Flow won't create an edge for
- * a node with no handles — while the floating-edge router decides where the
- * connection actually attaches.
+ * yet. Selecting it reveals a {@link NodeToolbar} whose actions (reveal/hide, Move
+ * party here, open the Zone details sheet) dispatch through {@link useDungeonCanvas}.
+ * The hidden source/target handles only need to *exist* — React Flow won't create
+ * an edge for a node with no handles — while the floating-edge router decides where
+ * the connection actually attaches.
  */
 export function DungeonZoneNode({
   data,

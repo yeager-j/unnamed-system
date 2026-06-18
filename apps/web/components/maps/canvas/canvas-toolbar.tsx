@@ -1,8 +1,6 @@
 "use client"
 
 import {
-  CursorIcon,
-  HandIcon,
   LineSegmentIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
@@ -23,13 +21,8 @@ import {
 
 import type { ToolMode } from "./tool-mode"
 
-/** The two viewport tools (icon-only) — how a drag is interpreted on the pane. */
-const NAV_MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
-  { mode: "select", label: "Select", icon: <CursorIcon /> },
-  { mode: "pan", label: "Pan", icon: <HandIcon /> },
-]
-
-/** The two authoring tools (icon + label) — what a click creates. */
+/** The two authoring tools (icon + label) — what a click creates. Toggling one off
+ *  returns to the neutral `select` mode (scroll-pan + box-select). */
 const CREATE_MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
   { mode: "addZone", label: "Zone", icon: <PlusSquareIcon /> },
   { mode: "connect", label: "Connect", icon: <LineSegmentIcon /> },
@@ -43,11 +36,11 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * The bottom-centered floating tool palette (UNN-461) — FigJam-style. Two viewport
- * tools (**Select** ▸ **Pan**), the two authoring tools (**Zone** ▸ **Connect**),
- * then a zoom cluster: zoom-out, a live zoom-percentage readout that fits the view
- * on click, and zoom-in. Reduced-motion callers get instant (un-animated) viewport
- * changes (PRD a11y).
+ * The bottom-centered floating tool palette (UNN-461) — FigJam-style. The two
+ * authoring tools (**Zone** ▸ **Connect**), then a zoom cluster: zoom-out, a live
+ * zoom-percentage readout that fits the view on click, and zoom-in. There's no
+ * Select/Pan tool — the canvas pans on scroll and box-selects on drag by default.
+ * Reduced-motion callers get instant (un-animated) viewport changes (PRD a11y).
  */
 export function CanvasToolbar({
   mode,
@@ -65,35 +58,12 @@ export function CanvasToolbar({
       <TooltipProvider delay={300}>
         <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
           <ButtonGroup>
-            {NAV_MODES.map(({ mode: value, label, icon }) => (
-              <Tooltip key={value}>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      size="icon"
-                      variant={mode === value ? "secondary" : "ghost"}
-                      aria-pressed={mode === value}
-                      aria-label={label}
-                      onClick={() => onModeChange(value)}
-                    />
-                  }
-                >
-                  {icon}
-                </TooltipTrigger>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </ButtonGroup>
-
-          <Separator orientation="vertical" />
-
-          <ButtonGroup>
             {CREATE_MODES.map(({ mode: value, label, icon }) => (
               <Button
                 key={value}
                 variant={mode === value ? "secondary" : "ghost"}
                 aria-pressed={mode === value}
-                onClick={() => onModeChange(value)}
+                onClick={() => onModeChange(mode === value ? "select" : value)}
               >
                 {icon}
                 {label}

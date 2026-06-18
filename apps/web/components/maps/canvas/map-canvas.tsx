@@ -281,9 +281,9 @@ function MapCanvasInner({
           onNodeDragStop={handleNodeDragStop}
           onPaneClick={handlePaneClick}
           onDoubleClick={handlePaneDoubleClick}
-          nodesDraggable={editable && mode !== "connect" && mode !== "pan"}
+          nodesDraggable={editable && mode !== "connect"}
           nodesConnectable={editable}
-          elementsSelectable={editable && mode !== "pan"}
+          elementsSelectable={editable}
           zoomOnDoubleClick={!editable}
           connectionMode={ConnectionMode.Loose}
           connectionLineComponent={FloatingConnectionLine}
@@ -294,10 +294,7 @@ function MapCanvasInner({
           panOnScroll
           selectionOnDrag
           panOnDrag={false}
-          className={cn(
-            mode === "addZone" && "cursor-copy",
-            mode === "pan" && "cursor-grab"
-          )}
+          className={cn(mode === "addZone" && "cursor-copy")}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
           {editable && <CanvasToolbar mode={mode} onModeChange={setMode} />}

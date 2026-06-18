@@ -1,7 +1,10 @@
 "use client"
 
-import { CheckIcon, MapPinIcon } from "@phosphor-icons/react/dist/ssr"
-import { ArrowLeftIcon } from "@phosphor-icons/react/ssr"
+import {
+  ArrowLeftIcon,
+  CheckIcon,
+  MapPinIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -32,7 +35,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { DungeonRow } from "@/lib/db"
+import type { DungeonRow } from "@/lib/db"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
