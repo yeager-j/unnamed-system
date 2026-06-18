@@ -5,15 +5,14 @@ import { mapInstanceEventSchema } from "@workspace/game/foundation"
 import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
-/** The reveal-overlay events a search may fire — the subset of spatial events this
- *  gesture couples with `markActed`. A move/geometry edit is never a "search". */
+/** The reveal-overlay events a search may fire — the **additive** subset (a search
+ *  uncovers or opens; it never hides or re-locks) this gesture couples with
+ *  `markActed`. Hiding/re-locking is a DM correction via `applyDungeonEvent`, and a
+ *  move/geometry edit is never a "search". */
 const REVEAL_EVENT_KINDS = [
   "revealZone",
-  "hideZone",
   "revealConnection",
-  "hideConnection",
   "unlockConnection",
-  "lockConnection",
 ] as const
 
 /**

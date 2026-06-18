@@ -1,6 +1,5 @@
 "use client"
 
-import { EyeSlashIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import {
   BaseEdge,
   EdgeLabelRenderer,
@@ -10,6 +9,7 @@ import {
 
 import type { ConnectionFogState } from "@workspace/game/engine"
 
+import { EdgeFlagBadge } from "@/components/shared/canvas/edge-flag-badge"
 import { useFloatingEdgePath } from "@/components/shared/canvas/use-floating-edge-path"
 
 export type DungeonConnectionEdgeData = {
@@ -61,15 +61,12 @@ export function DungeonConnectionEdge({
 
       {(!playersSee || locked) && (
         <EdgeLabelRenderer>
-          <div
-            style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            }}
-            className="pointer-events-none absolute flex items-center gap-0.5 rounded-full border bg-background px-1 py-0.5 text-muted-foreground shadow-sm"
-          >
-            {!playersSee && <EyeSlashIcon className="size-3" aria-hidden />}
-            {locked && <LockIcon className="size-3" aria-hidden />}
-          </div>
+          <EdgeFlagBadge
+            labelX={labelX}
+            labelY={labelY}
+            hidden={!playersSee}
+            locked={locked}
+          />
         </EdgeLabelRenderer>
       )}
     </>

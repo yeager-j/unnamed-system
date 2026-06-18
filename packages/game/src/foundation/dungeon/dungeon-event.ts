@@ -1,6 +1,7 @@
 import { z } from "zod/v4"
 
 import type { MapInstanceEvent } from "@workspace/game/foundation/encounter/map-instance-event"
+import type { Equals } from "@workspace/game/foundation/equals"
 
 /**
  * The event vocabulary {@link import("@workspace/game/engine") reduceDungeon}
@@ -41,9 +42,6 @@ export const dungeonEventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("markActed"), characterId: z.string() }),
   z.object({ kind: z.literal("advanceTurn") }),
 ])
-
-/** `true` only when `A` and `B` are mutually assignable (structurally equal). */
-type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
  * Compile-time lockstep guard: if {@link dungeonEventSchema} and the hand-written

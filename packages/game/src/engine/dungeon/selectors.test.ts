@@ -91,19 +91,19 @@ describe("dungeonReminders — random encounter", () => {
 })
 
 describe("dungeonReminders — exhaustion onset", () => {
-  it("fires at the first +3 threshold past the 48-turn day (turn 51)", () => {
-    expect(dungeonReminders(makeDungeonState({ turnCounter: 51 }))).toEqual([
-      { kind: "exhaustion-onset", turn: 51 },
+  it("fires immediately past the 48-turn day (turn 49)", () => {
+    expect(dungeonReminders(makeDungeonState({ turnCounter: 49 }))).toEqual([
+      { kind: "exhaustion-onset", turn: 49 },
     ])
   })
 
-  it("fires at the next threshold (turn 54)", () => {
-    expect(dungeonReminders(makeDungeonState({ turnCounter: 54 }))).toEqual([
-      { kind: "exhaustion-onset", turn: 54 },
+  it("fires at the next +3 threshold (turn 52)", () => {
+    expect(dungeonReminders(makeDungeonState({ turnCounter: 52 }))).toEqual([
+      { kind: "exhaustion-onset", turn: 52 },
     ])
   })
 
-  it.each([48, 49, 50, 52, 53])("does not fire at turn %i", (turnCounter) => {
+  it.each([48, 50, 51, 53, 54])("does not fire at turn %i", (turnCounter) => {
     expect(dungeonReminders(makeDungeonState({ turnCounter }))).toEqual([])
   })
 
@@ -118,10 +118,10 @@ describe("dungeonReminders — exhaustion onset", () => {
 
 describe("dungeonReminders — both at once", () => {
   it("returns both nudges when the turn is both a random multiple and an exhaustion threshold", () => {
-    // turn 54: multiple of interval 6 AND 48 + 3·2.
-    const reminders = dungeonReminders(withRandom(54, true, 6))
+    // turn 52: multiple of interval 2 AND the second exhaustion onset (49 + 3).
+    const reminders = dungeonReminders(withRandom(52, true, 2))
 
-    expect(reminders).toContainEqual({ kind: "random-encounter", turn: 54 })
-    expect(reminders).toContainEqual({ kind: "exhaustion-onset", turn: 54 })
+    expect(reminders).toContainEqual({ kind: "random-encounter", turn: 52 })
+    expect(reminders).toContainEqual({ kind: "exhaustion-onset", turn: 52 })
   })
 })

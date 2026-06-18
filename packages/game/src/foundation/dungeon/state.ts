@@ -18,9 +18,16 @@ export type DungeonStatus = "draft" | "active" | "done"
 export const DUNGEON_DAY_TURNS = 48
 
 /**
- * The cadence, in dungeon turns, at which Exhaustion accrues past
- * {@link DUNGEON_DAY_TURNS} — one level per additional half-hour (3 turns), so the
- * onset reminder fires at turns 51, 54, 57… (rulebook §2.2; PRD FR-4).
+ * The first dungeon turn on which Exhaustion accrues — the turn immediately past
+ * the {@link DUNGEON_DAY_TURNS}-turn day. The character is penalized as soon as
+ * they push past the day (rulebook §2.2: "Beginning on the 49th turn…").
+ */
+export const EXHAUSTION_ONSET_TURN = DUNGEON_DAY_TURNS + 1
+
+/**
+ * The cadence, in dungeon turns, at which Exhaustion re-accrues from
+ * {@link EXHAUSTION_ONSET_TURN} — one level per additional half-hour (3 turns), so
+ * the onset reminder fires at turns 49, 52, 55… (rulebook §2.2; PRD FR-4).
  */
 export const EXHAUSTION_ONSET_INTERVAL = 3
 

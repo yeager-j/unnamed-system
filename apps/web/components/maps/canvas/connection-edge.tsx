@@ -12,6 +12,7 @@ import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from "@xyflow/react"
 import type { MapConnection } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 
+import { EdgeFlagBadge } from "@/components/shared/canvas/edge-flag-badge"
 import { useFloatingEdgePath } from "@/components/shared/canvas/use-floating-edge-path"
 
 import type { ConnectionEdge as ConnectionEdgeType } from "./geometry-to-flow"
@@ -108,15 +109,12 @@ export function ConnectionEdge({
           </div>
         ) : (
           (hidden || locked) && (
-            <div
-              style={{
-                transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              }}
-              className="pointer-events-none absolute flex items-center gap-0.5 rounded-full border bg-background px-1 py-0.5 text-muted-foreground shadow-sm"
-            >
-              {hidden && <EyeSlashIcon className="size-3" aria-hidden />}
-              {locked && <LockIcon className="size-3" aria-hidden />}
-            </div>
+            <EdgeFlagBadge
+              labelX={labelX}
+              labelY={labelY}
+              hidden={hidden}
+              locked={locked}
+            />
           )
         )}
       </EdgeLabelRenderer>
