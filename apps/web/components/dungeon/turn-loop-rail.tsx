@@ -46,20 +46,12 @@ import {
 } from "@workspace/ui/components/select"
 import { Switch } from "@workspace/ui/components/switch"
 
-import { RANDOM_ENCOUNTER_INTERVAL_LABELS } from "@/lib/ui/labels"
+import {
+  DUNGEON_REMINDER_COPY,
+  RANDOM_ENCOUNTER_INTERVAL_LABELS,
+} from "@/lib/ui/labels"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
-
-const REMINDER_COPY = {
-  "random-encounter": {
-    title: "Roll for a random encounter",
-    body: "The party has travelled far enough — roll on your table.",
-  },
-  "exhaustion-onset": {
-    title: "Exhaustion accrues",
-    body: "Past the 48-turn day: a level of Exhaustion would accrue (tracked on the sheet).",
-  },
-} as const
 
 /**
  * The DM run console's side rail (UNN-464) — the exploration turn loop and its
@@ -127,7 +119,7 @@ export function TurnLoopRail({
           <ul className="flex flex-col gap-2">
             {liveReminders.map((reminder) => {
               const key = `${reminder.kind}-${reminder.turn}`
-              const copy = REMINDER_COPY[reminder.kind]
+              const copy = DUNGEON_REMINDER_COPY[reminder.kind]
               return (
                 <li key={key}>
                   <Alert className="relative pr-9">
@@ -237,11 +229,13 @@ export function TurnLoopRail({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {([1, 2, 3, 6] as const).map((interval) => (
-                <SelectItem key={interval} value={String(interval)}>
-                  {RANDOM_ENCOUNTER_INTERVAL_LABELS[interval]}
-                </SelectItem>
-              ))}
+              {Object.entries(RANDOM_ENCOUNTER_INTERVAL_LABELS).map(
+                ([interval, label]) => (
+                  <SelectItem key={interval} value={interval}>
+                    {label}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
         )}

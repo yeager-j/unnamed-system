@@ -5,15 +5,7 @@ import Image from "next/image"
 
 import { cn } from "@workspace/ui/lib/utils"
 
-/** Initials fallback for a token with no portrait (≤2 chars). */
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return "?"
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]!.toUpperCase())
-    .join("")
-}
+import { initials } from "@/lib/ui/initials"
 
 export type DungeonTokenData = {
   characterId: string
@@ -50,7 +42,7 @@ export function DungeonTokenNode({ data }: NodeProps<DungeonTokenNode>) {
           aria-hidden
           className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[9px] font-semibold text-primary ring-1 ring-primary/40"
         >
-          {initials(data.name)}
+          {initials(data.name, "?")}
         </span>
       )}
       <span className="max-w-[8rem] truncate text-xs font-medium text-blue-950 dark:text-blue-100">

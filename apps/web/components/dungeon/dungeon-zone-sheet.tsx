@@ -10,16 +10,12 @@ import {
 import { useState } from "react"
 
 import {
-  connectionFogState,
   deriveDungeonRoster,
-  isConnectionLocked,
   isZoneRevealed,
+  resolveZoneExits,
+  type ZoneExit,
 } from "@workspace/game/engine"
-import type {
-  MapConnection,
-  MapInstanceState,
-  MapZone,
-} from "@workspace/game/foundation"
+import type { MapInstanceState, MapZone } from "@workspace/game/foundation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,15 +46,6 @@ import {
 import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
-
-/** One exit out of the open Zone: the connection + its far endpoint + fog/lock. */
-interface Exit {
-  connection: MapConnection
-  neighborName: string
-  neighborRevealed: boolean
-  hiddenFromPlayers: boolean
-  locked: boolean
-}
 
 type PendingConfirm =
   | { kind: "reveal-zone" }
@@ -175,22 +162,7 @@ function ZoneSheetBody({
   const revealed = isZoneRevealed(instance.reveal, zone.id)
   const rosterIds = deriveDungeonRoster(instance)
 
-  const exits: Exit[] = Object.values(instance.geometry.connections)
-    .filter((conn) => conn.fromZoneId === zone.id || conn.toZoneId === zone.id)
-    .map((conn) => {
-      const neighborId =
-        conn.fromZoneId === zone.id ? conn.toZoneId : conn.fromZoneId
-      const neighbor = instance.geometry.zones[neighborId]
-      return {
-        connection: conn,
-        neighborName: neighbor?.name ?? "Unknown",
-        neighborRevealed: isZoneRevealed(instance.reveal, neighborId),
-        hiddenFromPlayers:
-          connectionFogState(conn, instance.reveal) === "stripped" &&
-          conn.hidden,
-        locked: isConnectionLocked(conn, instance.reveal),
-      }
-    })
+  const exits = resolveZoneExits(instance, zone.id)
 
   function confirm() {
     if (pending?.kind === "reveal-zone") {
@@ -381,7 +353,7 @@ function ExitRow({
   onUnlock,
   onRelock,
 }: {
-  exit: Exit
+  exit: ZoneExit
   disabled?: boolean
   onReveal: () => void
   onHide: () => void

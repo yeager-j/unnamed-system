@@ -1,6 +1,6 @@
 import {
-  DUNGEON_DAY_TURNS,
   EXHAUSTION_ONSET_INTERVAL,
+  EXHAUSTION_ONSET_TURN,
   type DungeonState,
 } from "@workspace/game/foundation/dungeon/state"
 import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
@@ -53,9 +53,10 @@ export type DungeonReminder =
  *
  * - **random-encounter**: when enabled, each time the counter reaches a multiple of
  *   the configured interval (turn 0 — the un-started delve — never fires).
- * - **exhaustion-onset**: each +{@link EXHAUSTION_ONSET_INTERVAL}-turn threshold
- *   past the {@link DUNGEON_DAY_TURNS}-turn day (turns 51, 54, 57…) — once per
- *   threshold, never every turn (rulebook §2.2). Always on; no setting.
+ * - **exhaustion-onset**: from {@link EXHAUSTION_ONSET_TURN} (the turn past the
+ *   day) on each +{@link EXHAUSTION_ONSET_INTERVAL}-turn cadence (turns 49, 52,
+ *   55…) — once per threshold, never every turn (rulebook §2.2). Always on; no
+ *   setting.
  *
  * The "once per threshold" property is inherent: the selector fires only when the
  * counter is *exactly* a threshold value, so advancing turn-by-turn surfaces each
@@ -71,9 +72,8 @@ export function dungeonReminders(state: DungeonState): DungeonReminder[] {
   }
 
   if (
-    turnCounter > DUNGEON_DAY_TURNS &&
-    // Stryker disable next-line ArithmeticOperator: equivalent — DUNGEON_DAY_TURNS (48) is a multiple of EXHAUSTION_ONSET_INTERVAL (3), so (t − 48) % 3 ≡ (t + 48) % 3 for every t; the offset's sign is unobservable. Kept as a subtraction because it reads as "turns past the day mark".
-    (turnCounter - DUNGEON_DAY_TURNS) % EXHAUSTION_ONSET_INTERVAL === 0
+    turnCounter >= EXHAUSTION_ONSET_TURN &&
+    (turnCounter - EXHAUSTION_ONSET_TURN) % EXHAUSTION_ONSET_INTERVAL === 0
   ) {
     reminders.push({ kind: "exhaustion-onset", turn: turnCounter })
   }
