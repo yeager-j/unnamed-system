@@ -21,6 +21,7 @@ import {
   type CombatantSetup,
   type CombatSide,
 } from "@workspace/game/foundation/encounter/session"
+import type { Equals } from "@workspace/game/foundation/equals"
 
 /**
  * The tracker reducer's vocabulary: the events that drive a {@link CombatSession}
@@ -334,9 +335,6 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
 ])
-
-/** `true` only when `A` and `B` are mutually assignable (structurally equal). */
-type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
  * Compile-time lockstep guard: if {@link combatEventSchema} and the hand-written

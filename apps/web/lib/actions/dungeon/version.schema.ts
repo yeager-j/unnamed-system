@@ -6,7 +6,7 @@ import { z } from "zod/v4"
  * `GetEncounterVersionSchema`.
  */
 export const GetDungeonVersionSchema = z.object({
-  shortId: z.string(),
+  shortId: z.string().min(1),
 })
 
 export type GetDungeonVersionInput = z.input<typeof GetDungeonVersionSchema>

@@ -5,6 +5,7 @@ import {
   type EnchantmentType,
 } from "@workspace/game/foundation/combat/enchantment"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
+import type { Equals } from "@workspace/game/foundation/equals"
 
 /**
  * The spatial event vocabulary {@link import("@workspace/game/engine") reduceMapInstance}
@@ -210,9 +211,6 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal("lockConnection"), connectionId: z.string() }),
 ])
-
-/** `true` only when `A` and `B` are mutually assignable (structurally equal). */
-type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
  * Compile-time lockstep guard: if {@link mapInstanceEventSchema} and the

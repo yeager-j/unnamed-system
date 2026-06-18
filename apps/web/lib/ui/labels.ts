@@ -1,5 +1,8 @@
 import { getTalent } from "@workspace/game/data"
-import { type RecommendationReason } from "@workspace/game/engine"
+import {
+  type DungeonReminder,
+  type RecommendationReason,
+} from "@workspace/game/engine"
 import {
   type Affinity,
   type AffinityDamageType,
@@ -552,6 +555,25 @@ export const RANDOM_ENCOUNTER_INTERVAL_LABELS: Record<
   2: "Every 20 min (2 turns)",
   3: "Every 30 min (3 turns)",
   6: "Every hour (6 turns)",
+}
+
+/**
+ * Title + body for the dungeon run console's DM reminder nudges (UNN-464), keyed
+ * by the pure-selector {@link DungeonReminder} kind. The rail renders these; the
+ * selectors decide which fire.
+ */
+export const DUNGEON_REMINDER_COPY: Record<
+  DungeonReminder["kind"],
+  { title: string; body: string }
+> = {
+  "random-encounter": {
+    title: "Roll for a random encounter",
+    body: "The party has travelled far enough — roll on your table.",
+  },
+  "exhaustion-onset": {
+    title: "Exhaustion accrues",
+    body: "Past the 48-turn day: a level of Exhaustion would accrue (tracked on the sheet).",
+  },
 }
 
 /** The five Stain elements the Mage can hold. */

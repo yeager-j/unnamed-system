@@ -1,0 +1,37 @@
+"use client"
+
+import { EyeSlashIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
+
+/**
+ * The read-only flag pill that floats at a connection edge's midpoint, encoding —
+ * **without relying on color** (PRD a11y) — what players currently see: an
+ * eye-off glyph when the connection is hidden from players, a lock glyph when it
+ * is locked. Shared by the Map editor's {@link import("@/components/maps/canvas/connection-edge").ConnectionEdge}
+ * and the dungeon console's {@link import("@/components/dungeon/canvas/dungeon-connection-edge").DungeonConnectionEdge}
+ * so the DM's two views of the same flags can't drift. Place it inside an
+ * `EdgeLabelRenderer`; `labelX`/`labelY` are the edge midpoint from the
+ * floating-edge geometry.
+ */
+export function EdgeFlagBadge({
+  labelX,
+  labelY,
+  hidden,
+  locked,
+}: {
+  labelX: number
+  labelY: number
+  hidden: boolean
+  locked: boolean
+}) {
+  return (
+    <div
+      style={{
+        transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+      }}
+      className="pointer-events-none absolute flex items-center gap-0.5 rounded-full border bg-background px-1 py-0.5 text-muted-foreground shadow-sm"
+    >
+      {hidden && <EyeSlashIcon className="size-3" aria-hidden />}
+      {locked && <LockIcon className="size-3" aria-hidden />}
+    </div>
+  )
+}
