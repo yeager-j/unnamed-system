@@ -10,8 +10,6 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
-  type NodeMouseHandler,
-  type OnNodeDrag,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
 import { useEffect } from "react"
@@ -24,18 +22,13 @@ import {
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "./dungeon-connection-edge"
 import {
-  DungeonTokenNode,
-  type DungeonTokenNode as DungeonTokenNodeType,
-} from "./dungeon-token-node"
-import {
   DungeonZoneNode,
   type DungeonZoneNode as DungeonZoneNodeType,
+  type DungeonZoneToken,
 } from "./dungeon-zone-node"
+import { TurnLoopBar } from "./turn-loop-bar"
 
-const nodeTypes = {
-  dungeonZone: DungeonZoneNode,
-  dungeonToken: DungeonTokenNode,
-}
+const nodeTypes = { dungeonZone: DungeonZoneNode }
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
 export interface DungeonRosterEntry {
@@ -43,86 +36,40 @@ export interface DungeonRosterEntry {
   portraitUrl: string | null
 }
 
-type CanvasNode = DungeonZoneNodeType | DungeonTokenNodeType
+type CanvasNode = DungeonZoneNodeType
 
-/** Lays out a Zone's occupant tokens in a 2-wide grid just below the Zone card. */
-function tokenPosition(
-  base: { x: number; y: number },
-  index: number
-): { x: number; y: number } {
-  return {
-    x: base.x + (index % 2) * 100,
-    y: base.y + 52 + Math.floor(index / 2) * 28,
+/** The party tokens standing in each Zone, keyed by Zone id, in occupancy order. */
+function tokensByZone(
+  instance: MapInstanceState,
+  roster: Record<string, DungeonRosterEntry>
+): Record<string, DungeonZoneToken[]> {
+  const byZone: Record<string, DungeonZoneToken[]> = {}
+  for (const [characterId, token] of Object.entries(instance.occupancy)) {
+    ;(byZone[token.zoneId] ??= []).push({
+      characterId,
+      name: roster[characterId]?.name ?? "Unknown",
+      portraitUrl: roster[characterId]?.portraitUrl ?? null,
+    })
   }
+  return byZone
 }
 
 function buildNodes(
   instance: MapInstanceState,
   roster: Record<string, DungeonRosterEntry>
 ): CanvasNode[] {
-  const zoneNodes: CanvasNode[] = Object.values(instance.geometry.zones).map(
-    (zone) => ({
-      id: zone.id,
-      type: "dungeonZone",
-      position: zone.position,
-      draggable: false,
-      data: {
-        zone,
-        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-      },
-    })
-  )
-
-  const byZone: Record<string, string[]> = {}
-  for (const [characterId, token] of Object.entries(instance.occupancy)) {
-    ;(byZone[token.zoneId] ??= []).push(characterId)
-  }
-
-  const tokenNodes: CanvasNode[] = []
-  for (const [zoneId, characterIds] of Object.entries(byZone)) {
-    const base = instance.geometry.zones[zoneId]?.position ?? { x: 0, y: 0 }
-    characterIds.forEach((characterId, index) => {
-      tokenNodes.push({
-        id: `token-${characterId}`,
-        type: "dungeonToken",
-        position: tokenPosition(base, index),
-        draggable: true,
-        data: {
-          characterId,
-          name: roster[characterId]?.name ?? "Unknown",
-          portraitUrl: roster[characterId]?.portraitUrl ?? null,
-        },
-      })
-    })
-  }
-
-  return [...zoneNodes, ...tokenNodes]
-}
-
-/**
- * The Zone a dropped token snaps to: the nearest Zone center to the token's
- * center (top-left coords nudged to rough centers), or `null` when the drop lands
- * far from every Zone (an empty-canvas drop — snap back). Distance-based, not rect
- * intersection, so a near-miss still lands (the engine guides-not-blocks anyway).
- */
-function nearestZoneId(
-  instance: MapInstanceState,
-  tokenPosition: { x: number; y: number }
-): string | null {
-  const tx = tokenPosition.x + 50
-  const ty = tokenPosition.y + 14
-  let best: string | null = null
-  let bestDistance = Infinity
-  for (const zone of Object.values(instance.geometry.zones)) {
-    const dx = tx - (zone.position.x + 60)
-    const dy = ty - (zone.position.y + 22)
-    const distance = dx * dx + dy * dy
-    if (distance < bestDistance) {
-      bestDistance = distance
-      best = zone.id
-    }
-  }
-  return bestDistance <= 200 * 200 ? best : null
+  const byZone = tokensByZone(instance, roster)
+  return Object.values(instance.geometry.zones).map((zone) => ({
+    id: zone.id,
+    type: "dungeonZone",
+    position: zone.position,
+    draggable: false,
+    data: {
+      zone,
+      revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+      tokens: byZone[zone.id] ?? [],
+    },
+  }))
 }
 
 function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
@@ -146,19 +93,21 @@ function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
  * {@link MapInstanceState} on every change, so a move or reveal re-lays the board
  * with no extra state:
  *
- * - **Zones** are fixed (non-draggable) cards showing their reveal state; clicking
- *   one fires `onSelectZone` → the host opens the Zone details sheet.
+ * - **Zones** are fixed (non-draggable) cards showing their reveal state and the
+ *   party tokens standing in them. Selecting one reveals a floating toolbar
+ *   (reveal/hide ▸ move party here ▸ open details) — wired through the
+ *   {@link useDungeonCanvas} context the run console provides.
  * - **Connections** are read-only floating edges (shared routing with the editor),
  *   styled by their player-facing fog/lock state.
- * - **Tokens** are draggable PC chips; dropping one onto a Zone fires `onMoveToken`
- *   (the engine guides-not-blocks — any Zone is accepted, the party can split). A
- *   drop landing on no Zone snaps back.
+ * - The {@link TurnLoopBar} renders **inside** the flow as a Panel so it can own the
+ *   zoom controls; it too reads the run console's context.
+ *
+ * The canvas itself is presentational — it takes only the board data (`instance` +
+ * `roster`); every dispatcher comes from the context above it.
  */
 export function DungeonCanvas(props: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
-  onMoveToken: (characterId: string, toZoneId: string) => void
-  onSelectZone: (zoneId: string) => void
 }) {
   return (
     <ReactFlowProvider>
@@ -170,13 +119,9 @@ export function DungeonCanvas(props: {
 function DungeonCanvasInner({
   instance,
   roster,
-  onMoveToken,
-  onSelectZone,
 }: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
-  onMoveToken: (characterId: string, toZoneId: string) => void
-  onSelectZone: (zoneId: string) => void
 }) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
@@ -190,25 +135,6 @@ function DungeonCanvasInner({
     setEdges(buildEdges(instance))
   }, [instance, roster, setNodes, setEdges])
 
-  const handleNodeDragStop: OnNodeDrag<CanvasNode> = (_, node) => {
-    if (node.type !== "dungeonToken") return
-    const target = nearestZoneId(instance, node.position)
-    const current = instance.occupancy[node.data.characterId]?.zoneId
-    // No move — dropped on empty canvas or back onto the current Zone. Snap the
-    // token to its grid slot here: a same-Zone `moveCombatant` is a server
-    // round-trip the reducer no-ops, and its same-ref optimistic result wouldn't
-    // re-run the sync effect, stranding the token at the dropped pixel offset.
-    if (!target || target === current) {
-      setNodes(buildNodes(instance, roster))
-      return
-    }
-    onMoveToken(node.data.characterId, target)
-  }
-
-  const handleNodeClick: NodeMouseHandler<CanvasNode> = (_, node) => {
-    if (node.type === "dungeonZone") onSelectZone(node.data.zone.id)
-  }
-
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
@@ -219,38 +145,42 @@ function DungeonCanvasInner({
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
-      onNodeDragStop={handleNodeDragStop}
-      onNodeClick={handleNodeClick}
+      nodesDraggable={false}
       nodesConnectable={false}
       colorMode={resolvedTheme === "dark" ? "dark" : "light"}
       deleteKeyCode={null}
       fitView
       fitViewOptions={{ padding: 0.2 }}
       proOptions={{ hideAttribution: true }}
+      panOnScroll
+      selectionOnDrag
+      panOnDrag={false}
     >
       <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
       {isEmpty && (
         <Panel
           position="top-center"
-          className="rounded-md border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
+          className="rounded-none border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
         >
           This dungeon has no map yet — author it on My Maps, then recreate the
           delve.
         </Panel>
       )}
       <Panel
-        position="bottom-left"
-        className="flex flex-col gap-1 rounded-md border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+        position="top-left"
+        className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
       >
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 rounded-xs border border-border bg-card" />
+          <span className="inline-block h-2.5 w-4 border border-border bg-card" />
           Revealed to players
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 rounded-xs border border-dashed border-muted-foreground" />
+          <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
           Hidden from players
         </span>
       </Panel>
+
+      <TurnLoopBar />
     </ReactFlow>
   )
 }

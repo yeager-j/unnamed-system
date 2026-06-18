@@ -24,6 +24,11 @@ import { useRef, useState, type MouseEvent } from "react"
 
 import type { MapGeometry, MapZone } from "@workspace/game/foundation"
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -43,6 +48,7 @@ import {
   addZone,
   deleteConnection,
   deleteZone,
+  duplicateZone,
   moveZone,
   renameZone,
   setConnectionFlag,
@@ -171,6 +177,24 @@ function MapCanvasInner({
     setEdges((current) => [...current, edge])
   }
 
+  function handleDuplicateZone(zoneId: string) {
+    if (!editable) return
+    const source = geometryRef.current.zones[zoneId]
+    if (!source) return
+    const id = crypto.randomUUID()
+    const position = {
+      x: source.position.x + 32,
+      y: source.position.y + 32,
+    }
+    const next = applyGeometry(
+      duplicateZone(geometryRef.current, zoneId, id, position)
+    )
+    const zone = next.zones[id]
+    if (!zone) return
+    const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
+    setNodes((current) => [...current, node])
+  }
+
   function handleDeleteZone(zoneId: string) {
     applyGeometry(deleteZone(geometryRef.current, zoneId))
     setNodes((current) => current.filter((node) => node.id !== zoneId))
@@ -239,6 +263,7 @@ function MapCanvasInner({
       value={{
         interactivity,
         openZoneDetails: setDetailsZoneId,
+        duplicateZone: handleDuplicateZone,
         deleteZone: setPendingDeleteZoneId,
         setConnectionFlag: handleSetConnectionFlag,
         deleteConnection: handleDeleteConnection,
@@ -266,6 +291,9 @@ function MapCanvasInner({
           deleteKeyCode={null}
           fitView
           fitViewOptions={{ padding: 0.2 }}
+          panOnScroll
+          selectionOnDrag
+          panOnDrag={false}
           className={cn(mode === "addZone" && "cursor-copy")}
         >
           <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
@@ -340,26 +368,25 @@ function WarningsBanner({ geometry }: { geometry: MapGeometry }) {
   if (disconnected === 0 && duplicates.length === 0) return null
 
   return (
-    <Panel
-      position="top-left"
-      className="max-w-xs rounded-md border bg-popover p-2 text-xs shadow-sm"
-    >
-      <ul className="flex flex-col gap-1">
-        {disconnected > 0 && (
-          <li className="flex items-center gap-1.5 text-muted-foreground">
-            <WarningCircleIcon className="size-3.5 shrink-0" />
-            {disconnected === 1
-              ? "1 zone has no connections"
-              : `${disconnected} zones have no connections`}
-          </li>
-        )}
-        {duplicates.length > 0 && (
-          <li className="flex items-center gap-1.5 text-muted-foreground">
-            <WarningCircleIcon className="size-3.5 shrink-0" />
-            Duplicate name: {duplicates.join(", ")}
-          </li>
-        )}
-      </ul>
+    <Panel position="top-right" className="w-full max-w-xs">
+      <Alert className="max-w-md border-amber-200 bg-amber-50 text-amber-900 shadow-sm dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
+        <WarningCircleIcon />
+        <AlertTitle>Map Warnings</AlertTitle>
+        <AlertDescription className="text-current">
+          <ul className="flex flex-col gap-0.5">
+            {disconnected > 0 && (
+              <li>
+                {disconnected === 1
+                  ? "1 zone has no connections"
+                  : `${disconnected} zones have no connections`}
+              </li>
+            )}
+            {duplicates.length > 0 && (
+              <li>Duplicate name: {duplicates.join(", ")}</li>
+            )}
+          </ul>
+        </AlertDescription>
+      </Alert>
     </Panel>
   )
 }

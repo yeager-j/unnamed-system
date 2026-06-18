@@ -1,9 +1,15 @@
 "use client"
 
-import { PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  CopyIcon,
+  PencilSimpleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Card, CardHeader, CardTitle } from "@workspace/ui/components/card"
+import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
@@ -27,7 +33,8 @@ const HANDLE_SIDES = [
 ] as const
 
 export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
-  const { interactivity, openZoneDetails, deleteZone } = useMapCanvas()
+  const { interactivity, openZoneDetails, duplicateZone, deleteZone } =
+    useMapCanvas()
   const editable = interactivity === "edit"
   const { zone } = data
 
@@ -36,7 +43,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
       <NodeToolbar
         isVisible={editable && selected}
         position={Position.Top}
-        className="flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
+        className="flex items-center gap-1 rounded-none border bg-popover p-1 shadow-md"
       >
         <Button
           size="sm"
@@ -45,6 +52,15 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
         >
           <PencilSimpleIcon />
           Edit details
+        </Button>
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Duplicate ${zone.name}`}
+          onClick={() => duplicateZone(zone.id)}
+        >
+          <CopyIcon />
         </Button>
         <Button
           size="icon-sm"
@@ -70,16 +86,18 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
           />
         ))}
 
-      <div
+      <Card
+        size="sm"
+        selected={selected}
         aria-label={`Zone: ${zone.name}`}
-        className={cn(
-          "max-w-48 min-w-28 rounded-md border bg-card px-3 py-2 text-center shadow-sm transition-colors",
-          "text-sm font-medium text-card-foreground",
-          selected ? "border-ring ring-1 ring-ring" : "border-border"
-        )}
+        className="min-h-48 w-86 shadow-sm transition-shadow"
       >
-        <span className="line-clamp-2 break-words">{zone.name}</span>
-      </div>
+        <CardHeader>
+          <CardTitle className="line-clamp-2 text-base break-words">
+            {zone.name}
+          </CardTitle>
+        </CardHeader>
+      </Card>
     </>
   )
 }

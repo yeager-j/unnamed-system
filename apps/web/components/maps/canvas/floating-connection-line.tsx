@@ -1,7 +1,7 @@
 "use client"
 
 import {
-  getBezierPath,
+  getSmoothStepPath,
   Position,
   type ConnectionLineComponentProps,
 } from "@xyflow/react"
@@ -28,13 +28,14 @@ export function FloatingConnectionLine({
   }
   const { sx, sy, sourcePos } = getEdgeParams(fromNode, cursorNode)
 
-  const [path] = getBezierPath({
+  const [path] = getSmoothStepPath({
     sourceX: sx,
     sourceY: sy,
     sourcePosition: sourcePos,
     targetX: toX,
     targetY: toY,
     targetPosition: Position.Left,
+    borderRadius: 0,
   })
 
   return (

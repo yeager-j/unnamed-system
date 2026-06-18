@@ -53,7 +53,8 @@ export function DungeonConnectionEdge({
         aria-label={`Connection${playersSee ? "" : " — hidden from players"}${locked ? " — locked" : ""}`}
         style={{
           strokeWidth: locked ? 2.5 : 1.5,
-          strokeDasharray: playersSee ? undefined : "6 4",
+          strokeDasharray: playersSee ? undefined : "2 5",
+          strokeLinecap: playersSee ? undefined : "round",
           stroke: "var(--muted-foreground)",
           opacity: playersSee ? 1 : 0.5,
         }}

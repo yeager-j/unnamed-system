@@ -11,6 +11,13 @@ const NAME_DEBOUNCE_MS = 600
 const GEOMETRY_DEBOUNCE_MS = 600
 
 /**
+ * The editor's save indicator state: `saved` once the server has the latest edit,
+ * `saving` while a write is in flight, `error` after a failed write (the local
+ * edits stay; see the geometry note above).
+ */
+export type MapSaveStatus = "saved" | "saving" | "error"
+
+/**
  * Debounced auto-save coordinator for the Map editor (UNN-460 name + UNN-461
  * geometry) — the no-Save-button editor. The Map's **name and geometry share one
  * `version` token** (`maps.version`), so they must round-trip it through **one**
@@ -42,6 +49,8 @@ export function useMapAutoSave({
   serverVersion: number
 }) {
   const [value, setValue] = useState(serverName)
+  const [status, setStatus] = useState<MapSaveStatus>("saved")
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const versionRef = useRef(serverVersion)
   const lastSavedNameRef = useRef(serverName)
   const lastSavedGeometryRef = useRef(JSON.stringify(serverGeometry))
@@ -69,6 +78,7 @@ export function useMapAutoSave({
       if (trimmed.length === 0 || trimmed === lastSavedNameRef.current.trim())
         return
 
+      setStatus("saving")
       const result = await saveMapAction({
         mapId,
         expectedVersion: versionRef.current,
@@ -77,9 +87,12 @@ export function useMapAutoSave({
       if (result.ok) {
         versionRef.current = result.value.version
         lastSavedNameRef.current = trimmed
+        setStatus("saved")
+        setLastSavedAt(Date.now())
         return
       }
       setValue(lastSavedNameRef.current)
+      setStatus("error")
       onSaveFailure(result.error === "stale")
     })
 
@@ -93,6 +106,7 @@ export function useMapAutoSave({
       const serialized = JSON.stringify(geometry)
       if (serialized === lastSavedGeometryRef.current) return
 
+      setStatus("saving")
       const result = await saveMapAction({
         mapId,
         expectedVersion: versionRef.current,
@@ -101,8 +115,11 @@ export function useMapAutoSave({
       if (result.ok) {
         versionRef.current = result.value.version
         lastSavedGeometryRef.current = serialized
+        setStatus("saved")
+        setLastSavedAt(Date.now())
         return
       }
+      setStatus("error")
       onSaveFailure(result.error === "stale")
     })
 
@@ -155,5 +172,6 @@ export function useMapAutoSave({
   return {
     name: { value, onChange, flush, revert },
     saveGeometry,
+    save: { status, lastSavedAt },
   }
 }

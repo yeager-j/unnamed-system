@@ -11,6 +11,7 @@ import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from "@xyflow/react"
 
 import type { MapConnection } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
+import { Separator } from "@workspace/ui/components/separator"
 
 import { EdgeFlagBadge } from "@/components/shared/canvas/edge-flag-badge"
 import { useFloatingEdgePath } from "@/components/shared/canvas/use-floating-edge-path"
@@ -67,7 +68,8 @@ export function ConnectionEdge({
         }
         style={{
           strokeWidth: selected ? 3 : locked ? 2.5 : 1.5,
-          strokeDasharray: hidden ? "6 4" : undefined,
+          strokeDasharray: hidden ? "2 5" : undefined,
+          strokeLinecap: hidden ? "round" : undefined,
           stroke: selected ? "var(--ring)" : "var(--muted-foreground)",
         }}
       />
@@ -78,26 +80,29 @@ export function ConnectionEdge({
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             }}
-            className="nodrag nopan pointer-events-auto absolute flex items-center gap-1 rounded-md border bg-popover p-1 shadow-md"
+            className="nodrag nopan pointer-events-auto absolute flex items-center gap-1 rounded-none border bg-popover p-1 shadow-md"
           >
             <Button
-              size="icon-sm"
+              size="sm"
               variant={hidden ? "secondary" : "ghost"}
               aria-pressed={hidden}
               aria-label={hidden ? "Reveal connection" : "Hide connection"}
               onClick={() => setConnectionFlag(id, "hidden", !hidden)}
             >
               {hidden ? <EyeSlashIcon /> : <EyeIcon />}
+              Hidden
             </Button>
             <Button
-              size="icon-sm"
+              size="sm"
               variant={locked ? "secondary" : "ghost"}
               aria-pressed={locked}
               aria-label={locked ? "Unlock connection" : "Lock connection"}
               onClick={() => setConnectionFlag(id, "locked", !locked)}
             >
               {locked ? <LockIcon /> : <LockSimpleOpenIcon />}
+              Locked
             </Button>
+            <Separator orientation="vertical" className="mx-0.5 h-5" />
             <Button
               size="icon-sm"
               variant="ghost"
