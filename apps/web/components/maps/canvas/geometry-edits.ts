@@ -54,6 +54,29 @@ export function addZone(
   return { ...geometry, zones: { ...geometry.zones, [id]: zone } }
 }
 
+/**
+ * Duplicates a Zone — a fresh copy of its text (name, description, DM notes) at a
+ * new position, with **no** connections carried over. The caller mints `newId` and
+ * picks `position` (the canvas offsets it from the source). A no-op on an unknown
+ * `sourceId`.
+ */
+export function duplicateZone(
+  geometry: MapGeometry,
+  sourceId: string,
+  newId: string,
+  position: Point
+): MapGeometry {
+  const source = geometry.zones[sourceId]
+  if (!source) return geometry
+  const copy: MapZone = {
+    ...source,
+    id: newId,
+    name: `${source.name} copy`,
+    position,
+  }
+  return { ...geometry, zones: { ...geometry.zones, [newId]: copy } }
+}
+
 /** Renames a Zone. Trims; an empty name is a no-op (the schema requires ≥1 char). */
 export function renameZone(
   geometry: MapGeometry,
