@@ -141,6 +141,7 @@ export function DungeonCombatBody({
               })
             },
             onSelectCombatant: selectCombatant,
+            onCombatEvent: dispatch,
             onAddCombatant: () => setAddOpen(true),
             playerViewHref: `/c/dungeon/${dungeon.shortId}`,
             onEndEncounter: endEncounter,

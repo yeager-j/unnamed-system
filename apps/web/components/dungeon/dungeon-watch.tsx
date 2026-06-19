@@ -2,18 +2,20 @@
 
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 
 import {
   type DungeonSnapshot,
   type EncounterSnapshot,
 } from "@workspace/game/engine"
+import { type HydratedCharacter } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { CampaignBackLink } from "@/components/combat/campaign-back-link"
 import { WatchSheetColumn } from "@/components/combat/watch-sheet-column"
 import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch-sheet-refresh"
+import { DungeonExploreSheetColumn } from "@/components/dungeon/dungeon-explore-sheet-column"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
@@ -59,12 +61,17 @@ export function DungeonWatch({
   ownedCharacterIds,
   initialEncounterSnapshot,
   ownedSheets,
+  exploreSheets,
 }: {
   shortId: string
   initialSnapshot: DungeonSnapshot
   ownedCharacterIds: string[]
   initialEncounterSnapshot: EncounterSnapshot | null
   ownedSheets: OwnedEncounterSheet[]
+  /** The viewer's own hydrated sheets for the **exploration** Explore column,
+   *  shown beside the map when no fight is live. `[]` for a spectator / during
+   *  combat (the combat column uses {@link ownedSheets} instead). */
+  exploreSheets: HydratedCharacter[]
 }) {
   const router = useRouter()
   const { snapshot, stale, refetch } = useDungeonSnapshot(
@@ -73,21 +80,51 @@ export function DungeonWatch({
   )
   const combat = snapshot.combat
 
-  // Mid-session combat start: the dungeon snapshot flipped into combat (its shared
-  // Instance bumped, surfacing `combat`) but our RSC props — the encounter snapshot
-  // + owned sheets the column needs — predate it. Pull them once. On combat end the
-  // guard resets so a later fight refreshes again.
+  // A mid-session phase flip changes which server props the active column needs,
+  // but the live snapshot flips client-side without re-running the RSC — so each
+  // direction refreshes once to pull the other phase's props. Combat start: the
+  // snapshot surfaced `combat` but our props (encounter snapshot + combat sheets)
+  // predate it. Combat end: we're back in exploration and own token(s) here, but
+  // the Explore column's `exploreSheets` were `[]` (the RSC skips them during
+  // combat). Each guard resets on the opposite phase so a later flip refreshes
+  // again.
   const refreshedForCombat = useRef(false)
+  const refreshedForExplore = useRef(false)
   useEffect(() => {
-    if (combat && !initialEncounterSnapshot && !refreshedForCombat.current) {
-      refreshedForCombat.current = true
+    if (combat) {
+      refreshedForExplore.current = false
+      if (!initialEncounterSnapshot && !refreshedForCombat.current) {
+        refreshedForCombat.current = true
+        router.refresh()
+      }
+      return
+    }
+    refreshedForCombat.current = false
+    if (
+      ownedCharacterIds.length > 0 &&
+      exploreSheets.length === 0 &&
+      !refreshedForExplore.current
+    ) {
+      refreshedForExplore.current = true
       router.refresh()
     }
-    if (!combat) refreshedForCombat.current = false
-  }, [combat, initialEncounterSnapshot, router])
+  }, [
+    combat,
+    initialEncounterSnapshot,
+    ownedCharacterIds.length,
+    exploreSheets.length,
+    router,
+  ])
 
   const hasOwnSheets =
     ownedSheets.length > 0 && initialEncounterSnapshot !== null
+
+  const fogCanvas = (
+    <DungeonFogCanvas
+      snapshot={snapshot}
+      ownedCharacterIds={ownedCharacterIds}
+    />
+  )
 
   return (
     <main className="flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
@@ -125,38 +162,54 @@ export function DungeonWatch({
 
       {snapshot.status === "draft" ? (
         <WaitingState />
-      ) : combat && hasOwnSheets ? (
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-3">
-          <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-            <CombatSheetColumn
-              encounterShortId={combat.encounterShortId}
-              initialEncounterSnapshot={initialEncounterSnapshot}
-              ownedSheets={ownedSheets}
-            />
-          </div>
-          <div className="min-h-0 lg:col-span-2">
-            <DungeonFogCanvas
-              snapshot={snapshot}
-              ownedCharacterIds={ownedCharacterIds}
-            />
-          </div>
-        </div>
       ) : (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <>
           {snapshot.status === "done" ? (
             <p className="border-b bg-muted/40 px-4 py-2 text-center text-sm text-muted-foreground">
               This delve has wrapped. Below is the map as it was last left.
             </p>
           ) : null}
-          <div className="min-h-0 flex-1">
-            <DungeonFogCanvas
-              snapshot={snapshot}
-              ownedCharacterIds={ownedCharacterIds}
-            />
-          </div>
-        </div>
+          {combat && hasOwnSheets ? (
+            <WatchSplit canvas={fogCanvas}>
+              <CombatSheetColumn
+                encounterShortId={combat.encounterShortId}
+                initialEncounterSnapshot={initialEncounterSnapshot}
+                ownedSheets={ownedSheets}
+              />
+            </WatchSplit>
+          ) : !combat && exploreSheets.length > 0 ? (
+            <WatchSplit canvas={fogCanvas}>
+              <DungeonExploreSheetColumn characters={exploreSheets} />
+            </WatchSplit>
+          ) : (
+            <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
+          )}
+        </>
       )}
     </main>
+  )
+}
+
+/**
+ * The watch's split layout while a viewer has their own sheet(s) to show: the
+ * sheet column (scrolling on its own at `lg`) beside the fog map (2/3). Shared
+ * by the combat ({@link CombatSheetColumn}) and exploration
+ * ({@link DungeonExploreSheetColumn}) branches so they read identically.
+ */
+function WatchSplit({
+  children,
+  canvas,
+}: {
+  children: ReactNode
+  canvas: ReactNode
+}) {
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-3">
+      <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
+        {children}
+      </div>
+      <div className="min-h-0 lg:col-span-2">{canvas}</div>
+    </div>
   )
 }
 

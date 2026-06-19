@@ -129,6 +129,7 @@ function buildCombatNodes(
         // Engaged is a game rule (rulebook §3.5) — derived in the engine's
         // ZoneLayoutView, not here (CLAUDE.md: no game logic in the UI layer).
         engaged: entry?.engaged ?? false,
+        enchantment: entry?.enchantment,
       },
     }
   })

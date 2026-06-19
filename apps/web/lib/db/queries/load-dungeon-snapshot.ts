@@ -5,11 +5,17 @@ import {
   type DungeonCombatLink,
   type DungeonSnapshot,
 } from "@workspace/game/engine"
-import type { CombatSession } from "@workspace/game/foundation"
+import type {
+  CombatSession,
+  HydratedCharacter,
+} from "@workspace/game/foundation"
 
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import {
+  loadCharacterRowById,
+  loadHydratedCharacterById,
+} from "@/lib/db/queries/load-character"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter"
 import {
@@ -127,6 +133,28 @@ export async function loadOwnedDungeonCombatSheets(
   if (!live) return []
 
   return loadOwnedEncounterSheets(live.shortId, viewerId)
+}
+
+/**
+ * The viewer's own hydrated character sheets for the delve's **exploration**
+ * (non-combat) player view (`/c/dungeon/{shortId}`), feeding the Explore-tab
+ * column beside the fog map. Hydrate-only: it takes the already-resolved owned
+ * `characterId`s (the page computes them once for the fog self-highlight, so we
+ * don't re-walk occupancy) and loads each full sheet. Returns bare
+ * {@link HydratedCharacter}s — exploration has no combatant, so no
+ * `combatantId`, unlike the combat path's {@link OwnedEncounterSheet}.
+ *
+ * Privacy: callers pass only ids the viewer owns ({@link
+ * loadOwnedDungeonCharacterIds}, owner-filtered on the cheap character row), so
+ * a non-owner's sheet is never hydrated.
+ */
+export async function hydrateOwnedDungeonSheets(
+  ownedCharacterIds: string[]
+): Promise<HydratedCharacter[]> {
+  const characters = await Promise.all(
+    ownedCharacterIds.map((id) => loadHydratedCharacterById(id))
+  )
+  return characters.filter((character) => character !== null)
 }
 
 /**

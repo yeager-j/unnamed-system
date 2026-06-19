@@ -3,6 +3,7 @@
 import { createContext, useContext } from "react"
 
 import type { CombatantView } from "@workspace/game/engine"
+import type { MapInstanceEvent } from "@workspace/game/foundation"
 
 import type { ConsolePhase } from "@/components/combat/turn-order-strip"
 
@@ -49,6 +50,9 @@ export interface DungeonCombatCanvasContextValue {
   onMoveActing: (toZoneId: string) => void
   /** Open the per-combatant detail drawer. */
   onSelectCombatant: (combatantId: string) => void
+  /** Dispatch a spatial event against the shared Instance — the Bard Zone
+   *  Enchantment menu's `applyEnchantment` / `clearEnchantment`. */
+  onCombatEvent: (event: MapInstanceEvent) => void
   /** Enter the mid-fight add-combatant flow (tap-to-include a reinforcement). */
   onAddCombatant: () => void
   /** The read-only player combat view for this delve (`/c/dungeon/{shortId}`). */
