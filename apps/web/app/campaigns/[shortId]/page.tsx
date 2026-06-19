@@ -149,6 +149,7 @@ async function DmManageView({
         <LiveDelveBanner
           dungeonName={activeDungeon.name}
           dungeonShortId={activeDungeon.shortId}
+          audience="dm"
         />
       ) : null}
 
@@ -200,10 +201,11 @@ async function MemberOverview({
   campaign: CampaignRow
   viewerId: string
 }) {
-  const [roster, encounters, liveEncounter] = await Promise.all([
+  const [roster, encounters, liveEncounter, activeDungeon] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadEncountersForCampaign(campaign.id),
     loadLiveEncounterForCampaign(campaign.id),
+    loadActiveDungeonForCampaign(campaign.id),
   ])
 
   return (
@@ -222,6 +224,14 @@ async function MemberOverview({
         <LiveEncounterBanner
           encounterName={liveEncounter.name}
           encounterShortId={liveEncounter.shortId}
+          audience="player"
+        />
+      ) : null}
+
+      {activeDungeon ? (
+        <LiveDelveBanner
+          dungeonName={activeDungeon.name}
+          dungeonShortId={activeDungeon.shortId}
           audience="player"
         />
       ) : null}

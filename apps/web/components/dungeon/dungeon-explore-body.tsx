@@ -8,6 +8,8 @@ import { dungeonReminders, type InitiativeStats } from "@workspace/game/engine"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { parseCharacterPing } from "@/hooks/character-version-sync"
+import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -68,6 +70,7 @@ export function DungeonExploreBody({
     dispatch,
     searchReveal,
     finishDelve,
+    scheduleRefresh,
   } = useDungeonConsole(dungeon, instance)
 
   const [inSetup, setInSetup] = useState(false)
@@ -115,6 +118,17 @@ export function DungeonExploreBody({
 
   return (
     <SidebarProvider>
+      {placedCharacters.map((character) => (
+        <RealtimeChannelListener
+          key={character.shortId}
+          domain="character"
+          shortId={character.shortId}
+          onPing={(data) => {
+            if (parseCharacterPing(data)) scheduleRefresh()
+          }}
+        />
+      ))}
+
       <DungeonPartySidebar
         roster={roster}
         instanceState={instanceState}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useOptimistic, useTransition } from "react"
+import { useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -46,8 +46,14 @@ import {
  * - {@link finishDelve} — the terminal `active → done` status flip (a row column,
  *   like combat's `endEncounter`), enqueued on the dungeon queue.
  *
- * No realtime: the `dungeon:` channel is M3 (UNN-468), so the console relies on
- * its own optimistic frame + `router.refresh()`; the player fog view polls.
+ * The `dungeon:` channel (DM-to-DM spatial sync) is M3 (UNN-468), so the console
+ * relies on its own optimistic frame + `router.refresh()` for the DM's own edits;
+ * the player fog view polls. It does, however, expose {@link scheduleRefresh} so the
+ * explore body can subscribe to each placed PC's **character** channel and refresh
+ * the party panel when a player edits their own sheet (name/portrait now, HP/SP once
+ * exploration hydrates full sheets) — the exploration peer of the combat console's
+ * per-PC listeners. The DM never writes PC character rows here, so any character ping
+ * is a remote change with no self-echo to suppress.
  */
 export function useDungeonConsole(
   dungeon: Pick<DungeonRow, "id" | "shortId" | "state" | "version">,
@@ -78,6 +84,19 @@ export function useDungeonConsole(
   // an error toast rather than one-shot-retrying. Wire an instance-version refetch
   // here when realtime / multi-tab lands (M3, UNN-468).
   const instanceWrite = useQueuedWrite({ serverVersion: instance.version })
+
+  // Character-channel pings (a player editing their own sheet) collapse into one
+  // `router.refresh()` per event-loop task — mirroring the combat console, so a
+  // burst of pings doesn't fan out into a refresh per ping.
+  const refreshScheduled = useRef(false)
+  function scheduleRefresh() {
+    if (refreshScheduled.current) return
+    refreshScheduled.current = true
+    queueMicrotask(() => {
+      refreshScheduled.current = false
+      router.refresh()
+    })
+  }
 
   function dispatch(event: DungeonEvent | MapInstanceEvent) {
     startTransition(async () => {
@@ -189,5 +208,6 @@ export function useDungeonConsole(
     finishDelve,
     setRandomEncountersEnabled,
     setRandomEncounterInterval,
+    scheduleRefresh,
   }
 }

@@ -5,6 +5,8 @@
 - rename "weak" damage
 - NPCs based on Very Important People.
 
+**If you successfully Shift to each player in the same chain, very good things happen (TBD)**
+
 **Bosses get “stumbled” state if they’re Downed. Requires you to Down them again before it works. Recover at the start of their turn**
 ## Campaigns
 

@@ -106,6 +106,7 @@ export const ENEMY_FAMILY_LABELS: Record<EnemyFamily, string> = {
   undead: "Undead",
   aberration: "Aberration",
   monstrosity: "Monstrosity",
+  elemental: "Elemental",
 }
 
 /**
