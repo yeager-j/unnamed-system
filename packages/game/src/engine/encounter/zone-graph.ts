@@ -31,6 +31,32 @@ export function adjacentZones(
 }
 
 /**
+ * The Zone ids a combatant may move to this turn (UNN-467 dungeon combat). The
+ * acting Zone is always excluded — you don't "move" in place. Targets are the
+ * acting Zone's **adjacent** Zones (the rulebook movement rule), unless the DM's
+ * move-anywhere override is on (or the combatant stands off the graph), which
+ * opens it to every other Zone. Self-exclusion is applied once over either
+ * branch so both carry the same guarantee. Returns `[]` when the combatant has
+ * no token (isn't on the board).
+ */
+export function movableZonesForCombatant(
+  instance: MapInstanceState,
+  combatantId: string,
+  options: { anywhere: boolean }
+): string[] {
+  const fromZoneId = instance.occupancy[combatantId]?.zoneId
+  if (fromZoneId === undefined) return []
+
+  const onGraph = instance.geometry.zones[fromZoneId] !== undefined
+  const candidateIds =
+    options.anywhere || !onGraph
+      ? Object.keys(instance.geometry.zones)
+      : adjacentZones(instance, fromZoneId).map((zone) => zone.id)
+
+  return candidateIds.filter((id) => id !== fromZoneId)
+}
+
+/**
  * The full undirected zone-adjacency graph as `zoneId → bordering zoneId[]`,
  * derived from the geometry's id-keyed connections. The wire shape the player
  * snapshot exposes (observable topology, ids only) so the watch view renders the

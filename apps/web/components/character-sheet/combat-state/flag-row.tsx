@@ -1,6 +1,9 @@
 "use client"
 
-import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation"
+import {
+  DEFAULT_BATTLE_CONDITIONS,
+  type BattleConditionFlagKey,
+} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Toggle } from "@workspace/ui/components/toggle"
 
@@ -9,9 +12,7 @@ import { useCharacter, useCharacterWrite } from "@/hooks/use-character"
 import { setBattleConditionFlagAction } from "@/lib/actions/combat-state"
 import { BATTLE_CONDITION_FLAG_LABELS } from "@/lib/ui/labels"
 
-type FlagKey = "charged" | "concentrating"
-
-const FLAGS: readonly { key: FlagKey; label: string }[] = [
+const FLAGS: readonly { key: BattleConditionFlagKey; label: string }[] = [
   { key: "charged", label: BATTLE_CONDITION_FLAG_LABELS.charged },
   {
     key: "concentrating",
@@ -60,9 +61,12 @@ function OwnerFlagRow({
   concentrating: boolean
 }) {
   const { pending, write, characterId } = useCharacterWrite()
-  const values: Record<FlagKey, boolean> = { charged, concentrating }
+  const values: Record<BattleConditionFlagKey, boolean> = {
+    charged,
+    concentrating,
+  }
 
-  function dispatch(flag: FlagKey, value: boolean) {
+  function dispatch(flag: BattleConditionFlagKey, value: boolean) {
     write({
       edit: { kind: "battleConditionFlag", flag, value },
       surface: "battleConditions",

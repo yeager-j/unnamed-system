@@ -1,8 +1,9 @@
 import { type GameData } from "@workspace/game/engine/ports"
-import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_FLAG_KEYS,
   type BattleConditionAxisKey,
+  type BattleConditionFlagKey,
 } from "@workspace/game/foundation/character/state"
 import {
   AILMENT_KEYS,
@@ -32,12 +33,10 @@ export interface EndOfTurnReminders {
   activeDurations: { axis: BattleConditionAxisKey; turns: number }[]
 }
 
-const HELD_FLAGS = ["charged", "concentrating"] as const
-
 /** Computes the {@link EndOfTurnReminders} for a combatant — a pure projection
  *  over its battle-condition overlay. */
 export function endOfTurnReminders(combatant: Combatant): EndOfTurnReminders {
-  const heldFlags = HELD_FLAGS.filter(
+  const heldFlags = BATTLE_CONDITION_FLAG_KEYS.filter(
     (flag) => combatant.battleConditions[flag]
   )
 

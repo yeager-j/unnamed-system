@@ -40,6 +40,7 @@ import {
   type DungeonZoneToken,
 } from "./dungeon-zone-node"
 import { TurnLoopBar } from "./turn-loop-bar"
+import { readViewport, writeViewport } from "./viewport-store"
 
 const nodeTypes = {
   dungeonZone: DungeonZoneNode,
@@ -174,6 +175,10 @@ function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
     data: {
       fog: connectionFogState(connection, instance.reveal),
       locked: isConnectionLocked(connection, instance.reveal),
+      // The authored secret flag — distinct from the fog state, so the DM can
+      // tell a deliberately-hidden passage apart from one players just haven't
+      // discovered yet (which auto-surfaces as a silhouette on reveal).
+      hidden: connection.hidden,
     },
   }))
 }
@@ -193,6 +198,9 @@ export function DungeonCanvas(props: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
   bar?: ReactNode
+  /** Persists zoom/pan across phase remounts, keyed by the dungeon's `shortId` —
+   *  see {@link import("./viewport-store").readViewport}. */
+  persistKey?: string
 }) {
   return (
     <ReactFlowProvider>
@@ -205,12 +213,17 @@ function DungeonCanvasInner({
   instance,
   mode,
   bar,
+  persistKey,
 }: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
   bar?: ReactNode
+  persistKey?: string
 }) {
   const { resolvedTheme } = useTheme()
+  // Restore the last zoom/pan for this dungeon (or fit the board on the first
+  // visit); a phase switch remounts this canvas, so this is what keeps it steady.
+  const storedViewport = persistKey ? readViewport(persistKey) : undefined
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
@@ -236,8 +249,14 @@ function DungeonCanvasInner({
       nodesConnectable={false}
       colorMode={resolvedTheme === "dark" ? "dark" : "light"}
       deleteKeyCode={null}
-      fitView
+      defaultViewport={storedViewport}
+      fitView={storedViewport === undefined}
       fitViewOptions={{ padding: 0.2 }}
+      onMoveEnd={
+        persistKey
+          ? (_, viewport) => writeViewport(persistKey, viewport)
+          : undefined
+      }
       proOptions={{ hideAttribution: true }}
       panOnScroll
       selectionOnDrag
@@ -263,7 +282,11 @@ function DungeonCanvasInner({
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
-          Hidden from players
+          Hidden (secret)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-4 border border-dotted border-muted-foreground/60 opacity-60" />
+          Not yet revealed
         </span>
       </Panel>
 

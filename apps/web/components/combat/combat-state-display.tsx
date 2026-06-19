@@ -3,7 +3,7 @@
 import { getAilment } from "@workspace/game/data"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
-  type BattleConditionFlagKey,
+  BATTLE_CONDITION_FLAG_KEYS,
   type BattleConditions,
   type ConditionDurations,
 } from "@workspace/game/foundation"
@@ -22,11 +22,6 @@ import {
 
 import { AxisStateDisplay } from "./conditions-controls"
 
-const FLAG_KEYS: readonly BattleConditionFlagKey[] = [
-  "charged",
-  "concentrating",
-]
-
 /**
  * A **read-only** view of a combatant's session overlay — the player-watch peer of
  * the DM drawer's editable {@link import("./conditions-controls").ConditionsControls}.
@@ -44,7 +39,9 @@ export function CombatStateDisplay({
   battleConditions: BattleConditions
   conditionDurations: ConditionDurations
 }) {
-  const activeFlags = FLAG_KEYS.filter((flag) => battleConditions[flag])
+  const activeFlags = BATTLE_CONDITION_FLAG_KEYS.filter(
+    (flag) => battleConditions[flag]
+  )
 
   return (
     <Card>

@@ -1,12 +1,11 @@
 "use client"
 
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
-import Image from "next/image"
 
 import type { ZoneToken } from "@workspace/game/engine"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { initials } from "@/lib/ui/initials"
+import { TokenGlyph } from "./token-glyph"
 
 /**
  * A combatant chip inside a combat zone card — the combat peer of the exploration
@@ -40,27 +39,15 @@ export function DungeonCombatTokenChip({
         acting && "ring-2 ring-primary ring-offset-1 ring-offset-card"
       )}
     >
-      {token.isPc && token.portraitUrl ? (
-        <Image
-          src={token.portraitUrl}
-          alt=""
-          width={20}
-          height={20}
-          className="size-5 shrink-0 object-cover"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className={cn(
-            "flex size-5 shrink-0 items-center justify-center text-[9px] font-semibold",
-            token.side === "players"
-              ? "bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
-              : "bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
-          )}
-        >
-          {initials(token.name, "?")}
-        </span>
-      )}
+      <TokenGlyph
+        name={token.name}
+        portraitUrl={token.isPc ? token.portraitUrl : null}
+        initialsClassName={
+          token.side === "players"
+            ? "bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
+            : "bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
+        }
+      />
       <span className="truncate text-xs font-medium">{token.name}</span>
       {acting ? (
         <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />

@@ -8,8 +8,6 @@ import {
   type SnapshotSubscriptionState,
 } from "./use-snapshot-subscription"
 
-export type { SnapshotFetcher } from "./use-snapshot-subscription"
-
 async function fetchSnapshot(
   shortId: string,
   signal?: AbortSignal

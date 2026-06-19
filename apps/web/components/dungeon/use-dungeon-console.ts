@@ -101,6 +101,13 @@ export function useDungeonConsole(
     startTransition(async () => {
       applyDungeonOptimistic({ kind: "markActed", characterId })
       applyInstanceOptimistic(event)
+      // This is a cross-write (marks the dungeon row + reveals on the Instance),
+      // but `dungeonWrite`'s one-shot stale-retry only refetches the *dungeon*
+      // version — `expectedInstanceVersion` rides the un-refetched Instance ref.
+      // So an Instance-stale conflict surfaces a toast rather than auto-recovering
+      // (same limitation the `instanceWrite` setup notes above). A real fix wants a
+      // discriminated stale-instance error + an instance-version read action — M3
+      // (UNN-468), where realtime/multi-tab makes a concurrent spatial writer real.
       const result = await dungeonWrite.enqueue((expectedVersion) =>
         searchRevealAction({
           dungeonId: dungeon.id,

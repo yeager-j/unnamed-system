@@ -234,6 +234,7 @@ export function DungeonEncounterSetup({
             <DungeonCanvas
               instance={instance.state}
               mode={canvasMode}
+              persistKey={dungeon.shortId}
               bar={<SetupBar />}
             />
           </div>

@@ -1,10 +1,8 @@
 "use client"
 
-import Image from "next/image"
-
 import { cn } from "@workspace/ui/lib/utils"
 
-import { initials } from "@/lib/ui/initials"
+import { TokenGlyph } from "./token-glyph"
 
 /**
  * A party-member chip inside a Zone card — a PC's spatial presence on the dungeon
@@ -36,22 +34,12 @@ export function DungeonTokenChip({
           "border-yellow-700 bg-yellow-100 dark:border-yellow-400 dark:bg-yellow-950"
       )}
     >
-      {portraitUrl ? (
-        <Image
-          src={portraitUrl}
-          alt=""
-          width={20}
-          height={20}
-          className="size-5 shrink-0 object-cover ring-1 ring-primary/40"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="flex size-5 shrink-0 items-center justify-center bg-primary/10 text-[9px] font-semibold text-primary ring-1 ring-primary/40"
-        >
-          {initials(name, "?")}
-        </span>
-      )}
+      <TokenGlyph
+        name={name}
+        portraitUrl={portraitUrl}
+        portraitClassName="ring-1 ring-primary/40"
+        initialsClassName="bg-primary/10 text-primary ring-1 ring-primary/40"
+      />
       <span className="truncate text-xs font-medium text-blue-950 dark:text-blue-100">
         {name}
       </span>

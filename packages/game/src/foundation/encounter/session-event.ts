@@ -1,9 +1,10 @@
 import { z } from "zod/v4"
 
-import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_FLAG_KEYS,
   type BattleConditionAxisKey,
+  type BattleConditionFlagKey,
 } from "@workspace/game/foundation/character/state"
 import {
   AILMENT_KEYS,
@@ -291,7 +292,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("setBattleConditionFlag"),
     combatantId: z.string(),
-    flag: z.enum(["charged", "concentrating"]),
+    flag: z.enum(BATTLE_CONDITION_FLAG_KEYS),
     value: z.boolean(),
   }),
   z.object({

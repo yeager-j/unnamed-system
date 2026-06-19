@@ -2,25 +2,14 @@
 
 import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
-import { useState } from "react"
 
-import {
-  buildConsoleView,
-  buildRosterView,
-  combatantDetail,
-  resolveZoneLayout,
-  type PcCombatantDetail,
-} from "@workspace/game/engine"
+import { type PcCombatantDetail } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
-import {
-  endOfTurnObligations,
-  resolveCatalogEnemyStatblocks,
-} from "@/lib/game-engine"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -33,7 +22,7 @@ import { CombatantDrawer } from "./combatant-drawer"
 import { CombatantRail } from "./combatant-rail"
 import { EndCombatDialog } from "./end-combat-dialog"
 import { EndOfTurnModal } from "./end-of-turn-modal"
-import { TurnOrderStrip, type ConsolePhase } from "./turn-order-strip"
+import { TurnOrderStrip } from "./turn-order-strip"
 import { useCombatConsole } from "./use-combat-console"
 import { ZoneEnchantmentControl } from "./zone-enchantment-control"
 import { ZoneLayout } from "./zone-layout"
@@ -44,8 +33,13 @@ import { ZoneLayout } from "./zone-layout"
  * derived turn-order selectors and the `endTurn` / `draftCombatant` /
  * `advanceRound` events, all through `applyCombatEvent` (no new write path).
  *
+ * The view derivation (turn order, roster, zone layout, phase, the selected
+ * combatant, end-of-turn obligations) lives in {@link useCombatConsole}, shared
+ * with the dungeon combat body so the two can't drift; this component is the
+ * standalone console's chrome (header, battlefield layout) only.
+ *
  * The phase is **derived from the session** (ADR Decision 8) plus one
- * client-only `modalOpen` flag for the end-of-turn beat:
+ * client-only modal flag for the end-of-turn beat:
  * - no current actor → **drafting** (opening pick or a fresh round);
  * - current actor, not acted → **active turn**;
  * - current actor, acted, modal open → **resolving** (End turn pressed);
@@ -71,93 +65,31 @@ export function CombatConsole({
 }) {
   const {
     session,
-    instance: instanceState,
     isPending,
     dispatch,
     endEncounter,
     pcVitalsVersions,
     onPcPing,
-  } = useCombatConsole(encounter, instance, pcDetailById)
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedCombatantId, setSelectedCombatantId] = useState<string | null>(
-    null
-  )
-
-  const enemyStatblockById = resolveCatalogEnemyStatblocks(session.combatants)
-  const view = buildConsoleView(session, pcDetailById, enemyStatblockById)
-  const { currentActor } = view
-  const roster = buildRosterView(
-    session,
-    instanceState,
-    pcDetailById,
-    enemyStatblockById
-  )
-  const fallenPcNames = roster.players
-    .filter((row) => row.isFallen)
-    .map((row) => row.name)
-  const selectedDetail =
-    selectedCombatantId !== null
-      ? combatantDetail(
-          session,
-          instanceState,
-          selectedCombatantId,
-          pcDetailById,
-          enemyStatblockById
-        )
-      : null
-
-  // Mechanic state lives on the character row, not the session — pass it through
-  // so the end-of-turn review can surface a Berserker's Frenzy decrement reminder.
-  const pcMechanicByCharacterId = Object.fromEntries(
-    Object.values(pcDetailById).map((detail) => [
-      detail.id,
-      detail.activeMechanic,
-    ])
-  )
-  const obligations =
-    currentActor !== null
-      ? endOfTurnObligations(session, currentActor.id, pcMechanicByCharacterId)
-      : null
-
-  const phase: ConsolePhase =
-    currentActor === null
-      ? "drafting"
-      : !currentActor.hasActed
-        ? "active"
-        : modalOpen
-          ? "resolving"
-          : "drafting"
+    view,
+    currentActor,
+    roster,
+    layout,
+    fallenPcNames,
+    obligations,
+    phase,
+    pcChannelIds,
+    selectedDetail,
+    selectCombatant,
+    endOfTurnOpen,
+    closeEndOfTurn,
+    onEndTurn,
+    onDraft,
+    onAdvanceRound,
+  } = useCombatConsole(encounter, instance, pcDetailById, pcShortIdById)
 
   const advantageLabel = session.advantage
     ? COMBAT_ADVANTAGE_START_LABELS[session.advantage]
     : null
-
-  function onEndTurn() {
-    dispatch({ kind: "endTurn" })
-    setModalOpen(true)
-  }
-
-  function onDraft(combatantId: string) {
-    dispatch({ kind: "draftCombatant", combatantId })
-  }
-
-  function onAdvanceRound() {
-    dispatch({ kind: "advanceRound" })
-  }
-
-  // One realtime listener per PC combatant in the (optimistic) session, keyed
-  // by shortId — adding or removing a PC mounts/unmounts its channel (UNN-373).
-  const pcChannelIds = session.combatants.flatMap((combatant) =>
-    combatant.ref.kind === "pc" &&
-    pcShortIdById[combatant.ref.characterId] !== undefined
-      ? [
-          {
-            characterId: combatant.ref.characterId,
-            shortId: pcShortIdById[combatant.ref.characterId]!,
-          },
-        ]
-      : []
-  )
 
   return (
     <main className="flex w-full flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -267,14 +199,9 @@ export function CombatConsole({
         </p>
       ) : (
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
-          <CombatantRail roster={roster} onSelect={setSelectedCombatantId} />
+          <CombatantRail roster={roster} onSelect={selectCombatant} />
           <ZoneLayout
-            view={resolveZoneLayout(
-              session,
-              instanceState,
-              pcDetailById,
-              enemyStatblockById
-            )}
+            view={layout}
             zoneAction={(zone) => (
               <ZoneEnchantmentControl
                 zoneId={zone.id}
@@ -292,15 +219,15 @@ export function CombatConsole({
         actorId={currentActor?.id ?? ""}
         actorName={currentActor?.name ?? ""}
         obligations={obligations}
-        open={modalOpen && phase === "resolving"}
+        open={endOfTurnOpen}
         onCombatEvent={dispatch}
         isPending={isPending}
-        onDone={() => setModalOpen(false)}
+        onDone={closeEndOfTurn}
       />
 
       <CombatantDrawer
         detail={selectedDetail}
-        onClose={() => setSelectedCombatantId(null)}
+        onClose={() => selectCombatant(null)}
         onCombatEvent={dispatch}
         pcVitalsVersions={pcVitalsVersions}
       />
