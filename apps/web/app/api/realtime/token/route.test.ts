@@ -57,4 +57,19 @@ describe("POST /api/realtime/token", () => {
       "dev:character:abc123": ["subscribe"],
     })
   })
+
+  it("issues a token for the dungeon domain", async () => {
+    vi.stubEnv("ABLY_API_KEY", FAKE_ABLY_KEY)
+
+    const response = await POST(
+      tokenRequest({ domain: "dungeon", shortId: "delve9" })
+    )
+
+    expect(response.status).toBe(200)
+    const { channel, tokenRequest: issued } = await response.json()
+    expect(channel).toBe("dev:dungeon:delve9")
+    expect(JSON.parse(issued.capability)).toEqual({
+      "dev:dungeon:delve9": ["subscribe"],
+    })
+  })
 })

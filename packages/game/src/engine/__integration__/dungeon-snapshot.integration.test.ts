@@ -33,6 +33,7 @@ const DUNGEON = {
   status: "active" as DungeonStatus,
   campaignShortId: "camp-1",
   version: 7,
+  instanceVersion: 3,
 }
 
 function instanceWith(
@@ -198,7 +199,7 @@ describe("projectDungeonSnapshot", () => {
     expect(exits).toEqual([])
   })
 
-  it("passes through status, name, campaignShortId, version, and the turn counter", () => {
+  it("passes through status, name, campaignShortId, both versions, and the turn counter", () => {
     const instance = instanceWith(
       { geometry: makeGeometry([makeZone("z1")]) },
       {
@@ -218,6 +219,7 @@ describe("projectDungeonSnapshot", () => {
       name: "The Sunless Vault",
       campaignShortId: "camp-1",
       version: 7,
+      instanceVersion: 3,
       turn: 12,
     })
   })

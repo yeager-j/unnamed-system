@@ -11,6 +11,7 @@ import { saveDungeonState } from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { reduceMapInstance } from "@/lib/game-engine"
+import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
 import {
@@ -85,6 +86,12 @@ export async function searchRevealAction(
   })
   if (!result.ok) return result
 
+  // The dungeon row bumped (acted-flag) alongside the Instance reveal; pinging
+  // the dungeon version triggers the fog view's refetch, which carries the reveal.
+  publishDungeonPing(dungeon.shortId, {
+    version: result.value.version,
+    status: dungeon.status,
+  })
   revalidateDungeon(dungeon)
   return ok(result.value)
 }

@@ -19,6 +19,7 @@ const loadMapInstanceById = vi.fn()
 const saveDungeonState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonPing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -47,6 +48,10 @@ vi.mock("@/lib/db/writes/guard-many", () => ({
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
     revalidateDungeon(dungeon),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -143,6 +148,9 @@ describe("searchRevealAction", () => {
     ).toEqual(["c1"])
 
     expect(revalidateDungeon).toHaveBeenCalled()
+    // The cross-write bumps the dungeon row → a dungeon ping triggers the
+    // fog-view refetch that carries the reveal (UNN-468).
+    expect(publishDungeonPing).toHaveBeenCalledOnce()
   })
 
   it("surfaces a guard failure and does not revalidate (atomic — neither row commits)", async () => {

@@ -15,6 +15,7 @@ const loadActiveDungeonForCampaign = vi.fn()
 const setDungeonStatus = vi.fn()
 const revalidatePath = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonPing = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
@@ -34,6 +35,10 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
 }))
 vi.mock("next/cache", () => ({
   revalidatePath: (path: string) => revalidatePath(path),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -119,6 +124,11 @@ describe("setDungeonStatusAction", () => {
       id: DUNGEON_ID,
       campaignId: CAMPAIGN_ID,
       shortId: "dng-short",
+    })
+    // The lifecycle flip pings the dungeon channel with the new status (UNN-468).
+    expect(publishDungeonPing).toHaveBeenCalledExactlyOnceWith("dng-short", {
+      version: 1,
+      status: "active",
     })
   })
 

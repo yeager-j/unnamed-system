@@ -11,10 +11,10 @@ import {
 } from "@workspace/game/foundation"
 
 import { parseCharacterPing } from "@/hooks/character-version-sync"
-import { parseEncounterPing } from "@/hooks/encounter-ping"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
+import { parseVersionPing } from "@/hooks/version-ping"
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -125,9 +125,14 @@ export function useCombatConsole(
     domain: "encounter",
     shortId: encounter.shortId,
     onPing: (data) => {
-      const ping = parseEncounterPing(data)
-      if (ping?.version === undefined) return
-      if (ping.version <= versionRef.current) return
+      const ping = parseVersionPing(data, "encounter")
+      if (!ping) return
+      // The encounter channel now carries two version streams (UNN-468): an
+      // `encounter` ping (session write) compares against the encounter ref, a
+      // `mapInstance` ping (a concurrent spatial write) against the Instance ref.
+      const ref =
+        ping.kind === "mapInstance" ? instanceWrite.versionRef : versionRef
+      if (ping.version <= ref.current) return
       scheduleRefresh()
     },
     onReconnect: () => router.refresh(),

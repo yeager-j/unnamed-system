@@ -20,6 +20,7 @@ const loadDungeonRowById = vi.fn()
 const requireCampaignDM = vi.fn()
 const saveDungeonState = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonPing = vi.fn()
 
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
@@ -34,6 +35,10 @@ vi.mock("@/lib/db/writes/dungeon", () => ({
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
     revalidateDungeon(dungeon),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -96,6 +101,7 @@ describe("setRandomEncountersEnabledAction", () => {
       0
     )
     expect(revalidateDungeon).toHaveBeenCalled()
+    expect(publishDungeonPing).toHaveBeenCalledOnce()
   })
 
   it("returns dungeon-not-found without gating or writing", async () => {

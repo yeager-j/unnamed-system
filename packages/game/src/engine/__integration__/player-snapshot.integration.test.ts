@@ -67,6 +67,7 @@ function encounter(session: CombatSession, status: "draft" | "live" | "ended") {
     status,
     campaignShortId: "camp-1",
     version: 4,
+    instanceVersion: 2,
     session,
   }
 }
@@ -268,6 +269,7 @@ describe("projectPlayerSnapshot", () => {
     expect(snapshot.name).toBe("Ambush at the Bridge")
     expect(snapshot.campaignShortId).toBe("camp-1")
     expect(snapshot.version).toBe(4)
+    expect(snapshot.instanceVersion).toBe(2)
     expect(snapshot.round).toBe(3)
     expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
     // Redaction: the public snapshot projects each zone to { id, name } only —
