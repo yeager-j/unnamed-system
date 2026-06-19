@@ -9,6 +9,7 @@ import {
   enemyHp,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
+import type { Engagement } from "@workspace/game/foundation/combat/engagement"
 import type {
   DungeonState,
   DungeonStatus,
@@ -51,6 +52,12 @@ export interface DungeonSnapshotToken {
   characterId: string
   name: string
   portraitUrl: string | null
+  /** The token's melee-lock during combat, for the fog view's engaged-cluster
+   *  outline (UNN-467). Its `targetCombatantIds` reference combatant ids — a PC's
+   *  *is* its `characterId` (shared-row keying), an enemy's its combatant id — the
+   *  same ids the fog tokens key on, so the client groups across sides. **Not
+   *  redacted** (engagement is player-observable). Free in exploration. */
+  engagement?: Engagement
 }
 
 /** An **enemy** token a player sees on the battlefield during combat — the
@@ -61,6 +68,9 @@ export interface DungeonSnapshotEnemyToken {
   id: string
   name: string
   hp: Pool
+  /** The enemy's melee-lock, for the fog view's engaged-cluster outline (UNN-467).
+   *  Same shape + non-redaction as {@link DungeonSnapshotToken.engagement}. */
+  engagement?: Engagement
 }
 
 /** A **revealed** Zone. Carries its player-facing `description` (shown on reveal)
@@ -163,6 +173,7 @@ function tokensByRevealedZone(
       characterId,
       name: entry.name,
       portraitUrl: entry.portraitUrl,
+      engagement: token.engagement,
     })
   }
   return byZone
@@ -185,11 +196,12 @@ export function combatEnemyTokensByZone(
   const byZone: Record<string, DungeonSnapshotEnemyToken[]> = {}
   for (const combatant of session.combatants) {
     if (combatant.ref.kind === "pc") continue
-    const zoneId = instance.occupancy[combatant.id]?.zoneId ?? ""
-    ;(byZone[zoneId] ??= []).push({
+    const occupant = instance.occupancy[combatant.id]
+    ;(byZone[occupant?.zoneId ?? ""] ??= []).push({
       id: combatant.id,
       name: combatantName(combatant, {}, enemyStatblockById),
       hp: enemyHp(combatant, enemyStatblockById),
+      engagement: occupant?.engagement,
     })
   }
   return byZone

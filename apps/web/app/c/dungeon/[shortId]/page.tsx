@@ -8,6 +8,7 @@ import { DungeonWatch } from "@/components/dungeon/dungeon-watch"
 import { auth } from "@/lib/auth"
 import {
   getDungeonSnapshot,
+  hydrateOwnedDungeonSheets,
   loadOwnedDungeonCharacterIds,
   loadOwnedDungeonCombatSheets,
 } from "@/lib/db/queries/load-dungeon-snapshot"
@@ -77,6 +78,13 @@ export default async function DungeonWatchPage({ params }: PageProps) {
       ])
     : [null, []]
 
+  // During exploration (no live fight) the viewer's own placed characters fill
+  // the Explore-tab column beside the map. `ownedCharacterIds` is already
+  // owner-filtered, so hydrating it reuses that walk rather than re-resolving.
+  const exploreSheets = combat
+    ? []
+    : await hydrateOwnedDungeonSheets(ownedCharacterIds)
+
   return (
     <DungeonWatch
       shortId={shortId}
@@ -84,6 +92,7 @@ export default async function DungeonWatchPage({ params }: PageProps) {
       ownedCharacterIds={ownedCharacterIds}
       initialEncounterSnapshot={initialEncounterSnapshot}
       ownedSheets={ownedSheets}
+      exploreSheets={exploreSheets}
     />
   )
 }

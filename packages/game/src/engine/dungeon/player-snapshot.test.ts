@@ -47,7 +47,7 @@ describe("combatEnemyTokensByZone", () => {
     expect(result).toEqual({})
   })
 
-  it("emits exactly { id, name, hp } per enemy — never attributes or affinities", () => {
+  it("emits exactly { id, name, hp, engagement } per enemy — never attributes or affinities", () => {
     const { result } = tokensByZone([catalogEnemy("goblin", "z1")])
 
     const [token] = result["z1"]!
@@ -55,6 +55,7 @@ describe("combatEnemyTokensByZone", () => {
       id: "c-0",
       name: "Goblin",
       hp: { current: GOBLIN.maxHP, max: GOBLIN.maxHP },
+      engagement: { status: "free" },
     })
     // Structural absence: the redacted enemy data must not appear anywhere on
     // the wire shape — proven against a source that carries both.

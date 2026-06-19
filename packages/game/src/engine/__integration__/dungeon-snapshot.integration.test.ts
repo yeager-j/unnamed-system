@@ -116,6 +116,7 @@ describe("projectDungeonSnapshot", () => {
         characterId: "char-aria",
         name: "Aria",
         portraitUrl: "https://cdn/aria.png",
+        engagement: { status: "free" },
       },
     ])
     // char-bran stands in the unrevealed z2 — its token must not leak.

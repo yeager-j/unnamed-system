@@ -30,6 +30,7 @@ export function ZoneCardFrame({
   ariaLabel,
   toolbar,
   action,
+  titleAccessory,
   selected,
   className,
   showHiddenGlyph = true,
@@ -44,6 +45,9 @@ export function ZoneCardFrame({
   /** Extra header-action content rendered left of the count (the combat Engaged
    *  badge); the count always renders after it. */
   action?: ReactNode
+  /** Content rendered after the name in the title row (the combat Enchantment
+   *  badge); the name truncates to make room. */
+  titleAccessory?: ReactNode
   /** Forwarded to the `Card` so a node can show React Flow's selected styling. */
   selected?: boolean
   /** Extra `Card` classes (cursor, move-target ring, transition). */
@@ -82,6 +86,7 @@ export function ZoneCardFrame({
               />
             )}
             <span className="truncate">{name}</span>
+            {titleAccessory}
           </CardTitle>
           <CardAction className="flex items-center gap-1.5">
             {action}

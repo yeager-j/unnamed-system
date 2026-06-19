@@ -3,6 +3,8 @@
 import { ArrowSquareOutIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import { type Node, type NodeProps } from "@xyflow/react"
 
+import { groupTokensByEngagement } from "@workspace/game/engine"
+import { type Engagement } from "@workspace/game/foundation"
 import {
   Card,
   CardContent,
@@ -20,12 +22,23 @@ export type FogZoneToken = {
   portraitUrl: string | null
   /** This token belongs to the signed-in viewer — gets the self-highlight ring. */
   owned: boolean
+  /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
+  engagement?: Engagement
 }
 export type FogZoneEnemy = {
   id: string
   name: string
   hp: { current: number; max: number }
+  /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
+  engagement?: Engagement
 }
+
+/** A zone occupant the fog view can group by engagement: the party token or enemy
+ *  token, keyed by the combatant id its lock references (a PC's *is* its
+ *  `characterId`), so {@link groupTokensByEngagement} clusters across sides. */
+type FogCombatant =
+  | { id: string; engagement?: Engagement; kind: "party"; token: FogZoneToken }
+  | { id: string; engagement?: Engagement; kind: "enemy"; enemy: FogZoneEnemy }
 export type FogZoneExit = {
   /** The connection id (stable React key); the far Zone is undiscovered. */
   id: string
@@ -55,6 +68,27 @@ export type DungeonFogZoneNode = Node<FogZoneData, "fogZone">
 export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
   const { name, description, tokens, enemies, exits } = data
 
+  // Party + enemy tokens as one list so engaged combatants cluster across sides
+  // (a PC locked with an enemy). Party first, then enemies — the prior order.
+  const combatants: FogCombatant[] = [
+    ...tokens.map(
+      (token): FogCombatant => ({
+        id: token.characterId,
+        engagement: token.engagement,
+        kind: "party",
+        token,
+      })
+    ),
+    ...enemies.map(
+      (enemy): FogCombatant => ({
+        id: enemy.id,
+        engagement: enemy.engagement,
+        kind: "enemy",
+        enemy,
+      })
+    ),
+  ]
+
   return (
     <>
       <FloatingEdgeHandles />
@@ -75,22 +109,29 @@ export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
             <p className="text-sm text-muted-foreground">{description}</p>
           ) : null}
 
-          {tokens.length > 0 || enemies.length > 0 ? (
+          {combatants.length > 0 ? (
             <ul className="flex flex-wrap gap-1.5">
-              {tokens.map((token) => (
-                <li key={token.characterId}>
-                  <DungeonTokenChip
-                    name={token.name}
-                    portraitUrl={token.portraitUrl}
-                    owned={token.owned}
-                  />
-                </li>
-              ))}
-              {enemies.map((enemy) => (
-                <li key={enemy.id}>
-                  <FogEnemyChip name={enemy.name} hp={enemy.hp} />
-                </li>
-              ))}
+              {groupTokensByEngagement(combatants).map((group) =>
+                group.length > 1 ? (
+                  <li key={group.map((c) => c.id).join("|")}>
+                    <div
+                      role="group"
+                      aria-label={`Engaged: ${group.map(combatantName).join(", ")}`}
+                      className="flex flex-wrap gap-1.5 border border-dotted border-destructive/60 p-1"
+                    >
+                      {group.map((c) => (
+                        <div key={c.id}>
+                          <FogCombatantChip combatant={c} />
+                        </div>
+                      ))}
+                    </div>
+                  </li>
+                ) : (
+                  <li key={group[0]!.id}>
+                    <FogCombatantChip combatant={group[0]!} />
+                  </li>
+                )
+              )}
             </ul>
           ) : null}
 
@@ -107,6 +148,27 @@ export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
       </Card>
     </>
   )
+}
+
+function combatantName(combatant: FogCombatant): string {
+  return combatant.kind === "party"
+    ? combatant.token.name
+    : combatant.enemy.name
+}
+
+/** Renders a fog combatant by side: a party token's {@link DungeonTokenChip}
+ *  (self-highlighted when owned) or an enemy's redacted {@link FogEnemyChip}. */
+function FogCombatantChip({ combatant }: { combatant: FogCombatant }) {
+  if (combatant.kind === "party") {
+    return (
+      <DungeonTokenChip
+        name={combatant.token.name}
+        portraitUrl={combatant.token.portraitUrl}
+        owned={combatant.token.owned}
+      />
+    )
+  }
+  return <FogEnemyChip name={combatant.enemy.name} hp={combatant.enemy.hp} />
 }
 
 /**
