@@ -113,9 +113,9 @@ function buildCombatNodes(
   instance: MapInstanceState,
   layout: ZoneLayoutView
 ): CanvasNode[] {
-  const byZone = new Map(layout.zones.map((zone) => [zone.id, zone.combatants]))
+  const byZone = new Map(layout.zones.map((zone) => [zone.id, zone]))
   return Object.values(instance.geometry.zones).map((zone) => {
-    const tokens = byZone.get(zone.id) ?? []
+    const entry = byZone.get(zone.id)
     return {
       id: zone.id,
       type: "dungeonCombatZone",
@@ -124,10 +124,10 @@ function buildCombatNodes(
       data: {
         zone,
         revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-        tokens,
-        engaged:
-          tokens.some((token) => token.side === "players") &&
-          tokens.some((token) => token.side === "enemies"),
+        tokens: entry?.combatants ?? [],
+        // Engaged is a game rule (rulebook §3.5) — derived in the engine's
+        // ZoneLayoutView, not here (CLAUDE.md: no game logic in the UI layer).
+        engaged: entry?.engaged ?? false,
       },
     }
   })

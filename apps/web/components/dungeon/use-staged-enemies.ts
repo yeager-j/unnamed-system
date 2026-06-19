@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useState } from "react"
 
 import type { StagedEnemy } from "@/components/combat/enemies/enemy-catalog-panel"
 
@@ -16,7 +16,7 @@ import type { StagedEnemy } from "@/components/combat/enemies/enemy-catalog-pane
 export function useStagedEnemies() {
   const [staged, setStaged] = useState<StagedEnemy[]>([])
 
-  const add = useCallback((enemyKey: string) => {
+  function add(enemyKey: string) {
     setStaged((prev) => {
       const existing = prev.find((entry) => entry.enemyKey === enemyKey)
       return existing
@@ -27,9 +27,9 @@ export function useStagedEnemies() {
           )
         : [...prev, { enemyKey, count: 1 }]
     })
-  }, [])
+  }
 
-  const setCount = useCallback((enemyKey: string, count: number) => {
+  function setCount(enemyKey: string, count: number) {
     setStaged((prev) =>
       count <= 0
         ? prev.filter((entry) => entry.enemyKey !== enemyKey)
@@ -37,22 +37,24 @@ export function useStagedEnemies() {
             entry.enemyKey === enemyKey ? { ...entry, count } : entry
           )
     )
-  }, [])
+  }
 
-  const decrement = useCallback((enemyKey: string) => {
+  function decrement(enemyKey: string) {
     setStaged((prev) =>
       prev.flatMap((entry) => {
         if (entry.enemyKey !== enemyKey) return [entry]
         return entry.count <= 1 ? [] : [{ ...entry, count: entry.count - 1 }]
       })
     )
-  }, [])
+  }
 
-  const remove = useCallback((enemyKey: string) => {
+  function remove(enemyKey: string) {
     setStaged((prev) => prev.filter((entry) => entry.enemyKey !== enemyKey))
-  }, [])
+  }
 
-  const clear = useCallback(() => setStaged([]), [])
+  function clear() {
+    setStaged([])
+  }
 
   const total = staged.reduce((sum, entry) => sum + entry.count, 0)
 
