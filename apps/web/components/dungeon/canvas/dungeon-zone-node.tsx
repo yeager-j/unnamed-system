@@ -6,14 +6,7 @@ import {
   NoteIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import {
-  Handle,
-  NodeToolbar,
-  Position,
-  type Node,
-  type NodeProps,
-} from "@xyflow/react"
-import Image from "next/image"
+import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 
 import type { MapZone } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
@@ -27,9 +20,9 @@ import {
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { initials } from "@/lib/ui/initials"
-
 import { useDungeonCanvas } from "./dungeon-canvas-context"
+import { DungeonTokenChip } from "./dungeon-token-chip"
+import { FloatingEdgeHandles } from "./floating-edge-handles"
 
 export type DungeonZoneToken = {
   characterId: string
@@ -95,18 +88,7 @@ export function DungeonZoneNode({
         </Button>
       </NodeToolbar>
 
-      <Handle
-        type="target"
-        position={Position.Top}
-        isConnectable={false}
-        className="!size-0 !min-w-0 !border-0 !bg-transparent"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        isConnectable={false}
-        className="!size-0 !min-w-0 !border-0 !bg-transparent"
-      />
+      <FloatingEdgeHandles />
 
       <Card
         size="sm"
@@ -144,7 +126,10 @@ export function DungeonZoneNode({
             <ul className="flex flex-wrap gap-1.5">
               {tokens.map((token) => (
                 <li key={token.characterId}>
-                  <DungeonTokenChip token={token} />
+                  <DungeonTokenChip
+                    name={token.name}
+                    portraitUrl={token.portraitUrl}
+                  />
                 </li>
               ))}
             </ul>
@@ -152,41 +137,5 @@ export function DungeonZoneNode({
         </CardContent>
       </Card>
     </>
-  )
-}
-
-/**
- * A party-member chip inside a Zone card — the exploration counterpart of the
- * combat `TokenChip`. PC-only in exploration, so it always carries the player
- * side-tint (square portrait/initials + a blue border).
- */
-function DungeonTokenChip({ token }: { token: DungeonZoneToken }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex max-w-[10rem] items-center gap-1.5 border border-blue-700 bg-blue-100 py-1 pr-2 pl-1",
-        "dark:border-blue-400 dark:bg-blue-950"
-      )}
-    >
-      {token.portraitUrl ? (
-        <Image
-          src={token.portraitUrl}
-          alt=""
-          width={20}
-          height={20}
-          className="size-5 shrink-0 object-cover ring-1 ring-primary/40"
-        />
-      ) : (
-        <span
-          aria-hidden
-          className="flex size-5 shrink-0 items-center justify-center bg-primary/10 text-[9px] font-semibold text-primary ring-1 ring-primary/40"
-        >
-          {initials(token.name, "?")}
-        </span>
-      )}
-      <span className="truncate text-xs font-medium text-blue-950 dark:text-blue-100">
-        {token.name}
-      </span>
-    </span>
   )
 }
