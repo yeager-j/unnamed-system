@@ -8,7 +8,7 @@
  * see (or need) the namespace.
  */
 
-export type RealtimeDomain = "character" | "encounter"
+export type RealtimeDomain = "character" | "encounter" | "dungeon"
 
 /**
  * Collapses a git ref to channel-safe characters: lowercase, every run outside

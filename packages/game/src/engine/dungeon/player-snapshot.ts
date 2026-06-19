@@ -84,9 +84,14 @@ export interface DungeonSnapshot {
   name: string
   /** The owning campaign's public `shortId`, for the view's back link. */
   campaignShortId: string
-  /** The dungeon row's optimistic version token at projection time — the polling
-   *  hook compares it to decide whether a refetch is needed. */
+  /** The dungeon row's optimistic version token at projection time — the
+   *  subscription hook compares it to decide whether a refetch is needed. */
   version: number
+  /** The Map Instance row's version token (UNN-468). Reveal-state and occupancy
+   *  live on the Instance, bumped independently of the dungeon row (a Zone reveal
+   *  or token move bumps only this), so the fog view tracks **both** versions and
+   *  refetches when either advances. */
+  instanceVersion: number
   turn: number
   zones: DungeonSnapshotZone[]
   connections: DungeonSnapshotConnection[]
@@ -134,6 +139,9 @@ export function projectDungeonSnapshot(
     status: DungeonStatus
     campaignShortId: string
     version: number
+    /** The Map Instance row's version (UNN-468) — passed alongside the dungeon
+     *  version so the snapshot exposes both halves of its composite token. */
+    instanceVersion: number
   },
   instance: MapInstanceState,
   state: DungeonState,
@@ -181,6 +189,7 @@ export function projectDungeonSnapshot(
     name: dungeon.name,
     campaignShortId: dungeon.campaignShortId,
     version: dungeon.version,
+    instanceVersion: dungeon.instanceVersion,
     turn: state.turnCounter,
     zones,
     connections,

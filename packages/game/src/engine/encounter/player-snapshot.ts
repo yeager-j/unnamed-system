@@ -113,6 +113,13 @@ export interface EncounterSnapshot {
    * ping already publishes on the public channel, so it leaks nothing new.
    */
   version: number
+  /**
+   * The Map Instance row's version token at projection time (UNN-468). Position
+   * (occupancy) and the Zone graph live on the Instance, bumped independently of
+   * the encounter row, so the watch tracks **both** versions and refetches when
+   * either advances — a combat move bumps only this one.
+   */
+  instanceVersion: number
   round: number
   currentActor: PlayerCurrentActor | null
   combatants: PlayerVisibleCombatant[]
@@ -219,6 +226,9 @@ export function projectPlayerSnapshot(
     status: EncounterStatus
     campaignShortId: string
     version: number
+    /** The Map Instance row's version (UNN-468) — passed alongside the encounter
+     *  version so the snapshot exposes both halves of its composite token. */
+    instanceVersion: number
     session: CombatSession
   },
   instance: MapInstanceState,
@@ -241,6 +251,7 @@ export function projectPlayerSnapshot(
     name: encounter.name,
     campaignShortId: encounter.campaignShortId,
     version: encounter.version,
+    instanceVersion: encounter.instanceVersion,
     round: session.round,
     currentActor: actor
       ? {

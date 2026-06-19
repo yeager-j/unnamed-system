@@ -34,6 +34,13 @@ describe("realtimeChannelName", () => {
     )
   })
 
+  it("names the dungeon domain channel", () => {
+    vi.stubEnv("VERCEL_ENV", "")
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "")
+
+    expect(realtimeChannelName("dungeon", "delve9")).toBe("dev:dungeon:delve9")
+  })
+
   it("gives the same shortId different names on different preview branches", () => {
     vi.stubEnv("VERCEL_ENV", "preview")
 

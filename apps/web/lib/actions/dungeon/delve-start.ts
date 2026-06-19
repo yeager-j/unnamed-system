@@ -19,6 +19,7 @@ import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { setDungeonStatus } from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
+import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import {
   StartDelveSchema,
@@ -99,6 +100,13 @@ export async function startDelveAction(
   })
   if (!result.ok) return result
 
+  // The delve just went live (draft → active) — the dungeon ping's status flips
+  // the fog view from its waiting state to the map, and its version bump triggers
+  // the refetch that picks up the freshly-placed tokens + revealed Zones.
+  publishDungeonPing(dungeon.shortId, {
+    version: result.value.version,
+    status: "active",
+  })
   revalidateDungeon(dungeon)
   return ok(result.value)
 }

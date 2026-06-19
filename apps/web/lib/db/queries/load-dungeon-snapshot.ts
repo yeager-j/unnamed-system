@@ -49,6 +49,7 @@ export async function getDungeonSnapshot(
       status: dungeon.status,
       campaignShortId: campaign?.shortId ?? "",
       version: dungeon.version,
+      instanceVersion: instance.version,
     },
     instance.state,
     dungeon.state,

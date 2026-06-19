@@ -20,6 +20,10 @@ import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { reduceMapInstance } from "@/lib/game-engine"
+import {
+  publishDungeonInstancePing,
+  publishDungeonPing,
+} from "@/lib/realtime/publish"
 
 import {
   ApplyDungeonEventSchema,
@@ -46,10 +50,12 @@ import { revalidateDungeon } from "./revalidate"
  *   single-row `saveMapInstanceState` guarded on `expectedInstanceVersion`,
  *   returning the **Instance** version.
  *
- * No realtime ping (the `dungeon:` channel is M3/UNN-468; the console polls /
- * revalidates). The two atomic cross-container gestures — delve-start and
- * search-that-reveals — live in their own actions (`delve-start.ts`,
- * `search-reveal.ts`), not here; every move and reveal is single-row.
+ * Each branch fires a `dungeon`-channel ping (UNN-468) — a `dungeon`-kind ping
+ * for the turn-loop row, a `mapInstance`-kind ping for the spatial row — so the
+ * fog view refreshes over realtime (polling stays the degraded fallback). The two
+ * atomic cross-container gestures — delve-start and search-that-reveals — live in
+ * their own actions (`delve-start.ts`, `search-reveal.ts`), not here; every move
+ * and reveal is single-row.
  */
 export async function applyDungeonEvent(
   input: ApplyDungeonEventInput
@@ -72,6 +78,10 @@ export async function applyDungeonEvent(
     const saved = await saveDungeonState(dungeonId, next, expectedVersion)
     if (!saved.ok) return saved
 
+    publishDungeonPing(dungeon.shortId, {
+      version: saved.value.version,
+      status: dungeon.status,
+    })
     revalidateDungeon(dungeon)
     return ok({ version: saved.value.version })
   }
@@ -81,10 +91,12 @@ export async function applyDungeonEvent(
 
 /**
  * A pure spatial write on the delve's Map Instance: load it, reduce, save the
- * single Instance row guarded on `expectedInstanceVersion`. Returns the bumped
- * **Instance** version (the token the instance-mirroring console advances). In
- * exploration the DM free-drags, so this is the only movement path; once a fight
- * is live, occupancy is written through the Encounter's model (M4), not here.
+ * single Instance row guarded on `expectedInstanceVersion`, and fire a
+ * `mapInstance`-kind ping (UNN-468) so the fog view picks up the move/reveal over
+ * realtime. Returns the bumped **Instance** version (the token the
+ * instance-mirroring console advances). In exploration the DM free-drags, so this
+ * is the only movement path; once a fight is live, occupancy is written through
+ * the Encounter's model (M4), not here.
  */
 async function applySpatialEvent(
   dungeon: DungeonRow,
@@ -107,6 +119,7 @@ async function applySpatialEvent(
   )
   if (!saved.ok) return saved
 
+  publishDungeonInstancePing(dungeon.shortId, saved.value.version)
   revalidateDungeon(dungeon)
   return ok({ version: saved.value.version })
 }
