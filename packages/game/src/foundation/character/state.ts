@@ -68,6 +68,16 @@ export const BATTLE_CONDITION_AXIS_KEYS = [
 export type BattleConditionAxisKey = (typeof BATTLE_CONDITION_AXIS_KEYS)[number]
 
 /**
+ * The two single-use Battle Condition **flags** — the complement of
+ * {@link BATTLE_CONDITION_AXIS_KEYS} within {@link BATTLE_CONDITION_KEYS}
+ * (Charged/Concentrating are booleans, not tri-state axes). The one canonical
+ * source: schemas (`z.enum`), the per-flag write/event vocabulary, and the UI
+ * flag rows all derive from this array, so a third flag can't drift across them.
+ */
+export const BATTLE_CONDITION_FLAG_KEYS = ["charged", "concentrating"] as const
+export type BattleConditionFlagKey = (typeof BATTLE_CONDITION_FLAG_KEYS)[number]
+
+/**
  * The standard kaja/nda duration — every kaja/nda lasts 3 turns (rulebook 3.8).
  * The DM drawer's increase/decrease control supplies this as the turn count, and
  * the tracker reducer falls back to it when an `adjustBattleConditionAxis` event

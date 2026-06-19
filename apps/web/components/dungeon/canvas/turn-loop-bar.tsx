@@ -3,11 +3,9 @@
 import {
   ArrowRightIcon,
   FlagCheckeredIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
   SwordIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { Panel, useReactFlow, useViewport } from "@xyflow/react"
+import { Panel } from "@xyflow/react"
 import { useState } from "react"
 
 import {
@@ -22,21 +20,11 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
+
+import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonCanvas } from "./dungeon-canvas-context"
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-}
 
 /**
  * The DM run console's bottom **Panel** (UNN-464 chrome pass) — the dungeon-turn
@@ -55,16 +43,13 @@ function prefersReducedMotion(): boolean {
 export function TurnLoopBar() {
   const { turnCounter, advanceTurn, startEncounter, finishDelve, disabled } =
     useDungeonCanvas()
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { zoom } = useViewport()
-  const duration = prefersReducedMotion() ? 0 : 250
   const [confirmFinish, setConfirmFinish] = useState(false)
 
   return (
     <Panel position="bottom-center" className="mb-4">
       <TooltipProvider delay={300}>
-        <div className="flex flex-wrap items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
-          <span className="px-2 font-serif tabular-nums">
+        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
+          <span className="px-2 font-serif whitespace-nowrap tabular-nums">
             Dungeon Turn{" "}
             <span className="font-bold">
               {turnCounter.toString().padStart(2, "0")}
@@ -77,53 +62,7 @@ export function TurnLoopBar() {
 
           <Separator orientation="vertical" className="mx-2" />
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom out"
-                  onClick={() => void zoomOut({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassMinusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom out</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  className="min-w-14 tabular-nums"
-                  aria-label="Fit view"
-                  onClick={() => void fitView({ duration, padding: 0.2 })}
-                />
-              }
-            >
-              {Math.round(zoom * 100)}%
-            </TooltipTrigger>
-            <TooltipContent>Fit view</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom in"
-                  onClick={() => void zoomIn({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassPlusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom in</TooltipContent>
-          </Tooltip>
+          <CanvasZoomCluster />
 
           <Separator orientation="vertical" className="mx-2" />
 

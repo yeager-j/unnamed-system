@@ -1,23 +1,15 @@
 "use client"
 
-import {
-  LineSegmentIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-  PlusSquareIcon,
-} from "@phosphor-icons/react/dist/ssr"
-import { Panel, useReactFlow, useViewport } from "@xyflow/react"
+import { LineSegmentIcon, PlusSquareIcon } from "@phosphor-icons/react/dist/ssr"
+import { Panel } from "@xyflow/react"
 import type { ReactNode } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
+
+import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import type { ToolMode } from "./tool-mode"
 
@@ -27,13 +19,6 @@ const CREATE_MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
   { mode: "addZone", label: "Zone", icon: <PlusSquareIcon /> },
   { mode: "connect", label: "Connect", icon: <LineSegmentIcon /> },
 ]
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-}
 
 /**
  * The bottom-centered floating tool palette (UNN-461) — FigJam-style. The two
@@ -49,10 +34,6 @@ export function CanvasToolbar({
   mode: ToolMode
   onModeChange: (mode: ToolMode) => void
 }) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { zoom } = useViewport()
-  const duration = prefersReducedMotion() ? 0 : 250
-
   return (
     <Panel position="bottom-center" className="mb-4">
       <TooltipProvider delay={300}>
@@ -73,53 +54,7 @@ export function CanvasToolbar({
 
           <Separator orientation="vertical" />
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom out"
-                  onClick={() => void zoomOut({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassMinusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom out</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  className="min-w-14 tabular-nums"
-                  aria-label="Fit view"
-                  onClick={() => void fitView({ duration, padding: 0.2 })}
-                />
-              }
-            >
-              {Math.round(zoom * 100)}%
-            </TooltipTrigger>
-            <TooltipContent>Fit view</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom in"
-                  onClick={() => void zoomIn({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassPlusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom in</TooltipContent>
-          </Tooltip>
+          <CanvasZoomCluster />
         </div>
       </TooltipProvider>
     </Panel>

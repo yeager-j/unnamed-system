@@ -78,9 +78,10 @@ export interface ZoneLayoutEntry {
 }
 
 /** A zone reads **Engaged** when both sides occupy it (rulebook §3.5) — derived
- *  here (not in the UI) so every battlefield surface renders the flag from one
- *  rule. Shared by the DM layout and the player view's {@link
- *  import("./resolve-player-view").resolvePlayerZoneLayout}. */
+ *  here (not in the UI) so the rule lives in one place. Populated by both the DM
+ *  layout and the player view's {@link
+ *  import("./resolve-player-view").resolvePlayerZoneLayout}; currently consumed
+ *  only by the dungeon combat canvas (`DungeonCombatZoneNode`). */
 export function zoneIsEngaged(combatants: ZoneToken[]): boolean {
   return (
     combatants.some((token) => token.side === "players") &&

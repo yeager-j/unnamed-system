@@ -1,6 +1,10 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
 import { combatantName } from "@workspace/game/engine/encounter/console-view"
 import {
+  isFogActive,
+  isZoneRevealed,
+} from "@workspace/game/engine/encounter/resolve-reveal"
+import {
   enemyHp,
   type PcCombatantDetail,
   type Pool,
@@ -159,6 +163,10 @@ function enemySp(combatant: Combatant): Pool | null {
 function projectCombatant(
   combatant: Combatant,
   token: MapToken | undefined,
+  /** The combatant's zone id **after fog-clamping** (`""` when it stands in an
+   *  unrevealed Zone of a fogged delve) — resolved by the caller so this stays a
+   *  dumb shaper. */
+  zoneId: string,
   currentActorId: string | null,
   nameById: Map<string, string>,
   pcDetailById: Record<string, PcCombatantDetail>,
@@ -174,7 +182,7 @@ function projectCombatant(
     id: combatant.id,
     name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
-    zoneId: token?.zoneId ?? "",
+    zoneId,
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
@@ -219,6 +227,14 @@ function projectCombatant(
  * through {@link combatantName} ({@link PcCombatantDetail} is structurally a
  * console-view `PcInfo`); enemy data is redacted by construction — see the
  * module doc.
+ *
+ * When combat runs on a **delve** Instance ({@link isFogActive} — reveal state is
+ * present), the spatial fields are additionally **fog-redacted** so the public
+ * encounter snapshot can't be used to bypass the dungeon fog: undiscovered Zones
+ * (and graph edges to them) are dropped, a combatant standing in an unrevealed
+ * Zone has its `zoneId` cleared, and an Enchantment in an unrevealed Zone is
+ * withheld. A standalone encounter has empty reveal state, so its map stays fully
+ * visible.
  */
 export function projectPlayerSnapshot(
   encounter: {
@@ -236,6 +252,16 @@ export function projectPlayerSnapshot(
   enemyStatblockById: Record<string, Statblock>
 ): EncounterSnapshot {
   const { session } = encounter
+  const { reveal } = instance
+  // Fog-redact only when combat runs on a delve Instance (reveal state present);
+  // a standalone encounter's map is always fully visible (UNN-467). Without this
+  // a signed-out viewer could poll the public encounter snapshot during a dungeon
+  // fight and read what the fog strips — every Zone name, the full graph, and
+  // every combatant's position.
+  const fogged = isFogActive(reveal)
+  const zoneVisible = (zoneId: string) =>
+    !fogged || isZoneRevealed(reveal, zoneId)
+
   const nameById = new Map(
     session.combatants.map((combatant) => [
       combatant.id,
@@ -245,6 +271,18 @@ export function projectPlayerSnapshot(
   const actor = session.combatants.find(
     (combatant) => combatant.id === session.currentActorId
   )
+
+  const adjacency = adjacencyMap(instance.geometry)
+  const visibleAdjacency = fogged
+    ? Object.fromEntries(
+        Object.entries(adjacency)
+          .filter(([zoneId]) => zoneVisible(zoneId))
+          .map(([zoneId, neighbors]) => [
+            zoneId,
+            neighbors.filter((neighbor) => zoneVisible(neighbor)),
+          ])
+      )
+    : adjacency
 
   return {
     status: encounter.status,
@@ -260,21 +298,29 @@ export function projectPlayerSnapshot(
           side: actor.side,
         }
       : null,
-    combatants: session.combatants.map((combatant) =>
-      projectCombatant(
+    combatants: session.combatants.map((combatant) => {
+      const token = instance.occupancy[combatant.id]
+      const zoneId = token?.zoneId ?? ""
+      return projectCombatant(
         combatant,
-        instance.occupancy[combatant.id],
+        token,
+        zoneVisible(zoneId) ? zoneId : "",
         session.currentActorId,
         nameById,
         pcDetailById,
         enemyStatblockById
       )
-    ),
-    zones: Object.values(instance.geometry.zones).map((zone) => ({
-      id: zone.id,
-      name: zone.name,
-    })),
-    adjacency: adjacencyMap(instance.geometry),
-    enchantment: instance.enchantment,
+    }),
+    zones: Object.values(instance.geometry.zones)
+      .filter((zone) => zoneVisible(zone.id))
+      .map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+      })),
+    adjacency: visibleAdjacency,
+    enchantment:
+      instance.enchantment && zoneVisible(instance.enchantment.zoneId)
+        ? instance.enchantment
+        : null,
   }
 }

@@ -10,10 +10,9 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { initials } from "@/lib/ui/initials"
-
 import { DungeonTokenChip } from "./dungeon-token-chip"
 import { FloatingEdgeHandles } from "./floating-edge-handles"
+import { TokenGlyph } from "./token-glyph"
 
 export type FogZoneToken = {
   characterId: string
@@ -128,12 +127,11 @@ function FogEnemyChip({
   return (
     <span className="inline-flex max-w-[10rem] flex-col gap-1 border border-red-700 bg-red-100 px-1.5 py-1 dark:border-red-400 dark:bg-red-950">
       <span className="flex items-center gap-1.5">
-        <span
-          aria-hidden
-          className="flex size-5 shrink-0 items-center justify-center bg-red-200 text-[9px] font-semibold text-red-900 dark:bg-red-900 dark:text-red-100"
-        >
-          {initials(name, "?")}
-        </span>
+        <TokenGlyph
+          name={name}
+          portraitUrl={null}
+          initialsClassName="bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
+        />
         <span className="truncate text-xs font-medium text-red-950 dark:text-red-100">
           {name}
         </span>

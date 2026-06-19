@@ -11,6 +11,7 @@ import {
 import { AILMENTS, getAilment } from "@workspace/game/data"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_FLAG_KEYS,
   DEFAULT_BATTLE_CONDITION_TURNS,
   type AilmentKey,
   type BattleConditionAxisAction,
@@ -42,10 +43,6 @@ import {
 } from "@/lib/ui/labels"
 
 const DOWNED_KEY: AilmentKey = "downed"
-const FLAG_KEYS: readonly BattleConditionFlagKey[] = [
-  "charged",
-  "concentrating",
-]
 
 /**
  * The session-overlay condition editor, factored out of the DM drawer's
@@ -119,7 +116,7 @@ export function ConditionsControls({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {FLAG_KEYS.map((flag) => (
+        {BATTLE_CONDITION_FLAG_KEYS.map((flag) => (
           <Toggle
             key={flag}
             pressed={battleConditions[flag]}

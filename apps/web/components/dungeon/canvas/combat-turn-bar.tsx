@@ -1,35 +1,18 @@
 "use client"
 
-import {
-  EyeIcon,
-  FlagIcon,
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-  UserPlusIcon,
-} from "@phosphor-icons/react/dist/ssr"
-import { Panel, useReactFlow, useViewport } from "@xyflow/react"
+import { EyeIcon, FlagIcon, UserPlusIcon } from "@phosphor-icons/react/dist/ssr"
+import { Panel } from "@xyflow/react"
 import Link from "next/link"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
 import { EndCombatDialog } from "@/components/combat/end-combat-dialog"
+import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonCombatCanvas } from "./dungeon-combat-canvas-context"
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-}
 
 /**
  * The combat-phase bottom **Panel** (UNN-467) — the combat peer of the
@@ -52,14 +35,11 @@ export function CombatTurnBar() {
     fallenPcNames,
     disabled,
   } = useDungeonCombatCanvas()
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { zoom } = useViewport()
-  const duration = prefersReducedMotion() ? 0 : 250
 
   return (
     <Panel position="bottom-center" className="mb-4">
       <TooltipProvider delay={300}>
-        <div className="flex flex-wrap items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
+        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
           <Badge variant="outline" className="font-serif tabular-nums">
             Round {round}
           </Badge>
@@ -111,53 +91,7 @@ export function CombatTurnBar() {
 
           <Separator orientation="vertical" className="mx-1" />
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom out"
-                  onClick={() => void zoomOut({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassMinusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom out</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  className="min-w-14 tabular-nums"
-                  aria-label="Fit view"
-                  onClick={() => void fitView({ duration, padding: 0.2 })}
-                />
-              }
-            >
-              {Math.round(zoom * 100)}%
-            </TooltipTrigger>
-            <TooltipContent>Fit view</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom in"
-                  onClick={() => void zoomIn({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassPlusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom in</TooltipContent>
-          </Tooltip>
+          <CanvasZoomCluster />
         </div>
       </TooltipProvider>
     </Panel>
