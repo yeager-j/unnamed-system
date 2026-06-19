@@ -38,6 +38,7 @@ function makeSnapshot(
     name: "Test Encounter",
     campaignShortId: "camp-1",
     version: 1,
+    instanceVersion: 0,
     round: 1,
     currentActor: null,
     combatants: [],
@@ -95,7 +96,7 @@ describe("useEncounterSnapshot — polling fallback (realtime unavailable)", () 
 
     await tick()
 
-    expect(fetcher).toHaveBeenCalledWith("s1")
+    expect(fetcher).toHaveBeenCalledWith("s1", expect.anything())
     expect(result.current.snapshot.round).toBe(2)
     expect(result.current.stale).toBe(false)
   })

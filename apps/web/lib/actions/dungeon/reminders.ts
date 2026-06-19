@@ -10,6 +10,7 @@ import {
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
+import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import {
   SetRandomEncounterIntervalSchema,
@@ -88,6 +89,10 @@ async function mergeReminderSettings(
   )
   if (!saved.ok) return saved
 
+  publishDungeonPing(dungeon.shortId, {
+    version: saved.value.version,
+    status: dungeon.status,
+  })
   revalidateDungeon(dungeon)
   return ok({ version: saved.value.version })
 }

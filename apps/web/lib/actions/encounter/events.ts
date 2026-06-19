@@ -31,7 +31,10 @@ import {
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { reduceCombatSession, reduceMapInstance } from "@/lib/game-engine"
-import { publishEncounterPing } from "@/lib/realtime/publish"
+import {
+  publishEncounterInstancePing,
+  publishEncounterPing,
+} from "@/lib/realtime/publish"
 
 import {
   ApplyCombatEventSchema,
@@ -127,8 +130,9 @@ export async function applyCombatEvent(
 
 /**
  * A pure spatial write: load the encounter's Instance, reduce, save the single
- * Instance row guarded on `expectedInstanceVersion`. Fires no ping (poll-only).
- * Returns the bumped **Instance** version.
+ * Instance row guarded on `expectedInstanceVersion`. Fires a `mapInstance`-kind
+ * ping on the encounter channel (UNN-468) so the watch refreshes the board over
+ * realtime. Returns the bumped **Instance** version.
  */
 async function applySpatialEvent(
   encounterId: string,
@@ -154,6 +158,10 @@ async function applySpatialEvent(
   )
   if (!saved.ok) return saved
 
+  // A move/spatial event bumps only the Instance row, so tag the ping
+  // `mapInstance` (UNN-468) — the watch compares it against the Instance ref and
+  // refreshes the board over realtime instead of waiting for the next poll.
+  publishEncounterInstancePing(encounter.shortId, saved.value.version)
   revalidateEncounter(encounter)
   return ok({ version: saved.value.version })
 }

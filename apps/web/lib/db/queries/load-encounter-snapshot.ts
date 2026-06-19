@@ -64,7 +64,11 @@ export async function getEncounterSnapshot(
   )
 
   return projectPlayerSnapshot(
-    { ...encounter, campaignShortId: campaign?.shortId ?? "" },
+    {
+      ...encounter,
+      campaignShortId: campaign?.shortId ?? "",
+      instanceVersion: instance.version,
+    },
     instance.state,
     pcDetailById,
     resolveCatalogEnemyStatblocks(encounter.session.combatants)

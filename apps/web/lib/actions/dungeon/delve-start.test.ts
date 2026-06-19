@@ -21,6 +21,7 @@ const loadMapRowById = vi.fn()
 const setDungeonStatus = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonPing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -54,6 +55,10 @@ vi.mock("@/lib/db/writes/guard-many", () => ({
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
     revalidateDungeon(dungeon),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -147,6 +152,11 @@ describe("startDelveAction", () => {
 
     expect(setDungeonStatus).toHaveBeenCalledWith(DUNGEON_ID, "active", 0, "tx")
     expect(revalidateDungeon).toHaveBeenCalled()
+    // The delve went live → a dungeon ping with status active (UNN-468).
+    expect(publishDungeonPing).toHaveBeenCalledOnce()
+    expect(publishDungeonPing.mock.lastCall?.[1]).toMatchObject({
+      status: "active",
+    })
   })
 
   it("surfaces a guard failure and does not revalidate (atomic — neither row commits)", async () => {

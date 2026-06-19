@@ -32,6 +32,7 @@ const saveMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
 const publishEncounterPing = vi.fn()
+const publishEncounterInstancePing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -73,6 +74,8 @@ vi.mock("./revalidate", () => ({
 vi.mock("@/lib/realtime/publish", () => ({
   publishEncounterPing: (shortId: string, ping: unknown) =>
     publishEncounterPing(shortId, ping),
+  publishEncounterInstancePing: (shortId: string, version: number) =>
+    publishEncounterInstancePing(shortId, version),
 }))
 
 const ENCOUNTER_ID = "encounter-1"
@@ -136,6 +139,7 @@ beforeEach(() => {
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
   revalidateEncounter.mockReset()
   publishEncounterPing.mockReset()
+  publishEncounterInstancePing.mockReset()
 })
 
 describe("applyCombatEvent", () => {
@@ -182,7 +186,7 @@ describe("applyCombatEvent", () => {
     })
   })
 
-  it("routes a spatial event to the Instance write and fires no ping (poll-only)", async () => {
+  it("routes a spatial event to the Instance write and fires a mapInstance-kind ping", async () => {
     const result = await applyCombatEvent({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
@@ -200,7 +204,12 @@ describe("applyCombatEvent", () => {
     expect(id).toBe(MAP_INSTANCE_ID)
     expect(version).toBe(0)
     expect(saveEncounterSession).not.toHaveBeenCalled()
-    // Spatial writes are poll-only for M0 — no realtime ping.
+    // The move bumps only the Instance — it pings the Instance version (UNN-468),
+    // not the encounter version, so the watch refreshes the board over realtime.
+    expect(publishEncounterInstancePing).toHaveBeenCalledExactlyOnceWith(
+      "enc1",
+      1
+    )
     expect(publishEncounterPing).not.toHaveBeenCalled()
     expect(revalidateEncounter).toHaveBeenCalledOnce()
   })

@@ -1,170 +1,51 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-
 import { type EncounterSnapshot } from "@workspace/game/engine"
 
-import { parseEncounterPing } from "./encounter-ping"
-import { useRealtimeChannel } from "./use-realtime-channel"
+import {
+  useSnapshotSubscription,
+  type SnapshotFetcher,
+  type SnapshotSubscriptionState,
+} from "./use-snapshot-subscription"
 
-/** How often the watch view polls when realtime is unavailable — the ~1.5s
- *  freshness target of UNN-323, now the degraded mode (ADR Decision 3). */
-const POLL_INTERVAL_MS = 1500
+export type { SnapshotFetcher } from "./use-snapshot-subscription"
 
-/**
- * Fetches one snapshot. The injectable seam (UNN-323): the default hits the
- * public snapshot API, a test passes a fake. Rejects on a non-2xx so the hook's
- * catch treats a 5xx like a network error.
- */
-export type SnapshotFetcher = (shortId: string) => Promise<EncounterSnapshot>
-
-async function fetchSnapshot(shortId: string): Promise<EncounterSnapshot> {
+async function fetchSnapshot(
+  shortId: string,
+  signal?: AbortSignal
+): Promise<EncounterSnapshot> {
   const response = await fetch(`/api/encounter/${shortId}/snapshot`, {
     cache: "no-store",
+    signal,
   })
   if (!response.ok)
     throw new Error(`snapshot request failed: ${response.status}`)
   return (await response.json()) as EncounterSnapshot
 }
 
-export interface EncounterSnapshotState {
-  snapshot: EncounterSnapshot
-  /** A fetch failed and the snapshot may be stale; the last good value is
-   *  still shown and the hook keeps trying. Never a hard error state
-   *  (UNN-323). */
-  stale: boolean
-}
+export type EncounterSnapshotState =
+  SnapshotSubscriptionState<EncounterSnapshot>
 
 /**
- * Subscribes the player watch view to the DM's live changes — realtime first,
- * polling as the degraded mode (UNN-371, the transport swap this hook's
- * contract was built for; ADR Decisions 3 + 5). Seeds from the
- * server-rendered `initialSnapshot` (no first-paint flash), then:
- *
- * - **Realtime healthy:** idles between invalidation pings — no interval
- *   traffic. A ping whose `version` beats the current snapshot's triggers one
- *   refetch through the existing API (enemy redaction stays server-side);
- *   echoes and duplicates (`≤`) are dropped. On a reconnect after a drop it
- *   refetches once to close the gap, then idles again.
- * - **Realtime unavailable** (no key, token failure, blocked WebSockets, Ably
- *   outage, mid-session drop): silently falls back to the ~1.5s poll — the
- *   UNN-323 behavior, unchanged.
- *
- * Resilience: a failed fetch (poll or ping-triggered) keeps the last good
- * snapshot and flags `stale`, retrying on the next ping/tick — it never blanks
- * or crashes the view. Everything stops once `status` is `"ended"` (the
- * subscription suspends and no interval is scheduled), so a concluded
- * encounter generates no further traffic.
- *
- * The poll also suspends while the tab is hidden — a backgrounded watch tab
- * otherwise fires ~57k requests/day against the snapshot route. On return to
- * the foreground it refetches immediately (no stale flash while waiting out
- * an interval) and resumes. The realtime path needs no such guard: it only
- * fetches when pinged.
+ * Subscribes the **player watch view** (`/c/encounter/{shortId}`) to the DM's
+ * live changes — realtime first, ~1.5s polling as the degraded fallback. A thin
+ * binding of the shared {@link useSnapshotSubscription} to the `encounter`
+ * channel: it carries the composite (encounter + Instance) version guard +
+ * `AbortController` that fixes the out-of-order apply race, and routes
+ * `mapInstance` pings — a combat move now refreshes the watch over realtime
+ * rather than waiting for the next poll (UNN-468). Everything stops once the
+ * encounter is `"ended"`.
  */
 export function useEncounterSnapshot(
   shortId: string,
   initialSnapshot: EncounterSnapshot,
-  fetcher: SnapshotFetcher = fetchSnapshot
+  fetcher: SnapshotFetcher<EncounterSnapshot> = fetchSnapshot
 ): EncounterSnapshotState {
-  const [snapshot, setSnapshot] = useState(initialSnapshot)
-  const [stale, setStale] = useState(false)
-  const [realtimeAvailable, setRealtimeAvailable] = useState(false)
-
-  /** The current snapshot's version token — what ping versions compare to. */
-  const versionRef = useRef(initialSnapshot.version)
-
-  const fetcherRef = useRef(fetcher)
-  useEffect(() => {
-    fetcherRef.current = fetcher
-  })
-
-  // The same don't-set-state-after-unmount guard the polling effect carries,
-  // for the ping/reconnect-triggered fetches below.
-  const unmountedRef = useRef(false)
-  useEffect(() => {
-    unmountedRef.current = false
-    return () => {
-      unmountedRef.current = true
-    }
-  }, [])
-
-  function refetch() {
-    fetcherRef
-      .current(shortId)
-      .then((next) => {
-        if (unmountedRef.current) return
-        versionRef.current = next.version
-        setSnapshot(next)
-        setStale(false)
-      })
-      .catch(() => {
-        if (unmountedRef.current) return
-        setStale(true)
-      })
-  }
-
-  useRealtimeChannel({
-    domain: "encounter",
+  return useSnapshotSubscription({
     shortId,
-    enabled: snapshot.status !== "ended",
-    onPing: (data) => {
-      const version = parseEncounterPing(data)?.version
-      if (version === undefined || version <= versionRef.current) return
-      refetch()
-    },
-    onReconnect: refetch,
-    onAvailabilityChange: setRealtimeAvailable,
+    domain: "encounter",
+    initialSnapshot,
+    fetcher,
+    isEnded: (status) => status === "ended",
   })
-
-  useEffect(() => {
-    if (snapshot.status === "ended" || realtimeAvailable) return
-
-    let cancelled = false
-    let intervalId: ReturnType<typeof setInterval> | undefined
-
-    function poll() {
-      fetcherRef
-        .current(shortId)
-        .then((next) => {
-          if (cancelled) return
-          versionRef.current = next.version
-          setSnapshot(next)
-          setStale(false)
-        })
-        .catch(() => {
-          if (cancelled) return
-          setStale(true)
-        })
-    }
-
-    function startInterval() {
-      intervalId ??= setInterval(poll, POLL_INTERVAL_MS)
-    }
-
-    function stopInterval() {
-      clearInterval(intervalId)
-      intervalId = undefined
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "hidden") {
-        stopInterval()
-        return
-      }
-      poll()
-      startInterval()
-    }
-
-    if (document.visibilityState !== "hidden") startInterval()
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-
-    return () => {
-      cancelled = true
-      stopInterval()
-      document.removeEventListener("visibilitychange", handleVisibilityChange)
-    }
-  }, [shortId, realtimeAvailable, snapshot.status])
-
-  return { snapshot, stale }
 }

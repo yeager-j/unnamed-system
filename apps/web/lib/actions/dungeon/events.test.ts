@@ -21,6 +21,8 @@ const loadMapInstanceById = vi.fn()
 const saveDungeonState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
+const publishDungeonPing = vi.fn()
+const publishDungeonInstancePing = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -47,6 +49,12 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
 vi.mock("./revalidate", () => ({
   revalidateDungeon: (dungeon: { shortId: string }) =>
     revalidateDungeon(dungeon),
+}))
+vi.mock("@/lib/realtime/publish", () => ({
+  publishDungeonPing: (shortId: string, ping: unknown) =>
+    publishDungeonPing(shortId, ping),
+  publishDungeonInstancePing: (shortId: string, version: number) =>
+    publishDungeonInstancePing(shortId, version),
 }))
 
 const DUNGEON_ID = "dungeon-1"
@@ -162,6 +170,12 @@ describe("applyDungeonEvent — routing", () => {
     expect((savedState as DungeonState).actedCharacterIds).toEqual(["char-1"])
     expect(saveMapInstanceState).not.toHaveBeenCalled()
     expect(revalidateDungeon).toHaveBeenCalled()
+    // A turn-loop write bumps the dungeon row → a `dungeon`-kind ping (UNN-468).
+    expect(publishDungeonPing).toHaveBeenCalledExactlyOnceWith("dng-short", {
+      version: 1,
+      status: "active",
+    })
+    expect(publishDungeonInstancePing).not.toHaveBeenCalled()
   })
 
   it("routes a spatial event to the Instance row, not the dungeon, returning the Instance version", async () => {
@@ -179,6 +193,12 @@ describe("applyDungeonEvent — routing", () => {
     ])
     expect(expectedV).toBe(0)
     expect(saveDungeonState).not.toHaveBeenCalled()
+    // A reveal/move bumps only the Instance → a `mapInstance`-kind ping.
+    expect(publishDungeonInstancePing).toHaveBeenCalledExactlyOnceWith(
+      "dng-short",
+      5
+    )
+    expect(publishDungeonPing).not.toHaveBeenCalled()
   })
 
   it("requires the Instance version for a spatial event", async () => {

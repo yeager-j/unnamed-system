@@ -19,7 +19,7 @@ import { getAblyRest } from "@/lib/realtime/client"
  */
 
 const RealtimeTokenSchema = z.object({
-  domain: z.enum(["character", "encounter"]),
+  domain: z.enum(["character", "encounter", "dungeon"]),
   shortId: z.string().min(1),
 })
 

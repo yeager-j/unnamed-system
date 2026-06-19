@@ -10,6 +10,7 @@ import {
   loadDungeonRowById,
 } from "@/lib/db/queries/load-dungeon"
 import { setDungeonStatus } from "@/lib/db/writes/dungeon"
+import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
 import {
@@ -60,6 +61,7 @@ export async function setDungeonStatusAction(
   const result = await setDungeonStatus(dungeonId, status, expectedVersion)
   if (!result.ok) return result
 
+  publishDungeonPing(dungeon.shortId, { version: result.value.version, status })
   revalidatePath(`/campaigns/${campaign.shortId}`)
   revalidateDungeon(dungeon)
 
