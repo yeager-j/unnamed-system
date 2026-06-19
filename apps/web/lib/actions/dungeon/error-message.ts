@@ -15,6 +15,9 @@ export type DungeonActionError =
   | "delve-not-draft"
   | "campaign-already-has-active-delve"
   | "map-not-found"
+  | "delve-not-active"
+  | "campaign-already-has-live-encounter"
+  | "encounter-has-unplaced-combatants"
 
 export function dungeonErrorMessage(error: DungeonActionError): string {
   switch (error) {
@@ -22,6 +25,12 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
       return "This campaign already has an active delve."
     case "delve-not-draft":
       return "This delve has already started."
+    case "delve-not-active":
+      return "This delve isn't running. Reload and try again."
+    case "campaign-already-has-live-encounter":
+      return "This campaign already has a live encounter."
+    case "encounter-has-unplaced-combatants":
+      return "Place every combatant in a zone before starting combat."
     case "map-not-found":
       return "This dungeon's map is missing. Author it on My Maps and try again."
     case "stale":

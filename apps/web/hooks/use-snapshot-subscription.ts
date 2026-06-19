@@ -36,6 +36,11 @@ export interface SnapshotSubscriptionState<T> {
   /** A fetch failed and the snapshot may be stale; the last good value is still
    *  shown and the hook keeps trying. Never a hard error state. */
   stale: boolean
+  /** Force a guarded refetch — exposed so a surface that subscribes to a *second*
+   *  channel (the dungeon fog view dual-subscribing to its live encounter during
+   *  combat, UNN-467) can drive this snapshot's refresh through the same
+   *  apply-side composite-version guard. */
+  refetch: () => void
 }
 
 /** The temporal-layer version-kind for a channel — the fallback an untagged
@@ -189,5 +194,5 @@ export function useSnapshotSubscription<T extends VersionedSnapshot>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shortId, realtimeAvailable, snapshot.status])
 
-  return { snapshot, stale }
+  return { snapshot, stale, refetch }
 }

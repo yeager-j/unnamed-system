@@ -30,13 +30,20 @@ import { insertWithShortId } from "@/lib/db/short-id"
 export type EncounterWriteError = "encounter-not-found" | "stale"
 
 /**
- * Inserts a fresh `draft` encounter (version 0) for `campaignId` with a minted,
+ * Inserts a fresh encounter (version 0) for `campaignId` with a minted,
  * collision-retried `shortId`, and returns its `id` + `shortId`. The combatant
  * roster is whatever the caller built (UNN-298/300/301); this layer just
  * persists the assembled session. `mapInstanceId` references the Instance the
  * create action mints in the same transaction (UNN-459 — the column is non-null,
  * so every encounter is born with its spatial truth); pass the same `executor`
  * so the two inserts share one snapshot.
+ *
+ * `status` defaults to `draft` — the encounter-setup flow's starting state. The
+ * **dungeon** combat path (UNN-467) passes `"live"` to insert an
+ * already-running encounter on the delve's shared Instance: it has no setup step
+ * of its own (combatants are staged client-side and committed at "Begin"), so
+ * there is no `draft` to flip from, and creating-already-live keeps the gesture a
+ * single atomic write.
  */
 export async function createEncounter(
   input: {
@@ -45,6 +52,7 @@ export async function createEncounter(
     notes?: string | null
     session: CombatSession
     mapInstanceId: string
+    status?: EncounterStatus
   },
   executor: WriteExecutor = db
 ): Promise<{ id: string; shortId: string }> {
@@ -58,6 +66,7 @@ export async function createEncounter(
         shortId,
         session: input.session,
         mapInstanceId: input.mapInstanceId,
+        status: input.status ?? "draft",
       })
       .returning({ id: encounters.id, shortId: encounters.shortId })
 

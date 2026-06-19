@@ -1,12 +1,17 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { type InitiativeStats } from "@workspace/game/engine"
+
 import { CampaignBackLink } from "@/components/combat/campaign-back-link"
 import type { DungeonRosterEntry } from "@/components/dungeon/canvas/dungeon-canvas"
 import { DungeonPrep, type PrepZone } from "@/components/dungeon/dungeon-prep"
 import { DungeonRunConsole } from "@/components/dungeon/dungeon-run-console"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
+import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 
 import { getDungeonForDM } from "./dungeon-access"
@@ -78,15 +83,55 @@ export default async function DungeonPage({ params }: PageProps) {
       )
     }
 
-    case "active":
+    case "active": {
+      // Combat is server-derived: a `live` encounter on this delve's own Instance
+      // (the shared-row invariant) means a fight is running, so the console forks
+      // into its combat phase. The same `instance` row backs both layers.
+      const liveEncounter = await loadLiveEncounterForMapInstance(
+        dungeon.mapInstanceId
+      )
+      const combat = liveEncounter
+        ? {
+            encounter: liveEncounter,
+            ...(await loadCombatConsoleData(liveEncounter, instance)),
+          }
+        : null
+
+      // The encounter Setup phase suggests the higher-Agility first side, so it
+      // needs each placeable PC's derived Agility/Luck — hydrate them (as the
+      // combat console's setup branch does). Skipped during combat (Setup is
+      // unreachable then), so an exploration-only console pays no extra reads.
+      const pcStatsById: Record<string, InitiativeStats> = combat
+        ? {}
+        : Object.fromEntries(
+            (
+              await Promise.all(
+                placedCharacters.map((character) =>
+                  loadHydratedCharacterById(character.id)
+                )
+              )
+            )
+              .filter((character) => character !== null)
+              .map((character) => [
+                character.id,
+                {
+                  agility: character.attributes.agility,
+                  luck: character.attributes.luck,
+                },
+              ])
+          )
       return (
         <DungeonRunConsole
           dungeon={dungeon}
           instance={instance}
           roster={roster}
+          placedCharacters={placedCharacters}
+          pcStatsById={pcStatsById}
           campaignShortId={campaignShortId}
+          combat={combat}
         />
       )
+    }
 
     case "done":
       return (

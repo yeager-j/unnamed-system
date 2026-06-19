@@ -4,6 +4,7 @@ import type {
 } from "@workspace/game/engine/encounter/player-snapshot"
 import {
   zoneEnchantmentBadge,
+  zoneIsEngaged,
   type ZoneLayoutView,
   type ZoneToken,
 } from "@workspace/game/engine/encounter/resolve-zone-layout"
@@ -41,18 +42,22 @@ export function resolvePlayerZoneLayout(
   const zoneIds = new Set(snapshot.zones.map((zone) => zone.id))
   const nameById = new Map(snapshot.zones.map((zone) => [zone.id, zone.name]))
 
-  const zones = snapshot.zones.map((zone) => ({
-    id: zone.id,
-    name: zone.name,
-    adjacentZoneNames: (snapshot.adjacency[zone.id] ?? []).flatMap((id) => {
-      const name = nameById.get(id)
-      return name === undefined ? [] : [name]
-    }),
-    combatants: snapshot.combatants
+  const zones = snapshot.zones.map((zone) => {
+    const combatants = snapshot.combatants
       .filter((combatant) => combatant.zoneId === zone.id)
-      .map(playerZoneToken),
-    enchantment: zoneEnchantmentBadge(snapshot.enchantment, zone.id),
-  }))
+      .map(playerZoneToken)
+    return {
+      id: zone.id,
+      name: zone.name,
+      adjacentZoneNames: (snapshot.adjacency[zone.id] ?? []).flatMap((id) => {
+        const name = nameById.get(id)
+        return name === undefined ? [] : [name]
+      }),
+      combatants,
+      enchantment: zoneEnchantmentBadge(snapshot.enchantment, zone.id),
+      engaged: zoneIsEngaged(combatants),
+    }
+  })
 
   const unplaced = snapshot.combatants
     .filter((combatant) => !zoneIds.has(combatant.zoneId))

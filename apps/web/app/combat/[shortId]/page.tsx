@@ -1,12 +1,7 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { getArchetype } from "@workspace/game/data"
-import {
-  zoneEnchantmentEffects,
-  type InitiativeStats,
-  type PcCombatantDetail,
-} from "@workspace/game/engine"
+import { type InitiativeStats } from "@workspace/game/engine"
 
 import { CombatConsole } from "@/components/combat/combat-console"
 import { EncounterSetup } from "@/components/combat/encounter-setup"
@@ -14,7 +9,7 @@ import { EncounterEndedStub } from "@/components/combat/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { resolvePartyCompositionBySide } from "@/lib/db/queries/party-composition"
+import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
 
 import { getEncounterForDM } from "./encounter-access"
 
@@ -89,57 +84,9 @@ export default async function CombatPage({ params }: PageProps) {
       )
     }
     case "live": {
-      const pcCombatants = encounter.session.combatants.flatMap((combatant) =>
-        combatant.ref.kind === "pc"
-          ? [
-              {
-                characterId: combatant.ref.characterId,
-                side: combatant.side,
-                zoneId: instance.state.occupancy[combatant.id]?.zoneId ?? "",
-              },
-            ]
-          : []
-      )
-      // The skill cards in the drawer scale by the encounter's allied-Lineage
-      // tally (UNN-367) and by the combatant's Zone Enchantment, so each PC is
-      // hydrated with the party composition for its own side plus its zone's
-      // resolved effects — the `perPartyLineage` Attack-Roll scalers (Magic
-      // Circle / Ailment Boost) and a Toccata bonus resolve scaled instead of
-      // at base.
-      const compositionBySide = await resolvePartyCompositionBySide(
-        encounter.session
-      )
-      // The rail/drawer read identity + vitals + attributes + affinities + skills
-      // off the hydrated sheet; `PcCombatantDetail` is a narrowing of it (no mapper).
-      const hydrated = await Promise.all(
-        pcCombatants.map(({ characterId, side, zoneId }) =>
-          loadHydratedCharacterById(characterId, {
-            partyComposition: compositionBySide[side],
-            zoneEffects: zoneEnchantmentEffects(
-              instance.state.enchantment,
-              zoneId
-            ),
-          })
-        )
-      )
-      const pcDetailById: Record<string, PcCombatantDetail> =
-        Object.fromEntries(
-          hydrated
-            .filter((c) => c !== null)
-            .map((c) => [
-              c.id,
-              {
-                ...c,
-                className: c.activeArchetypeKey
-                  ? (getArchetype(c.activeArchetypeKey)?.name ?? null)
-                  : null,
-              },
-            ])
-        )
-      // The realtime channel key per PC (UNN-373) — app-layer transport data,
-      // deliberately not part of the engine's PcCombatantDetail view-model.
-      const pcShortIdById: Record<string, string> = Object.fromEntries(
-        hydrated.filter((c) => c !== null).map((c) => [c.id, c.shortId])
+      const { pcDetailById, pcShortIdById } = await loadCombatConsoleData(
+        encounter,
+        instance
       )
       return (
         <CombatConsole

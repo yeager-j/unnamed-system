@@ -50,6 +50,7 @@ function buildNodes(
         ...token,
         owned: ownedCharacterIds.has(token.characterId),
       })),
+      enemies: zone.enemies,
       exits: (exitsByZone[zone.id] ?? []).map((exit) => ({
         id: exit.id,
         locked: exit.locked,

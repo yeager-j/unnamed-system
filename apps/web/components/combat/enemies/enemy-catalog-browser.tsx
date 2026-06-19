@@ -7,29 +7,17 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import { toast } from "sonner"
 
-import { getEnemy, getEnemyFamily } from "@workspace/game/data"
-import {
-  enemyFamilyCounts,
-  filterEnemyCatalogRows,
-  groupEnemyRowsByLevel,
-} from "@workspace/game/engine"
-import {
-  type CombatantSetup,
-  type EnemyFamily,
-} from "@workspace/game/foundation"
+import { type CombatantSetup } from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { addSetupCombatantsAction } from "@/lib/actions/encounter/setup"
-import { buildEnemyCatalogRows, statblockFromEnemy } from "@/lib/game-engine"
 
-import { EnemyCatalogList } from "./enemy-catalog-list"
-import { EnemyQueueRail } from "./enemy-queue-rail"
-import { EnemyStatblockCard } from "./enemy-statblock-card"
+import { EnemyCatalogPanel } from "./enemy-catalog-panel"
 
 /**
  * The catalog browse-and-add surface (UNN-346): a three-column master-detail
@@ -59,29 +47,6 @@ export function EnemyCatalogBrowser({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
-
-  const [search, setSearch] = useState("")
-  const [family, setFamily] = useState<EnemyFamily | null>(null)
-
-  const rows = buildEnemyCatalogRows()
-  const [selectedKey, setSelectedKey] = useState<string | null>(
-    () => rows[0]?.key ?? null
-  )
-
-  const filtered = filterEnemyCatalogRows(rows, { search, family })
-  const groups = groupEnemyRowsByLevel(filtered)
-  const familyCounts = enemyFamilyCounts(rows)
-
-  const selectedDefinition = selectedKey ? getEnemy(selectedKey) : undefined
-  const selectedStatblock = selectedDefinition
-    ? statblockFromEnemy(selectedDefinition)
-    : null
-
-  const queueItems = queue.queue.map((entry) => ({
-    enemyKey: entry.enemyKey,
-    name: getEnemy(entry.enemyKey)?.name ?? entry.enemyKey,
-    count: entry.count,
-  }))
 
   const committedPlayers = existingCombatants.filter(
     (combatant) => combatant.side === "players"
@@ -166,53 +131,19 @@ export function EnemyCatalogBrowser({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[20rem_1fr_22rem]">
-        <div className="overflow-hidden border-b p-4 lg:min-h-0 lg:border-r lg:border-b-0">
-          <EnemyCatalogList
-            groups={groups}
-            familyCounts={familyCounts}
-            totalCount={rows.length}
-            filteredCount={filtered.length}
-            search={search}
-            onSearchChange={setSearch}
-            family={family}
-            onFamilyChange={setFamily}
-            selectedKey={selectedKey}
-            onSelect={setSelectedKey}
-            onAdd={queue.add}
-          />
-        </div>
-
-        <div className="border-b p-6 lg:min-h-0 lg:overflow-y-auto lg:border-b-0">
-          {selectedStatblock && selectedKey ? (
-            <EnemyStatblockCard
-              statblock={selectedStatblock}
-              family={getEnemyFamily(selectedKey) ?? null}
-              onAdd={() => queue.add(selectedKey)}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Select a creature to see its statblock.
-            </p>
-          )}
-        </div>
-
-        <div className="lg:min-h-0 lg:border-l">
-          <EnemyQueueRail
-            items={queueItems}
-            totalCount={queue.totalCount}
-            isPending={isPending}
-            onIncrement={(key) => queue.add(key)}
-            onDecrement={(key) => {
-              const entry = queue.queue.find((item) => item.enemyKey === key)
-              queue.setCount(key, (entry?.count ?? 0) - 1)
-            }}
-            onRemove={queue.remove}
-            onCommit={commit}
-            onCancel={returnToSetup}
-          />
-        </div>
-      </div>
+      <EnemyCatalogPanel
+        queue={queue.queue}
+        isPending={isPending}
+        onAdd={queue.add}
+        onIncrement={(key) => queue.add(key)}
+        onDecrement={(key) => {
+          const entry = queue.queue.find((item) => item.enemyKey === key)
+          queue.setCount(key, (entry?.count ?? 0) - 1)
+        }}
+        onRemove={queue.remove}
+        onCommit={commit}
+        onCancel={returnToSetup}
+      />
     </main>
   )
 }

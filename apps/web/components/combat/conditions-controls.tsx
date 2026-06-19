@@ -59,10 +59,10 @@ const FLAG_KEYS: readonly BattleConditionFlagKey[] = [
  *   increase / clear / decrease controls (`adjustBattleConditionAxis`).
  * - **Charged / Concentrating** — manual on/off flags (`setBattleConditionFlag`).
  *
- * Provenance-neutral: the DM feeds it from a `CombatantDetail`, the player from a
- * redacted snapshot combatant — both carry the same overlay fields. The caller
- * decides who may emit (the DM's `applyCombatEvent` vs the player's
- * `applyOwnCombatEvent`); this component just renders and emits.
+ * Presentational and emit-only: the DM drawer's `combatant-conditions-section`
+ * feeds it from a `CombatantDetail` and emits through `applyCombatEvent`. The
+ * player watch no longer edits its own overlay — combat conditions are the DM's to
+ * set — so the DM is the only caller that mounts this for editing.
  */
 export function ConditionsControls({
   combatantId,
@@ -192,8 +192,10 @@ function AxisRow({
 }
 
 /** The live read-out for one axis: state icon + label, with the turns-remaining
- *  countdown when a duration clock is running. */
-function AxisStateDisplay({
+ *  countdown when a duration clock is running. Exported so the player watch's
+ *  read-only {@link import("./combat-state-display").CombatStateDisplay} shows the
+ *  identical axis read-out the DM editor does (no drift). */
+export function AxisStateDisplay({
   state,
   duration,
 }: {
