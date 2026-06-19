@@ -5,6 +5,7 @@ import {
   FlagCheckeredIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
+  SwordIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { Panel, useReactFlow, useViewport } from "@xyflow/react"
 import { useState } from "react"
@@ -52,7 +53,8 @@ function prefersReducedMotion(): boolean {
  * reminders surface as top-right toasts.
  */
 export function TurnLoopBar() {
-  const { turnCounter, advanceTurn, finishDelve, disabled } = useDungeonCanvas()
+  const { turnCounter, advanceTurn, startEncounter, finishDelve, disabled } =
+    useDungeonCanvas()
   const { zoomIn, zoomOut, fitView } = useReactFlow()
   const { zoom } = useViewport()
   const duration = prefersReducedMotion() ? 0 : 250
@@ -124,6 +126,11 @@ export function TurnLoopBar() {
           </Tooltip>
 
           <Separator orientation="vertical" className="mx-2" />
+
+          <Button size="sm" onClick={startEncounter} disabled={disabled}>
+            <SwordIcon weight="fill" />
+            Start an encounter
+          </Button>
 
           <Button
             size="sm"

@@ -16,39 +16,30 @@ import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 
-import { PlayerCombatStateControl } from "./player-combat-state-control"
+import { CombatStateDisplay } from "./combat-state-display"
 
 /**
  * The watch view's **left column**: the signed-in viewer's own character
  * sheet(s) for this encounter, built from the *same* sheet components the public
  * `/c/{shortId}` page renders (`SheetHeader`, `Affinities`, `MechanicWidget`,
  * `Skills`) wrapped in owner mode — so the player manages their live vitals and
- * archetype mechanic in place. The session-overlay conditions are the one swap:
- * {@link PlayerCombatStateControl} replaces the sheet's character-row
- * `CombatState` (the conditions a PC carries in combat live on the encounter, not
- * the character row).
+ * archetype mechanic in place. The combatant's session overlay (ailments + battle
+ * conditions) is shown **read-only** via {@link CombatStateDisplay}: a player can
+ * see what's affecting them, but combat conditions are the DM's to set.
  *
  * A viewer can own more than one combatant in an encounter (multiple characters
  * placed in the campaign), so the column tabs between them; a single owned
  * character drops the tab bar.
  */
 export function WatchSheetColumn({
-  shortId,
   snapshot,
   ownedSheets,
 }: {
-  shortId: string
   snapshot: EncounterSnapshot
   ownedSheets: OwnedEncounterSheet[]
 }) {
   if (ownedSheets.length === 1) {
-    return (
-      <OwnedSheet
-        shortId={shortId}
-        snapshot={snapshot}
-        sheet={ownedSheets[0]!}
-      />
-    )
+    return <OwnedSheet snapshot={snapshot} sheet={ownedSheets[0]!} />
   }
 
   return (
@@ -66,7 +57,7 @@ export function WatchSheetColumn({
       </TabsList>
       {ownedSheets.map((sheet) => (
         <TabsContent key={sheet.combatantId} value={sheet.combatantId}>
-          <OwnedSheet shortId={shortId} snapshot={snapshot} sheet={sheet} />
+          <OwnedSheet snapshot={snapshot} sheet={sheet} />
         </TabsContent>
       ))}
     </Tabs>
@@ -74,11 +65,9 @@ export function WatchSheetColumn({
 }
 
 function OwnedSheet({
-  shortId,
   snapshot,
   sheet,
 }: {
-  shortId: string
   snapshot: EncounterSnapshot
   sheet: OwnedEncounterSheet
 }) {
@@ -98,11 +87,13 @@ function OwnedSheet({
             </section>
           ) : null}
           {combatant ? (
-            <PlayerCombatStateControl
-              shortId={shortId}
-              snapshotVersion={snapshot.version}
-              combatant={combatant}
-            />
+            <section aria-label="Combat State">
+              <CombatStateDisplay
+                ailments={combatant.ailments}
+                battleConditions={combatant.battleConditions}
+                conditionDurations={combatant.conditionDurations}
+              />
+            </section>
           ) : null}
           <section aria-label="Skills">
             <Skills />

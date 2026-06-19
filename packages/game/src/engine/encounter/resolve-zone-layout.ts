@@ -65,14 +65,27 @@ export interface ZoneEnchantmentBadge {
 }
 
 /** One zone region: its name, the ids→names of the zones it borders (for the
- *  adjacency legend), the tokens currently in it, and its Enchantment badge
- *  when the session's singleton Enchantment sits on this zone. */
+ *  adjacency legend), the tokens currently in it, its Enchantment badge when the
+ *  session's singleton Enchantment sits on this zone, and whether it is
+ *  **Engaged** (both sides stand here — rulebook §3.5). */
 export interface ZoneLayoutEntry {
   id: string
   name: string
   adjacentZoneNames: string[]
   combatants: ZoneToken[]
   enchantment?: ZoneEnchantmentBadge
+  engaged: boolean
+}
+
+/** A zone reads **Engaged** when both sides occupy it (rulebook §3.5) — derived
+ *  here (not in the UI) so every battlefield surface renders the flag from one
+ *  rule. Shared by the DM layout and the player view's {@link
+ *  import("./resolve-player-view").resolvePlayerZoneLayout}. */
+export function zoneIsEngaged(combatants: ZoneToken[]): boolean {
+  return (
+    combatants.some((token) => token.side === "players") &&
+    combatants.some((token) => token.side === "enemies")
+  )
 }
 
 /** The {@link ZoneEnchantmentBadge} for `zoneId`, or `undefined` when the
@@ -160,17 +173,21 @@ export function resolveZoneLayout(
       enemyStatblockById
     )
 
-  const zones = zoneEntries.map((zone) => ({
-    id: zone.id,
-    name: zone.name,
-    adjacentZoneNames: adjacentZones(instance, zone.id).map((z) => z.name),
-    combatants: session.combatants
+  const zones = zoneEntries.map((zone) => {
+    const combatants = session.combatants
       .filter(
         (combatant) => instance.occupancy[combatant.id]?.zoneId === zone.id
       )
-      .map(tokenOf),
-    enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
-  }))
+      .map(tokenOf)
+    return {
+      id: zone.id,
+      name: zone.name,
+      adjacentZoneNames: adjacentZones(instance, zone.id).map((z) => z.name),
+      combatants,
+      enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
+      engaged: zoneIsEngaged(combatants),
+    }
+  })
 
   const unplaced = session.combatants
     .filter(

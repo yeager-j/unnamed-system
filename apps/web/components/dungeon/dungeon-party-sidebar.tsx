@@ -72,7 +72,13 @@ export function DungeonPartySidebar({
   onMarkActed: (characterId: string) => void
   onMoveToken: (characterId: string, toZoneId: string) => void
 } & React.ComponentProps<typeof Sidebar>) {
-  const rosterIds = deriveDungeonRoster(instanceState)
+  // Filter to placed characters: post-combat the Instance can still carry enemy
+  // tokens (keyed by combatant id, pruned for real in UNN-469), which aren't party
+  // members and would otherwise show as "Unknown" rows — the sidebar peer of the
+  // canvas's roster-token guard.
+  const rosterIds = deriveDungeonRoster(instanceState).filter(
+    (characterId) => roster[characterId] !== undefined
+  )
   const acted = new Set(activeActedCharacterIds(dungeonState, rosterIds))
   const zones = Object.values(instanceState.geometry.zones)
 

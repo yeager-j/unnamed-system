@@ -170,3 +170,30 @@ export async function loadLiveEncounterForCampaign(
 
   return row ? withParsedSession(row) : null
 }
+
+/**
+ * The single `live` encounter running on a given Map Instance, or `null` if none.
+ * The shared-row invariant (Dungeon Map ADR — *one Instance ↔ at most one live
+ * Encounter*) means this resolves the encounter a **dungeon delve** is fighting:
+ * the `/dungeon/{shortId}` console forks into its combat phase and the fog player
+ * view composes the watch when this returns a row referencing the dungeon's
+ * `mapInstanceId`. Matching on `mapInstanceId` (not just `campaignId`) is the
+ * exact join — a campaign could hold a live *standalone* encounter on a different
+ * Instance, which is not this delve's fight.
+ */
+export async function loadLiveEncounterForMapInstance(
+  mapInstanceId: string
+): Promise<EncounterRow | null> {
+  const [row] = await db
+    .select()
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.mapInstanceId, mapInstanceId),
+        eq(encounters.status, "live")
+      )
+    )
+    .limit(1)
+
+  return row ? withParsedSession(row) : null
+}
