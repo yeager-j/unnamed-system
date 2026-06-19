@@ -67,11 +67,7 @@ export function EncounterWatch({
       {hasSheets ? (
         <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
           <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-            <WatchSheetColumn
-              shortId={shortId}
-              snapshot={snapshot}
-              ownedSheets={ownedSheets}
-            />
+            <WatchSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
           </div>
           <div className="flex min-w-0 flex-col lg:col-span-2 lg:min-h-0">
             {battlefield}

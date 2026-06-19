@@ -12,15 +12,28 @@ import {
   useNodesState,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useEffect } from "react"
+import { useEffect, type ReactNode } from "react"
 
-import { connectionFogState, isConnectionLocked } from "@workspace/game/engine"
+import {
+  connectionFogState,
+  isConnectionLocked,
+  type ZoneLayoutView,
+} from "@workspace/game/engine"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
+import {
+  DungeonCombatZoneNode,
+  type DungeonCombatZoneNode as DungeonCombatZoneNodeType,
+} from "./dungeon-combat-zone-node"
 import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "./dungeon-connection-edge"
+import {
+  DungeonSetupZoneNode,
+  type DungeonSetupZoneNode as DungeonSetupZoneNodeType,
+  type DungeonSetupZoneToken,
+} from "./dungeon-setup-zone-node"
 import {
   DungeonZoneNode,
   type DungeonZoneNode as DungeonZoneNodeType,
@@ -28,7 +41,11 @@ import {
 } from "./dungeon-zone-node"
 import { TurnLoopBar } from "./turn-loop-bar"
 
-const nodeTypes = { dungeonZone: DungeonZoneNode }
+const nodeTypes = {
+  dungeonZone: DungeonZoneNode,
+  dungeonCombatZone: DungeonCombatZoneNode,
+  dungeonSetupZone: DungeonSetupZoneNode,
+}
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
 export interface DungeonRosterEntry {
@@ -36,25 +53,45 @@ export interface DungeonRosterEntry {
   portraitUrl: string | null
 }
 
-type CanvasNode = DungeonZoneNodeType
+/**
+ * Which board the canvas draws: **play** (exploration — PC tokens from the delve
+ * roster) or **combat** (the encounter battlefield — combatant tokens from the
+ * shaped {@link ZoneLayoutView}). Only one phase is mounted at a time, so the
+ * canvas shell is shared and the run console swaps the mode + the matching context
+ * provider + the matching bottom `bar`.
+ */
+export type DungeonCanvasMode =
+  | { kind: "play"; roster: Record<string, DungeonRosterEntry> }
+  | { kind: "combat"; layout: ZoneLayoutView }
+  | { kind: "setup"; tokensByZone: Record<string, DungeonSetupZoneToken[]> }
 
-/** The party tokens standing in each Zone, keyed by Zone id, in occupancy order. */
+type CanvasNode =
+  | DungeonZoneNodeType
+  | DungeonCombatZoneNodeType
+  | DungeonSetupZoneNodeType
+
+/** The party tokens standing in each Zone (play mode), keyed by Zone id. Tokens
+ *  whose occupant isn't in the delve roster are dropped — during exploration the
+ *  only such keys are leftover enemy-combatant tokens from a just-ended fight,
+ *  pruned for real in UNN-469; rendering them as "Unknown" would mislead. */
 function tokensByZone(
   instance: MapInstanceState,
   roster: Record<string, DungeonRosterEntry>
 ): Record<string, DungeonZoneToken[]> {
   const byZone: Record<string, DungeonZoneToken[]> = {}
   for (const [characterId, token] of Object.entries(instance.occupancy)) {
+    const entry = roster[characterId]
+    if (!entry) continue
     ;(byZone[token.zoneId] ??= []).push({
       characterId,
-      name: roster[characterId]?.name ?? "Unknown",
-      portraitUrl: roster[characterId]?.portraitUrl ?? null,
+      name: entry.name,
+      portraitUrl: entry.portraitUrl,
     })
   }
   return byZone
 }
 
-function buildNodes(
+function buildPlayNodes(
   instance: MapInstanceState,
   roster: Record<string, DungeonRosterEntry>
 ): CanvasNode[] {
@@ -72,6 +109,61 @@ function buildNodes(
   }))
 }
 
+function buildCombatNodes(
+  instance: MapInstanceState,
+  layout: ZoneLayoutView
+): CanvasNode[] {
+  const byZone = new Map(layout.zones.map((zone) => [zone.id, zone.combatants]))
+  return Object.values(instance.geometry.zones).map((zone) => {
+    const tokens = byZone.get(zone.id) ?? []
+    return {
+      id: zone.id,
+      type: "dungeonCombatZone",
+      position: zone.position,
+      draggable: false,
+      data: {
+        zone,
+        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+        tokens,
+        engaged:
+          tokens.some((token) => token.side === "players") &&
+          tokens.some((token) => token.side === "enemies"),
+      },
+    }
+  })
+}
+
+function buildSetupNodes(
+  instance: MapInstanceState,
+  tokensByZone: Record<string, DungeonSetupZoneToken[]>
+): CanvasNode[] {
+  return Object.values(instance.geometry.zones).map((zone) => ({
+    id: zone.id,
+    type: "dungeonSetupZone",
+    position: zone.position,
+    draggable: false,
+    data: {
+      zone,
+      revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+      tokens: tokensByZone[zone.id] ?? [],
+    },
+  }))
+}
+
+function buildNodes(
+  instance: MapInstanceState,
+  mode: DungeonCanvasMode
+): CanvasNode[] {
+  switch (mode.kind) {
+    case "play":
+      return buildPlayNodes(instance, mode.roster)
+    case "combat":
+      return buildCombatNodes(instance, mode.layout)
+    case "setup":
+      return buildSetupNodes(instance, mode.tokensByZone)
+  }
+}
+
 function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
   return Object.values(instance.geometry.connections).map((connection) => ({
     id: connection.id,
@@ -87,27 +179,20 @@ function buildEdges(instance: MapInstanceState): DungeonConnectionEdgeType[] {
 }
 
 /**
- * The DM run console's Play-mode map (UNN-464) — a dedicated controlled React Flow
- * canvas (the template `MapCanvas` stays the uncontrolled editor; in-console
- * geometry editing is UNN-486). It derives its nodes/edges from the **optimistic**
- * {@link MapInstanceState} on every change, so a move or reveal re-lays the board
- * with no extra state:
- *
- * - **Zones** are fixed (non-draggable) cards showing their reveal state and the
- *   party tokens standing in them. Selecting one reveals a floating toolbar
- *   (reveal/hide ▸ move party here ▸ open details) — wired through the
- *   {@link useDungeonCanvas} context the run console provides.
- * - **Connections** are read-only floating edges (shared routing with the editor),
- *   styled by their player-facing fog/lock state.
- * - The {@link TurnLoopBar} renders **inside** the flow as a Panel so it can own the
- *   zoom controls; it too reads the run console's context.
- *
- * The canvas itself is presentational — it takes only the board data (`instance` +
- * `roster`); every dispatcher comes from the context above it.
+ * The DM run console's shared map canvas (UNN-464 / UNN-467) — one controlled
+ * React Flow surface for both the exploration **play** board and the **combat**
+ * battlefield, branched by {@link DungeonCanvasMode}. It re-derives its nodes/edges
+ * from the **optimistic** {@link MapInstanceState} (and the shaped combat layout)
+ * on every change, so a move/reveal/turn re-lays the board with no extra state.
+ * Zones are fixed cards; connections are read-only fog-styled floating edges. The
+ * bottom `bar` (the play {@link TurnLoopBar} or the combat panels) renders **inside**
+ * the flow as a Panel so it can own the zoom controls; its dispatchers come from
+ * the context the run console provides above the canvas.
  */
 export function DungeonCanvas(props: {
   instance: MapInstanceState
-  roster: Record<string, DungeonRosterEntry>
+  mode: DungeonCanvasMode
+  bar?: ReactNode
 }) {
   return (
     <ReactFlowProvider>
@@ -118,10 +203,12 @@ export function DungeonCanvas(props: {
 
 function DungeonCanvasInner({
   instance,
-  roster,
+  mode,
+  bar,
 }: {
   instance: MapInstanceState
-  roster: Record<string, DungeonRosterEntry>
+  mode: DungeonCanvasMode
+  bar?: ReactNode
 }) {
   const { resolvedTheme } = useTheme()
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
@@ -129,11 +216,11 @@ function DungeonCanvasInner({
     useEdgesState<DungeonConnectionEdgeType>([])
 
   // Re-derive the board from the (optimistic) Instance whenever it changes — a
-  // move/reveal snaps tokens + reveal badges to the new truth.
+  // move/reveal/turn snaps tokens + reveal badges to the new truth.
   useEffect(() => {
-    setNodes(buildNodes(instance, roster))
+    setNodes(buildNodes(instance, mode))
     setEdges(buildEdges(instance))
-  }, [instance, roster, setNodes, setEdges])
+  }, [instance, mode, setNodes, setEdges])
 
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
@@ -180,7 +267,7 @@ function DungeonCanvasInner({
         </span>
       </Panel>
 
-      <TurnLoopBar />
+      {bar ?? <TurnLoopBar />}
     </ReactFlow>
   )
 }

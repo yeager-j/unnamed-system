@@ -26,6 +26,8 @@ export interface DungeonCanvasContextValue {
   turnCounter: number
   /** Advances the dungeon turn. */
   advanceTurn: () => void
+  /** Enters the encounter Setup phase (stage combatants, then Begin — UNN-467). */
+  startEncounter: () => void
   /** Ends the delve (`active → done`) after a confirm. */
   finishDelve: () => void
   /** True while a write is in flight — disables the turn-loop controls. */

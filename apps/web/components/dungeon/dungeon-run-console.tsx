@@ -1,19 +1,33 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { toast } from "sonner"
 
-import { dungeonReminders } from "@workspace/game/engine"
+import {
+  dungeonReminders,
+  type InitiativeStats,
+  type PcCombatantDetail,
+} from "@workspace/game/engine"
 import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
 import { DungeonCanvasProvider } from "./canvas/dungeon-canvas-context"
+import { DungeonCombatBody } from "./dungeon-combat-body"
+import { DungeonEncounterSetup } from "./dungeon-encounter-setup"
 import { DungeonPartySidebar } from "./dungeon-party-sidebar"
 import { DungeonZoneSheet } from "./dungeon-zone-sheet"
 import { useDungeonConsole } from "./use-dungeon-console"
@@ -33,27 +47,35 @@ const DungeonCanvas = dynamic(
   }
 )
 
+/** The live encounter on this delve's Instance + its hydrated combat data — present
+ *  only while a fight is running (the console's combat phase, UNN-467). */
+export interface DungeonCombatData {
+  encounter: EncounterRow
+  pcDetailById: Record<string, PcCombatantDetail>
+  pcShortIdById: Record<string, string>
+}
+
 /**
- * The **active** DM run console (UNN-464): a full-bleed React Flow play map (token
- * placement/movement + zone reveal) with the turn-loop rail pinned to the left
- * (counter, acted flags, reminders, Finish delve) and a click-to-open Zone details
- * sheet sliding over the right edge. Drives everything through
- * {@link useDungeonConsole} — dual-optimistic over the dungeon + Instance rows, so
- * every move/reveal/turn-loop edit feels instant and reconciles on refresh.
+ * The **active** DM run console (UNN-464 / UNN-467): one surface with three phases
+ * that morph the same React Flow canvas + left panel + bottom bar — **Play**
+ * (exploration), **Setup** (the spatially-scoped combatant picker), and **Combat**
+ * (the live fight on the same Instance). Combat is server-derived (a live encounter
+ * on the delve's Instance); Setup is an ephemeral client phase entered from the
+ * Play bar's "Start an encounter" and left by Cancel with no state change.
  *
  * Rendered **client-only** (after mount): a heavily-interactive, auth-gated DM
  * tool with no SEO value, and the React Flow canvas needs a measured DOM — so SSR
- * buys nothing and only risks a `useId` hydration mismatch as the lazy canvas
- * shifts the tree. The pre-mount skeleton uses no `useId` components.
+ * buys nothing and only risks a `useId` hydration mismatch.
  */
 export function DungeonRunConsole(props: {
   dungeon: DungeonRow
   instance: MapInstanceRow
   roster: Record<string, DungeonRosterEntry>
+  placedCharacters: CharacterSummary[]
+  pcStatsById: Record<string, InitiativeStats>
   campaignShortId: string
+  combat: DungeonCombatData | null
 }) {
-  // Client-only render flag without setState-in-effect: `false` on the server,
-  // `true` once hydrated (the repo's idiom for "am I on the client").
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -67,18 +89,41 @@ export function DungeonRunConsole(props: {
       </main>
     )
   }
-  return <DungeonRunConsoleBody {...props} />
+
+  if (props.combat) {
+    return (
+      <DungeonCombatBody
+        dungeon={props.dungeon}
+        encounter={props.combat.encounter}
+        instance={props.instance}
+        campaignShortId={props.campaignShortId}
+        pcDetailById={props.combat.pcDetailById}
+        pcShortIdById={props.combat.pcShortIdById}
+      />
+    )
+  }
+
+  return <DungeonExplorationBody {...props} />
 }
 
-function DungeonRunConsoleBody({
+/**
+ * The Play (exploration) phase + its Setup morph — the half of the console driven
+ * by {@link useDungeonConsole}. Split out so the exploration optimistic hook only
+ * mounts when no fight is live (hooks stay unconditional).
+ */
+function DungeonExplorationBody({
   dungeon,
   instance,
   roster,
+  placedCharacters,
+  pcStatsById,
   campaignShortId,
 }: {
   dungeon: DungeonRow
   instance: MapInstanceRow
   roster: Record<string, DungeonRosterEntry>
+  placedCharacters: CharacterSummary[]
+  pcStatsById: Record<string, InitiativeStats>
   campaignShortId: string
 }) {
   const {
@@ -90,6 +135,7 @@ function DungeonRunConsoleBody({
     finishDelve,
   } = useDungeonConsole(dungeon, instance)
 
+  const [inSetup, setInSetup] = useState(false)
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
   const selectedZone = selectedZoneId
     ? (instanceState.geometry.zones[selectedZoneId] ?? null)
@@ -98,10 +144,13 @@ function DungeonRunConsoleBody({
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
 
-  // Surface the turn-driven reminders as toasts (their new home, replacing the
-  // floating Alert list) — once per turn the counter reaches a threshold. Pinned
-  // top-right (clear of the bottom turn bar) and persistent until the DM dismisses
-  // them, so a nudge can't auto-vanish before it's seen.
+  const canvasMode = useMemo(
+    () => ({ kind: "play" as const, roster }),
+    [roster]
+  )
+
+  // Surface the turn-driven reminders as toasts — once per turn the counter
+  // reaches a threshold. Persistent (top-right, clear of the bottom bar).
   const lastToastedTurn = useRef<number | null>(null)
   useEffect(() => {
     if (lastToastedTurn.current === dungeonState.turnCounter) return
@@ -115,6 +164,19 @@ function DungeonRunConsoleBody({
       })
     }
   }, [dungeonState])
+
+  if (inSetup) {
+    return (
+      <DungeonEncounterSetup
+        dungeon={dungeon}
+        instance={instance}
+        placedCharacters={placedCharacters}
+        pcStatsById={pcStatsById}
+        campaignShortId={campaignShortId}
+        onCancel={() => setInSetup(false)}
+      />
+    )
+  }
 
   return (
     <SidebarProvider>
@@ -148,12 +210,13 @@ function DungeonRunConsoleBody({
             openDetails: setSelectedZoneId,
             turnCounter: dungeonState.turnCounter,
             advanceTurn: () => dispatch({ kind: "advanceTurn" }),
+            startEncounter: () => setInSetup(true),
             finishDelve,
             disabled: isPending,
           }}
         >
           <div className="absolute inset-0">
-            <DungeonCanvas instance={instanceState} roster={roster} />
+            <DungeonCanvas instance={instanceState} mode={canvasMode} />
           </div>
         </DungeonCanvasProvider>
       </SidebarInset>

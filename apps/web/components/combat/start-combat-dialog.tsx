@@ -58,12 +58,22 @@ export function StartCombatDialog({
   comparison,
   onStart,
   disabled,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: {
   comparison: InitiativeComparison
   onStart: (advantage: CombatAdvantage, firstSide: CombatSide) => void
   disabled: boolean
+  /** Controlled-open (UNN-467): the dungeon Setup phase opens this from its
+   *  bottom-bar "Begin encounter" instead of the built-in trigger. When provided,
+   *  the standalone "Start combat" trigger button is omitted. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : uncontrolledOpen
+  const setOpen = controlledOnOpenChange ?? setUncontrolledOpen
   const [advantage, setAdvantage] = useState<CombatAdvantage>("neutral")
   const [neutralFirstSide, setNeutralFirstSide] =
     useState<CombatSide>("players")
@@ -85,14 +95,16 @@ export function StartCombatDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger
-        render={
-          <Button disabled={disabled}>
-            <SwordIcon weight="fill" />
-            Start combat
-          </Button>
-        }
-      />
+      {isControlled ? null : (
+        <DialogTrigger
+          render={
+            <Button disabled={disabled}>
+              <SwordIcon weight="fill" />
+              Start combat
+            </Button>
+          }
+        />
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Start combat</DialogTitle>

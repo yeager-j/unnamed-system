@@ -1,13 +1,43 @@
+import { getEnemy } from "@workspace/game/data"
 import {
+  combatEnemyTokensByZone,
   projectDungeonSnapshot,
+  type DungeonCombatLink,
   type DungeonSnapshot,
 } from "@workspace/game/engine"
+import type { CombatSession } from "@workspace/game/foundation"
 
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter"
+import {
+  loadOwnedEncounterSheets,
+  type OwnedEncounterSheet,
+} from "@/lib/db/queries/load-encounter-snapshot"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
+import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
+
+/**
+ * The acting combatant's display name for the "Combat — Round N · {actor}" signal,
+ * resolved with **no extra DB read**: a PC's name comes from the already-loaded
+ * delve roster, an enemy's from the hardcoded catalog (or its inline stat block).
+ * `null` before anyone is drafted / between rounds.
+ */
+function currentActorName(
+  session: CombatSession,
+  roster: Record<string, { name: string }>
+): string | null {
+  const actor = session.combatants.find(
+    (combatant) => combatant.id === session.currentActorId
+  )
+  if (!actor) return null
+  const ref = actor.ref
+  if (ref.kind === "pc") return roster[ref.characterId]?.name ?? null
+  if (ref.kind === "catalog-enemy") return getEnemy(ref.enemyKey)?.name ?? null
+  return ref.statBlock.name
+}
 
 /**
  * Assembles the signed-out **dungeon fog snapshot** for a delve by its public
@@ -29,10 +59,11 @@ export async function getDungeonSnapshot(
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
 
-  const [campaign, instance, placed] = await Promise.all([
+  const [campaign, instance, placed, live] = await Promise.all([
     loadCampaignRowById(dungeon.campaignId),
     loadMapInstanceById(dungeon.mapInstanceId),
     loadPlacedCharactersForCampaign(dungeon.campaignId),
+    loadLiveEncounterForMapInstance(dungeon.mapInstanceId),
   ])
   if (!instance) return null
 
@@ -42,6 +73,24 @@ export async function getDungeonSnapshot(
       { name: character.name, portraitUrl: character.portraitUrl },
     ])
   )
+
+  // A live encounter on this delve's Instance ⇒ combat is running: surface the
+  // linkage the fog view dual-subscribes + composes its own-sheet column from,
+  // plus the redacted enemy tokens for the battlefield (HP only, no affinities).
+  const combat: DungeonCombatLink | undefined = live
+    ? {
+        encounterShortId: live.shortId,
+        round: live.session.round,
+        currentActorName: currentActorName(live.session, roster),
+      }
+    : undefined
+  const enemyTokensByZone = live
+    ? combatEnemyTokensByZone(
+        live.session,
+        instance.state,
+        resolveCatalogEnemyStatblocks(live.session.combatants)
+      )
+    : {}
 
   return projectDungeonSnapshot(
     {
@@ -53,8 +102,31 @@ export async function getDungeonSnapshot(
     },
     instance.state,
     dungeon.state,
-    roster
+    roster,
+    combat,
+    enemyTokensByZone
   )
+}
+
+/**
+ * The viewer's own hydrated character sheets for the encounter running on **this
+ * delve** (UNN-467, AC8), or `[]` when no fight is live / the viewer owns none.
+ * The fog view composes these into the encounter watch's own-sheet column during
+ * combat. Thin shell over {@link loadOwnedEncounterSheets} (redaction-correct —
+ * only the viewer's own characters are hydrated): it resolves the delve's live
+ * encounter shortId, which the snapshot also exposes as `combat.encounterShortId`.
+ */
+export async function loadOwnedDungeonCombatSheets(
+  dungeonShortId: string,
+  viewerId: string
+): Promise<OwnedEncounterSheet[]> {
+  const dungeon = await loadDungeonRowByShortId(dungeonShortId)
+  if (!dungeon) return []
+
+  const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
+  if (!live) return []
+
+  return loadOwnedEncounterSheets(live.shortId, viewerId)
 }
 
 /**
