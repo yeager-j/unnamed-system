@@ -6,6 +6,7 @@ import {
   err,
   ok,
   type Ailments,
+  type BattleConditionFlagKey,
   type BattleConditions,
   type BattleConditionState,
   type Result,
@@ -103,7 +104,7 @@ export async function applySetBattleConditionAxisForCharacter(
 
 export async function applySetBattleConditionFlagForCharacter(
   characterId: string,
-  flag: "charged" | "concentrating",
+  flag: BattleConditionFlagKey,
   value: boolean,
   expectedVersion: number
 ): Promise<Result<SetBattleConditionsSuccess, CombatStatePersistenceError>> {

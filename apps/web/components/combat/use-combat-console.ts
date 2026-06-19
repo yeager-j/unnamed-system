@@ -1,10 +1,22 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useEffect, useOptimistic, useRef, useTransition } from "react"
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
 
-import { type PcCombatantDetail } from "@workspace/game/engine"
+import {
+  buildConsoleView,
+  buildRosterView,
+  combatantDetail,
+  resolveZoneLayout,
+  type PcCombatantDetail,
+} from "@workspace/game/engine"
 import {
   type CombatEvent,
   type MapInstanceEvent,
@@ -19,13 +31,18 @@ import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
-import { reduceCombatSession } from "@/lib/game-engine"
+import {
+  endOfTurnObligations,
+  reduceCombatSession,
+  resolveCatalogEnemyStatblocks,
+} from "@/lib/game-engine"
 
 import {
   dispatchCombatEvent,
   reduceInstanceOptimistic,
 } from "./dispatch-combat-event"
 import { decidePcPing } from "./pc-ping"
+import { type ConsolePhase } from "./turn-order-strip"
 
 /**
  * The live DM console's owner-mode write surface (UNN-344 / UNN-459) — the
@@ -71,11 +88,25 @@ import { decidePcPing } from "./pc-ping"
  * WebSocket messages — may each refresh; that's accepted (each refresh is a
  * cheap re-read), with a wider debounce window as the known lever if it ever
  * shows up as churn in practice.
+ *
+ * **Derived view (UNN-467).** Beyond the write surface, the hook owns the combat
+ * **view derivation** both bodies render — the standalone {@link
+ * import("./combat-console").CombatConsole} and the dungeon {@link
+ * import("@/components/dungeon/dungeon-combat-body").DungeonCombatBody} — so they
+ * can't drift: the console/roster/zone-layout selectors, the phase, the selected
+ * combatant's detail, the end-of-turn obligations, and the per-PC realtime channel
+ * list. It also owns the two pieces of view state they share (the end-of-turn modal
+ * flag + the selected combatant). `enemyStatblockById` and the zone `layout` are
+ * memoized so the dungeon canvas's node-sync effect only re-derives on a real
+ * spatial/session change, not a sibling state flip; the bodies keep only their own
+ * chrome (the console's header, the dungeon's canvas + move-anywhere state).
  */
 export function useCombatConsole(
   encounter: Pick<EncounterRow, "id" | "shortId" | "session" | "version">,
   instance: Pick<MapInstanceRow, "state" | "version">,
-  pcDetailById: Record<string, PcCombatantDetail>
+  pcDetailById: Record<string, PcCombatantDetail>,
+  /** Each PC combatant's public shortId — the realtime channel key (UNN-373). */
+  pcShortIdById: Record<string, string>
 ) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -190,6 +221,87 @@ export function useCombatConsole(
     })
   }
 
+  // ── The shared combat view both bodies render (UNN-467) ────────────────────
+  const [modalOpen, setModalOpen] = useState(false)
+  const [selectedCombatantId, setSelectedCombatantId] = useState<string | null>(
+    null
+  )
+
+  // React Compiler memoizes these by their data deps, so `layout` (and the
+  // dungeon body's `canvasMode` over it) stays referentially stable across a
+  // sibling state flip (drawer open, move-anywhere) — the canvas's node-sync
+  // effect only re-derives on a real spatial/session change. No manual memo.
+  const enemyStatblockById = resolveCatalogEnemyStatblocks(session.combatants)
+  const view = buildConsoleView(session, pcDetailById, enemyStatblockById)
+  const { currentActor } = view
+  const roster = buildRosterView(
+    session,
+    instanceState,
+    pcDetailById,
+    enemyStatblockById
+  )
+  const layout = resolveZoneLayout(
+    session,
+    instanceState,
+    pcDetailById,
+    enemyStatblockById
+  )
+  const fallenPcNames = roster.players
+    .filter((row) => row.isFallen)
+    .map((row) => row.name)
+
+  const phase: ConsolePhase =
+    currentActor === null
+      ? "drafting"
+      : !currentActor.hasActed
+        ? "active"
+        : modalOpen
+          ? "resolving"
+          : "drafting"
+
+  const selectedDetail =
+    selectedCombatantId !== null
+      ? combatantDetail(
+          session,
+          instanceState,
+          selectedCombatantId,
+          pcDetailById,
+          enemyStatblockById
+        )
+      : null
+
+  // Mechanic state lives on the character row, not the session — pass it through
+  // so the end-of-turn review can surface a Berserker's Frenzy decrement reminder.
+  const pcMechanicByCharacterId = Object.fromEntries(
+    Object.values(pcDetailById).map((detail) => [
+      detail.id,
+      detail.activeMechanic,
+    ])
+  )
+  const obligations =
+    currentActor !== null
+      ? endOfTurnObligations(session, currentActor.id, pcMechanicByCharacterId)
+      : null
+
+  // One realtime listener per PC combatant in the (optimistic) session, keyed by
+  // shortId — adding/removing a PC mounts/unmounts its character channel (UNN-373).
+  const pcChannelIds = session.combatants.flatMap((combatant) =>
+    combatant.ref.kind === "pc" &&
+    pcShortIdById[combatant.ref.characterId] !== undefined
+      ? [
+          {
+            characterId: combatant.ref.characterId,
+            shortId: pcShortIdById[combatant.ref.characterId]!,
+          },
+        ]
+      : []
+  )
+
+  function onEndTurn() {
+    dispatch({ kind: "endTurn" })
+    setModalOpen(true)
+  }
+
   return {
     session,
     instance: instanceState,
@@ -198,5 +310,23 @@ export function useCombatConsole(
     endEncounter,
     pcVitalsVersions,
     onPcPing,
+    // derived combat view
+    view,
+    currentActor,
+    roster,
+    layout,
+    fallenPcNames,
+    obligations,
+    phase,
+    pcChannelIds,
+    // selection + end-of-turn modal (owned here, shared by both bodies)
+    selectedDetail,
+    selectCombatant: setSelectedCombatantId,
+    endOfTurnOpen: modalOpen && phase === "resolving",
+    closeEndOfTurn: () => setModalOpen(false),
+    onEndTurn,
+    onDraft: (combatantId: string) =>
+      dispatch({ kind: "draftCombatant", combatantId }),
+    onAdvanceRound: () => dispatch({ kind: "advanceRound" }),
   }
 }

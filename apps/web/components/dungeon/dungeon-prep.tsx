@@ -127,7 +127,11 @@ export function DungeonPrep({
                       id={`zone-${character.id}`}
                       className="w-48"
                     >
-                      <SelectValue placeholder="Not in this delve" />
+                      <SelectValue placeholder="Not in this delve">
+                        {zones.find(
+                          (zone) => zone.id === placements[character.id]
+                        )?.name ?? "Not in this delve"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {zones.map((zone) => (

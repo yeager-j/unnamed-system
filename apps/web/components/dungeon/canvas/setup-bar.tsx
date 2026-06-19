@@ -1,30 +1,15 @@
 "use client"
 
-import {
-  MagnifyingGlassMinusIcon,
-  MagnifyingGlassPlusIcon,
-  SwordIcon,
-  XIcon,
-} from "@phosphor-icons/react/dist/ssr"
-import { Panel, useReactFlow, useViewport } from "@xyflow/react"
+import { SwordIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
+import { Panel } from "@xyflow/react"
 
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
+
+import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonSetupCanvas } from "./dungeon-setup-canvas-context"
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-}
 
 /**
  * The encounter **Setup** phase's bottom Panel (UNN-467): **Cancel** (returns to
@@ -35,9 +20,6 @@ function prefersReducedMotion(): boolean {
 export function SetupBar() {
   const { beginCount, canBegin, onBegin, onCancel, disabled } =
     useDungeonSetupCanvas()
-  const { zoomIn, zoomOut, fitView } = useReactFlow()
-  const { zoom } = useViewport()
-  const duration = prefersReducedMotion() ? 0 : 250
 
   return (
     <Panel position="bottom-center" className="mb-4">
@@ -63,53 +45,7 @@ export function SetupBar() {
 
           <Separator orientation="vertical" className="mx-1" />
 
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom out"
-                  onClick={() => void zoomOut({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassMinusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom out</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  className="min-w-14 tabular-nums"
-                  aria-label="Fit view"
-                  onClick={() => void fitView({ duration, padding: 0.2 })}
-                />
-              }
-            >
-              {Math.round(zoom * 100)}%
-            </TooltipTrigger>
-            <TooltipContent>Fit view</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  aria-label="Zoom in"
-                  onClick={() => void zoomIn({ duration })}
-                />
-              }
-            >
-              <MagnifyingGlassPlusIcon />
-            </TooltipTrigger>
-            <TooltipContent>Zoom in</TooltipContent>
-          </Tooltip>
+          <CanvasZoomCluster />
         </div>
       </TooltipProvider>
     </Panel>

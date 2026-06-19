@@ -117,6 +117,16 @@ export async function startDelveAction(
  * placement is the party's first "entry", the initial `move → reveal`. A
  * placement pointing at a Zone the geometry doesn't carry still places the token
  * (guides, doesn't block) but reveals nothing.
+ *
+ * **Security invariant (fog-redaction gate):** a real delve reveals ≥1 starting
+ * Zone here, which is what {@link
+ * import("@workspace/game/engine/encounter/resolve-reveal").isFogActive} keys off
+ * to fog-redact the public encounter snapshot ({@link
+ * import("@workspace/game/engine/encounter/player-snapshot").projectPlayerSnapshot}).
+ * The only way `revealedZoneIds` stays empty is a degenerate delve whose every
+ * placement points off-geometry (no party token on a real Zone) — broken, not a
+ * runnable fight. If an explicit delve marker ever lands on the Instance, prefer
+ * gating the redaction on that structural signal instead of this emergent one.
  */
 function placeRoster(
   base: MapInstanceState,

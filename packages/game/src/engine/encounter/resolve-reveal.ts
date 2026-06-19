@@ -22,6 +22,19 @@ export function isZoneRevealed(reveal: RevealState, zoneId: string): boolean {
 }
 
 /**
+ * Whether an Instance is **fog-gated** — governed by exploration reveal state (a
+ * delve), as opposed to a standalone encounter whose whole map is always visible.
+ * A delve reveals at least its party's starting Zone on start, so a non-empty
+ * `revealedZoneIds` is the structural signal; a standalone encounter never
+ * populates reveal (it defaults empty), so its watch shows the full map. The
+ * encounter player snapshot uses this to fog-redact only when combat runs on a
+ * delve Instance — see {@link import("./player-snapshot").projectPlayerSnapshot}.
+ */
+export function isFogActive(reveal: RevealState): boolean {
+  return reveal.revealedZoneIds.length > 0
+}
+
+/**
  * A connection's effective locked state: its authored `locked` flag *unless* the
  * DM has unlocked it at runtime. A locked connection shows as a known-exit but
  * blocks movement until unlocked (PRD FR-5).

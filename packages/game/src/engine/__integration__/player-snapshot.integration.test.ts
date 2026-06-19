@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   enemyStatblocks,
+  makeConnection,
   makeEncounter,
   makeGeometry,
   makeZone,
@@ -292,6 +293,96 @@ describe("projectPlayerSnapshot", () => {
       zoneId: "z1",
       type: "requiem",
       forte: 2,
+    })
+  })
+
+  // UNN-467: combat runs on the delve's own (fogged) Instance, and the public
+  // encounter snapshot must not become a side door around the dungeon fog.
+  describe("fog redaction on a delve Instance (UNN-467)", () => {
+    // A two-zone delve: z1 revealed (the party + the fight), z2 still in fog.
+    const foggedGeometry = makeGeometry(
+      [
+        makeZone("z1", { name: "Antechamber" }),
+        makeZone("z2", { name: "Hidden Vault", dmNotes: "the prize" }),
+      ],
+      [makeConnection("c12", "z1", "z2")]
+    )
+    const fogged = {
+      revealedZoneIds: ["z1"],
+      revealedConnectionIds: [],
+      unlockedConnectionIds: [],
+    }
+
+    it("drops undiscovered Zones and the graph edges into them", () => {
+      const { session, instance } = makeEncounter(
+        [pc("char-aria", "z1"), catalogEnemy("goblin", "z2")],
+        { geometry: foggedGeometry, reveal: fogged }
+      )
+
+      const snapshot = snap(encounter(session, "live"), instance, {
+        "char-aria": ARIA,
+      })
+
+      expect(snapshot.zones.map((z) => z.id)).toEqual(["z1"])
+      // z1's only edge leads into fog, so it lists no neighbor and the hidden
+      // z2 never appears as a key — its id can't leak.
+      expect(snapshot.adjacency).toEqual({ z1: [] })
+    })
+
+    it("clears the zoneId of any combatant (enemy or PC) in an unrevealed Zone", () => {
+      const { session, instance } = makeEncounter(
+        [pc("char-aria", "z2"), catalogEnemy("goblin", "z2")],
+        { geometry: foggedGeometry, reveal: fogged }
+      )
+
+      const { combatants } = snap(encounter(session, "live"), instance, {
+        "char-aria": ARIA,
+      })
+
+      expect(combatants.find((c) => c.kind === "pc")!.zoneId).toBe("")
+      expect(combatants.find((c) => c.kind === "enemy")!.zoneId).toBe("")
+    })
+
+    it("keeps a combatant's real zoneId when it stands in a revealed Zone", () => {
+      const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
+        geometry: foggedGeometry,
+        reveal: fogged,
+      })
+
+      const [player] = snap(encounter(session, "live"), instance, {
+        "char-aria": ARIA,
+      }).combatants
+      expect(player!.zoneId).toBe("z1")
+    })
+
+    it("withholds an Enchantment that sits in an unrevealed Zone", () => {
+      const { session, instance } = makeEncounter([pc("char-aria", "z1")], {
+        geometry: foggedGeometry,
+        reveal: fogged,
+        enchantment: { zoneId: "z2", type: "requiem", forte: 2 },
+      })
+
+      expect(
+        snap(encounter(session, "live"), instance, { "char-aria": ARIA })
+          .enchantment
+      ).toBeNull()
+    })
+
+    it("does NOT redact a standalone encounter (empty reveal) — the whole map stays visible", () => {
+      const { session, instance } = makeEncounter(
+        [pc("char-aria", "z1"), catalogEnemy("goblin", "z2")],
+        { geometry: foggedGeometry } // default reveal is empty ⇒ not a delve
+      )
+
+      const snapshot = snap(encounter(session, "live"), instance, {
+        "char-aria": ARIA,
+      })
+
+      expect(snapshot.zones.map((z) => z.id)).toEqual(["z1", "z2"])
+      expect(snapshot.adjacency).toEqual({ z1: ["z2"], z2: ["z1"] })
+      expect(snapshot.combatants.find((c) => c.kind === "enemy")!.zoneId).toBe(
+        "z2"
+      )
     })
   })
 })

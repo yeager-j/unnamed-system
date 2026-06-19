@@ -9,6 +9,7 @@ import {
 import {
   adjacencyMap,
   adjacentZones,
+  movableZonesForCombatant,
 } from "@workspace/game/engine/encounter/zone-graph"
 
 function instanceWithGraph() {
@@ -74,5 +75,58 @@ describe("adjacencyMap", () => {
       ]
     )
     expect(adjacencyMap(geometry)["zone-a"]).toEqual(["zone-b"])
+  })
+})
+
+describe("movableZonesForCombatant", () => {
+  // zone-d is deliberately unconnected, so only the override surfaces it.
+  function instanceWith(zoneId: string) {
+    return makeMapInstanceState({
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a"),
+          makeZone("zone-b"),
+          makeZone("zone-c"),
+          makeZone("zone-d"),
+        ],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b"),
+          makeConnection("conn-ac", "zone-a", "zone-c"),
+        ]
+      ),
+      occupancy: { "c-0": { zoneId, engagement: { status: "free" } } },
+    })
+  }
+
+  it("returns the acting Zone's adjacent Zones, excluding itself", () => {
+    expect(
+      movableZonesForCombatant(instanceWith("zone-a"), "c-0", {
+        anywhere: false,
+      }).sort()
+    ).toEqual(["zone-b", "zone-c"])
+  })
+
+  it("opens to every other Zone under the move-anywhere override", () => {
+    expect(
+      movableZonesForCombatant(instanceWith("zone-a"), "c-0", {
+        anywhere: true,
+      }).sort()
+    ).toEqual(["zone-b", "zone-c", "zone-d"])
+  })
+
+  it("falls back to every other Zone when the combatant stands off the graph", () => {
+    expect(
+      movableZonesForCombatant(instanceWith("ghost"), "c-0", {
+        anywhere: false,
+      }).sort()
+    ).toEqual(["zone-a", "zone-b", "zone-c", "zone-d"])
+  })
+
+  it("returns [] when the combatant has no token", () => {
+    expect(
+      movableZonesForCombatant(instanceWith("zone-a"), "c-missing", {
+        anywhere: false,
+      })
+    ).toEqual([])
   })
 })
