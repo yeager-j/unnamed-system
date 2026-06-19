@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { dungeonReminders, type InitiativeStats } from "@workspace/game/engine"
@@ -79,10 +79,10 @@ export function DungeonExploreBody({
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
 
-  const canvasMode = useMemo(
-    () => ({ kind: "play" as const, roster }),
-    [roster]
-  )
+  // React Compiler keeps this referentially stable across renders where `roster`
+  // is unchanged, so the canvas's node-sync effect doesn't re-derive — no manual
+  // memo (matching dungeon-combat-body).
+  const canvasMode = { kind: "play" as const, roster }
 
   // Surface the turn-driven reminders as toasts — once per turn the counter
   // reaches a threshold. Persistent (top-right, clear of the bottom bar).
