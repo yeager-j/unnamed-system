@@ -1,8 +1,13 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import { getEnchantment } from "@workspace/game/engine/encounter/enchantment"
 import { engagedWith } from "@workspace/game/engine/encounter/engagement-graph"
-import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
+import {
+  enemyHp,
+  pcPool,
+  type PcCombatantDetail,
+  type Pool,
+} from "@workspace/game/engine/encounter/roster-view"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
 import {
   forteMarking,
@@ -37,6 +42,12 @@ export interface ZoneToken {
   side: CombatSide
   isPc: boolean
   portraitUrl: string | null
+  /** Current/max HP, so the map token can draw a health bar (UNN-489). A PC's
+   *  pools come from its hydrated detail, an enemy's from its working HP. */
+  hp: Pool
+  /** Current/max SP — `null` for enemies (5e stat blocks carry no SP resource),
+   *  so only PC tokens draw the second bar. */
+  sp: Pool | null
   /** The combatant's melee-lock, for the UNN-316 token slot. **Optional** so the
    *  redacted player snapshot — which carries no `Engagement` object — can feed
    *  the same {@link ZoneLayoutView} (the grid ignores it; the future map ticket
@@ -176,28 +187,31 @@ export interface ZoneLayoutView {
   hasZones: boolean
 }
 
-/** Projects a combatant to its battlefield token. A PC draws its portrait from
- *  the injected detail; an enemy has none (the initials-square fallback). */
+/** Projects a combatant to its battlefield token. A PC draws its portrait + pools
+ *  from the injected detail; an enemy has no portrait (the initials-square
+ *  fallback), its working HP, and no SP. `name` is the caller's disambiguated
+ *  label ({@link combatantDisplayNames}) so duplicate enemies number consistently
+ *  with the rail and the player view. */
 function zoneToken(
   combatant: Combatant,
   engagement: Engagement,
+  name: string,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): ZoneToken {
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
-  const portraitUrl =
-    // Stryker disable next-line ConditionalExpression: equivalent — an enemy ref has no `characterId`, so the forced-pc branch reads `pcDetailById[undefined]?.portraitUrl ?? null` → null, the same as the `: null` fallback.
-    ref.kind === "pc"
-      ? (pcDetailById[ref.characterId]?.portraitUrl ?? null)
-      : null
+  const pcDetail = ref.kind === "pc" ? pcDetailById[ref.characterId] : undefined
 
   return {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById, enemyStatblockById),
+    name,
     side: combatant.side,
     isPc,
-    portraitUrl,
+    portraitUrl: pcDetail?.portraitUrl ?? null,
+    hp: isPc ? pcPool(pcDetail, "hp") : enemyHp(combatant, enemyStatblockById),
+    // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind.
+    sp: isPc ? pcPool(pcDetail, "sp") : null,
     engagement,
   }
 }
@@ -218,11 +232,17 @@ export function resolveZoneLayout(
 ): ZoneLayoutView {
   const zoneEntries = Object.values(instance.geometry.zones)
   const zoneIds = new Set(zoneEntries.map((zone) => zone.id))
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
+  )
 
   const tokenOf = (combatant: Combatant) =>
     zoneToken(
       combatant,
       instance.occupancy[combatant.id]?.engagement ?? { status: "free" },
+      nameById.get(combatant.id) ?? combatant.id,
       pcDetailById,
       enemyStatblockById
     )

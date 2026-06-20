@@ -19,7 +19,8 @@ import {
  */
 
 /** Projects a snapshot combatant to a battlefield token. `engagement` is omitted
- *  (the redacted snapshot carries no `Engagement` object); the grid ignores it. */
+ *  (the redacted snapshot carries no `Engagement` object); the grid ignores it.
+ *  HP/SP ride along from the redacted snapshot (the enemy arm carries no SP). */
 function playerZoneToken(combatant: PlayerVisibleCombatant): ZoneToken {
   return {
     id: combatant.id,
@@ -27,6 +28,8 @@ function playerZoneToken(combatant: PlayerVisibleCombatant): ZoneToken {
     side: combatant.side,
     isPc: combatant.kind === "pc",
     portraitUrl: combatant.portraitUrl,
+    hp: combatant.hp,
+    sp: combatant.sp,
   }
 }
 

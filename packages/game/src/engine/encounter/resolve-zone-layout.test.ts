@@ -13,6 +13,8 @@ function token(id: string, engagement?: Engagement): ZoneToken {
     side: "players",
     isPc: true,
     portraitUrl: null,
+    hp: { current: 10, max: 10 },
+    sp: { current: 5, max: 5 },
     engagement,
   }
 }

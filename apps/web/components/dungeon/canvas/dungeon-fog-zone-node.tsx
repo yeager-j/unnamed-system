@@ -3,7 +3,11 @@
 import { ArrowSquareOutIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import { type Node, type NodeProps } from "@xyflow/react"
 
-import { groupTokensByEngagement } from "@workspace/game/engine"
+import {
+  groupTokensByEngagement,
+  type Pool,
+  type ZoneEnchantmentBadge,
+} from "@workspace/game/engine"
 import { type Engagement } from "@workspace/game/foundation"
 import {
   Card,
@@ -12,7 +16,11 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
+import { EnchantmentBadge } from "@/components/combat/enchantment-badge"
+import { VitalBar } from "@/components/combat/vital-bar"
+
 import { DungeonTokenChip } from "./dungeon-token-chip"
+import { EngagedCluster } from "./engaged-cluster"
 import { FloatingEdgeHandles } from "./floating-edge-handles"
 import { TokenGlyph } from "./token-glyph"
 
@@ -20,6 +28,9 @@ export type FogZoneToken = {
   characterId: string
   name: string
   portraitUrl: string | null
+  /** Current/max HP + SP — the party reads each other's vitals on the map (UNN-489). */
+  hp: Pool
+  sp: Pool
   /** This token belongs to the signed-in viewer — gets the self-highlight ring. */
   owned: boolean
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
@@ -28,7 +39,7 @@ export type FogZoneToken = {
 export type FogZoneEnemy = {
   id: string
   name: string
-  hp: { current: number; max: number }
+  hp: Pool
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
   engagement?: Engagement
 }
@@ -50,6 +61,8 @@ export type FogZoneData = {
   tokens: FogZoneToken[]
   enemies: FogZoneEnemy[]
   exits: FogZoneExit[]
+  /** The Zone's active Bard Enchantment badge, when one sits here (UNN-489). */
+  enchantment?: ZoneEnchantmentBadge
 }
 export type DungeonFogZoneNode = Node<FogZoneData, "fogZone">
 
@@ -59,14 +72,15 @@ export type DungeonFogZoneNode = Node<FogZoneData, "fogZone">
  * {@link import("./dungeon-zone-node").DungeonZoneNode}. It carries no reveal/move
  * toolbar (players don't act on the map); it shows what the redacted snapshot
  * permits: the Zone name, its player-facing description, the party tokens standing
- * in it (the viewer's own self-highlighted), and a footer of **known-exit
- * silhouettes** — one chip per exit leading somewhere undiscovered, encoding only
- * *that* an exit exists and whether it's locked (no far-Zone name/contents). The
- * hidden handles only need to *exist* so React Flow attaches the revealed-connection
- * floating edges; the floating router decides where they meet the border.
+ * in it (the viewer's own self-highlighted), its active Enchantment badge, and a
+ * footer of **known-exit silhouettes** — one chip per exit leading somewhere
+ * undiscovered, encoding only *that* an exit exists and whether it's locked (no
+ * far-Zone name/contents). The hidden handles only need to *exist* so React Flow
+ * attaches the revealed-connection floating edges; the floating router decides
+ * where they meet the border.
  */
 export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
-  const { name, description, tokens, enemies, exits } = data
+  const { name, description, tokens, enemies, exits, enchantment } = data
 
   // Party + enemy tokens as one list so engaged combatants cluster across sides
   // (a PC locked with an enemy). Party first, then enemies — the prior order.
@@ -99,8 +113,16 @@ export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
         className="min-h-40 w-86 shadow-sm"
       >
         <CardHeader>
-          <CardTitle className="text-base">
+          <CardTitle className="flex items-center justify-between gap-2 text-base">
             <span className="truncate">{name}</span>
+            {enchantment ? (
+              // React Flow sets `pointer-events: none` on this read-only
+              // (non-selectable) fog node, which would swallow the badge's hover
+              // and kill its tooltip — re-enable events for the badge alone.
+              <span className="pointer-events-auto">
+                <EnchantmentBadge enchantment={enchantment} />
+              </span>
+            ) : null}
           </CardTitle>
         </CardHeader>
 
@@ -114,17 +136,15 @@ export function DungeonFogZoneNode({ data }: NodeProps<DungeonFogZoneNode>) {
               {groupTokensByEngagement(combatants).map((group) =>
                 group.length > 1 ? (
                   <li key={group.map((c) => c.id).join("|")}>
-                    <div
-                      role="group"
-                      aria-label={`Engaged: ${group.map(combatantName).join(", ")}`}
-                      className="flex flex-wrap gap-1.5 border border-dotted border-destructive/60 p-1"
+                    <EngagedCluster
+                      label={`Engaged: ${group.map(combatantName).join(", ")}`}
                     >
                       {group.map((c) => (
                         <div key={c.id}>
                           <FogCombatantChip combatant={c} />
                         </div>
                       ))}
-                    </div>
+                    </EngagedCluster>
                   </li>
                 ) : (
                   <li key={group[0]!.id}>
@@ -157,13 +177,16 @@ function combatantName(combatant: FogCombatant): string {
 }
 
 /** Renders a fog combatant by side: a party token's {@link DungeonTokenChip}
- *  (self-highlighted when owned) or an enemy's redacted {@link FogEnemyChip}. */
+ *  (self-highlighted when owned, with HP/SP bars) or an enemy's redacted
+ *  {@link FogEnemyChip}. */
 function FogCombatantChip({ combatant }: { combatant: FogCombatant }) {
   if (combatant.kind === "party") {
     return (
       <DungeonTokenChip
         name={combatant.token.name}
         portraitUrl={combatant.token.portraitUrl}
+        hp={combatant.token.hp}
+        sp={combatant.token.sp}
         owned={combatant.token.owned}
       />
     )
@@ -174,18 +197,11 @@ function FogCombatantChip({ combatant }: { combatant: FogCombatant }) {
 /**
  * An **enemy** token on the player battlefield (UNN-467) — the redacted combat
  * peer of {@link DungeonTokenChip}. Side-tinted destructive-red (initials, never a
- * portrait) with a thin HP bar; the snapshot carries HP only, so attributes and
- * affinities can't be shown here (the combat-watch redaction, UNN-324).
+ * portrait) with a thin {@link VitalBar} HP bar; the snapshot carries HP only, so
+ * attributes and affinities can't be shown here (the combat-watch redaction,
+ * UNN-324) and there is no SP bar.
  */
-function FogEnemyChip({
-  name,
-  hp,
-}: {
-  name: string
-  hp: { current: number; max: number }
-}) {
-  const pct =
-    hp.max > 0 ? Math.max(0, Math.min(100, (hp.current / hp.max) * 100)) : 0
+function FogEnemyChip({ name, hp }: { name: string; hp: Pool }) {
   return (
     <span className="inline-flex max-w-[10rem] flex-col gap-1 border border-red-700 bg-red-100 px-1.5 py-1 dark:border-red-400 dark:bg-red-950">
       <span className="flex items-center gap-1.5">
@@ -198,16 +214,7 @@ function FogEnemyChip({
           {name}
         </span>
       </span>
-      <span
-        role="img"
-        aria-label={`${hp.current} of ${hp.max} HP`}
-        className="h-1 w-full bg-red-200 dark:bg-red-900"
-      >
-        <span
-          className="block h-full bg-red-600 dark:bg-red-400"
-          style={{ width: `${pct}%` }}
-        />
-      </span>
+      <VitalBar current={hp.current} max={hp.max} kind="hp" />
     </span>
   )
 }

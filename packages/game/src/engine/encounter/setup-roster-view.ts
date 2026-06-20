@@ -1,4 +1,5 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
+import { appendOrdinals } from "@workspace/game/engine/encounter/console-view"
 import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 import { type MapGeometry } from "@workspace/game/foundation/map/geometry"
 
@@ -34,23 +35,18 @@ function baseName(
  * "numbered combatants" rule (UNN-346) applied at the display layer — the
  * `catalog-enemy` ref stores no per-instance name, so the number is derived from
  * the roster, never persisted. Returns one label per setup, index-aligned to the
- * input.
+ * input. The ordinal format lives in {@link appendOrdinals}, shared with the live
+ * console's {@link import("./console-view").combatantDisplayNames} so a combatant
+ * keeps its number from setup into the fight.
  */
 export function buildSetupCombatantLabels(
   setups: CombatantSetup[],
   pcNameById: Record<string, string>,
   enemyStatblockById: Record<string, Statblock>
 ): string[] {
-  // The first (or only) occurrence of a base name renders bare; later repeats get
-  // their roster-order ordinal — so a singleton naturally stays un-numbered with
-  // no separate up-front count.
-  const seen = new Map<string, number>()
-  return setups.map((setup) => {
-    const name = baseName(setup, pcNameById, enemyStatblockById)
-    const ordinal = (seen.get(name) ?? 0) + 1
-    seen.set(name, ordinal)
-    return ordinal === 1 ? name : `${name} ${ordinal}`
-  })
+  return appendOrdinals(
+    setups.map((setup) => baseName(setup, pcNameById, enemyStatblockById))
+  )
 }
 
 /**

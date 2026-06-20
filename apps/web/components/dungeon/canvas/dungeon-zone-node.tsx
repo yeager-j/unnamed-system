@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 
+import { type Pool } from "@workspace/game/engine"
 import type { MapZone } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
@@ -20,6 +21,9 @@ export type DungeonZoneToken = {
   characterId: string
   name: string
   portraitUrl: string | null
+  /** Current/max vitals for the token's health bars (UNN-489); absent ⇒ no bars. */
+  hp?: Pool
+  sp?: Pool
 }
 export type DungeonZoneData = {
   zone: MapZone
@@ -86,7 +90,12 @@ export function DungeonZoneNode({
     >
       {tokens.map((token) => (
         <li key={token.characterId}>
-          <DungeonTokenChip name={token.name} portraitUrl={token.portraitUrl} />
+          <DungeonTokenChip
+            name={token.name}
+            portraitUrl={token.portraitUrl}
+            hp={token.hp}
+            sp={token.sp}
+          />
         </li>
       ))}
     </ZoneCardFrame>

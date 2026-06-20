@@ -91,6 +91,49 @@ export function combatantName(
 }
 
 /**
+ * Appends an order-derived ordinal to repeated base names so duplicate combatants
+ * read distinctly: a name that appears once stays bare, and later repeats become
+ * "Bandit 2", "Bandit 3" (UNN-346's "numbered combatants" rule). Index-aligned to
+ * the input. The single home of that format — shared by the pre-combat setup
+ * roster ({@link import("./setup-roster-view").buildSetupCombatantLabels}) and the
+ * live console's {@link combatantDisplayNames} — so the two views of the same
+ * combatant can't drift on whether (and how) a duplicate is numbered.
+ */
+export function appendOrdinals(baseNames: string[]): string[] {
+  const seen = new Map<string, number>()
+  return baseNames.map((name) => {
+    const ordinal = (seen.get(name) ?? 0) + 1
+    seen.set(name, ordinal)
+    return ordinal === 1 ? name : `${name} ${ordinal}`
+  })
+}
+
+/**
+ * The disambiguated display name of every combatant in a live session, keyed by
+ * combatant id: each combatant's base {@link combatantName}, then
+ * {@link appendOrdinals} over the **session-order** list so duplicate enemies read
+ * "Bandit", "Bandit 2", "Bandit 3" — the same rule the pre-combat setup roster
+ * applies, so a combatant keeps its number from setup into the fight. Every live
+ * surface (the DM rail / drawer / battlefield and the redacted player snapshots)
+ * resolves names through this instead of calling {@link combatantName} per
+ * combatant, so they all number consistently.
+ */
+export function combatantDisplayNames(
+  session: CombatSession,
+  pcInfoById: Record<string, PcInfo>,
+  enemyStatblockById: Record<string, Statblock>
+): Map<string, string> {
+  const labels = appendOrdinals(
+    session.combatants.map((combatant) =>
+      combatantName(combatant, pcInfoById, enemyStatblockById)
+    )
+  )
+  return new Map(
+    session.combatants.map((combatant, index) => [combatant.id, labels[index]!])
+  )
+}
+
+/**
  * Builds the {@link ConsoleView} for the live console: resolves every
  * combatant's name and turn flags, the current actor, the side that drafts next,
  * and whether the round is exhausted. Pure — recomputed on every (optimistic)
@@ -115,9 +158,15 @@ export function buildConsoleView(
     eligibleCombatants(session, fallenIds).map((c) => c.id)
   )
 
+  const nameById = combatantDisplayNames(
+    session,
+    pcInfoById,
+    enemyStatblockById
+  )
+
   const rows: CombatantView[] = session.combatants.map((combatant) => ({
     id: combatant.id,
-    name: combatantName(combatant, pcInfoById, enemyStatblockById),
+    name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === session.currentActorId,
@@ -134,7 +183,7 @@ export function buildConsoleView(
     currentActor: actor
       ? {
           id: actor.id,
-          name: combatantName(actor, pcInfoById, enemyStatblockById),
+          name: nameById.get(actor.id) ?? actor.id,
           side: actor.side,
           hasActed: actor.hasActedThisRound,
         }

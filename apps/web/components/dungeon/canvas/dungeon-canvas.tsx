@@ -17,6 +17,7 @@ import { useEffect, type ReactNode } from "react"
 import {
   connectionFogState,
   isConnectionLocked,
+  type Pool,
   type ZoneLayoutView,
 } from "@workspace/game/engine"
 import type { MapInstanceState } from "@workspace/game/foundation"
@@ -52,6 +53,10 @@ const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 export interface DungeonRosterEntry {
   name: string
   portraitUrl: string | null
+  /** Current/max vitals for the token's health bars (UNN-489). Optional — the DM
+   *  exploration board fills them from the hydrated party; absent ⇒ no bars. */
+  hp?: Pool
+  sp?: Pool
 }
 
 /**
@@ -87,6 +92,8 @@ function tokensByZone(
       characterId,
       name: entry.name,
       portraitUrl: entry.portraitUrl,
+      hp: entry.hp,
+      sp: entry.sp,
     })
   }
   return byZone

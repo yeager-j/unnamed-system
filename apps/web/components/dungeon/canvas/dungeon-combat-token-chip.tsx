@@ -5,6 +5,8 @@ import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import type { ZoneToken } from "@workspace/game/engine"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { VitalBar } from "@/components/combat/vital-bar"
+
 import { TokenGlyph } from "./token-glyph"
 
 /**
@@ -12,8 +14,10 @@ import { TokenGlyph } from "./token-glyph"
  * {@link import("./dungeon-token-chip").DungeonTokenChip}. Side-tinted (players
  * blue, enemies destructive-red — never color alone: the side also drives the
  * portrait-vs-initials glyph and the acting ring), PC tokens draw their portrait,
- * enemies a side-colored initials square. The **acting** token gains a primary
- * ring + a sword badge (the same "acting" treatment its rail row shows).
+ * enemies a side-colored initials square. A thin {@link VitalBar} stack reads its
+ * HP (and, for PCs, SP) so the DM sees who's hurt at a glance (UNN-489). The
+ * **acting** token gains a primary ring + a sword badge (the same "acting"
+ * treatment its rail row shows).
  *
  * Presentational only (serializable props) — the
  * {@link import("./dungeon-combat-zone-node").DungeonCombatZoneNode} owns the
@@ -32,30 +36,36 @@ export function DungeonCombatTokenChip({
     <span
       data-side={token.side}
       className={cn(
-        "inline-flex max-w-[10rem] items-center gap-1.5 border py-1 pr-2 pl-1",
+        "inline-flex max-w-[10rem] flex-col gap-1 border px-1.5 py-1",
         token.side === "players"
           ? "border-blue-700 bg-blue-100 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100"
           : "border-red-700 bg-red-100 text-red-950 dark:border-red-400 dark:bg-red-950 dark:text-red-100",
         acting && "ring-2 ring-primary ring-offset-1 ring-offset-card"
       )}
     >
-      <TokenGlyph
-        name={token.name}
-        portraitUrl={token.isPc ? token.portraitUrl : null}
-        initialsClassName={
-          token.side === "players"
-            ? "bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
-            : "bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
-        }
-      />
-      <span className="truncate text-xs font-medium">{token.name}</span>
-      {acting ? (
-        <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
-      ) : isEngaged ? (
-        <SwordIcon
-          className="size-3 shrink-0 opacity-60"
-          aria-label="Engaged"
+      <span className="flex items-center gap-1.5">
+        <TokenGlyph
+          name={token.name}
+          portraitUrl={token.isPc ? token.portraitUrl : null}
+          initialsClassName={
+            token.side === "players"
+              ? "bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
+              : "bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
+          }
         />
+        <span className="truncate text-xs font-medium">{token.name}</span>
+        {acting ? (
+          <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
+        ) : isEngaged ? (
+          <SwordIcon
+            className="size-3 shrink-0 opacity-60"
+            aria-label="Engaged"
+          />
+        ) : null}
+      </span>
+      <VitalBar current={token.hp.current} max={token.hp.max} kind="hp" />
+      {token.sp ? (
+        <VitalBar current={token.sp.current} max={token.sp.max} kind="sp" />
       ) : null}
     </span>
   )

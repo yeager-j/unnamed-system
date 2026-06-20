@@ -17,6 +17,7 @@ import { ZoneEnchantmentControl } from "@/components/combat/zone-enchantment-con
 
 import { useDungeonCombatCanvas } from "./dungeon-combat-canvas-context"
 import { DungeonCombatTokenChip } from "./dungeon-combat-token-chip"
+import { EngagedCluster } from "./engaged-cluster"
 import { ZoneCardFrame } from "./zone-card-frame"
 
 export type DungeonCombatZoneData = {
@@ -123,15 +124,13 @@ export function DungeonCombatZoneNode({
       {groupTokensByEngagement(tokens).map((group) =>
         group.length > 1 ? (
           <li key={group.map((token) => token.id).join("|")}>
-            <div
-              role="group"
-              aria-label={`Engaged: ${group.map((token) => token.name).join(", ")}`}
-              className="flex flex-wrap gap-1.5 border border-dotted border-destructive/60 p-1"
+            <EngagedCluster
+              label={`Engaged: ${group.map((token) => token.name).join(", ")}`}
             >
               {group.map((token) => (
                 <div key={token.id}>{tokenChip(token)}</div>
               ))}
-            </div>
+            </EngagedCluster>
           </li>
         ) : (
           <li key={group[0]!.id}>{tokenChip(group[0]!)}</li>

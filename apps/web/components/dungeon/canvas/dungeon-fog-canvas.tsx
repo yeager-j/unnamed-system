@@ -55,6 +55,7 @@ function buildNodes(
         id: exit.id,
         locked: exit.locked,
       })),
+      enchantment: zone.enchantment,
     },
   }))
 }
