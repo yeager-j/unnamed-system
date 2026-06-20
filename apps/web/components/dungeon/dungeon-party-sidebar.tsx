@@ -37,7 +37,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { DungeonRow } from "@/lib/db"
 import { avatarSrc } from "@/lib/ui/portrait"
 
-import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
+import type { DungeonRosterEntry } from "./canvas/dungeon-canvas-types"
 
 /**
  * The DM run console's party panel (UNN-464 chrome pass) — the Play phase's

@@ -13,7 +13,7 @@ import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
-import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
+import type { DungeonRosterEntry } from "./canvas/dungeon-canvas-types"
 import { DungeonCombatBody } from "./dungeon-combat-body"
 import { DungeonConsoleShell } from "./dungeon-console-shell"
 import { DungeonEncounterSetup } from "./dungeon-encounter-setup"

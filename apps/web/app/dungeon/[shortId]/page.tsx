@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 
 import { type InitiativeStats } from "@workspace/game/engine"
 
-import type { DungeonRosterEntry } from "@/components/dungeon/canvas/dungeon-canvas"
+import type { DungeonRosterEntry } from "@/components/dungeon/canvas/dungeon-canvas-types"
 import { DungeonPrep, type PrepZone } from "@/components/dungeon/dungeon-prep"
 import { DungeonRunConsole } from "@/components/dungeon/dungeon-run-console"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"

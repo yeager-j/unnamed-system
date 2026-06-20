@@ -38,7 +38,7 @@ import {
 } from "@workspace/ui/components/select"
 import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 
-import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
+import type { DungeonRosterEntry } from "./canvas/dungeon-canvas-types"
 import { ExitRow } from "./dungeon-exit-row"
 
 type PendingConfirm =
