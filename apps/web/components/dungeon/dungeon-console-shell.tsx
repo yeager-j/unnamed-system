@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useCallback, useContext, useState } from "react"
+import { createContext, useContext, useState } from "react"
 import { createPortal } from "react-dom"
 
 import { Sidebar, SidebarProvider } from "@workspace/ui/components/sidebar"
@@ -49,11 +49,11 @@ export function DungeonConsoleShell({
   phase: DungeonConsolePhase
   children: React.ReactNode
 }) {
+  // A callback ref (not useRef) so mounting the slot triggers a re-render that
+  // publishes it through context, and so it re-targets if <Sidebar> swaps its
+  // mobile/desktop branch. Passing the state setter directly keeps the ref's
+  // identity stable, so the portal target never churns.
   const [slot, setSlot] = useState<HTMLDivElement | null>(null)
-  const slotRef = useCallback(
-    (node: HTMLDivElement | null) => setSlot(node),
-    []
-  )
 
   // The persistent provider carries collapse across the fork, so a DM who
   // collapsed during Play would otherwise enter an offcanvas phase with the rail
@@ -82,7 +82,7 @@ export function DungeonConsoleShell({
         variant="inset"
         collapsible={phase === "play" ? "icon" : "offcanvas"}
       >
-        <div ref={slotRef} className="flex min-h-0 w-full flex-1 flex-col" />
+        <div ref={setSlot} className="flex min-h-0 w-full flex-1 flex-col" />
       </Sidebar>
 
       <DungeonSidebarSlotContext.Provider value={slot}>
