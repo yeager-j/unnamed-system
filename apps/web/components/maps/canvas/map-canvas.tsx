@@ -69,6 +69,10 @@ import { ZoneNode } from "./zone-node"
 const nodeTypes = { zone: ZoneNode }
 const edgeTypes = { connection: ConnectionEdge }
 
+/** Grid step (px) for node-position snapping and the matching background dots.
+ *  Tune to taste — the snap grid and the visible dots stay aligned. */
+const GRID_SNAP = 16
+
 /**
  * The shared node-graph canvas (UNN-461) — React Flow behind a route-agnostic,
  * presentational contract: it takes a {@link MapGeometry}, emits the edited
@@ -289,6 +293,8 @@ function MapCanvasInner({
           connectionLineComponent={FloatingConnectionLine}
           colorMode={resolvedTheme === "dark" ? "dark" : "light"}
           deleteKeyCode={null}
+          snapToGrid
+          snapGrid={[GRID_SNAP, GRID_SNAP]}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           panOnScroll
@@ -296,7 +302,11 @@ function MapCanvasInner({
           panOnDrag={false}
           className={cn(mode === "addZone" && "cursor-copy")}
         >
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={GRID_SNAP}
+            size={1}
+          />
           {editable && <CanvasToolbar mode={mode} onModeChange={setMode} />}
           <WarningsBanner geometry={geometry} />
         </ReactFlow>
