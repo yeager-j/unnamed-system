@@ -8,7 +8,6 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarHeader,
@@ -18,10 +17,12 @@ import { CombatantRail } from "@/components/combat/combatant-rail"
 
 /**
  * The run console's left panel during **combat** (UNN-467) — the Party panel
- * morphed to **Combatants**. It keeps the exploration sidebar's shell (back link +
- * delve name) and adds the Round badge, then renders the shared
- * {@link CombatantRail} (PLAYERS / ENEMIES groups with HP/SP, the acting combatant
- * highlighted, the Downed rollup). Tapping a row opens the detail drawer.
+ * morphed to **Combatants**, portaled into the persistent
+ * {@link import("./dungeon-console-shell").DungeonConsoleShell}'s shared `<Sidebar>`
+ * (UNN-488). It keeps the exploration sidebar's header (back link + delve name) and
+ * adds the Round badge, then renders the shared {@link CombatantRail} (PLAYERS /
+ * ENEMIES groups with HP/SP, the acting combatant highlighted, the Downed rollup).
+ * Tapping a row opens the detail drawer.
  */
 export function DungeonCombatSidebar({
   roster,
@@ -29,16 +30,15 @@ export function DungeonCombatSidebar({
   campaignShortId,
   round,
   onSelectCombatant,
-  ...props
 }: {
   roster: RosterView
   dungeonName: string
   campaignShortId: string
   round: number
   onSelectCombatant: (combatantId: string) => void
-} & Omit<React.ComponentProps<typeof Sidebar>, "onSelect">) {
+}) {
   return (
-    <Sidebar variant="inset" {...props}>
+    <>
       <SidebarHeader className="gap-4">
         <div className="flex items-center gap-2">
           <Button
@@ -65,6 +65,6 @@ export function DungeonCombatSidebar({
           <CombatantRail roster={roster} onSelect={onSelectCombatant} />
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </>
   )
 }

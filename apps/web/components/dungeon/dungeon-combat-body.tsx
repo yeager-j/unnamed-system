@@ -6,7 +6,7 @@ import {
   movableZonesForCombatant,
   type PcCombatantDetail,
 } from "@workspace/game/engine"
-import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { CombatantDrawer } from "@/components/combat/combatant-drawer"
 import { EndOfTurnModal } from "@/components/combat/end-of-turn-modal"
@@ -23,6 +23,7 @@ import { DungeonCanvas } from "./canvas/dungeon-canvas"
 import { DungeonCombatCanvasProvider } from "./canvas/dungeon-combat-canvas-context"
 import { DungeonAddCombatantDialog } from "./dungeon-add-combatant-dialog"
 import { DungeonCombatSidebar } from "./dungeon-combat-sidebar"
+import { DungeonSidebarSlot } from "./dungeon-console-shell"
 
 /**
  * The run console's **combat phase** (UNN-467) — a morph of the same shell that
@@ -94,11 +95,7 @@ export function DungeonCombatBody({
         })
 
   return (
-    <SidebarProvider
-      // The combatant rail (~20rem) overflows the default 16rem sidebar; widen it
-      // so the PLAYERS/ENEMIES rows don't horizontally scroll.
-      style={{ "--sidebar-width": "22rem" } as React.CSSProperties}
-    >
+    <>
       {pcChannelIds.map(({ characterId, shortId }) => (
         <RealtimeChannelListener
           key={shortId}
@@ -108,13 +105,15 @@ export function DungeonCombatBody({
         />
       ))}
 
-      <DungeonCombatSidebar
-        roster={roster}
-        dungeonName={dungeon.name}
-        campaignShortId={campaignShortId}
-        round={session.round}
-        onSelectCombatant={selectCombatant}
-      />
+      <DungeonSidebarSlot>
+        <DungeonCombatSidebar
+          roster={roster}
+          dungeonName={dungeon.name}
+          campaignShortId={campaignShortId}
+          round={session.round}
+          onSelectCombatant={selectCombatant}
+        />
+      </DungeonSidebarSlot>
 
       <SidebarInset className="relative">
         <DungeonCombatCanvasProvider
@@ -201,6 +200,6 @@ export function DungeonCombatBody({
           })
         }
       />
-    </SidebarProvider>
+    </>
   )
 }

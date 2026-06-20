@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { getEnemy } from "@workspace/game/data"
 import { compareInitiative, type InitiativeStats } from "@workspace/game/engine"
 import { type CombatantSetup } from "@workspace/game/foundation"
-import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { type StagedEnemy } from "@/components/combat/enemies/enemy-catalog-panel"
 import { StartCombatDialog } from "@/components/combat/start-combat-dialog"
@@ -22,6 +22,7 @@ import { DungeonCanvas } from "./canvas/dungeon-canvas"
 import { DungeonSetupCanvasProvider } from "./canvas/dungeon-setup-canvas-context"
 import { type DungeonSetupZoneToken } from "./canvas/dungeon-setup-zone-node"
 import { SetupBar } from "./canvas/setup-bar"
+import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonEnemyPickerDialog } from "./dungeon-enemy-picker-dialog"
 import {
   DungeonSetupSidebar,
@@ -195,28 +196,30 @@ export function DungeonEncounterSetup({
   }
 
   return (
-    <SidebarProvider>
-      <DungeonSetupSidebar
-        dungeonName={dungeon.name}
-        campaignShortId={campaignShortId}
-        partyCandidates={partyCandidates}
-        includedIds={includedIds}
-        onTogglePc={togglePc}
-        enemies={enemies}
-        zones={zones}
-        onAddEnemies={() => setPickerOpen(true)}
-        onSetEnemyZone={(tmpId, zoneId) =>
-          setEnemies((prev) =>
-            prev.map((enemy) =>
-              enemy.tmpId === tmpId ? { ...enemy, zoneId } : enemy
+    <>
+      <DungeonSidebarSlot>
+        <DungeonSetupSidebar
+          dungeonName={dungeon.name}
+          campaignShortId={campaignShortId}
+          partyCandidates={partyCandidates}
+          includedIds={includedIds}
+          onTogglePc={togglePc}
+          enemies={enemies}
+          zones={zones}
+          onAddEnemies={() => setPickerOpen(true)}
+          onSetEnemyZone={(tmpId, zoneId) =>
+            setEnemies((prev) =>
+              prev.map((enemy) =>
+                enemy.tmpId === tmpId ? { ...enemy, zoneId } : enemy
+              )
             )
-          )
-        }
-        onRemoveEnemy={(tmpId) =>
-          setEnemies((prev) => prev.filter((enemy) => enemy.tmpId !== tmpId))
-        }
-        disabled={isPending}
-      />
+          }
+          onRemoveEnemy={(tmpId) =>
+            setEnemies((prev) => prev.filter((enemy) => enemy.tmpId !== tmpId))
+          }
+          disabled={isPending}
+        />
+      </DungeonSidebarSlot>
 
       <SidebarInset className="relative">
         <DungeonSetupCanvasProvider
@@ -254,6 +257,6 @@ export function DungeonEncounterSetup({
         open={advantageOpen}
         onOpenChange={setAdvantageOpen}
       />
-    </SidebarProvider>
+    </>
   )
 }
