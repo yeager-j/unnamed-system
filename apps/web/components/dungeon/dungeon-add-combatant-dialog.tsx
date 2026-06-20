@@ -2,13 +2,6 @@
 
 import { useState } from "react"
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
 import { Label } from "@workspace/ui/components/label"
 import {
   Select,
@@ -18,14 +11,13 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 
-import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
-
+import { EnemyCatalogDialog } from "./enemy-catalog-dialog"
 import { useStagedEnemies } from "./use-staged-enemies"
 
 /**
  * The **mid-fight add-combatant** dialog (UNN-467, AC4) — pulls reinforcements
  * into the live encounter. The DM browses the bestiary (shared
- * {@link EnemyCatalogPanel}, ephemeral queue), picks the Zone they arrive in, and
+ * {@link EnemyCatalogDialog}, ephemeral queue), picks the Zone they arrive in, and
  * confirms; each staged creature is committed as a `catalog-enemy` combatant via
  * `onAdd` (the combat body dispatches an `addCombatant` event per creature, the
  * existing roster cross-write that places its token). Monster markers that would
@@ -64,50 +56,39 @@ export function DungeonAddCombatantDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="flex h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="border-b p-4">
-          <DialogTitle>Add a combatant</DialogTitle>
-          <DialogDescription>
-            Pull reinforcements into the fight. They enter combat already acted
-            — queued for the next round.
-          </DialogDescription>
-          <div className="flex items-center gap-2 pt-1">
-            <Label htmlFor="add-combatant-zone" className="text-sm">
-              Arrives in
-            </Label>
-            <Select
-              value={targetZoneId}
-              onValueChange={(value) => setZoneId(value ?? "")}
-              disabled={zones.length === 0}
-            >
-              <SelectTrigger id="add-combatant-zone" className="w-56">
-                <SelectValue placeholder="Pick a zone">
-                  {zones.find((zone) => zone.id === targetZoneId)?.name ??
-                    "Pick a zone"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {zones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </DialogHeader>
-        <EnemyCatalogPanel
-          queue={queue.staged}
-          isPending={false}
-          onAdd={queue.add}
-          onIncrement={queue.add}
-          onDecrement={queue.decrement}
-          onRemove={queue.remove}
-          onCommit={commit}
-          onCancel={() => close(false)}
-        />
-      </DialogContent>
-    </Dialog>
+    <EnemyCatalogDialog
+      open={open}
+      onOpenChange={close}
+      title="Add a combatant"
+      description="Pull reinforcements into the fight. They enter combat already acted — queued for the next round."
+      queue={queue}
+      onCommit={commit}
+      headerChildren={
+        <div className="flex items-center gap-2 pt-1">
+          <Label htmlFor="add-combatant-zone" className="text-sm">
+            Arrives in
+          </Label>
+          <Select
+            value={targetZoneId}
+            onValueChange={(value) => setZoneId(value ?? "")}
+            disabled={zones.length === 0}
+          >
+            <SelectTrigger id="add-combatant-zone" className="w-56">
+              <SelectValue placeholder="Pick a zone">
+                {zones.find((zone) => zone.id === targetZoneId)?.name ??
+                  "Pick a zone"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {zones.map((zone) => (
+                <SelectItem key={zone.id} value={zone.id}>
+                  {zone.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      }
+    />
   )
 }

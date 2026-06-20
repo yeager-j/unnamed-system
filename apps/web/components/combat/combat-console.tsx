@@ -7,6 +7,7 @@ import { type PcCombatantDetail } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
+import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -17,7 +18,6 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
-import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantDrawer } from "./combatant-drawer"
 import { CombatantRail } from "./combatant-rail"
 import { EndCombatDialog } from "./end-combat-dialog"

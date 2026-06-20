@@ -21,12 +21,12 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
-import { CampaignBackLink } from "./campaign-back-link"
 import { CombatantSetupRow } from "./combatant-setup-row"
 import { ImportPcsPanel } from "./import-pcs-panel"
 import { StartCombatDialog } from "./start-combat-dialog"

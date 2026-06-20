@@ -1,12 +1,11 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { getEnemy } from "@workspace/game/data"
 import { compareInitiative, type InitiativeStats } from "@workspace/game/engine"
-import { type CombatantSetup } from "@workspace/game/foundation"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { type StagedEnemy } from "@/components/combat/enemies/enemy-catalog-panel"
@@ -20,7 +19,6 @@ import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { DungeonCanvas } from "./canvas/dungeon-canvas"
 import { DungeonSetupCanvasProvider } from "./canvas/dungeon-setup-canvas-context"
-import { type DungeonSetupZoneToken } from "./canvas/dungeon-setup-zone-node"
 import { SetupBar } from "./canvas/setup-bar"
 import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonEnemyPickerDialog } from "./dungeon-enemy-picker-dialog"
@@ -28,6 +26,7 @@ import {
   DungeonSetupSidebar,
   type SetupEnemyRow,
 } from "./dungeon-setup-sidebar"
+import { buildSetupCombatants, buildSetupTokensByZone } from "./setup-board"
 
 /**
  * The run console's **Setup** phase (UNN-467) — the spatially-scoped combatant
@@ -58,12 +57,8 @@ export function DungeonEncounterSetup({
   const [isPending, startTransition] = useTransition()
 
   // The party = the delve roster: placed characters with a token on the Instance.
-  const partyCandidates = useMemo(
-    () =>
-      placedCharacters.filter(
-        (character) => instance.state.occupancy[character.id] !== undefined
-      ),
-    [placedCharacters, instance.state.occupancy]
+  const partyCandidates = placedCharacters.filter(
+    (character) => instance.state.occupancy[character.id] !== undefined
   )
 
   const [includedIds, setIncludedIds] = useState<Set<string>>(
@@ -73,14 +68,10 @@ export function DungeonEncounterSetup({
   const [pickerOpen, setPickerOpen] = useState(false)
   const [advantageOpen, setAdvantageOpen] = useState(false)
 
-  const zones = useMemo(
-    () =>
-      Object.values(instance.state.geometry.zones).map((zone) => ({
-        id: zone.id,
-        name: zone.name,
-      })),
-    [instance.state.geometry.zones]
-  )
+  const zones = Object.values(instance.state.geometry.zones).map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+  }))
 
   function togglePc(characterId: string) {
     setIncludedIds((prev) => {
@@ -108,24 +99,11 @@ export function DungeonEncounterSetup({
   const canBegin =
     enemyCount > 0 && enemies.every((enemy) => enemy.zoneId !== "")
 
-  // Combatant setups for the start dialog's Agility suggestion (PCs by characterId
-  // so the comparison reads their delve token, enemies count-expanded).
-  const setups: CombatantSetup[] = useMemo(() => {
-    const pcs: CombatantSetup[] = [...includedIds].map((characterId) => ({
-      id: characterId,
-      side: "players",
-      ref: { kind: "pc", characterId },
-      zoneId: instance.state.occupancy[characterId]?.zoneId ?? "",
-    }))
-    const foes: CombatantSetup[] = enemies.flatMap((enemy) =>
-      Array.from({ length: enemy.count }, () => ({
-        side: "enemies" as const,
-        ref: { kind: "catalog-enemy" as const, enemyKey: enemy.enemyKey },
-        zoneId: enemy.zoneId,
-      }))
-    )
-    return [...pcs, ...foes]
-  }, [includedIds, enemies, instance.state.occupancy])
+  const setups = buildSetupCombatants(
+    includedIds,
+    enemies,
+    instance.state.occupancy
+  )
 
   const comparison = compareInitiative(
     setups,
@@ -133,40 +111,17 @@ export function DungeonEncounterSetup({
     resolveCatalogEnemyStatblocks(setups)
   )
 
-  // The setup board: delve PC tokens (with inclusion state) + staged enemy ghosts.
-  const tokensByZone = useMemo(() => {
-    const byZone: Record<string, DungeonSetupZoneToken[]> = {}
-    for (const character of partyCandidates) {
-      const zoneId = instance.state.occupancy[character.id]?.zoneId ?? ""
-      ;(byZone[zoneId] ??= []).push({
-        id: character.id,
-        name: character.name,
-        portraitUrl: character.portraitUrl,
-        side: "players",
-        isPc: true,
-        included: includedIds.has(character.id),
-      })
-    }
-    for (const enemy of enemies) {
-      if (enemy.zoneId === "") continue
-      for (let index = 0; index < enemy.count; index += 1) {
-        ;(byZone[enemy.zoneId] ??= []).push({
-          id: `${enemy.tmpId}-${index}`,
-          name: enemy.name,
-          portraitUrl: null,
-          side: "enemies",
-          isPc: false,
-          included: true,
-        })
-      }
-    }
-    return byZone
-  }, [partyCandidates, enemies, includedIds, instance.state.occupancy])
-
-  const canvasMode = useMemo(
-    () => ({ kind: "setup" as const, tokensByZone }),
-    [tokensByZone]
+  const tokensByZone = buildSetupTokensByZone(
+    partyCandidates,
+    enemies,
+    includedIds,
+    instance.state.occupancy
   )
+
+  // React Compiler keeps this referentially stable across renders where
+  // `tokensByZone` is unchanged, so the canvas's node-sync effect doesn't re-derive
+  // — no manual memo (matching dungeon-explore-body / dungeon-combat-body).
+  const canvasMode = { kind: "setup" as const, tokensByZone }
 
   function begin(
     advantage: Parameters<typeof startDungeonEncounterAction>[0]["advantage"],

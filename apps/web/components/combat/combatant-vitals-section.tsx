@@ -16,6 +16,7 @@ import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
+import { VitalBar } from "@/components/shared/vital-bar"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
 import {
   damageAction,
@@ -25,8 +26,6 @@ import {
 } from "@/lib/actions/adjust-pools"
 import type { AdjustPoolActionError } from "@/lib/actions/adjust-pools.schema"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
-
-import { VitalBar } from "./vital-bar"
 
 type PcDetail = Extract<CombatantDetail, { kind: "pc" }>
 type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>

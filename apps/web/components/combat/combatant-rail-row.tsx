@@ -12,11 +12,10 @@ import { COUNTER_KEYS } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { VitalBar } from "@/components/shared/vital-bar"
 import { initials } from "@/lib/ui/initials"
 import { COMBATANT_DOWN_LABELS, COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
-
-import { VitalBar } from "./vital-bar"
 
 /**
  * One combatant row in the rail (UNN-345). Token + name + HP (and SP for PCs)

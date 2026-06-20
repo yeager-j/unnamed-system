@@ -1,6 +1,5 @@
 "use client"
 
-import { ArrowSquareOutIcon, LockIcon } from "@phosphor-icons/react/dist/ssr"
 import { type Node, type NodeProps } from "@xyflow/react"
 
 import {
@@ -16,13 +15,13 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { EnchantmentBadge } from "@/components/combat/enchantment-badge"
-import { VitalBar } from "@/components/combat/vital-bar"
+import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 
 import { DungeonTokenChip } from "./dungeon-token-chip"
 import { EngagedCluster } from "./engaged-cluster"
+import { ExitChip } from "./exit-chip"
 import { FloatingEdgeHandles } from "./floating-edge-handles"
-import { TokenGlyph } from "./token-glyph"
+import { FogEnemyChip } from "./fog-enemy-chip"
 
 export type FogZoneToken = {
   characterId: string
@@ -192,47 +191,4 @@ function FogCombatantChip({ combatant }: { combatant: FogCombatant }) {
     )
   }
   return <FogEnemyChip name={combatant.enemy.name} hp={combatant.enemy.hp} />
-}
-
-/**
- * An **enemy** token on the player battlefield (UNN-467) — the redacted combat
- * peer of {@link DungeonTokenChip}. Side-tinted destructive-red (initials, never a
- * portrait) with a thin {@link VitalBar} HP bar; the snapshot carries HP only, so
- * attributes and affinities can't be shown here (the combat-watch redaction,
- * UNN-324) and there is no SP bar.
- */
-function FogEnemyChip({ name, hp }: { name: string; hp: Pool }) {
-  return (
-    <span className="inline-flex max-w-[10rem] flex-col gap-1 border border-red-700 bg-red-100 px-1.5 py-1 dark:border-red-400 dark:bg-red-950">
-      <span className="flex items-center gap-1.5">
-        <TokenGlyph
-          name={name}
-          portraitUrl={null}
-          initialsClassName="bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
-        />
-        <span className="truncate text-xs font-medium text-red-950 dark:text-red-100">
-          {name}
-        </span>
-      </span>
-      <VitalBar current={hp.current} max={hp.max} kind="hp" />
-    </span>
-  )
-}
-
-/**
- * A known-exit silhouette chip — *that* a passage leaves this Zone toward somewhere
- * undiscovered, and whether it's locked. Non-color-encoded (glyph + text) per the
- * canvas a11y baseline; carries no far-Zone information.
- */
-function ExitChip({ locked }: { locked: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-1 border border-dashed border-muted-foreground/60 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-      {locked ? (
-        <LockIcon className="size-3 shrink-0" aria-hidden />
-      ) : (
-        <ArrowSquareOutIcon className="size-3 shrink-0" aria-hidden />
-      )}
-      {locked ? "Locked exit" : "Unexplored exit"}
-    </span>
-  )
 }

@@ -1,19 +1,12 @@
 "use client"
 
-import { ArrowLeftIcon } from "@phosphor-icons/react/dist/ssr"
-import Link from "next/link"
-
 import { type RosterView } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { Separator } from "@workspace/ui/components/separator"
-import {
-  SidebarContent,
-  SidebarGroup,
-  SidebarHeader,
-} from "@workspace/ui/components/sidebar"
+import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
 
 import { CombatantRail } from "@/components/combat/combatant-rail"
+
+import { DungeonSidebarHeader } from "./dungeon-sidebar-header"
 
 /**
  * The run console's left panel during **combat** (UNN-467) — the Party panel
@@ -39,26 +32,15 @@ export function DungeonCombatSidebar({
 }) {
   return (
     <>
-      <SidebarHeader className="gap-4">
-        <div className="flex items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="Back to campaign"
-            nativeButton={false}
-            render={<Link href={`/campaigns/${campaignShortId}`} />}
-          >
-            <ArrowLeftIcon />
-          </Button>
-          <h1 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
-            {dungeonName}
-          </h1>
+      <DungeonSidebarHeader
+        dungeonName={dungeonName}
+        campaignShortId={campaignShortId}
+        trailing={
           <Badge variant="outline" className="shrink-0 tabular-nums">
             Round {round}
           </Badge>
-        </div>
-        <Separator />
-      </SidebarHeader>
+        }
+      />
 
       <SidebarContent>
         <SidebarGroup>

@@ -1,19 +1,13 @@
 "use client"
 
-import {
-  ArrowLeftIcon,
-  CheckIcon,
-  MapPinIcon,
-} from "@phosphor-icons/react/dist/ssr"
+import { CheckIcon, MapPinIcon } from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
-import Link from "next/link"
 
 import {
   activeActedCharacterIds,
   deriveDungeonRoster,
 } from "@workspace/game/engine"
 import type { DungeonState, MapInstanceState } from "@workspace/game/foundation"
-import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,11 +17,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { Separator } from "@workspace/ui/components/separator"
 import {
   SidebarContent,
   SidebarGroup,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -37,7 +29,8 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { DungeonRow } from "@/lib/db"
 import { avatarSrc } from "@/lib/ui/portrait"
 
-import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
+import type { DungeonRosterEntry } from "./canvas/dungeon-canvas-types"
+import { DungeonSidebarHeader } from "./dungeon-sidebar-header"
 
 /**
  * The DM run console's party panel (UNN-464 chrome pass) — the Play phase's
@@ -83,24 +76,10 @@ export function DungeonPartySidebar({
 
   return (
     <>
-      <SidebarHeader className="gap-4">
-        <div className="flex items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="Back to campaign"
-            nativeButton={false}
-            render={<Link href={`/campaigns/${campaignShortId}`} />}
-          >
-            <ArrowLeftIcon />
-          </Button>
-          <h1 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
-            {dungeon.name}
-          </h1>
-        </div>
-
-        <Separator />
-
+      <DungeonSidebarHeader
+        dungeonName={dungeon.name}
+        campaignShortId={campaignShortId}
+      >
         <div className="flex flex-col">
           <h2 className="font-heading text-base font-semibold group-data-[collapsible=icon]:hidden">
             Party
@@ -110,7 +89,7 @@ export function DungeonPartySidebar({
             acted
           </p>
         </div>
-      </SidebarHeader>
+      </DungeonSidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>

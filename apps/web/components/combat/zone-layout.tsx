@@ -17,10 +17,9 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
-
-import { EnchantmentBadge } from "./enchantment-badge"
 
 /**
  * The read-only **battlefield** (UNN-314): one card per zone showing the
