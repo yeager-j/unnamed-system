@@ -5,7 +5,7 @@ import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import type { ZoneToken } from "@workspace/game/engine"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { VitalBar } from "@/components/combat/vital-bar"
+import { VitalBar } from "@/components/shared/vital-bar"
 
 import { TokenGlyph } from "./token-glyph"
 

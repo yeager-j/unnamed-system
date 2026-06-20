@@ -1,6 +1,5 @@
+import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-
-import { CampaignBackLink } from "./campaign-back-link"
 
 /**
  * Read-only view for an `ended` encounter (UNN-335). The encounter's combat

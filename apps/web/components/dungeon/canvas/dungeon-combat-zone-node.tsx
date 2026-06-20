@@ -12,8 +12,8 @@ import type { MapZone } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { EnchantmentBadge } from "@/components/combat/enchantment-badge"
 import { ZoneEnchantmentControl } from "@/components/combat/zone-enchantment-control"
+import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 
 import { useDungeonCombatCanvas } from "./dungeon-combat-canvas-context"
 import { DungeonCombatTokenChip } from "./dungeon-combat-token-chip"

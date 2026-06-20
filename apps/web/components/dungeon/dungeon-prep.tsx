@@ -15,7 +15,7 @@ import {
 } from "@workspace/ui/components/select"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { CampaignBackLink } from "@/components/combat/campaign-back-link"
+import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { startDelveAction } from "@/lib/actions/dungeon/delve-start"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"

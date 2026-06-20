@@ -16,8 +16,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { EnchantmentBadge } from "@/components/combat/enchantment-badge"
-import { VitalBar } from "@/components/combat/vital-bar"
+import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
+import { VitalBar } from "@/components/shared/vital-bar"
 
 import { DungeonTokenChip } from "./dungeon-token-chip"
 import { EngagedCluster } from "./engaged-cluster"

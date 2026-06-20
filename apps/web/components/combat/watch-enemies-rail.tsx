@@ -7,7 +7,7 @@ import { type PlayerVisibleCombatant } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { VitalBar } from "./vital-bar"
+import { VitalBar } from "@/components/shared/vital-bar"
 
 /**
  * The watch view's **Enemies** rail — the redacted enemy roster pinned to the
