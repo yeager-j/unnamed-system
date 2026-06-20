@@ -1,14 +1,12 @@
-import { getEnemy } from "@workspace/game/data"
 import {
+  combatantDisplayNames,
   combatEnemyTokensByZone,
   projectDungeonSnapshot,
   type DungeonCombatLink,
+  type DungeonRosterEntry,
   type DungeonSnapshot,
 } from "@workspace/game/engine"
-import type {
-  CombatSession,
-  HydratedCharacter,
-} from "@workspace/game/foundation"
+import type { HydratedCharacter } from "@workspace/game/foundation"
 
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
@@ -25,24 +23,45 @@ import {
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
-/**
- * The acting combatant's display name for the "Combat — Round N · {actor}" signal,
- * resolved with **no extra DB read**: a PC's name comes from the already-loaded
- * delve roster, an enemy's from the hardcoded catalog (or its inline stat block).
- * `null` before anyone is drafted / between rounds.
- */
-function currentActorName(
-  session: CombatSession,
-  roster: Record<string, { name: string }>
-): string | null {
-  const actor = session.combatants.find(
-    (combatant) => combatant.id === session.currentActorId
+/** The placed party as the snapshot projector reads it: display identity plus the
+ *  current vitals for each token's health bars (UNN-489). `vitalsById` carries the
+ *  hydrated pools for the members actually present in the delve; an absent member
+ *  falls back to a zero pool (it has no token to draw, so it never renders). */
+function buildRoster(
+  placed: { id: string; name: string; portraitUrl: string | null }[],
+  vitalsById: Map<
+    string,
+    { hp: DungeonRosterEntry["hp"]; sp: DungeonRosterEntry["sp"] }
+  >
+): Record<string, DungeonRosterEntry> {
+  return Object.fromEntries(
+    placed.map((character) => {
+      const vitals = vitalsById.get(character.id)
+      return [
+        character.id,
+        {
+          name: character.name,
+          portraitUrl: character.portraitUrl,
+          hp: vitals?.hp ?? { current: 0, max: 0 },
+          sp: vitals?.sp ?? { current: 0, max: 0 },
+        },
+      ]
+    })
   )
-  if (!actor) return null
-  const ref = actor.ref
-  if (ref.kind === "pc") return roster[ref.characterId]?.name ?? null
-  if (ref.kind === "catalog-enemy") return getEnemy(ref.enemyKey)?.name ?? null
-  return ref.statBlock.name
+}
+
+/** The roster narrowed to the `{ name, currentHP }` shape {@link
+ *  combatantDisplayNames} reads PC names from — so the "Round N · {actor}" banner
+ *  numbers duplicate enemies identically to their map tokens. */
+function pcInfoFromRoster(
+  roster: Record<string, DungeonRosterEntry>
+): Record<string, { name: string; currentHP: number }> {
+  return Object.fromEntries(
+    Object.entries(roster).map(([id, entry]) => [
+      id,
+      { name: entry.name, currentHP: entry.hp.current },
+    ])
+  )
 }
 
 /**
@@ -73,29 +92,50 @@ export async function getDungeonSnapshot(
   ])
   if (!instance) return null
 
-  const roster = Object.fromEntries(
-    placed.map((character) => [
+  // The party tokens show each other's HP/SP (UNN-489), so hydrate the placed
+  // members **actually present** in the delve (occupancy ∩ placed) for their
+  // current pools — a non-present placed character has no token, so it's skipped.
+  const placedIds = new Set(placed.map((character) => character.id))
+  const partyIds = Object.keys(instance.state.occupancy).filter((id) =>
+    placedIds.has(id)
+  )
+  const hydrated = (
+    await Promise.all(partyIds.map((id) => loadHydratedCharacterById(id)))
+  ).filter((character): character is HydratedCharacter => character !== null)
+  const vitalsById = new Map(
+    hydrated.map((character) => [
       character.id,
-      { name: character.name, portraitUrl: character.portraitUrl },
+      {
+        hp: { current: character.currentHP, max: character.maxHP },
+        sp: { current: character.currentSP, max: character.maxSP },
+      },
     ])
   )
+  const roster = buildRoster(placed, vitalsById)
 
   // A live encounter on this delve's Instance ⇒ combat is running: surface the
   // linkage the fog view dual-subscribes + composes its own-sheet column from,
   // plus the redacted enemy tokens for the battlefield (HP only, no affinities).
+  // The acting-combatant signal numbers duplicate enemies the same way the tokens
+  // do, resolving through the shared disambiguator (UNN-489).
+  const enemyStatblockById = live
+    ? resolveCatalogEnemyStatblocks(live.session.combatants)
+    : {}
   const combat: DungeonCombatLink | undefined = live
     ? {
         encounterShortId: live.shortId,
         round: live.session.round,
-        currentActorName: currentActorName(live.session, roster),
+        currentActorName: live.session.currentActorId
+          ? (combatantDisplayNames(
+              live.session,
+              pcInfoFromRoster(roster),
+              enemyStatblockById
+            ).get(live.session.currentActorId) ?? null)
+          : null,
       }
     : undefined
   const enemyTokensByZone = live
-    ? combatEnemyTokensByZone(
-        live.session,
-        instance.state,
-        resolveCatalogEnemyStatblocks(live.session.combatants)
-      )
+    ? combatEnemyTokensByZone(live.session, instance.state, enemyStatblockById)
     : {}
 
   return projectDungeonSnapshot(

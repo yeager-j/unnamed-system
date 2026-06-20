@@ -1,11 +1,12 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import {
   isFogActive,
   isZoneRevealed,
 } from "@workspace/game/engine/encounter/resolve-reveal"
 import {
   enemyHp,
+  pcPool,
   type PcCombatantDetail,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
@@ -138,18 +139,6 @@ export interface EncounterSnapshot {
   enchantment: ZoneEnchantment | null
 }
 
-/** A PC's current/max SP off its hydrated detail; `{0,0}` when the detail is
- *  missing (mirrors the rail's defensive defaults). */
-function pcPool(
-  detail: PcCombatantDetail | undefined,
-  kind: "hp" | "sp"
-): Pool {
-  if (!detail) return { current: 0, max: 0 }
-  return kind === "hp"
-    ? { current: detail.currentHP, max: detail.maxHP }
-    : { current: detail.currentSP, max: detail.maxSP }
-}
-
 /** An inline enemy's SP off its stat block; `null` for a catalog enemy (no SP)
  *  or a PC ref (unreachable here). */
 function enemySp(combatant: Combatant): Pool | null {
@@ -262,11 +251,10 @@ export function projectPlayerSnapshot(
   const zoneVisible = (zoneId: string) =>
     !fogged || isZoneRevealed(reveal, zoneId)
 
-  const nameById = new Map(
-    session.combatants.map((combatant) => [
-      combatant.id,
-      combatantName(combatant, pcDetailById, enemyStatblockById),
-    ])
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
   )
   const actor = session.combatants.find(
     (combatant) => combatant.id === session.currentActorId

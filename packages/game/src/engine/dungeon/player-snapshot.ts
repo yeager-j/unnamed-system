@@ -1,10 +1,14 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import {
   connectionFogState,
   isConnectionLocked,
   isZoneRevealed,
 } from "@workspace/game/engine/encounter/resolve-reveal"
+import {
+  zoneEnchantmentBadge,
+  type ZoneEnchantmentBadge,
+} from "@workspace/game/engine/encounter/resolve-zone-layout"
 import {
   enemyHp,
   type Pool,
@@ -45,6 +49,16 @@ import type { CombatSession } from "@workspace/game/foundation/encounter/session
  * combat composition (and its enemy redaction) is M4.
  */
 
+/** One placed character in the delve roster the projector resolves party tokens
+ *  from — display identity + current vitals, keyed by `characterId`. The impure
+ *  loader hydrates these (the max pools need a derive); the projector only reads. */
+export interface DungeonRosterEntry {
+  name: string
+  portraitUrl: string | null
+  hp: Pool
+  sp: Pool
+}
+
 /** One party-member token as a player sees it — display data only, resolved from
  *  the delve roster. Keyed (in {@link DungeonSnapshotZone.tokens}) by the placed
  *  character's `characterId`, so the client can self-highlight the viewer's own. */
@@ -52,6 +66,11 @@ export interface DungeonSnapshotToken {
   characterId: string
   name: string
   portraitUrl: string | null
+  /** Current/max HP + SP, so the party token draws health bars and the players can
+   *  see each other's vitals (UNN-489). A PC's vitals are public sheet data, so —
+   *  unlike enemy attributes/affinities — they are **not** redacted. */
+  hp: Pool
+  sp: Pool
   /** The token's melee-lock during combat, for the fog view's engaged-cluster
    *  outline (UNN-467). Its `targetCombatantIds` reference combatant ids — a PC's
    *  *is* its `characterId` (shared-row keying), an enemy's its combatant id — the
@@ -83,6 +102,12 @@ export interface DungeonSnapshotZone {
   position: { x: number; y: number }
   tokens: DungeonSnapshotToken[]
   enemies: DungeonSnapshotEnemyToken[]
+  /** The Zone's active Bard Enchantment badge, when the Instance's singleton sits
+   *  on this (revealed) Zone (UNN-489). Public — the Enchantment is observable
+   *  battlefield state ("your music enchants the battlefield"), the same field the
+   *  encounter watch exposes; an Enchantment on an unrevealed Zone never surfaces
+   *  because the projector only emits revealed Zones. */
+  enchantment?: ZoneEnchantmentBadge
 }
 
 /** A connection both of whose endpoints are revealed — drawn as a full edge. */
@@ -162,7 +187,7 @@ function revealedEndpoint(
  *  watch's concern, not the dungeon view's). */
 function tokensByRevealedZone(
   instance: MapInstanceState,
-  roster: Record<string, { name: string; portraitUrl: string | null }>
+  roster: Record<string, DungeonRosterEntry>
 ): Record<string, DungeonSnapshotToken[]> {
   const byZone: Record<string, DungeonSnapshotToken[]> = {}
   for (const [characterId, token] of Object.entries(instance.occupancy)) {
@@ -173,6 +198,8 @@ function tokensByRevealedZone(
       characterId,
       name: entry.name,
       portraitUrl: entry.portraitUrl,
+      hp: entry.hp,
+      sp: entry.sp,
       engagement: token.engagement,
     })
   }
@@ -193,13 +220,17 @@ export function combatEnemyTokensByZone(
   instance: MapInstanceState,
   enemyStatblockById: Record<string, Statblock>
 ): Record<string, DungeonSnapshotEnemyToken[]> {
+  // Disambiguate over the whole session (PCs resolve to ids here, which can't
+  // collide with enemy names) so duplicate enemies number — "Bandit", "Bandit 2"
+  // — consistently with the DM battlefield and the rail (UNN-346).
+  const nameById = combatantDisplayNames(session, {}, enemyStatblockById)
   const byZone: Record<string, DungeonSnapshotEnemyToken[]> = {}
   for (const combatant of session.combatants) {
     if (combatant.ref.kind === "pc") continue
     const occupant = instance.occupancy[combatant.id]
     ;(byZone[occupant?.zoneId ?? ""] ??= []).push({
       id: combatant.id,
-      name: combatantName(combatant, {}, enemyStatblockById),
+      name: nameById.get(combatant.id) ?? combatant.id,
       hp: enemyHp(combatant, enemyStatblockById),
       engagement: occupant?.engagement,
     })
@@ -226,7 +257,7 @@ export function projectDungeonSnapshot(
   },
   instance: MapInstanceState,
   state: DungeonState,
-  roster: Record<string, { name: string; portraitUrl: string | null }>,
+  roster: Record<string, DungeonRosterEntry>,
   /** The live-combat overlay (UNN-467) — the impure loader derives it from the
    *  delve's live encounter (if any) and passes it through; `undefined` in
    *  exploration. Public data only (see {@link DungeonCombatLink}). */
@@ -247,6 +278,7 @@ export function projectDungeonSnapshot(
       position: zone.position,
       tokens: tokensByZone[zone.id] ?? [],
       enemies: enemyTokensByZone[zone.id] ?? [],
+      enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
     }))
 
   const connections: DungeonSnapshotConnection[] = []

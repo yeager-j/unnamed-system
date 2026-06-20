@@ -55,12 +55,6 @@ export default async function DungeonPage({ params }: PageProps) {
   const placedCharacters = await loadPlacedCharactersForCampaign(
     dungeon.campaignId
   )
-  const roster: Record<string, DungeonRosterEntry> = Object.fromEntries(
-    placedCharacters.map((character) => [
-      character.id,
-      { name: character.name, portraitUrl: character.portraitUrl },
-    ])
-  )
 
   switch (dungeon.status) {
     case "draft": {
@@ -97,34 +91,53 @@ export default async function DungeonPage({ params }: PageProps) {
           }
         : null
 
-      // The encounter Setup phase suggests the higher-Agility first side, so it
-      // needs each placeable PC's derived Agility/Luck — hydrate them (as the
-      // combat console's setup branch does). Skipped during combat (Setup is
-      // unreachable then), so an exploration-only console pays no extra reads.
-      const pcStatsById: Record<string, InitiativeStats> = combat
-        ? {}
-        : Object.fromEntries(
-            (
-              await Promise.all(
-                placedCharacters.map((character) =>
-                  loadHydratedCharacterById(character.id)
-                )
+      // Exploration hydrates each placeable PC once, for two reads: the Setup
+      // phase's higher-Agility first-side hint (derived Agility/Luck) and the
+      // exploration tokens' HP/SP bars (UNN-489). Skipped during combat — Setup is
+      // unreachable and the combat board draws vitals from its own ZoneLayoutView —
+      // so an exploration-only console pays no extra reads.
+      const hydratedParty = combat
+        ? []
+        : (
+            await Promise.all(
+              placedCharacters.map((character) =>
+                loadHydratedCharacterById(character.id)
               )
             )
-              .filter((character) => character !== null)
-              .map((character) => [
-                character.id,
-                {
-                  agility: character.attributes.agility,
-                  luck: character.attributes.luck,
-                },
-              ])
-          )
+          ).filter((character) => character !== null)
+      const pcStatsById: Record<string, InitiativeStats> = Object.fromEntries(
+        hydratedParty.map((character) => [
+          character.id,
+          {
+            agility: character.attributes.agility,
+            luck: character.attributes.luck,
+          },
+        ])
+      )
+      const vitalsById = new Map(
+        hydratedParty.map((character) => [
+          character.id,
+          {
+            hp: { current: character.currentHP, max: character.maxHP },
+            sp: { current: character.currentSP, max: character.maxSP },
+          },
+        ])
+      )
+      const runRoster: Record<string, DungeonRosterEntry> = Object.fromEntries(
+        placedCharacters.map((character) => [
+          character.id,
+          {
+            name: character.name,
+            portraitUrl: character.portraitUrl,
+            ...vitalsById.get(character.id),
+          },
+        ])
+      )
       return (
         <DungeonRunConsole
           dungeon={dungeon}
           instance={instance}
-          roster={roster}
+          roster={runRoster}
           placedCharacters={placedCharacters}
           pcStatsById={pcStatsById}
           campaignShortId={campaignShortId}

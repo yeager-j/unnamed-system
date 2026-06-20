@@ -24,8 +24,18 @@ import type {
  */
 
 const ROSTER = {
-  "char-aria": { name: "Aria", portraitUrl: "https://cdn/aria.png" },
-  "char-bran": { name: "Bran", portraitUrl: null },
+  "char-aria": {
+    name: "Aria",
+    portraitUrl: "https://cdn/aria.png",
+    hp: { current: 24, max: 30 },
+    sp: { current: 8, max: 12 },
+  },
+  "char-bran": {
+    name: "Bran",
+    portraitUrl: null,
+    hp: { current: 18, max: 18 },
+    sp: { current: 3, max: 6 },
+  },
 }
 
 const DUNGEON = {
@@ -89,7 +99,7 @@ describe("projectDungeonSnapshot", () => {
     expect(instance.geometry.zones.z2).toBeDefined()
   })
 
-  it("places party tokens in their revealed Zone and drops tokens in unrevealed Zones", () => {
+  it("places party tokens — with their public HP/SP — in their revealed Zone, dropping tokens in unrevealed Zones", () => {
     const instance = instanceWith(
       {
         geometry: makeGeometry([
@@ -111,11 +121,15 @@ describe("projectDungeonSnapshot", () => {
       ROSTER
     )
 
+    // A PC's vitals are public sheet data (unlike enemy attributes), so the party
+    // sees each other's HP/SP on the fog map (UNN-489).
     expect(zones[0]!.tokens).toEqual([
       {
         characterId: "char-aria",
         name: "Aria",
         portraitUrl: "https://cdn/aria.png",
+        hp: { current: 24, max: 30 },
+        sp: { current: 8, max: 12 },
         engagement: { status: "free" },
       },
     ])
@@ -185,6 +199,54 @@ describe("projectDungeonSnapshot", () => {
     // The enemy in the undiscovered Zone never crosses the wire.
     expect(JSON.stringify(zones)).not.toContain("Lich")
     expect(JSON.stringify(zones)).not.toContain("affinit")
+  })
+
+  it("badges a revealed Zone's Enchantment — observable battlefield state (UNN-489)", () => {
+    const instance = instanceWith(
+      {
+        geometry: makeGeometry([
+          makeZone("z1", { name: "Antechamber" }),
+          makeZone("z2", { name: "Crypt" }),
+        ]),
+        enchantment: { zoneId: "z1", type: "toccata", forte: 2 },
+      },
+      { revealedZoneIds: ["z1"] }
+    )
+
+    const { zones } = projectDungeonSnapshot(
+      DUNGEON,
+      instance,
+      makeDungeonState(),
+      ROSTER
+    )
+
+    expect(zones[0]!.enchantment).toMatchObject({ type: "toccata", forte: 2 })
+  })
+
+  it("withholds an Enchantment sitting on an undiscovered Zone — it can't leak", () => {
+    const instance = instanceWith(
+      {
+        geometry: makeGeometry([
+          makeZone("z1", { name: "Antechamber" }),
+          makeZone("z2", { name: "Crypt" }),
+        ]),
+        enchantment: { zoneId: "z2", type: "requiem", forte: 1 },
+      },
+      { revealedZoneIds: ["z1"] }
+    )
+
+    const { zones } = projectDungeonSnapshot(
+      DUNGEON,
+      instance,
+      makeDungeonState(),
+      ROSTER
+    )
+
+    // z2 is undiscovered, so it is never emitted — and the revealed z1 carries no
+    // Enchantment of its own, so the singleton on z2 has nowhere to surface.
+    expect(zones.map((z) => z.id)).toEqual(["z1"])
+    expect(zones[0]!.enchantment).toBeUndefined()
+    expect(JSON.stringify(zones)).not.toContain("requiem")
   })
 
   it("emits a revealed connection (both endpoints revealed) with its lock state", () => {

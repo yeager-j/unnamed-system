@@ -1,5 +1,5 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
 import type { EngageableTarget } from "@workspace/game/engine/encounter/setup-roster-view"
 import { type Engagement } from "@workspace/game/foundation/combat/engagement"
@@ -43,11 +43,10 @@ export function resolveCombatantEngagement(
     status: "free",
   }
   const selfZoneId = instance.occupancy[combatant.id]?.zoneId ?? ""
-  const nameById = new Map(
-    session.combatants.map((c) => [
-      c.id,
-      combatantName(c, pcDetailById, enemyStatblockById),
-    ])
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
   )
 
   const engagedIds =

@@ -1,5 +1,5 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
   resolveCombatantEngagement,
@@ -308,7 +308,11 @@ function inlineEnemyStatblock(
   }
 }
 
-function pcPool(
+/** A PC's HP or SP pool off its hydrated detail; `{0,0}` when the detail is
+ *  missing (the rail/drawer's defensive default). Exported so the battlefield
+ *  shaper ({@link import("./resolve-zone-layout").resolveZoneLayout}) and the
+ *  player snapshot draw a PC's token pools from the same place the rail does. */
+export function pcPool(
   detail: PcCombatantDetail | undefined,
   kind: "hp" | "sp"
 ): Pool {
@@ -322,6 +326,7 @@ function railRow(
   combatant: Combatant,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>,
+  nameById: Map<string, string>,
   fallenIds: Set<string>,
   currentActorId: string | null,
   instance: MapInstanceState
@@ -334,7 +339,7 @@ function railRow(
 
   return {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById, enemyStatblockById),
+    name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
     isPc,
     isCurrent: combatant.id === currentActorId,
@@ -380,11 +385,17 @@ export function buildRosterView(
     pcCurrentHpById(pcDetailById),
     enemyStatblockById
   )
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
+  )
   const rows = session.combatants.map((combatant) =>
     railRow(
       combatant,
       pcDetailById,
       enemyStatblockById,
+      nameById,
       fallenIds,
       session.currentActorId,
       instance
@@ -417,7 +428,10 @@ export function combatantDetail(
   if (!combatant) return null
 
   const ref = combatant.ref
-  const name = combatantName(combatant, pcDetailById, enemyStatblockById)
+  const name =
+    combatantDisplayNames(session, pcDetailById, enemyStatblockById).get(
+      combatant.id
+    ) ?? combatant.id
   const overlay = combatantOverlay(combatant)
   const position = combatantPosition(instance, combatant)
   const engagement = resolveCombatantEngagement(
