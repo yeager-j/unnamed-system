@@ -71,7 +71,10 @@ convention.** There are four zone-node files; two delegate token rendering to de
   [`dungeon-encounter-setup.tsx:166-169`](../../apps/web/components/dungeon/dungeon-encounter-setup.tsx#L166)
 - **Reminder-toast effect depends on the whole `dungeonState` but only reacts to `turnCounter`.**
   `dungeonState` is `useOptimistic`, so its identity churns on every dispatch/refresh, re-running the effect
-  needlessly (only a ref-guard prevents a spurious toast). Narrow to `[dungeonState.turnCounter]`.
+  needlessly (only a ref-guard prevents a spurious toast). Narrowing to `[dungeonState.turnCounter]` was
+  considered but **not done** — the effect body reads the whole `dungeonState` via `dungeonReminders(...)`, so
+  `react-hooks/exhaustive-deps` (warn) would flag it; the ref-guard already makes the extra runs a cheap
+  early-return, so the narrowing isn't worth a lint warning/suppression. Left as-is.
   [`dungeon-explore-body.tsx:98-109`](../../apps/web/components/dungeon/dungeon-explore-body.tsx#L98)
 
 ### Polish (duplication sweep)
@@ -103,7 +106,7 @@ move rendered markup.
 | 3 | `refactor(dungeon): extract ExitRow from dungeon-zone-sheet` | zone-sheet | `dungeon-zone-sheet.tsx`, new `dungeon-exit-row.tsx` |
 | 4 | `refactor(dungeon): extract setup board shapers` | encounter-setup shapers | `dungeon-encounter-setup.tsx`, new `setup-board.ts` |
 | 5 | `refactor(dungeon): extract React Flow node/edge builders` | canvas shapers | `canvas/dungeon-canvas`, `canvas/dungeon-fog-canvas`, new `canvas/build-dungeon-nodes.ts` |
-| 6 | `refactor(dungeon): align canvasMode with compiler convention + narrow reminder effect dep` | React runtime ×2 | `dungeon-encounter-setup.tsx`, `dungeon-explore-body.tsx` |
+| 6 | `refactor(dungeon): drop redundant useMemos, align canvasMode with the compiler convention` | React runtime | `dungeon-encounter-setup.tsx` |
 | 7 | `refactor(dungeon): dedupe chip side-tints into a shared SIDE_TINT palette` | Polish: tints | the chip files + new `SIDE_TINT` map |
 | 8 | `refactor(shared/canvas): extract CanvasBottomBar + CanvasEmptyNotice` | Polish: bar + notice | `dungeon/canvas/*`, `maps/canvas/canvas-toolbar`, new `shared/canvas/*` |
 | 9 | `refactor(dungeon): extract DungeonSidebarHeader + EnemyCatalogDialog shells` | Polish: header + dialog | the 3 sidebars + 2 enemy dialogs |
@@ -135,11 +138,12 @@ UI-side rather than in the engine.)
 emit React Flow node shapes and must not pull `@xyflow/react` into the pure engine. Soft/optional; include it if
 you want the canvas shells to be just the controlled-flow + viewport wiring.
 
-**6 — React-runtime hygiene.** Drop the redundant `useMemo`s in `dungeon-encounter-setup.tsx` (the compiler
-already memoizes them; build `canvasMode` as a plain literal with the parity "compiler keeps this stable"
-comment its siblings carry), and narrow the reminder effect's dep array to `[dungeonState.turnCounter]`.
-**Depends on commit 4** (the shapers are extracted first, so this commit only removes the now-thin memo
-wrappers).
+**6 — React-runtime hygiene.** Drop the five redundant `useMemo`s in `dungeon-encounter-setup.tsx`
+(`partyCandidates`/`zones`/`setups`/`tokensByZone`/`canvasMode`) — `reactCompiler:true` already memoizes them;
+`canvasMode` becomes a plain literal with the parity "compiler keeps this stable" comment its siblings carry.
+The reminder-effect dep narrowing was dropped (see the finding above — it would add an `exhaustive-deps`
+warning for negligible gain). **Depends on commit 4** (the shapers are extracted first, so this commit only
+removes the now-thin memo wrappers).
 
 **7 — Shared `SIDE_TINT` palette.** One `SIDE_TINT = { players, enemies }` map (or a `<SideTintChip>` wrapper)
 next to `TokenGlyph`, applied across the chip files. **Depends on commit 2** (chips exist as their own files
