@@ -20,7 +20,7 @@ import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { DungeonCanvas } from "./canvas/dungeon-canvas"
 import { DungeonSetupCanvasProvider } from "./canvas/dungeon-setup-canvas-context"
-import { type DungeonSetupZoneToken } from "./canvas/dungeon-setup-zone-node"
+import { type DungeonSetupZoneToken } from "./canvas/dungeon-setup-token-chip"
 import { SetupBar } from "./canvas/setup-bar"
 import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonEnemyPickerDialog } from "./dungeon-enemy-picker-dialog"

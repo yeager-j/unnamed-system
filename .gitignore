@@ -21,6 +21,7 @@ coverage
 /apps/web/blob-report/
 /apps/web/playwright/.cache/
 /test-results/
+.playwright-mcp/
 
 # Turbo
 .turbo

@@ -30,10 +30,10 @@ import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "./dungeon-connection-edge"
+import { type DungeonSetupZoneToken } from "./dungeon-setup-token-chip"
 import {
   DungeonSetupZoneNode,
   type DungeonSetupZoneNode as DungeonSetupZoneNodeType,
-  type DungeonSetupZoneToken,
 } from "./dungeon-setup-zone-node"
 import {
   DungeonZoneNode,
