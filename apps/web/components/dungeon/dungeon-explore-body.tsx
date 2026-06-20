@@ -4,8 +4,8 @@ import dynamic from "next/dynamic"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { dungeonReminders, type InitiativeStats } from "@workspace/game/engine"
-import { SidebarInset, SidebarProvider } from "@workspace/ui/components/sidebar"
+import { dungeonReminders } from "@workspace/game/engine"
+import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { parseCharacterPing } from "@/hooks/character-version-sync"
@@ -17,7 +17,7 @@ import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
 import { DungeonCanvasProvider } from "./canvas/dungeon-canvas-context"
-import { DungeonEncounterSetup } from "./dungeon-encounter-setup"
+import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonPartySidebar } from "./dungeon-party-sidebar"
 import { DungeonZoneSheet } from "./dungeon-zone-sheet"
 import { useDungeonConsole } from "./use-dungeon-console"
@@ -38,30 +38,36 @@ const DungeonCanvas = dynamic(
 )
 
 /**
- * The run console's **Play (exploration)** phase + its **Setup** morph — the
- * non-combat half of the console, driven by {@link useDungeonConsole}. The thin
+ * The run console's **Play (exploration)** phase — the non-combat half of the
+ * console, driven by {@link useDungeonConsole}. The thin
  * {@link import("./dungeon-run-console").DungeonRunConsole} orchestrator forks here
  * vs the {@link import("./dungeon-combat-body").DungeonCombatBody} by mode, kept a
  * separate component (not one merged body) because exploration and combat own
  * **different** optimistic hooks — `useDungeonConsole` vs `useCombatConsole` — and
- * the rules of hooks forbid conditionally calling one or the other. Setup is an
- * ephemeral client phase entered from the Play bar's "Start an encounter" and left
- * by Cancel with no state change.
+ * the rules of hooks forbid conditionally calling one or the other. The Play bar's
+ * "Start an encounter" calls {@link onStartEncounter}, which the orchestrator turns
+ * into the ephemeral Setup phase.
+ *
+ * Renders inside the persistent {@link import("./dungeon-console-shell").DungeonConsoleShell}
+ * (UNN-488): its sidebar (party rows) is portaled into the shell's shared
+ * `<Sidebar>` via {@link DungeonSidebarSlot}, and it returns a Fragment so its
+ * `<SidebarInset>` stays a direct DOM sibling of that `<Sidebar>` (the inset
+ * margins read off it as a `peer`).
  */
 export function DungeonExploreBody({
   dungeon,
   instance,
   roster,
   placedCharacters,
-  pcStatsById,
   campaignShortId,
+  onStartEncounter,
 }: {
   dungeon: DungeonRow
   instance: MapInstanceRow
   roster: Record<string, DungeonRosterEntry>
   placedCharacters: CharacterSummary[]
-  pcStatsById: Record<string, InitiativeStats>
   campaignShortId: string
+  onStartEncounter: () => void
 }) {
   const {
     dungeonState,
@@ -73,7 +79,6 @@ export function DungeonExploreBody({
     scheduleRefresh,
   } = useDungeonConsole(dungeon, instance)
 
-  const [inSetup, setInSetup] = useState(false)
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
   const selectedZone = selectedZoneId
     ? (instanceState.geometry.zones[selectedZoneId] ?? null)
@@ -103,21 +108,8 @@ export function DungeonExploreBody({
     }
   }, [dungeonState])
 
-  if (inSetup) {
-    return (
-      <DungeonEncounterSetup
-        dungeon={dungeon}
-        instance={instance}
-        placedCharacters={placedCharacters}
-        pcStatsById={pcStatsById}
-        campaignShortId={campaignShortId}
-        onCancel={() => setInSetup(false)}
-      />
-    )
-  }
-
   return (
-    <SidebarProvider>
+    <>
       {placedCharacters.map((character) => (
         <RealtimeChannelListener
           key={character.shortId}
@@ -129,18 +121,20 @@ export function DungeonExploreBody({
         />
       ))}
 
-      <DungeonPartySidebar
-        roster={roster}
-        instanceState={instanceState}
-        dungeonState={dungeonState}
-        dungeon={dungeon}
-        campaignShortId={campaignShortId}
-        disabled={isPending}
-        onMarkActed={(characterId) =>
-          dispatch({ kind: "markActed", characterId })
-        }
-        onMoveToken={moveToken}
-      />
+      <DungeonSidebarSlot>
+        <DungeonPartySidebar
+          roster={roster}
+          instanceState={instanceState}
+          dungeonState={dungeonState}
+          dungeon={dungeon}
+          campaignShortId={campaignShortId}
+          disabled={isPending}
+          onMarkActed={(characterId) =>
+            dispatch({ kind: "markActed", characterId })
+          }
+          onMoveToken={moveToken}
+        />
+      </DungeonSidebarSlot>
 
       <SidebarInset className="relative">
         <DungeonCanvasProvider
@@ -160,7 +154,7 @@ export function DungeonExploreBody({
             openDetails: setSelectedZoneId,
             turnCounter: dungeonState.turnCounter,
             advanceTurn: () => dispatch({ kind: "advanceTurn" }),
-            startEncounter: () => setInSetup(true),
+            startEncounter: onStartEncounter,
             finishDelve,
             disabled: isPending,
           }}
@@ -202,6 +196,6 @@ export function DungeonExploreBody({
           dispatch({ kind: "lockConnection", connectionId })
         }
       />
-    </SidebarProvider>
+    </>
   )
 }

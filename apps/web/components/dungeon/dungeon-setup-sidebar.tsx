@@ -13,7 +13,6 @@ import {
 } from "@workspace/ui/components/select"
 import { Separator } from "@workspace/ui/components/separator"
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarHeader,
@@ -33,11 +32,13 @@ export interface SetupEnemyRow {
 
 /**
  * The run console's left panel during **Setup** (UNN-467) — the Party panel
- * morphed to **Set up encounter**. A Players section (the delve party, each
- * toggleable in/out of the fight via the shared {@link ImportPcsPanel}) and an
- * Enemies section (the staged catalog picks, each with a zone placement + remove,
- * plus the "Add enemies" button that opens the inline picker). All state is the
- * Setup orchestrator's; this panel is presentation + callbacks.
+ * morphed to **Set up encounter**, portaled into the persistent
+ * {@link import("./dungeon-console-shell").DungeonConsoleShell}'s shared `<Sidebar>`
+ * (UNN-488). A Players section (the delve party, each toggleable in/out of the
+ * fight via the shared {@link ImportPcsPanel}) and an Enemies section (the staged
+ * catalog picks, each with a zone placement + remove, plus the "Add enemies" button
+ * that opens the inline picker). All state is the Setup orchestrator's; this panel
+ * is presentation + callbacks.
  */
 export function DungeonSetupSidebar({
   dungeonName,
@@ -51,7 +52,6 @@ export function DungeonSetupSidebar({
   onSetEnemyZone,
   onRemoveEnemy,
   disabled,
-  ...props
 }: {
   dungeonName: string
   campaignShortId: string
@@ -64,9 +64,9 @@ export function DungeonSetupSidebar({
   onSetEnemyZone: (tmpId: string, zoneId: string) => void
   onRemoveEnemy: (tmpId: string) => void
   disabled?: boolean
-} & Omit<React.ComponentProps<typeof Sidebar>, "onSelect">) {
+}) {
   return (
-    <Sidebar variant="inset" {...props}>
+    <>
       <SidebarHeader className="gap-4">
         <div className="flex items-center gap-2">
           <Button
@@ -165,6 +165,6 @@ export function DungeonSetupSidebar({
           </section>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </>
   )
 }

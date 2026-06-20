@@ -25,7 +25,6 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { Separator } from "@workspace/ui/components/separator"
 import {
-  Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarHeader,
@@ -41,13 +40,14 @@ import { avatarSrc } from "@/lib/ui/portrait"
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas"
 
 /**
- * The DM run console's party panel (UNN-464 chrome pass) — a collapsible left
- * {@link Sidebar} (shadcn) replacing the party chips that used to crowd the bottom
- * bar (a 6–8 PC delve needs the vertical room). Each member reads its current Zone;
- * the row menu carries the two per-token turn-loop actions — Mark acted and Move to
- * — that lived in the old chip menus. Collapses to an avatar rail
- * (`collapsible="icon"`). HP/SP bars are deferred until exploration hydrates full
- * sheets (combat's M4); the row shows name + location only for now.
+ * The DM run console's party panel (UNN-464 chrome pass) — the Play phase's
+ * sidebar contents (header + party rows), portaled into the persistent
+ * {@link import("./dungeon-console-shell").DungeonConsoleShell}'s shared `<Sidebar>`
+ * (UNN-488), which owns the `variant`/`collapsible` config. It replaced the party
+ * chips that used to crowd the bottom bar (a 6–8 PC delve needs the vertical room).
+ * Each member reads its current Zone; the row menu carries the two per-token
+ * turn-loop actions — Mark acted and Move to — that lived in the old chip menus.
+ * The shell collapses Play to an avatar rail (`collapsible="icon"`).
  *
  * The top padding clears the floating status panel that overlays the sidebar's
  * top-left corner.
@@ -61,7 +61,6 @@ export function DungeonPartySidebar({
   disabled,
   onMarkActed,
   onMoveToken,
-  ...props
 }: {
   roster: Record<string, DungeonRosterEntry>
   instanceState: MapInstanceState
@@ -71,7 +70,7 @@ export function DungeonPartySidebar({
   disabled?: boolean
   onMarkActed: (characterId: string) => void
   onMoveToken: (characterId: string, toZoneId: string) => void
-} & React.ComponentProps<typeof Sidebar>) {
+}) {
   // Filter to placed characters: post-combat the Instance can still carry enemy
   // tokens (keyed by combatant id, pruned for real in UNN-469), which aren't party
   // members and would otherwise show as "Unknown" rows — the sidebar peer of the
@@ -83,7 +82,7 @@ export function DungeonPartySidebar({
   const zones = Object.values(instanceState.geometry.zones)
 
   return (
-    <Sidebar variant="inset" collapsible="icon" {...props}>
+    <>
       <SidebarHeader className="gap-4">
         <div className="flex items-center gap-2">
           <Button
@@ -139,7 +138,7 @@ export function DungeonPartySidebar({
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-    </Sidebar>
+    </>
   )
 }
 
