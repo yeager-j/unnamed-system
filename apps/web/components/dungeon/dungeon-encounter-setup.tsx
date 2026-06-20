@@ -6,7 +6,6 @@ import { toast } from "sonner"
 
 import { getEnemy } from "@workspace/game/data"
 import { compareInitiative, type InitiativeStats } from "@workspace/game/engine"
-import { type CombatantSetup } from "@workspace/game/foundation"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { type StagedEnemy } from "@/components/combat/enemies/enemy-catalog-panel"
@@ -20,7 +19,6 @@ import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 import { DungeonCanvas } from "./canvas/dungeon-canvas"
 import { DungeonSetupCanvasProvider } from "./canvas/dungeon-setup-canvas-context"
-import { type DungeonSetupZoneToken } from "./canvas/dungeon-setup-token-chip"
 import { SetupBar } from "./canvas/setup-bar"
 import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonEnemyPickerDialog } from "./dungeon-enemy-picker-dialog"
@@ -28,6 +26,7 @@ import {
   DungeonSetupSidebar,
   type SetupEnemyRow,
 } from "./dungeon-setup-sidebar"
+import { buildSetupCombatants, buildSetupTokensByZone } from "./setup-board"
 
 /**
  * The run console's **Setup** phase (UNN-467) — the spatially-scoped combatant
@@ -108,24 +107,10 @@ export function DungeonEncounterSetup({
   const canBegin =
     enemyCount > 0 && enemies.every((enemy) => enemy.zoneId !== "")
 
-  // Combatant setups for the start dialog's Agility suggestion (PCs by characterId
-  // so the comparison reads their delve token, enemies count-expanded).
-  const setups: CombatantSetup[] = useMemo(() => {
-    const pcs: CombatantSetup[] = [...includedIds].map((characterId) => ({
-      id: characterId,
-      side: "players",
-      ref: { kind: "pc", characterId },
-      zoneId: instance.state.occupancy[characterId]?.zoneId ?? "",
-    }))
-    const foes: CombatantSetup[] = enemies.flatMap((enemy) =>
-      Array.from({ length: enemy.count }, () => ({
-        side: "enemies" as const,
-        ref: { kind: "catalog-enemy" as const, enemyKey: enemy.enemyKey },
-        zoneId: enemy.zoneId,
-      }))
-    )
-    return [...pcs, ...foes]
-  }, [includedIds, enemies, instance.state.occupancy])
+  const setups = useMemo(
+    () => buildSetupCombatants(includedIds, enemies, instance.state.occupancy),
+    [includedIds, enemies, instance.state.occupancy]
+  )
 
   const comparison = compareInitiative(
     setups,
@@ -133,35 +118,16 @@ export function DungeonEncounterSetup({
     resolveCatalogEnemyStatblocks(setups)
   )
 
-  // The setup board: delve PC tokens (with inclusion state) + staged enemy ghosts.
-  const tokensByZone = useMemo(() => {
-    const byZone: Record<string, DungeonSetupZoneToken[]> = {}
-    for (const character of partyCandidates) {
-      const zoneId = instance.state.occupancy[character.id]?.zoneId ?? ""
-      ;(byZone[zoneId] ??= []).push({
-        id: character.id,
-        name: character.name,
-        portraitUrl: character.portraitUrl,
-        side: "players",
-        isPc: true,
-        included: includedIds.has(character.id),
-      })
-    }
-    for (const enemy of enemies) {
-      if (enemy.zoneId === "") continue
-      for (let index = 0; index < enemy.count; index += 1) {
-        ;(byZone[enemy.zoneId] ??= []).push({
-          id: `${enemy.tmpId}-${index}`,
-          name: enemy.name,
-          portraitUrl: null,
-          side: "enemies",
-          isPc: false,
-          included: true,
-        })
-      }
-    }
-    return byZone
-  }, [partyCandidates, enemies, includedIds, instance.state.occupancy])
+  const tokensByZone = useMemo(
+    () =>
+      buildSetupTokensByZone(
+        partyCandidates,
+        enemies,
+        includedIds,
+        instance.state.occupancy
+      ),
+    [partyCandidates, enemies, includedIds, instance.state.occupancy]
+  )
 
   const canvasMode = useMemo(
     () => ({ kind: "setup" as const, tokensByZone }),
