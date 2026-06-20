@@ -16,6 +16,8 @@ import { useEffect, type ReactNode } from "react"
 
 import type { MapInstanceState } from "@workspace/game/foundation"
 
+import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+
 import { buildEdges, buildNodes } from "./build-dungeon-nodes"
 import { type CanvasNode, type DungeonCanvasMode } from "./dungeon-canvas-types"
 import { DungeonCombatZoneNode } from "./dungeon-combat-zone-node"
@@ -117,13 +119,10 @@ function DungeonCanvasInner({
     >
       <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
       {isEmpty && (
-        <Panel
-          position="top-center"
-          className="rounded-none border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
-        >
+        <CanvasEmptyNotice>
           This dungeon has no map yet — author it on My Maps, then recreate the
           delve.
-        </Panel>
+        </CanvasEmptyNotice>
       )}
       <Panel
         position="top-left"

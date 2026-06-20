@@ -78,8 +78,12 @@ convention.** There are four zone-node files; two delegate token rendering to de
   [`dungeon-explore-body.tsx:98-109`](../../apps/web/components/dungeon/dungeon-explore-body.tsx#L98)
 
 ### Polish (duplication sweep)
-- **Chip side-tints** (PC-blue / enemy-red wrappers + initials tints) hand-duplicated across 4 files that are
-  documented to stay in lockstep. [`canvas/dungeon-token-chip.tsx:40-44`](../../apps/web/components/dungeon/canvas/dungeon-token-chip.tsx#L40)
+- **Chip side-tints** (PC-blue / enemy-red wrappers + initials tints) across the token chips. **Deferred** — on
+  closer reading the tints genuinely vary per chip (`DungeonTokenChip` uses `primary` tokens for its glyph + an
+  `owned`→yellow override; the setup enemy is a dashed "ghost", not the solid red), so only the glyph string is
+  truly verbatim. A shared palette would be a premature abstraction splitting each chip's visual definition
+  across files for marginal gain; left inline.
+  [`canvas/dungeon-token-chip.tsx:40-44`](../../apps/web/components/dungeon/canvas/dungeon-token-chip.tsx#L40)
 - **Bottom-Panel toolbar shell** (`flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg`)
   duplicated verbatim across `turn-loop-bar`, `combat-turn-bar`, `setup-bar` — and even
   `maps/canvas/canvas-toolbar.tsx:40`. [`canvas/turn-loop-bar.tsx:49-51`](../../apps/web/components/dungeon/canvas/turn-loop-bar.tsx#L49)
@@ -107,9 +111,8 @@ move rendered markup.
 | 4 | `refactor(dungeon): extract setup board shapers` | encounter-setup shapers | `dungeon-encounter-setup.tsx`, new `setup-board.ts` |
 | 5 | `refactor(dungeon): extract React Flow node/edge builders` | canvas shapers | `canvas/dungeon-canvas`, `canvas/dungeon-fog-canvas`, new `canvas/build-dungeon-nodes.ts` |
 | 6 | `refactor(dungeon): drop redundant useMemos, align canvasMode with the compiler convention` | React runtime | `dungeon-encounter-setup.tsx` |
-| 7 | `refactor(dungeon): dedupe chip side-tints into a shared SIDE_TINT palette` | Polish: tints | the chip files + new `SIDE_TINT` map |
-| 8 | `refactor(shared/canvas): extract CanvasBottomBar + CanvasEmptyNotice` | Polish: bar + notice | `dungeon/canvas/*`, `maps/canvas/canvas-toolbar`, new `shared/canvas/*` |
-| 9 | `refactor(dungeon): extract DungeonSidebarHeader + EnemyCatalogDialog shells` | Polish: header + dialog | the 3 sidebars + 2 enemy dialogs |
+| 7 | `refactor(dungeon): extract shared canvas chrome + sidebar/dialog shells` (orig. 8 + 9, one commit) | Polish: bar, notice, header, dialog | new `shared/canvas/{canvas-bottom-bar,canvas-empty-notice}` + `dungeon/{dungeon-sidebar-header,enemy-catalog-dialog}`; 4 bars, 2 canvases, 3 sidebars, 2 dialogs |
+| — | SIDE_TINT chip-tint dedup — **deferred** (tints vary per chip; see finding) | Polish: tints | — |
 
 ### Commit detail
 
@@ -145,21 +148,18 @@ The reminder-effect dep narrowing was dropped (see the finding above — it woul
 warning for negligible gain). **Depends on commit 4** (the shapers are extracted first, so this commit only
 removes the now-thin memo wrappers).
 
-**7 — Shared `SIDE_TINT` palette.** One `SIDE_TINT = { players, enemies }` map (or a `<SideTintChip>` wrapper)
-next to `TokenGlyph`, applied across the chip files. **Depends on commit 2** (chips exist as their own files
-first, so this is a clean single-purpose dedup).
+**7 — Shared canvas chrome + sidebar/dialog shells (orig. commits 8 + 9, combined).** Extract `CanvasBottomBar`
+(Panel + TooltipProvider + toolbar container, with `className` for setup-bar's `flex-wrap`) and
+`CanvasEmptyNotice` into `components/shared/canvas/`, folding `maps/canvas/canvas-toolbar.tsx` into the same bar
+(establishes the shared-canvas **chrome** module beside the existing floating-edge geometry). Extract
+`DungeonSidebarHeader` (back-link + delve-name h1 + `trailing` Round-badge slot + `children` subtitle) used by
+the 3 phase sidebars, and an `EnemyCatalogDialog` shell (sized `DialogContent` + bordered header +
+`EnemyCatalogPanel` wiring; the caller owns the queue + commit) used by the 2 enemy dialogs.
 
-**8 — Shared canvas chrome.** Extract `CanvasBottomBar` (Panel + TooltipProvider + the toolbar container,
-accepting children + optional `className` for setup-bar's `flex-wrap`) and `CanvasEmptyNotice` into
-`components/shared/canvas/`; fold `maps/canvas/canvas-toolbar.tsx` into the same `CanvasBottomBar`. Establishes
-the shared-canvas **chrome** module (the existing one holds only floating-edge geometry).
-
-**9 — Remaining shells.** Extract `DungeonSidebarHeader` (back-link + delve-name h1 + optional trailing slot
-for the combat Round badge + optional subtitle) used by the 3 phase sidebars, and an `EnemyCatalogDialog` shell
-(sized `DialogContent` + header + `EnemyCatalogPanel` wiring) used by the 2 enemy dialogs.
+**SIDE_TINT (orig. commit 7) — deferred.** The chip tints genuinely vary per chip (see the finding above), so a
+shared palette would be premature abstraction; the tints stay inline.
 
 ### Dependencies at a glance
 - **6 after 4** (memo-drop after the shaper extraction in the same file).
-- **7 after 2** (tint dedup after the chips are their own files).
 - **1 first** (everything else imports the relocated primitives from their final path).
 - All others are independent and can land in any order.

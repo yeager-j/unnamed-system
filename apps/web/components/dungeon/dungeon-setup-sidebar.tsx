@@ -1,7 +1,6 @@
 "use client"
 
-import { ArrowLeftIcon, SkullIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
-import Link from "next/link"
+import { SkullIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -11,15 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { Separator } from "@workspace/ui/components/separator"
-import {
-  SidebarContent,
-  SidebarGroup,
-  SidebarHeader,
-} from "@workspace/ui/components/sidebar"
+import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
 
 import { ImportPcsPanel } from "@/components/combat/import-pcs-panel"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
+
+import { DungeonSidebarHeader } from "./dungeon-sidebar-header"
 
 /** One staged enemy group as the Setup sidebar renders it. */
 export interface SetupEnemyRow {
@@ -67,22 +63,10 @@ export function DungeonSetupSidebar({
 }) {
   return (
     <>
-      <SidebarHeader className="gap-4">
-        <div className="flex items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="Back to campaign"
-            nativeButton={false}
-            render={<Link href={`/campaigns/${campaignShortId}`} />}
-          >
-            <ArrowLeftIcon />
-          </Button>
-          <h1 className="min-w-0 flex-1 truncate font-heading text-base font-semibold">
-            {dungeonName}
-          </h1>
-        </div>
-        <Separator />
+      <DungeonSidebarHeader
+        dungeonName={dungeonName}
+        campaignShortId={campaignShortId}
+      >
         <div className="flex flex-col">
           <h2 className="font-heading text-base font-semibold">
             Set up encounter
@@ -91,7 +75,7 @@ export function DungeonSetupSidebar({
             Pick who fights, then begin.
           </p>
         </div>
-      </SidebarHeader>
+      </DungeonSidebarHeader>
 
       <SidebarContent className="gap-4 p-2">
         <SidebarGroup className="gap-2">

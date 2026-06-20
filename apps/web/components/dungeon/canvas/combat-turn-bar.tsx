@@ -1,15 +1,14 @@
 "use client"
 
 import { EyeIcon, FlagIcon, UserPlusIcon } from "@phosphor-icons/react/dist/ssr"
-import { Panel } from "@xyflow/react"
 import Link from "next/link"
 
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
-import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
 import { EndCombatDialog } from "@/components/combat/end-combat-dialog"
+import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonCombatCanvas } from "./dungeon-combat-canvas-context"
@@ -37,63 +36,59 @@ export function CombatTurnBar() {
   } = useDungeonCombatCanvas()
 
   return (
-    <Panel position="bottom-center" className="mb-4">
-      <TooltipProvider delay={300}>
-        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
-          <Badge variant="outline" className="font-serif tabular-nums">
-            Round {round}
-          </Badge>
+    <CanvasBottomBar>
+      <Badge variant="outline" className="font-serif tabular-nums">
+        Round {round}
+      </Badge>
 
-          {phase === "active" ? (
-            <Button size="sm" onClick={onEndTurn} disabled={disabled}>
-              <FlagIcon weight="fill" />
-              End turn
-            </Button>
-          ) : phase === "resolving" ? (
-            <Button size="sm" variant="outline" disabled>
-              Resolving…
-            </Button>
-          ) : null}
+      {phase === "active" ? (
+        <Button size="sm" onClick={onEndTurn} disabled={disabled}>
+          <FlagIcon weight="fill" />
+          End turn
+        </Button>
+      ) : phase === "resolving" ? (
+        <Button size="sm" variant="outline" disabled>
+          Resolving…
+        </Button>
+      ) : null}
 
-          <Separator orientation="vertical" className="mx-1" />
+      <Separator orientation="vertical" className="mx-1" />
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onAddCombatant}
-            disabled={disabled}
-          >
-            <UserPlusIcon weight="bold" />
-            Add combatant
-          </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onAddCombatant}
+        disabled={disabled}
+      >
+        <UserPlusIcon weight="bold" />
+        Add combatant
+      </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            nativeButton={false}
-            render={
-              <Link
-                href={playerViewHref}
-                target="_blank"
-                rel="noopener noreferrer"
-              />
-            }
-          >
-            <EyeIcon />
-            Player view
-          </Button>
-
-          <EndCombatDialog
-            fallenPcNames={fallenPcNames}
-            onConfirm={onEndEncounter}
-            disabled={disabled}
+      <Button
+        size="sm"
+        variant="outline"
+        nativeButton={false}
+        render={
+          <Link
+            href={playerViewHref}
+            target="_blank"
+            rel="noopener noreferrer"
           />
+        }
+      >
+        <EyeIcon />
+        Player view
+      </Button>
 
-          <Separator orientation="vertical" className="mx-1" />
+      <EndCombatDialog
+        fallenPcNames={fallenPcNames}
+        onConfirm={onEndEncounter}
+        disabled={disabled}
+      />
 
-          <CanvasZoomCluster />
-        </div>
-      </TooltipProvider>
-    </Panel>
+      <Separator orientation="vertical" className="mx-1" />
+
+      <CanvasZoomCluster />
+    </CanvasBottomBar>
   )
 }

@@ -1,14 +1,13 @@
 "use client"
 
 import { LineSegmentIcon, PlusSquareIcon } from "@phosphor-icons/react/dist/ssr"
-import { Panel } from "@xyflow/react"
 import type { ReactNode } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 import { Separator } from "@workspace/ui/components/separator"
-import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
+import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import type { ToolMode } from "./tool-mode"
@@ -35,28 +34,24 @@ export function CanvasToolbar({
   onModeChange: (mode: ToolMode) => void
 }) {
   return (
-    <Panel position="bottom-center" className="mb-4">
-      <TooltipProvider delay={300}>
-        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
-          <ButtonGroup>
-            {CREATE_MODES.map(({ mode: value, label, icon }) => (
-              <Button
-                key={value}
-                variant={mode === value ? "secondary" : "ghost"}
-                aria-pressed={mode === value}
-                onClick={() => onModeChange(mode === value ? "select" : value)}
-              >
-                {icon}
-                {label}
-              </Button>
-            ))}
-          </ButtonGroup>
+    <CanvasBottomBar>
+      <ButtonGroup>
+        {CREATE_MODES.map(({ mode: value, label, icon }) => (
+          <Button
+            key={value}
+            variant={mode === value ? "secondary" : "ghost"}
+            aria-pressed={mode === value}
+            onClick={() => onModeChange(mode === value ? "select" : value)}
+          >
+            {icon}
+            {label}
+          </Button>
+        ))}
+      </ButtonGroup>
 
-          <Separator orientation="vertical" />
+      <Separator orientation="vertical" />
 
-          <CanvasZoomCluster />
-        </div>
-      </TooltipProvider>
-    </Panel>
+      <CanvasZoomCluster />
+    </CanvasBottomBar>
   )
 }

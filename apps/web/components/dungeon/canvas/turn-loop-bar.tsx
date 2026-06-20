@@ -5,7 +5,6 @@ import {
   FlagCheckeredIcon,
   SwordIcon,
 } from "@phosphor-icons/react/dist/ssr"
-import { Panel } from "@xyflow/react"
 import { useState } from "react"
 
 import {
@@ -20,8 +19,8 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
-import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
+import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonCanvas } from "./dungeon-canvas-context"
@@ -46,42 +45,40 @@ export function TurnLoopBar() {
   const [confirmFinish, setConfirmFinish] = useState(false)
 
   return (
-    <Panel position="bottom-center" className="mb-4">
-      <TooltipProvider delay={300}>
-        <div className="flex items-center gap-1 rounded-none border bg-popover p-3 shadow-lg">
-          <span className="px-2 font-serif whitespace-nowrap tabular-nums">
-            Dungeon Turn{" "}
-            <span className="font-bold">
-              {turnCounter.toString().padStart(2, "0")}
-            </span>
+    <>
+      <CanvasBottomBar>
+        <span className="px-2 font-serif whitespace-nowrap tabular-nums">
+          Dungeon Turn{" "}
+          <span className="font-bold">
+            {turnCounter.toString().padStart(2, "0")}
           </span>
-          <Button size="sm" onClick={advanceTurn} disabled={disabled}>
-            Advance
-            <ArrowRightIcon weight="bold" />
-          </Button>
+        </span>
+        <Button size="sm" onClick={advanceTurn} disabled={disabled}>
+          Advance
+          <ArrowRightIcon weight="bold" />
+        </Button>
 
-          <Separator orientation="vertical" className="mx-2" />
+        <Separator orientation="vertical" className="mx-2" />
 
-          <CanvasZoomCluster />
+        <CanvasZoomCluster />
 
-          <Separator orientation="vertical" className="mx-2" />
+        <Separator orientation="vertical" className="mx-2" />
 
-          <Button size="sm" onClick={startEncounter} disabled={disabled}>
-            <SwordIcon weight="fill" />
-            Start an encounter
-          </Button>
+        <Button size="sm" onClick={startEncounter} disabled={disabled}>
+          <SwordIcon weight="fill" />
+          Start an encounter
+        </Button>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setConfirmFinish(true)}
-            disabled={disabled}
-          >
-            <FlagCheckeredIcon weight="bold" />
-            Finish delve
-          </Button>
-        </div>
-      </TooltipProvider>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setConfirmFinish(true)}
+          disabled={disabled}
+        >
+          <FlagCheckeredIcon weight="bold" />
+          Finish delve
+        </Button>
+      </CanvasBottomBar>
 
       <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>
         <AlertDialogContent>
@@ -104,6 +101,6 @@ export function TurnLoopBar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Panel>
+    </>
   )
 }

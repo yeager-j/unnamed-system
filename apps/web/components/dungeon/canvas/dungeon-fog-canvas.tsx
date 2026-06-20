@@ -6,7 +6,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -16,6 +15,8 @@ import { useTheme } from "next-themes"
 import { useEffect } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game/engine"
+
+import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
 
 import {
   DungeonConnectionEdge,
@@ -139,12 +140,9 @@ function DungeonFogCanvasInner({
     >
       <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
       {isEmpty && (
-        <Panel
-          position="top-center"
-          className="rounded-none border bg-popover px-3 py-2 text-xs text-muted-foreground shadow-sm"
-        >
+        <CanvasEmptyNotice>
           The party hasn&apos;t explored anywhere yet.
-        </Panel>
+        </CanvasEmptyNotice>
       )}
       <Controls showInteractive={false} />
     </ReactFlow>
