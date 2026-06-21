@@ -22,6 +22,12 @@ import {
 import { useTheme } from "next-themes"
 import { useRef, useState, type MouseEvent } from "react"
 
+import {
+  disconnectedZoneIds,
+  duplicateZoneNames,
+  reduceMapGeometry,
+  type ConnectionFlag,
+} from "@workspace/game/engine"
 import type { MapGeometry, MapZone } from "@workspace/game/foundation"
 import {
   Alert,
@@ -44,23 +50,10 @@ import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
 import { FloatingConnectionLine } from "./floating-connection-line"
 import {
-  addConnection,
-  addZone,
-  deleteConnection,
-  deleteZone,
-  duplicateZone,
-  moveZone,
-  renameZone,
-  setConnectionFlag,
-  setZoneText,
-  type ConnectionFlag,
-} from "./geometry-edits"
-import {
   geometryToFlow,
   type ConnectionEdge as FlowConnectionEdge,
   type ZoneNode as FlowZoneNode,
 } from "./geometry-to-flow"
-import { disconnectedZoneIds, duplicateZoneNames } from "./geometry-warnings"
 import { MapCanvasProvider } from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
 import { ZoneDetailsSheet } from "./zone-details-sheet"
@@ -136,7 +129,9 @@ function MapCanvasInner({
   function addZoneAt(position: { x: number; y: number }) {
     if (!editable) return
     const id = crypto.randomUUID()
-    const next = applyGeometry(addZone(geometryRef.current, id, position))
+    const next = applyGeometry(
+      reduceMapGeometry(geometryRef.current, { kind: "addZone", id, position })
+    )
     const zone = next.zones[id]
     if (!zone) return
     const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
@@ -159,7 +154,13 @@ function MapCanvasInner({
   }
 
   const handleNodeDragStop: OnNodeDrag<FlowZoneNode> = (_, node) => {
-    applyGeometry(moveZone(geometryRef.current, node.id, node.position))
+    applyGeometry(
+      reduceMapGeometry(geometryRef.current, {
+        kind: "moveZone",
+        zoneId: node.id,
+        position: node.position,
+      })
+    )
   }
 
   const handleConnect: OnConnect = (connection) => {
@@ -167,7 +168,12 @@ function MapCanvasInner({
     const id = crypto.randomUUID()
     const before = geometryRef.current
     const next = applyGeometry(
-      addConnection(before, id, connection.source, connection.target)
+      reduceMapGeometry(before, {
+        kind: "addConnection",
+        id,
+        fromZoneId: connection.source,
+        toZoneId: connection.target,
+      })
     )
     const created = next.connections[id]
     if (next === before || !created) return
@@ -191,7 +197,12 @@ function MapCanvasInner({
       y: source.position.y + 32,
     }
     const next = applyGeometry(
-      duplicateZone(geometryRef.current, zoneId, id, position)
+      reduceMapGeometry(geometryRef.current, {
+        kind: "duplicateZone",
+        sourceId: zoneId,
+        newId: id,
+        position,
+      })
     )
     const zone = next.zones[id]
     if (!zone) return
@@ -200,7 +211,9 @@ function MapCanvasInner({
   }
 
   function handleDeleteZone(zoneId: string) {
-    applyGeometry(deleteZone(geometryRef.current, zoneId))
+    applyGeometry(
+      reduceMapGeometry(geometryRef.current, { kind: "deleteZone", zoneId })
+    )
     setNodes((current) => current.filter((node) => node.id !== zoneId))
     setEdges((current) =>
       current.filter((edge) => edge.source !== zoneId && edge.target !== zoneId)
@@ -221,7 +234,13 @@ function MapCanvasInner({
   function handleRenameZone(zoneId: string, name: string) {
     patchZoneNodeData(
       zoneId,
-      applyGeometry(renameZone(geometryRef.current, zoneId, name))
+      applyGeometry(
+        reduceMapGeometry(geometryRef.current, {
+          kind: "renameZone",
+          zoneId,
+          name,
+        })
+      )
     )
   }
 
@@ -231,7 +250,13 @@ function MapCanvasInner({
   ) {
     patchZoneNodeData(
       zoneId,
-      applyGeometry(setZoneText(geometryRef.current, zoneId, patch))
+      applyGeometry(
+        reduceMapGeometry(geometryRef.current, {
+          kind: "setZoneText",
+          zoneId,
+          patch,
+        })
+      )
     )
   }
 
@@ -241,7 +266,12 @@ function MapCanvasInner({
     value: boolean
   ) {
     const next = applyGeometry(
-      setConnectionFlag(geometryRef.current, connectionId, flag, value)
+      reduceMapGeometry(geometryRef.current, {
+        kind: "setConnectionFlag",
+        connectionId,
+        flag,
+        value,
+      })
     )
     const connection = next.connections[connectionId]
     if (!connection) return
@@ -253,7 +283,12 @@ function MapCanvasInner({
   }
 
   function handleDeleteConnection(connectionId: string) {
-    applyGeometry(deleteConnection(geometryRef.current, connectionId))
+    applyGeometry(
+      reduceMapGeometry(geometryRef.current, {
+        kind: "deleteConnection",
+        connectionId,
+      })
+    )
     setEdges((current) => current.filter((edge) => edge.id !== connectionId))
   }
 
