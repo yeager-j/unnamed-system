@@ -17,6 +17,10 @@ import { useEffect } from "react"
 import { type DungeonSnapshot } from "@workspace/game/engine"
 
 import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+import {
+  CANVAS_DOT_SIZE,
+  CANVAS_GRID_SIZE,
+} from "@/components/shared/canvas/grid"
 
 import {
   DungeonConnectionEdge,
@@ -138,7 +142,11 @@ function DungeonFogCanvasInner({
       panOnScroll
       panOnDrag
     >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+      <Background
+        variant={BackgroundVariant.Dots}
+        gap={CANVAS_GRID_SIZE}
+        size={CANVAS_DOT_SIZE}
+      />
       {isEmpty && (
         <CanvasEmptyNotice>
           The party hasn&apos;t explored anywhere yet.

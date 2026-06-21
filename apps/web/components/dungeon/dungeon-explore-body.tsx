@@ -17,6 +17,7 @@ import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 import { DungeonCanvasProvider } from "./canvas/dungeon-canvas-context"
 import type { DungeonRosterEntry } from "./canvas/dungeon-canvas-types"
+import { DungeonEditCanvas } from "./canvas/dungeon-edit-canvas"
 import { DungeonSidebarSlot } from "./dungeon-console-shell"
 import { DungeonPartySidebar } from "./dungeon-party-sidebar"
 import { DungeonZoneSheet } from "./dungeon-zone-sheet"
@@ -84,6 +85,11 @@ export function DungeonExploreBody({
     ? (instanceState.geometry.zones[selectedZoneId] ?? null)
     : null
 
+  // Edit ⇄ Play is DM-local, ephemeral UI (never persisted), orthogonal to the
+  // delve's status (ADR — Console topology). Play draws tokens/fog; Edit swaps in
+  // the Map builder over the live Instance geometry.
+  const [mode, setMode] = useState<"play" | "edit">("play")
+
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
 
@@ -137,36 +143,53 @@ export function DungeonExploreBody({
       </DungeonSidebarSlot>
 
       <SidebarInset className="relative">
-        <DungeonCanvasProvider
-          value={{
-            revealZone: (zoneId) => dispatch({ kind: "revealZone", zoneId }),
-            hideZone: (zoneId) => dispatch({ kind: "hideZone", zoneId }),
-            moveParty: (zoneId) => {
-              for (const [characterId, token] of Object.entries(
-                instanceState.occupancy
-              )) {
-                if (roster[characterId] === undefined) continue
-                if (token.zoneId !== zoneId) {
-                  moveToken(characterId, zoneId)
+        {mode === "play" ? (
+          <DungeonCanvasProvider
+            value={{
+              revealZone: (zoneId) => dispatch({ kind: "revealZone", zoneId }),
+              hideZone: (zoneId) => dispatch({ kind: "hideZone", zoneId }),
+              moveParty: (zoneId) => {
+                for (const [characterId, token] of Object.entries(
+                  instanceState.occupancy
+                )) {
+                  if (roster[characterId] === undefined) continue
+                  if (token.zoneId !== zoneId) {
+                    moveToken(characterId, zoneId)
+                  }
                 }
-              }
-            },
-            openDetails: setSelectedZoneId,
-            turnCounter: dungeonState.turnCounter,
-            advanceTurn: () => dispatch({ kind: "advanceTurn" }),
-            startEncounter: onStartEncounter,
-            finishDelve,
-            disabled: isPending,
-          }}
-        >
+              },
+              openDetails: setSelectedZoneId,
+              turnCounter: dungeonState.turnCounter,
+              advanceTurn: () => dispatch({ kind: "advanceTurn" }),
+              startEncounter: onStartEncounter,
+              finishDelve,
+              mode,
+              onModeChange: setMode,
+              disabled: isPending,
+            }}
+          >
+            <div className="absolute inset-0">
+              <DungeonCanvas
+                instance={instanceState}
+                mode={canvasMode}
+                persistKey={dungeon.shortId}
+              />
+            </div>
+          </DungeonCanvasProvider>
+        ) : (
           <div className="absolute inset-0">
-            <DungeonCanvas
+            <DungeonEditCanvas
               instance={instanceState}
-              mode={canvasMode}
+              roster={roster}
+              onGeometryEvent={(event) =>
+                dispatch({ kind: "editGeometry", event })
+              }
+              mode={mode}
+              onModeChange={setMode}
               persistKey={dungeon.shortId}
             />
           </div>
-        </DungeonCanvasProvider>
+        )}
       </SidebarInset>
 
       <DungeonZoneSheet

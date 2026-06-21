@@ -1,9 +1,12 @@
 import { produce } from "immer"
 
+import type { MapGeometry } from "@workspace/game/foundation/map/geometry"
 import type {
-  MapGeometry,
-  MapZone,
-} from "@workspace/game/foundation/map/geometry"
+  ConnectionFlag,
+  MapGeometryEvent,
+} from "@workspace/game/foundation/map/geometry-event"
+
+export type { ConnectionFlag, MapGeometryEvent }
 
 /**
  * The pure Map-**template** geometry reducer (UNN-485): applies one
@@ -55,36 +58,6 @@ export function reduceMapGeometry(
       return reduceConnectionEvent(geometry, event)
   }
 }
-
-type Point = MapZone["position"]
-
-/** A connection's two independent fog/access flags (§3.5). */
-export type ConnectionFlag = "hidden" | "locked"
-
-/**
- * One geometry edit the canvas dispatches. Ids are **caller-minted** (the canvas
- * needs the new id immediately for the optimistic React-Flow node/edge), so an
- * `addZone`/`duplicateZone`/`addConnection` carries the id it creates.
- */
-export type MapGeometryEvent =
-  | { kind: "addZone"; id: string; position: Point }
-  | { kind: "duplicateZone"; sourceId: string; newId: string; position: Point }
-  | { kind: "renameZone"; zoneId: string; name: string }
-  | {
-      kind: "setZoneText"
-      zoneId: string
-      patch: Partial<Pick<MapZone, "description" | "dmNotes">>
-    }
-  | { kind: "moveZone"; zoneId: string; position: Point }
-  | { kind: "deleteZone"; zoneId: string }
-  | { kind: "addConnection"; id: string; fromZoneId: string; toZoneId: string }
-  | {
-      kind: "setConnectionFlag"
-      connectionId: string
-      flag: ConnectionFlag
-      value: boolean
-    }
-  | { kind: "deleteConnection"; connectionId: string }
 
 /**
  * Zone-slice edits — add/duplicate/rename/retext/move/delete a Zone. `deleteZone`

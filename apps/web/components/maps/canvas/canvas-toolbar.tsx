@@ -29,12 +29,23 @@ const CREATE_MODES: { mode: ToolMode; label: string; icon: ReactNode }[] = [
 export function CanvasToolbar({
   mode,
   onModeChange,
+  leading,
 }: {
   mode: ToolMode
   onModeChange: (mode: ToolMode) => void
+  /** An optional host control rendered at the start of the bar (the dungeon
+   *  console's Edit ⇄ Play toggle); absent for the Map-template editor. */
+  leading?: ReactNode
 }) {
   return (
     <CanvasBottomBar>
+      {leading ? (
+        <>
+          {leading}
+          <Separator orientation="vertical" />
+        </>
+      ) : null}
+
       <ButtonGroup>
         {CREATE_MODES.map(({ mode: value, label, icon }) => (
           <Button

@@ -10,6 +10,7 @@ import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
+import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
@@ -33,10 +34,18 @@ const HANDLE_SIDES = [
 ] as const
 
 export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
-  const { interactivity, openZoneDetails, duplicateZone, deleteZone } =
-    useMapCanvas()
+  const {
+    interactivity,
+    openZoneDetails,
+    duplicateZone,
+    deleteZone,
+    lockedZoneIds,
+    renderZoneOverlay,
+  } = useMapCanvas()
   const editable = interactivity === "edit"
   const { zone } = data
+  const locked = lockedZoneIds?.has(zone.id) ?? false
+  const overlay = renderZoneOverlay?.(zone.id)
 
   return (
     <>
@@ -62,14 +71,16 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
         >
           <CopyIcon />
         </Button>
-        <Button
+        <TooltipButton
           size="icon-sm"
           variant="ghost"
           aria-label={`Delete ${zone.name}`}
+          disabled={locked}
+          disabledReason="Occupied — move the party out first"
           onClick={() => deleteZone(zone.id)}
         >
           <TrashIcon />
-        </Button>
+        </TooltipButton>
       </NodeToolbar>
 
       {editable &&
@@ -97,6 +108,9 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
             {zone.name}
           </CardTitle>
         </CardHeader>
+        {overlay ? (
+          <div className="flex flex-wrap gap-1 px-6">{overlay}</div>
+        ) : null}
       </Card>
     </>
   )

@@ -8,7 +8,9 @@ import {
   reduceInstance,
 } from "@workspace/game/engine/__fixtures__/encounter"
 import { adjacentZones } from "@workspace/game/engine/encounter/zone-graph"
+import { reduceMapGeometry } from "@workspace/game/engine/map/reduce-map-geometry"
 import type { MapToken } from "@workspace/game/foundation/encounter/map-instance"
+import type { MapGeometryEvent } from "@workspace/game/foundation/map/geometry-event"
 
 const free = (zoneId: string): MapToken => ({
   zoneId,
@@ -772,5 +774,175 @@ describe("reduceMapInstance — reveal overlay", () => {
       connectionId: "conn-ab",
     })
     expect(locked.reveal.unlockedConnectionIds).toEqual([])
+  })
+})
+
+describe("reduceMapInstance — editGeometry (delegation)", () => {
+  const edit = (event: MapGeometryEvent) =>
+    ({ kind: "editGeometry", event }) as const
+
+  const base = () => makeMapInstanceState(twoZones())
+
+  const parityCases: MapGeometryEvent[] = [
+    { kind: "addZone", id: "zone-c", position: { x: 40, y: 80 } },
+    { kind: "renameZone", zoneId: "zone-a", name: "Atrium" },
+    {
+      kind: "setZoneText",
+      zoneId: "zone-a",
+      patch: { description: "A wide stone court.", dmNotes: "Trapdoor here." },
+    },
+    { kind: "moveZone", zoneId: "zone-b", position: { x: 200, y: 120 } },
+    {
+      kind: "addConnection",
+      id: "conn-x",
+      fromZoneId: "zone-a",
+      toZoneId: "zone-c",
+    },
+    {
+      kind: "setConnectionFlag",
+      connectionId: "conn-ab",
+      flag: "hidden",
+      value: true,
+    },
+    { kind: "deleteConnection", connectionId: "conn-ab" },
+  ]
+
+  it.each(parityCases)(
+    "applies $kind identically to reduceMapGeometry on the geometry slice",
+    (event) => {
+      const state = base()
+      const next = reduceInstance(state, edit(event))
+
+      expect(next.geometry).toEqual(reduceMapGeometry(state.geometry, event))
+    }
+  )
+
+  it("leaves occupancy, engagement and the rest of the state untouched", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-a") },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "renameZone", zoneId: "zone-a", name: "Atrium" })
+    )
+
+    expect(next.occupancy).toEqual(state.occupancy)
+  })
+
+  it("is a no-op (same ref) when the inner edit is a no-op", () => {
+    const state = base()
+
+    const unknownRename = reduceInstance(
+      state,
+      edit({ kind: "renameZone", zoneId: "ghost", name: "Nowhere" })
+    )
+    expect(unknownRename).toBe(state)
+
+    const emptyRename = reduceInstance(
+      state,
+      edit({ kind: "renameZone", zoneId: "zone-a", name: "   " })
+    )
+    expect(emptyRename).toBe(state)
+  })
+})
+
+describe("reduceMapInstance — editGeometry (Instance-only cascades)", () => {
+  const edit = (event: MapGeometryEvent) =>
+    ({ kind: "editGeometry", event }) as const
+
+  it("blocks deleting a Zone an occupancy token stands in (no-op)", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-a") },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next).toBe(state)
+  })
+
+  it("deletes an unoccupied Zone and cascades its connections", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-b") },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next.geometry.zones["zone-a"]).toBeUndefined()
+    expect(next.geometry.connections["conn-ab"]).toBeUndefined()
+  })
+
+  it("prunes the deleted Zone + its connections from the reveal overlay", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      reveal: {
+        revealedZoneIds: ["zone-a", "zone-b"],
+        revealedConnectionIds: ["conn-ab"],
+        unlockedConnectionIds: ["conn-ab"],
+      },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next.reveal.revealedZoneIds).toEqual(["zone-b"])
+    expect(next.reveal.revealedConnectionIds).toEqual([])
+    expect(next.reveal.unlockedConnectionIds).toEqual([])
+  })
+
+  it("clears the Enchantment when its Zone is deleted", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      enchantment: { zoneId: "zone-a", type: "toccata", forte: 1 },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next.enchantment).toBeNull()
+  })
+
+  it("keeps an Enchantment on a surviving Zone when another is deleted", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      enchantment: { zoneId: "zone-b", type: "toccata", forte: 2 },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteZone", zoneId: "zone-a" })
+    )
+
+    expect(next.enchantment).toEqual({
+      zoneId: "zone-b",
+      type: "toccata",
+      forte: 2,
+    })
+  })
+
+  it("prunes a deleted connection from the reveal overlay", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      reveal: {
+        revealedZoneIds: ["zone-a", "zone-b"],
+        revealedConnectionIds: ["conn-ab"],
+        unlockedConnectionIds: ["conn-ab"],
+      },
+    })
+    const next = reduceInstance(
+      state,
+      edit({ kind: "deleteConnection", connectionId: "conn-ab" })
+    )
+
+    expect(next.reveal.revealedConnectionIds).toEqual([])
+    expect(next.reveal.unlockedConnectionIds).toEqual([])
+    expect(next.reveal.revealedZoneIds).toEqual(["zone-a", "zone-b"])
   })
 })

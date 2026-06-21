@@ -6,6 +6,10 @@ import {
 } from "@workspace/game/foundation/combat/enchantment"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
 import type { Equals } from "@workspace/game/foundation/equals"
+import {
+  mapGeometryEventSchema,
+  type MapGeometryEvent,
+} from "@workspace/game/foundation/map/geometry-event"
 
 /**
  * The spatial event vocabulary {@link import("@workspace/game/engine") reduceMapInstance}
@@ -143,6 +147,26 @@ export type RevealEvent =
   | { kind: "lockConnection"; connectionId: string }
 
 /**
+ * In-console geometry edit (UNN-486) — the wrapper that lets the live Map Instance
+ * reuse the Map-**template**'s geometry-edit vocabulary
+ * ({@link MapGeometryEvent}). The reducer delegates the inner `event` to
+ * {@link import("@workspace/game/engine") reduceMapGeometry} over `state.geometry`,
+ * then reconciles the Instance-only overlays (`reveal`, `enchantment`) against the
+ * new geometry — e.g. a `deleteZone` drops the zone's fog entries and clears an
+ * Enchantment that sat on it.
+ *
+ * The DM's Edit-mode canvas dispatches these (add/move/rename/retext zones,
+ * draw/flag/delete connections); the legacy {@link ZoneGraphEvent} combat-setup
+ * protocol is deliberately kept separate (reworking that wire protocol is its own
+ * concern). Deleting a Zone that an occupancy token stands in is **blocked** (a
+ * no-op) — the DM relocates the party first.
+ */
+export type EditGeometryEvent = {
+  kind: "editGeometry"
+  event: MapGeometryEvent
+}
+
+/**
  * One spatial event applied to a {@link import("./map-instance").MapInstanceState}.
  * The discriminated union {@link import("@workspace/game/engine") reduceMapInstance}
  * dispatches over; its `kind`s stay in lockstep with that reducer's exhaustive
@@ -154,6 +178,7 @@ export type MapInstanceEvent =
   | EngagementEvent
   | EnchantmentEvent
   | RevealEvent
+  | EditGeometryEvent
 
 /**
  * Runtime validator for a {@link MapInstanceEvent} arriving over the wire — the
@@ -210,6 +235,10 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
     connectionId: z.string(),
   }),
   z.object({ kind: z.literal("lockConnection"), connectionId: z.string() }),
+  z.object({
+    kind: z.literal("editGeometry"),
+    event: mapGeometryEventSchema,
+  }),
 ])
 
 /**
@@ -244,6 +273,7 @@ export const MAP_INSTANCE_EVENT_KINDS = [
   "hideConnection",
   "unlockConnection",
   "lockConnection",
+  "editGeometry",
 ] as const
 
 const _mapInstanceEventKindsInSync: Equals<
