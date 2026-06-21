@@ -68,18 +68,65 @@ interface VersionTokenStore<Class extends string> {
   read(cls: Class): number
   bump(cls: Class, version: number): void                    // forward-only, monotonic
   forward(pinged: Partial<Record<Class, number>>): boolean   // absorb ping/broadcast → "fresher?"
-  snapshot(): Record<Class, number>                          // multi-class action payloads
+  ref(cls: Class): RefObject<number>                         // legacy bridge (see below)
+  // snapshot(): Record<Class, number>                       // Layer 3 — deferred (see below)
 }
+
+function createVersionTokenStore<Class extends string>(                 // pure, React-free
+  initial: Record<Class, number>,
+): VersionTokenStore<Class>
 
 function useVersionTokenStore<Class extends string>(
   serverVersions: Record<Class, number>,                     // prop-synced, forward-only
 ): VersionTokenStore<Class>
+
+// The open-key sibling façade (see the cardinality note below). Same forward-only
+// monotonic core; a different surface because the keyspace is dynamic.
+interface MonotonicVersionMap<K> {
+  read(key: K): number | undefined                           // undefined ⇒ never seen
+  bump(key: K, version: number): void                        // forward-only; creates if unseen
+  ref(key: K, seed: number): RefObject<number>               // bridge; getter falls back to seed
+}
+function useMonotonicVersionMap<K>(): MonotonicVersionMap<K>
 ```
 
 **Subsumes (precisely):** the four `useCharacterTokenRef` refs, their forward-only
 prop-sync, `mergePingedVersions`' forward-on-ping (→ `forward`), the dispatch's
-*bump-on-success* (→ `bump`), and the console's `pcVitalsVersions` map (→
-`Map<pcId, VersionTokenStore>`, preserving its lazy per-pc init).
+*bump-on-success* (→ the monotonic setter behind `ref`/`bump`), and the console's
+`pcVitalsVersions` map (→ `MonotonicVersionMap<pcId>` — see the cardinality note).
+
+**Three adjustments made during the UNN-374 implementation:**
+- **`snapshot()` is deferred to Layer 3, not shipped in this PR.** Its only consumers
+  are the cross-class level-up/rest payloads, which the migration table routes through
+  `useGatedAction` in Layer 3 — so shipping the method in Layer 1 would add interface
+  surface with zero callers (CLAUDE.md #4, "resist premature abstraction"). The type is
+  declared here as the north star; the implementation adds the method when its consumer
+  lands (with the must-not-change-level-up/rest-semantics guard test below). `read` /
+  `bump` / `forward` / `ref` all have real Layer-1 consumers.
+- **`ref(cls): RefObject<number>` is the legacy bridge** the `dispatchCharacterWriteWithRetry`
+  / `useDebouncedAutoSave` consumers need (their signatures still take a raw
+  `RefObject<number>` and are frozen in Layer 1). The adapter closes over the store —
+  getter is `read`, setter is the forward-only `bump` — so it is a view, not a snapshot.
+  Layer 2/3 retire it as those consumers move to `(tokens, class)` directly.
+- **The console gets `MonotonicVersionMap<pcId>`, not `Map<pcId, VersionTokenStore>`.**
+  The draft's parenthetical prescription was the wrong cardinality. `VersionTokenStore`
+  is a **closed**-key façade (a fixed set of classes, all present from birth; its
+  `forward` deliberately *skips unknown keys*). The console is the **opposite** shape: an
+  **open**, dynamic set of *entities* (PCs come and go) each tracking *one* token, where
+  the class dimension is degenerate (`"vitals"`) and "skip unknown keys" is actively wrong
+  (a foreign-PC ping should *create*, not be silently dropped). Wrapping the closed store
+  in a `Map` reproduced the read with awkward seed-on-create scaffolding and carried that
+  latent footgun. The fix is a **shared monotonic-forward core (`bumpToken` over a `Map`)
+  with two façades** keyed by cardinality: `VersionTokenStore<Class>` (closed; adds the
+  ping-shaped `forward`) and `MonotonicVersionMap<K>` (open; `read`/`bump`/`ref`, no
+  `forward`/class dimension). Both have real consumers today; zero duplicated invariant
+  logic. There are now three primitives by cardinality — `useMonotonicVersionRef` (1
+  token × 1 entity), `VersionTokenStore` (N fixed classes × 1 entity),
+  `MonotonicVersionMap` (1 class × N dynamic entities) — which is more coherent than
+  stretching the N×1 store over the 1×N case. (The console's per-PC token also has a
+  Layer-2/3 trajectory: its *write*-coordination half folds into a per-PC burst-write,
+  but its *ping-compare* half — console-level, spanning all PCs — survives as exactly this
+  `MonotonicVersionMap`, so the primitive is durable, not transient.)
 
 **Does NOT subsume — do not over-claim** (adversarial finding):
 - **The UNN-274 per-class *save-queue serialization*** is a separate concern (a

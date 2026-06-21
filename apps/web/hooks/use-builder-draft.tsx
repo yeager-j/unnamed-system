@@ -15,12 +15,12 @@ import type { BuilderCharacter } from "@/app/builder/[shortId]/_loader"
 import type { EditSurface } from "@/lib/db/version-classes"
 
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
-import { useCharacterTokenRef } from "./use-character-token-ref"
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveArgs,
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
+import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
 
 /**
  * The builder's draft context — the creation-time analogue of the sheet's
@@ -34,7 +34,7 @@ import {
  * `HydratedCharacter` — and its writes have no optimistic `reduceCharacter`
  * frame, so coupling creation to the live-sheet reducer would be wrong.
  * Instead it reuses the low-level primitives the builder already depends on
- * ({@link dispatchCharacterWriteWithRetry}, {@link useCharacterTokenRef}).
+ * ({@link dispatchCharacterWriteWithRetry}, {@link useMonotonicVersionRef}).
  *
  * Every builder edit surface maps to the `identity` version class, so the
  * provider holds a single identity version ref rather than the sheet's four.
@@ -70,7 +70,7 @@ export function BuilderDraftProvider({
   character: BuilderCharacter
   children: React.ReactNode
 }) {
-  const versionRef = useCharacterTokenRef(character.identityVersion)
+  const versionRef = useMonotonicVersionRef(character.identityVersion)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
   // No manual `useMemo` — React Compiler (UNN-241) memoizes this inline value

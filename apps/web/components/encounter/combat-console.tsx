@@ -68,7 +68,7 @@ export function CombatConsole({
     isPending,
     dispatch,
     endEncounter,
-    pcVitalsVersions,
+    pcVitals,
     onPcPing,
     view,
     currentActor,
@@ -229,7 +229,7 @@ export function CombatConsole({
         detail={selectedDetail}
         onClose={() => selectCombatant(null)}
         onCombatEvent={dispatch}
-        pcVitalsVersions={pcVitalsVersions}
+        pcVitals={pcVitals}
       />
     </main>
   )

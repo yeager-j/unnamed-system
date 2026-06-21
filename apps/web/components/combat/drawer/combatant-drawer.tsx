@@ -1,7 +1,6 @@
 "use client"
 
 import Image from "next/image"
-import type { RefObject } from "react"
 
 import { type CombatantDetail } from "@workspace/game/engine"
 import {
@@ -31,6 +30,7 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
+import { type MonotonicVersionMap } from "@/hooks/version-token-store"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
@@ -54,13 +54,13 @@ export function CombatantDrawer({
   detail,
   onClose,
   onCombatEvent,
-  pcVitalsVersions,
+  pcVitals,
 }: {
   detail: CombatantDetail | null
   onClose: () => void
   onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
-  /** The console-owned per-PC vitals tokens the pools writes share (UNN-373). */
-  pcVitalsVersions: RefObject<Record<string, number>>
+  /** The console-owned per-PC vitals token map the pools writes share (UNN-374). */
+  pcVitals: MonotonicVersionMap<string>
 }) {
   const shown = useLastPresent(detail)
   return (
@@ -72,7 +72,7 @@ export function CombatantDrawer({
         <DrawerBody
           detail={shown}
           onCombatEvent={onCombatEvent}
-          pcVitalsVersions={pcVitalsVersions}
+          pcVitals={pcVitals}
         />
       ) : null}
     </ResponsiveDialog>
@@ -82,11 +82,11 @@ export function CombatantDrawer({
 function DrawerBody({
   detail,
   onCombatEvent,
-  pcVitalsVersions,
+  pcVitals,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
-  pcVitalsVersions: RefObject<Record<string, number>>
+  pcVitals: MonotonicVersionMap<string>
 }) {
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
@@ -110,7 +110,7 @@ function DrawerBody({
         <CombatantVitalsSection
           detail={detail}
           onCombatEvent={onCombatEvent}
-          pcVitalsVersions={pcVitalsVersions}
+          pcVitals={pcVitals}
         />
         <CombatantConditionsSection
           detail={detail}

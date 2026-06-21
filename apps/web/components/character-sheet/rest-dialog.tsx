@@ -20,7 +20,7 @@ import {
 } from "@workspace/ui/components/tabs"
 
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { useCharacterTokenRef } from "@/hooks/use-character-token-ref"
+import { useMonotonicVersionRef } from "@/hooks/use-monotonic-version-ref"
 import {
   fullRestAction,
   partialRestAction,
@@ -62,7 +62,7 @@ export function RestDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const versionRef = useCharacterTokenRef(character.vitalsVersion)
+  const versionRef = useMonotonicVersionRef(character.vitalsVersion)
   const [pending, startTransition] = useTransition()
   const dice = getPathDice(character.pathChoice)
 
