@@ -34,6 +34,7 @@ import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { parseVersionPing } from "@/hooks/version-ping"
+import { useMonotonicVersionMap } from "@/hooks/version-token-store"
 import { endEncounterAction } from "@/lib/actions/encounter/end"
 import { endDungeonCombatAction } from "@/lib/actions/encounter/end-dungeon-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/encounter/end-dungeon-combat.schema"
@@ -77,8 +78,9 @@ import {
  * safe).
  *
  * **Realtime (UNN-373):** the hook also subscribes to the encounter's ping
- * channel and owns the per-PC `vitalsVersion` map the character-channel
- * listeners (mounted by the console root) and the drawer's pools writes share.
+ * channel and owns the per-PC `vitals` token stores (UNN-374) the
+ * character-channel listeners (mounted by the console root) and the drawer's
+ * pools writes share.
  * The encounter-ping handler only **schedules a refresh** — it never forwards
  * its version into the write ref. Forwarding it (the old bug, UNN-378) greenlit
  * an absolute-payload event at a version the client hadn't actually loaded yet,
@@ -136,20 +138,18 @@ export function useCombatConsole(
   const { versionRef, enqueue } = encounterWrite
 
   /**
-   * The tracked `vitalsVersion` per PC combatant — written by the drawer's
-   * pools writes and the ping compare, forward-only synced from the hydrated
-   * props (versions are monotonic, so `max` semantics can't regress a token
-   * the drawer already bumped ahead of an in-flight refresh).
+   * The per-PC `vitals` token map — written by the drawer's pools writes and the
+   * ping compare, forward-only synced from the hydrated props (the map is
+   * monotonic, so it can't regress a token the drawer already bumped ahead of an
+   * in-flight refresh). The keyspace (which PCs exist) is the hydrated props, so
+   * the console owns the prop-sync rather than the hook.
    */
-  const pcVitalsVersions = useRef<Record<string, number>>({})
+  const pcVitals = useMonotonicVersionMap<string>()
   useEffect(() => {
     for (const detail of Object.values(pcDetailById)) {
-      const known = pcVitalsVersions.current[detail.id]
-      if (known === undefined || detail.vitalsVersion > known) {
-        pcVitalsVersions.current[detail.id] = detail.vitalsVersion
-      }
+      pcVitals.bump(detail.id, detail.vitalsVersion)
     }
-  }, [pcDetailById])
+  }, [pcDetailById, pcVitals])
 
   const refreshScheduled = useRef(false)
   function scheduleRefresh() {
@@ -182,12 +182,9 @@ export function useCombatConsole(
   function onPcPing(characterId: string, data: unknown) {
     const versions = parseCharacterPing(data)
     if (!versions) return
-    const decision = decidePcPing(
-      versions,
-      pcVitalsVersions.current[characterId]
-    )
+    const decision = decidePcPing(versions, pcVitals.read(characterId))
     if (decision.nextVitals !== undefined) {
-      pcVitalsVersions.current[characterId] = decision.nextVitals
+      pcVitals.bump(characterId, decision.nextVitals)
     }
     if (decision.refresh) scheduleRefresh()
   }
@@ -336,7 +333,7 @@ export function useCombatConsole(
     isPending,
     dispatch,
     endEncounter,
-    pcVitalsVersions,
+    pcVitals,
     onPcPing,
     // derived combat view
     view,

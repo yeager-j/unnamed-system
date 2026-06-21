@@ -2,7 +2,7 @@
 
 import { HeartIcon, LightningIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useTransition, type RefObject } from "react"
+import { useTransition } from "react"
 import { toast } from "sonner"
 
 import { type CombatantDetail, type Pool } from "@workspace/game/engine"
@@ -18,6 +18,7 @@ import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
 import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
+import { type MonotonicVersionMap } from "@/hooks/version-token-store"
 import {
   damageAction,
   healAction,
@@ -41,17 +42,17 @@ type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>
 export function CombatantVitalsSection({
   detail,
   onCombatEvent,
-  pcVitalsVersions,
+  pcVitals,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent) => void
-  /** The console-owned per-PC vitals tokens the pools writes share (UNN-373). */
-  pcVitalsVersions: RefObject<Record<string, number>>
+  /** The console-owned per-PC vitals token map the pools writes share (UNN-374). */
+  pcVitals: MonotonicVersionMap<string>
 }) {
   return (
     <DetailSection title="Vitals">
       {detail.kind === "pc" ? (
-        <PcVitals detail={detail} pcVitalsVersions={pcVitalsVersions} />
+        <PcVitals detail={detail} pcVitals={pcVitals} />
       ) : (
         <EnemyVitals
           detail={detail}
@@ -90,33 +91,23 @@ function poolErrorMessage(error: AdjustPoolActionError): string {
  * lacked.
  *
  * The console has no `CharacterProvider`, so the per-write-class `versionRef` the
- * pipeline needs is a thin adapter over the console-owned `pcVitalsVersions` map
- * (UNN-373): reading falls back to the hydrated prop for a PC the map hasn't seen
- * yet, and the pipeline's success/pre-retry bumps write straight back into the
- * map — so the realtime ping compare and these writes keep sharing the *same*
+ * pipeline needs comes from the console-owned per-PC `vitals` token map
+ * (UNN-373/374): `pcVitals.ref(characterId, vitalsVersion)` exposes it as a
+ * `RefObject<number>` — reading falls back to the prop seed for a PC not yet
+ * seen, and the pipeline's success/pre-retry bumps write straight back into the
+ * map, so the realtime ping compare and these writes keep sharing the *same*
  * token (echo pings stay deduped). The map is prop-synced forward-only by
  * `useCombatConsole`.
  */
 function PcVitals({
   detail,
-  pcVitalsVersions,
+  pcVitals,
 }: {
   detail: PcDetail
-  pcVitalsVersions: RefObject<Record<string, number>>
+  pcVitals: MonotonicVersionMap<string>
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-
-  const versionRef: RefObject<number> = {
-    get current() {
-      return (
-        pcVitalsVersions.current[detail.characterId] ?? detail.vitalsVersion
-      )
-    },
-    set current(version: number) {
-      pcVitalsVersions.current[detail.characterId] = version
-    },
-  }
 
   function run(
     action: (input: {
@@ -126,6 +117,7 @@ function PcVitals({
     }) => Promise<Result<{ version: number }, AdjustPoolActionError>>,
     amount: number
   ) {
+    const versionRef = pcVitals.ref(detail.characterId, detail.vitalsVersion)
     startTransition(async () => {
       const result = await dispatchCharacterWriteWithRetry({
         characterId: detail.characterId,

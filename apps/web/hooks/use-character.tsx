@@ -25,12 +25,10 @@ import {
 import { reduceCharacter } from "@/lib/game-engine"
 
 import {
-  mergePingedVersions,
   parseCharacterPing,
   type PingedVersions,
 } from "./character-version-sync"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
-import { useCharacterTokenRef } from "./use-character-token-ref"
 import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
 import {
   useDebouncedAutoSave,
@@ -38,6 +36,10 @@ import {
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
 import { useRealtimeChannel } from "./use-realtime-channel"
+import {
+  useVersionTokenStore,
+  type VersionTokenStore,
+} from "./version-token-store"
 
 /**
  * The single client-side source of truth for the character sheet. The provider
@@ -75,11 +77,17 @@ const CharacterContext = createContext<HydratedCharacter | null>(null)
 interface CharacterEditor {
   characterId: string
   applyEdit: (edit: CharacterEdit) => void
-  versionRefs: Record<VersionClass, RefObject<number>>
+  /**
+   * The per-write-class version tokens (UNN-140), consolidated into one
+   * {@link VersionTokenStore} (UNN-374): owner writes read/bump a class's token
+   * via {@link VersionTokenStore.ref}, and the realtime handlers forward a ping
+   * through {@link VersionTokenStore.forward}.
+   */
+  tokens: VersionTokenStore<VersionClass>
   /**
    * Per-write-class save queues (UNN-274): one promise chain per class so
    * same-class debounced fields serialize their saves and each reads the
-   * freshly-bumped {@link versionRefs} token instead of colliding at the stale
+   * freshly-bumped {@link tokens} token instead of colliding at the stale
    * pre-bump version. Threaded into {@link useDebouncedAutoSave} by
    * {@link useCharacterAutoSave}.
    */
@@ -103,10 +111,12 @@ export function CharacterProvider({
       reduceCharacter(current, edit)
   )
 
-  const identityRef = useCharacterTokenRef(character.identityVersion)
-  const vitalsRef = useCharacterTokenRef(character.vitalsVersion)
-  const inventoryRef = useCharacterTokenRef(character.inventoryVersion)
-  const progressionRef = useCharacterTokenRef(character.progressionVersion)
+  const tokens = useVersionTokenStore<VersionClass>({
+    identity: character.identityVersion,
+    vitals: character.vitalsVersion,
+    inventory: character.inventoryVersion,
+    progression: character.progressionVersion,
+  })
 
   const identityQueue = useRef<Promise<void>>(Promise.resolve())
   const vitalsQueue = useRef<Promise<void>>(Promise.resolve())
@@ -116,12 +126,7 @@ export function CharacterProvider({
   const editor: CharacterEditor = {
     characterId: character.id,
     applyEdit,
-    versionRefs: {
-      identity: identityRef,
-      vitals: vitalsRef,
-      inventory: inventoryRef,
-      progression: progressionRef,
-    },
+    tokens,
     saveQueues: {
       identity: identityQueue,
       vitals: vitalsQueue,
@@ -135,7 +140,7 @@ export function CharacterProvider({
   // refs are already current (the writer itself, or a tab the other transport
   // reached first) skips the redundant refresh.
   function applyRemoteVersions(versions: PingedVersions) {
-    if (mergePingedVersions(versions, editor.versionRefs)) router.refresh()
+    if (tokens.forward(versions)) router.refresh()
   }
 
   useCharacterVersionBroadcast(character.id, applyRemoteVersions)
@@ -194,7 +199,7 @@ export function useCharacterAutoSave<TValue, TError extends string>(
   const characterClass = EDIT_SURFACE_CLASS[args.surface]
   return useDebouncedAutoSave({
     ...args,
-    versionRef: editor.versionRefs[characterClass],
+    versionRef: editor.tokens.ref(characterClass),
     saveQueueRef: editor.saveQueues[characterClass],
   })
 }
@@ -241,7 +246,7 @@ export function useCharacterWrite() {
   if (!editor) {
     throw new Error("useCharacterWrite must be used within a CharacterProvider")
   }
-  const { characterId, applyEdit, versionRefs } = editor
+  const { characterId, applyEdit, tokens } = editor
   const [pending, startTransition] = useTransition()
 
   function write<TSuccess extends { version: number }, TError extends string>({
@@ -257,7 +262,7 @@ export function useCharacterWrite() {
       const result = await dispatchCharacterWriteWithRetry({
         characterId,
         surface,
-        versionRef: versionRefs[characterClass],
+        versionRef: tokens.ref(characterClass),
         action,
       })
       if (result.ok) return

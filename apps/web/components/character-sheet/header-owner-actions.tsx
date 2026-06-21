@@ -58,12 +58,14 @@ import {
  * dialogs directly. Both branches dispatch through the same handlers; only
  * the chrome differs.
  *
- * Two independent write classes share this affordance: HP/SP are
- * vitals-class (one {@link useCharacterTokenRef} on `vitalsVersion` and one
- * optimistic state); Victories ± is progression-class (its own ref + its
- * own optimistic counter). Server `revalidateCharacter` is the source of
- * truth on success; the optimistic state here only covers the in-flight
- * frame and keeps disabled-by-zero correct under rapid clicks.
+ * Two independent write classes share this affordance: HP/SP are vitals-class
+ * (a `pools`-surface {@link useCharacterWrite}, riding the provider's shared
+ * `vitals` token); Victories ± is progression-class (its own
+ * {@link useCharacterWrite} on the `progression` token). Each keeps its own
+ * `pending` so a Victories click doesn't disable Adjust HP. Server
+ * `revalidateCharacter` is the source of truth on success; the optimistic state
+ * here only covers the in-flight frame and keeps disabled-by-zero correct under
+ * rapid clicks.
  */
 
 /** The slot a mobile dropdown-menu item routes an "Adjust" choice into. */

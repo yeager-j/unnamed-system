@@ -35,9 +35,10 @@ import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
  * way `useCharacterWrite` / `useBuilderWrite` wrap the click-write dispatch.
  * Because every same-class field reads and writes that one ref (UNN-274), a
  * sibling field's successful bump is visible in the same frame — no waiting on
- * the `revalidate → prop-sync` round-trip. The provider keeps the ref synced
- * from the server prop (`useCharacterTokenRef`) as the fallback for cross-tab /
- * external bumps.
+ * the `revalidate → prop-sync` round-trip. The provider keeps the token synced
+ * from the server prop — the sheet's
+ * {@link import("./version-token-store").VersionTokenStore}, the builder's
+ * {@link useMonotonicVersionRef} — as the fallback for cross-tab / external bumps.
  *
  * Saves are serialized via a promise chain (`saveQueueRef`): when a save is
  * dispatched while another is in flight, it chains behind the in-flight one
@@ -251,7 +252,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   // only, and lets the unmount cleanup read fresh `value`, `isEmpty`,
   // `isEqual`, and `performSave` without re-running every render. The version
   // token is *not* synced here: the shared `versionRef` is owned by the
-  // provider's `useCharacterTokenRef`, so this hook only reads it (UNN-274).
+  // provider's version-token store, so this hook only reads it (UNN-274).
   const syncFromServer = useEffectEvent(() => {
     if (!focusedRef.current) {
       setLocalValue(serverValue)

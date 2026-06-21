@@ -12,11 +12,12 @@ import type { PingedVersions } from "./character-version-sync"
  *
  * Since UNN-372 the message carries the bumped *versions* (not just the
  * classes) and the receiver routes them through the same shared
- * version-compare the Ably ping uses (`mergePingedVersions` in the
- * `CharacterProvider`), instead of unconditionally refreshing. Whichever
- * transport reaches a sibling tab first forwards its refs; the other then
- * sees nothing fresher and no-ops — no double `router.refresh()`. This
- * channel remains the cross-tab fallback when realtime is unavailable.
+ * version-compare the Ably ping uses (`CharacterProvider`'s
+ * {@link import("./version-token-store").VersionTokenStore} `forward`), instead
+ * of unconditionally refreshing. Whichever transport reaches a sibling tab first
+ * forwards its tokens; the other then sees nothing fresher and no-ops — no double
+ * `router.refresh()`. This channel remains the cross-tab fallback when realtime
+ * is unavailable.
  *
  * Same-tab echoes are filtered by `TAB_ID`: BroadcastChannel does not
  * deliver to the sending channel instance, but it *does* deliver to other
