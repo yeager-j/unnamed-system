@@ -22,6 +22,12 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game/foundation"
 
+import {
+  dispatchCombatEvent,
+  reduceInstanceOptimistic,
+} from "@/components/combat/console/dispatch-event"
+import { decidePcPing } from "@/components/combat/console/pc-ping"
+import { type ConsolePhase } from "@/components/combat/turn-order-strip"
 import { parseCharacterPing } from "@/hooks/character-version-sync"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
@@ -36,13 +42,6 @@ import {
   reduceCombatSession,
   resolveCatalogEnemyStatblocks,
 } from "@/lib/game-engine"
-
-import {
-  dispatchCombatEvent,
-  reduceInstanceOptimistic,
-} from "./dispatch-combat-event"
-import { decidePcPing } from "./pc-ping"
-import { type ConsolePhase } from "./turn-order-strip"
 
 /**
  * The live DM console's owner-mode write surface (UNN-344 / UNN-459) — the

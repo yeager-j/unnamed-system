@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { decidePcPing } from "./pc-ping"
+import { decidePcPing } from "@/components/combat/console/pc-ping"
 
 describe("decidePcPing", () => {
   it("refreshes and forwards on a fresher vitals version", () => {

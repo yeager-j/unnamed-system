@@ -21,7 +21,7 @@ import { CharacterProvider } from "@/hooks/use-character"
  * — `SheetHeader` plus the reference (Virtues, Talents) and story
  * ({@link ExploreSections}) the public `/c/{shortId}` Explore tab renders —
  * wrapped in **owner mode** so the player keeps their identity/progression
- * editable here, mirroring how {@link import("@/components/combat/watch-sheet-column").WatchSheetColumn}
+ * editable here, mirroring how {@link import("@/components/combat/watch/combat-sheet-column").CombatSheetColumn}
  * composes the combat sheet column. The full {@link
  * import("@/components/character-sheet/explore/explore-tab").ExploreTab} root is
  * deliberately *not* reused: its sticky rail + window-scroll jump-nav don't fit

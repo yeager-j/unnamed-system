@@ -12,8 +12,8 @@ import { type HydratedCharacter } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { WatchSheetColumn } from "@/components/combat/watch-sheet-column"
-import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch-sheet-refresh"
+import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
+import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
 import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
@@ -171,7 +171,7 @@ export function DungeonWatch({
           ) : null}
           {combat && hasOwnSheets ? (
             <WatchSplit canvas={fogCanvas}>
-              <CombatSheetColumn
+              <LiveCombatSheetColumn
                 encounterShortId={combat.encounterShortId}
                 initialEncounterSnapshot={initialEncounterSnapshot}
                 ownedSheets={ownedSheets}
@@ -193,7 +193,7 @@ export function DungeonWatch({
 /**
  * The watch's split layout while a viewer has their own sheet(s) to show: the
  * sheet column (scrolling on its own at `lg`) beside the fog map (2/3). Shared
- * by the combat ({@link CombatSheetColumn}) and exploration
+ * by the combat ({@link LiveCombatSheetColumn}) and exploration
  * ({@link DungeonExploreSheetColumn}) branches so they read identically.
  */
 function WatchSplit({
@@ -216,12 +216,12 @@ function WatchSplit({
 /**
  * The own-sheet column during dungeon combat — it owns a live
  * {@link useEncounterSnapshot} subscription (the combatant overlay + round the
- * shared {@link WatchSheetColumn} renders), so the player manages their session
+ * shared {@link CombatSheetColumn} renders), so the player manages their session
  * conditions in place exactly as on the encounter watch. Mounted only when the
  * viewer owns combatant(s) here, so the encounter subscription is paid only by
  * those who need it.
  */
-function CombatSheetColumn({
+function LiveCombatSheetColumn({
   encounterShortId,
   initialEncounterSnapshot,
   ownedSheets,
@@ -238,7 +238,7 @@ function CombatSheetColumn({
   // and keeps the owned sheets' skill scaling fresh when a Zone Enchantment changes.
   useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
 
-  return <WatchSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
+  return <CombatSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
 }
 
 function WaitingState() {

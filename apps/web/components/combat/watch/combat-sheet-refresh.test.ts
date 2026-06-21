@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { type PlayerVisibleCombatant } from "@workspace/game/engine"
 import { type ZoneEnchantment } from "@workspace/game/foundation"
 
-import { ownedSheetZoneEffectsKey } from "./watch-sheet-refresh"
+import { ownedSheetZoneEffectsKey } from "@/components/combat/watch/combat-sheet-refresh"
 
 /**
  * The refresh trigger fires exactly when this key changes, so the cases pin

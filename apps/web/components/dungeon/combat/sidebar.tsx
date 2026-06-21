@@ -4,7 +4,7 @@ import { type RosterView } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
 
-import { CombatantRail } from "@/components/combat/combatant-rail"
+import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { DungeonSidebarHeader } from "@/components/dungeon/shell/sidebar-header"
 
 /**

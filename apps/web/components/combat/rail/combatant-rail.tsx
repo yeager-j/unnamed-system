@@ -4,9 +4,8 @@ import { CaretDoubleDownIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { type RailRow, type RosterView } from "@workspace/game/engine"
 
+import { CombatantRailRow } from "@/components/combat/rail/row"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
-
-import { CombatantRailRow } from "./combatant-rail-row"
 
 /**
  * The console's left **combatant rail** (UNN-345): PLAYERS and ENEMIES groups

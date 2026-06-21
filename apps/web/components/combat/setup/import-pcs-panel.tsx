@@ -5,9 +5,8 @@ import { CheckIcon, PlusIcon } from "@phosphor-icons/react/dist/ssr"
 import { archetypeDisplayName } from "@workspace/game/data"
 import { Button } from "@workspace/ui/components/button"
 
+import { SetupPanelStub } from "@/components/combat/setup/panels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-
-import { SetupPanelStub } from "./setup-panels"
 
 /**
  * The Import-PCs setup panel (UNN-298): the campaign's *placed* characters, each

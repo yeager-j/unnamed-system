@@ -24,6 +24,7 @@ import {
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
 
+import { SideToggle } from "@/components/combat/controls/side-toggle"
 import {
   COMBAT_ADVANTAGE_SETUP_HINTS,
   COMBAT_ADVANTAGE_SETUP_LABELS,
@@ -31,8 +32,6 @@ import {
   COMBAT_FIRST_SIDE_TIE_HINT,
   COMBAT_SIDE_LABELS,
 } from "@/lib/ui/labels"
-
-import { SideToggle } from "./side-toggle"
 
 /** Display order for the advantage options (neutral in the middle as the
  *  default / common case). */

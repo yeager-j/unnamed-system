@@ -12,7 +12,7 @@ import {
 } from "@workspace/ui/components/select"
 import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
 
-import { ImportPcsPanel } from "@/components/combat/import-pcs-panel"
+import { ImportPcsPanel } from "@/components/combat/setup/import-pcs-panel"
 import { DungeonSidebarHeader } from "@/components/dungeon/shell/sidebar-header"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 

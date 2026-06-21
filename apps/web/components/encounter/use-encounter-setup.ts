@@ -12,7 +12,7 @@ import {
 import {
   dispatchCombatEvent,
   reduceInstanceOptimistic,
-} from "@/components/combat/dispatch-combat-event"
+} from "@/components/combat/console/dispatch-event"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"

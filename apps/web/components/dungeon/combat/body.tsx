@@ -8,9 +8,9 @@ import {
 } from "@workspace/game/engine"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
-import { CombatantDrawer } from "@/components/combat/combatant-drawer"
-import { EndOfTurnModal } from "@/components/combat/end-of-turn-modal"
-import { useCombatConsole } from "@/components/combat/use-combat-console"
+import { useCombatConsole } from "@/components/combat/console/use-combat-console"
+import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
+import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import { DungeonCanvas } from "@/components/dungeon/canvas/canvas"
 import { DungeonCombatCanvasProvider } from "@/components/dungeon/canvas/combat/context"
 import { CombatSpinePanel } from "@/components/dungeon/canvas/combat/spine-panel"
