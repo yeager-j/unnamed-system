@@ -4,7 +4,7 @@ import { cache } from "react"
 
 import { type EncounterSnapshot } from "@workspace/game/engine"
 
-import { EncounterWatch } from "@/components/combat/encounter-watch"
+import { EncounterWatch } from "@/components/encounter/encounter-watch"
 import { auth } from "@/lib/auth"
 import {
   getEncounterSnapshot,

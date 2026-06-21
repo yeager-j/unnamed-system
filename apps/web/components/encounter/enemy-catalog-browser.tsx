@@ -13,11 +13,10 @@ import { toast } from "sonner"
 import { type CombatantSetup } from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
+import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import { addSetupCombatantsAction } from "@/lib/actions/encounter/setup"
-
-import { EnemyCatalogPanel } from "./enemy-catalog-panel"
 
 /**
  * The catalog browse-and-add surface (UNN-346): a three-column master-detail
