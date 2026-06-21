@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest"
 
-import { enemyStatblocks } from "@workspace/game/engine/__fixtures__/encounter"
+import {
+  enemyStatblocks,
+  makeConnection,
+  makeEncounter,
+  makeGeometry,
+  makeZone,
+} from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
 import { ENCHANTMENTS_BY_TYPE } from "@workspace/game/engine/encounter/enchantment"
 import { resolveZoneLayout } from "@workspace/game/engine/encounter/resolve-zone-layout"
 import type { PcCombatantDetail } from "@workspace/game/engine/encounter/roster-view"
-import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
+import { type MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
 
 /** A fixture catalog whose "goblin" carries the name the token resolver reads —
@@ -18,23 +24,24 @@ const CATALOG = makeTestGameData({
 const sb = (combatants: Parameters<typeof enemyStatblocks>[0]) =>
   enemyStatblocks(combatants, CATALOG)
 
-function sequentialIds() {
-  let n = 0
-  return () => `c-${n++}`
-}
+const GEOMETRY = makeGeometry(
+  [
+    makeZone("zone-a", { name: "Courtyard" }),
+    makeZone("zone-b", { name: "Hall" }),
+  ],
+  [makeConnection("conn-ab", "zone-a", "zone-b")]
+)
 
-/** A session seeded with two adjacent zones (`zone-a` ↔ `zone-b`) and the given
- *  combatant roster, built through the constructor so ids are deterministic. */
-function sessionWith(roster: CombatantSetup[]) {
-  const base = createCombatSession(sequentialIds())(roster)
-  return {
-    ...base,
-    zones: {
-      "zone-a": { id: "zone-a", name: "Courtyard" },
-      "zone-b": { id: "zone-b", name: "Hall" },
-    },
-    adjacency: { "zone-a": ["zone-b"], "zone-b": ["zone-a"] },
-  }
+/** A session + Instance seeded with two adjacent zones (`zone-a` ↔ `zone-b`) and
+ *  the given roster placed onto the Instance occupancy. */
+function setupWith(
+  roster: CombatantSetup[],
+  instanceOverrides: Partial<MapInstanceState> = {}
+) {
+  return makeEncounter(roster, {
+    geometry: GEOMETRY,
+    ...instanceOverrides,
+  })
 }
 
 const PC_DETAIL: Record<string, PcCombatantDetail> = {
@@ -55,9 +62,17 @@ function goblin(zoneId: string): CombatantSetup {
 
 describe("resolveZoneLayout", () => {
   it("groups combatants under the zone their zoneId references", () => {
-    const session = sessionWith([pc("char1", "zone-a"), goblin("zone-b")])
+    const { session, instance } = setupWith([
+      pc("char1", "zone-a"),
+      goblin("zone-b"),
+    ])
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     const courtyard = view.zones.find((z) => z.id === "zone-a")!
     const hall = view.zones.find((z) => z.id === "zone-b")!
@@ -66,9 +81,14 @@ describe("resolveZoneLayout", () => {
   })
 
   it("resolves each zone's adjacency to display names", () => {
-    const session = sessionWith([])
+    const { session, instance } = setupWith([])
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     expect(
       view.zones.find((z) => z.id === "zone-a")!.adjacentZoneNames
@@ -79,19 +99,31 @@ describe("resolveZoneLayout", () => {
   })
 
   it("buckets unplaced (empty zoneId) and stale-zone combatants into unplaced", () => {
-    const session = sessionWith([pc("char1", ""), goblin("zone-gone")])
+    const { session, instance } = setupWith([
+      pc("char1", ""),
+      goblin("zone-gone"),
+    ])
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     expect(view.unplaced.map((c) => c.name)).toEqual(["Brannis", "Goblin"])
     expect(view.zones.every((z) => z.combatants.length === 0)).toBe(true)
   })
 
   it("shapes the token's side, isPc, and portrait", () => {
-    const session = sessionWith([pc("char1", "zone-a"), goblin("zone-a")])
+    const { session, instance } = setupWith([
+      pc("char1", "zone-a"),
+      goblin("zone-a"),
+    ])
 
     const tokens = resolveZoneLayout(
       session,
+      instance,
       PC_DETAIL,
       sb(session.combatants)
     ).zones.find((z) => z.id === "zone-a")!.combatants
@@ -111,9 +143,14 @@ describe("resolveZoneLayout", () => {
   })
 
   it("reports hasZones false and everyone unplaced for an unzoned encounter", () => {
-    const session = createCombatSession(sequentialIds())([pc("char1", "")])
+    const { session, instance } = makeEncounter([pc("char1", "")])
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     expect(view.hasZones).toBe(false)
     expect(view.zones).toEqual([])
@@ -121,19 +158,28 @@ describe("resolveZoneLayout", () => {
   })
 
   it("reports hasZones true and no unplaced when every combatant is in a real zone", () => {
-    const session = sessionWith([pc("char1", "zone-a"), goblin("zone-b")])
+    const { session, instance } = setupWith([
+      pc("char1", "zone-a"),
+      goblin("zone-b"),
+    ])
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     expect(view.hasZones).toBe(true)
     expect(view.unplaced).toEqual([])
   })
 
   it("renders a PC with no detail entry with a null portrait (detail miss is safe)", () => {
-    const session = sessionWith([pc("char-unknown", "zone-a")])
+    const { session, instance } = setupWith([pc("char-unknown", "zone-a")])
 
     const token = resolveZoneLayout(
       session,
+      instance,
       PC_DETAIL,
       sb(session.combatants)
     ).zones.find((z) => z.id === "zone-a")!.combatants[0]!
@@ -142,17 +188,25 @@ describe("resolveZoneLayout", () => {
     expect(token.portraitUrl).toBeNull()
   })
 
-  it("is undefined-safe when an adjacency entry points at a removed zone", () => {
-    const session = sessionWith([])
-    const withDangling = {
-      ...session,
-      adjacency: { "zone-a": ["zone-b", "ghost"], "zone-b": ["zone-a"] },
-    }
+  it("is undefined-safe when a connection points at a removed zone", () => {
+    const { session, instance } = setupWith([], {
+      geometry: makeGeometry(
+        [
+          makeZone("zone-a", { name: "Courtyard" }),
+          makeZone("zone-b", { name: "Hall" }),
+        ],
+        [
+          makeConnection("conn-ab", "zone-a", "zone-b"),
+          makeConnection("conn-ag", "zone-a", "ghost"),
+        ]
+      ),
+    })
 
     const view = resolveZoneLayout(
-      withDangling,
+      session,
+      instance,
       PC_DETAIL,
-      sb(withDangling.combatants)
+      sb(session.combatants)
     )
 
     expect(
@@ -161,12 +215,16 @@ describe("resolveZoneLayout", () => {
   })
 
   it("badges the Enchanted Zone with its name, Forte marking, and rule lines — others stay bare", () => {
-    const session = {
-      ...sessionWith([]),
-      enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 } as const,
-    }
+    const { session, instance } = setupWith([], {
+      enchantment: { zoneId: "zone-a", type: "toccata", forte: 2 },
+    })
 
-    const view = resolveZoneLayout(session, PC_DETAIL, sb(session.combatants))
+    const view = resolveZoneLayout(
+      session,
+      instance,
+      PC_DETAIL,
+      sb(session.combatants)
+    )
 
     expect(view.zones.find((z) => z.id === "zone-a")!.enchantment).toEqual({
       type: "toccata",

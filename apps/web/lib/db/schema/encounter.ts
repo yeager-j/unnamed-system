@@ -8,6 +8,7 @@ import {
 } from "@workspace/game/foundation"
 
 import { campaigns } from "./campaign"
+import { mapInstances } from "./map-instance"
 
 /**
  * An encounter is a run of the initiative tracker inside a campaign. Its whole
@@ -20,6 +21,13 @@ import { campaigns } from "./campaign"
  * `shortId` backs the signed-out-visible player watch view; `status` gates the
  * single-live-encounter-per-campaign rule (enforced app-side, UNN-302).
  * {@link EncounterStatus} is owned by the game domain (`@workspace/game/foundation`).
+ *
+ * `mapInstanceId` references the encounter's spatial truth — the
+ * {@link mapInstances} row that owns zones/occupancy/engagement/enchantment
+ * (Dungeon Map ADR). The cutover (UNN-459) relocated the session's spatial fields
+ * onto the Instance and flipped this **non-null**: every encounter mints an
+ * Instance at create (the `restrict` FK keeps a referenced Instance alive; its
+ * cleanup is app-managed — see `deleteCampaign`).
  */
 export const encounters = pgTable("encounter", {
   id: text("id")
@@ -31,6 +39,11 @@ export const encounters = pgTable("encounter", {
     .references(() => campaigns.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   notes: text("notes"),
+  mapInstanceId: text("mapInstanceId")
+    .notNull()
+    .references(() => mapInstances.id, {
+      onDelete: "restrict",
+    }),
   status: text("status").$type<EncounterStatus>().notNull().default("draft"),
   session: jsonb("session").$type<CombatSession>().notNull(),
   version: integer("version").notNull().default(0),

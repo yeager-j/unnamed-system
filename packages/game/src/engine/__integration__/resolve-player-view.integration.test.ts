@@ -58,6 +58,7 @@ function snapshot(
     name: "Test",
     campaignShortId: "camp-1",
     version: 1,
+    instanceVersion: 1,
     round: 1,
     currentActor: null,
     combatants,

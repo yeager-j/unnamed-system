@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 
-import { parseEncounterPing } from "@/hooks/encounter-ping"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
+import { parseVersionPing } from "@/hooks/version-ping"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
@@ -36,8 +36,11 @@ export function EncounterStatusListener({
   }, [encounters])
 
   function onPing(shortId: string, data: unknown) {
-    const status = parseEncounterPing(data)?.status
-    if (status === undefined) return
+    // Only `encounter`-kind pings carry a status; a `mapInstance` ping (a combat
+    // move) has none, so it is ignored here — the banner only flips on lifecycle.
+    // Narrow the cross-layer status union back to this channel's EncounterStatus.
+    const status = parseVersionPing(data, "encounter")?.status
+    if (status === undefined || status === "active" || status === "done") return
     if (knownStatuses.current[shortId] === status) return
     knownStatuses.current[shortId] = status
     router.refresh()

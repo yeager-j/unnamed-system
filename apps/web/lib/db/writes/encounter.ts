@@ -7,7 +7,7 @@ import {
   type Result,
 } from "@workspace/game/foundation"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertWithShortId } from "@/lib/db/short-id"
@@ -30,19 +30,34 @@ import { insertWithShortId } from "@/lib/db/short-id"
 export type EncounterWriteError = "encounter-not-found" | "stale"
 
 /**
- * Inserts a fresh `draft` encounter (version 0) for `campaignId` with a minted,
+ * Inserts a fresh encounter (version 0) for `campaignId` with a minted,
  * collision-retried `shortId`, and returns its `id` + `shortId`. The combatant
  * roster is whatever the caller built (UNN-298/300/301); this layer just
- * persists the assembled session.
+ * persists the assembled session. `mapInstanceId` references the Instance the
+ * create action mints in the same transaction (UNN-459 — the column is non-null,
+ * so every encounter is born with its spatial truth); pass the same `executor`
+ * so the two inserts share one snapshot.
+ *
+ * `status` defaults to `draft` — the encounter-setup flow's starting state. The
+ * **dungeon** combat path (UNN-467) passes `"live"` to insert an
+ * already-running encounter on the delve's shared Instance: it has no setup step
+ * of its own (combatants are staged client-side and committed at "Begin"), so
+ * there is no `draft` to flip from, and creating-already-live keeps the gesture a
+ * single atomic write.
  */
-export async function createEncounter(input: {
-  campaignId: string
-  name: string
-  notes?: string | null
-  session: CombatSession
-}): Promise<{ id: string; shortId: string }> {
+export async function createEncounter(
+  input: {
+    campaignId: string
+    name: string
+    notes?: string | null
+    session: CombatSession
+    mapInstanceId: string
+    status?: EncounterStatus
+  },
+  executor: WriteExecutor = db
+): Promise<{ id: string; shortId: string }> {
   return insertWithShortId(async (shortId) => {
-    const [row] = await db
+    const [row] = await executor
       .insert(encounters)
       .values({
         campaignId: input.campaignId,
@@ -50,6 +65,8 @@ export async function createEncounter(input: {
         notes: input.notes ?? null,
         shortId,
         session: input.session,
+        mapInstanceId: input.mapInstanceId,
+        status: input.status ?? "draft",
       })
       .returning({ id: encounters.id, shortId: encounters.shortId })
 
@@ -65,9 +82,12 @@ export async function createEncounter(input: {
 export async function saveEncounterSession(
   encounterId: string,
   session: CombatSession,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  return bumpEncounterVersionGuarded(encounterId, expectedVersion, { session })
+  return bumpEncounterVersionGuarded(executor, encounterId, expectedVersion, {
+    session,
+  })
 }
 
 /**
@@ -79,9 +99,12 @@ export async function saveEncounterSession(
 export async function setEncounterStatus(
   encounterId: string,
   status: EncounterStatus,
-  expectedVersion: number
+  expectedVersion: number,
+  executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  return bumpEncounterVersionGuarded(encounterId, expectedVersion, { status })
+  return bumpEncounterVersionGuarded(executor, encounterId, expectedVersion, {
+    status,
+  })
 }
 
 /**
@@ -92,11 +115,12 @@ export async function setEncounterStatus(
  * (row gone) via {@link encounterExists}.
  */
 async function bumpEncounterVersionGuarded(
+  executor: WriteExecutor,
   encounterId: string,
   expectedVersion: number,
   patch: Partial<typeof encounters.$inferInsert>
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  const updated = await db
+  const updated = await executor
     .update(encounters)
     .set({ ...patch, version: sql`${encounters.version} + 1` })
     .where(
@@ -108,7 +132,7 @@ async function bumpEncounterVersionGuarded(
     .returning({ version: encounters.version })
 
   if (updated.length === 0) {
-    return (await encounterExists(encounterId))
+    return (await encounterExists(encounterId, executor))
       ? err("stale")
       : err("encounter-not-found")
   }

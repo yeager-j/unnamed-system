@@ -2,6 +2,7 @@ import "server-only"
 
 import { after } from "next/server"
 
+import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import type { VersionClass } from "@/lib/db/version-classes"
 
@@ -30,7 +31,30 @@ export interface CharacterPing {
   versions: Partial<Record<VersionClass, number>>
 }
 
-/** The encounter ping body: the new session version and lifecycle status. */
+/**
+ * Which row's optimistic `version` a {@link VersionPing} carries (UNN-468). The
+ * `encounter:{shortId}` and `dungeon:{shortId}` channels each carry **two**
+ * independent version streams — the temporal-layer row (encounter/dungeon) and
+ * its Map Instance — so a ping must say which counter it advanced, or a `version`
+ * compare cross-wires the two (ADR — *Transport*, "Snapshot versions are
+ * composite"). The subscriber compares each ping against the matching ref.
+ */
+export type VersionKind = "encounter" | "mapInstance" | "dungeon"
+
+/**
+ * A version-invalidation ping on an encounter or dungeon channel: which counter
+ * moved (`kind`) and its new value. `status` rides only the **temporal-layer**
+ * kinds (`encounter`/`dungeon`) — it is the lifecycle the campaign banner and the
+ * snapshot hooks read; a `mapInstance` ping carries none.
+ */
+export interface VersionPing {
+  kind: VersionKind
+  version: number
+  status?: EncounterStatus | DungeonStatus
+}
+
+/** The encounter ping body callers pass — the new session version and lifecycle
+ *  status; {@link publishEncounterPing} stamps `kind: "encounter"`. */
 export interface EncounterPing {
   version: number
   status: EncounterStatus
@@ -41,7 +65,7 @@ const PING_EVENT_NAME = "ping"
 function schedulePublish(
   domain: RealtimeDomain,
   shortId: string,
-  payload: CharacterPing | EncounterPing
+  payload: CharacterPing | VersionPing
 ): void {
   const client = getAblyRest()
   if (!client) return
@@ -75,10 +99,42 @@ export function publishCharacterPing(
   schedulePublish("character", shortId, { versions })
 }
 
-/** Pings an encounter's channel after a successful guarded write. */
+/** Pings an encounter's channel after a successful **session** write (the
+ *  encounter row's version moved). */
 export function publishEncounterPing(
   shortId: string,
   ping: EncounterPing
 ): void {
-  schedulePublish("encounter", shortId, ping)
+  schedulePublish("encounter", shortId, { kind: "encounter", ...ping })
+}
+
+/** Pings an encounter's channel after a successful **Instance** write — a combat
+ *  move/spatial event that bumped only `map_instances.version` (UNN-468). Tagged
+ *  `mapInstance` so the watch compares it against the Instance ref, not the
+ *  encounter ref (the two counters share this channel). */
+export function publishEncounterInstancePing(
+  shortId: string,
+  version: number
+): void {
+  schedulePublish("encounter", shortId, { kind: "mapInstance", version })
+}
+
+/** Pings a dungeon's channel after a successful **dungeon-row** write (turn loop,
+ *  reminders, status flip). */
+export function publishDungeonPing(
+  shortId: string,
+  ping: { version: number; status?: DungeonStatus }
+): void {
+  schedulePublish("dungeon", shortId, { kind: "dungeon", ...ping })
+}
+
+/** Pings a dungeon's channel after a successful **Instance** write — a token
+ *  move or Zone reveal that bumped only `map_instances.version` (the fog view's
+ *  main live path). Tagged `mapInstance` for the same reason as the encounter
+ *  Instance ping. */
+export function publishDungeonInstancePing(
+  shortId: string,
+  version: number
+): void {
+  schedulePublish("dungeon", shortId, { kind: "mapInstance", version })
 }

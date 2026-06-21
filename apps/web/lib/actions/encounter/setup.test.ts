@@ -1,24 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { createCombatSession } from "@workspace/game/engine"
+import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
   err,
   ok,
   type CombatantSetup,
   type CombatSession,
+  type MapInstanceState,
 } from "@workspace/game/foundation"
 
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
 import { addSetupCombatantsAction } from "./setup"
 
-// Stub the same seams as the action: the DM gate, the full-row load, the guarded
-// write, and the provisional revalidate (which imports `server-only`). The schema
-// + the real `reduceCombatSession` (via the action) run for real, so the test
-// asserts the new combatants were appended to the loaded session.
+// Stub the same seams as the action: the DM gate, the encounter + Instance loads,
+// the two guarded writes, the `guardMany` transaction wrapper (run inline with a
+// dummy executor), and the provisional revalidate (imports `server-only`). The
+// schema + the real `reduceCombatSession`/`addOccupant` (via the action) run for
+// real, so the test asserts the new combatants were appended to **both** rows.
 const requireCampaignDM = vi.fn()
 const loadEncounterRowById = vi.fn()
+const loadMapInstanceById = vi.fn()
 const saveEncounterSession = vi.fn()
+const saveMapInstanceState = vi.fn()
 const revalidateEncounter = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
@@ -27,9 +32,28 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterRowById: (id: string) => loadEncounterRowById(id),
 }))
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
+}))
 vi.mock("@/lib/db/writes/encounter", () => ({
-  saveEncounterSession: (id: string, session: CombatSession, v: number) =>
-    saveEncounterSession(id, session, v),
+  saveEncounterSession: (
+    id: string,
+    session: CombatSession,
+    v: number,
+    tx: unknown
+  ) => saveEncounterSession(id, session, v, tx),
+}))
+vi.mock("@/lib/db/writes/map-instance", () => ({
+  saveMapInstanceState: (
+    tx: unknown,
+    id: string,
+    state: MapInstanceState,
+    v: number
+  ) => saveMapInstanceState(tx, id, state, v),
+}))
+vi.mock("@/lib/db/writes/guard-many", () => ({
+  // Run the body inline with a sentinel executor; the per-write mocks ignore it.
+  guardMany: (body: (tx: unknown) => unknown) => body("tx"),
 }))
 vi.mock("./revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
@@ -38,6 +62,7 @@ vi.mock("./revalidate", () => ({
 
 const ENCOUNTER_ID = "encounter-1"
 const CAMPAIGN_ID = "campaign-1"
+const MAP_INSTANCE_ID = "mi-1"
 
 const NEW_ENEMIES: CombatantSetup[] = [
   {
@@ -52,15 +77,42 @@ const NEW_ENEMIES: CombatantSetup[] = [
   },
 ]
 
-/** A persisted session carrying one PC combatant and an authored zone graph. */
+/** A persisted session carrying one PC combatant. */
 function persistedSession(): CombatSession {
-  const base = createCombatSession(() => "pc-combatant")([
-    { side: "players", ref: { kind: "pc", characterId: "char-1" }, zoneId: "" },
+  return createCombatSession(() => "pc-combatant")([
+    {
+      id: "pc-combatant",
+      side: "players",
+      ref: { kind: "pc", characterId: "char-1" },
+      zoneId: "",
+    },
+  ])
+}
+
+/** The Instance's state carrying the PC's token + an authored zone graph. */
+function persistedInstanceState(): MapInstanceState {
+  const base = createMapInstance(() => "pc-combatant")([
+    {
+      id: "pc-combatant",
+      side: "players",
+      ref: { kind: "pc", characterId: "char-1" },
+      zoneId: "zone-a",
+    },
   ])
   return {
     ...base,
-    zones: { "zone-a": { id: "zone-a", name: "Courtyard" } },
-    adjacency: { "zone-a": [] },
+    geometry: {
+      zones: {
+        "zone-a": {
+          id: "zone-a",
+          name: "Courtyard",
+          description: "",
+          dmNotes: "",
+          position: { x: 0, y: 0 },
+        },
+      },
+      connections: {},
+    },
   }
 }
 
@@ -69,8 +121,13 @@ function encounterRow(session: CombatSession): EncounterRow {
     id: ENCOUNTER_ID,
     campaignId: CAMPAIGN_ID,
     shortId: "enc1",
+    mapInstanceId: MAP_INSTANCE_ID,
     session,
   } as EncounterRow
+}
+
+function instanceRow(state: MapInstanceState): MapInstanceRow {
+  return { id: MAP_INSTANCE_ID, state, version: 0 } as MapInstanceRow
 }
 
 beforeEach(() => {
@@ -78,7 +135,11 @@ beforeEach(() => {
   loadEncounterRowById
     .mockReset()
     .mockResolvedValue(encounterRow(persistedSession()))
+  loadMapInstanceById
+    .mockReset()
+    .mockResolvedValue(instanceRow(persistedInstanceState()))
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
+  saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
   revalidateEncounter.mockReset()
 })
 
@@ -87,6 +148,7 @@ describe("addSetupCombatantsAction", () => {
     const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
+      expectedInstanceVersion: 0,
       combatants: NEW_ENEMIES,
     })
 
@@ -104,24 +166,49 @@ describe("addSetupCombatantsAction", () => {
     expect(revalidateEncounter).toHaveBeenCalledOnce()
   })
 
+  it("places an occupancy token for each new combatant on the Instance", async () => {
+    await addSetupCombatantsAction({
+      encounterId: ENCOUNTER_ID,
+      expectedVersion: 0,
+      expectedInstanceVersion: 0,
+      combatants: NEW_ENEMIES,
+    })
+
+    const [, id, state, version] = saveMapInstanceState.mock.calls[0]!
+    expect(id).toBe(MAP_INSTANCE_ID)
+    expect(version).toBe(0)
+    const persisted = state as MapInstanceState
+    // The PC token survives untouched; the two enemies each gained a token.
+    expect(Object.keys(persisted.occupancy)).toHaveLength(3)
+    expect(persisted.occupancy["pc-combatant"]?.zoneId).toBe("zone-a")
+  })
+
   it("preserves the persisted zone graph (appends, never rebuilds)", async () => {
     await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
+      expectedInstanceVersion: 0,
       combatants: NEW_ENEMIES,
     })
 
-    const persisted = saveEncounterSession.mock.calls[0]![1] as CombatSession
-    expect(persisted.zones).toEqual({
-      "zone-a": { id: "zone-a", name: "Courtyard" },
+    const persisted = saveMapInstanceState.mock.calls[0]![2] as MapInstanceState
+    expect(persisted.geometry.zones).toEqual({
+      "zone-a": {
+        id: "zone-a",
+        name: "Courtyard",
+        description: "",
+        dmNotes: "",
+        position: { x: 0, y: 0 },
+      },
     })
-    expect(persisted.adjacency).toEqual({ "zone-a": [] })
+    expect(persisted.geometry.connections).toEqual({})
   })
 
   it("rejects a malformed roster before any DB read", async () => {
     const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
+      expectedInstanceVersion: 0,
       combatants: [{ side: "wizards" } as never],
     })
 
@@ -135,6 +222,7 @@ describe("addSetupCombatantsAction", () => {
     const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
+      expectedInstanceVersion: 0,
       combatants: NEW_ENEMIES,
     })
 
@@ -150,6 +238,7 @@ describe("addSetupCombatantsAction", () => {
       addSetupCombatantsAction({
         encounterId: ENCOUNTER_ID,
         expectedVersion: 0,
+        expectedInstanceVersion: 0,
         combatants: NEW_ENEMIES,
       })
     ).rejects.toThrow("forbidden")
@@ -163,6 +252,7 @@ describe("addSetupCombatantsAction", () => {
     const result = await addSetupCombatantsAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
+      expectedInstanceVersion: 0,
       combatants: NEW_ENEMIES,
     })
 

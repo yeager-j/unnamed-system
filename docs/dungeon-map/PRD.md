@@ -163,7 +163,7 @@ The DM drives the delve from the console: place the party's character **tokens**
 A small **DM-only** reminder surface on the console, seeded with two reminders the dungeon-turn counter drives and structured so more can be added later. Reminders **nudge** — they never roll, resolve, or auto-act, and they never appear in the player view.
 
 - **Random encounters.** A per-dungeon setting authored in the builder: `Random Encounters? [Y/N]` and `Interval [10m / 20m / 30m / 1h]` (stored as 1 / 2 / 3 / 6 dungeon turns, the loop's native unit). When enabled, the console nudges *"Roll for a random encounter"* each time the turn counter reaches a multiple of the interval. The DM rolls with their own dice/table and, if it triggers, starts an encounter via §7. The tool ships no random-encounter table and spawns nothing.
-- **Exhaustion onset.** On each **+3-turn threshold past the 48-turn day** (turn 51, 54, …) the console nudges that a level of Exhaustion would accrue (§2.2) — once per threshold, **not** every turn. Reminder only — the character sheet still owns the Exhaustion value; the loop neither computes nor writes it. Always on; no setting.
+- **Exhaustion onset.** Beginning the **turn past the 48-turn day** and on each **+3-turn cadence** thereafter (turn 49, 52, 55, …) the console nudges that a level of Exhaustion would accrue (§2.2) — once per threshold, **not** every turn. Reminder only — the character sheet still owns the Exhaustion value; the loop neither computes nor writes it. Always on; no setting.
 
 Both are **pure selectors over the Dungeon's turn counter** — the reducer holds no reminder state. A fired reminder is **dismissible**, but dismissal is **component-local UI state** (exactly as the tracker's end-of-turn modal keeps its `dismissed` set in `useState`, reset per open — never persisted), so a later trigger surfaces fresh.
 
@@ -219,7 +219,7 @@ The decisions this PRD commits to, one line each. The **body sections above are 
 | Map canvas | Shared **pan/zoom canvas** (fit / recenter / touch); **stays put on reveal**; rendering library is **React Flow** (ADR) | _Map Canvas & UX_ |
 | Accessibility | v1 requirement — keyboard graph nav, non-color encoding, reduced-motion, aria-live announcer | _Map Canvas & UX_ |
 | Player view | Status-branched (draft/live/ended) + self-identifying; combat composes own-sheet + "Round N"; exploration = turn counter only | _Map Canvas & UX_, FR-6 |
-| Reminders dismissal | Component-local ephemeral state; Exhaustion-onset fires once per +3 threshold past turn 48 | FR-4 |
+| Reminders dismissal | Component-local ephemeral state; Exhaustion-onset fires once per +3 threshold from turn 49 (the turn past the day) | FR-4 |
 | Reveal/unlock confirm | Player-visible, socially-irreversible reveals (and destructive map edits) confirm before firing | FR-5 |
 | Silhouette | Known-exit silhouette = exit + locked only; no connection-type field in v1 | FR-5 |
 | Authorization | Map writes gate on the **owner**; Map-Instance + Dungeon writes on the **campaign DM** | ADR _Authorization_ |

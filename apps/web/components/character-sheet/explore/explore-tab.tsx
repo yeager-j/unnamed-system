@@ -1,30 +1,13 @@
 "use client"
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 
 import { useCharacter } from "@/hooks/use-character"
 
-import { Background } from "./background"
-import { Identity } from "./identity"
+import { ExploreSections, STORY_SECTIONS } from "./explore-sections"
 import { JumpNav, SHEET_STICKY_OFFSET, type JumpNavItem } from "./jump-nav"
-import { NarrativeSection } from "./narrative-section"
-import { Notes } from "./notes"
 import { Talents } from "./talents"
 import { Virtues } from "./virtues"
-
-/**
- * The Explore tab's story sections, in reading order. Each `id` is both the
- * scroll-spy key and the `<section>` anchor the {@link JumpNav} jumps to —
- * prefixed so these generic words can't collide with a co-mounted surface's
- * element ids.
- */
-const STORY_SECTIONS = [
-  { id: "explore-identity", label: "Identity" },
-  { id: "explore-knives", label: "Knives" },
-  { id: "explore-chains", label: "Chains" },
-  { id: "explore-background", label: "Background" },
-  { id: "explore-notes", label: "Notes" },
-] as const
 
 /**
  * The sticky-header offset, exposed to the markup as a CSS variable so the rail
@@ -118,26 +101,6 @@ export function ExploreTab() {
     count: counts[section.id],
   }))
 
-  const bodies: Record<string, ReactNode> = {
-    "explore-identity": <Identity />,
-    "explore-knives": (
-      <NarrativeSection
-        title="Knives"
-        accent="knife"
-        entries={character.knives}
-      />
-    ),
-    "explore-chains": (
-      <NarrativeSection
-        title="Chains"
-        accent="chain"
-        entries={character.chains}
-      />
-    ),
-    "explore-background": <Background />,
-    "explore-notes": <Notes />,
-  }
-
   return (
     <div
       style={STICKY_OFFSET_STYLE}
@@ -154,16 +117,7 @@ export function ExploreTab() {
       </aside>
 
       <div className="flex flex-col gap-4">
-        {STORY_SECTIONS.map(({ id, label }) => (
-          <section
-            key={id}
-            id={id}
-            aria-label={label}
-            className="scroll-mt-[var(--sheet-sticky-offset)]"
-          >
-            {bodies[id]}
-          </section>
-        ))}
+        <ExploreSections />
       </div>
     </div>
   )

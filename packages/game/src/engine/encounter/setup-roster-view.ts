@@ -1,8 +1,7 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import type {
-  CombatantSetup,
-  CombatSession,
-} from "@workspace/game/foundation/encounter/session"
+import { appendOrdinals } from "@workspace/game/engine/encounter/console-view"
+import { type CombatantSetup } from "@workspace/game/foundation/encounter/session"
+import { type MapGeometry } from "@workspace/game/foundation/map/geometry"
 
 /**
  * Resolves a setup combatant's *base* display name from its ref — a `pc` defers
@@ -36,37 +35,32 @@ function baseName(
  * "numbered combatants" rule (UNN-346) applied at the display layer — the
  * `catalog-enemy` ref stores no per-instance name, so the number is derived from
  * the roster, never persisted. Returns one label per setup, index-aligned to the
- * input.
+ * input. The ordinal format lives in {@link appendOrdinals}, shared with the live
+ * console's {@link import("./console-view").combatantDisplayNames} so a combatant
+ * keeps its number from setup into the fight.
  */
 export function buildSetupCombatantLabels(
   setups: CombatantSetup[],
   pcNameById: Record<string, string>,
   enemyStatblockById: Record<string, Statblock>
 ): string[] {
-  // The first (or only) occurrence of a base name renders bare; later repeats get
-  // their roster-order ordinal — so a singleton naturally stays un-numbered with
-  // no separate up-front count.
-  const seen = new Map<string, number>()
-  return setups.map((setup) => {
-    const name = baseName(setup, pcNameById, enemyStatblockById)
-    const ordinal = (seen.get(name) ?? 0) + 1
-    seen.set(name, ordinal)
-    return ordinal === 1 ? name : `${name} ${ordinal}`
-  })
+  return appendOrdinals(
+    setups.map((setup) => baseName(setup, pcNameById, enemyStatblockById))
+  )
 }
 
 /**
  * Whether every combatant has a valid zone placement (UNN-301). An encounter
  * with **no** zones defined is always "placed" — it runs unzoned / theater-of-
  * mind, the Phase 4 start path. Once the DM has authored any zones, every
- * combatant's `zoneId` must reference one that exists in `session.zones`. The
- * setup shell consumes this to gate Save draft / Start combat; it is the
- * placement half of the same referential convention the zone graph keeps at
+ * combatant's `zoneId` must reference one that exists in the Instance geometry's
+ * `zones`. The setup shell consumes this to gate Save draft / Start combat; it is
+ * the placement half of the same referential convention the zone graph keeps at
  * runtime (zone ids are not schema-enforced on the combatant — UNN-313).
  */
 export function isRosterFullyPlaced(
   setups: CombatantSetup[],
-  zones: CombatSession["zones"]
+  zones: MapGeometry["zones"]
 ): boolean {
   if (Object.keys(zones).length === 0) return true
   return setups.every((setup) => setup.zoneId in zones)

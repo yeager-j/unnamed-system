@@ -9,12 +9,15 @@ import {
 } from "@workspace/ui/components/avatar"
 
 import { CharacterPlacementSection } from "@/components/campaign/character-placement-section"
+import { CreateDungeonButton } from "@/components/campaign/create-dungeon-button"
 import { CreateEncounterButton } from "@/components/campaign/create-encounter-button"
 import { DeleteCampaignButton } from "@/components/campaign/delete-campaign-button"
+import { DungeonList } from "@/components/campaign/dungeon-list"
 import { EncounterList } from "@/components/campaign/encounter-list"
 import { EncounterStatusListener } from "@/components/campaign/encounter-status-listener"
 import { JoinLinkCard } from "@/components/campaign/join-link-card"
 import { LeaveCampaignButton } from "@/components/campaign/leave-campaign-button"
+import { LiveDelveBanner } from "@/components/campaign/live-delve-banner"
 import { LiveEncounterBanner } from "@/components/campaign/live-encounter-banner"
 import { RosterList } from "@/components/campaign/roster-list"
 import { auth } from "@/lib/auth"
@@ -24,10 +27,15 @@ import {
   loadCampaignRoster,
 } from "@/lib/db/queries/load-campaign"
 import {
+  loadActiveDungeonForCampaign,
+  loadDungeonsForCampaign,
+} from "@/lib/db/queries/load-dungeon"
+import {
   loadEncountersForCampaign,
   loadLiveEncounterForCampaign,
   type EncounterSummary,
 } from "@/lib/db/queries/load-encounter"
+import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import { initials } from "@/lib/ui/initials"
 
@@ -105,11 +113,17 @@ async function DmManageView({
   campaign: CampaignRow
   viewerId: string
 }) {
-  const [roster, encounters, liveEncounter] = await Promise.all([
-    loadCampaignRoster(campaign.id),
-    loadEncountersForCampaign(campaign.id),
-    loadLiveEncounterForCampaign(campaign.id),
-  ])
+  const [roster, encounters, liveEncounter, dungeons, activeDungeon, maps] =
+    await Promise.all([
+      loadCampaignRoster(campaign.id),
+      loadEncountersForCampaign(campaign.id),
+      loadLiveEncounterForCampaign(campaign.id),
+      loadDungeonsForCampaign(campaign.id),
+      loadActiveDungeonForCampaign(campaign.id),
+      loadMapsByUserId(viewerId),
+    ])
+
+  const pickableMaps = maps.map(({ shortId, name }) => ({ shortId, name }))
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-6">
@@ -131,6 +145,14 @@ async function DmManageView({
         />
       ) : null}
 
+      {activeDungeon ? (
+        <LiveDelveBanner
+          dungeonName={activeDungeon.name}
+          dungeonShortId={activeDungeon.shortId}
+          audience="dm"
+        />
+      ) : null}
+
       <JoinLinkCard campaignId={campaign.id} joinToken={campaign.joinToken} />
 
       <section className="flex flex-col gap-3">
@@ -146,6 +168,16 @@ async function DmManageView({
           <CreateEncounterButton campaignId={campaign.id} />
         </div>
         <EncounterList encounters={encounters} />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Dungeons
+          </h2>
+          <CreateDungeonButton campaignId={campaign.id} maps={pickableMaps} />
+        </div>
+        <DungeonList dungeons={dungeons} />
       </section>
 
       <CharacterPlacementSection
@@ -169,10 +201,11 @@ async function MemberOverview({
   campaign: CampaignRow
   viewerId: string
 }) {
-  const [roster, encounters, liveEncounter] = await Promise.all([
+  const [roster, encounters, liveEncounter, activeDungeon] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadEncountersForCampaign(campaign.id),
     loadLiveEncounterForCampaign(campaign.id),
+    loadActiveDungeonForCampaign(campaign.id),
   ])
 
   return (
@@ -191,6 +224,14 @@ async function MemberOverview({
         <LiveEncounterBanner
           encounterName={liveEncounter.name}
           encounterShortId={liveEncounter.shortId}
+          audience="player"
+        />
+      ) : null}
+
+      {activeDungeon ? (
+        <LiveDelveBanner
+          dungeonName={activeDungeon.name}
+          dungeonShortId={activeDungeon.shortId}
           audience="player"
         />
       ) : null}

@@ -1,17 +1,27 @@
 import { randomUUID } from "node:crypto"
 import { eq, inArray } from "drizzle-orm"
 
-import { createCombatSession } from "@workspace/game/engine"
+import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
+  mapGeometrySchema,
   type CombatantSetup,
   type CombatSession,
+  type MapGeometry,
+  type MapInstanceState,
 } from "@workspace/game/foundation"
 
 import {
   makeSeedCharacter,
   type SeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
-import { campaigns, characters, encounters, getDb } from "@/lib/db"
+import {
+  campaigns,
+  characters,
+  encounters,
+  getDb,
+  mapInstances,
+  maps,
+} from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertCharacter } from "@/lib/db/seed-character"
 
@@ -34,10 +44,18 @@ export interface CleanupTracker {
   campaignIds: string[]
   characterIds: string[]
   encounterIds: string[]
+  mapInstanceIds: string[]
+  mapIds: string[]
 }
 
 export function createTracker(): CleanupTracker {
-  return { campaignIds: [], characterIds: [], encounterIds: [] }
+  return {
+    campaignIds: [],
+    characterIds: [],
+    encounterIds: [],
+    mapInstanceIds: [],
+    mapIds: [],
+  }
 }
 
 /** A short, collision-resistant suffix that keeps ids unique across parallel
@@ -131,19 +149,75 @@ export async function placeCharacter(
     .where(eq(characters.id, characterId))
 }
 
+export interface TestMap {
+  id: string
+  shortId: string
+  url: string
+  name: string
+}
+
+/** Mints a user-owned Map template (UNN-460) with unique id / shortId. Geometry
+ *  defaults empty; pass one to seed authored zones/connections. */
+export async function createTestMap(
+  tracker: CleanupTracker,
+  opts: { userId?: string; name?: string; geometry?: MapGeometry } = {}
+): Promise<TestMap> {
+  const { userId = DEV_USER_ID, name, geometry } = opts
+  const suffix = uniqueSuffix()
+  const row = {
+    id: `e2e-map-${suffix}`,
+    shortId: `e2e-map-${suffix}`,
+    userId,
+    name: name ?? `E2E Map ${suffix}`,
+    geometry: geometry ?? mapGeometrySchema.parse({}),
+  }
+  await getDb().insert(maps).values(row)
+  tracker.mapIds.push(row.id)
+  return {
+    id: row.id,
+    shortId: row.shortId,
+    url: `/maps/${row.shortId}`,
+    name: row.name,
+  }
+}
+
+/** Mints a standalone Map Instance, optionally back-referencing a Map
+ *  (`mapId`) — for the snapshot-isolation / set-null-FK assertions (UNN-460). */
+export async function createTestMapInstance(
+  tracker: CleanupTracker,
+  opts: { mapId?: string | null; state?: MapInstanceState } = {}
+): Promise<{ id: string }> {
+  const suffix = uniqueSuffix()
+  const id = `e2e-mi-${suffix}`
+  await getDb()
+    .insert(mapInstances)
+    .values({
+      id,
+      mapId: opts.mapId ?? null,
+      state: opts.state ?? createMapInstance(() => "")([]),
+      version: 0,
+    })
+  tracker.mapInstanceIds.push(id)
+  return { id }
+}
+
 export interface TestEncounter {
   id: string
   shortId: string
   url: string
+  mapInstanceId: string
 }
 
 /**
- * Mints an encounter (default `live`) in `campaignId`. By default it seeds the
+ * Mints an encounter (default `live`) in `campaignId` **plus its Map Instance**
+ * (UNN-459 — `encounters.mapInstanceId` is non-null). By default it seeds the
  * given PC `combatantCharacterIds` on the players' side (unplaced) — the
  * live-lock guards key off a live encounter that lists a placed character as a
- * combatant. Pass a fully-built `session` instead when the spec needs a richer
- * shape (zones, placement, a started session — see `move-combatant-target.ts`);
- * it is persisted verbatim and `combatantCharacterIds` is ignored.
+ * combatant — and builds a matching empty Instance (occupancy keyed to the
+ * minted combatant ids). Pass a fully-built `session` **and** `mapInstanceState`
+ * when the spec needs a richer spatial shape (zones, placement, a started
+ * session — see `move-combatant-target.ts`); both are persisted verbatim and
+ * `combatantCharacterIds` is ignored.
  */
 export async function createLiveEncounter(
   tracker: CleanupTracker,
@@ -152,38 +226,48 @@ export async function createLiveEncounter(
     combatantCharacterIds?: string[]
     status?: EncounterStatus
     session?: CombatSession
+    mapInstanceState?: MapInstanceState
   }
 ): Promise<TestEncounter> {
   const suffix = uniqueSuffix()
   const id = `e2e-encounter-${suffix}`
+  const mapInstanceId = `e2e-mi-${suffix}`
   const setups: CombatantSetup[] = (opts.combatantCharacterIds ?? []).map(
-    (characterId) => ({
+    (characterId, index) => ({
+      id: `${id}-c${index}`,
       side: "players",
       ref: { kind: "pc", characterId },
       zoneId: "",
     })
   )
-  let n = 0
-  await getDb()
-    .insert(encounters)
-    .values({
-      id,
-      shortId: id,
-      campaignId: opts.campaignId,
-      name: "E2E encounter",
-      status: opts.status ?? "live",
-      session:
-        opts.session ?? createCombatSession(() => `${id}-c${n++}`)(setups),
-      version: 0,
-    })
+  const db = getDb()
+  await db.insert(mapInstances).values({
+    id: mapInstanceId,
+    state: opts.mapInstanceState ?? createMapInstance(() => "")(setups),
+    version: 0,
+  })
+  tracker.mapInstanceIds.push(mapInstanceId)
+
+  await db.insert(encounters).values({
+    id,
+    shortId: id,
+    campaignId: opts.campaignId,
+    name: "E2E encounter",
+    status: opts.status ?? "live",
+    session: opts.session ?? createCombatSession(() => "")(setups),
+    mapInstanceId,
+    version: 0,
+  })
   tracker.encounterIds.push(id)
-  return { id, shortId: id, url: `/combat/${id}` }
+  return { id, shortId: id, url: `/combat/${id}`, mapInstanceId }
 }
 
 /**
- * Deletes everything the tracker minted, FK-safe (encounters → characters →
- * campaigns; deleting a character cascades its child rows). Idempotent: rows a
- * test already removed are simply absent. Call once in `afterAll`.
+ * Deletes everything the tracker minted, FK-safe (encounters before their Map
+ * Instances — the `mapInstanceId` FK is `restrict`, so the Instance can't drop
+ * while a referencing encounter exists; encounters → characters → campaigns,
+ * deleting a character cascades its child rows). Idempotent: rows a test already
+ * removed are simply absent. Call once in `afterAll`.
  */
 export async function cleanup(tracker: CleanupTracker): Promise<void> {
   const db = getDb()
@@ -191,6 +275,11 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
     await db
       .delete(encounters)
       .where(inArray(encounters.id, tracker.encounterIds))
+  }
+  if (tracker.mapInstanceIds.length > 0) {
+    await db
+      .delete(mapInstances)
+      .where(inArray(mapInstances.id, tracker.mapInstanceIds))
   }
   if (tracker.characterIds.length > 0) {
     await db
@@ -200,7 +289,12 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
   if (tracker.campaignIds.length > 0) {
     await db.delete(campaigns).where(inArray(campaigns.id, tracker.campaignIds))
   }
+  if (tracker.mapIds.length > 0) {
+    await db.delete(maps).where(inArray(maps.id, tracker.mapIds))
+  }
   tracker.encounterIds.length = 0
+  tracker.mapInstanceIds.length = 0
   tracker.characterIds.length = 0
   tracker.campaignIds.length = 0
+  tracker.mapIds.length = 0
 }

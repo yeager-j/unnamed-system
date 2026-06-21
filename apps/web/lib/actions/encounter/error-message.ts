@@ -1,3 +1,4 @@
+import type { EndDungeonCombatError } from "./end-dungeon-combat.schema"
 import type { ApplyCombatEventError } from "./events.schema"
 import type { AddSetupCombatantsError } from "./setup.schema"
 
@@ -6,10 +7,12 @@ import type { AddSetupCombatantsError } from "./setup.schema"
  * every encounter write surface (the setup shell UNN-335/347 and the live console
  * UNN-344) so the phrasing can't drift between them. The two error unions overlap
  * on `EncounterWriteError`'s `stale` / `encounter-not-found` plus `invalid-input`;
- * `applyCombatEvent` adds the two `startCombat` guards (single-live + unplaced).
+ * `applyCombatEvent` adds the two `startCombat` guards (single-live + unplaced)
+ * and, after the spatial cutover (UNN-459), the Map Instance write errors
+ * (`map-instance-not-found`, the omitted-token `missing-instance-version`).
  */
 export function encounterErrorMessage(
-  error: ApplyCombatEventError | AddSetupCombatantsError
+  error: ApplyCombatEventError | AddSetupCombatantsError | EndDungeonCombatError
 ): string {
   switch (error) {
     case "campaign-already-has-live-encounter":
@@ -20,6 +23,16 @@ export function encounterErrorMessage(
       return "This encounter changed elsewhere. Reload and try again."
     case "encounter-not-found":
       return "This encounter no longer exists."
+    case "encounter-not-live":
+      return "This encounter is no longer live. Reload and try again."
+    case "encounter-not-on-dungeon":
+      return "This encounter isn't running on this delve. Reload and try again."
+    case "dungeon-not-found":
+      return "This delve no longer exists."
+    case "map-instance-not-found":
+      return "This encounter's map is missing. Reload and try again."
+    case "missing-instance-version":
+      return "Something looks off with the map. Reload and try again."
     case "invalid-input":
       return "Something looks off with the roster. Try again."
   }

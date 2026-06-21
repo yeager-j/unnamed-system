@@ -1,5 +1,8 @@
 import { getTalent } from "@workspace/game/data"
-import { type RecommendationReason } from "@workspace/game/engine"
+import {
+  type DungeonReminder,
+  type RecommendationReason,
+} from "@workspace/game/engine"
 import {
   type Affinity,
   type AffinityDamageType,
@@ -17,6 +20,7 @@ import {
   type EquipSlot,
   type Lineage,
   type PathChoice,
+  type RandomEncounterInterval,
   type Range,
   type ResolvedSkillCost,
   type SkillKind,
@@ -26,6 +30,7 @@ import {
   type VirtueKey,
 } from "@workspace/game/foundation"
 
+import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 /**
@@ -101,6 +106,7 @@ export const ENEMY_FAMILY_LABELS: Record<EnemyFamily, string> = {
   undead: "Undead",
   aberration: "Aberration",
   monstrosity: "Monstrosity",
+  elemental: "Elemental",
 }
 
 /**
@@ -468,6 +474,14 @@ export const ENCOUNTER_STATUS_LABELS: Record<EncounterStatus, string> = {
   ended: "Ended",
 }
 
+/** A dungeon's lifecycle status as shown in the campaign-page dungeons list
+ *  (UNN-465): the delve is being prepped, running, or wrapped. */
+export const DUNGEON_STATUS_LABELS: Record<DungeonStatus, string> = {
+  draft: "Draft",
+  active: "Active",
+  done: "Done",
+}
+
 /**
  * The at-0-HP badge a combatant shows in the console (UNN-309), keyed by kind: a
  * **PC** at 0 HP is *Fallen* (skipped, recovers to 1 on victory); an **enemy** at
@@ -531,6 +545,36 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "adjacent-zone": "Adjacent Zone",
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
+}
+
+/** Random-encounter cadence options on the dungeon run console (1 turn ≈ 10 min). */
+export const RANDOM_ENCOUNTER_INTERVAL_LABELS: Record<
+  RandomEncounterInterval,
+  string
+> = {
+  1: "Every 10 min (1 turn)",
+  2: "Every 20 min (2 turns)",
+  3: "Every 30 min (3 turns)",
+  6: "Every hour (6 turns)",
+}
+
+/**
+ * Title + body for the dungeon run console's DM reminder nudges (UNN-464), keyed
+ * by the pure-selector {@link DungeonReminder} kind. The rail renders these; the
+ * selectors decide which fire.
+ */
+export const DUNGEON_REMINDER_COPY: Record<
+  DungeonReminder["kind"],
+  { title: string; body: string }
+> = {
+  "random-encounter": {
+    title: "Roll for a random encounter",
+    body: "The party has travelled far enough — roll on your table.",
+  },
+  "exhaustion-onset": {
+    title: "Exhaustion accrues",
+    body: "Past the 48-turn day: a level of Exhaustion would accrue (tracked on the sheet).",
+  },
 }
 
 /** The five Stain elements the Mage can hold. */

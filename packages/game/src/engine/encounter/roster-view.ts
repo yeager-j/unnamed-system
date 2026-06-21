@@ -1,5 +1,5 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
 import { fallenCombatantIds } from "@workspace/game/engine/encounter/fallen"
 import {
   resolveCombatantEngagement,
@@ -14,13 +14,16 @@ import {
   type AffinityDamageType,
 } from "@workspace/game/foundation/combat/affinity"
 import { type Counters } from "@workspace/game/foundation/combat/counters"
+import { type Engagement } from "@workspace/game/foundation/combat/engagement"
+import type {
+  MapInstanceState,
+  Zone,
+} from "@workspace/game/foundation/encounter/map-instance"
 import type {
   Combatant,
   CombatSession,
   CombatSide,
   ConditionDurations,
-  Engagement,
-  Zone,
 } from "@workspace/game/foundation/encounter/session"
 
 /**
@@ -113,7 +116,7 @@ export interface RailRow {
   sp: Pool | null
   portraitUrl: string | null
   engagement: Engagement
-  /** The combatant's zone *display name* (resolved from `session.zones`), or
+  /** The combatant's zone *display name* (resolved from the Instance's `zones`), or
    *  `null` when unplaced / unzoned — the rail renders the name, never the raw
    *  zone id. */
   zoneName: string | null
@@ -223,14 +226,15 @@ function isDowned(combatant: Combatant): boolean {
  * zone (place a mid-combat joiner). See {@link CombatantPosition}.
  */
 function combatantPosition(
-  session: CombatSession,
+  instance: MapInstanceState,
   combatant: Combatant
 ): CombatantPosition | null {
-  if (Object.keys(session.zones).length === 0) return null
-  const current = session.zones[combatant.zoneId] ?? null
+  if (Object.keys(instance.geometry.zones).length === 0) return null
+  const zoneId = instance.occupancy[combatant.id]?.zoneId ?? ""
+  const current = instance.geometry.zones[zoneId] ?? null
   const targets = current
-    ? adjacentZones(session, current.id)
-    : Object.values(session.zones)
+    ? adjacentZones(instance, current.id)
+    : Object.values(instance.geometry.zones)
   return { current, targets }
 }
 
@@ -304,7 +308,11 @@ function inlineEnemyStatblock(
   }
 }
 
-function pcPool(
+/** A PC's HP or SP pool off its hydrated detail; `{0,0}` when the detail is
+ *  missing (the rail/drawer's defensive default). Exported so the battlefield
+ *  shaper ({@link import("./resolve-zone-layout").resolveZoneLayout}) and the
+ *  player snapshot draw a PC's token pools from the same place the rail does. */
+export function pcPool(
   detail: PcCombatantDetail | undefined,
   kind: "hp" | "sp"
 ): Pool {
@@ -318,18 +326,20 @@ function railRow(
   combatant: Combatant,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>,
+  nameById: Map<string, string>,
   fallenIds: Set<string>,
   currentActorId: string | null,
-  zones: CombatSession["zones"]
+  instance: MapInstanceState
 ): RailRow {
   const ref = combatant.ref
   const isPc = ref.kind === "pc"
   // Stryker disable next-line ConditionalExpression: equivalent — an enemy ref has no characterId, so pcDetailById[undefined] is undefined either way; pcDetail is read only when isPc.
   const pcDetail = ref.kind === "pc" ? pcDetailById[ref.characterId] : undefined
+  const token = instance.occupancy[combatant.id]
 
   return {
     id: combatant.id,
-    name: combatantName(combatant, pcDetailById, enemyStatblockById),
+    name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
     isPc,
     isCurrent: combatant.id === currentActorId,
@@ -340,8 +350,10 @@ function railRow(
     // Stryker disable next-line StringLiteral: equivalent — pcPool returns the SP pool for any non-"hp" kind.
     sp: isPc ? pcPool(pcDetail, "sp") : null,
     portraitUrl: pcDetail?.portraitUrl ?? null,
-    engagement: combatant.engagement,
-    zoneName: zones[combatant.zoneId]?.name ?? null,
+    engagement: token?.engagement ?? { status: "free" },
+    zoneName: token
+      ? (instance.geometry.zones[token.zoneId]?.name ?? null)
+      : null,
     reactionAvailable: combatant.reactionAvailable,
     counters: combatant.counters,
   }
@@ -364,6 +376,7 @@ function pcCurrentHpById(
  */
 export function buildRosterView(
   session: CombatSession,
+  instance: MapInstanceState,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): RosterView {
@@ -372,14 +385,20 @@ export function buildRosterView(
     pcCurrentHpById(pcDetailById),
     enemyStatblockById
   )
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
+  )
   const rows = session.combatants.map((combatant) =>
     railRow(
       combatant,
       pcDetailById,
       enemyStatblockById,
+      nameById,
       fallenIds,
       session.currentActorId,
-      session.zones
+      instance
     )
   )
   const enemies = rows.filter((row) => row.side === "enemies")
@@ -400,6 +419,7 @@ export function buildRosterView(
  */
 export function combatantDetail(
   session: CombatSession,
+  instance: MapInstanceState,
   combatantId: string,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
@@ -408,11 +428,15 @@ export function combatantDetail(
   if (!combatant) return null
 
   const ref = combatant.ref
-  const name = combatantName(combatant, pcDetailById, enemyStatblockById)
+  const name =
+    combatantDisplayNames(session, pcDetailById, enemyStatblockById).get(
+      combatant.id
+    ) ?? combatant.id
   const overlay = combatantOverlay(combatant)
-  const position = combatantPosition(session, combatant)
+  const position = combatantPosition(instance, combatant)
   const engagement = resolveCombatantEngagement(
     session,
+    instance,
     combatant,
     pcDetailById,
     enemyStatblockById

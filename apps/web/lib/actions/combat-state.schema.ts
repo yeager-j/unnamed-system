@@ -2,6 +2,7 @@ import { z } from "zod/v4"
 
 import {
   ailmentsSchema,
+  BATTLE_CONDITION_FLAG_KEYS,
   BATTLE_CONDITION_STATES,
   battleConditionsSchema,
 } from "@workspace/game/foundation"
@@ -47,7 +48,7 @@ export type SetBattleConditionAxisInput = z.input<
 
 /** Granular flag patch (Charged / Concentrating). Same rationale as the axis patch. */
 export const SetBattleConditionFlagSchema = characterMutationBase.extend({
-  flag: z.enum(["charged", "concentrating"]),
+  flag: z.enum(BATTLE_CONDITION_FLAG_KEYS),
   value: z.boolean(),
 })
 export type SetBattleConditionFlagInput = z.input<

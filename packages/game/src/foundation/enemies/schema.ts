@@ -29,6 +29,7 @@ export const ENEMY_FAMILIES = [
   "undead",
   "aberration",
   "monstrosity",
+  "elemental",
 ] as const
 export type EnemyFamily = (typeof ENEMY_FAMILIES)[number]
 

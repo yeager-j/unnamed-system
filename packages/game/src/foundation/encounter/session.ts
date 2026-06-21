@@ -6,7 +6,7 @@ import {
   battleConditionsSchema,
 } from "@workspace/game/foundation/character/state"
 import { countersSchema } from "@workspace/game/foundation/combat/counters"
-import { zoneEnchantmentSchema } from "@workspace/game/foundation/combat/enchantment"
+import { engagementSchema } from "@workspace/game/foundation/combat/engagement"
 
 /**
  * The immutable state the initiative tracker's reducer operates over — the
@@ -47,21 +47,6 @@ export const enemyStatBlockSchema = z.object({
   notes: z.string().optional(),
 })
 export type EnemyStatBlock = z.infer<typeof enemyStatBlockSchema>
-
-/**
- * One Zone — a ~30 ft region of the battlefield (UNN-313). Carries a stable `id`
- * (also its key in {@link CombatSession.zones}, so a Zone is self-describing), a
- * DM-supplied display `name`, and optional free-text `notes`. The Zone *graph*
- * (which zones are adjacent) lives in {@link CombatSession.adjacency}, not here —
- * a Zone holds only its own identity. Combatant position is the orthogonal
- * `combatant.zoneId` referencing this map's key (UNN-315 narrows that field).
- */
-export const zoneSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1),
-  notes: z.string().optional(),
-})
-export type Zone = z.infer<typeof zoneSchema>
 
 /**
  * The two sides a combatant can belong to. A PC is not pinned to `players` — a
@@ -113,20 +98,6 @@ const combatantRefSchema = z.discriminatedUnion("kind", [
 export type CombatantRef = z.infer<typeof combatantRefSchema>
 
 /**
- * A combatant's engagement: `free`, or `engaged` (melee-locked) with specific
- * combatants. Engagement records *who* a combatant is locked with — never
- * *where* it stands; position is the orthogonal `zoneId` on the combatant.
- */
-const engagementSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("free") }),
-  z.object({
-    status: z.literal("engaged"),
-    targetCombatantIds: z.array(z.string()).min(1),
-  }),
-])
-export type Engagement = z.infer<typeof engagementSchema>
-
-/**
  * Per-axis Battle Condition durations (turns remaining), sparse: an absent axis
  * means no active duration. Sits alongside the {@link battleConditions} overlay
  * on the combatant — the durations track *how long*, the overlay tracks *what
@@ -142,14 +113,15 @@ const conditionDurationsSchema = z.partialRecord(
 export type ConditionDurations = z.infer<typeof conditionDurationsSchema>
 
 /**
- * One combatant in the encounter. Owns everything about itself: identity
- * ({@link CombatantRef}), the encounter overlay (`ailments` + `battleConditions`
- * state and their `conditionDurations`, plus named `counters` like Lumina), turn
- * bookkeeping, position (`zoneId`),
- * and engagement. The overlay is identical for PCs and enemies (ADR Decision 1)
- * — it holds the combat state the rules clear at end of combat, which the
- * character row no longer carries. The Zone *graph* (zones + adjacency) is
- * UNN-313, so `zoneId` is a free string referencing it until that lands.
+ * One combatant in the encounter — the **non-spatial** combat state. Owns its
+ * identity ({@link CombatantRef}), the encounter overlay (`ailments` +
+ * `battleConditions` state and their `conditionDurations`, plus named `counters`
+ * like Lumina), and turn bookkeeping. The overlay is identical for PCs and
+ * enemies (ADR Decision 1) — it holds the combat state the rules clear at end of
+ * combat, which the character row no longer carries. Position and engagement are
+ * **not** here: the spatial cutover (UNN-459) homes them on the Map Instance's
+ * occupancy token ({@link import("./map-instance").MapToken}), keyed by this
+ * combatant's `id`.
  */
 export const combatantSchema = z.object({
   id: z.string(),
@@ -161,8 +133,6 @@ export const combatantSchema = z.object({
   moveAvailable: z.boolean().default(true),
   standardAvailable: z.boolean().default(true),
   reactionAvailable: z.boolean(),
-  zoneId: z.string(),
-  engagement: engagementSchema,
   conditionDurations: conditionDurationsSchema,
   counters: countersSchema.default({}),
 })
@@ -185,17 +155,11 @@ export type Combatant = z.infer<typeof combatantSchema>
  * **vitals** nudge (e.g. end-of-combat Fallen-restore) the impure shell applies
  * to the character row. The reducer is pure and never performs I/O.
  *
- * `zones` + `adjacency` are the spatial graph (UNN-313): `zones` maps a zone id
- * to its {@link Zone}, and `adjacency` maps a zone id to the ids it borders
- * (undirected — both directions are stored). Both default to `{}` so sessions
- * persisted before zones existed still parse (`load-encounter.ts` re-parses the
- * jsonb). Referential integrity (`combatant.zoneId` ∈ `zones`) is a runtime
- * convention, not enforced by the schema.
- *
- * `enchantment` is the Bard mechanic's single active Zone Enchantment (see
- * {@link import("../combat/enchantment").zoneEnchantmentSchema} for why it is a
- * session-level singleton, not a Zone field). Defaults to `null` so sessions
- * persisted before Enchantments existed still parse, matching `zones`.
+ * The session is **non-spatial** as of the M0 cutover (UNN-459): the zone graph
+ * (`zones` + `adjacency`), per-combatant position + engagement, and the Bard
+ * Enchantment moved to the {@link import("./map-instance").MapInstanceState} the
+ * encounter references by `mapInstanceId`. `reduceCombatSession` no longer reads
+ * or writes any spatial field.
  */
 export const combatSessionSchema = z.object({
   round: z.number().int().positive(),
@@ -203,9 +167,6 @@ export const combatSessionSchema = z.object({
   currentActorId: z.string().nullable(),
   advantage: z.enum(COMBAT_ADVANTAGES).nullable(),
   firstSide: z.enum(COMBAT_SIDES).nullable(),
-  zones: z.record(z.string(), zoneSchema).default({}),
-  adjacency: z.record(z.string(), z.array(z.string())).default({}),
-  enchantment: zoneEnchantmentSchema.nullable().default(null),
 })
 export type CombatSession = z.infer<typeof combatSessionSchema>
 

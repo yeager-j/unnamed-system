@@ -71,6 +71,9 @@ export function AccountMenu({ user }: AccountMenuProps) {
         <DropdownMenuItem render={<Link href="/campaigns" />}>
           My Campaigns
         </DropdownMenuItem>
+        <DropdownMenuItem render={<Link href="/maps" />}>
+          My Maps
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <form action={signOutAction}>
           <DropdownMenuItem

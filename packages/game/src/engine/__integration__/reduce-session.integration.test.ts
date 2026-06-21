@@ -83,18 +83,6 @@ describe("reduceCombatSession — endTurn", () => {
 
     expect(next).toBe(session)
   })
-
-  it("mints a real id via the default generator when none is supplied", () => {
-    const session = createCombatSession(sequentialIds())(SETUP)
-
-    const next = reduceCombat(session, { kind: "addZone", name: "Gate" })
-
-    const zones = Object.values(next.zones)
-    expect(zones).toHaveLength(1)
-    expect(typeof zones[0]!.id).toBe("string")
-    expect(zones[0]!.id).not.toBe("undefined")
-    expect(zones[0]!.id.length).toBeGreaterThan(0)
-  })
 })
 
 describe("reduceCombatSession — startCombat", () => {
@@ -496,22 +484,6 @@ describe("reduceCombatSession — removeCombatant", () => {
     })
 
     expect(next).toBe(session)
-  })
-
-  it("prunes the removed combatant from surviving partners' engagement (UNN-347)", () => {
-    const engaged = reduceCombat(startedSession(), {
-      kind: "setEngagement",
-      combatantId: "combatant-0",
-      targetCombatantIds: ["combatant-1"],
-    })
-
-    const next = reduceCombat(engaged, {
-      kind: "removeCombatant",
-      combatantId: "combatant-1",
-    })
-
-    expect(next.combatants).toHaveLength(1)
-    expect(next.combatants[0]!.engagement).toEqual({ status: "free" })
   })
 })
 

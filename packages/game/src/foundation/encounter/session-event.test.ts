@@ -19,8 +19,6 @@ describe("combatEventSchema", () => {
       },
       { kind: "removeCombatant", combatantId: "combatant-1" },
       { kind: "setSide", combatantId: "combatant-1", side: "enemies" },
-      { kind: "addZone", name: "Courtyard" },
-      { kind: "addZone", name: "Courtyard", zoneId: "client-zone" },
       {
         kind: "adjustBattleConditionAxis",
         combatantId: "combatant-1",
@@ -114,15 +112,16 @@ describe("combatEventSchema", () => {
     ).toBe(false)
   })
 
-  it("rejects an empty zone name (matching zoneSchema's min(1))", () => {
+  it("rejects a spatial event (those moved to mapInstanceEventSchema)", () => {
     expect(
-      combatEventSchema.safeParse({ kind: "addZone", name: "" }).success
+      combatEventSchema.safeParse({ kind: "addZone", name: "Courtyard" })
+        .success
     ).toBe(false)
     expect(
       combatEventSchema.safeParse({
-        kind: "renameZone",
-        zoneId: "zone-0",
-        name: "",
+        kind: "moveCombatant",
+        combatantId: "combatant-1",
+        toZoneId: "zone-a",
       }).success
     ).toBe(false)
   })

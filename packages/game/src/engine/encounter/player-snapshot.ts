@@ -1,20 +1,30 @@
 import { type Statblock } from "@workspace/game/engine/combatant/statblock"
-import { combatantName } from "@workspace/game/engine/encounter/console-view"
+import { combatantDisplayNames } from "@workspace/game/engine/encounter/console-view"
+import {
+  isFogActive,
+  isZoneRevealed,
+} from "@workspace/game/engine/encounter/resolve-reveal"
 import {
   enemyHp,
+  pcPool,
   type PcCombatantDetail,
   type Pool,
 } from "@workspace/game/engine/encounter/roster-view"
+import { adjacencyMap } from "@workspace/game/engine/encounter/zone-graph"
 import { type AttributeScores } from "@workspace/game/foundation/archetypes/schema"
 import { type BattleConditions } from "@workspace/game/foundation/character/state"
 import { type Counters } from "@workspace/game/foundation/combat/counters"
 import { type ZoneEnchantment } from "@workspace/game/foundation/combat/enchantment"
 import type {
+  MapInstanceState,
+  MapToken,
+  Zone,
+} from "@workspace/game/foundation/encounter/map-instance"
+import type {
   Combatant,
   CombatSession,
   CombatSide,
   ConditionDurations,
-  Zone,
 } from "@workspace/game/foundation/encounter/session"
 import type { EncounterStatus } from "@workspace/game/foundation/encounter/status"
 
@@ -108,6 +118,13 @@ export interface EncounterSnapshot {
    * ping already publishes on the public channel, so it leaks nothing new.
    */
   version: number
+  /**
+   * The Map Instance row's version token at projection time (UNN-468). Position
+   * (occupancy) and the Zone graph live on the Instance, bumped independently of
+   * the encounter row, so the watch tracks **both** versions and refetches when
+   * either advances — a combat move bumps only this one.
+   */
+  instanceVersion: number
   round: number
   currentActor: PlayerCurrentActor | null
   combatants: PlayerVisibleCombatant[]
@@ -122,18 +139,6 @@ export interface EncounterSnapshot {
   enchantment: ZoneEnchantment | null
 }
 
-/** A PC's current/max SP off its hydrated detail; `{0,0}` when the detail is
- *  missing (mirrors the rail's defensive defaults). */
-function pcPool(
-  detail: PcCombatantDetail | undefined,
-  kind: "hp" | "sp"
-): Pool {
-  if (!detail) return { current: 0, max: 0 }
-  return kind === "hp"
-    ? { current: detail.currentHP, max: detail.maxHP }
-    : { current: detail.currentSP, max: detail.maxSP }
-}
-
 /** An inline enemy's SP off its stat block; `null` for a catalog enemy (no SP)
  *  or a PC ref (unreachable here). */
 function enemySp(combatant: Combatant): Pool | null {
@@ -146,23 +151,27 @@ function enemySp(combatant: Combatant): Pool | null {
 
 function projectCombatant(
   combatant: Combatant,
+  token: MapToken | undefined,
+  /** The combatant's zone id **after fog-clamping** (`""` when it stands in an
+   *  unrevealed Zone of a fogged delve) — resolved by the caller so this stays a
+   *  dumb shaper. */
+  zoneId: string,
   currentActorId: string | null,
   nameById: Map<string, string>,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): PlayerVisibleCombatant {
+  const engagement = token?.engagement
   const engagedWith =
-    combatant.engagement.status === "engaged"
-      ? combatant.engagement.targetCombatantIds.map(
-          (id) => nameById.get(id) ?? id
-        )
+    engagement?.status === "engaged"
+      ? engagement.targetCombatantIds.map((id) => nameById.get(id) ?? id)
       : []
 
   const base: PlayerCombatantBase = {
     id: combatant.id,
     name: nameById.get(combatant.id) ?? combatant.id,
     side: combatant.side,
-    zoneId: combatant.zoneId,
+    zoneId,
     hasActed: combatant.hasActedThisRound,
     isCurrent: combatant.id === currentActorId,
     ailments: combatant.ailments,
@@ -207,6 +216,14 @@ function projectCombatant(
  * through {@link combatantName} ({@link PcCombatantDetail} is structurally a
  * console-view `PcInfo`); enemy data is redacted by construction — see the
  * module doc.
+ *
+ * When combat runs on a **delve** Instance ({@link isFogActive} — reveal state is
+ * present), the spatial fields are additionally **fog-redacted** so the public
+ * encounter snapshot can't be used to bypass the dungeon fog: undiscovered Zones
+ * (and graph edges to them) are dropped, a combatant standing in an unrevealed
+ * Zone has its `zoneId` cleared, and an Enchantment in an unrevealed Zone is
+ * withheld. A standalone encounter has empty reveal state, so its map stays fully
+ * visible.
  */
 export function projectPlayerSnapshot(
   encounter: {
@@ -214,27 +231,53 @@ export function projectPlayerSnapshot(
     status: EncounterStatus
     campaignShortId: string
     version: number
+    /** The Map Instance row's version (UNN-468) — passed alongside the encounter
+     *  version so the snapshot exposes both halves of its composite token. */
+    instanceVersion: number
     session: CombatSession
   },
+  instance: MapInstanceState,
   pcDetailById: Record<string, PcCombatantDetail>,
   enemyStatblockById: Record<string, Statblock>
 ): EncounterSnapshot {
   const { session } = encounter
-  const nameById = new Map(
-    session.combatants.map((combatant) => [
-      combatant.id,
-      combatantName(combatant, pcDetailById, enemyStatblockById),
-    ])
+  const { reveal } = instance
+  // Fog-redact only when combat runs on a delve Instance (reveal state present);
+  // a standalone encounter's map is always fully visible (UNN-467). Without this
+  // a signed-out viewer could poll the public encounter snapshot during a dungeon
+  // fight and read what the fog strips — every Zone name, the full graph, and
+  // every combatant's position.
+  const fogged = isFogActive(reveal)
+  const zoneVisible = (zoneId: string) =>
+    !fogged || isZoneRevealed(reveal, zoneId)
+
+  const nameById = combatantDisplayNames(
+    session,
+    pcDetailById,
+    enemyStatblockById
   )
   const actor = session.combatants.find(
     (combatant) => combatant.id === session.currentActorId
   )
+
+  const adjacency = adjacencyMap(instance.geometry)
+  const visibleAdjacency = fogged
+    ? Object.fromEntries(
+        Object.entries(adjacency)
+          .filter(([zoneId]) => zoneVisible(zoneId))
+          .map(([zoneId, neighbors]) => [
+            zoneId,
+            neighbors.filter((neighbor) => zoneVisible(neighbor)),
+          ])
+      )
+    : adjacency
 
   return {
     status: encounter.status,
     name: encounter.name,
     campaignShortId: encounter.campaignShortId,
     version: encounter.version,
+    instanceVersion: encounter.instanceVersion,
     round: session.round,
     currentActor: actor
       ? {
@@ -243,17 +286,29 @@ export function projectPlayerSnapshot(
           side: actor.side,
         }
       : null,
-    combatants: session.combatants.map((combatant) =>
-      projectCombatant(
+    combatants: session.combatants.map((combatant) => {
+      const token = instance.occupancy[combatant.id]
+      const zoneId = token?.zoneId ?? ""
+      return projectCombatant(
         combatant,
+        token,
+        zoneVisible(zoneId) ? zoneId : "",
         session.currentActorId,
         nameById,
         pcDetailById,
         enemyStatblockById
       )
-    ),
-    zones: Object.values(session.zones),
-    adjacency: session.adjacency,
-    enchantment: session.enchantment,
+    }),
+    zones: Object.values(instance.geometry.zones)
+      .filter((zone) => zoneVisible(zone.id))
+      .map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+      })),
+    adjacency: visibleAdjacency,
+    enchantment:
+      instance.enchantment && zoneVisible(instance.enchantment.zoneId)
+        ? instance.enchantment
+        : null,
   }
 }

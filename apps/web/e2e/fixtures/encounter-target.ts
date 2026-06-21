@@ -1,14 +1,16 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
-import { createCombatSession } from "@workspace/game/engine"
+import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
   type CombatantSetup,
   type CombatSession,
+  type MapInstanceState,
 } from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
+import { mapInstances } from "@/lib/db/schema/map-instance"
 import { reduceCombatSession } from "@/lib/game-engine"
 
 /**
@@ -148,6 +150,11 @@ interface SeededEncounter {
   url: string
   /** Canonical session — built once, used by both the seed and the reset. */
   session: CombatSession
+  /** The Map Instance this encounter references (UNN-459 — spatial truth moved
+   *  off the session). Deterministic id so a re-seed is idempotent; its
+   *  occupancy keys match the session's combatant ids. */
+  mapInstanceId: string
+  mapInstanceState: MapInstanceState
 }
 
 function seededEncounter(
@@ -157,7 +164,12 @@ function seededEncounter(
   roster: CombatantSetup[],
   start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
-  const base = createCombatSession(deterministicIds(slug))(roster)
+  // Stamp deterministic ids onto the roster up front so the session combatants
+  // and the Instance occupancy tokens (built from the same setups) share ids.
+  const nextId = deterministicIds(slug)
+  const placedRoster = roster.map((setup) => ({ ...setup, id: nextId() }))
+
+  const base = createCombatSession(deterministicIds(slug))(placedRoster)
   // A `live` encounter has already run `startCombat`, so its advantage/firstSide
   // are set — replay that event here so the seeded session matches a real live
   // one (the console's advantage chip + drafting order need it).
@@ -171,6 +183,8 @@ function seededEncounter(
     campaignId,
     url: `/combat/encounter-${slug}`,
     session,
+    mapInstanceId: `seed-mi-encounter-${slug}`,
+    mapInstanceState: createMapInstance(deterministicIds(slug))(placedRoster),
   }
 }
 
@@ -223,8 +237,25 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  * The spec runs `serial` so these resets aren't racing a parallel test mutating
  * the same campaign-level live state.
  */
+/**
+ * A monotonically-increasing `version` baseline stamped onto the seeded rows by
+ * every reset. The setup specs assert on the **optimistic** UI, so a per-edit
+ * write can still be in flight at test teardown — and post-UNN-459 the roster
+ * add/remove are slower `guardMany` **cross-writes**, so one can straddle into
+ * the next serial test. Giving each reset a fresh baseline higher than any
+ * in-flight write expected makes that stale write fail its version guard
+ * (`"stale"`, a no-op) instead of colliding with a shared `version: 0` and
+ * applying onto the freshly-reset row — which would empty it. The step exceeds
+ * the handful of edits any single test issues, and the counter is per-process so
+ * it never overflows the `integer` column across a run.
+ */
+let resetVersionBaseline = 0
+const RESET_VERSION_STEP = 1000
+
 export async function resetEncounterFixtures(): Promise<void> {
   const db = getDb()
+  resetVersionBaseline += RESET_VERSION_STEP
+  const version = resetVersionBaseline
 
   await db.delete(encounters).where(
     and(
@@ -239,10 +270,19 @@ export async function resetEncounterFixtures(): Promise<void> {
   await Promise.all(
     SEEDED_ENCOUNTERS.map((encounter) =>
       db
+        .update(mapInstances)
+        .set({ state: encounter.mapInstanceState, version })
+        .where(eq(mapInstances.id, encounter.mapInstanceId))
+    )
+  )
+
+  await Promise.all(
+    SEEDED_ENCOUNTERS.map((encounter) =>
+      db
         .update(encounters)
         .set({
           status: encounter.status,
-          version: 0,
+          version,
           session: encounter.session,
         })
         .where(eq(encounters.id, encounter.id))

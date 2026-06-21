@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { combatSessionSchema } from "@workspace/game/foundation"
 
-import { db } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   encounters,
   type EncounterRow,
@@ -62,6 +62,25 @@ export async function loadEncounterRowByShortId(
 }
 
 /**
+ * The encounter's current optimistic `version` only (by public `shortId`), or
+ * `null` when no encounter matches. Backs the client stale-retry path
+ * (`getEncounterVersionAction`, UNN-378): when a guarded write returns `"stale"`,
+ * the queued-write hook refetches the fresh token here and retries once. Selects
+ * one column, so the read is index-light.
+ */
+export async function loadEncounterVersionByShortId(
+  shortId: string
+): Promise<number | null> {
+  const [row] = await db
+    .select({ version: encounters.version })
+    .from(encounters)
+    .where(eq(encounters.shortId, shortId))
+    .limit(1)
+
+  return row?.version ?? null
+}
+
+/**
  * The encounter's `campaignId` only, or `null` when no encounter matches. Lets
  * the impure shell (`applyCombatEvent`, UNN-332) authorize the caller against the
  * owning campaign (`requireCampaignDM`) *before* loading the `session` blob, so a
@@ -86,8 +105,11 @@ export async function loadEncounterCampaignId(
  * `"stale"` (it exists but its `version` moved past the caller's token). Selects
  * only `id` so the read is index-only.
  */
-export async function encounterExists(encounterId: string): Promise<boolean> {
-  const [row] = await db
+export async function encounterExists(
+  encounterId: string,
+  executor: WriteExecutor = db
+): Promise<boolean> {
+  const [row] = await executor
     .select({ id: encounters.id })
     .from(encounters)
     .where(eq(encounters.id, encounterId))
@@ -143,6 +165,33 @@ export async function loadLiveEncounterForCampaign(
     .from(encounters)
     .where(
       and(eq(encounters.campaignId, campaignId), eq(encounters.status, "live"))
+    )
+    .limit(1)
+
+  return row ? withParsedSession(row) : null
+}
+
+/**
+ * The single `live` encounter running on a given Map Instance, or `null` if none.
+ * The shared-row invariant (Dungeon Map ADR — *one Instance ↔ at most one live
+ * Encounter*) means this resolves the encounter a **dungeon delve** is fighting:
+ * the `/dungeon/{shortId}` console forks into its combat phase and the fog player
+ * view composes the watch when this returns a row referencing the dungeon's
+ * `mapInstanceId`. Matching on `mapInstanceId` (not just `campaignId`) is the
+ * exact join — a campaign could hold a live *standalone* encounter on a different
+ * Instance, which is not this delve's fight.
+ */
+export async function loadLiveEncounterForMapInstance(
+  mapInstanceId: string
+): Promise<EncounterRow | null> {
+  const [row] = await db
+    .select()
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.mapInstanceId, mapInstanceId),
+        eq(encounters.status, "live")
+      )
     )
     .limit(1)
 

@@ -3,15 +3,11 @@ import { reduceAilmentEvent } from "@workspace/game/engine/encounter/reduce/ailm
 import { reduceBattleConditionEvent } from "@workspace/game/engine/encounter/reduce/conditions"
 import { reduceCounterEvent } from "@workspace/game/engine/encounter/reduce/counters"
 import { reduceDraftCombatantEvent } from "@workspace/game/engine/encounter/reduce/draft"
-import { reduceEnchantmentEvent } from "@workspace/game/engine/encounter/reduce/enchantment"
 import { reduceEnemyVitalsEvent } from "@workspace/game/engine/encounter/reduce/enemy-vitals"
-import { reduceEngagementEvent } from "@workspace/game/engine/encounter/reduce/engagement"
 import { reduceOverrideEvent } from "@workspace/game/engine/encounter/reduce/override"
-import { reducePlacementEvent } from "@workspace/game/engine/encounter/reduce/placement"
 import { reduceRoundEvent } from "@workspace/game/engine/encounter/reduce/round"
 import { reduceTurnEvent } from "@workspace/game/engine/encounter/reduce/turn"
 import { reduceStartCombatEvent } from "@workspace/game/engine/encounter/reduce/turn-start"
-import { reduceZoneGraphEvent } from "@workspace/game/engine/encounter/reduce/zones"
 import { type GameData } from "@workspace/game/engine/ports"
 import type { CombatSession } from "@workspace/game/foundation/encounter/session"
 import type { CombatEvent } from "@workspace/game/foundation/encounter/session-event"
@@ -82,23 +78,6 @@ export function reduceCombatSession(
       case "setActed":
       case "setRound":
         return reduceOverrideEvent(session, event)
-
-      case "addZone":
-      case "removeZone":
-      case "setZoneAdjacency":
-      case "renameZone":
-        return reduceZoneGraphEvent(session, event, newId)
-
-      case "moveCombatant":
-        return reducePlacementEvent(session, event)
-
-      case "setEngagement":
-      case "clearEngagement":
-        return reduceEngagementEvent(session, event)
-
-      case "applyEnchantment":
-      case "clearEnchantment":
-        return reduceEnchantmentEvent(session, event)
     }
   }
 }

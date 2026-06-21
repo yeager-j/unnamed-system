@@ -1,6 +1,7 @@
 import { createCatalog } from "@workspace/game/data/catalog/create-catalog"
 import { ABERRATION_ENEMIES } from "@workspace/game/data/enemies/5e/aberration/index"
 import { BEAST_ENEMIES } from "@workspace/game/data/enemies/5e/beast/index"
+import { ELEMENTAL_ENEMIES } from "@workspace/game/data/enemies/5e/elemental/index"
 import { HUMANOID_ENEMIES } from "@workspace/game/data/enemies/5e/humanoid/index"
 import { MONSTROSITY_ENEMIES } from "@workspace/game/data/enemies/5e/monstrosity/index"
 import { UNDEAD_ENEMIES } from "@workspace/game/data/enemies/5e/undead/index"
@@ -58,6 +59,7 @@ const ENEMIES_BY_KEY = {
   ...UNDEAD_ENEMIES,
   ...ABERRATION_ENEMIES,
   ...MONSTROSITY_ENEMIES,
+  ...ELEMENTAL_ENEMIES,
 } as const satisfies Record<string, EnemyDefinition>
 
 export type EnemyKey = keyof typeof ENEMIES_BY_KEY
@@ -71,6 +73,7 @@ const SLICE_BY_FAMILY = {
   undead: UNDEAD_ENEMIES,
   aberration: ABERRATION_ENEMIES,
   monstrosity: MONSTROSITY_ENEMIES,
+  elemental: ELEMENTAL_ENEMIES,
 } satisfies Record<EnemyFamily, Record<string, EnemyDefinition>>
 
 /** Every enemy key mapped to its family, derived from the slices so an entry's

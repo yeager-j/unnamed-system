@@ -1,9 +1,10 @@
 import { z } from "zod/v4"
 
-import { type BattleConditionFlagKey } from "@workspace/game/foundation/character/character-edit"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
+  BATTLE_CONDITION_FLAG_KEYS,
   type BattleConditionAxisKey,
+  type BattleConditionFlagKey,
 } from "@workspace/game/foundation/character/state"
 import {
   AILMENT_KEYS,
@@ -14,10 +15,6 @@ import {
   type CounterKey,
 } from "@workspace/game/foundation/combat/counters"
 import {
-  ENCHANTMENT_TYPES,
-  type EnchantmentType,
-} from "@workspace/game/foundation/combat/enchantment"
-import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,
   combatantSetupSchema,
@@ -25,6 +22,7 @@ import {
   type CombatantSetup,
   type CombatSide,
 } from "@workspace/game/foundation/encounter/session"
+import type { Equals } from "@workspace/game/foundation/equals"
 
 /**
  * The tracker reducer's vocabulary: the events that drive a {@link CombatSession}
@@ -247,95 +245,6 @@ export type EnemyVitalsEvent = {
 }
 
 /**
- * Zone-graph events (UNN-313) — mutate the spatial graph on the session
- * (`zones` + `adjacency`), never a combatant:
- *
- * - `addZone` records a new {@link import("./session").Zone}. The client may
- *   supply the stable `zoneId` (the encounter-setup surface mints it so the
- *   optimistic id matches the persisted one and a follow-up adjacency/placement
- *   edit can reference it before any refresh — UNN-347); when omitted the reducer
- *   mints it via its injectable `newId` (same fallback as `addCombatant`). The
- *   client always supplies the display `name` and optional `notes`.
- * - `removeZone` drops a zone and prunes it from every adjacency list. It does
- *   **not** touch any `combatant.zoneId` — zone-id cleanup is the caller's job
- *   (placement is UNN-315).
- * - `setZoneAdjacency` records (or clears) an **undirected** edge between two
- *   zones; idempotent — re-adding an existing edge does not duplicate it.
- * - `renameZone` updates a zone's display name.
- *
- * Each is a no-op when a referenced zone id is unknown. The graph is pure engine
- * shape here (UNN-313); rendering is UNN-314 and movement/placement is UNN-315.
- */
-export type ZoneGraphEvent =
-  | { kind: "addZone"; name: string; notes?: string; zoneId?: string }
-  | { kind: "removeZone"; zoneId: string }
-  | {
-      kind: "setZoneAdjacency"
-      zoneIdA: string
-      zoneIdB: string
-      adjacent: boolean
-    }
-  | { kind: "renameZone"; zoneId: string; name: string }
-
-/**
- * `moveCombatant` travels a combatant to `toZoneId` (UNN-315) — the in-play
- * placement edit, also reused to place an unplaced (empty-`zoneId`) mid-combat
- * joiner. The reducer sets `combatant.zoneId` verbatim and never validates that
- * `toZoneId` exists in `session.zones` (no referential enforcement — UNN-313
- * decision; the DM control offers only adjacent zones). Per ADR Decision 8 it
- * **guides, doesn't block**: a non-adjacent target is still applied. Moving to
- * the occupied zone, or an unknown combatant id, is a no-op.
- */
-export type MoveCombatantEvent = {
-  kind: "moveCombatant"
-  combatantId: string
-  toZoneId: string
-}
-
-/**
- * Zone-Enchantment events — the Bard mechanic's battlefield state, a singleton
- * on the session (`session.enchantment`; see
- * {@link import("../combat/enchantment").zoneEnchantmentSchema}):
- *
- * - `applyEnchantment` Enchants `zoneId` with `enchantment`: re-applying the
- *   same type to the already-Enchanted Zone raises its Forte (capped at
- *   `MAX_FORTE`); anything else — a different Zone or a different type —
- *   replaces the singleton at Forte 1 (rulebook: "if you Enchant a second
- *   Zone, the first one loses its Enchantment"). No-op when `zoneId` isn't a
- *   current zone (zone-graph precedent).
- * - `clearEnchantment` removes it outright (DM correction; combat's end).
- *
- * **DM-only**: deliberately not in {@link PLAYER_OVERLAY_EVENT_KINDS} — those
- * are gated per owned combatant, and an Enchantment is session-level state.
- */
-export type EnchantmentEvent =
-  | { kind: "applyEnchantment"; zoneId: string; enchantment: EnchantmentType }
-  | { kind: "clearEnchantment" }
-
-/**
- * Engagement events (UNN-316) — the *who* a combatant is melee-locked with, on
- * the combatant overlay (position is the orthogonal `zoneId`, UNN-315):
- *
- * - `setEngagement` replaces the combatant's engagement with
- *   `{ status: "engaged", targetCombatantIds }` (≥1 target).
- * - `clearEngagement` sets it back to `{ status: "free" }`.
- *
- * Engagement is **symmetric**: the reducer mirrors every change onto the targets
- * (A engaged with B ⟺ B engaged with A). Target ids are **not** validated at
- * reduce-time (same philosophy as `zoneId`/`toZoneId` — UNN-313/315); the DM
- * control offers only same-zone combatants. An unknown combatant id, or clearing
- * an already-Free combatant, is a no-op. This is the live-combat counterpart of
- * UNN-301's setup-time `setEngagementTargets`.
- */
-export type EngagementEvent =
-  | {
-      kind: "setEngagement"
-      combatantId: string
-      targetCombatantIds: string[]
-    }
-  | { kind: "clearEngagement"; combatantId: string }
-
-/**
  * One event applied to a {@link CombatSession}. The discriminated union the
  * reducer dispatches over; its `kind`s stay in lockstep with the orchestrator's
  * exhaustive `switch`.
@@ -349,10 +258,6 @@ export type CombatEvent =
   | ActionEconomyEvent
   | EnemyVitalsEvent
   | OverrideEvent
-  | ZoneGraphEvent
-  | MoveCombatantEvent
-  | EngagementEvent
-  | EnchantmentEvent
 
 /**
  * Runtime validator for a {@link CombatEvent} arriving over the wire — the
@@ -387,7 +292,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("setBattleConditionFlag"),
     combatantId: z.string(),
-    flag: z.enum(["charged", "concentrating"]),
+    flag: z.enum(BATTLE_CONDITION_FLAG_KEYS),
     value: z.boolean(),
   }),
   z.object({
@@ -430,45 +335,7 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     value: z.number().int(),
   }),
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
-  z.object({
-    kind: z.literal("addZone"),
-    name: z.string().min(1),
-    notes: z.string().optional(),
-    zoneId: z.string().optional(),
-  }),
-  z.object({ kind: z.literal("removeZone"), zoneId: z.string() }),
-  z.object({
-    kind: z.literal("setZoneAdjacency"),
-    zoneIdA: z.string(),
-    zoneIdB: z.string(),
-    adjacent: z.boolean(),
-  }),
-  z.object({
-    kind: z.literal("renameZone"),
-    zoneId: z.string(),
-    name: z.string().min(1),
-  }),
-  z.object({
-    kind: z.literal("moveCombatant"),
-    combatantId: z.string(),
-    toZoneId: z.string(),
-  }),
-  z.object({
-    kind: z.literal("setEngagement"),
-    combatantId: z.string(),
-    targetCombatantIds: z.array(z.string()).min(1),
-  }),
-  z.object({ kind: z.literal("clearEngagement"), combatantId: z.string() }),
-  z.object({
-    kind: z.literal("applyEnchantment"),
-    zoneId: z.string(),
-    enchantment: z.enum(ENCHANTMENT_TYPES),
-  }),
-  z.object({ kind: z.literal("clearEnchantment") }),
 ])
-
-/** `true` only when `A` and `B` are mutually assignable (structurally equal). */
-type Equals<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
 /**
  * Compile-time lockstep guard: if {@link combatEventSchema} and the hand-written
@@ -495,7 +362,7 @@ export const PLAYER_OVERLAY_EVENT_KINDS = [
   "clearAilment",
   "adjustBattleConditionAxis",
   "setBattleConditionFlag",
-] as const
+] as const satisfies readonly CombatEvent["kind"][]
 
 /**
  * A {@link CombatEvent} narrowed to the player-issuable overlay edits. Every

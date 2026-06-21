@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import {
   enemyStatblocks,
-  reduceCombat,
+  makeConnection,
+  makeEncounter,
+  makeGeometry,
+  makeZone,
+  reduceInstance,
 } from "@workspace/game/engine/__fixtures__/encounter"
 import { makeEnemy } from "@workspace/game/engine/__fixtures__/enemies"
 import { makeTestGameData } from "@workspace/game/engine/__fixtures__/game-data"
@@ -12,7 +16,6 @@ import {
   combatantDetail,
   type PcCombatantDetail,
 } from "@workspace/game/engine/encounter/roster-view"
-import { createCombatSession } from "@workspace/game/engine/encounter/session-factory"
 import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game/foundation/character/state"
 import {
   DAMAGE_TYPES,
@@ -20,15 +23,14 @@ import {
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
 import {
+  type MapInstanceState,
+  type MapToken,
+} from "@workspace/game/foundation/encounter/map-instance"
+import {
   type Combatant,
   type CombatantSetup,
   type CombatSession,
 } from "@workspace/game/foundation/encounter/session"
-
-function sequentialIds() {
-  let n = 0
-  return () => `combatant-${n++}`
-}
 
 /** A full {@link DamageType} chart defaulting to Neutral, matching
  *  `HydratedCharacter.affinityChart`'s required-key shape. */
@@ -70,19 +72,23 @@ const CAVE_BAT_STAT_BLOCK = {
 }
 
 /** combatant-0 Roan (PC, players), combatant-1 catalog goblin, combatant-2
- *  inline Cave Bat — both enemies. */
+ *  inline Cave Bat — both enemies. Ids are explicit so the session roster and the
+ *  Instance occupancy agree. */
 const SETUP: CombatantSetup[] = [
   {
+    id: "combatant-0",
     side: "players",
     ref: { kind: "pc", characterId: "char-roan" },
     zoneId: "z",
   },
   {
+    id: "combatant-1",
     side: "enemies",
     ref: { kind: "catalog-enemy", enemyKey: "goblin" },
     zoneId: "z",
   },
   {
+    id: "combatant-2",
     side: "enemies",
     ref: { kind: "enemy", statBlock: CAVE_BAT_STAT_BLOCK },
     zoneId: "z",
@@ -110,11 +116,13 @@ const CATALOG = makeTestGameData({
  *  Bat and PCs don't read from this map). */
 const ENEMY_SB = enemyStatblocks(SETUP, CATALOG)
 
-function build(): CombatSession {
+/** The session + its Instance for {@link SETUP}, with the opening declaration the
+ *  rail tests assume. */
+function build(): { session: CombatSession; instance: MapInstanceState } {
+  const { session, instance } = makeEncounter(SETUP)
   return {
-    ...createCombatSession(sequentialIds())(SETUP),
-    advantage: "neutral",
-    firstSide: "players",
+    session: { ...session, advantage: "neutral", firstSide: "players" },
+    instance,
   }
 }
 
@@ -131,9 +139,26 @@ function withCombatant(
   }
 }
 
+/** Patches one combatant's Instance occupancy token (its zone / engagement). */
+function withOccupant(
+  instance: MapInstanceState,
+  id: string,
+  patch: Partial<MapToken>
+): MapInstanceState {
+  const token = instance.occupancy[id] ?? {
+    zoneId: "",
+    engagement: { status: "free" },
+  }
+  return {
+    ...instance,
+    occupancy: { ...instance.occupancy, [id]: { ...token, ...patch } },
+  }
+}
+
 describe("buildRosterView", () => {
   it("groups by side in session order with enemy counts", () => {
-    const view = buildRosterView(build(), PC_DETAIL, ENEMY_SB)
+    const { session, instance } = build()
+    const view = buildRosterView(session, instance, PC_DETAIL, ENEMY_SB)
 
     expect(view.players.map((r) => r.name)).toEqual(["Roan Vale"])
     expect(view.enemies.map((r) => r.name)).toEqual(["Goblin", "Cave Bat"])
@@ -142,32 +167,38 @@ describe("buildRosterView", () => {
   })
 
   it("resolves the rail row's zone display name, not the raw id", () => {
-    const base = build()
-    const session: CombatSession = {
-      ...base,
-      zones: { z: { id: "z", name: "Courtyard" } },
+    const { session, instance } = build()
+    const placed: MapInstanceState = {
+      ...instance,
+      geometry: makeGeometry([makeZone("z", { name: "Courtyard" })]),
     }
     expect(
-      buildRosterView(session, PC_DETAIL, ENEMY_SB).players[0]!.zoneName
+      buildRosterView(session, placed, PC_DETAIL, ENEMY_SB).players[0]!.zoneName
     ).toBe("Courtyard")
   })
 
   it("leaves zoneName null when the combatant is unplaced / unzoned", () => {
+    const { session, instance } = build()
     expect(
-      buildRosterView(build(), PC_DETAIL, ENEMY_SB).players[0]!.zoneName
+      buildRosterView(session, instance, PC_DETAIL, ENEMY_SB).players[0]!
+        .zoneName
     ).toBeNull()
   })
 
   it("gives a PC HP + SP and its portrait", () => {
-    const pc = buildRosterView(build(), PC_DETAIL, ENEMY_SB).players[0]!
+    const { session, instance } = build()
+    const pc = buildRosterView(session, instance, PC_DETAIL, ENEMY_SB)
+      .players[0]!
     expect(pc.hp).toEqual({ current: 18, max: 30 })
     expect(pc.sp).toEqual({ current: 8, max: 12 })
     expect(pc.portraitUrl).toBe("https://example.com/roan.png")
   })
 
   it("gives enemies HP only (no SP, no portrait)", () => {
+    const { session, instance } = build()
     const [goblin, caveBat] = buildRosterView(
-      build(),
+      session,
+      instance,
       PC_DETAIL,
       ENEMY_SB
     ).enemies
@@ -177,50 +208,49 @@ describe("buildRosterView", () => {
   })
 
   it("reads an inline enemy's real current/max HP", () => {
-    const caveBat = buildRosterView(build(), PC_DETAIL, ENEMY_SB).enemies[1]!
+    const { session, instance } = build()
+    const caveBat = buildRosterView(session, instance, PC_DETAIL, ENEMY_SB)
+      .enemies[1]!
     expect(caveBat.hp).toEqual({ current: 5, max: 8 })
   })
 
   it("renders a catalog enemy at full HP until its working HP is set", () => {
-    const goblin = buildRosterView(build(), PC_DETAIL, ENEMY_SB).enemies[0]!
+    const { session, instance } = build()
+    const goblin = buildRosterView(session, instance, PC_DETAIL, ENEMY_SB)
+      .enemies[0]!
     expect(goblin.hp.current).toBe(goblin.hp.max)
     expect(goblin.hp.max).toBeGreaterThan(0)
   })
 
   it("reflects a catalog enemy's adjusted working HP off the ref", () => {
-    const base = build()
-    const session: CombatSession = {
-      ...base,
-      combatants: base.combatants.map((c) =>
-        c.id === "combatant-1"
-          ? {
-              ...c,
-              ref: { kind: "catalog-enemy", enemyKey: "goblin", currentHP: 2 },
-            }
-          : c
-      ),
-    }
-    const goblin = buildRosterView(session, PC_DETAIL, ENEMY_SB).enemies[0]!
+    const { session, instance } = build()
+    const patched = withCombatant(session, "combatant-1", {
+      ref: { kind: "catalog-enemy", enemyKey: "goblin", currentHP: 2 },
+    })
+    const goblin = buildRosterView(patched, instance, PC_DETAIL, ENEMY_SB)
+      .enemies[0]!
     expect(goblin.hp.current).toBe(2)
     expect(goblin.hp.max).toBeGreaterThan(2)
   })
 
   it("flags Downed and rolls it up across the enemies group", () => {
-    const session = withCombatant(build(), "combatant-2", {
+    const { session, instance } = build()
+    const downed = withCombatant(session, "combatant-2", {
       ailments: ["downed"],
     })
-    const view = buildRosterView(session, PC_DETAIL, ENEMY_SB)
+    const view = buildRosterView(downed, instance, PC_DETAIL, ENEMY_SB)
 
     expect(view.enemies[1]!.isDowned).toBe(true)
     expect(view.downedEnemyCount).toBe(1)
   })
 
   it("flags the acted and the acting combatant", () => {
-    let session = withCombatant(build(), "combatant-0", {
+    const { session, instance } = build()
+    let next = withCombatant(session, "combatant-0", {
       hasActedThisRound: true,
     })
-    session = { ...session, currentActorId: "combatant-1" }
-    const view = buildRosterView(session, PC_DETAIL, ENEMY_SB)
+    next = { ...next, currentActorId: "combatant-1" }
+    const view = buildRosterView(next, instance, PC_DETAIL, ENEMY_SB)
 
     expect(view.players[0]!.hasActed).toBe(true)
     expect(view.enemies[0]!.isCurrent).toBe(true)
@@ -229,8 +259,10 @@ describe("buildRosterView", () => {
   })
 
   it("marks a PC with no current HP as Fallen via the injected detail", () => {
+    const { session, instance } = build()
     const view = buildRosterView(
-      build(),
+      session,
+      instance,
       { "char-roan": { ...ROAN, currentHP: 0 } },
       ENEMY_SB
     )
@@ -240,11 +272,21 @@ describe("buildRosterView", () => {
 
 describe("combatantDetail", () => {
   it("returns null for an unknown combatant", () => {
-    expect(combatantDetail(build(), "nope", PC_DETAIL, ENEMY_SB)).toBeNull()
+    const { session, instance } = build()
+    expect(
+      combatantDetail(session, instance, "nope", PC_DETAIL, ENEMY_SB)
+    ).toBeNull()
   })
 
   it("falls back to defaults for a PC whose detail is absent", () => {
-    const detail = combatantDetail(build(), "combatant-0", {}, ENEMY_SB)!
+    const { session, instance } = build()
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-0",
+      {},
+      ENEMY_SB
+    )!
 
     expect(detail.kind).toBe("pc")
     if (detail.kind === "pc") {
@@ -266,8 +308,10 @@ describe("combatantDetail", () => {
   })
 
   it("surfaces the PC's className from its injected detail", () => {
+    const { session, instance } = build()
     const detail = combatantDetail(
-      build(),
+      session,
+      instance,
       "combatant-0",
       { "char-roan": { ...ROAN, className: "Warrior" } },
       ENEMY_SB
@@ -276,21 +320,21 @@ describe("combatantDetail", () => {
   })
 
   it("defaults an unknown catalog enemy's HP and Attributes to zero", () => {
-    const session = {
-      ...createCombatSession(sequentialIds())([
-        {
-          side: "enemies" as const,
-          ref: {
-            kind: "catalog-enemy" as const,
-            enemyKey: "not-a-real-enemy",
-          },
-          zoneId: "z",
-        },
-      ]),
-      advantage: "neutral" as const,
-      firstSide: "players" as const,
-    }
-    const detail = combatantDetail(session, "combatant-0", {}, ENEMY_SB)!
+    const { session, instance } = makeEncounter([
+      {
+        id: "combatant-0",
+        side: "enemies",
+        ref: { kind: "catalog-enemy", enemyKey: "not-a-real-enemy" },
+        zoneId: "z",
+      },
+    ])
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-0",
+      {},
+      ENEMY_SB
+    )!
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
@@ -305,7 +349,14 @@ describe("combatantDetail", () => {
   })
 
   it("shapes a PC: identity, vitals, attributes, affinities", () => {
-    const detail = combatantDetail(build(), "combatant-0", PC_DETAIL, ENEMY_SB)!
+    const { session, instance } = build()
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-0",
+      PC_DETAIL,
+      ENEMY_SB
+    )!
 
     expect(detail.kind).toBe("pc")
     expect(detail).toMatchObject({
@@ -326,7 +377,14 @@ describe("combatantDetail", () => {
   })
 
   it("shapes a catalog enemy: level + attributes + affinity chart, full HP, abilities", () => {
-    const detail = combatantDetail(build(), "combatant-1", PC_DETAIL, ENEMY_SB)!
+    const { session, instance } = build()
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-1",
+      PC_DETAIL,
+      ENEMY_SB
+    )!
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
@@ -365,8 +423,9 @@ describe("combatantDetail", () => {
         }),
       ],
     })
-    const session = createCombatSession(sequentialIds())([
+    const { session, instance } = makeEncounter([
       {
+        id: "combatant-0",
         side: "enemies",
         ref: { kind: "catalog-enemy", enemyKey: "bandit-captain" },
         zoneId: "z",
@@ -374,6 +433,7 @@ describe("combatantDetail", () => {
     ])
     const detail = combatantDetail(
       session,
+      instance,
       "combatant-0",
       PC_DETAIL,
       enemyStatblocks(session.combatants, captainCatalog)
@@ -398,7 +458,14 @@ describe("combatantDetail", () => {
   })
 
   it("shapes an inline enemy: stat-block attributes, no level, no chart, no skills/abilities", () => {
-    const detail = combatantDetail(build(), "combatant-2", PC_DETAIL, ENEMY_SB)!
+    const { session, instance } = build()
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-2",
+      PC_DETAIL,
+      ENEMY_SB
+    )!
 
     expect(detail.kind).toBe("enemy")
     if (detail.kind === "enemy") {
@@ -414,7 +481,8 @@ describe("combatantDetail", () => {
   })
 
   it("surfaces the editable session overlay off the combatant (enemy)", () => {
-    const session = withCombatant(build(), "combatant-2", {
+    const { session, instance } = build()
+    const patched = withCombatant(session, "combatant-2", {
       ailments: ["downed", "burn"],
       battleConditions: {
         ...DEFAULT_BATTLE_CONDITIONS,
@@ -428,7 +496,13 @@ describe("combatantDetail", () => {
       counters: { lumina: 2 },
     })
 
-    const detail = combatantDetail(session, "combatant-2", PC_DETAIL, ENEMY_SB)!
+    const detail = combatantDetail(
+      patched,
+      instance,
+      "combatant-2",
+      PC_DETAIL,
+      ENEMY_SB
+    )!
 
     expect(detail.ailments).toEqual(["downed", "burn"])
     expect(detail.battleConditions.attack).toBe("increased")
@@ -443,7 +517,14 @@ describe("combatantDetail", () => {
   })
 
   it("surfaces the overlay for a PC too (identical shape)", () => {
-    const detail = combatantDetail(build(), "combatant-0", PC_DETAIL, ENEMY_SB)!
+    const { session, instance } = build()
+    const detail = combatantDetail(
+      session,
+      instance,
+      "combatant-0",
+      PC_DETAIL,
+      ENEMY_SB
+    )!
     expect(detail.ailments).toEqual([])
     expect(detail.counters).toEqual({})
     expect(detail.actionEconomy).toEqual({
@@ -454,23 +535,29 @@ describe("combatantDetail", () => {
   })
 
   it("position is null when the encounter has no zones", () => {
+    const { session, instance } = build()
     expect(
-      combatantDetail(build(), "combatant-0", PC_DETAIL, ENEMY_SB)!.position
+      combatantDetail(session, instance, "combatant-0", PC_DETAIL, ENEMY_SB)!
+        .position
     ).toBeNull()
   })
 
   it("position carries the current zone + adjacent targets when placed", () => {
-    const session: CombatSession = {
-      ...build(),
-      zones: {
-        z: { id: "z", name: "Courtyard" },
-        z2: { id: "z2", name: "Hall" },
-      },
-      adjacency: { z: ["z2"], z2: ["z"] },
+    const { session, instance } = build()
+    const placed: MapInstanceState = {
+      ...instance,
+      geometry: makeGeometry(
+        [
+          makeZone("z", { name: "Courtyard" }),
+          makeZone("z2", { name: "Hall" }),
+        ],
+        [makeConnection("conn-z-z2", "z", "z2")]
+      ),
     }
     // combatant-0 is placed in "z" (the SETUP zoneId).
     const pos = combatantDetail(
       session,
+      placed,
       "combatant-0",
       PC_DETAIL,
       ENEMY_SB
@@ -480,16 +567,18 @@ describe("combatantDetail", () => {
   })
 
   it("position offers all zones when the combatant is unplaced", () => {
-    const session: CombatSession = {
-      ...build(),
+    const { session, instance } = build()
+    const placed: MapInstanceState = {
+      ...instance,
       // combatant-0's "z" isn't a defined zone → unplaced.
-      zones: {
-        a: { id: "a", name: "Courtyard" },
-        b: { id: "b", name: "Hall" },
-      },
+      geometry: makeGeometry([
+        makeZone("a", { name: "Courtyard" }),
+        makeZone("b", { name: "Hall" }),
+      ]),
     }
     const pos = combatantDetail(
       session,
+      placed,
       "combatant-0",
       PC_DETAIL,
       ENEMY_SB
@@ -500,8 +589,10 @@ describe("combatantDetail", () => {
 
   it("carries engagement: free value + same-zone candidates", () => {
     // All three SETUP combatants share zoneId "z".
+    const { session, instance } = build()
     const eng = combatantDetail(
-      build(),
+      session,
+      instance,
       "combatant-0",
       PC_DETAIL,
       ENEMY_SB
@@ -512,11 +603,13 @@ describe("combatantDetail", () => {
   })
 
   it("resolves engaged target names on the detail", () => {
-    const session = withCombatant(build(), "combatant-0", {
+    const { session, instance } = build()
+    const engaged = withOccupant(instance, "combatant-0", {
       engagement: { status: "engaged", targetCombatantIds: ["combatant-1"] },
     })
     const eng = combatantDetail(
       session,
+      engaged,
       "combatant-0",
       PC_DETAIL,
       ENEMY_SB
@@ -532,30 +625,41 @@ describe("combatantDetail", () => {
 /**
  * M0 safety net (UNN-472): characterizes the shipped `move → reveal-adjacent
  * context` behavior — applying a `moveCombatant` event recomputes the drawer's
- * move targets to the **new** zone's neighbors. This composes the placement
- * reducer slice with the `roster-view` position shaper (which the M0 cutover
- * repoints to read occupancy from the Map Instance), so it must stay green
- * across that lift. The static `position.targets` case lives above; this pins
- * the recompute *through a move*, which nothing else asserts.
+ * move targets to the **new** zone's neighbors. This composes the Instance move
+ * reducer with the `roster-view` position shaper (which the M0 cutover repoints
+ * to read occupancy from the Map Instance), so it must stay green across that
+ * lift. The static `position.targets` case lives above; this pins the recompute
+ * *through a move*, which nothing else asserts.
  */
 describe("combatantDetail — move recomputes the adjacent-zone targets (UNN-472)", () => {
   /** combatant-0 placed in `z` (Courtyard) on a three-zone line
    *  Courtyard ↔ Hall ↔ Cellar. */
-  function lineGraph(): CombatSession {
+  function lineGraph(): { session: CombatSession; instance: MapInstanceState } {
+    const { session, instance } = build()
     return {
-      ...build(),
-      zones: {
-        z: { id: "z", name: "Courtyard" },
-        z2: { id: "z2", name: "Hall" },
-        z3: { id: "z3", name: "Cellar" },
+      session,
+      instance: {
+        ...instance,
+        geometry: makeGeometry(
+          [
+            makeZone("z", { name: "Courtyard" }),
+            makeZone("z2", { name: "Hall" }),
+            makeZone("z3", { name: "Cellar" }),
+          ],
+          [
+            makeConnection("conn-z-z2", "z", "z2"),
+            makeConnection("conn-z2-z3", "z2", "z3"),
+          ]
+        ),
       },
-      adjacency: { z: ["z2"], z2: ["z", "z3"], z3: ["z2"] },
     }
   }
 
   it("offers the start zone's neighbors before the move", () => {
+    const { session, instance } = lineGraph()
     const pos = combatantDetail(
-      lineGraph(),
+      session,
+      instance,
       "combatant-0",
       PC_DETAIL,
       ENEMY_SB
@@ -566,13 +670,15 @@ describe("combatantDetail — move recomputes the adjacent-zone targets (UNN-472
   })
 
   it("recomputes to the destination zone's neighbors after the move", () => {
-    const moved = reduceCombat(lineGraph(), {
+    const { session, instance } = lineGraph()
+    const moved = reduceInstance(instance, {
       kind: "moveCombatant",
       combatantId: "combatant-0",
       toZoneId: "z2",
     })
 
     const pos = combatantDetail(
+      session,
       moved,
       "combatant-0",
       PC_DETAIL,
