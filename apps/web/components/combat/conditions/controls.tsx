@@ -46,7 +46,7 @@ const DOWNED_KEY: AilmentKey = "downed"
 
 /**
  * The session-overlay condition editor, factored out of the DM drawer's
- * {@link import("./combatant-conditions-section").CombatantConditionsSection}
+ * {@link import("@/components/combat/drawer/conditions-section").CombatantConditionsSection}
  * (UNN-310) so the player watch view's own combat-state control renders the
  * **identical** UI. Pure controls over the three pieces of overlay state, each
  * dispatched as a `CombatEvent` through `onCombatEvent`:
@@ -190,7 +190,7 @@ function AxisRow({
 
 /** The live read-out for one axis: state icon + label, with the turns-remaining
  *  countdown when a duration clock is running. Exported so the player watch's
- *  read-only {@link import("./combat-state-display").CombatStateDisplay} shows the
+ *  read-only {@link import("@/components/combat/conditions/state-display").CombatStateDisplay} shows the
  *  identical axis read-out the DM editor does (no drift). */
 export function AxisStateDisplay({
   state,

@@ -20,20 +20,19 @@ import {
 import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { CombatantActionsSection } from "@/components/combat/drawer/actions-section"
+import { CombatantConditionsSection } from "@/components/combat/drawer/conditions-section"
+import { CombatantCountersSection } from "@/components/combat/drawer/counters-section"
+import { CombatantEngagementSection } from "@/components/combat/drawer/engagement-section"
+import { CombatantPositionSection } from "@/components/combat/drawer/position-section"
+import { CombatantVitalsSection } from "@/components/combat/drawer/vitals-section"
+import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
-
-import { CombatantActionsSection } from "./combatant-actions-section"
-import { CombatantConditionsSection } from "./combatant-conditions-section"
-import { CombatantCountersSection } from "./combatant-counters-section"
-import { CombatantEngagementSection } from "./combatant-engagement-section"
-import { CombatantPositionSection } from "./combatant-position-section"
-import { CombatantVitalsSection } from "./combatant-vitals-section"
-import { EnemyStatblock } from "./enemy-statblock"
 
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a

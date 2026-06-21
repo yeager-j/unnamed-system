@@ -12,11 +12,10 @@ import { Affinities } from "@/components/character-sheet/affinities"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import { Skills } from "@/components/character-sheet/skills"
+import { CombatStateDisplay } from "@/components/combat/conditions/state-display"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
-
-import { CombatStateDisplay } from "./combat-state-display"
 
 /**
  * The watch view's **left column**: the signed-in viewer's own character
@@ -31,7 +30,7 @@ import { CombatStateDisplay } from "./combat-state-display"
  * placed in the campaign), so the column tabs between them; a single owned
  * character drops the tab bar.
  */
-export function WatchSheetColumn({
+export function CombatSheetColumn({
   snapshot,
   ownedSheets,
 }: {

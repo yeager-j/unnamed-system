@@ -7,7 +7,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 
-import { EndCombatDialog } from "@/components/combat/end-combat-dialog"
+import { EndCombatDialog } from "@/components/combat/dialogs/end-combat"
 import { useDungeonCombatCanvas } from "@/components/dungeon/canvas/combat/context"
 import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"

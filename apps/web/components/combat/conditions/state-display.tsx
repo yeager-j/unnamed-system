@@ -15,16 +15,15 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
+import { AxisStateDisplay } from "@/components/combat/conditions/controls"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,
 } from "@/lib/ui/labels"
 
-import { AxisStateDisplay } from "./conditions-controls"
-
 /**
  * A **read-only** view of a combatant's session overlay — the player-watch peer of
- * the DM drawer's editable {@link import("./conditions-controls").ConditionsControls}.
+ * the DM drawer's editable {@link import("@/components/combat/conditions/controls").ConditionsControls}.
  * The player sees what's affecting them (ailments, the three battle-condition axes +
  * their duration clocks, and the Charged / Concentrating flags) but can't change it:
  * combat conditions are the DM's to set. Fed straight from the redacted snapshot

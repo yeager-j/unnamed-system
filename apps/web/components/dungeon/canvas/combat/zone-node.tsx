@@ -12,7 +12,7 @@ import type { MapZone } from "@workspace/game/foundation"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ZoneEnchantmentControl } from "@/components/combat/zone-enchantment-control"
+import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { useDungeonCombatCanvas } from "@/components/dungeon/canvas/combat/context"
 import { EngagedCluster } from "@/components/dungeon/canvas/combat/engaged-cluster"
 import { DungeonCombatTokenChip } from "@/components/dungeon/canvas/combat/token-chip"

@@ -3,9 +3,8 @@
 import { type CombatantDetail } from "@workspace/game/engine"
 import { type CombatEvent } from "@workspace/game/foundation"
 
+import { ConditionsControls } from "@/components/combat/conditions/controls"
 import { DetailSection } from "@/components/shared/detail-section"
-
-import { ConditionsControls } from "./conditions-controls"
 
 /**
  * The drawer's **AILMENT & CONDITIONS** section (UNN-310) — the session-overlay
