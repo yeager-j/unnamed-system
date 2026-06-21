@@ -4,7 +4,7 @@ import { cache } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game/engine"
 
-import { DungeonWatch } from "@/components/dungeon/dungeon-watch"
+import { DungeonWatch } from "@/components/dungeon/watch"
 import { auth } from "@/lib/auth"
 import {
   getDungeonSnapshot,

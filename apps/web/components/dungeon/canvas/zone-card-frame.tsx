@@ -12,7 +12,7 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { FloatingEdgeHandles } from "./floating-edge-handles"
+import { FloatingEdgeHandles } from "@/components/dungeon/canvas/floating-edge-handles"
 
 /**
  * The shared shell every DM-side dungeon Zone node renders (UNN-467), so the board

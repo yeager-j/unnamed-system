@@ -8,8 +8,8 @@ import { initials } from "@/lib/ui/initials"
 
 /**
  * The 20px portrait-or-initials square shared by every dungeon token chip — the
- * party {@link import("./dungeon-token-chip").DungeonTokenChip}, the combat
- * {@link import("./dungeon-combat-token-chip").DungeonCombatTokenChip}, and the
+ * party {@link import("@/components/dungeon/canvas/explore/token-chip").DungeonTokenChip}, the combat
+ * {@link import("@/components/dungeon/canvas/combat/token-chip").DungeonCombatTokenChip}, and the
  * Setup / fog node chips. The one place the "portrait when one exists, else a
  * tinted initials fallback" branch lives. The side tint + any ring are the
  * caller's — passed per glyph variant so the initials' bg/text never leak onto the

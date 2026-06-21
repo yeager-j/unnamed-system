@@ -92,7 +92,7 @@ import { type ConsolePhase } from "./turn-order-strip"
  * **Derived view (UNN-467).** Beyond the write surface, the hook owns the combat
  * **view derivation** both bodies render — the standalone {@link
  * import("./combat-console").CombatConsole} and the dungeon {@link
- * import("@/components/dungeon/dungeon-combat-body").DungeonCombatBody} — so they
+ * import("@/components/dungeon/combat/body").DungeonCombatBody} — so they
  * can't drift: the console/roster/zone-layout selectors, the phase, the selected
  * combatant's detail, the end-of-turn obligations, and the per-PC realtime channel
  * list. It also owns the two pieces of view state they share (the end-of-turn modal
