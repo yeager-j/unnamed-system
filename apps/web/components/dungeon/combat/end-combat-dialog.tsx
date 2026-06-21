@@ -18,20 +18,22 @@ import { Button } from "@workspace/ui/components/button"
 import { FallenRecoverReminder } from "@/components/combat/dialogs/fallen-recover-reminder"
 
 /**
- * The DM's "End encounter" control on the live console (UNN-320), behind an
- * `AlertDialog` since ending is terminal. Confirming flips the encounter to
- * `ended` (the page then re-forks to the read-only stub); combat state is
- * discarded with the session, so the dialog says so.
- *
- * When any PCs are Fallen it shows a **non-blocking reminder** that they recover
- * to 1 HP — the tracker never writes a character row, so each player sets it on
- * their own sheet (ADR *Cross-aggregate writes*). The list is display-only.
+ * The DM's "End encounter" control for a fight running **on the dungeon**
+ * (UNN-469) — the dungeon peer of the standalone
+ * {@link import("@/components/combat/dialogs/end-combat").EndCombatDialog}. It
+ * carries the same terminal-and-discards warning + the Fallen-recover reminder,
+ * and adds the **mark-the-turn** line: the fight consumed a dungeon turn, so
+ * confirming both ends combat (pruning the Instance) **and** advances the delve
+ * clock — one tap, committed atomically by {@link import("@/lib/actions/encounter/end-dungeon-combat").endDungeonCombatAction}.
  */
-export function EndCombatDialog({
+export function DungeonEndCombatDialog({
+  turnCounter,
   fallenPcNames,
   onConfirm,
   disabled,
 }: {
+  /** The dungeon turn this fight is consuming; the confirm advances to `+1`. */
+  turnCounter: number
   fallenPcNames: string[]
   onConfirm: () => void
   disabled: boolean
@@ -65,6 +67,18 @@ export function EndCombatDialog({
               the encounter ends. This can&apos;t be resumed.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="rounded-md border border-dashed p-3 text-sm">
+            <p className="text-muted-foreground">
+              This fight consumed dungeon turn{" "}
+              <span className="font-medium tabular-nums">{turnCounter}</span> —
+              the delve will advance to turn{" "}
+              <span className="font-medium tabular-nums">
+                {turnCounter + 1}
+              </span>
+              .
+            </p>
+          </div>
 
           <FallenRecoverReminder names={fallenPcNames} />
 

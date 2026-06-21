@@ -74,7 +74,13 @@ export function DungeonCombatBody({
     onEndTurn,
     onDraft,
     onAdvanceRound,
-  } = useCombatConsole(encounter, instance, pcDetailById, pcShortIdById)
+  } = useCombatConsole(
+    encounter,
+    instance,
+    pcDetailById,
+    pcShortIdById,
+    dungeon
+  )
 
   const [moveAnywhere, setMoveAnywhere] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -143,6 +149,7 @@ export function DungeonCombatBody({
             onAddCombatant: () => setAddOpen(true),
             playerViewHref: `/c/dungeon/${dungeon.shortId}`,
             onEndEncounter: endEncounter,
+            turnCounter: dungeon.state.turnCounter,
             fallenPcNames,
             disabled: isPending,
           }}

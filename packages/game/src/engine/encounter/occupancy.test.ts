@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { makeMapInstanceState } from "@workspace/game/engine/__fixtures__/encounter"
 import {
   addOccupant,
+  pruneCombat,
   removeOccupant,
 } from "@workspace/game/engine/encounter/occupancy"
 
@@ -113,5 +114,51 @@ describe("removeOccupant", () => {
       status: "engaged",
       targetCombatantIds: ["c"],
     })
+  })
+})
+
+describe("pruneCombat", () => {
+  it("drops the named tokens, frees survivors, and clears the enchantment", () => {
+    const state = makeMapInstanceState({
+      occupancy: {
+        pc1: {
+          zoneId: "z2",
+          engagement: { status: "engaged", targetCombatantIds: ["e1"] },
+        },
+        pc2: {
+          zoneId: "z3",
+          engagement: { status: "engaged", targetCombatantIds: ["e1", "e2"] },
+        },
+        e1: {
+          zoneId: "z2",
+          engagement: { status: "engaged", targetCombatantIds: ["pc1", "pc2"] },
+        },
+        e2: {
+          zoneId: "z3",
+          engagement: { status: "engaged", targetCombatantIds: ["pc2"] },
+        },
+      },
+      enchantment: { zoneId: "z2", type: "toccata", forte: 2 },
+    })
+
+    const next = pruneCombat(state, ["e1", "e2"])
+
+    expect(Object.keys(next.occupancy).sort()).toEqual(["pc1", "pc2"])
+    expect(next.occupancy.pc1!.zoneId).toBe("z2")
+    expect(next.occupancy.pc2!.zoneId).toBe("z3")
+    expect(next.occupancy.pc1!.engagement).toEqual({ status: "free" })
+    expect(next.occupancy.pc2!.engagement).toEqual({ status: "free" })
+    expect(next.enchantment).toBeNull()
+  })
+
+  it("is a clean no-op shape when there is nothing to prune", () => {
+    const state = makeMapInstanceState({
+      occupancy: { pc1: { zoneId: "z1", engagement: { status: "free" } } },
+    })
+    const next = pruneCombat(state, [])
+    expect(next.occupancy).toEqual({
+      pc1: { zoneId: "z1", engagement: { status: "free" } },
+    })
+    expect(next.enchantment).toBeNull()
   })
 })
