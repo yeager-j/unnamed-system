@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 
 import { toCombatantSetup } from "@workspace/game/engine"
 
-import { EnemyCatalogBrowser } from "@/components/combat/enemies/enemy-catalog-browser"
+import { EnemyCatalogBrowser } from "@/components/encounter/enemy-catalog-browser"
 
 import { getEncounterForDM } from "../encounter-access"
 

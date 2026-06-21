@@ -9,17 +9,16 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game/foundation"
 
+import {
+  dispatchCombatEvent,
+  reduceInstanceOptimistic,
+} from "@/components/combat/dispatch-combat-event"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { reduceCombatSession } from "@/lib/game-engine"
-
-import {
-  dispatchCombatEvent,
-  reduceInstanceOptimistic,
-} from "./dispatch-combat-event"
 
 /**
  * The encounter-**setup** owner-mode write surface (UNN-347 / UNN-459): the

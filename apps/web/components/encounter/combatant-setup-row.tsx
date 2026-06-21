@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 
-import { EngagementControl } from "./engagement-control"
-import { SideToggle } from "./side-toggle"
+import { EngagementControl } from "@/components/combat/engagement-control"
+import { SideToggle } from "@/components/combat/side-toggle"
 
 /**
  * One row of the encounter-setup roster (UNN-301). Beyond the side toggle +

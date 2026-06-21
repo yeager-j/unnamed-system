@@ -25,7 +25,7 @@ export interface StagedEnemy {
 /**
  * The catalog **browse-and-stage** inner surface (UNN-467) — the three-column
  * master-detail (searchable/family-filtered list · statblock card · staging rail)
- * extracted from {@link import("./enemy-catalog-browser").EnemyCatalogBrowser} so
+ * extracted from {@link import("@/components/encounter/enemy-catalog-browser").EnemyCatalogBrowser} so
  * three consumers share it: the standalone setup route (its own header + commit
  * routing wrap this), the dungeon encounter Setup phase, and the mid-fight
  * add-combatant dialog. It owns only the **browse** UI state (search / family /

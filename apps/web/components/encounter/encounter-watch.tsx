@@ -5,6 +5,8 @@ import {
   type EncounterSnapshot,
 } from "@workspace/game/engine"
 
+import { WatchSheetColumn } from "@/components/combat/watch-sheet-column"
+import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
@@ -12,8 +14,6 @@ import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { PlayerTurnOrder } from "./player-turn-order"
 import { WatchEnemiesRail } from "./watch-enemies-rail"
-import { WatchSheetColumn } from "./watch-sheet-column"
-import { useOwnedSheetZoneEffectsRefresh } from "./watch-sheet-refresh"
 import { ZoneLayout } from "./zone-layout"
 
 /**

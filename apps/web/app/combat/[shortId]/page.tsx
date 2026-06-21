@@ -3,9 +3,9 @@ import { notFound } from "next/navigation"
 
 import { type InitiativeStats } from "@workspace/game/engine"
 
-import { CombatConsole } from "@/components/combat/combat-console"
-import { EncounterSetup } from "@/components/combat/encounter-setup"
-import { EncounterEndedStub } from "@/components/combat/ended-stub"
+import { CombatConsole } from "@/components/encounter/combat-console"
+import { EncounterSetup } from "@/components/encounter/encounter-setup"
+import { EncounterEndedStub } from "@/components/encounter/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

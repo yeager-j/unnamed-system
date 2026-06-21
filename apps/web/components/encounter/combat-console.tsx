@@ -7,6 +7,13 @@ import { type PcCombatantDetail } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
+import { CombatantDrawer } from "@/components/combat/combatant-drawer"
+import { CombatantRail } from "@/components/combat/combatant-rail"
+import { EndCombatDialog } from "@/components/combat/end-combat-dialog"
+import { EndOfTurnModal } from "@/components/combat/end-of-turn-modal"
+import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
+import { useCombatConsole } from "@/components/combat/use-combat-console"
+import { ZoneEnchantmentControl } from "@/components/combat/zone-enchantment-control"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
@@ -18,13 +25,6 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
-import { CombatantDrawer } from "./combatant-drawer"
-import { CombatantRail } from "./combatant-rail"
-import { EndCombatDialog } from "./end-combat-dialog"
-import { EndOfTurnModal } from "./end-of-turn-modal"
-import { TurnOrderStrip } from "./turn-order-strip"
-import { useCombatConsole } from "./use-combat-console"
-import { ZoneEnchantmentControl } from "./zone-enchantment-control"
 import { ZoneLayout } from "./zone-layout"
 
 /**
