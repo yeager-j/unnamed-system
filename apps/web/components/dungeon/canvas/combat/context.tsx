@@ -59,6 +59,9 @@ export interface DungeonCombatCanvasContextValue {
   playerViewHref: string
   /** End the encounter (returns the console to exploration). */
   onEndEncounter: () => void
+  /** The dungeon turn this fight is consuming — the end-combat confirm advances
+   *  it by one (UNN-469's mark-the-turn). */
+  turnCounter: number
   /** Fallen PC names, for the end-combat confirm's warning. */
   fallenPcNames: string[]
   /** True while a write is in flight — disables the turn-loop controls. */

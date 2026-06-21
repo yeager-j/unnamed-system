@@ -62,6 +62,31 @@ describe("guardMany", () => {
     expect(rolledBack).toBe(true)
   })
 
+  it("rolls back all three rows when the last of a three-guard gesture fails (UNN-469 combat-end)", async () => {
+    // The combat-end gesture composes Encounter end + Instance prune + Dungeon
+    // turn-advance; a stale dungeon version on the *third* write must leave the
+    // first two (encounter + instance) uncommitted.
+    const endEncounter = vi.fn(async () => ok({ version: 5 }))
+    const pruneInstance = vi.fn(async () => ok({ version: 9 }))
+    const advanceTurn = vi.fn(async () => err("stale"))
+
+    const result = await guardMany(async () => {
+      const ended = await endEncounter()
+      if (!ended.ok) return ended
+      const inst = await pruneInstance()
+      if (!inst.ok) return inst
+      const dng = await advanceTurn()
+      if (!dng.ok) return dng
+      return ok({ ok: true })
+    })
+
+    expect(result).toEqual(err("stale"))
+    expect(endEncounter).toHaveBeenCalledOnce()
+    expect(pruneInstance).toHaveBeenCalledOnce()
+    expect(advanceTurn).toHaveBeenCalledOnce()
+    expect(rolledBack).toBe(true)
+  })
+
   it("passes the transaction executor to the body", async () => {
     let seen: unknown
     await guardMany(async (tx) => {

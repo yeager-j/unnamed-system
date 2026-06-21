@@ -20,6 +20,7 @@ import {
 import {
   type CombatEvent,
   type MapInstanceEvent,
+  type Result,
 } from "@workspace/game/foundation"
 
 import {
@@ -34,7 +35,10 @@ import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { parseVersionPing } from "@/hooks/version-ping"
 import { endEncounterAction } from "@/lib/actions/encounter/end"
+import { endDungeonCombatAction } from "@/lib/actions/encounter/end-dungeon-combat"
+import type { EndDungeonCombatError } from "@/lib/actions/encounter/end-dungeon-combat.schema"
 import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
+import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import {
@@ -105,7 +109,13 @@ export function useCombatConsole(
   instance: Pick<MapInstanceRow, "state" | "version">,
   pcDetailById: Record<string, PcCombatantDetail>,
   /** Each PC combatant's public shortId — the realtime channel key (UNN-373). */
-  pcShortIdById: Record<string, string>
+  pcShortIdById: Record<string, string>,
+  /**
+   * Present only when the fight runs on a dungeon (UNN-469): switches
+   * {@link endEncounter} to the three-container atomic combat-end gesture (end +
+   * Instance prune + dungeon turn-advance) instead of the standalone status flip.
+   */
+  dungeon?: Pick<DungeonRow, "id" | "shortId" | "version">
 ) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -201,16 +211,35 @@ export function useCombatConsole(
   }
 
   /**
-   * Ends the encounter (UNN-320): a terminal `status` flip, not a session edit,
-   * so it dispatches {@link endEncounterAction} rather than the optimistic reduce
-   * path — but still through the shared queue, so it serializes behind any
-   * in-flight session write and carries the right version. On success
-   * `router.refresh()` re-forks the page to the ended stub.
+   * Ends the encounter: a terminal gesture, not a session edit, so it dispatches a
+   * Server Action rather than the optimistic reduce path — but still through the
+   * shared queue, so it serializes behind any in-flight session write and carries
+   * the right version. On success `router.refresh()` re-forks the page (the ended
+   * stub for a standalone fight; back to the Play phase for a dungeon).
+   *
+   * On a dungeon (UNN-469) it runs the three-container atomic gesture
+   * ({@link endDungeonCombatAction}): end + Instance prune + dungeon turn-advance.
+   * The encounter version comes from the queue token; the Instance version from its
+   * own write ref (no in-flight move at end-time in practice); the dungeon version
+   * from the prop — combat never writes the dungeon row, so it can't be stale here.
+   * A standalone fight (UNN-320) is the single guarded `status` flip via
+   * {@link endEncounterAction}.
    */
   function endEncounter() {
     startTransition(async () => {
-      const result = await enqueue((expectedVersion) =>
-        endEncounterAction({ encounterId: encounter.id, expectedVersion })
+      const result = await enqueue(
+        (
+          expectedVersion
+        ): Promise<Result<{ version: number }, EndDungeonCombatError>> =>
+          dungeon
+            ? endDungeonCombatAction({
+                encounterId: encounter.id,
+                dungeonId: dungeon.id,
+                expectedEncounterVersion: expectedVersion,
+                expectedInstanceVersion: instanceWrite.versionRef.current,
+                expectedDungeonVersion: dungeon.version,
+              })
+            : endEncounterAction({ encounterId: encounter.id, expectedVersion })
       )
       if (!result.ok) {
         toast.error(encounterErrorMessage(result.error))

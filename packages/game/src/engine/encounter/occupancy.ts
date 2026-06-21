@@ -1,6 +1,9 @@
 import { produce } from "immer"
 
-import { unlink } from "@workspace/game/engine/encounter/engagement-graph"
+import {
+  setEngaged,
+  unlink,
+} from "@workspace/game/engine/encounter/engagement-graph"
 import type {
   MapInstanceState,
   MapToken,
@@ -46,5 +49,33 @@ export function removeOccupant(
     for (const token of Object.values(draft.occupancy)) {
       unlink(token, combatantId)
     }
+  })
+}
+
+/**
+ * Combat-end cleanup (UNN-469): drops the given tokens (the fight's enemies),
+ * frees every survivor's engagement, and clears the Zone Enchantment — the "one
+ * cleanup, one row" the ADR (*Lifecycle: empty in exploration, pruned at
+ * combat-end*) calls for. Engagement and enchantment are combat-scoped, so the
+ * Instance returns to its empty-in-exploration profile; the surviving (PC) tokens
+ * keep their `zoneId`, so the party persists exactly where the fight ended.
+ *
+ * Composed by the impure shell's combat-end `guardMany` (alongside the Encounter
+ * status flip + the Dungeon turn advance), not a {@link
+ * import("@workspace/game/foundation").MapInstanceEvent} — the same reasoning as
+ * {@link addOccupant}/{@link removeOccupant}.
+ */
+export function pruneCombat(
+  state: MapInstanceState,
+  removeCombatantIds: string[]
+): MapInstanceState {
+  return produce(state, (draft) => {
+    for (const id of removeCombatantIds) {
+      delete draft.occupancy[id]
+    }
+    for (const token of Object.values(draft.occupancy)) {
+      setEngaged(token, [])
+    }
+    draft.enchantment = null
   })
 }
