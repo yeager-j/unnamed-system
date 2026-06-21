@@ -10,11 +10,7 @@ import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
+import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
@@ -75,34 +71,16 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
         >
           <CopyIcon />
         </Button>
-        {locked ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <span className="inline-flex">
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    aria-label={`Delete ${zone.name}`}
-                    disabled
-                  >
-                    <TrashIcon />
-                  </Button>
-                </span>
-              }
-            />
-            <TooltipContent>Occupied — move the party out first</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={`Delete ${zone.name}`}
-            onClick={() => deleteZone(zone.id)}
-          >
-            <TrashIcon />
-          </Button>
-        )}
+        <TooltipButton
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Delete ${zone.name}`}
+          disabled={locked}
+          disabledReason="Occupied — move the party out first"
+          onClick={() => deleteZone(zone.id)}
+        >
+          <TrashIcon />
+        </TooltipButton>
       </NodeToolbar>
 
       {editable &&

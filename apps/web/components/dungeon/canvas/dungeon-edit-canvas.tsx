@@ -1,7 +1,6 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useMemo } from "react"
 
 import type {
   MapGeometryEvent,
@@ -45,8 +44,10 @@ const MapCanvas = dynamic(
  * It draws each party member as a Zone overlay chip (so the DM sees occupancy while
  * editing) and marks occupied Zones as **locked** — their delete affordance is
  * disabled, since deleting an occupied Zone is blocked (the DM relocates the party
- * in Play mode first). Occupancy is a static snapshot for the Edit session: the DM
- * is the sole geometry writer and doesn't move tokens here.
+ * in Play mode first). The lock set covers **all** occupancy (matching the engine's
+ * `editGeometry` block, which inspects every token), while the chips render only
+ * roster members. Both track the live optimistic Instance — a realtime ping or
+ * refresh updates them mid-session.
  *
  * It shares the dungeon's React Flow viewport store (keyed by `persistKey`) with the
  * Play board's {@link import("./dungeon-canvas").DungeonCanvas}, so toggling Edit ⇄
@@ -70,11 +71,13 @@ export function DungeonEditCanvas({
    *  with the Play board across the toggle. */
   persistKey?: string
 }) {
-  const byZone = useMemo(
-    () => tokensByZone(instance, roster),
-    [instance, roster]
+  const byZone = tokensByZone(instance, roster)
+  // All occupancy, not just `byZone` (roster-only) — a Zone held by a leftover
+  // enemy token from a just-ended fight is still delete-blocked by the engine, so
+  // the affordance must reflect that (no enabled Delete that silently no-ops).
+  const lockedZoneIds = new Set(
+    Object.values(instance.occupancy).map((token) => token.zoneId)
   )
-  const lockedZoneIds = useMemo(() => new Set(Object.keys(byZone)), [byZone])
 
   return (
     <MapCanvas
