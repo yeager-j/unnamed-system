@@ -3,9 +3,9 @@ import { notFound } from "next/navigation"
 
 import { type InitiativeStats } from "@workspace/game/engine"
 
-import type { DungeonRosterEntry } from "@/components/dungeon/canvas/dungeon-canvas-types"
-import { DungeonPrep, type PrepZone } from "@/components/dungeon/dungeon-prep"
-import { DungeonRunConsole } from "@/components/dungeon/dungeon-run-console"
+import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
+import { DungeonPrep, type PrepZone } from "@/components/dungeon/prep"
+import { DungeonRunConsole } from "@/components/dungeon/run-console"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"

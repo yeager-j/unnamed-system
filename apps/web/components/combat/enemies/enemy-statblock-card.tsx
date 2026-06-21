@@ -6,10 +6,9 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ENEMY_FAMILY_LABELS } from "@/lib/ui/labels"
-
-import { EnemyStatblock } from "../enemy-statblock"
 
 /**
  * Standalone statblock for a catalog enemy in the browse surface (UNN-346): the

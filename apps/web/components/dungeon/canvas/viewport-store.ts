@@ -8,7 +8,7 @@ import type { Viewport } from "@xyflow/react"
  * board and reset the DM's zoom/pan. Keyed by the dungeon's `shortId`; survives
  * remounts and the soft navigation of `router.refresh` (the module stays loaded),
  * and resets naturally on a full page reload. Restored via `defaultViewport`,
- * saved on `onMoveEnd` — see {@link import("./dungeon-canvas").DungeonCanvas}.
+ * saved on `onMoveEnd` — see {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas}.
  */
 const viewportByDungeon = new Map<string, Viewport>()
 

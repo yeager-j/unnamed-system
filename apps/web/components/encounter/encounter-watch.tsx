@@ -5,8 +5,8 @@ import {
   type EncounterSnapshot,
 } from "@workspace/game/engine"
 
-import { WatchSheetColumn } from "@/components/combat/watch-sheet-column"
-import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch-sheet-refresh"
+import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
+import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
@@ -23,7 +23,7 @@ import { ZoneLayout } from "./zone-layout"
  *
  * Three-column layout: when the signed-in viewer owns combatant(s) here
  * (`ownedSheets`), their character sheet fills the left column
- * ({@link WatchSheetColumn}) and the battlefield spans the other two; a spectator
+ * ({@link CombatSheetColumn}) and the battlefield spans the other two; a spectator
  * (no owned sheet) gets the battlefield full-width. The battlefield reuses the DM
  * console's {@link ZoneLayout} grid, shaped from the redacted snapshot
  * ({@link resolvePlayerZoneLayout}) — enemy attributes/affinities are already
@@ -67,7 +67,7 @@ export function EncounterWatch({
       {hasSheets ? (
         <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
           <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-            <WatchSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
+            <CombatSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
           </div>
           <div className="flex min-w-0 flex-col lg:col-span-2 lg:min-h-0">
             {battlefield}

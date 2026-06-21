@@ -5,8 +5,8 @@ import { Handle, Position } from "@xyflow/react"
 /**
  * The pair of **invisible, non-connectable** React Flow handles a dungeon Zone node
  * must render so the floating-edge router can attach connections to it. Shared by
- * the DM run console's {@link import("./dungeon-zone-node").DungeonZoneNode} and the
- * player fog view's {@link import("./dungeon-fog-zone-node").DungeonFogZoneNode}.
+ * the DM run console's {@link import("@/components/dungeon/canvas/explore/zone-node").DungeonZoneNode} and the
+ * player fog view's {@link import("@/components/dungeon/canvas/watch/zone-node").DungeonWatchZoneNode}.
  *
  * They are deliberately zero-sized and `isConnectable={false}`: players/DMs don't
  * drag edges off them (that's the template editor's *visible* handles), but React

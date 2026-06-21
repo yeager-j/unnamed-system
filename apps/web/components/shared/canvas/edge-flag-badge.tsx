@@ -18,7 +18,7 @@ import { Badge } from "@workspace/ui/components/badge"
  * Each flag is a {@link Badge}. Shared by the Map editor's
  * {@link import("@/components/maps/canvas/connection-edge").ConnectionEdge} (which
  * only sets `hidden`/`locked`) and the dungeon console's
- * {@link import("@/components/dungeon/canvas/dungeon-connection-edge").DungeonConnectionEdge}
+ * {@link import("@/components/dungeon/canvas/connection-edge").DungeonConnectionEdge}
  * so the DM's two views of the same flags can't drift. Place it inside an
  * `EdgeLabelRenderer`; `labelX`/`labelY` are the edge midpoint from the
  * floating-edge geometry.

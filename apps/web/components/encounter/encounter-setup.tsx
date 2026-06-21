@@ -21,8 +21,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { ImportPcsPanel } from "@/components/combat/import-pcs-panel"
-import { StartCombatDialog } from "@/components/combat/start-combat-dialog"
+import { StartCombatDialog } from "@/components/combat/dialogs/start-combat"
+import { ImportPcsPanel } from "@/components/combat/setup/import-pcs-panel"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
