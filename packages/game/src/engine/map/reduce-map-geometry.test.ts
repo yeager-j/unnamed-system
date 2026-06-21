@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import { mapGeometrySchema, type MapGeometry } from "@workspace/game/foundation"
-
 import {
-  addConnection,
-  addZone,
-  deleteConnection,
-  deleteZone,
-  duplicateZone,
-  moveZone,
-  renameZone,
-  setConnectionFlag,
-  setZoneText,
-} from "./geometry-edits"
+  mapGeometrySchema,
+  type MapGeometry,
+} from "@workspace/game/foundation/map/geometry"
+
+import { reduceMapGeometry } from "./reduce-map-geometry"
+
+type Point = { x: number; y: number }
 
 function makeGeometry(partial?: Partial<MapGeometry>): MapGeometry {
   return mapGeometrySchema.parse(partial ?? {})
@@ -27,6 +22,36 @@ function withZones(...names: [id: string, name: string][]): MapGeometry {
       ])
     ),
   })
+}
+
+function addZone(
+  geometry: MapGeometry,
+  id: string,
+  position: Point
+): MapGeometry {
+  return reduceMapGeometry(geometry, { kind: "addZone", id, position })
+}
+
+function addConnection(
+  geometry: MapGeometry,
+  id: string,
+  fromZoneId: string,
+  toZoneId: string
+): MapGeometry {
+  return reduceMapGeometry(geometry, {
+    kind: "addConnection",
+    id,
+    fromZoneId,
+    toZoneId,
+  })
+}
+
+function setZoneText(
+  geometry: MapGeometry,
+  zoneId: string,
+  patch: { description?: string; dmNotes?: string }
+): MapGeometry {
+  return reduceMapGeometry(geometry, { kind: "setZoneText", zoneId, patch })
 }
 
 describe("addZone", () => {
@@ -69,7 +94,12 @@ describe("duplicateZone", () => {
       description: "gilded",
       dmNotes: "trapped",
     })
-    const next = duplicateZone(base, "a", "b", { x: 40, y: 40 })
+    const next = reduceMapGeometry(base, {
+      kind: "duplicateZone",
+      sourceId: "a",
+      newId: "b",
+      position: { x: 40, y: 40 },
+    })
     expect(next.zones["b"]).toMatchObject({
       id: "b",
       name: "Vault copy",
@@ -87,19 +117,33 @@ describe("duplicateZone", () => {
       "a",
       "b"
     )
-    const next = duplicateZone(connected, "a", "c", { x: 1, y: 1 })
+    const next = reduceMapGeometry(connected, {
+      kind: "duplicateZone",
+      sourceId: "a",
+      newId: "c",
+      position: { x: 1, y: 1 },
+    })
     expect(Object.keys(next.connections)).toEqual(["ab"])
   })
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(duplicateZone(geometry, "ghost", "b", { x: 0, y: 0 })).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "duplicateZone",
+        sourceId: "ghost",
+        newId: "b",
+        position: { x: 0, y: 0 },
+      })
+    ).toBe(geometry)
   })
 
   it("produces geometry that still parses", () => {
-    const geometry = duplicateZone(withZones(["a", "A"]), "a", "b", {
-      x: 5,
-      y: 5,
+    const geometry = reduceMapGeometry(withZones(["a", "A"]), {
+      kind: "duplicateZone",
+      sourceId: "a",
+      newId: "b",
+      position: { x: 5, y: 5 },
     })
     expect(() => mapGeometrySchema.parse(geometry)).not.toThrow()
   })
@@ -108,17 +152,35 @@ describe("duplicateZone", () => {
 describe("renameZone", () => {
   it("trims and sets the name", () => {
     const geometry = withZones(["a", "Old"])
-    expect(renameZone(geometry, "a", "  New  ").zones["a"]?.name).toBe("New")
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "renameZone",
+        zoneId: "a",
+        name: "  New  ",
+      }).zones["a"]?.name
+    ).toBe("New")
   })
 
   it("no-ops an empty/whitespace name (schema requires ≥1 char)", () => {
     const geometry = withZones(["a", "Keep"])
-    expect(renameZone(geometry, "a", "   ").zones["a"]?.name).toBe("Keep")
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "renameZone",
+        zoneId: "a",
+        name: "   ",
+      }).zones["a"]?.name
+    ).toBe("Keep")
   })
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(renameZone(geometry, "ghost", "X")).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "renameZone",
+        zoneId: "ghost",
+        name: "X",
+      })
+    ).toBe(geometry)
   })
 })
 
@@ -144,13 +206,23 @@ describe("moveZone", () => {
   it("updates the node position", () => {
     const geometry = withZones(["a", "A"])
     expect(
-      moveZone(geometry, "a", { x: 99, y: -5 }).zones["a"]?.position
+      reduceMapGeometry(geometry, {
+        kind: "moveZone",
+        zoneId: "a",
+        position: { x: 99, y: -5 },
+      }).zones["a"]?.position
     ).toEqual({ x: 99, y: -5 })
   })
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(moveZone(geometry, "ghost", { x: 1, y: 1 })).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "moveZone",
+        zoneId: "ghost",
+        position: { x: 1, y: 1 },
+      })
+    ).toBe(geometry)
   })
 })
 
@@ -164,7 +236,10 @@ describe("deleteZone", () => {
       "c"
     )
 
-    const next = deleteZone(connected, "b")
+    const next = reduceMapGeometry(connected, {
+      kind: "deleteZone",
+      zoneId: "b",
+    })
     expect(next.zones).not.toHaveProperty("b")
     expect(next.zones).toHaveProperty("a")
     expect(next.zones).toHaveProperty("c")
@@ -174,13 +249,18 @@ describe("deleteZone", () => {
   it("keeps connections that don't touch the deleted zone", () => {
     const base = withZones(["a", "A"], ["b", "B"], ["c", "C"])
     const connected = addConnection(base, "ac", "a", "c")
-    const next = deleteZone(connected, "b")
+    const next = reduceMapGeometry(connected, {
+      kind: "deleteZone",
+      zoneId: "b",
+    })
     expect(next.connections).toHaveProperty("ac")
   })
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(deleteZone(geometry, "ghost")).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, { kind: "deleteZone", zoneId: "ghost" })
+    ).toBe(geometry)
   })
 })
 
@@ -227,13 +307,23 @@ describe("setConnectionFlag", () => {
       "a",
       "b"
     )
-    const hidden = setConnectionFlag(geometry, "ab", "hidden", true)
+    const hidden = reduceMapGeometry(geometry, {
+      kind: "setConnectionFlag",
+      connectionId: "ab",
+      flag: "hidden",
+      value: true,
+    })
     expect(hidden.connections["ab"]).toMatchObject({
       hidden: true,
       locked: false,
     })
 
-    const locked = setConnectionFlag(hidden, "ab", "locked", true)
+    const locked = reduceMapGeometry(hidden, {
+      kind: "setConnectionFlag",
+      connectionId: "ab",
+      flag: "locked",
+      value: true,
+    })
     expect(locked.connections["ab"]).toMatchObject({
       hidden: true,
       locked: true,
@@ -242,7 +332,14 @@ describe("setConnectionFlag", () => {
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(setConnectionFlag(geometry, "ghost", "hidden", true)).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "setConnectionFlag",
+        connectionId: "ghost",
+        flag: "hidden",
+        value: true,
+      })
+    ).toBe(geometry)
   })
 })
 
@@ -254,11 +351,21 @@ describe("deleteConnection", () => {
       "a",
       "b"
     )
-    expect(deleteConnection(geometry, "ab").connections).toEqual({})
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "deleteConnection",
+        connectionId: "ab",
+      }).connections
+    ).toEqual({})
   })
 
   it("no-ops an unknown id", () => {
     const geometry = withZones(["a", "A"])
-    expect(deleteConnection(geometry, "ghost")).toBe(geometry)
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "deleteConnection",
+        connectionId: "ghost",
+      })
+    ).toBe(geometry)
   })
 })

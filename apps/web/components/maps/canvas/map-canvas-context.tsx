@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react"
 
-import type { ConnectionFlag } from "./geometry-edits"
+import type { ConnectionFlag } from "@workspace/game/engine"
 
 /**
  * The edit dispatchers the custom {@link import("./zone-node").ZoneNode} /

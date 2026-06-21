@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { mapGeometrySchema, type MapGeometry } from "@workspace/game/foundation"
+import {
+  mapGeometrySchema,
+  type MapGeometry,
+} from "@workspace/game/foundation/map/geometry"
 
 import { disconnectedZoneIds, duplicateZoneNames } from "./geometry-warnings"
 
