@@ -19,11 +19,17 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 
 import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 import { useDungeonCanvas } from "./dungeon-canvas-context"
+import { DungeonModeToggle } from "./dungeon-mode-toggle"
 
 /**
  * The DM run console's bottom **Panel** (UNN-464 chrome pass) — the dungeon-turn
@@ -40,23 +46,45 @@ import { useDungeonCanvas } from "./dungeon-canvas-context"
  * reminders surface as top-right toasts.
  */
 export function TurnLoopBar() {
-  const { turnCounter, advanceTurn, startEncounter, finishDelve, disabled } =
-    useDungeonCanvas()
+  const {
+    turnCounter,
+    advanceTurn,
+    startEncounter,
+    finishDelve,
+    mode,
+    onModeChange,
+    disabled,
+  } = useDungeonCanvas()
   const [confirmFinish, setConfirmFinish] = useState(false)
 
   return (
     <>
       <CanvasBottomBar>
-        <span className="px-2 font-serif whitespace-nowrap tabular-nums">
-          Dungeon Turn{" "}
+        <DungeonModeToggle mode={mode} onModeChange={onModeChange} />
+
+        <Separator orientation="vertical" className="mx-2" />
+
+        <span className="pl-1 font-serif whitespace-nowrap tabular-nums">
+          Turn{" "}
           <span className="font-bold">
             {turnCounter.toString().padStart(2, "0")}
           </span>
         </span>
-        <Button size="sm" onClick={advanceTurn} disabled={disabled}>
-          Advance
-          <ArrowRightIcon weight="bold" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                aria-label="Advance turn"
+                onClick={advanceTurn}
+                disabled={disabled}
+              />
+            }
+          >
+            <ArrowRightIcon weight="bold" />
+          </TooltipTrigger>
+          <TooltipContent>Advance turn</TooltipContent>
+        </Tooltip>
 
         <Separator orientation="vertical" className="mx-2" />
 
@@ -64,20 +92,38 @@ export function TurnLoopBar() {
 
         <Separator orientation="vertical" className="mx-2" />
 
-        <Button size="sm" onClick={startEncounter} disabled={disabled}>
-          <SwordIcon weight="fill" />
-          Start an encounter
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                aria-label="Start an encounter"
+                onClick={startEncounter}
+                disabled={disabled}
+              />
+            }
+          >
+            <SwordIcon weight="fill" />
+          </TooltipTrigger>
+          <TooltipContent>Start an encounter</TooltipContent>
+        </Tooltip>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setConfirmFinish(true)}
-          disabled={disabled}
-        >
-          <FlagCheckeredIcon weight="bold" />
-          Finish delve
-        </Button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                variant="outline"
+                aria-label="Finish delve"
+                onClick={() => setConfirmFinish(true)}
+                disabled={disabled}
+              />
+            }
+          >
+            <FlagCheckeredIcon weight="bold" />
+          </TooltipTrigger>
+          <TooltipContent>Finish delve</TooltipContent>
+        </Tooltip>
       </CanvasBottomBar>
 
       <AlertDialog open={confirmFinish} onOpenChange={setConfirmFinish}>

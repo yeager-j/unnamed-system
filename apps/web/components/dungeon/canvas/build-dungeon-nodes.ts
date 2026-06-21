@@ -17,8 +17,9 @@ import { type DungeonZoneToken } from "./dungeon-zone-node"
 /** The party tokens standing in each Zone (play mode), keyed by Zone id. Tokens
  *  whose occupant isn't in the delve roster are dropped — during exploration the
  *  only such keys are leftover enemy-combatant tokens from a just-ended fight,
- *  pruned for real in UNN-469; rendering them as "Unknown" would mislead. */
-function tokensByZone(
+ *  pruned for real in UNN-469; rendering them as "Unknown" would mislead. Shared
+ *  with the Edit-mode canvas (UNN-486), which draws the same chips as Zone overlays. */
+export function tokensByZone(
   instance: MapInstanceState,
   roster: Record<string, DungeonRosterEntry>
 ): Record<string, DungeonZoneToken[]> {

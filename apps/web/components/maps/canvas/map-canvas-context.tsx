@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext } from "react"
+import { createContext, useContext, type ReactNode } from "react"
 
 import type { ConnectionFlag } from "@workspace/game/engine"
 
@@ -29,6 +29,20 @@ export interface MapCanvasContextValue {
   ) => void
   /** Deletes a connection. */
   deleteConnection: (connectionId: string) => void
+  /**
+   * Zones that must not be deleted (the live-Instance host marks Zones an
+   * occupancy token stands in). A {@link import("./zone-node").ZoneNode} in this set
+   * disables its delete affordance — the DM relocates the party first (UNN-486).
+   * Absent ⇒ nothing is locked (the Map-template editor).
+   */
+  lockedZoneIds?: ReadonlySet<string>
+  /**
+   * Optional per-Zone overlay rendered inside the Zone card — the live-Instance
+   * host returns its party token chips so the DM can see occupancy while editing
+   * geometry (UNN-486). The canvas stays geometry-only: it renders whatever node
+   * the host returns without knowing what it is. Absent ⇒ no overlay.
+   */
+  renderZoneOverlay?: (zoneId: string) => ReactNode
 }
 
 const MapCanvasContext = createContext<MapCanvasContextValue | null>(null)

@@ -10,6 +10,11 @@ import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
@@ -33,10 +38,18 @@ const HANDLE_SIDES = [
 ] as const
 
 export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
-  const { interactivity, openZoneDetails, duplicateZone, deleteZone } =
-    useMapCanvas()
+  const {
+    interactivity,
+    openZoneDetails,
+    duplicateZone,
+    deleteZone,
+    lockedZoneIds,
+    renderZoneOverlay,
+  } = useMapCanvas()
   const editable = interactivity === "edit"
   const { zone } = data
+  const locked = lockedZoneIds?.has(zone.id) ?? false
+  const overlay = renderZoneOverlay?.(zone.id)
 
   return (
     <>
@@ -62,14 +75,34 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
         >
           <CopyIcon />
         </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Delete ${zone.name}`}
-          onClick={() => deleteZone(zone.id)}
-        >
-          <TrashIcon />
-        </Button>
+        {locked ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="inline-flex">
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    aria-label={`Delete ${zone.name}`}
+                    disabled
+                  >
+                    <TrashIcon />
+                  </Button>
+                </span>
+              }
+            />
+            <TooltipContent>Occupied — move the party out first</TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Delete ${zone.name}`}
+            onClick={() => deleteZone(zone.id)}
+          >
+            <TrashIcon />
+          </Button>
+        )}
       </NodeToolbar>
 
       {editable &&
@@ -97,6 +130,9 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
             {zone.name}
           </CardTitle>
         </CardHeader>
+        {overlay ? (
+          <div className="flex flex-wrap gap-1 px-6">{overlay}</div>
+        ) : null}
       </Card>
     </>
   )

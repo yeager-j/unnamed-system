@@ -17,10 +17,12 @@ import {
   useNodesState,
   useReactFlow,
   type OnConnect,
+  type OnMove,
   type OnNodeDrag,
+  type Viewport,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useRef, useState, type MouseEvent } from "react"
+import { useRef, useState, type MouseEvent, type ReactNode } from "react"
 
 import {
   disconnectedZoneIds,
@@ -28,7 +30,11 @@ import {
   reduceMapGeometry,
   type ConnectionFlag,
 } from "@workspace/game/engine"
-import type { MapGeometry, MapZone } from "@workspace/game/foundation"
+import type {
+  MapGeometry,
+  MapGeometryEvent,
+  MapZone,
+} from "@workspace/game/foundation"
 import {
   Alert,
   AlertDescription,
@@ -46,6 +52,11 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { cn } from "@workspace/ui/lib/utils"
 
+import {
+  CANVAS_DOT_SIZE,
+  CANVAS_GRID_SIZE,
+} from "@/components/shared/canvas/grid"
+
 import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
 import { FloatingConnectionLine } from "./floating-connection-line"
@@ -62,23 +73,40 @@ import { ZoneNode } from "./zone-node"
 const nodeTypes = { zone: ZoneNode }
 const edgeTypes = { connection: ConnectionEdge }
 
-/** Grid step (px) for node-position snapping and the matching background dots.
- *  Tune to taste — the snap grid and the visible dots stay aligned. */
-const GRID_SNAP = 16
-
 /**
  * The shared node-graph canvas (UNN-461) — React Flow behind a route-agnostic,
  * presentational contract: it takes a {@link MapGeometry}, emits the edited
  * geometry through `onGeometryChange`, and knows nothing about persistence or which
  * surface hosts it (the Map editor today; the run console / player view in M2/M3
  * reuse it, gating with `interactivity`). `geometry` seeds the canvas; the canvas
- * then owns the live editing state, so the host passes its persisted geometry once
- * and wires `onGeometryChange` to its autosave.
+ * then owns the live editing state, so the host passes its persisted geometry once.
+ *
+ * Two ways to consume an edit — a host wires **one**:
+ * - `onGeometryChange` — the whole next blob (the Map-template editor's autosave).
+ * - `onGeometryEvent` — the discrete {@link MapGeometryEvent} (the live Map Instance,
+ *   which wraps it as `editGeometry` and version-guards it). Fires only when the edit
+ *   actually changed the geometry (no-ops don't dispatch). UNN-486.
+ *
+ * The live-Instance host also passes `lockedZoneIds` (Zones an occupancy token
+ * stands in — their delete affordance is disabled) and `renderZoneOverlay` (per-Zone
+ * token chips so the DM sees occupancy while editing). The template passes neither.
+ *
+ * `defaultViewport` + `onMoveEnd` let a host persist zoom/pan across mounts — the
+ * dungeon console shares one store with its Play board so toggling Edit ⇄ Play
+ * keeps the board steady (UNN-486). When `defaultViewport` is omitted the canvas
+ * fits the view on mount (the Map-template editor). `bottomBarLeading` injects a
+ * host control at the start of the tool palette (the console's mode toggle).
  */
 export function MapCanvas(props: {
   geometry: MapGeometry
-  onGeometryChange: (geometry: MapGeometry) => void
+  onGeometryChange?: (geometry: MapGeometry) => void
+  onGeometryEvent?: (event: MapGeometryEvent) => void
   interactivity?: "edit" | "readonly"
+  lockedZoneIds?: ReadonlySet<string>
+  renderZoneOverlay?: (zoneId: string) => ReactNode
+  defaultViewport?: Viewport
+  onMoveEnd?: OnMove
+  bottomBarLeading?: ReactNode
 }) {
   return (
     <ReactFlowProvider>
@@ -90,11 +118,23 @@ export function MapCanvas(props: {
 function MapCanvasInner({
   geometry: initialGeometry,
   onGeometryChange,
+  onGeometryEvent,
   interactivity = "edit",
+  lockedZoneIds,
+  renderZoneOverlay,
+  defaultViewport,
+  onMoveEnd,
+  bottomBarLeading,
 }: {
   geometry: MapGeometry
-  onGeometryChange: (geometry: MapGeometry) => void
+  onGeometryChange?: (geometry: MapGeometry) => void
+  onGeometryEvent?: (event: MapGeometryEvent) => void
   interactivity?: "edit" | "readonly"
+  lockedZoneIds?: ReadonlySet<string>
+  renderZoneOverlay?: (zoneId: string) => ReactNode
+  defaultViewport?: Viewport
+  onMoveEnd?: OnMove
+  bottomBarLeading?: ReactNode
 }) {
   const editable = interactivity === "edit"
   const { resolvedTheme } = useTheme()
@@ -122,16 +162,24 @@ function MapCanvasInner({
     if (next === geometryRef.current) return next
     geometryRef.current = next
     setGeometry(next)
-    onGeometryChange(next)
+    onGeometryChange?.(next)
+    return next
+  }
+
+  /** Reduce + persist one edit: apply it to the canvas's own geometry and emit it to
+   *  the host (blob and/or discrete event), but only when it actually changed the
+   *  geometry — a no-op edit dispatches nothing. Returns the resulting geometry. */
+  function dispatchGeometry(event: MapGeometryEvent): MapGeometry {
+    const before = geometryRef.current
+    const next = applyGeometry(reduceMapGeometry(before, event))
+    if (next !== before) onGeometryEvent?.(event)
     return next
   }
 
   function addZoneAt(position: { x: number; y: number }) {
     if (!editable) return
     const id = crypto.randomUUID()
-    const next = applyGeometry(
-      reduceMapGeometry(geometryRef.current, { kind: "addZone", id, position })
-    )
+    const next = dispatchGeometry({ kind: "addZone", id, position })
     const zone = next.zones[id]
     if (!zone) return
     const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
@@ -154,27 +202,23 @@ function MapCanvasInner({
   }
 
   const handleNodeDragStop: OnNodeDrag<FlowZoneNode> = (_, node) => {
-    applyGeometry(
-      reduceMapGeometry(geometryRef.current, {
-        kind: "moveZone",
-        zoneId: node.id,
-        position: node.position,
-      })
-    )
+    dispatchGeometry({
+      kind: "moveZone",
+      zoneId: node.id,
+      position: node.position,
+    })
   }
 
   const handleConnect: OnConnect = (connection) => {
     if (!editable || !connection.source || !connection.target) return
     const id = crypto.randomUUID()
     const before = geometryRef.current
-    const next = applyGeometry(
-      reduceMapGeometry(before, {
-        kind: "addConnection",
-        id,
-        fromZoneId: connection.source,
-        toZoneId: connection.target,
-      })
-    )
+    const next = dispatchGeometry({
+      kind: "addConnection",
+      id,
+      fromZoneId: connection.source,
+      toZoneId: connection.target,
+    })
     const created = next.connections[id]
     if (next === before || !created) return
     const edge: FlowConnectionEdge = {
@@ -196,14 +240,12 @@ function MapCanvasInner({
       x: source.position.x + 32,
       y: source.position.y + 32,
     }
-    const next = applyGeometry(
-      reduceMapGeometry(geometryRef.current, {
-        kind: "duplicateZone",
-        sourceId: zoneId,
-        newId: id,
-        position,
-      })
-    )
+    const next = dispatchGeometry({
+      kind: "duplicateZone",
+      sourceId: zoneId,
+      newId: id,
+      position,
+    })
     const zone = next.zones[id]
     if (!zone) return
     const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
@@ -211,9 +253,7 @@ function MapCanvasInner({
   }
 
   function handleDeleteZone(zoneId: string) {
-    applyGeometry(
-      reduceMapGeometry(geometryRef.current, { kind: "deleteZone", zoneId })
-    )
+    dispatchGeometry({ kind: "deleteZone", zoneId })
     setNodes((current) => current.filter((node) => node.id !== zoneId))
     setEdges((current) =>
       current.filter((edge) => edge.source !== zoneId && edge.target !== zoneId)
@@ -234,13 +274,7 @@ function MapCanvasInner({
   function handleRenameZone(zoneId: string, name: string) {
     patchZoneNodeData(
       zoneId,
-      applyGeometry(
-        reduceMapGeometry(geometryRef.current, {
-          kind: "renameZone",
-          zoneId,
-          name,
-        })
-      )
+      dispatchGeometry({ kind: "renameZone", zoneId, name })
     )
   }
 
@@ -250,13 +284,7 @@ function MapCanvasInner({
   ) {
     patchZoneNodeData(
       zoneId,
-      applyGeometry(
-        reduceMapGeometry(geometryRef.current, {
-          kind: "setZoneText",
-          zoneId,
-          patch,
-        })
-      )
+      dispatchGeometry({ kind: "setZoneText", zoneId, patch })
     )
   }
 
@@ -265,14 +293,12 @@ function MapCanvasInner({
     flag: ConnectionFlag,
     value: boolean
   ) {
-    const next = applyGeometry(
-      reduceMapGeometry(geometryRef.current, {
-        kind: "setConnectionFlag",
-        connectionId,
-        flag,
-        value,
-      })
-    )
+    const next = dispatchGeometry({
+      kind: "setConnectionFlag",
+      connectionId,
+      flag,
+      value,
+    })
     const connection = next.connections[connectionId]
     if (!connection) return
     setEdges((current) =>
@@ -283,12 +309,7 @@ function MapCanvasInner({
   }
 
   function handleDeleteConnection(connectionId: string) {
-    applyGeometry(
-      reduceMapGeometry(geometryRef.current, {
-        kind: "deleteConnection",
-        connectionId,
-      })
-    )
+    dispatchGeometry({ kind: "deleteConnection", connectionId })
     setEdges((current) => current.filter((edge) => edge.id !== connectionId))
   }
 
@@ -306,6 +327,8 @@ function MapCanvasInner({
         deleteZone: setPendingDeleteZoneId,
         setConnectionFlag: handleSetConnectionFlag,
         deleteConnection: handleDeleteConnection,
+        lockedZoneIds,
+        renderZoneOverlay,
       }}
     >
       <div className="relative size-full">
@@ -329,9 +352,11 @@ function MapCanvasInner({
           colorMode={resolvedTheme === "dark" ? "dark" : "light"}
           deleteKeyCode={null}
           snapToGrid
-          snapGrid={[GRID_SNAP, GRID_SNAP]}
-          fitView
+          snapGrid={[CANVAS_GRID_SIZE, CANVAS_GRID_SIZE]}
+          defaultViewport={defaultViewport}
+          fitView={defaultViewport === undefined}
           fitViewOptions={{ padding: 0.2 }}
+          onMoveEnd={onMoveEnd}
           panOnScroll
           selectionOnDrag
           panOnDrag={false}
@@ -339,10 +364,16 @@ function MapCanvasInner({
         >
           <Background
             variant={BackgroundVariant.Dots}
-            gap={GRID_SNAP}
-            size={1}
+            gap={CANVAS_GRID_SIZE}
+            size={CANVAS_DOT_SIZE}
           />
-          {editable && <CanvasToolbar mode={mode} onModeChange={setMode} />}
+          {editable && (
+            <CanvasToolbar
+              mode={mode}
+              onModeChange={setMode}
+              leading={bottomBarLeading}
+            />
+          )}
           <WarningsBanner geometry={geometry} />
         </ReactFlow>
 

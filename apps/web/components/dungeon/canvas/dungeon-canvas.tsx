@@ -17,6 +17,10 @@ import { useEffect, type ReactNode } from "react"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
 import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+import {
+  CANVAS_DOT_SIZE,
+  CANVAS_GRID_SIZE,
+} from "@/components/shared/canvas/grid"
 
 import { buildEdges, buildNodes } from "./build-dungeon-nodes"
 import { type CanvasNode, type DungeonCanvasMode } from "./dungeon-canvas-types"
@@ -117,7 +121,11 @@ function DungeonCanvasInner({
       selectionOnDrag
       panOnDrag={false}
     >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+      <Background
+        variant={BackgroundVariant.Dots}
+        gap={CANVAS_GRID_SIZE}
+        size={CANVAS_DOT_SIZE}
+      />
       {isEmpty && (
         <CanvasEmptyNotice>
           This dungeon has no map yet — author it on My Maps, then recreate the

@@ -5,9 +5,11 @@ import {
   setEngaged,
   unlink,
 } from "@workspace/game/engine/encounter/engagement-graph"
+import { reduceMapGeometry } from "@workspace/game/engine/map/reduce-map-geometry"
 import { MAX_FORTE } from "@workspace/game/foundation/combat/enchantment"
 import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
 import type {
+  EditGeometryEvent,
   EnchantmentEvent,
   EngagementEvent,
   MapInstanceEvent,
@@ -67,6 +69,9 @@ export function reduceMapInstance(newId: () => string) {
       case "unlockConnection":
       case "lockConnection":
         return reduceRevealEvent(state, event)
+
+      case "editGeometry":
+        return reduceGeometryEditEvent(state, event)
     }
   }
 }
@@ -357,6 +362,69 @@ function reduceRevealEvent(
       case "lockConnection":
         removeFromSet(draft.reveal.unlockedConnectionIds, event.connectionId)
         return
+    }
+  })
+}
+
+/**
+ * In-console geometry-edit slice (UNN-486) — the convergence with the Map-template
+ * authoring core. It delegates the inner {@link import("@workspace/game/foundation").MapGeometryEvent}
+ * to {@link reduceMapGeometry} over `state.geometry` (so add/move/rename/retext
+ * zones, draw/flag/delete connections, and the dedup/self-loop/cascade guards all
+ * behave identically to the template), then layers the **Instance-only** cleanup a
+ * bare-geometry reducer can't know about:
+ *
+ * - **Occupied-Zone delete is blocked** — deleting a Zone an occupancy token stands
+ *   in is a no-op (returns the same `state`); the DM relocates the party first
+ *   (PRD's block-or-relocate-with-confirm). The UI also disables the affordance, so
+ *   this is defense in depth.
+ * - **Fog + Enchantment reconciliation** — after a delete, prune the removed Zone/
+ *   connections from the `reveal` overlay (no phantom revealed/unlocked ids) and
+ *   clear the `enchantment` if its Zone no longer exists (generalizing the
+ *   `removeZone` prune).
+ *
+ * A no-op inner edit (unknown id, empty rename, duplicate/self-loop connection)
+ * leaves `reduceMapGeometry` returning the same geometry reference, so this returns
+ * the same `state` reference — preserving the reducer's no-op contract.
+ */
+function reduceGeometryEditEvent(
+  state: MapInstanceState,
+  event: EditGeometryEvent
+): MapInstanceState {
+  if (event.event.kind === "deleteZone") {
+    const { zoneId } = event.event
+    const occupied = Object.values(state.occupancy).some(
+      (token) => token.zoneId === zoneId
+    )
+    if (occupied) return state
+  }
+
+  const nextGeometry = reduceMapGeometry(state.geometry, event.event)
+  if (nextGeometry === state.geometry) return state
+
+  const removesGeometry =
+    event.event.kind === "deleteZone" || event.event.kind === "deleteConnection"
+
+  return produce(state, (draft) => {
+    draft.geometry = nextGeometry
+    if (!removesGeometry) return
+
+    draft.reveal.revealedZoneIds = draft.reveal.revealedZoneIds.filter(
+      (id) => nextGeometry.zones[id] !== undefined
+    )
+    draft.reveal.revealedConnectionIds =
+      draft.reveal.revealedConnectionIds.filter(
+        (id) => nextGeometry.connections[id] !== undefined
+      )
+    draft.reveal.unlockedConnectionIds =
+      draft.reveal.unlockedConnectionIds.filter(
+        (id) => nextGeometry.connections[id] !== undefined
+      )
+    if (
+      draft.enchantment !== null &&
+      nextGeometry.zones[draft.enchantment.zoneId] === undefined
+    ) {
+      draft.enchantment = null
     }
   })
 }

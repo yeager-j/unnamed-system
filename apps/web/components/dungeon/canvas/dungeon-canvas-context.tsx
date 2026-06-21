@@ -2,6 +2,8 @@
 
 import { createContext, useContext } from "react"
 
+import type { DungeonConsoleMode } from "./dungeon-mode-toggle"
+
 /**
  * The run-console state + dispatchers the canvas-internal chrome reads — the
  * {@link import("./dungeon-zone-node").DungeonZoneNode} toolbar and the
@@ -30,6 +32,10 @@ export interface DungeonCanvasContextValue {
   startEncounter: () => void
   /** Ends the delve (`active → done`) after a confirm. */
   finishDelve: () => void
+  /** The current Edit ⇄ Play mode (the bar's toggle read-out). */
+  mode: DungeonConsoleMode
+  /** Switches between Play (tokens/fog) and Edit (the Map builder). */
+  onModeChange: (mode: DungeonConsoleMode) => void
   /** True while a write is in flight — disables the turn-loop controls. */
   disabled: boolean
 }
