@@ -44,8 +44,8 @@ import { useOptionalSheetNav } from "./sheet-nav-context"
  * Saved Archetype Ranks land in the counter; this dialog deliberately does
  * not advance any Archetype Rank inline (handed off to the Archetype
  * Management surface). A footer affordance switches to the Archetypes tab via
- * `useSheetNav().setActiveTab` — sheet tabs are client state, not routing, so
- * an `?tab=` link cannot switch them (UNN-385). It renders only when a
+ * `useSheetNav().setActiveTab` — sheet tabs are client state, not routing, so a
+ * link cannot switch them (UNN-385). It renders only when a
  * `SheetNavProvider` exists: the encounter watch view reuses `SheetHeader`
  * (and thus this dialog) on a surface with no sheet tabs to switch to.
  */

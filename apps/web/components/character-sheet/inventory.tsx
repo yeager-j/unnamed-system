@@ -32,8 +32,8 @@ import { useInventoryEditor } from "./use-inventory-editor"
  * 1. **Equipped** — three slot blocks (Weapon, Armor, Accessory).
  * 2. **Inventory** — every owned item grouped by capability (Weapons / Armor /
  *    Accessories / Consumables). Stacked rows show `× N`; the wallet sits in the
- *    card header (also in the persistent sheet header) so a deep-linked
- *    `?tab=inventory` view is self-contained.
+ *    card header (also in the persistent sheet header) so the tab is
+ *    self-contained.
  *
  * **Owner-mode (UNN-180 / UNN-223)**: add items from the catalog, adjust a
  * stack's quantity, remove rows, and add/spend currency. The write lifecycle

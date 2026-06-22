@@ -2,17 +2,20 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
-import { useTabUrlSync } from "@/hooks/use-tab-url-sync"
-
 import { type SheetTabKey } from "./sheet-tab-keys"
 
 /**
  * Lifts the active-sheet-tab state out of {@link SheetTabs} so both the tab
  * strip and the command palette can drive it (Command Palette ADR, Decision 6).
  * The four tabs are in-memory client state — not routing — so a navigation
- * command can't `router.push(?tab=)` to switch them; it calls
- * {@link SheetNavContextValue.setActiveTab} here instead. The URL is still
- * mirrored cosmetically via {@link useTabUrlSync} so a view stays shareable.
+ * command can't `router.push()` to switch them; it calls
+ * {@link SheetNavContextValue.setActiveTab} here instead.
+ *
+ * The tab is deliberately *not* mirrored in the URL: the sheet always opens on
+ * Combat and switching is pure client state. An earlier `?tab=` sync drove the
+ * URL via raw `history.replaceState`, which desynced the App Router's canonical
+ * URL — so the first `revalidatePath` after a soft-navigation reconciled the
+ * stale URL as a navigation and scroll-restored to the top.
  */
 interface SheetNavContextValue {
   activeTab: SheetTabKey
@@ -21,15 +24,8 @@ interface SheetNavContextValue {
 
 const SheetNavContext = createContext<SheetNavContextValue | null>(null)
 
-export function SheetNavProvider({
-  defaultTab,
-  children,
-}: {
-  defaultTab: SheetTabKey
-  children: ReactNode
-}) {
-  const [activeTab, setActiveTab] = useState<SheetTabKey>(defaultTab)
-  useTabUrlSync(activeTab)
+export function SheetNavProvider({ children }: { children: ReactNode }) {
+  const [activeTab, setActiveTab] = useState<SheetTabKey>("combat")
 
   return (
     <SheetNavContext.Provider value={{ activeTab, setActiveTab }}>
