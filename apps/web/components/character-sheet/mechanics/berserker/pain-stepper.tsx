@@ -35,7 +35,8 @@ export function PainStepper({ value }: { value: number }) {
         variant="outline"
         size="icon-xs"
         aria-label="Decrease Pain"
-        disabled={pending || value <= 0}
+        aria-busy={pending}
+        disabled={value <= 0}
         onClick={() => dispatch("decrement")}
       >
         <MinusIcon weight="bold" aria-hidden />
@@ -45,7 +46,8 @@ export function PainStepper({ value }: { value: number }) {
         variant="outline"
         size="icon-xs"
         aria-label="Increase Pain"
-        disabled={pending || value >= FRENZY_PAIN_MAX}
+        aria-busy={pending}
+        disabled={value >= FRENZY_PAIN_MAX}
         onClick={() => dispatch("increment")}
       >
         <PlusIcon weight="bold" aria-hidden />

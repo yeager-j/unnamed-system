@@ -30,15 +30,14 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
-import { type MonotonicVersionMap } from "@/hooks/version-token-store"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
  * The right-side **detail drawer** for a tapped combatant (UNN-345), a
  * {@link ResponsiveDialog} (desktop Sheet / mobile Drawer). The editable sections
- * all dispatch a `CombatEvent` through `onCombatEvent`: **VITALS** (UNN-309; PC
- * HP/SP route through the pools actions inside the section, enemy HP through the
+ * all dispatch a `CombatEvent` through `onCombatEvent`: **VITALS** (UNN-309;
+ * read-only PC HP/SP — the player owns those — enemy HP via the
  * `adjustEnemyVitals` event), **ACTIONS THIS TURN** and **AILMENT & CONDITIONS**
  * (UNN-310), **POSITION** (UNN-315; the move-between-zones control via the
  * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
@@ -54,13 +53,10 @@ export function CombatantDrawer({
   detail,
   onClose,
   onCombatEvent,
-  pcVitals,
 }: {
   detail: CombatantDetail | null
   onClose: () => void
   onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
-  /** The console-owned per-PC vitals token map the pools writes share (UNN-374). */
-  pcVitals: MonotonicVersionMap<string>
 }) {
   const shown = useLastPresent(detail)
   return (
@@ -69,11 +65,7 @@ export function CombatantDrawer({
       onOpenChange={(open) => !open && onClose()}
     >
       {shown ? (
-        <DrawerBody
-          detail={shown}
-          onCombatEvent={onCombatEvent}
-          pcVitals={pcVitals}
-        />
+        <DrawerBody detail={shown} onCombatEvent={onCombatEvent} />
       ) : null}
     </ResponsiveDialog>
   )
@@ -82,11 +74,9 @@ export function CombatantDrawer({
 function DrawerBody({
   detail,
   onCombatEvent,
-  pcVitals,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
-  pcVitals: MonotonicVersionMap<string>
 }) {
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
@@ -107,11 +97,7 @@ function DrawerBody({
           detail={detail}
           onCombatEvent={onCombatEvent}
         />
-        <CombatantVitalsSection
-          detail={detail}
-          onCombatEvent={onCombatEvent}
-          pcVitals={pcVitals}
-        />
+        <CombatantVitalsSection detail={detail} onCombatEvent={onCombatEvent} />
         <CombatantConditionsSection
           detail={detail}
           onCombatEvent={onCombatEvent}
@@ -164,7 +150,7 @@ function DrawerBody({
       <ResponsiveDialogFooter className="border-t">
         <p className="text-xs text-muted-foreground">
           {detail.kind === "pc"
-            ? `Edits write straight to ${detail.name}'s character sheet — the player sees it live.`
+            ? `${detail.name} manages their own HP/SP; conditions you set here apply to this encounter.`
             : "Edits affect this enemy in this encounter only."}
         </p>
       </ResponsiveDialogFooter>

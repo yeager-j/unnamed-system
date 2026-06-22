@@ -77,10 +77,10 @@ function OwnerAxis({
       onValueChange={(value) => {
         if (value) dispatch(value)
       }}
-      disabled={pending}
     >
       <SelectTrigger
         size="sm"
+        aria-busy={pending}
         aria-label={`${axisLabel} battle condition`}
         className="h-7 min-w-24 border-transparent px-2 hover:bg-muted/60 data-[popup-open]:bg-muted"
       >

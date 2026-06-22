@@ -30,12 +30,15 @@ export type VictoriesAmount = 1 | 2 | -1
 export function VictoriesActions({
   victories,
   undoDisabled,
-  disabled,
+  busy,
   onAward,
 }: {
   victories: number
+  /** Clamp only — Undo is unavailable at 0 Victories (UNN-482: in-flight state
+   *  is `busy`, not `disabled`). */
   undoDisabled: boolean
-  disabled: boolean
+  /** A background award is in flight: buttons stay clickable, report `aria-busy`. */
+  busy: boolean
   onAward: (amount: VictoriesAmount) => void
 }) {
   return (
@@ -50,7 +53,7 @@ export function VictoriesActions({
         <Button
           size="sm"
           variant="outline"
-          disabled={disabled}
+          aria-busy={busy}
           onClick={() => onAward(1)}
         >
           <TrophyIcon weight="fill" aria-hidden />
@@ -59,7 +62,7 @@ export function VictoriesActions({
         <Button
           size="sm"
           variant="outline"
-          disabled={disabled}
+          aria-busy={busy}
           onClick={() => onAward(2)}
         >
           <TrophyIcon weight="fill" aria-hidden />
@@ -68,6 +71,7 @@ export function VictoriesActions({
         <Button
           size="sm"
           variant="ghost"
+          aria-busy={busy}
           disabled={undoDisabled}
           onClick={() => onAward(-1)}
         >
@@ -82,12 +86,12 @@ export function VictoriesActions({
 export function VictoriesPopover({
   victories,
   undoDisabled,
-  disabled,
+  busy,
   onAward,
 }: {
   victories: number
   undoDisabled: boolean
-  disabled: boolean
+  busy: boolean
   onAward: (amount: VictoriesAmount) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -101,7 +105,12 @@ export function VictoriesPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <Button size="sm" variant="outline" aria-label="Victories">
+          <Button
+            size="sm"
+            variant="outline"
+            aria-busy={busy}
+            aria-label="Victories"
+          >
             <TrophyIcon weight="fill" aria-hidden />
             Victories ({victories}/{VICTORIES_PER_LEVEL})
           </Button>
@@ -111,7 +120,7 @@ export function VictoriesPopover({
         <VictoriesActions
           victories={victories}
           undoDisabled={undoDisabled}
-          disabled={disabled}
+          busy={busy}
           onAward={handleAward}
         />
       </PopoverContent>
@@ -124,14 +133,14 @@ export function VictoriesDialog({
   onOpenChange,
   victories,
   undoDisabled,
-  disabled,
+  busy,
   onAward,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   victories: number
   undoDisabled: boolean
-  disabled: boolean
+  busy: boolean
   onAward: (amount: VictoriesAmount) => void
 }) {
   return (
@@ -146,7 +155,7 @@ export function VictoriesDialog({
         <VictoriesActions
           victories={victories}
           undoDisabled={undoDisabled}
-          disabled={disabled}
+          busy={busy}
           onAward={onAward}
         />
       </DialogContent>

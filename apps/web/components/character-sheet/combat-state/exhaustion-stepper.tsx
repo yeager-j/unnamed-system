@@ -35,7 +35,8 @@ export function ExhaustionStepper() {
         variant="outline"
         size="icon-xs"
         aria-label="Decrease exhaustion"
-        disabled={pending || exhaustion <= 0}
+        aria-busy={pending}
+        disabled={exhaustion <= 0}
         onClick={() => step("decrement")}
       >
         <MinusIcon weight="bold" aria-hidden />
@@ -45,7 +46,8 @@ export function ExhaustionStepper() {
         variant="outline"
         size="icon-xs"
         aria-label="Increase exhaustion"
-        disabled={pending || exhaustion >= MAX_EXHAUSTION_LEVEL}
+        aria-busy={pending}
+        disabled={exhaustion >= MAX_EXHAUSTION_LEVEL}
         onClick={() => step("increment")}
       >
         <PlusIcon weight="bold" aria-hidden />

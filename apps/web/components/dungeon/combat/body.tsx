@@ -57,7 +57,6 @@ export function DungeonCombatBody({
     isPending,
     dispatch,
     endEncounter,
-    pcVitals,
     onPcPing,
     view,
     currentActor,
@@ -174,7 +173,6 @@ export function DungeonCombatBody({
         detail={selectedDetail}
         onClose={() => selectCombatant(null)}
         onCombatEvent={dispatch}
-        pcVitals={pcVitals}
       />
 
       <EndOfTurnModal

@@ -34,7 +34,8 @@ export function ValorStepper({ value }: { value: number }) {
         variant="outline"
         size="icon-xs"
         aria-label="Decrease Valor"
-        disabled={pending || value <= 0}
+        aria-busy={pending}
+        disabled={value <= 0}
         onClick={() => dispatch("decrement")}
       >
         <MinusIcon weight="bold" aria-hidden />
@@ -44,7 +45,8 @@ export function ValorStepper({ value }: { value: number }) {
         variant="outline"
         size="icon-xs"
         aria-label="Increase Valor"
-        disabled={pending || value >= VALOR_MAX}
+        aria-busy={pending}
+        disabled={value >= VALOR_MAX}
         onClick={() => dispatch("increment")}
       >
         <PlusIcon weight="bold" aria-hidden />

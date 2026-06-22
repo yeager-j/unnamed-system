@@ -1,58 +1,43 @@
 "use client"
 
-import { HeartIcon, LightningIcon } from "@phosphor-icons/react/dist/ssr"
-import { useRouter } from "next/navigation"
-import { useTransition } from "react"
-import { toast } from "sonner"
+import { HeartIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { type CombatantDetail, type Pool } from "@workspace/game/engine"
 import {
   isFallen,
   type CombatEvent,
   type EnemyVitalsField,
-  type Result,
 } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
-import { dispatchCharacterWriteWithRetry } from "@/hooks/dispatch-character-write"
-import { type MonotonicVersionMap } from "@/hooks/version-token-store"
-import {
-  damageAction,
-  healAction,
-  recoverSPAction,
-  spendSPAction,
-} from "@/lib/actions/adjust-pools"
-import type { AdjustPoolActionError } from "@/lib/actions/adjust-pools.schema"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 type PcDetail = Extract<CombatantDetail, { kind: "pc" }>
 type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>
 
 /**
- * The drawer's **VITALS** section (UNN-309) — the one slot that writes a PC's
- * HP/SP through the DM-authorized pools actions (the character row; the player's
- * own sheet updates live). An enemy's vitals mutate the session stat block via
- * the `adjustEnemyVitals` event the console dispatches through `onCombatEvent`
- * (the shared overlay-edit callback). Fallen (PC at 0 HP) / Dead (enemy at 0) is
- * derived here, never stored.
+ * The drawer's **VITALS** section (UNN-309). A PC's HP/SP is **read-only** here
+ * (UNN-482): vitals are character-row state the player owns and manages on their
+ * own sheet / the encounter watch — the DM console no longer reaches across that
+ * boundary to write them, so this just mirrors the live values (kept fresh by the
+ * console's realtime PC-ping path). An enemy's vitals *are* session state, so they
+ * stay editable via the `adjustEnemyVitals` event the console dispatches through
+ * `onCombatEvent`. Fallen (PC at 0 HP) / Dead (enemy at 0) is derived here.
  */
 export function CombatantVitalsSection({
   detail,
   onCombatEvent,
-  pcVitals,
 }: {
   detail: CombatantDetail
   onCombatEvent: (event: CombatEvent) => void
-  /** The console-owned per-PC vitals token map the pools writes share (UNN-374). */
-  pcVitals: MonotonicVersionMap<string>
 }) {
   return (
     <DetailSection title="Vitals">
       {detail.kind === "pc" ? (
-        <PcVitals detail={detail} pcVitals={pcVitals} />
+        <PcVitalsReadonly detail={detail} />
       ) : (
         <EnemyVitals
           detail={detail}
@@ -70,70 +55,11 @@ export function CombatantVitalsSection({
   )
 }
 
-function poolErrorMessage(error: AdjustPoolActionError): string {
-  switch (error) {
-    case "stale":
-      return "This character changed elsewhere — reload and try again."
-    case "character-not-found":
-      return "This character no longer exists."
-    case "invalid-input":
-    case "non-positive-amount":
-      return "Couldn't update vitals. Try again."
-  }
-}
-
 /**
- * PC vitals via the pools actions. HP/SP is a **character-row** write (vitals
- * class), not an encounter-session edit, so it composes the shared character
- * pipeline {@link dispatchCharacterWriteWithRetry} (UNN-378) — gaining the
- * silent stale-retry (most likely to fire here, where a concurrent player
- * self-write races the DM) and the cross-tab version broadcast it previously
- * lacked.
- *
- * The console has no `CharacterProvider`, so the per-write-class `versionRef` the
- * pipeline needs comes from the console-owned per-PC `vitals` token map
- * (UNN-373/374): `pcVitals.ref(characterId, vitalsVersion)` exposes it as a
- * `RefObject<number>` — reading falls back to the prop seed for a PC not yet
- * seen, and the pipeline's success/pre-retry bumps write straight back into the
- * map, so the realtime ping compare and these writes keep sharing the *same*
- * token (echo pings stay deduped). The map is prop-synced forward-only by
- * `useCombatConsole`.
+ * A PC's HP/SP, read-only (UNN-482). The player owns these on their character
+ * sheet; the console only displays them.
  */
-function PcVitals({
-  detail,
-  pcVitals,
-}: {
-  detail: PcDetail
-  pcVitals: MonotonicVersionMap<string>
-}) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
-
-  function run(
-    action: (input: {
-      characterId: string
-      amount: number
-      expectedVersion: number
-    }) => Promise<Result<{ version: number }, AdjustPoolActionError>>,
-    amount: number
-  ) {
-    const versionRef = pcVitals.ref(detail.characterId, detail.vitalsVersion)
-    startTransition(async () => {
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId: detail.characterId,
-        surface: "pools",
-        versionRef,
-        action: (expectedVersion) =>
-          action({ characterId: detail.characterId, amount, expectedVersion }),
-      })
-      if (!result.ok) {
-        toast.error(poolErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
-  }
-
+function PcVitalsReadonly({ detail }: { detail: PcDetail }) {
   return (
     <div className="flex flex-col gap-3">
       <PoolRow
@@ -143,34 +69,8 @@ function PcVitals({
         downBadge={
           isFallen(detail.hp.current) ? COMBATANT_DOWN_LABELS.pc : null
         }
-        control={
-          <AdjustPoolPopover
-            label="Adjust HP"
-            icon={<HeartIcon weight="fill" aria-hidden />}
-            decrementLabel="Take damage"
-            incrementLabel="Heal"
-            disabled={pending}
-            onDecrement={(amount) => run(damageAction, amount)}
-            onIncrement={(amount) => run(healAction, amount)}
-          />
-        }
       />
-      <PoolRow
-        label="SP"
-        pool={detail.sp}
-        kind="sp"
-        control={
-          <AdjustPoolPopover
-            label="Adjust SP"
-            icon={<LightningIcon weight="fill" aria-hidden />}
-            decrementLabel="Spend SP"
-            incrementLabel="Recover SP"
-            disabled={pending}
-            onDecrement={(amount) => run(spendSPAction, amount)}
-            onIncrement={(amount) => run(recoverSPAction, amount)}
-          />
-        }
-      />
+      <PoolRow label="SP" pool={detail.sp} kind="sp" />
     </div>
   )
 }
@@ -238,8 +138,8 @@ function EnemyVitals({
   )
 }
 
-/** A pool's readout (label · bar · value + optional Fallen/Dead badge) with its
- *  adjust control on the right. */
+/** A pool's readout (label · bar · value + optional Fallen/Dead badge) with an
+ *  optional adjust control on the right (omitted for read-only PC vitals). */
 function PoolRow({
   label,
   pool,
@@ -250,7 +150,7 @@ function PoolRow({
   label: string
   pool: Pool
   kind: "hp" | "sp"
-  control: React.ReactNode
+  control?: React.ReactNode
   downBadge?: string | null
 }) {
   return (

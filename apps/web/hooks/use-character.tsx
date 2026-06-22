@@ -235,18 +235,29 @@ interface WriteParams<
 }
 
 /**
- * The one owner-mode write primitive. Bundles a *local* `useTransition` (so
- * each control keeps its own `pending` — no global lock), applies the edit to
- * the shared optimistic character, then persists through the silent-retry +
- * cross-tab-broadcast pipeline against the right per-class version ref. Toasts
- * on failure; React reverts the optimistic frame automatically.
+ * The one owner-mode write primitive. Background-updating by default (UNN-482):
+ * the edit applies to the shared optimistic character **eagerly**, and the
+ * dispatch is **serialized behind the per-class save queue** (the same chain
+ * `useDebouncedAutoSave` uses, UNN-274) — so a rapid stepper burst stacks
+ * visibly while each write reads its predecessor's freshly-bumped token instead
+ * of colliding on one stale version. Controls therefore stop disabling on
+ * `pending` and spam safely; `pending` survives only as the per-control
+ * `aria-busy` signal (each `useCharacterWrite` keeps its own `useTransition`, so
+ * busy stays per-control, not global).
+ *
+ * Because each dispatch is awaited *inside* its transition, the transition stays
+ * pending across the queue wait — so every burst edit's optimistic frame stays
+ * mounted until its own truth lands (`revalidateCharacter` rides the action
+ * response, advancing the base per-write; no `router.refresh()`, no undercount).
+ * Failures toast (deduped per class so a burst surfaces one toast, not N); React
+ * reverts the failed edit's optimistic frame automatically.
  */
 export function useCharacterWrite() {
   const editor = useContext(CharacterEditorContext)
   if (!editor) {
     throw new Error("useCharacterWrite must be used within a CharacterProvider")
   }
-  const { characterId, applyEdit, tokens } = editor
+  const { characterId, applyEdit, tokens, saveQueues } = editor
   const [pending, startTransition] = useTransition()
 
   function write<TSuccess extends { version: number }, TError extends string>({
@@ -257,20 +268,31 @@ export function useCharacterWrite() {
     onError,
   }: WriteParams<TSuccess, TError>) {
     const characterClass = EDIT_SURFACE_CLASS[surface]
+    const queueRef = saveQueues[characterClass]
     startTransition(async () => {
       if (edit) applyEdit(edit)
-      const result = await dispatchCharacterWriteWithRetry({
-        characterId,
-        surface,
-        versionRef: tokens.ref(characterClass),
-        action,
-      })
+      // Serialize behind the per-class chain, reading the token *fresh* inside
+      // the `.then` so a queued write sees its predecessor's bumped version.
+      const run = queueRef.current.then(() =>
+        dispatchCharacterWriteWithRetry({
+          characterId,
+          surface,
+          versionRef: tokens.ref(characterClass),
+          action,
+        })
+      )
+      queueRef.current = run.then(
+        () => {},
+        () => {}
+      )
+      const result = await run
       if (result.ok) return
       if (onError?.(result.error)) return
       toast.error(
         result.error === "stale"
           ? (messages?.stale ?? "Couldn't sync — refresh to see the latest.")
-          : (messages?.error ?? "Couldn't save. Try again.")
+          : (messages?.error ?? "Couldn't save. Try again."),
+        { id: `character-write-error:${characterClass}` }
       )
     })
   }

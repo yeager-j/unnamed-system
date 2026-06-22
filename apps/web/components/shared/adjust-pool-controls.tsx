@@ -97,7 +97,8 @@ export function AdjustPoolPopover({
   icon,
   decrementLabel,
   incrementLabel,
-  disabled,
+  disabled = false,
+  busy = false,
   onDecrement,
   onIncrement,
 }: {
@@ -105,7 +106,11 @@ export function AdjustPoolPopover({
   icon: React.ReactNode
   decrementLabel: string
   incrementLabel: string
-  disabled: boolean
+  /** Hard-disable the trigger (creation/destructive callers). Default false. */
+  disabled?: boolean
+  /** A background write is in flight: the trigger stays clickable but reports
+   *  `aria-busy` for screen readers (UNN-482's spam-safe steppers). */
+  busy?: boolean
   onDecrement: (amount: number) => void
   onIncrement: (amount: number) => void
 }) {
@@ -119,6 +124,7 @@ export function AdjustPoolPopover({
             size="sm"
             variant="outline"
             disabled={disabled}
+            aria-busy={busy}
             aria-label={label}
           >
             {icon}

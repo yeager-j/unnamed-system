@@ -20,7 +20,8 @@ export function UsePrismaButton() {
     <Button
       size="xs"
       variant="outline"
-      disabled={pending || prismaCharges === 0}
+      aria-busy={pending}
+      disabled={prismaCharges === 0}
       onClick={() =>
         write({
           edit: { kind: "usePrisma" },
