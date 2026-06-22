@@ -141,7 +141,7 @@ test("Combat State reflects seeded ailment, conditions, flags, and exhaustion", 
   await expect(empty.getByText("Exhaustion")).toBeVisible()
 })
 
-test("sheet tabs: default Combat, switching mirrors to ?tab=, deep-linkable", async ({
+test("sheet tabs: default Combat, switching swaps the panel as client state", async ({
   page,
 }) => {
   await page.goto("/c/seed-warrior")
@@ -158,14 +158,14 @@ test("sheet tabs: default Combat, switching mirrors to ?tab=, deep-linkable", as
   await expect(page.getByRole("region", { name: "Affinities" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Virtues" })).toHaveCount(0)
 
-  // Switching mirrors to ?tab= and swaps the mounted panel.
+  // Switching is pure client state: the mounted panel swaps and the URL is
+  // unchanged — the tab is not mirrored to `?tab=` (and so not deep-linkable).
   await page.getByRole("tab", { name: "Explore" }).click()
-  await expect(page).toHaveURL(/\?tab=explore/)
   await expect(page.getByRole("region", { name: "Virtues" })).toBeVisible()
   await expect(page.getByRole("region", { name: "Affinities" })).toHaveCount(0)
+  await expect(page).toHaveURL(/\/c\/seed-warrior$/)
 
-  // Deep link opens directly on the requested tab.
-  await page.goto("/c/seed-warrior?tab=archetypes")
+  await page.getByRole("tab", { name: "Archetypes" }).click()
   await expect(page.getByRole("tab", { name: "Archetypes" })).toHaveAttribute(
     "aria-selected",
     "true"

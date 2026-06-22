@@ -18,7 +18,7 @@ const META_K = "ControlOrMeta+k"
 test("opens with ⌘K, lists grouped navigation commands, and closes on Escape", async ({
   page,
 }) => {
-  await page.goto("/c/seed-warrior?tab=combat")
+  await page.goto("/c/seed-warrior")
 
   await page.keyboard.press(META_K)
 
@@ -35,7 +35,7 @@ test("opens with ⌘K, lists grouped navigation commands, and closes on Escape",
 test("communicates a no-results state for an unmatched query", async ({
   page,
 }) => {
-  await page.goto("/c/seed-warrior?tab=combat")
+  await page.goto("/c/seed-warrior")
   await page.keyboard.press(META_K)
 
   await page.getByRole("dialog").getByRole("combobox").fill("zzzznotacommand")
@@ -44,12 +44,11 @@ test("communicates a no-results state for an unmatched query", async ({
 })
 
 test("a navigation command switches the active sheet tab", async ({ page }) => {
-  await page.goto("/c/seed-warrior?tab=combat")
+  await page.goto("/c/seed-warrior")
   await page.keyboard.press(META_K)
 
   await page.getByText("Jump to Inventory").click()
 
-  await expect(page).toHaveURL(/tab=inventory/)
   await expect(page.getByRole("tab", { name: "Inventory" })).toHaveAttribute(
     "aria-selected",
     "true"
@@ -59,7 +58,7 @@ test("a navigation command switches the active sheet tab", async ({ page }) => {
 test("hides owner-only vital commands from a signed-out viewer", async ({
   page,
 }) => {
-  await page.goto("/c/seed-warrior?tab=combat")
+  await page.goto("/c/seed-warrior")
   await page.keyboard.press(META_K)
 
   const palette = page.getByRole("dialog")

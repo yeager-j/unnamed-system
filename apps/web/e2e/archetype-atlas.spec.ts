@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test"
 import { STORAGE_STATE } from "./auth.setup"
 import { createAtlasTarget } from "./fixtures/atlas-target"
 import { cleanup, createTracker } from "./fixtures/factory"
+import { openSheetTab } from "./open-sheet-tab"
 
 /**
  * UNN-239: the Lineage Atlas — unlock + rank up Archetypes by spending Saved
@@ -46,9 +47,11 @@ test.describe("Lineage Atlas owner flows", () => {
   })
 
   test("Archetypes tab links permanently to the Atlas", async ({ page }) => {
-    await page.goto(`${target.url}?tab=archetypes`)
+    await openSheetTab(page, target.url, "Archetypes")
     await expect(
-      page.getByRole("button", { name: "Open Lineage Atlas" })
+      page
+        .getByRole("tabpanel", { name: "Archetypes" })
+        .getByRole("button", { name: "Open Lineage Atlas" })
     ).toBeVisible()
   })
 

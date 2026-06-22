@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { openSheetTab } from "./open-sheet-tab"
+
 /**
  * End-to-end checks for the public Archetypes tab (UNN-147 / PRD §6.1 / §7.8).
  *
@@ -19,7 +21,7 @@ import { expect, test } from "@playwright/test"
 test("Active Archetype card surfaces the full Rank-5 block", async ({
   page,
 }) => {
-  await page.goto("/c/seed-knight?tab=archetypes")
+  await openSheetTab(page, "/c/seed-knight", "Archetypes")
 
   // The Active card calls itself out with an "Active" badge and pins the
   // Archetype identity (name / Rank / Mastery) in its header.
@@ -52,7 +54,7 @@ test("Active Archetype card surfaces the full Rank-5 block", async ({
 test("a one-Archetype character renders empty Inheritance Slots", async ({
   page,
 }) => {
-  await page.goto("/c/seed-warrior?tab=archetypes")
+  await openSheetTab(page, "/c/seed-warrior", "Archetypes")
 
   // Both Initiate-tier Inheritance Slots are configured but unfilled on seed-
   // warrior. AC: marked, not omitted.
@@ -64,7 +66,7 @@ test("the Archetypes tab links publicly to the Lineage Atlas", async ({
 }) => {
   // Signed-out (no storageState): the Atlas link is public now (UNN-276), the
   // tab's single path to the unlocked roster / tier trees.
-  await page.goto("/c/seed-knight?tab=archetypes")
+  await openSheetTab(page, "/c/seed-knight", "Archetypes")
 
   await expect(
     page.getByRole("button", { name: "Open Lineage Atlas" })
@@ -74,7 +76,7 @@ test("the Archetypes tab links publicly to the Lineage Atlas", async ({
 test("read-only sheet has no owner-mode controls on the Archetypes tab", async ({
   page,
 }) => {
-  await page.goto("/c/seed-knight?tab=archetypes")
+  await openSheetTab(page, "/c/seed-knight", "Archetypes")
 
   // AC: no Switch / Rank up / Unlock affordances on this surface. Match the
   // button names loosely so a future rename ("Promote" etc.) still trips the

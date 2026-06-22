@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test"
 import { STORAGE_STATE } from "./auth.setup"
 import { cleanup, createTracker } from "./fixtures/factory"
 import { createInheritanceSlotsTarget } from "./fixtures/inheritance-slots-target"
+import { openSheetTab } from "./open-sheet-tab"
 
 /**
  * UNN-241: owner-mode Inheritance Slot configuration (PRD §7.8). Covers the AC:
@@ -22,8 +23,6 @@ import { createInheritanceSlotsTarget } from "./fixtures/inheritance-slots-targe
 
 const tracker = createTracker()
 let target: Awaited<ReturnType<typeof createInheritanceSlotsTarget>>
-
-const archetypesUrl = () => `${target.url}?tab=archetypes`
 
 const EDIT_SLOT_1 = "Edit Inheritance Slot 1"
 
@@ -47,7 +46,7 @@ test.describe("owner Inheritance Slot configuration", () => {
   test("picker groups sources, gates by Rank, and excludes Synthesis", async ({
     page,
   }) => {
-    await page.goto(archetypesUrl())
+    await openSheetTab(page, target.url, "Archetypes")
 
     await page.getByRole("combobox", { name: EDIT_SLOT_1 }).click()
 
@@ -70,7 +69,7 @@ test.describe("owner Inheritance Slot configuration", () => {
   test("configuring a slot persists it and threads the Skill into Combat", async ({
     page,
   }) => {
-    await page.goto(archetypesUrl())
+    await openSheetTab(page, target.url, "Archetypes")
 
     await page.getByRole("combobox", { name: EDIT_SLOT_1 }).click()
     await page.getByRole("option", { name: /Agi/ }).click()
@@ -97,7 +96,7 @@ test.describe("owner Inheritance Slot configuration", () => {
   })
 
   test("clearing a slot drops the inherited Skill", async ({ page }) => {
-    await page.goto(archetypesUrl())
+    await openSheetTab(page, target.url, "Archetypes")
 
     await page.getByRole("combobox", { name: EDIT_SLOT_1 }).click()
     await page.getByRole("option", { name: /Agi/ }).click()
@@ -127,7 +126,7 @@ test.describe("owner Inheritance Slot configuration", () => {
   }) => {
     // Configure a slot as the owner first so there is content to read; wait for
     // the write to land in the DB before the signed-out reader loads it.
-    await page.goto(archetypesUrl())
+    await openSheetTab(page, target.url, "Archetypes")
     await page.getByRole("combobox", { name: EDIT_SLOT_1 }).click()
     await page.getByRole("option", { name: /Agi/ }).click()
     await expect(page.getByText(/from Mage/)).toBeVisible()
@@ -142,7 +141,7 @@ test.describe("owner Inheritance Slot configuration", () => {
     const context = await browser.newContext({ storageState: undefined })
     const reader = await context.newPage()
     try {
-      await reader.goto(archetypesUrl())
+      await openSheetTab(reader, target.url, "Archetypes")
       // The slot's contents are visible…
       await expect(reader.getByText(/from Mage/)).toBeVisible()
       // …but the owner-only edit affordance is absent.

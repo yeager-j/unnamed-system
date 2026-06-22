@@ -57,7 +57,7 @@ test.describe("Cast affordance gating", () => {
     const page = await context.newPage()
     try {
       await target.reset()
-      await page.goto(`${target.url}?tab=combat`)
+      await page.goto(target.url)
       await expect(
         page.getByRole("heading", { name: target.name })
       ).toBeVisible()
@@ -84,7 +84,7 @@ test.describe("owner Cast — happy paths", () => {
   test("Cast on an SP Skill deducts the cost and persists across reload", async ({
     page,
   }) => {
-    await page.goto(`${target.url}?tab=combat`)
+    await page.goto(target.url)
     const beforePools = await target.getPools()
 
     await openSkillPopover(page, "Windblade")
@@ -105,7 +105,7 @@ test.describe("owner Cast — happy paths", () => {
   test("Cast on an HP-percent Skill deducts the resolved amount from HP", async ({
     page,
   }) => {
-    await page.goto(`${target.url}?tab=combat`)
+    await page.goto(target.url)
     const beforePools = await target.getPools()
 
     await openSkillPopover(page, "Cleave")
@@ -134,7 +134,7 @@ test.describe("owner Cast — pool boundary", () => {
     // character to 0 — PRD §7.2 forbids this, so the button must be
     // disabled and the tooltip must surface the reason.
     await target.setCurrentHP(1)
-    await page.goto(`${target.url}?tab=combat`)
+    await page.goto(target.url)
 
     await openSkillPopover(page, "Cleave")
     const castButton = page.getByRole("button", { name: "Cast", exact: true })
@@ -160,7 +160,7 @@ test.describe("owner Cast — pool boundary", () => {
     // Windblade costs 4 SP. Set SP to 3 and the same disabled / tooltip
     // contract should apply on the SP branch.
     await target.setCurrentSP(3)
-    await page.goto(`${target.url}?tab=combat`)
+    await page.goto(target.url)
 
     await openSkillPopover(page, "Windblade")
     const castButton = page.getByRole("button", { name: "Cast", exact: true })

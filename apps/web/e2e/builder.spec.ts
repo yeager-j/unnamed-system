@@ -598,7 +598,7 @@ test.describe("movement 4 — persona", () => {
 
     await page.getByRole("button", { name: "Finalize character" }).click()
 
-    // Sheet route appends `?tab=combat` for the default tab, hence the regex.
+    // Match the sheet URL with or without a trailing query string.
     await expect(page).toHaveURL(new RegExp(`/c/${shortId}(\\?|$)`))
 
     const [row] = await getDb()
