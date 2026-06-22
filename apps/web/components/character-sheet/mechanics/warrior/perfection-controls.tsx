@@ -65,7 +65,8 @@ export function usePerfectionControls({ rank }: { rank: number }): {
           variant="outline"
           size="icon-xs"
           aria-label="Decrease Perfection"
-          disabled={pending || atMin}
+          aria-busy={pending}
+          disabled={atMin}
           onClick={() => step("decrement")}
         >
           <MinusIcon weight="bold" aria-hidden />
@@ -75,7 +76,8 @@ export function usePerfectionControls({ rank }: { rank: number }): {
           variant="outline"
           size="icon-xs"
           aria-label="Increase Perfection"
-          disabled={pending || atMax}
+          aria-busy={pending}
+          disabled={atMax}
           onClick={() => step("increment")}
         >
           <PlusIcon weight="bold" aria-hidden />
@@ -88,7 +90,8 @@ export function usePerfectionControls({ rank }: { rank: number }): {
         variant="outline"
         size="sm"
         aria-label="Reset Perfection to D"
-        disabled={pending || atMin}
+        aria-busy={pending}
+        disabled={atMin}
         onClick={reset}
       >
         <ArrowCounterClockwiseIcon weight="bold" aria-hidden />

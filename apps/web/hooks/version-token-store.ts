@@ -114,13 +114,6 @@ export interface MonotonicVersionMap<K> {
   read(key: K): number | undefined
   /** Advance `key` to `version` if fresher; creates the entry if unseen. */
   bump(key: K, version: number): void
-  /**
-   * The `RefObject<number>` view of one key's token — the bridge for
-   * `dispatchCharacterWriteWithRetry`. The getter falls back to `seed` (the
-   * server prop) until the key is first written, reproducing the old
-   * `map[key] ?? prop` read; the setter is the forward-only {@link bump}.
-   */
-  ref(key: K, seed: number): RefObject<number>
 }
 
 /** The React-free factory; the console uses {@link useMonotonicVersionMap}. */
@@ -132,14 +125,6 @@ export function createMonotonicVersionMap<K>(): MonotonicVersionMap<K> {
     bump: (key, version) => {
       bumpToken(tokens, key, version)
     },
-    ref: (key, seed) => ({
-      get current() {
-        return tokens.get(key) ?? seed
-      },
-      set current(version: number) {
-        bumpToken(tokens, key, version)
-      },
-    }),
   }
 }
 

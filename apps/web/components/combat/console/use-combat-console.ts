@@ -138,11 +138,12 @@ export function useCombatConsole(
   const { versionRef, enqueue } = encounterWrite
 
   /**
-   * The per-PC `vitals` token map — written by the drawer's pools writes and the
-   * ping compare, forward-only synced from the hydrated props (the map is
-   * monotonic, so it can't regress a token the drawer already bumped ahead of an
-   * in-flight refresh). The keyspace (which PCs exist) is the hydrated props, so
-   * the console owns the prop-sync rather than the hook.
+   * The per-PC `vitals` token map for the realtime ping compare ({@link onPcPing},
+   * UNN-373) — forward-only synced from the hydrated props so an echo/stale PC ping
+   * (≤ the version the page already shows) is dropped and only a genuinely fresher
+   * one schedules a refresh. The console no longer *writes* PC vitals (UNN-482 made
+   * the drawer read-only), so this is now read-compare only. The keyspace (which
+   * PCs exist) is the hydrated props, so the console owns the prop-sync.
    */
   const pcVitals = useMonotonicVersionMap<string>()
   useEffect(() => {
@@ -203,7 +204,12 @@ export function useCombatConsole(
         toast.error(encounterErrorMessage(result.error))
         return
       }
-      router.refresh()
+      // No client `router.refresh()` per dispatch (UNN-482): the encounter/instance
+      // actions call `revalidateEncounter`/`revalidateInstance`, whose RSC payload
+      // rides this transition's action response and advances the `session`/`instance`
+      // `useOptimistic` base — so a rapid burst accumulates and reconciles with zero
+      // client refreshes (the character-sheet model). PC HP (a cross-route read) is
+      // kept live separately by the realtime PC-ping path, not this dispatch.
     })
   }
 
@@ -333,7 +339,6 @@ export function useCombatConsole(
     isPending,
     dispatch,
     endEncounter,
-    pcVitals,
     onPcPing,
     // derived combat view
     view,

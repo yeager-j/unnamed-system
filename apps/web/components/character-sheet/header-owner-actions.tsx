@@ -134,7 +134,7 @@ export function HeaderOwnerActions() {
 
   const pending = pools.pending
   const victoriesPending = victories.pending
-  const undoDisabled = victoriesPending || optimisticVictories === 0
+  const undoDisabled = optimisticVictories === 0
 
   return (
     <>
@@ -148,7 +148,7 @@ export function HeaderOwnerActions() {
           icon={<HeartIcon weight="fill" aria-hidden />}
           decrementLabel="Take damage"
           incrementLabel="Heal"
-          disabled={pending}
+          busy={pending}
           onDecrement={handleDamage}
           onIncrement={handleHeal}
         />
@@ -157,7 +157,7 @@ export function HeaderOwnerActions() {
           icon={<LightningIcon weight="fill" aria-hidden />}
           decrementLabel="Spend SP"
           incrementLabel="Recover SP"
-          disabled={pending}
+          busy={pending}
           onDecrement={handleSpendSP}
           onIncrement={handleRecoverSP}
         />
@@ -168,7 +168,7 @@ export function HeaderOwnerActions() {
         <VictoriesPopover
           victories={optimisticVictories}
           undoDisabled={undoDisabled}
-          disabled={victoriesPending}
+          busy={victoriesPending}
           onAward={handleAwardVictories}
         />
         {levelUpReady ? (
@@ -243,7 +243,7 @@ export function HeaderOwnerActions() {
           onOpenChange={(next) => setMobileForm(next ? "victories" : null)}
           victories={optimisticVictories}
           undoDisabled={undoDisabled}
-          disabled={victoriesPending}
+          busy={victoriesPending}
           onAward={(amount) => {
             handleAwardVictories(amount)
             setMobileForm(null)

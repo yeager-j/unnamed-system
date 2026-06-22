@@ -1,6 +1,12 @@
+import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({
+  // The app's tsconfig sets `jsx: preserve` (Next compiles JSX); plugin-react
+  // gives the test transform a real JSX → JS step, so a test can import a `.tsx`
+  // component (e.g. CharacterProvider). Tests don't need React Compiler, so this
+  // is the plain JSX transform, not the app's babel pipeline.
+  plugins: [react()],
   // Mirror the tsconfig `@/*` path alias so runtime (value) imports through it
   // resolve in tests — previously only type-only `@/` imports appeared in
   // tested modules, and those are erased before resolution.
@@ -14,7 +20,7 @@ export default defineConfig({
     // `hooks/`) opt in via `// @vitest-environment jsdom` at the top of the
     // file — `environmentMatchGlobs` was removed in Vitest 4.
     environment: "node",
-    include: ["**/*.test.ts"],
+    include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: ["e2e/**", "node_modules/**"],
     coverage: {
       // Coverage here is a GAP-FINDER for the pure game engine, not a quality

@@ -1,8 +1,26 @@
 # ADR: Unified Client Write API (UNN-374 + UNN-482)
 
-Status: **Proposed (revised after adversarial review)** · 2026-06-21 · Consolidates
-the client write mechanisms catalogued in
+Status: **Layer 1 shipped (UNN-374); Layers 2 & 3 superseded by UNN-482** · 2026-06-21
+· Consolidates the client write mechanisms catalogued in
 [frontend-write-strategies.md](frontend-write-strategies.md).
+
+> **UNN-482 outcome (supersedes Layers 2 & 3 below).** Implementing UNN-482 began
+> with a root-cause pass on *why* the live-session console needed the machinery
+> Layers 2/3 were designed around (an `onIdle`-collapsed `router.refresh()` +
+> `useBurstWrites` hold-open to avoid mid-burst undercount). The finding: the
+> console's per-dispatch `router.refresh()` was load-bearing **only** for one
+> feature — the DM editing a PC's HP/SP (`PcVitals`), the console's lone
+> cross-resource (character-row) write, which also *duplicated* a capability players
+> already have (self-managing vitals on the encounter watch). **Removing that write
+> (console PC vitals → read-only) dissolved the problem Layers 2/3 solved:** the
+> console now writes only session/instance rows, whose actions' `revalidate*` rides
+> the action response and advances the `useOptimistic` base per-write (the
+> character-sheet model, verified in-browser) — **zero** client refreshes, no
+> undercount, so neither `onIdle` nor `useBurstWrites` is needed. The character
+> steppers got spam-safety by serializing click-writes through the **existing**
+> per-class `saveQueues` (UNN-274) + dropping `disabled` (→ `aria-busy`). Net:
+> UNN-482 ships as a feature removal + a queue rewire + un-gating, **not** the
+> two-primitive build the Layers below describe. They are retained for the record.
 
 > **Revision note.** The first draft proposed (a) *replacing* `useOptimistic` with a
 > hand-rolled version-anchored accumulator and (b) *full-adopting* the character path
@@ -142,7 +160,12 @@ prop-sync, `mergePingedVersions`' forward-on-ping (→ `forward`), the dispatch'
 Everything else in Layer 1 is behavior-neutral, regression-testable against current
 behavior, and shippable alone. This is the safe first PR.
 
-### Layer 2 — `useQueuedWrite`, extended — **ship with Layer 3**
+### Layer 2 — `useQueuedWrite`, extended — ~~ship with Layer 3~~ **SUPERSEDED (not built)**
+
+> Superseded by the UNN-482 outcome (see the header note). `onIdle` was needed only
+> to collapse the console's per-dispatch `router.refresh()`; removing the cross-resource
+> PC-vitals write let the console rely on per-action `revalidate*` instead, so there are
+> no client refreshes to collapse. Not built.
 
 Keep the UNN-378 hook (`apps/web/hooks/use-queued-write.ts`); two edits:
 - Back its version ref with a `VersionTokenStore` lane so it and the realtime ping
@@ -150,7 +173,13 @@ Keep the UNN-378 hook (`apps/web/hooks/use-queued-write.ts`); two edits:
 - **Add `onIdle`** — fired when the serialized queue chain *fully drains* (chained off
   the last settled promise, **never** a debounce timer — see reconcile hazard below).
 
-### Layer 3 — `useBurstWrites` (UNN-482) — wraps `useOptimistic`
+### Layer 3 — `useBurstWrites` (UNN-482) — wraps `useOptimistic` — **SUPERSEDED (not built)**
+
+> Superseded by the UNN-482 outcome (see the header note). Hold-open existed to stop a
+> *deferred* reconcile from undercounting mid-burst; with no deferred reconcile on
+> either path (character + console both advance the base per-write via the action's
+> `revalidate*`), there is nothing to hold open. The character steppers got spam-safety
+> from the existing per-class `saveQueues` + un-gating, not a new wrap hook. Not built.
 
 The reviews established the correct, minimal shape:
 

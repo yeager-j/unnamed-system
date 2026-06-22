@@ -215,10 +215,10 @@ test("rail row opens the PC detail drawer (UNN-345)", async ({ page }) => {
   const drawer = page.getByRole("dialog")
   await expect(drawer.getByText("Attributes")).toBeVisible()
   await expect(drawer.getByText("Affinities")).toBeVisible()
-  // PC footer: edits flow to the character sheet (read-only container here).
-  await expect(
-    drawer.getByText(/character sheet — the player sees it live/)
-  ).toBeVisible()
+  // PC vitals are read-only here (UNN-482): the player owns HP/SP; the DM only
+  // sets encounter conditions. The footer says so, and there's no HP adjuster.
+  await expect(drawer.getByText(/manages their own HP\/SP/)).toBeVisible()
+  await expect(drawer.getByRole("button", { name: "Adjust HP" })).toHaveCount(0)
 })
 
 test("rail row opens an enemy detail drawer (UNN-345)", async ({ page }) => {

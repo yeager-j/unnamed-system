@@ -133,37 +133,6 @@ describe("createMonotonicVersionMap", () => {
     expect(map.read("pc-1")).toBe(4)
     expect(map.read("pc-2")).toBe(7)
   })
-
-  describe("ref", () => {
-    it("falls back to the seed until the key is first written", () => {
-      const map = createMonotonicVersionMap<string>()
-      const ref = map.ref("pc-1", 5) // seed = the hydrated prop
-
-      expect(ref.current).toBe(5)
-      expect(map.read("pc-1")).toBeUndefined() // a read does not create
-
-      ref.current = 8
-      expect(map.read("pc-1")).toBe(8)
-      expect(ref.current).toBe(8) // tracked value now wins over the seed
-    })
-
-    it("prefers an existing tracked value over the seed", () => {
-      const map = createMonotonicVersionMap<string>()
-      map.bump("pc-1", 12)
-
-      // A later ref seeded with a lower prop (a stale frame) still reads 12.
-      expect(map.ref("pc-1", 6).current).toBe(12)
-    })
-
-    it("bumps forward-only through the setter", () => {
-      const map = createMonotonicVersionMap<string>()
-      const ref = map.ref("pc-1", 5)
-
-      ref.current = 9
-      ref.current = 4 // stale frame
-      expect(map.read("pc-1")).toBe(9)
-    })
-  })
 })
 
 describe("useVersionTokenStore", () => {
