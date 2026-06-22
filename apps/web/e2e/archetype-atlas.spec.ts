@@ -48,10 +48,14 @@ test.describe("Lineage Atlas owner flows", () => {
 
   test("Archetypes tab links permanently to the Atlas", async ({ page }) => {
     await openSheetTab(page, target.url, "Archetypes")
+    // The Saved Ranks banner carries an identical "Open Lineage Atlas" CTA, so
+    // scope to the tab panel — identified by its own "Lineage Atlas" heading —
+    // to assert the tab's permanent link specifically.
+    const atlasSection = page
+      .getByRole("tabpanel")
+      .filter({ has: page.getByRole("heading", { name: "Lineage Atlas" }) })
     await expect(
-      page
-        .getByRole("tabpanel", { name: "Archetypes" })
-        .getByRole("button", { name: "Open Lineage Atlas" })
+      atlasSection.getByRole("button", { name: "Open Lineage Atlas" })
     ).toBeVisible()
   })
 
