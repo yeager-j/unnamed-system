@@ -42,7 +42,7 @@ The app has four top-level surfaces:
 - **Home / My Characters** — list of the signed-in user's characters with a "Create new character" button. Each row links to the sheet.
 - **Character Builder** — four-movement guided flow for creating a new Level 1 character. Progress dots at the bottom of each movement let the player jump back to any visited movement.
 - **Character Sheet (edit)** — the owner's editable view: a persistent header plus four play-context tabs (Combat / Explore / Inventory / Archetypes). See §6.1.
-- **Character Sheet (public)** — the same header + tabs, read-only, at a stable URL like `/c/{shortId}`. The active tab is URL-addressable (`?tab=`) so a specific view is shareable.
+- **Character Sheet (public)** — the same header + tabs, read-only, at a stable URL like `/c/{shortId}`. Tab selection is in-memory client state (the sheet opens on Combat); the tab is not reflected in the URL.
 
 Signed-out users can view public sheets but get a "Sign in to create your own" CTA.
 
@@ -113,7 +113,7 @@ The sheet is the primary surface a player returns to. It supports both reading a
 
 ### 6.1 Layout
 
-A **persistent header** (always visible) above **four play-context tabs**: Combat · Explore · Inventory · Archetypes. Default tab is Combat; the active tab is URL-addressable (`/c/{shortId}?tab=…`) so a specific view is shareable. The tab strip is responsive — icon + label, collapsing to icon-only on narrow screens.
+A **persistent header** (always visible) above **four play-context tabs**: Combat · Explore · Inventory · Archetypes. Default tab is Combat; tab switching is in-memory client state and is not reflected in the URL. The tab strip is responsive — icon + label, collapsing to icon-only on narrow screens.
 
 #### Header (persistent, above the tabs)
 
@@ -140,7 +140,7 @@ In **owner edit mode** the header gains one compact actions affordance ("Owner c
 Possessions and equip state, in one place. From the top:
 
 - **Equipped.** Three slot blocks (Weapon, Armor, Accessory) with the equipped item's name, brief description, and effects (Attribute bonuses, Affinity changes, granted Skills) so the player can see why their stats look the way they do. An unfilled slot shows an "Empty slot" placeholder. The equipped weapon's **intrinsic attack** is *not* duplicated here — it lives in the Combat tab's Weapon Attack card.
-- **Inventory.** Every owned item, grouped by slot type (Weapons / Armor / Accessories). Each row shows the item name and brief description; the full effects are revealed in a popover on click (desktop) or tap (mobile). Currency rides right-aligned in this section's header (also shown in the persistent sheet header) so a deep-linked `?tab=inventory` view stays self-contained. Equip/unequip and add/spend currency (§7.7) live here in owner mode (display-only on the public sheet).
+- **Inventory.** Every owned item, grouped by slot type (Weapons / Armor / Accessories). Each row shows the item name and brief description; the full effects are revealed in a popover on click (desktop) or tap (mobile). Currency rides right-aligned in this section's header (also shown in the persistent sheet header) so the Inventory tab stays self-contained. Equip/unequip and add/spend currency (§7.7) live here in owner mode (display-only on the public sheet).
 
 Items can confer Affinity changes, Attribute bonuses, or Skills — see 6.2.
 

@@ -16,10 +16,6 @@ import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-
 import { RanksBanner } from "@/components/character-sheet/ranks-banner"
 import { SheetHeader } from "@/components/character-sheet/sheet-header"
 import { SheetNavProvider } from "@/components/character-sheet/sheet-nav-context"
-import {
-  SHEET_TAB_KEYS,
-  type SheetTabKey,
-} from "@/components/character-sheet/sheet-tab-keys"
 import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
 import { Skills } from "@/components/character-sheet/skills"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
@@ -34,13 +30,12 @@ import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
  * organizes the body into four play-context tabs (Combat / Explore / Inventory /
  * Archetypes) above which the header stays fixed. Sections not yet built are
  * dashed placeholders within their tab, filled in by sibling tickets, each
- * reading what it needs off the hydrated character. The active tab is
- * `?tab=`-addressable so a specific view is shareable.
+ * reading what it needs off the hydrated character. The active tab is in-memory
+ * client state (it always opens on Combat); see {@link SheetNavProvider}.
  */
 
 interface PageProps {
   params: Promise<{ shortId: string }>
-  searchParams: Promise<{ tab?: string }>
 }
 
 /**
@@ -79,18 +74,8 @@ export async function generateMetadata({
   }
 }
 
-function resolveTab(tab: string | undefined): SheetTabKey {
-  return tab && (SHEET_TAB_KEYS as readonly string[]).includes(tab)
-    ? (tab as SheetTabKey)
-    : "combat"
-}
-
-export default async function CharacterSheetPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function CharacterSheetPage({ params }: PageProps) {
   const { shortId } = await params
-  const { tab } = await searchParams
   const character = await getCharacter(shortId)
 
   if (!character) {
@@ -114,7 +99,7 @@ export default async function CharacterSheetPage({
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <ViewerRoleProvider role={role}>
         <CharacterProvider character={character}>
-          <SheetNavProvider defaultTab={resolveTab(tab)}>
+          <SheetNavProvider>
             <CommandPalette />
 
             <SheetHeader />

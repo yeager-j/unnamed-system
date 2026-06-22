@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test"
 import { STORAGE_STATE } from "./auth.setup"
 import { cleanup, createTracker } from "./fixtures/factory"
 import { createRanksBannerTarget } from "./fixtures/ranks-banner-target"
+import { openSheetTab } from "./open-sheet-tab"
 
 /**
  * UNN-255: the sheet-wide Saved Archetype Ranks banner. Covers the AC:
@@ -41,8 +42,13 @@ test.describe("Saved Ranks banner", () => {
   test("shows for the owner with the count and Atlas CTA on every tab", async ({
     page,
   }) => {
-    for (const tab of ["combat", "explore", "inventory", "archetypes"]) {
-      await page.goto(`${target.url}?tab=${tab}`)
+    for (const tab of [
+      "Combat",
+      "Explore",
+      "Inventory",
+      "Archetypes",
+    ] as const) {
+      await openSheetTab(page, target.url, tab)
       const banner = bannerLocator(page)
       await expect(banner).toBeVisible()
       await expect(banner).toContainText("2")

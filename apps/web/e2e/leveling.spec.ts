@@ -147,6 +147,5 @@ test.describe("owner leveling controls", () => {
     await expect(
       page.getByRole("tab", { name: "Archetypes", selected: true })
     ).toBeVisible()
-    await expect(page).toHaveURL(/tab=archetypes/)
   })
 })

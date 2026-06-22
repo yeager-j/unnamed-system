@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test"
 import { STORAGE_STATE } from "./auth.setup"
 import { cleanup, createTracker } from "./fixtures/factory"
 import { createInventoryTarget } from "./fixtures/inventory-target"
+import { openSheetTab } from "./open-sheet-tab"
 
 /**
  * UNN-223: owner-mode Inventory edits — add from the catalog (with stacking
@@ -15,8 +16,6 @@ import { createInventoryTarget } from "./fixtures/inventory-target"
 
 const tracker = createTracker()
 let target: Awaited<ReturnType<typeof createInventoryTarget>>
-
-const inventoryUrl = () => `${target.url}?tab=inventory`
 
 function openRow(page: Page, name: RegExp) {
   return page.getByRole("button", { name }).first().click()
@@ -40,7 +39,7 @@ test.describe("Inventory gating", () => {
     const page = await context.newPage()
     try {
       await target.reset()
-      await page.goto(inventoryUrl())
+      await openSheetTab(page, target.url, "Inventory")
       await expect(
         page.getByRole("heading", { name: target.name })
       ).toBeVisible()
@@ -73,7 +72,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("adds a non-stackable item as a new row", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await page.getByRole("button", { name: "Add item" }).click()
     await page
@@ -89,7 +88,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("adds a stackable item into the existing row", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await page.getByRole("button", { name: "Add item" }).click()
     const row = page.getByRole("listitem").filter({ hasText: "Soul Drop" })
@@ -103,7 +102,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("increments a stack with the in-line adjuster", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await openRow(page, /Soul Drop/)
     await page.getByRole("button", { name: "Increase quantity" }).click()
@@ -115,7 +114,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("setting a stack to 0 removes the row", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await openRow(page, /Soul Drop/)
     const input = page.getByRole("spinbutton", { name: "Quantity" })
@@ -131,7 +130,7 @@ test.describe("owner Inventory editing", () => {
   test("removing an equipped item unequips and deletes it", async ({
     page,
   }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await openRow(page, /Longsword/)
     await page.getByRole("button", { name: "Remove" }).click()
@@ -146,7 +145,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("non-stackable rows have no quantity adjuster", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await openRow(page, /Longsword/)
     await expect(
@@ -157,7 +156,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("adds currency", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await page.getByRole("button", { name: "Adjust currency" }).click()
     await page.getByLabel("Amount").fill("50")
@@ -168,7 +167,7 @@ test.describe("owner Inventory editing", () => {
   })
 
   test("spending clamps currency at 0", async ({ page }) => {
-    await page.goto(inventoryUrl())
+    await openSheetTab(page, target.url, "Inventory")
 
     await page.getByRole("button", { name: "Adjust currency" }).click()
     await page.getByLabel("Amount").fill("999999")

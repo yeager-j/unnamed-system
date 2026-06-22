@@ -6,6 +6,7 @@ import { characters, getDb } from "@/lib/db"
 import { STORAGE_STATE } from "./auth.setup"
 import { cleanup, createTracker } from "./fixtures/factory"
 import { createWriteTarget } from "./fixtures/write-target"
+import { openSheetTab } from "./open-sheet-tab"
 
 /**
  * Regression suite for the UNN-180 write-pattern: a typed Server Action with
@@ -70,7 +71,7 @@ test.describe("owner affordances are gated", () => {
     const page = await context.newPage()
     try {
       await target.reset()
-      await page.goto(`${target.url}?tab=inventory`)
+      await openSheetTab(page, target.url, "Inventory")
       await expect(
         page.getByRole("heading", { name: target.name })
       ).toBeVisible()
@@ -96,7 +97,7 @@ test.describe("owner affordances are gated", () => {
     test.use({ storageState: STORAGE_STATE })
 
     test("static heading, no editor, no equip controls", async ({ page }) => {
-      await page.goto("/c/seed-warrior?tab=inventory")
+      await openSheetTab(page, "/c/seed-warrior", "Inventory")
       await expect(
         page.getByRole("heading", { name: "Brann Holt" })
       ).toBeVisible()
@@ -124,7 +125,7 @@ test.describe("owner-mode write pattern", () => {
   test("owner sees an editable name input and equip buttons", async ({
     page,
   }) => {
-    await page.goto(`${target.url}?tab=inventory`)
+    await openSheetTab(page, target.url, "Inventory")
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toBeVisible()
     await openItemPopover(page, "Overlapping scales")
     await expect(
@@ -193,7 +194,7 @@ test.describe("owner-mode write pattern", () => {
     // Bladeturn Mail grants `Resist Slash`. With it equipped, the Combat
     // tab's Affinities chart must re-derive to "Resist" — proves the end of
     // the chain (engine → DB → revalidation → re-render of derived stats).
-    await page.goto(`${target.url}?tab=combat`)
+    await page.goto(target.url)
     // Affinities renders each damage type as `<div><dt>Label</dt><dd>value</dd></div>`,
     // so dt/dd are siblings via a wrapping div, not directly. Match the
     // wrapper that contains the Slash term, then read its definition.
@@ -217,7 +218,7 @@ test.describe("owner-mode write pattern", () => {
     // contract from the equip contract.
     await target.setItemEquipped("bladeturn-mail", true)
 
-    await page.goto(`${target.url}?tab=inventory`)
+    await openSheetTab(page, target.url, "Inventory")
     await openItemPopover(page, "Overlapping scales")
     await page.getByRole("button", { name: "Unequip", exact: true }).click()
     await page.waitForLoadState("networkidle")
@@ -322,7 +323,7 @@ test.describe("owner-mode write pattern", () => {
     // `characters.updatedAt` and the cross-component dual-writer ref was
     // what made this case work; this test now proves the stronger
     // decoupling holds.
-    await page.goto(`${target.url}?tab=inventory`)
+    await openSheetTab(page, target.url, "Inventory")
     await openItemPopover(page, "Overlapping scales")
     await page.getByRole("button", { name: "Equip", exact: true }).click()
     await page.waitForLoadState("networkidle")
@@ -362,6 +363,9 @@ test.describe("owner-mode write pattern", () => {
     await expect(page.getByRole("textbox", { name: NAME_INPUT })).toHaveValue(
       "Mira the Reverse"
     )
+    // Reload lands on the default Combat tab; the equipped armor lives on
+    // Inventory, so switch back to assert it.
+    await page.getByRole("tab", { name: "Inventory" }).click()
     await expect(page.getByText("Bladeturn Mail").first()).toBeVisible()
   })
 })
@@ -446,7 +450,6 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
   // Mira Solberg's active Archetype is Warrior, whose granted Talents are
   // Athletics / Climb / Lift — the locked "inherited" set the picker must
   // exclude and the X button must hide. These tests pin that contract.
-  const exploreUrl = () => `${target.url}?tab=explore`
   const INHERITED_TALENTS = ["Athletics", "Climb", "Lift"] as const
 
   test.describe("owner controls are hidden on the public sheet", () => {
@@ -457,7 +460,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       const page = await context.newPage()
       try {
         await target.reset()
-        await page.goto(exploreUrl())
+        await openSheetTab(page, target.url, "Explore")
 
         const talents = page.getByRole("region", { name: "Talents" })
         for (const label of INHERITED_TALENTS) {
@@ -491,7 +494,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("add → reload → remove round-trips through persistence", async ({
       page,
     }) => {
-      await page.goto(exploreUrl())
+      await openSheetTab(page, target.url, "Explore")
 
       // The popover is portaled outside the Talents region, so resolve the
       // Add button by aria-label rather than scoping to the region.
@@ -508,6 +511,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
 
       await page.waitForLoadState("networkidle")
       await page.reload()
+      await page.getByRole("tab", { name: "Explore" }).click()
       await expect(
         page.getByRole("region", { name: "Talents" }).getByText("Arcana")
       ).toBeVisible()
@@ -515,6 +519,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
       await page.getByRole("button", { name: "Remove Arcana" }).click()
       await page.waitForLoadState("networkidle")
       await page.reload()
+      await page.getByRole("tab", { name: "Explore" }).click()
       await expect(
         page.getByRole("region", { name: "Talents" }).getByText("Arcana")
       ).toHaveCount(0)
@@ -544,7 +549,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("tagging a Spark updates the Sparks counter and breakdown", async ({
       page,
     }) => {
-      await page.goto(exploreUrl())
+      await openSheetTab(page, target.url, "Explore")
       const virtues = page.getByRole("region", { name: "Virtues" })
       await expect(virtues.getByText("Sparks: 0 / 7")).toBeVisible()
 
@@ -558,7 +563,7 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
     test("seven Sparks surfaces the Rank-up CTA and rank-up clears the log", async ({
       page,
     }) => {
-      await page.goto(exploreUrl())
+      await openSheetTab(page, target.url, "Explore")
       const virtues = page.getByRole("region", { name: "Virtues" })
 
       // Fill the log to 7 tagged as Wisdom so only Wisdom is eligible.
@@ -598,7 +603,6 @@ test.describe("UNN-222: Explore-tab Talents and Spark/Virtue edits", () => {
 })
 
 test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () => {
-  const exploreUrl = () => `${target.url}?tab=explore`
   // A 1×1 transparent PNG — enough to exercise the upload → Blob → revalidate
   // round-trip without committing a binary fixture.
   const PNG_1x1 = Buffer.from(
@@ -622,7 +626,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       const page = await context.newPage()
       try {
         await target.reset()
-        await page.goto(exploreUrl())
+        await openSheetTab(page, target.url, "Explore")
         // The seed pronouns render as static text, not an input.
         await expect(
           page
@@ -650,7 +654,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       test.use({ storageState: STORAGE_STATE })
 
       test("no field editors, no portrait menu", async ({ page }) => {
-        await page.goto("/c/seed-warrior?tab=explore")
+        await openSheetTab(page, "/c/seed-warrior", "Explore")
         await expect(
           page.getByRole("textbox", { name: "Pronouns" })
         ).toHaveCount(0)
@@ -698,7 +702,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("pronouns / ancestry / background auto-save and persist across reload", async ({
       page,
     }) => {
-      await page.goto(exploreUrl())
+      await openSheetTab(page, target.url, "Explore")
       // Edit all three back-to-back, faster than the revalidate round-trip,
       // to exercise the shared-ref coordination (UNN-274).
       await editField(page, "Pronouns", "ze/zir")
@@ -712,6 +716,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
         .toBe("Wandering archivist")
 
       await page.reload()
+      await page.getByRole("tab", { name: "Explore" }).click()
       await expect(page.getByRole("textbox", { name: "Pronouns" })).toHaveValue(
         "ze/zir"
       )
@@ -727,7 +732,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
     test("clearing a field persists empty (and the public sheet falls back)", async ({
       page,
     }) => {
-      await page.goto(exploreUrl())
+      await openSheetTab(page, target.url, "Explore")
       const pronouns = page.getByRole("textbox", { name: "Pronouns" })
       await expect(pronouns).toHaveValue("they/them")
       await pronouns.fill("")
@@ -735,6 +740,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       await expect.poll(() => columnValue("pronouns")).toBeNull()
 
       await page.reload()
+      await page.getByRole("tab", { name: "Explore" }).click()
       await expect(page.getByRole("textbox", { name: "Pronouns" })).toHaveValue(
         ""
       )
@@ -745,7 +751,7 @@ test.describe("UNN-224: pronouns / ancestry / background / portrait edits", () =
       "owner can upload a portrait and remove it",
       { tag: "@smoke" },
       async ({ page }) => {
-        await page.goto(exploreUrl())
+        await openSheetTab(page, target.url, "Explore")
         await expect(
           page.getByRole("button", { name: "Edit portrait" })
         ).toBeVisible()

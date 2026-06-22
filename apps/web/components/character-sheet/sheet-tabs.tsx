@@ -37,13 +37,10 @@ export interface SheetTabsProps {
  * Client tab shell for the character sheet. The four panels are rendered on the
  * server (RSC) and handed in as props; this component owns only the active-tab
  * state. It's *controlled* — switching is instant client state with no server
- * round-trip — and the URL is mirrored cosmetically via `history.replaceState`
- * (not the Next router, which would re-render the route and reset the tabs) so
- * a view stays shareable by `?tab=`. The active-tab state lives in
- * {@link SheetNavProvider} (so the command palette can drive it too); the
- * initial tab comes from the server via that provider's `defaultTab`, so a deep
- * link opens the right tab. Inactive panels are unmounted (the Base UI default
- * with `keepMounted` off), so a switch fully tears down the previous tab's tree.
+ * round-trip and no URL change. The active-tab state lives in
+ * {@link SheetNavProvider} (so the command palette can drive it too) and always
+ * opens on Combat. Inactive panels are unmounted (the Base UI default with
+ * `keepMounted` off), so a switch fully tears down the previous tab's tree.
  * Triggers collapse to icon-only below `sm`.
  */
 export function SheetTabs({
