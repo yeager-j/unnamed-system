@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import type { Mastery } from "@workspace/game-v2/archetypes"
 import type { AffinityEffect } from "@workspace/game-v2/kernel"
 import {
-  addScores,
   baseAffinities,
   baseAttributes,
   computeAffinityChart,
@@ -20,34 +19,24 @@ import {
 } from "@workspace/game-v2/progression/stats"
 
 describe("computeAttributes (sum-then-clamp, C1)", () => {
-  it("sums base + bonuses then clamps to [-7, +7]", () => {
-    const base = { strength: 5, magic: -5, agility: 0, luck: 2 }
-    const bonuses = { ...emptyBonusPool(), strength: 4, magic: -4, luck: 1 }
-    expect(computeAttributes(base, bonuses)).toEqual({
-      strength: 7, // 5+4 = 9 → clamp 7
-      magic: -7, // -5-4 = -9 → clamp -7
+  it("sums every source (base + archetype layer + pool) then clamps to [-7, +7]", () => {
+    const base = { strength: 4, magic: -5, agility: 0, luck: 2 }
+    const archetype = { strength: 1, magic: -1, agility: 0, luck: 0 }
+    const pool = { ...emptyBonusPool(), strength: 4, magic: -3, luck: 1 }
+    expect(computeAttributes(base, archetype, pool)).toEqual({
+      strength: 7, // 4+1+4 = 9 → clamp 7
+      magic: -7, // -5-1-3 = -9 → clamp -7
       agility: 0,
       luck: 3,
     })
   })
 
-  it("clamps AFTER summing, not per source (a +max base with a negative bonus lands in range)", () => {
+  it("clamps AFTER summing, not per source (a +max source with a negative source lands in range)", () => {
     const base = { strength: 7, magic: 0, agility: 0, luck: 0 }
-    const bonuses = { ...emptyBonusPool(), strength: -3 }
-    // If clamping happened per-source, 7 then -3 would still be 4; it is here too,
-    // but the sum-then-clamp contract is what the +9→7 case above pins down.
-    expect(computeAttributes(base, bonuses).strength).toBe(4)
-  })
-})
-
-describe("addScores", () => {
-  it("sums two attribute sets (a base + the archetype layer)", () => {
-    expect(
-      addScores(
-        { strength: 0, magic: 0, agility: 0, luck: 0 },
-        { strength: 3, magic: 1, agility: -1, luck: 2 }
-      )
-    ).toEqual({ strength: 3, magic: 1, agility: -1, luck: 2 })
+    const pool = { ...emptyBonusPool(), strength: -3 }
+    // Per-source clamping would also give 4 here, but the +9→7 case above is what
+    // pins the sum-then-clamp contract down.
+    expect(computeAttributes(base, pool).strength).toBe(4)
   })
 })
 

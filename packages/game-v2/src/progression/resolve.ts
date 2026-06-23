@@ -5,7 +5,6 @@ import {
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import {
-  addScores,
   attributeEffectBonuses,
   baseAffinities,
   baseAttributes,
@@ -87,12 +86,12 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     // and no such layers — but both still receive the effect layers.
 
     if (attributes) {
-      // base + archetype layer (additive), then the bonus pool, clamped.
-      const withArchetype = addScores(
+      // base + archetype layer + bonus pool, summed and clamped in one pass.
+      components.attributes = computeAttributes(
         attributes.base,
-        baseAttributes(activeBase?.attributes)
+        baseAttributes(activeBase?.attributes),
+        pool
       )
-      components.attributes = computeAttributes(withArchetype, pool)
     }
 
     if (affinities) {

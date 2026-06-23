@@ -142,24 +142,21 @@ export function baseAttributes(
   return out
 }
 
-/** Sums two attribute-score sets target-by-target (e.g. a base + the archetype layer). */
-export function addScores(
-  a: AttributeScores,
-  b: AttributeScores
-): AttributeScores {
-  const out = {} as AttributeScores
-  for (const key of ATTRIBUTE_KEYS_ORDER) out[key] = a[key] + b[key]
-  return out
-}
-
-/** Displayed Attributes: base + summed bonuses, **clamped to [-7,+7] after summing** (C1). */
+/**
+ * Effective Attributes: the **sum of every source** (the entity base, the
+ * archetype layer, the bonus pool, …), each Attribute clamped to [-7, +7] once
+ * **after** summing (C1). Variadic so `resolve` folds all the layers in a single
+ * pass — a source need only carry the four Attribute keys ({@link BonusPool}'s
+ * HP/SP are simply ignored here).
+ */
 export function computeAttributes(
-  base: AttributeScores,
-  bonuses: BonusPool
+  ...sources: ReadonlyArray<Record<AttributeKey, number>>
 ): AttributeScores {
   const out = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS_ORDER) {
-    out[key] = clamp(base[key] + bonuses[key], ATTRIBUTE_MIN, ATTRIBUTE_MAX)
+    let total = 0
+    for (const source of sources) total += source[key]
+    out[key] = clamp(total, ATTRIBUTE_MIN, ATTRIBUTE_MAX)
   }
   return out
 }
