@@ -10,11 +10,11 @@ import {
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
+  computeMaxHP,
   computeMaxSkillDice,
+  computeMaxSP,
   manualBonusPool,
   masteryBonuses,
-  pathMaxHP,
-  pathMaxSP,
   sumBonuses,
 } from "@workspace/game-v2/progression/stats"
 
@@ -104,20 +104,12 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     }
 
     if (vitals) {
-      const progressionHP = progression
-        ? pathMaxHP(progression.pathChoice, progression.level)
-        : 0
-      components.vitals = {
-        maxHP: Math.round(vitals.base + progressionHP + pool.hp),
-      }
+      components.vitals = { maxHP: computeMaxHP(progression, vitals, pool) }
     }
 
     if (skillPool) {
-      const progressionSP = progression
-        ? pathMaxSP(progression.pathChoice, progression.level)
-        : 0
       components.skillPool = {
-        maxSP: Math.round(skillPool.base + progressionSP + pool.sp),
+        maxSP: computeMaxSP(progression, skillPool, pool),
       }
     }
 

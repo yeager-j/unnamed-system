@@ -7,12 +7,12 @@ import {
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
+  computeMaxHP,
   computeMaxSkillDice,
+  computeMaxSP,
   emptyBonusPool,
   manualBonusPool,
   masteryBonuses,
-  pathMaxHP,
-  pathMaxSP,
   resolveAffinity,
   sumBonuses,
 } from "@workspace/game-v2/progression/stats"
@@ -39,12 +39,34 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
   })
 })
 
-describe("path HP/SP layer (PATH_STATS, levelsGained)", () => {
-  it("is the formula only — no base, no bonuses (resolve adds those, D37)", () => {
-    expect(pathMaxHP("balanced", 1)).toBe(20) // start, no per-level gain
-    expect(pathMaxSP("balanced", 1)).toBe(50)
-    expect(pathMaxHP("health-focused", 5)).toBe(24 + 4 * 7) // 52
-    expect(pathMaxSP("skill-focused", 10)).toBe(60 + 9 * 13) // 177
+describe("computeMaxHP / computeMaxSP (base + progression layer + bonus, D37)", () => {
+  const noBonus = emptyBonusPool()
+
+  it("a PC folds base 0 + the path/level formula + the HP/SP bonus", () => {
+    expect(
+      computeMaxHP(
+        { level: 5, pathChoice: "health-focused" },
+        { base: 0 },
+        {
+          ...noBonus,
+          hp: 3,
+        }
+      )
+    ).toBe(24 + 4 * 7 + 3) // 55
+    expect(
+      computeMaxSP(
+        { level: 10, pathChoice: "skill-focused" },
+        { base: 0 },
+        noBonus
+      )
+    ).toBe(60 + 9 * 13) // 177
+  })
+
+  it("an enemy (no Progression) folds its authored base + bonuses, no path layer", () => {
+    expect(computeMaxHP(undefined, { base: 100 }, { ...noBonus, hp: 10 })).toBe(
+      110
+    )
+    expect(computeMaxSP(undefined, { base: 30 }, noBonus)).toBe(30)
   })
 })
 

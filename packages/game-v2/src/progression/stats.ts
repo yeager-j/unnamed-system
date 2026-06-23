@@ -17,6 +17,9 @@ import {
   type PathChoice,
 } from "@workspace/game-v2/kernel/vocab"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
+import type { Progression } from "@workspace/game-v2/progression/progression.schema"
+import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
+import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
  * The pure derivation math, re-homed from v1
@@ -161,21 +164,48 @@ export function computeAttributes(
   return out
 }
 
-/**
- * The **Progression layer's** HP contribution — path start + per-level gain ×
- * levels gained (no bonuses). `resolve` adds the entity's `Vitals.base` and the HP
- * bonus pool on top, uniformly (D37). A PC's `base` is 0, so its maxHP is this
- * formula + bonuses; an enemy has no Progression and so no this layer.
- */
-export function pathMaxHP(pathChoice: PathChoice, level: number): number {
+/** The Progression layer's HP contribution — path start + per-level gain × levels gained. */
+function pathMaxHP(pathChoice: PathChoice, level: number): number {
   const path = PATH_STATS[pathChoice]
   return path.startHP + levelsGained(level) * path.hpPerLevel
 }
 
 /** The Progression layer's SP contribution — analogous to {@link pathMaxHP}. */
-export function pathMaxSP(pathChoice: PathChoice, level: number): number {
+function pathMaxSP(pathChoice: PathChoice, level: number): number {
   const path = PATH_STATS[pathChoice]
   return path.startSP + levelsGained(level) * path.spPerLevel
+}
+
+/**
+ * Effective **max HP** (D37): the entity's `Vitals.base` + the Progression
+ * path/level layer (only when it carries `Progression`) + the HP bonus pool. A
+ * PC's `base` is 0, so its maxHP is the path formula + bonuses; an enemy has an
+ * authored `base` and no Progression layer, but still gets the bonuses.
+ *
+ * Kept deliberately separate from {@link computeMaxSP} (no shared abstraction):
+ * HP and SP share a shape today but are free to diverge.
+ */
+export function computeMaxHP(
+  progression: Progression | undefined,
+  vitals: Vitals,
+  pool: BonusPool
+): number {
+  const layer = progression
+    ? pathMaxHP(progression.pathChoice, progression.level)
+    : 0
+  return Math.round(vitals.base + layer + pool.hp)
+}
+
+/** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
+export function computeMaxSP(
+  progression: Progression | undefined,
+  skillPool: SkillPool,
+  pool: BonusPool
+): number {
+  const layer = progression
+    ? pathMaxSP(progression.pathChoice, progression.level)
+    : 0
+  return Math.round(skillPool.base + layer + pool.sp)
 }
 
 /** Total Hit Dice: 2 at L1, +1 per level (derived from level, never stored). */
