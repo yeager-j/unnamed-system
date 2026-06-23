@@ -136,15 +136,6 @@ export function manualBonusPool(manual: ManualBonuses): BonusPool {
 
 // --- Attributes / pools -------------------------------------------------------
 
-/** Filled attribute scores (zeros for an absent set) — the all-zero floor or the layer slot. */
-export function baseAttributes(
-  scores: AttributeScores | undefined
-): AttributeScores {
-  const out = {} as AttributeScores
-  for (const key of ATTRIBUTE_KEYS_ORDER) out[key] = scores ? scores[key] : 0
-  return out
-}
-
 /**
  * Effective Attributes: the **sum of every source** (the entity base, the
  * archetype layer, the bonus pool, …), each Attribute clamped to [-7, +7] once
@@ -153,12 +144,12 @@ export function baseAttributes(
  * HP/SP are simply ignored here).
  */
 export function computeAttributes(
-  ...sources: ReadonlyArray<Record<AttributeKey, number>>
+  ...sources: ReadonlyArray<Record<AttributeKey, number> | undefined>
 ): AttributeScores {
   const out = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS_ORDER) {
     let total = 0
-    for (const source of sources) total += source[key]
+    for (const source of sources) total += source?.[key] ?? 0
     out[key] = clamp(total, ATTRIBUTE_MIN, ATTRIBUTE_MAX)
   }
   return out

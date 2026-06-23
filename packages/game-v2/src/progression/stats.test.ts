@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import type { Mastery } from "@workspace/game-v2/archetypes"
 import type { AffinityEffect } from "@workspace/game-v2/kernel"
 import {
-  baseAttributes,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
@@ -36,6 +35,17 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
     // Per-source clamping would also give 4 here, but the +9→7 case above is what
     // pins the sum-then-clamp contract down.
     expect(computeAttributes(base, pool).strength).toBe(4)
+  })
+
+  it("treats an absent (undefined) source as zero — the no-archetype layer case", () => {
+    const base = { strength: 2, magic: 1, agility: 0, luck: 0 }
+    const pool = { ...emptyBonusPool(), magic: 3 }
+    expect(computeAttributes(base, undefined, pool)).toEqual({
+      strength: 2,
+      magic: 4,
+      agility: 0,
+      luck: 0,
+    })
   })
 })
 
@@ -191,25 +201,6 @@ describe("affinity resolution", () => {
         computeAffinityChart(base, undefined, [candidate], { fire: "weak" })
           .fire
       ).toBe("weak")
-    })
-  })
-})
-
-describe("baseAttributes", () => {
-  it("uses the archetype scores, or zeros when none", () => {
-    expect(
-      baseAttributes({ strength: 3, magic: 1, agility: 0, luck: -1 })
-    ).toEqual({
-      strength: 3,
-      magic: 1,
-      agility: 0,
-      luck: -1,
-    })
-    expect(baseAttributes(undefined)).toEqual({
-      strength: 0,
-      magic: 0,
-      agility: 0,
-      luck: 0,
     })
   })
 })

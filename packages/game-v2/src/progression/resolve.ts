@@ -6,7 +6,6 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import {
   attributeEffectBonuses,
-  baseAttributes,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
@@ -88,7 +87,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       // base + archetype layer + bonus pool, summed and clamped in one pass.
       components.attributes = computeAttributes(
         attributes.base,
-        baseAttributes(activeArchetypeBase?.attributes),
+        activeArchetypeBase?.attributes,
         pool
       )
     }
