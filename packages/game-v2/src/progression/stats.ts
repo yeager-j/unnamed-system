@@ -222,28 +222,25 @@ export function resolveAffinity(
   return chart[damageType as AffinityDamageType] ?? "neutral"
 }
 
-/** The all-damage-types base chart for an authored chart, or all-Neutral when none. */
-export function baseAffinities(
-  chart: PartialAffinityChart | undefined
-): AffinityChart {
-  const out = {} as AffinityChart
-  for (const damageType of DAMAGE_TYPES) {
-    out[damageType] = chart ? resolveAffinity(chart, damageType) : "neutral"
-  }
-  return out
-}
-
 /**
- * The resolved Affinity chart, per damage type: an `overrides` entry wins; else
- * the strongest granted candidate (by {@link AFFINITY_PRIORITY}); else the base.
+ * The resolved Affinity chart, folded in one pass over its layers — per damage
+ * type: an `overrides` entry wins; else the strongest granted candidate (by
+ * {@link AFFINITY_PRIORITY}); else the **base**, where `archetypeLayer` overrides
+ * the entity `base` per charted type and absent/Almighty types are Neutral (D37).
  * Candidate effects come from the bonus sources (PR2 wires the context channel;
  * equipment/passive/mechanic join it in their PRs).
  */
 export function computeAffinityChart(
-  base: AffinityChart,
+  base: PartialAffinityChart,
+  archetypeLayer: PartialAffinityChart | undefined,
   candidateEffects: readonly AffinityEffect[],
   overrides?: Partial<Record<DamageType, Affinity>>
 ): AffinityChart {
+  // The archetype layer overrides the entity base per charted type (D37).
+  const merged: PartialAffinityChart = archetypeLayer
+    ? { ...base, ...archetypeLayer }
+    : base
+
   const candidatesByType = new Map<DamageType, Affinity[]>()
   for (const effect of candidateEffects) {
     for (const damageType of effect.damageTypes) {
@@ -261,7 +258,7 @@ export function computeAffinityChart(
       continue
     }
     const granted = strongest(candidatesByType.get(damageType) ?? [])
-    chart[damageType] = granted ?? base[damageType]
+    chart[damageType] = granted ?? resolveAffinity(merged, damageType)
   }
   return chart
 }

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest"
 import type { Mastery } from "@workspace/game-v2/archetypes"
 import type { AffinityEffect } from "@workspace/game-v2/kernel"
 import {
-  baseAffinities,
   baseAttributes,
   computeAffinityChart,
   computeAttributes,
@@ -118,18 +117,24 @@ describe("affinity resolution", () => {
     expect(resolveAffinity({ fire: "weak" }, "almighty")).toBe("neutral")
   })
 
-  it("baseAffinities fills every damage type, all-neutral when no chart", () => {
-    const chart = baseAffinities(undefined)
-    expect(chart.fire).toBe("neutral")
-    expect(chart.almighty).toBe("neutral")
-    expect(Object.keys(chart)).toHaveLength(12)
-  })
+  describe("computeAffinityChart (override → strongest → archetype → base)", () => {
+    const base = { fire: "weak", ice: "resist" } as const
 
-  describe("computeAffinityChart (override → strongest → base)", () => {
-    const base = baseAffinities({ fire: "weak", ice: "resist" })
+    it("fills every damage type, Almighty/uncharted Neutral", () => {
+      const chart = computeAffinityChart({}, undefined, [])
+      expect(chart.fire).toBe("neutral")
+      expect(chart.almighty).toBe("neutral")
+      expect(Object.keys(chart)).toHaveLength(12)
+    })
 
-    it("falls back to base when no candidate or override", () => {
-      expect(computeAffinityChart(base, []).fire).toBe("weak")
+    it("falls back to the entity base when no layer/candidate/override", () => {
+      expect(computeAffinityChart(base, undefined, []).fire).toBe("weak")
+    })
+
+    it("the archetype layer overrides the entity base per charted type", () => {
+      expect(computeAffinityChart(base, { fire: "resist" }, []).fire).toBe(
+        "resist"
+      )
     })
 
     it("a granted candidate replaces the base", () => {
@@ -138,7 +143,9 @@ describe("affinity resolution", () => {
         damageTypes: ["fire"],
         affinity: "resist",
       }
-      expect(computeAffinityChart(base, [candidate]).fire).toBe("resist")
+      expect(computeAffinityChart(base, undefined, [candidate]).fire).toBe(
+        "resist"
+      )
     })
 
     it("picks the strongest candidate by priority (drain > repel > … > weak)", () => {
@@ -147,17 +154,20 @@ describe("affinity resolution", () => {
         { type: "affinity", damageTypes: ["fire"], affinity: "drain" },
         { type: "affinity", damageTypes: ["fire"], affinity: "null" },
       ]
-      expect(computeAffinityChart(base, candidates).fire).toBe("drain")
+      expect(computeAffinityChart(base, undefined, candidates).fire).toBe(
+        "drain"
+      )
     })
 
-    it("an override beats every candidate, even Drain", () => {
+    it("an override beats every candidate and layer, even Drain", () => {
       const candidate: AffinityEffect = {
         type: "affinity",
         damageTypes: ["fire"],
         affinity: "drain",
       }
       expect(
-        computeAffinityChart(base, [candidate], { fire: "weak" }).fire
+        computeAffinityChart(base, undefined, [candidate], { fire: "weak" })
+          .fire
       ).toBe("weak")
     })
   })

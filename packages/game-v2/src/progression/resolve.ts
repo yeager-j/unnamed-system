@@ -6,7 +6,6 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import {
   attributeEffectBonuses,
-  baseAffinities,
   baseAttributes,
   computeAffinityChart,
   computeAttributes,
@@ -63,7 +62,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     } = entity.components
     const zoneEffects = context.zoneEffects ?? []
 
-    const activeBase = archetypes?.active
+    const activeArchetypeBase = archetypes?.active
       ? deps.getArchetype(archetypes.active)
       : undefined
 
@@ -89,19 +88,17 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       // base + archetype layer + bonus pool, summed and clamped in one pass.
       components.attributes = computeAttributes(
         attributes.base,
-        baseAttributes(activeBase?.attributes),
+        baseAttributes(activeArchetypeBase?.attributes),
         pool
       )
     }
 
     if (affinities) {
-      // base chart, overridden per-type by the archetype layer, then candidate
-      // effects resolve by precedence over that.
-      const baseChart = activeBase
-        ? { ...affinities.base, ...activeBase.affinities }
-        : affinities.base
+      // base chart → archetype-layer override → candidate effects by precedence,
+      // folded in one pass.
       components.affinities = computeAffinityChart(
-        baseAffinities(baseChart),
+        affinities.base,
+        activeArchetypeBase?.affinities,
         zoneEffects.filter(isAffinityEffect)
       )
     }
