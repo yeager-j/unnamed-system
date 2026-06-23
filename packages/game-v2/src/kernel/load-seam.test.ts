@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
+import {
+  ENTITY_LOAD_KEY,
+  loadEntity,
+} from "@workspace/game-v2/kernel/load-seam"
 
 describe("loadEntity (the F6 load seam)", () => {
   it("round-trips a valid component blob into an Entity", () => {
@@ -47,6 +50,17 @@ describe("loadEntity (the F6 load seam)", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.components.identity).toBeUndefined()
+    }
+  })
+
+  it("fails with the entity sentinel when the blob isn't an object", () => {
+    const result = loadEntity("e1", "not-an-object")
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.some((issue) => issue.key === ENTITY_LOAD_KEY)).toBe(
+        true
+      )
     }
   })
 })

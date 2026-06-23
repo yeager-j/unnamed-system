@@ -31,11 +31,19 @@ const componentSchemas: ComponentSchemas = {
 }
 
 /**
+ * The sentinel `key` for a failure that isn't attributable to one component —
+ * e.g. the whole blob isn't an object, so the Zod issue has an empty path.
+ */
+export const ENTITY_LOAD_KEY = "(entity)"
+
+/**
  * One component's worth of validation failure: the component `key` and the Zod
- * issues that explain why its stored shape is invalid.
+ * issues that explain why its stored shape is invalid. `key` is a component name
+ * (a `keyof ComponentRegistry`) or {@link ENTITY_LOAD_KEY} for a blob-level
+ * failure; typed `string` so the sentinel needs no cast.
  */
 export interface ComponentLoadIssue {
-  key: keyof ComponentRegistry
+  key: string
   issues: z.core.$ZodIssue[]
 }
 
@@ -74,9 +82,11 @@ export function loadEntity(
 function groupIssuesByComponent(
   issues: readonly z.core.$ZodIssue[]
 ): ComponentLoadIssue[] {
-  const byKey = new Map<keyof ComponentRegistry, z.core.$ZodIssue[]>()
+  const byKey = new Map<string, z.core.$ZodIssue[]>()
   for (const issue of issues) {
-    const key = issue.path[0] as keyof ComponentRegistry
+    // A blob-level failure (e.g. the whole `components` isn't an object) has an
+    // empty path and no owning component — bucket it under the entity sentinel.
+    const key = issue.path.length > 0 ? String(issue.path[0]) : ENTITY_LOAD_KEY
     const bucket = byKey.get(key)
     if (bucket) bucket.push(issue)
     else byKey.set(key, [issue])

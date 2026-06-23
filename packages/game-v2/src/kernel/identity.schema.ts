@@ -11,6 +11,14 @@ import { z } from "zod/v4"
  * Per-component `*.schema.ts` files are pure authored shapes (D33): a Zod schema
  * + its inferred type, no logic and no port/catalog imports. The schema is the
  * load-seam contract; the inferred {@link Identity} is what the registry stores.
+ *
+ * **`id` authority:** the canonical entity identifier is the entity-level
+ * `EntityG.id` (the value `loadEntity(id, …)` receives). `Identity.id` is the
+ * same id materialized inside the durable record (so a serialized Identity is
+ * self-describing, mirroring v1 where the character row's id and its hydrated
+ * identity coincide); the two must agree, and the entity-level id wins on any
+ * disagreement. A later PR may drop the duplicate once an Identity consumer
+ * exists to settle it — noted, not load-bearing in PR1.
  */
 export const identitySchema = z.object({
   id: z.string().min(1),
