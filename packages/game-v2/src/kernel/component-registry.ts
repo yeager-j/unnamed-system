@@ -49,8 +49,8 @@ import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
  */
 export interface ComponentRegistry {
   identity: Identity
-  // Derivation base (PR2 — UNN-500). Each derivable capability carries its own
-  // `source` (D34); the inputs are their own components (D35/D36).
+  // Derivation base (PR2 — UNN-500). Each derivable capability folds a base + the
+  // layers present on the entity (D37); the inputs are their own components (D35/D36).
   attributes: Attributes
   affinities: Affinities
   vitals: Vitals

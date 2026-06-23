@@ -11,8 +11,8 @@ import { PATH_CHOICES } from "@workspace/game-v2/kernel/vocab"
  * Per D35 these are runtime **components**, not top-level entity fields (only
  * `id` is top-level). `level` is *also* a queryable DB column, lifted into this
  * component at load. **Dividend:** presence of `Progression` marks the
- * "derives-from-progression" (PC) case — an enemy has none and reads `flat`
- * sources instead — dovetailing with D34's `source: "derived"`.
+ * "derives-from-progression" (PC) case — an enemy carries no `Progression`
+ * component at all, and the uniform fold (D37) handles both without a source fork.
  */
 export const progressionSchema = z.object({
   level: z.number().int().min(1).max(30),
