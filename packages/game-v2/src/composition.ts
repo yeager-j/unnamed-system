@@ -1,5 +1,6 @@
 import { gameData } from "@workspace/game-v2/catalog"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import { createResolve } from "@workspace/game-v2/progression/resolve"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
@@ -9,13 +10,13 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * code imports pre-bound functions and never the catalog.
  *
  * It is one of two files (with `catalog/index.ts`) allowed to name a `catalog`
- * import directly. PR1 ships the seam: it takes the deps and, until domain logic
- * lands, returns an empty engine. Each domain PR binds its functions here.
+ * import directly. PR2 (UNN-500) binds the base-layer `resolve`; each domain PR
+ * binds its functions here.
  */
 export function createGameEngine(deps: GameData = gameData) {
-  // Domains bind their port-shaped functions against `deps` as they land.
-  void deps
-  return {}
+  return {
+    resolve: createResolve(deps),
+  }
 }
 
 export type GameEngine = ReturnType<typeof createGameEngine>

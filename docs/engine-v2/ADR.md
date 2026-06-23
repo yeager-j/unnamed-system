@@ -74,14 +74,18 @@ and whether combat clears it.
 | Component | Shape | Capability | Lifecycle |
 |---|---|---|---|
 | **Identity** | `{ name }` | — | durable (id is the entity key §2.1, not component content) |
-| **StatProfile** | `{ source: derived-recipe \| flat-profile }` | base of `resolve` | durable |
-| **Vitals** | `{ damage }` | `Targetable` | durable* |
-| **SkillPool** | `{ spSpent }` | `CastingCombatant` | durable* |
+| **Vitals** | `{ damage; max: MaxSource }` | `Targetable` | durable* |
+| **SkillPool** | `{ spSpent; max: MaxSource }` | `CastingCombatant` | durable* |
+| **Attributes** | `{ source: derived \| flat-scores }` | base of `resolve` | durable |
+| **Affinities** | `{ source: derived \| flat-chart }` | base of `resolve` | durable |
+| **Skills** | own component / resolved output (not a "stat") | grants skills | durable |
 | **Resources** | `{ hitDiceUsed; skillDiceUsed; prismaUsed }` | consumable spend-pools | durable |
 | **Exhaustion** | `{ level }` (0–6) | — | durable (separate from Resources — a level, not a spend-pool; F5) |
 | **Mechanics** | `{ states: Record<MechanicKey, MechanicState> }` | runtime transforms | durable |
 | **Equipment** | `{ slots / items }` | wields/wears | durable |
-| **Inheritance** | `{ slots: InheritanceSlots }` | inherited skills | durable |
+| **Archetypes** | `{ active; origin; roster: [{ key; rank; inheritanceSlots }] }` | archetype roster + inheritance config (D36) | durable (PC) |
+| **Progression** | `{ level; pathChoice }` | derive inputs (presence ⇒ derived) | durable (`level` also a column) |
+| **ManualBonuses** | `{ … }` (sparse) | derive input | durable |
 | **Allegiance** | `{ side }` | combat membership | encounter-overlay |
 | **TurnState** | `{ movesUsed; standardsUsed; reactionsUsed; turnsTakenThisRound }` | acts in initiative | encounter-overlay |
 | **Ailments** | overlay | — | encounter-overlay |
@@ -93,10 +97,30 @@ and whether combat clears it.
 \* `Vitals`/`SkillPool` are durable for a PC/NPC (wounds persist), inline-ephemeral
 for a catalog enemy — see §2.6.
 
-Durable **scalars** that are queried/indexed are entity-table **columns**, not
-components: `level` (D13), `currency`, `manualBonuses`, plus `id/shortId/ownerId/
-campaignId/kind/name/status/version`. Rule of thumb (D13): *anything that must
-survive a form swap is an entity field or its own component — never `StatProfile`.*
+Each **derivable** capability carries its own `source` —
+`MaxSource = { kind:"derived" } | { kind:"flat"; value }` (and the analogous
+`scores`/`chart` for Attributes/Affinities). This is **value provenance** (D5 — "how
+is this number computed"), the *allowed* discrimination, not entity-kind. There is
+**no `StatProfile` aggregate** (D34): maxHP lives on `Vitals`, maxSP on `SkillPool`
+(presence is the capability — no optional `maxSP?`), and Skills is its own
+component, not a "stat." A form swap **overrides** these per-capability components
+from its catalog definition; the swap-bundle cohesion lives in the form definition,
+not a component.
+
+**Column vs component is a storage projection, not a runtime concept** (D35). At
+runtime the entity *is* its components; `id` is the only top-level field. The rule:
+
+- **column only** — app/query metadata no engine fn reads (`shortId`, `ownerId`,
+  `campaignId`, `status`).
+- **column + lifted into a component at load** — engine-read *and* queryable
+  (`level` → `Progression`).
+- **component (jsonb) only** — engine-read, not queried (`pathChoice`,
+  `manualBonuses`, `damage`, mechanic state).
+
+So `resolve` reads `entity.components.progression.level`, never a top-level
+`entity.level`; the column is just the queryable storage form (D11 projection).
+Rule of thumb (D13): *anything that must survive a form swap is its own component —
+never an overridden capability.*
 
 **Passive skills are not a component** — they're a resolved output of
 archetype ∪ equipment ∪ inheritance (D19).
@@ -121,13 +145,15 @@ runtime cost). `ComponentRegistry` (authored/stored) and `ResolvedComponentRegis
 (computed) are distinct but overlapping; reads consume the `ResolvedEntity`, writes
 target authored components then re-resolve. Layers:
 
-1. **Base StatProfile** — `derived-recipe` (PC: archetype + path + level) or
-   `flat-profile` (enemy). The recipe/flat split (generalized from v1's `MaxSource`)
-   is what collapses the two `statblockFrom*` functions into one path (D5).
-2. **Active form / Arcana** — *replaces layer 1 wholesale* when a form-swap Mechanic
-   is active (attributes/affinities/skills/maxHP/natural attack). The form swap
-   touches **only this layer**.
-3. **Inheritance** — inherited skills pass through a form **fully** (D19).
+1. **Base capabilities** — each derivable component's `source` (D5/D34): `derived`
+   (PC: from archetype + path + level) or `flat` (enemy: authored value, inline or
+   from its catalog definition). This per-component source is what collapses the two
+   `statblockFrom*` functions into one path — no `StatProfile` aggregate.
+2. **Active form / Arcana** — when a form-swap Mechanic is active, *overrides* the
+   base capabilities (attributes/affinities/skills/`vitals.max`/natural attack) from
+   the form's catalog definition. The form swap touches **only this layer**.
+3. **Inheritance** — inherited skills (slots read from `Archetypes`, D36) pass
+   through a form **fully** (D19).
 4. **Equipment** — granted skills + passive bonuses pass through **fully**; only the
    weapon *basic attack* is replaced by the form's natural attack (D22).
 5. **Mechanic deltas** — `effects()` contributions.

@@ -443,8 +443,7 @@ twice** (caught in review):
 
 1. **A wrapper erases the predicate.** `const isX = (e) => has(e,"vitals")` infers
    `=> boolean`, not `=> e is …` — TS doesn't re-derive a predicate from a body. The
-   **factory** fixes it: the returned function's *type* is `(e: Entity) => e is
-   Has<K>`, so `const canCast = guard("skillPool")` carries its predicate (K is bound
+   **factory** fixes it: the returned function's *type* is `(e: Entity) => e is Has<K>`, so `const canCast = guard("skillPool")` carries its predicate (K is bound
    at the call site).
 2. **"Narrow once" needs a multi-key guard.** A system wanting two capabilities
    would chain `isTargetable(e) && canCast(e)` — which *does* narrow (sequential `&&`
@@ -837,6 +836,109 @@ game-v2/src/
 
 **One folder per PR** — the cohesion signal that this is the right cut. Set in PR1
 (UNN-499).
+
+### D34 — Dissolve `StatProfile`; per-capability components each carry a `source` · **Settled** · *corrects D5/D8/O1*
+
+`StatProfile` (`{ source; attributes; maxHP; maxSP?; affinities; skills }`) was an
+**authoring-side god-object** — the third instance of aggregate-creep (cf. D30
+`ResolvedStatblock`, F1 participant ref). Three concrete smells (caught in PR2
+review): an **optional `maxSP?`** (contradicts D1 — presence is the capability);
+**maxHP/maxSP** bundled away from Vitals/SkillPool; and **skills** parked on a
+"stat" component.
+
+**Why it existed:** D8 says a form swaps attributes+affinities+skills+maxHP
+together, so they were bundled as "the swap unit." The error: that cohesion
+belongs in the **form/enemy catalog definition** (authored content — D11/D32), not
+a stored per-entity component.
+
+**Fix — distribute onto per-capability components, each with its own `source`**
+(D5's original intent, which D8 over-bundled):
+
+```ts
+type MaxSource = { kind: "derived" } | { kind: "flat"; value: number }  // value provenance (D5), serializable
+
+Vitals    = { damage; max: MaxSource }        // presence = Targetable; maxHP lives here
+SkillPool = { spSpent; max: MaxSource }        // presence = CastingCombatant — NO optional maxSP
+Attributes = { source: { kind:"derived" } | { kind:"flat"; scores } }
+Affinities = { source: { kind:"derived" } | { kind:"flat"; chart } }
+Skills     = …                                 // its own component / resolved output — not a "stat"
+```
+
+- **`MaxSource`/`source` is value-provenance, the *allowed* discrimination** (D5):
+  "how is this number computed," not "what kind of entity is this." Serializable
+  data (a function wouldn't persist), so the union is the right form.
+- **Explicit source per component** (a PC's all read `derived`) — chosen over
+  "derived-by-default, flat overrides" to avoid implicit "absence means derive" and
+  a precedence rule. Mild redundancy is the price of self-describing components.
+- **Form swap (D8) unchanged in effect:** a transform that **overrides** the
+  per-capability components (attributes/affinities/skills/`vitals.max`) from the
+  active form's catalog definition. The bundle cohesion lives in the **form
+  definition** (catalog), not a component. D13's boundary rule restates: a form
+  overrides those; `damage`/`level`/mechanic-state/inheritance/equipment untouched.
+
+Re-aligns with D1 (no optionals; presence = capability), D5 (per-component source),
+and the original sketch ("SP is its own component — carrying it IS the capability").
+
+### D35 — Derivation inputs are runtime components; column-vs-component is a storage projection · **Settled** · *clarifies D13/D34*
+
+D13's "columns, not components" / "`resolve` reads `entity.level` ambiently" was
+sloppy — it conflated **DB storage** with the **runtime Entity shape**. At runtime
+the entity *is* its components; `id` is the **only** top-level field (the key).
+Anything an engine function reads is a **component**.
+
+The three options weighed for level/pathChoice/manualBonuses:
+- **Top-level fields → no.** Privileged non-component data erodes the guard /
+  visibility / load-seam machinery (all assume data lives in components).
+- **One catch-all `inputs` component → no.** The StatProfile/ResolvedStatblock
+  god-object again — grouped by "stuff `resolve` reads," not cohesion. These have
+  different write surfaces/lifecycles (level↑ on level-up; path set once;
+  manualBonuses edited ad hoc).
+- **Own components, grouped by cohesion → yes:** `Progression { level, pathChoice }`
+  (read together by derive) + `ManualBonuses { … }` (own editor surface). Archetype
+  state is its own component(s) (PR6).
+
+**Storage-projection rule** (reconciles D11/D13 columns with runtime components):
+
+| value | engine reads? | SQL-queried? | home |
+|---|---|---|---|
+| `shortId`/`ownerId`/`campaignId`/`status` | no | yes | **column only** |
+| `level` | yes | yes | **column + lifted into `Progression` at load** |
+| `pathChoice`/`manualBonuses`/`damage`/mechanic state | yes | no | **component (jsonb) only** |
+| `id` | — | — | entity key (top-level) |
+
+So D13 holds (`level` is a queryable column); the loader **lifts it into
+`Progression`** (D11 projection), and `resolve` reads
+`entity.components.progression.level`, never a top-level field. Dividend: presence
+of `Progression` marks the "derives from progression" (PC) case — an enemy has none
+(flat sources), dovetailing with D34's `source: derived`.
+
+### D36 — `Archetypes` component (roster); mechanic state stays a capability; inheritance folds in · **Settled** · *refines D19*
+
+v1's `characterArchetype` row bundled `{ key, rank, inheritanceSlots, mechanicState }`
+per archetype. v2 splits it by cohesion + capability:
+
+```
+Archetypes { active; origin; savedArchetypeRanks; roster: [{ key, rank, inheritanceSlots }] }
+Mechanics  { states: Record<MechanicKey, MechanicState> }       // standalone — see below
+```
+
+- **`Archetypes` is the PC archetype roster** (active/origin/unlocked-with-ranks).
+  PC-specific (enemies don't carry it). Cohesive, one write surface (Atlas/archetype
+  screen) — not a god-object.
+- **`mechanicState` does NOT live on `Archetypes`** (the load-bearing call):
+  **Mechanics is a capability *any* entity carries (D17) — Nyx (enemy) has a mechanic,
+  no archetype.** So it stays on the standalone `Mechanics` component. `Archetypes`
+  says which archetype is active; resolve maps active → its mechanic → reads
+  `Mechanics.states[…]`. (v1 stored it per-archetype-row; v2 lifts it out.)
+- **`inheritanceSlots` folds ONTO `Archetypes`** (per-archetype config), **collapsing
+  D19's speculative standalone `Inheritance` component.** The inheritance resolve
+  layer (D8 L3) reads the active archetype's slots from `Archetypes` — a *layer*
+  needs no dedicated *component*. D19's pass-through behavior is unchanged; only the
+  data home moves.
+
+**Resolve interaction (PR4/PR6):** a PC's mechanic is active only if it belongs to
+`Archetypes.active` — switching archetypes mustn't apply an inactive archetype's
+mechanic; an enemy's mechanics are always on (no archetype gating).
 
 ## Validation outcome (D24)
 

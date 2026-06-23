@@ -1,3 +1,4 @@
-// Scaffolded by UNN-499 (D33: one folder per PR). The `vitals` domain — depletion
-// ops + resolve contribution + schema — is populated by its own PR.
-export {}
+export * from "./max-source.schema"
+export * from "./resolved"
+export * from "./skill-pool.schema"
+export * from "./vitals.schema"

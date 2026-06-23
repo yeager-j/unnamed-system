@@ -17,7 +17,14 @@
   "sideEffects": false,
   "exports": {
     "./kernel": "./src/kernel/index.ts",
+    "./kernel/vocab": "./src/kernel/vocab/index.ts",
     "./kernel/*": "./src/kernel/*.ts",
+    "./archetypes": "./src/archetypes/index.ts",
+    "./archetypes/*": "./src/archetypes/*.ts",
+    "./progression": "./src/progression/index.ts",
+    "./progression/*": "./src/progression/*.ts",
+    "./vitals": "./src/vitals/index.ts",
+    "./vitals/*": "./src/vitals/*.ts",
     "./catalog": "./src/catalog/index.ts",
     "./composition": "./src/composition.ts"
   },
