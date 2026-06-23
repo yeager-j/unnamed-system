@@ -580,7 +580,7 @@ Stored as `Partial<ComponentRegistry>` (D3); resolved capability components
 
 | Component | Shape (authored) | Capability it grants | Notes |
 |---|---|---|---|
-| **Identity** | `{ id; name }` | — (universal) | Every entity. |
+| **Identity** | `{ name }` | — (universal) | Every entity. The `id` is the entity key (`Entity.id`, D16), **not** component content — duplicating it would only drift (UNN-499 review). |
 | **Presentation** | `{ kind: "pc"\|"enemy"\|"npc"\|"object"; … }` | renderer hint | D7 — not load-bearing. |
 | **Allegiance** | `{ side }` | `Targetable`/combat membership | Orthogonal to `kind` (charmed PC / summon can sit either side). |
 | **StatProfile** | `{ source: derived-recipe \| flat-profile }` | base of `resolve` | D5/D8 base layer. Flat profile = `{ attributes; maxHP; maxSP?; affinities; skills }`. |

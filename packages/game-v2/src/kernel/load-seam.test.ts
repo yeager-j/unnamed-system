@@ -8,22 +8,19 @@ import {
 describe("loadEntity (the F6 load seam)", () => {
   it("round-trips a valid component blob into an Entity", () => {
     const result = loadEntity("e1", {
-      identity: { id: "e1", name: "Iris Vey" },
+      identity: { name: "Iris Vey" },
     })
 
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.id).toBe("e1")
-      expect(result.value.components.identity).toEqual({
-        id: "e1",
-        name: "Iris Vey",
-      })
+      expect(result.value.components.identity).toEqual({ name: "Iris Vey" })
     }
   })
 
   it("fails with an issue naming the component whose shape is invalid", () => {
     const result = loadEntity("e1", {
-      identity: { id: "", name: 42 },
+      identity: { name: 42 },
     })
 
     expect(result.ok).toBe(false)
@@ -34,7 +31,7 @@ describe("loadEntity (the F6 load seam)", () => {
 
   it("ignores unknown component keys (forward-compatible migrations)", () => {
     const result = loadEntity("e1", {
-      identity: { id: "e1", name: "Iris Vey" },
+      identity: { name: "Iris Vey" },
       retiredComponent: { whatever: 1 },
     })
 

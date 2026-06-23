@@ -73,7 +73,7 @@ and whether combat clears it.
 
 | Component | Shape | Capability | Lifecycle |
 |---|---|---|---|
-| **Identity** | `{ id; name }` | — | durable |
+| **Identity** | `{ name }` | — | durable (id is the entity key §2.1, not component content) |
 | **StatProfile** | `{ source: derived-recipe \| flat-profile }` | base of `resolve` | durable |
 | **Vitals** | `{ damage }` | `Targetable` | durable* |
 | **SkillPool** | `{ spSpent }` | `CastingCombatant` | durable* |
