@@ -25,6 +25,8 @@
     "./progression/*": "./src/progression/*.ts",
     "./vitals": "./src/vitals/index.ts",
     "./vitals/*": "./src/vitals/*.ts",
+    "./resources": "./src/resources/index.ts",
+    "./resources/*": "./src/resources/*.ts",
     "./catalog": "./src/catalog/index.ts",
     "./composition": "./src/composition.ts"
   },

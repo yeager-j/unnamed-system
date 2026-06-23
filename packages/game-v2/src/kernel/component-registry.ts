@@ -8,7 +8,12 @@ import type { Affinities } from "@workspace/game-v2/progression/affinities.schem
 import type { Attributes } from "@workspace/game-v2/progression/attributes.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Progression } from "@workspace/game-v2/progression/progression.schema"
-import type { ResolvedResources } from "@workspace/game-v2/progression/resolved"
+import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
+import type {
+  ResolvedExhaustion,
+  ResolvedResources,
+} from "@workspace/game-v2/resources/resolved"
+import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 import type {
   ResolvedSkillPool,
   ResolvedVitals,
@@ -58,6 +63,10 @@ export interface ComponentRegistry {
   progression: Progression
   manualBonuses: ManualBonuses
   archetypes: Archetypes
+  // Depletion consumables + exhaustion (PR3 — UNN-501). `Resources` holds the
+  // `used` counts (D26); `Exhaustion` is a separate durable level (D27).
+  resources: Resources
+  exhaustion: Exhaustion
 }
 
 /**
@@ -77,4 +86,5 @@ export interface ResolvedComponentRegistry {
   vitals: ResolvedVitals
   skillPool: ResolvedSkillPool
   resources: ResolvedResources
+  exhaustion: ResolvedExhaustion
 }

@@ -47,6 +47,18 @@ export interface DerivedEntityOptions {
   active?: string | null
   roster?: ReadonlyArray<{ key: string; rank: number }>
   manualBonuses?: ManualBonuses
+  /** Authored HP depletion (signed; negative = over-max). Default 0 (full HP). */
+  damage?: number
+  /** Authored SP depletion. Default 0 (full SP). */
+  spSpent?: number
+  /** Authored consumable `used` counts (omit ⇒ no Resources component). */
+  resources?: {
+    hitDiceUsed?: number
+    skillDiceUsed?: number
+    prismaUsed?: number
+  }
+  /** Authored Exhaustion level 0–6 (omit ⇒ no Exhaustion component). */
+  exhaustion?: number
 }
 
 /**
@@ -63,6 +75,10 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
     active = null,
     roster = active ? [{ key: active, rank: 1 }] : [],
     manualBonuses = {},
+    damage = 0,
+    spSpent = 0,
+    resources,
+    exhaustion,
   } = options
 
   return {
@@ -79,8 +95,20 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
       manualBonuses,
       attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
       affinities: { base: {} },
-      vitals: { base: 0 },
-      skillPool: { base: 0 },
+      vitals: { base: 0, damage },
+      skillPool: { base: 0, spSpent },
+      ...(resources
+        ? {
+            resources: {
+              hitDiceUsed: resources.hitDiceUsed ?? 0,
+              skillDiceUsed: resources.skillDiceUsed ?? 0,
+              prismaUsed: resources.prismaUsed ?? 0,
+            },
+          }
+        : {}),
+      ...(exhaustion !== undefined
+        ? { exhaustion: { level: exhaustion } }
+        : {}),
     },
   }
 }
@@ -93,6 +121,10 @@ export interface FlatEntityOptions {
   affinities?: PartialAffinityChart
   maxHP?: number
   maxSP?: number
+  /** Authored HP depletion (signed; negative = over-max). Default 0 (full HP). */
+  damage?: number
+  /** Authored SP depletion. Default 0 (full SP). */
+  spSpent?: number
 }
 
 /**
@@ -109,6 +141,8 @@ export function makeFlatEntity(options: FlatEntityOptions = {}): Entity {
     affinities = {},
     maxHP = 100,
     maxSP = 30,
+    damage = 0,
+    spSpent = 0,
   } = options
 
   return {
@@ -117,8 +151,8 @@ export function makeFlatEntity(options: FlatEntityOptions = {}): Entity {
       identity: { name },
       attributes: { base: attributes },
       affinities: { base: affinities },
-      vitals: { base: maxHP },
-      skillPool: { base: maxSP },
+      vitals: { base: maxHP, damage },
+      skillPool: { base: maxSP, spSpent },
     },
   }
 }

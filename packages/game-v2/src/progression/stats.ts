@@ -178,7 +178,7 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
  */
 export function computeMaxHP(
   progression: Progression | undefined,
-  vitals: Vitals,
+  vitals: Pick<Vitals, "base">,
   pool: BonusPool
 ): number {
   const layer = progression
@@ -190,7 +190,7 @@ export function computeMaxHP(
 /** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
 export function computeMaxSP(
   progression: Progression | undefined,
-  skillPool: SkillPool,
+  skillPool: Pick<SkillPool, "base">,
   pool: BonusPool
 ): number {
   const layer = progression
