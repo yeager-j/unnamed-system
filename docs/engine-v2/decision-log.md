@@ -523,9 +523,11 @@ risk — the form's *base* is the balancing lever, not the kit you bring. This
 In D8's fold the form swap touches **only layer 1**; inheritance + equipment
 layers are inert to it. See D22 for the one carve-out (the weapon *basic attack*).
 
-*Parked note:* the Skill model itself could be **composed** (a skill = a bundle of
-effect-capabilities) rather than `kind`-tagged — D1 applied one level down. Out of
-scope here; tracked as a consistency opportunity.
+*Composed-Skill note → now in scope (D32):* the Skill model becomes **composed**
+(a skill = base + composable traits + `effects[]` + guards), mirroring the
+already-composed `Item` (`foundation/items/schema.ts`). **In scope for v2 but
+design deferred to a dedicated later phase (PR-S)**; interim = carry over v1's
+skill shape. See D32.
 
 ### D20 — Visibility/permission is a uniform per-component pass (resolves O10) · **Settled**
 
@@ -578,7 +580,7 @@ Stored as `Partial<ComponentRegistry>` (D3); resolved capability components
 
 | Component | Shape (authored) | Capability it grants | Notes |
 |---|---|---|---|
-| **Identity** | `{ id; name }` | — (universal) | Every entity. |
+| **Identity** | `{ name }` | — (universal) | Every entity. The `id` is the entity key (`Entity.id`, D16), **not** component content — duplicating it would only drift (UNN-499 review). |
 | **Presentation** | `{ kind: "pc"\|"enemy"\|"npc"\|"object"; … }` | renderer hint | D7 — not load-bearing. |
 | **Allegiance** | `{ side }` | `Targetable`/combat membership | Orthogonal to `kind` (charmed PC / summon can sit either side). |
 | **StatProfile** | `{ source: derived-recipe \| flat-profile }` | base of `resolve` | D5/D8 base layer. Flat profile = `{ attributes; maxHP; maxSP?; affinities; skills }`. |
@@ -759,6 +761,82 @@ real violations (`_principles-review.md`). All accepted:
 Meta-lesson: a design can be complete *and* sound *and* still betray its thesis
 (F1 is the `ResolvedStatblock`/D30 lesson again, at the Session's center). The
 composition discipline has to be audited as its own concern.
+
+### D32 — `game-v2` is fully independent; content migrated once, not depended-on · **Settled** · *refines D23*
+
+v2 is the **successor** (it replaces `game`, which is then deleted), so it imports
+**nothing** from `game` — it owns all its own types **and** data shapes. The dying
+types (`HydratedCharacter`, `CombatantRef`, `Statblock`) live in v1's `foundation/`
+and must not leak in.
+
+- **Shape vs content:** kill the *type* dependency; **migrate the authored content
+  once** (copy-and-reshape / codemod), never depend on it at runtime. The
+  **golden-master doubles as a port-faithfulness check** — same resolved numbers in
+  both ⇒ the catalog port is faithful.
+- **Stable vocab** (`DAMAGE_TYPES`, `LINEAGES`, `VIRTUE_KEYS`, …) is **re-declared**
+  in v2 (tiny string unions), not imported.
+- **Items: ported as-is.** `foundation/items/schema.ts` is **already
+  capability-composed** — orthogonal `equippable`/`stackable`/`consumable` traits,
+  presence-guards (`isEquippable`/`isItemForSlot`/…), composable `effects[]`. It is
+  the v2 thesis one level down: the **template + proof** for composed Skills.
+- **Skills: in scope, design deferred** to a dedicated later phase (**PR-S**).
+  Interim = carry over v1's skill shape so the core builds + parity-tests against
+  real numbers; accept a contained second pass. The eventual composed-Skill design
+  **mirrors `Item`** (base + composable traits + `effects[]` + guards), so design
+  risk is low. Supersedes D19's parked note.
+- **Shared primitive:** the composable **effects vocabulary** (`affinity`/
+  `attribute`/`skill` effects, v1 `foundation/combat/effects`) is what both items
+  and composed-skills compose — carry it as a `foundation-v2` primitive early.
+
+Plan impact: **PR1 is "v2 foundation"** (component machinery + re-declared vocab +
+the effects primitive), zero `game` imports; the **catalog port folds into the
+domain PRs**, each gated by golden-master; the `CharacterRow → Entity` adapter
+(D23) is a transition/test shim. D23's slice-by-slice cutover still holds.
+
+### D33 — Package layout is domain/capability-first, not layer-first · **Settled**
+
+v1 is **layer-first** (`foundation` types / `data` catalogs / `engine` logic). v2
+drops that for **domain/capability-first** folders. The tell: both the capability
+model *and* the PR plan decompose by domain, not layer — under layer-first one
+concern (e.g. mechanics) smears across three dirs, which is why v1 re-creates
+per-domain subfolders *inside* every layer and carries the `engine→data`
+value-import debt. `items/schema.ts` (shape + guards + command vocab co-located)
+is the proof co-location works.
+
+**Keep the three things the layers actually bought** — just achieve them
+differently:
+- **Purity gradient** → a per-file + **dependency-lint** concern (`*.schema.ts` =
+  pure shapes; logic files = pure fns; `catalog/` = data; rule: `logic → schema →
+  vocab`, `logic → ports`, never concrete catalog). *The lint rule must exist or
+  purity erodes — this is the cost of dropping folder walls.*
+- **Injectable data** → keep v1's port pattern (engine declares `Pick<GameData,
+  …>`, `catalog/` implements, `composition.ts` binds once).
+- **Tooling target** → Stryker `mutate` becomes "logic files minus
+  `*.schema.ts`/`catalog/`/`__fixtures__`"; test tiers (unit co-located /
+  `__integration__` / `__contract__`) carry over.
+
+**Layout:**
+
+```
+game-v2/src/
+  kernel/          Entity, ComponentRegistry + ResolvedComponentRegistry, Has/guard,
+                   resolve-fold runner, effects primitive, Result, ports, vocab
+  vitals/          schema + depletion ops + resolve contribution + tests
+  progression/     StatProfile, leveling, attributes, affinities, resources/exhaustion
+  archetypes/      atlas, inheritance, display
+  skills/          (interim) schema + cost/cast → composed in PR-S
+  items/           schema + mutation engine + inventory resolution
+  mechanics/       registry + the 9 + transform contributions
+  combat/          attack/damage/affinity resolvers, side effects
+  encounter/       session, participant, reducer, action economy, durations
+  visibility/      policy table + visibleEntity
+  catalog/         authored content implementing the ports (skills/items/archetypes/enemies)
+  composition.ts   binds catalog → engine (the createGameEngine equivalent)
+  loader.ts        CharacterRow→Entity + ref→Entity dissolution (transition adapter)
+```
+
+**One folder per PR** — the cohesion signal that this is the right cut. Set in PR1
+(UNN-499).
 
 ## Validation outcome (D24)
 

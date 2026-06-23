@@ -94,6 +94,7 @@ Turborepo monorepo with npm workspaces:
 ```
 apps/web/          Next.js 16 app (App Router, RSC, Server Actions)
 packages/game/     Pure game engine + data (@workspace/game) — foundation/data/engine layers; see below
+packages/game-v2/  Capability/component engine (@workspace/game-v2), successor to packages/game — domain-first layout (kernel/ substrate + one folder per domain/PR), independent (zero @workspace/game imports, gated by depcheck.mjs). Design in docs/engine-v2/; PR1 (UNN-499) scaffolds kernel/ only
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
