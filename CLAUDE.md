@@ -8,10 +8,41 @@ This is a Turborepo project, so most commands are run from the root directory. T
 
 shadcn/ui primitives should be installed from the `packages/ui` directory, not the root. Similarly, when installing dependencies to the `apps/web` directory, run `npm install` from there (not the root).
 
-## PRD Considerations
+## Prime Directives
 
-- The rules in the Obsidian vault are the source of truth for the game mechanics. If they conflict with the PRD, update the PRD.
-- If technical decisions are made that conflict with the PRD, update the PRD.
+### 1. Think Before Coding
+Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them—don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+### 2. Goal-Driven Execution
+Define success criteria. Loop until verified. Transform tasks into verifiable goals:
+
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+### 3. Ditch The Blinders
+You have immense knowledge over coding practices, standards, and conventions. Assume the user isn't smarter than the millions of engineers who have come before them.
+
+The user is always open to ideas on better ways to do things. Don't hesitate to suggest a better way, or one that has long-lasting impact over a tactical change. If what the user is trying to do is similar to settled science or industry practice, let the user know. You don’t have to reinvent the wheel.
+
+### 4. Hacks as a Last Resort
+If you're about to write a hack, stop. Ask yourself:
+
+> What is the root cause of the problem? Why is the hack necessary?
+
+If you can't answer those questions, don't write the hack. A hack should *only* be written if the root cause has been searched for and is definitively unknown, or it has been explicitly decided that the hack is acceptable.
 
 ## Code Style
 

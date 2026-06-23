@@ -22,7 +22,7 @@
 
 - [ ] Passives that provide ribbon features. For example, Trickster could provide advantage on Expression Tests when lying.
 - [ ] Utilities: Abilities to use outside of combat
-- [ ] **Healer** gets Paladin/Holy Avenger. **Knight** gets a dedicated tank line (Bulwark?) and a more offensive line (Lancer).
+- [x] **Healer** gets Paladin/Holy Avenger. **Knight** gets a dedicated tank line (Bulwark?) and a more offensive line (Lancer).
 
 ### Summoner
 
@@ -30,7 +30,7 @@
 
 ### Bard
 
-- [ ] Can enchant a Zone. Multiple levels of enchantment. Provide global effects to both enemies and allies
+- [x] Can enchant a Zone. Multiple levels of enchantment. Provide global effects to both enemies and allies
 - [ ] **Painter Tree:** Domain Expansion?
 
 ### Warrior
