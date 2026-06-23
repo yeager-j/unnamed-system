@@ -1,9 +1,16 @@
 import { z } from "zod/v4"
 
+import { archetypesSchema } from "@workspace/game-v2/archetypes/archetypes.schema"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { affinitiesSchema } from "@workspace/game-v2/progression/affinities.schema"
+import { attributesSchema } from "@workspace/game-v2/progression/attributes.schema"
+import { manualBonusesSchema } from "@workspace/game-v2/progression/manual-bonuses.schema"
+import { progressionSchema } from "@workspace/game-v2/progression/progression.schema"
+import { skillPoolSchema } from "@workspace/game-v2/vitals/skill-pool.schema"
+import { vitalsSchema } from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
  * The **load seam** (F6). Entities arrive from persistence as opaque jsonb; their
@@ -28,6 +35,13 @@ type ComponentSchemas = {
 
 const componentSchemas: ComponentSchemas = {
   identity: identitySchema,
+  attributes: attributesSchema,
+  affinities: affinitiesSchema,
+  vitals: vitalsSchema,
+  skillPool: skillPoolSchema,
+  progression: progressionSchema,
+  manualBonuses: manualBonusesSchema,
+  archetypes: archetypesSchema,
 }
 
 /**

@@ -115,12 +115,15 @@ export default [
     },
   },
   {
-    // kernel/ is the dependency sink: it must not import a domain folder. The two
-    // grow-points type-import domain shapes to name them (mirrors v1 engine/ports).
+    // kernel/ is the dependency sink: it must not import a domain folder. The
+    // three grow-points name domain shapes to converge them — they are where
+    // "knows every component" lives: component-registry (the authored type map),
+    // ports (the catalog lookups), and load-seam (the total Zod schema map, F6).
     files: ["src/kernel/**/*.{ts,tsx}"],
     ignores: [
       "src/kernel/component-registry.ts",
       "src/kernel/ports.ts",
+      "src/kernel/load-seam.ts",
       "src/kernel/**/*.test.ts",
       "src/kernel/**/__fixtures__/**",
     ],

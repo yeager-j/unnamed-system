@@ -1,3 +1,5 @@
+import type { ArchetypeBase } from "@workspace/game-v2/archetypes/archetype"
+
 /**
  * The catalog-lookup **port** the engine depends on, owned by the engine (the
  * consumer) per the Dependency Inversion Principle (D33, carried from v1's
@@ -33,5 +35,12 @@
  * dispatch over a closed key union (D17), so it stays a direct in-engine call,
  * never a `GameData` method.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface GameData {}
+export interface GameData {
+  /**
+   * The base-stat slice of a catalog Archetype, by key (PR2 — UNN-500). `resolve`
+   * reads `attributes`/`affinities` for the active Archetype and `mastery` for
+   * every owned Archetype (the C4 mastery walk). The archetypes domain PR widens
+   * the catalog Archetype around this slice. Returns `undefined` for an unknown key.
+   */
+  getArchetype(key: string): ArchetypeBase | undefined
+}

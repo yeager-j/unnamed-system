@@ -1,4 +1,8 @@
-// Scaffolded by UNN-499 (D33: one folder per PR). The `progression` domain —
-// StatProfile, leveling, attributes, affinities, resources/exhaustion — is
-// populated by its own PR.
-export {}
+export * from "./affinities.schema"
+export * from "./attributes.schema"
+export * from "./leveling"
+export * from "./manual-bonuses.schema"
+export * from "./progression.schema"
+export * from "./resolve"
+export * from "./resolved"
+export * from "./stats"

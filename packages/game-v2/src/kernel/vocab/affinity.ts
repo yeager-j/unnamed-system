@@ -42,3 +42,17 @@ export const AFFINITIES = [
 export type DamageType = (typeof DAMAGE_TYPES)[number]
 export type AffinityDamageType = (typeof AFFINITY_DAMAGE_TYPES)[number]
 export type Affinity = (typeof AFFINITIES)[number]
+
+/**
+ * A fully-resolved Affinity chart — every damage type (incl. Almighty) mapped to
+ * an Affinity. The output of affinity resolution; an authored chart is sparser
+ * (see {@link PartialAffinityChart}).
+ */
+export type AffinityChart = Record<DamageType, Affinity>
+
+/**
+ * An authored Affinity chart (an Archetype's or an enemy flat-profile's): only
+ * the {@link AFFINITY_DAMAGE_TYPES} can be charted (Almighty can't be resisted),
+ * and absent types mean Neutral. Resolution fills it into an {@link AffinityChart}.
+ */
+export type PartialAffinityChart = Partial<Record<AffinityDamageType, Affinity>>

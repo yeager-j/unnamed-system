@@ -6,8 +6,12 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * `composition.ts`) permitted to be named by a `catalog` import; all engine logic
  * receives its lookups injected through the port, never by importing here.
  *
- * PR1 ships the seam with the port empty, so the adapter is an empty object that
- * structurally satisfies it. Each domain PR adds its catalog content + the
- * matching lookup methods as it lands.
+ * The Archetype catalog **content** is the archetypes domain PR's deliverable, so
+ * PR2 (UNN-500) ships `getArchetype` as an empty stub (every key unknown). The
+ * derivation **math** is what PR2 proves, against fixture archetypes in the
+ * golden-master — not the real catalog. Each domain PR fills in its content +
+ * lookup methods as it lands.
  */
-export const gameData: GameData = {}
+export const gameData: GameData = {
+  getArchetype: () => undefined,
+}
