@@ -7,8 +7,10 @@ import {
   makeTestGameData,
 } from "@workspace/game-v2/progression/__fixtures__/derive"
 import {
+  applyFormSwap,
   createResolve,
-  createResolveWithForm,
+  naturalForm,
+  resolveForm,
 } from "@workspace/game-v2/progression/resolve"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
@@ -173,31 +175,55 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
   })
 })
 
-describe("createResolveWithForm — the active-form override layer (D8/D18)", () => {
-  const resolveWithForm = createResolveWithForm(
-    makeTestGameData({
-      warden: makeArchetype({
-        attributes: { strength: 4, magic: 1, agility: 0, luck: 2 },
-        affinities: { fire: "resist" },
-      }),
-    })
-  )
+describe("the form layer — base-is-a-form + swap override (D8/D18)", () => {
+  const data = makeTestGameData({
+    warden: makeArchetype({
+      attributes: { strength: 4, magic: 1, agility: 0, luck: 2 },
+      affinities: { fire: "resist" },
+    }),
+  })
+  // The PR4 composition, exercised directly: a swap layered over the natural form.
+  const resolveSwap = (
+    entity: Parameters<typeof naturalForm>[1],
+    swap: Parameters<typeof applyFormSwap>[1],
+    context?: Parameters<typeof resolveForm>[3]
+  ) =>
+    resolveForm(
+      data,
+      applyFormSwap(naturalForm(data, entity), swap),
+      entity,
+      context
+    )
 
-  it("overrides attributes (replacing the Archetype base) and affinities per type", () => {
+  it("a swap replaces attributes wholesale and merges affinities per type", () => {
     const entity = makeDerivedEntity({ active: "warden" })
-    const resolved = resolveWithForm(entity, {
+    const resolved = resolveSwap(entity, {
       attributes: { strength: 6, magic: 6, agility: 6, luck: 6 },
       affinities: { fire: "weak" },
     })
 
-    // Form replaces the Archetype's attributes outright.
     expect(resolved.components.attributes).toEqual({
       strength: 6,
       magic: 6,
       agility: 6,
       luck: 6,
     })
-    // Form affinity wins outright over the Archetype base resist.
+    // The swapped affinity becomes the new base; no candidate to override it.
+    expect(resolved.components.affinities?.fire).toBe("weak")
+  })
+
+  it("a candidate (zone/equipment) overrides a form's affinity — even to a weaker one (D18 later wins)", () => {
+    const entity = makeDerivedEntity({ active: "warden" })
+    const resolved = resolveSwap(
+      entity,
+      { affinities: { fire: "drain" } }, // the form makes fire Drain…
+      {
+        zoneEffects: [
+          { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
+        ],
+      }
+    )
+    // …but a later-layer candidate replaces it regardless of priority.
     expect(resolved.components.affinities?.fire).toBe("weak")
   })
 
@@ -205,20 +231,20 @@ describe("createResolveWithForm — the active-form override layer (D8/D18)", ()
     // Same authored damage (10) resolved under two different form maxHPs.
     const entity = makeDerivedEntity({ damage: 10 }) // balanced L1 base maxHP 20
 
-    const bear = resolveWithForm(entity, { maxHP: 80 })
+    const bear = resolveSwap(entity, { maxHP: 80 })
     expect(bear.components.vitals).toEqual({ maxHP: 80, currentHP: 70 }) // 80 − 10
 
-    const bird = resolveWithForm(entity, { maxHP: 30 })
+    const bird = resolveSwap(entity, { maxHP: 30 })
     expect(bird.components.vitals).toEqual({ maxHP: 30, currentHP: 20 }) // 30 − 10
 
-    // Base form (no override) reconciles against the base maxHP — same damage.
-    const base = createResolve(makeTestGameData())(entity)
+    // Natural form (no swap) reconciles against the base maxHP — same damage.
+    const base = createResolve(data)(entity)
     expect(base.components.vitals).toEqual({ maxHP: 20, currentHP: 10 })
   })
 
   it("a form whose maxHP drops below the constant damage Falls the entity (no special case)", () => {
     const entity = makeDerivedEntity({ damage: 25 })
-    const tiny = resolveWithForm(entity, { maxHP: 20 }) // 20 − 25 floors to 0
+    const tiny = resolveSwap(entity, { maxHP: 20 }) // 20 − 25 floors to 0
     expect(tiny.components.vitals).toEqual({ maxHP: 20, currentHP: 0 })
     expect(isFallen(tiny.components.vitals!)).toBe(true)
   })
