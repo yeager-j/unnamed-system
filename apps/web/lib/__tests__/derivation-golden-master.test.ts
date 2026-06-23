@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { ArchetypeBase } from "@workspace/game-v2/archetypes"
 import { createGameEngine } from "@workspace/game-v2/composition"
+import type { CombatantEffect } from "@workspace/game-v2/kernel"
 import {
   makeArchetype as makeV2Archetype,
   makeTestGameData as makeV2GameData,
@@ -54,6 +55,8 @@ interface CharacterSpec {
   roster: ReadonlyArray<{ key: string; rank: number }>
   manualBonuses: Record<string, number>
   archetypes: ReadonlyArray<ArchetypeSpec>
+  /** Combat/zone effects threaded through BOTH engines' context (default none). */
+  contextEffects?: readonly CombatantEffect[]
 }
 
 const SPECS: ReadonlyArray<CharacterSpec> = [
@@ -127,6 +130,34 @@ const SPECS: ReadonlyArray<CharacterSpec> = [
       },
     ],
   },
+  {
+    // Threads zone/context effects through both engines so the affinity
+    // resolver's candidate path — strongest-of-many beating the base — is parity-
+    // checked against v1, not just v2's unit test.
+    name: "L5 balanced warrior with zone effects (affinity candidates + attribute bonus)",
+    level: 5,
+    pathChoice: "balanced",
+    activeKey: "warrior",
+    roster: [{ key: "warrior", rank: 1 }],
+    manualBonuses: {},
+    contextEffects: [
+      { type: "attribute", target: "magic", amount: 3 },
+      // Two candidates on fire — strongest (drain) must win over the base weak.
+      { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
+      { type: "affinity", damageTypes: ["fire"], affinity: "drain" },
+      // A single candidate replacing a neutral base.
+      { type: "affinity", damageTypes: ["ice"], affinity: "null" },
+    ],
+    archetypes: [
+      {
+        key: "warrior",
+        attributes: { strength: 2, magic: 1, agility: 0, luck: 0 },
+        affinities: { fire: "weak" },
+        mastery: MASTERY.strength,
+        lineage: "warrior",
+      },
+    ],
+  },
 ]
 
 function v1Numbers(spec: CharacterSpec) {
@@ -155,7 +186,9 @@ function v1Numbers(spec: CharacterSpec) {
       })
     ),
   })
-  const hydrated = deriveHydratedCharacter(lookups)(raw)
+  const hydrated = deriveHydratedCharacter(lookups)(raw, {
+    zoneEffects: spec.contextEffects ?? [],
+  })
   return { hydrated, raw }
 }
 
@@ -173,7 +206,9 @@ function v2Numbers(
     })
   }
   const { resolve } = createGameEngine(makeV2GameData(archetypes))
-  return resolve(rawInputsToEntity(raw)).components
+  return resolve(rawInputsToEntity(raw), {
+    zoneEffects: spec.contextEffects ?? [],
+  }).components
 }
 
 describe("v1 ↔ v2 derivation golden-master", () => {
