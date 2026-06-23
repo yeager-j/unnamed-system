@@ -6,7 +6,7 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "paths": {
-      "@workspace/game/*": ["./src/*"]
+      "@workspace/game-v2/*": ["./src/*"]
     }
   },
   "include": ["src"],
