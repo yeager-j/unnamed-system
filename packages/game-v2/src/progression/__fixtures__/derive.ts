@@ -1,7 +1,11 @@
 import type { ArchetypeBase } from "@workspace/game-v2/archetypes"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import type { PathChoice } from "@workspace/game-v2/kernel/vocab"
+import type {
+  AttributeScores,
+  PartialAffinityChart,
+  PathChoice,
+} from "@workspace/game-v2/kernel/vocab"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 
 /**
@@ -46,9 +50,9 @@ export interface DerivedEntityOptions {
 }
 
 /**
- * A PC entity whose stat capabilities all read `derived` — the shape `resolve`
- * turns into numbers. Sensible defaults (L1, balanced, no archetype/bonuses);
- * override to exercise a case.
+ * A PC entity (D37): a zeros/neutral/0 `base` on every stat capability, with the
+ * `Progression` + `Archetypes` layers supplying the real values `resolve` folds.
+ * Sensible defaults (L1, balanced, no archetype/bonuses); override to exercise a case.
  */
 export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
   const {
@@ -73,10 +77,48 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
         roster: [...roster],
       },
       manualBonuses,
-      attributes: { source: { kind: "derived" } },
-      affinities: { source: { kind: "derived" } },
-      vitals: { max: { kind: "derived" } },
-      skillPool: { max: { kind: "derived" } },
+      attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
+      affinities: { base: {} },
+      vitals: { base: 0 },
+      skillPool: { base: 0 },
+    },
+  }
+}
+
+/** Options for {@link makeFlatEntity}. */
+export interface FlatEntityOptions {
+  id?: string
+  name?: string
+  attributes?: AttributeScores
+  affinities?: PartialAffinityChart
+  maxHP?: number
+  maxSP?: number
+}
+
+/**
+ * An enemy-like entity (D37): an **authored** `base` on each capability and **no**
+ * `Progression`/`Archetypes` layers. Exercises the uniform fold's other side —
+ * `resolve` must still apply effects (zone/mechanic/manual) on top of the authored
+ * base, which the old `flat` short-circuit failed to do.
+ */
+export function makeFlatEntity(options: FlatEntityOptions = {}): Entity {
+  const {
+    id = "fixture-enemy",
+    name = "Fixture Enemy",
+    attributes = { strength: 2, magic: 2, agility: 2, luck: 2 },
+    affinities = {},
+    maxHP = 100,
+    maxSP = 30,
+  } = options
+
+  return {
+    id,
+    components: {
+      identity: { name },
+      attributes: { base: attributes },
+      affinities: { base: affinities },
+      vitals: { base: maxHP },
+      skillPool: { base: maxSP },
     },
   }
 }

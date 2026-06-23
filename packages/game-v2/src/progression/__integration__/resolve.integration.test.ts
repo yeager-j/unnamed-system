@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   makeArchetype,
   makeDerivedEntity,
+  makeFlatEntity,
   makeTestGameData,
 } from "@workspace/game-v2/progression/__fixtures__/derive"
 import { createResolve } from "@workspace/game-v2/progression/resolve"
@@ -90,10 +91,30 @@ describe("createResolve — base layer over a derived PC entity", () => {
     expect(resolved.components.affinities?.fire).toBe("neutral")
   })
 
-  it("throws on the malformed state: a derived pool with no Progression (D35)", () => {
+  it("applies effects to an enemy-like authored base too — the D37 uniform fold", () => {
+    // No Progression/Archetypes layers; authored base. The fold must still add the
+    // zone effects on top (the bug the old `flat` short-circuit caused, D37).
     const resolve = createResolve(makeTestGameData())
-    const entity = makeDerivedEntity()
-    delete entity.components.progression // derived vitals/skillPool now have no path/level
-    expect(() => resolve(entity)).toThrow(/Progression/)
+    const enemy = makeFlatEntity({
+      attributes: { strength: 4, magic: 0, agility: 1, luck: 0 },
+      affinities: { fire: "resist" },
+      maxHP: 100,
+      maxSP: 30,
+    })
+
+    const resolved = resolve(enemy, {
+      zoneEffects: [
+        { type: "attribute", target: "strength", amount: 2 },
+        { type: "attribute", target: "hp", amount: 10 },
+        { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
+      ],
+    })
+
+    expect(resolved.components.attributes?.strength).toBe(6) // authored 4 + zone 2
+    expect(resolved.components.vitals?.maxHP).toBe(110) // authored 100 + zone 10
+    expect(resolved.components.skillPool?.maxSP).toBe(30) // no SP effect
+    expect(resolved.components.affinities?.fire).toBe("weak") // candidate beats authored resist
+    // No Progression ⇒ no dice maxima.
+    expect(resolved.components.resources).toBeUndefined()
   })
 })

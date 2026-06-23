@@ -9,9 +9,10 @@ import type { RawCharacterInputs } from "@workspace/game/engine"
  * the in-package `loader.ts` stays deferred to cutover for the same reason.
  *
  * It only projects the slice PR2's base-layer `resolve` consumes (the derivation
- * inputs + the `derived`-source stat capabilities); equipment/mechanics/skills and
- * the depletion fields join as their PRs land. A PC's stat capabilities all read
- * `source: "derived"` — the recipe is the rest of the entity (D34/D35/D36).
+ * inputs + the stat capabilities); equipment/mechanics/skills and the depletion
+ * fields join as their PRs land. A PC's stat capabilities carry a zeros/neutral/0
+ * `base` (D37) — its real values come from the `Archetypes`/`Progression` layers,
+ * which are the rest of the entity.
  */
 export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
   const { row, archetypeRows } = raw
@@ -36,10 +37,12 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
         })),
       },
       manualBonuses: row.manualBonuses,
-      attributes: { source: { kind: "derived" } },
-      affinities: { source: { kind: "derived" } },
-      vitals: { max: { kind: "derived" } },
-      skillPool: { max: { kind: "derived" } },
+      // A PC's stat capabilities have a zeros/neutral/0 base (D37); the Archetypes
+      // + Progression layers above supply its real values.
+      attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
+      affinities: { base: {} },
+      vitals: { base: 0 },
+      skillPool: { base: 0 },
     },
   }
 }

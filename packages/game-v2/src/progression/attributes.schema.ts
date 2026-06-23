@@ -11,16 +11,16 @@ export const attributeScoresSchema = z.object({
 }) satisfies z.ZodType<Record<(typeof ATTRIBUTE_KEYS)[number], number>>
 
 /**
- * The **Attributes** component (D34) — the base of an entity's attribute scores,
- * carrying its own value-provenance `source` (D5): `derived` (a PC's scores come
- * from its active Archetype + bonuses, computed by `resolve`) or `flat` (an
- * enemy's authored scores). No `StatProfile` aggregate — this stands alone.
+ * The **Attributes** component (D34/D37) — an entity's **base** attribute scores:
+ * the intrinsic floor before any layer applies. A PC carries zeros (its real
+ * scores come from the `Archetypes` layer); an enemy carries its authored scores.
+ * `resolve` folds `base` → archetype layer (if present) → effects → clamp,
+ * uniformly for every entity — there is no `source: derived | flat` (D37: that tag
+ * was redundant with component presence and forked the fold so a `flat` enemy was
+ * immune to effects). No `StatProfile` aggregate — this stands alone.
  */
 export const attributesSchema = z.object({
-  source: z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("derived") }),
-    z.object({ kind: z.literal("flat"), scores: attributeScoresSchema }),
-  ]),
+  base: attributeScoresSchema,
 })
 
 export type Attributes = z.infer<typeof attributesSchema>

@@ -14,20 +14,20 @@ Two artifacts prove the pain:
 1. **`CombatantRef` is a closed discriminated union** keyed on `kind`
    (`pc` | `enemy` | `catalog-enemy`). Every new participant shape — an NPC ally
    that equips items, a summon with a Mechanic, a destructible object — forces a
-   new union arm or contortion of an existing one. The union *is* the type
+   new union arm or contortion of an existing one. The union _is_ the type
    system fighting the domain.
 
 2. **`Statblock` is a post-hoc unification we already had to build.** Its own
-   doc comment admits it: *"A PC and an enemy are the same thing here; they
-   differ only in provenance."* But `Statblock` is a **projection** computed by
+   doc comment admits it: _"A PC and an enemy are the same thing here; they
+   differ only in provenance."_ But `Statblock` is a **projection** computed by
    two converging functions (`statblockFromCharacter` / `statblockFromEnemy`),
-   not the source model — and the union still leaks (*"Catalog enemies have no SP
-   (the definition declares none)"*). SP isn't a property of a *kind*; it's a
+   not the source model — and the union still leaks (_"Catalog enemies have no SP
+   (the definition declares none)"_). SP isn't a property of a _kind_; it's a
    **capability** some entities carry.
 
 The fix: model participants as **entities composed of capability components**,
 so functions declare the capabilities they need (`applyDamage` needs
-`Targetable`; `castSkill` needs `CastingCombatant`) and *any* entity carrying
+`Targetable`; `castSkill` needs `CastingCombatant`) and _any_ entity carrying
 those components qualifies — PC, enemy, NPC, summon, or object — with zero `kind`
 branches.
 
@@ -40,7 +40,7 @@ branches.
 Participants are entities = a bag of named capability components. Capabilities
 are expressed to function authors as TypeScript intersection types
 (`Identity & Health & Allegiance`). This replaces the `CombatantRef` union and
-makes the `Statblock` projection unnecessary as a *source* model.
+makes the `Statblock` projection unnecessary as a _source_ model.
 
 **Why:** capabilities recombine freely (enemies can equip items / hold
 Mechanics; objects can be `Targetable` without being combatants) — exactly what a
@@ -69,7 +69,7 @@ assumes one of three physical representations. The three:
   re-enumerate concrete entity types (drifts back toward nominal) and still need
   a storage union of all of them.
 - **(b) Uber-record, optional fields** — `{ id; health?; skillPool?; … }`.
-  Trivial storage, but every access is `?.` and a function can't *state* its
+  Trivial storage, but every access is `?.` and a function can't _state_ its
   requirements. **Rejected** — spreads optional-chaining everywhere.
 - **(c) Component map** — `{ id; components: Partial<ComponentRegistry> }`. Most
   ECS-like; each component serializes as a named Zod blob (additive migrations —
@@ -78,15 +78,15 @@ assumes one of three physical representations. The three:
 
 **Recommendation:** **(c) for storage/persistence, (a) for function-author
 ergonomics, with runtime type guards as the bridge.** Store the map; narrow once
-at the boundary into the rich intersection *view*; write systems against
-`Identity & Health`. Clean serialization *and* clean signatures; the guards are
+at the boundary into the rich intersection _view_; write systems against
+`Identity & Health`. Clean serialization _and_ clean signatures; the guards are
 the seam.
 
-> *Revised by D11: "(c) for storage" overreached. The component map is the
+> _Revised by D11: "(c) for storage" overreached. The component map is the
 > **runtime + ephemeral-persistence** shape; **durable** entities (PCs, NPCs)
 > keep a relational table whose hot fields are columns and whose capability
 > payloads are a `components` jsonb. The map is still how the engine sees every
-> entity — durable rows project into it at load.*
+> entity — durable rows project into it at load._
 
 ### D4 — Structural typing is compile-time only; runtime needs a narrowing layer · **Settled**
 
@@ -105,7 +105,7 @@ The capability win is real but specific: we replace "discriminate on one closed
 trade for this domain — just design the guard/narrowing layer deliberately
 rather than assuming structural types do it for free.
 
-### D5 — Value provenance: generalize `MaxSource` to source-bearing components · **Leaning** · *extended by D8*
+### D5 — Value provenance: generalize `MaxSource` to source-bearing components · **Leaning** · _extended by D8_
 
 The sketch's `MaxSource` (`{ kind: "path"; path; level }` derive-recipe vs
 `{ kind: "flat"; max }` bake) is the idea that kills the
@@ -115,9 +115,9 @@ pass computes effective stats for any entity regardless of provenance — no
 per-side derivation function. (This is v1's "derive-then-reduce" pipeline,
 generalized per component.)
 
-**Scope guard:** this applies only to *derivable* values (maxHP, maxSP, derived
+**Scope guard:** this applies only to _derivable_ values (maxHP, maxSP, derived
 attributes, affinity chart). `currentHP`, ailments, position, turn bookkeeping
-are always literal state — wrapping *those* in a source union is
+are always literal state — wrapping _those_ in a source union is
 over-abstraction. The source-union is a property of specific components, not a
 universal envelope.
 
@@ -127,14 +127,14 @@ Keep the established exhaustive-switch-on-event-type reducer style (not a
 registry — that guidance is for lookups). The capability payoff is in the
 **handlers**: `applyDamage`'s handler takes `Targetable`, `castSkill`'s takes
 `CastingCombatant`. An event targeting an entity that lacks the capability is a
-validated no-op; any entity *with* the capability qualifies, with zero `kind`
+validated no-op; any entity _with_ the capability qualifies, with zero `kind`
 branches.
 
-### D7 — Rendering is capability- and viewer-driven, never kind-driven · **Settled** · *revised*
+### D7 — Rendering is capability- and viewer-driven, never kind-driven · **Settled** · _revised_
 
-> *Revised from "provenance demoted to a hint component." The original still let
+> _Revised from "provenance demoted to a hint component." The original still let
 > renderers branch "PC sheet vs enemy statblock card"; under the capability model
-> they don't.*
+> they don't._
 
 A health bar is a health bar; a skill card is a skill card. Widgets bind to
 **capabilities**, not to entity kind: there is **one capability→widget library**
@@ -146,12 +146,12 @@ What used to look like "two renderers" decomposes into three orthogonal axes,
 **none of which is provenance**:
 
 1. **Layout preset** — full editable sheet vs compact rail card. Chosen by the
-   *surface + viewer*, **not the entity**: the same PC renders as a full sheet at
+   _surface + viewer_, **not the entity**: the same PC renders as a full sheet at
    `/c/[shortId]` and as a compact card in the DM combat rail. One entity wears
    both, so `kind` cannot pick the layout.
-2. **Viewer permission** — what you may *see* and *edit*. v1's enemy-specific
+2. **Viewer permission** — what you may _see_ and _edit_. v1's enemy-specific
    `player-snapshot` redaction is not "enemy rendering"; it's a visibility filter.
-   A DM editing enemy HP and a player editing their own HP drive the *same*
+   A DM editing enemy HP and a player editing their own HP drive the _same_
    HealthBar in edit mode — editability is ownership + capability, not kind.
 3. **Capability presence** — no `SkillPool` ⇒ no SP bar. Presence, not a branch.
 
@@ -174,7 +174,7 @@ Two real requirements drove this and they collapse into **one** mechanism:
 - **Nyx-style enemy** (enemy Mechanic): swaps Arcana mid-fight, changing skills
   and affinities.
 
-Both are *a Mechanic that transforms the resolved statblock at runtime*. So:
+Both are _a Mechanic that transforms the resolved statblock at runtime_. So:
 
 1. **Mechanics is a capability available to any entity** — PC, enemy, NPC. This
    is the headline goal; v1 hard-locked Mechanics (and items) to PCs.
@@ -187,7 +187,7 @@ Both are *a Mechanic that transforms the resolved statblock at runtime*. So:
 
 1. **Base StatProfile** — derived (PC) or flat (enemy); includes archetype skills
    and the weapon basic attack.
-2. **Active form / Arcana** — *replaces layer 1 wholesale* when a form-swap
+2. **Active form / Arcana** — _replaces layer 1 wholesale_ when a form-swap
    Mechanic is active (attributes / affinities / skills / maxHP / natural attack).
    A form is essentially an enemy-style flat profile the Mechanic swaps in. **The
    form swap touches only this layer** — layers 3–4 are inert to it.
@@ -199,14 +199,14 @@ Both are *a Mechanic that transforms the resolved statblock at runtime*. So:
 5. **Combat overlay** — ailments / battle conditions; temporary, applied last,
    cleared at end of combat.
 
-`resolve` emits a **`ResolvedEntity`** — resolved *capability components*, not a
+`resolve` emits a **`ResolvedEntity`** — resolved _capability components_, not a
 single struct (D30 — a flat `ResolvedStatblock` would be a god object). Computed
 fresh and Mechanic-state-aware; renderers and combat systems narrow to the
 resolved capabilities they need; nothing re-derives per side.
 
 **Granularity refinement to D3:** attributes / affinities / skills / maxHP are
-*read* separately by different systems (damage reads affinities+maxHP; casting
-reads skills+SP) but *authored and swapped together* as a profile. So **authoring
+_read_ separately by different systems (damage reads affinities+maxHP; casting
+reads skills+SP) but _authored and swapped together_ as a profile. So **authoring
 granularity ≠ read granularity**: the StatProfile bundle is the swap unit; the
 **resolved capability components** (D30) are the read units.
 
@@ -217,16 +217,16 @@ Store `damage` (and `spSpent`), not `currentHP`/`currentSP`. Derive
 resolved (and Mechanic-mutable per D8), a form swap moves the ceiling under a
 form-independent `damage` invariant — **no reconciliation policy needed**, it
 falls out for free (this is "clamp-only" semantics with zero special-case code).
-Overkill floors the *derived* value at 0 without losing the stored `damage`;
+Overkill floors the _derived_ value at 0 without losing the stored `damage`;
 healing reduces `damage`; "fallen" is `damage ≥ maxHP`. SP is symmetric.
 
-### D10 — `damage` is signed; over-max HP is negative damage; operations own their bounds · **Settled** · *extends D9*
+### D10 — `damage` is signed; over-max HP is negative damage; operations own their bounds · **Settled** · _extends D9_
 
-Driven by the **Merchant / Usury** Mechanic: *Payday Loan* grants an enemy HP
+Driven by the **Merchant / Usury** Mechanic: _Payday Loan_ grants an enemy HP
 "whose current HP may exceed its maximum." Both obvious framings were rejected —
 **increased max HP** (inflates every `max`-relative calc: the "25% of max" loan,
 the `currentHP ≤ balance` bankruptcy check) and **temp HP** (a parallel buffer
-with its own damage-ordering rules; the loaned HP must behave like *real* HP).
+with its own damage-ordering rules; the loaned HP must behave like _real_ HP).
 
 D9's depletion model already covers it once we make one implicit thing explicit:
 
@@ -234,7 +234,7 @@ D9's depletion model already covers it once we make one implicit thing explicit:
   bottom floor protects 0, there is **no top cap**. `damage < 0` ⇒ currentHP
   exceeds maxHP. Enemy 90/100 (`damage 10`) + 25 loan ⇒ `damage −15` ⇒ 115/100.
   `maxHP` stays honest at 100; only the current value floats above it.
-- **Storage is unbounded (signed); each *operation* clamps to its own rule.** A
+- **Storage is unbounded (signed); each _operation_ clamps to its own rule.** A
   normal heal floors `damage` at 0 (no overheal). The loan is the operation
   licensed to drive it negative; repayment pulls it back. The stored quantity
   doesn't police the ceiling — the operations do.
@@ -242,11 +242,11 @@ D9's depletion model already covers it once we make one implicit thing explicit:
 This composes with everything: over-max survives a form swap automatically
 (D8/D9 — the ceiling moves under the signed invariant), and the rest of Usury is
 counter arithmetic + turn hooks (loan balance is a `Counters` entry; APR /
-bankruptcy / consolidation / repayment / liability never touch the HP *model*,
+bankruptcy / consolidation / repayment / liability never touch the HP _model_,
 only `damage` and the counter). UI renders the over-max value literally
 (`115/100`) — a display concern, not an engine one.
 
-### D11 — Persistence (resolves O3): hybrid durable `entity` table + ephemeral session blob · **Settled** · *revises D3*
+### D11 — Persistence (resolves O3): hybrid durable `entity` table + ephemeral session blob · **Settled** · _revises D3_
 
 Grounding fact: v1 **already** persists entities two ways, and they map onto the
 real lifecycle split — durable PCs as a fat relational `character` row + child
@@ -271,26 +271,31 @@ SQL).
 
 ```ts
 entities = pgTable("entity", {
-  id, shortId, ownerId, campaignId,          // queryable hot fields stay columns
+  id,
+  shortId,
+  ownerId,
+  campaignId, // queryable hot fields stay columns
   kind: text().$type<"pc" | "npc">(),
-  name, level, status,                         // level nullable — see D13
-  version: integer(),                          // single token — see D12
-  components: jsonb().$type<Partial<ComponentRegistry>>(),  // capability payloads
+  name,
+  level,
+  status, // level nullable — see D13
+  version: integer(), // single token — see D12
+  components: jsonb().$type<Partial<ComponentRegistry>>(), // capability payloads
 })
 // ephemeral enemies/NPC-combatants/objects: { id, components } in the session/map blob
 // enemy DEFINITIONS, Shapechanger FORMS, Nyx ARCANA: authored catalog (TS), not DB
 ```
 
-**Storage matrix** (which entity lives where — the durable table holds *only*
+**Storage matrix** (which entity lives where — the durable table holds _only_
 PC + NPC; everything ephemeral is a column-less component blob):
 
-| Entity | Lifecycle | Storage | Columns? |
-|---|---|---|---|
-| PC | durable, owned | durable `entity` row + `components` | yes |
-| NPC (DM-authored, reusable) | durable | durable `entity` row + `components` | yes |
-| Enemy *instance* in a fight | ephemeral | session blob (component map) | no — def in catalog |
-| Object (door, hazard) | ephemeral | session/map blob (component map) | no |
-| Enemy def / form / Arcana | authored | TS catalog | n/a |
+| Entity                      | Lifecycle      | Storage                             | Columns?            |
+| --------------------------- | -------------- | ----------------------------------- | ------------------- |
+| PC                          | durable, owned | durable `entity` row + `components` | yes                 |
+| NPC (DM-authored, reusable) | durable        | durable `entity` row + `components` | yes                 |
+| Enemy _instance_ in a fight | ephemeral      | session blob (component map)        | no — def in catalog |
+| Object (door, hazard)       | ephemeral      | session/map blob (component map)    | no                  |
+| Enemy def / form / Arcana   | authored       | TS catalog                          | n/a                 |
 
 A column-less blob has no "column or component" question — an absent capability is
 just an absent key (a door is `{ id, components: { identity, vitals } }`, no
@@ -309,7 +314,7 @@ HydratedCharacter`).
 ### D12 — Collapse per-surface version columns to a single `version` · **Leaning**
 
 The per-surface tokens (`identityVersion`/`vitalsVersion`/…, UNN-140) fixed a
-*real* bug — a debounced notes save false-staled by a concurrent vitals write.
+_real_ bug — a debounced notes save false-staled by a concurrent vitals write.
 But two v2 shifts undercut the justification:
 
 1. **The hot contention leaves the durable row.** Combat churn (HP/SP, ailments,
@@ -319,28 +324,28 @@ But two v2 shifts undercut the justification:
 2. **Server-side field merge already prevents lost updates.** The owner-mode
    write pattern (per-field actions that read-merge-write server-side; the
    UNN-226 cautionary tale) means independent fields can't clobber each other at
-   *any* version granularity. The token's remaining job is "detect a stale
+   _any_ version granularity. The token's remaining job is "detect a stale
    snapshot of the field you're writing," which a single `version` + correct
    retry (refetch, reapply local edit, resend) covers — at most one extra
    round-trip, no data loss.
 
 So four counters now optimize a low-probability latency blip at the cost of
 per-write counter selection + drift risk → **collapse to one `version`**. Escape
-hatch if a surface ever proves contended: a per-component `_v` *inside* the jsonb
+hatch if a surface ever proves contended: a per-component `_v` _inside_ the jsonb
 (zero extra columns) — don't pre-build it.
 
-*Leaning, not settled: pending confirmation, and it interacts with the builder's
+_Leaning, not settled: pending confirmation, and it interacts with the builder's
 autosave (verify the reapply-on-stale retry is in place before removing the
-columns).*
+columns)._
 
 ### D13 — `level` is an entity column; "survives a form swap" is the StatProfile boundary test · **Settled**
 
 `level` is a **column** on the durable `entity` table. Nullable — the null case
-is a **statless narrative NPC** (a questgiver with no combat profile), *not*
+is a **statless narrative NPC** (a questgiver with no combat profile), _not_
 objects: objects are ephemeral component blobs (D11 storage matrix) with no
 columns at all, so they never face the question. The decisive reason is D8, not
 queryability: a
-form *replaces the `StatProfile` layer wholesale*, but a level-7 character who
+form _replaces the `StatProfile` layer wholesale_, but a level-7 character who
 turns into a bear is **still level 7**. So level must survive a form swap and
 therefore **cannot** live in the swappable `StatProfile` bundle — it sits above
 the profile as an entity fact that `resolve` consumes as an input.
@@ -355,7 +360,7 @@ the profile as an entity fact that `resolve` consumes as an input.
 **Reusable boundary rule:** anything that must survive a form swap is an
 entity-level field or its own component — **never `StatProfile`**. Passing the
 test: level, identity, `damage` (D9), mechanic state, passives. Failing it (i.e.
-*is* `StatProfile`, swapped by a form): attributes, affinities, skills, maxHP.
+_is_ `StatProfile`, swapped by a form): attributes, affinities, skills, maxHP.
 
 ### D14 — v2 readiness is verified against a behavior inventory, not a code audit (resolves O5) · **Settled**
 
@@ -377,9 +382,9 @@ Findings that bear on open decisions:
 - **D9-adjacent comparator to preserve:** skill HP affordability is **strict `>`**
   (a skill can never drop the caster to 0 HP), SP is **`>=`**; %HP cost is
   `max(1, floor(maxHP*amt/100))`. The depletion model must keep this asymmetry as
-  an *operation* bound (per D10: operations own their clamps).
+  an _operation_ bound (per D10: operations own their clamps).
 - **O10 redaction is exact and security-critical:** enemy `attributes`/`affinities`
-  are *structurally absent* on the player wire (not null). The uniform
+  are _structurally absent_ on the player wire (not null). The uniform
   per-component visibility filter must reproduce "absent, not nulled."
 - **O11 / D8:** only the Toccata enchantment is engine-modeled; Requiem/Tarantella
   are prose-only today — so the action-economy transform layer is partly greenfield,
@@ -397,11 +402,11 @@ layer/precedence (feeds O7/O8/O9).
 The requirements inventory (D14) is the acceptance spec; v2 is built test-first
 against it (red → implement → green, per slice — Prime Directive #2). Mechanics:
 
-- **Every requirement is tagged PRESERVE or SUPERSEDE.** *Preserve* = a game rule
-  v2 must reproduce exactly (the numeric/ordering/redaction rules). *Supersede* =
+- **Every requirement is tagged PRESERVE or SUPERSEDE.** _Preserve_ = a game rule
+  v2 must reproduce exactly (the numeric/ordering/redaction rules). _Supersede_ =
   behavior D8–D11 deliberately change (currentHP-clamp → depletion D9; `CombatantRef`
   union → components; enemy-has-no-SP → capability; static statblock → resolve
-  D8). A *supersede* requirement points at the D-number that replaces it. **This
+  D8). A _supersede_ requirement points at the D-number that replaces it. **This
   tagging is the parity spec** — without it, "parity with v1" silently
   re-enshrines the limitations v2 exists to remove.
 - **v1 tests are reference material, not a runnable harness.** They're bound to v1
@@ -409,7 +414,7 @@ against it (red → implement → green, per slice — Prime Directive #2). Mech
   their behaviors. v2 gets fresh tests in component vocabulary (compositional
   fixtures: `makeEntity().with(vitals)…`).
 - **Golden-master for the PRESERVE derivation math.** Run v1 `deriveHydratedCharacter`
-  and v2 `resolve` over the same seed characters; assert the *resolved numbers*
+  and v2 `resolve` over the same seed characters; assert the _resolved numbers_
   (attributes/maxHP/SP/affinity chart) match. Numbers are shape-independent, so
   this is cheap exhaustive parity for the most regression-prone category. Falls
   back to requirement-derived tests where outputs can't project to a common shape
@@ -421,21 +426,30 @@ against it (red → implement → green, per slice — Prime Directive #2). Mech
 Next action: a first-cut **preserve/supersede annotation** over `requirements/`
 (clear cases tagged against D8–D11; judgment calls flagged for the user).
 
-### D16 — Component registry is the keystone; a guard *factory* derives views + predicates (resolves O2) · **Settled**
+### D16 — Component registry is the keystone; a guard _factory_ derives views + predicates (resolves O2) · **Settled**
 
 ```ts
-type ComponentRegistry = {            // single source of truth
-  identity: Identity; allegiance: Allegiance; statProfile: StatProfile
-  vitals: Vitals; skillPool: SkillPool; mechanics: Mechanics
-  equipment: Equipment; passives: Passives; /* …overlay components… */
+type ComponentRegistry = {
+  // single source of truth
+  identity: Identity
+  allegiance: Allegiance
+  statProfile: StatProfile
+  vitals: Vitals
+  skillPool: SkillPool
+  mechanics: Mechanics
+  equipment: Equipment
+  passives: Passives /* …overlay components… */
 }
-type Entity = { id: string; components: Partial<ComponentRegistry> }  // ephemeral; durable adds columns (D11)
+type Entity = { id: string; components: Partial<ComponentRegistry> } // ephemeral; durable adds columns (D11)
 
-type Has<K extends keyof ComponentRegistry> =
-  Entity & { components: Pick<ComponentRegistry, K> }   // K becomes required (registry is non-partial)
+type Has<K extends keyof ComponentRegistry> = Entity & {
+  components: Pick<ComponentRegistry, K>
+} // K becomes required (registry is non-partial)
 
-const guard = <K extends keyof ComponentRegistry>(...keys: K[]) =>
-  (e: Entity): e is Has<K> => keys.every((k) => e.components[k] !== undefined)
+const guard =
+  <K extends keyof ComponentRegistry>(...keys: K[]) =>
+  (e: Entity): e is Has<K> =>
+    keys.every((k) => e.components[k] !== undefined)
 ```
 
 A first draft used a single-key `has()` and "named guards compose `has`" — **wrong
@@ -443,10 +457,10 @@ twice** (caught in review):
 
 1. **A wrapper erases the predicate.** `const isX = (e) => has(e,"vitals")` infers
    `=> boolean`, not `=> e is …` — TS doesn't re-derive a predicate from a body. The
-   **factory** fixes it: the returned function's *type* is `(e: Entity) => e is Has<K>`, so `const canCast = guard("skillPool")` carries its predicate (K is bound
+   **factory** fixes it: the returned function's _type_ is `(e: Entity) => e is Has<K>`, so `const canCast = guard("skillPool")` carries its predicate (K is bound
    at the call site).
 2. **"Narrow once" needs a multi-key guard.** A system wanting two capabilities
-   would chain `isTargetable(e) && canCast(e)` — which *does* narrow (sequential `&&`
+   would chain `isTargetable(e) && canCast(e)` — which _does_ narrow (sequential `&&`
    predicates intersect) but only emergently. The factory makes it first-class:
    `guard("vitals","skillPool")` → `e is Has<"vitals"|"skillPool">`, one narrowing.
 
@@ -457,7 +471,9 @@ Express each system's requirement **once** as a key tuple; derive guard + view f
 const CASTER = ["identity", "vitals", "skillPool"] as const
 type Caster = Has<(typeof CASTER)[number]>
 const isCaster = guard(...CASTER)
-function castSkill(c: Caster) { c.components.skillPool /* ✓ */ }
+function castSkill(c: Caster) {
+  c.components.skillPool /* ✓ */
+}
 if (isCaster(e)) castSkill(e)
 ```
 
@@ -481,16 +497,16 @@ The fold order is **fixed and documented** (D8): base → active form (replaces 
 layer) → passives → equipment → mechanic deltas → combat overlay. Two transform
 kinds: **override** (sets a field; later layer wins — affinities/skills/maxHP swaps)
 and **delta** (additive numeric; accumulates — buffs). Whether a specific buff
-*stacks with itself or caps* is an **effect-data rule the effect declares**, not
+_stacks with itself or caps_ is an **effect-data rule the effect declares**, not
 engine logic — the engine applies whatever the effect/mechanic specifies, keeping
 resolution deterministic and the rules in data.
 
-### D19 — Skill taxonomy + form persistence (resolves O9) · **Settled** · *corrected*
+### D19 — Skill taxonomy + form persistence (resolves O9) · **Settled** · _corrected_
 
-> *Corrected after review: the first draft said "add an explicit active/passive
+> _Corrected after review: the first draft said "add an explicit active/passive
 > flag" and "passives survive a form swap." Both were wrong — Skill **already** has
 > `kind`, and "passives survive" is too coarse (it's source-dependent, not a single
-> layer).*
+> layer)._
 
 - **Use the existing Skill `kind`** (`active`/`passive`) — don't add a flag, don't
   infer passive from no-cost.
@@ -500,19 +516,19 @@ resolution deterministic and the rules in data.
   (resolved below). Under an active form:
   - **Archetype** kit (active + passive) → **replaced** by the form.
   - **Equipped items** → skills + passive bonuses **pass through fully** (one
-    carve-out: the weapon *basic attack* — D22).
+    carve-out: the weapon _basic attack_ — D22).
   - **Inheritance slots** → **pass through fully** (active + passive).
 - Active skills keep v1's cost semantics exactly (strict-`>` HP, `>=` SP —
   PRESERVE, D14/D15).
 
 **O1 fix:** the speculative `Passives` component is dropped — passive skills are a
-*resolved output* of (archetype ∪ equipment ∪ inheritance), not an authored source.
+_resolved output_ of (archetype ∪ equipment ∪ inheritance), not an authored source.
 The authored component is **`Inheritance`** (`{ slots: InheritanceSlots }`).
 
 **Resolved — full pass-through (and it extends to equipment).** Inherited skills
 **and** equipment-granted skills pass through a form **fully (active + passive)**.
 Rationale (user): it's fun, rewards creative builds, and carries no real balance
-risk — the form's *base* is the balancing lever, not the kit you bring. This
+risk — the form's _base_ is the balancing lever, not the kit you bring. This
 **collapses the source-keyed table above** into one rule:
 
 > **A form replaces only the archetype base** (attributes, affinities, maxHP,
@@ -520,9 +536,9 @@ risk — the form's *base* is the balancing lever, not the kit you bring. This
 > through untouched** — exactly as they apply normally. No "suppression" logic.
 
 In D8's fold the form swap touches **only layer 1**; inheritance + equipment
-layers are inert to it. See D22 for the one carve-out (the weapon *basic attack*).
+layers are inert to it. See D22 for the one carve-out (the weapon _basic attack_).
 
-*Composed-Skill note → now in scope (D32):* the Skill model becomes **composed**
+_Composed-Skill note → now in scope (D32):_ the Skill model becomes **composed**
 (a skill = base + composable traits + `effects[]` + guards), mirroring the
 already-composed `Item` (`foundation/items/schema.ts`). **In scope for v2 but
 design deferred to a dedicated later phase (PR-S)**; interim = carry over v1's
@@ -532,8 +548,8 @@ skill shape. See D32.
 
 `visibleEntity(entity, viewer) → Entity`, viewer ∈ {owner, dm, ally, opponent,
 spectator}. Each component declares a **visibility policy** (public / owner+dm /
-dm-only); redaction drops the whole component **key** — *structurally absent, not
-nulled* (PRESERVE the exact v1 wire contract, D14). Editability is a separate
+dm-only); redaction drops the whole component **key** — _structurally absent, not
+nulled_ (PRESERVE the exact v1 wire contract, D14). Editability is a separate
 per-component write policy. One pass over the component map replaces v1's
 enemy-specific `player-snapshot` (D7's engine consequence, realized).
 
@@ -549,12 +565,12 @@ ships is a rules call (deferred) — the engine supports it regardless.
 
 ### D22 — Equipment through forms (resolves O7) · **Settled**
 
-Equipment **passes through a form fully** — both equipment-granted *skills*
-(active + passive) and *passive stat/affinity bonuses* apply on top of the form's
+Equipment **passes through a form fully** — both equipment-granted _skills_
+(active + passive) and _passive stat/affinity bonuses_ apply on top of the form's
 resolved stats (user call, D19: full pass-through rewards creative builds, low
-balance risk). **One carve-out:** the equipped weapon's *basic attack roll*
+balance risk). **One carve-out:** the equipped weapon's _basic attack roll_
 (v1 `weaponAttackRoll`, the plain weapon swing — distinct from equipment-granted
-*skills*) is treated as part of the **body**, so a form replaces it with the
+_skills_) is treated as part of the **body**, so a form replaces it with the
 form's natural attack (a bear claws, it doesn't swing your greatsword). Override
 is one line if a form should keep the weapon swing too. Optional per-form **"pure
 beast" flag** still available to suppress all carried kit.
@@ -577,32 +593,32 @@ system reads/writes together** — refined by D8 (authoring vs read granularity)
 Stored as `Partial<ComponentRegistry>` (D3); resolved capability components
 (`ResolvedEntity`, D30) are computed, not stored.
 
-| Component | Shape (authored) | Capability it grants | Notes |
-|---|---|---|---|
-| **Identity** | `{ name }` | — (universal) | Every entity. The `id` is the entity key (`Entity.id`, D16), **not** component content — duplicating it would only drift (UNN-499 review). |
-| **Presentation** | `{ kind: "pc"\|"enemy"\|"npc"\|"object"; … }` | renderer hint | D7 — not load-bearing. |
-| **Allegiance** | `{ side }` | `Targetable`/combat membership | Orthogonal to `kind` (charmed PC / summon can sit either side). |
-| **StatProfile** | `{ source: derived-recipe \| flat-profile }` | base of `resolve` | D5/D8 base layer. Flat profile = `{ attributes; maxHP; maxSP?; affinities; skills }`. |
-| **Vitals (Health)** | `{ damage }` | `Targetable` (takes damage) | D9. maxHP from `resolve`. |
-| **SkillPool** | `{ spSpent }` | `CastingCombatant` | D9. Presence = can spend SP. |
-| **Mechanics** | `{ states: Record<MechanicKey, MechanicState> }` | runtime transforms (forms/Arcana/…) | D8. **Now available to enemies/NPCs.** Each mechanic's behavior contributes a transform; form-swap mechanics declare variant profiles. |
-| **Equipment** | `{ slots / items }` | wields/wears | Contributes transforms; now available to enemies/NPCs. Skills + bonuses pass through a form fully; only the weapon basic attack is replaced by the form's natural attack (D22). |
-| **Inheritance** | `{ slots: InheritanceSlots }` | inherited skills | ≈ v1 `CharacterArchetype.inheritanceSlots`. Passive skills are a *resolved output* of archetype ∪ equipment ∪ inheritance, **not** an authored component (D19). Form behavior pending (D19 open arm). |
-| **Ailments** | overlay | — | Combat overlay; cleared at end of combat. |
-| **BattleConditions** + **ConditionDurations** | overlay | — | Overlay; durations tick down. |
-| **TurnState** | `{ movesUsed; standardsUsed; reactionsUsed; turnsTakenThisRound }` | acts in initiative | Consumption (D21); budget resolved (D8). |
-| **Counters** | `{ … }` | named counters (Lumina) | Overlay. |
-| **Position** | `{ zone / token ref }` | `Positioned` | Spatial; may live on the map token (v1 homed it there). |
+| Component                                     | Shape (authored)                                                   | Capability it grants                | Notes                                                                                                                                                                                                 |
+| --------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Identity**                                  | `{ name }`                                                         | — (universal)                       | Every entity. The `id` is the entity key (`Entity.id`, D16), **not** component content — duplicating it would only drift (UNN-499 review).                                                            |
+| **Presentation**                              | `{ kind: "pc"\|"enemy"\|"npc"\|"object"; … }`                      | renderer hint                       | D7 — not load-bearing.                                                                                                                                                                                |
+| **Allegiance**                                | `{ side }`                                                         | `Targetable`/combat membership      | Orthogonal to `kind` (charmed PC / summon can sit either side).                                                                                                                                       |
+| **StatProfile**                               | `{ source: derived-recipe \| flat-profile }`                       | base of `resolve`                   | D5/D8 base layer. Flat profile = `{ attributes; maxHP; maxSP?; affinities; skills }`.                                                                                                                 |
+| **Vitals (Health)**                           | `{ damage }`                                                       | `Targetable` (takes damage)         | D9. maxHP from `resolve`.                                                                                                                                                                             |
+| **SkillPool**                                 | `{ spSpent }`                                                      | `CastingCombatant`                  | D9. Presence = can spend SP.                                                                                                                                                                          |
+| **Mechanics**                                 | `{ states: Record<MechanicKey, MechanicState> }`                   | runtime transforms (forms/Arcana/…) | D8. **Now available to enemies/NPCs.** Each mechanic's behavior contributes a transform; form-swap mechanics declare variant profiles.                                                                |
+| **Equipment**                                 | `{ slots / items }`                                                | wields/wears                        | Contributes transforms; now available to enemies/NPCs. Skills + bonuses pass through a form fully; only the weapon basic attack is replaced by the form's natural attack (D22).                       |
+| **Inheritance**                               | `{ slots: InheritanceSlots }`                                      | inherited skills                    | ≈ v1 `CharacterArchetype.inheritanceSlots`. Passive skills are a _resolved output_ of archetype ∪ equipment ∪ inheritance, **not** an authored component (D19). Form behavior pending (D19 open arm). |
+| **Ailments**                                  | overlay                                                            | —                                   | Combat overlay; cleared at end of combat.                                                                                                                                                             |
+| **BattleConditions** + **ConditionDurations** | overlay                                                            | —                                   | Overlay; durations tick down.                                                                                                                                                                         |
+| **TurnState**                                 | `{ movesUsed; standardsUsed; reactionsUsed; turnsTakenThisRound }` | acts in initiative                  | Consumption (D21); budget resolved (D8).                                                                                                                                                              |
+| **Counters**                                  | `{ … }`                                                            | named counters (Lumina)             | Overlay.                                                                                                                                                                                              |
+| **Position**                                  | `{ zone / token ref }`                                             | `Positioned`                        | Spatial; may live on the map token (v1 homed it there).                                                                                                                                               |
 
 **Worked traces:**
 
-- *Shapechanger PC* = Identity + Presentation(pc) + Allegiance + StatProfile(**derived**)
-  + Vitals + SkillPool + **Mechanics**(shapechanger: active="bear") + Equipment +
-  Passives. `resolve` swaps the bear profile into layer 2; passives persist;
-  `damage` carries across.
-- *Nyx enemy* = Identity + Presentation(enemy) + Allegiance + StatProfile(**flat**)
-  + Vitals + **Mechanics**(arcana-swap: active="Magician") + overlay. Same code
-  path as the PC — only the base layer's `source` differs.
+- _Shapechanger PC_ = Identity + Presentation(pc) + Allegiance + StatProfile(**derived**)
+  - Vitals + SkillPool + **Mechanics**(shapechanger: active="bear") + Equipment +
+    Passives. `resolve` swaps the bear profile into layer 2; passives persist;
+    `damage` carries across.
+- _Nyx enemy_ = Identity + Presentation(enemy) + Allegiance + StatProfile(**flat**)
+  - Vitals + **Mechanics**(arcana-swap: active="Magician") + overlay. Same code
+    path as the PC — only the base layer's `source` differs.
 
 ---
 
@@ -611,21 +627,21 @@ Stored as `Partial<ComponentRegistry>` (D3); resolved capability components
 Redaction is a function of the **viewer's relationship to the entity's
 Allegiance** (+ ownership), not entity `kind`:
 
-| Relationship | Sees |
-|---|---|
-| **own** (controls it) | full + editable |
-| **same side** (ally) | full read (attributes visible) |
-| **opposing side** | redacted — attributes/affinities **structurally absent** |
-| **spectator/none** | public projection only |
+| Relationship          | Sees                                                     |
+| --------------------- | -------------------------------------------------------- |
+| **own** (controls it) | full + editable                                          |
+| **same side** (ally)  | full read (attributes visible)                           |
+| **opposing side**     | redacted — attributes/affinities **structurally absent** |
+| **spectator/none**    | public projection only                                   |
 
 D20 becomes `(component, relationship)`. **Strictly better than v1's kind-based
 redaction:** a charmed PC on the enemy side is correctly redacted from their old
 party; an NPC ally correctly reveals stats. The other parts the validator filed
-under O13 are *not* Allegiance-driven and re-file: **field-level redaction**
+under O13 are _not_ Allegiance-driven and re-file: **field-level redaction**
 (`zoneId→""`, far `toZoneId`) and **fog-gating** are spatial → Tier 3; the
 **snapshot envelope projector** is Tier 2 (mechanical).
 
-### D26 — Depletion is the universal consumable model (resolves O14) · **Settled** · *generalizes D9*
+### D26 — Depletion is the universal consumable model (resolves O14) · **Settled** · _generalizes D9_
 
 Every derivable consumable is stored as **`used`/`spent`**, max **resolved**,
 current = max − used: HP→`damage`, SP→`spSpent`, Hit Dice→`hitDiceUsed`, Skill
@@ -637,15 +653,16 @@ ships; forward-compatible). **Currency + `manualBonuses` are durable columns**
 
 ### D27 — Exhaustion is durable, effects derived (resolves O15) · **Settled**
 
-Exhaustion *level* (0–6) is **durable** state (Resources/column) — **not** combat
+Exhaustion _level_ (0–6) is **durable** state (Resources/column) — **not** combat
 overlay, so D8's end-of-combat clear never touches it (the correctness trap the
-validator flagged). Its *effects* derive from the exhaustion table at resolve
+validator flagged). Its _effects_ derive from the exhaustion table at resolve
 time. Stored level = truth; table = data. (Table descriptions 1–6 are still
 placeholder per D14 — a data TODO, not an engine gap.)
 
 ### D28 — Engagement v2 improvements (resolves O17) · **Settled** (designed with Tier 3)
 
 Two deliberate departures from v1, both improvements:
+
 1. **Moving breaks engagement.** v1 left the melee lock intact across moves
    (UNN-315 decoupled them); v2 **couples** them — a move clears the lock.
 2. **Candidate list is Allegiance-gated** — only **opposing-side** entities are
@@ -668,6 +685,7 @@ in separate row families, versions, and realtime channels: **v1 already has the
 entity-aligned split.**
 
 **Decisions:**
+
 - **Encounter = Session container** (not an entity): session scalars (`round`/
   `currentActorId`/`advantage`/`firstSide`) + a participant roster. A participant
   = combatant ref + encounter-scoped overlay. The combatant ref is
@@ -681,7 +699,7 @@ entity-aligned split.**
   row** (PCs already do this; NPCs gain persistent HP). **Each combatant's vitals
   have exactly one home ⇒ writes stay single-row / single-version.** The
   `1+N rows/versions in a tx` case only arises for one event hitting multiple
-  *durable* combatants (rare) — and `guardMany` already handles that shape.
+  _durable_ combatants (rare) — and `guardMany` already handles that shape.
 - **O1 lifecycle re-tag:** durable-on-entity (Identity, StatProfile, Vitals,
   SkillPool, Mechanics, Equipment, Inheritance, Resources) · encounter-overlay,
   cleared at combat end (Allegiance, TurnState, Ailments, BattleConditions+
@@ -692,12 +710,12 @@ Net: this **generalizes three existing patterns** (the PC `adjust-pools` path,
 ephemeral" — rather than building new infrastructure. The combat reducer stays
 pure, owning the overlay + inline-enemy vitals only.
 
-### D30 — `resolve` emits resolved capability components, not a `ResolvedStatblock` god object · **Settled** · *corrects D8*
+### D30 — `resolve` emits resolved capability components, not a `ResolvedStatblock` god object · **Settled** · _corrects D8_
 
 Caught in ADR review: `ResolvedStatblock { attributes, maxHP, maxSP, affinities,
 skills, weaponAttackRoll?, abilities? }` is a **god object** — it re-imports v1's
 `Statblock` under a "Resolved" prefix and **contradicts D8's own read-granularity
-principle** (D8 says the resolved fields *are* the read units, then bundled them).
+principle** (D8 says the resolved fields _are_ the read units, then bundled them).
 A consumer needing only effective maxHP would couple to the whole shape — exactly
 what D1 exists to kill.
 
@@ -706,9 +724,14 @@ what D1 exists to kill.
 `guard` machinery (D16). Consumers narrow to the resolved capabilities they need:
 
 ```ts
-type ResolvedComponentRegistry = {           // derived read-units only (F3)
-  attributes: AttributeScores; vitals: { currentHP; maxHP }; skillPool: { currentSP; maxSP }
-  affinities: AffinityChart; skills: ResolvedSkill[]; attack: ResolvedAttackRoll
+type ResolvedComponentRegistry = {
+  // derived read-units only (F3)
+  attributes: AttributeScores
+  vitals: { currentHP; maxHP }
+  skillPool: { currentSP; maxSP }
+  affinities: AffinityChart
+  skills: ResolvedSkill[]
+  attack: ResolvedAttackRoll
 }
 type ResolvedEntity = { id; components: Partial<ResolvedComponentRegistry> }
 ```
@@ -718,7 +741,7 @@ authored field smears into a resolved type (F3, D31).
 
 - **Compute-once, expose-narrowly:** the fold still runs **one pass** (it's
   cross-cutting — a form touches several stats together) producing the full
-  resolved set; only the *interface* is composable. No runtime cost — it just stops
+  resolved set; only the _interface_ is composable. No runtime cost — it just stops
   leaking the bundle as a type.
 - **Two registries:** `ComponentRegistry` (authored/stored) and
   `ResolvedComponentRegistry` (computed) are distinct but overlapping —
@@ -730,15 +753,15 @@ authored field smears into a resolved type (F3, D31).
 
 ### D31 — Principles-adherence review fixes (F1–F6) · **Settled**
 
-An adversarial critic audited the design for fidelity to its *own* intent
+An adversarial critic audited the design for fidelity to its _own_ intent
 (composition/ECS, capability-not-kind, purity, no god objects) — orthogonal to the
 completeness pass (D24). It cleared most of the design as faithful (StatProfile as
 the authored swap-bundle, the one-pass resolve, engine purity, the `entity.kind`
-*column*, the overlay bundle, Session-as-container, depletion) and surfaced six
+_column_, the overlay bundle, Session-as-container, depletion) and surfaced six
 real violations (`_principles-review.md`). All accepted:
 
 - **F1 (betrays-thesis) — `Participant.ref {kind:"ref"|"inline"}` is the
-  `CombatantRef` ghost.** Fix: the durable-vs-inline split is a *storage* concern;
+  `CombatantRef` ghost.** Fix: the durable-vs-inline split is a _storage_ concern;
   the **loader dissolves it into a uniform `Participant.entity`** at the boundary
   (like catalog enemies). No `kind` reaches engine logic. (ADR §2.6.)
 - **F2 (betrays-thesis, security) — redaction asserted, not enumerated.** Fix:
@@ -757,18 +780,18 @@ real violations (`_principles-review.md`). All accepted:
   is validated at the Zod load seam**, so presence-guarding downstream is correct.
   (ADR §2.1.)
 
-Meta-lesson: a design can be complete *and* sound *and* still betray its thesis
+Meta-lesson: a design can be complete _and_ sound _and_ still betray its thesis
 (F1 is the `ResolvedStatblock`/D30 lesson again, at the Session's center). The
 composition discipline has to be audited as its own concern.
 
-### D32 — `game-v2` is fully independent; content migrated once, not depended-on · **Settled** · *refines D23*
+### D32 — `game-v2` is fully independent; content migrated once, not depended-on · **Settled** · _refines D23_
 
 v2 is the **successor** (it replaces `game`, which is then deleted), so it imports
 **nothing** from `game` — it owns all its own types **and** data shapes. The dying
 types (`HydratedCharacter`, `CombatantRef`, `Statblock`) live in v1's `foundation/`
 and must not leak in.
 
-- **Shape vs content:** kill the *type* dependency; **migrate the authored content
+- **Shape vs content:** kill the _type_ dependency; **migrate the authored content
   once** (copy-and-reshape / codemod), never depend on it at runtime. The
   **golden-master doubles as a port-faithfulness check** — same resolved numbers in
   both ⇒ the catalog port is faithful.
@@ -796,20 +819,21 @@ domain PRs**, each gated by golden-master; the `CharacterRow → Entity` adapter
 
 v1 is **layer-first** (`foundation` types / `data` catalogs / `engine` logic). v2
 drops that for **domain/capability-first** folders. The tell: both the capability
-model *and* the PR plan decompose by domain, not layer — under layer-first one
+model _and_ the PR plan decompose by domain, not layer — under layer-first one
 concern (e.g. mechanics) smears across three dirs, which is why v1 re-creates
-per-domain subfolders *inside* every layer and carries the `engine→data`
+per-domain subfolders _inside_ every layer and carries the `engine→data`
 value-import debt. `items/schema.ts` (shape + guards + command vocab co-located)
 is the proof co-location works.
 
 **Keep the three things the layers actually bought** — just achieve them
 differently:
+
 - **Purity gradient** → a per-file + **dependency-lint** concern (`*.schema.ts` =
   pure shapes; logic files = pure fns; `catalog/` = data; rule: `logic → schema →
-  vocab`, `logic → ports`, never concrete catalog). *The lint rule must exist or
-  purity erodes — this is the cost of dropping folder walls.*
+vocab`, `logic → ports`, never concrete catalog). _The lint rule must exist or
+  purity erodes — this is the cost of dropping folder walls._
 - **Injectable data** → keep v1's port pattern (engine declares `Pick<GameData,
-  …>`, `catalog/` implements, `composition.ts` binds once).
+…>`, `catalog/` implements, `composition.ts` binds once).
 - **Tooling target** → Stryker `mutate` becomes "logic files minus
   `*.schema.ts`/`catalog/`/`__fixtures__`"; test tiers (unit co-located /
   `__integration__` / `__contract__`) carry over.
@@ -837,7 +861,7 @@ game-v2/src/
 **One folder per PR** — the cohesion signal that this is the right cut. Set in PR1
 (UNN-499).
 
-### D34 — Dissolve `StatProfile`; per-capability components each carry a `source` · **Settled** · *corrects D5/D8/O1*
+### D34 — Dissolve `StatProfile`; per-capability components each carry a `source` · **Settled** · _corrects D5/D8/O1_
 
 `StatProfile` (`{ source; attributes; maxHP; maxSP?; affinities; skills }`) was an
 **authoring-side god-object** — the third instance of aggregate-creep (cf. D30
@@ -864,7 +888,7 @@ Affinities = { source: { kind:"derived" } | { kind:"flat"; chart } }
 Skills     = …                                 // its own component / resolved output — not a "stat"
 ```
 
-- **`MaxSource`/`source` is value-provenance, the *allowed* discrimination** (D5):
+- **`MaxSource`/`source` is value-provenance, the _allowed_ discrimination** (D5):
   "how is this number computed," not "what kind of entity is this." Serializable
   data (a function wouldn't persist), so the union is the right form.
 - **Explicit source per component** (a PC's all read `derived`) — chosen over
@@ -879,14 +903,15 @@ Skills     = …                                 // its own component / resolved
 Re-aligns with D1 (no optionals; presence = capability), D5 (per-component source),
 and the original sketch ("SP is its own component — carrying it IS the capability").
 
-### D35 — Derivation inputs are runtime components; column-vs-component is a storage projection · **Settled** · *clarifies D13/D34*
+### D35 — Derivation inputs are runtime components; column-vs-component is a storage projection · **Settled** · _clarifies D13/D34_
 
 D13's "columns, not components" / "`resolve` reads `entity.level` ambiently" was
 sloppy — it conflated **DB storage** with the **runtime Entity shape**. At runtime
-the entity *is* its components; `id` is the **only** top-level field (the key).
+the entity _is_ its components; `id` is the **only** top-level field (the key).
 Anything an engine function reads is a **component**.
 
 The three options weighed for level/pathChoice/manualBonuses:
+
 - **Top-level fields → no.** Privileged non-component data erodes the guard /
   visibility / load-seam machinery (all assume data lives in components).
 - **One catch-all `inputs` component → no.** The StatProfile/ResolvedStatblock
@@ -899,12 +924,12 @@ The three options weighed for level/pathChoice/manualBonuses:
 
 **Storage-projection rule** (reconciles D11/D13 columns with runtime components):
 
-| value | engine reads? | SQL-queried? | home |
-|---|---|---|---|
-| `shortId`/`ownerId`/`campaignId`/`status` | no | yes | **column only** |
-| `level` | yes | yes | **column + lifted into `Progression` at load** |
-| `pathChoice`/`manualBonuses`/`damage`/mechanic state | yes | no | **component (jsonb) only** |
-| `id` | — | — | entity key (top-level) |
+| value                                                | engine reads? | SQL-queried? | home                                           |
+| ---------------------------------------------------- | ------------- | ------------ | ---------------------------------------------- |
+| `shortId`/`ownerId`/`campaignId`/`status`            | no            | yes          | **column only**                                |
+| `level`                                              | yes           | yes          | **column + lifted into `Progression` at load** |
+| `pathChoice`/`manualBonuses`/`damage`/mechanic state | yes           | no           | **component (jsonb) only**                     |
+| `id`                                                 | —             | —            | entity key (top-level)                         |
 
 So D13 holds (`level` is a queryable column); the loader **lifts it into
 `Progression`** (D11 projection), and `resolve` reads
@@ -912,7 +937,7 @@ So D13 holds (`level` is a queryable column); the loader **lifts it into
 of `Progression` marks the "derives from progression" (PC) case — an enemy has none
 (flat sources), dovetailing with D34's `source: derived`.
 
-### D36 — `Archetypes` component (roster); mechanic state stays a capability; inheritance folds in · **Settled** · *refines D19*
+### D36 — `Archetypes` component (roster); mechanic state stays a capability; inheritance folds in · **Settled** · _refines D19_
 
 v1's `characterArchetype` row bundled `{ key, rank, inheritanceSlots, mechanicState }`
 per archetype. v2 splits it by cohesion + capability:
@@ -926,19 +951,68 @@ Mechanics  { states: Record<MechanicKey, MechanicState> }       // standalone �
   PC-specific (enemies don't carry it). Cohesive, one write surface (Atlas/archetype
   screen) — not a god-object.
 - **`mechanicState` does NOT live on `Archetypes`** (the load-bearing call):
-  **Mechanics is a capability *any* entity carries (D17) — Nyx (enemy) has a mechanic,
+  **Mechanics is a capability _any_ entity carries (D17) — Nyx (enemy) has a mechanic,
   no archetype.** So it stays on the standalone `Mechanics` component. `Archetypes`
   says which archetype is active; resolve maps active → its mechanic → reads
   `Mechanics.states[…]`. (v1 stored it per-archetype-row; v2 lifts it out.)
 - **`inheritanceSlots` folds ONTO `Archetypes`** (per-archetype config), **collapsing
   D19's speculative standalone `Inheritance` component.** The inheritance resolve
-  layer (D8 L3) reads the active archetype's slots from `Archetypes` — a *layer*
-  needs no dedicated *component*. D19's pass-through behavior is unchanged; only the
+  layer (D8 L3) reads the active archetype's slots from `Archetypes` — a _layer_
+  needs no dedicated _component_. D19's pass-through behavior is unchanged; only the
   data home moves.
 
 **Resolve interaction (PR4/PR6):** a PC's mechanic is active only if it belongs to
 `Archetypes.active` — switching archetypes mustn't apply an inactive archetype's
 mechanic; an enemy's mechanics are always on (no archetype gating).
+
+### D37 — Dissolve per-capability `source`/`MaxSource`; every entity has a `base`, layers apply uniformly · **Settled** · _corrects D34_
+
+D34 gave each derivable capability a `source: derived | flat` (and `MaxSource`)
+to fork "compute from archetype/path" vs "authored value." Two problems, the
+second fatal (caught in PR2 review):
+
+1. **`source` is redundant with component presence (D35).** "Derived" just means
+   the entity carries an `Archetypes`/`Progression` component to derive _from_;
+   "flat" means it has an authored base and lacks them. The tag re-encoded what
+   component-presence already states — and the two drifted.
+2. **The fork sat on the _fold itself_, not the base.** `flat` returned the
+   authored value and **short-circuited every later layer**, so an authored enemy
+   was **immune to effects** — a zone enchantment, a mechanic's affinity swap,
+   manual bonuses all silently did nothing. Effects are a _layer that applies to
+   every entity_; no per-capability flag may gate the whole fold.
+
+**Fix — every entity carries a `base`; the fold is uniform (this is just D8,
+applied honestly):**
+
+```
+Attributes { base: scores }     PC: zeros        enemy: authored
+Affinities { base: chart }      PC: {} (neutral) enemy: authored
+Vitals     { base; (damage→PR3) }  PC: 0         enemy: authored maxHP
+SkillPool  { base; (spSpent→PR3) } PC: 0         enemy: authored maxSP
+```
+
+`resolve` = `base` → **layers, applied iff their component is present** →
+**effects** → clamp:
+
+- `Archetypes` present → archetype attributes (additive) / affinity chart
+  (override per type).
+- `Progression` present → the path/level HP/SP formula (additive). A PC's maxHP is
+  `0 + pathFormula + bonuses`; an enemy's is `authored + bonuses`.
+- effects (zone/mechanic/equipment/passive/manual/mastery) — additive for
+  attrs/HP/SP, override-by-precedence for affinities (D18).
+
+No `source`, no `MaxSource` — both dissolve. **One code path for every entity;**
+PCs and enemies differ only by which components they carry (the capability thesis;
+D35's "presence drives derivation," now the _only_ signal). The "author an enemy
+without a fake archetype" goal D34 served is preserved — an enemy is
+`{ base: authored }` with no `Archetypes`/`Progression` — and its stats now
+correctly respond to the battlefield. The `derived`-without-`Progression`
+"malformed state" (a PR2-review nit that needed an explicit throw) also dissolves:
+with no fork, an absent layer is simply `+0`.
+
+Cost: a PC's `Vitals`/`SkillPool` `base` is `0` (all of a PC's max comes from the
+progression layer) — mild, and the price of not reintroducing an optional
+`maxHP?` (D1).
 
 ## Validation outcome (D24)
 
@@ -972,8 +1046,8 @@ Tier-1 model gaps from D24 (decide before/early in the build):
 - ~~**O17**~~ → **D28** (moving breaks engagement; Allegiance-gated candidates).
 - ~~**O16**~~ → **D29** (Session container; vitals placement follows lifecycle).
   The architecture report corrected the premise (no `edits[]` decider; PC & enemy
-  vitals already separate) — the change is *not* large; it generalizes the existing
-  PC pattern to NPCs while enemies stay cheap. *Leaning pending user nod.*
+  vitals already separate) — the change is _not_ large; it generalizes the existing
+  PC pattern to NPCs while enemies stay cheap. _Leaning pending user nod._
 - **O18 — Catalog-enemy dedup** → **resolved by D29.** An ephemeral catalog enemy
   is `{kind:"inline", entity}` whose `StatProfile.source` references the catalog by
   key; per-instance state (`damage`, overlay) is on the participant. The immutable
@@ -991,7 +1065,7 @@ each lives in its decision entry above.
 - **O11 → D21 — boss multi-turn ship/no-ship is a deferred rules call.** The
   engine supports it; whether it ships is a later game-design decision.
 - **D22 weapon-basic-attack carve-out** — settled with a default (form's natural
-  attack replaces the weapon swing; equipment-granted *skills* still pass through).
+  attack replaces the weapon swing; equipment-granted _skills_ still pass through).
   One-line override if a form should keep the weapon swing.
 - **O12 — Reusable object/hazard templates** (still open). Campaign planning may
   let DMs author reusable objects ("Reinforced Door, 200 HP") — durable but

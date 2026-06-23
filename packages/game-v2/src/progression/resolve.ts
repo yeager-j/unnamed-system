@@ -4,19 +4,19 @@ import {
 } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import type { Progression } from "@workspace/game-v2/progression/progression.schema"
 import {
+  addScores,
   attributeEffectBonuses,
   baseAffinities,
   baseAttributes,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
-  computeMaxHP,
   computeMaxSkillDice,
-  computeMaxSP,
   manualBonusPool,
   masteryBonuses,
+  pathMaxHP,
+  pathMaxSP,
   sumBonuses,
 } from "@workspace/game-v2/progression/stats"
 
@@ -34,17 +34,19 @@ function isAffinityEffect(effect: CombatantEffect): effect is AffinityEffect {
 }
 
 /**
- * The **base-layer `resolve`** (D8 layer 1, D30, D34/D35/D36). Deps-first curried
- * over the catalog slice it touches (`getArchetype`), then `(entity, context?) →
+ * The **base-layer `resolve`** (D8 layer 1, D30, D34–D37). Deps-first curried over
+ * the catalog slice it touches (`getArchetype`), then `(entity, context?) →
  * ResolvedEntity` — pure, `Entity → Entity` (authored → effective). It emits
  * resolved **capability components** (no god struct, D30): only those the entity
- * carries, each derived per its own `source` (D34).
+ * carries.
  *
- * PR2 (UNN-500) is the base layer only: the six-source bonus pool with the
- * archetype/mastery/manual/context sources wired (equipment/passive/mechanic
- * gatherers and the form/inheritance fold layers land with their PRs), no
- * depletion (PR3). For a `derived` source it computes (PC); for `flat` it returns
- * the authored value (enemy — shape-complete, exercised when enemies land).
+ * **One uniform fold for every entity (D37):** each derivable capability folds its
+ * authored `base` → the layers present on the entity (`Archetypes` → archetype
+ * attributes/affinities; `Progression` → the path/level HP/SP formula) → the
+ * effect layers (manual/mastery/zone now; equipment/passive/mechanic with their
+ * PRs). No `source: derived | flat` fork — a PC (base zeros/0, with the layer
+ * components) and an enemy (authored base, without them) flow through the *same*
+ * path, and both receive effects. No depletion yet (PR3).
  */
 export function createResolve(deps: Pick<GameData, "getArchetype">) {
   return function resolve(
@@ -66,8 +68,8 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       ? deps.getArchetype(archetypes.active)
       : undefined
 
-    // The six-source bonus pool, built once (PR2 sources: mastery, manual,
-    // context attribute effects). Shared across attributes + maxHP + maxSP.
+    // The bonus pool, built once (PR2 sources: mastery, manual, context attribute
+    // effects). Shared across attributes + maxHP + maxSP.
     const pool = sumBonuses(
       masteryBonuses(
         archetypes?.roster ?? [],
@@ -77,57 +79,49 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       attributeEffectBonuses(zoneEffects)
     )
 
-    // A `derived` pool max is computed from progression (path + level); there is
-    // no sensible fallback maxHP without a path. A derived pool with no
-    // Progression is malformed by construction (D35 — derived ⇒ Progression
-    // present), so assert it loudly rather than silently drop the component.
-    const progressionOrThrow = (): Progression => {
-      if (!progression) {
-        throw new Error(
-          "resolve: a derived Vitals/SkillPool max requires a Progression component (D35)"
-        )
-      }
-      return progression
-    }
-
     const components: ResolvedEntity["components"] = {}
 
+    // One uniform fold for every entity (D37): base → layers present on the
+    // entity → effects. A PC's base is zeros/neutral/0 and the Archetypes /
+    // Progression layers supply its real values; an enemy carries an authored base
+    // and no such layers — but both still receive the effect layers.
+
     if (attributes) {
-      components.attributes =
-        attributes.source.kind === "flat"
-          ? attributes.source.scores
-          : computeAttributes(baseAttributes(activeBase?.attributes), pool)
+      // base + archetype layer (additive), then the bonus pool, clamped.
+      const withArchetype = addScores(
+        attributes.base,
+        baseAttributes(activeBase?.attributes)
+      )
+      components.attributes = computeAttributes(withArchetype, pool)
     }
 
     if (affinities) {
-      components.affinities =
-        affinities.source.kind === "flat"
-          ? baseAffinities(affinities.source.chart)
-          : computeAffinityChart(
-              baseAffinities(activeBase?.affinities),
-              zoneEffects.filter(isAffinityEffect)
-            )
+      // base chart, overridden per-type by the archetype layer, then candidate
+      // effects resolve by precedence over that.
+      const baseChart = activeBase
+        ? { ...affinities.base, ...activeBase.affinities }
+        : affinities.base
+      components.affinities = computeAffinityChart(
+        baseAffinities(baseChart),
+        zoneEffects.filter(isAffinityEffect)
+      )
     }
 
     if (vitals) {
-      if (vitals.max.kind === "flat") {
-        components.vitals = { maxHP: vitals.max.value }
-      } else {
-        const prog = progressionOrThrow()
-        components.vitals = {
-          maxHP: computeMaxHP(prog.pathChoice, prog.level, pool.hp),
-        }
+      const progressionHP = progression
+        ? pathMaxHP(progression.pathChoice, progression.level)
+        : 0
+      components.vitals = {
+        maxHP: Math.round(vitals.base + progressionHP + pool.hp),
       }
     }
 
     if (skillPool) {
-      if (skillPool.max.kind === "flat") {
-        components.skillPool = { maxSP: skillPool.max.value }
-      } else {
-        const prog = progressionOrThrow()
-        components.skillPool = {
-          maxSP: computeMaxSP(prog.pathChoice, prog.level, pool.sp),
-        }
+      const progressionSP = progression
+        ? pathMaxSP(progression.pathChoice, progression.level)
+        : 0
+      components.skillPool = {
+        maxSP: Math.round(skillPool.base + progressionSP + pool.sp),
       }
     }
 

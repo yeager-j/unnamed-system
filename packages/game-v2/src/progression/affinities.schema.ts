@@ -23,15 +23,14 @@ export const partialAffinityChartSchema = z.object({
 })
 
 /**
- * The **Affinities** component (D34) — the base of an entity's Affinity chart,
- * carrying its own `source` (D5): `derived` (from the active Archetype, resolved)
- * or `flat` (an enemy's authored chart). Stands alone, not bundled in a profile.
+ * The **Affinities** component (D34/D37) — an entity's **base** Affinity chart: a
+ * PC carries `{}` (all-neutral; its chart comes from the `Archetypes` layer), an
+ * enemy carries its authored chart. `resolve` folds `base` → archetype override
+ * (if present) → candidate effects (by precedence) → result, uniformly for every
+ * entity — no `source: derived | flat` (D37). Stands alone, not bundled in a profile.
  */
 export const affinitiesSchema = z.object({
-  source: z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("derived") }),
-    z.object({ kind: z.literal("flat"), chart: partialAffinityChartSchema }),
-  ]),
+  base: partialAffinityChartSchema,
 })
 
 export type Affinities = z.infer<typeof affinitiesSchema>

@@ -133,12 +133,22 @@ export function manualBonusPool(manual: ManualBonuses): BonusPool {
 
 // --- Attributes / pools -------------------------------------------------------
 
-/** Base attribute scores for an Archetype's authored scores, or zeros when none. */
+/** Filled attribute scores (zeros for an absent set) — the all-zero floor or the layer slot. */
 export function baseAttributes(
   scores: AttributeScores | undefined
 ): AttributeScores {
   const out = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS_ORDER) out[key] = scores ? scores[key] : 0
+  return out
+}
+
+/** Sums two attribute-score sets target-by-target (e.g. a base + the archetype layer). */
+export function addScores(
+  a: AttributeScores,
+  b: AttributeScores
+): AttributeScores {
+  const out = {} as AttributeScores
+  for (const key of ATTRIBUTE_KEYS_ORDER) out[key] = a[key] + b[key]
   return out
 }
 
@@ -154,28 +164,21 @@ export function computeAttributes(
   return out
 }
 
-/** Max HP: path start + per-level gain × levels gained + HP bonuses, rounded. */
-export function computeMaxHP(
-  pathChoice: PathChoice,
-  level: number,
-  hpBonus: number
-): number {
+/**
+ * The **Progression layer's** HP contribution — path start + per-level gain ×
+ * levels gained (no bonuses). `resolve` adds the entity's `Vitals.base` and the HP
+ * bonus pool on top, uniformly (D37). A PC's `base` is 0, so its maxHP is this
+ * formula + bonuses; an enemy has no Progression and so no this layer.
+ */
+export function pathMaxHP(pathChoice: PathChoice, level: number): number {
   const path = PATH_STATS[pathChoice]
-  return Math.round(
-    path.startHP + levelsGained(level) * path.hpPerLevel + hpBonus
-  )
+  return path.startHP + levelsGained(level) * path.hpPerLevel
 }
 
-/** Max SP: analogous to {@link computeMaxHP}. */
-export function computeMaxSP(
-  pathChoice: PathChoice,
-  level: number,
-  spBonus: number
-): number {
+/** The Progression layer's SP contribution — analogous to {@link pathMaxHP}. */
+export function pathMaxSP(pathChoice: PathChoice, level: number): number {
   const path = PATH_STATS[pathChoice]
-  return Math.round(
-    path.startSP + levelsGained(level) * path.spPerLevel + spBonus
-  )
+  return path.startSP + levelsGained(level) * path.spPerLevel
 }
 
 /** Total Hit Dice: 2 at L1, +1 per level (derived from level, never stored). */

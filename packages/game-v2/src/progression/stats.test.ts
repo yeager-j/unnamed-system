@@ -3,17 +3,18 @@ import { describe, expect, it } from "vitest"
 import type { Mastery } from "@workspace/game-v2/archetypes"
 import type { AffinityEffect } from "@workspace/game-v2/kernel"
 import {
+  addScores,
   baseAffinities,
   baseAttributes,
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
-  computeMaxHP,
   computeMaxSkillDice,
-  computeMaxSP,
   emptyBonusPool,
   manualBonusPool,
   masteryBonuses,
+  pathMaxHP,
+  pathMaxSP,
   resolveAffinity,
   sumBonuses,
 } from "@workspace/game-v2/progression/stats"
@@ -39,19 +40,23 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
   })
 })
 
-describe("maxHP / maxSP (PATH_STATS, levelsGained)", () => {
-  it("balanced L1 = start, no per-level gain", () => {
-    expect(computeMaxHP("balanced", 1, 0)).toBe(20)
-    expect(computeMaxSP("balanced", 1, 0)).toBe(50)
+describe("addScores", () => {
+  it("sums two attribute sets (a base + the archetype layer)", () => {
+    expect(
+      addScores(
+        { strength: 0, magic: 0, agility: 0, luck: 0 },
+        { strength: 3, magic: 1, agility: -1, luck: 2 }
+      )
+    ).toEqual({ strength: 3, magic: 1, agility: -1, luck: 2 })
   })
+})
 
-  it("health-focused L5 = start + 4×perLevel + bonus", () => {
-    expect(computeMaxHP("health-focused", 5, 3)).toBe(24 + 4 * 7 + 3) // 55
-    expect(computeMaxSP("health-focused", 5, 0)).toBe(40 + 4 * 9) // 76
-  })
-
-  it("skill-focused scales SP fastest", () => {
-    expect(computeMaxSP("skill-focused", 10, 0)).toBe(60 + 9 * 13) // 177
+describe("path HP/SP layer (PATH_STATS, levelsGained)", () => {
+  it("is the formula only — no base, no bonuses (resolve adds those, D37)", () => {
+    expect(pathMaxHP("balanced", 1)).toBe(20) // start, no per-level gain
+    expect(pathMaxSP("balanced", 1)).toBe(50)
+    expect(pathMaxHP("health-focused", 5)).toBe(24 + 4 * 7) // 52
+    expect(pathMaxSP("skill-focused", 10)).toBe(60 + 9 * 13) // 177
   })
 })
 
