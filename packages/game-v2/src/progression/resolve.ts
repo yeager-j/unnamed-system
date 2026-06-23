@@ -4,6 +4,7 @@ import {
 } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import type { Progression } from "@workspace/game-v2/progression/progression.schema"
 import {
   attributeEffectBonuses,
   baseAffinities,
@@ -76,6 +77,19 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       attributeEffectBonuses(zoneEffects)
     )
 
+    // A `derived` pool max is computed from progression (path + level); there is
+    // no sensible fallback maxHP without a path. A derived pool with no
+    // Progression is malformed by construction (D35 — derived ⇒ Progression
+    // present), so assert it loudly rather than silently drop the component.
+    const progressionOrThrow = (): Progression => {
+      if (!progression) {
+        throw new Error(
+          "resolve: a derived Vitals/SkillPool max requires a Progression component (D35)"
+        )
+      }
+      return progression
+    }
+
     const components: ResolvedEntity["components"] = {}
 
     if (attributes) {
@@ -98,13 +112,10 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     if (vitals) {
       if (vitals.max.kind === "flat") {
         components.vitals = { maxHP: vitals.max.value }
-      } else if (progression) {
+      } else {
+        const prog = progressionOrThrow()
         components.vitals = {
-          maxHP: computeMaxHP(
-            progression.pathChoice,
-            progression.level,
-            pool.hp
-          ),
+          maxHP: computeMaxHP(prog.pathChoice, prog.level, pool.hp),
         }
       }
     }
@@ -112,13 +123,10 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     if (skillPool) {
       if (skillPool.max.kind === "flat") {
         components.skillPool = { maxSP: skillPool.max.value }
-      } else if (progression) {
+      } else {
+        const prog = progressionOrThrow()
         components.skillPool = {
-          maxSP: computeMaxSP(
-            progression.pathChoice,
-            progression.level,
-            pool.sp
-          ),
+          maxSP: computeMaxSP(prog.pathChoice, prog.level, pool.sp),
         }
       }
     }

@@ -89,4 +89,11 @@ describe("createResolve — base layer over a derived PC entity", () => {
     })
     expect(resolved.components.affinities?.fire).toBe("neutral")
   })
+
+  it("throws on the malformed state: a derived pool with no Progression (D35)", () => {
+    const resolve = createResolve(makeTestGameData())
+    const entity = makeDerivedEntity()
+    delete entity.components.progression // derived vitals/skillPool now have no path/level
+    expect(() => resolve(entity)).toThrow(/Progression/)
+  })
 })
