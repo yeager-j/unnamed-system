@@ -1,15 +1,38 @@
 {
-  "name": "game-v2",
+  "name": "@workspace/game-v2",
   "version": "0.0.0",
+  "type": "module",
   "private": true,
   "scripts": {
-    "dev": "echo 'Add dev script here'",
-    "build": "echo 'Add build script here'",
-    "test": "echo 'Add test script here'",
-    "lint": "echo 'Add lint script here'"
+    "lint": "eslint",
+    "format": "eslint --fix \"**/*.ts\" && prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "depcheck": "node depcheck.mjs",
+    "test": "vitest run --passWithNoTests",
+    "test:contract": "vitest run --passWithNoTests src/**/__contract__",
+    "test:integration": "vitest run --passWithNoTests src/**/__integration__",
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "test:mutation": "stryker run"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./kernel": "./src/kernel/index.ts",
+    "./kernel/*": "./src/kernel/*.ts",
+    "./catalog": "./src/catalog/index.ts",
+    "./composition": "./src/composition.ts"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^25.1.0",
+    "@vitest/coverage-v8": "^4.1.8",
     "@workspace/eslint-config": "*",
-    "@workspace/typescript-config": "*"
+    "@workspace/typescript-config": "*",
+    "eslint": "^9.39.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.6"
   }
 }
