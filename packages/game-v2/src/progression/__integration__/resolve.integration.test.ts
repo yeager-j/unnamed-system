@@ -7,10 +7,9 @@ import {
   makeTestGameData,
 } from "@workspace/game-v2/progression/__fixtures__/derive"
 import {
-  applyFormSwap,
+  applyForm,
   createResolve,
-  naturalForm,
-  resolveForm,
+  type FormStatblock,
 } from "@workspace/game-v2/progression/resolve"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
@@ -175,76 +174,80 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
   })
 })
 
-describe("the form layer — base-is-a-form + swap override (D8/D18)", () => {
+describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18)", () => {
   const data = makeTestGameData({
     warden: makeArchetype({
       attributes: { strength: 4, magic: 1, agility: 0, luck: 2 },
       affinities: { fire: "resist" },
+      mastery: { kind: "attribute", amount: 2, attribute: "strength" },
     }),
   })
-  // The PR4 composition, exercised directly: a swap layered over the natural form.
-  const resolveSwap = (
-    entity: Parameters<typeof naturalForm>[1],
-    swap: Parameters<typeof applyFormSwap>[1],
-    context?: Parameters<typeof resolveForm>[3]
-  ) =>
-    resolveForm(
-      data,
-      applyFormSwap(naturalForm(data, entity), swap),
-      entity,
-      context
-    )
+  const resolve = createResolve(data)
 
-  it("a swap replaces attributes wholesale and merges affinities per type", () => {
-    const entity = makeDerivedEntity({ active: "warden" })
-    const resolved = resolveSwap(entity, {
-      attributes: { strength: 6, magic: 6, agility: 6, luck: 6 },
-      affinities: { fire: "weak" },
-    })
+  const bear: FormStatblock = {
+    attributes: { strength: 3, magic: 3, agility: 3, luck: 3 },
+    affinities: { fire: "weak" },
+    hp: 120,
+    sp: 40,
+  }
 
-    expect(resolved.components.attributes).toEqual({
-      strength: 6,
-      magic: 6,
-      agility: 6,
-      luck: 6,
+  it("replaces the active Archetype's statline but keeps Mastery (roster survives)", () => {
+    // warden rank 5 ⇒ its +2 strength Mastery applies; its base strength 4 does not
+    // (the form detaches the active Archetype).
+    const entity = makeDerivedEntity({
+      active: "warden",
+      roster: [{ key: "warden", rank: 5 }],
     })
-    // The swapped affinity becomes the new base; no candidate to override it.
+    const resolved = resolve(applyForm(entity, bear))
+
+    // bear base 3 + surviving Mastery +2 = 5 (warden base 4 is gone, no clamp).
+    expect(resolved.components.attributes?.strength).toBe(5)
+    // bear's fire weak replaces warden's fire resist.
     expect(resolved.components.affinities?.fire).toBe("weak")
   })
 
   it("a candidate (zone/equipment) overrides a form's affinity — even to a weaker one (D18 later wins)", () => {
     const entity = makeDerivedEntity({ active: "warden" })
-    const resolved = resolveSwap(
-      entity,
-      { affinities: { fire: "drain" } }, // the form makes fire Drain…
+    const resolved = resolve(
+      applyForm(entity, { ...bear, affinities: { fire: "drain" } }),
       {
         zoneEffects: [
           { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
         ],
       }
     )
-    // …but a later-layer candidate replaces it regardless of priority.
     expect(resolved.components.affinities?.fire).toBe("weak")
   })
 
-  it("form-swap HP continuity: maxHP moves under a constant damage, currentHP reconciles with no policy", () => {
-    // Same authored damage (10) resolved under two different form maxHPs.
-    const entity = makeDerivedEntity({ damage: 10 }) // balanced L1 base maxHP 20
+  it("form-swap continuity: damage/spSpent carry over; current reconciles against the new max (D9)", () => {
+    // balanced L1: natural maxHP 20 / maxSP 50. damage 10 ⇒ 10/20; spSpent 12 ⇒ 38/50.
+    const entity = makeDerivedEntity({ damage: 10, spSpent: 12 })
+    expect(resolve(entity).components.vitals).toEqual({
+      maxHP: 20,
+      currentHP: 10,
+    })
+    expect(resolve(entity).components.skillPool).toEqual({
+      maxSP: 50,
+      currentSP: 38,
+    })
 
-    const bear = resolveSwap(entity, { maxHP: 80 })
-    expect(bear.components.vitals).toEqual({ maxHP: 80, currentHP: 70 }) // 80 − 10
+    // In bear form the maxima move under the same authored damage/spSpent.
+    const resolved = resolve(applyForm(entity, bear))
+    expect(resolved.components.vitals).toEqual({ maxHP: 120, currentHP: 110 }) // 120 − 10
+    expect(resolved.components.skillPool).toEqual({ maxSP: 40, currentSP: 28 }) // 40 − 12
+  })
 
-    const bird = resolveSwap(entity, { maxHP: 30 })
-    expect(bird.components.vitals).toEqual({ maxHP: 30, currentHP: 20 }) // 30 − 10
-
-    // Natural form (no swap) reconciles against the base maxHP — same damage.
-    const base = createResolve(data)(entity)
-    expect(base.components.vitals).toEqual({ maxHP: 20, currentHP: 10 })
+  it("drops the true self's dice while transformed (Progression detached)", () => {
+    const entity = makeDerivedEntity({ level: 5 })
+    expect(resolve(entity).components.resources?.maxHitDice).toBe(6)
+    expect(
+      resolve(applyForm(entity, bear)).components.resources
+    ).toBeUndefined()
   })
 
   it("a form whose maxHP drops below the constant damage Falls the entity (no special case)", () => {
     const entity = makeDerivedEntity({ damage: 25 })
-    const tiny = resolveSwap(entity, { maxHP: 20 }) // 20 − 25 floors to 0
+    const tiny = resolve(applyForm(entity, { ...bear, hp: 20 })) // 20 − 25 floors to 0
     expect(tiny.components.vitals).toEqual({ maxHP: 20, currentHP: 0 })
     expect(isFallen(tiny.components.vitals!)).toBe(true)
   })

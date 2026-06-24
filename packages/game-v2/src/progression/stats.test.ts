@@ -6,12 +6,12 @@ import {
   computeAffinityChart,
   computeAttributes,
   computeMaxHitDice,
+  computeMaxHP,
   computeMaxSkillDice,
+  computeMaxSP,
   emptyBonusPool,
   manualBonusPool,
   masteryBonuses,
-  progressionMaxHP,
-  progressionMaxSP,
   resolveAffinity,
   sumBonuses,
 } from "@workspace/game-v2/progression/stats"
@@ -49,19 +49,31 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
   })
 })
 
-describe("progressionMaxHP / progressionMaxSP (the path/level layer, D37)", () => {
-  it("a PC's path/level formula: start + per-level × levels gained", () => {
-    expect(progressionMaxHP({ level: 5, pathChoice: "health-focused" })).toBe(
-      24 + 4 * 7
-    ) // 52
-    expect(progressionMaxSP({ level: 10, pathChoice: "skill-focused" })).toBe(
-      60 + 9 * 13
-    ) // 177
+describe("computeMaxHP / computeMaxSP (base + progression layer + bonus, D37)", () => {
+  const noBonus = emptyBonusPool()
+
+  it("a PC folds base 0 + the path/level formula + the HP/SP bonus", () => {
+    expect(
+      computeMaxHP(
+        { level: 5, pathChoice: "health-focused" },
+        { base: 0 },
+        { ...noBonus, hp: 3 }
+      )
+    ).toBe(24 + 4 * 7 + 3) // 55
+    expect(
+      computeMaxSP(
+        { level: 10, pathChoice: "skill-focused" },
+        { base: 0 },
+        noBonus
+      )
+    ).toBe(60 + 9 * 13) // 177
   })
 
-  it("an entity with no Progression contributes 0 (enemy uses its authored base)", () => {
-    expect(progressionMaxHP(undefined)).toBe(0)
-    expect(progressionMaxSP(undefined)).toBe(0)
+  it("an enemy / shapechanged entity (no Progression) folds its authored base + bonuses, no path layer", () => {
+    expect(computeMaxHP(undefined, { base: 100 }, { ...noBonus, hp: 10 })).toBe(
+      110
+    )
+    expect(computeMaxSP(undefined, { base: 30 }, noBonus)).toBe(30)
   })
 })
 

@@ -18,6 +18,8 @@ import {
 } from "@workspace/game-v2/kernel/vocab"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Progression } from "@workspace/game-v2/progression/progression.schema"
+import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
+import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
  * The pure derivation math, re-homed from v1
@@ -135,36 +137,20 @@ export function manualBonusPool(manual: ManualBonuses): BonusPool {
 // --- Attributes / pools -------------------------------------------------------
 
 /**
- * Sums every Attribute source target-by-target **without clamping** — a source
- * need only carry the four Attribute keys ({@link BonusPool}'s HP/SP are ignored).
- * The unclamped sum is what a {@link import("./resolve").Form} carries for its base
- * Attributes (entity base + Archetype layer), so the clamp lands exactly once in
- * {@link computeAttributes} after the delta pool folds in (C1).
+ * Effective Attributes: the **sum of every source** (the entity base, the
+ * Archetype layer, the bonus pool, …), each Attribute clamped to [-7, +7] once
+ * **after** summing (C1). Variadic so `resolve` folds all the layers in a single
+ * pass — a source need only carry the four Attribute keys ({@link BonusPool}'s
+ * HP/SP are simply ignored here).
  */
-export function sumAttributeSources(
+export function computeAttributes(
   ...sources: ReadonlyArray<Record<AttributeKey, number> | undefined>
 ): AttributeScores {
   const out = {} as AttributeScores
   for (const key of ATTRIBUTE_KEYS_ORDER) {
     let total = 0
     for (const source of sources) total += source?.[key] ?? 0
-    out[key] = total
-  }
-  return out
-}
-
-/**
- * Effective Attributes: the **sum of every source** (the form's base Attributes,
- * the bonus pool, …), each Attribute clamped to [-7, +7] once **after** summing
- * (C1). Variadic so `resolve` folds the form + delta pool in one pass.
- */
-export function computeAttributes(
-  ...sources: ReadonlyArray<Record<AttributeKey, number> | undefined>
-): AttributeScores {
-  const summed = sumAttributeSources(...sources)
-  const out = {} as AttributeScores
-  for (const key of ATTRIBUTE_KEYS_ORDER) {
-    out[key] = clamp(summed[key], ATTRIBUTE_MIN, ATTRIBUTE_MAX)
+    out[key] = clamp(total, ATTRIBUTE_MIN, ATTRIBUTE_MAX)
   }
   return out
 }
@@ -182,19 +168,36 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
 }
 
 /**
- * The Progression path/level layer's HP contribution — `0` for an entity with no
- * `Progression` (D37). A {@link import("./resolve").Form}'s base maxHP is
- * `Vitals.base + progressionMaxHP(progression)`; the HP delta pool folds in later,
- * in `resolveForm`. Kept separate from {@link progressionMaxSP} (no shared
- * abstraction): HP and SP share a shape today but are free to diverge.
+ * Effective **max HP** (D37): the entity's `Vitals.base` + the Progression
+ * path/level layer (only when it carries `Progression`) + the HP bonus pool. A PC's
+ * `base` is 0, so its maxHP is the path formula + bonuses; an enemy — or a
+ * shapechanged entity (`applyForm` drops `Progression`) — carries an authored `base`
+ * and no path layer, but still gets the bonuses. The fold is uniform either way.
+ *
+ * Kept deliberately separate from {@link computeMaxSP} (no shared abstraction):
+ * HP and SP share a shape today but are free to diverge.
  */
-export function progressionMaxHP(progression: Progression | undefined): number {
-  return progression ? pathMaxHP(progression.pathChoice, progression.level) : 0
+export function computeMaxHP(
+  progression: Progression | undefined,
+  vitals: Pick<Vitals, "base">,
+  pool: BonusPool
+): number {
+  const layer = progression
+    ? pathMaxHP(progression.pathChoice, progression.level)
+    : 0
+  return Math.round(vitals.base + layer + pool.hp)
 }
 
-/** The Progression path/level layer's SP contribution — the SP peer of {@link progressionMaxHP}. */
-export function progressionMaxSP(progression: Progression | undefined): number {
-  return progression ? pathMaxSP(progression.pathChoice, progression.level) : 0
+/** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
+export function computeMaxSP(
+  progression: Progression | undefined,
+  skillPool: Pick<SkillPool, "base">,
+  pool: BonusPool
+): number {
+  const layer = progression
+    ? pathMaxSP(progression.pathChoice, progression.level)
+    : 0
+  return Math.round(skillPool.base + layer + pool.sp)
 }
 
 /** Total Hit Dice: 2 at L1, +1 per level (derived from level, never stored). */
