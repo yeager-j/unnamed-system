@@ -4,6 +4,7 @@
  * shared effects primitive, the `Result` type, the catalog port, and the
  * re-declared vocab.
  */
+export * from "./bonus-pool"
 export * from "./component"
 export * from "./component-registry"
 export * from "./effects.schema"

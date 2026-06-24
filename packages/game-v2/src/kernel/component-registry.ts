@@ -1,4 +1,6 @@
+import type { Affinities } from "@workspace/game-v2/affinities/affinities.schema"
 import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import type { Attributes } from "@workspace/game-v2/attributes/attributes.schema"
 import type { ResolvedPendingEffects } from "@workspace/game-v2/combat/resolved"
 import type { Identity } from "@workspace/game-v2/kernel/identity.schema"
 import type {
@@ -6,8 +8,6 @@ import type {
   AttributeScores,
 } from "@workspace/game-v2/kernel/vocab"
 import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
-import type { Affinities } from "@workspace/game-v2/progression/affinities.schema"
-import type { Attributes } from "@workspace/game-v2/progression/attributes.schema"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Path } from "@workspace/game-v2/progression/path.schema"

@@ -8,7 +8,7 @@ import {
   applyForm,
   createResolve,
   type ResolveContext,
-} from "@workspace/game-v2/progression/resolve"
+} from "@workspace/game-v2/resolve/resolve"
 
 /**
  * The pre-resolve form transform (D38, layer 2): merge the active form-swap
@@ -40,9 +40,9 @@ export function applyActiveForm(
  *   attribute/affinity in and surfaces attack-roll/damage as `pendingEffects`.
  *
  * The mechanics are read from the **original** entity (a PC's active Archetype is
- * still attached); `applyForm` then detaches it. Keeping this orchestration in
- * `mechanics/` (over the pure progression fold) keeps the dependency one-way —
- * `mechanics → progression`, never the reverse.
+ * still attached); `applyForm` then detaches it. Keeping this orchestration in the
+ * `resolve/` composition tier (over the pure base fold) keeps the dependency
+ * one-way — `resolve → mechanics → progression`, never the reverse.
  */
 export function createResolveEntity(deps: Pick<GameData, "getArchetype">) {
   const resolve = createResolve(deps)

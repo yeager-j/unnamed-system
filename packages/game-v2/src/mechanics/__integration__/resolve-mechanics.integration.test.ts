@@ -6,9 +6,9 @@ import {
   makeDerivedEntity,
   makeFlatEntity,
   makeTestGameData,
-} from "@workspace/game-v2/progression/__fixtures__/derive"
-import { createResolve } from "@workspace/game-v2/progression/resolve"
-import { createResolveEntity } from "@workspace/game-v2/resolve-entity"
+} from "@workspace/game-v2/resolve/__fixtures__/derive"
+import { createResolve } from "@workspace/game-v2/resolve/resolve"
+import { createResolveEntity } from "@workspace/game-v2/resolve/resolve-entity"
 
 /**
  * Collaboration tests for the layer-5 mechanic fold (UNN-502): `resolveEntity`

@@ -843,10 +843,13 @@ vocab`, `logic → ports`, never concrete catalog). _The lint rule must exist or
 ```
 game-v2/src/
   kernel/          Entity, ComponentRegistry + ResolvedComponentRegistry, Has/guard,
-                   resolve-fold runner, effects primitive, Result, ports, vocab
-  vitals/          schema + depletion ops + resolve contribution + tests
-  progression/     StatProfile, leveling, attributes, affinities, resources/exhaustion
-  archetypes/      atlas, inheritance, display
+                   the BonusPool primitive, effects primitive, Result, ports, vocab
+  attributes/      schema + attribute derive (computeAttributes, effect→pool)
+  affinities/      schema + affinity derive (computeAffinityChart, strongest)
+  vitals/          schema + depletion ops + HP/SP derive + resolve contribution + tests
+  progression/     level, path, leveling, manual-bonuses (+ its pool projection)
+  resources/       schema + depletion ops + dice/exhaustion derive
+  archetypes/      atlas, inheritance, display, mastery→pool
   skills/          (interim) schema + cost/cast → composed in PR-S
   items/           schema + mutation engine + inventory resolution
   mechanics/       registry + the 9 + transform contributions
@@ -854,9 +857,32 @@ game-v2/src/
   encounter/       session, participant, reducer, action economy, durations
   visibility/      policy table + visibleEntity
   catalog/         authored content implementing the ports (skills/items/archetypes/enemies)
+  resolve/         the resolve-fold runner + applyForm + the mechanic-aware resolveEntity
   composition.ts   binds catalog → engine (the createGameEngine equivalent)
   loader.ts        CharacterRow→Entity + ref→Entity dissolution (transition adapter)
 ```
+
+> **Realigned by UNN-512.** D33 sketched `progression/` as
+> "StatProfile, leveling, attributes, affinities, resources/exhaustion" and put the
+> resolve-fold runner in `kernel/`. Since then `StatProfile` dissolved (D34/D37) and
+> resources/exhaustion split out (PR3), so `progression/` was left a derivation
+> grab-bag. UNN-512 split the derivation math out to the components it derives
+> (`attributes/`, `affinities/`, `vitals/`, `resources/`), homed the `BonusPool`
+> primitive in `kernel/`, and gave the resolve pipeline its own `resolve/` folder —
+> **not** `kernel/`: `createResolve` composes every domain's derivation, and `kernel/`
+> is the dependency sink that may not import a domain. `resolve/` reconciles the pure
+> base fold with the mechanic-aware `resolveEntity` (lifted to the package root in
+> UNN-502) into one coherent home.
+>
+> One **deliberate** consequence: `computeAffinityChart` became variadic over chart
+> sources (`base`, archetype, effect-chart), so the entity base and active Archetype
+> now fold by strongest-wins like every other source — where they previously merged by
+> object-override (archetype-wins) *before* competing with effects. This is consistent
+> with UNN-502's "strongest-wins, base included" rule and unobservable today (PCs author
+> an empty `affinities.base`; enemies carry no Archetype, so the two never co-occur).
+> It **becomes observable** once an entity can carry both layers — e.g. an archetyped
+> enemy with an authored base chart; that is the intended strongest-wins behavior, not a
+> regression.
 
 **One folder per PR** — the cohesion signal that this is the right cut. Set in PR1
 (UNN-499).

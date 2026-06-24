@@ -4,8 +4,8 @@ import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics/zone-enchan
 import {
   makeDerivedEntity,
   makeTestGameData,
-} from "@workspace/game-v2/progression/__fixtures__/derive"
-import { createResolveEntity } from "@workspace/game-v2/resolve-entity"
+} from "@workspace/game-v2/resolve/__fixtures__/derive"
+import { createResolveEntity } from "@workspace/game-v2/resolve/resolve-entity"
 
 /**
  * The Bard's engine-visible effect flows through the **zone channel**, not the

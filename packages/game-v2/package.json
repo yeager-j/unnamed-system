@@ -21,6 +21,10 @@
     "./kernel/*": "./src/kernel/*.ts",
     "./archetypes": "./src/archetypes/index.ts",
     "./archetypes/*": "./src/archetypes/*.ts",
+    "./attributes": "./src/attributes/index.ts",
+    "./attributes/*": "./src/attributes/*.ts",
+    "./affinities": "./src/affinities/index.ts",
+    "./affinities/*": "./src/affinities/*.ts",
     "./progression": "./src/progression/index.ts",
     "./progression/*": "./src/progression/*.ts",
     "./vitals": "./src/vitals/index.ts",
@@ -33,7 +37,8 @@
     "./combat/*": "./src/combat/*.ts",
     "./catalog": "./src/catalog/index.ts",
     "./composition": "./src/composition.ts",
-    "./resolve-entity": "./src/resolve-entity.ts"
+    "./resolve": "./src/resolve/index.ts",
+    "./resolve/*": "./src/resolve/*.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"

@@ -1,7 +1,6 @@
 import { gameData } from "@workspace/game-v2/catalog"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { createResolve } from "@workspace/game-v2/progression/resolve"
-import { createResolveEntity } from "@workspace/game-v2/resolve-entity"
+import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
