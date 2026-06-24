@@ -6,9 +6,15 @@ import type {
 } from "@workspace/game-v2/kernel/vocab"
 import type { Affinities } from "@workspace/game-v2/progression/affinities.schema"
 import type { Attributes } from "@workspace/game-v2/progression/attributes.schema"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
-import type { Progression } from "@workspace/game-v2/progression/progression.schema"
-import type { ResolvedResources } from "@workspace/game-v2/progression/resolved"
+import type { Path } from "@workspace/game-v2/progression/path.schema"
+import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
+import type {
+  ResolvedExhaustion,
+  ResolvedResources,
+} from "@workspace/game-v2/resources/resolved"
+import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 import type {
   ResolvedSkillPool,
   ResolvedVitals,
@@ -55,9 +61,16 @@ export interface ComponentRegistry {
   affinities: Affinities
   vitals: Vitals
   skillPool: SkillPool
-  progression: Progression
+  // `Level` is universal across combatants (PCs + enemies — Insta-Kill compares it);
+  // `Path` (the HP/SP scaling curve) is PC-only. Split from the old `Progression`.
+  level: Level
+  path: Path
   manualBonuses: ManualBonuses
   archetypes: Archetypes
+  // Depletion consumables + exhaustion (PR3 — UNN-501). `Resources` holds the
+  // `used` counts (D26); `Exhaustion` is a separate durable level (D27).
+  resources: Resources
+  exhaustion: Exhaustion
 }
 
 /**
@@ -77,4 +90,5 @@ export interface ResolvedComponentRegistry {
   vitals: ResolvedVitals
   skillPool: ResolvedSkillPool
   resources: ResolvedResources
+  exhaustion: ResolvedExhaustion
 }

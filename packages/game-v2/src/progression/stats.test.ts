@@ -49,34 +49,39 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
   })
 })
 
-describe("computeMaxHP / computeMaxSP (base + progression layer + bonus, D37)", () => {
+describe("computeMaxHP / computeMaxSP (base + path/level layer + bonus, D37)", () => {
   const noBonus = emptyBonusPool()
 
   it("a PC folds base 0 + the path/level formula + the HP/SP bonus", () => {
     expect(
       computeMaxHP(
-        { level: 5, pathChoice: "health-focused" },
+        { value: 5 },
+        { choice: "health-focused" },
         { base: 0 },
-        {
-          ...noBonus,
-          hp: 3,
-        }
+        { ...noBonus, hp: 3 }
       )
     ).toBe(24 + 4 * 7 + 3) // 55
     expect(
       computeMaxSP(
-        { level: 10, pathChoice: "skill-focused" },
+        { value: 10 },
+        { choice: "skill-focused" },
         { base: 0 },
         noBonus
       )
     ).toBe(60 + 9 * 13) // 177
   })
 
-  it("an enemy (no Progression) folds its authored base + bonuses, no path layer", () => {
-    expect(computeMaxHP(undefined, { base: 100 }, { ...noBonus, hp: 10 })).toBe(
-      110
-    )
-    expect(computeMaxSP(undefined, { base: 30 }, noBonus)).toBe(30)
+  it("an enemy (Level but no Path) or shapechanged entity folds its authored base + bonuses, no path layer", () => {
+    // A Level without a Path adds no path layer — the authored base stands.
+    expect(
+      computeMaxHP(
+        { value: 8 },
+        undefined,
+        { base: 100 },
+        { ...noBonus, hp: 10 }
+      )
+    ).toBe(110)
+    expect(computeMaxSP(undefined, undefined, { base: 30 }, noBonus)).toBe(30)
   })
 })
 
@@ -149,35 +154,27 @@ describe("affinity resolution", () => {
     expect(resolveAffinity({ fire: "weak" }, "almighty")).toBe("neutral")
   })
 
-  describe("computeAffinityChart (override → strongest → archetype → base)", () => {
+  describe("computeAffinityChart (strongest candidate → form base)", () => {
     const base = { fire: "weak", ice: "resist" } as const
 
     it("fills every damage type, Almighty/uncharted Neutral", () => {
-      const chart = computeAffinityChart({}, undefined, [])
+      const chart = computeAffinityChart({}, [])
       expect(chart.fire).toBe("neutral")
       expect(chart.almighty).toBe("neutral")
       expect(Object.keys(chart)).toHaveLength(12)
     })
 
-    it("falls back to the entity base when no layer/candidate/override", () => {
-      expect(computeAffinityChart(base, undefined, []).fire).toBe("weak")
+    it("falls back to the form base when no candidate", () => {
+      expect(computeAffinityChart(base, []).fire).toBe("weak")
     })
 
-    it("the archetype layer overrides the entity base per charted type", () => {
-      expect(computeAffinityChart(base, { fire: "resist" }, []).fire).toBe(
-        "resist"
-      )
-    })
-
-    it("a granted candidate replaces the base", () => {
+    it("a granted candidate overrides the form base (later layer wins, D18)", () => {
       const candidate: AffinityEffect = {
         type: "affinity",
         damageTypes: ["fire"],
         affinity: "resist",
       }
-      expect(computeAffinityChart(base, undefined, [candidate]).fire).toBe(
-        "resist"
-      )
+      expect(computeAffinityChart(base, [candidate]).fire).toBe("resist")
     })
 
     it("picks the strongest candidate by priority (drain > repel > … > weak)", () => {
@@ -186,21 +183,7 @@ describe("affinity resolution", () => {
         { type: "affinity", damageTypes: ["fire"], affinity: "drain" },
         { type: "affinity", damageTypes: ["fire"], affinity: "null" },
       ]
-      expect(computeAffinityChart(base, undefined, candidates).fire).toBe(
-        "drain"
-      )
-    })
-
-    it("an override beats every candidate and layer, even Drain", () => {
-      const candidate: AffinityEffect = {
-        type: "affinity",
-        damageTypes: ["fire"],
-        affinity: "drain",
-      }
-      expect(
-        computeAffinityChart(base, undefined, [candidate], { fire: "weak" })
-          .fire
-      ).toBe("weak")
+      expect(computeAffinityChart(base, candidates).fire).toBe("drain")
     })
   })
 })

@@ -1014,6 +1014,82 @@ Cost: a PC's `Vitals`/`SkillPool` `base` is `0` (all of a PC's max comes from th
 progression layer) — mild, and the price of not reintroducing an optional
 `maxHP?` (D1).
 
+### D38 — A form-swap is a pure `Entity → Entity` merge, not a derived struct; `resolve` has no form concept · **Settled** · _refines D8/D18/D30_ · _PR3_
+
+The form layer (D8 L2) is realized as **`applyForm(entity, form): Entity`**, run
+**before** `resolve`. A form **is another entity's components** (`Entity["components"]`
+— a full-health creature), **not** a bespoke type. (Two structs were explored and
+rejected in PR3: an all-optional `Form` just re-skins `Partial<ComponentRegistry>` —
+the god-object D30 rejects — and a flattened `{ attributes, affinities, hp, sp }`
+additionally hard-codes that SP exists, so a no-SP boss form can't be expressed. A
+form *is* an entity; you merge two entities.)
+
+The merge overlays the form's components, then reconciles the fields a component
+bundles with different lifecycles:
+
+- **Depletion rides the entity, not the form** — `vitals`/`skillPool` take the form's
+  `base` (the new max) but keep the entity's `damage`/`spSpent`. Form-swap HP/SP
+  continuity (D9) falls out with no policy: _"the form is a full-health body; you
+  bring your wounds."_
+- **`archetypes.active` detaches** (the form replaces the active Archetype's statline)
+  while **`roster` survives** (Mastery still applies — its two contributions split on
+  active vs roster).
+- **`Path` drops** (the form's `base` _is_ the absolute max — no path layer to
+  double-count) while **`Level` is kept** (a transformed PC is still its true level —
+  Insta-Kill + dice read it; D39).
+
+`resolve` stays **one uniform fold with no form branch** — a natural and a
+shapechanged entity flow the same path; PR4 sources the form from the active
+form-swap Mechanic and calls `applyForm` first.
+
+**Override vs delta, concretely (D18):** override = `applyForm` (entity merge); delta
+= **effects** (the bonus-pool + affinity-candidate channels). A "partial / buff-style
+form" is therefore **not a form** — it's effects. And a form's affinities are a new
+**base** that later-layer candidates (equipment/passive/zone/mechanic) **override**,
+even to a weaker affinity (D18 later-wins) — so `computeAffinityChart` is
+`(base, candidates)`; the speculative `archetypeLayer`/`overrides` params were dropped
+(the archetype→base merge lives in the natural derivation; a true top-precedence
+override returns with the combat-overlay layer when it has a real caller).
+
+### D39 — Split `Progression` into `Level` (universal) + `Path` (PC-only); `Level` is a combatant stat · **Settled** · _revises D35_ · _PR3_
+
+Cohesion test — _"does every entity carrying this component use all of it?"_
+`Progression { level, pathChoice }` **fails**: `level` is **universal across
+combatants** (an enemy needs it for **Insta-Kill** — a target is immune when its
+Level ≥ the caster's), but `pathChoice` is **PC-only** (the HP/SP growth curve).
+Bundling forced an enemy to either fake a path or forgo a Level it needs.
+
+Split into **`Level { value }`** (universal; feeds Insta-Kill, dice maxima, and the
+path formula) + **`Path { choice }`** (PC-only). `computeMaxHP/SP(level, path, …)` add
+the path layer only when **both** are present; an enemy (Level, no Path) or a
+shapechanged entity uses its authored `base`. This also makes `applyForm`'s keep-Level
+/ drop-Path correct (D38) — the old "drop the whole Progression" wrongly erased a
+transformed PC's level. (Insta-Kill resolution + enemy Level _values_ are
+combat/catalog work, separate from this structural split.)
+
+### D40 — Component granularity by the cohesion test; resolved read-units gate on their own component · **Settled** · _refines D26_ · _PR3_
+
+The cohesion test (D39) is the standing rule for splitting vs bundling. Applied to
+the rest of the depletion model:
+
+- **`Resources { hitDiceUsed, skillDiceUsed, prismaUsed }` stays bundled** — it
+  _passes_ (a PC uses all three). The Dice/Prisma split (different derivation
+  lineage — dice ← `Level`, prisma ← the upgrade tree) is **deferred until the tree
+  makes the divergence load-bearing**: _split when the divergence is load-bearing,
+  not on anticipation._ Component **count** is not the risk (ECS embraces many small
+  components); the risks are unmotivated splits and unmanaged co-presence — the latter
+  handled by the entity factories acting as the PC "bundle."
+- **A resolved read-unit gates on its own authored component**, like `Vitals`/
+  `SkillPool` do — not on a sibling. Resolved dice gate on **`Resources`** (with
+  `Level` supplying the maxima), so a leveled entity _without_ a Resources component
+  resolves no dice, and a Resources component without a Level isn't silently dropped.
+  A dice-having entity therefore always carries a `Resources` component (full = zeros)
+  — the same invariant as always carrying `Vitals` with `damage: 0`.
+
+Aside (deferred, out of scope): `savedArchetypeRanks` is derivable
+(`2·level − Σ roster ranks`); store a non-derivable **`bonusRanks`** instead and
+derive the total.
+
 ## Validation outcome (D24)
 
 ### D24 — Design validated against the inventory; gaps scoped into 3 tiers · **Settled**

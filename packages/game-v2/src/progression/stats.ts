@@ -16,8 +16,9 @@ import {
   type PartialAffinityChart,
   type PathChoice,
 } from "@workspace/game-v2/kernel/vocab"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
-import type { Progression } from "@workspace/game-v2/progression/progression.schema"
+import type { Path } from "@workspace/game-v2/progression/path.schema"
 import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
@@ -138,7 +139,7 @@ export function manualBonusPool(manual: ManualBonuses): BonusPool {
 
 /**
  * Effective Attributes: the **sum of every source** (the entity base, the
- * archetype layer, the bonus pool, …), each Attribute clamped to [-7, +7] once
+ * Archetype layer, the bonus pool, …), each Attribute clamped to [-7, +7] once
  * **after** summing (C1). Variadic so `resolve` folds all the layers in a single
  * pass — a source need only carry the four Attribute keys ({@link BonusPool}'s
  * HP/SP are simply ignored here).
@@ -168,34 +169,33 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
 }
 
 /**
- * Effective **max HP** (D37): the entity's `Vitals.base` + the Progression
- * path/level layer (only when it carries `Progression`) + the HP bonus pool. A
- * PC's `base` is 0, so its maxHP is the path formula + bonuses; an enemy has an
- * authored `base` and no Progression layer, but still gets the bonuses.
+ * Effective **max HP** (D37): the entity's `Vitals.base` + the path/level layer
+ * (only when it carries **both** `Level` and `Path` — i.e. a PC) + the HP bonus
+ * pool. A PC's `base` is 0, so its maxHP is the path formula + bonuses; an enemy —
+ * or a shapechanged entity (`applyForm` drops `Path`) — carries an authored `base`
+ * and no path layer, but still gets the bonuses. The fold is uniform either way.
  *
  * Kept deliberately separate from {@link computeMaxSP} (no shared abstraction):
  * HP and SP share a shape today but are free to diverge.
  */
 export function computeMaxHP(
-  progression: Progression | undefined,
-  vitals: Vitals,
+  level: Level | undefined,
+  path: Path | undefined,
+  vitals: Pick<Vitals, "base">,
   pool: BonusPool
 ): number {
-  const layer = progression
-    ? pathMaxHP(progression.pathChoice, progression.level)
-    : 0
+  const layer = level && path ? pathMaxHP(path.choice, level.value) : 0
   return Math.round(vitals.base + layer + pool.hp)
 }
 
 /** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
 export function computeMaxSP(
-  progression: Progression | undefined,
-  skillPool: SkillPool,
+  level: Level | undefined,
+  path: Path | undefined,
+  skillPool: Pick<SkillPool, "base">,
   pool: BonusPool
 ): number {
-  const layer = progression
-    ? pathMaxSP(progression.pathChoice, progression.level)
-    : 0
+  const layer = level && path ? pathMaxSP(path.choice, level.value) : 0
   return Math.round(skillPool.base + layer + pool.sp)
 }
 
@@ -244,24 +244,18 @@ export function resolveAffinity(
 }
 
 /**
- * The resolved Affinity chart, folded in one pass over its layers — per damage
- * type: an `overrides` entry wins; else the strongest granted candidate (by
- * {@link AFFINITY_PRIORITY}); else the **base**, where `archetypeLayer` overrides
- * the entity `base` per charted type and absent/Almighty types are Neutral (D37).
- * Candidate effects come from the bonus sources (PR2 wires the context channel;
- * equipment/passive/mechanic join it in their PRs).
+ * The resolved Affinity chart, folded per damage type: the strongest granted
+ * **candidate** (by {@link AFFINITY_PRIORITY}) wins; else the **base** Affinity
+ * (absent/Almighty ⇒ Neutral). The base is the entity's authored chart merged
+ * per-type with its active Archetype — assembled inline in `resolve`; a form-swap
+ * replaces it before `resolve` (`applyForm`, D38). Candidates come from the later
+ * layers (zone now; equipment/passive/mechanic join in their PRs), which therefore
+ * **override** the base Affinity (D18 — later layers win).
  */
 export function computeAffinityChart(
   base: PartialAffinityChart,
-  archetypeLayer: PartialAffinityChart | undefined,
-  candidateEffects: readonly AffinityEffect[],
-  overrides?: Partial<Record<DamageType, Affinity>>
+  candidateEffects: readonly AffinityEffect[]
 ): AffinityChart {
-  // The archetype layer overrides the entity base per charted type (D37).
-  const merged: PartialAffinityChart = archetypeLayer
-    ? { ...base, ...archetypeLayer }
-    : base
-
   const candidatesByType = new Map<DamageType, Affinity[]>()
   for (const effect of candidateEffects) {
     for (const damageType of effect.damageTypes) {
@@ -273,13 +267,8 @@ export function computeAffinityChart(
 
   const chart = {} as AffinityChart
   for (const damageType of DAMAGE_TYPES) {
-    const override = overrides?.[damageType]
-    if (override !== undefined) {
-      chart[damageType] = override
-      continue
-    }
     const granted = strongest(candidatesByType.get(damageType) ?? [])
-    chart[damageType] = granted ?? resolveAffinity(merged, damageType)
+    chart[damageType] = granted ?? resolveAffinity(base, damageType)
   }
   return chart
 }

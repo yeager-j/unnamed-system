@@ -7,8 +7,11 @@ import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { affinitiesSchema } from "@workspace/game-v2/progression/affinities.schema"
 import { attributesSchema } from "@workspace/game-v2/progression/attributes.schema"
+import { levelSchema } from "@workspace/game-v2/progression/level.schema"
 import { manualBonusesSchema } from "@workspace/game-v2/progression/manual-bonuses.schema"
-import { progressionSchema } from "@workspace/game-v2/progression/progression.schema"
+import { pathSchema } from "@workspace/game-v2/progression/path.schema"
+import { exhaustionSchema } from "@workspace/game-v2/resources/exhaustion.schema"
+import { resourcesSchema } from "@workspace/game-v2/resources/resources.schema"
 import { skillPoolSchema } from "@workspace/game-v2/vitals/skill-pool.schema"
 import { vitalsSchema } from "@workspace/game-v2/vitals/vitals.schema"
 
@@ -39,9 +42,12 @@ const componentSchemas: ComponentSchemas = {
   affinities: affinitiesSchema,
   vitals: vitalsSchema,
   skillPool: skillPoolSchema,
-  progression: progressionSchema,
+  level: levelSchema,
+  path: pathSchema,
   manualBonuses: manualBonusesSchema,
   archetypes: archetypesSchema,
+  resources: resourcesSchema,
+  exhaustion: exhaustionSchema,
 }
 
 /**
