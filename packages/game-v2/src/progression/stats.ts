@@ -245,12 +245,12 @@ export function resolveAffinity(
 
 /**
  * The resolved Affinity chart, folded per damage type: the strongest granted
- * **candidate** (by {@link AFFINITY_PRIORITY}) wins; else the form's **base**
- * Affinity (absent/Almighty ⇒ Neutral). The base is the active
- * {@link import("./resolve").Form}'s chart (a PC's entity-base merged with its
- * Archetype, or a swapped form's), assembled in `naturalForm`; candidates come
- * from the later layers (zone now; equipment/passive/mechanic join in their PRs),
- * which therefore **override** the form's Affinity (D18 — later layers win).
+ * **candidate** (by {@link AFFINITY_PRIORITY}) wins; else the **base** Affinity
+ * (absent/Almighty ⇒ Neutral). The base is the entity's authored chart merged
+ * per-type with its active Archetype — assembled inline in `resolve`; a form-swap
+ * replaces it before `resolve` (`applyForm`, D38). Candidates come from the later
+ * layers (zone now; equipment/passive/mechanic join in their PRs), which therefore
+ * **override** the base Affinity (D18 — later layers win).
  */
 export function computeAffinityChart(
   base: PartialAffinityChart,
