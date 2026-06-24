@@ -6,6 +6,7 @@ import type {
   PartialAffinityChart,
   PathChoice,
 } from "@workspace/game-v2/kernel/vocab"
+import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 
 /**
@@ -59,6 +60,8 @@ export interface DerivedEntityOptions {
   }
   /** Authored Exhaustion level 0–6 (omit ⇒ no Exhaustion component). */
   exhaustion?: number
+  /** Authored per-mechanic state (omit ⇒ no Mechanics component). */
+  mechanics?: Mechanics["states"]
 }
 
 /**
@@ -79,6 +82,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
     spSpent = 0,
     resources,
     exhaustion,
+    mechanics,
   } = options
 
   return {
@@ -107,6 +111,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
       ...(exhaustion !== undefined
         ? { exhaustion: { level: exhaustion } }
         : {}),
+      ...(mechanics !== undefined ? { mechanics: { states: mechanics } } : {}),
     },
   }
 }
@@ -123,6 +128,12 @@ export interface FlatEntityOptions {
   damage?: number
   /** Authored SP depletion. Default 0 (full SP). */
   spSpent?: number
+  /**
+   * Authored per-mechanic state (omit ⇒ no Mechanics component). With no
+   * `Archetypes` layer present, every mechanic here is always-on (D36 — an enemy's
+   * Arcana-swap / mechanic needs no archetype gating).
+   */
+  mechanics?: Mechanics["states"]
 }
 
 /**
@@ -141,6 +152,7 @@ export function makeFlatEntity(options: FlatEntityOptions = {}): Entity {
     maxSP = 30,
     damage = 0,
     spSpent = 0,
+    mechanics,
   } = options
 
   return {
@@ -151,6 +163,7 @@ export function makeFlatEntity(options: FlatEntityOptions = {}): Entity {
       affinities: { base: affinities },
       vitals: { base: maxHP, damage },
       skillPool: { base: maxSP, spSpent },
+      ...(mechanics !== undefined ? { mechanics: { states: mechanics } } : {}),
     },
   }
 }

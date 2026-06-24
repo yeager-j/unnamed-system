@@ -1,9 +1,11 @@
 import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import type { ResolvedPendingEffects } from "@workspace/game-v2/combat/resolved"
 import type { Identity } from "@workspace/game-v2/kernel/identity.schema"
 import type {
   AffinityChart,
   AttributeScores,
 } from "@workspace/game-v2/kernel/vocab"
+import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
 import type { Affinities } from "@workspace/game-v2/progression/affinities.schema"
 import type { Attributes } from "@workspace/game-v2/progression/attributes.schema"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
@@ -71,6 +73,9 @@ export interface ComponentRegistry {
   // `used` counts (D26); `Exhaustion` is a separate durable level (D27).
   resources: Resources
   exhaustion: Exhaustion
+  // Per-mechanic persisted state (PR4 — UNN-502). A capability any entity may carry
+  // (D17/D36); `Archetypes.active` selects which is active at resolve time.
+  mechanics: Mechanics
 }
 
 /**
@@ -91,4 +96,8 @@ export interface ResolvedComponentRegistry {
   skillPool: ResolvedSkillPool
   resources: ResolvedResources
   exhaustion: ResolvedExhaustion
+  // Contextual delta effects collected by `resolve` (active mechanic now;
+  // equipment/passives later) that have no in-fold consumer — folded by the PR7
+  // attack-roll/damage resolvers against an attack context (PR4 — UNN-502).
+  pendingEffects: ResolvedPendingEffects
 }

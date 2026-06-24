@@ -1090,6 +1090,66 @@ Aside (deferred, out of scope): `savedArchetypeRanks` is derivable
 (`2·level − Σ roster ranks`); store a non-derivable **`bonusRanks`** instead and
 derive the total.
 
+### D41 — `resolve` stays mechanics-agnostic; a composition-tier `resolveEntity` maps the active mechanic · **Settled** · _corrects D36/D17_ · _PR4_
+
+D36's "`resolve` maps active → its mechanic → reads `Mechanics.states`" and D17/§2.8's
+"`resolve` consults `getMechanic(key).transform`" are superseded. `resolve`
+(`progression/`) is a **pure fold over `(entity, { effects })` with no mechanics
+import**; a package-root **`resolveEntity`** (`resolve-entity.ts`) reads the active
+mechanic(s) via `getActiveMechanics`, merges any form via `applyForm` **before**
+`resolve`, prepends the mechanics' `effects()` to the context, and calls `resolve`.
+This keeps a one-way **`mechanics → progression`** dependency (mechanics builds on the
+derive base, never the reverse) and extends D38's "form is a pre-`resolve` transform,
+`resolve` has no form branch" to **effects** too: `resolve` is the agnostic fold; the
+mechanic→contribution mapping is the composition tier's job. The active mechanic is
+gated on **`Archetypes` presence, not kind** (D36 realized): a PC uses its active
+Archetype's mechanic; an entity with no `Archetypes` (enemy/NPC) has **every** carried
+mechanic on (`getActiveMechanics` returns 0..n).
+
+### D42 — `resolve` surfaces a `pendingEffects` read-unit for the deferred attack-roll/damage resolvers · **Settled** · _refines D30/D40_ · _PR4_
+
+The combat-mechanics annotation flagged the attack-roll and damage resolvers as
+unhomed (GAP 1–2); PR4 homes their **producer**. `resolve` partitions context effects
+by kind — attribute/affinity consumed in-fold into resolved `attributes`/`affinities`,
+while attack-roll/damage effects (contextual: their `when` filter resolves against a
+specific attack at use time) are carried untouched in a presence-gated
+**`pendingEffects { attackRoll, damage }`** read-unit (`combat/resolved.ts`, per D40)
+for the PR7 (UNN-505) resolvers. Split-by-kind guarantees each effect lands in exactly
+one bucket, so affinity/attribute are never double-counted against the pending one. The
+**consumer** (the resolver pipelines, GAP 1–3) stays PR7 work.
+
+### D43 — Form-swap mechanic contract: `activeForm?(state)`; form-DATA home deferred · **Settled (seam) / Open (data home)** · _refines D38_ · _PR4_
+
+D38's "PR4 sources the form from the active form-swap Mechanic" is realized as a
+**no-deps** `MechanicDefinition.activeForm?(state): Entity["components"] | null`
+returning a component bag, fed to `applyForm` by `applyActiveForm` before `resolve`
+(no MVP mechanic declares one; the Shapechanger Lineage will). PR4 freezes **only this
+seam** and deliberately decides nothing about where real form **data** lives —
+engine-owned (like the enchantment definitions) vs a `getForm` `GameData` port — an
+**open question (O19)** tied to D11's "forms = authored TS catalog," to settle when the
+first real form-swap mechanic ships.
+
+### D44 — v1's `MechanicDefinition.transform` is dropped, not carried into v2 · **Settled** · _corrects D17/§2.8; supersedes inventory G6/G7_ · _PR4_
+
+D17/§2.8 had `resolve` consult `getMechanic(key).transform(state, ctx)` and the
+requirements inventory tagged the field PRESERVE (G6/G7) — PR4 **removes** it. D38
+supersedes the override path (`applyForm`, a pre-`resolve` entity merge), the delta path
+is `effects()`, and v2 has no `StatContext` for a slice-rewrite to return (D34/D37). The
+`MechanicDefinition` contract is **`effects?` + `activeForm?` + `resetOn` only** —
+matching the inventory's own finding that no MVP mechanic ever used `transform`.
+
+### D45 — Affinity resolution is strongest-wins (base included), not later-layer-wins · **Settled** · _supersedes D18 for affinities_ · _PR4_
+
+D18's "override = later layer wins" holds for a form's wholesale affinity-**base** swap
+(`applyForm`), but the affinity-**effect candidate** channel resolves differently:
+`computeAffinityChart` folds the **strongest** affinity (by the fixed priority Drain >
+Repel > Null > Resist > Neutral > Weak) among the **base and every contributed
+candidate**. So a weaker contributed affinity never downgrades a stronger innate/base
+one (an innate Null is kept over a gear Resist; a Weak base is upgraded by a Resist),
+and candidate **order is inert**. Game-design call — no cursed/weakening sources exist
+yet (YAGNI); if they ship, that's where the rule grows. (Implementation: the base
+participates in the `strongest()` comparison; was previously only a fallback.)
+
 ## Validation outcome (D24)
 
 ### D24 — Design validated against the inventory; gaps scoped into 3 tiers · **Settled**
@@ -1148,3 +1208,8 @@ each lives in its decision entry above.
   object-shaped (no owner-as-player, no level). Catalog-style authored data vs a
   `kind: "object"` durable `entity` row? The entity table already tolerates the
   latter (null level). Decide if/when the feature lands — premature now.
+- **O19 — form-swap mechanic's form-DATA home** (new, PR4 — see D43). The
+  `activeForm` seam is settled; where real form data lives — engine-owned (like the
+  enchantment defs) vs a `getForm` `GameData` port, in tension with D11's "forms =
+  authored TS catalog" — is deferred to the first real form-swap mechanic
+  (Shapechanger).

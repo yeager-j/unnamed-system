@@ -2,6 +2,7 @@ import type {
   AttributeKey,
   AttributeScores,
   Lineage,
+  MechanicKind,
   PartialAffinityChart,
 } from "@workspace/game-v2/kernel/vocab"
 
@@ -30,6 +31,14 @@ export interface ArchetypeBase {
   affinities: PartialAffinityChart
   mastery: Mastery
   lineage: Lineage
+  /**
+   * The unique mechanic this Archetype owns, if any (D36) — the key `resolve`
+   * maps an active Archetype to before reading the entity's `Mechanics.states`.
+   * `MechanicKind` is neutral kernel vocab (not the `mechanics/` sibling), so this
+   * widening introduces no `archetypes ↔ mechanics` cycle. Optional: an Archetype
+   * may carry no mechanic.
+   */
+  mechanic?: MechanicKind
 }
 
 /**

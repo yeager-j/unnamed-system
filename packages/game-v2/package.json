@@ -27,8 +27,13 @@
     "./vitals/*": "./src/vitals/*.ts",
     "./resources": "./src/resources/index.ts",
     "./resources/*": "./src/resources/*.ts",
+    "./mechanics": "./src/mechanics/index.ts",
+    "./mechanics/*": "./src/mechanics/*.ts",
+    "./combat": "./src/combat/index.ts",
+    "./combat/*": "./src/combat/*.ts",
     "./catalog": "./src/catalog/index.ts",
-    "./composition": "./src/composition.ts"
+    "./composition": "./src/composition.ts",
+    "./resolve-entity": "./src/resolve-entity.ts"
   },
   "dependencies": {
     "zod": "^3.25.76"

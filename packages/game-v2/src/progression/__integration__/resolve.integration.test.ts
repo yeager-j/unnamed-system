@@ -76,7 +76,7 @@ describe("createResolve — base layer over a derived PC entity", () => {
     })
 
     const resolved = resolve(entity, {
-      zoneEffects: [
+      effects: [
         { type: "attribute", target: "magic", amount: 3 },
         { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
       ],
@@ -111,17 +111,17 @@ describe("createResolve — base layer over a derived PC entity", () => {
     })
 
     const resolved = resolve(enemy, {
-      zoneEffects: [
+      effects: [
         { type: "attribute", target: "strength", amount: 2 },
         { type: "attribute", target: "hp", amount: 10 },
-        { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
+        { type: "affinity", damageTypes: ["fire"], affinity: "null" },
       ],
     })
 
     expect(resolved.components.attributes?.strength).toBe(6) // authored 4 + zone 2
     expect(resolved.components.vitals?.maxHP).toBe(110) // authored 100 + zone 10
     expect(resolved.components.skillPool?.maxSP).toBe(30) // no SP effect
-    expect(resolved.components.affinities?.fire).toBe("weak") // candidate beats authored resist
+    expect(resolved.components.affinities?.fire).toBe("null") // stronger candidate applies over authored resist
     // No Progression ⇒ no dice maxima.
     expect(resolved.components.resources).toBeUndefined()
   })
@@ -224,17 +224,28 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
     expect(resolved.components.affinities?.fire).toBe("weak")
   })
 
-  it("a candidate (zone/equipment) overrides a form's affinity — even to a weaker one (D18 later wins)", () => {
+  it("a candidate overrides a form's affinity only when stronger (strongest-wins, UNN-502)", () => {
     const entity = makeDerivedEntity({ active: "warden" })
-    const resolved = resolve(
+    // a stronger candidate upgrades the form's affinity
+    const upgraded = resolve(
+      applyForm(entity, { ...bear, affinities: { base: { fire: "resist" } } }),
+      {
+        effects: [
+          { type: "affinity", damageTypes: ["fire"], affinity: "drain" },
+        ],
+      }
+    )
+    expect(upgraded.components.affinities?.fire).toBe("drain")
+    // a weaker candidate does NOT downgrade the form's affinity
+    const kept = resolve(
       applyForm(entity, { ...bear, affinities: { base: { fire: "drain" } } }),
       {
-        zoneEffects: [
+        effects: [
           { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
         ],
       }
     )
-    expect(resolved.components.affinities?.fire).toBe("weak")
+    expect(kept.components.affinities?.fire).toBe("drain")
   })
 
   it("form-swap continuity: damage/spSpent carry over; current reconciles against the new max (D9)", () => {

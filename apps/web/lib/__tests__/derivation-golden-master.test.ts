@@ -214,7 +214,7 @@ function v2Numbers(
   }
   const { resolve } = createGameEngine(makeV2GameData(archetypes))
   return resolve(rawInputsToEntity(raw), {
-    zoneEffects: spec.contextEffects ?? [],
+    effects: spec.contextEffects ?? [],
   }).components
 }
 
@@ -269,7 +269,7 @@ function v2WithDepletion(
     base: 0,
     spSpent: hydrated.maxSP - hydrated.currentSP,
   }
-  return resolve(entity, { zoneEffects: spec.contextEffects ?? [] }).components
+  return resolve(entity, { effects: spec.contextEffects ?? [] }).components
 }
 
 const DEPLETION_SCENARIOS: ReadonlyArray<{
