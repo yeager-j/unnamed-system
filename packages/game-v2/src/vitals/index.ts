@@ -1,3 +1,4 @@
+export * from "./derive"
 export * from "./operations"
 export * from "./resolved"
 export * from "./skill-pool.schema"

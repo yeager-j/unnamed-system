@@ -20,6 +20,8 @@ import { config } from "@workspace/eslint-config/base"
  */
 const DOMAIN_FOLDERS = [
   "vitals",
+  "attributes",
+  "affinities",
   "progression",
   "archetypes",
   "skills",

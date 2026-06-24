@@ -6,7 +6,7 @@ import type { CombatantEffect } from "@workspace/game-v2/kernel"
 import {
   makeArchetype as makeV2Archetype,
   makeTestGameData as makeV2GameData,
-} from "@workspace/game-v2/progression/__fixtures__/derive"
+} from "@workspace/game-v2/resolve/__fixtures__/derive"
 import { isFallen as v2IsFallen } from "@workspace/game-v2/vitals/operations"
 import { deriveHydratedCharacter } from "@workspace/game/engine"
 import { makeArchetype as makeV1Archetype } from "@workspace/game/engine/__fixtures__/archetypes"

@@ -7,9 +7,9 @@ import {
 import {
   makeDerivedEntity,
   makeTestGameData,
-} from "@workspace/game-v2/progression/__fixtures__/derive"
-import { createResolve } from "@workspace/game-v2/progression/resolve"
-import { applyActiveForm } from "@workspace/game-v2/resolve-entity"
+} from "@workspace/game-v2/resolve/__fixtures__/derive"
+import { createResolve } from "@workspace/game-v2/resolve/resolve"
+import { applyActiveForm } from "@workspace/game-v2/resolve/resolve-entity"
 
 /**
  * The form-swap SEAM (UNN-502 / D38): a form-swap mechanic's `activeForm` →

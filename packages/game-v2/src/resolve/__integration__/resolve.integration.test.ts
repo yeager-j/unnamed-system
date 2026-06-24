@@ -6,11 +6,8 @@ import {
   makeDerivedEntity,
   makeFlatEntity,
   makeTestGameData,
-} from "@workspace/game-v2/progression/__fixtures__/derive"
-import {
-  applyForm,
-  createResolve,
-} from "@workspace/game-v2/progression/resolve"
+} from "@workspace/game-v2/resolve/__fixtures__/derive"
+import { applyForm, createResolve } from "@workspace/game-v2/resolve/resolve"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
 /**

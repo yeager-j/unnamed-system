@@ -1,3 +1,4 @@
+export * from "./derive"
 export * from "./exhaustion-table"
 export * from "./exhaustion.schema"
 export * from "./operations"

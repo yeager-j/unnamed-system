@@ -1,25 +1,30 @@
 import {
-  type AffinityEffect,
+  affinityEffectChart,
+  computeAffinityChart,
+} from "@workspace/game-v2/affinities/derive"
+import { masteryBonuses } from "@workspace/game-v2/archetypes/mastery"
+import {
+  attributeEffectBonuses,
+  computeAttributes,
+} from "@workspace/game-v2/attributes/derive"
+import {
+  sumBonuses,
+  type BonusPool,
+} from "@workspace/game-v2/kernel/bonus-pool"
+import {
   type AttackRollEffect,
   type CombatantEffect,
   type DamageEffect,
 } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import { manualBonusPool } from "@workspace/game-v2/progression/manual-bonuses"
 import {
-  attributeEffectBonuses,
-  computeAffinityChart,
-  computeAttributes,
   computeMaxHitDice,
-  computeMaxHP,
   computeMaxSkillDice,
-  computeMaxSP,
-  manualBonusPool,
-  masteryBonuses,
-  sumBonuses,
-  type BonusPool,
-} from "@workspace/game-v2/progression/stats"
+} from "@workspace/game-v2/resources/derive"
 import { getExhaustionLevel } from "@workspace/game-v2/resources/exhaustion-table"
+import { computeMaxHP, computeMaxSP } from "@workspace/game-v2/vitals/derive"
 
 /**
  * Off-entity inputs to a resolve (encounter-scoped). Defaults are inert, so an
@@ -30,16 +35,12 @@ export interface ResolveContext {
    * Delta effects to fold on top of the entity's intrinsic stats — the active
    * mechanic's `effects()`, a Zone Enchantment, equipment/passives (their PRs).
    * `resolve` is the agnostic fold: it partitions these by kind — attribute → the
-   * bonus pool, affinity → the override candidates, attack-roll/damage → the
+   * bonus pool, affinity → a chart source, attack-roll/damage → the
    * `pendingEffects` read-unit (no in-fold consumer yet). Callers that need the
    * active mechanic folded in use `resolveEntity` (mechanics/), which assembles
    * this list; bare `resolve` stays pure over the entity + whatever it's handed.
    */
   effects?: readonly CombatantEffect[]
-}
-
-function isAffinityEffect(effect: CombatantEffect): effect is AffinityEffect {
-  return effect.type === "affinity"
 }
 
 function isAttackRollEffect(
@@ -101,7 +102,6 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       manualBonusPool(manualBonuses ?? {}),
       attributeEffectBonuses(effects)
     )
-    const candidates = effects.filter(isAffinityEffect)
 
     const components: ResolvedEntity["components"] = {}
 
@@ -115,12 +115,13 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     }
 
     if (affinities) {
-      // The intrinsic chart (entity base merged per-type with the active Archetype)
-      // plus the contributed candidates, resolved per type by strongest-wins — a
-      // stronger base affinity is not downgraded by a weaker candidate (UNN-502).
+      // The entity base, the active Archetype layer, and the effect-derived chart,
+      // folded per type by strongest-wins — a stronger affinity from any source is
+      // not downgraded by a weaker one (UNN-502). Mirrors the attributes fold above.
       components.affinities = computeAffinityChart(
-        { ...affinities.base, ...activeArchetypeBase?.affinities },
-        candidates
+        affinities.base,
+        activeArchetypeBase?.affinities,
+        affinityEffectChart(effects)
       )
     }
 

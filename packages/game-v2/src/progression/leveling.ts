@@ -2,7 +2,7 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   computeMaxHitDice,
   computeMaxSkillDice,
-} from "@workspace/game-v2/progression/stats"
+} from "@workspace/game-v2/resources/derive"
 
 /**
  * Level-up resolution, re-homed from v1 (`engine/character/leveling.ts`):
