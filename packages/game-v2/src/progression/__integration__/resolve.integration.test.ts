@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import type { Entity } from "@workspace/game-v2/kernel/entity"
 import {
   makeArchetype,
   makeDerivedEntity,
@@ -9,7 +10,6 @@ import {
 import {
   applyForm,
   createResolve,
-  type FormStatblock,
 } from "@workspace/game-v2/progression/resolve"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
@@ -184,11 +184,12 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
   })
   const resolve = createResolve(data)
 
-  const bear: FormStatblock = {
-    attributes: { strength: 3, magic: 3, agility: 3, luck: 3 },
-    affinities: { fire: "weak" },
-    hp: 120,
-    sp: 40,
+  // A form is just another entity's components — a full-health creature.
+  const bear: Entity["components"] = {
+    attributes: { base: { strength: 3, magic: 3, agility: 3, luck: 3 } },
+    affinities: { base: { fire: "weak" } },
+    vitals: { base: 120, damage: 0 },
+    skillPool: { base: 40, spSpent: 0 },
   }
 
   it("replaces the active Archetype's statline but keeps Mastery (roster survives)", () => {
@@ -209,7 +210,7 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
   it("a candidate (zone/equipment) overrides a form's affinity — even to a weaker one (D18 later wins)", () => {
     const entity = makeDerivedEntity({ active: "warden" })
     const resolved = resolve(
-      applyForm(entity, { ...bear, affinities: { fire: "drain" } }),
+      applyForm(entity, { ...bear, affinities: { base: { fire: "drain" } } }),
       {
         zoneEffects: [
           { type: "affinity", damageTypes: ["fire"], affinity: "weak" },
@@ -247,8 +248,31 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
 
   it("a form whose maxHP drops below the constant damage Falls the entity (no special case)", () => {
     const entity = makeDerivedEntity({ damage: 25 })
-    const tiny = resolve(applyForm(entity, { ...bear, hp: 20 })) // 20 − 25 floors to 0
+    // 20 − 25 floors to 0
+    const tiny = resolve(
+      applyForm(entity, { ...bear, vitals: { base: 20, damage: 0 } })
+    )
     expect(tiny.components.vitals).toEqual({ maxHP: 20, currentHP: 0 })
     expect(isFallen(tiny.components.vitals!)).toBe(true)
+  })
+
+  it("a form may omit SP — a no-SP creature resolves no SkillPool (the boss case)", () => {
+    // An SP-less entity in an SP-less form: skillPool is simply absent, no flattened
+    // `{ hp, sp }` forcing it to exist.
+    const golemEntity: Entity = {
+      id: "golem",
+      components: {
+        identity: { name: "Golem" },
+        attributes: { base: { strength: 5, magic: 0, agility: 0, luck: 0 } },
+        vitals: { base: 200, damage: 0 },
+      },
+    }
+    const golemForm: Entity["components"] = {
+      attributes: { base: { strength: 8, magic: 0, agility: 0, luck: 0 } },
+      vitals: { base: 250, damage: 0 },
+    }
+    const resolved = resolve(applyForm(golemEntity, golemForm))
+    expect(resolved.components.vitals).toEqual({ maxHP: 250, currentHP: 250 })
+    expect(resolved.components.skillPool).toBeUndefined()
   })
 })

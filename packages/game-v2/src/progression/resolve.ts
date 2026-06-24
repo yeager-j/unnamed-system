@@ -4,10 +4,6 @@ import {
 } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import type {
-  AttributeScores,
-  PartialAffinityChart,
-} from "@workspace/game-v2/kernel/vocab"
 import {
   attributeEffectBonuses,
   computeAffinityChart,
@@ -154,45 +150,35 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
 }
 
 /**
- * A **form statblock** (D8 layer 2) — the complete intrinsic stats of a swapped
- * form (Shapechanger's bear, Nyx's Arcana). A form is a *full creature*, so it
- * carries its own Attributes, Affinity chart, and HP/SP maxima; it does **not**
- * carry depletion (that rides the durable entity) or rest resources (those belong
- * to the true self). PR4 sources this from the active form-swap Mechanic's catalog
- * definition; PR3 fixture-tests the merge.
- */
-export interface FormStatblock {
-  attributes: AttributeScores
-  affinities: PartialAffinityChart
-  hp: number
-  sp: number
-}
-
-/**
- * The **form layer** as a pure `Entity → Entity` transform (D8 layer 2): overlay a
- * form's statblock onto an entity, producing the effective entity a normal
- * `resolve` then derives — "the base is a form; a form-swap provides a new base."
+ * The **form layer** (D8 layer 2) as a literal merge of two entities' components —
+ * the swapped form (Shapechanger's bear, Nyx's Arcana) is itself just an entity's
+ * component bag (`Entity["components"]`), authored at full health like any creature.
+ * There is **no bespoke form struct**: a form carries exactly the capability
+ * components it has, so a creature with no SP simply omits `skillPool` (no flattened
+ * `{ hp, sp }` forcing pools to exist). PR4 sources the form from the active
+ * form-swap Mechanic's catalog definition; PR3 fixture-tests the merge.
  *
- * The merge is **field-level** where a component bundles a base with depletion:
- * `vitals`/`skillPool` take the form's `base` (the new max) but keep the entity's
- * `damage`/`spSpent`, so spends carry across forms and `currentHP`/`currentSP`
- * reconcile against the new max with no policy (D9). `archetypes.active` is detached
- * (the form replaces the active Archetype's statline) while `roster` survives (so
- * Mastery still applies), and `progression` is dropped (the form's `base` *is* the
- * absolute max — no path layer to double-count; the true self's dice don't resolve
- * while transformed). Only capabilities the entity already carries are touched.
+ * The merge overlays the form's components onto the entity's, then reconciles the
+ * parts a component bundles with different lifecycles:
+ * - **Depletion rides the entity, not the form.** A form's `vitals`/`skillPool`
+ *   carry a `base` (the new max) at full health; the entity's `damage`/`spSpent` are
+ *   grafted back on, so spends carry across forms and `currentHP`/`currentSP`
+ *   reconcile against the new max with no policy (D9) — "the form is a full-health
+ *   body; you bring your wounds."
+ * - **`archetypes.active` detaches** (the form replaces the active Archetype's
+ *   statline) while `roster` survives (so Mastery still applies).
+ * - **`progression` is dropped** (the form's `base` *is* the absolute max — no path
+ *   layer to double-count; the true self's dice don't resolve while transformed).
  */
-export function applyForm(entity: Entity, form: FormStatblock): Entity {
-  const components: Entity["components"] = { ...entity.components }
-  delete components.progression
+export function applyForm(entity: Entity, form: Entity["components"]): Entity {
+  const damage = entity.components.vitals?.damage ?? 0
+  const spSpent = entity.components.skillPool?.spSpent ?? 0
 
-  if (components.attributes) components.attributes = { base: form.attributes }
-  if (components.affinities) components.affinities = { base: form.affinities }
-  if (components.vitals) {
-    components.vitals = { ...components.vitals, base: form.hp }
-  }
+  const components: Entity["components"] = { ...entity.components, ...form }
+  delete components.progression
+  if (components.vitals) components.vitals = { ...components.vitals, damage }
   if (components.skillPool) {
-    components.skillPool = { ...components.skillPool, base: form.sp }
+    components.skillPool = { ...components.skillPool, spSpent }
   }
   if (components.archetypes) {
     components.archetypes = { ...components.archetypes, active: null }
