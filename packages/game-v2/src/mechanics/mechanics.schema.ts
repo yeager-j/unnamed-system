@@ -60,13 +60,24 @@ void _stateKindsCoverVocab
  * **Partial** by design — a key is present only when the entity owns that mechanic
  * (presence = ownership, like every capability, D3). A read path coerces an
  * absent-but-owned mechanic to its `initialState()` via
- * {@link import("./registry").initialStateFor} without persisting one. The record
- * value is the discriminated {@link mechanicStateSchema}; the load seam validates
- * it, so `states[k].kind === k` is an authoring invariant, not enforced here.
+ * {@link import("./registry").initialStateFor} without persisting one.
+ *
+ * The record value is the discriminated {@link mechanicStateSchema}, which alone
+ * can't guarantee the stored state matches its record **key** — so this seam also
+ * enforces **`states[k].kind === k`** (F6: the one place shape becomes trustworthy).
+ * Without it a corrupted/hand-edited row like `{ valor: { kind: "perfection", … } }`
+ * would validate, then pair valor's behavior with perfection's state downstream.
  */
 export const mechanicsSchema = z.object({
   states: z
     .partialRecord(z.enum(MECHANIC_KINDS), mechanicStateSchema)
+    .refine(
+      (states) =>
+        Object.entries(states).every(
+          ([key, state]) => !state || state.kind === key
+        ),
+      { message: "each mechanic state's `kind` must match its record key" }
+    )
     .default({}),
 })
 

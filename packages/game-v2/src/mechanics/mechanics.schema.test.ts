@@ -92,4 +92,12 @@ describe("mechanicsSchema", () => {
       }).success
     ).toBe(false)
   })
+
+  it("rejects a state whose `kind` doesn't match its record key (F6 seam invariant)", () => {
+    expect(
+      mechanicsSchema.safeParse({
+        states: { valor: { kind: "perfection", rank: 3 } },
+      }).success
+    ).toBe(false)
+  })
 })
