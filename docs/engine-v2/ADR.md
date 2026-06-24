@@ -74,7 +74,7 @@ a jsonb-loaded entity is narrowed at runtime (D4). The `guard` checks component
 **presence**, not shape; **shape is validated once at the load seam** (Zod per
 component on deserialization), so presence-guarding downstream is sound (F6).
 
-### 2.2 Component catalog, by lifecycle (O1, refined by D13/D19/D25/D26/D27/D29)
+### 2.2 Component catalog, by lifecycle (O1, refined by D13/D19/D25/D26/D27/D29/D39/D40)
 
 **Lifecycle is the organizing axis** — it determines where a component is stored
 and whether combat clears it.
@@ -92,7 +92,8 @@ and whether combat clears it.
 | **Mechanics**                                 | `{ states: Record<MechanicKey, MechanicState> }`                   | runtime transforms                          | durable                                                           |
 | **Equipment**                                 | `{ slots / items }`                                                | wields/wears                                | durable                                                           |
 | **Archetypes**                                | `{ active; origin; roster: [{ key; rank; inheritanceSlots }] }`    | archetype roster + inheritance config (D36) | durable (PC)                                                      |
-| **Progression**                               | `{ level; pathChoice }`                                            | derive inputs (presence ⇒ derived)          | durable (`level` also a column)                                   |
+| **Level**                                     | `{ value }` (1–30)                                                | combatant level — Insta-Kill, dice, path (D39) | durable (`level` also a column)                                |
+| **Path**                                      | `{ choice }`                                                      | PC HP/SP growth curve (D39)                  | durable (PC)                                                      |
 | **ManualBonuses**                             | `{ … }` (sparse)                                                   | derive input                                | durable                                                           |
 | **Allegiance**                                | `{ side }`                                                         | combat membership                           | encounter-overlay                                                 |
 | **TurnState**                                 | `{ movesUsed; standardsUsed; reactionsUsed; turnsTakenThisRound }` | acts in initiative                          | encounter-overlay                                                 |
@@ -109,7 +110,7 @@ Each **derivable** capability carries a **`base`** — the entity's intrinsic fl
 zeros/neutral/0 for a PC (its real values come from layers), the authored value for
 an enemy. `resolve` is then **one uniform fold for every entity** (D37): `base` →
 **layers, applied iff their component is present** (`Archetypes` → archetype
-attributes/affinities; `Progression` → the path/level HP/SP formula) → **effects**
+attributes/affinities; `Level` + `Path` → the path/level HP/SP formula, D39) → **effects**
 (zone/mechanic/equipment/passive/manual/mastery) → clamp. There is **no
 `StatProfile` aggregate** (D34) and **no per-capability `source`/`MaxSource`** (D37,
 correcting D34): a `source: derived | flat` tag was redundant with component
@@ -117,8 +118,9 @@ presence (D35) _and_ forked the fold so a `flat` enemy was immune to effects.
 PCs and enemies differ only by which components they carry; maxHP lives on `Vitals`,
 maxSP on `SkillPool` (presence is the capability — no optional `maxSP?`), and Skills
 is its own component, not a "stat." A form swap **overrides** these per-capability
-components from its catalog definition; the swap-bundle cohesion lives in the form
-definition, not a component.
+components — and it does so as a pure `Entity → Entity` merge run _before_ `resolve`
+(`applyForm`, D38): a form _is_ another entity's components, so there is no form
+struct and `resolve` keeps no form branch.
 
 **Column vs component is a storage projection, not a runtime concept** (D35). At
 runtime the entity _is_ its components; `id` is the only top-level field. The rule:
@@ -126,11 +128,11 @@ runtime the entity _is_ its components; `id` is the only top-level field. The ru
 - **column only** — app/query metadata no engine fn reads (`shortId`, `ownerId`,
   `campaignId`, `status`).
 - **column + lifted into a component at load** — engine-read _and_ queryable
-  (`level` → `Progression`).
+  (`level` → `Level`, D39).
 - **component (jsonb) only** — engine-read, not queried (`pathChoice`,
   `manualBonuses`, `damage`, mechanic state).
 
-So `resolve` reads `entity.components.progression.level`, never a top-level
+So `resolve` reads `entity.components.level.value`, never a top-level
 `entity.level`; the column is just the queryable storage form (D11 projection).
 Rule of thumb (D13): _anything that must survive a form swap is its own component —
 never an overridden capability._
@@ -160,13 +162,15 @@ target authored components then re-resolve. Layers:
 
 1. **Base capabilities** — each derivable component's authored `base` (D37): zeros/
    neutral/0 for a PC, the authored value for an enemy. Then `Archetypes`-present
-   contributes the archetype's attributes/affinities and `Progression`-present
-   contributes the path/level HP/SP formula — _layers keyed on component presence_,
+   contributes the archetype's attributes/affinities and `Level` + `Path`-present
+   contribute the path/level HP/SP formula — _layers keyed on component presence_,
    not a `source` tag. This is what collapses the two `statblockFrom*` functions into
    one uniform path — no `StatProfile` aggregate, no per-capability `source`.
-2. **Active form / Arcana** — when a form-swap Mechanic is active, _overrides_ the
-   base capabilities (attributes/affinities/skills/`vitals` max/natural attack) from
-   the form's catalog definition. The form swap touches **only this layer**.
+2. **Active form / Arcana** — _not an in-fold layer but a pre-`resolve` transform_
+   (D38): when a form-swap Mechanic is active, `applyForm` merges the form's
+   components onto the entity (depletion grafted back, `archetypes.active` detached,
+   `Path` dropped / `Level` kept), and `resolve` then folds the merged entity. A form
+   _is_ another entity's components — no form struct, no form branch in `resolve`.
 3. **Inheritance** — inherited skills (slots read from `Archetypes`, D36) pass
    through a form **fully** (D19).
 4. **Equipment** — granted skills + passive bonuses pass through **fully**; only the
@@ -175,10 +179,12 @@ target authored components then re-resolve. Layers:
 6. **Combat overlay** — ailments/battle conditions; temporary, applied last.
 
 Transforms are **override** (later layer wins — affinity/skill/maxHP swaps) or
-**delta** (additive — buffs). Whether a specific buff stacks/caps is an
-**effect-data rule**, not engine logic, keeping resolution deterministic (D18).
-Shapechanger and Nyx are the _same_ code path — only the base layer's `source`
-differs.
+**delta** (additive — buffs). Concretely (D38): **override = `applyForm`** (the
+pre-`resolve` entity merge); **delta = effects** (the bonus-pool + affinity-candidate
+channels) — so a buff is an effect, not a form. Whether a specific buff stacks/caps
+is an **effect-data rule**, not engine logic, keeping resolution deterministic (D18).
+Shapechanger and Nyx are the _same_ code path — both are an `applyForm` merge feeding
+one uniform `resolve` (no `source` fork; D37).
 
 ### 2.4 Vitals as depletion (D9, D10, D26)
 
