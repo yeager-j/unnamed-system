@@ -873,6 +873,16 @@ game-v2/src/
 > is the dependency sink that may not import a domain. `resolve/` reconciles the pure
 > base fold with the mechanic-aware `resolveEntity` (lifted to the package root in
 > UNN-502) into one coherent home.
+>
+> One **deliberate** consequence: `computeAffinityChart` became variadic over chart
+> sources (`base`, archetype, effect-chart), so the entity base and active Archetype
+> now fold by strongest-wins like every other source — where they previously merged by
+> object-override (archetype-wins) *before* competing with effects. This is consistent
+> with UNN-502's "strongest-wins, base included" rule and unobservable today (PCs author
+> an empty `affinities.base`; enemies carry no Archetype, so the two never co-occur).
+> It **becomes observable** once an entity can carry both layers — e.g. an archetyped
+> enemy with an authored base chart; that is the intended strongest-wins behavior, not a
+> regression.
 
 **One folder per PR** — the cohesion signal that this is the right cut. Set in PR1
 (UNN-499).
