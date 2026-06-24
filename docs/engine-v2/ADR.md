@@ -89,7 +89,7 @@ and whether combat clears it.
 | **Skills**                                    | own component / resolved output (not a "stat")                     | grants skills                               | durable                                                           |
 | **Resources**                                 | `{ hitDiceUsed; skillDiceUsed; prismaUsed }`                       | consumable spend-pools                      | durable                                                           |
 | **Exhaustion**                                | `{ level }` (0–6)                                                  | —                                           | durable (separate from Resources — a level, not a spend-pool; F5) |
-| **Mechanics**                                 | `{ states: Record<MechanicKey, MechanicState> }`                   | runtime transforms                          | durable                                                           |
+| **Mechanics**                                 | `{ states: Record<MechanicKey, MechanicState> }`                   | runtime form + effects contributions (D41/D43) | durable                                                        |
 | **Equipment**                                 | `{ slots / items }`                                                | wields/wears                                | durable                                                           |
 | **Archetypes**                                | `{ active; origin; roster: [{ key; rank; inheritanceSlots }] }`    | archetype roster + inheritance config (D36) | durable (PC)                                                      |
 | **Level**                                     | `{ value }` (1–30)                                                | combatant level — Insta-Kill, dice, path (D39) | durable (`level` also a column)                                |
@@ -148,7 +148,9 @@ components**, not a single struct — a flat `ResolvedStatblock` would be a god
 object that every consumer couples to, re-importing v1's `Statblock` and violating
 this section's own read-granularity principle (D30). A `ResolvedComponentRegistry`
 holds only _derived_ read-units — `attributes`, `vitals {currentHP, maxHP}`,
-`skillPool {currentSP, maxSP}`, `affinities`, `skills`, `attack` — narrowed with the
+`skillPool {currentSP, maxSP}`, `affinities`, `skills`, `attack`,
+`pendingEffects {attackRoll, damage}` (the contextual effects deferred to the PR7
+resolvers — D42) — narrowed with the
 same guard machinery (§2.1); `applyDamage` reads resolved `vitals`, a renderer reads
 whatever's present. Resolved vitals expose `currentHP` (derived), **not** authored
 `damage` — so no authored field smears into the resolved type (F3).
@@ -178,13 +180,18 @@ target authored components then re-resolve. Layers:
 5. **Mechanic deltas** — `effects()` contributions.
 6. **Combat overlay** — ailments/battle conditions; temporary, applied last.
 
-Transforms are **override** (later layer wins — affinity/skill/maxHP swaps) or
-**delta** (additive — buffs). Concretely (D38): **override = `applyForm`** (the
-pre-`resolve` entity merge); **delta = effects** (the bonus-pool + affinity-candidate
-channels) — so a buff is an effect, not a form. Whether a specific buff stacks/caps
-is an **effect-data rule**, not engine logic, keeping resolution deterministic (D18).
-Shapechanger and Nyx are the _same_ code path — both are an `applyForm` merge feeding
-one uniform `resolve` (no `source` fork; D37).
+Transforms are **override** (a later layer replaces a field — a form's affinity/skill/
+maxHP swap) or **delta** (additive — buffs). Concretely (D38): **override = `applyForm`**
+(the pre-`resolve` entity merge); **delta = effects** (the bonus-pool + affinity-candidate
+channels) — so a buff is an effect, not a form. Whether a specific buff stacks/caps is an
+**effect-data rule**, not engine logic, keeping resolution deterministic (D18). One
+carve-out (D45): the **affinity-candidate** channel resolves by **strongest-wins
+including the base** (priority Drain>…>Weak) — a weaker contributed affinity never
+downgrades a stronger innate one — not later-wins. Layers 2 (form) and 5 (mechanic
+effects) are applied by the composition-tier **`resolveEntity`**, not `resolve` itself:
+`resolve` is the agnostic fold over `(entity, { effects })` (D41). Shapechanger and Nyx
+are the _same_ code path — both an `applyForm` merge feeding one uniform `resolve` (no
+`source` fork; D37).
 
 ### 2.4 Vitals as depletion (D9, D10, D26)
 
@@ -308,14 +315,21 @@ on it (avoiding the exact `CombatantRef` union D1 exists to kill).
   `(component × relationship)` cells come from the redaction requirements
   (`requirements/04-…`); field-level and fog-gated redaction are spatial → Tier 3.
 
-### 2.8 Mechanics (D17)
+### 2.8 Mechanics (D17, D41–D44)
 
 Carry over v1's registry (keyed by mechanic `kind`, engine-owned behavior — not a
-data port). The `Mechanics` component holds per-entity state; `resolve` consults
-`getMechanic(key).transform(state, ctx)` for the layered fold (§2.3), and `resetOn`
-is enforced by the encounter-end sweep — the call-sites v1 _declared but never
-wired_ (the v2 model is the one v1 anticipated). Mechanics are now a capability
-**any** entity can carry, enemies included.
+data port). The `Mechanics` component holds per-entity state — a capability **any**
+entity can carry, enemies included. `resolve` itself stays **mechanics-agnostic**
+(D41): a composition-tier **`resolveEntity`** reads the active mechanic(s) via
+`getActiveMechanics` and feeds their contributions in — a form-swap mechanic's
+`activeForm(state)` merged via `applyForm` **before** `resolve` (D38/D43), and the
+mechanics' `effects()` prepended to `resolve`'s `effects` context. v1's `transform`
+field is **dropped** (D44 — `applyForm` is the override path, `effects()` the delta
+path, and v2 has no `StatContext` for a slice-rewrite). The active mechanic is gated
+on **`Archetypes` presence, not kind** (D36): a PC uses its active Archetype's
+mechanic; an entity with no `Archetypes` (enemy/NPC) has every carried mechanic on.
+`resetOn` is enforced by a pure encounter-end sweep — the call-site v1 _declared but
+never wired_, its live invocation landing with the encounter tracker.
 
 ---
 
