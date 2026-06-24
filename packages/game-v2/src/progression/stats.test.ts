@@ -49,31 +49,39 @@ describe("computeAttributes (sum-then-clamp, C1)", () => {
   })
 })
 
-describe("computeMaxHP / computeMaxSP (base + progression layer + bonus, D37)", () => {
+describe("computeMaxHP / computeMaxSP (base + path/level layer + bonus, D37)", () => {
   const noBonus = emptyBonusPool()
 
   it("a PC folds base 0 + the path/level formula + the HP/SP bonus", () => {
     expect(
       computeMaxHP(
-        { level: 5, pathChoice: "health-focused" },
+        { value: 5 },
+        { choice: "health-focused" },
         { base: 0 },
         { ...noBonus, hp: 3 }
       )
     ).toBe(24 + 4 * 7 + 3) // 55
     expect(
       computeMaxSP(
-        { level: 10, pathChoice: "skill-focused" },
+        { value: 10 },
+        { choice: "skill-focused" },
         { base: 0 },
         noBonus
       )
     ).toBe(60 + 9 * 13) // 177
   })
 
-  it("an enemy / shapechanged entity (no Progression) folds its authored base + bonuses, no path layer", () => {
-    expect(computeMaxHP(undefined, { base: 100 }, { ...noBonus, hp: 10 })).toBe(
-      110
-    )
-    expect(computeMaxSP(undefined, { base: 30 }, noBonus)).toBe(30)
+  it("an enemy (Level but no Path) or shapechanged entity folds its authored base + bonuses, no path layer", () => {
+    // A Level without a Path adds no path layer — the authored base stands.
+    expect(
+      computeMaxHP(
+        { value: 8 },
+        undefined,
+        { base: 100 },
+        { ...noBonus, hp: 10 }
+      )
+    ).toBe(110)
+    expect(computeMaxSP(undefined, undefined, { base: 30 }, noBonus)).toBe(30)
   })
 })
 

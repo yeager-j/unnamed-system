@@ -40,7 +40,7 @@ function isAffinityEffect(effect: CombatantEffect): effect is AffinityEffect {
  *
  * **One uniform fold for every entity (D37):** each derivable capability folds its
  * authored `base` → the layers present on the entity (`Archetypes` → archetype
- * attributes/affinities; `Progression` → the path/level HP/SP formula) → the delta
+ * attributes/affinities; `Level` + `Path` → the path/level HP/SP formula) → the delta
  * effects (mastery/manual/zone now; equipment/mechanic with their PRs), then derives
  * the depletion **current** against the final maxima. There is **no form concept
  * here** — a form-swap is a prior `Entity → Entity` transform ({@link applyForm}),
@@ -52,7 +52,8 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     context: ResolveContext = {}
   ): ResolvedEntity {
     const {
-      progression,
+      level,
+      path,
       archetypes,
       manualBonuses,
       attributes,
@@ -106,7 +107,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       // Final maxHP through the layers, THEN derive currentHP from the authored,
       // form-independent `damage` (D9 continuity). Over-max (negative `damage`) floats
       // currentHP above maxHP; overkill floors it at 0 without losing stored `damage`.
-      const maxHP = computeMaxHP(progression, vitals, pool)
+      const maxHP = computeMaxHP(level, path, vitals, pool)
       components.vitals = {
         maxHP,
         currentHP: Math.max(0, maxHP - vitals.damage),
@@ -114,7 +115,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     }
 
     if (skillPool) {
-      const maxSP = computeMaxSP(progression, skillPool, pool)
+      const maxSP = computeMaxSP(level, path, skillPool, pool)
       components.skillPool = {
         maxSP,
         currentSP: Math.max(0, maxSP - skillPool.spSpent),
@@ -123,12 +124,12 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
 
     // Dice pools — gated on the entity's own Resources component (its consumable
     // spend-state, like vitals/skillPool gate on theirs), with the maxima derived
-    // from the Progression level. A shapechanged entity keeps Resources but drops
-    // Progression, so it correctly resolves no dice (a rest resource of the true
-    // self). Current = max − used.
-    if (resources && progression) {
-      const maxHitDice = computeMaxHitDice(progression.level)
-      const maxSkillDice = computeMaxSkillDice(progression.level)
+    // from the Level. An enemy carries a Level but no Resources, so it resolves no
+    // dice; a shapechanged PC keeps both, so its dice still resolve (they're its
+    // own, unchanged by the form). Current = max − used.
+    if (resources && level) {
+      const maxHitDice = computeMaxHitDice(level.value)
+      const maxSkillDice = computeMaxSkillDice(level.value)
       components.resources = {
         maxHitDice,
         currentHitDice: Math.max(0, maxHitDice - resources.hitDiceUsed),
@@ -166,15 +167,16 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
  *   body; you bring your wounds."
  * - **`archetypes.active` detaches** (the form replaces the active Archetype's
  *   statline) while `roster` survives (so Mastery still applies).
- * - **`progression` is dropped** (the form's `base` *is* the absolute max — no path
- *   layer to double-count; the true self's dice don't resolve while transformed).
+ * - **`path` is dropped** (the form's `base` *is* the absolute max — no path layer to
+ *   double-count) while **`level` is kept** (you're still your true level in form —
+ *   Insta-Kill immunity and your dice both read it).
  */
 export function applyForm(entity: Entity, form: Entity["components"]): Entity {
   const damage = entity.components.vitals?.damage ?? 0
   const spSpent = entity.components.skillPool?.spSpent ?? 0
 
   const components: Entity["components"] = { ...entity.components, ...form }
-  delete components.progression
+  delete components.path
   if (components.vitals) components.vitals = { ...components.vitals, damage }
   if (components.skillPool) {
     components.skillPool = { ...components.skillPool, spSpent }

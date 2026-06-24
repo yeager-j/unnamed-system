@@ -6,8 +6,9 @@ import type {
 } from "@workspace/game-v2/kernel/vocab"
 import type { Affinities } from "@workspace/game-v2/progression/affinities.schema"
 import type { Attributes } from "@workspace/game-v2/progression/attributes.schema"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
-import type { Progression } from "@workspace/game-v2/progression/progression.schema"
+import type { Path } from "@workspace/game-v2/progression/path.schema"
 import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
 import type {
   ResolvedExhaustion,
@@ -60,7 +61,10 @@ export interface ComponentRegistry {
   affinities: Affinities
   vitals: Vitals
   skillPool: SkillPool
-  progression: Progression
+  // `Level` is universal across combatants (PCs + enemies — Insta-Kill compares it);
+  // `Path` (the HP/SP scaling curve) is PC-only. Split from the old `Progression`.
+  level: Level
+  path: Path
   manualBonuses: ManualBonuses
   archetypes: Archetypes
   // Depletion consumables + exhaustion (PR3 — UNN-501). `Resources` holds the

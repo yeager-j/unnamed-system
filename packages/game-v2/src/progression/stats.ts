@@ -16,8 +16,9 @@ import {
   type PartialAffinityChart,
   type PathChoice,
 } from "@workspace/game-v2/kernel/vocab"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
-import type { Progression } from "@workspace/game-v2/progression/progression.schema"
+import type { Path } from "@workspace/game-v2/progression/path.schema"
 import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
@@ -168,35 +169,33 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
 }
 
 /**
- * Effective **max HP** (D37): the entity's `Vitals.base` + the Progression
- * path/level layer (only when it carries `Progression`) + the HP bonus pool. A PC's
- * `base` is 0, so its maxHP is the path formula + bonuses; an enemy — or a
- * shapechanged entity (`applyForm` drops `Progression`) — carries an authored `base`
+ * Effective **max HP** (D37): the entity's `Vitals.base` + the path/level layer
+ * (only when it carries **both** `Level` and `Path` — i.e. a PC) + the HP bonus
+ * pool. A PC's `base` is 0, so its maxHP is the path formula + bonuses; an enemy —
+ * or a shapechanged entity (`applyForm` drops `Path`) — carries an authored `base`
  * and no path layer, but still gets the bonuses. The fold is uniform either way.
  *
  * Kept deliberately separate from {@link computeMaxSP} (no shared abstraction):
  * HP and SP share a shape today but are free to diverge.
  */
 export function computeMaxHP(
-  progression: Progression | undefined,
+  level: Level | undefined,
+  path: Path | undefined,
   vitals: Pick<Vitals, "base">,
   pool: BonusPool
 ): number {
-  const layer = progression
-    ? pathMaxHP(progression.pathChoice, progression.level)
-    : 0
+  const layer = level && path ? pathMaxHP(path.choice, level.value) : 0
   return Math.round(vitals.base + layer + pool.hp)
 }
 
 /** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
 export function computeMaxSP(
-  progression: Progression | undefined,
+  level: Level | undefined,
+  path: Path | undefined,
   skillPool: Pick<SkillPool, "base">,
   pool: BonusPool
 ): number {
-  const layer = progression
-    ? pathMaxSP(progression.pathChoice, progression.level)
-    : 0
+  const layer = level && path ? pathMaxSP(path.choice, level.value) : 0
   return Math.round(skillPool.base + layer + pool.sp)
 }
 

@@ -4,8 +4,8 @@ import { z } from "zod/v4"
  * The **SkillPool** component (D34/D37) — an entity's SP capability. Presence
  * makes an entity a `CastingCombatant` (carrying it *is* the capability — there is
  * no optional `maxSP?`, per D1/D34). `base` is the intrinsic base maxSP: `0` for a
- * PC (whose maxSP comes from the `Progression` layer), the authored maxSP for an
- * enemy. `resolve` folds `base` → progression layer (if present) → SP bonuses into
+ * PC (whose maxSP comes from the `Level`/`Path` formula layer), the authored maxSP
+ * for an enemy. `resolve` folds `base` → path/level layer (if present) → SP bonuses into
  * the effective `maxSP`, uniformly (D37 — no `max: MaxSource` fork).
  *
  * `spSpent` (D9) is the depletion field: `currentSP = max(0, maxSP − spSpent)`.

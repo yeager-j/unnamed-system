@@ -3,8 +3,8 @@ import { z } from "zod/v4"
 /**
  * The **Vitals** component (D34/D37) — an entity's HP capability. Presence makes
  * an entity `Targetable`. `base` is the entity's intrinsic base maxHP: `0` for a
- * PC (whose maxHP comes from the `Progression` path/level layer) and the authored
- * maxHP for an enemy. `resolve` folds `base` → progression layer (if present) →
+ * PC (whose maxHP comes from the `Level`/`Path` formula layer) and the authored
+ * maxHP for an enemy. `resolve` folds `base` → path/level layer (if present) →
  * HP bonuses into the effective `maxHP`, uniformly for every entity (D37 — no
  * `max: MaxSource` source fork).
  *

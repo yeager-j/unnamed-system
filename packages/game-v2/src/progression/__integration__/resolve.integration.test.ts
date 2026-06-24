@@ -173,18 +173,21 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
     expect(resolved.components.exhaustion?.description).toContain("Placeholder")
   })
 
-  it("resolves no dice without the Resources component, even with a level", () => {
+  it("resolves no dice without the Resources component, even with a Level", () => {
     // Dice gate on the entity's own Resources component (like vitals/skillPool on
-    // theirs), not on Progression alone — a level without it resolves no dice.
+    // theirs), not on Level alone — a Level without it (e.g. an enemy) resolves no
+    // dice.
     const leveledNoResources: Entity = {
       id: "no-resources",
       components: {
         identity: { name: "Spectre" },
-        progression: { level: 5, pathChoice: "balanced" },
-        vitals: { base: 0, damage: 0 },
+        level: { value: 5 },
+        vitals: { base: 100, damage: 0 },
       },
     }
     expect(resolve(leveledNoResources).components.resources).toBeUndefined()
+    // …and its maxHP is the authored base — no Path means no path layer.
+    expect(resolve(leveledNoResources).components.vitals?.maxHP).toBe(100)
   })
 })
 
@@ -252,12 +255,19 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
     expect(resolved.components.skillPool).toEqual({ maxSP: 40, currentSP: 28 }) // 40 − 12
   })
 
-  it("drops the true self's dice while transformed (Progression detached)", () => {
-    const entity = makeDerivedEntity({ level: 5 })
-    expect(resolve(entity).components.resources?.maxHitDice).toBe(6)
-    expect(
-      resolve(applyForm(entity, bear)).components.resources
-    ).toBeUndefined()
+  it("keeps Level (Insta-Kill + dice) but drops Path so the form's HP is absolute", () => {
+    const entity = makeDerivedEntity({ level: 5, pathChoice: "health-focused" })
+    const formed = applyForm(entity, bear)
+
+    // Level rides through (you're still your true level in form); Path detaches.
+    expect(formed.components.level).toEqual({ value: 5 })
+    expect(formed.components.path).toBeUndefined()
+
+    const resolved = resolve(formed)
+    // maxHP is the bear's absolute 120 — no path layer added on top.
+    expect(resolved.components.vitals?.maxHP).toBe(120)
+    // Dice still resolve from the surviving Level + Resources.
+    expect(resolved.components.resources?.maxHitDice).toBe(6)
   })
 
   it("a form whose maxHP drops below the constant damage Falls the entity (no special case)", () => {

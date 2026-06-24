@@ -85,7 +85,8 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
     id,
     components: {
       identity: { name },
-      progression: { level, pathChoice },
+      level: { value: level },
+      path: { choice: pathChoice },
       archetypes: {
         active,
         origin: active,

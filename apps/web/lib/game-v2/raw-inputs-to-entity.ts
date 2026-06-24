@@ -11,8 +11,8 @@ import type { RawCharacterInputs } from "@workspace/game/engine"
  * It only projects the slice the base-layer `resolve` consumes (the derivation
  * inputs + the stat capabilities); equipment/mechanics/skills join as their PRs
  * land. A PC's stat capabilities carry a zeros/neutral/0 `base` (D37) — its real
- * values come from the `Archetypes`/`Progression` layers, which are the rest of the
- * entity.
+ * values come from the `Archetypes` + `Level`/`Path` layers, which are the rest of
+ * the entity.
  *
  * The depletion fields default to **0** (full pools): v1 stores `currentHP`, but v2
  * stores `damage = maxHP − currentHP`, and the real maxHP isn't known at projection
@@ -32,7 +32,8 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
     id: row.id,
     components: {
       identity: { name: row.name },
-      progression: { level: row.level, pathChoice: row.pathChoice },
+      level: { value: row.level },
+      path: { choice: row.pathChoice },
       archetypes: {
         active: keyOf(row.activeArchetypeId),
         origin: keyOf(row.originCharacterArchetypeId),
@@ -44,7 +45,7 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
       },
       manualBonuses: row.manualBonuses,
       // A PC's stat capabilities have a zeros/neutral/0 base (D37); the Archetypes
-      // + Progression layers above supply its real values.
+      // + Level/Path layers above supply its real values.
       attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
       affinities: { base: {} },
       vitals: { base: 0, damage: 0 },
