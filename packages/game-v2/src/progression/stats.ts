@@ -244,13 +244,18 @@ export function resolveAffinity(
 }
 
 /**
- * The resolved Affinity chart, folded per damage type: the strongest granted
- * **candidate** (by {@link AFFINITY_PRIORITY}) wins; else the **base** Affinity
- * (absent/Almighty ⇒ Neutral). The base is the entity's authored chart merged
- * per-type with its active Archetype — assembled inline in `resolve`; a form-swap
- * replaces it before `resolve` (`applyForm`, D38). Candidates come from the later
- * layers (zone now; equipment/passive/mechanic join in their PRs), which therefore
- * **override** the base Affinity (D18 — later layers win).
+ * The resolved Affinity chart, folded per damage type: the **strongest** Affinity
+ * (by {@link AFFINITY_PRIORITY}) among the entity's **base** and every contributed
+ * effect wins (absent/Almighty ⇒ Neutral). The base is the entity's authored chart
+ * merged per-type with its active Archetype — assembled inline in `resolve`; a
+ * form-swap replaces it before `resolve` (`applyForm`, D38). Contributors come from
+ * the effect channels (mechanic now; zone/equipment/passive join in their PRs).
+ *
+ * **Strongest-wins, base included** (game-design call, UNN-502 — simplifies D18's
+ * "later layer wins" for affinities): a stronger innate/base affinity is **not**
+ * downgraded by a weaker contributed one — an innate Null is kept over a Resist
+ * from gear; a Weak base is upgraded by a Resist from gear. There are no
+ * weakening/"cursed" sources today; if they ship, this is where the rule grows.
  */
 export function computeAffinityChart(
   base: PartialAffinityChart,
@@ -267,8 +272,9 @@ export function computeAffinityChart(
 
   const chart = {} as AffinityChart
   for (const damageType of DAMAGE_TYPES) {
-    const granted = strongest(candidatesByType.get(damageType) ?? [])
-    chart[damageType] = granted ?? resolveAffinity(base, damageType)
+    const baseAffinity = resolveAffinity(base, damageType)
+    const candidates = candidatesByType.get(damageType) ?? []
+    chart[damageType] = strongest([baseAffinity, ...candidates]) ?? baseAffinity
   }
   return chart
 }

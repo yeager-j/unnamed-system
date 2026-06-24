@@ -1,6 +1,7 @@
 import { gameData } from "@workspace/game-v2/catalog"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import { createResolve } from "@workspace/game-v2/progression/resolve"
+import { createResolveEntity } from "@workspace/game-v2/resolve-entity"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
@@ -15,7 +16,11 @@ import { createResolve } from "@workspace/game-v2/progression/resolve"
  */
 export function createGameEngine(deps: GameData = gameData) {
   return {
+    // The pure base fold (golden-master + pure-fold tests bind this directly).
     resolve: createResolve(deps),
+    // The app-facing resolve: applies the active mechanic's form + effects on top
+    // of the base fold (PR4 — UNN-502).
+    resolveEntity: createResolveEntity(deps),
   }
 }
 

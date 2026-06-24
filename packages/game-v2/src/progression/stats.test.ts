@@ -154,8 +154,13 @@ describe("affinity resolution", () => {
     expect(resolveAffinity({ fire: "weak" }, "almighty")).toBe("neutral")
   })
 
-  describe("computeAffinityChart (strongest candidate → form base)", () => {
+  describe("computeAffinityChart (strongest wins, base included — UNN-502)", () => {
     const base = { fire: "weak", ice: "resist" } as const
+    const fire = (affinity: AffinityEffect["affinity"]): AffinityEffect => ({
+      type: "affinity",
+      damageTypes: ["fire"],
+      affinity,
+    })
 
     it("fills every damage type, Almighty/uncharted Neutral", () => {
       const chart = computeAffinityChart({}, [])
@@ -164,26 +169,32 @@ describe("affinity resolution", () => {
       expect(Object.keys(chart)).toHaveLength(12)
     })
 
-    it("falls back to the form base when no candidate", () => {
+    it("falls back to the base when no candidate", () => {
       expect(computeAffinityChart(base, []).fire).toBe("weak")
     })
 
-    it("a granted candidate overrides the form base (later layer wins, D18)", () => {
-      const candidate: AffinityEffect = {
-        type: "affinity",
-        damageTypes: ["fire"],
-        affinity: "resist",
-      }
-      expect(computeAffinityChart(base, [candidate]).fire).toBe("resist")
+    it("a stronger candidate upgrades a weaker base (gear covers a weakness)", () => {
+      expect(computeAffinityChart(base, [fire("resist")]).fire).toBe("resist")
     })
 
-    it("picks the strongest candidate by priority (drain > repel > … > weak)", () => {
-      const candidates: AffinityEffect[] = [
-        { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
-        { type: "affinity", damageTypes: ["fire"], affinity: "drain" },
-        { type: "affinity", damageTypes: ["fire"], affinity: "null" },
-      ]
-      expect(computeAffinityChart(base, candidates).fire).toBe("drain")
+    it("a weaker candidate does NOT downgrade a stronger base (innate Null kept)", () => {
+      expect(
+        computeAffinityChart({ fire: "null" }, [fire("resist")]).fire
+      ).toBe("null")
+      // a weaker immunity doesn't displace a stronger one, either
+      expect(computeAffinityChart({ fire: "drain" }, [fire("null")]).fire).toBe(
+        "drain"
+      )
+    })
+
+    it("picks the strongest among base + candidates by priority (drain > … > weak)", () => {
+      expect(
+        computeAffinityChart(base, [
+          fire("resist"),
+          fire("drain"),
+          fire("null"),
+        ]).fire
+      ).toBe("drain")
     })
   })
 })

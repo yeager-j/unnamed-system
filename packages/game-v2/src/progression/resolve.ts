@@ -1,6 +1,8 @@
 import {
   type AffinityEffect,
+  type AttackRollEffect,
   type CombatantEffect,
+  type DamageEffect,
 } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
@@ -24,12 +26,30 @@ import { getExhaustionLevel } from "@workspace/game-v2/resources/exhaustion-tabl
  * off-encounter resolve is pure over the entity alone (A8/A9).
  */
 export interface ResolveContext {
-  /** Combat-context effects (e.g. a Zone Enchantment), folded as a bonus source. */
-  zoneEffects?: readonly CombatantEffect[]
+  /**
+   * Delta effects to fold on top of the entity's intrinsic stats — the active
+   * mechanic's `effects()`, a Zone Enchantment, equipment/passives (their PRs).
+   * `resolve` is the agnostic fold: it partitions these by kind — attribute → the
+   * bonus pool, affinity → the override candidates, attack-roll/damage → the
+   * `pendingEffects` read-unit (no in-fold consumer yet). Callers that need the
+   * active mechanic folded in use `resolveEntity` (mechanics/), which assembles
+   * this list; bare `resolve` stays pure over the entity + whatever it's handed.
+   */
+  effects?: readonly CombatantEffect[]
 }
 
 function isAffinityEffect(effect: CombatantEffect): effect is AffinityEffect {
   return effect.type === "affinity"
+}
+
+function isAttackRollEffect(
+  effect: CombatantEffect
+): effect is AttackRollEffect {
+  return effect.type === "attackRoll"
+}
+
+function isDamageEffect(effect: CombatantEffect): effect is DamageEffect {
+  return effect.type === "damage"
 }
 
 /**
@@ -63,7 +83,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       resources,
       exhaustion,
     } = entity.components
-    const zoneEffects = context.zoneEffects ?? []
+    const effects = context.effects ?? []
 
     const activeArchetypeBase = archetypes?.active
       ? deps.getArchetype(archetypes.active)
@@ -79,9 +99,9 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
         (key) => deps.getArchetype(key)?.mastery
       ),
       manualBonusPool(manualBonuses ?? {}),
-      attributeEffectBonuses(zoneEffects)
+      attributeEffectBonuses(effects)
     )
-    const candidates = zoneEffects.filter(isAffinityEffect)
+    const candidates = effects.filter(isAffinityEffect)
 
     const components: ResolvedEntity["components"] = {}
 
@@ -95,8 +115,9 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     }
 
     if (affinities) {
-      // The intrinsic chart (entity base overridden per-type by the active Archetype)
-      // is the fallback; candidates from later layers override it (D18 later-wins).
+      // The intrinsic chart (entity base merged per-type with the active Archetype)
+      // plus the contributed candidates, resolved per type by strongest-wins — a
+      // stronger base affinity is not downgraded by a weaker candidate (UNN-502).
       components.affinities = computeAffinityChart(
         { ...affinities.base, ...activeArchetypeBase?.affinities },
         candidates
@@ -143,6 +164,17 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     // pool yet — when they ship they enter as one more BonusPool source above.
     if (exhaustion) {
       components.exhaustion = getExhaustionLevel(exhaustion.level)
+    }
+
+    // Contextual delta effects with no in-fold consumer (D30/D40): an attack-roll
+    // or damage effect resolves against a specific attack at use time, so `resolve`
+    // can't fold it into a number — it carries them for the PR7 attack-roll/damage
+    // resolvers. Affinity/attribute effects are NOT here (consumed above), so each
+    // effect lands in exactly one place. Emitted only when non-empty.
+    const attackRoll = effects.filter(isAttackRollEffect)
+    const damage = effects.filter(isDamageEffect)
+    if (attackRoll.length > 0 || damage.length > 0) {
+      components.pendingEffects = { attackRoll, damage }
     }
 
     return { id: entity.id, components }

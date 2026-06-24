@@ -5,6 +5,7 @@ import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-regi
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { mechanicsSchema } from "@workspace/game-v2/mechanics/mechanics.schema"
 import { affinitiesSchema } from "@workspace/game-v2/progression/affinities.schema"
 import { attributesSchema } from "@workspace/game-v2/progression/attributes.schema"
 import { levelSchema } from "@workspace/game-v2/progression/level.schema"
@@ -48,6 +49,7 @@ const componentSchemas: ComponentSchemas = {
   archetypes: archetypesSchema,
   resources: resourcesSchema,
   exhaustion: exhaustionSchema,
+  mechanics: mechanicsSchema,
 }
 
 /**
