@@ -146,16 +146,6 @@ export type DamageDice = z.infer<typeof damageDiceSchema>
 export type DamageEffect = z.infer<typeof damageEffectSchema>
 
 /**
- * One resolved damage-bonus line the Skill card renders — a {@link DamageEffect}
- * that matched a Skill's context, already formatted (`"+3d4"` / `"+2"`) and
- * labelled with its source.
- */
-export interface DamageBonus {
-  source: string
-  label: string
-}
-
-/**
  * Any of the effect primitives, regardless of which domain emitted it — the
  * source-agnostic union for channels that carry effects from *outside* the
  * entity's own state (e.g. a Zone Enchantment supplying combat-context effects to

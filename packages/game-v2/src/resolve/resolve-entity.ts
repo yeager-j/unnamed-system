@@ -61,6 +61,13 @@ export function createResolveEntity(deps: Pick<GameData, "getArchetype">) {
     const mechanicEffects = active.flatMap(
       (mechanic) => mechanic.definition.effects?.(mechanic.state) ?? []
     )
+    // This assembly order IS the canonical Attack-Roll contributor order (C6):
+    // active mechanic → context effects (zone enchantment, etc.). `resolve` carries
+    // it into `pendingEffects.attackRoll` and the combat resolver preserves it in
+    // `sources[]` (a display contract). When passive-skill effects land (PR5/PR6),
+    // they MUST be spliced **between** mechanic and context —
+    // `[...mechanicEffects, ...skillEffects, ...(context.effects ?? [])]` — NOT
+    // appended to `context.effects`, which would invert C6 (skills precede context).
     const effects = [...mechanicEffects, ...(context.effects ?? [])]
 
     return resolve(formed, { effects })

@@ -22,3 +22,29 @@ export interface ResolvedPendingEffects {
   attackRoll: readonly AttackRollEffect[]
   damage: readonly DamageEffect[]
 }
+
+/**
+ * One labelled contributor to a resolved Attack Roll — surfaced to the UI so the
+ * Skill card renders `Magic +4  Magic Circle +2` instead of an opaque `+6`.
+ */
+export interface AttackRollSource {
+  source: string
+  amount: number
+}
+
+/**
+ * The complete labelled readout for one Attack Roll: every contributor already
+ * summed and labelled, with the rolling Attribute as the first source. The UI
+ * only renders — no addition happens client-side. The engine-derived readout
+ * paired with the authored {@link import("./attack.schema").AttackRoll}.
+ */
+export interface ResolvedAttackRoll {
+  /** Grand total — rolling Attribute plus every matching effect contribution. */
+  total: number
+  /**
+   * Per-source breakdown, attribute first, then effects in collection order.
+   * Effect contributions resolving to 0 are omitted; the attribute is always
+   * present even at 0 so the player can see the base.
+   */
+  sources: AttackRollSource[]
+}
