@@ -172,6 +172,20 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
     expect(resolved.components.exhaustion?.level).toBe(2)
     expect(resolved.components.exhaustion?.description).toContain("Placeholder")
   })
+
+  it("resolves no dice without the Resources component, even with a level", () => {
+    // Dice gate on the entity's own Resources component (like vitals/skillPool on
+    // theirs), not on Progression alone — a level without it resolves no dice.
+    const leveledNoResources: Entity = {
+      id: "no-resources",
+      components: {
+        identity: { name: "Spectre" },
+        progression: { level: 5, pathChoice: "balanced" },
+        vitals: { base: 0, damage: 0 },
+      },
+    }
+    expect(resolve(leveledNoResources).components.resources).toBeUndefined()
+  })
 })
 
 describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18)", () => {

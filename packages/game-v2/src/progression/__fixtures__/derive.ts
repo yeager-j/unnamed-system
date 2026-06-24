@@ -97,15 +97,12 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
       affinities: { base: {} },
       vitals: { base: 0, damage },
       skillPool: { base: 0, spSpent },
-      ...(resources
-        ? {
-            resources: {
-              hitDiceUsed: resources.hitDiceUsed ?? 0,
-              skillDiceUsed: resources.skillDiceUsed ?? 0,
-              prismaUsed: resources.prismaUsed ?? 0,
-            },
-          }
-        : {}),
+      // A leveled PC always carries its consumable spend-state (full = zeros).
+      resources: {
+        hitDiceUsed: resources?.hitDiceUsed ?? 0,
+        skillDiceUsed: resources?.skillDiceUsed ?? 0,
+        prismaUsed: resources?.prismaUsed ?? 0,
+      },
       ...(exhaustion !== undefined
         ? { exhaustion: { level: exhaustion } }
         : {}),

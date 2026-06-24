@@ -49,6 +49,10 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
       affinities: { base: {} },
       vitals: { base: 0, damage: 0 },
       skillPool: { base: 0, spSpent: 0 },
+      // A leveled PC carries its consumable spend-state, so `resolve` emits the dice
+      // pools. Projected at full (zeros) here — the real `used` counts (from the
+      // row's `*Remaining` columns) join with the depletion projection at cutover.
+      resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 0 },
     },
   }
 }

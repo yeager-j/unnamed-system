@@ -121,20 +121,19 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       }
     }
 
-    // Dice maxima derive from level — present for a progression-bearing PC (a
-    // shapechanged entity drops Progression, so it resolves no dice; they're a
-    // rest resource of the true self). Current = max − used (used 0 absent Resources).
-    if (progression) {
+    // Dice pools — gated on the entity's own Resources component (its consumable
+    // spend-state, like vitals/skillPool gate on theirs), with the maxima derived
+    // from the Progression level. A shapechanged entity keeps Resources but drops
+    // Progression, so it correctly resolves no dice (a rest resource of the true
+    // self). Current = max − used.
+    if (resources && progression) {
       const maxHitDice = computeMaxHitDice(progression.level)
       const maxSkillDice = computeMaxSkillDice(progression.level)
       components.resources = {
         maxHitDice,
-        currentHitDice: Math.max(0, maxHitDice - (resources?.hitDiceUsed ?? 0)),
+        currentHitDice: Math.max(0, maxHitDice - resources.hitDiceUsed),
         maxSkillDice,
-        currentSkillDice: Math.max(
-          0,
-          maxSkillDice - (resources?.skillDiceUsed ?? 0)
-        ),
+        currentSkillDice: Math.max(0, maxSkillDice - resources.skillDiceUsed),
       }
     }
 
