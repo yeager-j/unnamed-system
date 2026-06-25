@@ -3,6 +3,7 @@ import { z } from "zod/v4"
 import { affinitiesSchema } from "@workspace/game-v2/affinities/affinities.schema"
 import { archetypesSchema } from "@workspace/game-v2/archetypes/archetypes.schema"
 import { attributesSchema } from "@workspace/game-v2/attributes/attributes.schema"
+import { equipmentSchema } from "@workspace/game-v2/items/equipment.schema"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
@@ -50,6 +51,7 @@ const componentSchemas: ComponentSchemas = {
   resources: resourcesSchema,
   exhaustion: exhaustionSchema,
   mechanics: mechanicsSchema,
+  equipment: equipmentSchema,
 }
 
 /**

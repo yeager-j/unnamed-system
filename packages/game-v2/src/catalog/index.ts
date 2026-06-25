@@ -14,4 +14,9 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  */
 export const gameData: GameData = {
   getArchetype: () => undefined,
+  // Items + Skills content (PR5 — UNN-503) is migrated later, like the Archetype
+  // catalog: the engines + the port land now, stubbed unknown; fixtures drive tests.
+  getItem: () => undefined,
+  getEquippableItem: () => undefined,
+  getSkill: () => undefined,
 }

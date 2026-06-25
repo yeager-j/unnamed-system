@@ -1,6 +1,7 @@
 export * from "./affinity"
 export * from "./attack"
 export * from "./attributes"
+export * from "./enchantment"
 export * from "./lineage"
 export * from "./mechanics"
 export * from "./path"
