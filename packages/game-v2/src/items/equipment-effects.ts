@@ -1,6 +1,7 @@
 import type { CombatantEffect } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import { isPassive } from "@workspace/game-v2/skills/skill.schema"
 
 /**
  * The equipment slice's contribution to the resolve effects channel (D19/D22). For
@@ -43,7 +44,7 @@ export function equipmentEffects(
         continue
       }
       const granted = deps.getSkill(effect.skillKey)
-      if (granted?.kind === "passive" && granted.effects) {
+      if (granted && isPassive(granted) && granted.effects) {
         effects.push(...granted.effects)
       }
     }

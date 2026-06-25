@@ -11,29 +11,27 @@ import {
 } from "@workspace/game-v2/skills/cost"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
-const spSkill = (amount: number): Skill =>
-  ({
-    kind: "support",
-    key: "buff",
-    name: "Buff",
-    tagline: "t",
-    description: "d",
-    isSynthesis: false,
-    cost: { kind: "sp", amount },
-    range: { kind: "known", value: "engaged" },
-  }) as Skill
+const spSkill = (amount: number): Skill => ({
+  kind: "support",
+  key: "buff",
+  name: "Buff",
+  tagline: "t",
+  description: "d",
+  isSynthesis: false,
+  cost: { kind: "sp", amount },
+  range: { kind: "known", value: "engaged" },
+})
 
-const hpPercentSkill = (amount: number): Skill =>
-  ({
-    kind: "heal",
-    key: "drain",
-    name: "Drain",
-    tagline: "t",
-    description: "d",
-    isSynthesis: false,
-    cost: { kind: "hp-percent", amount },
-    range: { kind: "known", value: "engaged" },
-  }) as Skill
+const hpPercentSkill = (amount: number): Skill => ({
+  kind: "heal",
+  key: "drain",
+  name: "Drain",
+  tagline: "t",
+  description: "d",
+  isSynthesis: false,
+  cost: { kind: "hp-percent", amount },
+  range: { kind: "known", value: "engaged" },
+})
 
 describe("resolveCost / resolveSkillCost", () => {
   it("SP passes through; %HP rounds down with a floor of 1; passive → null", () => {

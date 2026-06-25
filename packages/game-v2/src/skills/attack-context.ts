@@ -3,23 +3,22 @@ import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 /**
  * Derives the {@link AttackRollContext} for a Skill (the Skill→context bridge,
- * C11 — deferred here from PR7 since it reads the Skill shape). Returns `null` for
- * kinds that make no Attack Roll: passive/heal/support, or an attack Skill with no
- * `attackRoll` table (severe flat-damage Skills). An ailment Skill returns the
- * attribute-only arm (no `damageType`/`delivery`) — that absence is meaningful to
- * the filter (an axis whose context value is missing fails a present filter).
+ * C11). Capability-driven: a context exists iff the Skill **makes an Attack Roll**
+ * (`attackRoll` present) — so a flat-damage Skill, a heal, a buff, or a passive all
+ * return `null`. When the Skill also **deals typed damage** (`damage` present) the
+ * `damageType`/`delivery` axes are included; otherwise (a rolled ailment / Evil
+ * Touch) they are **omitted entirely** — that absence is meaningful to the filter
+ * (an axis whose context value is missing fails a present filter), so the keys must
+ * not appear even as `undefined`.
  */
 export function skillAttackRollContext(skill: Skill): AttackRollContext | null {
-  if (skill.kind === "attack" && skill.attackRoll) {
-    return {
-      kind: skill.kind,
-      damageType: skill.damageType,
-      delivery: skill.delivery,
-      attribute: skill.attackRoll.attribute,
-    }
+  if (!skill.attackRoll) return null
+  const { attribute } = skill.attackRoll
+  if (!skill.damage) return { kind: skill.kind, attribute }
+  return {
+    kind: skill.kind,
+    damageType: skill.damage.damageType,
+    delivery: skill.damage.delivery,
+    attribute,
   }
-  if (skill.kind === "ailment") {
-    return { kind: skill.kind, attribute: skill.attackRoll.attribute }
-  }
-  return null
 }

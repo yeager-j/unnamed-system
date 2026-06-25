@@ -1,6 +1,6 @@
-// The `skills` domain (UNN-503 / PR5): the interim v1 Skill shape + cost/cast
-// primitives + the Skill→AttackRollContext bridge. The composed-Skill model
-// (mirroring `Item`) is a later phase (PR-S / D32).
+// The `skills` domain: the composed Skill shape (a flat base + orthogonal optional
+// capability facets + presence guards, mirroring `Item` — PR-S / UNN-506 / D32) plus
+// the cost/cast primitives and the Skill→AttackRollContext bridge.
 export * from "./attack-context"
 export * from "./cost"
 export * from "./skill.schema"

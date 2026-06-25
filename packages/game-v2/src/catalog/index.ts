@@ -1,3 +1,4 @@
+import { getSkill } from "@workspace/game-v2/catalog/skills"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 
 /**
@@ -11,12 +12,14 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * derivation **math** is what PR2 proves, against fixture archetypes in the
  * golden-master — not the real catalog. Each domain PR fills in its content +
  * lookup methods as it lands.
+ *
+ * The **Skill** catalog (`catalog/skills/`) is ported in PR-S (UNN-506); Item
+ * content still awaits its migration.
  */
 export const gameData: GameData = {
   getArchetype: () => undefined,
-  // Items + Skills content (PR5 — UNN-503) is migrated later, like the Archetype
-  // catalog: the engines + the port land now, stubbed unknown; fixtures drive tests.
+  // Item content is migrated later; the engine + port land now, stubbed unknown.
   getItem: () => undefined,
   getEquippableItem: () => undefined,
-  getSkill: () => undefined,
+  getSkill,
 }

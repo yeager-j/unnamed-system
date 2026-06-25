@@ -49,7 +49,7 @@ const activeGrant: Skill = {
   cost: { kind: "sp", amount: 3 },
   range: { kind: "known", value: "engaged" },
   effects: [strBonus],
-} as Skill
+}
 
 const lookups = makeItemLookups({
   items: [
