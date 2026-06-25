@@ -1,8 +1,9 @@
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
-import type {
-  ResolvedSkillCost,
-  Skill,
-  SkillCost,
+import {
+  isCastable,
+  type ResolvedSkillCost,
+  type Skill,
+  type SkillCost,
 } from "@workspace/game-v2/skills/skill.schema"
 
 /**
@@ -48,13 +49,13 @@ export function resolveCost(cost: SkillCost, maxHP: number): ResolvedSkillCost {
   return { kind: "hp", amount }
 }
 
-/** Resolves a Skill's cost, or `null` for a passive (no `cost` field — nothing to
- *  pay, distinct from a zero-amount cost which the schema disallows). */
+/** Resolves a Skill's cost, or `null` for a non-castable passive (no `cost` facet —
+ *  nothing to pay, distinct from a zero-amount cost which the schema disallows). */
 export function resolveSkillCost(
   skill: Skill,
   maxHP: number
 ): ResolvedSkillCost | null {
-  if (!("cost" in skill)) return null
+  if (!isCastable(skill)) return null
   return resolveCost(skill.cost, maxHP)
 }
 

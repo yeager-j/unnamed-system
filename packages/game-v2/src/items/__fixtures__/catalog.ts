@@ -85,7 +85,7 @@ export function makePassiveSkill(overrides: Partial<Skill> = {}): Skill {
     description: "A fixture passive skill.",
     isSynthesis: false,
     ...overrides,
-  } as Skill
+  }
 }
 
 /** Builds the `GameData` item/skill lookups from fixture lists, keyed by `key`. */

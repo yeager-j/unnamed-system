@@ -17,20 +17,18 @@ const attackWithRoll: Skill = {
   key: "garu",
   name: "Garu",
   ...base,
-  damageType: "wind",
-  delivery: "magical",
+  damage: { damageType: "wind", delivery: "magical" },
   attackRoll: { attribute: "ma", tiers: [] },
-} as Skill
+}
 
 const attackNoRoll: Skill = {
   kind: "attack",
   key: "megaton",
   name: "Megaton",
   ...base,
-  damageType: "strike",
-  delivery: "physical",
-  damage: "12d10",
-} as Skill
+  damage: { damageType: "strike", delivery: "physical" },
+  formula: "12d10",
+}
 
 const ailment: Skill = {
   kind: "ailment",
@@ -38,14 +36,14 @@ const ailment: Skill = {
   name: "Evil Touch",
   ...base,
   attackRoll: { attribute: "lu", tiers: [] },
-} as Skill
+}
 
 const heal: Skill = {
   kind: "heal",
   key: "dia",
   name: "Dia",
   ...base,
-} as Skill
+}
 
 describe("skillAttackRollContext", () => {
   it("attack arm: kind + damageType + delivery + attribute", () => {

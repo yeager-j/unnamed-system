@@ -806,6 +806,19 @@ and must not leak in.
   real numbers; accept a contained second pass. The eventual composed-Skill design
   **mirrors `Item`** (base + composable traits + `effects[]` + guards), so design
   risk is low. Supersedes D19's parked note.
+  **Landed (PR-S / UNN-506):** the composed `skillSchema` is a flat base + orthogonal
+  optional facets (`cost?` / `attackRoll?` / `formula?` / `damage?` / `duration?`) +
+  presence guards. PR-S went past a mechanical mirror: it **decoupled the capability
+  facets from `kind`** — the facets compose **orthogonally** to a Skill's intent, which
+  v1's per-kind union couldn't express (e.g. a dedicated **Ailment** Skill that also
+  carries a `duration`, like Evil Touch). `attackRoll` is a generic resolver available
+  to **any** Skill. `kind` stays an authored **intent** tag — load-bearing, *not*
+  cosmetic: it drives the `skillKinds` Attack-Roll filter, and that intent can't be
+  derived from facets (Ailment Boost targets **dedicated** Ailment Skills, not any
+  Skill that happens to inflict an ailment *side-effect* rider — e.g. Agi's Burn must
+  not qualify). **Healing stays untyped magnitude** — not a damage type (the vitals
+  layer already unifies damage/heal as one signed axis; a harm/restore HP-effect
+  primitive is deferred to the combat-resolution layer).
 - **Shared primitive:** the composable **effects vocabulary** (`affinity`/
   `attribute`/`skill` effects, v1 `foundation/combat/effects`) is what both items
   and composed-skills compose — carry it as a `foundation-v2` primitive early.
