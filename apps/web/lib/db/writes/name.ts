@@ -11,7 +11,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * surfaces `"stale"` rather than silently overwriting; an independent edit in
  * a different class (vitals, inventory, progression) bumps a different column
  * and does not affect this save's version match. Per-write-class versioning
- * is the UNN-140 baseline every wrapper follows; see `lib/actions/README.md`.
+ * is the UNN-140 baseline every wrapper follows; see `lib/actions/CLAUDE.md`.
  */
 
 /**

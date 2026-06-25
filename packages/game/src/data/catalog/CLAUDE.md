@@ -1,7 +1,7 @@
 # Data catalogs — the shared factory
 
-The hardcoded-TS data catalogs (`lib/game/skills`, `lib/game/items`,
-`lib/game/enemies`) all share this module so they don't drift. Each is a
+The hardcoded-TS data catalogs (`data/skills`, `data/items`,
+`data/enemies`) all share this module so they don't drift. Each is a
 collection of by-key entry objects with no database; lookups are O(1) and the
 pressure at scale is authoring ergonomics and consistency, not runtime.
 
@@ -73,7 +73,7 @@ hoisted dependency in this monorepo, so `vite/client`'s glob types don't resolve
 under `tsc`.
 
 These two helpers live in `registered-entries.ts` and import `node:fs`, so they
-are **test-only** and deliberately kept out of `index.ts`. Import them from
-`../catalog/registered-entries` directly — `index.ts` re-exports only the
-runtime-safe `create-catalog`, so a registry pulling `createCatalog` through the
-barrel never drags `node:fs` into the client bundle.
+are **test-only**. Import them from
+`@workspace/game/data/catalog/registered-entries` directly so a registry pulling
+`createCatalog` from `@workspace/game/data/catalog/create-catalog` never drags
+`node:fs` into the client bundle.

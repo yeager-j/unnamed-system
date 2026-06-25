@@ -10,7 +10,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * `(id, identityVersion)` so a concurrent identity-class write surfaces
  * `"stale"` rather than silently overwriting; the column is bumped atomically
  * in the same `SET` clause. Mirrors {@link updateCharacterName}; see
- * `lib/actions/README.md` for the broader pattern.
+ * `lib/actions/CLAUDE.md` for the broader pattern.
  *
  * `pathChoice` belongs to the identity-class version namespace because every
  * write the wizard makes (name, pronouns, portrait, builder step, path,

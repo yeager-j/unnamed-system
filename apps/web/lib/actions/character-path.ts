@@ -18,7 +18,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * Updates the character's HP/SP path choice. The viewer must be the owner;
  * a non-owner caller never reaches the persistence layer (the gate trips
- * Next's `forbidden()`). See `lib/actions/README.md` for the canonical
+ * Next's `forbidden()`). See `lib/actions/CLAUDE.md` for the canonical
  * pattern this follows.
  */
 export async function updateCharacterPathAction(

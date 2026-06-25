@@ -25,7 +25,7 @@ import {
  * shared {@link applyMechanicStateForCharacter} primitive →
  * `revalidateCharacter` on success. No per-mechanic DB wrapper: the shared
  * primitive owns the entire persistence transaction. See
- * `lib/actions/README.md` ("Mechanic writes").
+ * `lib/actions/CLAUDE.md` ("Mechanic writes").
  */
 export async function adjustPainAction(
   input: AdjustPainInput

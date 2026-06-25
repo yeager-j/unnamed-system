@@ -1,7 +1,19 @@
-# E2E patterns
+# `apps/web/e2e` — Playwright E2E
 
-Conventions that aren't strictly Playwright's — they're things I (Claude)
-got wrong in UNN-180 and want to not repeat.
+Specs require a seeded database for DB-backed routes. The conventions below
+aren't strictly Playwright's — they're things I (Claude) got wrong (mostly in
+UNN-180) and want to not repeat.
+
+## E2E is two-tier
+
+The split exists to keep Vercel edge-request traffic inside the Hobby budget — the full suite against a preview deployment cost ~5k edge requests per run.
+
+- **`e2e` (`.github/workflows/e2e.yml`)** — the full suite minus `@smoke`, on `pull_request` + pushes to `main`. Runs entirely on the GitHub runner: it creates an **ephemeral Neon branch** (`ci/run-<run_id>`, deleted in an `always()` step), migrates + seeds it, builds, and serves the production build via Playwright's `webServer` (`next start`; the config picks it over `next dev` when `CI` is set). Zero Vercel traffic. Auth env vars are dummies — sessions are minted directly in the DB by `e2e/auth.setup.ts`, never via OAuth. The `e2e` required check on `main` is this workflow's job.
+- **`smoke` (`.github/workflows/smoke.yml`)** — the `@smoke`-tagged subset (~6 tests), against the **actual preview deployment**, triggered by Vercel's `vercel.deployment.success` `repository_dispatch`. It checks out `client_payload.git.sha`, resolves the deployment's `preview/<branch>` Neon branch via `neonctl`, migrates + seeds it, and runs Playwright against `client_payload.url`. Only runs for `environment == 'preview'`; production deploys are never seeded. The `smoke` commit status is fail-closed: no preview deploy ⇒ no dispatch ⇒ no status ⇒ the PR cannot merge. `preview/<branch>` is deleted on PR close by `.github/workflows/neon.yml`.
+
+**Tag `@smoke` only for deployment-specific coverage** — env wiring, the session cookie on the deployed domain, Vercel Blob, one representative Server-Action write. Logic coverage belongs in the untagged suite; every `@smoke` test bills real edge requests on every push.
+
+Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, preserving the inner loop.
 
 ## Snapshot, not polling, for "did X **not** happen" assertions
 
@@ -79,14 +91,12 @@ was entirely in the spec.
 ```ts
 await page.getByRole("button", { name: "Charged" }).click()
 await expect
-  .poll(async () => (await getCombatStateTargetState()).battleConditions?.charged)
+  .poll(async () => (await target.getState()).battleConditions?.charged)
   .toBe(true)
 
 await page.getByRole("button", { name: "Concentrating" }).click()
 await expect
-  .poll(
-    async () => (await getCombatStateTargetState()).battleConditions?.concentrating
-  )
+  .poll(async () => (await target.getState()).battleConditions?.concentrating)
   .toBe(true)
 ```
 

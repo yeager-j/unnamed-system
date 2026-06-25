@@ -1,0 +1,9 @@
+# `components/encounter` — mapless-encounter feature
+
+**Mapless-encounter feature** (UNN-492, split out of `combat/`): the unique shell for the no-map encounter, rendering the shared `combat/` kit.
+
+The DM console (UNN-335) — encounter-setup draft shell (CombatantSetup[] container + Start-combat transition, via use-encounter-setup + combatant-setup-row), combat-console (live), and ended-stub — rendered by app/combat/[shortId]/ (app/combat/[shortId]/encounter-access.ts holds the DM-only `getEncounterForDM` loader the console + enemies sub-route memoize; enemy-catalog-browser is the mapless wrapper around the shared EnemyCatalogPanel, route app/combat/[shortId]/enemies/).
+
+The **player watch view** (UNN-322/323/324) — encounter-watch (client root + draft/live/ended status branch, consumes hooks/use-encounter-snapshot) — rendered by app/c/encounter/[shortId]/ as a **3-column** surface: the signed-in viewer's own character sheet on the left (the shared combat/watch/ combat-sheet-column: tabs when they own >1 combatant here, each an owner-mode CharacterProvider rendering the **same** sheet components as /c/[shortId], read-only for combat conditions) and the battlefield on the right (zone-layout grid fed by resolve-player-view.ts's resolvePlayerZoneLayout + player-turn-order + watch-enemies-rail; zones-panel for the DM). The left column is hidden for a spectator/signed-out viewer (battlefield full-width).
+
+All combatant data is the **redacted** EncounterSnapshot (enemy attributes/affinities stripped server-side in lib/db/queries/load-encounter-snapshot.ts → @workspace/game/engine/encounter/player-snapshot), polled/pinged from the public app/api/encounter/[shortId]/snapshot route; the viewer's own full sheets come from loadOwnedEncounterSheets. On the watch the player edits only **vitals/mechanic** (written through the existing owner controls).

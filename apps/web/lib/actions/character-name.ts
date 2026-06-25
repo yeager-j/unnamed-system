@@ -18,7 +18,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * The canonical Server Action: typed input → Zod parse → `requireOwner` →
  * persistence call → `revalidateCharacter` → return `Result`. Every owner-mode
- * write follows the same shape (see `lib/actions/README.md`).
+ * write follows the same shape (see `lib/actions/CLAUDE.md`).
  */
 
 /**

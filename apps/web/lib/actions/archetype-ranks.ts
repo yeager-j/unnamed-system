@@ -24,7 +24,7 @@ import { revalidateCharacter } from "./revalidate"
 
 /**
  * Spends one Saved Archetype Rank to unlock a new Archetype at Rank 1 (PRD
- * §6.1, UNN-239). See `lib/actions/README.md` for the canonical write pattern.
+ * §6.1, UNN-239). See `lib/actions/CLAUDE.md` for the canonical write pattern.
  */
 export async function unlockArchetypeAction(
   input: UnlockArchetypeInput

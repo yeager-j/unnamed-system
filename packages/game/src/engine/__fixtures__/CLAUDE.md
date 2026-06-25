@@ -1,6 +1,6 @@
 # Game-engine test fixtures + mutation-hardening rubric
 
-Test-only builders and data for the pure game engine (`lib/game/**`), plus the
+Test-only builders and data for the pure game engine (`src/engine/**`), plus the
 rubric for hardening a slice's tests against mutation testing (UNN-352, following
 UNN-351). Nothing here is imported by app or catalog code.
 
@@ -96,7 +96,7 @@ confidence, it's out of scope.
   `makeHydratedCharacter(overrides, makeTestGameData({...}))` derives a character
   against a fixture catalog (and is the default — see the catalog-default note
   above).
-- `index.ts` — barrel; import from `@/lib/game/__fixtures__`.
+- `index.ts` — barrel; import from `@workspace/game/engine/__fixtures__`.
 
 Grow the kit per slice. New builders are welcome — keep them override-driven and
 cloned per call.

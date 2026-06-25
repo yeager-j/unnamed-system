@@ -34,7 +34,7 @@ import { revalidateCharacter } from "./revalidate"
  * is a follow-up.
  *
  * Every action follows the canonical pattern documented in
- * `lib/actions/README.md`: parse → `requireOwner` → persistence wrapper →
+ * `lib/actions/CLAUDE.md`: parse → `requireOwner` → persistence wrapper →
  * `revalidateCharacter` → return `Result`. Per-write-class versioning is
  * shared across all four — they all bump `identityVersion`, so two of them
  * in flight at the same time correctly race (one wins, the other gets

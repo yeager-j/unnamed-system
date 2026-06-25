@@ -79,7 +79,7 @@ If you can't answer those questions, don't write the hack. A hack should *only* 
 - User may sometimes accidentally leave the dev server on port 3000 running. It's fine to kill it so you can restart it via your preview tools. **IMPORTANT!** If you are working in a git worktree, the dev server may have been started by another Claude instance working on its own ticket. You should use a different port in this case.
 - When you need to flip the signed-in/signed-out state in a browser preview during UI work, use POST /api/dev/sign-in and POST /api/dev/sign-out — recipe in the route JSDocs. Don't try to delete the session cookie from JS (it's httpOnly).
 - When screenshotting via the Playwright MCP, omit the `filename` arg — a relative filename resolves against the repo cwd and litters the root; auto-named files honor the configured `--output-dir` and also render inline in the tool result.
-- When you create new folders, add them to this document's **Repo Structure** section. Ensuring this section is up-to-date allows future Claude instances to know where relevant code is without having to dig through the repo.
+- When you create new folders, add a one-line entry to this document's **Repo Structure** map so future Claude instances know where code lives. Keep that entry terse — when an area accrues dense, area-specific conventions, put them in a nested `CLAUDE.md` in that folder (Claude auto-loads it when working there) and leave only a one-line pointer in the root map. Reserve `README.md` for human-facing prose; it is **not** auto-loaded, so point at it from the nearest `CLAUDE.md`.
 
 **Retrospective at the end of every ticket.** When the implementation lands, briefly consider what slowed you down — friction in the type system, repeated patterns the abstractions don't cover, missing primitives, awkward seams between layers — and surface them with the user. An empty list is a fine outcome; padded lists are worse than silence. The user decides whether to act, file a DX ticket, or skip.
 
@@ -116,109 +116,39 @@ apps/web/
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc. shared/canvas/ holds the route-agnostic React Flow primitives the Map editor + dungeon run console share (UNN-464): floating-edge.ts (pure border-intersection geometry) + use-floating-edge-path.ts (the bezier-path hook). Note: floating edges still require the custom node to render at least one source + one target Handle — React Flow won't create an edge for a handle-less node; the floating math only overrides where it attaches.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
-│   ├── combat/                **Shared combat UI kit** (UNN-492): the route-agnostic combat components rendered by BOTH the mapless encounter (components/encounter/) and the spatial dungeon combat canvas (components/dungeon/) — it depends on neither experience. **Organized by concern** (folder names drop the redundant combatant-/combat- prefixes): console/ (the **headless** core — use-combat-console + dispatch-event + pc-ping), drawer/ (combatant-drawer + the actions/conditions/counters/engagement/position/vitals sections), rail/ (combatant-rail + row), conditions/ (controls = the shared ailment/battle-condition editor + state-display = its read-only peer), dialogs/ (start-combat / end-combat / end-of-turn-modal), setup/ (import-pcs-panel + panels stub), watch/ (combat-sheet-column = the player's combat-phase sheet column, exports CombatSheetColumn; + its combat-sheet-refresh hook), controls/ (engagement, side-toggle, zone-enchantment), and enemies/. turn-order-strip stays at the root (exports ConsolePhase). The enemies/ bestiary (UNN-346) is a three-column master-detail (searchable/family-filtered/level-grouped list + statblock card + a localStorage-backed "Queued enemies" staging rail via hooks/use-encounter-enemy-queue), whose EnemyCatalogPanel is the shared inner surface (the mapless browser wrapper lives in encounter/, the dungeon dialog in dungeon/); its enemy-statblock.tsx (`EnemyStatblock`, fed by the engine's resolved `Statblock` — UNN-350 dedup) is the one renderer shared by the browse statblock card and the DM drawer's enemy section. **combat conditions (ailments + battle conditions) are DM-only** — conditions/controls is the shared presentational editor; the DM drawer's conditions-section is its sole editing caller (UNN-467), the watch renders it read-only.
-│   ├── encounter/             **Mapless-encounter feature** (UNN-492, split out of combat/): the unique shell for the no-map encounter, rendering the shared combat/ kit. The DM console (UNN-335) — encounter-setup draft shell (CombatantSetup[] container + Start-combat transition, via use-encounter-setup + combatant-setup-row), combat-console (live), and ended-stub — rendered by app/combat/[shortId]/ (app/combat/[shortId]/encounter-access.ts holds the DM-only `getEncounterForDM` loader the console + enemies sub-route memoize; enemy-catalog-browser is the mapless wrapper around the shared EnemyCatalogPanel, route app/combat/[shortId]/enemies/). The **player watch view** (UNN-322/323/324) — encounter-watch (client root + draft/live/ended status branch, consumes hooks/use-encounter-snapshot) — rendered by app/c/encounter/[shortId]/ as a **3-column** surface: the signed-in viewer's own character sheet on the left (the shared combat/ watch-sheet-column: tabs when they own >1 combatant here, each an owner-mode CharacterProvider rendering the **same** sheet components as /c/[shortId], read-only for combat conditions) and the battlefield on the right (zone-layout grid fed by resolve-player-view.ts's resolvePlayerZoneLayout + player-turn-order + watch-enemies-rail; zones-panel for the DM). The left column is hidden for a spectator/signed-out viewer (battlefield full-width). All combatant data is the **redacted** EncounterSnapshot (enemy attributes/affinities stripped server-side in lib/db/queries/load-encounter-snapshot.ts → @workspace/game/engine/encounter/player-snapshot), polled/pinged from the public app/api/encounter/[shortId]/snapshot route; the viewer's own full sheets come from loadOwnedEncounterSheets. On the watch the player edits only **vitals/mechanic** (written through the existing owner controls).
-│   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns cards + create dialog, and the manage page's invite-link card (copy/regenerate), roster (+ remove player), encounter list + create dialog, and live-encounter banner. Also the owner's character-placement section (UNN-328): a card grid of the viewer's characters placed here + an "Add character" combobox dialog (place/move, with consent + single-campaign move confirmation) and a per-card remove (unplace) control — all setting characters.campaignId via setCharacterCampaignAction. Plus the lifecycle controls (UNN-330): a member's "Leave campaign" button and the DM's type-to-confirm "Delete campaign" button. Rendered by app/campaigns/ + app/campaigns/[shortId]/
+│   ├── combat/                **Shared combat UI kit** (UNN-492): route-agnostic combat components rendered by both the mapless encounter and the dungeon combat canvas. See combat/CLAUDE.md.
+│   ├── encounter/             **Mapless-encounter feature** (UNN-492): DM console (app/combat/[shortId]/) + player watch (app/c/encounter/[shortId]/). See encounter/CLAUDE.md.
+│   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns + manage page (invite link, roster, encounters, live banner), character placement (UNN-328), lifecycle controls (UNN-330). Rendered by app/campaigns/. See campaign/CLAUDE.md.
 │   ├── maps/                  My Maps surfaces (UNN-460): the My Maps list cards + create dialog, the delete-map confirm, and the Map editor shell (map-editor.tsx — an autosaving name field via hooks/use-map-name-autosave.ts over a placeholder canvas region). The React Flow node-graph canvas drops into that placeholder in UNN-461. Rendered by app/maps/ + app/maps/[shortId]/
-│   ├── dungeon/               **Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration). Organized **by phase/viewer**: root holds the three route-facing entries (run-console = DM console forking play/setup/combat, prep = DM draft placement, watch = player read-only view) + explore-sheet-column (the watch's own-sheet column rendering the sheet's Explore tab). shell/ is the persistent SidebarShell + DungeonSidebarSlot (UNN-488, eases --sidebar-width across phase swaps). The DM phases each get a folder — explore/ (play: body, party-sidebar, zone-sheet, exit-row, use-dungeon-console, dispatch-event), setup/ (body, sidebar, enemy-picker-dialog, board), combat/ (body, sidebar, add-combatant-dialog; reuses the shared combat/ kit) — plus shared/ (enemy-catalog-dialog, use-staged-enemies). canvas/ is the React Flow layer: shared core at its root (canvas, build-nodes, types, zone-card-frame, connection-edge, floating-edge-handles, token-glyph, viewport-store, mode-toggle, edit-canvas) + a subfolder per phase mirroring the top level — explore/, combat/, setup/, and watch/ (the player view, formerly "fog"; the fog-of-war *mechanic* keeps the engine's ConnectionFogState name). Each holds its own zone-node/token-chip/context. (The exploration canvas folder is explore/ to match its dungeon-level sibling, though the DungeonCanvasMode literal it keys off is still 'play'.) Imports cross-reference via the @/components/dungeon/… alias. Rendered by app/dungeon/[shortId]/ (DM) + app/c/dungeon/[shortId]/ (watch)
+│   ├── dungeon/               **Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration). DM console at app/dungeon/[shortId]/, watch at app/c/dungeon/[shortId]/. See dungeon/CLAUDE.md.
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
-│   └── fixtures/              E2E test-data factory (UNN-343). factory.ts mints ephemeral characters/campaigns/encounters with unique-per-run ids + a CleanupTracker (afterAll cleanup); each write spec's <thing>-target.ts wraps it as createXTarget(tracker) returning helpers bound to the new id. encounter-target.ts is the kept seeded combat showcase (campaigns A/B + encounters) for encounter-shell/join. See e2e/README.md "Write-spec discipline".
+│   └── fixtures/              E2E test-data factory (UNN-343). factory.ts mints ephemeral characters/campaigns/encounters with unique-per-run ids + a CleanupTracker (afterAll cleanup); each write spec's <thing>-target.ts wraps it as createXTarget(tracker) returning helpers bound to the new id. encounter-target.ts is the kept seeded combat showcase (campaigns A/B + encounters) for encounter-shell/join. See e2e/CLAUDE.md "Write-spec discipline".
 └── lib/
-    ├── actions/               Server Actions and validation schemas. README contains instructions for the owner-mode write pattern.
+    ├── actions/               Server Actions and validation schemas. See actions/CLAUDE.md for the owner-mode write pattern.
     ├── archetypes/            Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
     ├── (game/ extracted to packages/game — see "packages/game" below)
     ├── ui/                    Cross-cutting UI utilities (labels)
-    ├── realtime/              Ably invalidation pings (UNN-370; docs/realtime/ADR.md): channels.ts is the ONLY place env-namespaced channel names ({ns}:{domain}:{shortId}) are assembled; client.ts is the lazy REST client (null without ABLY_API_KEY ⇒ the whole layer no-ops and clients poll); publish.ts fires advisory pings from the write choke points (version-guard + the two bespoke writes + the encounter shells) via next/server after(). Subscribe tokens: app/api/realtime/token (subscribe-only, single channel). Client side: hooks/use-realtime-channel.ts is the generic subscribe hook (modular ably SDK, token-route auth, inert when unavailable); the sheet wires it in CharacterProvider through hooks/character-version-sync.ts — the shared version-compare both it and the UNN-203 BroadcastChannel funnel through (UNN-372).
+    ├── realtime/              Ably invalidation pings (UNN-370; docs/realtime/ADR.md): lazy REST publish from the write choke points + a generic subscribe hook; no-ops to polling without ABLY_API_KEY. See realtime/CLAUDE.md.
     ├── db/                    Persistence, grouped by role (see below)
     ├── storage/               Vercel Blob storage
     └── auth/                  Auth.js
 ```
 
-`lib/db/` is grouped by role:
-
-```
-lib/db/
-├── client.ts        Lazy Drizzle client (db, getDb)
-├── index.ts         Barrel: re-exports client + schema (import via @/lib/db)
-├── env.ts           DB env resolution
-├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
-├── schema/          Drizzle tables + columns; row types (CharacterRow, …) are owned by @workspace/game/foundation, conformance.test.ts proves the tables match
-├── migrations/      drizzle-kit SQL migrations + meta
-├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes), load-dungeon (UNN-462: by-shortId row + campaignId resolver for the DM-write gate + version for stale-retry)
-└── writes/          Per-concern persistence wrappers + the version-guard primitive
-```
-
-**Wrapper naming rule:** files in `queries/`/`writes/` are named for the
-character-state slice or operation they touch, with **no `character-` prefix**
-(the folder already says "character db") — `writes/virtues.ts`,
-`writes/combat-state.ts`, `queries/versions.ts`, matching peers like
-`writes/inventory.ts`/`writes/rest.ts`. Keep `character` in the name **only**
-when the whole character is the operation's object: `queries/load-character.ts`,
-`queries/character-list.ts`, `writes/delete-character.ts`,
-`writes/start-character-draft.ts`. Every write composes through
-`writes/version-guard.ts` (UNN-248); the README in `lib/actions/` documents the
-owner-mode write pattern these back.
+`lib/db/` is grouped by role (client/schema/migrations/queries/writes). The role
+layout, the **wrapper naming rule**, and the version-guard composition pattern
+live in **`apps/web/lib/db/CLAUDE.md`** (auto-loads when you work there).
 
 ### `packages/game` (`@workspace/game`)
 
 The pure game engine + data, extracted from `apps/web/lib/game` (see
-`docs/engine-reorg`). A runtime-pure leaf — no React/Next/DB — split into three
-layers under `src/`, each its own barrel entry point:
-
-```
-packages/game/src/
-├── foundation/   types, Zod schemas, fixed vocabulary (LINEAGES, VIRTUE_KEYS, DAMAGE_TYPES),
-│                 scalar constants, the generic Result primitive (result.ts), and the
-│                 persisted-row contract (records.ts: CharacterRow etc.). No real logic.
-├── data/         the hardcoded catalogs (skills/items/archetypes/enemies + their per-category
-│                 index.ts slices and get* registries; catalog/createCatalog). Authored truth.
-└── engine/       the pure functions — char optimistic reducer (character/reduce/* +
-                  reduce-character.ts), encounter tracker (encounter/reduce/* + reduce-session +
-                  selectors + view-shapers), dungeon/ (the exploration turn loop — reduceDungeon +
-                  reminder/roster selectors, UNN-463; no deps, not in createGameEngine),
-                  stats/leveling/derive, combat math, the mechanics
-                  behavior modules + registry, the enemy view-models, and combatant/ (the
-                  provenance-neutral `Statblock` + statblockFromCharacter/statblockFromEnemy
-                  derivers PCs and enemies share — UNN-350). The Stryker target.
-```
-
-- **Imports:** consumers (apps/web) import a layer barrel — `@workspace/game/{foundation,data,engine}`;
-  package-internal files import the **deep module** (`@workspace/game/<layer>/<file>`), never a
-  layer barrel (cycles). `sideEffects: false` + Next `optimizePackageImports` neutralize the
-  barrel cost.
-- **Dependency rule:** `engine → data → foundation`. Type-only imports across layers are free;
-  `engine → data` **value** imports are the inversion-debt backlog being paid down by **UNN-354**
-  via the lookup **port**: `engine/ports.ts` declares the single `GameData` interface over
-  foundation types that the engine owns and `data` implements — `data/game-data.ts` exports the
-  single `gameData` adapter satisfying it. Each engine function declares the **exact slice it
-  calls** as an inline `Pick<GameData, ...>` (so a signature documents precisely which lookups it
-  touches), and every factory-bound boundary function (`buildStatContext`,
-  `deriveHydratedCharacter`, `reduceCharacter`, the archetype display shapers, …) is curried
-  **deps-first**: an outer call takes its lookup slice (+ `newId` where it mints ids), the inner
-  call takes the runtime args. `createGameEngine` is one uniform sweep of those outer calls;
-  `apps/web/lib/game-engine.ts` is the **composition root** that binds `gameData` once and
-  re-exports the pre-bound versions app code calls. Mechanics registry (`getMechanic`) is
-  engine-owned behavior, **not** a data port (carved out). `foundation` still has a few value
-  imports from `engine`/`data` (attack vocab, mechanic state-schemas) — a known follow-up.
-- The persisted-row types (`CharacterRow`, …) are **owned in `foundation/records.ts`**; the
-  Drizzle tables in `lib/db/schema` import them and a `conformance.test.ts` proves the table
-  matches (so they can't drift). `EnemyDefinition` family (humanoid/beast/…) is lifted to a
-  display/filter vocab by `getEnemyFamily` in the enemies registry. `mechanics/registry.ts` is
-  keyed by `kind` over a closed union (carries behavior), **not** a `createCatalog` catalog.
-- **Tests + fixtures live in the package** (`src/**/*.test.ts`, `src/engine/__fixtures__/`).
-  Engine tests are split three ways (UNN-363; rubric in `__fixtures__/README.md`):
-  co-located `<slice>.test.ts` are fixture-backed **unit** tests (one module in
-  isolation); `src/engine/__integration__/*.integration.test.ts` are fixture-backed
-  **collaboration** tests (a subject composing ≥2 concerns — the derive→reduce
-  pipeline, session reducer/factory, encounter view-shapers, `buildStatContext`,
-  `statblock`); `src/engine/__contract__/*.contract.test.ts` are the **only** engine
-  tests that import the real catalog (`@workspace/game/data`, `gameData`) — a thin
-  real-data smoke layer, excluded from the Stryker run via `vitest.mutation.config.ts`.
-  As of UNN-361 the suite is **fully data-pure outside `__contract__`** — no
-  exceptions. Run a layer with `npm run test:contract` / `test:integration`.
+`docs/engine-reorg`). A runtime-pure leaf — no React/Next/DB — with three layers
+under `src/` (`foundation → data → engine`), each its own barrel entry point. The
+layer map, import/dependency rules, the lookup-port pattern, and the engine test
+split + test-signal tooling live in **`packages/game/CLAUDE.md`** (auto-loads when
+you work there).
 
 ## Commands
 
@@ -236,29 +166,8 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 
 ## Testing
 
-- **Unit (Vitest):** pure game mechanics in `packages/game/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.)
-- **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database.
-
-**Test-signal tooling for the engine (UNN-351) — run from `packages/game`:**
-
-- `npm run test:coverage` — Vitest branch coverage **scoped to `src/engine/**`** (config in `packages/game/vitest.config.ts`). A **gap-finder, not a gate**: no thresholds, no CI check. Read the *uncovered-branch* list (HTML under `packages/game/coverage/`); ignore the headline %. The engine is where almost every branch is a rule, so an un-executed branch is a rule no test ran; a quota would just invite low-value line-touching tests. Don't add a threshold.
-- `npm run test:mutation` — Stryker (`packages/game/stryker.conf.mjs`): the measure coverage can't give — of the plausible mistakes one could introduce, what fraction the tests catch (the _mutation score_). `mutate` is the whole engine layer (`src/engine/**`; `__fixtures__` excluded). A full run is ~2.5 min — **not** on the PR critical path: run it nightly or scope `mutate` to changed engine files when iterating; never block a PR on a full run. Triage survivors as real-gap vs equivalent-mutant (HTML under `packages/game/reports/mutation/`). Mutation finds gaps branch coverage rates "fine" — e.g. it flagged `skillAttackRollContext`'s entirely-unexercised ailment arm in an 85%-branch-covered file.
-- **Hardening a slice's tests** (decouple from catalog data via fixtures, then drive the mutation score up): use the shared kit + follow the rubric in `packages/game/src/engine/__fixtures__/README.md` (UNN-352). Build inputs from the fixtures (`makeRawCharacterInputs`, `makeStatContext`, …) so logic tests assert behavior, not balance numbers; document genuine equivalent mutants with `// Stryker disable` + a reason; never `as any` impossible inputs or disable just to lift the score.
-
-**E2E is two-tier** (the split exists to keep Vercel edge-request traffic inside the Hobby budget — the full suite against a preview deployment cost ~5k edge requests per run):
-
-- **`e2e` (`.github/workflows/e2e.yml`)** — the full suite minus `@smoke`, on `pull_request` + pushes to `main`. Runs entirely on the GitHub runner: it creates an **ephemeral Neon branch** (`ci/run-<run_id>`, deleted in an `always()` step), migrates + seeds it, builds, and serves the production build via Playwright's `webServer` (`next start`; the config picks it over `next dev` when `CI` is set). Zero Vercel traffic. Auth env vars are dummies — sessions are minted directly in the DB by `e2e/auth.setup.ts`, never via OAuth. The `e2e` required check on `main` is this workflow's job.
-- **`smoke` (`.github/workflows/smoke.yml`)** — the `@smoke`-tagged subset (~6 tests), against the **actual preview deployment**, triggered by Vercel's `vercel.deployment.success` `repository_dispatch`. It checks out `client_payload.git.sha`, resolves the deployment's `preview/<branch>` Neon branch via `neonctl`, migrates + seeds it, and runs Playwright against `client_payload.url`. Only runs for `environment == 'preview'`; production deploys are never seeded. The `smoke` commit status is fail-closed: no preview deploy ⇒ no dispatch ⇒ no status ⇒ the PR cannot merge. `preview/<branch>` is deleted on PR close by `.github/workflows/neon.yml`.
-
-**Tag `@smoke` only for deployment-specific coverage** — env wiring, the session cookie on the deployed domain, Vercel Blob, one representative Server-Action write. Logic coverage belongs in the untagged suite; every `@smoke` test bills real edge requests on every push.
-
-Locally, `playwright.config.ts` starts `npm run dev` when `BASE_URL` is unset, preserving the inner loop.
-
-**Write-path E2E (cast / heal / rest / level-up / spark):**
-
-- **Mint ephemeral rows with `e2e/fixtures/factory.ts`, don't grow the seed** (UNN-343). Each `createTest*` helper stamps a unique-per-run id, so `fullyParallel` workers can't contend, and one `cleanup(tracker)` in `afterAll` tears them down (FK-safe, on failure too). A per-spec `<thing>-target.ts` wraps the factory into `createXTarget(tracker)` returning id-bound `reset`/`setX`/`getX` helpers. See `e2e/README.md` "Write-spec discipline" for the canonical shape.
-- **Write-then-read still needs `expect.poll`** against the DB helper — the factory removes contention, not the `networkidle`-vs-revalidation race.
-- The seed is **showcase/demo data only** (the roster, Iris Vey, and the combat showcase in `encounter-target.ts`). Mutating the shared preview DB is acceptable for that showcase given the per-run re-seed; write-path scaffolding no longer lives there.
+- **Unit (Vitest):** pure game mechanics in `packages/game/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game/CLAUDE.md`**.
+- **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database. The two-tier CI model (`e2e` runner suite vs. `@smoke` preview subset), `@smoke`-tagging discipline, and the write-path factory pattern live in **`apps/web/e2e/CLAUDE.md`**.
 
 ## Tech Stack
 
@@ -277,36 +186,3 @@ Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in
 ## Game Rules
 
 When you need to read about the rules of the game, first check the `CLAUDE.md` index file located in the Obsidian vault. If you need further clarification, read the full rule text.
-
-## Data Model (Key Entities)
-
-`User`, `Character` (with `shortId` for `/c/{shortId}` public URLs), `CharacterArchetype` (join with rank, inheritanceSlots, masteryBonusApplied), `CharacterKnife`, `CharacterChain`, `CharacterTalent`, `InventoryItem` (`catalogItemKey`, `equipped`, `quantity` — capabilities like equip slot, effects, and `stackSize` come from the composable catalog `Item`, not the row; see `packages/game/src/foundation/items/schema.ts`), `ActionLogEntry`, `Campaign` (the DM↔player boundary: `dmUserId`, stable `shortId` for the manage URL, and a separate rotatable `joinToken` for the `/join/{joinToken}` invite link — UNN-327), `CampaignUser` (`(campaignId, userId)` roster membership; leave/kick nulls the player's placed characters' `campaignId`, UNN-330), `Encounter` (`campaignId`, `session` jsonb, `shortId`, optional `notes`), `Dungeon` (UNN-462, M2 exploration layer: `campaignId` cascade, `mapInstanceId` restrict, `shortId` for `/dungeon/{shortId}`, `status` draft/active/done, `state` jsonb = turn counter + actedCharacterIds + reminder settings, `version`; owns no geography — that's the Map Instance it references). Campaign deletion cascades encounters + memberships and `set null`s placed `characters.campaignId`; a character that's a combatant in a `live` encounter is lifecycle-locked (can't be deleted/unplaced/kicked) — UNN-330.
-
-See PRD §8 for the full field list.
-
-## App Surfaces
-
-1. **Home / My Characters** — list of user's characters, "Create new character" CTA
-2. **Character Builder** — 12-step linear flow (savable, back-navigable); see PRD §5
-3. **Character Sheet (edit)** — owner's editable view; header, vitals, attributes, virtues, affinities, archetypes, skills, talents, equipment, identity, progression, combat state, notes
-4. **Character Sheet (public)** — `/c/{shortId}`, read-only, same content, signed-out visible
-5. **Join campaign** — `/join/{joinToken}`, public/signed-out-visible (UNN-327); a DM's shareable invite link. Signs the player in (OAuth round-trip back to this URL), adds them to the campaign roster (`campaignUsers`), then lands them on the campaign page to place a character (UNN-328). The token is a separate, rotatable secret from the campaign's stable `shortId`.
-6. **My Campaigns** — `/campaigns` (UNN-329); the signed-in viewer's campaigns split into "Running" (DM) and "Playing in" (member), with a Create-campaign CTA.
-7. **Campaign manage / overview** — `/campaigns/{shortId}` (UNN-329), role-conditional: the DM gets the invite link (copy/regenerate), roster (remove player), encounters (create), and a live-combat banner; a member gets a read-only overview; anyone else 404s.
-8. **Encounter watch (public)** — `/c/encounter/{shortId}` (UNN-329 shell; UNN-322/323/324 render), signed-out-visible read-only player view of an encounter: turn order + current actor, the zone map, and per-combatant HP/SP/ailments/conditions. Enemy attributes/affinities are redacted server-side (UNN-324). Polls the public snapshot API every ~1.5s for the DM's live changes, stopping when the encounter ends (UNN-323). Linked from the overview + live banner.
-
-## MVP Scope Limits
-
-- No DM tooling, campaigns, or group features
-- No dice rolling — app accepts player-entered numbers where rolls are required
-- Archetype prerequisites (`{archetype, rank}`) are enforced in the Lineage Atlas (UNN-239: Locked + "Prerequisites not met"); level-based tier gates remain informational hints only
-- No Ancestry/Background structure — free text fields only
-- No Prisma upgrade tree
-- No Spoils deck simulation
-- No multi-currency
-- No item catalog — items are user-defined
-- Game data changes require a redeploy
-
-## Rulebook Reference
-
-The full rules are indexed in `packages/rules/CLAUDE.md`. When in doubt about a mechanic, read the relevant file from that vault rather than guessing.

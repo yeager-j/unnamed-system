@@ -26,7 +26,7 @@ import {
  *
  * No per-mechanic DB wrapper: the shared primitive owns the entire
  * persistence transaction, so an extra file would be a typed alias with
- * nothing left to alias. See `lib/actions/README.md` ("Mechanic writes").
+ * nothing left to alias. See `lib/actions/CLAUDE.md` ("Mechanic writes").
  */
 
 export async function adjustPerfectionAction(

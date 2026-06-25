@@ -12,7 +12,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * cursor. Each function conditions on `(id, identityVersion)` so a
  * concurrent identity-class write surfaces `"stale"` rather than silently
  * overwriting; the column is bumped atomically in the same `SET` clause.
- * See `lib/actions/README.md` for the broader pattern and `character-name.ts`
+ * See `lib/actions/CLAUDE.md` for the broader pattern and `character-name.ts`
  * for the original reference implementation.
  */
 

@@ -67,7 +67,7 @@ A write that takes no payload beyond the envelope is just
 
 import { requireOwner } from "@/lib/auth/viewer-role"
 import { dbWrite } from "@/lib/db/<domain>"
-import { type Result } from "@/lib/game/result"
+import { type Result } from "@workspace/game/foundation"
 
 import {
   SomeWriteSchema,
@@ -180,7 +180,7 @@ const result = await applyMechanicStateForCharacter(
 ```
 
 The pure transition (`adjustValor`, `resetPerfection`, …) lives next to
-the `MechanicDefinition` in `lib/game/mechanics/<lineage>/<kind>.ts`,
+the `MechanicDefinition` in `packages/game/src/engine/mechanics/<lineage>/<kind>.ts`,
 where the game-layer tests already exercise it. Adding a new mechanic
 write surface is therefore: pure transition (game/), action + schema
 (actions/mechanics/), UI control (components/character-sheet/mechanics/).

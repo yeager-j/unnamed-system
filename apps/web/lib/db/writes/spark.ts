@@ -23,7 +23,7 @@ import { bumpCharacterVersionGuarded } from "./version-guard"
  * Persistence for the pure Spark engine: load the row, run the (pure)
  * transition, then write back with a single-row `UPDATE` conditioned on
  * `(id, progressionVersion)` so a concurrent progression-class write
- * surfaces `"stale"` per the `lib/actions/README.md` baseline. The four
+ * surfaces `"stale"` per the `lib/actions/CLAUDE.md` baseline. The four
  * `virtue*` columns and the `sparkLog` JSON column are mapped to/from the
  * engine's storage-agnostic {@link SparkCharacter} here — the one place that
  * boundary lives.

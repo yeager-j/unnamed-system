@@ -27,7 +27,7 @@ import type {
  * (e.g. an Archetype carrying an arbitrary mechanic state) are reachable.
  *
  * Every builder takes shallow overrides and is cloned per call. See the
- * mutation-hardening rubric in `README.md`.
+ * mutation-hardening rubric in `CLAUDE.md`.
  */
 
 export const FIXTURE_CHARACTER_ID = "fixture-char"

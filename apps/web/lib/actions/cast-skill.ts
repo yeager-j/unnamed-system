@@ -21,7 +21,7 @@ import { revalidateCharacter } from "./revalidate"
  * the vitals-class persistence wrapper. After a successful write,
  * `revalidateCharacter` re-derives every dependent display value (Vitals
  * card, Skill cost badge against new max HP, etc.). See
- * `lib/actions/README.md` for the canonical pattern.
+ * `lib/actions/CLAUDE.md` for the canonical pattern.
  */
 export async function castSkillAction(
   input: CastSkillInput

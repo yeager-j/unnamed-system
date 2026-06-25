@@ -36,7 +36,7 @@ import { revalidateCharacter } from "./revalidate"
  * `revalidateCharacter` re-derives every stat that depends on equipped effects
  * (attributes, affinities, weapon attack roll) plus the currency display. Auth
  * is `requireOwner` — non-owners get `forbidden()` (HTTP 403). See
- * `lib/actions/README.md` for the canonical pattern.
+ * `lib/actions/CLAUDE.md` for the canonical pattern.
  */
 
 /**

@@ -33,7 +33,7 @@ async function openSkillPopover(page: Page, skillName: string): Promise<void> {
     .click()
 }
 
-/** Snapshot-check: no Sonner toast is currently rendered. See e2e/README.md. */
+/** Snapshot-check: no Sonner toast is currently rendered. See e2e/CLAUDE.md. */
 async function expectNoToast(page: Page): Promise<void> {
   const count = await page.locator("[data-sonner-toast]").count()
   expect(count).toBe(0)

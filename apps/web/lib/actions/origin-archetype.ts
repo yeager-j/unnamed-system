@@ -18,7 +18,7 @@ import { revalidateCharacter } from "./revalidate"
 /**
  * Sets (or switches) the character's Origin Archetype during Step 2 of the
  * builder. Inserts a fresh `characterArchetype` row at Rank 2 (PRD §5.1) and
- * points `characters.activeArchetypeId` at it. See `lib/actions/README.md`
+ * points `characters.activeArchetypeId` at it. See `lib/actions/CLAUDE.md`
  * for the canonical write pattern this follows.
  */
 export async function setOriginArchetypeAction(

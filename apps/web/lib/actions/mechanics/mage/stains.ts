@@ -25,7 +25,7 @@ import {
  * ({@link setStainSlot} / {@link clearStains}) through the shared
  * {@link applyMechanicStateForCharacter} primitive → `revalidateCharacter` on
  * success. No per-mechanic DB wrapper: the shared primitive owns the entire
- * persistence transaction. See `lib/actions/README.md` ("Mechanic writes").
+ * persistence transaction. See `lib/actions/CLAUDE.md` ("Mechanic writes").
  */
 export async function setStainSlotAction(
   input: SetStainSlotInput

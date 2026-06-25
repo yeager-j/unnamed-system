@@ -56,7 +56,7 @@ import {
  * `router.refresh()`es to reconcile the real state (and any PC HP the page
  * re-reads), and on failure the toast fires while React reverts the optimistic
  * state automatically (ADR Decision 4; the optimistic-toggle pattern in
- * `lib/actions/README.md`).
+ * `lib/actions/CLAUDE.md`).
  *
  * **Dual optimistic state (UNN-459).** The M0 cutover split spatial state onto
  * the Map Instance, so this hook holds **two** optimistic containers (`session`
