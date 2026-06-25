@@ -98,6 +98,7 @@ export function MarkdownField({
     editorProps: {
       attributes: {
         "aria-label": ariaLabel,
+        "aria-multiline": "true",
         ...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {}),
         // Mirror the shadcn Textarea's content-area metrics (`min-h-16`,
         // `px-2.5 py-2`, `outline-none`) so a player switching between an
