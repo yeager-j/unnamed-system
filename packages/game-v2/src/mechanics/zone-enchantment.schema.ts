@@ -1,20 +1,26 @@
 import { z } from "zod/v4"
 
+import {
+  ENCHANTMENT_TYPES,
+  type EnchantmentType,
+} from "@workspace/game-v2/kernel/vocab/enchantment"
+
 /**
- * Zone **Enchantments** — the Bard's mechanic vocabulary, re-declared in v2 (D32).
- * A cast Skill may Enchant the Zone it targets; only one Zone is Enchanted at a
- * time, and a repeat of the same Enchantment raises its **Forte** (the dynamic
- * marking *f → ff → fff*, capped at {@link MAX_FORTE}). An Enchantment grants the
- * effects of its current Forte and all lower Fortes; all end when combat ends.
+ * Zone **Enchantments** — the Bard's mechanic, re-declared in v2 (D32). A cast
+ * Skill may Enchant the Zone it targets; only one Zone is Enchanted at a time, and
+ * a repeat of the same Enchantment raises its **Forte** (the dynamic marking *f →
+ * ff → fff*, capped at {@link MAX_FORTE}). An Enchantment grants the effects of its
+ * current Forte and all lower Fortes; all end when combat ends.
  *
- * This is the **session/Map-Instance** state shape, **not** a persisted character
- * component — so it is deliberately absent from the `ComponentRegistry`/load seam.
- * The per-type behavior (display names, the Effects each Forte emits) lives in
- * {@link ./enchantment}; the encounter PR wires the active {@link ZoneEnchantment}
- * into `resolve`'s effects channel.
+ * The {@link ENCHANTMENT_TYPES} vocab is shared (the Skill schema references it),
+ * so it lives in `kernel/vocab/enchantment`; this module owns the
+ * **session/Map-Instance** state shape ({@link zoneEnchantmentSchema}), which is
+ * **not** a persisted character component and is deliberately absent from the
+ * `ComponentRegistry`/load seam. The per-type behavior (display names, the Effects
+ * each Forte emits) lives in {@link ./enchantment}; the encounter PR wires the
+ * active {@link ZoneEnchantment} into `resolve`'s effects channel.
  */
-export const ENCHANTMENT_TYPES = ["toccata", "requiem", "tarantella"] as const
-export type EnchantmentType = (typeof ENCHANTMENT_TYPES)[number]
+export { ENCHANTMENT_TYPES, type EnchantmentType }
 
 /** Forte caps at *fff* — three steps, matching the dynamic-marking ceiling. */
 export const MAX_FORTE = 3

@@ -4,6 +4,7 @@ import {
   getActiveMechanics,
   type ActiveMechanic,
 } from "@workspace/game-v2/mechanics/active-mechanic"
+import { passiveSkillEffects } from "@workspace/game-v2/resolve/passive-skill-effects"
 import {
   applyForm,
   createResolve,
@@ -44,7 +45,9 @@ export function applyActiveForm(
  * `resolve/` composition tier (over the pure base fold) keeps the dependency
  * one-way — `resolve → mechanics → progression`, never the reverse.
  */
-export function createResolveEntity(deps: Pick<GameData, "getArchetype">) {
+export function createResolveEntity(
+  deps: Pick<GameData, "getArchetype" | "getEquippableItem" | "getSkill">
+) {
   const resolve = createResolve(deps)
 
   return function resolveEntity(
@@ -61,14 +64,20 @@ export function createResolveEntity(deps: Pick<GameData, "getArchetype">) {
     const mechanicEffects = active.flatMap(
       (mechanic) => mechanic.definition.effects?.(mechanic.state) ?? []
     )
-    // This assembly order IS the canonical Attack-Roll contributor order (C6):
-    // active mechanic → context effects (zone enchantment, etc.). `resolve` carries
-    // it into `pendingEffects.attackRoll` and the combat resolver preserves it in
-    // `sources[]` (a display contract). When passive-skill effects land (PR5/PR6),
-    // they MUST be spliced **between** mechanic and context —
-    // `[...mechanicEffects, ...skillEffects, ...(context.effects ?? [])]` — NOT
-    // appended to `context.effects`, which would invert C6 (skills precede context).
-    const effects = [...mechanicEffects, ...(context.effects ?? [])]
+    // The canonical Attack-Roll contributor order (C6): active mechanic → passive
+    // skills → context effects (zone enchantment, etc.). `resolve` carries it into
+    // `pendingEffects.attackRoll` and the combat resolver preserves it in `sources[]`
+    // (a display contract). PR5 fills the passive-skill slot with the equipment
+    // source (read off `formed` — equipment is untouched by `applyForm`); PR6 extends
+    // `passiveSkillEffects` with archetype-kit + inheritance (see its form-semantics
+    // note). The slot MUST stay BETWEEN mechanic and context — appending it to
+    // `context.effects` would invert C6.
+    const skillEffects = passiveSkillEffects(deps, formed)
+    const effects = [
+      ...mechanicEffects,
+      ...skillEffects,
+      ...(context.effects ?? []),
+    ]
 
     return resolve(formed, { effects })
   }

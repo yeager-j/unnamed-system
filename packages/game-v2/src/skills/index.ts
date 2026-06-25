@@ -1,3 +1,6 @@
-// Scaffolded by UNN-499 (D33: one folder per PR). The `skills` domain — schema +
-// cost/cast, later composed in PR-S (D32) — is populated by its own PR.
-export {}
+// The `skills` domain (UNN-503 / PR5): the interim v1 Skill shape + cost/cast
+// primitives + the Skill→AttackRollContext bridge. The composed-Skill model
+// (mirroring `Item`) is a later phase (PR-S / D32).
+export * from "./attack-context"
+export * from "./cost"
+export * from "./skill.schema"

@@ -1,4 +1,5 @@
 import type { ArchetypeBase } from "@workspace/game-v2/archetypes"
+import type { InventoryItemState } from "@workspace/game-v2/items/equipment.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import type {
@@ -36,6 +37,11 @@ export function makeTestGameData(
 ): GameData {
   return {
     getArchetype: (key) => archetypes[key],
+    // Items/Skills default to empty (PR5). A test needing item/skill content spreads
+    // `makeItemLookups({...})` (items/__fixtures__) over this.
+    getItem: () => undefined,
+    getEquippableItem: () => undefined,
+    getSkill: () => undefined,
   }
 }
 
@@ -62,6 +68,8 @@ export interface DerivedEntityOptions {
   exhaustion?: number
   /** Authored per-mechanic state (omit ⇒ no Mechanics component). */
   mechanics?: Mechanics["states"]
+  /** Authored inventory rows (omit ⇒ no Equipment component). */
+  equipment?: InventoryItemState[]
 }
 
 /**
@@ -83,6 +91,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
     resources,
     exhaustion,
     mechanics,
+    equipment,
   } = options
 
   return {
@@ -112,6 +121,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
         ? { exhaustion: { level: exhaustion } }
         : {}),
       ...(mechanics !== undefined ? { mechanics: { states: mechanics } } : {}),
+      ...(equipment !== undefined ? { equipment: { items: equipment } } : {}),
     },
   }
 }

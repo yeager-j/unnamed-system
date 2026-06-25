@@ -1,4 +1,6 @@
 import type { ArchetypeBase } from "@workspace/game-v2/archetypes/archetype"
+import type { EquippableItem, Item } from "@workspace/game-v2/items/item.schema"
+import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 /**
  * The catalog-lookup **port** the engine depends on, owned by the engine (the
@@ -43,4 +45,25 @@ export interface GameData {
    * the catalog Archetype around this slice. Returns `undefined` for an unknown key.
    */
   getArchetype(key: string): ArchetypeBase | undefined
+
+  /**
+   * A catalog {@link Item} by key (PR5 — UNN-503). The item-mutation engine reads
+   * `stackSize` (stacking/quantity) and inventory resolution joins rows to their
+   * catalog entry. `undefined` for an unshipped key (engines drop misses).
+   */
+  getItem(key: string): Item | undefined
+
+  /**
+   * A catalog {@link EquippableItem} by key (PR5) — the equip-only narrowing the
+   * equip swap + equipment contribution read (slot, `equip.effects`, weapon
+   * `intrinsicAttack`). `undefined` for an unknown OR non-equippable key.
+   */
+  getEquippableItem(key: string): EquippableItem | undefined
+
+  /**
+   * A catalog {@link Skill} by key (PR5). The equipment contribution resolves a
+   * granted-skill reference to the granted Skill's own effects. `undefined` for an
+   * unshipped key.
+   */
+  getSkill(key: string): Skill | undefined
 }

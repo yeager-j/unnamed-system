@@ -2,6 +2,7 @@ import type { Affinities } from "@workspace/game-v2/affinities/affinities.schema
 import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
 import type { Attributes } from "@workspace/game-v2/attributes/attributes.schema"
 import type { ResolvedPendingEffects } from "@workspace/game-v2/combat/resolved"
+import type { Equipment } from "@workspace/game-v2/items/equipment.schema"
 import type { Identity } from "@workspace/game-v2/kernel/identity.schema"
 import type {
   AffinityChart,
@@ -76,6 +77,11 @@ export interface ComponentRegistry {
   // Per-mechanic persisted state (PR4 — UNN-502). A capability any entity may carry
   // (D17/D36); `Archetypes.active` selects which is active at resolve time.
   mechanics: Mechanics
+  // Inventory + equipped state (PR5 — UNN-503). The one inventory component (D36
+  // folded inheritance onto Archetypes). Contributes to resolve via the effects
+  // channel + the basic-attack resolver, NOT a fold output — hence no
+  // `ResolvedComponentRegistry` entry below.
+  equipment: Equipment
 }
 
 /**
