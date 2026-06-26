@@ -1,3 +1,7 @@
+import {
+  archetypeKitEffects,
+  inheritanceEffects,
+} from "@workspace/game-v2/archetypes/passive-effects"
 import { equipmentEffects } from "@workspace/game-v2/items/equipment-effects"
 import type { CombatantEffect } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
@@ -10,29 +14,25 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * order. `resolveEntity` splices the result **between** the active mechanic and the
  * context effects (the order the attack-roll readout preserves).
  *
- * **PR5 wires only the equipment source.** PR6 (UNN-504) prepends the archetype-kit
- * and inheritance sources here — but they do **not** share equipment's form
- * semantics, so they must read their own form-correct field, NOT blindly take this
- * function's entity:
+ * The three sources differ in **form semantics** (D19/D38), realized by which field
+ * each reads off the **form-merged** entity `resolveEntity` hands this function:
  *
- * - **equipment** → passes through a form (read the `equipment` component, which
- *   `applyForm` never touches — so passing the formed entity is safe).
- * - **inheritance** → passes through a form (read `archetypes.roster`, which
- *   `applyForm` preserves, like Mastery).
- * - **archetype-kit** → **suppressed** under a form (read `archetypes.active`, which
- *   `applyForm` nulls — so a form's base replacing the archetype's kit falls out for
- *   free, D19).
- *
- * So PR6 should take whichever of `entity`/`formed` each sub-source needs, not
- * assume one entity serves all three.
+ * - **archetype-kit** → **suppressed** under a form (reads `archetypes.active`, which
+ *   `applyForm` nulls — a form's base replacing the archetype kit falls out for free).
+ * - **inheritance** → passes through a form (reads the whole `archetypes.roster`,
+ *   which `applyForm` preserves, like Mastery).
+ * - **equipment** → passes through a form (reads the `equipment` component, untouched
+ *   by `applyForm`).
  */
 export function passiveSkillEffects(
-  deps: Pick<GameData, "getEquippableItem" | "getSkill">,
+  deps: Pick<GameData, "getArchetype" | "getEquippableItem" | "getSkill">,
   entity: Entity
 ): CombatantEffect[] {
   return [
-    // PR6: ...archetypeKitEffects(deps, entity)  — suppressed under a form
-    // PR6: ...inheritanceEffects(deps, entity)   — passes through a form
+    // C6 contributor order WITHIN this channel: kit → inheritance → equipment. The
+    // active mechanic precedes (prepended by `resolveEntity`), context effects follow.
+    ...archetypeKitEffects(deps, entity), // suppressed under a form (reads `active`)
+    ...inheritanceEffects(deps, entity), // passes through a form (reads `roster`)
     ...equipmentEffects(deps, entity),
   ]
 }
