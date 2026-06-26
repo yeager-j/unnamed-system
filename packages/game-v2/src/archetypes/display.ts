@@ -8,9 +8,7 @@ import { isInheritableSkill } from "@workspace/game-v2/archetypes/inheritance"
 import type { ResolvedRosterEntry } from "@workspace/game-v2/archetypes/resolved"
 import {
   resolveArchetypeSkill,
-  resolveSkill,
   type ResolvedArchetypeSkill,
-  type ResolvedSkill,
 } from "@workspace/game-v2/archetypes/resolved-skill"
 import type {
   PartyComposition,
@@ -27,6 +25,10 @@ import {
 } from "@workspace/game-v2/kernel/vocab"
 import { getMechanic } from "@workspace/game-v2/mechanics/registry"
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
+import {
+  resolveSkill,
+  type ResolvedSkill,
+} from "@workspace/game-v2/skills/resolved"
 
 /**
  * Per-Archetype display shaping (ported from v1 `engine/archetypes/utils.ts`),
