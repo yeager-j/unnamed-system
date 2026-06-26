@@ -11,15 +11,18 @@ import { isPassive } from "@workspace/game-v2/skills/skill.schema"
  * **passive** Skill folds its own structured `effects[]`; an active Skill contributes
  * nothing here (it becomes castable — a skills concern, not a resolve contribution).
  *
- * The two halves split on **form semantics** (D19/D38), which is why they read
- * different fields off the (already form-merged) entity `resolve/passive-skill-
- * effects.ts` hands them:
+ * Both are **active-archetype-scoped** — an inherited passive applies only while the
+ * Archetype whose slot holds it is active (a Warrior's inherited Ailment Boost is on
+ * only while Warrior is active), exactly as v1's `activeSkillsFor` read the *active*
+ * row's skills + slots. The two halves split on **form semantics** (D19/D38), which
+ * is why `resolve/passive-skill-effects.ts` hands them different entities:
  *
- * - {@link archetypeKitEffects} reads `archetypes.active` → **suppressed under a
- *   form** (a form replaces the archetype base; `applyForm` nulls `active`, so this
- *   yields `[]` for free).
- * - {@link inheritanceEffects} reads the whole `archetypes.roster` → **passes through
- *   a form** (`applyForm` preserves the roster, like Mastery).
+ * - {@link archetypeKitEffects} reads the **form-merged** entity's `archetypes.active`
+ *   → **suppressed under a form** (the form replaces the archetype base; `applyForm`
+ *   nulls `active`, so this yields `[]` for free).
+ * - {@link inheritanceEffects} reads the **original** (pre-form) entity's active
+ *   Archetype slots → active-scoped, yet **passes through a form** (D19): the inherited
+ *   kit you brought still works after a Shapechange.
  */
 
 /**
@@ -58,25 +61,34 @@ export function archetypeKitEffects(
 }
 
 /**
- * The inherited Skills' passive effects — every roster entry's configured Inheritance
- * Slots (the **whole** roster, like the Mastery walk, so it survives a form-swap;
- * D19/D36). Each filled slot's Skill folds its `effects[]` when passive. Like v1
- * `activeSkillsFor`'s slot arm, it resolves the stored `skillKey` directly (no
- * validity gate — a stale slot simply resolves or doesn't).
+ * The inherited Skills' passive effects — the **active** Archetype's configured
+ * Inheritance Slots only (an inherited passive applies only while its owning
+ * Archetype is active; v1 `activeSkillsFor`'s slot arm read `active.inheritanceSlots`).
+ * Each filled slot's Skill folds its `effects[]` when passive; the stored `skillKey`
+ * resolves directly (no validity gate — a stale slot simply resolves or doesn't).
+ *
+ * Pass the **pre-form** entity so this survives a form-swap (D19): `applyForm` nulls
+ * `active`, but the original entity still names the active Archetype whose inherited
+ * kit carries through the form.
  */
 export function inheritanceEffects(
   deps: Pick<GameData, "getSkill">,
   entity: Entity
 ): CombatantEffect[] {
-  const roster = entity.components.archetypes?.roster ?? []
+  const archetypes = entity.components.archetypes
+  const activeKey = archetypes?.active
+  if (!activeKey) return []
+
+  const slots =
+    archetypes.roster.find((entry) => entry.key === activeKey)
+      ?.inheritanceSlots ?? []
+
   const effects: CombatantEffect[] = []
-  for (const entry of roster) {
-    for (const slot of entry.inheritanceSlots) {
-      if (!slot.skillKey) continue
-      const skill = deps.getSkill(slot.skillKey)
-      if (skill && isPassive(skill) && skill.effects) {
-        effects.push(...skill.effects)
-      }
+  for (const slot of slots) {
+    if (!slot.skillKey) continue
+    const skill = deps.getSkill(slot.skillKey)
+    if (skill && isPassive(skill) && skill.effects) {
+      effects.push(...skill.effects)
     }
   }
   return effects

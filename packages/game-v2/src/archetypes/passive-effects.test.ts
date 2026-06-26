@@ -116,29 +116,61 @@ describe("archetypeKitEffects (active archetype's passive skills, by rank)", () 
   })
 })
 
-describe("inheritanceEffects (whole roster's slots, like the Mastery walk)", () => {
-  it("folds each filled slot's passive effects; skips empty slots + active skills", () => {
+describe("inheritanceEffects (the ACTIVE archetype's slots only)", () => {
+  it("folds the active archetype's filled slot passives; skips empty slots + active skills", () => {
     const entity = pc("warrior", [
       { skillKey: "passive-mag" }, // passive ⇒ contributes
       { skillKey: null }, // empty ⇒ skipped
-      { skillKey: "active-str" }, // active ⇒ skipped
+      { skillKey: "active-str" }, // active skill ⇒ skipped
     ])
     expect(inheritanceEffects(deps, entity)).toEqual([magBuff])
+  })
+
+  it("ignores an INACTIVE archetype's inheritance slots (applies only while active)", () => {
+    // warrior owns the slot but is NOT active ⇒ its inherited passive must not apply.
+    const entity: Entity = {
+      id: "pc",
+      components: {
+        archetypes: {
+          active: null,
+          origin: "warrior",
+          savedArchetypeRanks: 0,
+          roster: [
+            {
+              key: "warrior",
+              rank: 3,
+              inheritanceSlots: [
+                {
+                  slotIndex: 0,
+                  sourceArchetypeKey: "mage",
+                  skillKey: "passive-mag",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }
+    expect(inheritanceEffects(deps, entity)).toEqual([])
   })
 })
 
 describe("passiveSkillEffects union + form semantics (D19, C6 order kit → inheritance → equipment)", () => {
   it("unions kit + inheritance (kit first)", () => {
     const entity = pc("warrior", [{ skillKey: "passive-mag" }])
-    expect(passiveSkillEffects(deps, entity)).toEqual([strBuff, magBuff])
+    expect(passiveSkillEffects(deps, entity, entity)).toEqual([
+      strBuff,
+      magBuff,
+    ])
   })
 
-  it("under a form, kit is suppressed (active nulled) while inheritance passes through", () => {
+  it("under a form, kit is suppressed (formed's active nulled) while inheritance passes through (read off the original)", () => {
     const entity = pc("warrior", [{ skillKey: "passive-mag" }])
     const formed = applyForm(entity, {
       attributes: { base: { strength: 9, magic: 0, agility: 0, luck: 0 } },
     })
-    // active nulled ⇒ no kit (strBuff gone); roster survives ⇒ inheritance (magBuff) stays
-    expect(passiveSkillEffects(deps, formed)).toEqual([magBuff])
+    // kit reads `formed` (active null ⇒ no strBuff); inheritance reads `entity`
+    // (active warrior intact ⇒ magBuff survives the form).
+    expect(passiveSkillEffects(deps, formed, entity)).toEqual([magBuff])
   })
 })

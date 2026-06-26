@@ -14,25 +14,30 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * order. `resolveEntity` splices the result **between** the active mechanic and the
  * context effects (the order the attack-roll readout preserves).
  *
- * The three sources differ in **form semantics** (D19/D38), realized by which field
- * each reads off the **form-merged** entity `resolveEntity` hands this function:
+ * Kit + inheritance are both **active-archetype-scoped** (an inherited passive applies
+ * only while its owning Archetype is active). They differ in **form semantics**
+ * (D19/D38), realized by which entity each reads:
  *
- * - **archetype-kit** → **suppressed** under a form (reads `archetypes.active`, which
- *   `applyForm` nulls — a form's base replacing the archetype kit falls out for free).
- * - **inheritance** → passes through a form (reads the whole `archetypes.roster`,
- *   which `applyForm` preserves, like Mastery).
- * - **equipment** → passes through a form (reads the `equipment` component, untouched
- *   by `applyForm`).
+ * - **archetype-kit** → reads the **form-merged** entity ⇒ **suppressed** under a form
+ *   (`applyForm` nulls `active`; the form's base replaces the archetype kit for free).
+ * - **inheritance** → reads the **original** (pre-form) entity ⇒ active-scoped, yet
+ *   **passes through a form** (D19): the inherited kit you brought survives a Shapechange.
+ * - **equipment** → reads the form-merged entity (the `equipment` component is untouched
+ *   by `applyForm`, so it passes through either way).
+ *
+ * `formed === original` whenever no form is active, so this collapses to one entity in
+ * the common case.
  */
 export function passiveSkillEffects(
   deps: Pick<GameData, "getArchetype" | "getEquippableItem" | "getSkill">,
-  entity: Entity
+  formed: Entity,
+  original: Entity
 ): CombatantEffect[] {
   return [
     // C6 contributor order WITHIN this channel: kit → inheritance → equipment. The
     // active mechanic precedes (prepended by `resolveEntity`), context effects follow.
-    ...archetypeKitEffects(deps, entity), // suppressed under a form (reads `active`)
-    ...inheritanceEffects(deps, entity), // passes through a form (reads `roster`)
-    ...equipmentEffects(deps, entity),
+    ...archetypeKitEffects(deps, formed), // suppressed under a form
+    ...inheritanceEffects(deps, original), // active-scoped, survives a form
+    ...equipmentEffects(deps, formed),
   ]
 }
