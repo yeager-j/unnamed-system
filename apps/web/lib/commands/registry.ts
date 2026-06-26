@@ -1,4 +1,5 @@
 import { navigationCommands } from "./navigation"
+import { progressionCommands } from "./progression"
 import type { Command, CommandContext, CommandProvider } from "./types"
 import { vitalsCommands } from "./vitals"
 
@@ -12,6 +13,7 @@ import { vitalsCommands } from "./vitals"
 const COMMAND_PROVIDERS: CommandProvider[] = [
   ...navigationCommands,
   vitalsCommands,
+  progressionCommands,
 ]
 
 /**

@@ -2,6 +2,7 @@ import type { useRouter } from "next/navigation"
 
 import { type HydratedCharacter } from "@workspace/game/foundation"
 
+import type { SheetCommandSurfaces } from "@/components/character-sheet/sheet-command-surfaces-context"
 import type { SheetTabKey } from "@/components/character-sheet/sheet-tab-keys"
 import type { useCharacterWrite } from "@/hooks/use-character"
 import type { ViewerRole } from "@/lib/auth/viewer-role"
@@ -15,7 +16,7 @@ import type { ViewerRole } from "@/lib/auth/viewer-role"
  */
 
 /** The palette's visual grouping. Cast / Atlas are seeded by sibling tickets. */
-export type CommandGroup = "Navigate" | "Vitals" | "Cast" | "Atlas"
+export type CommandGroup = "Navigate" | "Vitals" | "Progress" | "Cast" | "Atlas"
 
 /**
  * Everything a command's executor needs, resolved by the palette from React
@@ -30,6 +31,7 @@ export interface CommandContext {
   setActiveTab: (tab: SheetTabKey) => void
   router: ReturnType<typeof useRouter>
   write: ReturnType<typeof useCharacterWrite>
+  surfaces: SheetCommandSurfaces
 }
 
 /**
@@ -45,9 +47,42 @@ export interface NumberParameter {
 }
 
 /**
+ * One selectable row on a {@link Submenu} page (a Virtue to tag, an amount of
+ * Victories to award, an Archetype to switch to). `run` fires on select.
+ */
+export interface SubmenuItem {
+  id: string
+  label: string
+  description?: string
+  keywords?: string[]
+  disabled?: { reason: string }
+  run: (ctx: CommandContext) => void | Promise<void>
+}
+
+/** A headed group of {@link SubmenuItem}s (e.g. one Lineage of Archetypes). */
+export interface SubmenuSection {
+  heading?: string
+  items: SubmenuItem[]
+}
+
+/**
+ * A command that, instead of running immediately, opens a child page of the
+ * palette listing its own items — the idiomatic cmdk "pages" pattern (UNN-281).
+ * The palette's input filters the items, so a long list (every unlocked
+ * Archetype) stays searchable. `sections` is evaluated against the live
+ * {@link CommandContext} on open, so the choices reflect current character state.
+ */
+export interface Submenu {
+  placeholder?: string
+  emptyLabel?: string
+  sections: (ctx: CommandContext) => SubmenuSection[]
+}
+
+/**
  * One palette entry. A command carries exactly one executor: `run` for
- * immediate actions (navigation, Use Prisma) or `parameter` for the
- * amount-prompt sub-page.
+ * immediate actions (navigation, Use Prisma), `parameter` for the amount-prompt
+ * sub-page (Take damage / Heal), or `submenu` for a child page of choices
+ * (Spark / Award Victory / Switch Archetype).
  *
  * Two distinct gating mechanisms, deliberately not conflated:
  *  - `requiresOwner` — **owner-gating**: the registry *omits* the command for
@@ -66,6 +101,7 @@ export interface Command {
   disabled?: { reason: string }
   run?: (ctx: CommandContext) => void | Promise<void>
   parameter?: NumberParameter
+  submenu?: Submenu
 }
 
 /**

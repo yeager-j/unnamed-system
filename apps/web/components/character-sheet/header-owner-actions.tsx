@@ -33,7 +33,8 @@ import {
 import { awardVictoriesAction } from "@/lib/actions/leveling"
 
 import { LevelUpDialog } from "./level-up-dialog"
-import { RestDialog } from "./rest-dialog"
+import { RestDialog, type RestMode } from "./rest-dialog"
+import { useOptionalSheetCommandSurfaces } from "./sheet-command-surfaces-context"
 import {
   VictoriesDialog,
   VictoriesPopover,
@@ -78,8 +79,35 @@ export function HeaderOwnerActions() {
   const pools = useCharacterWrite()
   const victories = useCharacterWrite()
   const [mobileForm, setMobileForm] = useState<MobileFormMode>(null)
-  const [restOpen, setRestOpen] = useState(false)
-  const [levelUpOpen, setLevelUpOpen] = useState(false)
+  // Rest + Level-up open-state lives in the sheet context so the command
+  // palette can open these dialogs too (UNN-281). The encounter watch view
+  // renders an owner's header without that provider, so fall back to local
+  // state there (same defensive pattern as LevelUpDialog's useOptionalSheetNav).
+  const surfaces = useOptionalSheetCommandSurfaces()
+  const [localRest, setLocalRest] = useState<{ open: boolean; mode: RestMode }>(
+    {
+      open: false,
+      mode: "full",
+    }
+  )
+  const [localLevelUpOpen, setLocalLevelUpOpen] = useState(false)
+
+  const restOpen = surfaces ? surfaces.rest.open : localRest.open
+  const restMode = surfaces ? surfaces.rest.mode : localRest.mode
+  const setRestOpen = surfaces
+    ? surfaces.setRestOpen
+    : (open: boolean) => setLocalRest((previous) => ({ ...previous, open }))
+  const openRest = surfaces
+    ? surfaces.openRest
+    : (mode: RestMode) => setLocalRest({ open: true, mode })
+  const levelUpOpen = surfaces ? surfaces.levelUp.open : localLevelUpOpen
+  const setLevelUpOpen = surfaces
+    ? surfaces.setLevelUpOpen
+    : setLocalLevelUpOpen
+  const openLevelUp = surfaces
+    ? surfaces.openLevelUp
+    : () => setLocalLevelUpOpen(true)
+
   const levelUpReady = canLevelUp(character)
   const optimisticVictories = character.victories
 
@@ -161,7 +189,7 @@ export function HeaderOwnerActions() {
           onDecrement={handleSpendSP}
           onIncrement={handleRecoverSP}
         />
-        <Button size="sm" variant="outline" onClick={() => setRestOpen(true)}>
+        <Button size="sm" variant="outline" onClick={() => openRest("full")}>
           <BedIcon weight="fill" aria-hidden />
           Rest
         </Button>
@@ -172,11 +200,7 @@ export function HeaderOwnerActions() {
           onAward={handleAwardVictories}
         />
         {levelUpReady ? (
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => setLevelUpOpen(true)}
-          >
+          <Button size="sm" variant="default" onClick={() => openLevelUp()}>
             <TrophyIcon weight="fill" aria-hidden />
             Level up
           </Button>
@@ -203,7 +227,7 @@ export function HeaderOwnerActions() {
               <LightningIcon weight="fill" aria-hidden />
               Adjust SP
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setRestOpen(true)}>
+            <DropdownMenuItem onClick={() => openRest("full")}>
               <BedIcon weight="fill" aria-hidden />
               Rest
             </DropdownMenuItem>
@@ -212,7 +236,7 @@ export function HeaderOwnerActions() {
               Victories ({optimisticVictories}/{VICTORIES_PER_LEVEL})
             </DropdownMenuItem>
             {levelUpReady ? (
-              <DropdownMenuItem onClick={() => setLevelUpOpen(true)}>
+              <DropdownMenuItem onClick={() => openLevelUp()}>
                 <TrophyIcon weight="fill" aria-hidden />
                 Level up
               </DropdownMenuItem>
@@ -255,6 +279,7 @@ export function HeaderOwnerActions() {
         character={character}
         open={restOpen}
         onOpenChange={setRestOpen}
+        mode={restMode}
       />
       <LevelUpDialog
         character={character}

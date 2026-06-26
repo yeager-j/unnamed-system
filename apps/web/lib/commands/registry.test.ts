@@ -9,14 +9,20 @@ import { deriveHydratedCharacter } from "@/lib/game-engine"
 import { resolveCommands } from "./registry"
 import type { CommandContext } from "./types"
 
-// The registry imports the "use server" pool actions as callbacks; stub the
-// module so this pure test doesn't pull the Server Action / next-auth chain
-// into the node environment. resolveCommands never invokes them.
+// The registry imports the "use server" actions as callbacks; stub the modules
+// so this pure test doesn't pull the Server Action / next-auth chain into the
+// node environment. resolveCommands never invokes them.
 vi.mock("@/lib/actions/adjust-pools", () => ({
   damageAction: vi.fn(),
   healAction: vi.fn(),
   spendSPAction: vi.fn(),
+  recoverSPAction: vi.fn(),
   consumePrismaAction: vi.fn(),
+}))
+vi.mock("@/lib/actions/leveling", () => ({ awardVictoriesAction: vi.fn() }))
+vi.mock("@/lib/actions/character-spark", () => ({ addSparkAction: vi.fn() }))
+vi.mock("@/lib/actions/active-archetype", () => ({
+  setActiveArchetypeAction: vi.fn(),
 }))
 
 const CHARACTER_ID = "char-1"
@@ -115,6 +121,7 @@ function makeContext(role: ViewerRole, prismaCharges = 2): CommandContext {
     character: makeCharacter(prismaCharges),
     role,
     setActiveTab: noop,
+    surfaces: { openRest: noop, openLevelUp: noop },
     router: stubRouter,
     write: stubWrite,
   }
