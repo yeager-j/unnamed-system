@@ -1,5 +1,6 @@
 export * from "./archetype"
 export * from "./archetypes.schema"
+export * from "./atlas"
 export * from "./display"
 export * from "./inheritance"
 export * from "./mastery"
