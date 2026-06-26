@@ -308,3 +308,58 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
     expect(resolved.components.skillPool).toBeUndefined()
   })
 })
+
+describe("createResolve — the resolved Archetypes read-unit (PR6 — the sheet reads it off ResolvedEntity)", () => {
+  const data = makeTestGameData({
+    warden: makeArchetype({ key: "warden", lineage: "knight" }),
+    seer: makeArchetype({ key: "seer", lineage: "mage" }),
+  })
+  const resolve = createResolve(data)
+
+  it("emits the roster with derived activeLineage + per-entry mastered when an Archetypes component is present", () => {
+    const entity = makeDerivedEntity({
+      active: "warden",
+      roster: [
+        { key: "warden", rank: 5 },
+        { key: "seer", rank: 2 },
+      ],
+    })
+
+    const resolved = resolve(entity)
+
+    expect(resolved.components.archetypes).toEqual({
+      active: "warden",
+      origin: "warden",
+      savedArchetypeRanks: 0,
+      activeLineage: "knight",
+      roster: [
+        { key: "warden", rank: 5, mastered: true, inheritanceSlots: [] },
+        { key: "seer", rank: 2, mastered: false, inheritanceSlots: [] },
+      ],
+    })
+  })
+
+  it("an entity with no Archetypes component (an enemy) emits no resolved archetypes read-unit", () => {
+    expect(resolve(makeFlatEntity()).components.archetypes).toBeUndefined()
+  })
+
+  it("under a form, applyForm nulls active ⇒ active/activeLineage are null while the roster survives (kit suppression, D38)", () => {
+    const entity = makeDerivedEntity({
+      active: "warden",
+      roster: [{ key: "warden", rank: 5 }],
+    })
+    const form: Entity["components"] = {
+      attributes: { base: { strength: 9, magic: 0, agility: 0, luck: 0 } },
+      vitals: { base: 120, damage: 0 },
+    }
+
+    const resolved = resolve(applyForm(entity, form))
+
+    expect(resolved.components.archetypes?.active).toBeNull()
+    expect(resolved.components.archetypes?.activeLineage).toBeNull()
+    // roster survives (Mastery + inheritance persist through a form)
+    expect(resolved.components.archetypes?.roster).toEqual([
+      { key: "warden", rank: 5, mastered: true, inheritanceSlots: [] },
+    ])
+  })
+})

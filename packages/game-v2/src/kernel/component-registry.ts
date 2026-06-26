@@ -1,5 +1,6 @@
 import type { Affinities } from "@workspace/game-v2/affinities/affinities.schema"
 import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import type { ResolvedArchetypes } from "@workspace/game-v2/archetypes/resolved"
 import type { Attributes } from "@workspace/game-v2/attributes/attributes.schema"
 import type { ResolvedPendingEffects } from "@workspace/game-v2/combat/resolved"
 import type { Equipment } from "@workspace/game-v2/items/equipment.schema"
@@ -102,6 +103,10 @@ export interface ResolvedComponentRegistry {
   skillPool: ResolvedSkillPool
   resources: ResolvedResources
   exhaustion: ResolvedExhaustion
+  // The archetype roster + active/origin/savedRanks, projected for the sheet (the
+  // Atlas / inheritance / display read off the ResolvedEntity, not the authored one).
+  // Emitted only when the entity carries an `Archetypes` component (UNN-504 — PR6).
+  archetypes: ResolvedArchetypes
   // Contextual delta effects collected by `resolve` (active mechanic now;
   // equipment/passives later) that have no in-fold consumer — folded by the PR7
   // attack-roll/damage resolvers against an attack context (PR4 — UNN-502).

@@ -17,7 +17,9 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * content still awaits its migration.
  */
 export const gameData: GameData = {
+  // Archetype content lands in the archetypes domain PR (UNN-504); stubbed here.
   getArchetype: () => undefined,
+  allArchetypes: () => [],
   // Item content is migrated later; the engine + port land now, stubbed unknown.
   getItem: () => undefined,
   getEquippableItem: () => undefined,
