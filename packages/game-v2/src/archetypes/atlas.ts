@@ -7,7 +7,15 @@ import {
 } from "@workspace/game-v2/archetypes/archetype"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { LINEAGES, type Lineage } from "@workspace/game-v2/kernel/vocab"
+import {
+  LINEAGE_SUGGESTED_PATH,
+  LINEAGES,
+  type DamageType,
+  type Lineage,
+  type PathChoice,
+  type SuggestedPath,
+} from "@workspace/game-v2/kernel/vocab"
+import { MAX_LEVEL } from "@workspace/game-v2/progression/leveling"
 
 /**
  * The Lineage Atlas view-model (ported from v1 `engine/archetypes/atlas.ts`) — the
@@ -202,4 +210,209 @@ export function filterAtlasLineagesToUnlocked(
     .filter((lineage) =>
       lineage.columns.some((column) => column.nodes.length > 0)
     )
+}
+
+// — Atlas recommendations (B1–B11) —
+
+/**
+ * Why an Archetype was recommended — the rationale surfaced on each slot.
+ * `origin-lineage` is the Origin priority pick; `unlocked-archetype` a Lineage the
+ * character has invested a Rank in (continue the build); `fits-path` a fresh Lineage
+ * suiting the Path (discovery); `new-damage-type` an off-Path Lineage teaching a
+ * missing damage type (broaden coverage) — the lowest-priority reason.
+ */
+export type RecommendationReason =
+  | "origin-lineage"
+  | "unlocked-archetype"
+  | "fits-path"
+  | "new-damage-type"
+
+/** One filled recommendation slot at the top of the Atlas — enough to act on
+ *  directly (the Archetype, its Atlas state, the owned key when ranking up, the reason). */
+export interface AtlasRecommendation {
+  archetype: Archetype
+  state: AtlasNodeState
+  ownedKey: string | null
+  reason: RecommendationReason
+}
+
+const SUGGESTED_PATH_BY_CHOICE: Record<PathChoice, SuggestedPath> = {
+  "health-focused": "health",
+  balanced: "balanced",
+  "skill-focused": "skill",
+}
+
+const TIER_RANK = new Map<ArchetypeTier, number>(
+  ARCHETYPE_TIERS.map((tier, index) => [tier, index])
+)
+
+/** An eligible node with its Lineage's unlocked count + new-coverage flag carried
+ *  along, so the recommendation sort doesn't re-walk the view. */
+interface RecommendationCandidate {
+  node: AtlasNode
+  lineage: Lineage
+  ownedInLineage: number
+  introducesNewDamageType: boolean
+}
+
+/**
+ * The concrete attack damage types an Archetype's Skills deal (B9). Reads the v2
+ * **typed-damage facet** (`skill.damage.damageType`) — the structural successor to
+ * v1's `kind === "attack"` check; a Skill with no `damage` facet (heal/support/
+ * ailment/passive) carries no type. The `"special"` multi-element bucket is skipped
+ * (not a single resistible type). An unresolved key contributes nothing.
+ */
+function archetypeDamageTypes(
+  archetype: Archetype,
+  getSkill: GameData["getSkill"]
+): DamageType[] {
+  return archetype.skills.flatMap((reference) => {
+    const skill = getSkill(reference.skill)
+    return skill?.damage && skill.damage.damageType !== "special"
+      ? [skill.damage.damageType]
+      : []
+  })
+}
+
+/** Every damage type the character already accesses — the union of attack damage
+ *  types across every unlocked (owned/mastered) node on the view (B10). */
+function accessibleDamageTypes(
+  view: LineageAtlasView,
+  getSkill: GameData["getSkill"]
+): Set<DamageType> {
+  const types = new Set<DamageType>()
+  for (const lineage of view.lineages) {
+    for (const column of lineage.columns) {
+      for (const node of column.nodes) {
+        if (!isAtlasNodeUnlocked(node)) continue
+        for (const type of archetypeDamageTypes(node.archetype, getSkill)) {
+          types.add(type)
+        }
+      }
+    }
+  }
+  return types
+}
+
+/** A node is actionable (recommendable) only when it can be unlocked now or ranked
+ *  up: `locked` and `mastered` are excluded (B3). */
+function isRecommendable(node: AtlasNode): boolean {
+  return node.state.kind === "unlockable" || node.state.kind === "owned"
+}
+
+/** Rank-up (owned) sorts before a fresh unlock, deepening investment first. */
+function actionRank(node: AtlasNode): number {
+  return node.state.kind === "owned" ? 0 : 1
+}
+
+function tierRank(node: AtlasNode): number {
+  return TIER_RANK.get(node.archetype.tier)!
+}
+
+/**
+ * Fill-pool ordering of a non-Origin candidate (lower wins, B6): in-progress Lineage
+ * (`ownedInLineage > 0`, regardless of Path) → untouched on-Path Lineage → off-Path
+ * Lineage teaching a missing damage type.
+ */
+function fillPriority(
+  candidate: RecommendationCandidate,
+  targetPath: SuggestedPath
+): number {
+  if (candidate.ownedInLineage > 0) return 0
+  if (LINEAGE_SUGGESTED_PATH[candidate.lineage] === targetPath) return 1
+  return 2
+}
+
+/**
+ * The three "Recommended for your Path" slots (B1–B8), over a {@link buildLineageAtlas}
+ * view. Slot 1 is the best actionable node in the Origin Lineage (badged
+ * `origin-lineage`). Slots 2–3 (and slot 1 when the Origin offers nothing) draw from
+ * the fill pool in strict {@link fillPriority} order. Never more than 3, never a
+ * repeat; fewer eligible picks ⇒ a shorter list. Saved Ranks don't gate the list
+ * except at the level ceiling with zero saved ranks (B2). Curried deps-first.
+ */
+export function getAtlasRecommendations(deps: Pick<GameData, "getSkill">) {
+  return (
+    view: LineageAtlasView,
+    pathChoice: PathChoice,
+    level: number
+  ): AtlasRecommendation[] => {
+    if (view.savedRanks === 0 && level >= MAX_LEVEL) return []
+
+    const accessible = accessibleDamageTypes(view, deps.getSkill)
+
+    const candidates: RecommendationCandidate[] = view.lineages.flatMap(
+      (lineage) =>
+        lineage.columns
+          .flatMap((column) => column.nodes)
+          .filter(isRecommendable)
+          .map((node) => ({
+            node,
+            lineage: lineage.lineage,
+            ownedInLineage: lineage.progress.owned,
+            introducesNewDamageType: archetypeDamageTypes(
+              node.archetype,
+              deps.getSkill
+            ).some((type) => !accessible.has(type)),
+          }))
+    )
+
+    const targetPath = SUGGESTED_PATH_BY_CHOICE[pathChoice]
+
+    const toRecommendation = (
+      candidate: RecommendationCandidate
+    ): AtlasRecommendation => ({
+      archetype: candidate.node.archetype,
+      state: candidate.node.state,
+      ownedKey: candidate.node.ownedKey,
+      reason:
+        candidate.lineage === view.originLineage
+          ? "origin-lineage"
+          : candidate.ownedInLineage > 0
+            ? "unlocked-archetype"
+            : LINEAGE_SUGGESTED_PATH[candidate.lineage] === targetPath
+              ? "fits-path"
+              : "new-damage-type",
+    })
+
+    const recommendations: AtlasRecommendation[] = []
+    const used = new Set<string>()
+
+    const originPick = candidates
+      .filter((candidate) => candidate.lineage === view.originLineage)
+      .sort(
+        (a, b) =>
+          tierRank(a.node) - tierRank(b.node) ||
+          actionRank(a.node) - actionRank(b.node) ||
+          a.node.archetype.key.localeCompare(b.node.archetype.key)
+      )[0]
+
+    if (originPick) {
+      recommendations.push(toRecommendation(originPick))
+      used.add(originPick.node.archetype.key)
+    }
+
+    const fillCandidates = candidates
+      .filter(
+        (candidate) =>
+          !used.has(candidate.node.archetype.key) &&
+          (candidate.ownedInLineage > 0 ||
+            LINEAGE_SUGGESTED_PATH[candidate.lineage] === targetPath ||
+            candidate.introducesNewDamageType)
+      )
+      .sort(
+        (a, b) =>
+          fillPriority(a, targetPath) - fillPriority(b, targetPath) ||
+          actionRank(a.node) - actionRank(b.node) ||
+          tierRank(a.node) - tierRank(b.node) ||
+          a.node.archetype.key.localeCompare(b.node.archetype.key)
+      )
+
+    for (const candidate of fillCandidates) {
+      if (recommendations.length >= 3) break
+      recommendations.push(toRecommendation(candidate))
+    }
+
+    return recommendations
+  }
 }
