@@ -1,4 +1,4 @@
-import type { ArchetypeBase } from "@workspace/game-v2/archetypes/archetype"
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import type { EquippableItem, Item } from "@workspace/game-v2/items/item.schema"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
@@ -39,12 +39,21 @@ import type { Skill } from "@workspace/game-v2/skills/skill.schema"
  */
 export interface GameData {
   /**
-   * The base-stat slice of a catalog Archetype, by key (PR2 — UNN-500). `resolve`
-   * reads `attributes`/`affinities` for the active Archetype and `mastery` for
-   * every owned Archetype (the C4 mastery walk). The archetypes domain PR widens
-   * the catalog Archetype around this slice. Returns `undefined` for an unknown key.
+   * A catalog {@link Archetype} by key. `resolve` reads only the base-stat slice
+   * (`attributes`/`affinities` for the active Archetype, `mastery` for the C4
+   * mastery walk — the `ArchetypeBase` subset); the archetypes domain (UNN-504)
+   * reads the full shape (skills, prerequisites, tier, …) for display/inheritance/
+   * the Atlas. Returns `undefined` for an unknown key.
    */
-  getArchetype(key: string): ArchetypeBase | undefined
+  getArchetype(key: string): Archetype | undefined
+
+  /**
+   * The **whole** Archetype catalog, for the Lineage Atlas — it walks every
+   * Archetype across all Lineages, not just a character's owned ones (UNN-504). The
+   * app layer hides per-viewer-gated Archetypes via `hiddenArchetypeKeys`, so this
+   * returns the full set.
+   */
+  allArchetypes(): Archetype[]
 
   /**
    * A catalog {@link Item} by key (PR5 — UNN-503). The item-mutation engine reads

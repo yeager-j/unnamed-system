@@ -3,6 +3,7 @@ import {
   computeAffinityChart,
 } from "@workspace/game-v2/affinities/derive"
 import { masteryBonuses } from "@workspace/game-v2/archetypes/mastery"
+import { resolveArchetypes } from "@workspace/game-v2/archetypes/resolved"
 import {
   attributeEffectBonuses,
   computeAttributes,
@@ -104,6 +105,14 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     )
 
     const components: ResolvedEntity["components"] = {}
+
+    if (archetypes) {
+      // The archetype roster, projected onto the resolved entity so the sheet (and
+      // the Atlas / inheritance / display) read it off the ResolvedEntity. Carries
+      // derived `activeLineage` + per-entry `mastered`; `applyForm` has already
+      // nulled `active` under a form, so the read-unit reflects kit suppression.
+      components.archetypes = resolveArchetypes(archetypes, deps.getArchetype)
+    }
 
     if (attributes) {
       // base + archetype layer + delta pool, summed and clamped in one pass.

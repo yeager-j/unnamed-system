@@ -1,3 +1,4 @@
+import { resolve } from "node:path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
 
@@ -7,12 +8,22 @@ export default defineConfig({
   // component (e.g. CharacterProvider). Tests don't need React Compiler, so this
   // is the plain JSX transform, not the app's babel pipeline.
   plugins: [react()],
-  // Mirror the tsconfig `@/*` path alias so runtime (value) imports through it
-  // resolve in tests — previously only type-only `@/` imports appeared in
-  // tested modules, and those are erased before resolution.
   resolve: {
     alias: {
+      // Mirror the tsconfig `@/*` path alias so runtime (value) imports through it
+      // resolve in tests — previously only type-only `@/` imports appeared in
+      // tested modules, and those are erased before resolution.
       "@": import.meta.dirname,
+      // Resolve `@workspace/game-v2/*` against the package's `src` directly, the
+      // way the package's own vitest does (tsconfig paths + directory-index). The
+      // package's `exports` field can't express the Skill catalog's nested
+      // directory-barrel tree (`catalog/skills/<element>/index.ts`), which a
+      // strict-exports consumer like the golden-master loads transitively through
+      // `composition`'s default `gameData`. The alias sidesteps `exports` for tests.
+      "@workspace/game-v2": resolve(
+        import.meta.dirname,
+        "../../packages/game-v2/src"
+      ),
     },
   },
   test: {

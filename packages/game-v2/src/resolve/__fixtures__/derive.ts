@@ -1,4 +1,4 @@
-import type { ArchetypeBase } from "@workspace/game-v2/archetypes"
+import type { Archetype } from "@workspace/game-v2/archetypes"
 import type { InventoryItemState } from "@workspace/game-v2/items/equipment.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
@@ -18,25 +18,33 @@ import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuse
  * golden-master reuses the same shapes to drive both engines.
  */
 
-/** A fixture {@link ArchetypeBase} — zeros/empty by default; override per test. */
-export function makeArchetype(
-  overrides: Partial<ArchetypeBase> = {}
-): ArchetypeBase {
+/** A fixture {@link Archetype} — zeros/empty by default; override per test. The
+ *  base-derivation tests touch only the `ArchetypeBase` slice; the catalog metadata
+ *  carries inert defaults so the same builder serves the display/Atlas fixtures. */
+export function makeArchetype(overrides: Partial<Archetype> = {}): Archetype {
   return {
     attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
     affinities: {},
     mastery: { kind: "attribute", amount: 0, attribute: "strength" },
     lineage: "warrior",
+    key: "fixture",
+    name: "Fixture",
+    tier: "initiate",
+    prerequisites: [],
+    inheritanceSlots: 0,
+    talents: [],
+    skills: [],
     ...overrides,
   }
 }
 
 /** A fixture `GameData` backed by an in-memory archetype map, keyed by slug. */
 export function makeTestGameData(
-  archetypes: Record<string, ArchetypeBase> = {}
+  archetypes: Record<string, Archetype> = {}
 ): GameData {
   return {
     getArchetype: (key) => archetypes[key],
+    allArchetypes: () => Object.values(archetypes),
     // Items/Skills default to empty (PR5). A test needing item/skill content spreads
     // `makeItemLookups({...})` (items/__fixtures__) over this.
     getItem: () => undefined,
@@ -104,7 +112,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
         active,
         origin: active,
         savedArchetypeRanks: 0,
-        roster: [...roster],
+        roster: roster.map((entry) => ({ ...entry, inheritanceSlots: [] })),
       },
       manualBonuses,
       attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },

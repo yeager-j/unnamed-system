@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type { ArchetypeBase } from "@workspace/game-v2/archetypes"
+import type { Archetype } from "@workspace/game-v2/archetypes"
 import { createGameEngine } from "@workspace/game-v2/composition"
 import type { CombatantEffect } from "@workspace/game-v2/kernel"
 import {
@@ -203,7 +203,7 @@ function v2Numbers(
   spec: CharacterSpec,
   raw: ReturnType<typeof v1Numbers>["raw"]
 ) {
-  const archetypes: Record<string, ArchetypeBase> = {}
+  const archetypes: Record<string, Archetype> = {}
   for (const a of spec.archetypes) {
     archetypes[a.key] = makeV2Archetype({
       attributes: a.attributes,
@@ -248,7 +248,7 @@ function v2WithDepletion(
   raw: ReturnType<typeof v1Numbers>["raw"],
   hydrated: ReturnType<typeof v1Numbers>["hydrated"]
 ) {
-  const archetypes: Record<string, ArchetypeBase> = {}
+  const archetypes: Record<string, Archetype> = {}
   for (const a of spec.archetypes) {
     archetypes[a.key] = makeV2Archetype({
       attributes: a.attributes,

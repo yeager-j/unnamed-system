@@ -41,6 +41,13 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
         roster: archetypeRows.map((a) => ({
           key: a.archetypeKey,
           rank: a.rank,
+          // v1 slots reference the source by surrogate row id; v2 keys by Archetype
+          // key (D36 / UNN-504), so translate each source id through `keyOf`.
+          inheritanceSlots: a.inheritanceSlots.map((slot) => ({
+            slotIndex: slot.slotIndex,
+            sourceArchetypeKey: keyOf(slot.sourceCharacterArchetypeId),
+            skillKey: slot.skillKey,
+          })),
         })),
       },
       manualBonuses: row.manualBonuses,

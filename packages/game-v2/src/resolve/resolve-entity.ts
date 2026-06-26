@@ -67,12 +67,11 @@ export function createResolveEntity(
     // The canonical Attack-Roll contributor order (C6): active mechanic → passive
     // skills → context effects (zone enchantment, etc.). `resolve` carries it into
     // `pendingEffects.attackRoll` and the combat resolver preserves it in `sources[]`
-    // (a display contract). PR5 fills the passive-skill slot with the equipment
-    // source (read off `formed` — equipment is untouched by `applyForm`); PR6 extends
-    // `passiveSkillEffects` with archetype-kit + inheritance (see its form-semantics
-    // note). The slot MUST stay BETWEEN mechanic and context — appending it to
-    // `context.effects` would invert C6.
-    const skillEffects = passiveSkillEffects(deps, formed)
+    // (a display contract). `passiveSkillEffects` unions archetype-kit + inheritance +
+    // equipment: kit/equipment read `formed`, inheritance reads the **original** entity
+    // (active-scoped, yet survives a form — see its form-semantics note). The slot MUST
+    // stay BETWEEN mechanic and context — appending it to `context.effects` inverts C6.
+    const skillEffects = passiveSkillEffects(deps, formed, entity)
     const effects = [
       ...mechanicEffects,
       ...skillEffects,
