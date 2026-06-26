@@ -24,8 +24,12 @@ import type {
   CommandContext,
   CommandGroup as CommandGroupName,
   Command as PaletteCommand,
+  Submenu,
+  SubmenuItem,
+  SubmenuSection,
 } from "@/lib/commands/types"
 
+import { useSheetCommandSurfaces } from "./sheet-command-surfaces-context"
 import { useSheetNav } from "./sheet-nav-context"
 
 /**
@@ -40,17 +44,25 @@ import { useSheetNav } from "./sheet-nav-context"
  * remain the path.
  */
 
-const GROUP_ORDER: CommandGroupName[] = ["Navigate", "Vitals", "Cast", "Atlas"]
+const GROUP_ORDER: CommandGroupName[] = [
+  "Navigate",
+  "Vitals",
+  "Progress",
+  "Cast",
+  "Atlas",
+]
 
 export function CommandPalette() {
   const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
-  const [parameterCommand, setParameterCommand] =
-    useState<PaletteCommand | null>(null)
+  // The active sub-page command, if any: one carrying a `parameter` (numeric
+  // form) or a `submenu` (child list). `null` is the root command list.
+  const [pageCommand, setPageCommand] = useState<PaletteCommand | null>(null)
 
   const character = useCharacter()
   const role = useViewerRole()
   const { setActiveTab } = useSheetNav()
+  const surfaces = useSheetCommandSurfaces()
   const router = useRouter()
   const write = useCharacterWrite()
 
@@ -65,15 +77,22 @@ export function CommandPalette() {
       }
       event.preventDefault()
       // Always (re)enter at the command list — clearing here keeps a ⌘K-close
-      // from leaving a stale parameter sub-page to reopen onto.
-      setParameterCommand(null)
+      // from leaving a stale sub-page to reopen onto.
+      setPageCommand(null)
       setOpen((previous) => !previous)
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [isMobile])
 
-  const ctx: CommandContext = { character, role, setActiveTab, router, write }
+  const ctx: CommandContext = {
+    character,
+    role,
+    setActiveTab,
+    surfaces,
+    router,
+    write,
+  }
 
   const commands = resolveCommands(ctx)
 
@@ -86,13 +105,13 @@ export function CommandPalette() {
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
-    if (!next) setParameterCommand(null)
+    if (!next) setPageCommand(null)
   }
 
   function runCommand(command: PaletteCommand) {
     if (command.disabled) return
-    if (command.parameter) {
-      setParameterCommand(command)
+    if (command.parameter || command.submenu) {
+      setPageCommand(command)
       return
     }
     command.run?.(ctx)
@@ -100,7 +119,13 @@ export function CommandPalette() {
   }
 
   function submitParameter(amount: number) {
-    parameterCommand?.parameter?.run(ctx, amount)
+    pageCommand?.parameter?.run(ctx, amount)
+    handleOpenChange(false)
+  }
+
+  function selectSubmenuItem(item: SubmenuItem) {
+    if (item.disabled) return
+    item.run(ctx)
     handleOpenChange(false)
   }
 
@@ -111,11 +136,18 @@ export function CommandPalette() {
       title="Command palette"
       description="Search for a command to run."
     >
-      {parameterCommand?.parameter ? (
+      {pageCommand?.parameter ? (
         <ParameterPage
-          parameter={parameterCommand.parameter}
+          parameter={pageCommand.parameter}
           onSubmit={submitParameter}
-          onBack={() => setParameterCommand(null)}
+          onBack={() => setPageCommand(null)}
+        />
+      ) : pageCommand?.submenu ? (
+        <SubmenuPage
+          submenu={pageCommand.submenu}
+          sections={pageCommand.submenu.sections(ctx)}
+          onSelect={selectSubmenuItem}
+          onBack={() => setPageCommand(null)}
         />
       ) : (
         <Command>
@@ -209,5 +241,72 @@ function ParameterPage({
         {parameter.submitLabel}
       </Button>
     </form>
+  )
+}
+
+/**
+ * A child page listing a {@link Submenu}'s items (the cmdk "pages" pattern):
+ * `+1 Spark`'s Virtues, `Award Victory`'s amounts, `Switch Active Archetype`'s
+ * Archetypes. The palette input filters the items so a long list stays
+ * searchable; the leading Back button returns to the root command list. Items
+ * render with the same label / disabled-reason / description markup as root
+ * commands.
+ */
+function SubmenuPage({
+  submenu,
+  sections,
+  onSelect,
+  onBack,
+}: {
+  submenu: Submenu
+  sections: SubmenuSection[]
+  onSelect: (item: SubmenuItem) => void
+  onBack: () => void
+}) {
+  return (
+    <Command>
+      <div className="flex items-center gap-2 px-2 pt-2">
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          onClick={onBack}
+          aria-label="Back to commands"
+        >
+          <CaretLeftIcon weight="bold" aria-hidden />
+        </Button>
+      </div>
+      <CommandInput placeholder={submenu.placeholder ?? "Search…"} />
+      <CommandList>
+        <CommandEmpty>{submenu.emptyLabel ?? "No results found."}</CommandEmpty>
+        {sections.map((section, index) => (
+          <CommandGroup
+            key={section.heading ?? index}
+            heading={section.heading}
+          >
+            {section.items.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={item.label}
+                keywords={item.keywords}
+                disabled={Boolean(item.disabled)}
+                onSelect={() => onSelect(item)}
+              >
+                <span>{item.label}</span>
+                {item.disabled ? (
+                  <span className="ml-auto text-muted-foreground">
+                    {item.disabled.reason}
+                  </span>
+                ) : item.description ? (
+                  <span className="ml-auto text-muted-foreground">
+                    {item.description}
+                  </span>
+                ) : null}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))}
+      </CommandList>
+    </Command>
   )
 }

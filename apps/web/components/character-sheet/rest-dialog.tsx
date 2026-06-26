@@ -53,14 +53,20 @@ import { RespiteForm } from "./rest/respite-form"
  * and the three rest variants live in `./rest/`.
  */
 
+/** The three Rest variants, doubling as the dialog's preselectable tab keys. */
+export type RestMode = "full" | "partial" | "respite"
+
 export function RestDialog({
   character,
   open,
   onOpenChange,
+  mode = "full",
 }: {
   character: HydratedCharacter
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Which variant tab to open on. Keyed so each (re)open lands on it cleanly. */
+  mode?: RestMode
 }) {
   const versionRef = useMonotonicVersionRef(character.vitalsVersion)
   const [pending, startTransition] = useTransition()
@@ -157,7 +163,7 @@ export function RestDialog({
           skillDie={dice.skillDie}
         />
 
-        <Tabs defaultValue="full">
+        <Tabs key={mode} defaultValue={mode}>
           <TabsList>
             <TabsTrigger value="full">Full</TabsTrigger>
             <TabsTrigger value="partial">Partial</TabsTrigger>
