@@ -30,5 +30,6 @@ export const F = {
   "1d10 + Ag": [dice(1, 10), attr("ag")],
   "1d10 + St": [dice(1, 10), attr("st")],
   "1d12 + Ma": [dice(1, 12), attr("ma")],
+  "1d12 + St": [dice(1, 12), attr("st")],
   "2d8 + Ma": [dice(2, 8), attr("ma")],
 } satisfies Record<string, DamageFormula>

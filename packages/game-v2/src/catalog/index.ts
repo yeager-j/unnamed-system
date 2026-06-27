@@ -2,6 +2,7 @@ import {
   allArchetypes,
   getArchetype,
 } from "@workspace/game-v2/catalog/archetypes"
+import { getEnemy } from "@workspace/game-v2/catalog/enemies"
 import { getSkill } from "@workspace/game-v2/catalog/skills"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 
@@ -22,4 +23,5 @@ export const gameData: GameData = {
   getItem: () => undefined,
   getEquippableItem: () => undefined,
   getSkill,
+  getEnemy,
 }

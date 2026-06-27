@@ -1,5 +1,6 @@
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import type { EquippableItem, Item } from "@workspace/game-v2/items/item.schema"
+import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 /**
@@ -75,4 +76,11 @@ export interface GameData {
    * unshipped key.
    */
   getSkill(key: string): Skill | undefined
+
+  /**
+   * A catalog enemy template by key (UNN-514). This is a setup-time template
+   * source only: session minting copies the returned authored flat-base
+   * {@link Entity} into an inline combatant. `resolve` and loaders never call it.
+   */
+  getEnemy(key: string): Entity | undefined
 }

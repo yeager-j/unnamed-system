@@ -88,6 +88,7 @@ export function createResolve(
     const {
       level,
       path,
+      identity,
       archetypes,
       manualBonuses,
       attributes,
@@ -119,6 +120,10 @@ export function createResolve(
     )
 
     const components: ResolvedEntity["components"] = {}
+
+    if (identity) {
+      components.identity = identity
+    }
 
     if (archetypes) {
       // The archetype roster, projected onto the resolved entity so the sheet (and

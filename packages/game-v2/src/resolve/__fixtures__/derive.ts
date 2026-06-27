@@ -50,6 +50,7 @@ export function makeTestGameData(
     getItem: () => undefined,
     getEquippableItem: () => undefined,
     getSkill: () => undefined,
+    getEnemy: () => undefined,
   }
 }
 

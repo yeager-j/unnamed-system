@@ -104,6 +104,7 @@ export interface ComponentRegistry {
  * `resolve` emits only the read-units an entity's capabilities produce.
  */
 export interface ResolvedComponentRegistry {
+  identity: Identity
   attributes: AttributeScores
   affinities: AffinityChart
   vitals: ResolvedVitals

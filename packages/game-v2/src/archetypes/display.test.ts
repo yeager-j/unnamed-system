@@ -92,6 +92,7 @@ const data: GameData = {
     [cleave, tempestSlash, slashBoost, peerless, fireball].find(
       (s) => s.key === key
     ),
+  getEnemy: () => undefined,
 }
 
 function resolvedPC(

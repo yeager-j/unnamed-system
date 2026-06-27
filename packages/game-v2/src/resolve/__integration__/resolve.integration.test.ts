@@ -135,6 +135,28 @@ describe("createResolve — base layer over a derived PC entity", () => {
     // No Progression ⇒ no dice maxima.
     expect(resolved.components.resources).toBeUndefined()
   })
+
+  it("passes identity through as a resolved read-unit", () => {
+    const resolve = createResolve(makeTestGameData())
+    const resolved = resolve(makeFlatEntity({ name: "Goblin" }))
+
+    expect(resolved.components.identity).toEqual({ name: "Goblin" })
+  })
+
+  it("ignores overlay-like non-registry keys on the component bag", () => {
+    const resolve = createResolve(makeTestGameData())
+    const enemy = makeFlatEntity({ name: "Overlay Proof" })
+    const withOverlay = {
+      ...enemy,
+      components: {
+        ...enemy.components,
+        battleConditions: { charged: true },
+        allegiance: { side: "foes" },
+      } as unknown as Entity["components"],
+    }
+
+    expect(resolve(withOverlay)).toEqual(resolve(enemy))
+  })
 })
 
 describe("createResolve — direct entity skills and talents", () => {
