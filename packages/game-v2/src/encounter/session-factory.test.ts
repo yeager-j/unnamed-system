@@ -122,6 +122,22 @@ describe("createSessionFactory — entity source arms", () => {
     })
   })
 
+  it("deep-copies the template so mints never alias the catalog constant or each other", () => {
+    const { participants } = createSessionFactory(
+      { getEnemy: stubGetEnemy },
+      counterIds()
+    )([
+      { side: "enemies", source: { catalog: "goblin" } },
+      { side: "enemies", source: { catalog: "goblin" } },
+    ])
+    const [a, b] = [participants[0]!, participants[1]!]
+    // Mutating one minted enemy's authored sub-object must not bleed into its
+    // sibling or the shared module-level template.
+    a.entity.components.attributes!.base.strength = 99
+    expect(b.entity.components.attributes!.base.strength).toBe(0)
+    expect(goblinTemplate.components.attributes!.base.strength).toBe(0)
+  })
+
   it("seeds vitals.base = 0 for an unknown catalog key (R12.3 → R13.2 Fallen)", () => {
     const participant = createSessionFactory(
       { getEnemy: stubGetEnemy },

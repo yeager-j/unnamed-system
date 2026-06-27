@@ -38,10 +38,19 @@ export interface ParticipantSetup {
 /**
  * Instantiates a **template** entity into a fresh inline combatant: a copy of the
  * template's authored components under a new `id`, with a **fresh**
- * `vitals: { damage: 0 }` so the instance enters at full HP. Generic over any
- * template — today its only caller is the catalog arm (`getEnemy(key)`), but it
- * bakes in **no** catalog concept (no `catalogRef`, no retained `key`), so the
- * result is indistinguishable from a free-entered inline entity (CD3/CD8 amended).
+ * `vitals: { damage: 0 }` so the instance enters at full HP. Template-agnostic —
+ * today its only caller is the catalog arm (`getEnemy(key)`), but it bakes in
+ * **no** catalog concept (no `catalogRef`, no retained `key`), so the result is
+ * indistinguishable from a free-entered inline entity (CD3/CD8 amended).
+ *
+ * The components are **deep-copied** ({@link structuredClone}): `getEnemy` returns
+ * a shared module-level catalog constant, so a shallow spread would leave every
+ * nested authored sub-object (`attributes.base`, `affinities.base`, …) aliased
+ * between the minted entity, the catalog constant, and sibling mints of the same
+ * key (e.g. two goblins). The deep copy isolates each instance — mirroring the
+ * overlay's defensive `{ ...DEFAULT_BATTLE_CONDITIONS }` clone — so a future
+ * in-place authored-component write can never bleed across combatants. Mint is a
+ * cold path, so the copy is free.
  *
  * An **absent** template (`getEnemy` returned `undefined` for an unknown key)
  * yields a bare entity with `vitals.base = 0` (not omit, not a nonzero default),
@@ -54,11 +63,12 @@ function instantiateInlineEntity(
   if (!template) {
     return { id, components: { vitals: { base: 0, damage: 0 } } }
   }
+  const components = structuredClone(template.components)
   return {
     id,
     components: {
-      ...template.components,
-      vitals: { base: template.components.vitals?.base ?? 0, damage: 0 },
+      ...components,
+      vitals: { base: components.vitals?.base ?? 0, damage: 0 },
     },
   }
 }
