@@ -10,8 +10,9 @@ out of scope** — see _Deferred_.
 **Supersedes:** the design intent of v1 `reduceCombatSession` + `player-snapshot`
 (the `CombatantRef` union and the kind-keyed projector).
 **Supporting artifacts:** [`decision-log.md`](./decision-log.md) (chronological
-rationale, **CD1–CD20** for this layer — CD13–CD17 are the spatial-seam revision §2.10,
-CD18–CD20 the generalized session write-router §2.11 — plus parent **D1–D45**), the
+rationale, **CD1–CD23** for this layer — CD13–CD17 are the spatial-seam revision §2.10,
+CD18–CD20 the generalized session write-router §2.11, CD21–CD23 the skills/combat fork §2.12
+— plus parent **D1–D45**), the
 [parent ADR](../ADR.md), [`requirements/03-encounter-tracker.md`](../requirements/03-encounter-tracker.md)
 (R1–R24 acceptance spec), [`requirements/04-views-redaction-dungeon.md`](../requirements/04-views-redaction-dungeon.md)
 (RED/ROS/NAME/FAL redaction spec), [`encounter-write-architecture.md`](../encounter-write-architecture.md)
@@ -128,18 +129,18 @@ retargeted onto `Participant.overlay`/`Session`, with three honest renames
 `combatantId→participantId`); `setSide` writes `overlay.allegiance`. Vitals is the one
 **restructured** family (§2.5). The union and its slice map:
 
-| Family (slice)                                          | Events                                                                            | R    |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------- | ---- |
-| `reduceStartCombat`                                     | `startCombat`                                                                      | R2   |
-| `reduceDraft`                                           | `draftCombatant`                                                                   | R4   |
-| `reduceTurn`                                            | `endTurn`                                                                          | R5   |
-| `reduceRoster` `[newId]`                                | `advanceRound` · `addParticipant` · `removeParticipant` · `setSide`               | R6   |
-| `reduceOverride`                                        | `setCurrentActor` · `setActed` · `setRound`                                        | R7   |
-| `reduceBattleCondition`                                 | `adjustBattleConditionAxis` · `setBattleConditionFlag`                            | R8   |
-| `reduceAilment`                                         | `setAilment` · `clearAilment`                                                      | R9   |
-| `reduceCounter`                                         | `adjustCounter` · `clearCounter`                                                   | R10  |
-| `reduceActionEconomy`                                   | `setActionEconomy`                                                                 | R11  |
-| `reduceVitals`                                          | `damageParticipant` · `healParticipant` · `setParticipantMax` (× `hp`\|`sp`)     | R12  |
+| Family (slice)           | Events                                                                       | R   |
+|--------------------------|------------------------------------------------------------------------------|-----|
+| `reduceStartCombat`      | `startCombat`                                                                | R2  |
+| `reduceDraft`            | `draftCombatant`                                                             | R4  |
+| `reduceTurn`             | `endTurn`                                                                    | R5  |
+| `reduceRoster` `[newId]` | `advanceRound` · `addParticipant` · `removeParticipant` · `setSide`          | R6  |
+| `reduceOverride`         | `setCurrentActor` · `setActed` · `setRound`                                  | R7  |
+| `reduceBattleCondition`  | `adjustBattleConditionAxis` · `setBattleConditionFlag`                       | R8  |
+| `reduceAilment`          | `setAilment` · `clearAilment`                                                | R9  |
+| `reduceCounter`          | `adjustCounter` · `clearCounter`                                             | R10 |
+| `reduceActionEconomy`    | `setActionEconomy`                                                           | R11 |
+| `reduceVitals`           | `damageParticipant` · `healParticipant` · `setParticipantMax` (× `hp`\|`sp`) | R12 |
 
 Every documented v1 no-op-same-ref is reproduced (unknown `participantId`; `startCombat`
 once `advantage!==null`; `endTurn` null/unmatched actor; draft unknown id; counter
@@ -164,12 +165,26 @@ instance components — Position/Engagement, §2.10) so redaction stays exactly 
 fold (CD1/CD14 — the F1↔F2/F3/F4 reconciliation).
 
 ```ts
-interface Allegiance         { side: CombatSide }                                  // charmed PC flips side; drives redaction + initiative
-interface TurnState          { movesUsed; standardsUsed; reactionsUsed; turnsTakenThisRound: number } // pure consumption (D21)
-type      Ailments         = AilmentKey[]                                          // permissive, idempotent, ordered; Downed coexists
-interface BattleConditions   { attack; defense; hitEvasion: TriState; charged; concentrating: boolean }
+interface Allegiance {
+  side: CombatSide
+}                                  // charmed PC flips side; drives redaction + initiative
+interface TurnState {
+  movesUsed;
+  standardsUsed;
+  reactionsUsed;
+  turnsTakenThisRound: number
+} // pure consumption (D21)
+type      Ailments = AilmentKey[]                                          // permissive, idempotent, ordered; Downed coexists
+interface BattleConditions {
+  attack;
+  defense;
+  hitEvasion: TriState;
+  charged;
+  concentrating: boolean
+}
+
 type      ConditionDurations = Partial<Record<BattleConditionAxisKey, number>>     // sparse, positive-only
-type      Counters         = Partial<Record<CounterKey, number>>                   // signed-delta, floor 0, key DELETED at 0
+type      Counters = Partial<Record<CounterKey, number>>                   // signed-delta, floor 0, key DELETED at 0
 ```
 
 `TurnState` is **consumption, SUPERSEDING** v1's `moveAvailable/standardAvailable/
@@ -342,8 +357,30 @@ nominal type would recreate the `CombatantRef`-arm multiplication (the F1-critic
 The Entity carries only flat-base components:
 
 ```ts
-{ identity: { name }; attributes: { base }; affinities: { base };
-  vitals: { base: maxHP, damage: 0 }; level: { value }; mechanics? }
+{
+  identity: {
+    name
+  }
+  ;
+  attributes: {
+    base
+  }
+  ;
+  affinities: {
+    base
+  }
+  ;
+  vitals: {
+    base: maxHP, damage
+  :
+    0
+  }
+  ;
+  level: {
+    value
+  }
+  ;mechanics ?
+}
 ```
 
 — **no** path/archetypes/manualBonuses/equipment/resources/exhaustion, and **no
@@ -406,6 +443,17 @@ packages/game-v2/src/
 │                            · reduce-session + reduce/* · reduce-encounter (composition wrapper) (CD16)
 │                            · session-factory · initiative · selectors · end-of-turn · fallen · party-composition
 └── visibility/              (scaffold) relationship · VISIBILITY table (incl. position/engagement rows) · visible-entity · project-snapshot
+```
+
+The impure `commit/` write-router (CD19, §2.11) is a **client+server pair split three ways** across
+`apps/web` — not a single `actions/` module:
+
+```
+apps/web/
+├── lib/combat/commit/           Writers (pure per-component ops + durableClass) — neutral, client+server
+├── lib/actions/combat/commit/   the two Stores + Server Action (commit · auth · version-guard) — server-only
+└── components/combat/           useCombatantWrite — optimistic client dispatcher; sibling of useCombatConsole,
+                                 composes dispatch-event [ephemeral] + dispatch-character-write [durable]
 ```
 
 ### 2.10 The spatial seam — Position/Engagement + the read-interface + composition (CD13–CD17; parent D28, D29)
@@ -479,7 +527,14 @@ rule when the spatial folder lands (Q11).
 `updateVitals` (§2.5) was the first instance of a general pattern, not a vitals special-case: a
 boss's **Mechanic**, a friendly-ephemeral NPC's **SkillPool**, and **Prisma** all face the same
 storage-home fork, and only the *plumbing* differs by home. So it generalizes to **one
-registry-driven impure write-router** (CD19) homed at `apps/web/lib/actions/combat-write/`.
+registry-driven impure write-router** (CD19), named **`commit/`** (the `Store`'s verb). It is a
+**client+server pair, not a single `actions/` module** (the UI predicts optimistically), so it splits
+three ways by concern: the pure **Writers** → neutral `apps/web/lib/combat/commit/` (importable by client
+prediction + server commit); the two **Stores** + the Server Action → `apps/web/lib/actions/combat/commit/`
+(commit · auth · version-guard, server-only); the **optimistic client dispatcher** (`useCombatantWrite`) → a
+shared hook in `components/combat/`, a **sibling of `useCombatConsole`** (not welded inside it), composing
+the existing `dispatch-event` (ephemeral session) + `dispatch-character-write` (durable row) paths — the
+router is what re-unifies the two homes v1 had to split.
 
 **The router = Writer ∘ Store (CD19).** `applyCombatantWrite(ctx, { participantId, component, op, args })`
 — the write carries **no storage field**. The home is the **stored shape** (a participant is stored as an
@@ -488,8 +543,8 @@ tightened); server and the routing client (which holds its own local session) de
 write is then a per-COMPONENT **`Writer`** ∘ a per-HOME **`Store`**:
 
 - **`Writer`** — a `COMPONENT_WRITERS` registry keyed on component, over the engine's existing pure ops +
-  mechanics registry (no second engine registry — F1); each entry is just `{ component; durableClass;
-  applyOp(entity, args, deps) → Result<Partial<Component>> }` — the only per-component code.
+  mechanics registry (no second engine registry — F1); each entry is just
+  `{ component; durableClass; applyOp(entity, args, deps) → Result<Partial<Component>> }` — the only per-component code.
 - **`Store`** — a factory returning a shared `{ read; commit(patch) → { token, value, channel }; auth }`.
   Exactly **two**, written **once**: `sessionStore` (dispatches a router-only `ComponentWriteEvent` through
   the reducer + `saveEncounterSession`, CD4 single pure session-writer; `encounter.version`; DM-only) and
@@ -515,18 +570,63 @@ is two-level** (outer by home, inner by `MechanicKind`), its transition crossing
 locator is authoritative; a contract test + an un-exported `toSessionEvent` close the arm-selection
 risk. This is the structural form of the "ephemeral-only by construction" claim §2.5 left implicit.
 
-**The multi-home batch (CD20, Leaning).** A skill cast writes a *set* across combatants + homes
-(caster SP + target HP + maybe a mechanic rank). `applyCombatantWriteBatch` partitions by home and
-commits ONCE: all ephemeral writes fold into ONE `saveEncounterSession` (CD7a preserved), durable
-writes grouped by `(entityId × version-class)` via `guardMany` (the CD16 two-token cross-write), one
-optimistic client pass. R14.4's end-of-turn HP intent rides it as a one-element set. _Leaning_: who
-**produces** the cast's write-set (the skills/combat fork) and whether MVP needs the batch day-one are
-open (Q12/Q13).
+**The multi-home batch (CD20) is retired — a cast is single-home (CD21).** This section once carried a
+multi-home `applyCombatantWriteBatch` on the premise that a skill cast writes a *set* across combatants
+(caster SP + target HP + a mechanic). The premise was wrong: casting spends **only** the caster's SP/HP
+and writes nothing else (v1 parity, §2.12) — so a cast is a *single* `applyCombatantWrite`, and no parity
+action needs cross-home atomicity (DM-applied damage and the R14.4 ticks are each independent single
+writes). The batch shape was sound but has no consumer; re-open only if a genuinely atomic cross-home
+action ever appears. Casting is instead the canonical case that **validates** the single-write router
+above: a home-agnostic `skillPool` (or `vitals`) Writer that lets an ephemeral boss spend SP through the
+same path a PC uses.
 
 **Honest cost.** The two Stores are written **once**, so the per-component surface is just a Writer — but
 adding a writable component is still a **two-layer edit** (a pure reducer slice in game-v2 + a Writer entry
-in apps/web), which the registry does not collapse to one. `combat-write/` is a deliberate two-auth-gate
-aggregate (the gates live on the two Stores; a nested CLAUDE.md legitimizes the exception).
+in apps/web), which the registry does not collapse to one. The server `lib/actions/combat/commit/` is a
+deliberate two-auth-gate aggregate (the gates live on the two Stores; a nested CLAUDE.md legitimizes the
+exception).
+
+---
+
+### 2.12 Casting + the skill preview (CD21, CD22, CD23; parent D7; PR7 resolvers)
+
+**Casting = one caster-side write, not a session event (CD21).** Pressing Cast resolves the skill's cost
+and applies it as a **single** component write on the caster — no target write, no damage roll, no auto
+side effect, no `cast` reducer event (v1 parity: v1's `castSkillAction` writes the caster's vitals row and
+nothing else). Two decisions are made **once** at the cast boundary (Code Style #9): the cost *kind* picks
+the **Writer** (`applyCast → { pool, amount }` → `skillPool.spend` for SP, `vitals.damage` for an
+HP-percent cost), and the caster's derived home picks the **Store** (PC → `entityRowStore` on the existing
+`cast` surface; ephemeral boss → `sessionStore`). Casting is thus the keystone that **validates §2.11's
+single-write router** while **retiring §2.11's batch**: a home-agnostic single write that lets an
+ephemeral combatant spend SP (which v1 could not model). Action economy stays decoupled (the DM flips
+`TurnState` separately — v1 parity); no cast is logged (v1 has none).
+
+**The preview = target-aware, viewer-redacted, display-only (CD22).** The engine adds **no targeting for
+resolution**, but surfaces a display-only preview that updates when a player selects a combatant to
+preview against. The selection is **transient UI state** — never written, never an event; the Cast it
+precedes still spends only the caster's SP. With a target selected, each skill re-resolves against that
+target's context: the target's Hit/Evasion condition folds into *your* attack-roll preview as a concrete
+modifier (enemy under Sukukaja → −7), and the target's zone enchantment drives skill riders (Cantata in a
+Forte-2 zone → +2, Rage on 20+). `resolveAttackRoll` already returns `{ total, sources[] }`, so the
+breakdown is shaped; the preview extends the sources with target-relative terms. **The keystone: the
+preview runs over `visibleEntity(target, viewer)` (§2.6), so it cannot leak** — a condition hidden from
+players is absent from a player's preview, while the DM gets the true matchup; player- and DM-facing
+previews of one cast may legitimately differ. This is v1's `hydrateCharacter(zoneEffects)`
+context-injection (§2.10 `SpatialReads → ResolveContext.effects`) parameterized by the *selected target*
+rather than only the caster's ambient zone — not a new pattern. Seam: `previewSkill(skill, resolvedCaster,
+visibleTarget | null, spatialReads) → { cost, attackRoll{total,sources[]}, riders[] }`, homed in
+`encounter/` (`skills/` stays encounter-agnostic, one-way like §2.10); `visibleTarget = null` degrades to
+the caster-only affordability floor v1 already shows. Display-only at every tier — *potential* ("would get
++2"), never *actual* ("dealt 14").
+
+**Structured rider data is stubbed (CD23).** The skill-specific riders (Cantata's +Forte / Rage) need
+structured `zoneConditionalEffects` the Skill does not yet carry (today: authored prose). CD22 commits the
+`riders[]` *seam*; the *shape* is deferred to its own skills-data ticket — cheap to get wrong
+(display-only), and almost certainly a reuse of the context-injection seam, so committing it now buys
+nothing. The target-*condition* modifiers (the −7) need no new data and work immediately. **Enchantment
+scope (rules):** a zone holds one enchantment and a Bard holds one, but globally there may be many (one per
+Bard) — which is *why* the target-click preview beats a board-wide strip: it scopes the rider to the one
+zone that matters.
 
 ---
 
@@ -608,7 +708,7 @@ events into v2 deltas in the parity harness).
    (translating absolute sets to deltas); cover every no-op-same-ref.
 5. **Turn loop + derived selectors** — `compareInitiative`/`fallenCombatantIds`/
    `derivePartyComposition` over `resolve` uniformly; `selectors.ts`; end-of-turn obligations
-   + reminders as display-only producers; action `available` against the constant 1/1/1.
+    + reminders as display-only producers; action `available` against the constant 1/1/1.
 6. **Visibility** — relationship resolver + the total table (attributes/affinities the only
    drop rows, dropped to opponent **and** spectator; identity + presentation public) +
    `visibleEntity` + `projectEncounterSnapshot` + `engagedWith:[]` stub. **Release-gate
@@ -620,64 +720,72 @@ events into v2 deltas in the parity harness).
    end-of-combat sweep via `OVERLAY_KEYS`; durable-vitals per-field owner-mode action;
    encounter-channel + per-entity-channel pings; composite snapshot version. (Durable-NPC
    entity table stubbed; durable combatants = PCs for now.)
+8. **Casting + preview** — `applyCombatantWrite` with the `skillPool`/`vitals` Writer for the
+   caster-side cast (CD21, no session event); `previewSkill(skill, resolvedCaster, visibleTarget |
+   null, spatialReads)` over `visibleEntity` (CD22, display-only; target-condition modifiers only —
+   `zoneConditionalEffects` riders stubbed, CD23). Test: cast spends only the caster's pool; an
+   ephemeral-boss cast routes to `sessionStore`; a preview against a hidden-condition enemy omits
+   the modifier (no leak).
 
 ### PRESERVE / SUPERSEDE map
 
-| Behavior | Tag | CD |
-| --- | --- | --- |
-| R1.1 fresh combatant clean overlay (ailments [], conditions neutral, actions available, durations/counters {}) | PRESERVE | CD1 |
-| R1.2/R2.1 session scalars carried verbatim, no normalisation | PRESERVE | CD2 |
-| R1.5 `toCombatantSetup` inverse (ref half via the out-of-band origin map; zoneId/engagement half reads the same occupancy token CD14 projects) | PRESERVE | CD3 / CD14 |
-| R2.2/R2.3 startCombat no-op-once + reset acted/actor | PRESERVE | CD5 |
-| R3.1–R3.3 per-side highest Agility/Luck + suggestedSide tiebreak | PRESERVE | CD9 |
-| R3.4 initiative HP/stat source by ref-kind (three-arm switch) | SUPERSEDE | CD9 |
-| R4.1–R4.3 draft sets actor / resets consumption / clears Downed / no-op unknown / never blocks | PRESERVE | CD5 |
-| R5.1–R5.3 endTurn marks actual actor / ticks acting participant's durations / no-op null-or-unmatched | PRESERVE | CD5 |
-| R5.2 no-duration-entry axis left untouched even if non-neutral | PRESERVE | CD1 |
-| R6.1–R6.4 advanceRound clears all + actor / joiner queued / remove drops+nulls / setSide | PRESERVE | CD5 |
-| R6.3 removeParticipant does NOT sever engagement in the session reducer | PRESERVE | CD5 |
-| R7.1/R7.3 setCurrentActor unconditional / setRound no-clamp | PRESERVE | CD5 |
-| R7.2 setActed acted-boolean → turnsTakenThisRound count (true↔1 / false↔0) | SUPERSEDE | CD10 |
-| R8.1–R8.6 battle conditions extend/flip/clear/tick/auto-expire/no-op-unknown | PRESERVE | CD1 |
-| R9.1–R9.4 ailments permissive/idempotent/coexist-incl-Downed/order/clear-absent-harmless/uniform | PRESERVE | CD1 |
-| R10.1–R10.4 counters signed-delta-merge/floor-0/delete-at-0/caps-unenforced/uniform | PRESERVE | CD1 |
-| R11.1 availability-boolean storage → resolved-budget-minus-consumption (available = 1 − used) | SUPERSEDE | CD10 |
-| R12.1 enemy vitals absolute-value-set floored-at-0 → signed-depletion delta (stored floor → resolve) | SUPERSEDE | CD6 |
-| R12.2 lower-max-drags-current reconciliation eliminated (setMax writes base; current re-derives) | SUPERSEDE | CD6 |
-| R12.3 catalog-enemy maxHP default + unknown-key ⇒ max-0; thin key reference at rest | PRESERVE | CD3 |
-| R12.3 catalog-enemy max resolved at the fold; reducer needs no catalog dep | SUPERSEDE | CD8 |
-| R12.4 vitals no-op for PC/durable + SP-absent + unknown-id — enforced at the `updateVitals` router (never sends durable vitals to the reducer) + capability presence, never kind/flag | PRESERVE | CD6 / CD18 |
-| R13.1/R13.2/FAL-1 Fallen hp<=0 / revive drops / unknown-key ⇒ Fallen — recomputed from resolved vitals | SUPERSEDE | CD9 |
-| R14.1 endOfTurnReminders heldFlags/activeDurations canonical-order FYI | PRESERVE | CD9 |
-| R14.2/R14.4 Burn/Sleep/Despair HP tick → a uniform delta intent routed by `updateVitals` (no producer-side null-for-durable); maxHP from resolve | SUPERSEDE | CD9 / CD18 |
-| R14.3/R14.5 empty-on-unknown-actor; frenzy reminder (pain before decrement) | PRESERVE | CD9 |
-| R15/PC-1/PC-2 party composition by Lineage; PC by lineage/ownership capability (not ref.kind==='pc') | SUPERSEDE | CD9 |
-| R24.1 reducer purity / Immer same-ref no-op | PRESERVE | CD4 |
-| R24.2 exhaustive switch, no default | PRESERVE | CD4 |
-| R24.3 newId injected at composition root | PRESERVE | CD4 |
-| R24.4 getEnemy is the reducer's one catalog lookup → reducer needs NO catalog dep | SUPERSEDE | CD4 |
-| R24.5 session reducer reads/writes no spatial field; `mapInstanceId` read only at the `reduceEncounter` root | PRESERVE | CD2 / CD16 |
-| RED-1 whitelisted top-level snapshot fields (non-spatial subset) | PRESERVE | CD12 |
-| RED-2 overlay public to every viewer; `engagedWith` now a REAL Engagement read (public to all, `[]` when Free/mapless) | PRESERVE | CD11 / CD17 |
-| RED-3 own/ally PC hp/sp/attributes/affinities/portraitUrl public; presentation row added | PRESERVE | CD11 |
-| RED-4 attributes/affinities structurally ABSENT to opponent + spectator (the only two drop rows, key-drop); kind-keyed → relationship-fold | SUPERSEDE | CD11 |
-| RED-5 currentActor → {id,name,side} subset | PRESERVE | CD12 |
-| RED-6/7/8/9 zone/enchantment projection + fog-gating + field-level zoneId→'' | SUPERSEDE | CD12 |
-| NAME-1/NAME-3/NAME-4 catalog-enemy name via getEnemy; disambiguated label single-home; identity pass-through | PRESERVE | CD8 / CD12 |
-| **— spatial seam (CD13–CD17) —** | | |
-| R1.3 co-mint session + instance from one `setup[]` at birth (`participantId === token key`) | PRESERVE | CD16 |
-| R19.5 `zoneEnchantmentEffects` → `ResolveContext.effects` (Toccata); the only engine-modeled combat→spatial read | PRESERVE | CD15 |
-| R23.1/R23.2/R23.3 addOccupant / removeOccupant-sever / pruneCombat — spatial-helper obligations the composition calls | PRESERVE | CD16 |
-| Position + Engagement Tier-3-only deferral (D28) → instance-lifecycle READ components projected into the bag | SUPERSEDE | CD13 |
-| merged read-bag `durable ∪ overlay` → `durable ∪ overlay ∪ instance` (3-way disjoint) | SUPERSEDE | CD14 |
-| `engagedWith: []` stub → real Engagement-component read (public to all) | SUPERSEDE | CD17 |
-| **— session write-router (CD18–CD20) —** | | |
-| `vitalsHome` flag on the pure Participant + in-reducer gate → impure client+server router routes write path + auth by storage home | SUPERSEDE | CD18 |
-| UI never decides the storage path (write-side dual of D7's uniform render) | PRESERVE | CD18 |
-| vitals routing generalized → one `CombatantComponentWriter` registry over the engine's pure ops (vitals/skillPool/resources/mechanics); engine gains no registry | SUPERSEDE | CD19 |
-| component-write events leave the generic `CombatEvent` wire → router-only `ComponentWriteEvent` family excluded from `ApplyCombatEventSchema` (structural ephemeral-only) | SUPERSEDE | CD5 / CD19 |
-| archetypes/form-swap excluded — an `applyForm` entity transform, not a component patch (own future path) | PRESERVE | CD19 |
-| multi-home cast = atomic `applyCombatantWriteBatch` (1 blob fold + N×(entity × version-class) via guardMany); R14.4 rides it | SUPERSEDE | CD20 |
+| Behavior                                                                                                                                                                              | Tag       | CD          |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------|-------------|
+| R1.1 fresh combatant clean overlay (ailments [], conditions neutral, actions available, durations/counters {})                                                                        | PRESERVE  | CD1         |
+| R1.2/R2.1 session scalars carried verbatim, no normalisation                                                                                                                          | PRESERVE  | CD2         |
+| R1.5 `toCombatantSetup` inverse (ref half via the out-of-band origin map; zoneId/engagement half reads the same occupancy token CD14 projects)                                        | PRESERVE  | CD3 / CD14  |
+| R2.2/R2.3 startCombat no-op-once + reset acted/actor                                                                                                                                  | PRESERVE  | CD5         |
+| R3.1–R3.3 per-side highest Agility/Luck + suggestedSide tiebreak                                                                                                                      | PRESERVE  | CD9         |
+| R3.4 initiative HP/stat source by ref-kind (three-arm switch)                                                                                                                         | SUPERSEDE | CD9         |
+| R4.1–R4.3 draft sets actor / resets consumption / clears Downed / no-op unknown / never blocks                                                                                        | PRESERVE  | CD5         |
+| R5.1–R5.3 endTurn marks actual actor / ticks acting participant's durations / no-op null-or-unmatched                                                                                 | PRESERVE  | CD5         |
+| R5.2 no-duration-entry axis left untouched even if non-neutral                                                                                                                        | PRESERVE  | CD1         |
+| R6.1–R6.4 advanceRound clears all + actor / joiner queued / remove drops+nulls / setSide                                                                                              | PRESERVE  | CD5         |
+| R6.3 removeParticipant does NOT sever engagement in the session reducer                                                                                                               | PRESERVE  | CD5         |
+| R7.1/R7.3 setCurrentActor unconditional / setRound no-clamp                                                                                                                           | PRESERVE  | CD5         |
+| R7.2 setActed acted-boolean → turnsTakenThisRound count (true↔1 / false↔0)                                                                                                            | SUPERSEDE | CD10        |
+| R8.1–R8.6 battle conditions extend/flip/clear/tick/auto-expire/no-op-unknown                                                                                                          | PRESERVE  | CD1         |
+| R9.1–R9.4 ailments permissive/idempotent/coexist-incl-Downed/order/clear-absent-harmless/uniform                                                                                      | PRESERVE  | CD1         |
+| R10.1–R10.4 counters signed-delta-merge/floor-0/delete-at-0/caps-unenforced/uniform                                                                                                   | PRESERVE  | CD1         |
+| R11.1 availability-boolean storage → resolved-budget-minus-consumption (available = 1 − used)                                                                                         | SUPERSEDE | CD10        |
+| R12.1 enemy vitals absolute-value-set floored-at-0 → signed-depletion delta (stored floor → resolve)                                                                                  | SUPERSEDE | CD6         |
+| R12.2 lower-max-drags-current reconciliation eliminated (setMax writes base; current re-derives)                                                                                      | SUPERSEDE | CD6         |
+| R12.3 catalog-enemy maxHP default + unknown-key ⇒ max-0; thin key reference at rest                                                                                                   | PRESERVE  | CD3         |
+| R12.3 catalog-enemy max resolved at the fold; reducer needs no catalog dep                                                                                                            | SUPERSEDE | CD8         |
+| R12.4 vitals no-op for PC/durable + SP-absent + unknown-id — enforced at the `updateVitals` router (never sends durable vitals to the reducer) + capability presence, never kind/flag | PRESERVE  | CD6 / CD18  |
+| R13.1/R13.2/FAL-1 Fallen hp<=0 / revive drops / unknown-key ⇒ Fallen — recomputed from resolved vitals                                                                                | SUPERSEDE | CD9         |
+| R14.1 endOfTurnReminders heldFlags/activeDurations canonical-order FYI                                                                                                                | PRESERVE  | CD9         |
+| R14.2/R14.4 Burn/Sleep/Despair HP tick → a uniform delta intent routed by `updateVitals` (no producer-side null-for-durable); maxHP from resolve                                      | SUPERSEDE | CD9 / CD18  |
+| R14.3/R14.5 empty-on-unknown-actor; frenzy reminder (pain before decrement)                                                                                                           | PRESERVE  | CD9         |
+| R15/PC-1/PC-2 party composition by Lineage; PC by lineage/ownership capability (not ref.kind==='pc')                                                                                  | SUPERSEDE | CD9         |
+| R24.1 reducer purity / Immer same-ref no-op                                                                                                                                           | PRESERVE  | CD4         |
+| R24.2 exhaustive switch, no default                                                                                                                                                   | PRESERVE  | CD4         |
+| R24.3 newId injected at composition root                                                                                                                                              | PRESERVE  | CD4         |
+| R24.4 getEnemy is the reducer's one catalog lookup → reducer needs NO catalog dep                                                                                                     | SUPERSEDE | CD4         |
+| R24.5 session reducer reads/writes no spatial field; `mapInstanceId` read only at the `reduceEncounter` root                                                                          | PRESERVE  | CD2 / CD16  |
+| RED-1 whitelisted top-level snapshot fields (non-spatial subset)                                                                                                                      | PRESERVE  | CD12        |
+| RED-2 overlay public to every viewer; `engagedWith` now a REAL Engagement read (public to all, `[]` when Free/mapless)                                                                | PRESERVE  | CD11 / CD17 |
+| RED-3 own/ally PC hp/sp/attributes/affinities/portraitUrl public; presentation row added                                                                                              | PRESERVE  | CD11        |
+| RED-4 attributes/affinities structurally ABSENT to opponent + spectator (the only two drop rows, key-drop); kind-keyed → relationship-fold                                            | SUPERSEDE | CD11        |
+| RED-5 currentActor → {id,name,side} subset                                                                                                                                            | PRESERVE  | CD12        |
+| RED-6/7/8/9 zone/enchantment projection + fog-gating + field-level zoneId→''                                                                                                          | SUPERSEDE | CD12        |
+| NAME-1/NAME-3/NAME-4 catalog-enemy name via getEnemy; disambiguated label single-home; identity pass-through                                                                          | PRESERVE  | CD8 / CD12  |
+| **— spatial seam (CD13–CD17) —**                                                                                                                                                      |           |             |
+| R1.3 co-mint session + instance from one `setup[]` at birth (`participantId === token key`)                                                                                           | PRESERVE  | CD16        |
+| R19.5 `zoneEnchantmentEffects` → `ResolveContext.effects` (Toccata); the only engine-modeled combat→spatial read                                                                      | PRESERVE  | CD15        |
+| R23.1/R23.2/R23.3 addOccupant / removeOccupant-sever / pruneCombat — spatial-helper obligations the composition calls                                                                 | PRESERVE  | CD16        |
+| Position + Engagement Tier-3-only deferral (D28) → instance-lifecycle READ components projected into the bag                                                                          | SUPERSEDE | CD13        |
+| merged read-bag `durable ∪ overlay` → `durable ∪ overlay ∪ instance` (3-way disjoint)                                                                                                 | SUPERSEDE | CD14        |
+| `engagedWith: []` stub → real Engagement-component read (public to all)                                                                                                               | SUPERSEDE | CD17        |
+| **— session write-router (CD18–CD20) —**                                                                                                                                              |           |             |
+| `vitalsHome` flag on the pure Participant + in-reducer gate → impure client+server router routes write path + auth by storage home                                                    | SUPERSEDE | CD18        |
+| UI never decides the storage path (write-side dual of D7's uniform render)                                                                                                            | PRESERVE  | CD18        |
+| vitals routing generalized → one `CombatantComponentWriter` registry over the engine's pure ops (vitals/skillPool/resources/mechanics); engine gains no registry                      | SUPERSEDE | CD19        |
+| component-write events leave the generic `CombatEvent` wire → router-only `ComponentWriteEvent` family excluded from `ApplyCombatEventSchema` (structural ephemeral-only)             | SUPERSEDE | CD5 / CD19  |
+| archetypes/form-swap excluded — an `applyForm` entity transform, not a component patch (own future path)                                                                              | PRESERVE  | CD19        |
+| ~~multi-home cast = atomic `applyCombatantWriteBatch`~~ → a cast is a single caster-side SP/HP write (batch retired, no consumer; R14.4 ticks are independent single writes)          | SUPERSEDE | CD20 → CD21 |
+| cast = caster-only SP/HP spend; no target write / no side effect / no session event (v1 `castSkillAction` parity); home-agnostic so an ephemeral boss may cast                        | PRESERVE  | CD21        |
+| v1's static, context-free Cast popover → target-aware, viewer-redacted (`visibleEntity`) display-only preview; structured riders stubbed                                              | SUPERSEDE | CD22 / CD23 |
 
 ---
 

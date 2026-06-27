@@ -3,11 +3,14 @@
 A running log for the combat / encounter subsystem of the `@workspace/game-v2`
 redesign. It is the chronological rationale companion to the
 [ADR](./ADR.md) in this folder. Status tags mirror the parent log:
-**Settled**, **Leaning**, **Open**. CD1–CD15, CD17, CD18, CD19 are **Settled**;
-**CD16 + CD20 are Leaning** (CD16: the composition wrapper's residency + endCombat's home,
-Open Qs 6–7; CD20: the multi-home batch's producer seam + day-one need, Open Qs 12–13).
-**CD18** supersedes the `vitalsHome` mechanism of CD6; **CD19** generalizes CD18's vitals
-router into the registry-driven session write-router (CD18 becomes its `vitals` writer).
+**Settled**, **Leaning**, **Open**. CD1–CD15, CD17–CD19, CD21–CD23 are **Settled**;
+**CD16 is Leaning** (the composition wrapper's residency + endCombat's home, Open Qs 6–7);
+**CD20 is Superseded** by CD21 — its premise that a cast spans homes was wrong; a cast is a
+single caster-side SP write (Open Qs 12–13 dissolve with it). **CD18** supersedes the
+`vitalsHome` mechanism of CD6; **CD19** generalizes CD18's vitals router into the
+registry-driven session write-router (CD18 becomes its `vitals` writer); **CD21–CD23** settle
+the skills/combat fork (cast = one caster-side write; the target-aware, viewer-redacted skill
+preview; structured preview data stubbed).
 
 ## Context — combat subsystem
 
@@ -1245,9 +1248,23 @@ the multi-home batch.
 _Builds on D7, CD3, CD4, CD5, CD6, CD7, CD16, CD18; the root CLAUDE.md Registry guidance._
 
 **Decision.** Generalize CD18's vitals-only client+server pair into ONE registry-driven impure
-write-router homed at **`apps/web/lib/actions/combat-write/`**. Vitals is not special: a boss's
+write-router, named **`commit/`** (the `Store`'s verb). Vitals is not special: a boss's
 **Mechanic**, a friendly-ephemeral NPC's **SkillPool**, and **Prisma** all hit the same storage-home
 fork, and the ONLY thing that varies by home is plumbing (store, token, channel, auth).
+
+**AMENDED (homing).** The original "homed at `apps/web/lib/actions/combat-write/`" was imprecise on two
+counts: `actions/` is `"use server"`-only, but the router is a **client+server pair** (CD18 — the UI
+predicts optimistically), so it can't live in one server module; and `combat-write/` is a poor folder
+noun ("write" collides with the `lib/db/writes/` role and undersells the routing). Renamed **`commit/`**
+and split three ways by concern: (1) the pure **Writers** → neutral `lib/combat/commit/` (client + server
+importable — prediction + commit); (2) the two **Stores** + the Server Action → `lib/actions/combat/commit/`
+(commit / auth / version-guard, server-only — the half CD19 originally got right); (3) the **optimistic
+client dispatcher** → a shared hook (`useCombatantWrite`) in `components/combat/`, a **sibling of
+`useCombatConsole`** (the shared headless console controller), **not** welded inside it — because the
+router unifies the two storage homes and `useCombatConsole` owns only the ephemeral one (its `dispatch-event`
+→ session path); the durable one is `hooks/dispatch-character-write` (the row path the console deliberately
+keeps out, UNN-482). The router composes both — it's exactly what re-unifies the homes v1 had to split.
+Function/hook names keep the verb (`applyCombatantWrite` / `useCombatantWrite`); only the folder noun changed.
 
 - **Entry point** — `applyCombatantWrite(ctx, write)`, `write = { participantId, component, op, args }`.
   The write carries **no storage field** (a caller cannot assert a home). The home is the **stored
@@ -1332,11 +1349,11 @@ surface the over-abstraction critic worried about: the **two Stores are written 
 per-component code is a Writer (a pure-op + a class tag). So the "registry" is **two fixed storage
 strategies + a small pure-op table**, not a framework. Honest cost: adding a writable component is still
 a **two-layer edit** (a pure reducer slice in game-v2 + a Writer entry in apps/web) — neither the registry
-nor the stores collapse it to one; don't over-sell "one entry." `combat-write/` is a deliberate
-two-auth-gate exception to actions/CLAUDE.md's one-gate-per-folder rule (the two gates now live on the two
-Stores) → a nested CLAUDE.md legitimizes it. The v2 headless console doesn't exist yet, so the client half
-lands with the v2 console PR. `setMax` / `adjustExhaustion` pure ops don't exist yet — ship them with the
-Writer or scope out of MVP.
+nor the stores collapse it to one; don't over-sell "one entry." The server `lib/actions/combat/commit/` is
+a deliberate two-auth-gate exception to actions/CLAUDE.md's one-gate-per-folder rule (the two gates now live
+on the two Stores) → a nested CLAUDE.md legitimizes it. The v2 headless console doesn't exist yet, so the
+client dispatcher (the `useCombatantWrite` hook) lands with the v2 console PR, beside `useCombatConsole`.
+`setMax` / `adjustExhaustion` pure ops don't exist yet — ship them with the Writer or scope out of MVP.
 
 _PRESERVE:_ CD18's settled substance (client+server pair; ephemeral-only; capability no-op residual;
 R14.4 through the router). _SUPERSEDE:_ CD5's vitals-on-the-generic-wire → the router-only
@@ -1347,7 +1364,7 @@ written once, not per Writer).
 
 ---
 
-### CD20 — The multi-home / multi-write atomic batch · **Leaning** · _extends CD19; builds on CD7, CD16_
+### CD20 — The multi-home / multi-write atomic batch · **Superseded by CD21** · _extends CD19; builds on CD7, CD16_
 
 _Builds on CD7, CD16, CD19; the v1 `guardMany` two-token cross-write._
 
@@ -1381,22 +1398,130 @@ single-session-writer-under-batching rule (all ephemeral writes of one action fo
 `saveEncounterSession`); made N = (entity × version-class) since equipment (deferred) adds an
 `inventory`-class bump distinct from a same-entity `vitals` bump.
 
-**Leaning, not Settled** — two open seams: **who PRODUCES** the cast's `CombatantWrite[]` (the
-skills/combat fork — CD19/CD20 *consume* the write-set, don't own production), and whether the MVP needs
-the batch on day one (vs. single-write `applyCombatantWrite` per DM click). Resolve before wiring
-end-to-end.
+**SUPERSEDED by CD21 — the motivating premise was wrong.** This entry assumed a cast is
+"intrinsically multi-component / multi-combatant and can straddle homes." It is not. Casting is **only**
+a caster-side SP/HP spend (v1 parity — research confirmed v1's `castSkillAction` writes the caster's
+vitals row and nothing else; there is no `cast` session event); the engine never rolls damage, never
+picks a target, never writes a victim. A cast is therefore a **single-home single write** (CD21), and
+**no parity action needs an atomic multi-home batch** — DM-applied damage, ailments, and the R14.4
+end-of-turn ticks are each independent single-home writes through `applyCombatantWrite` (CD19). The batch
+SHAPE described above is sound but has **no consumer**; it is retired, re-openable only if a genuinely
+atomic cross-home action ever appears. Open Qs 12/13 dissolve with it (Q12: a cast produces ONE patch,
+not a write-set; Q13: single-write suffices, no day-one batch).
 
 _PRESERVE:_ CD7a (single-blob-write/single-version), the v1 `guardMany` atomicity, R14.4 (DM applies,
-never auto). _SUPERSEDE:_ CD18's single-write framing → the multi-home batch.
+never auto — now a plain single write). _SUPERSEDE:_ this CD's own multi-home batch framing → CD21's
+single-home cast write.
+
+---
+
+### CD21 — Casting = a single caster-side component write, routed by the caster's Store; not a session event · **Settled** · _supersedes CD20; an instance of CD19_
+
+_Builds on CD8, CD19; v1 `castSkillAction` / `applyCast`; the rules' cast sequence (3.3 On Your Turn)._
+
+**Decision.** Pressing **Cast** does exactly one thing mechanically: resolve the skill's cost and apply
+it as ONE component write on the **caster**. There is no target write, no damage roll, no auto side
+effect, and **no `cast` session event** — casting is invisible to the reducer (v1 parity: v1's
+`castSkillAction` writes the caster's vitals row via `applyCast`, and the session event vocabulary has no
+cast event at all). The cast resolves through two decisions made **once** at the cast boundary (CLAUDE.md
+Code Style #9):
+
+- **Which Writer** — `applyCast(skill, maxHP, pools) → CostPayment` yields `{ pool: 'sp' | 'hp', amount }`;
+  the cost *kind* picks the Writer (`skillPool.spend` for an SP cost, `vitals.damage` for an HP-percent
+  cost like Cleave). Both ops already exist in game-v2 (`skills/cost.ts`, `vitals/operations.ts`).
+- **Which Store** — the caster's derived home (CD19): a PC caster → `entityRowStore` (the existing cast
+  write path, `EDIT_SURFACE_CLASS.cast`); an ephemeral NPC/boss caster → `sessionStore`. The router body
+  is unchanged — `store.commit(writer.applyOp(store.read(), …))`.
+
+**Why this is the keystone, not the batch.** Casting is the canonical case that **validates CD19** while
+**retiring CD20**: it is a home-agnostic *single* write, not a multi-home set. The generalization CD19
+bought — "vitals is not special; skillPool, mechanics, and Prisma face the same fork" — is exactly what
+lets an ephemeral boss spend SP (which v1 could not model: enemies don't cast in v1's tracker, the DM
+narrates) through the same `skillPool` Writer a PC uses, differing only by Store. Action economy stays
+**decoupled** (v1 does not auto-spend a Standard on cast — the DM flips `TurnState` separately; parity),
+and there is **no combat log** of casts (v1 has none).
+
+_PRESERVE:_ v1 cast = caster-only SP/HP spend, no other effect (the rules' "deduct the cost" step, 3.3);
+HP-percent costs floored at 1 (`resolveSkillCost`). _SUPERSEDE:_ CD20's multi-home batch → a single
+caster-side write; v1's PC-only cast → home-agnostic (ephemeral combatants may now cast).
+
+---
+
+### CD22 — The skill preview: a target-aware, viewer-redacted, display-only projection — never a resolved outcome · **Settled** · _builds on CD11, CD15; the PR7 resolvers_
+
+_Builds on CD11 (redaction), CD15 (SpatialReads), CD8; game-v2 `resolveSkill` / `resolveAttackRoll`; v1
+`hydrateCharacter(zoneEffects)` context injection._
+
+**Decision.** The engine adds **no targeting for resolution** — but it may surface a **display-only
+preview** that updates when a player selects a combatant to preview against. Selecting a target is
+**transient UI state**: it drives the preview only, is never written, never persisted, never a reducer
+event, and the Cast it precedes still spends only the caster's SP (CD21). The preview is:
+
+- **Target-aware.** With a target selected, each skill re-resolves its display-only numbers against that
+  target's context: the target's Hit/Evasion battle condition folds into *your* attack-roll preview as a
+  concrete modifier (e.g. an enemy under Sukukaja → −7), and the target's zone enchantment drives
+  skill-specific riders (Cantata in a Forte-2 zone → +2, Rage on 20+, CD23). `resolveAttackRoll` already
+  returns a labelled `{ total, sources[] }`, so the breakdown UI is already shaped; the preview extends
+  the source set with the target-relative terms.
+- **Viewer-redacted (the keystone).** The preview runs over `visibleEntity(target, viewer)` (CD11), not
+  the raw target — so it **cannot leak**. A condition hidden from players (the enemy's evasion buff)
+  simply does not appear in a player's preview; the DM, who sees everything, gets the true matchup. The
+  preview is honest-by-construction: "what you'd get, given what you're allowed to know." Player-facing
+  and DM-facing previews of the same cast may therefore legitimately differ.
+- **Same context-injection pattern as v1.** v1 already injects encounter `zoneEffects` into
+  `hydrateCharacter`, folded via `skillAttackRollContext`; v2's successor is CD15's `SpatialReads →
+  ResolveContext.effects`. The target-aware preview is that pattern parameterized by the *selected
+  target* instead of only the caster's ambient zone — not a new shape.
+
+**Seam.** `previewSkill(skill, resolvedCaster, visibleTarget | null, spatialReads) → { cost, attackRoll:
+{ total, sources[] }, riders[] }`, homed in `encounter/` (it needs the roster + spatial reads; `skills/`
+stays encounter-agnostic — one-way dependency, mirrors CD15). With `visibleTarget = null` it degrades to
+the caster-only baseline (cost affordability + the caster's own ambient sources — the floor v1 already
+shows). Display-only at every tier: it shows *potential* ("would get +2"), never *actual* ("dealt 14") —
+even if targeting-for-resolution is ever added, it will never roll damage.
+
+_PRESERVE:_ v1's `canAfford` cast affordance (the `visibleTarget = null` floor); the rules' "engine never
+rolls / picks targets" boundary (3.3). _SUPERSEDE:_ v1's static, context-free Cast popover → a
+target-aware, viewer-redacted preview.
+
+---
+
+### CD23 — Structured per-skill `zoneConditionalEffects` for the rich riders — STUBBED · **Settled (deferred)** · _feeds CD22_
+
+_Builds on CD22, CD15; the rules' Enchantment system (Cantata / Toccata / Requiem / Tarantella)._
+
+**Decision (deferred, by design).** CD22's target-condition modifiers (the −7 from a target's evasion)
+work today — they read components the engine already has. But the skill-**specific** riders (Cantata's
+"+Forte to Attack Roll, Rage on 20+ in a Toccata zone") need **structured** data the Skill does not yet
+carry; today those riders live as authored prose in `skill.description`. CD22 commits to the **seam**
+(`riders[]` in the preview result); the **data shape** that fills it — call it `zoneConditionalEffects`,
+keyed by enchantment type + forte — is **stubbed and deferred** to its own skills-data ticket.
+
+**Why defer is correct here.** Two reasons, both the user's call: (1) it is **cheap to get wrong** — the
+preview is display-only, so a wrong guess costs a re-render, not a migration or a correctness bug, which
+fails the "decide a distinction once, *at the boundary where it's first knowable*" test (it is not yet
+first-knowable in a way that pays to fix now); (2) it is **unlikely to be a new pattern** — it will
+almost certainly reuse the CD15 / `hydrateCharacter(zoneEffects)` context-injection seam, so committing a
+shape now buys nothing. Until it lands, the preview shows CD22's resolved cost + attack-roll sources + the
+authored prose rider; only the *structured* per-skill rider waits.
+
+**Enchantment scope correction (rules).** A *zone* holds one enchantment and a *Bard* holds one
+enchantment, but **globally there may be many** (one per Bard, each on a different zone) — so a board can
+have N enchanted zones. This is *why* CD22's target-click model wins over a board-wide enchantment strip:
+selecting a target scopes the contextual rider to the one zone that matters, instead of enumerating the
+whole board.
+
+_PRESERVE:_ the rules' Cantata/Enchantment semantics (the rider content). _SUPERSEDE:_ nothing yet — this
+is a forward stub, not a change to a prior decision.
 
 ---
 
 ## Open questions
 
 These are recorded as scope fences and deferred-implementation details, not
-blockers. CD1–CD15, CD17, CD18, CD19 are Settled; **CD16 + CD20 are Leaning** (CD16: the
-composition wrapper's residency + `endCombat`'s home, Q6/Q7; CD20: the batch's producer seam
-+ day-one need, Q12/Q13). The spatial-seam questions (Q6–Q11) are mostly cross-ADR
+blockers. CD1–CD15, CD17–CD19, CD21–CD23 are Settled; **CD16 is Leaning** (the composition
+wrapper's residency + `endCombat`'s home, Q6/Q7); **CD20 is Superseded** by CD21 (Q12/Q13
+dissolved with it — see below). The spatial-seam questions (Q6–Q11) are mostly cross-ADR
 confirmations the future spatial ADR will close.
 
 1. **View-shaper scope fence (record, not a blocker).** The read-side
@@ -1467,17 +1592,26 @@ confirmations the future spatial ADR will close.
     `combat`/`encounter`) so the seam is structural, not vigilance — mirroring CD1/CD3/CD14's
     build-time disjointness assertions.
 
-12. **Who produces the cast's `CombatantWrite[]` (CD20)** — is `castSkill(...) → CombatantWrite[]`
-    a pure **engine** producer (parity-safe; emits only DM-confirmed intents) or an app-layer
-    assembler? This is the **skills/combat fork's seam** (CD8 fenced the enemy-skill home there);
-    CD19/CD20 *consume* the write-set, they do not own its production. Must be resolved before the
-    batch is wired end-to-end.
+12. **Who produces the cast's `CombatantWrite[]` (CD20)** — **DISSOLVED by CD21.** A cast is a
+    single caster-side SP/HP write, not a write-set; its "producer" is trivially `applyCast → one
+    CostPayment → one patch`. There is no production fork.
 
-13. **Does the MVP need the batch on day one (CD20)** — does a multi-target end-of-turn Burn
-    (R14.4 over several afflicted combatants) force `applyCombatantWriteBatch` immediately, or does
-    single-write `applyCombatantWrite` (one intent per DM click) suffice for MVP, with the batch
-    landing when real multi-write casts do? Also: `setMax`/`adjustExhaustion` pure ops don't exist
-    yet — ship them with their writer or scope out of MVP.
+13. **Does the MVP need the batch on day one (CD20)** — **DISSOLVED by CD21.** No parity action
+    needs an atomic multi-home batch; single-write `applyCombatantWrite` (one intent per DM click)
+    suffices, and the R14.4 end-of-turn ticks are independent single writes. (`setMax` /
+    `adjustExhaustion` pure ops still don't exist — ship them with their Writer when their feature
+    lands; out of MVP.)
+
+14. **The `zoneConditionalEffects` data shape (CD23, deferred)** — the structured per-skill rider
+    data the rich preview needs. Stubbed by design (cheap to get wrong; expected to reuse the
+    `hydrateCharacter(zoneEffects)` / CD15 context-injection seam). Own skills-data ticket; not a
+    combat-engine blocker — CD22's target-condition modifiers work without it.
+
+15. **The preview's target-selection surface (CD22)** — which viewer selects a target to preview
+    against (a player on their own combat surface; the DM on the console), and whether the preview
+    also *hints* range applicability (`zoneOf(caster)` vs `zoneOf(target)`) or stays modifier-only.
+    Parity leans modifier-only (ranges stay DM-adjudicated, no `validTargets`); a non-enforcing range
+    hint is an additive UI call. Deferred to the encounter-VIEW fork (Q1).
 
 ### Deferred scope pointer
 
