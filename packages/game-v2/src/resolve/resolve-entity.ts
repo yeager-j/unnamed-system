@@ -105,10 +105,7 @@ export function createResolveEntity(
       ...resolved,
       components: {
         ...resolved.components,
-        skills: hydrateSkills(skills, resolved, {
-          partyComposition: context.partyComposition ?? null,
-          activeLineage: resolved.components.archetypes?.activeLineage ?? null,
-        }),
+        skills: hydrateSkills(skills, resolved, context),
       },
     }
   }

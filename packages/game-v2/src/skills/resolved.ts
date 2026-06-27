@@ -3,7 +3,10 @@ import {
   resolveDamageBonuses,
   type DamageBonus,
 } from "@workspace/game-v2/combat/damage-bonus"
-import type { ScalerContext } from "@workspace/game-v2/combat/party"
+import type {
+  PartyComposition,
+  ScalerContext,
+} from "@workspace/game-v2/combat/party"
 import type { ResolvedAttackRoll } from "@workspace/game-v2/combat/resolved"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { skillAttackRollContext } from "@workspace/game-v2/skills/attack-context"
@@ -67,6 +70,12 @@ export function resolveSkill(
  * archetype kit + inheritance + equipment grants, deduped), so a caller resolves
  * costs/Attack Rolls against the entity's **final** stats in one pass.
  *
+ * It takes the resolve `context` directly and assembles the {@link ScalerContext}
+ * here — `partyComposition` off the context, `activeLineage` off `resolved` — so
+ * callers forward `context` wholesale instead of hand-building a scaler (which had
+ * the call site re-derive `activeLineage` out of the very `resolved` it also passes).
+ * A new scaler-relevant context field is then wired in **one place**, here.
+ *
  * Passive Skills hydrate harmlessly (a non-rolling Skill carries a `null` Attack Roll
  * and `null` cost), so the castable list and the passives render from one array — the
  * UI's "all skills in one place".
@@ -74,7 +83,11 @@ export function resolveSkill(
 export function hydrateSkills(
   skills: readonly Skill[],
   resolved: ResolvedEntity,
-  scaler: ScalerContext | null
+  context: { partyComposition?: PartyComposition | null }
 ): ResolvedSkill[] {
+  const scaler: ScalerContext = {
+    partyComposition: context.partyComposition ?? null,
+    activeLineage: resolved.components.archetypes?.activeLineage ?? null,
+  }
   return skills.map((skill) => resolveSkill(skill, resolved, scaler))
 }

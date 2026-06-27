@@ -70,7 +70,7 @@ describe("hydrateSkills (the collection → ResolvedSkill[] phase)", () => {
     })
     const ward = skill({ key: "ward", kind: "passive" })
 
-    const hydrated = hydrateSkills([blast, ward], enemy, null)
+    const hydrated = hydrateSkills([blast, ward], enemy, {})
 
     expect(hydrated.map((h) => h.skill.key)).toEqual(["blast", "ward"])
     expect(hydrated[0]?.resolvedAttackRoll?.total).toBe(4) // strength 4
@@ -80,6 +80,6 @@ describe("hydrateSkills (the collection → ResolvedSkill[] phase)", () => {
   })
 
   it("is empty for an empty collection", () => {
-    expect(hydrateSkills([], enemy, null)).toEqual([])
+    expect(hydrateSkills([], enemy, {})).toEqual([])
   })
 })
