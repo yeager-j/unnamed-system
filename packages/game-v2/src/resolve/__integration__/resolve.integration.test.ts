@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import {
+  makeAccessory,
+  makeArmor,
+  makeItemLookups,
+  makeWeapon,
+} from "@workspace/game-v2/items/__fixtures__/catalog"
+import type { InventoryItemState } from "@workspace/game-v2/items/equipment.schema"
+import type { CombatantEffect } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import {
   makeArchetype,
@@ -567,6 +575,188 @@ describe("createResolve — the resolved Archetypes read-unit (PR6 — the sheet
     // roster survives (Mastery + inheritance persist through a form)
     expect(resolved.components.archetypes?.roster).toEqual([
       { key: "warden", rank: 5, mastered: true, inheritanceSlots: [] },
+    ])
+  })
+})
+
+describe("resolveEntity — every effect source compounds on one entity", () => {
+  function passive(key: string, effects: Skill["effects"]): Skill {
+    return {
+      kind: "passive",
+      key,
+      name: key,
+      tagline: "t",
+      description: "d",
+      isSynthesis: false,
+      effects,
+    }
+  }
+
+  const equipped = (catalogItemKey: string): InventoryItemState => ({
+    id: catalogItemKey,
+    catalogItemKey,
+    equipped: true,
+    quantity: 1,
+  })
+
+  it("folds attributes, affinities, attack-roll effects, and the skill list from all sources at once", () => {
+    // One PC carrying every contributor simultaneously:
+    //   archetype base + Mastery + manual + active mechanic + zone context, plus the
+    //   four skill-collection sources (intrinsic, archetype kit, inheritance, equipment
+    //   grant) and a direct equipment bonus.
+    const intrinsicAura = passive("intrinsic-aura", [
+      { type: "attribute", target: "strength", amount: 1 },
+      { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
+      { type: "attackRoll", amount: 2, source: "Aura" },
+    ])
+    const kitSkill = passive("kit-skill", [
+      { type: "attribute", target: "magic", amount: 1 },
+    ])
+    const inheritedFocus = passive("inherited-focus", [
+      { type: "attribute", target: "magic", amount: 1 },
+    ])
+    const grantedEdge = passive("granted-edge", [
+      { type: "attribute", target: "magic", amount: 1 },
+    ])
+
+    const deps = {
+      ...makeTestGameData({
+        warlord: makeArchetype({
+          key: "warlord",
+          attributes: { strength: 1, magic: 0, agility: 0, luck: 0 },
+          affinities: { fire: "weak" },
+          mastery: { kind: "attribute", amount: 2, attribute: "strength" },
+          mechanic: "perfection",
+          skills: [{ rank: 1, skill: "kit-skill" }],
+        }),
+      }),
+      ...makeItemLookups({
+        items: [
+          makeArmor({
+            key: "gauntlet",
+            effects: [{ type: "attribute", target: "strength", amount: 1 }],
+          }),
+          makeAccessory({
+            key: "amulet",
+            effects: [
+              { type: "affinity", damageTypes: ["ice"], affinity: "resist" },
+            ],
+          }),
+          makeWeapon({
+            key: "blade",
+            effects: [{ type: "skill", skillKey: "granted-edge" }],
+          }),
+        ],
+        skills: [intrinsicAura, kitSkill, inheritedFocus, grantedEdge],
+      }),
+    }
+    const resolveEntity = createResolveEntity(deps)
+
+    const base = makeDerivedEntity({
+      active: "warlord",
+      roster: [{ key: "warlord", rank: 5 }], // rank ≥ 5 ⇒ Mastery applies
+      manualBonuses: { strength: 1 },
+      mechanics: { perfection: { kind: "perfection", rank: 3 } },
+      equipment: [equipped("gauntlet"), equipped("amulet"), equipped("blade")],
+    })
+    const entity: Entity = {
+      ...base,
+      components: {
+        ...base.components,
+        skills: [{ kind: "inline", skill: intrinsicAura }],
+        archetypes: {
+          ...base.components.archetypes!,
+          roster: [
+            {
+              key: "warlord",
+              rank: 5,
+              inheritanceSlots: [
+                {
+                  slotIndex: 0,
+                  sourceArchetypeKey: "mage",
+                  skillKey: "inherited-focus",
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }
+
+    const zone: CombatantEffect[] = [
+      { type: "attribute", target: "agility", amount: 2 },
+      { type: "affinity", damageTypes: ["fire"], affinity: "null" },
+      { type: "attackRoll", amount: 1, source: "Zone Edge" },
+    ]
+    const resolved = resolveEntity(entity, { effects: zone })
+
+    // strength = archetype 1 + Mastery 2 + manual 1 + intrinsic-skill 1 + gauntlet 1 = 6
+    //   (kept below the +7 clamp so a double-count would surface, not hide)
+    // magic = kit 1 + inheritance 1 + equipment-grant 1 = 3 (three skill sources stack)
+    // agility = zone 2; luck untouched
+    expect(resolved.components.attributes).toEqual({
+      strength: 6,
+      magic: 3,
+      agility: 2,
+      luck: 0,
+    })
+
+    // fire = strongest(archetype weak, intrinsic-skill resist, zone null) = null;
+    // ice = the amulet's direct resist, independent of fire.
+    expect(resolved.components.affinities?.fire).toBe("null")
+    expect(resolved.components.affinities?.ice).toBe("resist")
+
+    // Attack-roll effects fold in C6 order: mechanic → skill effects → equipment
+    // (no attack-roll arm) → context.
+    expect(
+      resolved.components.pendingEffects?.attackRoll.map((e) => e.source)
+    ).toEqual(["Perfection (A)", "Aura", "Zone Edge"])
+
+    // All four collection sources hydrate into one skill array, in source order.
+    expect(resolved.components.skills?.map((s) => s.skill.key)).toEqual([
+      "intrinsic-aura",
+      "kit-skill",
+      "inherited-focus",
+      "granted-edge",
+    ])
+  })
+
+  it("folds a Skill reached from two sources once — no double-count in the compounded stat", () => {
+    // `shared-boost` is on the archetype kit AND granted by an equipped item.
+    const sharedBoost = passive("shared-boost", [
+      { type: "attribute", target: "magic", amount: 3 },
+    ])
+    const deps = {
+      ...makeTestGameData({
+        adept: makeArchetype({
+          key: "adept",
+          skills: [{ rank: 1, skill: "shared-boost" }],
+        }),
+      }),
+      ...makeItemLookups({
+        items: [
+          makeWeapon({
+            key: "twin-edge",
+            effects: [{ type: "skill", skillKey: "shared-boost" }],
+          }),
+        ],
+        skills: [sharedBoost],
+      }),
+    }
+    const resolveEntity = createResolveEntity(deps)
+
+    const entity = makeDerivedEntity({
+      active: "adept",
+      roster: [{ key: "adept", rank: 1 }],
+      equipment: [equipped("twin-edge")],
+    })
+    const resolved = resolveEntity(entity)
+
+    // magic is +3, not +6: the deduped collection folds the shared Skill's effect once.
+    expect(resolved.components.attributes?.magic).toBe(3)
+    // …and it appears once in the hydrated list, too.
+    expect(resolved.components.skills?.map((s) => s.skill.key)).toEqual([
+      "shared-boost",
     ])
   })
 })
