@@ -8,10 +8,7 @@ import {
   attributeEffectBonuses,
   computeAttributes,
 } from "@workspace/game-v2/attributes/derive"
-import type {
-  PartyComposition,
-  ScalerContext,
-} from "@workspace/game-v2/combat/party"
+import type { PartyComposition } from "@workspace/game-v2/combat/party"
 import {
   sumBonuses,
   type BonusPool,
@@ -29,7 +26,6 @@ import {
   computeMaxSkillDice,
 } from "@workspace/game-v2/resources/derive"
 import { getExhaustionLevel } from "@workspace/game-v2/resources/exhaustion-table"
-import { resolveSkillRefs } from "@workspace/game-v2/skills/resolved"
 import { computeMaxHP, computeMaxSP } from "@workspace/game-v2/vitals/derive"
 
 /**
@@ -49,7 +45,9 @@ export interface ResolveContext {
   effects?: readonly CombatantEffect[]
   /**
    * Optional party context for Skills whose Attack Roll effects scale by party
-   * composition. Omitted/null collapses those scalers to 0.
+   * composition. Omitted/null collapses those scalers to 0. Read at the **hydrate
+   * phase** by `resolveEntity` (it builds the `ScalerContext` for `hydrateSkills`);
+   * the bare stat fold doesn't consume it — it travels on the shared pipeline context.
    */
   partyComposition?: PartyComposition | null
 }
@@ -78,9 +76,7 @@ function isDamageEffect(effect: CombatantEffect): effect is DamageEffect {
  * here** — a form-swap is a prior `Entity → Entity` transform ({@link applyForm}),
  * so a natural entity and a shapechanged one flow through this *same* path.
  */
-export function createResolve(
-  deps: Pick<GameData, "getArchetype" | "getSkill">
-) {
+export function createResolve(deps: Pick<GameData, "getArchetype">) {
   return function resolve(
     entity: Entity,
     context: ResolveContext = {}
@@ -95,7 +91,6 @@ export function createResolve(
       affinities,
       vitals,
       skillPool,
-      skills,
       talents,
       resources,
       exhaustion,
@@ -206,26 +201,16 @@ export function createResolve(
       components.pendingEffects = { attackRoll, damage }
     }
 
-    const resolved: ResolvedEntity = { id: entity.id, components }
-
-    if (skills) {
-      const scaler: ScalerContext = {
-        partyComposition: context.partyComposition ?? null,
-        activeLineage: components.archetypes?.activeLineage ?? null,
-      }
-      components.skills = resolveSkillRefs(
-        skills,
-        resolved,
-        scaler,
-        deps.getSkill
-      )
-    }
-
+    // Talents pass through verbatim (no derivation). Skills are NOT resolved here:
+    // they need the *finished* entity (cost vs maxHP, Attack Roll vs final attributes)
+    // and span four sources (intrinsic + archetype kit + inheritance + equipment), so
+    // they are a composition-tier collect → hydrate over this stat fold's output —
+    // `resolveEntity`, alongside the passive-skill effects that feed the pool above.
     if (talents) {
       components.talents = talents
     }
 
-    return resolved
+    return { id: entity.id, components }
   }
 }
 

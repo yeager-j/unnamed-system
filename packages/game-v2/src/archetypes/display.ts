@@ -369,10 +369,13 @@ export function previewArchetypeSkills(
       },
     }
     const resolved = resolve(entity)
-    const scaler: ScalerContext = {
-      partyComposition: null,
-      activeLineage: resolved.components.archetypes?.activeLineage ?? null,
-    }
-    return rankedSkillsOf(archetype, resolved, scaler, deps.getSkill)
+    // No party context in the preview (Rank-2, equipment-less synthetic entity), so
+    // the shared constructor's `partyComposition` defaults to null.
+    return rankedSkillsOf(
+      archetype,
+      resolved,
+      scalerFor(resolved),
+      deps.getSkill
+    )
   }
 }

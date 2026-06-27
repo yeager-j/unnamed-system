@@ -1189,6 +1189,21 @@ and candidate **order is inert**. Game-design call — no cursed/weakening sourc
 yet (YAGNI); if they ship, that's where the rule grows. (Implementation: the base
 participates in the `strongest()` comparison; was previously only a fallback.)
 
+### D46 — A Skill's `effects` are always-on, independent of castability · **Settled** · _supersedes derivation C6 + combat C12_ · _skills audit_
+
+v1 gated the passive-effect fold on `kind`: `activePassiveEffects` (attribute bonuses,
+C6) and `attackRollEffectsFromSkills` (attack-roll effects, C12) collected effects
+**only** from Skills whose `kind === "passive"`. v2's Skill is **composed** (D32 / PR-S):
+`effects` is an orthogonal facet **any** Skill may carry, and `kind: "passive"` is demoted
+to the **castability** axis (no `cost`, never cast) — *not* an effects gate. So v2 folds
+**every** collected Skill's `effects[]` into the resolve pool regardless of castability: a
+Skill's structured modifiers apply for as long as you have the Skill, whether or not it can
+also be cast. `resolve/collect-skills.ts` `skillEffects` is the single fold over the deduped
+collection (kit ∪ inheritance ∪ equipment ∪ intrinsic — D19), so the castable list
+(hydration) and the effect fold read the one set, and an effect-bearing Skill reachable from
+two sources folds once. No shipped catalog Skill carries `effects` on a castable Skill today,
+so behavior is unchanged now; the gate removal is the forward-correct model.
+
 ## Validation outcome (D24)
 
 ### D24 — Design validated against the inventory; gaps scoped into 3 tiers · **Settled**

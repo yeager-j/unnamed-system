@@ -3,6 +3,7 @@
 // contribution, and the D22 weapon-basic-attack carve-out.
 export * from "./basic-attack"
 export * from "./equipment-effects"
+export * from "./equipment-skills"
 export * from "./equipment.schema"
 export * from "./item.schema"
 export * from "./mutate"

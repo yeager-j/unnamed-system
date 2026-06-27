@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import { resolveSkill } from "@workspace/game-v2/skills/resolved"
+import { hydrateSkills, resolveSkill } from "@workspace/game-v2/skills/resolved"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 function skill(overrides: Partial<Skill> & { key: string }): Skill {
@@ -57,5 +57,29 @@ describe("resolveSkill (entity-agnostic — no archetype required)", () => {
     const resolved = resolveSkill(ward, enemy, null)
     expect(resolved.resolvedAttackRoll).toBeNull()
     expect(resolved.resolvedDamageBonuses).toEqual([])
+  })
+})
+
+describe("hydrateSkills (the collection → ResolvedSkill[] phase)", () => {
+  it("hydrates a whole collection against one finished entity, actives and passives alike", () => {
+    const blast = skill({
+      key: "blast",
+      cost: { kind: "sp", amount: 4 },
+      attackRoll: { attribute: "st", tiers: [] },
+      damage: { damageType: "slash", delivery: "physical" },
+    })
+    const ward = skill({ key: "ward", kind: "passive" })
+
+    const hydrated = hydrateSkills([blast, ward], enemy, {})
+
+    expect(hydrated.map((h) => h.skill.key)).toEqual(["blast", "ward"])
+    expect(hydrated[0]?.resolvedAttackRoll?.total).toBe(4) // strength 4
+    expect(hydrated[0]?.resolvedCost).toEqual({ kind: "sp", amount: 4 })
+    expect(hydrated[1]?.resolvedAttackRoll).toBeNull() // passive carries none
+    expect(hydrated[1]?.resolvedCost).toBeNull()
+  })
+
+  it("is empty for an empty collection", () => {
+    expect(hydrateSkills([], enemy, {})).toEqual([])
   })
 })
