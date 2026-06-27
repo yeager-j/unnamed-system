@@ -4,6 +4,7 @@
 // entity-agnostic resolved-Skill read-unit (cost + Attack Roll for any caster) and
 // the direct entity-level Skills component.
 export * from "./attack-context"
+export * from "./collect"
 export * from "./cost"
 export * from "./resolved"
 export * from "./skill.schema"

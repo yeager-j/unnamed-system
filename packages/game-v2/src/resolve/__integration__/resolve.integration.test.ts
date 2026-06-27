@@ -159,7 +159,7 @@ describe("createResolve — base layer over a derived PC entity", () => {
   })
 })
 
-describe("createResolve — direct entity skills and talents", () => {
+describe("resolveEntity — collected skills (hydrated) + direct talents", () => {
   const psi = skill({
     key: "psi",
     cost: { kind: "sp", amount: 4 },
@@ -196,15 +196,17 @@ describe("createResolve — direct entity skills and talents", () => {
     description:
       "The Intellect Devourer can sense the presence and location of any creature within 10 Zones of it if the creature has any Virtue ranks.",
   })
-  const resolve = createResolve({
+  const psiDeps = {
     ...makeTestGameData(),
-    getSkill: (key) => (key === "psi" ? psi : undefined),
-  })
+    getSkill: (key: string) => (key === "psi" ? psi : undefined),
+  }
+  const resolve = createResolve(makeTestGameData())
+  const resolveEntity = createResolveEntity(psiDeps)
 
-  it("drops unknown direct skill refs but still emits the present read-unit", () => {
+  it("drops unknown direct skill refs; fielding none ⇒ no skills read-unit", () => {
     const enemy = makeFlatEntity({ maxHP: 50 })
 
-    const resolved = resolve({
+    const resolved = resolveEntity({
       ...enemy,
       components: {
         ...enemy.components,
@@ -212,16 +214,16 @@ describe("createResolve — direct entity skills and talents", () => {
       },
     })
 
-    expect(resolved.components.skills).toEqual([])
+    expect(resolved.components.skills).toBeUndefined()
   })
 
-  it("resolves inline direct skills against the partially resolved entity", () => {
+  it("hydrates inline direct skills against the finished entity", () => {
     const enemy = makeFlatEntity({
       attributes: { strength: 4, magic: 0, agility: 0, luck: 0 },
       maxHP: 50,
     })
 
-    const resolved = resolve({
+    const resolved = resolveEntity({
       ...enemy,
       components: {
         ...enemy.components,
@@ -238,10 +240,6 @@ describe("createResolve — direct entity skills and talents", () => {
   })
 
   it("preserves party composition through resolveEntity for direct skill scalers", () => {
-    const resolveEntity = createResolveEntity({
-      ...makeTestGameData(),
-      getSkill: (key) => (key === "psi" ? psi : undefined),
-    })
     const enemy = makeFlatEntity({
       attributes: { strength: 0, magic: 2, agility: 0, luck: 0 },
     })
@@ -289,8 +287,8 @@ describe("createResolve — direct entity skills and talents", () => {
     expect(resolved.components.talents).toEqual([{ key: "sneak" }])
   })
 
-  it("emits neither read-unit when neither direct component is present", () => {
-    const resolved = resolve(makeFlatEntity({}))
+  it("emits neither read-unit when the entity fields no skills and no talents", () => {
+    const resolved = resolveEntity(makeFlatEntity({}))
 
     expect(resolved.components.skills).toBeUndefined()
     expect(resolved.components.talents).toBeUndefined()
@@ -317,7 +315,7 @@ describe("createResolve — direct entity skills and talents", () => {
       },
     }
 
-    const resolved = resolve(intellectDevourer)
+    const resolved = resolveEntity(intellectDevourer)
 
     expect(resolved.components.skillPool).toBeUndefined()
     expect(resolved.components.skills?.map((entry) => entry.skill.key)).toEqual(

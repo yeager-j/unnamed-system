@@ -96,18 +96,19 @@ describe("equipmentEffects", () => {
     ).toEqual([fireResist, strBonus])
   })
 
-  it("lifts a granted PASSIVE skill's own effects; ignores an ACTIVE grant", () => {
-    expect(equipmentEffects(lookups, entityWith([equipped("blade")]))).toEqual([
-      slashRoll,
-    ])
+  it("skips skill grants entirely — they are a skills concern (equipment-skills.ts)", () => {
+    // blade grants a passive, wand an active; neither contributes a *direct* effect.
+    expect(equipmentEffects(lookups, entityWith([equipped("blade")]))).toEqual(
+      []
+    )
     expect(equipmentEffects(lookups, entityWith([equipped("wand")]))).toEqual(
       []
     )
   })
 
-  it("a mixed item (affinity + skill grant) emits both arms once — no double-emit, no skillEffect leak", () => {
+  it("a mixed item (affinity + skill grant) emits only the direct arm — no skillEffect leak", () => {
     const effects = equipmentEffects(lookups, entityWith([equipped("charm")]))
-    expect(effects).toEqual([fireResist, slashRoll])
+    expect(effects).toEqual([fireResist])
     expect(effects.some((e) => (e as { type: string }).type === "skill")).toBe(
       false
     )
