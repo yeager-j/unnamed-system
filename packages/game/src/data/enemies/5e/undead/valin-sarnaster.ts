@@ -43,7 +43,7 @@ export const valinSarnaster = {
     {
       kind: "ailment",
       key: "dreadful-glare",
-      name: "Dreadful Glade",
+      name: "Dreadful Glare",
       tagline: "Valin Sarnaster glares at a target with her dark glare.",
       description: "Valin Sarnaster glares at a target with her dark glare.",
       isSynthesis: false,
