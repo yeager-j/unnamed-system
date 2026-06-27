@@ -19,6 +19,9 @@ import type {
   ResolvedResources,
 } from "@workspace/game-v2/resources/resolved"
 import type { Resources } from "@workspace/game-v2/resources/resources.schema"
+import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
+import type { Skills } from "@workspace/game-v2/skills/skills.schema"
+import type { Talents } from "@workspace/game-v2/talents/talents.schema"
 import type {
   ResolvedSkillPool,
   ResolvedVitals,
@@ -65,6 +68,10 @@ export interface ComponentRegistry {
   affinities: Affinities
   vitals: Vitals
   skillPool: SkillPool
+  // Direct entity-authored skills/talents (UNN-522). Archetype-derived kit and
+  // inheritance stay separate consumer/display concerns.
+  skills: Skills
+  talents: Talents
   // `Level` is universal across combatants (PCs + enemies — Insta-Kill compares it);
   // `Path` (the HP/SP scaling curve) is PC-only. Split from the old `Progression`.
   level: Level
@@ -101,6 +108,8 @@ export interface ResolvedComponentRegistry {
   affinities: AffinityChart
   vitals: ResolvedVitals
   skillPool: ResolvedSkillPool
+  skills: ResolvedSkill[]
+  talents: Talents
   resources: ResolvedResources
   exhaustion: ResolvedExhaustion
   // The archetype roster + active/origin/savedRanks, projected for the sheet (the

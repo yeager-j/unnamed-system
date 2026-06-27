@@ -14,6 +14,8 @@ import { manualBonusesSchema } from "@workspace/game-v2/progression/manual-bonus
 import { pathSchema } from "@workspace/game-v2/progression/path.schema"
 import { exhaustionSchema } from "@workspace/game-v2/resources/exhaustion.schema"
 import { resourcesSchema } from "@workspace/game-v2/resources/resources.schema"
+import { skillsSchema } from "@workspace/game-v2/skills/skills.schema"
+import { talentsSchema } from "@workspace/game-v2/talents/talents.schema"
 import { skillPoolSchema } from "@workspace/game-v2/vitals/skill-pool.schema"
 import { vitalsSchema } from "@workspace/game-v2/vitals/vitals.schema"
 
@@ -44,6 +46,8 @@ const componentSchemas: ComponentSchemas = {
   affinities: affinitiesSchema,
   vitals: vitalsSchema,
   skillPool: skillPoolSchema,
+  skills: skillsSchema,
+  talents: talentsSchema,
   level: levelSchema,
   path: pathSchema,
   manualBonuses: manualBonusesSchema,

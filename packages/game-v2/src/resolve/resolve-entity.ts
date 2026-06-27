@@ -78,6 +78,9 @@ export function createResolveEntity(
       ...(context.effects ?? []),
     ]
 
-    return resolve(formed, { effects })
+    return resolve(formed, {
+      effects,
+      partyComposition: context.partyComposition,
+    })
   }
 }
