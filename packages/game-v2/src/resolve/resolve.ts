@@ -45,7 +45,9 @@ export interface ResolveContext {
   effects?: readonly CombatantEffect[]
   /**
    * Optional party context for Skills whose Attack Roll effects scale by party
-   * composition. Omitted/null collapses those scalers to 0.
+   * composition. Omitted/null collapses those scalers to 0. Read at the **hydrate
+   * phase** by `resolveEntity` (it builds the `ScalerContext` for `hydrateSkills`);
+   * the bare stat fold doesn't consume it — it travels on the shared pipeline context.
    */
   partyComposition?: PartyComposition | null
 }

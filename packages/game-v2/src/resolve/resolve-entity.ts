@@ -91,11 +91,10 @@ export function createResolveEntity(
       ...(context.effects ?? []),
     ]
 
-    // Phase 2 — the stat fold over the finished effect pool.
-    const resolved = resolve(formed, {
-      effects,
-      partyComposition: context.partyComposition,
-    })
+    // Phase 2 — the stat fold over the finished effect pool. Forward the whole
+    // context (only `effects` is overridden with the assembled pool), so any other
+    // context field reaches `resolve` without per-field threading here.
+    const resolved = resolve(formed, { ...context, effects })
 
     // Phase 3 — hydrate the collected Skills against the finished entity. Omit the
     // read-unit entirely when the entity fields none (no empty array on the bag).
