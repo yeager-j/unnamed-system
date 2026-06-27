@@ -13,7 +13,7 @@ import {
 } from "@workspace/game-v2/resolve/__fixtures__/derive"
 import {
   collectSkills,
-  passiveSkillEffects,
+  skillEffects,
 } from "@workspace/game-v2/resolve/collect-skills"
 import { applyForm } from "@workspace/game-v2/resolve/resolve"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
@@ -38,6 +38,11 @@ const agiBuff: CombatantEffect = {
   target: "agility",
   amount: 1,
 }
+const castableBuff: CombatantEffect = {
+  type: "attribute",
+  target: "strength",
+  amount: 4,
+}
 
 function skill(overrides: Partial<Skill> & { key: string }): Skill {
   return {
@@ -52,10 +57,13 @@ function skill(overrides: Partial<Skill> & { key: string }): Skill {
 
 const intrinsicPassive = skill({ key: "intrinsic-passive", effects: [lukBuff] })
 const archPassive = skill({ key: "arch-passive", effects: [strBuff] })
+// A castable Skill (has a `cost`) that ALSO carries an always-on effect — its effect
+// folds regardless of castability.
 const archActive = skill({
   key: "arch-active",
   kind: "attack",
   cost: { kind: "sp", amount: 1 },
+  effects: [castableBuff],
 })
 const inhPassive = skill({ key: "inh-passive", effects: [magBuff] })
 const equipPassive = skill({ key: "equip-passive", effects: [] })
@@ -162,19 +170,30 @@ describe("collectSkills — the one deduped collection (intrinsic + kit + inheri
   })
 })
 
-describe("passiveSkillEffects — the passive half of the collection", () => {
-  it("folds each passive's effects (incl. intrinsic), skips actives, and never double-folds a dedup", () => {
-    // Passives, in collection order: intrinsic(luk) → arch(str) → shared(agi) →
-    // inh(mag) → equip(none). arch-active contributes nothing; `shared` folds once.
-    expect(passiveSkillEffects(collectSkills(deps, pc, pc))).toEqual([
+describe("skillEffects — every collected Skill's always-on effects (castability-independent)", () => {
+  it("folds each Skill's effects (intrinsic + a castable Skill's too), never double-folding a dedup", () => {
+    // Effects in collection order: intrinsic(luk) → arch-passive(str) →
+    // arch-active(castable, str+4) → shared(agi) → inh(mag) → equip(none). The
+    // castable arch-active contributes its effect; `shared` folds once.
+    expect(skillEffects(collectSkills(deps, pc, pc))).toEqual([
       lukBuff,
       strBuff,
+      castableBuff,
       agiBuff,
       magBuff,
     ])
   })
 
-  it("is empty for a collection of only active Skills", () => {
-    expect(passiveSkillEffects([archActive])).toEqual([])
+  it("folds a castable Skill's effects — a `cost` does not gate the effects axis", () => {
+    expect(skillEffects([archActive])).toEqual([castableBuff])
+  })
+
+  it("is empty only when no collected Skill carries effects", () => {
+    const bare = skill({
+      key: "bare",
+      kind: "attack",
+      cost: { kind: "sp", amount: 1 },
+    })
+    expect(skillEffects([bare])).toEqual([])
   })
 })

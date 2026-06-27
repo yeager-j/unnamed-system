@@ -10,8 +10,8 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * parity).
  *
  * Granted Skills (`type: "skill"`) are **not** handled here — they are a *skills*
- * concern: `items/equipment-skills.ts` collects them so a granted passive's effects
- * and a granted active's castability are derived from the one skill collection
+ * concern: `items/equipment-skills.ts` collects them so a grant's always-on `effects[]`
+ * and its castability are both derived from the one skill collection
  * (`resolve/collect-skills.ts`), deduped against the other sources. The `skill`
  * effect is skipped here so it never leaks into the channel or double-counts.
  *

@@ -55,9 +55,12 @@ const costSchema = z.discriminatedUnion("kind", [
 const damageTypeSchema = z.enum([...DAMAGE_TYPES, "special"])
 
 /**
- * A Skill's structured, machine-readable modifiers — summed by the derived-value
- * engine for passive Skills while active. Distinct from the freeform `effect`
- * prose. Available on every Skill for forward compatibility.
+ * A Skill's structured, machine-readable modifiers — **always-on** while you have the
+ * Skill, summed by the derived-value engine (`resolve/collect-skills` `skillEffects`).
+ * This is independent of castability: a Skill's `effects` fold whether or not it has a
+ * `cost` (`kind: "passive"` is the *castability* axis, not the *effects* axis), so an
+ * active Skill that also carries `effects` contributes them too. Distinct from the
+ * freeform `effect` prose. Available on every Skill.
  */
 const skillEffectsSchema = z.array(
   z.union([affinityEffectSchema, attributeEffectSchema, attackRollEffectSchema])

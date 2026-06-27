@@ -6,10 +6,11 @@ import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 /**
  * The archetype + inheritance halves of the skill **collection** (D19) — the
  * archetype-domain contributors `resolve/collect-skills.ts` unions with the intrinsic
- * and equipment halves. Each returns the **whole** unlocked kit (active *and*
- * passive); the collection then partitions it once — passives fold their `effects[]`
- * into the pool, the full set hydrates into the castable list. This replaces the old
- * passive-only walkers, whose split derivation let a skill granted twice fold twice.
+ * and equipment halves. Each returns the **whole** unlocked kit (castable *and*
+ * passive); the collection then reads it once — every Skill's always-on `effects[]`
+ * fold into the pool (castability-independent), the full set hydrates into the castable
+ * list. This replaces the old passive-only walkers, whose split derivation let a skill
+ * granted twice fold twice.
  *
  * Both are **active-archetype-scoped** — an inherited skill applies only while the
  * Archetype whose slot holds it is active (a Warrior's inherited Ailment Boost is on
