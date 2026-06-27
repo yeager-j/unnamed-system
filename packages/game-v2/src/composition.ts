@@ -8,6 +8,10 @@ import {
 } from "@workspace/game-v2/archetypes"
 import { gameData } from "@workspace/game-v2/catalog"
 import {
+  createSessionFactory,
+  type ParticipantSetup,
+} from "@workspace/game-v2/encounter"
+import {
   applyInventoryMutation,
   resolveBasicAttack,
   resolveInventory,
@@ -50,6 +54,11 @@ export function createGameEngine(deps: GameData = gameData) {
       entity: Entity,
       formNaturalAttack: IntrinsicAttack | null
     ) => resolveBasicAttack(deps, entity, formNaturalAttack),
+    // Encounter (UNN-515): mint a fresh Session from setup, instantiating any
+    // catalog-enemy setup entries via `getEnemy`. `newId` is a runtime arg (the
+    // applyInventoryMutation pattern), bound by the caller per mint.
+    createSession: (setup: ParticipantSetup[], newId: () => string) =>
+      createSessionFactory(deps, newId)(setup),
     // Archetypes (PR6 — UNN-504): the Atlas, archetype display/preview, and the
     // switcher, bound to the catalog. The display/atlas functions read the archetype
     // roster off the ResolvedEntity (the resolved Archetypes read-unit); the caller
