@@ -4,11 +4,13 @@
  * Self-contained (stubbed engine + in-memory persistence), runs with no deps:
  *     npx tsx docs/engine-v2/combat/write-router.example.ts
  *
- * v2 of the sketch: there is NO `home`/`vitalsHome` tag anywhere. The storage home is
- * DERIVED — a participant is stored in the session EITHER as an inline entity (ephemeral)
- * OR as a reference to a durable row. `isInline(p)` is the whole check. The `entityId`
- * reference (for the durable arm) is the only irreducible datum — and its presence IS the
- * home signal, so there's no separate tag to store.
+ * v3 of the sketch. Two orthogonal axes, composed by the router:
+ *   • WRITER (per component) — the pure step: applyOp + which durable token-class.
+ *   • STORE  (per storage home) — the impure step: where the entity lives, how to
+ *     persist a patch (its version token + channel + auth). There are exactly TWO stores
+ *     (the session blob, an entity row), so the router has ONE branch — pick the store —
+ *     and everything else (read → applyOp → commit) is shared. No `home`/`vitalsHome` tag:
+ *     the storage home is the stored shape (inline entity vs entityId reference).
  */
 
 /* eslint-disable */
@@ -41,8 +43,7 @@ const adjustValor = (s: ValorState, delta: number): ValorState => ({
 const currentHp = (v: Vitals) => Math.max(0, v.base - v.damage)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. The write request — carries NO storage field. Mechanic transitions cross as a
-//    serializable DESCRIPTOR, never a closure (CD19).
+// 1. The write request — carries NO storage field (serializable descriptor, CD19).
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ComponentWrite =
@@ -50,18 +51,19 @@ type ComponentWrite =
   | { component: "mechanics"; mechanic: "valor"; op: "adjust"; delta: number }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. How a participant is STORED in the session: inline (ephemeral) OR a reference
-//    to a durable row. The home is the SHAPE — there is no `home` tag (CD3, tightened).
+// 2. How a participant is STORED: inline (ephemeral) OR an entityId reference (durable).
+//    The home is the SHAPE — no `home` tag (CD3, tightened).
 // ─────────────────────────────────────────────────────────────────────────────
 
 type StoredParticipant =
-  | { id: string; entity: Entity } //      ephemeral — the entity lives in the session
+  | { id: string; entity: Entity } //      ephemeral — lives in the session
   | { id: string; entityId: string } //    durable   — a reference to an entity row
 const isInline = (p: StoredParticipant): p is { id: string; entity: Entity } =>
   "entity" in p
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. THE REGISTRY (CD19): one CombatantComponentWriter per writable component.
+// 3. WRITER registry (CD19) — the per-COMPONENT pure step. No auth/token/channel here:
+//    those are per-HOME, so they live on the Store (§5), not duplicated on every writer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 type VersionClass = "vitals" | "inventory"
@@ -69,7 +71,7 @@ type WriterDeps = { maxPrisma?: number } // injected resolved context; identical
 
 type CombatantComponentWriter<W extends ComponentWrite> = {
   component: W["component"]
-  durableClass: VersionClass
+  durableClass: VersionClass // which entity-row token-class the durable store bumps
   applyOp: (
     entity: Entity,
     write: W,
@@ -139,63 +141,102 @@ const parseGenericWire = (kind: string): Result<string, string> =>
     : err(`rejected: '${kind}' is router-only, off the generic wire (CD19)`)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. THE ROUTER — server half. Home is DERIVED from the stored shape (isInline).
+// 5. STORE — a storage HOME. It owns everything that varies by home: where the entity
+//    lives (read), how a patch is persisted (commit → token + channel), and its auth gate.
+//    There are exactly two; this is the seam the router's old `if` was hiding.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type WriteResult = Result<
-  { token: string; value: number; channel: string },
-  string
->
+type Envelope = { token: string; value: number; channel: string }
+type Store = {
+  label: string
+  auth: "campaign-dm" | "owner-or-campaign-dm"
+  read: () => Entity
+  commit: (patch: Partial<Components>) => Envelope
+}
+
+const sessionStore = (p: { id: string; entity: Entity }): Store => ({
+  label: "session (ephemeral)",
+  auth: "campaign-dm",
+  read: () => p.entity,
+  commit: (patch) => {
+    p.entity.components = { ...p.entity.components, ...patch } // the session reducer's pure step
+    session.version += 1
+    return {
+      token: "encounter.version",
+      value: session.version,
+      channel: "encounter",
+    }
+  },
+})
+
+const entityRowStore = (
+  entityId: string,
+  versionClass: VersionClass
+): Store => {
+  const row = entityRows.get(entityId)!
+  return {
+    label: `entity row (durable, ${versionClass}-class)`,
+    auth: "owner-or-campaign-dm",
+    read: () => row.entity,
+    commit: (patch) => {
+      row.entity.components = { ...row.entity.components, ...patch }
+      row[`${versionClass}Version`] += 1
+      return {
+        token: `${versionClass}Version`,
+        value: row[`${versionClass}Version`],
+        channel: `entity:${entityId}`,
+      }
+    },
+  }
+}
+
+// The ONLY place storage home is decided — derived from the stored shape (no tag).
+const storeFor = (
+  p: StoredParticipant,
+  writer: CombatantComponentWriter<any>
+): Store =>
+  isInline(p)
+    ? sessionStore(p)
+    : entityRowStore(p.entityId, writer.durableClass)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. THE ROUTER — server half. No branch in the body: pick the store, then one shared path.
+// ─────────────────────────────────────────────────────────────────────────────
 
 function applyCombatantWriteServer(
   participantId: string,
   write: ComponentWrite,
   deps: WriterDeps = {}
-): WriteResult {
+): Result<Envelope, string> {
   const p = session.participants.get(participantId)
   if (!p) return err("unknown-participant")
   const writer = writerFor(write)
-
-  if (isInline(p)) {
-    // EPHEMERAL ARM — the entity lives right here in the session (→ the reducer's pure step)
-    log(`    route: ephemeral (entity is in the session)`)
-    const patch = writer.applyOp(p.entity, write, deps)
-    if (!patch.ok) return patch
-    p.entity.components = { ...p.entity.components, ...patch.value }
-    session.version += 1
-    return ok({
-      token: "encounter.version",
-      value: session.version,
-      channel: "encounter",
-    })
-  }
-
-  // DURABLE ARM — follow the reference to the row (→ per-field owner-mode write)
-  log(`    route: durable (ref → ${p.entityId})`)
-  const row = entityRows.get(p.entityId)!
-  const patch = writer.applyOp(row.entity, write, deps)
+  const store = storeFor(p, writer) //                       ← the one branch lives here
+  log(`    home: ${store.label} · auth: ${store.auth}`) //   (real life: authorize store.auth here)
+  const patch = writer.applyOp(store.read(), write, deps) // shared: the pure op
   if (!patch.ok) return patch
-  row.entity.components = { ...row.entity.components, ...patch.value } // SAME pure op, different store
-  const cls = writer.durableClass
-  row[`${cls}Version`] += 1
-  return ok({
-    token: `${cls}Version`,
-    value: row[`${cls}Version`],
-    channel: `entity:${p.entityId}`,
-  })
+  return ok(store.commit(patch.value)) //                    shared: persist + bump token + envelope
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. THE ROUTER — client half (optimistic). The DM console holds its OWN local session
-//    (it must, to run the reducer locally), so it derives home the SAME way — isInline.
+// 7. THE ROUTER — client half (optimistic). Same composition: a local store + the op.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const clientSession = { participants: new Map<string, StoredParticipant>() }
 const clientDurable = new Map<string, Entity>() // local copies of durable entities (fetched to render)
 
-const localEntityFor = (participantId: string): Entity => {
+const clientStoreFor = (
+  participantId: string
+): Pick<Store, "read" | "commit"> => {
   const p = clientSession.participants.get(participantId)!
-  return isInline(p) ? p.entity : clientDurable.get(p.entityId)!
+  const entity = isInline(p) ? p.entity : clientDurable.get(p.entityId)!
+  return {
+    read: () => entity,
+    commit: (patch) => (
+      (entity.components = { ...entity.components, ...patch }),
+      { token: "local", value: 0, channel: "local" }
+    ),
+  }
 }
 
 function applyCombatantWriteClient(
@@ -203,15 +244,11 @@ function applyCombatantWriteClient(
   write: ComponentWrite,
   deps: WriterDeps = {}
 ) {
-  const predicted = writerFor(write).applyOp(
-    localEntityFor(participantId),
-    write,
-    deps
-  ) // SAME registry, SAME op
+  const store = clientStoreFor(participantId)
+  const predicted = writerFor(write).applyOp(store.read(), write, deps) // SAME registry, SAME op
   if (predicted.ok) {
-    const e = localEntityFor(participantId)
-    e.components = { ...e.components, ...predicted.value }
-    log(`    client: optimistic apply (instant) → ${describe(e)}`)
+    store.commit(predicted.value)
+    log(`    client: optimistic apply (instant) → ${describe(store.read())}`)
   } else {
     log(`    client: predicted no-op (${predicted.error})`)
   }
@@ -224,7 +261,7 @@ function applyCombatantWriteClient(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 7. Trace
+// 8. Trace
 // ─────────────────────────────────────────────────────────────────────────────
 
 const log = (s: string) => console.log(s)
@@ -240,7 +277,6 @@ const describe = (e: Entity) => {
 }
 
 function seed() {
-  // EPHEMERAL goblin — stored inline in the session.
   const goblin: Entity = {
     id: "goblin",
     components: { vitals: { base: 30, damage: 0 } },
@@ -251,7 +287,6 @@ function seed() {
     entity: structuredClone(goblin),
   })
 
-  // DURABLE knight — stored as a REFERENCE; the entity lives on a row.
   const knight: Entity = {
     id: "knight",
     components: {
@@ -275,7 +310,7 @@ function seed() {
 function main() {
   seed()
   log(
-    "── one router, any component, home DERIVED from the stored shape (no `home` tag) ──\n"
+    "── one router = WRITER (what) ∘ STORE (where); no branch in the body ──\n"
   )
 
   log(
@@ -297,7 +332,9 @@ function main() {
     delta: 1,
   })
 
-  log("\n③ damage the knight 8  →  same door, vitals writer, durable arm again")
+  log(
+    "\n③ damage the knight 8  →  same door, vitals writer, durable store again"
+  )
   applyCombatantWriteClient("knight", {
     component: "vitals",
     op: "damage",

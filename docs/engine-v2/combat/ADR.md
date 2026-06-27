@@ -481,17 +481,27 @@ boss's **Mechanic**, a friendly-ephemeral NPC's **SkillPool**, and **Prisma** al
 storage-home fork, and only the *plumbing* differs by home. So it generalizes to **one
 registry-driven impure write-router** (CD19) homed at `apps/web/lib/actions/combat-write/`.
 
-**The router (CD19).** `applyCombatantWrite(ctx, { participantId, component, op, args })` — the write
-carries **no storage field**; home is looked up per participant (server: the CD3 locator map,
-authoritative; client: the view-model `storageHome` hint). One app-side `COMPONENT_WRITERS` registry
-keyed on component, built **over the engine's existing pure ops + mechanics registry** (no second
-engine registry — F1). Each `CombatantComponentWriter` = `{ component; durableClass; applyOp(component,
-args, deps) → Result<Partial<Component>>; toSessionEvent /* router-only ctor */; auth/token/channel per
-arm }`. The **ephemeral arm** runs the pure op through the session reducer (CD4 stays the single pure
-session-writer); the **durable arm** runs the same op in the per-field entity action. **Built now:**
-vitals, skillPool, resources, mechanics; **deferred** (router-shaped, no consumer): exhaustion,
-equipment; **excluded:** overlays (generic wire), spatial (spatial reducer), **archetypes/form-swap**
-(an `applyForm` entity transform — its own path), derived units.
+**The router = Writer ∘ Store (CD19).** `applyCombatantWrite(ctx, { participantId, component, op, args })`
+— the write carries **no storage field**. The home is the **stored shape** (a participant is stored as an
+inline `entity` (ephemeral) or an `{ entityId }` reference (durable)), so it's **derived, not a tag** (CD3
+tightened); server and the routing client (which holds its own local session) derive it the same way. A
+write is then a per-COMPONENT **`Writer`** ∘ a per-HOME **`Store`**:
+
+- **`Writer`** — a `COMPONENT_WRITERS` registry keyed on component, over the engine's existing pure ops +
+  mechanics registry (no second engine registry — F1); each entry is just `{ component; durableClass;
+  applyOp(entity, args, deps) → Result<Partial<Component>> }` — the only per-component code.
+- **`Store`** — a factory returning a shared `{ read; commit(patch) → { token, value, channel }; auth }`.
+  Exactly **two**, written **once**: `sessionStore` (dispatches a router-only `ComponentWriteEvent` through
+  the reducer + `saveEncounterSession`, CD4 single pure session-writer; `encounter.version`; DM-only) and
+  `entityRowStore(entityId, durableClass)` (per-field owner-mode write; the entity's per-class version;
+  owner-or-DM). `storeFor(p, writer)` picks one from the derived home; the router body has **no branch** —
+  `store.commit(writer.applyOp(store.read(), …))`.
+
+This is **Abstract Factory + Strategy**, not DI — so `auth`/`token`/`channel` live on the two Stores
+(written once), **not** duplicated on every Writer. **Built now:** vitals, skillPool, resources,
+mechanics; **deferred** (router-shaped, no consumer): exhaustion, equipment; **excluded:** overlays
+(generic wire), spatial (spatial reducer), **archetypes/form-swap** (an `applyForm` entity transform — its
+own path), derived units. Runnable sketch: [`write-router.example.ts`](./write-router.example.ts).
 
 **The honest shape (critics refuted the naive premise).** Not a uniform `(Component, args) →
 Component`: ops return **patches**, and `resources`/`mechanics`/`equipment` need injected context, so
@@ -513,9 +523,10 @@ optimistic client pass. R14.4's end-of-turn HP intent rides it as a one-element 
 **produces** the cast's write-set (the skills/combat fork) and whether MVP needs the batch day-one are
 open (Q12/Q13).
 
-**Honest cost.** Adding a writable component is a **two-layer edit** (a pure reducer slice in game-v2 +
-a writer entry in apps/web) — the registry does not collapse it to one — and `combat-write/` is a
-deliberate two-auth-gate aggregate (a nested CLAUDE.md legitimizes the exception).
+**Honest cost.** The two Stores are written **once**, so the per-component surface is just a Writer — but
+adding a writable component is still a **two-layer edit** (a pure reducer slice in game-v2 + a Writer entry
+in apps/web), which the registry does not collapse to one. `combat-write/` is a deliberate two-auth-gate
+aggregate (the gates live on the two Stores; a nested CLAUDE.md legitimizes the exception).
 
 ---
 

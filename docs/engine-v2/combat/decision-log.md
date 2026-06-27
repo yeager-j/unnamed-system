@@ -282,9 +282,17 @@ dissolution (this CD) and enchantment-effects assembly (CD15) — as independent
 over the same participant. The 3-way disjointness assertion (CD1 amendment)
 supersedes the 2-way one stated here.
 
+**AMENDED (CD19).** The explicit `storage: 'durable' | 'inline'` discriminant is **redundant** — the
+2-arm union's SHAPE already carries it: `{ entityId }` (durable, a reference) vs `{ entity }` (inline,
+ephemeral). So the storage home is **derived** (`isInline(p)`), never a stored tag — the same lesson as
+CD18's `vitalsHome` removal, one level down. The irreducible datum is the `entityId` *reference* itself
+(the durable arm needs to know which row); its presence/absence IS the home signal. The write-router's
+`storeFor` (CD19) selects the storage `Store` by this derivation; nothing stores a `home`/`storage` field.
+
 _SUPERSEDE:_ v1's `CombatantRef` closed `{pc|enemy|catalog-enemy}` union → 2-arm
 storage locator dissolved at one loader boundary; catalog enemy = inline entity +
-`catalogRef`. _PRESERVE:_ R1.5 (`toCombatantSetup` inverse via the out-of-band map —
+`catalogRef`; (CD19) the explicit `storage` discriminant → the derived union shape (no home tag).
+_PRESERVE:_ R1.5 (`toCombatantSetup` inverse via the out-of-band map —
 spatial half reads the same instance token CD14 projects, CD16), R12.3 (thin catalog
 reference at rest).
 
@@ -1232,7 +1240,7 @@ the multi-home batch.
 
 ---
 
-### CD19 — The generalized impure session write-router: one app-side `CombatantComponentWriter` registry over the engine's existing pure ops · **Settled** · _generalizes CD18; amends CD5_
+### CD19 — The generalized impure session write-router: per-component `Writer`s composed with two per-home `Store`s, over the engine's existing pure ops · **Settled** · _generalizes CD18; amends CD3, CD5_
 
 _Builds on D7, CD3, CD4, CD5, CD6, CD7, CD16, CD18; the root CLAUDE.md Registry guidance._
 
@@ -1242,21 +1250,33 @@ write-router homed at **`apps/web/lib/actions/combat-write/`**. Vitals is not sp
 fork, and the ONLY thing that varies by home is plumbing (store, token, channel, auth).
 
 - **Entry point** — `applyCombatantWrite(ctx, write)`, `write = { participantId, component, op, args }`.
-  The write carries **no storage field** (a caller cannot assert a home); home is looked up per
-  `participantId` — server: the CD3 locator map (**authoritative**); client: the view-model
-  `storageHome` bit (optimistic hint only).
-- **Registry** — ONE app-side `COMPONENT_WRITERS` keyed on component, built **over the engine's
-  existing pure ops + the existing mechanics registry** — **no second engine registry** (the engine
-  stays storage-blind, F1; a vestigial pure-op registry that re-lists named functions is the
-  over-engineering trap, refused). Per-component `CombatantComponentWriter`: `{ component;
-  durableClass: VersionClass; applyOp(component, args, deps) → Result<Partial<Component>>;
-  toSessionEvent(participantId, write) → ComponentWriteEvent /* router-only ctor */; auth / token /
-  channel per arm }`. The pure op is the ONE function both arms call.
-- **Ephemeral arm** goes THROUGH the pure session reducer (CD4) — never hand-mutating the blob — so the
-  reducer stays the single pure owner of every session-blob transition. **Durable arm** runs the same
-  pure op in the per-field owner-mode entity action.
+  The write carries **no storage field** (a caller cannot assert a home). The home is the **stored
+  shape** — a participant is stored as an inline `entity` (ephemeral) or an `{ entityId }` reference
+  (durable) — so it is **derived, never a tag** (no `home`/`vitalsHome`/`storage` field; CD3 tightened).
+  Server and the routing client (the DM console, which holds its own local session) derive it the same way.
+- **Two axes, composed by the router (the load-bearing shape).** A write = a per-COMPONENT **Writer**
+  (the pure _what_) ∘ a per-HOME **Store** (the impure _where_):
+  - **`Writer`** — ONE app-side `COMPONENT_WRITERS` registry keyed on component, built **over the
+    engine's existing pure ops + mechanics registry** (no second engine registry — F1). Each entry is
+    just `{ component; durableClass: VersionClass; applyOp(entity, args, deps) → Result<Partial<Component>> }`
+    — the **only** per-component code.
+  - **`Store`** — a small **factory** returning a shared interface `{ read(); commit(patch) → { token,
+    value, channel }; auth }`. There are **exactly two**, written **once**: `sessionStore` (commit =
+    dispatch a router-only `ComponentWriteEvent` through the pure reducer + `saveEncounterSession`, so the
+    reducer stays the single pure session-writer, CD4; `encounter.version`; `encounter` channel; DM-only)
+    and `entityRowStore(entityId, durableClass)` (commit = a per-field owner-mode read-merge-write; the
+    entity's per-class version; entity channel; owner-or-DM). `storeFor(participant, writer)` picks one
+    from the derived home.
+  - **Router body has no branch:** `const store = storeFor(p, writer); return store.commit(writer.applyOp(store.read(), …))`.
+
+  This is **Abstract Factory + Strategy** (a factory selecting one of two storage strategies behind one
+  interface), **not** DI — natural to confuse, since a factory is the usual way to pick which impl to
+  inject. The payoff that fixes the prior smell: **auth / token / channel are per-HOME, so they live on
+  the two Stores — not duplicated on every Writer** (the earlier "Writer carries auth/token/channel per
+  arm" spec was the same duplication smell one level up). Runnable sketch:
+  [`write-router.example.ts`](./write-router.example.ts).
 - **Client+server optimistic pair** (CD18 generalized): re-points v1's proven dual-token protocol; not
-  a new concurrency mechanism.
+  a new concurrency mechanism — the client composes the same `Writer ∘ Store` over its local session.
 - **Built now:** `vitals`, `skillPool`, `resources`, `mechanics` (the four with real ephemeral
   consumers + shipped ops). **Deferred (router-shaped, no consumer/op):** `exhaustion` (no op),
   `equipment` (no surface + a second `inventory` version-class). **Excluded:** overlays (generic DM-only
@@ -1307,17 +1327,23 @@ thin switch, it's N bespoke client+server pairs, and the writable set is open-en
 Registry trigger — so the registry earns its place, *provided* the hard build-fence holds (writers only
 for a component with a real consumer + a shipped op).
 
-**Over-engineering verdict.** Clean with a hard fence. Honest cost: adding a writable component is a
-**two-layer edit** (a pure reducer slice in game-v2 + a writer entry in apps/web) — the registry does
-NOT collapse it to one entry; don't over-sell "one entry." `combat-write/` is a deliberate two-auth-gate
-exception to actions/CLAUDE.md's one-gate-per-folder rule → a nested CLAUDE.md legitimizes it. The v2
-headless console doesn't exist yet, so the client half lands with the v2 console PR. `setMax` /
-`adjustExhaustion` pure ops don't exist yet — ship them with the writer or scope out of MVP.
+**Over-engineering verdict.** Clean with a hard fence — and the `Writer ∘ Store` split *shrinks* the
+surface the over-abstraction critic worried about: the **two Stores are written once**, and the only
+per-component code is a Writer (a pure-op + a class tag). So the "registry" is **two fixed storage
+strategies + a small pure-op table**, not a framework. Honest cost: adding a writable component is still
+a **two-layer edit** (a pure reducer slice in game-v2 + a Writer entry in apps/web) — neither the registry
+nor the stores collapse it to one; don't over-sell "one entry." `combat-write/` is a deliberate
+two-auth-gate exception to actions/CLAUDE.md's one-gate-per-folder rule (the two gates now live on the two
+Stores) → a nested CLAUDE.md legitimizes it. The v2 headless console doesn't exist yet, so the client half
+lands with the v2 console PR. `setMax` / `adjustExhaustion` pure ops don't exist yet — ship them with the
+Writer or scope out of MVP.
 
-_PRESERVE:_ CD18's settled substance (client+server pair; locator/view-model routing; ephemeral-only;
-capability no-op residual; R14.4 through the router). _SUPERSEDE:_ CD5's vitals-on-the-generic-wire →
-the router-only `ComponentWriteEvent` family; CD18's standalone `updateVitals` → the `writers/vitals.ts`
-registry entry.
+_PRESERVE:_ CD18's settled substance (client+server pair; ephemeral-only; capability no-op residual;
+R14.4 through the router). _SUPERSEDE:_ CD5's vitals-on-the-generic-wire → the router-only
+`ComponentWriteEvent` family; CD18's standalone `updateVitals` → the `writers/vitals.ts` **Writer**;
+**CD3's explicit `storage` discriminant → the derived stored-shape** (no `home` tag — the union shape is
+the home); the prior **"Writer carries auth/token/channel per arm" → two per-home `Store`s** (those facts
+written once, not per Writer).
 
 ---
 
