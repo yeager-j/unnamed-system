@@ -6,12 +6,14 @@ import {
 import type { ScalerContext } from "@workspace/game-v2/combat/party"
 import type { ResolvedAttackRoll } from "@workspace/game-v2/combat/resolved"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { GameData } from "@workspace/game-v2/kernel/ports"
 import { skillAttackRollContext } from "@workspace/game-v2/skills/attack-context"
 import { resolveSkillCost } from "@workspace/game-v2/skills/cost"
 import type {
   ResolvedSkillCost,
   Skill,
 } from "@workspace/game-v2/skills/skill.schema"
+import type { SkillRef } from "@workspace/game-v2/skills/skills.schema"
 
 /**
  * A catalog Skill resolved for display/use against a **live `ResolvedEntity`** — the
@@ -58,4 +60,20 @@ export function resolveSkill(
       ? resolveDamageBonuses(context, resolved)
       : [],
   }
+}
+
+/**
+ * Resolves the direct entity-authored Skills component. Catalog refs that no
+ * longer resolve are dropped, matching the existing lookup-port convention.
+ */
+export function resolveSkillRefs(
+  refs: readonly SkillRef[],
+  resolved: ResolvedEntity,
+  scaler: ScalerContext | null,
+  getSkill: GameData["getSkill"]
+): ResolvedSkill[] {
+  return refs.flatMap((ref) => {
+    const skill = ref.kind === "ref" ? getSkill(ref.key) : ref.skill
+    return skill ? [resolveSkill(skill, resolved, scaler)] : []
+  })
 }

@@ -292,9 +292,32 @@ CD18's `vitalsHome` removal, one level down. The irreducible datum is the `entit
 (the durable arm needs to know which row); its presence/absence IS the home signal. The write-router's
 `storeFor` (CD19) selects the storage `Store` by this derivation; nothing stores a `home`/`storage` field.
 
-_SUPERSEDE:_ v1's `CombatantRef` closed `{pc|enemy|catalog-enemy}` union → 2-arm
-storage locator dissolved at one loader boundary; catalog enemy = inline entity +
-`catalogRef`; (CD19) the explicit `storage` discriminant → the derived union shape (no home tag).
+**AMENDED (catalog locality).** The 2-arm union above is RIGHT; its handling of catalog enemies is
+**superseded** — and twice over. **(1)** The original (catalog enemy = an inline entity carrying a
+`catalogRef` component, base folded in `resolve`) is wrong: because `getEnemy(key)` returns a full
+**`Entity`** (CD8), `catalogRef` made the runtime entity an `Entity` whose real components live in
+*another* `Entity` — an **Entity-of-Entity** shell. That is exactly the asymmetry critique (5) above
+flagged ("a BASE-SUPPLYING read, not an archetype-style LAYER") and then waved through: a catalog enemy
+doesn't *have* a catalog reference; the catalog **is** its base. **(2)** The first fix — a third `catalog`
+storage arm dissolved at the loader — is ALSO wrong: **catalog is not storage.** Storage is a runtime
+write-home (durable row, session blob); the catalog is **read once at setup, never written, never read
+again** — a setup-time **template source**, not a runtime home. The correct model: at **session mint**,
+`getEnemy(key)` materializes the template's components into a plain **inline** ephemeral combatant (full
+base + a fresh `vitals: { damage: 0 }`); thereafter a catalog enemy is indistinguishable from a
+free-entered inline enemy. **No `catalogRef`, no third arm, no `getEnemy` in `resolve` or the loader, no
+per-key memo.** The locator stays **2-arm**; catalog lives only in the **setup/authoring vocabulary**
+(`CombatantSetup`'s `{ catalog: key }` arm, resolved to inline at mint). This is rejected-alternative (b)
+above ("copy the catalog blob inline at setup") — whose rejection reasons both fall: "forks identity from
+the catalog" is moot (the catalog is **hardcoded compile-time TS** — it cannot drift mid-session, and
+freezing a combatant at mint is *more* correct for a fight than live re-stat), and "the thin-pointer
+invariant R12.3" was v1's *mechanism*, not an observable contract (fat-instantiate is behaviorally
+identical). No catalog `key` is retained at rest — provenance for the `toCombatantSetup` inverse is YAGNI,
+omitted. CD8's `getEnemy → Entity` survives intact; it's just consumed once, at mint.
+
+_SUPERSEDE:_ v1's `CombatantRef` closed `{pc|enemy|catalog-enemy}` union → a 2-arm storage locator dissolved
+at one loader boundary; catalog enemy = a plain inline entity instantiated at session mint via `getEnemy`
+(amended — neither a `catalogRef` component nor a storage arm); (CD19) the explicit `storage` discriminant →
+the derived union shape (no home tag).
 _PRESERVE:_ R1.5 (`toCombatantSetup` inverse via the out-of-band map —
 spatial half reads the same instance token CD14 projects, CD16), R12.3 (thin catalog
 reference at rest).
@@ -487,7 +510,7 @@ flag is gone.)
 
 _SUPERSEDE:_ R12.1 (absolute → signed delta; stored floor moves to resolve), R12.2
 (current-drags-max eliminated; `setParticipantMax` writes base), R12.3
-(catalog-fallback leaves the reducer; loader seeds inline base). _PRESERVE:_ R12.4
+(catalog-fallback leaves the reducer; mint seeds the inline base). _PRESERVE:_ R12.4
 (PC / SP-absent / unknown-id no-ops) — now via the `updateVitals` router (never sends a
 durable vitals write to the reducer) + capability presence, never kind or a `vitalsHome`
 flag (CD18).
@@ -585,9 +608,11 @@ skillPool read-unit, the snapshot's enemy `sp: null` is a STRUCTURAL consequence
 component absence (RED-4/ROS-5, not a special case), and an SP write against it
 no-ops via capability absence (CD6). Never author `skillPool: { base: 0 }` (a
 present-but-empty pool resolves AS a casting combatant). The catalog is the
-resolve-fold's BASE for these enemies (base-supplying read, not a layer); enemies
-require NO new kernel `ComponentRegistry` key (they reuse existing components) —
-`getEnemy` is the ONLY kernel edit, plus the `catalogRef` component CD3 introduces.
+**mint-time** BASE for these enemies (base-supplying instantiation at setup, not a resolve layer or a
+runtime home); enemies require NO new kernel `ComponentRegistry` key (they reuse existing components) —
+`getEnemy` is the ONLY kernel edit, consumed once at session mint to instantiate a catalog enemy into a
+plain inline combatant (CD3 amended — no `catalogRef` component, no storage arm; neither `resolve` nor the
+loader reads the catalog).
 
 Enemy authored skills (`skillKeys` + `inlineSkills`, v1 `hydrateEnemySkills`) are
 NOT a base-component fold input — where the combat layer reads them is the

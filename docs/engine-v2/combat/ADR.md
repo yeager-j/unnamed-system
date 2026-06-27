@@ -77,32 +77,34 @@ type Participant = {
 locator, dissolved into a uniform `Participant.entity` at **exactly one** boundary (the
 loader). The runtime `Participant` carries **no storage discriminant**; no downstream
 function (`resolve`, the reducer, redaction, initiative, fallen, party-composition)
-ever names it (CD2). The persisted locator is a **2-arm** union — durable row or inline
-blob — **not** a third `catalog` arm (CD3):
+ever names it (CD2). The persisted locator is a **2-arm** union — the two runtime storage homes a
+participant's live state is written to (durable row or session blob). **Catalog is not a third arm —
+it isn't storage at all** (CD3, amended):
 
 ```ts
 type StoredEntityLocator =
   | { storage: 'durable'; entityId: string } //  PC / reusable NPC — components on the entity row
-  | { storage: 'inline'; entity: StoredEntity } // ad-hoc enemy / object / catalog enemy
+  | { storage: 'inline';  entity: StoredEntity } // ad-hoc / catalog-instantiated enemy / object — lives in the session blob
 ```
 
-A **catalog enemy is an inline entity** carrying a tiny `catalogRef: { key }` component
-(NOT overloaded onto `identity`, which stays `{ name }`) plus its inline working
-depletion `vitals: { damage }`. `resolve` folds the catalog definition in via a new
-`getEnemy(key)` port read, presence-gated on `catalogRef`, the **same structural way it
-folds `archetypes.active` via `getArchetype`** (CD3, CD8). Honest caveat: this is _more_
-than the `archetypes.active` precedent — an enemy base also supplies
-`vitals.base`(=maxHP)/`level`/`identity.name`, so `resolve` grows a **new
-enemy-catalog base layer**. It is still a uniform, presence-gated, kind-free fold.
-**Unknown-key contract:** an unresolved `catalogRef.key` seeds `vitals.base = 0` (not
-omit, not a nonzero default), reproducing v1 R12.3 max-0 ⇒ R13.2 _unknown ⇒ Fallen_.
-Per-`catalogKey` resolution is memoized once per resolve pass (parent O18/D29 dedup):
-an AoE on N identical mooks resolves the definition once; each participant keeps its own
-`vitals.damage`.
+A **catalog enemy is instantiated at session mint**, then it is just inline. The catalog is a
+**read-once template source** — consulted at setup, never written and never read again: `getEnemy(key)`
+returns a full **`Entity`** (CD8), and mint **materializes** that template's components into a plain
+**inline** ephemeral combatant — full base (attributes/affinities/`vitals.base`/level/name) + a fresh
+`vitals: { damage: 0 }`. From that point a catalog enemy is **indistinguishable from a free-entered
+inline enemy**; `resolve` and the loader never touch the catalog, and there is **no `catalogRef`**.
+(An earlier pass made the catalog enemy an inline entity holding a `catalogRef` that resolved to
+*another* `Entity` — an **Entity-of-Entity** shell — then over-corrected it into a fake `catalog`
+storage arm. Both killed: catalog is a setup concept, not a runtime one.) **Unknown-key contract:** an
+unresolved `key` at mint seeds `vitals.base = 0` (not omit, not a nonzero default), reproducing v1
+R12.3 max-0 ⇒ R13.2 _unknown ⇒ Fallen_. There is **no per-key resolve/load memo** — each enemy is
+materialized **once** at mint and is then plain data; an AoE on N identical mooks is N independent
+inline entities.
 
 The loader's only job: `durable → fetch row + loadEntity; inline → loadEntity` (a durable
-participant gets its `vitals` fetched from the row so `currentHP` resolves + renders). The
-storage home (`durable | inline`) stays in the impure out-of-band locator map, read by the
+participant gets its `vitals` fetched from the row so `currentHP` resolves + renders; a
+catalog-instantiated enemy is already a complete inline entity by then). The storage home
+(`durable | inline`) stays in the impure out-of-band locator map, read by the
 `updateVitals` application-service (CD18) when it routes a write — never copied onto the pure
 `Participant`. The impure shell holds that **out-of-band**
 `Map<participantId, StoredEntityLocator>` for write-back and the `toCombatantSetup` inverse
@@ -291,7 +293,7 @@ actor), R14.5 (frenzy reminder, pain before decrement).
 **Fallen + party composition (SUPERSEDE by uniformity, CD9).**
 `fallenCombatantIds(participants, resolve)` recomputes `hp<=0` fresh each read from
 `resolve(p.entity).components.vitals.currentHP` **uniformly** (zero ref-kind branch); a
-participant resolving without vitals ⇒ not-Fallen; unknown `catalogRef.key` ⇒ base 0 ⇒
+participant resolving without vitals ⇒ not-Fallen; unknown catalog `key` (at mint) ⇒ base 0 ⇒
 Fallen (CD3); revive (HP back >0) drops it with no event.
 `derivePartyComposition(participants, side, resolve)` tallies PCs by Lineage, identifying a
 PC by **capability** (presence of a resolvable lineage-bearing archetype), not
@@ -351,8 +353,10 @@ fields + fog-clamps `zoneId` after this envelope produces the combatant list).
 
 ### 2.7 Enemy catalog + the `getEnemy` port (CD8, CD3; parent D32, D37, F1)
 
-Add `getEnemy(key: string): Entity | undefined` to `kernel/ports.ts` (currently absent).
-It returns an **authored `Entity`**, NOT a bespoke `EnemyDefinition` struct — a second
+Add `getEnemy(key: string): Entity | undefined` to `kernel/ports.ts` (currently absent),
+consumed **once at session mint** (CD3 amended — mint instantiates a catalog enemy into a plain
+inline combatant; neither `resolve` nor the loader ever calls it). It returns an **authored
+`Entity`**, NOT a bespoke `EnemyDefinition` struct — a second
 nominal type would recreate the `CombatantRef`-arm multiplication (the F1-critical call).
 The Entity carries only flat-base components:
 
@@ -657,10 +661,10 @@ zone that matters.
 
 **Costs**
 
-- A new enemy-catalog base layer in `resolve` (`getEnemy(key) → vitals.base/level/identity`)
-  is genuinely _more_ than the `archetypes.active` precedent — a real new fold input, and
-  `resolve` now depends on the `getEnemy` port. `identity` becomes a resolved pass-through (a
-  small registry growth).
+- Catalog-enemy instantiation at **session mint** (`getEnemy(key) → template Entity`, copied into a
+  plain inline combatant), so both `resolve` and the loader stay catalog-blind — `getEnemy` is a
+  one-time setup dependency, not a hot-path one, and the per-key dedup memo is gone entirely.
+  `identity` becomes a resolved pass-through (a small registry growth).
 - Two storage realities (durable row vs inline blob) and an out-of-band origin map the impure
   shell must maintain; the durable-NPC entity table is a specified-but-unbuilt seam (durable
   = PCs only until the NPC PR).
@@ -691,16 +695,17 @@ events into v2 deltas in the parity harness).
 
 ### Build slice order
 
-0. **Kernel seam** — `getEnemy`; `identity` → `ResolvedComponentRegistry` (pass-through);
-   enemy-catalog base layer + `catalogRef` component. Test: resolve output identical
-   with/without overlay components present (guards CD1's resolve-ignores-overlay seam).
+0. **Kernel seam** — `getEnemy`; `identity` → `ResolvedComponentRegistry` (pass-through). Test:
+   resolve output identical with/without overlay components present (guards CD1's
+   resolve-ignores-overlay seam). No `catalogRef` component / no catalog read in `resolve` or the
+   loader — a catalog enemy is instantiated into a plain inline entity at session mint (slice 2).
 1. **Enemy catalog port** — port v1 defs to `catalog/enemies/` as flat-base entities +
    `defineEnemy`; golden-master each. Unknown-key ⇒ `vitals.base 0`.
 2. **Session + Participant + overlay shapes** — six overlay components + construction
-   defaults, `OVERLAY_KEYS` (satisfies keyof), session-factory.
+   defaults, `OVERLAY_KEYS` (satisfies keyof), session-factory (mints a catalog enemy into a plain
+   inline entity via `getEnemy`).
 3. **Loader + dissolution boundary** — `loadSession` (durable|inline → uniform
-   `Participant.entity`); out-of-band origin map for write-back/R1.5; memoized
-   per-`catalogKey` resolution. Contract test: loader sets `vitalsHome` correctly
+   `Participant.entity`); out-of-band origin map for write-back/R1.5. Contract test: loader sets `vitalsHome` correctly
    (durable → `"durable"` _with_ `vitals` attached; inline → `"inline"`); round-trip
    load→save preserves the locator; no storage tag reachable downstream.
 4. **Pure reducer** — `createReduceSession` + all slices; signed-depletion deltas,
@@ -750,8 +755,8 @@ events into v2 deltas in the parity harness).
 | R11.1 availability-boolean storage → resolved-budget-minus-consumption (available = 1 − used)                                                                                         | SUPERSEDE | CD10        |
 | R12.1 enemy vitals absolute-value-set floored-at-0 → signed-depletion delta (stored floor → resolve)                                                                                  | SUPERSEDE | CD6         |
 | R12.2 lower-max-drags-current reconciliation eliminated (setMax writes base; current re-derives)                                                                                      | SUPERSEDE | CD6         |
-| R12.3 catalog-enemy maxHP default + unknown-key ⇒ max-0; thin key reference at rest                                                                                                   | PRESERVE  | CD3         |
-| R12.3 catalog-enemy max resolved at the fold; reducer needs no catalog dep                                                                                                            | SUPERSEDE | CD8         |
+| R12.3 catalog-enemy maxHP default + unknown-key ⇒ max-0 at session mint; catalog enemy is a plain inline entity (no thin key at rest)                                                                                                   | PRESERVE  | CD3         |
+| R12.3 catalog-enemy max resolved at **session mint** (instantiated into an inline entity), not the resolve fold; reducer needs no catalog dep                                                                                                            | SUPERSEDE | CD8         |
 | R12.4 vitals no-op for PC/durable + SP-absent + unknown-id — enforced at the `updateVitals` router (never sends durable vitals to the reducer) + capability presence, never kind/flag | PRESERVE  | CD6 / CD18  |
 | R13.1/R13.2/FAL-1 Fallen hp<=0 / revive drops / unknown-key ⇒ Fallen — recomputed from resolved vitals                                                                                | SUPERSEDE | CD9         |
 | R14.1 endOfTurnReminders heldFlags/activeDurations canonical-order FYI                                                                                                                | PRESERVE  | CD9         |

@@ -8,6 +8,10 @@ import {
   attributeEffectBonuses,
   computeAttributes,
 } from "@workspace/game-v2/attributes/derive"
+import type {
+  PartyComposition,
+  ScalerContext,
+} from "@workspace/game-v2/combat/party"
 import {
   sumBonuses,
   type BonusPool,
@@ -25,6 +29,7 @@ import {
   computeMaxSkillDice,
 } from "@workspace/game-v2/resources/derive"
 import { getExhaustionLevel } from "@workspace/game-v2/resources/exhaustion-table"
+import { resolveSkillRefs } from "@workspace/game-v2/skills/resolved"
 import { computeMaxHP, computeMaxSP } from "@workspace/game-v2/vitals/derive"
 
 /**
@@ -42,6 +47,11 @@ export interface ResolveContext {
    * this list; bare `resolve` stays pure over the entity + whatever it's handed.
    */
   effects?: readonly CombatantEffect[]
+  /**
+   * Optional party context for Skills whose Attack Roll effects scale by party
+   * composition. Omitted/null collapses those scalers to 0.
+   */
+  partyComposition?: PartyComposition | null
 }
 
 function isAttackRollEffect(
@@ -68,7 +78,9 @@ function isDamageEffect(effect: CombatantEffect): effect is DamageEffect {
  * here** — a form-swap is a prior `Entity → Entity` transform ({@link applyForm}),
  * so a natural entity and a shapechanged one flow through this *same* path.
  */
-export function createResolve(deps: Pick<GameData, "getArchetype">) {
+export function createResolve(
+  deps: Pick<GameData, "getArchetype" | "getSkill">
+) {
   return function resolve(
     entity: Entity,
     context: ResolveContext = {}
@@ -82,6 +94,8 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       affinities,
       vitals,
       skillPool,
+      skills,
+      talents,
       resources,
       exhaustion,
     } = entity.components
@@ -187,7 +201,26 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       components.pendingEffects = { attackRoll, damage }
     }
 
-    return { id: entity.id, components }
+    const resolved: ResolvedEntity = { id: entity.id, components }
+
+    if (skills) {
+      const scaler: ScalerContext = {
+        partyComposition: context.partyComposition ?? null,
+        activeLineage: components.archetypes?.activeLineage ?? null,
+      }
+      components.skills = resolveSkillRefs(
+        skills,
+        resolved,
+        scaler,
+        deps.getSkill
+      )
+    }
+
+    if (talents) {
+      components.talents = talents
+    }
+
+    return resolved
   }
 }
 

@@ -8,7 +8,20 @@ import {
   makeTestGameData,
 } from "@workspace/game-v2/resolve/__fixtures__/derive"
 import { applyForm, createResolve } from "@workspace/game-v2/resolve/resolve"
+import { createResolveEntity } from "@workspace/game-v2/resolve/resolve-entity"
+import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
+
+function skill(overrides: Partial<Skill> & { key: string }): Skill {
+  return {
+    kind: "attack",
+    name: overrides.key,
+    tagline: "t",
+    description: "d",
+    isSynthesis: false,
+    ...overrides,
+  }
+}
 
 /**
  * Collaboration tests for the base-layer `resolve` (UNN-500) — it composes the
@@ -121,6 +134,180 @@ describe("createResolve — base layer over a derived PC entity", () => {
     expect(resolved.components.affinities?.fire).toBe("null") // stronger candidate applies over authored resist
     // No Progression ⇒ no dice maxima.
     expect(resolved.components.resources).toBeUndefined()
+  })
+})
+
+describe("createResolve — direct entity skills and talents", () => {
+  const psi = skill({
+    key: "psi",
+    cost: { kind: "sp", amount: 4 },
+    attackRoll: { attribute: "ma", tiers: [] },
+    damage: { damageType: "mind", delivery: "magical" },
+  })
+  const bite = skill({
+    key: "bite",
+    cost: { kind: "hp-percent", amount: 10 },
+    attackRoll: { attribute: "st", tiers: [] },
+    damage: { damageType: "pierce", delivery: "physical" },
+  })
+  const devourIntellect = skill({
+    kind: "passive",
+    key: "intellect-devourer-devour-intellect",
+    name: "Devour Intellect",
+    tagline: "A 20+ Mind-damage hit Downs the target.",
+    description:
+      "If a target takes Mind damage dealt by this creature's Skills, they are Downed if the Attack Roll was 20+.",
+  })
+  const bodyThief = skill({
+    kind: "passive",
+    key: "intellect-devourer-body-thief",
+    name: "Body Thief",
+    tagline: "Seizes a Downed creature's body, Brainwashing it.",
+    description:
+      "The Intellect Devourer psychically seizes control of their body.",
+  })
+  const detectSentience = skill({
+    kind: "passive",
+    key: "intellect-devourer-detect-sentience",
+    name: "Detect Sentience",
+    tagline: "Senses any creature with Virtue ranks within 10 Zones.",
+    description:
+      "The Intellect Devourer can sense the presence and location of any creature within 10 Zones of it if the creature has any Virtue ranks.",
+  })
+  const resolve = createResolve({
+    ...makeTestGameData(),
+    getSkill: (key) => (key === "psi" ? psi : undefined),
+  })
+
+  it("drops unknown direct skill refs but still emits the present read-unit", () => {
+    const enemy = makeFlatEntity({ maxHP: 50 })
+
+    const resolved = resolve({
+      ...enemy,
+      components: {
+        ...enemy.components,
+        skills: [{ kind: "ref", key: "missing-skill" }],
+      },
+    })
+
+    expect(resolved.components.skills).toEqual([])
+  })
+
+  it("resolves inline direct skills against the partially resolved entity", () => {
+    const enemy = makeFlatEntity({
+      attributes: { strength: 4, magic: 0, agility: 0, luck: 0 },
+      maxHP: 50,
+    })
+
+    const resolved = resolve({
+      ...enemy,
+      components: {
+        ...enemy.components,
+        skills: [{ kind: "inline", skill: bite }],
+      },
+    })
+
+    expect(resolved.components.skills?.[0]?.skill.key).toBe("bite")
+    expect(resolved.components.skills?.[0]?.resolvedCost).toEqual({
+      kind: "hp",
+      amount: 5,
+    })
+    expect(resolved.components.skills?.[0]?.resolvedAttackRoll?.total).toBe(4)
+  })
+
+  it("preserves party composition through resolveEntity for direct skill scalers", () => {
+    const resolveEntity = createResolveEntity({
+      ...makeTestGameData(),
+      getSkill: (key) => (key === "psi" ? psi : undefined),
+    })
+    const enemy = makeFlatEntity({
+      attributes: { strength: 0, magic: 2, agility: 0, luck: 0 },
+    })
+
+    const resolved = resolveEntity(
+      {
+        ...enemy,
+        components: {
+          ...enemy.components,
+          skills: [{ kind: "ref", key: "psi" }],
+        },
+      },
+      {
+        effects: [
+          {
+            type: "attackRoll",
+            when: { damageTypes: ["mind"] },
+            scaler: {
+              kind: "perPartyLineage",
+              lineage: "mage",
+              amount: 2,
+              includesSelf: true,
+            },
+            source: "Magic Circle",
+          },
+        ],
+        partyComposition: { mage: 3 },
+      }
+    )
+
+    expect(resolved.components.skills?.[0]?.resolvedAttackRoll?.total).toBe(8)
+  })
+
+  it("passes direct talents through when present", () => {
+    const enemy = makeFlatEntity({})
+
+    const resolved = resolve({
+      ...enemy,
+      components: {
+        ...enemy.components,
+        talents: [{ key: "sneak" }],
+      },
+    })
+
+    expect(resolved.components.talents).toEqual([{ key: "sneak" }])
+  })
+
+  it("emits neither read-unit when neither direct component is present", () => {
+    const resolved = resolve(makeFlatEntity({}))
+
+    expect(resolved.components.skills).toBeUndefined()
+    expect(resolved.components.talents).toBeUndefined()
+  })
+
+  it("expresses the intellect devourer's v1 skillKeys, inlineSkills, and talents as components", () => {
+    const intellectDevourer: Entity = {
+      id: "intellect-devourer",
+      components: {
+        identity: { name: "Intellect Devourer" },
+        level: { value: 4 },
+        attributes: {
+          base: { strength: -2, magic: 2, agility: 1, luck: 0 },
+        },
+        affinities: { base: { soul: "weak", mind: "drain", light: "weak" } },
+        vitals: { base: 28, damage: 0 },
+        skills: [
+          { kind: "ref", key: "psi" },
+          { kind: "inline", skill: devourIntellect },
+          { kind: "inline", skill: bodyThief },
+          { kind: "inline", skill: detectSentience },
+        ],
+        talents: [{ key: "sneak" }],
+      },
+    }
+
+    const resolved = resolve(intellectDevourer)
+
+    expect(resolved.components.skillPool).toBeUndefined()
+    expect(resolved.components.skills?.map((entry) => entry.skill.key)).toEqual(
+      [
+        "psi",
+        "intellect-devourer-devour-intellect",
+        "intellect-devourer-body-thief",
+        "intellect-devourer-detect-sentience",
+      ]
+    )
+    expect(resolved.components.skills?.[0]?.resolvedAttackRoll?.total).toBe(2)
+    expect(resolved.components.talents).toEqual([{ key: "sneak" }])
   })
 })
 
