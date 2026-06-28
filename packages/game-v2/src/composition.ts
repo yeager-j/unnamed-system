@@ -8,11 +8,18 @@ import {
 } from "@workspace/game-v2/archetypes"
 import { gameData } from "@workspace/game-v2/catalog"
 import {
+  compareInitiative,
   createReduceEncounter,
   createReduceSession,
   createSessionFactory,
+  derivePartyComposition,
+  derivePartyCompositionBySide,
+  endOfTurnObligations,
+  fallenParticipantIds,
+  participantDisplayNames,
   type CombatEvent,
   type EncounterState,
+  type Participant,
   type ParticipantSetup,
   type Session,
   type SessionEvent,
@@ -27,6 +34,8 @@ import {
 } from "@workspace/game-v2/items"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import { getActiveMechanics } from "@workspace/game-v2/mechanics/active-mechanic"
 import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 
 /**
@@ -41,12 +50,19 @@ import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
  * binds its functions here.
  */
 export function createGameEngine(deps: GameData = gameData) {
+  // The pure base fold + the app-facing mechanic-aware resolve, hoisted so the
+  // turn-loop reads below bind the same instance. `activeMechanics` is the
+  // capability walk the Frenzy reminder consults (bound from the same catalog).
+  const resolve = createResolve(deps)
+  const resolveEntity = createResolveEntity(deps)
+  const activeMechanics = (entity: Entity) => getActiveMechanics(deps, entity)
+
   return {
     // The pure base fold (golden-master + pure-fold tests bind this directly).
-    resolve: createResolve(deps),
+    resolve,
     // The app-facing resolve: applies the active mechanic's form + effects (incl. the
     // PR5 equipment contribution) on top of the base fold (PR4 — UNN-502).
-    resolveEntity: createResolveEntity(deps),
+    resolveEntity,
     // Items (PR5 — UNN-503): the mutation engine + inventory resolution + basic-attack
     // resolver, bound to the catalog so app surfaces call them without the lookups.
     applyInventoryMutation: (
@@ -80,6 +96,27 @@ export function createGameEngine(deps: GameData = gameData) {
       event: CombatEvent,
       newId: () => string
     ) => createReduceEncounter(newId)(state, event),
+    // Turn loop (UNN-518): the derived reads + display-only end-of-turn producers,
+    // each folding uniformly over the mechanic-aware `resolveEntity` (zero `kind`
+    // branch) so app code passes only the roster. The pure session selectors
+    // (pendingParticipants / nextDraftingSide / eligibleParticipants /
+    // actionAvailability) take no resolve and are imported from the encounter
+    // barrel directly.
+    compareInitiative: (participants: Participant[]) =>
+      compareInitiative(participants, resolveEntity),
+    fallenParticipantIds: (participants: Participant[]) =>
+      fallenParticipantIds(participants, resolveEntity),
+    derivePartyComposition: (participants: Participant[], side: CombatSide) =>
+      derivePartyComposition(participants, side, resolveEntity),
+    derivePartyCompositionBySide: (participants: Participant[]) =>
+      derivePartyCompositionBySide(participants, resolveEntity),
+    participantDisplayNames: (participants: Participant[]) =>
+      participantDisplayNames(participants, resolveEntity),
+    endOfTurnObligations: (participants: Participant[], actorId: string) =>
+      endOfTurnObligations({ resolve: resolveEntity, activeMechanics })(
+        participants,
+        actorId
+      ),
     // Archetypes (PR6 — UNN-504): the Atlas, archetype display/preview, and the
     // switcher, bound to the catalog. The display/atlas functions read the archetype
     // roster off the ResolvedEntity (the resolved Archetypes read-unit); the caller
