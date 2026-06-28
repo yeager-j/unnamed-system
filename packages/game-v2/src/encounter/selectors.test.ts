@@ -20,13 +20,13 @@ function acted(turns = 1): Partial<OverlayComponents> {
   return { turnState: { ...DEFAULT_TURN_STATE, turnsTakenThisRound: turns } }
 }
 
-/** Builds a {@link Session} + its stub `resolve` from participant specs. */
+/** Builds a {@link Session} from participant specs (the drafting selectors take no
+ *  resolve). */
 function buildSession(
   specs: SceneSpec[],
   scalars: Parameters<typeof sessionOf>[1] = {}
-): { session: Session; resolve: (entity: never) => ResolvedEntity } {
-  const { participants, resolve } = makeScene(specs)
-  return { session: sessionOf(participants, scalars), resolve }
+): { session: Session } {
+  return { session: sessionOf(makeScene(specs).participants, scalars) }
 }
 
 /** A resolved Identity read-unit. */

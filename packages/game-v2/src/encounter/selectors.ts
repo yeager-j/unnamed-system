@@ -127,8 +127,8 @@ export function actionAvailability(turnState: TurnState): ActionAvailability {
  * A participant's base display name (NAME-1) — its resolved {@link
  * import("@workspace/game-v2/kernel/identity.schema").Identity} `name`, read
  * **uniformly** over `resolve(participant.entity)` (v1's per-kind `combatantName`
- * switch is gone). Falls back to the roster `id` for a degenerate entity that
- * resolves no Identity read-unit, so a name never renders blank.
+ * switch is gone). Falls back to the roster `id` when the entity resolves no
+ * Identity read-unit (`?? participant.id`, the nullish-absent case).
  */
 export function participantName(
   participant: Participant,

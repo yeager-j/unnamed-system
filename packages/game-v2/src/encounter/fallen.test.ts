@@ -47,10 +47,8 @@ describe("fallenParticipantIds (R13 / FAL-1 / CD9b — derived fresh from resolv
 
   it("recomputes fresh — a revive (HP back above 0) drops the id with no event", () => {
     const { participants } = makeScene([{ id: "phoenix" }])
-    const fallenResolve = () =>
-      ({ id: "x", components: vit(0) }) as ResolvedEntity
-    const aliveResolve = () =>
-      ({ id: "x", components: vit(8) }) as ResolvedEntity
+    const fallenResolve = () => ({ id: "x", components: vit(0) })
+    const aliveResolve = () => ({ id: "x", components: vit(8) })
 
     expect(fallenParticipantIds(participants, fallenResolve)).toEqual(
       new Set(["phoenix"])
