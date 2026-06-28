@@ -8,8 +8,14 @@ import {
 } from "@workspace/game-v2/archetypes"
 import { gameData } from "@workspace/game-v2/catalog"
 import {
+  createReduceEncounter,
+  createReduceSession,
   createSessionFactory,
+  type CombatEvent,
+  type EncounterState,
   type ParticipantSetup,
+  type Session,
+  type SessionEvent,
 } from "@workspace/game-v2/encounter"
 import {
   applyInventoryMutation,
@@ -59,6 +65,21 @@ export function createGameEngine(deps: GameData = gameData) {
     // applyInventoryMutation pattern), bound by the caller per mint.
     createSession: (setup: ParticipantSetup[], newId: () => string) =>
       createSessionFactory(deps, newId)(setup),
+    // The pure combat-session reducer + its composition root (UNN-517). `newId`
+    // is injected here (R24.3) — the reducer carries no catalog dep (CD4). The
+    // session reducer accepts the full `SessionEvent` (the write-router feeds it
+    // the ephemeral vitals events); `reduceEncounter` routes the generic
+    // `CombatEvent` wire over `EncounterState`, the instance left opaque.
+    reduceSession: (
+      session: Session,
+      event: SessionEvent,
+      newId: () => string
+    ) => createReduceSession(newId)(session, event),
+    reduceEncounter: <Instance>(
+      state: EncounterState<Instance>,
+      event: CombatEvent,
+      newId: () => string
+    ) => createReduceEncounter(newId)(state, event),
     // Archetypes (PR6 — UNN-504): the Atlas, archetype display/preview, and the
     // switcher, bound to the catalog. The display/atlas functions read the archetype
     // roster off the ResolvedEntity (the resolved Archetypes read-unit); the caller
