@@ -13,7 +13,11 @@
  * composition root, and the event vocabulary — the generic {@link combatEventSchema}
  * wire (its `ComponentWrite` exclusion is the structural-ephemeral-only mechanism;
  * the router-only `toSessionEvent` constructor is deliberately **omitted** from this
- * barrel).
+ * barrel). UNN-518 ships the **derived turn-loop reads** that fold uniformly over
+ * `resolve(participant.entity)` (zero `kind` branch): {@link compareInitiative},
+ * {@link fallenParticipantIds}, {@link derivePartyComposition}, the drafting +
+ * action-economy + name {@link import("./selectors") selectors}, and the
+ * display-only {@link endOfTurnObligations} producers.
  */
 export * from "./vocab"
 export * from "./overlay"
@@ -27,6 +31,11 @@ export * from "./read-bag"
 export * from "./to-setup"
 export * from "./reduce-session"
 export * from "./reduce-encounter"
+export * from "./initiative"
+export * from "./fallen"
+export * from "./party-composition"
+export * from "./selectors"
+export * from "./end-of-turn"
 export {
   combatEventSchema,
   BATTLE_CONDITION_AXIS_ACTIONS,

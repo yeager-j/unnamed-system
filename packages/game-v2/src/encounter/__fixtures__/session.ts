@@ -1,4 +1,4 @@
-import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
 import { defaultOverlay, type OverlayComponents } from "../overlay"
@@ -67,4 +67,52 @@ export function sessionOf(
 export function counterIds(prefix = "minted"): () => string {
   let n = 0
   return () => `${prefix}-${++n}`
+}
+
+/** One participant in a {@link makeScene} spec: its roster `id`/`side`/`overlay`,
+ *  the **resolved** read-units a stub `resolve` should emit for it, and any
+ *  authored entity `components` a read off the *authored* entity needs (e.g. a
+ *  `mechanics` component for the Frenzy reminder's capability gate). */
+export interface SceneSpec {
+  id: string
+  side?: CombatSide
+  overlay?: Partial<OverlayComponents>
+  resolved?: ResolvedEntity["components"]
+  components?: Entity["components"]
+}
+
+/**
+ * Builds the participants + a stub `resolve` for the derived turn-loop reads
+ * (UNN-518) in one step. The stub maps each participant's `entity.id` to the
+ * controlled `resolved` components, so a test asserts the read logic against fixed
+ * resolved numbers without running the real fold (the unit discipline the resolve
+ * tests follow). A participant with no `resolved` spec resolves to an empty bag —
+ * the "no read-units" / degenerate case (e.g. an entity carrying no Vitals
+ * capability resolves no `vitals`).
+ */
+export function makeScene(specs: SceneSpec[]): {
+  participants: Participant[]
+  resolve: (entity: Entity) => ResolvedEntity
+} {
+  const participants = specs.map((spec) =>
+    participantWith({
+      id: spec.id,
+      side: spec.side,
+      overlay: spec.overlay,
+      components: spec.components,
+    })
+  )
+  const componentsByEntityId = new Map(
+    participants.map((participant, index) => [
+      participant.entity.id,
+      specs[index]!.resolved ?? {},
+    ])
+  )
+  return {
+    participants,
+    resolve: (entity) => ({
+      id: entity.id,
+      components: componentsByEntityId.get(entity.id) ?? {},
+    }),
+  }
 }
