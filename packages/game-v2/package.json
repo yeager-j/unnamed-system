@@ -41,6 +41,7 @@
     "./resolve/*": "./src/resolve/*.ts"
   },
   "dependencies": {
+    "immer": "^11.1.8",
     "zod": "^3.25.76"
   },
   "devDependencies": {

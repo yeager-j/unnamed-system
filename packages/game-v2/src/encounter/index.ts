@@ -8,8 +8,12 @@
  * StoredEntityLocator} contract, {@link loadSession}/{@link saveSession} (storage
  * dissolution + the out-of-band locator map), the {@link SpatialReads} port + the
  * Toccata effect injection, the three-home {@link assembleReadBag}, and the R1.5
- * {@link toParticipantSetup} inverse. The pure reducer + `reduceEncounter` (UNN-517)
- * build on these.
+ * {@link toParticipantSetup} inverse. UNN-517 ships the **pure reducer**
+ * ({@link createReduceSession} + its slices), the {@link createReduceEncounter}
+ * composition root, and the event vocabulary — the generic {@link combatEventSchema}
+ * wire (its `ComponentWrite` exclusion is the structural-ephemeral-only mechanism;
+ * the router-only `toSessionEvent` constructor is deliberately **omitted** from this
+ * barrel).
  */
 export * from "./vocab"
 export * from "./overlay"
@@ -21,4 +25,28 @@ export * from "./spatial-reads"
 export * from "./load-session"
 export * from "./read-bag"
 export * from "./to-setup"
+export * from "./reduce-session"
+export * from "./reduce-encounter"
+export {
+  combatEventSchema,
+  BATTLE_CONDITION_AXIS_ACTIONS,
+  ACTION_ECONOMY_ACTIONS,
+  VITALS_POOLS,
+  type StartCombatEvent,
+  type DraftCombatantEvent,
+  type EndTurnEvent,
+  type AddParticipantSetup,
+  type RosterEvent,
+  type OverrideEvent,
+  type BattleConditionEvent,
+  type AilmentEvent,
+  type CounterEvent,
+  type ActionEconomyEvent,
+  type CombatEvent,
+  type ComponentWriteEvent,
+  type SessionEvent,
+  type BattleConditionAxisAction,
+  type ActionEconomyAction,
+  type VitalsPool,
+} from "./session-event"
 export type { RegistryKeyInvariants } from "./disjointness"
