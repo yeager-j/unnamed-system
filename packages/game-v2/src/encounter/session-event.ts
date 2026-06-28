@@ -178,14 +178,16 @@ export type CounterEvent =
     }
   | { kind: "clearCounter"; participantId: string; counter: CounterKey }
 
-/** `setActionEconomy` (R11) flips one per-turn action toggle on/off — mapped onto
- *  the consumption model (`used = available ? 0 : 1`; SUPERSEDE). Non-enforcing;
- *  a no-op for an unknown id. */
+/** `adjustActionEconomy` (R11) nudges one per-turn action's consumption by a
+ *  signed `delta` (floored at 0, unbounded above) — so a combatant can consume 2+
+ *  of an action type (Tarantella, Follow-Ups). Delta-not-absolute (mirrors
+ *  `adjustCounter`); allowance stays the DM/selector's call. Non-enforcing; a
+ *  no-op for an unknown id. */
 export type ActionEconomyEvent = {
-  kind: "setActionEconomy"
+  kind: "adjustActionEconomy"
   participantId: string
   action: ActionEconomyAction
-  available: boolean
+  delta: number
 }
 
 /**
@@ -337,10 +339,10 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     counter: z.enum(COUNTER_KEYS),
   }),
   z.object({
-    kind: z.literal("setActionEconomy"),
+    kind: z.literal("adjustActionEconomy"),
     participantId: z.string(),
     action: z.enum(ACTION_ECONOMY_ACTIONS),
-    available: z.boolean(),
+    delta: z.number().int(),
   }),
 ])
 

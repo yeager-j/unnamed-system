@@ -70,7 +70,7 @@ export function createReduceSession(newId: () => string) {
       case "clearCounter":
         return reduceCounter(session, event)
 
-      case "setActionEconomy":
+      case "adjustActionEconomy":
         return reduceActionEconomy(session, event)
 
       case "damageParticipant":

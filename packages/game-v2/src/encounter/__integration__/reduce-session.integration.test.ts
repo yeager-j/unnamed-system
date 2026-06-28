@@ -68,10 +68,10 @@ const SCENARIO: SessionEvent[] = [
   { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 2 },
   { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 1 },
   {
-    kind: "setActionEconomy",
+    kind: "adjustActionEconomy",
     participantId: "p1",
     action: "standard",
-    available: false,
+    delta: 1,
   },
   { kind: "endTurn" },
   { kind: "draftCombatant", participantId: "p2" },
