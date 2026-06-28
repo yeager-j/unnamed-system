@@ -55,10 +55,10 @@ const GENERIC_EVENTS: CombatEvent[] = [
   { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 1 },
   { kind: "clearCounter", participantId: "p1", counter: "lumina" },
   {
-    kind: "setActionEconomy",
+    kind: "adjustActionEconomy",
     participantId: "p1",
     action: "move",
-    available: false,
+    delta: 1,
   },
 ]
 
