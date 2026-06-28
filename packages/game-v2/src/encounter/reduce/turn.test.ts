@@ -44,10 +44,21 @@ describe("reduceTurn — endTurn (R5)", () => {
     expect(actor.overlay.conditionDurations).toEqual({ attack: 2 })
     expect(actor.overlay.battleConditions.attack).toBe("increased")
     expect(actor.overlay.battleConditions.defense).toBe("neutral")
-    // The bystander's durations are untouched.
-    expect(next.participants[1]!.overlay.conditionDurations).toEqual({
-      attack: 2,
+    // The bystander is reference-identical — not copied or ticked.
+    expect(next.participants[1]!).toBe(session.participants[1]!)
+  })
+
+  it("INCREMENTS rather than sets turnsTakenThisRound — the boss-multi-turn substrate (CD10)", () => {
+    // Two endTurns on the SAME actor with no intervening reset: endTurn keeps the
+    // actor as currentActorId, so a count (+= 1) reaches 2 where a flag (= 1) would not.
+    const session = sessionOf([participantWith({ id: "p1" })], {
+      currentActorId: "p1",
     })
+    const afterTwoTurns = reduceTurn(reduceTurn(session))
+    expect(
+      afterTwoTurns.participants[0]!.overlay.turnState.turnsTakenThisRound
+    ).toBe(2)
+    expect(afterTwoTurns.currentActorId).toBe("p1")
   })
 
   it("leaves an axis with no duration entry untouched even if non-neutral (R5.2 edge)", () => {
