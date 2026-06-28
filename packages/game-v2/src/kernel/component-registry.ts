@@ -5,6 +5,7 @@ import type { Attributes } from "@workspace/game-v2/attributes/attributes.schema
 import type { ResolvedPendingEffects } from "@workspace/game-v2/combat/resolved"
 import type { Equipment } from "@workspace/game-v2/items/equipment.schema"
 import type { Identity } from "@workspace/game-v2/kernel/identity.schema"
+import type { Presentation } from "@workspace/game-v2/kernel/presentation.schema"
 import type {
   AffinityChart,
   AttributeScores,
@@ -62,6 +63,10 @@ import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
  */
 export interface ComponentRegistry {
   identity: Identity
+  // Cosmetic display metadata — `portraitUrl` today (D7/F4: cosmetic only, no kind).
+  // Universal like `identity`; `resolve` passes it through so redaction (visibility/)
+  // can keep it public to every viewer while dropping stats to opponents (UNN-519).
+  presentation: Presentation
   // Derivation base (PR2 — UNN-500). Each derivable capability folds a base + the
   // layers present on the entity (D37); the inputs are their own components (D35/D36).
   attributes: Attributes
@@ -105,6 +110,9 @@ export interface ComponentRegistry {
  */
 export interface ResolvedComponentRegistry {
   identity: Identity
+  // Pass-through (authored == effective), like `identity` — gives `portraitUrl` a
+  // resolved surface for the redaction fold (UNN-519) to keep public to all viewers.
+  presentation: Presentation
   attributes: AttributeScores
   affinities: AffinityChart
   vitals: ResolvedVitals
