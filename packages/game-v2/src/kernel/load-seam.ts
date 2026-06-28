@@ -7,6 +7,7 @@ import { equipmentSchema } from "@workspace/game-v2/items/equipment.schema"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
+import { presentationSchema } from "@workspace/game-v2/kernel/presentation.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { mechanicsSchema } from "@workspace/game-v2/mechanics/mechanics.schema"
 import { levelSchema } from "@workspace/game-v2/progression/level.schema"
@@ -42,6 +43,7 @@ type ComponentSchemas = {
 
 const componentSchemas: ComponentSchemas = {
   identity: identitySchema,
+  presentation: presentationSchema,
   attributes: attributesSchema,
   affinities: affinitiesSchema,
   vitals: vitalsSchema,

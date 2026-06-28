@@ -85,6 +85,7 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       level,
       path,
       identity,
+      presentation,
       archetypes,
       manualBonuses,
       attributes,
@@ -118,6 +119,12 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
 
     if (identity) {
       components.identity = identity
+    }
+
+    if (presentation) {
+      // Cosmetic, no derivation — passed through verbatim so `portraitUrl` has a
+      // resolved surface for redaction (visibility/) to keep public to all viewers.
+      components.presentation = presentation
     }
 
     if (archetypes) {
