@@ -77,18 +77,19 @@ function loadParticipant(
   loadDurable: DurableSource,
   stored: StoredParticipant
 ): Result<Participant, ParticipantLoadIssue> {
-  const source: StoredEntity | undefined =
-    stored.locator.storage === "durable"
-      ? loadDurable(stored.locator.entityId)
-      : stored.locator.entity
-
-  if (!source) {
-    return err({
-      participantId: stored.id,
-      kind: "missing-durable",
-      entityId:
-        stored.locator.storage === "durable" ? stored.locator.entityId : "",
-    })
+  let source: StoredEntity
+  if (stored.locator.storage === "durable") {
+    const row = loadDurable(stored.locator.entityId)
+    if (!row) {
+      return err({
+        participantId: stored.id,
+        kind: "missing-durable",
+        entityId: stored.locator.entityId,
+      })
+    }
+    source = row
+  } else {
+    source = stored.locator.entity
   }
 
   const entity: Result<Entity, ComponentLoadIssue[]> = loadEntity(
@@ -162,9 +163,16 @@ export function loadSession(loadDurable: DurableSource) {
  * for the **session blob** write-back. A durable participant is written as a
  * **reference only** (`{ storage:"durable", entityId }`) — its live components stay
  * on the entity row, written via their own path/version token (§2.8b), never
- * embedded here. An inline participant (or a locator-map miss — a reducer-minted
- * mid-combat joiner, whose only possible home is inline) is written with its **live**
- * entity state (post-reducer `vitals.damage` and friends).
+ * embedded here. An inline participant is written with its **live** entity state
+ * (post-reducer `vitals.damage` and friends).
+ *
+ * **Invariant (a UNN-520 write-router/shell obligation):** every *durable*
+ * participant — including a future durable mid-combat joiner (R6.2) — MUST have its
+ * locator registered in the out-of-band map **before** {@link saveSession} runs.
+ * A locator-map miss falls through to the inline default, which serializes the
+ * participant's components into the blob (home loss): the engine cannot recover the
+ * durable home (F1), so inline is the only **self-contained** default a pure saver
+ * can choose. The map — not this function — is what distinguishes the two homes.
  */
 function storedLocatorFor(
   participant: Participant,

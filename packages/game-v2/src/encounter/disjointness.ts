@@ -1,4 +1,7 @@
-import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
+import type {
+  ComponentRegistry,
+  ResolvedComponentRegistry,
+} from "@workspace/game-v2/kernel/component-registry"
 
 import { INSTANCE_KEYS, type EncounterInstanceComponents } from "./instance"
 import { OVERLAY_KEYS, type OverlayComponents } from "./overlay"
@@ -40,6 +43,18 @@ type _OverlayDisjointFromInstance = AssertEmpty<
   Extract<keyof OverlayComponents, keyof EncounterInstanceComponents>
 >
 
+// --- Disjointness from the *resolved* registry (read-bag merge safety) ---------
+// The read-bag (read-bag.ts) merges overlay + instance over the *resolved* keys
+// (`pendingEffects` etc., not in the authored ComponentRegistry); these prove the
+// later spreads add keys rather than shadow a resolved read-unit.
+
+type _OverlayDisjointFromResolved = AssertEmpty<
+  Extract<keyof OverlayComponents, keyof ResolvedComponentRegistry>
+>
+type _InstanceDisjointFromResolved = AssertEmpty<
+  Extract<keyof EncounterInstanceComponents, keyof ResolvedComponentRegistry>
+>
+
 // --- Key-array completeness (so the sweep / projection stay total) -------------
 // `as const satisfies` already proves every listed key is valid; these prove no
 // key is *omitted* — the array covers the whole registry.
@@ -57,6 +72,8 @@ export type RegistryKeyInvariants = [
   _OverlayDisjointFromComponents,
   _InstanceDisjointFromComponents,
   _OverlayDisjointFromInstance,
+  _OverlayDisjointFromResolved,
+  _InstanceDisjointFromResolved,
   _OverlayKeysComplete,
   _InstanceKeysComplete,
 ]

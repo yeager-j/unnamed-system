@@ -23,6 +23,12 @@ const toccataAtZ1: SpatialReads = {
 
 const TOCCATA_FF = { type: "attackRoll", amount: 2, source: "Toccata" }
 
+/** A combatant standing in `z1`, on a board whose `z1` is Requiem-enchanted (emits no attackRoll/damage effects). */
+const requiemAtZ1: SpatialReads = {
+  zoneOf: (id) => (id === "p1" ? "z1" : undefined),
+  activeEnchantment: () => ({ zoneId: "z1", type: "requiem", forte: 2 }),
+}
+
 describe("participantZoneEffects — the SpatialReads → enchantment projection (CD15)", () => {
   it("confers the active enchantment's effects on a combatant in its zone", () => {
     expect(participantZoneEffects(toccataAtZ1, "p1")).toEqual([TOCCATA_FF])
@@ -80,6 +86,13 @@ describe("resolveParticipant — un-defers Toccata into pendingEffects (display-
     }
     expect(
       resolveParticipant(resolve, none, participant).components.pendingEffects
+    ).toBeUndefined()
+  })
+
+  it("surfaces nothing for an in-zone combatant under an effect-less enchantment (Requiem)", () => {
+    expect(
+      resolveParticipant(resolve, requiemAtZ1, participant).components
+        .pendingEffects
     ).toBeUndefined()
   })
 
