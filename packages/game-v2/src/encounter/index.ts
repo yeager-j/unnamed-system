@@ -19,6 +19,7 @@
  * action-economy + name {@link import("./selectors") selectors}, and the
  * display-only {@link endOfTurnObligations} producers.
  */
+export * from "./ids"
 export * from "./vocab"
 export * from "./overlay"
 export * from "./instance"

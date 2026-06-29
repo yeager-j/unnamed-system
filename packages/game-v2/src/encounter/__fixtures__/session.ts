@@ -1,6 +1,10 @@
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import type {
+  CombatAdvantage,
+  CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
 
+import { asParticipantId } from "../ids"
 import { defaultOverlay, type OverlayComponents } from "../overlay"
 import type { Participant, Session } from "../session"
 
@@ -32,7 +36,7 @@ export function participantWith(opts: {
   overlay?: Partial<OverlayComponents>
 }): Participant {
   return {
-    id: opts.id,
+    id: asParticipantId(opts.id),
     entity: entity(opts.components ?? {}, `${opts.id}-entity`),
     overlay: {
       ...defaultOverlay({ side: opts.side ?? "players" }),
@@ -41,19 +45,27 @@ export function participantWith(opts: {
   }
 }
 
-/** A session over the given participants, scalars defaulting to a fresh round 1. */
+/**
+ * A session over the given participants, scalars defaulting to a fresh round 1.
+ * `currentActorId` takes a plain `string` (branded here) so tests pass roster-id
+ * literals without each importing {@link asParticipantId}.
+ */
 export function sessionOf(
   participants: Participant[],
-  scalars: Partial<
-    Pick<
-      Session,
-      "round" | "currentActorId" | "advantage" | "firstSide" | "mapInstanceId"
-    >
-  > = {}
+  scalars: {
+    round?: number
+    currentActorId?: string | null
+    advantage?: CombatAdvantage | null
+    firstSide?: CombatSide | null
+    mapInstanceId?: string
+  } = {}
 ): Session {
   return {
     round: scalars.round ?? 1,
-    currentActorId: scalars.currentActorId ?? null,
+    currentActorId:
+      scalars.currentActorId != null
+        ? asParticipantId(scalars.currentActorId)
+        : null,
     advantage: scalars.advantage ?? null,
     firstSide: scalars.firstSide ?? null,
     participants,

@@ -1,5 +1,7 @@
 import type { ZoneEnchantment } from "@workspace/game-v2/mechanics/zone-enchantment.schema"
 
+import type { ParticipantId } from "./ids"
+
 /**
  * The **combat → spatial read interface** (CD15) — a narrow, one-way port the
  * encounter loader receives **injected**, never a spatial-state module combat
@@ -21,7 +23,7 @@ import type { ZoneEnchantment } from "@workspace/game-v2/mechanics/zone-enchantm
  */
 export interface SpatialReads {
   /** The zone a participant occupies, or `undefined` when unplaced / mapless. */
-  zoneOf(participantId: string): string | undefined
+  zoneOf(participantId: ParticipantId): string | undefined
   /** The session's single active Zone Enchantment, or `null` when none / mapless. */
   activeEnchantment(): ZoneEnchantment | null
 }

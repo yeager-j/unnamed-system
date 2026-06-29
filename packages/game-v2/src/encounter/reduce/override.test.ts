@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { reduceOverride } from "./override"
 
 describe("reduceOverride — setCurrentActor (R7.1)", () => {
@@ -10,7 +11,7 @@ describe("reduceOverride — setCurrentActor (R7.1)", () => {
     })
     const next = reduceOverride(session, {
       kind: "setCurrentActor",
-      participantId: "ghost",
+      participantId: asParticipantId("ghost"),
     })
     expect(next.currentActorId).toBe("ghost")
   })
@@ -21,7 +22,7 @@ describe("reduceOverride — setActed (R7.2 → turnsTakenThisRound)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const next = reduceOverride(session, {
       kind: "setActed",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       hasActed: true,
     })
     expect(next.participants[0]!.overlay.turnState.turnsTakenThisRound).toBe(1)
@@ -43,7 +44,7 @@ describe("reduceOverride — setActed (R7.2 → turnsTakenThisRound)", () => {
     ])
     const next = reduceOverride(session, {
       kind: "setActed",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       hasActed: false,
     })
     expect(next.participants[0]!.overlay.turnState.turnsTakenThisRound).toBe(0)
@@ -54,7 +55,7 @@ describe("reduceOverride — setActed (R7.2 → turnsTakenThisRound)", () => {
     expect(
       reduceOverride(session, {
         kind: "setActed",
-        participantId: "ghost",
+        participantId: asParticipantId("ghost"),
         hasActed: true,
       })
     ).toBe(session)

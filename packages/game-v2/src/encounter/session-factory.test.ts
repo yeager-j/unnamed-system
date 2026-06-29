@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { createGameEngine } from "@workspace/game-v2/composition"
+import { asParticipantId } from "@workspace/game-v2/encounter/ids"
 import { createSessionFactory } from "@workspace/game-v2/encounter/session-factory"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
@@ -43,7 +44,7 @@ describe("createSessionFactory — clean mint (R1.2)", () => {
       counterIds()
     )([
       {
-        id: "kept",
+        id: asParticipantId("kept"),
         side: "players",
         source: { entity: { id: "e", components: {} } },
       },
@@ -90,8 +91,13 @@ describe("createSessionFactory — entity source arms", () => {
     const participant = createSessionFactory(
       { getEnemy: stubGetEnemy },
       counterIds()
-    )([{ id: "g1", side: "enemies", source: { catalog: "goblin" } }])
-      .participants[0]!
+    )([
+      {
+        id: asParticipantId("g1"),
+        side: "enemies",
+        source: { catalog: "goblin" },
+      },
+    ]).participants[0]!
 
     expect(participant.entity.components.identity).toEqual({ name: "Goblin" })
     expect(participant.entity.components.level).toEqual({ value: 1 })
@@ -151,7 +157,13 @@ describe("createSessionFactory — bound to the real catalog (composition)", () 
   it("mints a real catalog enemy via createGameEngine().createSession", () => {
     const engine = createGameEngine()
     const session = engine.createSession(
-      [{ id: "g", side: "enemies", source: { catalog: "goblin" } }],
+      [
+        {
+          id: asParticipantId("g"),
+          side: "enemies",
+          source: { catalog: "goblin" },
+        },
+      ],
       counterIds()
     )
     const participant = session.participants[0]!

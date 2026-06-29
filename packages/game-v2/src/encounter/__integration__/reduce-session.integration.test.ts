@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { counterIds, participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { createReduceSession } from "../reduce-session"
 import type { SessionEvent } from "../session-event"
 
@@ -44,44 +45,69 @@ const V1 = {
 /** The v2 translation of the v1 scenario the capture ran. */
 const SCENARIO: SessionEvent[] = [
   { kind: "startCombat", advantage: "neutral", firstSide: "players" },
-  { kind: "draftCombatant", participantId: "p1" },
+  { kind: "draftCombatant", participantId: asParticipantId("p1") },
   {
     kind: "adjustBattleConditionAxis",
-    participantId: "p1",
+    participantId: asParticipantId("p1"),
     axis: "attack",
     action: "increase",
   },
   {
     kind: "adjustBattleConditionAxis",
-    participantId: "p1",
+    participantId: asParticipantId("p1"),
     axis: "attack",
     action: "increase",
     turns: 3,
   },
   {
     kind: "adjustBattleConditionAxis",
-    participantId: "p1",
+    participantId: asParticipantId("p1"),
     axis: "defense",
     action: "decrease",
   },
-  { kind: "setAilment", participantId: "p1", ailment: "burn" },
-  { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 2 },
-  { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 1 },
+  { kind: "setAilment", participantId: asParticipantId("p1"), ailment: "burn" },
+  {
+    kind: "adjustCounter",
+    participantId: asParticipantId("p1"),
+    counter: "lumina",
+    delta: 2,
+  },
+  {
+    kind: "adjustCounter",
+    participantId: asParticipantId("p1"),
+    counter: "lumina",
+    delta: 1,
+  },
   {
     kind: "adjustActionEconomy",
-    participantId: "p1",
+    participantId: asParticipantId("p1"),
     action: "standard",
     delta: 1,
   },
   { kind: "endTurn" },
-  { kind: "draftCombatant", participantId: "p2" },
+  { kind: "draftCombatant", participantId: asParticipantId("p2") },
   { kind: "endTurn" },
   { kind: "advanceRound" },
   // v1 `currentHP := 12` (20 − 8), then `currentSP := 4` (10 − 6), then heal back
   // to `currentHP := 18` (from damage 8, heal 6 → damage 2 → currentHP 18).
-  { kind: "damageParticipant", participantId: "e1", pool: "hp", amount: 8 },
-  { kind: "damageParticipant", participantId: "e1", pool: "sp", amount: 6 },
-  { kind: "healParticipant", participantId: "e1", pool: "hp", amount: 6 },
+  {
+    kind: "damageParticipant",
+    participantId: asParticipantId("e1"),
+    pool: "hp",
+    amount: 8,
+  },
+  {
+    kind: "damageParticipant",
+    participantId: asParticipantId("e1"),
+    pool: "sp",
+    amount: 6,
+  },
+  {
+    kind: "healParticipant",
+    participantId: asParticipantId("e1"),
+    pool: "hp",
+    amount: 6,
+  },
 ]
 
 const seed = () =>
@@ -167,7 +193,7 @@ describe("reduce-session — orchestrator dispatch (families outside the scenari
   it("routes removeParticipant → roster (drops + nulls actor)", () => {
     const next = reduceWith(base(), {
       kind: "removeParticipant",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
     })
     expect(next.participants).toHaveLength(0)
     expect(next.currentActorId).toBeNull()
@@ -177,13 +203,15 @@ describe("reduce-session — orchestrator dispatch (families outside the scenari
     expect(
       reduceWith(base(), {
         kind: "setSide",
-        participantId: "p1",
+        participantId: asParticipantId("p1"),
         side: "enemies",
       }).participants[0]!.overlay.allegiance.side
     ).toBe("enemies")
     expect(
-      reduceWith(base(), { kind: "setCurrentActor", participantId: "z" })
-        .currentActorId
+      reduceWith(base(), {
+        kind: "setCurrentActor",
+        participantId: asParticipantId("z"),
+      }).currentActorId
     ).toBe("z")
     expect(reduceWith(base(), { kind: "setRound", round: 9 }).round).toBe(9)
     expect(
@@ -191,13 +219,17 @@ describe("reduce-session — orchestrator dispatch (families outside the scenari
         sessionOf([
           participantWith({ id: "p1", overlay: { ailments: ["burn"] } }),
         ]),
-        { kind: "clearAilment", participantId: "p1", ailment: "burn" }
+        {
+          kind: "clearAilment",
+          participantId: asParticipantId("p1"),
+          ailment: "burn",
+        }
       ).participants[0]!.overlay.ailments
     ).toEqual([])
     expect(
       reduceWith(base(), {
         kind: "setBattleConditionFlag",
-        participantId: "p1",
+        participantId: asParticipantId("p1"),
         flag: "concentrating",
         value: true,
       }).participants[0]!.overlay.battleConditions.concentrating
@@ -209,7 +241,10 @@ describe("reduce-session — cross-cutting invariants (R24)", () => {
   it("propagates same-ref on a no-op event through the orchestrator (R24.1)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     expect(
-      reduce(session, { kind: "draftCombatant", participantId: "ghost" })
+      reduce(session, {
+        kind: "draftCombatant",
+        participantId: asParticipantId("ghost"),
+      })
     ).toBe(session)
     expect(reduce(session, { kind: "endTurn" })).toBe(session)
   })
@@ -223,8 +258,17 @@ describe("reduce-session — cross-cutting invariants (R24)", () => {
       { kind: "advanceRound" },
       { kind: "endTurn" },
       { kind: "setRound", round: 3 },
-      { kind: "setAilment", participantId: "p1", ailment: "burn" },
-      { kind: "damageParticipant", participantId: "p1", pool: "hp", amount: 1 },
+      {
+        kind: "setAilment",
+        participantId: asParticipantId("p1"),
+        ailment: "burn",
+      },
+      {
+        kind: "damageParticipant",
+        participantId: asParticipantId("p1"),
+        pool: "hp",
+        amount: 1,
+      },
     ]
     for (const event of events) {
       expect(reduce(withMap, event).mapInstanceId).toBe("map-1")
@@ -245,7 +289,7 @@ describe("reduce-session — setParticipantMax SUPERSEDES v1's current-drag (R12
     ])
     const next = reduce(session, {
       kind: "setParticipantMax",
-      participantId: "e1",
+      participantId: asParticipantId("e1"),
       pool: "hp",
       amount: 10,
     })

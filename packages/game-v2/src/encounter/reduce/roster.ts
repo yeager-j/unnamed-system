@@ -1,5 +1,6 @@
 import { produce } from "immer"
 
+import { asParticipantId } from "../ids"
 import { makeParticipant, type Session } from "../session"
 import type { RosterEvent } from "../session-event"
 
@@ -39,10 +40,14 @@ export function reduceRoster(
     case "addParticipant":
       return produce(session, (draft) => {
         draft.participants.push(
-          makeParticipant(event.setup.entity, event.setup.id ?? newId(), {
-            side: event.setup.side,
-            hasActed: true,
-          })
+          makeParticipant(
+            event.setup.entity,
+            event.setup.id ?? asParticipantId(newId()),
+            {
+              side: event.setup.side,
+              hasActed: true,
+            }
+          )
         )
       })
 

@@ -4,6 +4,7 @@ import type {
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
+import type { ParticipantId } from "./ids"
 import { defaultOverlay, type OverlayComponents } from "./overlay"
 
 /**
@@ -32,7 +33,7 @@ import { defaultOverlay, type OverlayComponents } from "./overlay"
  * transient ailments/turn-state never leak across encounters via the entity row.
  */
 export interface Participant {
-  id: string
+  id: ParticipantId
   entity: Entity
   overlay: OverlayComponents
 }
@@ -46,7 +47,7 @@ export interface Participant {
  */
 export interface Session {
   round: number
-  currentActorId: string | null
+  currentActorId: ParticipantId | null
   advantage: CombatAdvantage | null
   firstSide: CombatSide | null
   participants: Participant[]
@@ -62,7 +63,7 @@ export interface Session {
  */
 export function makeParticipant(
   entity: Entity,
-  id: string,
+  id: ParticipantId,
   overlay: { side: CombatSide; hasActed?: boolean }
 ): Participant {
   return { id, entity, overlay: defaultOverlay(overlay) }

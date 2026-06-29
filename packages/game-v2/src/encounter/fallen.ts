@@ -1,6 +1,7 @@
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
+import type { ParticipantId } from "./ids"
 import type { Participant } from "./session"
 
 /**
@@ -27,8 +28,8 @@ import type { Participant } from "./session"
 export function fallenParticipantIds(
   participants: readonly Participant[],
   resolve: (entity: Entity) => ResolvedEntity
-): Set<string> {
-  const fallen = new Set<string>()
+): Set<ParticipantId> {
+  const fallen = new Set<ParticipantId>()
   for (const participant of participants) {
     const vitals = resolve(participant.entity).components.vitals
     if (vitals === undefined) continue

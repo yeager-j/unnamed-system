@@ -4,6 +4,7 @@ import {
   participantWith,
   sessionOf,
 } from "@workspace/game-v2/encounter/__fixtures__/session"
+import { asParticipantId } from "@workspace/game-v2/encounter/ids"
 import type { ReadBag } from "@workspace/game-v2/encounter/read-bag"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
@@ -59,7 +60,7 @@ function redact(
   const session = sessionOf([participantWith({ id: participantId, side })])
   const snapshot = projectEncounterSnapshot(
     session,
-    new Map([[participantId, bag]]),
+    new Map([[asParticipantId(participantId), bag]]),
     viewer,
     META
   )

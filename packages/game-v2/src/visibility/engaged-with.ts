@@ -1,3 +1,4 @@
+import type { ParticipantId } from "@workspace/game-v2/encounter/ids"
 import type { Engagement } from "@workspace/game-v2/encounter/instance"
 
 /**
@@ -12,6 +13,8 @@ import type { Engagement } from "@workspace/game-v2/encounter/instance"
  * encounter carries no occupancy token, so the loader injects no `engagement` key
  * (`undefined`). Byte-identical to the old hardcoded `[]` stub whenever Free.
  */
-export function engagedWith(engagement: Engagement | undefined): string[] {
+export function engagedWith(
+  engagement: Engagement | undefined
+): ParticipantId[] {
   return engagement?.status === "engaged" ? engagement.targetCombatantIds : []
 }

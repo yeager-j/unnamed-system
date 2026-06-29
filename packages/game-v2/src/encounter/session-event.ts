@@ -9,6 +9,7 @@ import {
   type CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
+import { participantIdSchema, type ParticipantId } from "./ids"
 import {
   AILMENT_KEYS,
   BATTLE_CONDITION_AXIS_KEYS,
@@ -86,7 +87,7 @@ export type StartCombatEvent = {
  *  (R4). A no-op for an unknown id; never blocks an ineligible pick. */
 export type DraftCombatantEvent = {
   kind: "draftCombatant"
-  participantId: string
+  participantId: ParticipantId
 }
 
 /** `endTurn` ends the current actor's turn: increments their
@@ -104,7 +105,7 @@ export type EndTurnEvent = { kind: "endTurn" }
  * carries no `hasActed` — the reducer hardcodes it.
  */
 export interface AddParticipantSetup {
-  id?: string
+  id?: ParticipantId
   side: CombatSide
   entity: Entity
 }
@@ -121,8 +122,8 @@ export interface AddParticipantSetup {
 export type RosterEvent =
   | { kind: "advanceRound" }
   | { kind: "addParticipant"; setup: AddParticipantSetup }
-  | { kind: "removeParticipant"; participantId: string }
-  | { kind: "setSide"; participantId: string; side: CombatSide }
+  | { kind: "removeParticipant"; participantId: ParticipantId }
+  | { kind: "setSide"; participantId: ParticipantId; side: CombatSide }
 
 /**
  * DM-override events (R7) — unconditional corrections to the turn-loop fields the
@@ -132,8 +133,8 @@ export type RosterEvent =
  * writes `round` with no clamp.
  */
 export type OverrideEvent =
-  | { kind: "setCurrentActor"; participantId: string }
-  | { kind: "setActed"; participantId: string; hasActed: boolean }
+  | { kind: "setCurrentActor"; participantId: ParticipantId }
+  | { kind: "setActed"; participantId: ParticipantId; hasActed: boolean }
   | { kind: "setRound"; round: number }
 
 /**
@@ -146,14 +147,14 @@ export type OverrideEvent =
 export type BattleConditionEvent =
   | {
       kind: "adjustBattleConditionAxis"
-      participantId: string
+      participantId: ParticipantId
       axis: BattleConditionAxisKey
       action: BattleConditionAxisAction
       turns?: number
     }
   | {
       kind: "setBattleConditionFlag"
-      participantId: string
+      participantId: ParticipantId
       flag: BattleConditionFlagKey
       value: boolean
     }
@@ -161,8 +162,8 @@ export type BattleConditionEvent =
 /** Ailment overlay events (R9) — `setAilment` adds a key idempotently;
  *  `clearAilment` removes one. Permissive; a no-op for an unknown id. */
 export type AilmentEvent =
-  | { kind: "setAilment"; participantId: string; ailment: AilmentKey }
-  | { kind: "clearAilment"; participantId: string; ailment: AilmentKey }
+  | { kind: "setAilment"; participantId: ParticipantId; ailment: AilmentKey }
+  | { kind: "clearAilment"; participantId: ParticipantId; ailment: AilmentKey }
 
 /**
  * Counter overlay events (R10) — `adjustCounter` nudges a named tally by a signed
@@ -172,11 +173,11 @@ export type AilmentEvent =
 export type CounterEvent =
   | {
       kind: "adjustCounter"
-      participantId: string
+      participantId: ParticipantId
       counter: CounterKey
       delta: number
     }
-  | { kind: "clearCounter"; participantId: string; counter: CounterKey }
+  | { kind: "clearCounter"; participantId: ParticipantId; counter: CounterKey }
 
 /** `adjustActionEconomy` (R11) nudges one per-turn action's consumption by a
  *  signed `delta` (floored at 0, unbounded above) — so a combatant can consume 2+
@@ -185,7 +186,7 @@ export type CounterEvent =
  *  no-op for an unknown id. */
 export type ActionEconomyEvent = {
   kind: "adjustActionEconomy"
-  participantId: string
+  participantId: ParticipantId
   action: ActionEconomyAction
   delta: number
 }
@@ -223,7 +224,7 @@ export type CombatEvent =
  */
 export type ComponentWriteEvent = {
   kind: "damageParticipant" | "healParticipant" | "setParticipantMax"
-  participantId: string
+  participantId: ParticipantId
   pool: VitalsPool
   amount: number
 }
@@ -260,7 +261,7 @@ const wireEntitySchema = z
   })
 
 const addParticipantSetupSchema = z.object({
-  id: z.string().optional(),
+  id: participantIdSchema.optional(),
   side: z.enum(COMBAT_SIDES),
   entity: wireEntitySchema,
 })
@@ -284,63 +285,72 @@ export const combatEventSchema = z.discriminatedUnion("kind", [
     advantage: z.enum(COMBAT_ADVANTAGES),
     firstSide: z.enum(COMBAT_SIDES),
   }),
-  z.object({ kind: z.literal("draftCombatant"), participantId: z.string() }),
+  z.object({
+    kind: z.literal("draftCombatant"),
+    participantId: participantIdSchema,
+  }),
   z.object({ kind: z.literal("endTurn") }),
   z.object({ kind: z.literal("advanceRound") }),
   z.object({
     kind: z.literal("addParticipant"),
     setup: addParticipantSetupSchema,
   }),
-  z.object({ kind: z.literal("removeParticipant"), participantId: z.string() }),
+  z.object({
+    kind: z.literal("removeParticipant"),
+    participantId: participantIdSchema,
+  }),
   z.object({
     kind: z.literal("setSide"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     side: z.enum(COMBAT_SIDES),
   }),
-  z.object({ kind: z.literal("setCurrentActor"), participantId: z.string() }),
+  z.object({
+    kind: z.literal("setCurrentActor"),
+    participantId: participantIdSchema,
+  }),
   z.object({
     kind: z.literal("setActed"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     hasActed: z.boolean(),
   }),
   z.object({ kind: z.literal("setRound"), round: z.number().int().positive() }),
   z.object({
     kind: z.literal("adjustBattleConditionAxis"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     axis: z.enum(BATTLE_CONDITION_AXIS_KEYS),
     action: z.enum(BATTLE_CONDITION_AXIS_ACTIONS),
     turns: z.number().int().positive().optional(),
   }),
   z.object({
     kind: z.literal("setBattleConditionFlag"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     flag: z.enum(BATTLE_CONDITION_FLAG_KEYS),
     value: z.boolean(),
   }),
   z.object({
     kind: z.literal("setAilment"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     ailment: z.enum(AILMENT_KEYS),
   }),
   z.object({
     kind: z.literal("clearAilment"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     ailment: z.enum(AILMENT_KEYS),
   }),
   z.object({
     kind: z.literal("adjustCounter"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     counter: z.enum(COUNTER_KEYS),
     delta: z.number().int(),
   }),
   z.object({
     kind: z.literal("clearCounter"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     counter: z.enum(COUNTER_KEYS),
   }),
   z.object({
     kind: z.literal("adjustActionEconomy"),
-    participantId: z.string(),
+    participantId: participantIdSchema,
     action: z.enum(ACTION_ECONOMY_ACTIONS),
     delta: z.number().int(),
   }),
@@ -397,7 +407,7 @@ const COMPONENT_TO_POOL = {
  * combatEventSchema} exclusion and the router's authoritative storage-home check.
  */
 export function toSessionEvent(intent: {
-  participantId: string
+  participantId: ParticipantId
   component: VitalsComponent
   op: VitalsOp
   amount: number

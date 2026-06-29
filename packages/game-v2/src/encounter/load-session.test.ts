@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
 
+import { asParticipantId } from "./ids"
 import { loadSession, saveSession, type DurableSource } from "./load-session"
 import type { StoredParticipant, StoredSession } from "./locator"
 import { defaultOverlay } from "./overlay"
@@ -30,9 +31,13 @@ const storedSession: StoredSession = {
   advantage: null,
   firstSide: null,
   participants: [
-    { id: "c-pc", locator: { storage: "durable", entityId: "pc-1" }, overlay },
     {
-      id: "c-goblin",
+      id: asParticipantId("c-pc"),
+      locator: { storage: "durable", entityId: "pc-1" },
+      overlay,
+    },
+    {
+      id: asParticipantId("c-goblin"),
       locator: {
         storage: "inline",
         entity: {
@@ -91,11 +96,11 @@ describe("loadSession — the out-of-band locator map", () => {
   it("keys locators by participant/roster id, preserving each home", () => {
     const loaded = loadSession(loadDurable)(storedSession)
     if (!loaded.ok) throw new Error("expected ok")
-    expect(loaded.value.locators.get("c-pc")).toEqual({
+    expect(loaded.value.locators.get(asParticipantId("c-pc"))).toEqual({
       storage: "durable",
       entityId: "pc-1",
     })
-    expect(loaded.value.locators.get("c-goblin")).toEqual({
+    expect(loaded.value.locators.get(asParticipantId("c-goblin"))).toEqual({
       storage: "inline",
       entity: {
         id: "goblin-1",
@@ -111,7 +116,7 @@ describe("loadSession — failure modes (no faked issues)", () => {
       ...storedSession,
       participants: [
         {
-          id: "c-x",
+          id: asParticipantId("c-x"),
           locator: { storage: "durable", entityId: "ghost" },
           overlay,
         },
@@ -130,7 +135,7 @@ describe("loadSession — failure modes (no faked issues)", () => {
       ...storedSession,
       participants: [
         {
-          id: "c-bad",
+          id: asParticipantId("c-bad"),
           locator: {
             storage: "inline",
             entity: { id: "e", components: { identity: { name: 42 } } },
@@ -149,7 +154,7 @@ describe("loadSession — failure modes (no faked issues)", () => {
 
   it("errors with an invalid-overlay issue for a malformed overlay blob", () => {
     const badOverlay: StoredParticipant = {
-      id: "c-ov",
+      id: asParticipantId("c-ov"),
       locator: { storage: "inline", entity: { id: "e", components: {} } },
       overlay: { allegiance: { side: "nope" } },
     }
@@ -167,12 +172,12 @@ describe("loadSession — failure modes (no faked issues)", () => {
       ...storedSession,
       participants: [
         {
-          id: "c-1",
+          id: asParticipantId("c-1"),
           locator: { storage: "durable", entityId: "ghost" },
           overlay,
         },
         {
-          id: "c-2",
+          id: asParticipantId("c-2"),
           locator: { storage: "durable", entityId: "ghost2" },
           overlay,
         },

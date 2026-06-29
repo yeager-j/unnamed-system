@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { asParticipantId } from "@workspace/game-v2/encounter/ids"
 import type { ReadBagComponents } from "@workspace/game-v2/encounter/read-bag"
 
 import {
@@ -21,7 +22,10 @@ const ENEMY_COMPONENTS: Partial<ReadBagComponents> = {
   vitals: { maxHP: 20, currentHP: 12 },
   skillPool: { maxSP: 8, currentSP: 4 },
   position: { zoneId: "z1" },
-  engagement: { status: "engaged", targetCombatantIds: ["p1"] },
+  engagement: {
+    status: "engaged",
+    targetCombatantIds: [asParticipantId("p1")],
+  },
   attributes: attributeScores({ strength: 14 }),
   affinities: affinityChart({ fire: "weak" }),
   skills: [],

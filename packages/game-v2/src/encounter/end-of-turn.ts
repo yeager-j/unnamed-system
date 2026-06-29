@@ -2,6 +2,7 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ActiveMechanic } from "@workspace/game-v2/mechanics/active-mechanic"
 import type { ResolvedVitals } from "@workspace/game-v2/vitals/resolved"
 
+import type { ParticipantId } from "./ids"
 import type { Participant } from "./session"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
@@ -157,7 +158,7 @@ export interface EndOfTurnDeps {
 export function endOfTurnObligations(deps: EndOfTurnDeps) {
   return (
     participants: readonly Participant[],
-    actorId: string
+    actorId: ParticipantId
   ): EndOfTurnObligations => {
     const actor = participants.find((participant) => participant.id === actorId)
     if (actor === undefined) {
