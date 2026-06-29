@@ -13,6 +13,7 @@ import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeCard } from "./archetype-card"
 import { ArchetypeDialog } from "./archetype-dialog"
+import { Sparkle } from "./celestial"
 
 /**
  * The Movement 1 Origin Archetype grid (UNN-215 / ADR-002 §"The Archetype
@@ -73,7 +74,8 @@ export function ArchetypeGrid() {
   return (
     <section className="flex flex-col gap-3">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="font-heading text-lg font-medium text-foreground">
+        <h2 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
+          <Sparkle className="size-3 text-gold/70" />
           Origin Archetype
         </h2>
         <p className="text-xs text-muted-foreground">

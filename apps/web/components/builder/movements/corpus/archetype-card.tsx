@@ -20,6 +20,8 @@ import {
   LINEAGE_LABELS,
 } from "@/lib/ui/labels"
 
+import { Sparkle } from "./celestial"
+
 /**
  * The compact face of an Origin Archetype in the Movement 1 grid (UNN-215 /
  * ADR-002 §"The Archetype grid"). Renders the at-a-glance summary:
@@ -53,14 +55,18 @@ export function ArchetypeCard({
       aria-haspopup="dialog"
       aria-label={`View ${LINEAGE_LABELS[archetype.lineage]} details`}
       className={cn(
-        "group/archetype-card flex h-full w-full flex-col items-stretch gap-3 border bg-background p-5 text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "group/archetype-card relative flex h-full w-full flex-col items-stretch gap-3 border bg-card p-5 text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring",
         selected
-          ? "border-primary/60 hover:border-primary"
-          : "border-border hover:border-foreground/40"
+          ? "border-gold after:pointer-events-none after:absolute after:inset-1 after:border after:border-gold/25"
+          : "border-border hover:border-primary/40"
       )}
     >
+      {selected ? (
+        <Sparkle className="pointer-events-none absolute right-3 bottom-3 size-4 text-gold/60" />
+      ) : null}
+
       <header className="flex items-start justify-between gap-2">
-        <h3 className="font-heading text-2xl leading-tight font-medium text-foreground">
+        <h3 className="font-heading text-2xl leading-tight font-semibold tracking-tight text-foreground">
           {archetype.name}
         </h3>
         {selected ? (

@@ -1,4 +1,9 @@
-import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google"
+import {
+  Bodoni_Moda,
+  Geist,
+  JetBrains_Mono,
+  Source_Serif_4,
+} from "next/font/google"
 
 import "@workspace/ui/globals.css"
 
@@ -26,6 +31,12 @@ const fontProse = Source_Serif_4({
   weight: ["400", "500", "600", "700"],
 })
 
+const fontDisplay = Bodoni_Moda({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
+})
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,6 +50,7 @@ export default function RootLayout({
         "antialiased",
         fontSans.variable,
         fontProse.variable,
+        fontDisplay.variable,
         jetbrainsMono.variable,
         "font-sans"
       )}
