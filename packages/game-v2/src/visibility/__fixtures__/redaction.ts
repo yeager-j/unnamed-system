@@ -3,9 +3,9 @@ import {
   type OverlayComponents,
 } from "@workspace/game-v2/encounter/overlay"
 import type {
-  ReadBag,
-  ReadBagComponents,
-} from "@workspace/game-v2/encounter/read-bag"
+  ParticipantView,
+  ParticipantViewComponents,
+} from "@workspace/game-v2/encounter/participant-view"
 import {
   DAMAGE_TYPES,
   type AffinityChart,
@@ -16,9 +16,9 @@ import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Viewer } from "../relationship"
 
 /**
- * Compact builders for the redaction tests. A {@link ReadBag} is `{ id,
+ * Compact builders for the redaction tests. A {@link ParticipantView} is `{ id,
  * components }` where the six overlay components are always present (the merged
- * bag, CD14); {@link makeReadBag} defaults them so a test states only the resolved
+ * view, CD14); {@link makeParticipantView} defaults them so a test states only the resolved
  * / instance read-units it cares about.
  */
 
@@ -40,16 +40,16 @@ export function affinityChart(
 }
 
 /**
- * A merged read-bag: the six overlay components defaulted from `side`, then the
+ * A merged participant-view: the six overlay components defaulted from `side`, then the
  * given resolved / instance read-units spread on top (a later `components`
  * override of an overlay key wins, e.g. to swap allegiance).
  */
-export function makeReadBag(opts: {
+export function makeParticipantView(opts: {
   id: string
   side?: CombatSide
-  components?: Partial<ReadBagComponents>
+  components?: Partial<ParticipantViewComponents>
   overlay?: Partial<OverlayComponents>
-}): ReadBag {
+}): ParticipantView {
   return {
     id: opts.id,
     components: {

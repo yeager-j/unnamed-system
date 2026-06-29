@@ -5,7 +5,7 @@ import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import { dm, player, spectator } from "./__fixtures__/redaction"
 import { relationship, type RelationshipSubject } from "./relationship"
 
-/** A subject carrying a side (the merged-bag allegiance), or none. */
+/** A subject carrying a side (the merged-view allegiance), or none. */
 function subject(side?: CombatSide, id = "e1"): RelationshipSubject {
   return { id, components: side ? { allegiance: { side } } : {} }
 }

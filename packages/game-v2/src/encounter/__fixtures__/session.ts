@@ -6,7 +6,16 @@ import type {
 
 import { asParticipantId } from "../ids"
 import { defaultOverlay, type OverlayComponents } from "../overlay"
+import { resolveSession, type ResolvedSession } from "../participant-view"
 import type { Participant, Session } from "../session"
+import type { SpatialReads } from "../spatial-reads"
+
+/** A mapless board — no zones, no enchantment — so `resolveSession` folds in no
+ *  zone effects and the views carry no instance keys (the turn-loop unit scenes). */
+const MAPLESS_SPATIAL: SpatialReads = {
+  zoneOf: () => undefined,
+  activeEnchantment: () => null,
+}
 
 /**
  * Test fixtures for the session reducer + slices — compact builders that assemble
@@ -94,17 +103,20 @@ export interface SceneSpec {
 }
 
 /**
- * Builds the participants + a stub `resolve` for the derived turn-loop reads
- * (UNN-518) in one step. The stub maps each participant's `entity.id` to the
- * controlled `resolved` components, so a test asserts the read logic against fixed
- * resolved numbers without running the real fold (the unit discipline the resolve
- * tests follow). A participant with no `resolved` spec resolves to an empty bag —
- * the "no read-units" / degenerate case (e.g. an entity carrying no Vitals
- * capability resolves no `vitals`).
+ * Builds the participants, a stub `resolve`, and the resolved `view` the turn-loop
+ * reads (UNN-518/525) consume — in one step. The stub maps each participant's
+ * `entity.id` to the controlled `resolved` components, so a test asserts the read
+ * logic against fixed resolved numbers without running the real fold (the unit
+ * discipline the resolve tests follow). The `view` is the real {@link resolveSession}
+ * over a mapless board, so a test exercises the actual boundary: each view is the
+ * spec's `resolved` read-units ∪ the participant's overlay. A participant with no
+ * `resolved` spec resolves to an empty bag — the "no read-units" / degenerate case
+ * (e.g. an entity carrying no Vitals capability resolves no `vitals`).
  */
 export function makeScene(specs: SceneSpec[]): {
   participants: Participant[]
   resolve: (entity: Entity) => ResolvedEntity
+  view: ResolvedSession
 } {
   const participants = specs.map((spec) =>
     participantWith({
@@ -120,11 +132,13 @@ export function makeScene(specs: SceneSpec[]): {
       specs[index]!.resolved ?? {},
     ])
   )
+  const resolve = (entity: Entity): ResolvedEntity => ({
+    id: entity.id,
+    components: componentsByEntityId.get(entity.id) ?? {},
+  })
   return {
     participants,
-    resolve: (entity) => ({
-      id: entity.id,
-      components: componentsByEntityId.get(entity.id) ?? {},
-    }),
+    resolve,
+    view: resolveSession(sessionOf(participants), MAPLESS_SPATIAL, resolve),
   }
 }

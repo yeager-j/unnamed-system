@@ -1,11 +1,10 @@
 import type { PartyComposition } from "@workspace/game-v2/combat/party"
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import {
   COMBAT_SIDES,
   type CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { Participant } from "./session"
+import type { ResolvedSession } from "./participant-view"
 
 /**
  * Derives the {@link PartyComposition} for one {@link CombatSide} from the live
@@ -23,15 +22,13 @@ import type { Participant } from "./session"
  * it currently fights for. The result is sparse, keyed over `LINEAGES`.
  */
 export function derivePartyComposition(
-  participants: readonly Participant[],
-  side: CombatSide,
-  resolve: (entity: Entity) => ResolvedEntity
+  view: ResolvedSession,
+  side: CombatSide
 ): PartyComposition {
   const composition: PartyComposition = {}
-  for (const participant of participants) {
-    if (participant.overlay.allegiance.side !== side) continue
-    const lineage = resolve(participant.entity).components.archetypes
-      ?.activeLineage
+  for (const participantView of view.values()) {
+    if (participantView.components.allegiance.side !== side) continue
+    const lineage = participantView.components.archetypes?.activeLineage
     if (!lineage) continue
     composition[lineage] = (composition[lineage] ?? 0) + 1
   }
@@ -44,13 +41,9 @@ export function derivePartyComposition(
  * the participant's own side rather than re-deriving per PC.
  */
 export function derivePartyCompositionBySide(
-  participants: readonly Participant[],
-  resolve: (entity: Entity) => ResolvedEntity
+  view: ResolvedSession
 ): Record<CombatSide, PartyComposition> {
   return Object.fromEntries(
-    COMBAT_SIDES.map((side) => [
-      side,
-      derivePartyComposition(participants, side, resolve),
-    ])
+    COMBAT_SIDES.map((side) => [side, derivePartyComposition(view, side)])
   ) as Record<CombatSide, PartyComposition>
 }

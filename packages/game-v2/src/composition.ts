@@ -17,13 +17,13 @@ import {
   endOfTurnObligations,
   fallenParticipantIds,
   participantDisplayNames,
+  resolveSession,
   type CombatEvent,
   type EncounterState,
-  type Participant,
-  type ParticipantId,
   type ParticipantSetup,
   type Session,
   type SessionEvent,
+  type SpatialReads,
 } from "@workspace/game-v2/encounter"
 import {
   applyInventoryMutation,
@@ -35,8 +35,6 @@ import {
 } from "@workspace/game-v2/items"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
-import { getActiveMechanics } from "@workspace/game-v2/mechanics/active-mechanic"
 import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 
 /**
@@ -52,11 +50,9 @@ import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
  */
 export function createGameEngine(deps: GameData = gameData) {
   // The pure base fold + the app-facing mechanic-aware resolve, hoisted so the
-  // turn-loop reads below bind the same instance. `activeMechanics` is the
-  // capability walk the Frenzy reminder consults (bound from the same catalog).
+  // resolved-encounter view below binds the same instance.
   const resolve = createResolve(deps)
   const resolveEntity = createResolveEntity(deps)
-  const activeMechanics = (entity: Entity) => getActiveMechanics(deps, entity)
 
   return {
     // The pure base fold (golden-master + pure-fold tests bind this directly).
@@ -97,30 +93,21 @@ export function createGameEngine(deps: GameData = gameData) {
       event: CombatEvent,
       newId: () => string
     ) => createReduceEncounter(newId)(state, event),
-    // Turn loop (UNN-518): the derived reads + display-only end-of-turn producers,
-    // each folding uniformly over the mechanic-aware `resolveEntity` (zero `kind`
-    // branch) so app code passes only the roster. The pure session selectors
-    // (pendingParticipants / nextDraftingSide / eligibleParticipants /
-    // actionAvailability) take no resolve and are imported from the encounter
-    // barrel directly.
-    compareInitiative: (participants: Participant[]) =>
-      compareInitiative(participants, resolveEntity),
-    fallenParticipantIds: (participants: Participant[]) =>
-      fallenParticipantIds(participants, resolveEntity),
-    derivePartyComposition: (participants: Participant[], side: CombatSide) =>
-      derivePartyComposition(participants, side, resolveEntity),
-    derivePartyCompositionBySide: (participants: Participant[]) =>
-      derivePartyCompositionBySide(participants, resolveEntity),
-    participantDisplayNames: (participants: Participant[]) =>
-      participantDisplayNames(participants, resolveEntity),
-    endOfTurnObligations: (
-      participants: Participant[],
-      actorId: ParticipantId
-    ) =>
-      endOfTurnObligations({ resolve: resolveEntity, activeMechanics })(
-        participants,
-        actorId
-      ),
+    // Resolved-encounter view (UNN-525): resolve every participant exactly once,
+    // with its zone-enchantment context, into the single view the turn-loop reads +
+    // the snapshot fold over (≈5N+1 per-render resolves → N).
+    resolveSession: (session: Session, spatial: SpatialReads) =>
+      resolveSession(session, spatial, resolveEntity),
+    // Turn loop (UNN-518): pure functions of the resolved view — no `resolve`
+    // partial-application (UNN-525), so they're re-exposed as-is. The pure session
+    // selectors (pendingParticipants / nextDraftingSide / eligibleParticipants /
+    // actionAvailability) take no view and are imported from the encounter barrel.
+    compareInitiative,
+    fallenParticipantIds,
+    derivePartyComposition,
+    derivePartyCompositionBySide,
+    participantDisplayNames,
+    endOfTurnObligations,
     // Archetypes (PR6 — UNN-504): the Atlas, archetype display/preview, and the
     // switcher, bound to the catalog. The display/atlas functions read the archetype
     // roster off the ResolvedEntity (the resolved Archetypes read-unit); the caller

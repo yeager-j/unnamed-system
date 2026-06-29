@@ -25,7 +25,7 @@ export type Relationship = "own" | "ally" | "opponent" | "spectator" | "dm"
  * - a player ⇒ their combat `side` + the entity ids they control,
  * - the DM ⇒ `{ isDm: true, … }`.
  *
- * `ownedEntityIds` is keyed on the **entity** id (`bag.id` — the ownership
+ * `ownedEntityIds` is keyed on the **entity** id (`entity.id` — the ownership
  * capability), so control is decoupled from which **side** an entity fights for
  * and from a participant's **roster** id (the snapshot output key). A viewer owns
  * characters/entities, not roster slots.
@@ -45,8 +45,8 @@ export interface Viewer {
 
 /**
  * The minimal entity surface {@link relationship} reads: its `id` (for ownership)
- * and its (merged-bag) `allegiance` (for ally/opponent). A full {@link
- * import("@workspace/game-v2/encounter/read-bag").ReadBag} satisfies it, and a
+ * and its (merged-view) `allegiance` (for ally/opponent). A full {@link
+ * import("@workspace/game-v2/encounter/participant-view").ParticipantView} satisfies it, and a
  * test can pass a bare `{ id, components: { allegiance } }`.
  */
 export interface RelationshipSubject {

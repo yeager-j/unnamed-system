@@ -7,11 +7,11 @@ import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import type { ParticipantId } from "./ids"
 import type { EncounterInstanceComponents } from "./instance"
 import type { OverlayComponents } from "./overlay"
-import type { Participant } from "./session"
+import type { Participant, Session } from "./session"
 import type { SpatialReads } from "./spatial-reads"
 
 /**
- * The **merged read-bag** the loader assembles for a participant (CD14) — the read
+ * The **merged participant-view** the loader assembles for a participant (CD14) — the read
  * surface redaction (UNN-519), the turn loop, and the cast preview fold over. It
  * unions the three physical homes: the **resolved** durable read-units, the **raw**
  * overlay components (always present), and the **raw** instance components (Position
@@ -19,15 +19,27 @@ import type { SpatialReads } from "./spatial-reads"
  * disjoint ({@link import("./disjointness")}), so the union is a clean,
  * collision-free record — no key shadows another.
  */
-export type ReadBagComponents = Partial<ResolvedComponentRegistry> &
+export type ParticipantViewComponents = Partial<ResolvedComponentRegistry> &
   OverlayComponents &
   Partial<EncounterInstanceComponents>
 
-/** A participant's assembled read surface: its id + the three-home merged bag. */
-export interface ReadBag {
+/** A participant's assembled read surface: its id + the three-home merged components. */
+export interface ParticipantView {
   id: string
-  components: ReadBagComponents
+  components: ParticipantViewComponents
 }
+
+/**
+ * The **resolved-encounter view** {@link resolveSession} produces (UNN-525): every
+ * participant's assembled {@link ParticipantView}, keyed by **roster (participant) id**, in
+ * `session.participants` order. The single resolved view the whole read model folds
+ * over — the turn-loop reads (initiative / fallen / party-composition / display
+ * names / end-of-turn) and {@link
+ * import("@workspace/game-v2/visibility/snapshot").projectEncounterSnapshot} all
+ * consume *this*, never an injected `resolve`. A read that holds no resolve fn can't
+ * re-resolve, so the per-participant resolve happens exactly once.
+ */
+export type ResolvedSession = ReadonlyMap<ParticipantId, ParticipantView>
 
 /** A resolve function (the mechanic-aware `resolveEntity` from the composition root). */
 type ResolveEntity = (
@@ -70,7 +82,7 @@ export function resolveParticipant(
 }
 
 /**
- * Assembles the three-home merged {@link ReadBag} (CD14): the **resolved** durable
+ * Assembles the three-home merged {@link ParticipantView} (CD14): the **resolved** durable
  * read-units, then the **raw** overlay components, then the **raw** instance
  * components — each home injected by a structural merge **after** `resolve` has run,
  * never as a fold input (instance state contributes no stat math, and resolve must
@@ -78,13 +90,46 @@ export function resolveParticipant(
  * than overwrite. `instance` defaults to absent — a mapless participant carries no
  * Position/Engagement, so `engagedWith` is structurally `[]` downstream.
  */
-export function assembleReadBag(
+export function assembleParticipantView(
   resolved: ResolvedEntity,
   overlay: OverlayComponents,
   instance: Partial<EncounterInstanceComponents> = {}
-): ReadBag {
+): ParticipantView {
   return {
     id: resolved.id,
     components: { ...resolved.components, ...overlay, ...instance },
   }
+}
+
+/**
+ * The **resolved-encounter-view boundary** (UNN-525): resolve every participant
+ * **exactly once, with its zone-enchantment context** ({@link resolveParticipant}),
+ * and assemble its three-home {@link ParticipantView} ({@link assembleParticipantView}) — the single
+ * {@link ResolvedSession} the turn-loop reads and the snapshot all fold over. This
+ * collapses the prior ≈5N+1 per-render `resolveEntity` calls (each read re-resolving
+ * every participant) to **N**, and resolves *with* zone context uniformly — so a
+ * zone effect that folds into a stat shows identically in initiative and the snapshot
+ * (it can't drift, as it once could when the reads resolved context-blind).
+ *
+ * Built in `session.participants` order; the returned Map preserves it (the
+ * `participantDisplayNames` ordinal numbering depends on it). **Mapless** for now:
+ * the {@link SpatialReads} port carries only the zone-enchantment reads, not the
+ * Position/Engagement instance components, so the views carry no instance keys
+ * (`engagedWith` is structurally `[]`). The spatial occupancy projection that fills
+ * `assembleParticipantView`'s third argument lands with the spatial combat console.
+ */
+export function resolveSession(
+  session: Session,
+  spatial: SpatialReads,
+  resolveEntity: ResolveEntity
+): ResolvedSession {
+  const view = new Map<ParticipantId, ParticipantView>()
+  for (const participant of session.participants) {
+    const resolved = resolveParticipant(resolveEntity, spatial, participant)
+    view.set(
+      participant.id,
+      assembleParticipantView(resolved, participant.overlay)
+    )
+  }
+  return view
 }

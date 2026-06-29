@@ -17,7 +17,7 @@ import { participantIdSchema } from "./ids"
  * `ComponentRegistry` — that registry would force a durable load-seam entry and
  * couple an exploration-shared concern to the durable schema. The loader (UNN-516)
  * projects the occupancy token into these components and injects them into a
- * participant's merged read-bag **after** `resolve` runs (never fold inputs).
+ * participant's merged participant-view **after** `resolve` runs (never fold inputs).
  *
  * This ticket ships only the **read shapes**; the spatial write reducer that
  * mutates them stays deferred to the spatial ADR.

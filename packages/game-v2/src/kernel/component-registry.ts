@@ -11,6 +11,7 @@ import type {
   AttributeScores,
 } from "@workspace/game-v2/kernel/vocab"
 import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
+import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Path } from "@workspace/game-v2/progression/path.schema"
@@ -129,4 +130,10 @@ export interface ResolvedComponentRegistry {
   // equipment/passives later) that have no in-fold consumer — folded by the PR7
   // attack-roll/damage resolvers against an attack context (PR4 — UNN-502).
   pendingEffects: ResolvedPendingEffects
+  // The entity's active mechanic(s), surfaced by `resolveEntity` (which already
+  // computes them for the form-swap + effects fold) so resolved-view consumers (the
+  // end-of-turn Frenzy reminder; PR7 resolvers) read them off the view rather than
+  // re-walking the authored `Mechanics` component. Emitted only when ≥1 is active;
+  // DM-side only (dropped from every watcher, like `pendingEffects`) — UNN-525.
+  activeMechanics: ResolvedActiveMechanic[]
 }

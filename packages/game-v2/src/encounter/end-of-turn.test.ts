@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest"
 
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import { getActiveMechanics } from "@workspace/game-v2/mechanics/active-mechanic"
+import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 
-import {
-  makeScene,
-  participantWith,
-  type SceneSpec,
-} from "./__fixtures__/session"
+import { makeScene, type SceneSpec } from "./__fixtures__/session"
 import {
   ailmentHpDelta,
   endOfTurnObligations,
@@ -15,30 +10,45 @@ import {
   type EndOfTurnObligations,
 } from "./end-of-turn"
 import { asParticipantId } from "./ids"
-import { DEFAULT_BATTLE_CONDITIONS } from "./overlay"
+import { DEFAULT_BATTLE_CONDITIONS, type OverlayComponents } from "./overlay"
+import type { ParticipantView } from "./participant-view"
 
 /** Resolved Vitals read-unit. */
 function vit(currentHP: number, maxHP: number): ResolvedEntity["components"] {
   return { vitals: { maxHP, currentHP } }
 }
 
-/** Runs the obligations producer over a fixture scene, with the real
- *  `getActiveMechanics` (capability gate) bound over a trivial archetype lookup. */
+/** Resolved active-mechanic read-unit for a Berserker in (or out of) Frenzy Mode —
+ *  the shape `resolveEntity` now surfaces (the capability gate runs there, UNN-525). */
+function activeFrenzy(
+  pain: number,
+  frenzyMode: boolean
+): ResolvedEntity["components"] {
+  return {
+    activeMechanics: [
+      { kind: "frenzy", state: { kind: "frenzy", pain, frenzyMode } },
+    ],
+  }
+}
+
+/** The single participant-view of a one-participant scene carrying the given overlay. */
+function participantViewFor(
+  overlay?: Partial<OverlayComponents>
+): ParticipantView {
+  return [...makeScene([{ id: "p", overlay }]).view.values()][0]!
+}
+
+/** Runs the obligations producer over a fixture scene's resolved view. */
 function obligationsFor(
   specs: SceneSpec[],
   actorId: string
 ): EndOfTurnObligations {
-  const { participants, resolve } = makeScene(specs)
-  return endOfTurnObligations({
-    resolve,
-    activeMechanics: (entity: Entity) =>
-      getActiveMechanics({ getArchetype: () => undefined }, entity),
-  })(participants, asParticipantId(actorId))
+  return endOfTurnObligations(makeScene(specs).view, asParticipantId(actorId))
 }
 
 describe("endOfTurnReminders (R14.1 — held flags + active durations)", () => {
   it("returns both empty for a clean participant", () => {
-    expect(endOfTurnReminders(participantWith({ id: "p" }))).toEqual({
+    expect(endOfTurnReminders(participantViewFor())).toEqual({
       heldFlags: [],
       activeDurations: [],
     })
@@ -46,14 +56,11 @@ describe("endOfTurnReminders (R14.1 — held flags + active durations)", () => {
 
   it("lists held flags in canonical order, only the ones set", () => {
     const reminders = endOfTurnReminders(
-      participantWith({
-        id: "p",
-        overlay: {
-          battleConditions: {
-            ...DEFAULT_BATTLE_CONDITIONS,
-            charged: true,
-            concentrating: true,
-          },
+      participantViewFor({
+        battleConditions: {
+          ...DEFAULT_BATTLE_CONDITIONS,
+          charged: true,
+          concentrating: true,
         },
       })
     )
@@ -62,10 +69,7 @@ describe("endOfTurnReminders (R14.1 — held flags + active durations)", () => {
 
   it("lists active durations in canonical axis order, skipping absent axes", () => {
     const reminders = endOfTurnReminders(
-      participantWith({
-        id: "p",
-        overlay: { conditionDurations: { hitEvasion: 1, attack: 2 } },
-      })
+      participantViewFor({ conditionDurations: { hitEvasion: 1, attack: 2 } })
     )
     expect(reminders.activeDurations).toEqual([
       { axis: "attack", turns: 2 },
@@ -191,16 +195,7 @@ describe("endOfTurnObligations — ailment HP intents (R14.4 / CD9 SUPERSEDE)", 
 describe("endOfTurnObligations — frenzy reminder (R14.5 / CD9 — capability, not kind)", () => {
   it("reports pain-before-decrement when the active mechanic is Frenzy in Frenzy Mode", () => {
     const result = obligationsFor(
-      [
-        {
-          id: "actor",
-          components: {
-            mechanics: {
-              states: { frenzy: { kind: "frenzy", pain: 3, frenzyMode: true } },
-            },
-          },
-        },
-      ],
+      [{ id: "actor", resolved: activeFrenzy(3, true) }],
       "actor"
     )
     expect(result.frenzy).toEqual({ pain: 3 })
@@ -208,18 +203,7 @@ describe("endOfTurnObligations — frenzy reminder (R14.5 / CD9 — capability, 
 
   it("is null when the Berserker is not in Frenzy Mode", () => {
     const result = obligationsFor(
-      [
-        {
-          id: "actor",
-          components: {
-            mechanics: {
-              states: {
-                frenzy: { kind: "frenzy", pain: 3, frenzyMode: false },
-              },
-            },
-          },
-        },
-      ],
+      [{ id: "actor", resolved: activeFrenzy(3, false) }],
       "actor"
     )
     expect(result.frenzy).toBeNull()

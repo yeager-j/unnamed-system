@@ -7,7 +7,7 @@ import { INSTANCE_KEYS, type EncounterInstanceComponents } from "./instance"
 import { OVERLAY_KEYS, type OverlayComponents } from "./overlay"
 
 /**
- * **Build-time structural safety for the three-home read-bag (CD14).** The loader
+ * **Build-time structural safety for the three-home participant-view (CD14).** The loader
  * (UNN-516) assembles each participant's read surface by merging keys from three
  * physically separate homes — the durable {@link ComponentRegistry} (entity row),
  * the {@link OverlayComponents} (session blob), and the {@link EncounterInstanceComponents}
@@ -43,8 +43,8 @@ type _OverlayDisjointFromInstance = AssertEmpty<
   Extract<keyof OverlayComponents, keyof EncounterInstanceComponents>
 >
 
-// --- Disjointness from the *resolved* registry (read-bag merge safety) ---------
-// The read-bag (read-bag.ts) merges overlay + instance over the *resolved* keys
+// --- Disjointness from the *resolved* registry (participant-view merge safety) ---------
+// The participant-view (participant-view.ts) merges overlay + instance over the *resolved* keys
 // (`pendingEffects` etc., not in the authored ComponentRegistry); these prove the
 // later spreads add keys rather than shadow a resolved read-unit.
 

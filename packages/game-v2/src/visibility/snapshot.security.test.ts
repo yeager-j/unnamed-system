@@ -5,14 +5,14 @@ import {
   sessionOf,
 } from "@workspace/game-v2/encounter/__fixtures__/session"
 import { asParticipantId } from "@workspace/game-v2/encounter/ids"
-import type { ReadBag } from "@workspace/game-v2/encounter/read-bag"
+import type { ParticipantView } from "@workspace/game-v2/encounter/participant-view"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
 import {
   affinityChart,
   attributeScores,
   dm,
-  makeReadBag,
+  makeParticipantView,
   player,
   spectator,
 } from "./__fixtures__/redaction"
@@ -29,7 +29,7 @@ import {
  * wire for any viewer who is not own/ally/dm, while observable state (`portraitUrl`)
  * must survive for everyone. Seeds are deliberately populated WITH the stats so the
  * tests prove they are *dropped*, not merely never set, and use **realistic ids**:
- * the bag carries an ENTITY id distinct from the participant/roster id, ownership
+ * the participantView carries an ENTITY id distinct from the participant/roster id, ownership
  * keys on the ENTITY id, and `combatants[].id` is the roster id. Folds the real
  * `projectEncounterSnapshot` end to end (not just `visibleEntity`).
  */
@@ -48,26 +48,26 @@ const PC_PORTRAIT = "https://img/iris.png"
 
 /**
  * Projects a one-combatant encounter and returns that combatant. `participantId`
- * (roster) is intentionally distinct from `bag.id` (entity) so ownership-by-entity
+ * (roster) is intentionally distinct from `participantView.id` (entity) so ownership-by-entity
  * and roster-keyed output are both exercised honestly.
  */
 function redact(
   participantId: string,
-  bag: ReadBag,
+  participantView: ParticipantView,
   side: CombatSide,
   viewer: Viewer
 ): VisibleCombatant {
   const session = sessionOf([participantWith({ id: participantId, side })])
   const snapshot = projectEncounterSnapshot(
     session,
-    new Map([[asParticipantId(participantId), bag]]),
+    new Map([[asParticipantId(participantId), participantView]]),
     viewer,
     META
   )
   return snapshot.combatants[0]!
 }
 
-const enemyBag = makeReadBag({
+const enemyView = makeParticipantView({
   id: ENEMY_ENTITY_ID,
   side: "enemies",
   components: {
@@ -80,7 +80,7 @@ const enemyBag = makeReadBag({
 })
 
 const redactEnemy = (viewer: Viewer) =>
-  redact("e1", enemyBag, "enemies", viewer)
+  redact("e1", enemyView, "enemies", viewer)
 
 describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", () => {
   it("combatants[].id is the roster id (e1), never the entity id (goblin-entity)", () => {
@@ -99,8 +99,8 @@ describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", ()
     expect("attributes" in c).toBe(visible)
     expect("affinities" in c).toBe(visible)
     if (visible) {
-      expect(c.attributes).toEqual(enemyBag.components.attributes)
-      expect(c.affinities).toEqual(enemyBag.components.affinities)
+      expect(c.attributes).toEqual(enemyView.components.attributes)
+      expect(c.affinities).toEqual(enemyView.components.affinities)
     }
   })
 
@@ -129,7 +129,7 @@ describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", ()
 describe("RELEASE GATE — charmed PC: ownership (capability), not kind (CD11)", () => {
   // A PC fighting on the `enemies` side — the exact case v1's kind-keyed redaction
   // could not express. Roster id "pc1"; entity id distinct; seeded with stats + art.
-  const charmedPc = makeReadBag({
+  const charmedPc = makeParticipantView({
     id: PC_ENTITY_ID,
     side: "enemies",
     components: {
