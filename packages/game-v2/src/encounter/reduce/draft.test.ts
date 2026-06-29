@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { reduceDraft } from "./draft"
 
 const draft = (participantId: string) =>
-  ({ kind: "draftCombatant", participantId }) as const
+  ({
+    kind: "draftCombatant",
+    participantId: asParticipantId(participantId),
+  }) as const
 
 describe("reduceDraft (R4)", () => {
   it("sets the actor, resets consumption to zero, clears Downed but keeps other ailments (R4.1)", () => {

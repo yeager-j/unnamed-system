@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import type { BattleConditionEvent } from "../session-event"
 import { reduceBattleCondition } from "./conditions"
 
@@ -10,7 +11,7 @@ const axis = (
   turns?: number
 ): BattleConditionEvent => ({
   kind: "adjustBattleConditionAxis",
-  participantId,
+  participantId: asParticipantId(participantId),
   axis: "attack",
   action,
   ...(turns !== undefined && { turns }),
@@ -101,7 +102,7 @@ describe("reduceBattleCondition — flag (R8.5) + unknown id (R8.6)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const next = reduceBattleCondition(session, {
       kind: "setBattleConditionFlag",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       flag: "charged",
       value: true,
     })

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { reduceActionEconomy } from "./action-economy"
 
 describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
@@ -8,7 +9,7 @@ describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const next = reduceActionEconomy(session, {
       kind: "adjustActionEconomy",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       action: "standard",
       delta: 1,
     })
@@ -31,7 +32,7 @@ describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
     ])
     const next = reduceActionEconomy(session, {
       kind: "adjustActionEconomy",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       action: "standard",
       delta: -1,
     })
@@ -42,13 +43,13 @@ describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const once = reduceActionEconomy(session, {
       kind: "adjustActionEconomy",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       action: "move",
       delta: 1,
     })
     const twice = reduceActionEconomy(once, {
       kind: "adjustActionEconomy",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       action: "move",
       delta: 1,
     })
@@ -60,7 +61,7 @@ describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
     expect(
       reduceActionEconomy(session, {
         kind: "adjustActionEconomy",
-        participantId: "p1",
+        participantId: asParticipantId("p1"),
         action: "reaction",
         delta: -1,
       })
@@ -72,7 +73,7 @@ describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {
     expect(
       reduceActionEconomy(session, {
         kind: "adjustActionEconomy",
-        participantId: "ghost",
+        participantId: asParticipantId("ghost"),
         action: "reaction",
         delta: 1,
       })

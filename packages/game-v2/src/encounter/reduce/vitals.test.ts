@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import type { ComponentWriteEvent } from "../session-event"
 import { reduceVitals } from "./vitals"
 
@@ -9,7 +10,12 @@ const vit = (
   pool: ComponentWriteEvent["pool"],
   amount: number,
   participantId = "p1"
-): ComponentWriteEvent => ({ kind, participantId, pool, amount })
+): ComponentWriteEvent => ({
+  kind,
+  participantId: asParticipantId(participantId),
+  pool,
+  amount,
+})
 
 const hpParticipant = (damage = 0) =>
   participantWith({ id: "p1", components: { vitals: { base: 20, damage } } })

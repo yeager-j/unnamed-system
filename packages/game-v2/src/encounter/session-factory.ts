@@ -2,6 +2,7 @@ import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
+import { asParticipantId, type ParticipantId } from "./ids"
 import { makeParticipant, type Session } from "./session"
 
 /**
@@ -29,7 +30,7 @@ export type ParticipantSource = { entity: Entity } | { catalog: string }
  * for a mid-round joiner queued for the next round).
  */
 export interface ParticipantSetup {
-  id?: string
+  id?: ParticipantId
   side: CombatSide
   hasActed?: boolean
   source: ParticipantSource
@@ -93,7 +94,7 @@ export function createSessionFactory(
     advantage: null,
     firstSide: null,
     participants: setup.map((entry) => {
-      const id = entry.id ?? newId()
+      const id = entry.id ?? asParticipantId(newId())
       const entity =
         "catalog" in entry.source
           ? instantiateInlineEntity(deps.getEnemy(entry.source.catalog), id)

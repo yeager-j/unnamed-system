@@ -3,6 +3,8 @@ import type {
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
+import type { ParticipantId } from "./ids"
+
 /**
  * The **persisted** combat shapes (ADR §2.1; CD3) — the on-the-wire contract the
  * loader (UNN-516) consumes and the saver produces. They are deliberately distinct
@@ -50,7 +52,7 @@ export type StoredEntityLocator =
  * import("./overlay").overlayComponentsSchema}).
  */
 export interface StoredParticipant {
-  id: string
+  id: ParticipantId
   locator: StoredEntityLocator
   overlay: unknown
 }
@@ -64,7 +66,7 @@ export interface StoredParticipant {
  */
 export interface StoredSession {
   round: number
-  currentActorId: string | null
+  currentActorId: ParticipantId | null
   advantage: CombatAdvantage | null
   firstSide: CombatSide | null
   mapInstanceId?: string

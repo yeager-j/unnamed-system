@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 
 import { makeScene, sessionOf, type SceneSpec } from "./__fixtures__/session"
+import { asParticipantId } from "./ids"
 import { DEFAULT_TURN_STATE, type OverlayComponents } from "./overlay"
 import {
   actionAvailability,
@@ -41,7 +42,7 @@ describe("pendingParticipants (R6 / CD10 — derived acted-flag)", () => {
       { id: "b", side: "players", overlay: acted() },
       { id: "c", side: "enemies" },
     ])
-    const fallen = new Set(["c"])
+    const fallen = new Set([asParticipantId("c")])
     expect(pendingParticipants(session, fallen).map((p) => p.id)).toEqual(["a"])
   })
 })

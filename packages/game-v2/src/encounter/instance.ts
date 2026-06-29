@@ -1,5 +1,7 @@
 import { z } from "zod/v4"
 
+import { participantIdSchema } from "./ids"
+
 /**
  * The two **instance-lifecycle** components (CD13; parent D28), pulled forward
  * from the deferred spatial layer because combat reads them. They carry a **third
@@ -42,7 +44,7 @@ export const engagementSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("free") }),
   z.object({
     status: z.literal("engaged"),
-    targetCombatantIds: z.array(z.string()).min(1),
+    targetCombatantIds: z.array(participantIdSchema).min(1),
   }),
 ])
 

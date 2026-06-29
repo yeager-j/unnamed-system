@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { reduceAilment } from "./ailments"
 
 describe("reduceAilment (R9)", () => {
@@ -10,7 +11,7 @@ describe("reduceAilment (R9)", () => {
     ])
     const once = reduceAilment(session, {
       kind: "setAilment",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       ailment: "freeze",
     })
     expect(once.participants[0]!.overlay.ailments).toEqual(["burn", "freeze"])
@@ -18,7 +19,7 @@ describe("reduceAilment (R9)", () => {
     // Idempotent: re-adding an existing key returns the original session (same-ref).
     const again = reduceAilment(once, {
       kind: "setAilment",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       ailment: "freeze",
     })
     expect(again).toBe(once)
@@ -30,14 +31,14 @@ describe("reduceAilment (R9)", () => {
     ])
     const next = reduceAilment(session, {
       kind: "clearAilment",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       ailment: "burn",
     })
     expect(next.participants[0]!.overlay.ailments).toEqual(["freeze"])
 
     const absent = reduceAilment(next, {
       kind: "clearAilment",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       ailment: "shock",
     })
     expect(absent.participants[0]!.overlay.ailments).toEqual(["freeze"])
@@ -48,7 +49,7 @@ describe("reduceAilment (R9)", () => {
     expect(
       reduceAilment(session, {
         kind: "setAilment",
-        participantId: "ghost",
+        participantId: asParticipantId("ghost"),
         ailment: "burn",
       })
     ).toBe(session)
@@ -59,7 +60,7 @@ describe("reduceAilment (R9)", () => {
     expect(() =>
       reduceAilment(session, {
         kind: "setAilment",
-        participantId: "p1",
+        participantId: asParticipantId("p1"),
         ailment: "burn",
       })
     ).not.toThrow()

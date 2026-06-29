@@ -20,6 +20,7 @@ import {
   type CombatEvent,
   type EncounterState,
   type Participant,
+  type ParticipantId,
   type ParticipantSetup,
   type Session,
   type SessionEvent,
@@ -112,7 +113,10 @@ export function createGameEngine(deps: GameData = gameData) {
       derivePartyCompositionBySide(participants, resolveEntity),
     participantDisplayNames: (participants: Participant[]) =>
       participantDisplayNames(participants, resolveEntity),
-    endOfTurnObligations: (participants: Participant[], actorId: string) =>
+    endOfTurnObligations: (
+      participants: Participant[],
+      actorId: ParticipantId
+    ) =>
       endOfTurnObligations({ resolve: resolveEntity, activeMechanics })(
         participants,
         actorId

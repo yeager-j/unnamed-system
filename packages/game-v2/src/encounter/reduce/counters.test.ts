@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import { reduceCounter } from "./counters"
 
 describe("reduceCounter (R10)", () => {
@@ -8,14 +9,14 @@ describe("reduceCounter (R10)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const up = reduceCounter(session, {
       kind: "adjustCounter",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       counter: "lumina",
       delta: 2,
     })
     expect(up.participants[0]!.overlay.counters.lumina).toBe(2)
     const more = reduceCounter(up, {
       kind: "adjustCounter",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       counter: "lumina",
       delta: 1,
     })
@@ -28,7 +29,7 @@ describe("reduceCounter (R10)", () => {
     ])
     const next = reduceCounter(session, {
       kind: "adjustCounter",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       counter: "lumina",
       delta: -5,
     })
@@ -44,7 +45,7 @@ describe("reduceCounter (R10)", () => {
     ])
     const next = reduceCounter(session, {
       kind: "clearCounter",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       counter: "lumina",
     })
     expect(next.participants[0]!.overlay.counters).toEqual({ tells: 1 })
@@ -55,7 +56,7 @@ describe("reduceCounter (R10)", () => {
     expect(
       reduceCounter(session, {
         kind: "adjustCounter",
-        participantId: "ghost",
+        participantId: asParticipantId("ghost"),
         counter: "lumina",
         delta: 1,
       })

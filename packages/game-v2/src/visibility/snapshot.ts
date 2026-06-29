@@ -1,3 +1,4 @@
+import type { ParticipantId } from "@workspace/game-v2/encounter/ids"
 import type {
   ReadBag,
   ReadBagComponents,
@@ -22,7 +23,7 @@ import { visibleEntity } from "./visible-entity"
  * viewer owns characters/entities, not roster slots.
  */
 export interface VisibleCombatant {
-  id: string
+  id: ParticipantId
   components: Partial<ReadBagComponents>
 }
 
@@ -33,7 +34,7 @@ export interface VisibleCombatant {
  * VisibleCombatant.id}).
  */
 export interface CurrentActorView {
-  id: string
+  id: ParticipantId
   name: string
   side: CombatSide
 }
@@ -90,7 +91,7 @@ export interface EncounterSnapshot extends EncounterSnapshotMeta {
  */
 export function projectEncounterSnapshot(
   session: Session,
-  readBags: ReadonlyMap<string, ReadBag>,
+  readBags: ReadonlyMap<ParticipantId, ReadBag>,
   viewer: Viewer,
   meta: EncounterSnapshotMeta
 ): EncounterSnapshot {
@@ -125,7 +126,7 @@ export function projectEncounterSnapshot(
  */
 function currentActorView(
   session: Session,
-  readBags: ReadonlyMap<string, ReadBag>
+  readBags: ReadonlyMap<ParticipantId, ReadBag>
 ): CurrentActorView | null {
   const { currentActorId } = session
   if (currentActorId === null) return null

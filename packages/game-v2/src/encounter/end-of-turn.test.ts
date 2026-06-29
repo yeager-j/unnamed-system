@@ -14,6 +14,7 @@ import {
   endOfTurnReminders,
   type EndOfTurnObligations,
 } from "./end-of-turn"
+import { asParticipantId } from "./ids"
 import { DEFAULT_BATTLE_CONDITIONS } from "./overlay"
 
 /** Resolved Vitals read-unit. */
@@ -32,7 +33,7 @@ function obligationsFor(
     resolve,
     activeMechanics: (entity: Entity) =>
       getActiveMechanics({ getArchetype: () => undefined }, entity),
-  })(participants, actorId)
+  })(participants, asParticipantId(actorId))
 }
 
 describe("endOfTurnReminders (R14.1 — held flags + active durations)", () => {

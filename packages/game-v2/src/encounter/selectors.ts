@@ -1,13 +1,14 @@
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
+import type { ParticipantId } from "./ids"
 import type { TurnState } from "./overlay"
 import type { Participant, Session } from "./session"
 
 /**
  * Pure read-only views over a {@link Session} — derived state the reducer never
  * stores (CD9/CD10). The drafting selectors take `fallenIds` as an injected
- * `Set<string>` (computed once by {@link
+ * `Set<ParticipantId>` (computed once by {@link
  * import("./fallen").fallenParticipantIds}) so the trio that call each other share
  * one Fallen computation rather than re-resolving per selector.
  *
@@ -34,7 +35,7 @@ function hasActed(participant: Participant): boolean {
  */
 export function pendingParticipants(
   session: Session,
-  fallenIds: Set<string>
+  fallenIds: Set<ParticipantId>
 ): Participant[] {
   return session.participants.filter(
     (participant) => !hasActed(participant) && !fallenIds.has(participant.id)
@@ -55,7 +56,7 @@ export function pendingParticipants(
  */
 export function nextDraftingSide(
   session: Session,
-  fallenIds: Set<string>
+  fallenIds: Set<ParticipantId>
 ): CombatSide {
   const lead = session.firstSide ?? "players"
 
@@ -91,7 +92,7 @@ export function nextDraftingSide(
  */
 export function eligibleParticipants(
   session: Session,
-  fallenIds: Set<string>
+  fallenIds: Set<ParticipantId>
 ): Participant[] {
   const side = nextDraftingSide(session, fallenIds)
   return pendingParticipants(session, fallenIds).filter(
@@ -163,7 +164,7 @@ export function appendOrdinals(baseNames: string[]): string[] {
 export function participantDisplayNames(
   participants: readonly Participant[],
   resolve: (entity: Entity) => ResolvedEntity
-): Map<string, string> {
+): Map<ParticipantId, string> {
   const labels = appendOrdinals(
     participants.map((participant) => participantName(participant, resolve))
   )

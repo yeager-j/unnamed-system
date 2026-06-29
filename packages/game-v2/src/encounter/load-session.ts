@@ -7,6 +7,7 @@ import {
 } from "@workspace/game-v2/kernel/load-seam"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { ParticipantId } from "./ids"
 import {
   type StoredEntity,
   type StoredEntityLocator,
@@ -49,19 +50,19 @@ export type DurableSource = (entityId: string) => StoredEntity | undefined
  */
 export interface LoadedSession {
   session: Session
-  locators: Map<string, StoredEntityLocator>
+  locators: Map<ParticipantId, StoredEntityLocator>
 }
 
 /** One participant's load failure — the three honest modes, no faked issues. */
 export type ParticipantLoadIssue =
-  | { participantId: string; kind: "missing-durable"; entityId: string }
+  | { participantId: ParticipantId; kind: "missing-durable"; entityId: string }
   | {
-      participantId: string
+      participantId: ParticipantId
       kind: "invalid-entity"
       issues: ComponentLoadIssue[]
     }
   | {
-      participantId: string
+      participantId: ParticipantId
       kind: "invalid-overlay"
       issues: readonly z.core.$ZodIssue[]
     }
@@ -127,7 +128,7 @@ export function loadSession(loadDurable: DurableSource) {
     stored: StoredSession
   ): Result<LoadedSession, ParticipantLoadIssue[]> => {
     const participants: Participant[] = []
-    const locators = new Map<string, StoredEntityLocator>()
+    const locators = new Map<ParticipantId, StoredEntityLocator>()
     const issues: ParticipantLoadIssue[] = []
 
     for (const entry of stored.participants) {
@@ -200,7 +201,7 @@ function storedLocatorFor(
  */
 export function saveSession(
   session: Session,
-  locators: Map<string, StoredEntityLocator>
+  locators: Map<ParticipantId, StoredEntityLocator>
 ): StoredSession {
   return {
     round: session.round,

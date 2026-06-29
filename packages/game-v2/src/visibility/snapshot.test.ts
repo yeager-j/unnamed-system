@@ -4,6 +4,10 @@ import {
   participantWith,
   sessionOf,
 } from "@workspace/game-v2/encounter/__fixtures__/session"
+import {
+  asParticipantId,
+  type ParticipantId,
+} from "@workspace/game-v2/encounter/ids"
 import type {
   ReadBag,
   ReadBagComponents,
@@ -33,13 +37,16 @@ function placed(
   pid: string,
   side: CombatSide,
   components?: Partial<ReadBagComponents>
-): [string, ReadBag] {
-  return [pid, makeReadBag({ id: `${pid}-entity`, side, components })]
+): [ParticipantId, ReadBag] {
+  return [
+    asParticipantId(pid),
+    makeReadBag({ id: `${pid}-entity`, side, components }),
+  ]
 }
 
 function readBags(
-  ...entries: [string, ReadBag][]
-): ReadonlyMap<string, ReadBag> {
+  ...entries: [ParticipantId, ReadBag][]
+): ReadonlyMap<ParticipantId, ReadBag> {
   return new Map(entries)
 }
 
@@ -120,7 +127,10 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
       readBags(
         // p1 is melee-locked with the *participant* id "e1" (not "e1-entity").
         placed("p1", "players", {
-          engagement: { status: "engaged", targetCombatantIds: ["e1"] },
+          engagement: {
+            status: "engaged",
+            targetCombatantIds: [asParticipantId("e1")],
+          },
         }),
         placed("e1", "enemies")
       ),

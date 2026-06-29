@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
+import { asParticipantId } from "./ids"
 import { makeParticipant } from "./session"
 import { toParticipantSetup } from "./to-setup"
 
@@ -12,7 +13,9 @@ const entity: Entity = {
 
 describe("toParticipantSetup — the R1.5 inverse (home-blind projection)", () => {
   it("projects id, side, hasActed, and a home-blind { entity } source", () => {
-    const participant = makeParticipant(entity, "c-1", { side: "players" })
+    const participant = makeParticipant(entity, asParticipantId("c-1"), {
+      side: "players",
+    })
     expect(toParticipantSetup(participant)).toEqual({
       id: "c-1",
       side: "players",
@@ -22,7 +25,7 @@ describe("toParticipantSetup — the R1.5 inverse (home-blind projection)", () =
   })
 
   it("inverts the mint's turnsTakenThisRound back to hasActed", () => {
-    const joiner = makeParticipant(entity, "c-2", {
+    const joiner = makeParticipant(entity, asParticipantId("c-2"), {
       side: "enemies",
       hasActed: true,
     })
@@ -33,7 +36,9 @@ describe("toParticipantSetup — the R1.5 inverse (home-blind projection)", () =
   })
 
   it("hands back the dissolved entity uniformly — no storage discriminant leaks", () => {
-    const participant = makeParticipant(entity, "c-3", { side: "players" })
+    const participant = makeParticipant(entity, asParticipantId("c-3"), {
+      side: "players",
+    })
     const setup = toParticipantSetup(participant)
     // The source is always { entity }; the durable/inline home rides the locator map.
     expect(setup.source).toEqual({ entity })

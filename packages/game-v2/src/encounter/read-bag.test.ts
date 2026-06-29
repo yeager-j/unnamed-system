@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
 
+import { asParticipantId } from "./ids"
 import type { EncounterInstanceComponents } from "./instance"
 import { defaultOverlay } from "./overlay"
 import {
@@ -31,7 +32,9 @@ const requiemAtZ1: SpatialReads = {
 
 describe("participantZoneEffects — the SpatialReads → enchantment projection (CD15)", () => {
   it("confers the active enchantment's effects on a combatant in its zone", () => {
-    expect(participantZoneEffects(toccataAtZ1, "p1")).toEqual([TOCCATA_FF])
+    expect(participantZoneEffects(toccataAtZ1, asParticipantId("p1"))).toEqual([
+      TOCCATA_FF,
+    ])
   })
 
   it("is empty for a combatant standing in a different zone", () => {
@@ -39,7 +42,7 @@ describe("participantZoneEffects — the SpatialReads → enchantment projection
       zoneOf: () => "z2",
       activeEnchantment: () => ({ zoneId: "z1", type: "toccata", forte: 2 }),
     }
-    expect(participantZoneEffects(elsewhere, "p1")).toEqual([])
+    expect(participantZoneEffects(elsewhere, asParticipantId("p1"))).toEqual([])
   })
 
   it("is empty when no enchantment is active (mapless / unenchanted)", () => {
@@ -47,18 +50,22 @@ describe("participantZoneEffects — the SpatialReads → enchantment projection
       zoneOf: () => "z1",
       activeEnchantment: () => null,
     }
-    expect(participantZoneEffects(none, "p1")).toEqual([])
+    expect(participantZoneEffects(none, asParticipantId("p1"))).toEqual([])
   })
 
   it("is empty for an unplaced combatant (zoneOf → undefined)", () => {
-    expect(participantZoneEffects(toccataAtZ1, "ghost")).toEqual([])
+    expect(
+      participantZoneEffects(toccataAtZ1, asParticipantId("ghost"))
+    ).toEqual([])
   })
 })
 
 describe("resolveParticipant — un-defers Toccata into pendingEffects (display-only, R19.5)", () => {
-  const participant = makeParticipant({ id: "e1", components: {} }, "p1", {
-    side: "players",
-  })
+  const participant = makeParticipant(
+    { id: "e1", components: {} },
+    asParticipantId("p1"),
+    { side: "players" }
+  )
 
   it("pipes the zone effect through ResolveContext.effects into pendingEffects", () => {
     const resolved = resolveParticipant(resolve, toccataAtZ1, participant)
@@ -97,9 +104,11 @@ describe("resolveParticipant — un-defers Toccata into pendingEffects (display-
   })
 
   it("surfaces nothing for an unplaced combatant", () => {
-    const unplaced = makeParticipant({ id: "e2", components: {} }, "ghost", {
-      side: "players",
-    })
+    const unplaced = makeParticipant(
+      { id: "e2", components: {} },
+      asParticipantId("ghost"),
+      { side: "players" }
+    )
     expect(
       resolveParticipant(resolve, toccataAtZ1, unplaced).components
         .pendingEffects
@@ -116,7 +125,10 @@ describe("assembleReadBag — the three-home merge (CD14)", () => {
   const overlay = defaultOverlay({ side: "players" })
   const instance: Partial<EncounterInstanceComponents> = {
     position: { zoneId: "z1" },
-    engagement: { status: "engaged", targetCombatantIds: ["c-2"] },
+    engagement: {
+      status: "engaged",
+      targetCombatantIds: [asParticipantId("c-2")],
+    },
   }
 
   it("unions resolved read-units ∪ raw overlay ∪ raw instance under the entity id", () => {

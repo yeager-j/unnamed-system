@@ -6,6 +6,7 @@ import {
   participantWith,
   sessionOf,
 } from "../__fixtures__/session"
+import { asParticipantId } from "../ids"
 import type { RosterEvent } from "../session-event"
 import { reduceRoster } from "./roster"
 
@@ -44,7 +45,11 @@ describe("reduceRoster — addParticipant (R6.2)", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     const next = run(session, {
       kind: "addParticipant",
-      setup: { id: "p2", side: "enemies", entity: entity({}, "e2") },
+      setup: {
+        id: asParticipantId("p2"),
+        side: "enemies",
+        entity: entity({}, "e2"),
+      },
     })
     expect(next.participants).toHaveLength(2)
     const joiner = next.participants[1]!
@@ -73,7 +78,7 @@ describe("reduceRoster — removeParticipant (R6.3)", () => {
     )
     const next = run(session, {
       kind: "removeParticipant",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
     })
     expect(next.participants.map((p) => p.id)).toEqual(["p2"])
     expect(next.currentActorId).toBeNull()
@@ -86,7 +91,7 @@ describe("reduceRoster — removeParticipant (R6.3)", () => {
     )
     const next = run(session, {
       kind: "removeParticipant",
-      participantId: "p2",
+      participantId: asParticipantId("p2"),
     })
     expect(next.currentActorId).toBe("p1")
     // The survivor is reference-identical — nothing reached into it to sever an
@@ -97,7 +102,10 @@ describe("reduceRoster — removeParticipant (R6.3)", () => {
   it("is a no-op (same-ref) for an unknown id", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     expect(
-      run(session, { kind: "removeParticipant", participantId: "ghost" })
+      run(session, {
+        kind: "removeParticipant",
+        participantId: asParticipantId("ghost"),
+      })
     ).toBe(session)
   })
 })
@@ -107,7 +115,7 @@ describe("reduceRoster — setSide (R6.4)", () => {
     const session = sessionOf([participantWith({ id: "p1", side: "players" })])
     const next = run(session, {
       kind: "setSide",
-      participantId: "p1",
+      participantId: asParticipantId("p1"),
       side: "enemies",
     })
     expect(next.participants[0]!.overlay.allegiance.side).toBe("enemies")
@@ -116,7 +124,11 @@ describe("reduceRoster — setSide (R6.4)", () => {
   it("is a no-op (same-ref) for an unknown id", () => {
     const session = sessionOf([participantWith({ id: "p1" })])
     expect(
-      run(session, { kind: "setSide", participantId: "ghost", side: "enemies" })
+      run(session, {
+        kind: "setSide",
+        participantId: asParticipantId("ghost"),
+        side: "enemies",
+      })
     ).toBe(session)
   })
 })

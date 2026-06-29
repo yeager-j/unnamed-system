@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { participantWith, sessionOf } from "./__fixtures__/session"
+import { asParticipantId } from "./ids"
 import { createReduceEncounter, type EncounterState } from "./reduce-encounter"
 import type { CombatEvent } from "./session-event"
 
@@ -33,7 +34,7 @@ describe("createReduceEncounter (CD16 wrapper)", () => {
     // wrapper must propagate that to the same EncounterState ref, not re-wrap.
     const next = reduceEncounter(state, {
       kind: "draftCombatant",
-      participantId: "ghost",
+      participantId: asParticipantId("ghost"),
     })
     expect(next).toBe(state)
   })

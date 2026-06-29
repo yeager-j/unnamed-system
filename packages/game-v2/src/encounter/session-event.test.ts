@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest"
 
+import { asParticipantId } from "./ids"
 import {
   combatEventSchema,
   toSessionEvent,
   type CombatEvent,
   type ComponentWriteEvent,
 } from "./session-event"
+
+const p1 = asParticipantId("p1")
+const p2 = asParticipantId("p2")
 
 /**
  * The structural-ephemeral-only contract (CD19): the router-only
@@ -23,7 +27,7 @@ const COMPONENT_WRITE_KINDS: ComponentWriteEvent["kind"][] = [
 /** One valid payload per generic-wire kind (the 17 the schema must accept). */
 const GENERIC_EVENTS: CombatEvent[] = [
   { kind: "startCombat", advantage: "neutral", firstSide: "players" },
-  { kind: "draftCombatant", participantId: "p1" },
+  { kind: "draftCombatant", participantId: p1 },
   { kind: "endTurn" },
   { kind: "advanceRound" },
   {
@@ -33,30 +37,30 @@ const GENERIC_EVENTS: CombatEvent[] = [
       entity: { id: "e", components: { vitals: { base: 10, damage: 0 } } },
     },
   },
-  { kind: "removeParticipant", participantId: "p1" },
-  { kind: "setSide", participantId: "p1", side: "enemies" },
-  { kind: "setCurrentActor", participantId: "p1" },
-  { kind: "setActed", participantId: "p1", hasActed: true },
+  { kind: "removeParticipant", participantId: p1 },
+  { kind: "setSide", participantId: p1, side: "enemies" },
+  { kind: "setCurrentActor", participantId: p1 },
+  { kind: "setActed", participantId: p1, hasActed: true },
   { kind: "setRound", round: 2 },
   {
     kind: "adjustBattleConditionAxis",
-    participantId: "p1",
+    participantId: p1,
     axis: "attack",
     action: "increase",
   },
   {
     kind: "setBattleConditionFlag",
-    participantId: "p1",
+    participantId: p1,
     flag: "charged",
     value: true,
   },
-  { kind: "setAilment", participantId: "p1", ailment: "burn" },
-  { kind: "clearAilment", participantId: "p1", ailment: "burn" },
-  { kind: "adjustCounter", participantId: "p1", counter: "lumina", delta: 1 },
-  { kind: "clearCounter", participantId: "p1", counter: "lumina" },
+  { kind: "setAilment", participantId: p1, ailment: "burn" },
+  { kind: "clearAilment", participantId: p1, ailment: "burn" },
+  { kind: "adjustCounter", participantId: p1, counter: "lumina", delta: 1 },
+  { kind: "clearCounter", participantId: p1, counter: "lumina" },
   {
     kind: "adjustActionEconomy",
-    participantId: "p1",
+    participantId: p1,
     action: "move",
     delta: 1,
   },
@@ -93,7 +97,7 @@ describe("toSessionEvent — the sole ComponentWriteEvent constructor", () => {
   it("maps component → pool and op → kind", () => {
     expect(
       toSessionEvent({
-        participantId: "p1",
+        participantId: p1,
         component: "skillPool",
         op: "damage",
         amount: 3,
@@ -106,7 +110,7 @@ describe("toSessionEvent — the sole ComponentWriteEvent constructor", () => {
     })
     expect(
       toSessionEvent({
-        participantId: "p2",
+        participantId: p2,
         component: "vitals",
         op: "setMax",
         amount: 10,
@@ -121,7 +125,7 @@ describe("toSessionEvent — the sole ComponentWriteEvent constructor", () => {
 
   it("produces an event the generic wire rejects (so it cannot round-trip onto it)", () => {
     const event = toSessionEvent({
-      participantId: "p1",
+      participantId: p1,
       component: "vitals",
       op: "heal",
       amount: 4,
