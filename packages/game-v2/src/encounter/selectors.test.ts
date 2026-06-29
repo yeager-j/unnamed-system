@@ -157,15 +157,15 @@ describe("actionAvailability (R11 / CD10 — constant 1/1/1, floored at 0)", () 
 
 describe("participantName (NAME-1 — uniform resolved identity)", () => {
   it("reads the resolved Identity name", () => {
-    const { participants, resolve } = makeScene([
-      { id: "p1", resolved: named("Aria") },
-    ])
-    expect(participantName(participants[0]!, resolve)).toBe("Aria")
+    const { view } = makeScene([{ id: "p1", resolved: named("Aria") }])
+    const [id, participantView] = [...view][0]!
+    expect(participantName(id, participantView)).toBe("Aria")
   })
 
   it("falls back to the roster id when no Identity read-unit resolves", () => {
-    const { participants, resolve } = makeScene([{ id: "ghost" }])
-    expect(participantName(participants[0]!, resolve)).toBe("ghost")
+    const { view } = makeScene([{ id: "ghost" }])
+    const [id, participantView] = [...view][0]!
+    expect(participantName(id, participantView)).toBe("ghost")
   })
 })
 
@@ -192,13 +192,13 @@ describe("appendOrdinals (NAME-2)", () => {
 
 describe("participantDisplayNames (NAME-3 — keyed, session-order numbering)", () => {
   it("numbers duplicate enemies independently of an interleaved PC", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "e1", resolved: named("Bandit") },
       { id: "hero", resolved: named("Hero") },
       { id: "e2", resolved: named("Bandit") },
       { id: "e3", resolved: named("Bandit") },
     ])
-    expect(participantDisplayNames(participants, resolve)).toEqual(
+    expect(participantDisplayNames(view)).toEqual(
       new Map([
         ["e1", "Bandit"],
         ["hero", "Hero"],

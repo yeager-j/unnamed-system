@@ -1,8 +1,8 @@
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
 import type { ParticipantId } from "./ids"
 import type { TurnState } from "./overlay"
+import type { ParticipantView, ResolvedSession } from "./participant-view"
 import type { Participant, Session } from "./session"
 
 /**
@@ -126,16 +126,17 @@ export function actionAvailability(turnState: TurnState): ActionAvailability {
 
 /**
  * A participant's base display name (NAME-1) — its resolved {@link
- * import("@workspace/game-v2/kernel/identity.schema").Identity} `name`, read
- * **uniformly** over `resolve(participant.entity)` (v1's per-kind `combatantName`
- * switch is gone). Falls back to the roster `id` when the entity resolves no
- * Identity read-unit (`?? participant.id`, the nullish-absent case).
+ * import("@workspace/game-v2/kernel/identity.schema").Identity} `name` from the
+ * merged view, read **uniformly** (v1's per-kind `combatantName` switch is gone).
+ * Falls back to the roster `id` when the entity resolves no Identity read-unit
+ * (`?? id`, the nullish-absent case) — the roster id, not `participantView.id` (the
+ * entity id).
  */
 export function participantName(
-  participant: Participant,
-  resolve: (entity: Entity) => ResolvedEntity
+  id: ParticipantId,
+  participantView: ParticipantView
 ): string {
-  return resolve(participant.entity).components.identity?.name ?? participant.id
+  return participantView.components.identity?.name ?? id
 }
 
 /**
@@ -158,17 +159,16 @@ export function appendOrdinals(baseNames: string[]): string[] {
  * The disambiguated display name of every participant in a live session, keyed by
  * participant id (NAME-3): each participant's {@link participantName}, then {@link
  * appendOrdinals} over the **session-order** list so duplicate enemies read
- * "Bandit", "Bandit 2", "Bandit 3" while a lone PC stays bare. The single home all
- * live surfaces route through, so numbering can't drift.
+ * "Bandit", "Bandit 2", "Bandit 3" while a lone PC stays bare. Order comes from the
+ * {@link ResolvedSession} Map, which `resolveSession` builds in session order. The
+ * single home all live surfaces route through, so numbering can't drift.
  */
 export function participantDisplayNames(
-  participants: readonly Participant[],
-  resolve: (entity: Entity) => ResolvedEntity
+  view: ResolvedSession
 ): Map<ParticipantId, string> {
+  const entries = [...view]
   const labels = appendOrdinals(
-    participants.map((participant) => participantName(participant, resolve))
+    entries.map(([id, participantView]) => participantName(id, participantView))
   )
-  return new Map(
-    participants.map((participant, index) => [participant.id, labels[index]!])
-  )
+  return new Map(entries.map(([id], index) => [id, labels[index]!]))
 }

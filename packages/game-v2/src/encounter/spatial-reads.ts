@@ -17,9 +17,10 @@ import type { ParticipantId } from "./ids"
  * parameterless singleton {@link SpatialReads.activeEnchantment} bakes in the
  * one-active-enchantment rule (one Bard, one nullable enchantment — v1/v2 ground
  * truth); the single point a future multi-zone model would widen. The instance
- * READ-bag components (Position / Engagement) are **not** sourced here — they are a
+ * participant-view components (Position / Engagement) are **not** sourced here —
+ * they are a
  * separate raw occupancy-token projection supplied to {@link
- * import("./read-bag").assembleReadBag} (the spatial layer owns it).
+ * import("./participant-view").assembleParticipantView} (the spatial layer owns it).
  */
 export interface SpatialReads {
   /** The zone a participant occupies, or `undefined` when unplaced / mapless. */

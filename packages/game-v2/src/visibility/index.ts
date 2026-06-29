@@ -2,7 +2,7 @@
  * The `visibility` domain — capability/relationship-driven redaction (CD11, CD12,
  * CD17; ADR §2.6/§2.10). One enumerated `(component × relationship)` policy table
  * ({@link VISIBILITY}) is the single source of truth; {@link visibleEntity} is a
- * pure fold of it over a participant's merged read-bag, dropping a `drop` cell's
+ * pure fold of it over a participant's merged participant-view, dropping a `drop` cell's
  * key **structurally** (absent, never null). {@link relationship} computes the
  * viewer↔entity {@link Relationship} once (ownership by capability, so a charmed PC
  * reads `own` to its controller and `opponent` to its old party), and {@link

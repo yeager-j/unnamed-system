@@ -9,12 +9,12 @@ import {
   type ParticipantId,
 } from "@workspace/game-v2/encounter/ids"
 import type {
-  ReadBag,
-  ReadBagComponents,
-} from "@workspace/game-v2/encounter/read-bag"
+  ParticipantView,
+  ParticipantViewComponents,
+} from "@workspace/game-v2/encounter/participant-view"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import { makeReadBag, spectator } from "./__fixtures__/redaction"
+import { makeParticipantView, spectator } from "./__fixtures__/redaction"
 import {
   projectEncounterSnapshot,
   type EncounterSnapshotMeta,
@@ -28,25 +28,25 @@ const META: EncounterSnapshotMeta = {
 }
 
 /**
- * A read-bag keyed by its **participant** id, carrying a **distinct entity** id
- * (`${pid}-entity`) — mirrors production, where `assembleReadBag` sets `bag.id` to
+ * A participant-view keyed by its **participant** id, carrying a **distinct entity** id
+ * (`${pid}-entity`) — mirrors production, where `assembleParticipantView` sets `bag.id` to
  * the entity id while the loader keys the map by participant id. The distinctness
  * is what proves `combatants[].id` is the roster id, not the entity id.
  */
 function placed(
   pid: string,
   side: CombatSide,
-  components?: Partial<ReadBagComponents>
-): [ParticipantId, ReadBag] {
+  components?: Partial<ParticipantViewComponents>
+): [ParticipantId, ParticipantView] {
   return [
     asParticipantId(pid),
-    makeReadBag({ id: `${pid}-entity`, side, components }),
+    makeParticipantView({ id: `${pid}-entity`, side, components }),
   ]
 }
 
-function readBags(
-  ...entries: [ParticipantId, ReadBag][]
-): ReadonlyMap<ParticipantId, ReadBag> {
+function viewOf(
+  ...entries: [ParticipantId, ParticipantView][]
+): ReadonlyMap<ParticipantId, ParticipantView> {
   return new Map(entries)
 }
 
@@ -55,7 +55,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     const session = sessionOf([participantWith({ id: "p1", side: "players" })])
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(placed("p1", "players")),
+      viewOf(placed("p1", "players")),
       spectator(),
       META
     )
@@ -80,7 +80,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     )
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(placed("p1", "players")),
+      viewOf(placed("p1", "players")),
       spectator(),
       META
     )
@@ -102,7 +102,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     ])
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(
+      viewOf(
         placed("p1", "players"),
         placed("e1", "enemies"),
         placed("p2", "players")
@@ -124,7 +124,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     )
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(
+      viewOf(
         // p1 is melee-locked with the *participant* id "e1" (not "e1-entity").
         placed("p1", "players", {
           engagement: {
@@ -139,7 +139,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     )
 
     const ids = snapshot.combatants.map((c) => c.id)
-    // roster ids, never the `*-entity` ids the bags carry.
+    // roster ids, never the `*-entity` ids the participant-views carry.
     expect(ids).toEqual(["p1", "e1"])
     expect(snapshot.currentActor?.id).toBe("p1")
     expect(ids).toContain(snapshot.currentActor?.id)
@@ -155,7 +155,7 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     const session = sessionOf([participantWith({ id: "e1", side: "enemies" })])
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(
+      viewOf(
         placed("e1", "enemies", {
           pendingEffects: { attackRoll: [], damage: [] },
         })
@@ -167,14 +167,14 @@ describe("projectEncounterSnapshot — the default-deny envelope (CD12; ADR §2.
     expect("pendingEffects" in snapshot.combatants[0]!.components).toBe(false)
   })
 
-  it("omits a participant the loader assembled no read-bag for", () => {
+  it("omits a participant the loader assembled no participant-view for", () => {
     const session = sessionOf([
       participantWith({ id: "p1", side: "players" }),
       participantWith({ id: "p2", side: "players" }),
     ])
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(placed("p1", "players")),
+      viewOf(placed("p1", "players")),
       spectator(),
       META
     )
@@ -194,7 +194,7 @@ describe("projectEncounterSnapshot — currentActor (RED-5 public subset)", () =
     )
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(
+      viewOf(
         placed("p1", "players"),
         placed("e1", "enemies", { identity: { name: "Goblin" } })
       ),
@@ -218,7 +218,7 @@ describe("projectEncounterSnapshot — currentActor (RED-5 public subset)", () =
     )
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(placed("p1", "players")),
+      viewOf(placed("p1", "players")),
       spectator(),
       META
     )
@@ -235,7 +235,7 @@ describe("projectEncounterSnapshot — currentActor (RED-5 public subset)", () =
     )
     const snapshot = projectEncounterSnapshot(
       session,
-      readBags(placed("p1", "players")),
+      viewOf(placed("p1", "players")),
       spectator(),
       META
     )

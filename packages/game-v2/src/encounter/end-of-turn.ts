@@ -1,9 +1,8 @@
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import type { ActiveMechanic } from "@workspace/game-v2/mechanics/active-mechanic"
+import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 import type { ResolvedVitals } from "@workspace/game-v2/vitals/resolved"
 
 import type { ParticipantId } from "./ids"
-import type { Participant } from "./session"
+import type { ParticipantView, ResolvedSession } from "./participant-view"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,
@@ -40,11 +39,11 @@ export interface EndOfTurnReminders {
 }
 
 /** Computes the {@link EndOfTurnReminders} for a participant — a pure projection
- *  over its battle-condition overlay. */
+ *  over its battle-condition overlay (read off the merged view). */
 export function endOfTurnReminders(
-  participant: Participant
+  participantView: ParticipantView
 ): EndOfTurnReminders {
-  const { battleConditions, conditionDurations } = participant.overlay
+  const { battleConditions, conditionDurations } = participantView.components
 
   const heldFlags = BATTLE_CONDITION_FLAG_KEYS.filter(
     (flag) => battleConditions[flag]
@@ -130,51 +129,47 @@ function resolveAilmentApply(
 
 /** The Frenzy decrement reminder for the actor — `{ pain }` when its **active**
  *  mechanic is Frenzy *in Frenzy Mode*, `null` otherwise. The capability gate is
- *  {@link import("@workspace/game-v2/mechanics/active-mechanic").getActiveMechanics}
- *  itself: a non-Berserker actor (or a Berserker not in Frenzy) surfaces no active
- *  Frenzy mechanic, so v1's `ref.kind !== "pc"` gate dissolves. */
-function frenzyReminder(active: ActiveMechanic[]): { pain: number } | null {
+ *  the resolved `activeMechanics` read-unit itself: a non-Berserker actor (or a
+ *  Berserker not in Frenzy) surfaces no active Frenzy mechanic, so v1's
+ *  `ref.kind !== "pc"` gate dissolves. */
+function frenzyReminder(
+  active: readonly ResolvedActiveMechanic[]
+): { pain: number } | null {
   const frenzy = active.find((mechanic) => mechanic.state.kind === "frenzy")
   if (frenzy?.state.kind !== "frenzy") return null
   if (!frenzy.state.frenzyMode) return null
   return { pain: frenzy.state.pain }
 }
 
-/** The injected reads {@link endOfTurnObligations} folds over the actor's entity —
- *  the form-aware `resolve` (maxHP for the ailment delta) and the active-mechanic
- *  walk (the Frenzy reminder), both bound from `getArchetype` at the composition
- *  root. */
-export interface EndOfTurnDeps {
-  resolve: (entity: Entity) => ResolvedEntity
-  activeMechanics: (entity: Entity) => ActiveMechanic[]
-}
-
 /**
  * Computes the {@link EndOfTurnObligations} for the actor whose turn just ended,
- * curried deps-first. Downed is excluded — it clears at the *start* of the actor's
- * next turn, not via a saving throw. An unknown `actorId` yields a fully empty
- * result (even when another participant has obligations).
+ * over the resolved-encounter view (UNN-525) — a pure function of the actor's
+ * {@link ParticipantView}: resolved `vitals` (the ailment-delta maxHP), the overlay
+ * battle-conditions, and the resolved `activeMechanics` read-unit (the Frenzy
+ * reminder). Downed is excluded — it clears at the *start* of the actor's next turn,
+ * not via a saving throw. An unknown `actorId` (no view for the actor) yields a
+ * fully empty result (even when another participant has obligations).
  */
-export function endOfTurnObligations(deps: EndOfTurnDeps) {
-  return (
-    participants: readonly Participant[],
-    actorId: ParticipantId
-  ): EndOfTurnObligations => {
-    const actor = participants.find((participant) => participant.id === actorId)
-    if (actor === undefined) {
-      return { ailments: [], activeDurations: [], heldFlags: [], frenzy: null }
-    }
-
-    const vitals = deps.resolve(actor.entity).components.vitals
-    const ailments = actor.overlay.ailments
-      .filter((ailment) => ailment !== "downed")
-      .map((ailment) => ({
-        ailment,
-        apply: resolveAilmentApply(ailment, vitals),
-      }))
-
-    const { activeDurations, heldFlags } = endOfTurnReminders(actor)
-    const frenzy = frenzyReminder(deps.activeMechanics(actor.entity))
-    return { ailments, activeDurations, heldFlags, frenzy }
+export function endOfTurnObligations(
+  view: ResolvedSession,
+  actorId: ParticipantId
+): EndOfTurnObligations {
+  const participantView = view.get(actorId)
+  if (participantView === undefined) {
+    return { ailments: [], activeDurations: [], heldFlags: [], frenzy: null }
   }
+
+  const vitals = participantView.components.vitals
+  const ailments = participantView.components.ailments
+    .filter((ailment) => ailment !== "downed")
+    .map((ailment) => ({
+      ailment,
+      apply: resolveAilmentApply(ailment, vitals),
+    }))
+
+  const { activeDurations, heldFlags } = endOfTurnReminders(participantView)
+  const frenzy = frenzyReminder(
+    participantView.components.activeMechanics ?? []
+  )
+  return { ailments, activeDurations, heldFlags, frenzy }
 }

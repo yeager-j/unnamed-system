@@ -24,50 +24,50 @@ function arch(activeLineage: Lineage | null): ResolvedEntity["components"] {
 
 describe("derivePartyComposition (R15 / PC-1 / CD9c — PC by capability, not kind)", () => {
   it("tallies participants on a side by their resolved active Lineage", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "p1", side: "players", resolved: arch("warrior") },
       { id: "p2", side: "players", resolved: arch("mage") },
       { id: "p3", side: "players", resolved: arch("warrior") },
     ])
-    expect(derivePartyComposition(participants, "players", resolve)).toEqual({
+    expect(derivePartyComposition(view, "players")).toEqual({
       warrior: 2,
       mage: 1,
     })
   })
 
   it("skips a participant that resolves no Archetypes read-unit (an enemy)", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "p1", side: "players", resolved: arch("thief") },
       { id: "e1", side: "players" }, // enemy: no resolved archetypes
     ])
-    expect(derivePartyComposition(participants, "players", resolve)).toEqual({
+    expect(derivePartyComposition(view, "players")).toEqual({
       thief: 1,
     })
   })
 
   it("skips a PC with no active Archetype (activeLineage null)", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "p1", side: "players", resolved: arch(null) },
     ])
-    expect(derivePartyComposition(participants, "players", resolve)).toEqual({})
+    expect(derivePartyComposition(view, "players")).toEqual({})
   })
 
   it("counts a charmed PC on its current allegiance side", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "charmed", side: "enemies", resolved: arch("knight") },
     ])
-    expect(derivePartyComposition(participants, "enemies", resolve)).toEqual({
+    expect(derivePartyComposition(view, "enemies")).toEqual({
       knight: 1,
     })
-    expect(derivePartyComposition(participants, "players", resolve)).toEqual({})
+    expect(derivePartyComposition(view, "players")).toEqual({})
   })
 
   it("derivePartyCompositionBySide returns a composition for every side", () => {
-    const { participants, resolve } = makeScene([
+    const { view } = makeScene([
       { id: "p1", side: "players", resolved: arch("healer") },
       { id: "e1", side: "enemies", resolved: arch("berserker") },
     ])
-    expect(derivePartyCompositionBySide(participants, resolve)).toEqual({
+    expect(derivePartyCompositionBySide(view)).toEqual({
       players: { healer: 1 },
       enemies: { berserker: 1 },
     })

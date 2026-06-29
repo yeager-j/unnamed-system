@@ -7,7 +7,7 @@
  * UNN-516 ships the **one loader boundary**: the persisted {@link
  * StoredEntityLocator} contract, {@link loadSession}/{@link saveSession} (storage
  * dissolution + the out-of-band locator map), the {@link SpatialReads} port + the
- * Toccata effect injection, the three-home {@link assembleReadBag}, and the R1.5
+ * Toccata effect injection, the three-home {@link assembleParticipantView}, and the R1.5
  * {@link toParticipantSetup} inverse. UNN-517 ships the **pure reducer**
  * ({@link createReduceSession} + its slices), the {@link createReduceEncounter}
  * composition root, and the event vocabulary — the generic {@link combatEventSchema}
@@ -28,7 +28,7 @@ export * from "./session-factory"
 export * from "./locator"
 export * from "./spatial-reads"
 export * from "./load-session"
-export * from "./read-bag"
+export * from "./participant-view"
 export * from "./to-setup"
 export * from "./reduce-session"
 export * from "./reduce-encounter"

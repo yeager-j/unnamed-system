@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/encounter/ids"
-import type { ReadBagComponents } from "@workspace/game-v2/encounter/read-bag"
+import type { ParticipantViewComponents } from "@workspace/game-v2/encounter/participant-view"
 
 import {
   affinityChart,
   attributeScores,
   dm,
-  makeReadBag,
+  makeParticipantView,
   player,
   spectator,
 } from "./__fixtures__/redaction"
@@ -16,7 +16,7 @@ import { visibleEntity } from "./visible-entity"
 
 /** The resolved + instance read-units an enemy can carry — one of each so the fold
  *  is exercised over a public row, a stats (drop) row, and a drop-from-all row. */
-const ENEMY_COMPONENTS: Partial<ReadBagComponents> = {
+const ENEMY_COMPONENTS: Partial<ParticipantViewComponents> = {
   identity: { name: "Goblin" },
   presentation: { portraitUrl: "https://img/goblin.png" },
   vitals: { maxHP: 20, currentHP: 12 },
@@ -47,9 +47,9 @@ const ENEMY_COMPONENTS: Partial<ReadBagComponents> = {
   pendingEffects: { attackRoll: [], damage: [] },
 }
 
-// `goblin-entity` is the ENTITY id (what `bag.id` carries + what ownership keys on);
+// `goblin-entity` is the ENTITY id (what the participant-view's `id` carries + what ownership keys on);
 // a roster/participant id is a separate namespace exercised in snapshot.test.ts.
-const enemyBag = makeReadBag({
+const enemyView = makeParticipantView({
   id: "goblin-entity",
   side: "enemies",
   components: ENEMY_COMPONENTS,
@@ -83,15 +83,15 @@ const STAT_KEYS = ["attributes", "affinities"] as const
 
 describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () => {
   it("keeps every public-to-all component for an opponent (incl. position + engagement)", () => {
-    const c = visibleEntity(enemyBag, player("players"))
+    const c = visibleEntity(enemyView, player("players"))
     for (const key of PUBLIC_TO_ALL_KEYS) {
       expect(key in c).toBe(true)
-      expect(c[key]).toEqual(enemyBag.components[key])
+      expect(c[key]).toEqual(enemyView.components[key])
     }
   })
 
   it("`drop` is structural key-ABSENCE, never null (the v1 RED-4 contract)", () => {
-    const c = visibleEntity(enemyBag, player("players"))
+    const c = visibleEntity(enemyView, player("players"))
     for (const key of STAT_KEYS) {
       expect(key in c).toBe(false)
       expect(Object.prototype.hasOwnProperty.call(c, key)).toBe(false)
@@ -103,7 +103,7 @@ describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () =>
   })
 
   it("drops the stat rows for a spectator too (the tightening over v1)", () => {
-    const c = visibleEntity(enemyBag, spectator())
+    const c = visibleEntity(enemyView, spectator())
     expect("attributes" in c).toBe(false)
     expect("affinities" in c).toBe(false)
   })
@@ -113,9 +113,9 @@ describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () =>
     ["ally (same side)", player("enemies")],
     ["dm", dm()],
   ])("reveals the stat rows to %s", (_label, viewer: Viewer) => {
-    const c = visibleEntity(enemyBag, viewer)
-    expect(c.attributes).toEqual(enemyBag.components.attributes)
-    expect(c.affinities).toEqual(enemyBag.components.affinities)
+    const c = visibleEntity(enemyView, viewer)
+    expect(c.attributes).toEqual(enemyView.components.attributes)
+    expect(c.affinities).toEqual(enemyView.components.affinities)
   })
 
   it.each([
@@ -127,7 +127,7 @@ describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () =>
   ])(
     "drops the sheet-only read-units for EVERY relationship (%s)",
     (_l, viewer: Viewer) => {
-      const c = visibleEntity(enemyBag, viewer)
+      const c = visibleEntity(enemyView, viewer)
       for (const key of DROP_FROM_ALL_KEYS) {
         expect(key in c).toBe(false)
       }

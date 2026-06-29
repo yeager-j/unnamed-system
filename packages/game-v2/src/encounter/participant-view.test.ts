@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest"
 
-import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
 
+import { sessionOf } from "./__fixtures__/session"
 import { asParticipantId } from "./ids"
 import type { EncounterInstanceComponents } from "./instance"
 import { defaultOverlay } from "./overlay"
 import {
-  assembleReadBag,
+  assembleParticipantView,
   participantZoneEffects,
   resolveParticipant,
-} from "./read-bag"
+  resolveSession,
+} from "./participant-view"
 import { makeParticipant } from "./session"
 import type { SpatialReads } from "./spatial-reads"
 
@@ -116,7 +118,7 @@ describe("resolveParticipant — un-defers Toccata into pendingEffects (display-
   })
 })
 
-describe("assembleReadBag — the three-home merge (CD14)", () => {
+describe("assembleParticipantView — the three-home merge (CD14)", () => {
   const entity: Entity = {
     id: "e1",
     components: { identity: { name: "Iris" }, vitals: { base: 30, damage: 0 } },
@@ -132,28 +134,107 @@ describe("assembleReadBag — the three-home merge (CD14)", () => {
   }
 
   it("unions resolved read-units ∪ raw overlay ∪ raw instance under the entity id", () => {
-    const bag = assembleReadBag(resolved, overlay, instance)
-    expect(bag.id).toBe("e1")
+    const participantView = assembleParticipantView(resolved, overlay, instance)
+    expect(participantView.id).toBe("e1")
     // Resolved durable read-units.
-    expect(bag.components.identity).toEqual({ name: "Iris" })
-    expect(bag.components.vitals).toEqual({ maxHP: 30, currentHP: 30 })
+    expect(participantView.components.identity).toEqual({ name: "Iris" })
+    expect(participantView.components.vitals).toEqual({
+      maxHP: 30,
+      currentHP: 30,
+    })
     // Raw overlay components (all six present).
-    expect(bag.components.allegiance).toEqual({ side: "players" })
-    expect(bag.components.ailments).toEqual([])
+    expect(participantView.components.allegiance).toEqual({ side: "players" })
+    expect(participantView.components.ailments).toEqual([])
     // Raw instance components — passed through verbatim, NOT resolved.
-    expect(bag.components.position).toEqual({ zoneId: "z1" })
-    expect(bag.components.engagement).toEqual({
+    expect(participantView.components.position).toEqual({ zoneId: "z1" })
+    expect(participantView.components.engagement).toEqual({
       status: "engaged",
       targetCombatantIds: ["c-2"],
     })
   })
 
   it("omits instance keys when absent (mapless → engagedWith [] structurally)", () => {
-    const bag = assembleReadBag(resolved, overlay)
-    expect("position" in bag.components).toBe(false)
-    expect("engagement" in bag.components).toBe(false)
+    const participantView = assembleParticipantView(resolved, overlay)
+    expect("position" in participantView.components).toBe(false)
+    expect("engagement" in participantView.components).toBe(false)
     // Overlay + resolved survive regardless.
-    expect(bag.components.allegiance).toEqual({ side: "players" })
-    expect(bag.components.vitals).toEqual({ maxHP: 30, currentHP: 30 })
+    expect(participantView.components.allegiance).toEqual({ side: "players" })
+    expect(participantView.components.vitals).toEqual({
+      maxHP: 30,
+      currentHP: 30,
+    })
+  })
+})
+
+describe("resolveSession — resolve once per participant, assemble the view (CD14; UNN-525)", () => {
+  const mapless: SpatialReads = {
+    zoneOf: () => undefined,
+    activeEnchantment: () => null,
+  }
+
+  it("resolves each participant exactly once — N calls, not the prior ~5N", () => {
+    const session = sessionOf([
+      makeParticipant({ id: "e1", components: {} }, asParticipantId("p1"), {
+        side: "players",
+      }),
+      makeParticipant({ id: "e2", components: {} }, asParticipantId("p2"), {
+        side: "enemies",
+      }),
+      makeParticipant({ id: "e3", components: {} }, asParticipantId("p3"), {
+        side: "enemies",
+      }),
+    ])
+    let calls = 0
+    const counting = (entity: Entity): ResolvedEntity => {
+      calls++
+      return resolve(entity)
+    }
+
+    resolveSession(session, mapless, counting)
+
+    expect(calls).toBe(session.participants.length)
+  })
+
+  it("keys the view by participant (roster) id — distinct from the entity id — in session order", () => {
+    const session = sessionOf([
+      makeParticipant(
+        { id: "ent-a", components: { identity: { name: "A" } } },
+        asParticipantId("p1"),
+        { side: "players" }
+      ),
+      makeParticipant(
+        { id: "ent-b", components: { identity: { name: "B" } } },
+        asParticipantId("p2"),
+        { side: "enemies" }
+      ),
+    ])
+
+    const view = resolveSession(session, mapless, resolve)
+
+    expect([...view.keys()]).toEqual([
+      asParticipantId("p1"),
+      asParticipantId("p2"),
+    ])
+    // `participantView.id` is the ENTITY id (assembleParticipantView), not the roster key.
+    expect(view.get(asParticipantId("p1"))!.id).toBe("ent-a")
+    expect(view.get(asParticipantId("p1"))!.components.identity).toEqual({
+      name: "A",
+    })
+  })
+
+  it("assembles mapless views — overlay present, no instance keys", () => {
+    const session = sessionOf([
+      makeParticipant({ id: "e1", components: {} }, asParticipantId("p1"), {
+        side: "players",
+      }),
+    ])
+
+    const participantView = resolveSession(session, mapless, resolve).get(
+      asParticipantId("p1")
+    )!
+
+    expect(participantView.components.allegiance).toEqual({ side: "players" })
+    expect("position" in participantView.components).toBe(false)
+    expect("engagement" in participantView.components).toBe(false)
   })
 })

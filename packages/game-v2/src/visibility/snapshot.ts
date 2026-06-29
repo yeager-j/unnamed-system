@@ -1,8 +1,8 @@
 import type { ParticipantId } from "@workspace/game-v2/encounter/ids"
 import type {
-  ReadBag,
-  ReadBagComponents,
-} from "@workspace/game-v2/encounter/read-bag"
+  ParticipantViewComponents,
+  ResolvedSession,
+} from "@workspace/game-v2/encounter/participant-view"
 import type { Session } from "@workspace/game-v2/encounter/session"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
@@ -19,12 +19,12 @@ import { visibleEntity } from "./visible-entity"
  * {@link CurrentActorView.id} and the `engagement.targetCombatantIds` inside
  * `components`, which are all roster ids (a durable entity could appear on the
  * roster more than once; overlay + turn order key on the roster id, `session.ts`).
- * Ownership/relationship, by contrast, keys on the **entity** id (`bag.id`) — a
+ * Ownership/relationship, by contrast, keys on the **entity** id (`participantView.id`) — a
  * viewer owns characters/entities, not roster slots.
  */
 export interface VisibleCombatant {
   id: ParticipantId
-  components: Partial<ReadBagComponents>
+  components: Partial<ParticipantViewComponents>
 }
 
 /**
@@ -74,8 +74,8 @@ export interface EncounterSnapshot extends EncounterSnapshotMeta {
  * session fields (viewer-uniform; the DM console reads the full session directly
  * and never goes through here). Each combatant is then redacted by {@link
  * visibleEntity} — the **only** relationship-driven step — over its pre-assembled
- * merged {@link ReadBag} (the UNN-516 loader produces these; resolve can't run in
- * the pure projector). Combatants stay in session (turn) order; name
+ * merged {@link import("@workspace/game-v2/encounter/participant-view").ParticipantView} (`resolveSession` produces this view, UNN-525; resolve
+ * can't run in the pure projector). Combatants stay in session (turn) order; name
  * disambiguation (NAME-3) is the encounter-view layer's job, so each combatant
  * carries its raw `identity` here.
  *
@@ -84,26 +84,27 @@ export interface EncounterSnapshot extends EncounterSnapshotMeta {
  * derives the ids (`[]` when Free/mapless, CD17).
  *
  * Each combatant is keyed by its **`participant.id`** (the roster id), not the
- * entity id its read-bag carries — so `combatants[].id` correlates with
- * `currentActor.id` and `engagement.targetCombatantIds`. The read-bags are keyed by
- * participant id (`readBags.get(participant.id)`); the bag's own `bag.id` is the
- * entity id, used only for ownership inside {@link visibleEntity}.
+ * entity id its participant-view carries — so `combatants[].id` correlates with
+ * `currentActor.id` and `engagement.targetCombatantIds`. The participant-views are
+ * keyed by participant id (`view.get(participant.id)`); the view's own
+ * `participantView.id` is the entity id, used only for ownership inside {@link
+ * visibleEntity}.
  */
 export function projectEncounterSnapshot(
   session: Session,
-  readBags: ReadonlyMap<ParticipantId, ReadBag>,
+  view: ResolvedSession,
   viewer: Viewer,
   meta: EncounterSnapshotMeta
 ): EncounterSnapshot {
   const combatants: VisibleCombatant[] = []
   for (const participant of session.participants) {
-    const bag = readBags.get(participant.id)
-    // A participant the loader couldn't assemble a bag for is omitted rather than
+    const participantView = view.get(participant.id)
+    // A participant the loader couldn't assemble a view for is omitted rather than
     // rendered blank — the projector renders only what it is given.
-    if (bag !== undefined) {
+    if (participantView !== undefined) {
       combatants.push({
         id: participant.id,
-        components: visibleEntity(bag, viewer),
+        components: visibleEntity(participantView, viewer),
       })
     }
   }
@@ -114,29 +115,29 @@ export function projectEncounterSnapshot(
     campaignShortId: meta.campaignShortId,
     version: meta.version,
     round: session.round,
-    currentActor: currentActorView(session, readBags),
+    currentActor: currentActorView(session, view),
     combatants,
   }
 }
 
 /**
  * The acting combatant's public `{ id, name, side }`, or `null` when no one is
- * acting (or the actor has no assembled bag). Name falls back to the id (never
+ * acting (or the actor has no assembled view). Name falls back to the id (never
  * blank, NAME-1); side reads the always-present overlay allegiance.
  */
 function currentActorView(
   session: Session,
-  readBags: ReadonlyMap<ParticipantId, ReadBag>
+  view: ResolvedSession
 ): CurrentActorView | null {
   const { currentActorId } = session
   if (currentActorId === null) return null
 
-  const bag = readBags.get(currentActorId)
-  if (bag === undefined) return null
+  const participantView = view.get(currentActorId)
+  if (participantView === undefined) return null
 
   return {
     id: currentActorId,
-    name: bag.components.identity?.name ?? currentActorId,
-    side: bag.components.allegiance.side,
+    name: participantView.components.identity?.name ?? currentActorId,
+    side: participantView.components.allegiance.side,
   }
 }

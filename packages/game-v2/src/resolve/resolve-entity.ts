@@ -96,16 +96,21 @@ export function createResolveEntity(
     // context field reaches `resolve` without per-field threading here.
     const resolved = resolve(formed, { ...context, effects })
 
-    // Phase 3 — hydrate the collected Skills against the finished entity. Omit the
-    // read-unit entirely when the entity fields none (no empty array on the bag).
-    if (skills.length === 0) return resolved
+    // Phase 3 — surface the active mechanics (already computed above, for resolved-
+    // view consumers) and hydrate the collected Skills against the finished entity.
+    // Each read-unit is omitted when empty (no empty array on the bag).
+    if (active.length === 0 && skills.length === 0) return resolved
 
-    return {
-      ...resolved,
-      components: {
-        ...resolved.components,
-        skills: hydrateSkills(skills, resolved, context),
-      },
+    const components = { ...resolved.components }
+    if (active.length > 0) {
+      components.activeMechanics = active.map(({ kind, state }) => ({
+        kind,
+        state,
+      }))
     }
+    if (skills.length > 0) {
+      components.skills = hydrateSkills(skills, resolved, context)
+    }
+    return { ...resolved, components }
   }
 }

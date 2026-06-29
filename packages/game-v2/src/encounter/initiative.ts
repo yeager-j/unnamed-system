@@ -1,7 +1,6 @@
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { Participant } from "./session"
+import type { ParticipantView, ResolvedSession } from "./participant-view"
 
 /**
  * Start-of-combat initiative (rulebook 3.2; CD9a). When combat opens **neutral**,
@@ -14,9 +13,9 @@ import type { Participant } from "./session"
  *
  * **The F1 kill (CD9a):** v1's three-arm `resolveStats` `CombatantRef` switch
  * evaporates. The loader (UNN-516) already dissolved storage into
- * `participant.entity`, so each side's stats come from `resolve(p.entity)
- * .components.attributes` **uniformly** — PC, enemy, and ex-catalog enemy run the
- * one read with zero `kind` branch.
+ * `participant.entity`, so each side's stats come from each participant's resolved
+ * `attributes` read-unit in the view **uniformly** — PC, enemy, and ex-catalog enemy
+ * run the one read with zero `kind` branch.
  */
 
 /** The two attributes initiative compares, per participant. */
@@ -41,17 +40,15 @@ export interface InitiativeComparison {
 }
 
 /**
- * Resolves a participant's {@link InitiativeStats} from its resolved Attributes
- * read-unit. A participant that resolves no `attributes` read-unit (an entity
- * carrying no Attributes capability — never a combat-eligible combatant under
- * parity) yields `null` and is ignored, the v2 analogue of v1's "PC with no
- * supplied stats / unknown catalog key" arm.
+ * A participant's {@link InitiativeStats} from its resolved Attributes read-unit. A
+ * view with no `attributes` read-unit (an entity carrying no Attributes capability —
+ * never a combat-eligible combatant under parity) yields `null` and is ignored, the
+ * v2 analogue of v1's "PC with no supplied stats / unknown catalog key" arm.
  */
 function participantStats(
-  participant: Participant,
-  resolve: (entity: Entity) => ResolvedEntity
+  participantView: ParticipantView
 ): InitiativeStats | null {
-  const attributes = resolve(participant.entity).components.attributes
+  const attributes = participantView.components.attributes
   if (attributes === undefined) return null
   return { agility: attributes.agility, luck: attributes.luck }
 }
@@ -87,19 +84,19 @@ function suggestedSide(
 }
 
 /**
- * Compares the two sides' opening initiative from the live roster. Pure — the
- * dialog re-derives it whenever the roster changes. Each participant's side is its
- * **allegiance overlay** (`participant.overlay.allegiance.side`), so a charmed PC
- * counts on the side it currently fights for.
+ * Compares the two sides' opening initiative over the resolved-encounter view. Pure
+ * — the dialog re-derives it whenever the roster changes. Each participant's side is
+ * its **allegiance overlay** (`participantView.components.allegiance.side`, always
+ * present in the merged view), so a charmed PC counts on the side it currently
+ * fights for.
  */
-export function compareInitiative(
-  participants: readonly Participant[],
-  resolve: (entity: Entity) => ResolvedEntity
-): InitiativeComparison {
+export function compareInitiative(view: ResolvedSession): InitiativeComparison {
   const statsForSide = (side: CombatSide): InitiativeStats[] =>
-    participants
-      .filter((participant) => participant.overlay.allegiance.side === side)
-      .map((participant) => participantStats(participant, resolve))
+    [...view.values()]
+      .filter(
+        (participantView) => participantView.components.allegiance.side === side
+      )
+      .map(participantStats)
       .filter((stats): stats is InitiativeStats => stats !== null)
 
   const players = sideInitiative(statsForSide("players"))

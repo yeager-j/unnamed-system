@@ -146,6 +146,45 @@ describe("resolveEntity — enemy mechanics are always on (no archetype gating, 
   })
 })
 
+describe("resolveEntity — surfaces the active mechanics read-unit (UNN-525)", () => {
+  it("emits the active Archetype's mechanic (kind + state) for a PC", () => {
+    const resolved = resolveEntity(
+      makeDerivedEntity({
+        active: "berserker",
+        mechanics: { frenzy: { kind: "frenzy", pain: 2, frenzyMode: true } },
+      })
+    )
+    expect(resolved.components.activeMechanics).toEqual([
+      { kind: "frenzy", state: { kind: "frenzy", pain: 2, frenzyMode: true } },
+    ])
+  })
+
+  it("emits every mechanic an enemy carries (no archetype gating)", () => {
+    const resolved = resolveEntity(
+      makeFlatEntity({
+        mechanics: {
+          valor: { kind: "valor", value: 3 },
+          frenzy: { kind: "frenzy", pain: 2, frenzyMode: true },
+        },
+      })
+    )
+    expect(resolved.components.activeMechanics).toEqual([
+      { kind: "valor", state: { kind: "valor", value: 3 } },
+      { kind: "frenzy", state: { kind: "frenzy", pain: 2, frenzyMode: true } },
+    ])
+  })
+
+  it("omits the read-unit when no mechanic is active (PC with no mechanic, or bare enemy)", () => {
+    expect(
+      resolveEntity(makeDerivedEntity({ active: "scholar" })).components
+        .activeMechanics
+    ).toBeUndefined()
+    expect(
+      resolveEntity(makeFlatEntity({})).components.activeMechanics
+    ).toBeUndefined()
+  })
+})
+
 describe("affinity candidate order is inert (resolve folds by strongest, not later-wins)", () => {
   it("two competing affinity candidates resolve the same regardless of order", () => {
     const resolve = createResolve(makeTestGameData())

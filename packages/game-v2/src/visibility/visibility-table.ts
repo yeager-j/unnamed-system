@@ -1,4 +1,4 @@
-import type { ReadBagComponents } from "@workspace/game-v2/encounter/read-bag"
+import type { ParticipantViewComponents } from "@workspace/game-v2/encounter/participant-view"
 
 import type { Relationship } from "./relationship"
 
@@ -12,14 +12,14 @@ import type { Relationship } from "./relationship"
 export type Visibility = "public" | "drop"
 
 /**
- * Every component key that can appear in a participant's **merged read-bag**
+ * Every component key that can appear in a participant's **merged participant-view**
  * (resolved durable read-units ∪ overlay ∪ instance, CD14) — so the policy table
  * is **total over what redaction can actually see**. Because {@link VISIBILITY} is
  * checked `satisfies Record<ProjectableKey, …>`, a future component added to any of
  * the three homes is a **compile error** here until its visibility is decided
  * (the load-seam totality guarantee, applied to security).
  */
-export type ProjectableKey = keyof ReadBagComponents
+export type ProjectableKey = keyof ParticipantViewComponents
 
 const PUBLIC_TO_ALL: Record<Relationship, Visibility> = {
   own: "public",
@@ -55,7 +55,7 @@ const STATS: Record<Relationship, Visibility> = {
  * **The single source of truth for redaction** (CD11; ADR §2.6) — one total
  * `(component × relationship) → public | drop` table. {@link
  * import("./visible-entity").visibleEntity} is a pure fold of this table over the
- * merged read-bag; it takes **no entity argument**, so a redaction decision lives
+ * merged participant-view; it takes **no entity argument**, so a redaction decision lives
  * here and only here.
  *
  * Three row-shapes:
@@ -69,7 +69,8 @@ const STATS: Record<Relationship, Visibility> = {
  * - **Drop from all five** — resolved read-units that never belong on a watch
  *   surface (`skills`/`talents`/`resources`/`exhaustion`/`archetypes` are sheet
  *   data, never in v1's snapshot; `pendingEffects` is a display-only DM producer
- *   that would leak attack math). Explicit rather than defaulted, so the security
+ *   that would leak attack math; `activeMechanics` is internal mechanic state —
+ *   Frenzy pain, Perfection rank). Explicit rather than defaulted, so the security
  *   posture of every component is reviewed, not inferred.
  */
 export const VISIBILITY = {
@@ -93,6 +94,7 @@ export const VISIBILITY = {
   exhaustion: DROP_FROM_ALL,
   archetypes: DROP_FROM_ALL,
   pendingEffects: DROP_FROM_ALL,
+  activeMechanics: DROP_FROM_ALL,
 } satisfies Record<ProjectableKey, Record<Relationship, Visibility>>
 
 /**
@@ -103,13 +105,13 @@ export const VISIBILITY = {
 type AssertEmpty<T extends never> = T
 
 /**
- * **Security invariant, proven at build time:** every key the merged read-bag can
+ * **Security invariant, proven at build time:** every key the merged participant-view can
  * carry is policed by {@link VISIBILITY}. The `satisfies` above already forbids a
- * *missing* key; this catches the inverse drift — a bag key that the
+ * *missing* key; this catches the inverse drift — a participant-view key that the
  * {@link ProjectableKey} alias (or a future home) stops covering — so no component
  * can ever reach the wire without an explicit verdict (default-drop would only
  * hide it at runtime; this makes the omission un-compilable).
  */
 export type ProjectableKeyInvariant = AssertEmpty<
-  Exclude<keyof ReadBagComponents, keyof typeof VISIBILITY>
+  Exclude<keyof ParticipantViewComponents, keyof typeof VISIBILITY>
 >
