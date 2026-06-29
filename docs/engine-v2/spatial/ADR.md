@@ -114,9 +114,14 @@ dual-homed shape down to where both domains reach:
   `kernel/identity.schema.ts`) — engine-wide roster-slot identity vocab, already shared by
   `encounter/` + `visibility/`, now `spatial/` too (`engagementSchema` references it, and
   kernel can't import `encounter/ids`).
-- **`encounter/instance.ts` + `encounter/ids.ts` re-export both**, so every current
-  consumer keeps compiling against the **same type identity** — **non-breaking**, zero
-  churn for in-flight UNN-516/517.
+- **Consumers import both from `kernel/` directly** (`kernel/participant-id.schema`,
+  `kernel/vocab/engagement`). The move was originally specced to shim through
+  `encounter/ids.ts` / `instance.ts` re-exports to keep then-in-flight UNN-516/517
+  churn-free; those **merged before S1 landed**, so the shim's reason was moot and S1
+  deletes `encounter/ids.ts` outright — one honest home per shape, no pass-through
+  forwarding. `encounter/instance.ts` keeps `Position`/`INSTANCE_KEYS` and now *imports*
+  `Engagement` from kernel for its grouping (no re-export). _(As-built amendment; the
+  SD3 decision — move only these two shapes down — is unchanged.)_
 
 **What stays put:** `Position`, `INSTANCE_KEYS`, `EncounterInstanceComponents`,
 `disjointness.ts` stay rooted in `encounter/` — they are the *read-bag-merge registry*,
@@ -302,10 +307,10 @@ wire, never null.
 packages/game-v2/src/
 ├── kernel/
 │   ├── vocab/engagement.ts        + Engagement / engagementSchema           (SD3, moved)
-│   └── ids.ts (or identity.schema) + ParticipantId / participantIdSchema     (SD3, moved)
+│   └── participant-id.schema.ts   + ParticipantId / participantIdSchema     (SD3, moved)
 ├── encounter/
-│   ├── instance.ts                re-exports Engagement; Position/INSTANCE_KEYS stay   (SD3)
-│   ├── ids.ts                      re-exports ParticipantId                  (SD3)
+│   ├── instance.ts                Position/INSTANCE_KEYS stay; imports Engagement (SD3)
+│   │                              (ids.ts deleted — ParticipantId now in kernel/)
 │   ├── spatial-reads.ts            the one-way port (unchanged, consumer-side)  (CD15)
 │   └── reduce-encounter.ts         S5 fills the spatial arm + cross-writes    (§2.9)
 ├── spatial/                        ← NEW domain folder                        (SD1)
@@ -357,10 +362,11 @@ through the entire combat build — proof the seam did not box this ADR in.
 
 **Costs**
 
-- **The vocab move (SD3) is a cross-track coordination item.** It is non-breaking (the
-  `encounter/` re-exports preserve type identity), but it touches files UNN-516/517 are
-  editing — it must be flagged on both so a rebase doesn't surprise them. It is the single
-  point where the two tracks share a file.
+- **The vocab move (SD3) was the planned cross-track coordination item.** It touches files
+  UNN-516/517 also edit — but those merged before S1 began, so the move resolved into a
+  clean repoint (consumers import `ParticipantId`/`Engagement` from `kernel/`; `encounter/ids.ts`
+  deleted) with no shim and no rebase coordination needed. Had they still been in flight, the
+  re-export shim was the fallback.
 - **Two occupancy keyings** (slot in combat, character in exploration, SD5) — one
   `Record<string, MapToken>` whose key *meaning* is lifecycle-dependent. Documented, and
   the brand move makes the combat half typecheck against the shared `ParticipantId`, but a
@@ -393,7 +399,7 @@ by the new-vs-migration / dependency axis.
 
 | PR | Slices | Scope | Gated on |
 |----|--------|-------|----------|
-| **PR1 — Spatial foundation + the one-way seam** | S1 | Move `Engagement`+`ParticipantId` → kernel (re-export from `encounter/`); scaffold `spatial/` + the `./spatial` export; **add the asymmetric depcheck rule** (+ eslint mirror); port the state schemas (`MapInstanceState`/`MapToken`/`RevealState`, `MapGeometry`/`MapZone`/`MapConnection`, `DungeonState`) + the three event unions + Zod wire schemas + `session-event`-style lockstep. **Design-heavy + the cross-track coordination point** (the vocab move touches in-flight UNN-516/517 — non-breaking via re-export). | — |
+| **PR1 — Spatial foundation + the one-way seam** | S1 | Move `Engagement`+`ParticipantId` → kernel (re-export from `encounter/`); scaffold `spatial/` + the `./spatial` export; **add the asymmetric depcheck rule** (+ eslint mirror); port the state schemas (`MapInstanceState`/`MapToken`/`RevealState`, `MapGeometry`/`MapZone`/`MapConnection`, `DungeonState`) + the three event unions as **single-source `z.infer`** (the Zod wire schema is the one source; no hand-written union + lockstep guard — `session-event.ts`'s `CombatEvent` was migrated to match). **Design-heavy + the cross-track coordination point** (the vocab move touches UNN-516/517 — which merged before S1, so it became a clean repoint into `kernel/` rather than a re-export shim). | — |
 | **PR2 — Spatial reducers (the migration bucket)** | S2 + S3 + S4 | The three pure, standalone reducers + helpers, golden-mastered against v1: `reduceMapGeometry` (9 events, un-curried); the engagement-graph (`engagedWith`/`setEngaged`/`unlink`, symmetric) + occupancy helpers (`addOccupant`/`removeOccupant`-sever/`pruneCombat`, the R23 obligations); `reduceMapInstance(newId)` (16 events / 6 slices: zone-graph, move, engagement, enchantment, reveal/fog, editGeometry). **Large but low-risk** — pure parity, **except** D28#1 (`move`-breaks-engagement), the one deliberate SUPERSEDE whose golden-master *intentionally* diverges from v1. | PR1 |
 | **PR3 — Composition + redaction tail** | S5 + S6 | The integration with the combat track: the `reduceEncounter` spatial arm + the cross-cutting `guardMany` seam (co-mint, add/removeOccupant, combat-end sweep+prune+flip); the combat-side `SpatialReads` adapter + instance read-bag projection; `reduceDungeon` (2 events) + delve-roster-from-occupancy; the D28#2 allegiance-gated candidate selector; the fog-clamping projector that **composes over** `projectEncounterSnapshot` (drop unrevealed zones, `zoneId→""`, withhold enchantment, `MapZone→{id,name}`, known-exit silhouettes) + `DungeonSnapshot`. | PR2, **UNN-517 + UNN-522** |
 

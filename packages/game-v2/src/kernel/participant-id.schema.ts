@@ -1,14 +1,17 @@
 import { z } from "zod/v4"
 
 /**
- * The **participant / roster id** brand. The encounter subsystem juggles two id
- * namespaces, both physically `string`:
+ * The **participant / roster id** brand — engine-wide roster-slot identity vocab.
+ * Homed in `kernel/` (sibling of {@link import("./identity.schema").Identity}, SD3)
+ * because three domains share it — `encounter/` and `visibility/` already, and now
+ * `spatial/`: the {@link import("./vocab/engagement").Engagement} shape references
+ * it, and a vocab module in `kernel/` cannot reach up into `encounter/ids`. The
+ * encounter subsystem juggles two id namespaces, both physically `string`:
  *
  * - the **entity id** (`Entity.id`) — a durable character / inline entity, and
  * - the **participant id** (`Participant.id`) — the encounter *slot* a combatant
  *   occupies. A durable entity can in principle occupy two slots, overlay + turn
- *   order key on the slot, and engagement targets name slots ({@link
- *   import("./session").Participant} says so).
+ *   order key on the slot, and engagement targets name slots.
  *
  * Conflating them caused a real bug in UNN-519 (an entity id flowed into a slot
  * that needed the roster id). Branding **only** the participant id — leaving the
@@ -17,9 +20,10 @@ import { z } from "zod/v4"
  * cost: every entity-constructing test in the package keeps passing bare strings.
  *
  * `participantIdSchema` is the Zod surface (used by `combatEventSchema` +
- * `instance.ts` so the schema-inferred type *is* {@link ParticipantId}, keeping the
- * `session-event.ts` lockstep intact); {@link asParticipantId} is the cheap mint
- * for trusted ids (`newId()` output, test literals) that skips re-validation.
+ * `kernel/vocab/engagement` so the schema-inferred type *is* {@link ParticipantId},
+ * keeping the `session-event.ts` lockstep intact); {@link asParticipantId} is the
+ * cheap mint for trusted ids (`newId()` output, test literals) that skips
+ * re-validation.
  */
 export const participantIdSchema = z.string().min(1).brand<"ParticipantId">()
 

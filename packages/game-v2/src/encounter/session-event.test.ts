@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
-import { asParticipantId } from "./ids"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+
 import {
   combatEventSchema,
   toSessionEvent,

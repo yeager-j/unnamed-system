@@ -1,10 +1,10 @@
 import type { ResolvedComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { CombatantEffect } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics/zone-enchantment"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 
-import type { ParticipantId } from "./ids"
 import type { EncounterInstanceComponents } from "./instance"
 import type { OverlayComponents } from "./overlay"
 import type { Participant, Session } from "./session"

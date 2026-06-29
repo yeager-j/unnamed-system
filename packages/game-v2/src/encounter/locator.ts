@@ -1,9 +1,8 @@
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
-
-import type { ParticipantId } from "./ids"
 
 /**
  * The **persisted** combat shapes (ADR §2.1; CD3) — the on-the-wire contract the

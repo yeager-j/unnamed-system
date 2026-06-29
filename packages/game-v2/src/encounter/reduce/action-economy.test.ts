@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+
 import { participantWith, sessionOf } from "../__fixtures__/session"
-import { asParticipantId } from "../ids"
 import { reduceActionEconomy } from "./action-economy"
 
 describe("reduceActionEconomy (R11 → signed-delta consumption)", () => {

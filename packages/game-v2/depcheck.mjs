@@ -1,7 +1,7 @@
 // @ts-check
 
 import { readdirSync, readFileSync } from "node:fs"
-import { join, relative } from "node:path"
+import { join, posix, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 /**
@@ -113,6 +113,55 @@ function mayImportCatalog(relPath) {
 }
 
 /**
+ * The combat-facing domains the one-way spatial seam (SD2) forbids `spatial/**`
+ * from importing. Spatial stands alone: it may import `kernel/` + `mechanics/`
+ * (down the gradient) and nothing sideways. The seam is **asymmetric** —
+ * `encounter → spatial` stays allowed (the composition tier + loader read spatial),
+ * which is why the check keys off the *importing* file, not the specifier alone.
+ */
+const SPATIAL_SEALED_DOMAINS = ["encounter", "combat", "visibility"]
+
+/**
+ * Whether `target` — a src-relative POSIX path (`encounter/instance`) or a bare
+ * domain folder (`encounter`) — lands inside a sealed domain.
+ * @param {string} target
+ * @returns {boolean}
+ */
+function landsInSealedDomain(target) {
+  return SPATIAL_SEALED_DOMAINS.some(
+    (d) => target === d || target.startsWith(`${d}/`)
+  )
+}
+
+/**
+ * Whether `specifier`, imported from `relPath`, crosses the forbidden direction of
+ * the spatial seam (SD2): a `spatial/**` file reaching into `encounter`/`combat`/
+ * `visibility`. Catches **both** forms a spatial file could use — the conventional
+ * absolute `@workspace/game-v2/<domain>` *and* a relative `../encounter/...` that
+ * resolves out of `spatial/` into a sealed domain (the seam is intra-package, so
+ * `../` traversal is genuinely reachable; the eslint mirror only flags the absolute
+ * + `../`-prefixed forms, so this script is the structural backstop).
+ * @param {string} relPath POSIX path relative to `src/`
+ * @param {string} specifier
+ * @returns {boolean}
+ */
+function isForbiddenSpatialImport(relPath, specifier) {
+  if (!relPath.startsWith("spatial/")) return false
+
+  if (specifier.startsWith("@workspace/game-v2/")) {
+    return landsInSealedDomain(specifier.slice("@workspace/game-v2/".length))
+  }
+
+  if (specifier.startsWith(".")) {
+    return landsInSealedDomain(
+      posix.normalize(posix.join(posix.dirname(relPath), specifier))
+    )
+  }
+
+  return false
+}
+
+/**
  * The pure rule check for one file's source — exported so the gate's own tests
  * can prove it fails closed on every import form (single-line, multi-line,
  * re-export, dynamic) without walking the filesystem.
@@ -145,6 +194,15 @@ export function scanSource(relPath, source) {
         line,
         specifier,
         rule: "logic must not value-import catalog — inject via kernel/ports (D33)",
+      })
+    }
+
+    if (isForbiddenSpatialImport(relPath, specifier)) {
+      violations.push({
+        file: relPath,
+        line,
+        specifier,
+        rule: "spatial must not import encounter/combat/visibility — the seam is one-way (SD2)",
       })
     }
   }

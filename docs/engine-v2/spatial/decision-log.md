@@ -86,10 +86,13 @@ keystone):
 2. `ParticipantId` / `participantIdSchema` / `asParticipantId` → **`kernel/`** (sibling
    of `kernel/identity.schema.ts`) — engine-wide roster-slot identity vocab, already
    shared by `encounter/` + `visibility/` and now `spatial/`.
-3. `encounter/instance.ts` + `encounter/ids.ts` **re-export** both, so every current
-   consumer (the read-bag, `disjointness.ts`, the visibility `engagement` row,
-   `session-event.ts`'s lockstep) keeps compiling against the **same type identity** —
-   **non-breaking**, zero churn for in-flight UNN-516/517.
+3. Consumers import both **directly from `kernel/`** (the read-bag, `disjointness.ts`, the
+   visibility `engagement` row, `session-event.ts`'s `combatEventSchema`) against the
+   **same type identity**. _As-built note:_ the move was specced to shim through
+   `encounter/ids.ts` / `instance.ts` re-exports to keep then-in-flight UNN-516/517
+   churn-free; they **merged before S1**, so S1 deleted `encounter/ids.ts` and repointed
+   every consumer at the kernel home — no vestigial pass-through forwarder. `instance.ts`
+   keeps `Position`/`INSTANCE_KEYS` and *imports* `Engagement` for its grouping.
 4. `INSTANCE_KEYS`, `EncounterInstanceComponents`, `disjointness.ts`, and `Position`
    **stay rooted in `encounter/`.** CD13's prohibition is honored exactly: a standalone
    *value schema* in `kernel/vocab` carries **no `ComponentRegistry` key** and forces

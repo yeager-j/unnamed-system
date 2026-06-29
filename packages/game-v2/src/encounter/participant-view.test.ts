@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
 
 import { sessionOf } from "./__fixtures__/session"
-import { asParticipantId } from "./ids"
 import type { EncounterInstanceComponents } from "./instance"
 import { defaultOverlay } from "./overlay"
 import {

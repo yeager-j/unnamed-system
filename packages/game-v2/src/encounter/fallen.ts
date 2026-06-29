@@ -1,6 +1,6 @@
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
-import type { ParticipantId } from "./ids"
 import type { ResolvedSession } from "./participant-view"
 
 /**

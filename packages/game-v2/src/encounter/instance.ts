@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { participantIdSchema } from "./ids"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 
 /**
  * The two **instance-lifecycle** components (CD13; parent D28), pulled forward
@@ -32,23 +32,6 @@ export const positionSchema = z.object({
 })
 
 export type Position = z.infer<typeof positionSchema>
-
-/**
- * **Engagement** — whether a participant is `free` or melee-`engaged` (locked
- * with specific combatants by id). v1's discriminated union verbatim — symmetric
- * and same-zone; the symmetry invariant is the spatial engagement-graph's job, not
- * combat's. Records *who* a combatant is locked with, never *where* it stands
- * (that is the orthogonal {@link Position}).
- */
-export const engagementSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("free") }),
-  z.object({
-    status: z.literal("engaged"),
-    targetCombatantIds: z.array(participantIdSchema).min(1),
-  }),
-])
-
-export type Engagement = z.infer<typeof engagementSchema>
 
 /**
  * The instance-lifecycle component grouping — the sibling of

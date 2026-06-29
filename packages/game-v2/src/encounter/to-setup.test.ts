@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
-import { asParticipantId } from "./ids"
 import { makeParticipant } from "./session"
 import { toParticipantSetup } from "./to-setup"
 

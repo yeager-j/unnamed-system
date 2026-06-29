@@ -1,10 +1,10 @@
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { ParticipantId } from "./ids"
 import { defaultOverlay, type OverlayComponents } from "./overlay"
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { makeScene, type SceneSpec } from "./__fixtures__/session"
 import {
@@ -9,7 +10,6 @@ import {
   endOfTurnReminders,
   type EndOfTurnObligations,
 } from "./end-of-turn"
-import { asParticipantId } from "./ids"
 import { DEFAULT_BATTLE_CONDITIONS, type OverlayComponents } from "./overlay"
 import type { ParticipantView } from "./participant-view"
 
