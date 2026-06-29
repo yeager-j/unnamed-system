@@ -1,9 +1,7 @@
 import { produce } from "immer"
 
-import type { ConnectionFlag, MapGeometryEvent } from "./geometry-event"
+import type { MapGeometryEvent } from "./geometry-event"
 import type { MapGeometry } from "./geometry.schema"
-
-export type { ConnectionFlag, MapGeometryEvent }
 
 /**
  * The pure Map-**template** geometry reducer (S2; ports v1 `engine/map/
