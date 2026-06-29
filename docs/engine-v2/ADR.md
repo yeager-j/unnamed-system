@@ -393,6 +393,12 @@ Recorded so a reader knows these are _intentionally_ unaddressed, not forgotten.
   fog/reveal, connection locks, occupancy, `reduceMapGeometry`, and the spatial
   components **Position** + **Engagement**, plus field-level/fog-gated redaction). A
   large, self-contained layer → **its own future ADR**, after the core engine lands.
+  **Authored (UNN-526):** [`spatial/ADR.md`](./spatial/ADR.md) +
+  [`spatial/decision-log.md`](./spatial/decision-log.md) — the residency decision (a
+  `game-v2/src/spatial/` domain folder + an asymmetric depcheck import-direction rule),
+  the `Engagement`/`ParticipantId` → `kernel/vocab` move that keeps the seam one-way,
+  the single-zoneId confirmation, and the build decomposed into three landable engine
+  PRs (six build slices S1–S6) + a consumer tail.
 - **O12 — reusable object/hazard templates** — pending campaign-planning scope; the
   `entity` table already tolerates a `kind: "object"` row with null level.
 - **Boss multi-turn economy ship-call** (D21) — the engine supports `turnsPerRound`;
