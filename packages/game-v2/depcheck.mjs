@@ -1,7 +1,7 @@
 // @ts-check
 
 import { readdirSync, readFileSync } from "node:fs"
-import { join, relative } from "node:path"
+import { join, posix, relative } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 
 /**
@@ -122,21 +122,43 @@ function mayImportCatalog(relPath) {
 const SPATIAL_SEALED_DOMAINS = ["encounter", "combat", "visibility"]
 
 /**
+ * Whether `target` — a src-relative POSIX path (`encounter/instance`) or a bare
+ * domain folder (`encounter`) — lands inside a sealed domain.
+ * @param {string} target
+ * @returns {boolean}
+ */
+function landsInSealedDomain(target) {
+  return SPATIAL_SEALED_DOMAINS.some(
+    (d) => target === d || target.startsWith(`${d}/`)
+  )
+}
+
+/**
  * Whether `specifier`, imported from `relPath`, crosses the forbidden direction of
  * the spatial seam (SD2): a `spatial/**` file reaching into `encounter`/`combat`/
- * `visibility`. Mirrors the absolute-specifier convention the eslint kernel-sink
- * rule uses (cross-domain imports are `@workspace/game-v2/<domain>`).
+ * `visibility`. Catches **both** forms a spatial file could use — the conventional
+ * absolute `@workspace/game-v2/<domain>` *and* a relative `../encounter/...` that
+ * resolves out of `spatial/` into a sealed domain (the seam is intra-package, so
+ * `../` traversal is genuinely reachable; the eslint mirror only flags the absolute
+ * + `../`-prefixed forms, so this script is the structural backstop).
  * @param {string} relPath POSIX path relative to `src/`
  * @param {string} specifier
  * @returns {boolean}
  */
 function isForbiddenSpatialImport(relPath, specifier) {
   if (!relPath.startsWith("spatial/")) return false
-  return SPATIAL_SEALED_DOMAINS.some(
-    (d) =>
-      specifier === `@workspace/game-v2/${d}` ||
-      specifier.startsWith(`@workspace/game-v2/${d}/`)
-  )
+
+  if (specifier.startsWith("@workspace/game-v2/")) {
+    return landsInSealedDomain(specifier.slice("@workspace/game-v2/".length))
+  }
+
+  if (specifier.startsWith(".")) {
+    return landsInSealedDomain(
+      posix.normalize(posix.join(posix.dirname(relPath), specifier))
+    )
+  }
+
+  return false
 }
 
 /**

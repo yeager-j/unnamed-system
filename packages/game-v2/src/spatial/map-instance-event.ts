@@ -1,5 +1,6 @@
 import { z } from "zod/v4"
 
+import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
 import { ENCHANTMENT_TYPES } from "@workspace/game-v2/kernel/vocab/enchantment"
 
 import { mapGeometryEventSchema } from "./geometry-event"
@@ -13,8 +14,9 @@ import { mapGeometryEventSchema } from "./geometry-event"
  * **The occupancy key is `tokenKey`** (ADR §2.4/§2.5): the key is opaque and
  * **dual-lifecycle** — a `participantId` during combat, a `characterId` during
  * exploration (where `moveCombatant` also moves party tokens). The spatial reducer
- * treats it as a plain string-map key. `targetCombatantIds` keeps its name —
- * engagement is combat-only, so the targets are combatant slots.
+ * treats it as a plain string-map key — only `tokenKey` is a bare opaque string.
+ * `targetCombatantIds` are branded `ParticipantId`s (engagement is combat-only),
+ * matching the stored `engagementSchema` the reducer writes them into.
  *
  * The combat-vs-spatial routing predicate is deferred to the consumer's
  * untrusted-event boundary (Phase B / C1), where both unions are visible; v2 routes
@@ -47,7 +49,7 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("setEngagement"),
     tokenKey: z.string(),
-    targetCombatantIds: z.array(z.string()).min(1),
+    targetCombatantIds: z.array(participantIdSchema).min(1),
   }),
   z.object({ kind: z.literal("clearEngagement"), tokenKey: z.string() }),
   z.object({

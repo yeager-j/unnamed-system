@@ -183,6 +183,14 @@ export default [
               message:
                 "spatial stands alone (SD2) — the seam is one-way. Import kernel + mechanics only; encounter → spatial stays allowed.",
             },
+            {
+              // A relative `../encounter/...` traversal out of spatial/ evades the
+              // absolute-group rule above. depcheck.mjs resolves these structurally;
+              // this regex gives the same signal in-editor.
+              regex: `^(\\.\\./)+(${SPATIAL_SEALED_DOMAINS.join("|")})(/|$)`,
+              message:
+                "spatial stands alone (SD2) — a relative import must not climb into encounter/combat/visibility. Import kernel + mechanics only.",
+            },
           ],
         },
       ],

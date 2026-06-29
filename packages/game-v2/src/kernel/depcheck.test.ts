@@ -111,4 +111,34 @@ describe("depcheck gate (scanSource)", () => {
       )
     ).toHaveLength(0)
   })
+
+  it("forbids spatial → sealed domains via relative traversal (the intra-package escape hatch)", () => {
+    expect(
+      scanSource(
+        "spatial/reduce-map-instance.ts",
+        `import { Engagement } from "../encounter/instance"\n`
+      )
+    ).toHaveLength(1)
+    expect(
+      scanSource(
+        "spatial/sub/deep.ts",
+        `import { x } from "../../combat/attack-roll"\n`
+      )
+    ).toHaveLength(1)
+  })
+
+  it("allows spatial's own relative imports + relative down-gradient to mechanics", () => {
+    expect(
+      scanSource(
+        "spatial/map-instance.schema.ts",
+        `import { mapGeometrySchema } from "./geometry.schema"\n`
+      )
+    ).toHaveLength(0)
+    expect(
+      scanSource(
+        "spatial/foo.ts",
+        `import { zoneEnchantmentSchema } from "../mechanics/zone-enchantment.schema"\n`
+      )
+    ).toHaveLength(0)
+  })
 })
