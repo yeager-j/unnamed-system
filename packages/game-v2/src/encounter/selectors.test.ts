@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { makeScene, sessionOf, type SceneSpec } from "./__fixtures__/session"
-import { asParticipantId } from "./ids"
 import { DEFAULT_TURN_STATE, type OverlayComponents } from "./overlay"
 import {
   actionAvailability,

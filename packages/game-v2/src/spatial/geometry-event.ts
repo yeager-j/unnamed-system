@@ -1,0 +1,73 @@
+import { z } from "zod/v4"
+
+import { mapZoneSchema } from "./geometry.schema"
+
+/**
+ * The geometry-edit vocabulary — one edit the canvas dispatches over a
+ * {@link import("./geometry.schema").MapGeometry}. `reduceMapGeometry` (PR2) applies
+ * these as the standalone Map-template authoring core, and the Map-Instance reuses
+ * the **same** vocabulary for in-console geometry editing: its `editGeometry` event
+ * (see {@link import("./map-instance-event").MapInstanceEvent}) wraps one of these.
+ *
+ * Ids are **caller-minted** — the canvas needs the new id immediately for the
+ * optimistic React-Flow node/edge it pushes — so an `addZone`/`duplicateZone`/
+ * `addConnection` carries the id it creates.
+ */
+
+/** A connection's two independent fog/access flags. */
+export type ConnectionFlag = "hidden" | "locked"
+
+const pointSchema = mapZoneSchema.shape.position
+
+/**
+ * Runtime validator for one geometry edit arriving over the wire — the geometry half
+ * of the Map-Instance's `editGeometry` boundary the impure shell parses before
+ * handing it to the reducer. {@link MapGeometryEvent} is its inferred type.
+ */
+export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("addZone"),
+    id: z.string(),
+    position: pointSchema,
+  }),
+  z.object({
+    kind: z.literal("duplicateZone"),
+    sourceId: z.string(),
+    newId: z.string(),
+    position: pointSchema,
+  }),
+  z.object({
+    kind: z.literal("renameZone"),
+    zoneId: z.string(),
+    name: z.string(),
+  }),
+  z.object({
+    kind: z.literal("setZoneText"),
+    zoneId: z.string(),
+    patch: z.object({
+      description: z.string().optional(),
+      dmNotes: z.string().optional(),
+    }),
+  }),
+  z.object({
+    kind: z.literal("moveZone"),
+    zoneId: z.string(),
+    position: pointSchema,
+  }),
+  z.object({ kind: z.literal("deleteZone"), zoneId: z.string() }),
+  z.object({
+    kind: z.literal("addConnection"),
+    id: z.string(),
+    fromZoneId: z.string(),
+    toZoneId: z.string(),
+  }),
+  z.object({
+    kind: z.literal("setConnectionFlag"),
+    connectionId: z.string(),
+    flag: z.enum(["hidden", "locked"]),
+    value: z.boolean(),
+  }),
+  z.object({ kind: z.literal("deleteConnection"), connectionId: z.string() }),
+])
+
+export type MapGeometryEvent = z.infer<typeof mapGeometryEventSchema>

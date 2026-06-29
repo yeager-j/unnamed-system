@@ -1,6 +1,5 @@
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { ZoneEnchantment } from "@workspace/game-v2/mechanics/zone-enchantment.schema"
-
-import type { ParticipantId } from "./ids"
 
 /**
  * The **combat → spatial read interface** (CD15) — a narrow, one-way port the

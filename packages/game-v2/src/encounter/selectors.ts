@@ -1,6 +1,6 @@
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { ParticipantId } from "./ids"
 import type { TurnState } from "./overlay"
 import type { ParticipantView, ResolvedSession } from "./participant-view"
 import type { Participant, Session } from "./session"

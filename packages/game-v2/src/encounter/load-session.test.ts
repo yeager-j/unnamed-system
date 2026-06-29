@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
 
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { createResolve } from "@workspace/game-v2/resolve/resolve"
 
-import { asParticipantId } from "./ids"
 import { loadSession, saveSession, type DurableSource } from "./load-session"
 import type { StoredParticipant, StoredSession } from "./locator"
 import { defaultOverlay } from "./overlay"

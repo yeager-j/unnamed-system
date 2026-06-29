@@ -66,4 +66,49 @@ describe("depcheck gate (scanSource)", () => {
     expect(scanSource("composition.ts", catalogImport)).toHaveLength(0)
     expect(scanSource("catalog/index.ts", catalogImport)).toHaveLength(0)
   })
+
+  it("forbids spatial → encounter/combat/visibility — the one-way seam (SD2)", () => {
+    expect(
+      scanSource(
+        "spatial/reduce-map-instance.ts",
+        `import { Engagement } from "@workspace/game-v2/encounter/instance"\n`
+      )
+    ).toHaveLength(1)
+    expect(
+      scanSource(
+        "spatial/selectors.ts",
+        `import { resolveAttack } from "@workspace/game-v2/combat"\n`
+      )
+    ).toHaveLength(1)
+    expect(
+      scanSource(
+        "spatial/reveal.ts",
+        `import { redact } from "@workspace/game-v2/visibility/snapshot"\n`
+      )
+    ).toHaveLength(1)
+  })
+
+  it("allows spatial → kernel + mechanics (down the gradient)", () => {
+    expect(
+      scanSource(
+        "spatial/map-instance.schema.ts",
+        `import { zoneEnchantmentSchema } from "@workspace/game-v2/mechanics/zone-enchantment.schema"\n`
+      )
+    ).toHaveLength(0)
+    expect(
+      scanSource(
+        "spatial/map-instance.schema.ts",
+        `import { engagementSchema } from "@workspace/game-v2/kernel/vocab/engagement"\n`
+      )
+    ).toHaveLength(0)
+  })
+
+  it("allows encounter → spatial — the seam is asymmetric (one-way)", () => {
+    expect(
+      scanSource(
+        "encounter/reduce-encounter.ts",
+        `import { reduceMapInstance } from "@workspace/game-v2/spatial"\n`
+      )
+    ).toHaveLength(0)
+  })
 })

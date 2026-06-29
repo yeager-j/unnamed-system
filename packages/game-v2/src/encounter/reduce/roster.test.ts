@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+
 import {
   counterIds,
   entity,
   participantWith,
   sessionOf,
 } from "../__fixtures__/session"
-import { asParticipantId } from "../ids"
 import type { RosterEvent } from "../session-event"
 import { reduceRoster } from "./roster"
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { asParticipantId } from "@workspace/game-v2/encounter/ids"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { engagedWith } from "./engaged-with"
 

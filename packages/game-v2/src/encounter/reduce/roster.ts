@@ -1,6 +1,7 @@
 import { produce } from "immer"
 
-import { asParticipantId } from "../ids"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+
 import { makeParticipant, type Session } from "../session"
 import type { RosterEvent } from "../session-event"
 

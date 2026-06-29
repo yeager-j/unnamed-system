@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import { dm } from "@workspace/game-v2/visibility/__fixtures__/redaction"
 import {
@@ -9,7 +10,6 @@ import {
 } from "@workspace/game-v2/visibility/snapshot"
 
 import { sessionOf } from "./__fixtures__/session"
-import { asParticipantId } from "./ids"
 import { compareInitiative } from "./initiative"
 import { resolveSession } from "./participant-view"
 import { makeParticipant } from "./session"

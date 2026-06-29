@@ -1,8 +1,11 @@
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import {
+  asParticipantId,
+  type ParticipantId,
+} from "@workspace/game-v2/kernel/participant-id.schema"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import { asParticipantId, type ParticipantId } from "./ids"
 import { makeParticipant, type Session } from "./session"
 
 /**

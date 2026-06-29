@@ -35,6 +35,8 @@
     "./mechanics/*": "./src/mechanics/*.ts",
     "./combat": "./src/combat/index.ts",
     "./combat/*": "./src/combat/*.ts",
+    "./spatial": "./src/spatial/index.ts",
+    "./spatial/*": "./src/spatial/*.ts",
     "./catalog": "./src/catalog/index.ts",
     "./composition": "./src/composition.ts",
     "./resolve": "./src/resolve/index.ts",

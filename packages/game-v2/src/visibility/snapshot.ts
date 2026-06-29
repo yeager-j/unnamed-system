@@ -1,9 +1,9 @@
-import type { ParticipantId } from "@workspace/game-v2/encounter/ids"
 import type {
   ParticipantViewComponents,
   ResolvedSession,
 } from "@workspace/game-v2/encounter/participant-view"
 import type { Session } from "@workspace/game-v2/encounter/session"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
 import type { Viewer } from "./relationship"

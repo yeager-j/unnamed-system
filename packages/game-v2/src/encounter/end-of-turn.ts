@@ -1,7 +1,7 @@
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 import type { ResolvedVitals } from "@workspace/game-v2/vitals/resolved"
 
-import type { ParticipantId } from "./ids"
 import type { ParticipantView, ResolvedSession } from "./participant-view"
 import {
   BATTLE_CONDITION_AXIS_KEYS,

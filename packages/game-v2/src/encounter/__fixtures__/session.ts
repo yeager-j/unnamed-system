@@ -1,10 +1,10 @@
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
-import { asParticipantId } from "../ids"
 import { defaultOverlay, type OverlayComponents } from "../overlay"
 import { resolveSession, type ResolvedSession } from "../participant-view"
 import type { Participant, Session } from "../session"

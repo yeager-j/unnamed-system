@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { asParticipantId, type ParticipantId } from "./ids"
+import { asParticipantId, type ParticipantId } from "./participant-id.schema"
 
 /**
  * The brand lock-in (UNN-519 class). The whole point of branding only the

@@ -30,7 +30,16 @@ const DOMAIN_FOLDERS = [
   "combat",
   "encounter",
   "visibility",
+  "spatial",
 ]
+
+/**
+ * The combat-facing domains the one-way spatial seam (SD2) forbids `spatial/**`
+ * from importing — the editor-time mirror of `depcheck.mjs`'s
+ * `SPATIAL_SEALED_DOMAINS` (the script is the real gate). The seam is asymmetric:
+ * `encounter → spatial` stays allowed.
+ */
+const SPATIAL_SEALED_DOMAINS = ["encounter", "combat", "visibility"]
 
 export default [
   ...config,
@@ -145,6 +154,34 @@ export default [
               ]),
               message:
                 "kernel is the dependency sink (D33) — it must not import a domain folder. Only component-registry.ts and ports.ts may type-import a domain shape to name it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one-way spatial seam (SD2): spatial/ stands alone. It may import kernel +
+    // mechanics (down the gradient) but never the combat-facing domains. The seam is
+    // asymmetric — encounter → spatial stays allowed (composition reads spatial).
+    // Hard-gated by depcheck.mjs; this is the editor-time mirror.
+    files: ["src/spatial/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@workspace/game", "@workspace/game/*"],
+              message: "game-v2 is independent (D32).",
+            },
+            {
+              group: SPATIAL_SEALED_DOMAINS.flatMap((d) => [
+                `@workspace/game-v2/${d}`,
+                `@workspace/game-v2/${d}/*`,
+              ]),
+              message:
+                "spatial stands alone (SD2) — the seam is one-way. Import kernel + mechanics only; encounter → spatial stays allowed.",
             },
           ],
         },

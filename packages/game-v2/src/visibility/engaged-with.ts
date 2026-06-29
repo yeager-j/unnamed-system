@@ -1,5 +1,5 @@
-import type { ParticipantId } from "@workspace/game-v2/encounter/ids"
-import type { Engagement } from "@workspace/game-v2/encounter/instance"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 
 /**
  * The combatant ids this participant is melee-locked with, or `[]` (the v1 ENG-5

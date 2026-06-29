@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
 import { createGameEngine } from "@workspace/game-v2/composition"
-import { asParticipantId } from "@workspace/game-v2/encounter/ids"
 import { createSessionFactory } from "@workspace/game-v2/encounter/session-factory"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 /** A deterministic id generator (`id-1`, `id-2`, …) for stable assertions. */
 function counterIds(): () => string {

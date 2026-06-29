@@ -113,6 +113,33 @@ function mayImportCatalog(relPath) {
 }
 
 /**
+ * The combat-facing domains the one-way spatial seam (SD2) forbids `spatial/**`
+ * from importing. Spatial stands alone: it may import `kernel/` + `mechanics/`
+ * (down the gradient) and nothing sideways. The seam is **asymmetric** —
+ * `encounter → spatial` stays allowed (the composition tier + loader read spatial),
+ * which is why the check keys off the *importing* file, not the specifier alone.
+ */
+const SPATIAL_SEALED_DOMAINS = ["encounter", "combat", "visibility"]
+
+/**
+ * Whether `specifier`, imported from `relPath`, crosses the forbidden direction of
+ * the spatial seam (SD2): a `spatial/**` file reaching into `encounter`/`combat`/
+ * `visibility`. Mirrors the absolute-specifier convention the eslint kernel-sink
+ * rule uses (cross-domain imports are `@workspace/game-v2/<domain>`).
+ * @param {string} relPath POSIX path relative to `src/`
+ * @param {string} specifier
+ * @returns {boolean}
+ */
+function isForbiddenSpatialImport(relPath, specifier) {
+  if (!relPath.startsWith("spatial/")) return false
+  return SPATIAL_SEALED_DOMAINS.some(
+    (d) =>
+      specifier === `@workspace/game-v2/${d}` ||
+      specifier.startsWith(`@workspace/game-v2/${d}/`)
+  )
+}
+
+/**
  * The pure rule check for one file's source — exported so the gate's own tests
  * can prove it fails closed on every import form (single-line, multi-line,
  * re-export, dynamic) without walking the filesystem.
@@ -145,6 +172,15 @@ export function scanSource(relPath, source) {
         line,
         specifier,
         rule: "logic must not value-import catalog — inject via kernel/ports (D33)",
+      })
+    }
+
+    if (isForbiddenSpatialImport(relPath, specifier)) {
+      violations.push({
+        file: relPath,
+        line,
+        specifier,
+        rule: "spatial must not import encounter/combat/visibility — the seam is one-way (SD2)",
       })
     }
   }
