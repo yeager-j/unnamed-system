@@ -125,6 +125,7 @@ export async function getDungeonSnapshot(
     ? {
         encounterShortId: live.shortId,
         round: live.session.round,
+        currentActorId: live.session.currentActorId ?? null,
         currentActorName: live.session.currentActorId
           ? (combatantDisplayNames(
               live.session,

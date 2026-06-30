@@ -69,8 +69,8 @@ export async function generateMetadata({
 
   return {
     title: campaign
-      ? `${campaign.name} — Unnamed System`
-      : "Campaign not found — Unnamed System",
+      ? `${campaign.name} — Showtime!`
+      : "Campaign not found — Showtime!",
   }
 }
 

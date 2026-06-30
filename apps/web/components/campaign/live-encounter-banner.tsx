@@ -1,6 +1,7 @@
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
+import { Alert, AlertAction, AlertTitle } from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 
 /**
@@ -26,14 +27,14 @@ export function LiveEncounterBanner({
   const cta = audience === "dm" ? "Open console" : "Watch combat"
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border border-primary/30 bg-primary/5 p-4">
-      <div className="flex items-center gap-2">
-        <SwordIcon weight="fill" className="text-primary" />
-        <span className="font-medium">Combat is live — {encounterName}</span>
-      </div>
-      <Button render={<Link href={href} />} nativeButton={false} size="sm">
-        {cta}
-      </Button>
-    </div>
+    <Alert variant="primary">
+      <SwordIcon />
+      <AlertTitle>Combat is live — {encounterName}</AlertTitle>
+      <AlertAction>
+        <Button render={<Link href={href} />} nativeButton={false} size="sm">
+          {cta}
+        </Button>
+      </AlertAction>
+    </Alert>
   )
 }

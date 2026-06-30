@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
+import { Button, ButtonProps } from "@workspace/ui/components/button"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
 import { useCharacterWrite } from "@/hooks/use-character"
@@ -46,22 +46,19 @@ export function ArchetypeActionButton({
   state,
   characterArchetypeId,
   savedRanks,
-  size = "default",
-  className,
+  ...props
 }: {
   archetype: Archetype
   state: AtlasNodeState
   characterArchetypeId: string | null
   savedRanks: number
-  size?: "default" | "sm"
-  className?: string
-}) {
+} & ButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const { write, pending, characterId } = useCharacterWrite()
 
   if (state.kind === "mastered") {
     return (
-      <Button variant="outline" size={size} className={className} disabled>
+      <Button variant="outline" {...props} disabled>
         Mastered
       </Button>
     )
@@ -69,7 +66,7 @@ export function ArchetypeActionButton({
 
   if (state.kind === "locked") {
     return (
-      <Button variant="outline" size={size} className={className} disabled>
+      <Button variant="outline" {...props} disabled>
         Prerequisites not met
       </Button>
     )
@@ -112,12 +109,11 @@ export function ArchetypeActionButton({
   return (
     <div className="flex flex-col items-end gap-1">
       <TooltipButton
-        size={size}
-        className={className}
         disabled={noRanks || pending}
         disabledReason={NO_RANKS_REASON}
         title={noRanks ? NO_RANKS_REASON : undefined}
         onClick={() => setConfirmOpen(true)}
+        {...props}
       >
         {label}
       </TooltipButton>

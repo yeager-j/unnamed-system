@@ -1,6 +1,12 @@
 import { CompassIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 
 /**
@@ -23,17 +29,20 @@ export function LiveDelveBanner({
     audience === "dm"
       ? `/dungeon/${dungeonShortId}`
       : `/c/dungeon/${dungeonShortId}`
-  const cta = audience === "dm" ? "Open console" : "Watch delve"
+  const cta = audience === "dm" ? "Open console" : "Join delve"
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border border-primary/30 bg-primary/5 p-4">
-      <div className="flex items-center gap-2">
-        <CompassIcon weight="fill" className="text-primary" />
-        <span className="font-medium">Exploration is live — {dungeonName}</span>
-      </div>
-      <Button render={<Link href={href} />} nativeButton={false} size="sm">
-        {cta}
-      </Button>
-    </div>
+    <Alert variant="primary">
+      <CompassIcon />
+      <AlertTitle>Exploration is live</AlertTitle>
+      <AlertDescription>
+        Your party is currently exploring <strong>{dungeonName}</strong>.
+      </AlertDescription>
+      <AlertAction>
+        <Button render={<Link href={href} />} nativeButton={false} size="sm">
+          {cta}
+        </Button>
+      </AlertAction>
+    </Alert>
   )
 }

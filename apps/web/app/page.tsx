@@ -10,7 +10,7 @@ import { auth } from "@/lib/auth"
 import { loadOwnedCharacterSummaries } from "@/lib/db/queries/character-list"
 
 export const metadata: Metadata = {
-  title: "My Characters — Unnamed System",
+  title: "My Characters — Showtime!",
 }
 
 /**
@@ -36,7 +36,7 @@ export default async function MyCharactersPage() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-medium">My Characters</h1>
+        <h1 className="font-display text-3xl font-bold">My Characters</h1>
         <CreateCharacterButton />
       </header>
 

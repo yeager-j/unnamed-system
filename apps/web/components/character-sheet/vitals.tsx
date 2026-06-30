@@ -31,7 +31,10 @@ export function Vitals() {
             {character.currentHP} / {character.maxHP}
           </span>
         </div>
-        <Progress value={percent(character.currentHP, character.maxHP)} />
+        <Progress
+          color="hp"
+          value={percent(character.currentHP, character.maxHP)}
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -41,7 +44,10 @@ export function Vitals() {
             {character.currentSP} / {character.maxSP}
           </span>
         </div>
-        <Progress value={percent(character.currentSP, character.maxSP)} />
+        <Progress
+          color="sp"
+          value={percent(character.currentSP, character.maxSP)}
+        />
       </div>
     </div>
   )

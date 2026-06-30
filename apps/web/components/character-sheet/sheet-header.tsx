@@ -44,7 +44,7 @@ export function SheetHeader() {
   const fallen = isFallen(character.currentHP)
 
   return (
-    <Card>
+    <Card variant="gilded">
       <CardContent className="@container">
         <div className="flex flex-col gap-6 @2xl:flex-row @2xl:items-start">
           <div className="flex flex-col gap-4 @2xl:flex-1">

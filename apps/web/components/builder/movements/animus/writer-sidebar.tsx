@@ -83,7 +83,7 @@ function WriterSidebarHeader() {
       >
         {ANIMUS_STEP.romanNumeral}
       </span>
-      <h1 className="font-heading text-3xl font-medium text-sidebar-foreground">
+      <h1 className="font-display text-3xl font-semibold text-sidebar-foreground">
         {ANIMUS_STEP.label}
       </h1>
       {ANIMUS_STEP.framingLine ? (

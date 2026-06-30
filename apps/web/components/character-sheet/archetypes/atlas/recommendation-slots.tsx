@@ -77,7 +77,7 @@ function RecommendationCard({
   const Icon = LINEAGE_ICONS[display.icon]
 
   return (
-    <div className="flex flex-1 items-center justify-between gap-3 border bg-card p-3">
+    <div className="flex flex-1 items-center justify-between gap-3 rounded-md border bg-card p-3">
       <span
         aria-hidden
         className="grid size-9 shrink-0 place-items-center border border-dashed bg-muted text-muted-foreground"
@@ -85,16 +85,17 @@ function RecommendationCard({
         <Icon className="size-4" />
       </span>
       <div className="flex flex-1 flex-col">
-        <span className="flex items-center gap-1 text-[10px] font-bold text-primary uppercase">
+        <span className="flex items-center gap-1 text-[10px] font-bold text-primary-text uppercase">
           <ReasonIcon className="size-3 shrink-0" weight="bold" aria-hidden />
           {reasonDisplay.label}
         </span>
-        <span className="font-serif font-semibold">{archetype.name}</span>
+        <span className="font-semibold">{archetype.name}</span>
         <span className="text-xs text-muted-foreground">
           {TIER_LABELS[archetype.tier]} · {display.label}
         </span>
       </div>
       <ArchetypeActionButton
+        variant="secondary"
         archetype={archetype}
         state={state}
         characterArchetypeId={characterArchetypeId}

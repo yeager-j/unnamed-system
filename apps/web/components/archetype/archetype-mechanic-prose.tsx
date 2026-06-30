@@ -20,7 +20,7 @@ export function ArchetypeMechanicProse({
     <>
       <Separator />
       <section className="flex flex-col gap-1">
-        <h3 className="font-serif text-lg font-semibold">
+        <h3 className="font-display text-lg font-semibold">
           {mechanic.displayName}
         </h3>
         <Prose>{mechanic.description}</Prose>

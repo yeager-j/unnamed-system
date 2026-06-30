@@ -1,4 +1,9 @@
-import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google"
+import {
+  DM_Serif_Display,
+  Hanken_Grotesk,
+  JetBrains_Mono,
+  Source_Serif_4,
+} from "next/font/google"
 
 import "@workspace/ui/globals.css"
 
@@ -10,20 +15,23 @@ import { HeaderGate } from "@/components/shell/header-gate"
 import { SiteHeader } from "@/components/shell/site-header"
 import { ThemeProvider } from "@/components/shell/theme-provider"
 
-const fontSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+const fontSans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-sans" })
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
 
-const fontProse = Source_Serif_4({
+const fontSerif = Source_Serif_4({
   subsets: ["latin"],
-  variable: "--font-prose",
+  variable: "--font-serif",
   weight: ["400", "500", "600", "700"],
+})
+
+const fontDisplay = DM_Serif_Display({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400"],
 })
 
 export default function RootLayout({
@@ -38,7 +46,8 @@ export default function RootLayout({
       className={cn(
         "antialiased",
         fontSans.variable,
-        fontProse.variable,
+        fontSerif.variable,
+        fontDisplay.variable,
         jetbrainsMono.variable,
         "font-sans"
       )}

@@ -66,7 +66,7 @@ export async function CharacterPlacementSection({
           You haven&apos;t added a character to this campaign yet.
         </p>
       ) : (
-        <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2">
           {placedHere.map((character) => (
             <PlacedCharacterCard key={character.id} character={character} />
           ))}

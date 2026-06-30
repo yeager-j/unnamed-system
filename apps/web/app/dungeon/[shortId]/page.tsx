@@ -28,8 +28,8 @@ export async function generateMetadata({
 
   return {
     title: result
-      ? `${result.dungeon.name} — Unnamed System`
-      : "Dungeon not found — Unnamed System",
+      ? `${result.dungeon.name} — Showtime!`
+      : "Dungeon not found — Showtime!",
   }
 }
 

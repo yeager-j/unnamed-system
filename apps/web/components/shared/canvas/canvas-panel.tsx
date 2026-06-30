@@ -33,7 +33,7 @@ export function CanvasPanel({
   return (
     <div
       className={cn(
-        "w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-none border bg-popover shadow-lg",
+        "w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border bg-popover shadow-lg",
         className
       )}
     >

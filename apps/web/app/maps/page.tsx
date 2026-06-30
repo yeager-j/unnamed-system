@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 
 export const metadata: Metadata = {
-  title: "My Maps — Unnamed System",
+  title: "My Maps — Showtime!",
 }
 
 /**

@@ -303,7 +303,7 @@ test.describe("owner-mode write pattern", () => {
     // Click the persistent header link to client-side navigate to `/`
     // *before* the 500ms debounce elapses. The cleanup is the only path
     // that can persist the value.
-    await page.getByRole("link", { name: "Unnamed System" }).click()
+    await page.getByRole("link", { name: "Showtime!" }).click()
     await expect(page).toHaveURL("/")
     // Wait for the fire-and-forget POST to land before reading back.
     await page.waitForLoadState("networkidle")

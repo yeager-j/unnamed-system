@@ -80,7 +80,7 @@ function LineageHeading({ lineage }: { lineage: AtlasLineage }) {
         </span>
         <div className="flex flex-col">
           {lineage.isOrigin && <OriginLineageIndicator />}
-          <h2 className="font-serif text-2xl font-bold">
+          <h2 className="font-display text-2xl font-bold">
             {LINEAGE_LABELS[lineage.lineage]}
           </h2>
           {display.description ? (
@@ -182,7 +182,7 @@ function TreeColumns({
           {lineage.columns.map((column) => (
             <div key={column.tier} className="flex w-56 flex-col gap-3">
               <div className="flex items-baseline justify-between gap-2 border-b pb-1">
-                <span className="font-serif text-sm font-semibold">
+                <span className="text-sm font-semibold">
                   <span className="font-mono text-muted-foreground">
                     {TIER_ROMAN_LABELS[column.tier]}
                   </span>{" "}

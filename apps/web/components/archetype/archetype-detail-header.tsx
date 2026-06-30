@@ -46,7 +46,7 @@ export function ArchetypeDetailHeader({
     <div className={cn("flex flex-col", className)}>
       {origin && <OriginLineageIndicator />}
       <div className="flex items-center gap-3">
-        <Title className="text-2xl font-semibold tracking-tight">
+        <Title className="font-display text-2xl font-semibold">
           {archetype.name}
         </Title>
         {trailing}

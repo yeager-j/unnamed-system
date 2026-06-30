@@ -13,6 +13,8 @@ import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
+import { Sparkle } from "../../../shared/celestial"
+
 /**
  * Per-path die pairing — presentation-only copy not owned by the game engine.
  * `hp` and `sp` are the integer die-face counts (d12 → 12) driving both the
@@ -80,7 +82,10 @@ export function PathBar() {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-heading text-lg font-medium text-foreground">Path</h2>
+      <h2 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
+        <Sparkle className="size-3 text-gold" />
+        Path
+      </h2>
       <HpSpBalanceBar
         hpShare={hpShare}
         startHP={selectedStats.startHP}

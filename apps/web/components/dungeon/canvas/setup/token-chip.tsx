@@ -9,6 +9,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { useDungeonSetupCanvas } from "@/components/dungeon/canvas/setup/context"
 import { TokenGlyph } from "@/components/dungeon/canvas/token-glyph"
+import { TOKEN_SIDE_STYLES } from "@/components/dungeon/canvas/token-styles"
 
 export interface DungeonSetupZoneToken {
   /** The PC's `characterId`, or a staged enemy's display key. */
@@ -24,9 +25,11 @@ export interface DungeonSetupZoneToken {
 /**
  * A token on the encounter **Setup** board (UNN-467). A PC renders as a tappable
  * inclusion toggle (a tick when in the fight, dashed + dimmed when excluded), wired
- * to {@link import("@/components/dungeon/canvas/setup/context").useDungeonSetupCanvas}; a staged
- * enemy renders as a static dashed-red arrival. The live inclusion state is read
- * from the context, not `token.included`, so a toggle reflects immediately.
+ * to {@link import("@/components/dungeon/canvas/setup/context").useDungeonSetupCanvas};
+ * a staged enemy renders as a static dashed-red arrival. This is the one chip not
+ * built on the shared {@link import("@/components/dungeon/canvas/token-chip").TokenChip}
+ * shell — it's a horizontal toggle with no vital bars — but it draws its side tint
+ * from the shared {@link TOKEN_SIDE_STYLES}.
  */
 export function DungeonSetupTokenChip({
   token,
@@ -36,18 +39,27 @@ export function DungeonSetupTokenChip({
   const { isIncluded, onTogglePc, disabled } = useDungeonSetupCanvas()
 
   if (!token.isPc) {
+    const tint = TOKEN_SIDE_STYLES.enemies
     return (
-      <span className="inline-flex max-w-[10rem] items-center gap-1.5 border border-dashed border-red-400 bg-red-50 py-1 pr-2 pl-1 text-red-900 dark:bg-red-950/50 dark:text-red-100">
+      <span
+        className={cn(
+          "inline-flex max-w-[10rem] items-center gap-1.5 border border-dashed py-1 pr-2 pl-1",
+          tint.chip
+        )}
+      >
         <TokenGlyph
           name={token.name}
           portraitUrl={null}
-          initialsClassName="bg-red-200 text-red-900 dark:bg-red-900 dark:text-red-100"
+          initialsClassName={tint.initials}
         />
-        <span className="truncate text-xs font-medium">{token.name}</span>
+        <span className={cn("truncate text-xs font-medium", tint.name)}>
+          {token.name}
+        </span>
       </span>
     )
   }
 
+  const tint = TOKEN_SIDE_STYLES.players
   const included = isIncluded(token.id)
   return (
     <button
@@ -57,22 +69,23 @@ export function DungeonSetupTokenChip({
       aria-pressed={included}
       aria-label={`${token.name}${included ? " (in the fight)" : " (excluded)"}`}
       className={cn(
-        "inline-flex max-w-[10rem] items-center gap-1.5 border border-blue-700 bg-blue-100 py-1 pr-2 pl-1 dark:border-blue-400 dark:bg-blue-950",
+        "inline-flex max-w-[10rem] items-center gap-1.5 border py-1 pr-2 pl-1",
+        tint.chip,
         !included && "opacity-40 grayscale"
       )}
     >
       <TokenGlyph
         name={token.name}
         portraitUrl={token.portraitUrl}
-        initialsClassName="bg-blue-200 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
+        initialsClassName={tint.initials}
       />
-      <span className="truncate text-xs font-medium text-blue-950 dark:text-blue-100">
+      <span className={cn("truncate text-xs font-medium", tint.name)}>
         {token.name}
       </span>
       {included ? (
         <CheckCircleIcon
           weight="fill"
-          className="size-3.5 shrink-0 text-blue-700 dark:text-blue-300"
+          className="size-3.5 shrink-0 text-blue-300"
           aria-hidden
         />
       ) : (

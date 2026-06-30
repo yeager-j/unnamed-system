@@ -33,8 +33,8 @@ export async function generateMetadata({
 
   return {
     title: snapshot
-      ? `${snapshot.name} — Watch — Unnamed System`
-      : "Dungeon not found — Unnamed System",
+      ? `${snapshot.name} — Watch — Showtime!`
+      : "Dungeon not found — Showtime!",
   }
 }
 

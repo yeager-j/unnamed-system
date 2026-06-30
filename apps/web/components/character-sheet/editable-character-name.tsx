@@ -74,7 +74,7 @@ export function EditableCharacterName({
         }
       }}
       className={cn(
-        "font-heading text-2xl font-semibold",
+        "font-display text-2xl font-semibold",
         "max-w-full min-w-0 border-0 bg-transparent p-0 outline-none",
         "border-b border-transparent transition-colors",
         "focus-visible:border-ring focus-visible:ring-0",

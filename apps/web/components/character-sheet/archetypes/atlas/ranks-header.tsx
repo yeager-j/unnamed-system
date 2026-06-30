@@ -21,7 +21,7 @@ export function RanksHeader({
   pathChoice: PathChoice
 }) {
   return (
-    <div className="flex flex-col gap-3 bg-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl bg-muted px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3 sm:items-center">
         <ArrowFatLineUpIcon
           className="mt-0.5 size-6 shrink-0 text-muted-foreground"

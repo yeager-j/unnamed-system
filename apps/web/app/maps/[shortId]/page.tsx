@@ -24,9 +24,7 @@ export async function generateMetadata({
   const map = await getMap(shortId)
 
   return {
-    title: map
-      ? `${map.name} — Unnamed System`
-      : "Map not found — Unnamed System",
+    title: map ? `${map.name} — Showtime!` : "Map not found — Showtime!",
   }
 }
 

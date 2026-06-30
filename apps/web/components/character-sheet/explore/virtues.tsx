@@ -181,7 +181,7 @@ function VirtueMeter({ value }: { value: number }) {
       {Array.from({ length: MAX_VIRTUE_RANK }).map((_, i) => (
         <span
           key={i}
-          className={"h-1.5 flex-1 " + (i < value ? "bg-primary" : "bg-muted")}
+          className={"h-1.5 flex-1 " + (i < value ? "bg-gold" : "bg-muted")}
         />
       ))}
     </span>
@@ -202,7 +202,7 @@ function SparkMeter({ value }: { value: number }) {
           className={
             "h-2 flex-1 border " +
             (i < value
-              ? "border-primary/60 bg-primary/60"
+              ? "border-gold/60 bg-gold"
               : "border-muted-foreground/40")
           }
         />

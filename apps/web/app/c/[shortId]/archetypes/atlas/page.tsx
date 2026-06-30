@@ -29,7 +29,7 @@ interface PageProps {
 }
 
 export const metadata: Metadata = {
-  title: "Lineage Atlas — Unnamed System",
+  title: "Lineage Atlas — Showtime!",
   robots: { index: false, follow: false },
 }
 

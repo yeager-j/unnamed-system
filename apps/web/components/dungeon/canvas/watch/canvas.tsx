@@ -42,6 +42,8 @@ function buildNodes(
     ;(exitsByZone[exit.zoneId] ??= []).push(exit)
   }
 
+  const actingId = snapshot.combat?.currentActorId ?? null
+
   return snapshot.zones.map((zone) => ({
     id: zone.id,
     type: "fogZone",
@@ -53,8 +55,12 @@ function buildNodes(
       tokens: zone.tokens.map((token) => ({
         ...token,
         owned: ownedCharacterIds.has(token.characterId),
+        acting: token.characterId === actingId,
       })),
-      enemies: zone.enemies,
+      enemies: zone.enemies.map((enemy) => ({
+        ...enemy,
+        acting: enemy.id === actingId,
+      })),
       exits: (exitsByZone[zone.id] ?? []).map((exit) => ({
         id: exit.id,
         locked: exit.locked,

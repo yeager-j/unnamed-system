@@ -64,7 +64,7 @@ export function ZoneCardFrame({
 
       <Card
         size="sm"
-        selected={selected}
+        variant={selected ? "gilded" : "default"}
         aria-label={ariaLabel}
         className={cn(
           "min-h-48 w-86 shadow-sm",

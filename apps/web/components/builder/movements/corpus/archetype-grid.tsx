@@ -11,6 +11,7 @@ import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
+import { Sparkle } from "../../../shared/celestial"
 import { ArchetypeCard } from "./archetype-card"
 import { ArchetypeDialog } from "./archetype-dialog"
 
@@ -73,7 +74,8 @@ export function ArchetypeGrid() {
   return (
     <section className="flex flex-col gap-3">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 className="font-heading text-lg font-medium text-foreground">
+        <h2 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
+          <Sparkle className="size-3 text-gold" />
           Origin Archetype
         </h2>
         <p className="text-xs text-muted-foreground">

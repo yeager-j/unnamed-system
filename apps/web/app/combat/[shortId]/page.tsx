@@ -25,8 +25,8 @@ export async function generateMetadata({
 
   return {
     title: result
-      ? `${result.encounter.name} — Unnamed System`
-      : "Encounter not found — Unnamed System",
+      ? `${result.encounter.name} — Showtime!`
+      : "Encounter not found — Showtime!",
   }
 }
 

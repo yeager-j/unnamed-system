@@ -87,14 +87,14 @@ function ChapterHeader({ step }: { step: (typeof BUILDER_STEPS)[number] }) {
       <div className="flex flex-col items-center gap-2">
         <span
           aria-hidden
-          className="text-center font-mono text-xs text-muted-foreground uppercase"
+          className="text-center font-mono text-sm text-muted-foreground uppercase"
         >
           {step.romanNumeral}
         </span>
         <span aria-hidden className="h-px w-8 bg-border" />
       </div>
 
-      <h1 className="font-heading text-4xl font-medium text-foreground sm:text-5xl">
+      <h1 className="font-display text-4xl font-semibold text-foreground sm:text-5xl">
         {step.label}
       </h1>
 
@@ -264,7 +264,7 @@ function ProgressDots({
               <span
                 aria-current="step"
                 aria-label={label}
-                className="block size-2 rounded-full bg-primary"
+                className="block size-2 rounded-full bg-gold"
               />
             </li>
           )

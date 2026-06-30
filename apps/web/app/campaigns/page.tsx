@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/queries/load-campaign"
 
 export const metadata: Metadata = {
-  title: "My Campaigns — Unnamed System",
+  title: "My Campaigns — Showtime!",
 }
 
 /**
