@@ -19,8 +19,8 @@ export async function generateMetadata({
 
   return {
     title: result
-      ? `Add enemies — ${result.encounter.name} — Unnamed System`
-      : "Encounter not found — Unnamed System",
+      ? `Add enemies — ${result.encounter.name} — Showtime!`
+      : "Encounter not found — Showtime!",
     robots: { index: false, follow: false },
   }
 }

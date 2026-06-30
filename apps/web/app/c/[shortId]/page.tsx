@@ -54,19 +54,19 @@ export async function generateMetadata({
   const character = await getCharacter(shortId)
 
   if (!character) {
-    return { title: "Character not found — Unnamed System" }
+    return { title: "Character not found — Showtime!" }
   }
 
   // Drafts never get a real page rendered — give crawlers a neutral title
   // and skip the OG block so a shared WIP URL doesn't leak the draft name.
   if (character.status === "draft") {
-    return { title: "Character in progress — Unnamed System" }
+    return { title: "Character in progress — Showtime!" }
   }
 
-  const title = `${character.name} — Unnamed System`
+  const title = `${character.name} — Showtime!`
   const description = `Level ${character.level} ${archetypeDisplayName(
     character.activeArchetypeKey
-  )} — ${character.name}'s character sheet for the Unnamed System.`
+  )} — ${character.name}'s character sheet for Showtime!`
 
   return {
     title,

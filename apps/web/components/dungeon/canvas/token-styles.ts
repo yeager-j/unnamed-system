@@ -9,7 +9,8 @@
  * every chip follows.
  *
  * The two highlights are structurally different and must not be conflated:
- * - **acting** (the combatant whose turn it is) is a gold *ring over* the side tint.
+ * - **acting** (the combatant whose turn it is) is a **white** *ring over* the side
+ *   tint — white, not gold, so it stays legible even on the gold `owned` tint.
  * - **owned** (the watch viewer's own character) *replaces* the side tint with a
  *   gold one — gold bg + border, **no ring** (the ring is reserved for acting).
  */
@@ -42,6 +43,7 @@ export const TOKEN_OWNED_STYLE: TokenTint = {
   initials: "bg-gold/20 text-gold",
 }
 
-/** The acting combatant's gold ring, layered over the side tint. */
+/** The acting combatant's white ring, layered over the side tint — white (not gold)
+ *  so it stays visible even on the gold `owned` tint. */
 export const TOKEN_ACTING_RING =
   "ring-2 ring-white ring-offset-1 ring-offset-card"

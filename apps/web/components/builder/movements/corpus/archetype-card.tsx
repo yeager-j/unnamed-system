@@ -60,7 +60,12 @@ export function ArchetypeCard({
       )}
     >
       {selected ? (
-        <Sparkle className="pointer-events-none absolute right-3 bottom-3 size-4 text-gold" />
+        <span
+          aria-label="Currently selected as Origin"
+          className="pointer-events-none absolute right-3 bottom-3"
+        >
+          <Sparkle className="size-4 text-gold" />
+        </span>
       ) : null}
 
       <header className="flex items-start justify-between gap-2">

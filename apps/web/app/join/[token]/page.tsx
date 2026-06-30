@@ -43,9 +43,7 @@ export async function generateMetadata({
   const campaign = await getCampaignByToken(token)
 
   return {
-    title: campaign
-      ? `Join ${campaign.name} — Unnamed System`
-      : "Join — Unnamed System",
+    title: campaign ? `Join ${campaign.name} — Showtime!` : "Join — Showtime!",
   }
 }
 

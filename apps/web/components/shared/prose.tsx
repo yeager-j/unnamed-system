@@ -24,17 +24,9 @@ const safeUrlTransform = (url: string): string =>
  * Shared Markdown renderer for free-text content on the public sheet. Wraps
  * `react-markdown` with `remark-gfm` (tables / strikethrough / autolinks / task
  * lists) and the Tailwind Typography `prose` defaults — sized to `prose-sm` so
- * the output matches the surrounding compact card typography, and inverted
- * automatically under `dark:`. `max-w-none` is set because the parent card
- * already constrains width; the default `65ch` would clip inside narrow blocks.
- *
- * Pass `inverted` when rendering inside a surface whose color scheme is the
- * *inverse* of the page — chiefly the shadcn `Tooltip`, which sets
- * `bg-foreground text-background` in *both* light and dark modes. That can't
- * be reconciled with the default `dark:prose-invert` heuristic (which tracks
- * the page), so this mode binds every `--tw-prose-*` color slot directly to
- * the surface's text color (`--color-background`), letting Prose render
- * legibly in light *and* dark.
+ * the output matches the surrounding compact card typography, and `prose-invert`
+ * for the dark-only theme. `max-w-none` is set because the parent card already
+ * constrains width; the default `65ch` would clip inside narrow blocks.
  */
 export function Prose({
   children,
@@ -42,7 +34,6 @@ export function Prose({
 }: {
   children: string
   className?: string
-  serif?: boolean
 }) {
   return (
     <div
@@ -69,27 +60,3 @@ export function Prose({
     </div>
   )
 }
-
-/**
- * Maps every color-bearing `--tw-prose-*` slot to the tooltip-side
- * `--color-background` (set by shadcn's `text-background`) so headings, body
- * copy, links, code, quotes, lists, and rules all read against the inverted
- * surface without color-on-color collisions.
- */
-const INVERTED_PROSE_VARS = [
-  "[--tw-prose-body:var(--color-background)]",
-  "[--tw-prose-headings:var(--color-background)]",
-  "[--tw-prose-lead:var(--color-background)]",
-  "[--tw-prose-bold:var(--color-background)]",
-  "[--tw-prose-links:var(--color-background)]",
-  "[--tw-prose-code:var(--color-background)]",
-  "[--tw-prose-pre-code:var(--color-background)]",
-  "[--tw-prose-quotes:var(--color-background)]",
-  "[--tw-prose-quote-borders:var(--color-background)]",
-  "[--tw-prose-counters:var(--color-background)]",
-  "[--tw-prose-bullets:var(--color-background)]",
-  "[--tw-prose-hr:var(--color-background)]",
-  "[--tw-prose-captions:var(--color-background)]",
-  "[--tw-prose-th-borders:var(--color-background)]",
-  "[--tw-prose-td-borders:var(--color-background)]",
-].join(" ")

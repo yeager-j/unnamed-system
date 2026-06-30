@@ -31,7 +31,7 @@ export type WatchZoneToken = {
   sp: Pool
   /** This token belongs to the signed-in viewer — gets the gold self-tint. */
   owned: boolean
-  /** The combatant whose turn it is — gets the gold acting ring (UNN-467). */
+  /** The combatant whose turn it is — gets the white acting ring (UNN-467). */
   acting: boolean
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
   engagement?: Engagement
@@ -40,7 +40,7 @@ export type WatchZoneEnemy = {
   id: string
   name: string
   hp: Pool
-  /** The combatant whose turn it is — gets the gold acting ring (UNN-467). */
+  /** The combatant whose turn it is — gets the white acting ring (UNN-467). */
   acting: boolean
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
   engagement?: Engagement

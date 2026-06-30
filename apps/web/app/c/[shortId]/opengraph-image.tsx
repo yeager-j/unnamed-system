@@ -9,7 +9,7 @@ import { loadCharacterRowByShortId } from "@/lib/db/queries/load-character"
  * meta automatically, so `generateMetadata` does not set it.
  */
 
-export const alt = "Unnamed System character sheet"
+export const alt = "Showtime! character sheet"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -36,7 +36,7 @@ function FallbackCard({ name }: { name: string | null }) {
         fontFamily: "monospace",
       }}
     >
-      <div style={{ fontSize: 32, color: MUTED }}>Unnamed System</div>
+      <div style={{ fontSize: 32, color: MUTED }}>Showtime!</div>
       <div style={{ fontSize: name ? 84 : 64, fontWeight: 700 }}>
         {name ?? "Character not found"}
       </div>

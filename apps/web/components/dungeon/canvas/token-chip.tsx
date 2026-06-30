@@ -42,7 +42,7 @@ export function TokenChip({
   sp?: Pool | null
   /** The watch viewer's own character — a gold self-tint (replaces the side tint). */
   owned?: boolean
-  /** The combatant whose turn it is — a gold ring (over the side/owned tint). */
+  /** The combatant whose turn it is — a white ring (over the side/owned tint). */
   acting?: boolean
   /** A badge after the name — e.g. the combat acting/engaged sword. */
   trailing?: ReactNode
