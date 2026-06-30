@@ -36,7 +36,7 @@ the performance — pure Persona 4) is the dark underbelly: growth is dropping t
 **The brand in one line:**
 
 > **A mystical theater** — show business meets the tarot table. The Velvet Room
-> reimagined as a stage: a black house scattered with stars, lit by purple and gold.
+> reimagined as a stage: a black house scattered with stars, lit by indigo and gold.
 
 **The name: _Showtime!_** The system is named after its signature mechanic — the
 All-Out Attack (§8) — fulfilling the original instinct to "name the system after the
@@ -80,37 +80,44 @@ The rules that decide the hundred small questions this guide doesn't enumerate.
 
 ## 3. Color
 
-**Roles:** **purple = hero** (the owned brand color, the working primary),
+**Roles:** **indigo = hero** (the owned brand color, the working primary),
 **gold = precious accent** (decorative metal, rationed), **near-black = the stage.**
 
-**Why purple?** The color the designer loves and had never used; no Persona game owns
-it (P5 red / P4 yellow / P3 blue), so it honors all three; it's theatrical (velvet,
-royalty) and occult (twilight, the cosmic) — the binder of tarot and theater.
+**Why indigo?** A purple-family hero the designer loves and no Persona game owns
+(P5 red / P4 yellow / P3 blue), so it honors all three. It started as **violet**, but
+violet read generic/electric (the ubiquitous "AI-purple"); **indigo is the night
+sky** — the very canvas the gold celestial mark hangs in (gold stars on an indigo
+night), so the brand colour *is* the backdrop of the logo. Indigo + gold is a
+timeless, refined luxe pairing (midnight-and-gold), and a calmer working colour suits
+a tracking tool read for hours. **Watch one thing:** indigo sits near the SP **blue** —
+hold it a hair toward purple so "selected" never reads as "SP".
 
 **HP green / SP blue / destructive red are preserved** — semantic clarity on the
 numbers that matter beats theme.
 
 ### Tokens — the single theme (`packages/ui/src/styles/globals.css`, `:root`)
 
-OKLCH. The dark base leans neutral-cool (hue ~286) so the purple and gold do the
-coloring; the purple is a **rich grape** (deeper/more saturated than a pastel lavender).
+OKLCH. The dark base leans neutral-cool (hue ~286) so the indigo and gold do the
+coloring; the hero is **indigo** (a deep blue-violet, hue ~277 — bluer and more
+refined than the earlier grape violet it replaced).
 
 | Token | Value | Note |
 | --- | --- | --- |
 | `--background` | `0.141 0.005 286` | cool near-black house |
 | `--foreground` | `0.985 0 0` | near-white |
 | `--card` / `--popover` | `0.21 0.006 286` | lifted neutral surface |
-| `--primary` | `0.432 0.232 293` | rich grape purple |
-| `--primary-foreground` | `0.969 0.016 294` | near-white text on purple |
+| `--primary` | `0.398 0.195 277` | indigo hero |
+| `--primary-foreground` | `0.962 0.018 272` | near-white text on indigo |
+| `--primary-text` | `var(--color-indigo-400)` | indigo text accent (links / labels) |
 | `--secondary` / `--muted` / `--accent` | `0.274 0.006 286` | neutral dark |
 | `--border` / `--input` | `white / 10–15%` | hairline |
 | `--ring` | `0.552 0.016 286` | focus |
 | `--destructive` | `0.704 0.191 22` | red |
 | `--gold` | `0.82 0.13 85` | accent metal — bright gilt on the dark stage |
-| `--hp` / `--sp` | `0.72 0.14 150` / `0.62 0.12 245` | vitals |
+| `--hp` / `--sp` | `var(--color-emerald-600)` / `var(--color-blue-600)` | vitals |
 | `--radius` | `0.3rem` | crisp (§6) |
 | `--sidebar` | `0.21 0.006 286` | rail = card tone |
-| `--sidebar-primary` | `0.606 0.25 293` | brighter purple for the rail |
+| `--sidebar-primary` | `0.585 0.233 277` | brighter indigo for the rail |
 
 `--gold` is exposed as a Tailwind color (`--color-gold`) → `text-gold` /
 `border-gold` / `bg-gold`.
@@ -222,7 +229,7 @@ principle, not built; the app doesn't yet track finisher availability (DM fiat).
   block; `defaultTheme="dark"` in the provider); `--gold` token + `--color-gold`,
   brightened to gilt (`0.82`); crisp `--radius: 0.3rem`.
 - `apps/web/components/builder/movements/corpus/` — DM-Serif marquee, gold-keyline +
-  gold-sparkle selected card, purple selection, `components/shared/celestial.tsx`.
+  gold-sparkle selected card, indigo selection, `components/shared/celestial.tsx`.
 - `apps/web/components/shell/site-header.tsx` — the **Showtime!** wordmark (display
   serif italic + gold `Sparkle`).
 

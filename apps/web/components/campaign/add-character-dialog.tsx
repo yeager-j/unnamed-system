@@ -85,7 +85,7 @@ export function AddCharacterDialog({
 
   return (
     <>
-      <Button size="sm" variant="gilded" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
         <PlusIcon weight="bold" />
         Add character
       </Button>

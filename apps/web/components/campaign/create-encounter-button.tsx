@@ -56,7 +56,7 @@ export function CreateEncounterButton({ campaignId }: { campaignId: string }) {
 
   return (
     <>
-      <Button size="sm" variant="gilded" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
         <PlusIcon weight="bold" />
         New encounter
       </Button>

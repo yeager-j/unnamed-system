@@ -74,7 +74,7 @@ export function RanksBanner() {
   }
 
   return (
-    <Alert role="status" className="border-primary/30 bg-primary/10">
+    <Alert role="status" variant="primary">
       <SparkleIcon weight="fill" aria-hidden />
       <AlertTitle>
         You have <span className="font-semibold tabular-nums">{ranks}</span>{" "}

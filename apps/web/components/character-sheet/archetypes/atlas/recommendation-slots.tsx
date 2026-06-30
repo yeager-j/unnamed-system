@@ -95,7 +95,7 @@ function RecommendationCard({
         </span>
       </div>
       <ArchetypeActionButton
-        variant="gilded"
+        variant="secondary"
         archetype={archetype}
         state={state}
         characterArchetypeId={characterArchetypeId}

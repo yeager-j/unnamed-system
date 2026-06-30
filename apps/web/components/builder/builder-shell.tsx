@@ -264,7 +264,7 @@ function ProgressDots({
               <span
                 aria-current="step"
                 aria-label={label}
-                className="block size-2 rounded-full bg-primary"
+                className="block size-2 rounded-full bg-gold"
               />
             </li>
           )

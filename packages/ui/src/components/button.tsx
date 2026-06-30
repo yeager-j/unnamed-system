@@ -10,8 +10,7 @@ const buttonVariants = cva(
       variant: {
         gilded:
           "border-gold bg-background text-gold ring-gold after:pointer-events-none after:absolute after:inset-0.5 after:rounded-sm after:border after:border-gold/50 hover:bg-muted",
-        default:
-          "border-0 [background-image:var(--gold-fill)] text-[#3d2c0a] shadow-[var(--gold-bevel)] transition hover:brightness-105 active:brightness-95",
+        default: "bg-primary text-primary-foreground hover:bg-primary/80",
         outline:
           "border-border bg-transparent shadow-xs hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
@@ -20,7 +19,7 @@ const buttonVariants = cva(
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+        link: "text-gold underline-offset-4 hover:underline",
       },
       size: {
         default:
