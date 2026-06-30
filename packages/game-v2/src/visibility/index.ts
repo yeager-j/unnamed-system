@@ -31,3 +31,18 @@ export {
   type EncounterSnapshotMeta,
   type CurrentActorView,
 } from "./snapshot"
+export {
+  projectSpatialEncounterSnapshot,
+  projectDungeonSnapshot,
+  type SpatialEncounterSnapshot,
+  type SnapshotZone,
+  type SnapshotConnection,
+  type SnapshotExit,
+  type SnapshotEnchantment,
+  type DungeonSnapshot,
+  type DungeonSnapshotZone,
+  type DungeonSnapshotToken,
+  type DungeonSnapshotMeta,
+  type DungeonRosterEntry,
+  type DungeonPool,
+} from "./spatial-snapshot"

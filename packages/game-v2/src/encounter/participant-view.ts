@@ -112,23 +112,33 @@ export function assembleParticipantView(
  * (it can't drift, as it once could when the reads resolved context-blind).
  *
  * Built in `session.participants` order; the returned Map preserves it (the
- * `participantDisplayNames` ordinal numbering depends on it). **Mapless** for now:
- * the {@link SpatialReads} port carries only the zone-enchantment reads, not the
- * Position/Engagement instance components, so the views carry no instance keys
- * (`engagedWith` is structurally `[]`). The spatial occupancy projection that fills
- * `assembleParticipantView`'s third argument lands with the spatial combat console.
+ * `participantDisplayNames` ordinal numbering depends on it). The `spatial` port
+ * carries the zone-enchantment read into `resolve`; the separate {@link
+ * mapInstanceComponentsOf} projection (SD8 — Position/Engagement are **not** sourced
+ * through `SpatialReads`) fills `assembleParticipantView`'s third argument with the
+ * occupancy token's instance components, so a placed participant's view finally
+ * carries `position`/`engagement` and `engagedWith` un-stubs (CD17). It **defaults
+ * mapless** (`() => ({})`) — a standalone encounter (or the combat track before this
+ * PR) carries no instance keys.
  */
 export function resolveSession(
   session: Session,
   spatial: SpatialReads,
-  resolveEntity: ResolveEntity
+  resolveEntity: ResolveEntity,
+  mapInstanceComponentsOf: (
+    participantId: ParticipantId
+  ) => Partial<EncounterInstanceComponents> = () => ({})
 ): ResolvedSession {
   const view = new Map<ParticipantId, ParticipantView>()
   for (const participant of session.participants) {
     const resolved = resolveParticipant(resolveEntity, spatial, participant)
     view.set(
       participant.id,
-      assembleParticipantView(resolved, participant.overlay)
+      assembleParticipantView(
+        resolved,
+        participant.overlay,
+        mapInstanceComponentsOf(participant.id)
+      )
     )
   }
   return view
