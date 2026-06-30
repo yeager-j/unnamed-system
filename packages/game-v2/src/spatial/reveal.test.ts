@@ -5,6 +5,7 @@ import type { RevealState } from "./map-instance.schema"
 import {
   connectionFogState,
   isConnectionLocked,
+  isConnectionSurfaced,
   isFogActive,
   isZoneRevealed,
   resolveRevealView,
@@ -33,6 +34,22 @@ describe("reveal derivations (the fog overlay, §2.7)", () => {
       const r = reveal({ revealedZoneIds: ["z1"] })
       expect(isZoneRevealed(r, "z1")).toBe(true)
       expect(isZoneRevealed(r, "z2")).toBe(false)
+    })
+  })
+
+  describe("isConnectionSurfaced (the authored hidden-secret gate)", () => {
+    it("always surfaces a non-hidden connection", () => {
+      expect(
+        isConnectionSurfaced(makeConnection("c1", "z1", "z2"), reveal())
+      ).toBe(true)
+    })
+
+    it("hides an unsurfaced hidden connection, surfaces a DM-revealed one", () => {
+      const conn = makeConnection("c1", "z1", "z2", { hidden: true })
+      expect(isConnectionSurfaced(conn, reveal())).toBe(false)
+      expect(
+        isConnectionSurfaced(conn, reveal({ revealedConnectionIds: ["c1"] }))
+      ).toBe(true)
     })
   })
 

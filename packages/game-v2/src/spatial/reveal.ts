@@ -59,6 +59,23 @@ export function isConnectionLocked(
 }
 
 /**
+ * Whether a connection is allowed to surface to players at all — the **authored
+ * `hidden` secret gate**, independent of zone reveal: a `hidden` connection is a DM
+ * secret until the DM surfaces it (`revealedConnectionIds`); a non-hidden connection
+ * always passes. This gate applies in **both** the fog (delve) and non-fog
+ * (standalone-map) projections, so a hidden connection never reaches the wire on
+ * either path until surfaced.
+ */
+export function isConnectionSurfaced(
+  connection: MapConnection,
+  reveal: RevealState
+): boolean {
+  return (
+    !connection.hidden || reveal.revealedConnectionIds.includes(connection.id)
+  )
+}
+
+/**
  * The fog state of one connection (the three-state derivation contract). A `hidden`
  * connection is `stripped` until the DM reveals it (`revealedConnectionIds`); a
  * visible connection is `revealed` when both endpoints are revealed, a `known-exit`
@@ -69,9 +86,7 @@ export function connectionFogState(
   connection: MapConnection,
   reveal: RevealState
 ): ConnectionFogState {
-  const visible =
-    !connection.hidden || reveal.revealedConnectionIds.includes(connection.id)
-  if (!visible) return "stripped"
+  if (!isConnectionSurfaced(connection, reveal)) return "stripped"
 
   const fromRevealed = reveal.revealedZoneIds.includes(connection.fromZoneId)
   const toRevealed = reveal.revealedZoneIds.includes(connection.toZoneId)

@@ -13,6 +13,7 @@ import type {
 import {
   connectionFogState,
   isConnectionLocked,
+  isConnectionSurfaced,
   isFogActive,
   isZoneRevealed,
 } from "@workspace/game-v2/spatial/reveal"
@@ -163,6 +164,10 @@ function projectConnections(
   for (const connection of Object.values(mapInstance.geometry.connections)) {
     const locked = isConnectionLocked(connection, mapInstance.reveal)
     if (!fog) {
+      // A standalone map shows every connection as a full edge — except an
+      // unsurfaced `hidden` one, which stays a DM secret regardless of fog
+      // (there is no reveal mechanism on a standalone encounter to surface it).
+      if (!isConnectionSurfaced(connection, mapInstance.reveal)) continue
       connections.push({
         id: connection.id,
         fromZoneId: connection.fromZoneId,

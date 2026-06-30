@@ -165,6 +165,51 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
     const byId = new Map(snap.combatants.map((c) => [c.id, c]))
     expect(byId.get(pid("p2"))!.components.position).toEqual({ zoneId: "z2" })
   })
+
+  it("standalone: strips an unsurfaced hidden connection (a DM secret regardless of fog)", () => {
+    const standalone = makeMapInstanceState({
+      geometry: makeGeometry(
+        [makeZone("z1"), makeZone("z2"), makeZone("z3")],
+        [
+          makeConnection("open", "z1", "z2"),
+          makeConnection("secret", "z2", "z3", { hidden: true }),
+        ]
+      ),
+    })
+    const snap = projectSpatialEncounterSnapshot(
+      session,
+      view,
+      spectator(),
+      META,
+      standalone,
+      1
+    )
+    expect(snap.connections.map((c) => c.id)).toEqual(["open"])
+    expect(JSON.stringify(snap)).not.toContain("secret")
+  })
+
+  it("standalone: surfaces a hidden connection the DM has manually revealed", () => {
+    const standalone = makeMapInstanceState({
+      geometry: makeGeometry(
+        [makeZone("z1"), makeZone("z2")],
+        [makeConnection("secret", "z1", "z2", { hidden: true })]
+      ),
+      reveal: {
+        revealedZoneIds: [],
+        revealedConnectionIds: ["secret"],
+        unlockedConnectionIds: [],
+      },
+    })
+    const snap = projectSpatialEncounterSnapshot(
+      session,
+      view,
+      spectator(),
+      META,
+      standalone,
+      1
+    )
+    expect(snap.connections.map((c) => c.id)).toEqual(["secret"])
+  })
 })
 
 describe("projectDungeonSnapshot — the exploration-only sibling", () => {
