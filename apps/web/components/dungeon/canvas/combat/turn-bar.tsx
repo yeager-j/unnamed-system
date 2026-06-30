@@ -37,7 +37,7 @@ export function CombatTurnBar() {
 
   return (
     <CanvasBottomBar>
-      <Badge variant="outline" className="font-serif tabular-nums">
+      <Badge variant="outline" className="tabular-nums">
         Round {round}
       </Badge>
 

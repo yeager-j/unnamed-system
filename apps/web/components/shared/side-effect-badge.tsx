@@ -34,7 +34,7 @@ export function SideEffectBadge({
       />
       {sideEffect.description ? (
         <TooltipContent side="top" className="max-w-sm">
-          <Prose inverted className="prose-xs whitespace-normal">
+          <Prose className="prose-xs whitespace-normal">
             {sideEffect.description}
           </Prose>
         </TooltipContent>

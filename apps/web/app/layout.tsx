@@ -15,16 +15,16 @@ import { HeaderGate } from "@/components/shell/header-gate"
 import { SiteHeader } from "@/components/shell/site-header"
 import { ThemeProvider } from "@/components/shell/theme-provider"
 
-const fontBody = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-sans" })
+const fontSans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-sans" })
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
 
-const fontProse = Source_Serif_4({
+const fontSerif = Source_Serif_4({
   subsets: ["latin"],
-  variable: "--font-prose",
+  variable: "--font-serif",
   weight: ["400", "500", "600", "700"],
 })
 
@@ -45,8 +45,8 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn(
         "antialiased",
-        fontBody.variable,
-        fontProse.variable,
+        fontSans.variable,
+        fontSerif.variable,
         fontDisplay.variable,
         jetbrainsMono.variable,
         "font-sans"

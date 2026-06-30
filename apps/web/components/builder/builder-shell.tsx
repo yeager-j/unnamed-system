@@ -94,7 +94,7 @@ function ChapterHeader({ step }: { step: (typeof BUILDER_STEPS)[number] }) {
         <span aria-hidden className="h-px w-8 bg-border" />
       </div>
 
-      <h1 className="font-display text-4xl font-medium text-foreground sm:text-5xl">
+      <h1 className="font-display text-4xl font-semibold text-foreground sm:text-5xl">
         {step.label}
       </h1>
 

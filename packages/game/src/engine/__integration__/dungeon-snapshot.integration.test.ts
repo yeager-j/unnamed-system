@@ -186,7 +186,12 @@ describe("projectDungeonSnapshot", () => {
       instance,
       makeDungeonState(),
       ROSTER,
-      { encounterShortId: "enc-1", round: 1, currentActorName: null },
+      {
+        encounterShortId: "enc-1",
+        round: 1,
+        currentActorId: null,
+        currentActorName: null,
+      },
       enemyTokensByZone
     )
 
@@ -371,6 +376,7 @@ describe("projectDungeonSnapshot", () => {
     const combat = {
       encounterShortId: "enc-1",
       round: 2,
+      currentActorId: "aria",
       currentActorName: "Aria",
     }
     const fighting = projectDungeonSnapshot(

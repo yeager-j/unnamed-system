@@ -102,7 +102,7 @@ export function CreateDungeonButton({
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" variant="gilded" onClick={() => setOpen(true)}>
         <PlusIcon weight="bold" />
         New dungeon
       </Button>

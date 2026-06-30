@@ -106,7 +106,7 @@ export function PathBar() {
                 "group/path-segment flex cursor-pointer flex-col items-center gap-1 px-4 py-4 text-center transition-colors outline-none focus-visible:relative focus-visible:z-10 focus-visible:ring-1 focus-visible:ring-ring",
                 index > 0 && "border-t border-border sm:border-t-0 sm:border-l",
                 isSelected
-                  ? "bg-primary text-primary-foreground"
+                  ? "[background-image:var(--gold-fill)] text-[#3d2c0a] shadow-[var(--gold-bevel)]"
                   : "bg-background text-foreground hover:bg-muted"
               )}
             >

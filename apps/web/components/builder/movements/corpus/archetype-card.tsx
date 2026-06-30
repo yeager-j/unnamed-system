@@ -1,7 +1,5 @@
 "use client"
 
-import { CheckIcon } from "@phosphor-icons/react/dist/ssr"
-
 import { getMechanic } from "@workspace/game/engine"
 import {
   AFFINITY_DAMAGE_TYPES,

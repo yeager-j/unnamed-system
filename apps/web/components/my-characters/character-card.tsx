@@ -60,14 +60,7 @@ export function CharacterCard({ character }: CharacterCardProps) {
         />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle className="flex items-center gap-2">
-          {displayName}
-          {isDraft ? (
-            <Badge variant="secondary" className="uppercase">
-              Draft
-            </Badge>
-          ) : null}
-        </ItemTitle>
+        <ItemTitle className="flex items-center gap-2">{displayName}</ItemTitle>
         <ItemDescription>{describe(character)}</ItemDescription>
       </ItemContent>
       <ItemActions>
@@ -97,7 +90,7 @@ function displayNameFor(character: CharacterSummary): string {
 function describe(character: CharacterSummary): string {
   if (character.status === "draft") {
     const stepNumber = Math.min(character.builderStep + 1, BUILDER_STEPS.length)
-    return `In progress · Step ${stepNumber} of ${BUILDER_STEPS.length}`
+    return `Step ${stepNumber} of ${BUILDER_STEPS.length}`
   }
   return `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`
 }

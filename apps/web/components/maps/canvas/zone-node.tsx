@@ -52,7 +52,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
       <NodeToolbar
         isVisible={editable && selected}
         position={Position.Top}
-        className="flex items-center gap-1 rounded-none border bg-popover p-1 shadow-md"
+        className="flex items-center gap-1 rounded-lg border bg-popover p-1 shadow-md"
       >
         <Button
           size="sm"
@@ -99,7 +99,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
 
       <Card
         size="sm"
-        selected={selected}
+        variant={selected ? "gilded" : "default"}
         aria-label={`Zone: ${zone.name}`}
         className="min-h-48 w-86 shadow-sm transition-shadow"
       >

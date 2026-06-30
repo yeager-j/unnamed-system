@@ -29,8 +29,10 @@ export type WatchZoneToken = {
   /** Current/max HP + SP — the party reads each other's vitals on the map (UNN-489). */
   hp: Pool
   sp: Pool
-  /** This token belongs to the signed-in viewer — gets the self-highlight ring. */
+  /** This token belongs to the signed-in viewer — gets the gold self-tint. */
   owned: boolean
+  /** The combatant whose turn it is — gets the gold acting ring (UNN-467). */
+  acting: boolean
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
   engagement?: Engagement
 }
@@ -38,6 +40,8 @@ export type WatchZoneEnemy = {
   id: string
   name: string
   hp: Pool
+  /** The combatant whose turn it is — gets the gold acting ring (UNN-467). */
+  acting: boolean
   /** Melee-lock (UNN-467) — drives the engaged-cluster outline. */
   engagement?: Engagement
 }
@@ -198,8 +202,15 @@ function WatchCombatantChip({ combatant }: { combatant: WatchCombatant }) {
         hp={combatant.token.hp}
         sp={combatant.token.sp}
         owned={combatant.token.owned}
+        acting={combatant.token.acting}
       />
     )
   }
-  return <WatchEnemyChip name={combatant.enemy.name} hp={combatant.enemy.hp} />
+  return (
+    <WatchEnemyChip
+      name={combatant.enemy.name}
+      hp={combatant.enemy.hp}
+      acting={combatant.enemy.acting}
+    />
+  )
 }

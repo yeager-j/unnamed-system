@@ -161,7 +161,7 @@ export function DocumentEditor({
           onChange={(event) => titleState.setValue(event.target.value)}
           onFocus={() => titleState.onFocusChange(true)}
           onBlur={() => titleState.onFocusChange(false)}
-          className="h-auto rounded-none border-0 bg-transparent px-0 font-heading text-2xl text-foreground shadow-none placeholder:text-muted-foreground read-only:cursor-default focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
+          className="h-auto rounded-none border-0 bg-transparent px-0 font-display text-2xl font-semibold text-foreground shadow-none placeholder:text-muted-foreground read-only:cursor-default focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
         />
         <FieldDescription>{messages.description}</FieldDescription>
         <Separator />

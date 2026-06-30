@@ -7,6 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { ArchetypeAffinityChips } from "@/components/archetype/archetype-affinity-chips"
 import { formatModifier } from "@/components/archetype/format"
+import { Sparkle } from "@/components/shared/celestial"
 import {
   ATTRIBUTE_LABELS,
   LINEAGE_DISPLAY,
@@ -33,7 +34,12 @@ function StateBadge({ state }: { state: AtlasNode["state"] }) {
         </Badge>
       )
     case "mastered":
-      return <Badge>Mastered</Badge>
+      return (
+        <div className="flex items-center gap-1">
+          <Sparkle className="size-3 text-gold" />
+          <span className="text-[10px] font-bold uppercase">Mastered</span>
+        </div>
+      )
   }
 }
 
@@ -68,10 +74,12 @@ export function ArchetypeNodeCard({
         // cards carry different numbers of Affinity chips (which wrap to a
         // second row). The state badge is pinned to the bottom (`mt-auto`) so
         // it lines up across cards regardless of the content above it.
-        "flex min-h-52 w-56 flex-col gap-2 border bg-card p-3 text-left transition-colors",
+        "relative flex min-h-52 w-56 flex-col gap-2 rounded-xl border bg-card p-3 text-left transition-colors",
         "hover:border-ring/60 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
         selected && "border-ring ring-[3px] ring-ring/50",
-        muted && "opacity-70"
+        muted && "opacity-70",
+        state.kind === "mastered" &&
+          "border-gold after:pointer-events-none after:absolute after:inset-1 after:rounded-lg after:border after:border-gold/50 hover:border-gold"
       )}
     >
       <div className="flex items-start gap-2">
@@ -82,9 +90,7 @@ export function ArchetypeNodeCard({
           <Icon className="size-4" />
         </span>
         <span className="flex flex-col">
-          <span className="font-serif leading-tight font-semibold">
-            {archetype.name}
-          </span>
+          <span className="leading-tight font-semibold">{archetype.name}</span>
           <span className="font-mono text-xs text-muted-foreground">
             {TIER_ROMAN_LABELS[archetype.tier]} · {TIER_LABELS[archetype.tier]}
           </span>

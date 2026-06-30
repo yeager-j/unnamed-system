@@ -63,7 +63,7 @@ export function TurnLoopBar() {
 
         <Separator orientation="vertical" className="mx-2" />
 
-        <span className="pl-1 font-serif whitespace-nowrap tabular-nums">
+        <span className="pl-1 whitespace-nowrap tabular-nums">
           Turn{" "}
           <span className="font-bold">
             {turnCounter.toString().padStart(2, "0")}

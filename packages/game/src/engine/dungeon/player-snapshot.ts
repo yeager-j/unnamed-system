@@ -128,14 +128,18 @@ export interface DungeonSnapshotExit {
 }
 
 /** The live-combat overlay while a fight runs on the delve (UNN-467) — present in
- *  the snapshot only during combat (absent in pure exploration). All three values
- *  are player-observable (the encounter's public `shortId`, its round, the acting
- *  combatant's name), so it carries no redacted data. The fog view uses
+ *  the snapshot only during combat (absent in pure exploration). All values are
+ *  player-observable (the encounter's public `shortId`, its round, the acting
+ *  combatant's id + name), so it carries no redacted data. The fog view uses
  *  `encounterShortId` to dual-subscribe to the live encounter channel + load the
- *  viewer's own-character sheet column, and shows "Combat — Round N · {actor}". */
+ *  viewer's own-character sheet column, shows "Combat — Round N · {actor}", and
+ *  rings the acting token via `currentActorId`. */
 export interface DungeonCombatLink {
   encounterShortId: string
   round: number
+  /** The acting combatant's id (a PC's is its `characterId`) — rings its token on
+   *  the fog battlefield. `null` between turns / before the first actor. */
+  currentActorId: string | null
   currentActorName: string | null
 }
 

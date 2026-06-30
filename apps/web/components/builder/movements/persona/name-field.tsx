@@ -68,7 +68,7 @@ export function NameField() {
         }
       }}
       className={cn(
-        "font-heading text-3xl font-medium sm:text-4xl",
+        "font-display text-3xl font-semibold sm:text-4xl",
         "w-full max-w-md min-w-0 border-0 bg-transparent p-0 text-center outline-none",
         "border-b border-border pb-2 transition-colors",
         "placeholder:text-muted-foreground/40",

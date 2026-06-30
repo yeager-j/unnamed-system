@@ -85,7 +85,7 @@ export function LineageAtlas({
         >
           <ArrowLeftIcon aria-hidden /> Back to sheet
         </Link>
-        <h1 className="text-3xl font-bold">Lineage Atlas</h1>
+        <h1 className="font-display text-3xl font-bold">Lineage Atlas</h1>
       </div>
 
       <OwnerOnly>
