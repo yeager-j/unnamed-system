@@ -8,6 +8,8 @@ import {
 } from "@workspace/game-v2/archetypes"
 import { gameData } from "@workspace/game-v2/catalog"
 import {
+  addParticipantPaired,
+  comintMapInstance,
   compareInitiative,
   createReduceEncounter,
   createReduceSession,
@@ -15,15 +17,19 @@ import {
   derivePartyComposition,
   derivePartyCompositionBySide,
   endOfTurnObligations,
+  engagementCandidates,
   fallenParticipantIds,
+  mapInstanceComponentsFor,
   participantDisplayNames,
+  removeParticipantPaired,
   resolveSession,
+  spatialReadsFor,
   type CombatEvent,
+  type EncounterEvent,
   type EncounterState,
   type ParticipantSetup,
   type Session,
   type SessionEvent,
-  type SpatialReads,
 } from "@workspace/game-v2/encounter"
 import {
   applyInventoryMutation,
@@ -34,8 +40,10 @@ import {
   type InventoryMutation,
 } from "@workspace/game-v2/items"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
+import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
@@ -81,23 +89,52 @@ export function createGameEngine(deps: GameData = gameData) {
     // The pure combat-session reducer + its composition root (UNN-517). `newId`
     // is injected here (R24.3) — the reducer carries no catalog dep (CD4). The
     // session reducer accepts the full `SessionEvent` (the write-router feeds it
-    // the ephemeral vitals events); `reduceEncounter` routes the generic
-    // `CombatEvent` wire over `EncounterState`, the instance left opaque.
+    // the ephemeral vitals events); `reduceEncounter` routes the combat **and**
+    // spatial wire over the now-concrete `EncounterState` (UNN-529, §2.9).
     reduceSession: (
       session: Session,
       event: SessionEvent,
       newId: () => string
     ) => createReduceSession(newId)(session, event),
-    reduceEncounter: <Instance>(
-      state: EncounterState<Instance>,
-      event: CombatEvent,
+    reduceEncounter: (
+      state: EncounterState,
+      event: EncounterEvent,
       newId: () => string
     ) => createReduceEncounter(newId)(state, event),
-    // Resolved-encounter view (UNN-525): resolve every participant exactly once,
-    // with its zone-enchantment context, into the single view the turn-loop reads +
-    // the snapshot fold over (≈5N+1 per-render resolves → N).
-    resolveSession: (session: Session, spatial: SpatialReads) =>
-      resolveSession(session, spatial, resolveEntity),
+    // The pure cross-row gestures the impure two-row `guardMany` transaction
+    // composes (UNN-529, §2.9): the birth co-mint (participantId === token key) +
+    // the add/remove occupancy pairings. Combat-end's `pruneCombat` is the spatial
+    // helper PR2 already ships; the status flip is an app-layer column.
+    comintMapInstance: (
+      session: Session,
+      placement: Record<ParticipantId, string>,
+      base?: MapInstanceState
+    ) => comintMapInstance(session, placement, base),
+    addParticipantPaired: (
+      state: EncounterState,
+      event: Extract<CombatEvent, { kind: "addParticipant" }>,
+      zoneId: string,
+      newId: () => string
+    ) => addParticipantPaired(newId)(state, event, zoneId),
+    removeParticipantPaired: (
+      state: EncounterState,
+      event: Extract<CombatEvent, { kind: "removeParticipant" }>,
+      newId: () => string
+    ) => removeParticipantPaired(newId)(state, event),
+    // The D28#2 allegiance-gated engagement-candidate selector (composition-tier,
+    // allegiance injected from the session overlay + spatial's zoneOf).
+    engagementCandidates,
+    // Resolved-encounter view (UNN-525, read-bag wired UNN-529): resolve every
+    // participant once with zone context, and fill the instance read-bag
+    // (`position`/`engagement`) from the Map-Instance occupancy — both adapters
+    // (SD8) bound here over the instance, so the caller passes state, not ports.
+    resolveSession: (session: Session, mapInstance: MapInstanceState) =>
+      resolveSession(
+        session,
+        spatialReadsFor(mapInstance),
+        resolveEntity,
+        mapInstanceComponentsFor(mapInstance)
+      ),
     // Turn loop (UNN-518): pure functions of the resolved view — no `resolve`
     // partial-application (UNN-525), so they're re-exposed as-is. The pure session
     // selectors (pendingParticipants / nextDraftingSide / eligibleParticipants /

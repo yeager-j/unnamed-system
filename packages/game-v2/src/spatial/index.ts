@@ -4,8 +4,11 @@
  * **one-way** dependency seam (SD2): `spatial/` imports `kernel/` + `mechanics/` only;
  * `encounter → spatial` is the legitimate direction (the composition tier reads
  * spatial). PR1 ships the state + event **shapes**; PR2 adds the geometry + Map-Instance
- * reducers + the engagement-graph/occupancy write primitives; `reduceDungeon` + the
- * composition tier land in PR3.
+ * reducers + the engagement-graph/occupancy write primitives; PR3 adds the
+ * `reduceDungeon` exploration loop + its derived roster/reminder selectors, the
+ * fog/reveal derivations (`connectionFogState`/`isFogActive`/…), and the pure
+ * `MapInstanceState` selectors (`zoneOf`/`activeEnchantment`/`engagementOf`) the
+ * combat composition binds its `SpatialReads` adapter from (SD8).
  */
 export * from "./geometry.schema"
 export * from "./map-instance.schema"
@@ -17,3 +20,6 @@ export * from "./engagement-graph"
 export * from "./reduce-map-geometry"
 export * from "./occupancy"
 export * from "./reduce-map-instance"
+export * from "./reduce-dungeon"
+export * from "./reveal"
+export * from "./selectors"
