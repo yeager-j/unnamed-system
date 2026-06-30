@@ -13,7 +13,7 @@ import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
-import { Sparkle } from "./celestial"
+import { Sparkle } from "../../../shared/celestial"
 
 /**
  * Per-path die pairing — presentation-only copy not owned by the game engine.
@@ -83,7 +83,7 @@ export function PathBar() {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="flex items-center gap-2 font-heading text-lg font-medium text-foreground">
-        <Sparkle className="size-3 text-gold/70" />
+        <Sparkle className="size-3 text-gold" />
         Path
       </h2>
       <HpSpBalanceBar

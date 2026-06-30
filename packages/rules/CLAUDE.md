@@ -1,4 +1,4 @@
-# Persona System — Project Index
+# Showtime! — Project Index
 
 A tabletop RPG system heavily inspired by the Persona video game series. Turn-based, narrative-driven combat with an Extra Turn / Baton Pass mechanic, Affinity Charts, Archetypes (job classes), and a story-driven level advancement system.
 

@@ -3,8 +3,6 @@
 import { ThemeProvider as NextThemesProvider } from "next-themes"
 import * as React from "react"
 
-import { ThemeHotkey } from "./theme-hotkey"
-
 function ThemeProvider({
   children,
   ...props
@@ -12,12 +10,10 @@ function ThemeProvider({
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="dark"
       disableTransitionOnChange
       {...props}
     >
-      <ThemeHotkey />
       {children}
     </NextThemesProvider>
   )

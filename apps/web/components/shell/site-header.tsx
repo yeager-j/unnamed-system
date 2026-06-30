@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import { auth } from "@/lib/auth"
 
+import { Sparkle } from "../shared/celestial"
 import { AccountMenu } from "./account-menu"
 import { SignInButton } from "./sign-in-button"
 
@@ -20,9 +21,10 @@ export async function SiteHeader() {
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <Link
         href="/"
-        className="font-heading text-sm font-semibold tracking-tight text-foreground hover:text-foreground/80"
+        className="flex items-center gap-1 font-display text-lg font-semibold tracking-tight text-foreground italic hover:text-foreground/80"
       >
-        Unnamed System
+        <Sparkle className="size-4 text-gold" />
+        Showtime!
       </Link>
       {session?.user ? <AccountMenu user={session.user} /> : <SignInButton />}
     </header>

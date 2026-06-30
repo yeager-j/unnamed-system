@@ -20,7 +20,7 @@ import {
   LINEAGE_LABELS,
 } from "@/lib/ui/labels"
 
-import { Sparkle } from "./celestial"
+import { Sparkle } from "../../../shared/celestial"
 
 /**
  * The compact face of an Origin Archetype in the Movement 1 grid (UNN-215 /
@@ -55,28 +55,20 @@ export function ArchetypeCard({
       aria-haspopup="dialog"
       aria-label={`View ${LINEAGE_LABELS[archetype.lineage]} details`}
       className={cn(
-        "group/archetype-card relative flex h-full w-full flex-col items-stretch gap-3 border bg-card p-5 text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "group/archetype-card relative flex h-full w-full flex-col items-stretch gap-3 rounded-xl border bg-card p-5 text-left transition-colors outline-none focus-visible:ring-1 focus-visible:ring-ring",
         selected
-          ? "border-gold after:pointer-events-none after:absolute after:inset-1 after:border after:border-gold/25"
-          : "border-border hover:border-primary/40"
+          ? "border-gold after:pointer-events-none after:absolute after:inset-1 after:rounded-lg after:border after:border-gold/50"
+          : "border-border hover:border-gold/40"
       )}
     >
       {selected ? (
-        <Sparkle className="pointer-events-none absolute right-3 bottom-3 size-4 text-gold/60" />
+        <Sparkle className="pointer-events-none absolute right-3 bottom-3 size-4 text-gold" />
       ) : null}
 
       <header className="flex items-start justify-between gap-2">
         <h3 className="font-heading text-2xl leading-tight font-semibold tracking-tight text-foreground">
           {archetype.name}
         </h3>
-        {selected ? (
-          <span
-            aria-label="Currently selected as Origin"
-            className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"
-          >
-            <CheckIcon weight="bold" className="size-3" />
-          </span>
-        ) : null}
       </header>
 
       {mechanic ? (

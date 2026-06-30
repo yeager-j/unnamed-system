@@ -1,6 +1,6 @@
 import {
-  Bodoni_Moda,
-  Geist,
+  DM_Serif_Display,
+  Hanken_Grotesk,
   JetBrains_Mono,
   Source_Serif_4,
 } from "next/font/google"
@@ -15,10 +15,7 @@ import { HeaderGate } from "@/components/shell/header-gate"
 import { SiteHeader } from "@/components/shell/site-header"
 import { ThemeProvider } from "@/components/shell/theme-provider"
 
-const fontSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+const fontBody = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-sans" })
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -31,10 +28,10 @@ const fontProse = Source_Serif_4({
   weight: ["400", "500", "600", "700"],
 })
 
-const fontDisplay = Bodoni_Moda({
+const fontDisplay = DM_Serif_Display({
   subsets: ["latin"],
   variable: "--font-display",
-  weight: ["500", "600", "700"],
+  weight: ["400"],
 })
 
 export default function RootLayout({
@@ -48,7 +45,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn(
         "antialiased",
-        fontSans.variable,
+        fontBody.variable,
         fontProse.variable,
         fontDisplay.variable,
         jetbrainsMono.variable,

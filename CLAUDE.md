@@ -103,8 +103,8 @@ packages/rules/     Obsidian vault with game mechanics rules
 docs/               Long-form feature specs (PRD/ADR), one folder per feature
                     (e.g. docs/initiative-tracker/). Canonical source of truth;
                     Linear docs are stubs linking here. docs/brand/ holds the
-                    visual-identity brand guide ("mystical theater": purple hero,
-                    gold accent, Didone/Geist, playbill/theater light-dark).
+                    visual-identity brand guide ("mystical theater", dark-only:
+                    purple hero, gold accent, DM Serif Display + Hanken Grotesk).
 ```
 
 Inside `apps/web/`:
