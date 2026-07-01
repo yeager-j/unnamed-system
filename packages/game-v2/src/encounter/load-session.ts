@@ -165,21 +165,14 @@ export function loadSession(loadDurable: DurableSource) {
  * **reference only** (`{ storage:"durable", entityId }`) — its live components stay
  * on the entity row, written via their own path/version token (§2.8b), never
  * embedded here. An inline participant is written with its **live** entity state
- * (post-reducer `vitals.damage` and friends).
- *
- * **Invariant (a UNN-520 write-router/shell obligation):** every *durable*
- * participant — including a future durable mid-combat joiner (R6.2) — MUST have its
- * locator registered in the out-of-band map **before** {@link saveSession} runs.
- * A locator-map miss falls through to the inline default, which serializes the
- * participant's components into the blob (home loss): the engine cannot recover the
- * durable home (F1), so inline is the only **self-contained** default a pure saver
- * can choose. The map — not this function — is what distinguishes the two homes.
+ * (post-reducer `vitals.damage` and friends) — the map entry carries the home, the
+ * runtime participant carries the state.
  */
 function storedLocatorFor(
   participant: Participant,
-  locator: StoredEntityLocator | undefined
+  locator: StoredEntityLocator
 ): StoredEntityLocator {
-  if (locator?.storage === "durable") {
+  if (locator.storage === "durable") {
     return { storage: "durable", entityId: locator.entityId }
   }
   return {
@@ -198,12 +191,40 @@ function storedLocatorFor(
  * map. Durable participants persist as references; inline participants persist their
  * live entity. Round-tripping a session with no reducer run reproduces the original
  * locators exactly.
+ *
+ * **Fail-closed (the S1 invariant):** every participant — including a durable
+ * mid-combat joiner (R6.2) — MUST have its locator registered in the out-of-band
+ * map before saving; the shell that mints a participant registers its home in the
+ * same breath. A miss errs with the offending participant ids rather than
+ * defaulting: the engine cannot recover a durable home post-F1 (the saver can't
+ * tell a forgotten durable joiner from a genuinely inline one), and a silent
+ * inline fallback would serialize a durable participant's components into the
+ * blob — home loss, discovered only on the next load. Totality of the map is the
+ * invariant; this signature makes violating it unrepresentable.
  */
 export function saveSession(
   session: Session,
   locators: Map<ParticipantId, StoredEntityLocator>
-): StoredSession {
-  return {
+): Result<StoredSession, ParticipantId[]> {
+  const participants: StoredParticipant[] = []
+  const missing: ParticipantId[] = []
+
+  for (const participant of session.participants) {
+    const locator = locators.get(participant.id)
+    if (locator === undefined) {
+      missing.push(participant.id)
+      continue
+    }
+    participants.push({
+      id: participant.id,
+      locator: storedLocatorFor(participant, locator),
+      overlay: participant.overlay,
+    })
+  }
+
+  if (missing.length > 0) return err(missing)
+
+  return ok({
     round: session.round,
     currentActorId: session.currentActorId,
     advantage: session.advantage,
@@ -211,12 +232,6 @@ export function saveSession(
     ...(session.mapInstanceId !== undefined && {
       mapInstanceId: session.mapInstanceId,
     }),
-    participants: session.participants.map(
-      (participant): StoredParticipant => ({
-        id: participant.id,
-        locator: storedLocatorFor(participant, locators.get(participant.id)),
-        overlay: participant.overlay,
-      })
-    ),
-  }
+    participants,
+  })
 }

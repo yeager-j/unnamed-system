@@ -1,7 +1,9 @@
-import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import type {
-  CombatAdvantage,
-  CombatSide,
+import { z } from "zod/v4"
+
+import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
+import {
+  COMBAT_ADVANTAGES,
+  COMBAT_SIDES,
 } from "@workspace/game-v2/kernel/vocab/combat"
 
 /**
@@ -12,18 +14,28 @@ import type {
  * exactly once (the {@link StoredEntityLocator}), and the runtime side names it
  * **never** (the F1 kill — the home is dissolved at the one loader boundary into a
  * uniform `Participant.entity`, the durable/inline fact kept out-of-band).
+ *
+ * Zod-first (UNN-520): {@link storedSessionSchema} is the single source — the app
+ * shell parses the raw jsonb column through it at the boundary, and the types are
+ * inferred, so the schema and the contract cannot drift. The schema validates the
+ * **envelope only** (scalars, ids, locator arms); each entity's `components` and
+ * each participant's `overlay` stay `unknown` here because their shape is
+ * validated exactly once, downstream at the F6 seams ({@link
+ * import("@workspace/game-v2/kernel/load-seam").loadEntity} + {@link
+ * import("./overlay").overlayComponentsSchema} inside {@link
+ * import("./load-session").loadSession}) — both locator arms flow through the same
+ * seams, so a durable row and an inline blob are validated identically.
  */
 
 /**
- * One persisted entity: a stable `id` plus its opaque `components` jsonb. `unknown`
- * because the component **shape** is validated exactly once, at the F6 load seam
- * ({@link import("@workspace/game-v2/kernel/load-seam").loadEntity}) — both locator
- * arms flow through it, so a durable row and an inline blob are validated the same way.
+ * One persisted entity: a stable `id` plus its opaque `components` jsonb.
  */
-export interface StoredEntity {
-  id: string
-  components: unknown
-}
+export const storedEntitySchema = z.object({
+  id: z.string().min(1),
+  components: z.unknown(),
+})
+
+export type StoredEntity = z.infer<typeof storedEntitySchema>
 
 /**
  * The **2-arm** storage locator — the only place a participant's storage home is
@@ -40,9 +52,12 @@ export interface StoredEntity {
  * contract for a readable blob + a precise round-trip assertion; it never reaches a
  * runtime `Participant`.
  */
-export type StoredEntityLocator =
-  | { storage: "durable"; entityId: string }
-  | { storage: "inline"; entity: StoredEntity }
+export const storedEntityLocatorSchema = z.discriminatedUnion("storage", [
+  z.object({ storage: z.literal("durable"), entityId: z.string().min(1) }),
+  z.object({ storage: z.literal("inline"), entity: storedEntitySchema }),
+])
+
+export type StoredEntityLocator = z.infer<typeof storedEntityLocatorSchema>
 
 /**
  * One persisted participant: the roster `id` (the combatant key — distinct from
@@ -50,11 +65,13 @@ export type StoredEntityLocator =
  * and its `overlay` blob (validated at load via {@link
  * import("./overlay").overlayComponentsSchema}).
  */
-export interface StoredParticipant {
-  id: ParticipantId
-  locator: StoredEntityLocator
-  overlay: unknown
-}
+export const storedParticipantSchema = z.object({
+  id: participantIdSchema,
+  locator: storedEntityLocatorSchema,
+  overlay: z.unknown(),
+})
+
+export type StoredParticipant = z.infer<typeof storedParticipantSchema>
 
 /**
  * The persisted session blob the loader reads and the saver writes (§2.8a — the DM
@@ -63,11 +80,13 @@ export interface StoredParticipant {
  * as **references** here (no entity content — that lives on the row); only inline
  * participants carry their live entity in the blob.
  */
-export interface StoredSession {
-  round: number
-  currentActorId: ParticipantId | null
-  advantage: CombatAdvantage | null
-  firstSide: CombatSide | null
-  mapInstanceId?: string
-  participants: StoredParticipant[]
-}
+export const storedSessionSchema = z.object({
+  round: z.number().int().positive(),
+  currentActorId: participantIdSchema.nullable(),
+  advantage: z.enum(COMBAT_ADVANTAGES).nullable(),
+  firstSide: z.enum(COMBAT_SIDES).nullable(),
+  mapInstanceId: z.string().optional(),
+  participants: z.array(storedParticipantSchema),
+})
+
+export type StoredSession = z.infer<typeof storedSessionSchema>

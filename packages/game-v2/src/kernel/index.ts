@@ -7,6 +7,7 @@
 export * from "./bonus-pool"
 export * from "./component"
 export * from "./component-registry"
+export * from "./deep-equal"
 export * from "./effects.schema"
 export * from "./entity"
 export * from "./identity.schema"

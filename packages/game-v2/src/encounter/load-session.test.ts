@@ -190,10 +190,20 @@ describe("loadSession — failure modes (no faked issues)", () => {
 })
 
 describe("saveSession — write-back inverse (round-trip preserves the locator)", () => {
+  /** Unwraps the saver's Result for the happy-path round-trip assertions. */
+  function saveOrThrow(
+    session: Parameters<typeof saveSession>[0],
+    locators: Parameters<typeof saveSession>[1]
+  ) {
+    const saved = saveSession(session, locators)
+    if (!saved.ok) throw new Error("expected ok")
+    return saved.value
+  }
+
   it("round-trips a clean session: durable as a reference, inline with live state", () => {
     const loaded = loadSession(loadDurable)(storedSession)
     if (!loaded.ok) throw new Error("expected ok")
-    const round = saveSession(loaded.value.session, loaded.value.locators)
+    const round = saveOrThrow(loaded.value.session, loaded.value.locators)
 
     expect(round.participants[0]!.locator).toEqual({
       storage: "durable",
@@ -212,20 +222,33 @@ describe("saveSession — write-back inverse (round-trip preserves the locator)"
   it("NEVER embeds durable entity content in the blob — references only", () => {
     const loaded = loadSession(loadDurable)(storedSession)
     if (!loaded.ok) throw new Error("expected ok")
-    const round = saveSession(loaded.value.session, loaded.value.locators)
+    const round = saveOrThrow(loaded.value.session, loaded.value.locators)
     const durableLocator = round.participants[0]!.locator
     expect(durableLocator.storage).toBe("durable")
     expect(durableLocator).not.toHaveProperty("entity")
   })
 
-  it("defaults a locator-map miss to inline (a reducer-minted mid-combat joiner)", () => {
+  it("FAILS CLOSED on a locator-map miss — errs with every missing id (S1)", () => {
     const loaded = loadSession(loadDurable)(storedSession)
     if (!loaded.ok) throw new Error("expected ok")
-    const round = saveSession(loaded.value.session, new Map())
-    expect(round.participants[0]!.locator).toEqual({
-      storage: "inline",
-      entity: { id: "pc-1", components: irisRow.components },
-    })
+    const saved = saveSession(loaded.value.session, new Map())
+    expect(saved.ok).toBe(false)
+    if (saved.ok) return
+    expect(saved.error).toEqual([
+      asParticipantId("c-pc"),
+      asParticipantId("c-goblin"),
+    ])
+  })
+
+  it("a partial locator map errs with only the missing participant", () => {
+    const loaded = loadSession(loadDurable)(storedSession)
+    if (!loaded.ok) throw new Error("expected ok")
+    const partial = new Map(loaded.value.locators)
+    partial.delete(asParticipantId("c-goblin"))
+    const saved = saveSession(loaded.value.session, partial)
+    expect(saved.ok).toBe(false)
+    if (saved.ok) return
+    expect(saved.error).toEqual([asParticipantId("c-goblin")])
   })
 
   it("persists post-reducer inline state (a damaged inline enemy)", () => {
@@ -236,7 +259,7 @@ describe("saveSession — write-back inverse (round-trip preserves the locator)"
       base: 16,
       damage: 12,
     }
-    const round = saveSession(loaded.value.session, loaded.value.locators)
+    const round = saveOrThrow(loaded.value.session, loaded.value.locators)
     expect(round.participants[1]!.locator).toEqual({
       storage: "inline",
       entity: {

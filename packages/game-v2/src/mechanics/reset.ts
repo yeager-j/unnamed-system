@@ -1,33 +1,7 @@
+import { deepEqual } from "@workspace/game-v2/kernel/deep-equal"
 import type { MechanicKind } from "@workspace/game-v2/kernel/vocab/mechanics"
 import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
 import { getMechanic } from "@workspace/game-v2/mechanics/registry"
-
-/**
- * Order-independent structural equality over two persisted mechanic states — plain
- * JSON values (primitives, arrays, flat objects), so a small recursive walk
- * suffices. Used only to honor the no-op identity contract below.
- */
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (
-    typeof a !== "object" ||
-    typeof b !== "object" ||
-    a === null ||
-    b === null
-  ) {
-    return false
-  }
-  if (Array.isArray(a) !== Array.isArray(b)) return false
-  const keysA = Object.keys(a)
-  const keysB = Object.keys(b)
-  if (keysA.length !== keysB.length) return false
-  return keysA.every((key) =>
-    deepEqual(
-      (a as Record<string, unknown>)[key],
-      (b as Record<string, unknown>)[key]
-    )
-  )
-}
 
 /**
  * The **encounter-end sweep** (D17/D27) — resets every mechanic whose `resetOn` is
