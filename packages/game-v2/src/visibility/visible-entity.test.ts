@@ -11,7 +11,7 @@ import {
   player,
   spectator,
 } from "./__fixtures__/redaction"
-import type { Viewer } from "./relationship"
+import type { TrustedViewer } from "./trusted-viewer"
 import { visibleEntity } from "./visible-entity"
 
 /** The resolved + instance read-units an enemy can carry — one of each so the fold
@@ -112,7 +112,7 @@ describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () =>
     ["own (owner of the entity id)", player("players", ["goblin-entity"])],
     ["ally (same side)", player("enemies")],
     ["dm", dm()],
-  ])("reveals the stat rows to %s", (_label, viewer: Viewer) => {
+  ])("reveals the stat rows to %s", (_label, viewer: TrustedViewer) => {
     const c = visibleEntity(enemyView, viewer)
     expect(c.attributes).toEqual(enemyView.components.attributes)
     expect(c.affinities).toEqual(enemyView.components.affinities)
@@ -126,7 +126,7 @@ describe("visibleEntity — the uniform redaction fold (CD11; ADR §2.6)", () =>
     ["dm", dm()],
   ])(
     "drops the sheet-only read-units for EVERY relationship (%s)",
-    (_l, viewer: Viewer) => {
+    (_l, viewer: TrustedViewer) => {
       const c = visibleEntity(enemyView, viewer)
       for (const key of DROP_FROM_ALL_KEYS) {
         expect(key in c).toBe(false)

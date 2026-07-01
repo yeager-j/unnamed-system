@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { LoadEncounterForWriteError } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
@@ -23,6 +23,6 @@ export type EndCombatError =
   | "encounter-not-live"
   | "map-instance-not-found"
   | "locator-missing"
-  | LoadEncounterForWriteError
+  | LoadEncounterV2Error
   | EncounterWriteError
   | MapInstanceWriteError

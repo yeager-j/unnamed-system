@@ -4,7 +4,7 @@ import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.sc
 
 import { combatantWriteSchema } from "@/lib/combat/commit/write.schema"
 import type { CombatantWriteRefusal } from "@/lib/combat/commit/writers"
-import type { LoadEncounterForWriteError } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
 import type {
   AdjustPoolPersistenceError,
   UsePrismaPersistenceError,
@@ -50,7 +50,7 @@ export type ApplyCombatantWriteError =
   | "unsupported-durable-write"
   | "locator-missing"
   | CombatantWriteRefusal
-  | LoadEncounterForWriteError
+  | LoadEncounterV2Error
   | EncounterWriteError
   | AdjustPoolPersistenceError
   | UsePrismaPersistenceError

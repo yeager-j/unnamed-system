@@ -18,13 +18,13 @@ import {
   isZoneRevealed,
 } from "@workspace/game-v2/spatial/reveal"
 
-import type { Viewer } from "./relationship"
 import {
   projectEncounterSnapshot,
   type EncounterSnapshot,
   type EncounterSnapshotMeta,
   type VisibleCombatant,
 } from "./snapshot"
+import type { TrustedViewer } from "./trusted-viewer"
 
 /**
  * The **spatial redaction tail** — the fog-clamping player projectors that **compose
@@ -212,7 +212,7 @@ function projectConnections(
 export function projectSpatialEncounterSnapshot(
   session: Session,
   view: ResolvedSession,
-  viewer: Viewer,
+  viewer: TrustedViewer,
   meta: EncounterSnapshotMeta,
   mapInstance: MapInstanceState,
   instanceVersion: number

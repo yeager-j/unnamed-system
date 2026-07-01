@@ -6,7 +6,7 @@ import type { Session } from "@workspace/game-v2/encounter/session"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { Viewer } from "./relationship"
+import type { TrustedViewer } from "./trusted-viewer"
 import { visibleEntity } from "./visible-entity"
 
 /**
@@ -93,7 +93,7 @@ export interface EncounterSnapshot extends EncounterSnapshotMeta {
 export function projectEncounterSnapshot(
   session: Session,
   view: ResolvedSession,
-  viewer: Viewer,
+  viewer: TrustedViewer,
   meta: EncounterSnapshotMeta
 ): EncounterSnapshot {
   const combatants: VisibleCombatant[] = []
