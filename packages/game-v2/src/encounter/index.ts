@@ -28,6 +28,7 @@ export * from "./session-factory"
 export * from "./locator"
 export * from "./spatial-reads"
 export * from "./load-session"
+export * from "./sweep"
 export * from "./participant-view"
 export * from "./to-setup"
 export * from "./reduce-session"
@@ -56,6 +57,8 @@ export {
   type ActionEconomyEvent,
   type CombatEvent,
   type ComponentWriteEvent,
+  type MechanicTransitionEvent,
+  type UseResourceEvent,
   type SessionEvent,
   type BattleConditionAxisAction,
   type ActionEconomyAction,

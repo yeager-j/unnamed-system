@@ -23,7 +23,17 @@ export function setDuskMode(
   return { ...state, duskMode: value }
 }
 
-export const pathOfDusk: MechanicDefinition<PathOfDuskState> = {
+/** The serializable write descriptor (CD19) over the pure transition. */
+export const pathOfDuskTransitionSchema = z.object({
+  op: z.literal("setMode"),
+  value: z.boolean(),
+})
+export type PathOfDuskTransition = z.infer<typeof pathOfDuskTransitionSchema>
+
+export const pathOfDusk: MechanicDefinition<
+  PathOfDuskState,
+  PathOfDuskTransition
+> = {
   kind: "path-of-dusk",
   displayName: "Path of Dusk",
   tagline:
@@ -37,5 +47,9 @@ When you use a Skill that deals Dark damage, each Illuminated enemy takes **\`1d
 When combat ends, all unused Lumina disappear and you exit Dusk Mode.`,
   schema: pathOfDuskStateSchema,
   initialState: () => ({ kind: "path-of-dusk", duskMode: false }),
+  transitions: {
+    schema: pathOfDuskTransitionSchema,
+    apply: (state, transition) => setDuskMode(state, transition.value),
+  },
   resetOn: "encounter",
 }

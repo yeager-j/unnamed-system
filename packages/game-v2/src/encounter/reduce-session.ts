@@ -3,7 +3,9 @@ import { reduceAilment } from "./reduce/ailments"
 import { reduceBattleCondition } from "./reduce/conditions"
 import { reduceCounter } from "./reduce/counters"
 import { reduceDraft } from "./reduce/draft"
+import { reduceMechanicTransition } from "./reduce/mechanics"
 import { reduceOverride } from "./reduce/override"
+import { reduceUseResource } from "./reduce/resources"
 import { reduceRoster } from "./reduce/roster"
 import { reduceStartCombat } from "./reduce/start-combat"
 import { reduceTurn } from "./reduce/turn"
@@ -77,6 +79,12 @@ export function createReduceSession(newId: () => string) {
       case "healParticipant":
       case "setParticipantMax":
         return reduceVitals(session, event)
+
+      case "mechanicTransition":
+        return reduceMechanicTransition(session, event)
+
+      case "useResource":
+        return reduceUseResource(session, event)
     }
   }
 }

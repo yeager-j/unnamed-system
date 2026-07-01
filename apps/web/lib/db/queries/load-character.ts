@@ -103,6 +103,20 @@ async function hydrate(
   return deriveHydratedCharacter(raw, context)
 }
 
+/**
+ * The persisted {@link RawCharacterInputs} for a character by id, or `null`
+ * when no character matches — the row plus its child rows, without the v1
+ * hydrate step. Backs the v2 combat write path (UNN-520): the encounter
+ * loader hydrates each **durable** participant's character through the
+ * `rawInputsToEntity` projection, which consumes exactly this shape.
+ */
+export async function loadRawCharacterInputsById(
+  characterId: string
+): Promise<RawCharacterInputs | null> {
+  const row = await loadCharacterRowById(characterId)
+  return row ? fetchRawInputs(row) : null
+}
+
 /** The raw `characters` row by id, or `null` when no character matches. */
 export async function loadCharacterRowById(
   characterId: string

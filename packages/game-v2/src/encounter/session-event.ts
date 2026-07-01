@@ -10,6 +10,7 @@ import {
   COMBAT_ADVANTAGES,
   COMBAT_SIDES,
 } from "@workspace/game-v2/kernel/vocab/combat"
+import type { MechanicKind } from "@workspace/game-v2/kernel/vocab/mechanics"
 
 import {
   AILMENT_KEYS,
@@ -313,11 +314,48 @@ export type ComponentWriteEvent = {
 }
 
 /**
+ * The router-only **mechanics** arm (UNN-520) — one ephemeral mechanic-state
+ * write, dispatched by the write-router when the target participant's home is
+ * the session blob. `transition` is the mechanic's own serializable descriptor
+ * (CD19): *the Writer validates it against
+ * `MECHANICS_BY_KIND[mechanic].transitions.schema` (and `WriterDeps`) before
+ * minting; the minted event is total for the reducer* — deps never enter the
+ * pure reducer, which trusts the descriptor and applies it through the same
+ * registry `apply`. Like {@link ComponentWriteEvent}, it is excluded from
+ * {@link combatEventSchema} and mintable only via {@link
+ * toMechanicTransitionEvent} (un-exported from the barrel).
+ */
+export type MechanicTransitionEvent = {
+  kind: "mechanicTransition"
+  participantId: ParticipantId
+  mechanic: MechanicKind
+  transition: unknown
+}
+
+/**
+ * The router-only **resources** arm (UNN-520) — one ephemeral consumable use.
+ * The reducer applies the total depletion increment (`prismaUsed + 1`); the
+ * **affordability** check (`applyUsePrisma`'s refusal at the resolved
+ * `maxPrisma`) lives in the Writer pre-mint, because the max is a resolved
+ * value (`WriterDeps`) the pure reducer must not derive. Mintable only via
+ * {@link toUseResourceEvent} (un-exported from the barrel).
+ */
+export type UseResourceEvent = {
+  kind: "useResource"
+  participantId: ParticipantId
+  resource: "prisma"
+}
+
+/**
  * The reducer's input — the union of the generic wire and the router-only family.
  * {@link createReduceSession} switches over this exhaustively; the wire validator
  * only ever produces the {@link CombatEvent} half.
  */
-export type SessionEvent = CombatEvent | ComponentWriteEvent
+export type SessionEvent =
+  | CombatEvent
+  | ComponentWriteEvent
+  | MechanicTransitionEvent
+  | UseResourceEvent
 
 // --- The router's sole ComponentWriteEvent constructor (un-exported) ----------
 
@@ -359,4 +397,32 @@ export function toSessionEvent(intent: {
     pool: COMPONENT_TO_POOL[intent.component],
     amount: intent.amount,
   }
+}
+
+/**
+ * The **sole** constructor of a {@link MechanicTransitionEvent} — the mechanics
+ * sibling of {@link toSessionEvent}, under the same containment: deep-path
+ * import only (omitted from the barrel), called exclusively by the impure
+ * write-router (UNN-520) after it validated `transition` against the mechanic's
+ * registry schema.
+ */
+export function toMechanicTransitionEvent(intent: {
+  participantId: ParticipantId
+  mechanic: MechanicKind
+  transition: unknown
+}): MechanicTransitionEvent {
+  return { kind: "mechanicTransition", ...intent }
+}
+
+/**
+ * The **sole** constructor of a {@link UseResourceEvent} — the resources sibling
+ * of {@link toSessionEvent}, under the same containment: deep-path import only,
+ * called exclusively by the impure write-router (UNN-520) after the Writer's
+ * affordability check passed.
+ */
+export function toUseResourceEvent(intent: {
+  participantId: ParticipantId
+  resource: "prisma"
+}): UseResourceEvent {
+  return { kind: "useResource", ...intent }
 }

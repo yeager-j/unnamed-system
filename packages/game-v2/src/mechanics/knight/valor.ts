@@ -43,7 +43,14 @@ export function adjustValor(state: ValorState, delta: number): ValorState {
   return { ...state, value }
 }
 
-export const valor: MechanicDefinition<ValorState> = {
+/** The serializable write descriptor (CD19) over the pure transition. */
+export const valorTransitionSchema = z.object({
+  op: z.literal("adjust"),
+  delta: z.number().int(),
+})
+export type ValorTransition = z.infer<typeof valorTransitionSchema>
+
+export const valor: MechanicDefinition<ValorState, ValorTransition> = {
   kind: "valor",
   displayName: "Valor",
   tagline: "Build a 0–7 Valor counter by acting as the bulwark of your party.",
@@ -68,6 +75,10 @@ export const valor: MechanicDefinition<ValorState> = {
         source: `Valor (${state.value})`,
       },
     ]
+  },
+  transitions: {
+    schema: valorTransitionSchema,
+    apply: (state, transition) => adjustValor(state, transition.delta),
   },
   resetOn: "encounter",
 }

@@ -26,6 +26,7 @@ concurrency token, and envelope:
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
 | `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
 | `encounter/` | `requireCampaignDM`                         | `{ encounterId, expectedVersion }` (inline until a 2nd action earns an `encounterMutationBase`) | single `version` per encounter |
+| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes; + `expectedCharacterVersion` on `commit/`) | encounter `version`; `commit/`'s durable arm guards `vitalsVersion` |
 
 > **Migration in progress.** The ~35 flat `character-*.ts` files at the root of
 > `lib/actions/` predate this convention; they belong under `character/` (dropping
