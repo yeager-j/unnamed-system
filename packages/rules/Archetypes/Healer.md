@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Amrita Drop#^ed109c]]      |
 | 5    | ![[Healer's Insight#^452fe8]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill               |
-| ---- | ----------------------------- |
+| Rank | Prime Time                    |
+| ---- | ------------------------------ |
 | 5    | ![[Divine Judgment#^e72188]] |

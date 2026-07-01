@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Memory Blow#^ed109c]]   |
 | 5    | ![[Auto-Sukukaja#^1eae18]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill             |
-| ---- | --------------------------- |
+| Rank | Prime Time                  |
+| ---- | ---------------------------- |
 | 5    | ![[Phantom Tracer#^e72188]] |

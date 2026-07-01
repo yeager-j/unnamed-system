@@ -4,7 +4,7 @@ damage: 10d8
 cost: 20 SP
 type: Light
 range: All
-synthesis: true
+primeTime: true
 ---
 > [!skill] Divine Judgment
 > Deals severe Light damage to all enemies and applies Lumina.

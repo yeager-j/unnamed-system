@@ -4,7 +4,7 @@ damage: 12d10
 cost: 20% HP
 type: Strike
 range: Engaged
-synthesis: true
+primeTime: true
 ---
 > [!skill] Wanton Destruction
 > Deals severe strike damage to one enemy.

@@ -4,7 +4,7 @@ damage: 12d10
 cost: 20% HP
 type: Slash
 range: Engaged
-synthesis: true
+primeTime: true
 ---
 > [!skill] Phantom Tracer
 > Deals severe slash damage to one enemy. If any of the enemy's stats are increased (Attack, Defense, Hit/Evasion), your respective stat(s) are increased and the enemy's are set to neutral.

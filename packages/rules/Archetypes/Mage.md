@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Garu#^3f7b65]]         |
 | 5    | ![[Magic Circle#^452fe8]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill                   |
-| ---- | --------------------------------- |
+| Rank | Prime Time                        |
+| ---- | ---------------------------------- |
 | 5    | ![[Elemental Apocalypse#^e72188]] |

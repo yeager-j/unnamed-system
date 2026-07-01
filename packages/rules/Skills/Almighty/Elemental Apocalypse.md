@@ -5,7 +5,7 @@ cost: 16 SP
 type: Special
 range: Same/Adjacent Zone
 targets: All Enemies
-synthesis: true
+primeTime: true
 ---
 > [!skill] Elemental Apocalypse
 > Deals medium Fire, Ice, Elec, and Wind damage to all enemies in a Zone.
