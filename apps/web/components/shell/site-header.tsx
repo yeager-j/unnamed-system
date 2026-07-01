@@ -1,8 +1,9 @@
 import Link from "next/link"
 
+import { Sparkle } from "@workspace/ui/components/celestial"
+
 import { auth } from "@/lib/auth"
 
-import { Sparkle } from "../shared/celestial"
 import { AccountMenu } from "./account-menu"
 import { SignInButton } from "./sign-in-button"
 

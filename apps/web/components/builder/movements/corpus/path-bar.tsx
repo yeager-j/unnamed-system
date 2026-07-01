@@ -6,14 +6,13 @@ import { toast } from "sonner"
 
 import { getPathStats } from "@workspace/game/engine"
 import { PATH_CHOICES, type PathChoice } from "@workspace/game/foundation"
+import { Sparkle } from "@workspace/ui/components/celestial"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { updateCharacterPathAction } from "@/lib/actions/character-path"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
-
-import { Sparkle } from "../../../shared/celestial"
 
 /**
  * Per-path die pairing — presentation-only copy not owned by the game engine.

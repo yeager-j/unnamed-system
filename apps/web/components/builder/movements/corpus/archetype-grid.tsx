@@ -6,12 +6,12 @@ import { toast } from "sonner"
 
 import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@workspace/game/data"
 import { sortArchetypesByPath } from "@workspace/game/engine"
+import { Sparkle } from "@workspace/ui/components/celestial"
 
 import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
-import { Sparkle } from "../../../shared/celestial"
 import { ArchetypeCard } from "./archetype-card"
 import { ArchetypeDialog } from "./archetype-dialog"
 

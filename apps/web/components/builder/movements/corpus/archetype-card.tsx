@@ -8,6 +8,7 @@ import {
   type AffinityDamageType,
   type Archetype,
 } from "@workspace/game/foundation"
+import { Sparkle } from "@workspace/ui/components/celestial"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatModifier } from "@/components/archetype/format"
@@ -17,8 +18,6 @@ import {
   ATTRIBUTE_LABELS,
   LINEAGE_LABELS,
 } from "@/lib/ui/labels"
-
-import { Sparkle } from "../../../shared/celestial"
 
 /**
  * The compact face of an Origin Archetype in the Movement 1 grid (UNN-215 /

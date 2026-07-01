@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build:sync": "tsc -p tsconfig.build.json && node .design-sync/build-css.mjs",
     "lint": "eslint",
     "format": "eslint --fix \"**/*.{ts,tsx}\" && prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"

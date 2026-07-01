@@ -1,0 +1,55 @@
+/* Design-sync stylesheet entry.
+ * Compiled to dist/styles.css by `npm run build:sync` and shipped to
+ * claude.ai/design as the DS's styles.css. Extends the app's globals.css
+ * (tokens, base layer, theme) and additionally scans the authored preview
+ * cards so their utility classes are present in the compiled output. */
+@import "./globals.css";
+
+@source "../**/*.{ts,tsx}";
+@source "../../.design-sync/previews/**/*.tsx";
+
+/* Safelist the semantic-token utility vocabulary so designs built with the DS
+ * (which receive only this static stylesheet, not a fresh Tailwind pass) can
+ * reliably use the documented classes — see .design-sync/conventions.md. */
+@source inline("{bg,text,border,ring}-{background,foreground,card,card-foreground,popover,popover-foreground,muted,muted-foreground,secondary,secondary-foreground,primary,primary-foreground,accent,accent-foreground,destructive,border,input,ring,gold,hp,sp}");
+@source inline("font-sans");
+@source inline("font-display");
+@source inline("font-mono");
+@source inline("font-heading");
+@source inline("rounded-{sm,md,lg,xl,2xl,3xl,4xl}");
+
+/* Brand fonts. In the app these load via next/font/google and set the
+ * --font-* vars on <html>; in isolation the DS ships nothing, so pull the
+ * faces from Google Fonts and give the vars concrete values. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Hanken+Grotesk:wght@300..800&family=JetBrains+Mono:wght@400..700&family=Source+Serif+4:opsz,wght@8..60,200..900&display=swap");
+
+:root {
+  color-scheme: dark;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Serif Display", ui-serif, Georgia, serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* Dark-only brand: the app always renders under next-themes' `.dark` on
+ * <html>, so activate `dark:` utilities unconditionally in the DS stylesheet
+ * (base tokens in :root are already the dark palette). */
+@custom-variant dark (&);
+
+/* Preview-chrome theming ONLY. The design-sync preview emitter hardcodes a
+ * white body; this is a dark-only brand, so paint the DS background on the
+ * preview cards. Scoped via :has() to the emitter's own container classes
+ * (.ds-grid / .ds-single), which never appear in designs built with the DS —
+ * so this never leaks into the agent's rendered designs. */
+body:has(> .ds-grid),
+body:has(> .ds-single) {
+  background: var(--background) !important;
+  color: var(--foreground);
+}
+body:has(> .ds-grid) .ds-cell {
+  background: color-mix(in oklch, var(--card) 60%, transparent);
+  border-color: var(--border) !important;
+}
+body:has(> .ds-grid) .ds-cell > h4 {
+  color: var(--muted-foreground) !important;
+}
