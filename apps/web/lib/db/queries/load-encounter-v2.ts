@@ -15,9 +15,10 @@ import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
 /**
- * The **v2 write-path encounter loader** (UNN-520) — the parallel twin of
- * {@link import("./load-encounter").loadEncounterRowById} for encounters whose
- * `session` blob holds a v2 {@link StoredSession}. Two boundary differences:
+ * The **v2 encounter loader** (UNN-520 write path; UNN-530 snapshot path) — the
+ * parallel twin of {@link import("./load-encounter").loadEncounterRowById} for
+ * encounters whose `session` blob holds a v2 {@link StoredSession}. Two boundary
+ * differences:
  *
  * 1. **The blob parses through {@link storedSessionSchema}** (the F6 discipline —
  *    never a `$type` cast), then {@link loadSession} dissolves each participant's
@@ -26,10 +27,9 @@ import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
  * 2. **Durable participants hydrate from their character rows**: the locators'
  *    `entityId`s batch-load through the `rawInputsToEntity` projection, and each
  *    row's `vitalsVersion` is returned alongside — the expected-version token the
- *    durable write arm (the UNN-520 write-router) guards on.
- *
- * Write-path only: the v2 **snapshot/read** boundary (viewer derivation, the
- * composite version fold, redaction) is a separate follow-up ticket.
+ *    durable write arm (the UNN-520 write-router) guards on. The snapshot path
+ *    additionally reads each row's `ownerId` (the viewer-derivation input) and
+ *    folds the versions into the composite snapshot version.
  */
 
 /** The encounter row with its blob re-typed to the parsed v2 contract. */
@@ -44,7 +44,13 @@ export interface LoadedEncounterForWrite {
   durableVersions: Map<string, number>
 }
 
-export type LoadEncounterForWriteError =
+/** The snapshot read adds the ownership dimension `deriveViewer` consumes. */
+export interface LoadedEncounterForSnapshot extends LoadedEncounterForWrite {
+  /** Each durable participant's character `ownerId`, keyed by entity id. */
+  durableOwners: Map<string, string>
+}
+
+export type LoadEncounterV2Error =
   | "encounter-not-found"
   | "invalid-session"
   | "participant-load-failed"
@@ -58,12 +64,38 @@ export type LoadEncounterForWriteError =
  */
 export async function loadEncounterForWrite(
   encounterId: string
-): Promise<Result<LoadedEncounterForWrite, LoadEncounterForWriteError>> {
+): Promise<Result<LoadedEncounterForWrite, LoadEncounterV2Error>> {
   const [rawRow] = await db
     .select()
     .from(encounters)
     .where(eq(encounters.id, encounterId))
     .limit(1)
+
+  return dissolveEncounterRow(rawRow)
+}
+
+/**
+ * The snapshot twin of {@link loadEncounterForWrite}, keyed by the watch URL's
+ * `shortId` (the read boundary is signed-out-visible, so it never holds a row
+ * id). Same parse + dissolve; the result adds `durableOwners` for
+ * viewer derivation.
+ */
+export async function loadEncounterForSnapshot(
+  shortId: string
+): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterV2Error>> {
+  const [rawRow] = await db
+    .select()
+    .from(encounters)
+    .where(eq(encounters.shortId, shortId))
+    .limit(1)
+
+  return dissolveEncounterRow(rawRow)
+}
+
+/** The shared parse → hydrate → dissolve core both entry points run. */
+async function dissolveEncounterRow(
+  rawRow: EncounterRow | undefined
+): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterV2Error>> {
   if (!rawRow) return err("encounter-not-found")
 
   const parsed = storedSessionSchema.safeParse(rawRow.session)
@@ -77,19 +109,25 @@ export async function loadEncounterForWrite(
   )
   if (!loaded.ok) return err("participant-load-failed")
 
-  return ok({ row, loaded: loaded.value, durableVersions: durable.versions })
+  return ok({
+    row,
+    loaded: loaded.value,
+    durableVersions: durable.versions,
+    durableOwners: durable.owners,
+  })
 }
 
 /**
  * Batch-hydrates every durable locator's character row into the
  * {@link StoredEntity} shape the engine's `DurableSource` serves, plus each
- * row's `vitalsVersion`. A missing row is simply absent from the map — the
- * engine's loader reports it as a `missing-durable` issue with the offending
- * participant id, so the miss is decided in one place.
+ * row's `vitalsVersion` and `ownerId`. A missing row is simply absent from the
+ * maps — the engine's loader reports it as a `missing-durable` issue with the
+ * offending participant id, so the miss is decided in one place.
  */
 async function loadDurableEntities(stored: StoredSession): Promise<{
   entities: Map<string, StoredEntity>
   versions: Map<string, number>
+  owners: Map<string, string>
 }> {
   const entityIds = [
     ...new Set(
@@ -103,6 +141,7 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 
   const entities = new Map<string, StoredEntity>()
   const versions = new Map<string, number>()
+  const owners = new Map<string, string>()
   const loadedRows = await Promise.all(
     entityIds.map(async (entityId) => ({
       entityId,
@@ -114,9 +153,10 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
     const entity = rawInputsToEntity(raw)
     entities.set(entityId, { id: entity.id, components: entity.components })
     versions.set(entityId, raw.row.vitalsVersion)
+    owners.set(entityId, raw.row.ownerId)
   }
 
-  return { entities, versions }
+  return { entities, versions, owners }
 }
 
 /**

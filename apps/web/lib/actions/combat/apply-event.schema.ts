@@ -8,7 +8,7 @@ import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.sc
 import { COMBAT_SIDES } from "@workspace/game-v2/kernel/vocab/combat"
 import { mapInstanceEventSchema } from "@workspace/game-v2/spatial"
 
-import type { LoadEncounterForWriteError } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
 
@@ -76,6 +76,6 @@ export type ApplyCombatEventError =
   | "character-not-found"
   | "invalid-entity"
   | "locator-missing"
-  | LoadEncounterForWriteError
+  | LoadEncounterV2Error
   | EncounterWriteError
   | MapInstanceWriteError

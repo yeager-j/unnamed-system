@@ -3,7 +3,8 @@ import type {
   ParticipantViewComponents,
 } from "@workspace/game-v2/encounter/participant-view"
 
-import { relationship, type Viewer } from "./relationship"
+import { relationship } from "./relationship"
+import type { TrustedViewer } from "./trusted-viewer"
 import { VISIBILITY, type ProjectableKey } from "./visibility-table"
 
 /**
@@ -24,7 +25,7 @@ import { VISIBILITY, type ProjectableKey } from "./visibility-table"
  */
 export function visibleEntity(
   entity: ParticipantView,
-  viewer: Viewer
+  viewer: TrustedViewer
 ): Partial<ParticipantViewComponents> {
   const rel = relationship(entity, viewer)
 

@@ -13,7 +13,8 @@ import {
 } from "@workspace/game-v2/kernel/vocab"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { Viewer } from "../relationship"
+import type { TrustedViewer } from "../trusted-viewer"
+import { asTrustedViewer } from "./viewer"
 
 /**
  * Compact builders for the redaction tests. A {@link ParticipantView} is `{ id,
@@ -61,13 +62,13 @@ export function makeParticipantView(opts: {
 }
 
 /** A signed-out watcher — spectator to everyone (no side, owns nothing). */
-export function spectator(): Viewer {
-  return { isDm: false, side: null, ownedEntityIds: new Set() }
+export function spectator(): TrustedViewer {
+  return asTrustedViewer({ isDm: false, side: null, ownedEntityIds: new Set() })
 }
 
 /** The encounter DM — full visibility via the dm short-circuit. */
-export function dm(): Viewer {
-  return { isDm: true, side: null, ownedEntityIds: new Set() }
+export function dm(): TrustedViewer {
+  return asTrustedViewer({ isDm: true, side: null, ownedEntityIds: new Set() })
 }
 
 /**
@@ -75,6 +76,6 @@ export function dm(): Viewer {
  * ally/opponent for entities the player does not own; `owned` makes those entities
  * read `own` regardless of side (the ownership capability).
  */
-export function player(side: CombatSide, owned: string[] = []): Viewer {
-  return { isDm: false, side, ownedEntityIds: new Set(owned) }
+export function player(side: CombatSide, owned: string[] = []): TrustedViewer {
+  return asTrustedViewer({ isDm: false, side, ownedEntityIds: new Set(owned) })
 }

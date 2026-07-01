@@ -16,6 +16,7 @@ export {
   type Viewer,
   type RelationshipSubject,
 } from "./relationship"
+export type { TrustedViewer } from "./trusted-viewer"
 export {
   VISIBILITY,
   type Visibility,

@@ -35,7 +35,9 @@ export type Relationship = "own" | "ally" | "opponent" | "spectator" | "dm"
  * DM, `side` + `ownedEntityIds` from the signed-in user's campaign membership and
  * owned characters. It must **never** be taken from client input: a watcher who
  * could self-assign `side: "enemies"` would read the enemy team's stats as an
- * `ally`. The integration that constructs this (UNN-520) owns enforcing it.
+ * `ally`. Enforced at the type level (UNN-530): the projection surfaces demand
+ * the branded {@link import("./trusted-viewer").TrustedViewer}, minted only by
+ * the server-only `deriveViewer` (`apps/web/lib/auth/derive-viewer.ts`).
  */
 export interface Viewer {
   isDm: boolean

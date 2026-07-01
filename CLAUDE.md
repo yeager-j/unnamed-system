@@ -11,13 +11,16 @@ shadcn/ui primitives should be installed from the `packages/ui` directory, not t
 ## Prime Directives
 
 ### 1. Think Before Coding
+
 Don't assume. Don't hide confusion. Surface tradeoffs. Before implementing:
+
 - State your assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them—don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
 ### 2. Goal-Driven Execution
+
 Define success criteria. Loop until verified. Transform tasks into verifiable goals:
 
 - "Add validation" → "Write tests for invalid inputs, then make them pass"
@@ -33,16 +36,18 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ### 3. Ditch The Blinders
+
 You have immense knowledge over coding practices, standards, and conventions. Assume the user isn't smarter than the millions of engineers who have come before them.
 
 The user is always open to ideas on better ways to do things. Don't hesitate to suggest a better way, or one that has long-lasting impact over a tactical change. If what the user is trying to do is similar to settled science or industry practice, let the user know. You don’t have to reinvent the wheel.
 
 ### 4. Hacks as a Last Resort
+
 If you're about to write a hack, stop. Ask yourself:
 
 > What is the root cause of the problem? Why is the hack necessary?
 
-If you can't answer those questions, don't write the hack. A hack should *only* be written if the root cause has been searched for and is definitively unknown, or it has been explicitly decided that the hack is acceptable.
+If you can't answer those questions, don't write the hack. A hack should _only_ be written if the root cause has been searched for and is definitively unknown, or it has been explicitly decided that the hack is acceptable.
 
 ## Code Style
 
@@ -72,6 +77,7 @@ If you can't answer those questions, don't write the hack. A hack should *only* 
 - **Owner-mode writes that touch one of several fields on a shared column: use per-field Server Actions, not "client builds the full object."** When multiple controls (toggles, segmented selects) all write to one jsonb column, do not have each control compose the full post-state from `useOptimistic`'s value in a closure and POST that — back-to-back clicks read a stale outer-scope value, the second write silently overwrites the first, the optimistic UI lies, and the test catches it before you do. Instead, expose one action per field (`setBattleConditionAxisAction(axis, state)`, `setBattleConditionFlagAction(flag, value)`), let the server read the row and merge. UNN-226's Charged/Concentrating bug is the cautionary tale; `apps/web/lib/actions/combat-state.ts` is the worked example.
 
 ### Habits
+
 - User has enabled the "Auto-fix CI & address comments" setting. If things are nominal, reply briefly that there is nothing actionable. Only elaborate if there is a problem. For example, "Both comments are routine; disregarding."
 - When doing UI work, run the dev server and view the result in the browser before reporting done. Treat the first render as a draft: iterate on the design, and experiment with several approaches and pick the best one rather than shipping the first thing that works.
 - Similarly, include a design proposal (can be pure text; image mockups are not necessary) in the Plan when Plan Mode is enabled.
@@ -131,7 +137,7 @@ apps/web/
 └── lib/
     ├── actions/               Server Actions and validation schemas. See actions/CLAUDE.md for the owner-mode write pattern.
     ├── archetypes/            Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
-    ├── combat/                Neutral (client+server) v2 combat write vocabulary (UNN-520): commit/ holds the serializable CombatantWrite descriptor schema + the COMPONENT_WRITERS pure predictors shared by the write-router action (lib/actions/combat/commit/ — see its CLAUDE.md) and the future optimistic hook.
+    ├── combat/                Neutral (client+server) v2 combat vocabulary: commit/ holds the serializable CombatantWrite descriptor schema + the COMPONENT_WRITERS pure predictors shared by the write-router action (lib/actions/combat/commit/ — see its CLAUDE.md) and the future optimistic hook (UNN-520); snapshot-version.ts is the composite snapshot-version fold (encounter × instance × durable vitalsVersions) the client's stale-retry equality-compares (UNN-530).
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
     ├── (game/ extracted to packages/game — see "packages/game" below)
     ├── ui/                    Cross-cutting UI utilities (labels)

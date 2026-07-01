@@ -16,12 +16,12 @@ import {
   player,
   spectator,
 } from "./__fixtures__/redaction"
-import type { Viewer } from "./relationship"
 import {
   projectEncounterSnapshot,
   type EncounterSnapshotMeta,
   type VisibleCombatant,
 } from "./snapshot"
+import type { TrustedViewer } from "./trusted-viewer"
 
 /**
  * RELEASE GATE (security-critical, D14). The watch snapshot is signed-out-visible:
@@ -55,7 +55,7 @@ function redact(
   participantId: string,
   participantView: ParticipantView,
   side: CombatSide,
-  viewer: Viewer
+  viewer: TrustedViewer
 ): VisibleCombatant {
   const session = sessionOf([participantWith({ id: participantId, side })])
   const snapshot = projectEncounterSnapshot(
@@ -79,7 +79,7 @@ const enemyView = makeParticipantView({
   },
 })
 
-const redactEnemy = (viewer: Viewer) =>
+const redactEnemy = (viewer: TrustedViewer) =>
   redact("e1", enemyView, "enemies", viewer)
 
 describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", () => {
@@ -88,7 +88,7 @@ describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", ()
     expect(combatant.id).toBe("e1")
   })
 
-  it.each<[string, Viewer, boolean]>([
+  it.each<[string, TrustedViewer, boolean]>([
     ["opponent", player("players"), false],
     ["spectator", spectator(), false],
     ["ally", player("enemies"), true],
@@ -113,7 +113,7 @@ describe("RELEASE GATE — enemy stats never leak to the wire (RED-4; CD11)", ()
     expect(c.affinities).toBeUndefined()
   })
 
-  it.each<[string, Viewer]>([
+  it.each<[string, TrustedViewer]>([
     ["opponent", player("players")],
     ["spectator", spectator()],
     ["ally", player("enemies")],
@@ -138,7 +138,7 @@ describe("RELEASE GATE — charmed PC: ownership (capability), not kind (CD11)",
       attributes: attributeScores(),
     },
   })
-  const redactPc = (viewer: Viewer) =>
+  const redactPc = (viewer: TrustedViewer) =>
     redact("pc1", charmedPc, "enemies", viewer)
 
   it("its controller (owns the entity id) reads `own` → attributes visible", () => {
