@@ -4,7 +4,7 @@ damage: —
 cost: 20 SP
 type: Dark
 range: Same/Adjacent Zone
-synthesis: true
+primeTime: true
 ---
 > [!skill] Door to Hades
 > *Auto-Insta-Kill (Dark)* to each enemy inflicted with an Ailment.

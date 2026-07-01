@@ -4,7 +4,7 @@ damage: 8d10
 cost: 18 SP
 type: Slash
 range: Engaged
-synthesis: true
+primeTime: true
 ---
 > [!skill] Hammer of Justice
 > Deals heavy Pierce damage to all Engaged enemies. If an enemy took damage, their affinity to Pierce changes to Weak for once instance of Pierce damage.

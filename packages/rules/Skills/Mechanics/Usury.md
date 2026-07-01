@@ -7,7 +7,7 @@ type: Mechanic
 > 
 > ***Payday Loan.*** As a Standard Action, loan 25% of your maximum HP (rounded down) to an enemy you can see that does not already have a loan balance. Reduce your current HP by that amount and grant it to the enemy, whose current HP may exceed its maximum as a result. The enemy takes on a **loan balance** equal to the amount loaned, tracked separately from its HP. Outstanding loans dissolve when combat ends.
 > 
-> ***Consolidation.*** If an enemy has a loan balance, any damage you would deal to it (except through All-Out Attacks) increases its loan balance instead (your side effects still activate).
+> ***Consolidation.*** If an enemy has a loan balance, any damage you would deal to it (except through Showtime!) increases its loan balance instead (your side effects still activate).
 > 
 > ***APR.*** At the end of an indebted enemy's turn, its loan balance increases by 20%, rounded down (minimum 1).
 > 

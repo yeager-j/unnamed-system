@@ -4,7 +4,7 @@ damage: 12d10
 cost: 20% HP
 type: Slash
 range: Engaged
-synthesis: true
+primeTime: true
 ---
 > [!skill] Peerless Stonecleaver
 > Deals severe slash damage to one enemy.

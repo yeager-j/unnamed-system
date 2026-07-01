@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Critical Strike#^fb6b38]] |
 | 5    | ![[Slash Boost#^452fe8]]     |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill                    |
-| ---- | ---------------------------------- |
+| Rank | Prime Time                         |
+| ---- | ------------------------------------ |
 | 5    | ![[Peerless Stonecleaver#^e72188]] |

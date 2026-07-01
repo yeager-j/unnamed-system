@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Rampage#^fb6b38]]       |
 | 5    | ![[Auto-Tarukaja#^1eae18]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill                 |
-| ---- | ------------------------------- |
+| Rank | Prime Time                      |
+| ---- | -------------------------------- |
 | 5    | ![[Wanton Destruction#^e72188]] |

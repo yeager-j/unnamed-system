@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Sukukaja#^452fe8]]       |
 | 5    | ![[Bard's Insight#^452fe8]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill        |
-| ---- | ---------------------- |
-| 5    | ![[Showtime!#^e72188]] |
+| Rank | Prime Time                |
+| ---- | -------------------------- |
+| 5    | ![[Grand Finale#^e72188]] |

@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Makajam#^1eae18]]       |
 | 5    | ![[Ailment Boost#^452fe8]] |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill            |
-| ---- | -------------------------- |
+| Rank | Prime Time                 |
+| ---- | --------------------------- |
 | 5    | ![[Door to Hades#^e72188]] |

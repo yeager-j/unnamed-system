@@ -5,9 +5,9 @@ cost: 16 SP
 type: Special
 range: Same/Adjacent Zone
 targets: All Enemies
-synthesis: true
+primeTime: true
 ---
-> [!skill] Showtime!
+> [!skill] Grand Finale
 > Deals heavy almighty damage to all enemies in a Zone and debilitates them.
 > 
 > SP: **16**; Range: **Same/Adjacent Zone**; Targets: **All Enemies**; Damage: **6d8 Almighty (Magical)**

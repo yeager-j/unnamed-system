@@ -33,8 +33,8 @@ inheritance_slots: 2
 | 4    | ![[Shield Arts#^fb6b38]]           |
 | 5    | ![[Auto-Rakukaja#^1eae18]]         |
 
-## Synthesis Skills
+## Prime Time
 
-| Rank | Synthesis Skill                |
-| ---- | ------------------------------ |
+| Rank | Prime Time                     |
+| ---- | ------------------------------- |
 | 5    | ![[Hammer of Justice#^e72188]] |
