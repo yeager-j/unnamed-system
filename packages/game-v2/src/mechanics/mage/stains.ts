@@ -46,7 +46,22 @@ export function clearStains(state: StainsState): StainsState {
   }
 }
 
-export const stains: MechanicDefinition<StainsState> = {
+/** The serializable write descriptors (CD19) over the two pure transitions. */
+export const stainsTransitionSchema = z.discriminatedUnion("op", [
+  z.object({
+    op: z.literal("setSlot"),
+    slotIndex: z
+      .number()
+      .int()
+      .min(0)
+      .max(STAIN_SLOT_COUNT - 1),
+    element: z.enum(STAIN_ELEMENTS).nullable(),
+  }),
+  z.object({ op: z.literal("clear") }),
+])
+export type StainsTransition = z.infer<typeof stainsTransitionSchema>
+
+export const stains: MechanicDefinition<StainsState, StainsTransition> = {
   kind: "stains",
   displayName: "Stains",
   tagline:
@@ -61,5 +76,12 @@ export const stains: MechanicDefinition<StainsState> = {
     kind: "stains",
     tokens: Array.from({ length: STAIN_SLOT_COUNT }, () => null),
   }),
+  transitions: {
+    schema: stainsTransitionSchema,
+    apply: (state, transition) =>
+      transition.op === "clear"
+        ? clearStains(state)
+        : setStainSlot(state, transition.slotIndex, transition.element),
+  },
   resetOn: "encounter",
 }

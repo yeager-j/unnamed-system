@@ -44,7 +44,14 @@ export function setFrenzyMode(state: FrenzyState, on: boolean): FrenzyState {
   return { ...state, frenzyMode: on && state.pain > 0 }
 }
 
-export const frenzy: MechanicDefinition<FrenzyState> = {
+/** The serializable write descriptors (CD19) over the two pure transitions. */
+export const frenzyTransitionSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("adjustPain"), delta: z.number().int() }),
+  z.object({ op: z.literal("setFrenzyMode"), value: z.boolean() }),
+])
+export type FrenzyTransition = z.infer<typeof frenzyTransitionSchema>
+
+export const frenzy: MechanicDefinition<FrenzyState, FrenzyTransition> = {
   kind: "frenzy",
   displayName: "Frenzy",
   tagline:
@@ -68,6 +75,13 @@ export const frenzy: MechanicDefinition<FrenzyState> = {
         source: `Frenzy (Pain ${state.pain})`,
       },
     ]
+  },
+  transitions: {
+    schema: frenzyTransitionSchema,
+    apply: (state, transition) =>
+      transition.op === "adjustPain"
+        ? adjustPain(state, transition.delta)
+        : setFrenzyMode(state, transition.value),
   },
   resetOn: "encounter",
 }

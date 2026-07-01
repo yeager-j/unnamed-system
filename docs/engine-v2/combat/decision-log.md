@@ -1387,6 +1387,23 @@ R14.4 through the router). _SUPERSEDE:_ CD5's vitals-on-the-generic-wire → the
 the home); the prior **"Writer carries auth/token/channel per arm" → two per-home `Store`s** (those facts
 written once, not per Writer).
 
+**AMENDED (UNN-520 build, 2026-07-01 — descriptor-in Stores).** The Store interface is
+**descriptor-in** — `commit(write: CombatantWrite) → { version, channel }` — not the spec'd
+`commit(patch)`. The build surfaced that `commit(patch)` presumed a shared patch-pipeline the two homes
+don't actually have: the **session arm** commits by minting a router-only event through the pure reducer
+(CD4 — the reducer stays the single pure session writer; a pre-composed patch would bypass it), and the
+**durable arm** commits through the per-field wrappers, each of which **reads-and-merges its own row**
+(the UNN-226 lesson — a caller-composed patch is exactly the stale-composition bug those wrappers exist
+to prevent). So neither home consumes a patch, and a patch-in interface would have been a ceremonial
+translation layer. The Writer's `applyOp(components, write, deps) → Result<patch>` **survives** with two
+real jobs: the **optimistic client predictor** (the deferred `useCombatantWrite` applies the patch to its
+latest frame) and the **session arm's validation pre-mint** (capability miss / Prisma-cap refusal errs at
+the boundary instead of silently no-oping in the reducer). Also folded from the build: `storeFor` reads
+the **server's out-of-band locator map** (UNN-516's `LoadedSession.locators`), not a participant shape —
+the runtime `Participant` is home-blind post-F1, so the map is where the derived home lives; and the
+durable gate reuses UNN-297's existing `requireOwnerOrCampaignDM` (character-placement-scoped) rather
+than minting an encounter-campaign-scoped twin, so the sheet and the console share one authority answer.
+
 ---
 
 ### CD20 — The multi-home / multi-write atomic batch · **Superseded by CD21** · _extends CD19; builds on CD7, CD16_

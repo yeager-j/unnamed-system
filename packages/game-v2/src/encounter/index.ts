@@ -57,6 +57,8 @@ export {
   type ActionEconomyEvent,
   type CombatEvent,
   type ComponentWriteEvent,
+  type MechanicTransitionEvent,
+  type UseResourceEvent,
   type SessionEvent,
   type BattleConditionAxisAction,
   type ActionEconomyAction,

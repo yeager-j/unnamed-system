@@ -30,12 +30,17 @@ import type { MechanicKind } from "@workspace/game-v2/kernel/vocab/mechanics"
  *    field-replace to return (D34/D37), and a form *is* an entity, so you merge
  *    two entities rather than rewrite a slice. No MVP mechanic uses it yet (the
  *    Shapechanger Lineage will); the seam ships so it plugs in additively.
+ *
+ * A third, write-side pathway ({@link MechanicDefinition.transitions}, UNN-520)
+ * carries the mechanic's **serializable transition descriptors** — CD19's
+ * "descriptor, not closure" made structural, so the write-router dispatches a
+ * mechanic write as plain data and "add a mechanic = edit one module" stays true.
  */
 
 /** The effect kinds a mechanic may emit — the kernel's source-agnostic union. */
 export type MechanicEffect = CombatantEffect
 
-export interface MechanicDefinition<TState> {
+export interface MechanicDefinition<TState, TTransition = unknown> {
   /** Unique kebab-case identifier; the registry key and the state discriminant. */
   kind: MechanicKind
 
@@ -72,6 +77,24 @@ export interface MechanicDefinition<TState> {
    * MVP mechanics omit it).
    */
   activeForm?(state: TState): Entity["components"] | null
+
+  /**
+   * The mechanic's write-side transition surface (UNN-520; CD19): a Zod-validated
+   * **serializable descriptor** union plus the pure step that applies one. The
+   * descriptor is data on the wire — validated per-mechanic at the action
+   * boundary through `schema`, never a closure — and `apply` composes the
+   * module's own pure ops (`adjustPerfection`, `setFrenzyMode`, …). *The caller
+   * (the UNN-520 Writer) validates before minting; the applied transition is
+   * total here* — deps never enter the pure step. Omit for a mechanic with no
+   * player-driven state writes (Thief's Insight, Elemental Larceny, Enchantment —
+   * the last writes through the zone channel instead).
+   */
+  transitions?: {
+    /** Zod validator for the mechanic's transition-descriptor union. */
+    schema: z.ZodType<TTransition>
+    /** Applies one validated descriptor — pure, clamping like the op it wraps. */
+    apply(state: TState, transition: TTransition): TState
+  }
 
   /** Encounter-reset behavior, enforced by the encounter-end sweep (`./reset`). */
   resetOn: "encounter" | "rest" | "never"

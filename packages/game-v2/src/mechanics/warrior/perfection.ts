@@ -60,7 +60,17 @@ export function resetPerfection(state: PerfectionState): PerfectionState {
   return { ...state, rank: 0 }
 }
 
-export const perfection: MechanicDefinition<PerfectionState> = {
+/** The serializable write descriptors (CD19) over the two pure transitions. */
+export const perfectionTransitionSchema = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("adjust"), delta: z.number().int() }),
+  z.object({ op: z.literal("reset") }),
+])
+export type PerfectionTransition = z.infer<typeof perfectionTransitionSchema>
+
+export const perfection: MechanicDefinition<
+  PerfectionState,
+  PerfectionTransition
+> = {
   kind: "perfection",
   displayName: "Perfection",
   tagline:
@@ -86,6 +96,13 @@ D ⇄ C ⇄ B ⇄ A ⇄ S
         source: `Perfection (${rankLabel(state.rank)})`,
       },
     ]
+  },
+  transitions: {
+    schema: perfectionTransitionSchema,
+    apply: (state, transition) =>
+      transition.op === "reset"
+        ? resetPerfection(state)
+        : adjustPerfection(state, transition.delta),
   },
   resetOn: "encounter",
 }

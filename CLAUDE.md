@@ -131,6 +131,7 @@ apps/web/
 └── lib/
     ├── actions/               Server Actions and validation schemas. See actions/CLAUDE.md for the owner-mode write pattern.
     ├── archetypes/            Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
+    ├── combat/                Neutral (client+server) v2 combat write vocabulary (UNN-520): commit/ holds the serializable CombatantWrite descriptor schema + the COMPONENT_WRITERS pure predictors shared by the write-router action (lib/actions/combat/commit/ — see its CLAUDE.md) and the future optimistic hook.
     ├── commands/              Command-palette registry (UNN-261): provider array + resolveCommands(ctx); navigation + vitals batches. Routes through existing Server Actions — no new write paths. Consumed by components/character-sheet/command-palette.tsx.
     ├── (game/ extracted to packages/game — see "packages/game" below)
     ├── ui/                    Cross-cutting UI utilities (labels)

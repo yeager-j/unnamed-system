@@ -23,7 +23,17 @@ export function setDawnMode(
   return { ...state, dawnMode: value }
 }
 
-export const pathOfDawn: MechanicDefinition<PathOfDawnState> = {
+/** The serializable write descriptor (CD19) over the pure transition. */
+export const pathOfDawnTransitionSchema = z.object({
+  op: z.literal("setMode"),
+  value: z.boolean(),
+})
+export type PathOfDawnTransition = z.infer<typeof pathOfDawnTransitionSchema>
+
+export const pathOfDawn: MechanicDefinition<
+  PathOfDawnState,
+  PathOfDawnTransition
+> = {
   kind: "path-of-dawn",
   displayName: "Path of Dawn",
   tagline:
@@ -37,5 +47,9 @@ When you use a Skill that restores HP or cures Ailments, each Illuminated enemy 
 When combat ends, all unused Lumina disappear and you exit Dawn Mode.`,
   schema: pathOfDawnStateSchema,
   initialState: () => ({ kind: "path-of-dawn", dawnMode: false }),
+  transitions: {
+    schema: pathOfDawnTransitionSchema,
+    apply: (state, transition) => setDawnMode(state, transition.value),
+  },
   resetOn: "encounter",
 }
