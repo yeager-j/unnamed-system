@@ -37,7 +37,12 @@ test("moves a placed combatant to an adjacent zone, persisted to the session", a
   page,
 }) => {
   await page.goto(target.encounter.url)
-  await expect(page.getByTestId("combat-console-battlefield")).toBeVisible()
+  // The v2 console has no battlefield canvas (UNN-535) — the rail row is the
+  // stable "console is ready" signal, and the drawer entry point besides.
+  const railRow = page.getByRole("button", {
+    name: `Open ${target.pc.name} detail`,
+  })
+  await expect(railRow).toBeVisible()
 
   // Sanity: the baseline places the PC in the start zone.
   expect(await target.getCombatantZone()).toBe(target.startZone.id)
@@ -45,9 +50,7 @@ test("moves a placed combatant to an adjacent zone, persisted to the session", a
   // Open the PC's detail drawer and travel to the adjacent zone via the
   // POSITION section's "Move to…" select (the options portal out of the sheet,
   // so scope the option to the page).
-  await page
-    .getByRole("button", { name: `Open ${target.pc.name} detail` })
-    .click()
+  await railRow.click()
   const drawer = page.getByRole("dialog")
   await drawer.getByRole("combobox", { name: "Move to zone" }).click()
   await page.getByRole("option", { name: target.destinationZone.name }).click()

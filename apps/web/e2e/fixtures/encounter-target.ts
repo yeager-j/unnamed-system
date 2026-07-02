@@ -2,18 +2,19 @@ import { and, eq, inArray, notInArray } from "drizzle-orm"
 
 import {
   defaultOverlay,
+  overlayComponentsSchema,
   storedSessionSchema,
   type StoredParticipant,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
-import type { Entity } from "@workspace/game-v2/kernel"
+import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import { createMapInstance } from "@workspace/game/engine"
 import { type MapInstanceState } from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
-import { encounters, getDb } from "@/lib/db"
+import { characters, encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 import { instantiateEnemy } from "@/lib/game-engine-v2"
@@ -286,6 +287,88 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  */
 let resetVersionBaseline = 0
 const RESET_VERSION_STEP = 1000
+
+/**
+ * Reads an encounter's persisted {@link StoredSession} straight off the row —
+ * the DB truth the specs `expect.poll` between dependent writes (the UNN-226
+ * discipline). Parsed through the persisted-contract schema so a drifted blob
+ * fails loudly rather than returning garbage.
+ */
+export async function getStoredSession(
+  encounterId: string
+): Promise<StoredSession> {
+  const [row] = await getDb()
+    .select({ session: encounters.session })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+  if (!row) throw new Error(`encounter ${encounterId} missing`)
+  return storedSessionSchema.parse(row.session)
+}
+
+/** The persisted vitals of the encounter's first **inline** participant whose
+ *  entity carries the given display name — where a catalog enemy's damage
+ *  accumulates (the UNN-226 back-to-back regression reads this). The opaque
+ *  components blob is validated through the engine's own load seam. */
+export async function getInlineEnemyVitals(
+  encounterId: string,
+  name: string
+): Promise<{ base: number; damage: number } | undefined> {
+  const session = await getStoredSession(encounterId)
+  for (const participant of session.participants) {
+    if (participant.locator.storage !== "inline") continue
+    const loaded = loadEntity(
+      participant.locator.entity.id,
+      participant.locator.entity.components
+    )
+    if (!loaded.ok) throw new Error(`inline entity failed to load: ${name}`)
+    const { components } = loaded.value
+    if (components.identity?.name === name) return components.vitals
+  }
+  return undefined
+}
+
+/** A participant's persisted side (overlay allegiance), keyed by the durable
+ *  character it wraps — the DB truth behind the setup shell's side toggle. */
+export async function getDurableParticipantSide(
+  encounterId: string,
+  characterId: string
+): Promise<CombatSide | undefined> {
+  const session = await getStoredSession(encounterId)
+  const participant = session.participants.find(
+    (candidate) =>
+      candidate.locator.storage === "durable" &&
+      candidate.locator.entityId === characterId
+  )
+  if (!participant) return undefined
+  return overlayComponentsSchema.parse(participant.overlay).allegiance.side
+}
+
+/** The characters row's `currentHP` — where a durable combatant's HP damage
+ *  lands (the character row is the PC's storage home, never the session). */
+export async function getCharacterCurrentHP(
+  characterId: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ currentHP: characters.currentHP })
+    .from(characters)
+    .where(eq(characters.id, characterId))
+    .limit(1)
+  if (!row) throw new Error(`character ${characterId} missing`)
+  return row.currentHP
+}
+
+/** Restores a seeded character's `currentHP` — the fixture reset never touches
+ *  character rows, so a spec that damages a seeded PC puts the HP back itself. */
+export async function setCharacterCurrentHP(
+  characterId: string,
+  currentHP: number
+): Promise<void> {
+  await getDb()
+    .update(characters)
+    .set({ currentHP })
+    .where(eq(characters.id, characterId))
+}
 
 export async function resetEncounterFixtures(): Promise<void> {
   const db = getDb()
