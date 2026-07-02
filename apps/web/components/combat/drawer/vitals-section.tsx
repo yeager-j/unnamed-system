@@ -1,145 +1,156 @@
 "use client"
 
-import { HeartIcon } from "@phosphor-icons/react/dist/ssr"
+import { HeartIcon, SparkleIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type CombatantDetail, type Pool } from "@workspace/game/engine"
-import {
-  isFallen,
-  type CombatEvent,
-  type EnemyVitalsField,
-} from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
+import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
+import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
+import type { Pool } from "@/lib/combat/view/roster-view"
+import { vitalsAffordances } from "@/lib/combat/view/vitals-affordances"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
-type PcDetail = Extract<CombatantDetail, { kind: "pc" }>
-type EnemyDetail = Extract<CombatantDetail, { kind: "enemy" }>
-
 /**
- * The drawer's **VITALS** section (UNN-309). A PC's HP/SP is **read-only** here
- * (UNN-482): vitals are character-row state the player owns and manages on their
- * own sheet / the encounter watch — the DM console no longer reaches across that
- * boundary to write them, so this just mirrors the live values (kept fresh by the
- * console's realtime PC-ping path). An enemy's vitals *are* session state, so they
- * stay editable via the `adjustEnemyVitals` event the console dispatches through
- * `onCombatEvent`. Fallen (PC at 0 HP) / Dead (enemy at 0) is derived here.
+ * The drawer's **VITALS** section, rewritten onto the CD19 write-router
+ * (UNN-535). Every adjust dispatches a storage-blind {@link CombatantWrite}
+ * descriptor through {@link DispatchCombatantWrite} — the router decides the
+ * home server-side, the console's optimistic container predicts it against the
+ * current frame — so damage/heal work identically on an inline enemy and a
+ * **durable PC** (this deliberately supersedes UNN-482's read-only PC vitals,
+ * per UNN-535's AC: the DM can adjust a placed PC's HP/SP again, guarded on the
+ * character's own `vitalsVersion`).
+ *
+ * Affordances are gated by {@link vitalsAffordances}, not a kind branch: a
+ * pool's damage/heal renders iff the pool **resolved** (`hp`/`sp` non-null),
+ * `setMax` is inline-only (a PC's max derives from the engine), and `usePrisma`
+ * renders only when `deps.maxPrisma` is resolved — today never, so no Prisma
+ * button exists anywhere.
  */
 export function CombatantVitalsSection({
   detail,
-  onCombatEvent,
+  dispatchWrite,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent) => void
+  dispatchWrite: DispatchCombatantWrite
 }) {
+  const affordances = vitalsAffordances(detail.isPc, detail.deps)
+
+  function write(descriptor: CombatantWrite) {
+    void dispatchWrite(detail.id, descriptor, detail.deps)
+  }
+
   return (
     <DetailSection title="Vitals">
-      {detail.kind === "pc" ? (
-        <PcVitalsReadonly detail={detail} />
-      ) : (
-        <EnemyVitals
-          detail={detail}
-          onAdjust={(combatantId, field, value) =>
-            onCombatEvent({
-              kind: "adjustEnemyVitals",
-              combatantId,
-              field,
-              value,
-            })
-          }
-        />
-      )}
+      <div className="flex flex-col gap-3">
+        {detail.hp ? (
+          <PoolRow
+            label="HP"
+            pool={detail.hp}
+            kind="hp"
+            downBadge={
+              detail.isFallen
+                ? detail.isPc
+                  ? COMBATANT_DOWN_LABELS.pc
+                  : COMBATANT_DOWN_LABELS.enemy
+                : null
+            }
+            control={
+              <AdjustPoolPopover
+                label="Adjust HP"
+                icon={<HeartIcon weight="fill" aria-hidden />}
+                decrementLabel="Take damage"
+                incrementLabel="Heal"
+                onDecrement={(amount) =>
+                  write({ component: "vitals", op: "damage", amount })
+                }
+                onIncrement={(amount) =>
+                  write({ component: "vitals", op: "heal", amount })
+                }
+              />
+            }
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">No HP to track.</p>
+        )}
+
+        {detail.sp ? (
+          <PoolRow
+            label="SP"
+            pool={detail.sp}
+            kind="sp"
+            control={
+              <AdjustPoolPopover
+                label="Adjust SP"
+                icon={<SparkleIcon aria-hidden />}
+                decrementLabel="Spend SP"
+                incrementLabel="Recover SP"
+                onDecrement={(amount) =>
+                  write({ component: "skillPool", op: "damage", amount })
+                }
+                onIncrement={(amount) =>
+                  write({ component: "skillPool", op: "heal", amount })
+                }
+              />
+            }
+          />
+        ) : null}
+
+        {detail.hp && affordances.setMax ? (
+          <MaxHpControl
+            hp={detail.hp}
+            onSetMax={(amount) =>
+              write({ component: "vitals", op: "setMax", amount })
+            }
+          />
+        ) : null}
+
+        {affordances.usePrisma ? (
+          <button
+            type="button"
+            className="text-left text-sm underline"
+            onClick={() => write({ component: "resources", op: "usePrisma" })}
+          >
+            Use Prisma
+          </button>
+        ) : null}
+      </div>
     </DetailSection>
   )
 }
 
-/**
- * A PC's HP/SP, read-only (UNN-482). The player owns these on their character
- * sheet; the console only displays them.
- */
-function PcVitalsReadonly({ detail }: { detail: PcDetail }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <PoolRow
-        label="HP"
-        pool={detail.hp}
-        kind="hp"
-        downBadge={
-          isFallen(detail.hp.current) ? COMBATANT_DOWN_LABELS.pc : null
-        }
-      />
-      <PoolRow label="SP" pool={detail.sp} kind="sp" />
-    </div>
-  )
-}
-
-/**
- * Enemy vitals via the `adjustEnemyVitals` event (absolute set). Damage/heal and
- * max edits compute the new absolute from the popover amount; the reducer floors
- * max at 0. Works the same for inline and catalog enemies — a catalog enemy's
- * working HP lives inline on its ref, defaulting to the definition's max
- * (UNN-309). No SP control: enemy stat blocks carry no SP.
- */
-function EnemyVitals({
-  detail,
-  onAdjust,
+/** The inline-only max-HP stepper: `setMax` writes the vitals base absolutely,
+ *  so the popover amounts compute the new max from the current one (floored at
+ *  1 — the descriptor requires a positive amount). */
+function MaxHpControl({
+  hp,
+  onSetMax,
 }: {
-  detail: EnemyDetail
-  onAdjust: (
-    combatantId: string,
-    field: EnemyVitalsField,
-    value: number
-  ) => void
+  hp: Pool
+  onSetMax: (nextMax: number) => void
 }) {
-  const { id, hp } = detail
-
   return (
-    <div className="flex flex-col gap-3">
-      <PoolRow
-        label="HP"
-        pool={hp}
-        kind="hp"
-        downBadge={isFallen(hp.current) ? COMBATANT_DOWN_LABELS.enemy : null}
-        control={
-          <AdjustPoolPopover
-            label="Adjust HP"
-            icon={<HeartIcon weight="fill" aria-hidden />}
-            decrementLabel="Take damage"
-            incrementLabel="Heal"
-            disabled={false}
-            onDecrement={(amount) =>
-              onAdjust(id, "currentHP", hp.current - amount)
-            }
-            onIncrement={(amount) =>
-              onAdjust(id, "currentHP", Math.min(hp.max, hp.current + amount))
-            }
-          />
-        }
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-muted-foreground">
+        Max HP <span className="text-foreground tabular-nums">{hp.max}</span>
+      </span>
+      <AdjustPoolPopover
+        label="Adjust max HP"
+        icon={<HeartIcon aria-hidden />}
+        decrementLabel="Lower max"
+        incrementLabel="Raise max"
+        onDecrement={(amount) => onSetMax(Math.max(1, hp.max - amount))}
+        onIncrement={(amount) => onSetMax(hp.max + amount)}
       />
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">
-          Max HP <span className="text-foreground tabular-nums">{hp.max}</span>
-        </span>
-        <AdjustPoolPopover
-          label="Adjust max HP"
-          icon={<HeartIcon aria-hidden />}
-          decrementLabel="Lower max"
-          incrementLabel="Raise max"
-          disabled={false}
-          onDecrement={(amount) =>
-            onAdjust(id, "maxHP", Math.max(0, hp.max - amount))
-          }
-          onIncrement={(amount) => onAdjust(id, "maxHP", hp.max + amount)}
-        />
-      </div>
     </div>
   )
 }
 
 /** A pool's readout (label · bar · value + optional Fallen/Dead badge) with an
- *  optional adjust control on the right (omitted for read-only PC vitals). */
+ *  optional adjust control on the right. */
 function PoolRow({
   label,
   pool,

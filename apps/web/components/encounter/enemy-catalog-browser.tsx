@@ -10,49 +10,40 @@ import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
-import { type CombatantSetup } from "@workspace/game/foundation"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
-import { encounterErrorMessage } from "@/lib/actions/encounter/error-message"
-import { addSetupCombatantsAction } from "@/lib/actions/encounter/setup"
+import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
+import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 
 /**
- * The catalog browse-and-add surface (UNN-346): a three-column master-detail
- * over the bestiary plus a local staging queue. The DM searches/filters the
- * master list, inspects a statblock, queues creatures (count per kind), and
- * commits them as `catalog-enemy` combatants on the **enemies** side via the
- * existing setup save path. The queue is localStorage-backed (so a reload never
- * loses it); "Add to encounter" appends to the persisted roster and returns to
- * setup, "Cancel" discards and returns. Side assignment (UNN-300) and zone
- * placement (UNN-301) come later — adds land unplaced on the enemies side.
+ * The catalog browse-and-add surface (UNN-346), committing onto engine v2
+ * (UNN-535): a three-column master-detail over the bestiary plus a local
+ * staging queue. The DM queues creatures (count per kind) and commits them
+ * through {@link addCatalogEnemiesAction}, which materializes each key into a
+ * fresh **inline entity** server-side — adds land unplaced on the enemies side
+ * (add-then-place), so the commit is a session-only write and carries no
+ * Instance token. The queue is localStorage-backed (a reload never loses it).
  */
 export function EnemyCatalogBrowser({
   encounterId,
   shortId,
   encounterName,
   expectedVersion,
-  expectedInstanceVersion,
-  existingCombatants,
+  committedPlayers,
+  committedEnemies,
 }: {
   encounterId: string
   shortId: string
   encounterName: string
   expectedVersion: number
-  expectedInstanceVersion: number
-  existingCombatants: CombatantSetup[]
+  committedPlayers: number
+  committedEnemies: number
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
-
-  const committedPlayers = existingCombatants.filter(
-    (combatant) => combatant.side === "players"
-  ).length
-  const committedEnemies = existingCombatants.filter(
-    (combatant) => combatant.side === "enemies"
-  ).length
 
   const backHref = `/combat/${shortId}`
 
@@ -63,23 +54,17 @@ export function EnemyCatalogBrowser({
 
   function commit() {
     startTransition(async () => {
-      const newCombatants: CombatantSetup[] = queue.queue.flatMap((entry) =>
-        Array.from({ length: entry.count }, () => ({
-          side: "enemies" as const,
-          ref: { kind: "catalog-enemy" as const, enemyKey: entry.enemyKey },
-          zoneId: "",
-        }))
-      )
-
-      const saved = await addSetupCombatantsAction({
+      const saved = await addCatalogEnemiesAction({
         encounterId,
         expectedVersion,
-        expectedInstanceVersion,
-        combatants: newCombatants,
+        enemies: queue.queue.map((entry) => ({
+          enemyKey: entry.enemyKey,
+          count: entry.count,
+        })),
       })
 
       if (!saved.ok) {
-        toast.error(encounterErrorMessage(saved.error))
+        toast.error(combatErrorMessage(saved.error))
         return
       }
 

@@ -19,6 +19,7 @@ import {
   endOfTurnObligations,
   engagementCandidates,
   fallenParticipantIds,
+  instantiateCatalogEnemy,
   mapInstanceComponentsFor,
   participantDisplayNames,
   removeParticipantPaired,
@@ -86,6 +87,10 @@ export function createGameEngine(deps: GameData = gameData) {
     // applyInventoryMutation pattern), bound by the caller per mint.
     createSession: (setup: ParticipantSetup[], newId: () => string) =>
       createSessionFactory(deps, newId)(setup),
+    // The post-mint catalog materialization (UNN-535): a bulk catalog add
+    // appends to an existing session, so it instantiates enemies here instead
+    // of re-minting; `undefined` flags a wire-supplied unknown key to reject.
+    instantiateEnemy: instantiateCatalogEnemy(deps),
     // The pure combat-session reducer + its composition root (UNN-517). `newId`
     // is injected here (R24.3) — the reducer carries no catalog dep (CD4). The
     // session reducer accepts the full `SessionEvent` (the write-router feeds it

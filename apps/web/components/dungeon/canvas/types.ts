@@ -1,9 +1,6 @@
-import { type Pool, type ZoneLayoutView } from "@workspace/game/engine"
+import { type Pool } from "@workspace/game/engine"
 
-import { type DungeonCombatZoneNode as DungeonCombatZoneNodeType } from "@/components/dungeon/canvas/combat/zone-node"
 import { type DungeonZoneNode as DungeonZoneNodeType } from "@/components/dungeon/canvas/explore/zone-node"
-import { type DungeonSetupZoneToken } from "@/components/dungeon/canvas/setup/token-chip"
-import { type DungeonSetupZoneNode as DungeonSetupZoneNodeType } from "@/components/dungeon/canvas/setup/zone-node"
 
 /**
  * A party member as the DM run console's exploration board draws it — display data
@@ -22,20 +19,16 @@ export interface DungeonRosterEntry {
 }
 
 /**
- * Which board the {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas} draws: **play**
- * (exploration — PC tokens from the delve roster), **combat** (the encounter
- * battlefield — combatant tokens from the shaped {@link ZoneLayoutView}), or
- * **setup** (the inclusion picker). Only one phase is mounted at a time, so the
- * canvas shell is shared and the run console swaps the mode + the matching context
- * provider + the matching bottom `bar`.
+ * Which board the {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas} draws.
+ * Currently only **play** (exploration — PC tokens from the delve roster); the
+ * combat and setup variants were removed with the v1 combat cutover (UNN-535)
+ * and return on engine v2 in PR11d. Kept an object shape so call sites are
+ * stable when those variants come back.
  */
-export type DungeonCanvasMode =
-  | { kind: "play"; roster: Record<string, DungeonRosterEntry> }
-  | { kind: "combat"; layout: ZoneLayoutView }
-  | { kind: "setup"; tokensByZone: Record<string, DungeonSetupZoneToken[]> }
+export type DungeonCanvasMode = {
+  kind: "play"
+  roster: Record<string, DungeonRosterEntry>
+}
 
-/** The React Flow node union the canvas renders — one variant per phase. */
-export type CanvasNode =
-  | DungeonZoneNodeType
-  | DungeonCombatZoneNodeType
-  | DungeonSetupZoneNodeType
+/** The React Flow node union the canvas renders. */
+export type CanvasNode = DungeonZoneNodeType

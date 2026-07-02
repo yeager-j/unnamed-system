@@ -15,10 +15,10 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 
-import { EngagedCluster } from "@/components/dungeon/canvas/combat/engaged-cluster"
 import { DungeonTokenChip } from "@/components/dungeon/canvas/explore/token-chip"
 import { FloatingEdgeHandles } from "@/components/dungeon/canvas/floating-edge-handles"
 import { WatchEnemyChip } from "@/components/dungeon/canvas/watch/enemy-chip"
+import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/components/dungeon/canvas/watch/exit-chip"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 

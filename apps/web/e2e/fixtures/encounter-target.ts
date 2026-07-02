@@ -1,17 +1,23 @@
 import { and, eq, inArray, notInArray } from "drizzle-orm"
 
-import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
-  type CombatantSetup,
-  type CombatSession,
-  type MapInstanceState,
-} from "@workspace/game/foundation"
+  defaultOverlay,
+  overlayComponentsSchema,
+  storedSessionSchema,
+  type StoredParticipant,
+  type StoredSession,
+} from "@workspace/game-v2/encounter"
+import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import { createMapInstance } from "@workspace/game/engine"
+import { type MapInstanceState } from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
-import { encounters, getDb } from "@/lib/db"
+import { characters, encounters, getDb } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
-import { reduceCombatSession } from "@/lib/game-engine"
+import { instantiateEnemy } from "@/lib/game-engine-v2"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,
@@ -19,6 +25,11 @@ import { reduceCombatSession } from "@/lib/game-engine"
  * showcase**: it describes **campaigns + their encounters** that read as real
  * demo data, so a dedicated step in `lib/db/seed.ts` seeds it. (Per-spec
  * write-path scaffolding lives in `e2e/fixtures/factory.ts`, not here.)
+ *
+ * The blobs are v2 {@link StoredSession}s (UNN-535 hard cutover): a PC is a
+ * durable locator, an enemy an inline entity — the seeded goblin materializes
+ * from the v2 catalog at fixture-build time, exactly as the bestiary commit
+ * would. Rosters seed **unplaced** (no occupancy tokens — add-then-place).
  *
  * **Two dev-DM campaigns, by design** (UNN-302's single-live guard):
  *  - **Campaign A** ("Playtest") holds the `draft` + `ended` encounters and the
@@ -81,58 +92,58 @@ const foreignCampaign = {
   name: "Foreign Campaign",
 } as const
 
+/** One seeded roster slot: a durable PC, a free-entered inline entity, or a
+ *  catalog key materialized at build time. */
+type SeedSetup =
+  | { side: CombatSide; characterId: string }
+  | { side: CombatSide; entity: (id: string) => Entity }
+  | { side: CombatSide; catalog: string }
+
+/** A free-entered inline enemy — name + flat attributes + HP, the v2 shape of
+ *  v1's provisional stat block. */
+function inlineEnemy(
+  name: string,
+  maxHP: number,
+  attributes: { strength: number; magic: number; agility: number; luck: number }
+): (id: string) => Entity {
+  return (id) => ({
+    id,
+    components: {
+      identity: { name },
+      vitals: { base: maxHP, damage: 0 },
+      attributes: { base: attributes },
+    },
+  })
+}
+
 /** A throwaway enemy combatant so the `blocked` draft's Start button is
  *  clickable (the single-live rejection is what the spec asserts). */
-const enemySetup: CombatantSetup = {
+const enemySetup: SeedSetup = {
   side: "enemies",
-  ref: {
-    kind: "enemy",
-    statBlock: {
-      name: "Practice Dummy",
-      maxHP: 10,
-      currentHP: 10,
-      maxSP: 0,
-      currentSP: 0,
-      attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
-    },
-  },
-  zoneId: "",
+  entity: inlineEnemy("Practice Dummy", 10, {
+    strength: 0,
+    magic: 0,
+    agility: 0,
+    luck: 0,
+  }),
 }
 
-const pcSetup: CombatantSetup = {
-  side: "players",
-  ref: { kind: "pc", characterId: PLACED_PC_ID },
-  zoneId: "",
-}
+const pcSetup: SeedSetup = { side: "players", characterId: PLACED_PC_ID }
 
 /** The live encounter's started roster (UNN-344): one PC on the players side and
- *  two enemies (a catalog goblin + an inline stat block) so drafting, side
+ *  two enemies (a catalog goblin + an inline entity) so drafting, side
  *  alternation, and back-to-back finishing are all exercisable. */
-const liveRoster: CombatantSetup[] = [
-  {
-    side: "players",
-    ref: { kind: "pc", characterId: LIVE_COMBAT_PC_ID },
-    zoneId: "",
-  },
+const liveRoster: SeedSetup[] = [
+  { side: "players", characterId: LIVE_COMBAT_PC_ID },
+  { side: "enemies", catalog: "goblin" },
   {
     side: "enemies",
-    ref: { kind: "catalog-enemy", enemyKey: "goblin" },
-    zoneId: "",
-  },
-  {
-    side: "enemies",
-    ref: {
-      kind: "enemy",
-      statBlock: {
-        name: "Cave Bat",
-        maxHP: 8,
-        currentHP: 8,
-        maxSP: 0,
-        currentSP: 0,
-        attributes: { strength: 0, magic: 0, agility: 2, luck: 0 },
-      },
-    },
-    zoneId: "",
+    entity: inlineEnemy("Cave Bat", 8, {
+      strength: 0,
+      magic: 0,
+      agility: 2,
+      luck: 0,
+    }),
   },
 ]
 
@@ -148,34 +159,59 @@ interface SeededEncounter {
   status: EncounterStatus
   campaignId: string
   url: string
-  /** Canonical session — built once, used by both the seed and the reset. */
-  session: CombatSession
+  /** Canonical stored session — built once, used by the seed and the reset. */
+  session: StoredSession
   /** The Map Instance this encounter references (UNN-459 — spatial truth moved
-   *  off the session). Deterministic id so a re-seed is idempotent; its
-   *  occupancy keys match the session's combatant ids. */
+   *  off the session). Deterministic id so a re-seed is idempotent; rosters
+   *  seed unplaced, so its occupancy starts empty. */
   mapInstanceId: string
   mapInstanceState: MapInstanceState
+}
+
+/** Resolves one setup to its stored participant (durable reference or live
+ *  inline entity), keyed by the deterministic roster id. */
+function storedParticipant(setup: SeedSetup, id: string): StoredParticipant {
+  const participantId = asParticipantId(id)
+  const overlay = defaultOverlay({ side: setup.side })
+  if ("characterId" in setup) {
+    return {
+      id: participantId,
+      locator: { storage: "durable", entityId: setup.characterId },
+      overlay,
+    }
+  }
+  const entity =
+    "catalog" in setup ? instantiateEnemy(setup.catalog, id) : setup.entity(id)
+  if (!entity) throw new Error(`unknown seed catalog key`)
+  return {
+    id: participantId,
+    locator: {
+      storage: "inline",
+      entity: { id: entity.id, components: entity.components },
+    },
+    overlay,
+  }
 }
 
 function seededEncounter(
   slug: string,
   status: EncounterStatus,
   campaignId: string,
-  roster: CombatantSetup[],
+  roster: SeedSetup[],
   start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
-  // Stamp deterministic ids onto the roster up front so the session combatants
-  // and the Instance occupancy tokens (built from the same setups) share ids.
   const nextId = deterministicIds(slug)
-  const placedRoster = roster.map((setup) => ({ ...setup, id: nextId() }))
-
-  const base = createCombatSession(deterministicIds(slug))(placedRoster)
-  // A `live` encounter has already run `startCombat`, so its advantage/firstSide
-  // are set — replay that event here so the seeded session matches a real live
-  // one (the console's advantage chip + drafting order need it).
-  const session = start
-    ? reduceCombatSession(base, { kind: "startCombat", ...start })
-    : base
+  // A `live` encounter has already run `startCombat`; the v2 reducer's arm
+  // records exactly `advantage` + `firstSide` (round stays 1, actor null,
+  // turnsTakenThisRound 0 — the defaults), so the started blob is assembled
+  // directly and self-checked through the persisted-contract schema.
+  const session = storedSessionSchema.parse({
+    round: 1,
+    currentActorId: null,
+    advantage: start?.advantage ?? null,
+    firstSide: start?.firstSide ?? null,
+    participants: roster.map((setup) => storedParticipant(setup, nextId())),
+  } satisfies StoredSession)
   return {
     id: `seed-encounter-${slug}`,
     shortId: `encounter-${slug}`,
@@ -184,7 +220,7 @@ function seededEncounter(
     url: `/combat/encounter-${slug}`,
     session,
     mapInstanceId: `seed-mi-encounter-${slug}`,
-    mapInstanceState: createMapInstance(deterministicIds(slug))(placedRoster),
+    mapInstanceState: createMapInstance(deterministicIds(slug))([]),
   }
 }
 
@@ -251,6 +287,88 @@ export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
  */
 let resetVersionBaseline = 0
 const RESET_VERSION_STEP = 1000
+
+/**
+ * Reads an encounter's persisted {@link StoredSession} straight off the row —
+ * the DB truth the specs `expect.poll` between dependent writes (the UNN-226
+ * discipline). Parsed through the persisted-contract schema so a drifted blob
+ * fails loudly rather than returning garbage.
+ */
+export async function getStoredSession(
+  encounterId: string
+): Promise<StoredSession> {
+  const [row] = await getDb()
+    .select({ session: encounters.session })
+    .from(encounters)
+    .where(eq(encounters.id, encounterId))
+    .limit(1)
+  if (!row) throw new Error(`encounter ${encounterId} missing`)
+  return storedSessionSchema.parse(row.session)
+}
+
+/** The persisted vitals of the encounter's first **inline** participant whose
+ *  entity carries the given display name — where a catalog enemy's damage
+ *  accumulates (the UNN-226 back-to-back regression reads this). The opaque
+ *  components blob is validated through the engine's own load seam. */
+export async function getInlineEnemyVitals(
+  encounterId: string,
+  name: string
+): Promise<{ base: number; damage: number } | undefined> {
+  const session = await getStoredSession(encounterId)
+  for (const participant of session.participants) {
+    if (participant.locator.storage !== "inline") continue
+    const loaded = loadEntity(
+      participant.locator.entity.id,
+      participant.locator.entity.components
+    )
+    if (!loaded.ok) throw new Error(`inline entity failed to load: ${name}`)
+    const { components } = loaded.value
+    if (components.identity?.name === name) return components.vitals
+  }
+  return undefined
+}
+
+/** A participant's persisted side (overlay allegiance), keyed by the durable
+ *  character it wraps — the DB truth behind the setup shell's side toggle. */
+export async function getDurableParticipantSide(
+  encounterId: string,
+  characterId: string
+): Promise<CombatSide | undefined> {
+  const session = await getStoredSession(encounterId)
+  const participant = session.participants.find(
+    (candidate) =>
+      candidate.locator.storage === "durable" &&
+      candidate.locator.entityId === characterId
+  )
+  if (!participant) return undefined
+  return overlayComponentsSchema.parse(participant.overlay).allegiance.side
+}
+
+/** The characters row's `currentHP` — where a durable combatant's HP damage
+ *  lands (the character row is the PC's storage home, never the session). */
+export async function getCharacterCurrentHP(
+  characterId: string
+): Promise<number> {
+  const [row] = await getDb()
+    .select({ currentHP: characters.currentHP })
+    .from(characters)
+    .where(eq(characters.id, characterId))
+    .limit(1)
+  if (!row) throw new Error(`character ${characterId} missing`)
+  return row.currentHP
+}
+
+/** Restores a seeded character's `currentHP` — the fixture reset never touches
+ *  character rows, so a spec that damages a seeded PC puts the HP back itself. */
+export async function setCharacterCurrentHP(
+  characterId: string,
+  currentHP: number
+): Promise<void> {
+  await getDb()
+    .update(characters)
+    .set({ currentHP })
+    .where(eq(characters.id, characterId))
+}
 
 export async function resetEncounterFixtures(): Promise<void> {
   const db = getDb()

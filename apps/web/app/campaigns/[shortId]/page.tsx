@@ -32,7 +32,7 @@ import {
 } from "@/lib/db/queries/load-dungeon"
 import {
   loadEncountersForCampaign,
-  loadLiveEncounterForCampaign,
+  loadLiveEncounterSummaryForCampaign,
   type EncounterSummary,
 } from "@/lib/db/queries/load-encounter"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
@@ -117,7 +117,7 @@ async function DmManageView({
     await Promise.all([
       loadCampaignRoster(campaign.id),
       loadEncountersForCampaign(campaign.id),
-      loadLiveEncounterForCampaign(campaign.id),
+      loadLiveEncounterSummaryForCampaign(campaign.id),
       loadDungeonsForCampaign(campaign.id),
       loadActiveDungeonForCampaign(campaign.id),
       loadMapsByUserId(viewerId),
@@ -204,7 +204,7 @@ async function MemberOverview({
   const [roster, encounters, liveEncounter, activeDungeon] = await Promise.all([
     loadCampaignRoster(campaign.id),
     loadEncountersForCampaign(campaign.id),
-    loadLiveEncounterForCampaign(campaign.id),
+    loadLiveEncounterSummaryForCampaign(campaign.id),
     loadActiveDungeonForCampaign(campaign.id),
   ])
 

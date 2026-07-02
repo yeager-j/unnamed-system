@@ -2,49 +2,53 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { type EncounterSnapshot } from "@workspace/game/engine"
-
 import { EncounterWatch } from "@/components/encounter/encounter-watch"
 import { auth } from "@/lib/auth"
 import {
   getEncounterSnapshot,
   loadOwnedEncounterSheets,
-} from "@/lib/db/queries/load-encounter-snapshot"
+  type EncounterSnapshotResult,
+} from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
 }
 
 /** Per-request memoized snapshot lookup shared by `generateMetadata` and the
- *  page (its `loadEncounterRowByShortId` read is itself React-cached). */
+ *  page (its row read is itself React-cached inside the query). */
 const getSnapshot = cache(
-  async (shortId: string): Promise<EncounterSnapshot | null> =>
-    getEncounterSnapshot(shortId)
+  async (shortId: string): Promise<EncounterSnapshotResult | null> => {
+    const result = await getEncounterSnapshot(shortId)
+    return result.ok ? result.value : null
+  }
 )
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { shortId } = await params
-  const snapshot = await getSnapshot(shortId)
+  const result = await getSnapshot(shortId)
 
   return {
-    title: snapshot
-      ? `${snapshot.name} — Watch — Showtime!`
+    title: result
+      ? `${result.snapshot.name} — Watch — Showtime!`
       : "Encounter not found — Showtime!",
   }
 }
 
 /**
  * The signed-out-visible **player watch view** at `/c/encounter/{shortId}` (ADR
- * Decision 5; UNN-322). The server loads the **redacted** {@link EncounterSnapshot}
- * (enemy affinities/attributes stripped server-side — UNN-324) and hands it to the
- * client {@link EncounterWatch}, which polls for the DM's live changes (UNN-323).
- * No auth guard — the watch view is intentionally public; a missing `shortId`
- * 404s rather than erroring.
+ * Decision 5; UNN-322 → UNN-535 on v2). The server loads the **redacted**
+ * spatial snapshot through the v2 read boundary — `deriveViewer` decides each
+ * component's visibility per relationship, so a spectator's enemies carry no
+ * attributes/affinities keys at all — and hands it to the client
+ * {@link EncounterWatch} together with the composite version its
+ * invalidation equality-compares. No auth guard — the watch view is
+ * intentionally public; a missing `shortId` (or an unparseable row) 404s
+ * rather than erroring.
  *
- * For the 3-column upgrade it *also* resolves the signed-in viewer (`auth()`) to
- * the PC combatant(s) they own in this encounter ({@link loadOwnedEncounterSheets})
+ * For the 3-column layout it *also* resolves the signed-in viewer (`auth()`) to
+ * the durable combatant(s) they own here ({@link loadOwnedEncounterSheets})
  * and passes their hydrated sheets for the left column. A signed-out spectator
  * resolves to none and sees the battlefield full-width — the page stays public.
  */
@@ -53,18 +57,19 @@ export default async function EncounterWatchPage({ params }: PageProps) {
   const session = await auth()
   const viewerId = session?.user?.id
 
-  const [snapshot, ownedSheets] = await Promise.all([
+  const [result, ownedSheets] = await Promise.all([
     getSnapshot(shortId),
     viewerId
       ? loadOwnedEncounterSheets(shortId, viewerId)
       : Promise.resolve([]),
   ])
-  if (!snapshot) notFound()
+  if (!result) notFound()
 
   return (
     <EncounterWatch
       shortId={shortId}
-      initialSnapshot={snapshot}
+      initialSnapshot={result.snapshot}
+      initialCompositeVersion={result.compositeVersion}
       ownedSheets={ownedSheets}
     />
   )

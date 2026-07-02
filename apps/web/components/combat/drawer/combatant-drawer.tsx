@@ -2,11 +2,15 @@
 
 import Image from "next/image"
 
-import { type CombatantDetail } from "@workspace/game/engine"
-import {
-  type CombatEvent,
-  type MapInstanceEvent,
-} from "@workspace/game/foundation"
+import type {
+  ActionEconomyEvent,
+  AilmentEvent,
+  BattleConditionEvent,
+  CounterEvent,
+} from "@workspace/game-v2/encounter"
+import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
+import { getTalent } from "@workspace/game/data"
+import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
@@ -25,38 +29,49 @@ import { CombatantCountersSection } from "@/components/combat/drawer/counters-se
 import { CombatantEngagementSection } from "@/components/combat/drawer/engagement-section"
 import { CombatantPositionSection } from "@/components/combat/drawer/position-section"
 import { CombatantVitalsSection } from "@/components/combat/drawer/vitals-section"
-import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { SkillRow } from "@/components/shared/skill-row"
+import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
+/** Every event the drawer's editable sections can emit — overlay edits plus
+ *  the spatial position/engagement events. The console's dispatch (a superset
+ *  handler) satisfies it contravariantly. */
+export type DrawerEvent =
+  | ActionEconomyEvent
+  | AilmentEvent
+  | BattleConditionEvent
+  | CounterEvent
+  | MapInstanceEvent
+
 /**
- * The right-side **detail drawer** for a tapped combatant (UNN-345), a
- * {@link ResponsiveDialog} (desktop Sheet / mobile Drawer). The editable sections
- * all dispatch a `CombatEvent` through `onCombatEvent`: **VITALS** (UNN-309;
- * read-only PC HP/SP — the player owns those — enemy HP via the
- * `adjustEnemyVitals` event), **ACTIONS THIS TURN** and **AILMENT & CONDITIONS**
- * (UNN-310), **POSITION** (UNN-315; the move-between-zones control via the
- * `moveCombatant` event), and **ENGAGEMENT** (UNN-316; set/clear via the
- * `setEngagement`/`clearEngagement` events). ATTRIBUTES + AFFINITIES are
- * read-only (shared grids); both a PC and a catalog enemy additionally show
- * read-only SKILLS (each a shared {@link SkillRow}). A PC's are derived with the
- * encounter's `partyComposition` so the `perPartyLineage` Attack-Roll scalers
- * (Magic Circle / Ailment Boost) read their encounter-scaled values (UNN-367); an
- * enemy's are hydrated against its flat Attributes with the cost row dropped
- * (enemies pay no Skill costs) and additionally show freeform ABILITIES Markdown.
+ * The right-side **detail drawer** for a tapped combatant (UNN-345), on v2
+ * (UNN-535). The editable sections dispatch through two channels: overlay /
+ * spatial edits as v2 events through `onCombatEvent`, and **vitals** as
+ * storage-blind write descriptors through `dispatchWrite` (the CD19 router —
+ * durable PC HP/SP is writable again, superseding UNN-482).
+ *
+ * The read-only stat sections render **by capability**: Attributes /
+ * Affinities appear iff their read-unit resolved — no PC-vs-enemy fork decides
+ * the layout. The one genuine storage fork is Skills: a durable participant's
+ * party-scaled Skill cards come off its character row (the shared
+ * {@link SkillRow}), while an inline participant lists its resolved entity
+ * skills.
  */
 export function CombatantDrawer({
   detail,
   onClose,
   onCombatEvent,
+  dispatchWrite,
 }: {
   detail: CombatantDetail | null
   onClose: () => void
-  onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
+  onCombatEvent: (event: DrawerEvent) => void
+  dispatchWrite: DispatchCombatantWrite
 }) {
   const shown = useLastPresent(detail)
   return (
@@ -65,7 +80,11 @@ export function CombatantDrawer({
       onOpenChange={(open) => !open && onClose()}
     >
       {shown ? (
-        <DrawerBody detail={shown} onCombatEvent={onCombatEvent} />
+        <DrawerBody
+          detail={shown}
+          onCombatEvent={onCombatEvent}
+          dispatchWrite={dispatchWrite}
+        />
       ) : null}
     </ResponsiveDialog>
   )
@@ -74,9 +93,11 @@ export function CombatantDrawer({
 function DrawerBody({
   detail,
   onCombatEvent,
+  dispatchWrite,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent | MapInstanceEvent) => void
+  onCombatEvent: (event: DrawerEvent) => void
+  dispatchWrite: DispatchCombatantWrite
 }) {
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
@@ -97,7 +118,7 @@ function DrawerBody({
           detail={detail}
           onCombatEvent={onCombatEvent}
         />
-        <CombatantVitalsSection detail={detail} onCombatEvent={onCombatEvent} />
+        <CombatantVitalsSection detail={detail} dispatchWrite={dispatchWrite} />
         <CombatantConditionsSection
           detail={detail}
           onCombatEvent={onCombatEvent}
@@ -115,42 +136,40 @@ function DrawerBody({
           onCombatEvent={onCombatEvent}
         />
 
-        {detail.kind === "pc" ? (
-          <>
-            <DetailSection title="Attributes">
-              <AttributeGrid attributes={detail.attributes} />
-            </DetailSection>
+        {detail.attributes ? (
+          <DetailSection title="Attributes">
+            <AttributeGrid attributes={detail.attributes} />
+          </DetailSection>
+        ) : null}
 
-            <DetailSection title="Affinities">
-              <AffinityGrid
-                chart={detail.affinities}
-                columnsClassName="grid-cols-4"
-              />
-            </DetailSection>
+        {detail.affinities ? (
+          <DetailSection title="Affinities">
+            <AffinityGrid
+              chart={detail.affinities}
+              columnsClassName="grid-cols-4"
+            />
+          </DetailSection>
+        ) : null}
 
-            {detail.skills.length > 0 ? (
-              <DetailSection title="Skills">
-                <ItemGroup className="gap-0">
-                  {detail.skills.map((skill) => (
-                    <SkillRow
-                      key={skill.key}
-                      skill={skill}
-                      attributes={detail.attributes}
-                    />
-                  ))}
-                </ItemGroup>
-              </DetailSection>
-            ) : null}
-          </>
-        ) : (
-          <EnemyStatblock statblock={detail.statblock} />
-        )}
+        {!detail.durable && detail.talentKeys.length > 0 ? (
+          <DetailSection title="Talents">
+            <div className="flex flex-wrap gap-1.5">
+              {detail.talentKeys.map((key) => (
+                <Badge key={key} variant="outline">
+                  {getTalent(key)?.name ?? key}
+                </Badge>
+              ))}
+            </div>
+          </DetailSection>
+        ) : null}
+
+        <SkillsSection detail={detail} />
       </div>
 
       <ResponsiveDialogFooter className="border-t">
         <p className="text-xs text-muted-foreground">
-          {detail.kind === "pc"
-            ? `${detail.name} manages their own HP/SP; conditions you set here apply to this encounter.`
+          {detail.isPc
+            ? `HP/SP changes here write ${detail.name}'s character sheet; conditions apply to this encounter.`
             : "Edits affect this enemy in this encounter only."}
         </p>
       </ResponsiveDialogFooter>
@@ -158,24 +177,58 @@ function DrawerBody({
   )
 }
 
-/** `Level N · Class · pronouns` for a PC; `Level N · Enemy` (level optional)
- *  for an enemy. */
-function subtitle(detail: CombatantDetail): string {
-  if (detail.kind === "pc") {
-    return [`Level ${detail.level}`, detail.className, detail.pronouns]
-      .filter(Boolean)
-      .join(" · ")
+/**
+ * The one genuine storage fork: a durable participant's Skill cards are the
+ * character row's party-scaled hydration (the shared {@link SkillRow}); an
+ * inline participant lists its resolved entity skills (name · tagline).
+ */
+function SkillsSection({ detail }: { detail: CombatantDetail }) {
+  const attributes = detail.attributes
+  if (detail.durable) {
+    if (detail.durable.skills.length === 0 || attributes === null) {
+      return null
+    }
+    return (
+      <DetailSection title="Skills">
+        <ItemGroup className="gap-0">
+          {detail.durable.skills.map((skill) => (
+            <SkillRow key={skill.key} skill={skill} attributes={attributes} />
+          ))}
+        </ItemGroup>
+      </DetailSection>
+    )
   }
+
+  if (detail.resolvedSkills.length === 0) return null
+  return (
+    <DetailSection title="Skills">
+      <ul className="flex flex-col gap-2">
+        {detail.resolvedSkills.map(({ skill }) => (
+          <li key={skill.key} className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium">{skill.name}</span>
+            <span className="text-xs text-muted-foreground">
+              {skill.tagline}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </DetailSection>
+  )
+}
+
+/** `Level N · Class · pronouns` (each part present iff known). */
+function subtitle(detail: CombatantDetail): string {
   return [
-    detail.statblock.level ? `Level ${detail.statblock.level}` : null,
-    "Enemy",
+    detail.level !== null ? `Level ${detail.level}` : null,
+    detail.durable?.className ?? (detail.isPc ? null : "Enemy"),
+    detail.durable?.pronouns,
   ]
     .filter(Boolean)
     .join(" · ")
 }
 
 function HeaderAvatar({ detail }: { detail: CombatantDetail }) {
-  if (detail.kind === "pc") {
+  if (detail.isPc) {
     return (
       <Image
         src={avatarSrc(detail.portraitUrl, detail.name || detail.id)}

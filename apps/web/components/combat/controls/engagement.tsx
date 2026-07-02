@@ -2,8 +2,8 @@
 
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type EngageableTarget } from "@workspace/game/engine"
-import { type Engagement } from "@workspace/game/foundation"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Label } from "@workspace/ui/components/label"
@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+import type { EngageableTarget } from "@/lib/combat/view/detail-view"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -37,9 +38,10 @@ export function EngagementControl({
   onChange: (engagement: Engagement) => void
   disabled?: boolean
 }) {
-  const targets = value.status === "engaged" ? value.targetCombatantIds : []
+  const targets: ParticipantId[] =
+    value.status === "engaged" ? value.targetCombatantIds : []
 
-  function toggle(id: string) {
+  function toggle(id: ParticipantId) {
     const next = targets.includes(id)
       ? targets.filter((target) => target !== id)
       : [...targets, id]

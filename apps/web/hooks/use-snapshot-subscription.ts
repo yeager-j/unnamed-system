@@ -22,6 +22,15 @@ export interface VersionedSnapshot {
   version: number
   instanceVersion: number
   status: string
+  /**
+   * An opaque composite version folding every dimension of the snapshot —
+   * including ones the two numeric tokens can't see (the encounter watch's
+   * durable `vitalsVersion`s, UNN-530/535). When present, an applied response
+   * whose composite equals the last applied one skips the re-render (a no-op
+   * poll), and an unequal composite applies even when both numeric tokens held
+   * still.
+   */
+  compositeVersion?: string
 }
 
 /** Fetches one snapshot. Takes an `AbortSignal` so a superseded refetch is
@@ -92,6 +101,7 @@ export function useSnapshotSubscription<T extends VersionedSnapshot>({
    *  against. Never rolled back below a value a response already advanced to. */
   const tempVersionRef = useRef(initialSnapshot.version)
   const instanceVersionRef = useRef(initialSnapshot.instanceVersion)
+  const compositeRef = useRef(initialSnapshot.compositeVersion)
 
   const fetcherRef = useRef(fetcher)
   useEffect(() => {
@@ -109,8 +119,12 @@ export function useSnapshotSubscription<T extends VersionedSnapshot>({
   const abortRef = useRef<AbortController | null>(null)
 
   /** Applies a landed response under the composite monotonic guard: drop it if
-   *  it regressed either version (an out-of-order/older response), else advance
-   *  both refs and render it. Reaching the server clears `stale` either way. */
+   *  it regressed either version (an out-of-order/older response), skip the
+   *  re-render when the composite token proves it a no-op (an idle poll), else
+   *  advance the refs and render it. A composite that *changed* while both
+   *  numeric tokens held still applies — that's the durable-`vitalsVersion`
+   *  dimension only the fold can see. Reaching the server clears `stale`
+   *  either way. */
   function applyFetched(next: T) {
     if (
       next.version < tempVersionRef.current ||
@@ -119,8 +133,16 @@ export function useSnapshotSubscription<T extends VersionedSnapshot>({
       setStale(false)
       return
     }
+    if (
+      next.compositeVersion !== undefined &&
+      next.compositeVersion === compositeRef.current
+    ) {
+      setStale(false)
+      return
+    }
     tempVersionRef.current = next.version
     instanceVersionRef.current = next.instanceVersion
+    compositeRef.current = next.compositeVersion
     setSnapshot(next)
     setStale(false)
   }

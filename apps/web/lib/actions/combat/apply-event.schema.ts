@@ -25,16 +25,19 @@ import { encounterMutationBase } from "../encounter/encounter-mutation.schema"
  * The engine's `addParticipant` arm is placement-blind (position is Instance
  * state, not a session field), so the wire carries its own
  * {@link addParticipantWireSchema} **ahead of** the engine schema in the union:
- * the same roster setup plus the `zoneId` the paired occupancy write needs, and
- * a two-arm entity source — `{ entity }` inline, `{ entityId }` the durable
- * mid-combat joiner (R6.2) the action hydrates from the character row. An
- * engine-shaped (placement-less) add still parses, and the action rejects it
- * with `missing-placement` — one explicit decision point, not a silent default.
+ * the same roster setup plus the optional `zoneId` the paired occupancy write
+ * needs, and a two-arm entity source — `{ entity }` inline, `{ entityId }` the
+ * durable mid-combat joiner (R6.2) the action hydrates from the character row.
+ * A zone-less add is the setup console's add-then-place flow (UNN-535): the
+ * joiner enters the roster with **no** occupancy token, a later
+ * `placeCombatant` spatial event mints it, and `startCombat`'s
+ * `isRosterFullyPlaced` gate keeps an unplaced participant out of a zoned
+ * fight.
  */
 const addParticipantWireSetupBase = z.object({
   id: participantIdSchema.optional(),
   side: z.enum(COMBAT_SIDES),
-  zoneId: z.string().min(1),
+  zoneId: z.string().min(1).optional(),
 })
 
 const addParticipantWireSchema = z.object({
@@ -61,18 +64,16 @@ export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>
 /**
  * The v1 error surface carried over (single-live guard, placement enforcement,
  * missing Instance token, write staleness) plus the v2 loader's data-integrity
- * codes and the wire-specific rejections: `missing-placement` (an add with no
- * zone), `character-not-found` / `invalid-entity` (a joiner that fails to
- * hydrate), and `locator-missing` (the fail-closed saver refused — a durable
- * joiner was minted without registering its home; a programmer bug surfaced,
- * never silently inlined).
+ * codes and the wire-specific rejections: `character-not-found` /
+ * `invalid-entity` (a joiner that fails to hydrate), and `locator-missing`
+ * (the fail-closed saver refused — a durable joiner was minted without
+ * registering its home; a programmer bug surfaced, never silently inlined).
  */
 export type ApplyCombatEventError =
   | "invalid-input"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "missing-instance-version"
-  | "missing-placement"
   | "character-not-found"
   | "invalid-entity"
   | "locator-missing"

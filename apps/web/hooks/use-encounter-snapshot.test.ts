@@ -2,9 +2,10 @@
 import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { type EncounterSnapshot } from "@workspace/game/engine"
-
-import { useEncounterSnapshot } from "./use-encounter-snapshot"
+import {
+  useEncounterSnapshot,
+  type WatchSnapshot,
+} from "./use-encounter-snapshot"
 
 // The realtime subscription is the SDK boundary — mock it and drive the hook's
 // callbacks directly (the same rationale as the UNN-372 tests): availability
@@ -30,10 +31,8 @@ function channelArgs(): CapturedChannelArgs {
 
 const POLL_MS = 1500
 
-function makeSnapshot(
-  overrides: Partial<EncounterSnapshot> = {}
-): EncounterSnapshot {
-  return {
+function makeSnapshot(overrides: Partial<WatchSnapshot> = {}): WatchSnapshot {
+  const base = {
     status: "live",
     name: "Test Encounter",
     campaignShortId: "camp-1",
@@ -43,9 +42,17 @@ function makeSnapshot(
     currentActor: null,
     combatants: [],
     zones: [],
-    adjacency: {},
-    enchantment: null,
+    connections: [],
+    exits: [],
     ...overrides,
+  }
+  // Mirror the server fold's shape so distinct row versions yield distinct
+  // composites (a test overriding only `version` still exercises an apply).
+  return {
+    compositeVersion:
+      overrides.compositeVersion ??
+      `e${base.version}.i${base.instanceVersion}.d`,
+    ...base,
   }
 }
 
@@ -175,6 +182,56 @@ describe("useEncounterSnapshot — polling fallback (realtime unavailable)", () 
 
     await setVisibility("visible")
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("useEncounterSnapshot — composite version (UNN-535)", () => {
+  it("applies a response whose composite changed while both row tokens held still (durable vitals)", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      makeSnapshot({
+        round: 4,
+        version: 1,
+        instanceVersion: 0,
+        compositeVersion: "e1.i0.dchar-1:7",
+      })
+    )
+    const { result } = renderHook(() =>
+      useEncounterSnapshot(
+        "s1",
+        makeSnapshot({
+          round: 1,
+          version: 1,
+          instanceVersion: 0,
+          compositeVersion: "e1.i0.dchar-1:6",
+        }),
+        fetcher
+      )
+    )
+
+    await tick()
+
+    expect(result.current.snapshot.round).toBe(4)
+  })
+
+  it("skips the re-render when a poll returns an unchanged composite", async () => {
+    const same = makeSnapshot({ round: 9, version: 1, instanceVersion: 0 })
+    const fetcher = vi.fn().mockResolvedValue(same)
+    const { result } = renderHook(() =>
+      useEncounterSnapshot(
+        "s1",
+        makeSnapshot({ round: 1, version: 1, instanceVersion: 0 }),
+        fetcher
+      )
+    )
+    const initial = result.current.snapshot
+
+    await tick()
+
+    // Same composite as the seed ⇒ the identical-content response is dropped
+    // before setState — the rendered snapshot object is still the seed.
+    expect(fetcher).toHaveBeenCalled()
+    expect(result.current.snapshot).toBe(initial)
+    expect(result.current.stale).toBe(false)
   })
 })
 

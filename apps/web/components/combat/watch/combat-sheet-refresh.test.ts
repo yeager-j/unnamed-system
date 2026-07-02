@@ -1,52 +1,44 @@
 import { describe, expect, it } from "vitest"
 
-import { type PlayerVisibleCombatant } from "@workspace/game/engine"
-import { type ZoneEnchantment } from "@workspace/game/foundation"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type {
+  SnapshotEnchantment,
+  VisibleCombatant,
+} from "@workspace/game-v2/visibility"
 
 import { ownedSheetZoneEffectsKey } from "@/components/combat/watch/combat-sheet-refresh"
 
 /**
  * The refresh trigger fires exactly when this key changes, so the cases pin
  * the boundary: enchantment lifecycle and owned-combatant zone moves change
- * it; unrelated churn (turns, vitals, other zones) does not.
+ * it; unrelated churn (turns, vitals, other zones) does not. On v2 the
+ * combatant's zone reads off its redacted `position` component.
  */
 
-function combatant(id: string, zoneId: string): PlayerVisibleCombatant {
+function combatant(id: string, zoneId: string): VisibleCombatant {
   return {
-    id,
-    name: id,
-    side: "players",
-    zoneId,
-    hasActed: false,
-    isCurrent: false,
-    ailments: [],
-    battleConditions: {
-      attack: "neutral",
-      defense: "neutral",
-      hitEvasion: "neutral",
-      charged: false,
-      concentrating: false,
+    id: asParticipantId(id),
+    components: {
+      allegiance: { side: "players" },
+      position: { zoneId },
+      vitals: { maxHP: 10, currentHP: 10 },
     },
-    conditionDurations: {},
-    counters: {},
-    engagedWith: [],
-    kind: "pc",
-    hp: { current: 10, max: 10 },
-    sp: { current: 5, max: 5 },
-    attributes: { strength: 0, magic: 0, agility: 0, luck: 0 },
-    portraitUrl: null,
   }
 }
 
 function watchState(
-  enchantment: ZoneEnchantment | null,
-  combatants: PlayerVisibleCombatant[]
+  enchantment: SnapshotEnchantment | null,
+  combatants: VisibleCombatant[]
 ) {
-  return { enchantment, combatants }
+  return { ...(enchantment ? { enchantment } : {}), combatants }
 }
 
-const OWNED = [{ combatantId: "c1" }]
-const TOCCATA_Z1: ZoneEnchantment = { zoneId: "z1", type: "toccata", forte: 1 }
+const OWNED = [{ participantId: asParticipantId("c1") }]
+const TOCCATA_Z1: SnapshotEnchantment = {
+  zoneId: "z1",
+  type: "toccata",
+  forte: 1,
+}
 
 describe("ownedSheetZoneEffectsKey", () => {
   it("changes when the owned combatant's Zone gains an Enchantment", () => {

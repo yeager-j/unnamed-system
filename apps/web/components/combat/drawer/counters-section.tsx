@@ -2,12 +2,11 @@
 
 import { MinusIcon, PlusIcon, XIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type CombatantDetail } from "@workspace/game/engine"
 import {
   COUNTER_KEYS,
-  type CombatEvent,
+  type CounterEvent,
   type CounterKey,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
@@ -21,39 +20,38 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { DetailSection } from "@/components/shared/detail-section"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { COUNTER_HINTS, COUNTER_LABELS } from "@/lib/ui/labels"
 
 /**
- * The drawer's **COUNTERS** section — named tallies (Lumina, …) the DM keeps on a
- * combatant (UNN: Path of Dawn). Each active counter is a stepper row; an "Add
- * counter" popover introduces a counter type not yet present. Every control
- * dispatches a generic `adjustCounter`/`clearCounter` through `onCombatEvent`, so
- * a new counter type needs only a `COUNTER_KEYS` + label entry — no UI change.
+ * The drawer's **COUNTERS** section — named tallies (Lumina, …) the DM keeps on
+ * a combatant. Each active counter is a stepper row; an "Add counter" popover
+ * introduces a counter type not yet present. Every control dispatches a v2
+ * `adjustCounter`/`clearCounter` through `onCombatEvent`, so a new counter type
+ * needs only a `COUNTER_KEYS` + label entry — no UI change.
  *
- * Stepper buttons send a **delta** (±1), never an absolute, so back-to-back taps
- * merge on the server instead of overwriting (the UNN-226 lesson). Identical for
- * PCs and enemies (overlay state, ADR Decision 1) — counters are typically
- * applied to enemies, but the app stays permissive.
+ * Stepper buttons send a **delta** (±1), never an absolute, so back-to-back
+ * taps merge on the server instead of overwriting (the UNN-226 lesson).
  */
 export function CombatantCountersSection({
   detail,
   onCombatEvent,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: CounterEvent) => void
 }) {
-  const combatantId = detail.id
+  const participantId = detail.id
   const { counters } = detail
 
   const active = COUNTER_KEYS.filter((key) => (counters[key] ?? 0) > 0)
   const addable = COUNTER_KEYS.filter((key) => (counters[key] ?? 0) === 0)
 
   function adjust(counter: CounterKey, delta: number) {
-    onCombatEvent({ kind: "adjustCounter", combatantId, counter, delta })
+    onCombatEvent({ kind: "adjustCounter", participantId, counter, delta })
   }
 
   function clear(counter: CounterKey) {
-    onCombatEvent({ kind: "clearCounter", combatantId, counter })
+    onCombatEvent({ kind: "clearCounter", participantId, counter })
   }
 
   return (

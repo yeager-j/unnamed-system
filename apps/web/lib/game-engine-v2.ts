@@ -17,7 +17,13 @@ import { createDeriveHydratedCharacterV2 } from "@/lib/game-v2/derive-hydrated-c
  */
 const engine = createGameEngine()
 
-export const { resolveSession, resolveEntity, resolveBasicAttack } = engine
+export const {
+  resolveSession,
+  resolveEntity,
+  resolveBasicAttack,
+  createSession,
+  instantiateEnemy,
+} = engine
 
 /**
  * The v2-backed sheet derivation (UNN-533) — the one place the two engines meet:

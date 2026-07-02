@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto"
 import { eq, inArray } from "drizzle-orm"
 
-import { createCombatSession, createMapInstance } from "@workspace/game/engine"
+import {
+  defaultOverlay,
+  storedSessionSchema,
+  type StoredSession,
+} from "@workspace/game-v2/encounter"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { createMapInstance } from "@workspace/game/engine"
 import {
   mapGeometrySchema,
-  type CombatantSetup,
-  type CombatSession,
   type MapGeometry,
   type MapInstanceState,
 } from "@workspace/game/foundation"
@@ -209,15 +213,39 @@ export interface TestEncounter {
 }
 
 /**
+ * A v2 {@link StoredSession} with the given durable PC participants on the
+ * players' side (unplaced — no occupancy tokens; UNN-535 add-then-place),
+ * self-checked through {@link storedSessionSchema} so a fixture drift from the
+ * persisted contract fails the mint, not the page under test. Ids stay the
+ * deterministic `${encounterId}-c${index}` shape specs poke by.
+ */
+export function makeStoredSession(
+  encounterId: string,
+  combatantCharacterIds: string[]
+): StoredSession {
+  return storedSessionSchema.parse({
+    round: 1,
+    currentActorId: null,
+    advantage: null,
+    firstSide: null,
+    participants: combatantCharacterIds.map((characterId, index) => ({
+      id: asParticipantId(`${encounterId}-c${index}`),
+      locator: { storage: "durable", entityId: characterId },
+      overlay: defaultOverlay({ side: "players" }),
+    })),
+  } satisfies StoredSession)
+}
+
+/**
  * Mints an encounter (default `live`) in `campaignId` **plus its Map Instance**
  * (UNN-459 — `encounters.mapInstanceId` is non-null). By default it seeds the
- * given PC `combatantCharacterIds` on the players' side (unplaced) — the
- * live-lock guards key off a live encounter that lists a placed character as a
- * combatant — and builds a matching empty Instance (occupancy keyed to the
- * minted combatant ids). Pass a fully-built `session` **and** `mapInstanceState`
- * when the spec needs a richer spatial shape (zones, placement, a started
- * session — see `move-combatant-target.ts`); both are persisted verbatim and
- * `combatantCharacterIds` is ignored.
+ * given PC `combatantCharacterIds` on the players' side as **durable
+ * participants** of a v2 {@link StoredSession} (unplaced, no tokens — the
+ * live-lock guards key off a live encounter whose durable locators list a
+ * placed character) over an empty Instance. Pass a fully-built `session`
+ * **and** `mapInstanceState` when the spec needs a richer spatial shape
+ * (zones, placement, a started session — see `move-combatant-target.ts`);
+ * both are persisted verbatim and `combatantCharacterIds` is ignored.
  */
 export async function createLiveEncounter(
   tracker: CleanupTracker,
@@ -225,25 +253,17 @@ export async function createLiveEncounter(
     campaignId: string
     combatantCharacterIds?: string[]
     status?: EncounterStatus
-    session?: CombatSession
+    session?: StoredSession
     mapInstanceState?: MapInstanceState
   }
 ): Promise<TestEncounter> {
   const suffix = uniqueSuffix()
   const id = `e2e-encounter-${suffix}`
   const mapInstanceId = `e2e-mi-${suffix}`
-  const setups: CombatantSetup[] = (opts.combatantCharacterIds ?? []).map(
-    (characterId, index) => ({
-      id: `${id}-c${index}`,
-      side: "players",
-      ref: { kind: "pc", characterId },
-      zoneId: "",
-    })
-  )
   const db = getDb()
   await db.insert(mapInstances).values({
     id: mapInstanceId,
-    state: opts.mapInstanceState ?? createMapInstance(() => "")(setups),
+    state: opts.mapInstanceState ?? createMapInstance(() => "")([]),
     version: 0,
   })
   tracker.mapInstanceIds.push(mapInstanceId)
@@ -254,7 +274,8 @@ export async function createLiveEncounter(
     campaignId: opts.campaignId,
     name: "E2E encounter",
     status: opts.status ?? "live",
-    session: opts.session ?? createCombatSession(() => "")(setups),
+    session:
+      opts.session ?? makeStoredSession(id, opts.combatantCharacterIds ?? []),
     mapInstanceId,
     version: 0,
   })

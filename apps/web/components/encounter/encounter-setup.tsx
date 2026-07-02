@@ -4,151 +4,120 @@ import { PlusIcon, SkullIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 
 import {
-  adjacencyMap,
-  buildSetupCombatantLabels,
   compareInitiative,
-  engageableTargets,
   isRosterFullyPlaced,
-  toCombatantSetup,
-  type InitiativeStats,
-} from "@workspace/game/engine"
+} from "@workspace/game-v2/encounter"
 import {
-  type CombatAdvantage,
-  type CombatSide,
-  type Engagement,
-  type ZoneGraphEvent,
-} from "@workspace/game/foundation"
+  asParticipantId,
+  type ParticipantId,
+} from "@workspace/game-v2/kernel/participant-id.schema"
+import type {
+  CombatAdvantage,
+  CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
 import { StartCombatDialog } from "@/components/combat/dialogs/start-combat"
 import { ImportPcsPanel } from "@/components/combat/setup/import-pcs-panel"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
+import { buildSetupRows } from "@/lib/combat/view/setup-view"
+import { adjacencyMap } from "@/lib/combat/view/zone-graph"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import type { EncounterRow } from "@/lib/db/schema/encounter"
-import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
-import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
+import { resolveSession } from "@/lib/game-engine-v2"
 
 import { CombatantSetupRow } from "./combatant-setup-row"
 import { useEncounterSetup } from "./use-encounter-setup"
-import { ZonesPanel } from "./zones-panel"
+import { ZonesPanel, type ZoneGraphEvent } from "./zones-panel"
 
 /**
- * The encounter **setup shell** (UNN-335/298/300/301/302/347): the load-bearing
- * frame the rest of Phase 4 plugs into. Every edit — add/remove a combatant, set
- * its side, place it in a zone, set its initial engagement, author the zone graph
- * — is now a {@link import("@workspace/game/foundation").CombatEvent} dispatched
- * through the **same** optimistic `applyCombatEvent` path the live console uses
- * ({@link useEncounterSetup}). There is **no Save button**: the roster is always
- * persisted, so a resumed draft is restored straight from `encounter.session` and
- * navigation never loses an edit.
+ * The encounter **setup shell** (UNN-335/347), on engine v2 (UNN-535). Every
+ * edit is an event dispatched through the same optimistic
+ * `applyCombatEventAction` path the live console uses ({@link
+ * useEncounterSetup}) — no Save button, a resumed draft restores straight from
+ * the persisted session.
  *
- * The shell renders straight from the optimistic `session`: the roster projects
- * back to `CombatantSetup`s via {@link toCombatantSetup}, and zones/adjacency come
- * off the same session. New combatants and zones carry a **client-minted** stable
- * id on their event so the optimistic id matches the persisted one — a follow-up
- * placement/adjacency edit can reference it before the refresh lands (UNN-347).
- *
- * **Start combat** opens the {@link StartCombatDialog} where the DM declares the
- * opening advantage + first side (UNN-303 / rulebook 3.2); confirming dispatches
- * `startCombat` (which flips `status → live`, rejecting if the campaign already
- * has a live encounter, or if zones are defined and any combatant is unplaced).
- * The client gates Start on {@link isRosterFullyPlaced} as the friendly
- * affordance; the server enforces it authoritatively.
+ * v2 gesture mapping: a **PC add** is the durable wire arm (`{ entityId }`,
+ * client-minted roster id; no optimistic roster mirror — the client holds no
+ * entity to build the row from, so the joiner lands with the revalidation,
+ * R6.2); **placement** is the upserting `placeCombatant` (add-then-place — an
+ * add lands unplaced and a later placement mints its token); **staged
+ * engagement** composes a paired add (always `free`) with an explicit
+ * `setEngagement` — queue serialization guarantees order. The Start gate
+ * mirrors the server's {@link isRosterFullyPlaced} client-side; the initiative
+ * suggestion is v2's {@link compareInitiative} over the resolved session (no
+ * more injected PC stats).
  */
 export function EncounterSetup({
-  encounter,
-  instance,
+  data,
   campaignShortId,
   placedCharacters,
-  pcStatsById,
 }: {
-  encounter: EncounterRow
-  instance: MapInstanceRow
+  data: EncounterForDM
   campaignShortId: string
   placedCharacters: CharacterSummary[]
-  pcStatsById: Record<string, InitiativeStats>
 }) {
   const router = useRouter()
-  const {
-    session,
-    instance: instanceState,
-    isPending,
-    dispatch,
-  } = useEncounterSetup(encounter, instance)
+  const { state, isPending, dispatch } = useEncounterSetup(data)
 
-  const combatants = session.combatants.map((combatant) =>
-    toCombatantSetup(combatant, instanceState.occupancy[combatant.id])
+  const view = resolveSession(state.session, state.mapInstance)
+  const rows = buildSetupRows(
+    state.session,
+    view,
+    state.mapInstance,
+    data.participantMeta
   )
-  const zones = instanceState.geometry.zones
-  const adjacency = adjacencyMap(instanceState.geometry)
+  const zones = state.mapInstance.geometry.zones
+  const adjacency = adjacencyMap(state.mapInstance.geometry)
 
   const addedCharacterIds = new Set(
-    combatants.flatMap((combatant) =>
-      combatant.ref.kind === "pc" ? [combatant.ref.characterId] : []
-    )
+    rows.flatMap((row) => (row.characterId !== null ? [row.characterId] : []))
   )
 
-  const enemyStatblockById = resolveCatalogEnemyStatblocks(combatants)
-  const placed = isRosterFullyPlaced(combatants, zones)
-  const canStart = combatants.length > 0 && placed
-  const comparison = compareInitiative(
-    combatants,
-    pcStatsById,
-    enemyStatblockById
-  )
-
-  const pcNameById = Object.fromEntries(
-    placedCharacters.map((character) => [character.id, character.name])
-  )
-  const combatantLabels = buildSetupCombatantLabels(
-    combatants,
-    pcNameById,
-    enemyStatblockById
-  )
+  const placed = isRosterFullyPlaced(state.session, state.mapInstance)
+  const canStart = rows.length > 0 && placed
+  const comparison = compareInitiative(view)
 
   function togglePc(characterId: string) {
-    const existing = combatants.find(
-      (combatant) =>
-        combatant.ref.kind === "pc" && combatant.ref.characterId === characterId
-    )
-    if (existing?.id !== undefined) {
-      dispatch({ kind: "removeCombatant", combatantId: existing.id })
+    const existing = rows.find((row) => row.characterId === characterId)
+    if (existing !== undefined) {
+      dispatch({ kind: "removeParticipant", participantId: existing.id })
       return
     }
     dispatch({
-      kind: "addCombatant",
+      kind: "addParticipant",
       setup: {
-        id: crypto.randomUUID(),
+        id: asParticipantId(crypto.randomUUID()),
         side: "players",
-        ref: { kind: "pc", characterId },
-        zoneId: "",
+        entityId: characterId,
       },
     })
   }
 
-  function setSide(combatantId: string, side: CombatSide) {
-    dispatch({ kind: "setSide", combatantId, side })
+  function setSide(participantId: ParticipantId, side: CombatSide) {
+    dispatch({ kind: "setSide", participantId, side })
   }
 
-  function setZone(combatantId: string, zoneId: string) {
-    dispatch({ kind: "moveCombatant", combatantId, toZoneId: zoneId })
+  function setZone(participantId: ParticipantId, zoneId: string) {
+    dispatch({ kind: "placeCombatant", tokenKey: participantId, zoneId })
   }
 
-  function setEngagement(combatantId: string, engagement: Engagement) {
+  function setEngagement(participantId: ParticipantId, engagement: Engagement) {
     dispatch(
       engagement.status === "engaged"
         ? {
             kind: "setEngagement",
-            combatantId,
+            tokenKey: participantId,
             targetCombatantIds: engagement.targetCombatantIds,
           }
-        : { kind: "clearEngagement", combatantId }
+        : { kind: "clearEngagement", tokenKey: participantId }
     )
   }
 
-  function removeCombatant(combatantId: string) {
-    dispatch({ kind: "removeCombatant", combatantId })
+  function removeParticipant(participantId: ParticipantId) {
+    dispatch({ kind: "removeParticipant", participantId })
   }
 
   function dispatchZoneEvent(event: ZoneGraphEvent) {
@@ -160,7 +129,7 @@ export function EncounterSetup({
   }
 
   function browseCatalog() {
-    router.push(`/combat/${encounter.shortId}/enemies`)
+    router.push(`/combat/${data.encounter.shortId}/enemies`)
   }
 
   function start(advantage: CombatAdvantage, firstSide: CombatSide) {
@@ -174,7 +143,9 @@ export function EncounterSetup({
       ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-heading text-lg font-medium">{encounter.name}</h1>
+          <h1 className="font-heading text-lg font-medium">
+            {data.encounter.name}
+          </h1>
           <p className="text-sm text-muted-foreground">Encounter setup</p>
         </div>
         <div className="flex items-center gap-2">
@@ -221,7 +192,7 @@ export function EncounterSetup({
       <section className="flex flex-col gap-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-heading text-sm font-medium">
-            Combatants ({combatants.length})
+            Combatants ({rows.length})
           </h2>
           {!placed ? (
             <p className="text-xs text-muted-foreground">
@@ -229,31 +200,27 @@ export function EncounterSetup({
             </p>
           ) : null}
         </div>
-        {combatants.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No combatants yet — add at least one to start combat.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {combatants.map((combatant, index) => (
+            {rows.map((row) => (
               <CombatantSetupRow
-                key={combatant.id}
-                label={combatantLabels[index]!}
-                side={combatant.side}
+                key={row.id}
+                label={row.label}
+                side={row.side}
                 zones={zones}
-                zoneId={combatant.zoneId}
-                engagement={combatant.engagement ?? { status: "free" }}
-                engagementOptions={engageableTargets(
-                  combatants,
-                  index,
-                  combatantLabels
-                )}
-                onSideChange={(side) => setSide(combatant.id!, side)}
-                onZoneChange={(zoneId) => setZone(combatant.id!, zoneId)}
+                zoneId={row.zoneId}
+                engagement={row.engagement}
+                engagementOptions={row.engagementOptions}
+                onSideChange={(side) => setSide(row.id, side)}
+                onZoneChange={(zoneId) => setZone(row.id, zoneId)}
                 onEngagementChange={(engagement) =>
-                  setEngagement(combatant.id!, engagement)
+                  setEngagement(row.id, engagement)
                 }
-                onRemove={() => removeCombatant(combatant.id!)}
+                onRemove={() => removeParticipant(row.id)}
               />
             ))}
           </ul>

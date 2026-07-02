@@ -7,18 +7,19 @@ import {
   type StoredEntity,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
+import type { Entity } from "@workspace/game-v2/kernel"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
 import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
+import { resolveEntity } from "@/lib/game-engine-v2"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
 /**
- * The **v2 encounter loader** (UNN-520 write path; UNN-530 snapshot path) — the
- * parallel twin of {@link import("./load-encounter").loadEncounterRowById} for
- * encounters whose `session` blob holds a v2 {@link StoredSession}. Two boundary
- * differences:
+ * The **encounter blob loader** (UNN-520 write path; UNN-530 snapshot path) —
+ * the one place the `session` jsonb is parsed and dissolved (the blob-free
+ * column reads live in `load-encounter.ts`). Two boundary responsibilities:
  *
  * 1. **The blob parses through {@link storedSessionSchema}** (the F6 discipline —
  *    never a `$type` cast), then {@link loadSession} dissolves each participant's
@@ -32,13 +33,8 @@ import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
  *    folds the versions into the composite snapshot version.
  */
 
-/** The encounter row with its blob re-typed to the parsed v2 contract. */
-export type EncounterRowV2 = Omit<EncounterRow, "session"> & {
-  session: StoredSession
-}
-
 export interface LoadedEncounterForWrite {
-  row: EncounterRowV2
+  row: EncounterRow
   loaded: LoadedSession
   /** Each durable participant's character `vitalsVersion`, keyed by entity id. */
   durableVersions: Map<string, number>
@@ -100,7 +96,7 @@ async function dissolveEncounterRow(
 
   const parsed = storedSessionSchema.safeParse(rawRow.session)
   if (!parsed.success) return err("invalid-session")
-  const row: EncounterRowV2 = { ...rawRow, session: parsed.data }
+  const row: EncounterRow = { ...rawRow, session: parsed.data }
 
   const durable = await loadDurableEntities(parsed.data)
 
@@ -150,7 +146,11 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   )
   for (const { entityId, raw } of loadedRows) {
     if (raw === null) continue
-    const entity = rawInputsToEntity(raw)
+    const entity = withRowDepletion(
+      rawInputsToEntity(raw),
+      raw.row.currentHP,
+      raw.row.currentSP
+    )
     entities.set(entityId, { id: entity.id, components: entity.components })
     versions.set(entityId, raw.row.vitalsVersion)
     owners.set(entityId, raw.row.ownerId)
@@ -160,10 +160,43 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 }
 
 /**
+ * Joins the character row's **absolute** pools onto the projected entity as v2
+ * **signed depletion** (UNN-535 — the conversion `rawInputsToEntity` documents
+ * as "at cutover"): the projection can't know `damage = maxHP − currentHP`
+ * because the maxima are derived, so this boundary resolves the entity once and
+ * back-computes both depletions. Over-max v1 pools come out as negative
+ * depletion — exactly v2's over-max representation. The sheet path is untouched
+ * (its current pools stay CharacterRow passthrough, UNN-533); this join is the
+ * encounter loader's, so console, watch, and the write-router's validation all
+ * see the durable participant's true pools.
+ */
+function withRowDepletion(
+  entity: Entity,
+  currentHP: number,
+  currentSP: number
+): Entity {
+  const resolved = resolveEntity(entity)
+  const maxHP = resolved.components.vitals?.maxHP ?? 0
+  const maxSP = resolved.components.skillPool?.maxSP ?? 0
+  return {
+    ...entity,
+    components: {
+      ...entity.components,
+      vitals: {
+        ...(entity.components.vitals ?? { base: 0 }),
+        damage: maxHP - currentHP,
+      },
+      skillPool: {
+        ...(entity.components.skillPool ?? { base: 0 }),
+        spSpent: maxSP - currentSP,
+      },
+    },
+  }
+}
+
+/**
  * The campaign's single `live` encounter **id**, or `null` — the blob-agnostic
- * variant of {@link import("./load-encounter").loadLiveEncounterForCampaign}
- * for the v2 single-live guard (that one parses the blob through v1's schema,
- * which a v2 encounter's blob would fail). Selects two columns; never reads
+ * read behind the single-live guard. Selects two columns; never reads
  * `session`.
  */
 export async function loadLiveEncounterIdForCampaign(
@@ -178,4 +211,36 @@ export async function loadLiveEncounterIdForCampaign(
     .limit(1)
 
   return row?.id ?? null
+}
+
+/**
+ * The **durable** (character-row) participant entity ids of the campaign's
+ * single `live` encounter, or `null` when none is live. The live-encounter
+ * lock's read (UNN-330 → UNN-535): v1's "PC combatant" generalizes to v2's
+ * durable-locator participant — the lifecycle axis, not a kind tag. Reads only
+ * the stored envelope (locators), never hydrates entities; a corrupt blob
+ * throws (fail-closed — a lock that silently opened mid-fight would be worse).
+ */
+export async function loadLiveEncounterDurableEntityIds(
+  campaignId: string
+): Promise<string[] | null> {
+  const [row] = await db
+    .select({ session: encounters.session })
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.status, "live"))
+    )
+    .limit(1)
+
+  if (!row) return null
+  const stored = storedSessionSchema.parse(row.session)
+  return [
+    ...new Set(
+      stored.participants.flatMap((participant) =>
+        participant.locator.storage === "durable"
+          ? [participant.locator.entityId]
+          : []
+      )
+    ),
+  ]
 }

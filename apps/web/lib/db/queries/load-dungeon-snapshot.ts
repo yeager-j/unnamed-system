@@ -1,8 +1,5 @@
 import {
-  combatantDisplayNames,
-  combatEnemyTokensByZone,
   projectDungeonSnapshot,
-  type DungeonCombatLink,
   type DungeonRosterEntry,
   type DungeonSnapshot,
 } from "@workspace/game/engine"
@@ -15,13 +12,7 @@ import {
   loadHydratedCharacterById,
 } from "@/lib/db/queries/load-character"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
-import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter"
-import {
-  loadOwnedEncounterSheets,
-  type OwnedEncounterSheet,
-} from "@/lib/db/queries/load-encounter-snapshot"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import { resolveCatalogEnemyStatblocks } from "@/lib/game-engine"
 
 /** The placed party as the snapshot projector reads it: display identity plus the
  *  current vitals for each token's health bars (UNN-489). `vitalsById` carries the
@@ -50,26 +41,13 @@ function buildRoster(
   )
 }
 
-/** The roster narrowed to the `{ name, currentHP }` shape {@link
- *  combatantDisplayNames} reads PC names from — so the "Round N · {actor}" banner
- *  numbers duplicate enemies identically to their map tokens. */
-function pcInfoFromRoster(
-  roster: Record<string, DungeonRosterEntry>
-): Record<string, { name: string; currentHP: number }> {
-  return Object.fromEntries(
-    Object.entries(roster).map(([id, entry]) => [
-      id,
-      { name: entry.name, currentHP: entry.hp.current },
-    ])
-  )
-}
-
 /**
  * Assembles the signed-out **dungeon fog snapshot** for a delve by its public
  * `shortId` (UNN-466), or `null` when no dungeon matches (the page's 404 / the API
  * route's 404). The impure shell around the pure {@link projectDungeonSnapshot}: it
  * loads the dungeon + its Map Instance and the campaign's placed-character roster
- * (for token names/portraits), then projects.
+ * (for token names/portraits), then projects. The snapshot is always combat-free —
+ * the live-combat overlay returns with dungeon combat on engine v2 (PR11d).
  *
  * The fog **redaction lives in the projector**, so it is unconditional and
  * server-side — this loader never ships DM notes, undiscovered Zones, or unrevealed
@@ -84,11 +62,10 @@ export async function getDungeonSnapshot(
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
 
-  const [campaign, instance, placed, live] = await Promise.all([
+  const [campaign, instance, placed] = await Promise.all([
     loadCampaignRowById(dungeon.campaignId),
     loadMapInstanceById(dungeon.mapInstanceId),
     loadPlacedCharactersForCampaign(dungeon.campaignId),
-    loadLiveEncounterForMapInstance(dungeon.mapInstanceId),
   ])
   if (!instance) return null
 
@@ -113,32 +90,6 @@ export async function getDungeonSnapshot(
   )
   const roster = buildRoster(placed, vitalsById)
 
-  // A live encounter on this delve's Instance ⇒ combat is running: surface the
-  // linkage the fog view dual-subscribes + composes its own-sheet column from,
-  // plus the redacted enemy tokens for the battlefield (HP only, no affinities).
-  // The acting-combatant signal numbers duplicate enemies the same way the tokens
-  // do, resolving through the shared disambiguator (UNN-489).
-  const enemyStatblockById = live
-    ? resolveCatalogEnemyStatblocks(live.session.combatants)
-    : {}
-  const combat: DungeonCombatLink | undefined = live
-    ? {
-        encounterShortId: live.shortId,
-        round: live.session.round,
-        currentActorId: live.session.currentActorId ?? null,
-        currentActorName: live.session.currentActorId
-          ? (combatantDisplayNames(
-              live.session,
-              pcInfoFromRoster(roster),
-              enemyStatblockById
-            ).get(live.session.currentActorId) ?? null)
-          : null,
-      }
-    : undefined
-  const enemyTokensByZone = live
-    ? combatEnemyTokensByZone(live.session, instance.state, enemyStatblockById)
-    : {}
-
   return projectDungeonSnapshot(
     {
       name: dungeon.name,
@@ -149,31 +100,8 @@ export async function getDungeonSnapshot(
     },
     instance.state,
     dungeon.state,
-    roster,
-    combat,
-    enemyTokensByZone
+    roster
   )
-}
-
-/**
- * The viewer's own hydrated character sheets for the encounter running on **this
- * delve** (UNN-467, AC8), or `[]` when no fight is live / the viewer owns none.
- * The fog view composes these into the encounter watch's own-sheet column during
- * combat. Thin shell over {@link loadOwnedEncounterSheets} (redaction-correct —
- * only the viewer's own characters are hydrated): it resolves the delve's live
- * encounter shortId, which the snapshot also exposes as `combat.encounterShortId`.
- */
-export async function loadOwnedDungeonCombatSheets(
-  dungeonShortId: string,
-  viewerId: string
-): Promise<OwnedEncounterSheet[]> {
-  const dungeon = await loadDungeonRowByShortId(dungeonShortId)
-  if (!dungeon) return []
-
-  const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
-  if (!live) return []
-
-  return loadOwnedEncounterSheets(live.shortId, viewerId)
 }
 
 /**
@@ -183,7 +111,7 @@ export async function loadOwnedDungeonCombatSheets(
  * `characterId`s (the page computes them once for the fog self-highlight, so we
  * don't re-walk occupancy) and loads each full sheet. Returns bare
  * {@link HydratedCharacter}s — exploration has no combatant, so no
- * `combatantId`, unlike the combat path's {@link OwnedEncounterSheet}.
+ * `combatantId`.
  *
  * Privacy: callers pass only ids the viewer owns ({@link
  * loadOwnedDungeonCharacterIds}, owner-filtered on the cheap character row), so

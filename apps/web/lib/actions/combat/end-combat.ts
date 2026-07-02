@@ -9,8 +9,10 @@ import { type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
-import { setEncounterStatus } from "@/lib/db/writes/encounter"
-import { saveStoredEncounterSession } from "@/lib/db/writes/encounter-v2"
+import {
+  saveEncounterSession,
+  setEncounterStatus,
+} from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import {
@@ -81,7 +83,7 @@ export async function endCombatAction(
     { encounterVersion: number; instanceVersion: number },
     EndCombatError
   >(async (tx: WriteExecutor) => {
-    const saved = await saveStoredEncounterSession(
+    const saved = await saveEncounterSession(
       row.id,
       stored.value,
       expectedVersion,

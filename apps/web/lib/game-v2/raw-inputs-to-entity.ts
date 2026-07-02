@@ -17,10 +17,12 @@ import type { RawCharacterInputs } from "@workspace/game/engine"
  *
  * The depletion fields default to **0** (full pools): v1 stores `currentHP`, but v2
  * stores `damage = maxHP − currentHP`, and the real maxHP isn't known at projection
- * time (it's derived). The sheet's current pools stay CharacterRow passthrough, so
- * the actual `currentHP → damage` conversion happens at the cutover migration
- * (where maxHP is resolved) and in the golden-master (which has v1's resolved
- * maxima). Exhaustion is a presence-based component projected by its consuming PR. */
+ * time (it's derived). The sheet's current pools stay CharacterRow passthrough
+ * (UNN-533); the **encounter loader** joins the row's absolute pools back on as
+ * signed depletion after one resolve (`withRowDepletion`,
+ * `lib/db/queries/load-encounter-v2.ts` — the UNN-535 cutover of this note), so
+ * combat surfaces see true pools. Exhaustion is a presence-based component
+ * projected by its consuming PR. */
 export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
   const { row, archetypeRows, inventoryRows } = raw
 

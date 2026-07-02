@@ -12,10 +12,8 @@ import {
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok } from "@workspace/game/foundation"
 
-import type {
-  EncounterRowV2,
-  LoadedEncounterForWrite,
-} from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { applyCombatantWriteAction } from "./apply-combatant-write"
 
@@ -27,7 +25,7 @@ import { applyCombatantWriteAction } from "./apply-combatant-write"
 const requireCampaignDM = vi.fn()
 const requireOwnerOrCampaignDM = vi.fn()
 const loadEncounterForWrite = vi.fn()
-const saveStoredEncounterSession = vi.fn()
+const saveEncounterSession = vi.fn()
 const applyDamageForCharacter = vi.fn()
 const applyHealForCharacter = vi.fn()
 const applySpendSPForCharacter = vi.fn()
@@ -45,13 +43,13 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
 }))
-vi.mock("@/lib/db/writes/encounter-v2", () => ({
-  saveStoredEncounterSession: (
+vi.mock("@/lib/db/writes/encounter", () => ({
+  saveEncounterSession: (
     id: string,
     stored: StoredSession,
     v: number,
     tx: unknown
-  ) => saveStoredEncounterSession(id, stored, v, tx),
+  ) => saveEncounterSession(id, stored, v, tx),
 }))
 vi.mock("@/lib/db/writes/adjust-pools", () => ({
   applyDamageForCharacter: (id: string, amount: number, v: number) =>
@@ -149,7 +147,7 @@ function makeLoaded(): LoadedEncounterForWrite {
       mapInstanceId: "mi-1",
       session: { round: 2 },
       version: 4,
-    } as EncounterRowV2,
+    } as EncounterRow,
     loaded: { session: makeSession(), locators },
     durableVersions: new Map([["char-1", 7]]),
   }
@@ -163,7 +161,7 @@ beforeEach(() => {
     status: "finalized",
   })
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
-  saveStoredEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
+  saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
   applyDamageForCharacter
     .mockReset()
     .mockResolvedValue(ok({ currentHP: 15, version: 8 }))
@@ -201,7 +199,7 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
       ok({ version: 5, channel: { domain: "encounter", shortId: "enc1" } })
     )
     expect(requireCampaignDM).toHaveBeenCalledWith("campaign-1")
-    const blob = saveStoredEncounterSession.mock.calls[0]![1] as StoredSession
+    const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     const goblin = blob.participants.find((p) => p.id === GOBLIN_ID)!
     expect(goblin.locator).toEqual({
       storage: "inline",
@@ -237,7 +235,7 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     expect(requireOwnerOrCampaignDM).toHaveBeenCalledWith("char-1")
     expect(applyDamageForCharacter).toHaveBeenCalledWith("char-1", 5, 7)
     // A durable write NEVER reaches the session blob — the routing invariant.
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
     expect(revalidateCharacter).toHaveBeenCalled()
   })
 
@@ -251,7 +249,7 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
       write: { component: "vitals", op: "damage", amount: 5 },
     })
     expect(result).toEqual(err("missing-character-version"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
     expect(applyDamageForCharacter).not.toHaveBeenCalled()
   })
 
@@ -275,7 +273,7 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
         write: { component: "vitals", op: "damage", amount: 1 },
       })
     ).rejects.toThrow("forbidden")
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("durable arm: a viewer who is neither owner nor this character's campaign DM is rejected", async () => {
@@ -300,7 +298,7 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
       write: { component: "skillPool", op: "damage", amount: 2 },
     })
     expect(result).toEqual(err("capability-missing"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("refuses a mechanic transition the participant doesn't carry", async () => {
@@ -314,7 +312,7 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
       },
     })
     expect(result).toEqual(err("capability-missing"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("refuses a session-arm usePrisma before any reduce (deps-driven)", async () => {
@@ -325,7 +323,7 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
     })
     // capability first: the goblin has no Resources component at all.
     expect(result).toEqual(err("capability-missing"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("applies a carried mechanic transition into the blob", async () => {
@@ -339,7 +337,7 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
       },
     })
     expect(result.ok).toBe(true)
-    const blob = saveStoredEncounterSession.mock.calls[0]![1] as StoredSession
+    const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     const goblin = blob.participants.find((p) => p.id === GOBLIN_ID)!
     const entity = (
       goblin.locator as { entity: { components: { mechanics: unknown } } }

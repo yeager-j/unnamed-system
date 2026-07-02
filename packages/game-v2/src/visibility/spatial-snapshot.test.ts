@@ -16,6 +16,7 @@ import {
   makeMapInstanceState,
   makeZone,
 } from "@workspace/game-v2/spatial/__fixtures__/spatial"
+import { isFogActive } from "@workspace/game-v2/spatial/reveal"
 
 import { makeParticipantView, spectator } from "./__fixtures__/redaction"
 import type { EncounterSnapshotMeta } from "./snapshot"
@@ -83,7 +84,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       delveInstance,
-      7
+      7,
+      isFogActive(delveInstance.reveal)
     )
     expect(snap.version).toBe(3)
     expect(snap.instanceVersion).toBe(7)
@@ -97,7 +99,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       delveInstance,
-      7
+      7,
+      isFogActive(delveInstance.reveal)
     )
     expect(snap.zones).toEqual([{ id: "z1", name: "z1" }])
   })
@@ -109,7 +112,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       delveInstance,
-      7
+      7,
+      isFogActive(delveInstance.reveal)
     )
     const byId = new Map(snap.combatants.map((c) => [c.id, c]))
     expect(byId.get(pid("p1"))!.components.position).toEqual({ zoneId: "z1" })
@@ -123,7 +127,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       delveInstance,
-      7
+      7,
+      isFogActive(delveInstance.reveal)
     )
     expect(snap.enchantment).toBeUndefined()
   })
@@ -135,7 +140,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       delveInstance,
-      7
+      7,
+      isFogActive(delveInstance.reveal)
     )
     expect(snap.connections).toEqual([])
     expect(snap.exits).toEqual([{ id: "c1", zoneId: "z1", locked: false }])
@@ -155,7 +161,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       standalone,
-      1
+      1,
+      isFogActive(standalone.reveal)
     )
     expect(snap.zones).toEqual([
       { id: "z1", name: "z1" },
@@ -182,7 +189,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       standalone,
-      1
+      1,
+      isFogActive(standalone.reveal)
     )
     expect(snap.connections.map((c) => c.id)).toEqual(["open"])
     expect(JSON.stringify(snap)).not.toContain("secret")
@@ -206,7 +214,8 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       spectator(),
       META,
       standalone,
-      1
+      1,
+      isFogActive(standalone.reveal)
     )
     expect(snap.connections.map((c) => c.id)).toEqual(["secret"])
   })

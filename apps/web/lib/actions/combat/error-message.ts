@@ -1,0 +1,65 @@
+import type { AddCatalogEnemiesError } from "./add-participants.schema"
+import type { ApplyCombatEventError } from "./apply-event.schema"
+import type { ApplyCombatantWriteError } from "./commit/apply-combatant-write.schema"
+import type { EndCombatError } from "./end-combat.schema"
+import type { CombatantVitalsVersionError } from "./vitals-version.schema"
+
+/**
+ * Maps a v2 combat Server-Action error to its user-facing toast copy — the one
+ * home for every `lib/actions/combat/*` surface (the setup shell, the live
+ * console, the drawer's write router), so phrasing can't drift between them.
+ * v1's wording carries over for the codes that survived the cutover; the new
+ * codes are the v2 loader's data-integrity arms and the write-router's
+ * refusals — all programmer-bug tier (the affordance shouldn't have rendered),
+ * surfaced with honest generic copy rather than swallowed.
+ */
+export function combatErrorMessage(
+  error:
+    | ApplyCombatEventError
+    | ApplyCombatantWriteError
+    | EndCombatError
+    | AddCatalogEnemiesError
+    | CombatantVitalsVersionError
+): string {
+  switch (error) {
+    case "campaign-already-has-live-encounter":
+      return "This campaign already has a live encounter."
+    case "encounter-has-unplaced-combatants":
+      return "Place every combatant in a zone before starting combat."
+    case "stale":
+      return "This encounter changed elsewhere. Reload and try again."
+    case "encounter-not-found":
+      return "This encounter no longer exists."
+    case "encounter-not-live":
+      return "This encounter is no longer live. Reload and try again."
+    case "map-instance-not-found":
+      return "This encounter's map is missing. Reload and try again."
+    case "missing-instance-version":
+      return "Something looks off with the map. Reload and try again."
+    case "character-not-found":
+      return "That character no longer exists."
+    case "unknown-enemy":
+      return "One of the queued enemies isn't in the catalog anymore."
+    case "participant-not-found":
+      return "That combatant is no longer in this encounter."
+    case "invalid-input":
+      return "Something looks off with the roster. Try again."
+    // Data-integrity + programmer-bug tier: the write reached a state the UI
+    // should have made impossible. Honest generic copy, never silent.
+    case "invalid-session":
+    case "participant-load-failed":
+    case "invalid-entity":
+    case "locator-missing":
+    case "missing-character-version":
+      return "Something went wrong with this encounter's data. Reload and try again."
+    case "unsupported-durable-write":
+    case "capability-missing":
+    case "no-prisma-max":
+    case "no-prisma-charges":
+    case "no-transitions":
+    case "no-active-archetype":
+    case "wrong-mechanic":
+    case "non-positive-amount":
+      return "That change can't apply to this combatant. Reload and try again."
+  }
+}

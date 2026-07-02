@@ -7,12 +7,14 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useRef, useState } from "react"
 
-import { getAilment } from "@workspace/game/data"
 import type {
+  AilmentEvent,
+  AilmentHpApply,
   EndOfTurnAilment,
   EndOfTurnObligations,
-} from "@workspace/game/engine"
-import { type CombatEvent } from "@workspace/game/foundation"
+} from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { getAilment } from "@workspace/game/data"
 import {
   Alert,
   AlertAction,
@@ -54,16 +56,19 @@ const FRENZY_KEY = "frenzy"
  *
  * - one per non-Downed **ailment** — a saving-throw prompt the DM rolls in the
  *   real world (pass → **Clear**, dispatching `clearAilment`), plus an **Apply**
- *   button for an enemy's Burn/Sleep that commits the HP delta via
- *   `adjustEnemyVitals` (PCs are reminders; the description carries the rule);
+ *   button for Burn/Sleep on any vitals-bearing participant: v2's uniform
+ *   {@link AilmentHpApply} carries the signed *delta*, handed to `onApplyHp` —
+ *   the console routes it through the storage-blind write-router (`damage` /
+ *   `heal`), so a PC and an enemy resolve identically (the v1 "PCs are
+ *   reminders" kind-gate is gone);
  * - informational rows for the duration ticks and held Charged/Concentrating.
  *
- * Obligations are **snapshotted when the modal opens** so an Apply target is a
- * frozen absolute value — re-clicking is idempotent, no compounding damage — and
- * rows persist until the DM dismisses them (the X in each Alert's corner, also
- * the path for a *failed* save). The **Done** CTA — or any other dismissal —
- * closes the modal and drops the console into draft mode, so the DM is never
- * stranded.
+ * Obligations are **snapshotted when the modal opens** and rows persist until
+ * the DM dismisses them (the X in each Alert's corner, also the path for a
+ * *failed* save). Because a v2 apply is a **delta** write (not v1's frozen
+ * absolute), the Apply button disables once applied — re-clicking would
+ * compound. The **Done** CTA — or any other dismissal — closes the modal and
+ * drops the console into draft mode, so the DM is never stranded.
  */
 export function EndOfTurnModal({
   actorId,
@@ -71,14 +76,17 @@ export function EndOfTurnModal({
   obligations,
   open,
   onCombatEvent,
+  onApplyHp,
   isPending,
   onDone,
 }: {
-  actorId: string
+  actorId: ParticipantId
   actorName: string
   obligations: EndOfTurnObligations | null
   open: boolean
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: AilmentEvent) => void
+  /** Commits one ailment's HP delta through the combatant write-router. */
+  onApplyHp: (apply: AilmentHpApply) => void
   isPending: boolean
   onDone: () => void
 }) {
@@ -101,18 +109,13 @@ export function EndOfTurnModal({
   }
 
   function clearAilment(ailment: EndOfTurnAilment["ailment"]) {
-    onCombatEvent({ kind: "clearAilment", combatantId: actorId, ailment })
+    onCombatEvent({ kind: "clearAilment", participantId: actorId, ailment })
     dismiss(ailment)
   }
 
   function applyEffect(entry: EndOfTurnAilment) {
     if (entry.apply === null) return
-    onCombatEvent({
-      kind: "adjustEnemyVitals",
-      combatantId: actorId,
-      field: entry.apply.field,
-      value: entry.apply.value,
-    })
+    onApplyHp(entry.apply)
     setApplied((prev) => new Set(prev).add(entry.ailment))
   }
 
@@ -175,7 +178,7 @@ export function EndOfTurnModal({
                         size="sm"
                         variant={isApplied ? "secondary" : "default"}
                         onClick={() => applyEffect(entry)}
-                        disabled={isPending}
+                        disabled={isPending || isApplied}
                       >
                         {isApplied ? (
                           <>

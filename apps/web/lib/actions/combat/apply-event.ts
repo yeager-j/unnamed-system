@@ -3,6 +3,7 @@
 import {
   addParticipantPaired,
   createReduceSession,
+  isRosterFullyPlaced,
   removeParticipantPaired,
   saveSession,
   type CombatEvent,
@@ -15,9 +16,7 @@ import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema
 import {
   reduceMapInstance as createReduceMapInstance,
   mapInstanceEventSchema,
-  zoneOf,
   type MapInstanceEvent,
-  type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
@@ -28,11 +27,13 @@ import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
-  type EncounterRowV2,
 } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
-import { setEncounterStatus } from "@/lib/db/writes/encounter"
-import { saveStoredEncounterSession } from "@/lib/db/writes/encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
+import {
+  saveEncounterSession,
+  setEncounterStatus,
+} from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
@@ -147,16 +148,16 @@ function isMapInstanceEvent(event: unknown): event is MapInstanceEvent {
  * encounter ping — the shared tail of every session-only write path.
  */
 async function persistSession(
-  row: EncounterRowV2,
+  row: EncounterRow,
   session: Session,
   loadedSession: LoadedSession,
   expectedVersion: number,
-  pingStatus: EncounterRowV2["status"]
+  pingStatus: EncounterRow["status"]
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
   const stored = saveSession(session, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
 
-  const saved = await saveStoredEncounterSession(
+  const saved = await saveEncounterSession(
     row.id,
     stored.value,
     expectedVersion
@@ -177,7 +178,7 @@ async function persistSession(
  * ping the Instance stream on the encounter channel.
  */
 async function applySpatialEvent(
-  row: EncounterRowV2,
+  row: EncounterRow,
   expectedInstanceVersion: number | undefined,
   event: MapInstanceEvent
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
@@ -207,12 +208,13 @@ async function applySpatialEvent(
  * (`{ entity }`, validated through the {@link loadEntity} F6 seam) or durable
  * (`{ entityId }`, hydrated from the character row through
  * {@link rawInputsToEntity}) — **registers its locator in the out-of-band map**,
- * then runs the engine's paired cross-write and commits both rows in one
- * {@link guardMany} transaction. An engine-shaped (placement-less) add is
- * rejected with `missing-placement`.
+ * then runs the engine's paired cross-write. A placed add (`zoneId` present)
+ * commits both rows in one {@link guardMany} transaction; a zone-less add (the
+ * setup console's add-then-place flow, UNN-535) touches only the session row —
+ * the joiner holds no occupancy token until a `placeCombatant` event mints it.
  */
 async function applyAddParticipant(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
   expectedInstanceVersion: number | undefined,
@@ -221,13 +223,7 @@ async function applyAddParticipant(
     | Extract<CombatEvent, { kind: "addParticipant" }>
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
   const setup = event.setup
-  if (!("zoneId" in setup)) return err("missing-placement")
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
+  const zoneId = "zoneId" in setup ? setup.zoneId : undefined
 
   const participantId = setup.id ?? asParticipantId(newId())
 
@@ -250,13 +246,27 @@ async function applyAddParticipant(
     })
   }
 
+  const addEvent = {
+    kind: "addParticipant",
+    setup: { id: participantId, side: setup.side, entity },
+  } satisfies Extract<CombatEvent, { kind: "addParticipant" }>
+
+  if (zoneId === undefined) {
+    const next = createReduceSession(newId)(loadedSession.session, addEvent)
+    return persistSession(row, next, loadedSession, expectedVersion, row.status)
+  }
+
+  if (expectedInstanceVersion === undefined) {
+    return err("missing-instance-version")
+  }
+
+  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  if (instance === null) return err("map-instance-not-found")
+
   const next = addParticipantPaired(newId)(
     { session: loadedSession.session, mapInstance: instance.state },
-    {
-      kind: "addParticipant",
-      setup: { id: participantId, side: setup.side, entity },
-    },
-    setup.zoneId
+    addEvent,
+    zoneId
   )
 
   return persistPaired(
@@ -275,7 +285,7 @@ async function applyAddParticipant(
  * saver keys off the surviving roster.
  */
 async function applyRemoveParticipant(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
   expectedInstanceVersion: number | undefined,
@@ -309,7 +319,7 @@ async function applyRemoveParticipant(
  * session-mirroring client advances) and pings both streams.
  */
 async function persistPaired(
-  row: EncounterRowV2,
+  row: EncounterRow,
   next: EncounterState,
   loadedSession: LoadedSession,
   expectedVersion: number,
@@ -320,7 +330,7 @@ async function persistPaired(
 
   const result = await guardMany<{ version: number }, ApplyCombatEventError>(
     async (tx: WriteExecutor) => {
-      const enc = await saveStoredEncounterSession(
+      const enc = await saveEncounterSession(
         row.id,
         stored.value,
         expectedVersion,
@@ -354,7 +364,7 @@ async function persistPaired(
  * status flip fold into one {@link guardMany} transaction.
  */
 async function applyStartCombat(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   campaignId: string,
   expectedVersion: number,
@@ -368,7 +378,7 @@ async function applyStartCombat(
   const instance = await loadMapInstanceV2ById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
-  if (hasUnplacedParticipants(loadedSession.session, instance.state)) {
+  if (!isRosterFullyPlaced(loadedSession.session, instance.state)) {
     return err("encounter-has-unplaced-combatants")
   }
 
@@ -378,7 +388,7 @@ async function applyStartCombat(
 
   const result = await guardMany<{ version: number }, ApplyCombatEventError>(
     async (tx: WriteExecutor) => {
-      const saved = await saveStoredEncounterSession(
+      const saved = await saveEncounterSession(
         row.id,
         stored.value,
         expectedVersion,
@@ -403,22 +413,4 @@ async function applyStartCombat(
   })
   revalidateEncounter(row)
   return ok({ version: result.value.version })
-}
-
-/**
- * The authoritative server-side placement gate (v1's `isRosterFullyPlaced`
- * carried onto v2 reads): with zones defined, every participant must occupy a
- * token whose zone actually exists. A zone-less (mapless) Instance gates
- * nothing.
- */
-function hasUnplacedParticipants(
-  session: Session,
-  state: MapInstanceState
-): boolean {
-  const zones = state.geometry.zones
-  if (Object.keys(zones).length === 0) return false
-  return session.participants.some((participant) => {
-    const zoneId = zoneOf(state, participant.id)
-    return zoneId === undefined || !(zoneId in zones)
-  })
 }

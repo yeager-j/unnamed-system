@@ -8,20 +8,22 @@ import {
   XIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
-import { AILMENTS, getAilment } from "@workspace/game/data"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,
   DEFAULT_BATTLE_CONDITION_TURNS,
+  type AilmentEvent,
   type AilmentKey,
   type BattleConditionAxisAction,
   type BattleConditionAxisKey,
+  type BattleConditionEvent,
   type BattleConditionFlagKey,
   type BattleConditions,
   type BattleConditionState,
-  type CombatEvent,
   type ConditionDurations,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { AILMENTS, getAilment } from "@workspace/game/data"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
@@ -62,17 +64,17 @@ const DOWNED_KEY: AilmentKey = "downed"
  * set — so the DM is the only caller that mounts this for editing.
  */
 export function ConditionsControls({
-  combatantId,
+  participantId,
   battleConditions,
   conditionDurations,
   ailments,
   onCombatEvent,
 }: {
-  combatantId: string
+  participantId: ParticipantId
   battleConditions: BattleConditions
   conditionDurations: ConditionDurations
   ailments: readonly string[]
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: AilmentEvent | BattleConditionEvent) => void
 }) {
   function adjustAxis(
     axis: BattleConditionAxisKey,
@@ -80,7 +82,7 @@ export function ConditionsControls({
   ) {
     onCombatEvent({
       kind: "adjustBattleConditionAxis",
-      combatantId,
+      participantId,
       axis,
       action,
       ...(action === "clear" ? {} : { turns: DEFAULT_BATTLE_CONDITION_TURNS }),
@@ -88,7 +90,12 @@ export function ConditionsControls({
   }
 
   function setFlag(flag: BattleConditionFlagKey, value: boolean) {
-    onCombatEvent({ kind: "setBattleConditionFlag", combatantId, flag, value })
+    onCombatEvent({
+      kind: "setBattleConditionFlag",
+      participantId,
+      flag,
+      value,
+    })
   }
 
   return (
@@ -96,10 +103,10 @@ export function ConditionsControls({
       <AilmentPicker
         ailments={ailments}
         onSet={(ailment) =>
-          onCombatEvent({ kind: "setAilment", combatantId, ailment })
+          onCombatEvent({ kind: "setAilment", participantId, ailment })
         }
         onClear={(ailment) =>
-          onCombatEvent({ kind: "clearAilment", combatantId, ailment })
+          onCombatEvent({ kind: "clearAilment", participantId, ailment })
         }
       />
 

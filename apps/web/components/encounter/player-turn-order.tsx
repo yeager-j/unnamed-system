@@ -1,8 +1,4 @@
 import {
-  type PlayerCurrentActor,
-  type PlayerVisibleCombatant,
-} from "@workspace/game/engine"
-import {
   Card,
   CardAction,
   CardContent,
@@ -10,6 +6,7 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -25,8 +22,8 @@ export function PlayerTurnOrder({
   combatants,
 }: {
   round: number
-  currentActor: PlayerCurrentActor | null
-  combatants: PlayerVisibleCombatant[]
+  currentActor: Pick<WatchCombatant, "name" | "side"> | null
+  combatants: WatchCombatant[]
 }) {
   return (
     <Card size="sm">
@@ -60,7 +57,7 @@ export function PlayerTurnOrder({
   )
 }
 
-function TurnChip({ combatant }: { combatant: PlayerVisibleCombatant }) {
+function TurnChip({ combatant }: { combatant: WatchCombatant }) {
   const ring =
     combatant.side === "players"
       ? "ring-1 ring-primary/40"
