@@ -259,9 +259,12 @@ function reduceMoveEvent(
  * console's add-then-place flow, where a participant added without a zone holds
  * **no** token yet ({@link import("../encounter/reduce-encounter").comintMapInstance}'s
  * honest-unplaced shape). Placing an un-tokened combatant mints its token in the
- * target Zone with **free** engagement (the same genesis `addOccupant` writes);
- * placing an already-tokened combatant is exactly a {@link reduceMoveEvent} move —
- * one home for the move consequences (`move → break-engagement`, `move → reveal`).
+ * target Zone with **free** engagement (the same genesis `addOccupant` writes)
+ * and — unlike a move — **reveals nothing**: placement is a DM authoring
+ * gesture, not observed movement, and a delve's DM staging enemies in an
+ * unrevealed Zone must not surface it to players. Placing an already-tokened
+ * combatant is exactly a {@link reduceMoveEvent} move — one home for the move
+ * consequences (`move → break-engagement`, `move → reveal`).
  * {@link reduceMoveEvent} stays move-only (a mistyped `tokenKey` on the combat
  * board must not silently mint a stray token).
  */
@@ -280,12 +283,6 @@ function reducePlaceEvent(
     draft.occupancy[event.tokenKey] = {
       zoneId: event.zoneId,
       engagement: { status: "free" },
-    }
-    if (
-      draft.geometry.zones[event.zoneId] !== undefined &&
-      !draft.reveal.revealedZoneIds.includes(event.zoneId)
-    ) {
-      draft.reveal.revealedZoneIds.push(event.zoneId)
     }
   })
 }

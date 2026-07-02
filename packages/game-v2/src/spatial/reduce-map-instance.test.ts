@@ -245,21 +245,14 @@ describe("reduceMapInstance — placeCombatant (upsert)", () => {
     })
   })
 
-  it("reveals the entered zone on first placement, but not a phantom zone", () => {
+  it("reveals nothing — placement is DM authoring, not observed movement", () => {
     const placed = reduceInstance(unplaced(), {
       kind: "placeCombatant",
       tokenKey: "c0",
       zoneId: "zone-a",
     })
-    expect(placed.reveal.revealedZoneIds).toContain("zone-a")
-
-    const phantom = reduceInstance(unplaced(), {
-      kind: "placeCombatant",
-      tokenKey: "c0",
-      zoneId: "zone-detached",
-    })
-    expect(phantom.occupancy.c0!.zoneId).toBe("zone-detached")
-    expect(phantom.reveal.revealedZoneIds).not.toContain("zone-detached")
+    expect(placed.occupancy.c0!.zoneId).toBe("zone-a")
+    expect(placed.reveal.revealedZoneIds).toEqual([])
   })
 
   it("moves an existing token with full move semantics (severs cross-zone engagement)", () => {

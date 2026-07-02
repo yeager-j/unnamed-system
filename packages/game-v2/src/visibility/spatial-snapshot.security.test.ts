@@ -16,6 +16,7 @@ import {
   makeMapInstanceState,
   makeZone,
 } from "@workspace/game-v2/spatial/__fixtures__/spatial"
+import { isFogActive } from "@workspace/game-v2/spatial/reveal"
 
 import { makeParticipantView, spectator } from "./__fixtures__/redaction"
 import type { EncounterSnapshotMeta } from "./snapshot"
@@ -96,7 +97,8 @@ describe("RELEASE GATE — combat fog snapshot strips DM-only geography (SD10/RE
     spectator(),
     META,
     fogInstance,
-    1
+    1,
+    isFogActive(fogInstance.reveal)
   )
   const wire = JSON.stringify(snap)
 

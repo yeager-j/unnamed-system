@@ -84,7 +84,12 @@ export async function getEncounterSnapshot(
       version: row.version,
     },
     instance.state,
-    instance.version
+    instance.version,
+    // Every mapless encounter is a standalone Instance — full map, no fog
+    // clamp. Fog is the caller's provenance decision (a delve's combat watch
+    // passes its exploration fog state when it returns in PR11d); it is NOT
+    // derivable from reveal state, which combat moves also write.
+    false
   )
 
   return ok({

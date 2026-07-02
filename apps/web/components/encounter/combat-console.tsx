@@ -4,7 +4,6 @@ import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { forteMarking } from "@workspace/game-v2/mechanics"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
@@ -19,7 +18,6 @@ import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { DurableHydration } from "@/lib/combat/view/detail-view"
-import type { ZoneOverview } from "@/lib/combat/view/zone-overview"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -27,16 +25,19 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
+import { ZoneLayout } from "./zone-layout"
+
 /**
  * The live DM combat console (UNN-344), on engine v2 (UNN-535) — the
  * post-`startCombat` turn-driving surface. The view derivation (turn order,
- * roster, zones, phase, selected combatant, end-of-turn obligations) lives in
- * {@link useCombatConsole}; this component is the mapless console's chrome.
+ * roster, battlefield layout, phase, selected combatant, end-of-turn
+ * obligations) lives in {@link useCombatConsole}; this component is the
+ * mapless console's chrome.
  *
- * The battlefield canvas is gone with v1's `resolveZoneLayout` — the mapless
- * console renders an at-a-glance **zone overview** strip instead (occupants +
- * the Zone Enchantment control per zone); the spatial canvas returns with the
- * dungeon cutover (PR11d).
+ * The battlefield is the same {@link ZoneLayout} card grid the watch renders
+ * (token chips, adjacency footers, Enchantment badges, the unplaced overflow),
+ * shaped from the optimistic frame by `buildConsoleZoneLayout` — the DM
+ * additionally gets the per-zone Enchantment menu via `zoneAction`.
  */
 export function CombatConsole({
   data,
@@ -57,7 +58,7 @@ export function CombatConsole({
     view,
     currentActor,
     roster,
-    zones,
+    zoneLayout,
     fallenPcNames,
     obligations,
     phase,
@@ -185,28 +186,18 @@ export function CombatConsole({
       ) : (
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
           <CombatantRail roster={roster} onSelect={selectCombatant} />
-          {zones.length > 0 ? (
-            <section className="flex flex-1 flex-col gap-2">
-              <h2 className="font-heading text-sm font-medium">Zones</h2>
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {zones.map((zone) => (
-                  <ZoneCard
-                    key={zone.id}
-                    zone={zone}
-                    action={
-                      <ZoneEnchantmentControl
-                        zoneId={zone.id}
-                        zoneName={zone.name}
-                        enchantment={zone.enchantment}
-                        onCombatEvent={dispatch}
-                        disabled={isPending}
-                      />
-                    }
-                  />
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          <ZoneLayout
+            view={zoneLayout}
+            zoneAction={(zone) => (
+              <ZoneEnchantmentControl
+                zoneId={zone.id}
+                zoneName={zone.name}
+                enchantment={zone.enchantment}
+                onCombatEvent={dispatch}
+                disabled={isPending}
+              />
+            )}
+          />
         </div>
       )}
 
@@ -240,35 +231,5 @@ export function CombatConsole({
         dispatchWrite={dispatchWrite}
       />
     </main>
-  )
-}
-
-/** One zone card: name + occupants + the per-zone Enchantment action. */
-function ZoneCard({
-  zone,
-  action,
-}: {
-  zone: ZoneOverview
-  action: React.ReactNode
-}) {
-  return (
-    <li className="flex flex-col gap-1 rounded-md border px-3 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-sm font-medium">{zone.name}</span>
-          {zone.enchantment ? (
-            <Badge variant="secondary">
-              {zone.enchantment.name} {forteMarking(zone.enchantment.forte)}
-            </Badge>
-          ) : null}
-        </span>
-        {action}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {zone.occupantNames.length > 0
-          ? zone.occupantNames.join(", ")
-          : "Empty"}
-      </p>
-    </li>
   )
 }

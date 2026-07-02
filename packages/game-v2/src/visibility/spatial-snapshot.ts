@@ -14,7 +14,6 @@ import {
   connectionFogState,
   isConnectionLocked,
   isConnectionSurfaced,
-  isFogActive,
   isZoneRevealed,
 } from "@workspace/game-v2/spatial/reveal"
 
@@ -203,11 +202,20 @@ function projectConnections(
 /**
  * Projects the combat watch on a Map-Instance (SD10): **wraps**
  * {@link projectEncounterSnapshot} (which redacts each combatant via the visibility
- * table), then — only when a delve is running ({@link isFogActive}) — clamps each
- * combatant's `zoneId` for unrevealed Zones, drops unrevealed Zones, withholds an
- * enchantment in an unrevealed Zone, and silhouettes known exits. A standalone
- * encounter (no reveal state) shows the full map; a delve clamps. The envelope is
- * never edited — the spatial transforms apply to its output.
+ * table), then — only when `fog` is on — clamps each combatant's `zoneId` for
+ * unrevealed Zones, drops unrevealed Zones, withholds an enchantment in an
+ * unrevealed Zone, and silhouettes known exits. A standalone encounter shows the
+ * full map; a delve clamps. The envelope is never edited — the spatial transforms
+ * apply to its output.
+ *
+ * **`fog` is the caller's decision** (UNN-535): whether an Instance is
+ * fog-gated is a fact of its *provenance* (a delve's Instance vs a standalone
+ * encounter's), which only the loader boundary knows. It is deliberately not
+ * inferred from reveal state here — combat's `move → reveal` rule writes
+ * `revealedZoneIds` on standalone Instances too, so {@link isFogActive} flips
+ * true the moment anyone moves, and a mapless watch would suddenly clamp. A
+ * standalone caller passes `false`; the delve combat watch (PR11d) passes its
+ * exploration fog state.
  */
 export function projectSpatialEncounterSnapshot(
   session: Session,
@@ -215,10 +223,10 @@ export function projectSpatialEncounterSnapshot(
   viewer: TrustedViewer,
   meta: EncounterSnapshotMeta,
   mapInstance: MapInstanceState,
-  instanceVersion: number
+  instanceVersion: number,
+  fog: boolean
 ): SpatialEncounterSnapshot {
   const base = projectEncounterSnapshot(session, view, viewer, meta)
-  const fog = isFogActive(mapInstance.reveal)
 
   const combatants = fog
     ? base.combatants.map((c) => clampCombatantZone(c, mapInstance.reveal))

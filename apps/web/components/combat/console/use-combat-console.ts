@@ -43,7 +43,7 @@ import {
   type DurableHydration,
 } from "@/lib/combat/view/detail-view"
 import { buildRosterView } from "@/lib/combat/view/roster-view"
-import { buildZoneOverview } from "@/lib/combat/view/zone-overview"
+import { buildConsoleZoneLayout } from "@/lib/combat/view/zone-overview"
 import { resolveSession } from "@/lib/game-engine-v2"
 
 /**
@@ -235,7 +235,7 @@ export function useCombatConsole(
     state.mapInstance,
     participantMeta
   )
-  const zones = buildZoneOverview(state.mapInstance, resolved)
+  const zoneLayout = buildConsoleZoneLayout(state.mapInstance, resolved)
   const fallenPcNames = roster.players
     .filter((row) => row.isFallen)
     .map((row) => row.name)
@@ -295,7 +295,7 @@ export function useCombatConsole(
     view,
     currentActor,
     roster,
-    zones,
+    zoneLayout,
     fallenPcNames,
     obligations,
     phase,
