@@ -151,6 +151,33 @@ export async function loadEncountersForCampaign(
 }
 
 /**
+ * The campaign's single `live` encounter as the lightweight
+ * {@link EncounterSummary} projection (no `session` jsonb), or `null` if none
+ * is live. Backs the campaign page's live-encounter banner (UNN-329), which
+ * renders only the name + link; the single-live *guard* uses the even lighter
+ * {@link import("./load-encounter-v2").loadLiveEncounterIdForCampaign}.
+ */
+export async function loadLiveEncounterSummaryForCampaign(
+  campaignId: string
+): Promise<EncounterSummary | null> {
+  const [row] = await db
+    .select({
+      id: encounters.id,
+      shortId: encounters.shortId,
+      name: encounters.name,
+      status: encounters.status,
+      createdAt: encounters.createdAt,
+    })
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.status, "live"))
+    )
+    .limit(1)
+
+  return row ?? null
+}
+
+/**
  * The campaign's single `live` encounter, or `null` if none is live. Backs the
  * single-live-encounter-per-campaign guard (UNN-302, ADR Decision 3): the
  * `startCombat` path reads this before flipping a draft to `live` and rejects

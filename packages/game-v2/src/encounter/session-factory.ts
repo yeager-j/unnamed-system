@@ -78,6 +78,23 @@ function instantiateInlineEntity(
 }
 
 /**
+ * Materializes one catalog enemy into a fresh inline {@link Entity} under the
+ * given id, or `undefined` for an unknown key — the **post-mint** twin of the
+ * factory's catalog arm (UNN-535): a bulk catalog add appends to an existing
+ * session, so it materializes here instead of re-minting. Same semantics as the
+ * factory ({@link instantiateInlineEntity}: deep copy, fresh full-HP vitals, no
+ * retained key); the `undefined` arm differs deliberately — a *wire-supplied*
+ * unknown key is invalid input for the caller to reject, not a stored dangling
+ * reference to reproduce as Fallen (that R12.3 arm stays the factory's).
+ */
+export function instantiateCatalogEnemy(deps: Pick<GameData, "getEnemy">) {
+  return (key: string, id: string): Entity | undefined => {
+    const template = deps.getEnemy(key)
+    return template ? instantiateInlineEntity(template, id) : undefined
+  }
+}
+
+/**
  * Builds a clean initial {@link Session} from encounter-setup inputs (R1.2): round
  * 1, no current actor, no advantage declared yet (`advantage`/`firstSide` null
  * until `startCombat`), and every participant fresh with a defaulted overlay

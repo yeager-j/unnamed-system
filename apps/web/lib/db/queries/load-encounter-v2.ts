@@ -179,3 +179,35 @@ export async function loadLiveEncounterIdForCampaign(
 
   return row?.id ?? null
 }
+
+/**
+ * The **durable** (character-row) participant entity ids of the campaign's
+ * single `live` encounter, or `null` when none is live. The live-encounter
+ * lock's read (UNN-330 → UNN-535): v1's "PC combatant" generalizes to v2's
+ * durable-locator participant — the lifecycle axis, not a kind tag. Reads only
+ * the stored envelope (locators), never hydrates entities; a corrupt blob
+ * throws (fail-closed — a lock that silently opened mid-fight would be worse).
+ */
+export async function loadLiveEncounterDurableEntityIds(
+  campaignId: string
+): Promise<string[] | null> {
+  const [row] = await db
+    .select({ session: encounters.session })
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.status, "live"))
+    )
+    .limit(1)
+
+  if (!row) return null
+  const stored = storedSessionSchema.parse(row.session)
+  return [
+    ...new Set(
+      stored.participants.flatMap((participant) =>
+        participant.locator.storage === "durable"
+          ? [participant.locator.entityId]
+          : []
+      )
+    ),
+  ]
+}

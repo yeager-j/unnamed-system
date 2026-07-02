@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest"
 
 import { createGameEngine } from "@workspace/game-v2/composition"
-import { createSessionFactory } from "@workspace/game-v2/encounter/session-factory"
+import {
+  createSessionFactory,
+  instantiateCatalogEnemy,
+} from "@workspace/game-v2/encounter/session-factory"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
@@ -150,6 +153,29 @@ describe("createSessionFactory — entity source arms", () => {
       counterIds()
     )([{ side: "enemies", source: { catalog: "dragon" } }]).participants[0]!
     expect(participant.entity.components.vitals).toEqual({ base: 0, damage: 0 })
+  })
+})
+
+describe("instantiateCatalogEnemy — the post-mint materialization (UNN-535)", () => {
+  const instantiate = instantiateCatalogEnemy({ getEnemy: stubGetEnemy })
+
+  it("materializes a fresh full-HP inline entity under the given id", () => {
+    const goblin = instantiate("goblin", "g1")!
+    expect(goblin.id).toBe("g1")
+    expect(goblin.components.vitals).toEqual({ base: 16, damage: 0 })
+    expect(goblin.components.identity).toEqual({ name: "Goblin" })
+  })
+
+  it("deep-copies the template so sibling mints and the catalog stay isolated", () => {
+    const first = instantiate("goblin", "g1")!
+    const second = instantiate("goblin", "g2")!
+    first.components.attributes!.base.strength = 99
+    expect(second.components.attributes!.base.strength).toBe(0)
+    expect(goblinTemplate.components.attributes!.base.strength).toBe(0)
+  })
+
+  it("returns undefined for an unknown key (the caller rejects, no Fallen ghost)", () => {
+    expect(instantiate("not-a-monster", "x1")).toBeUndefined()
   })
 })
 

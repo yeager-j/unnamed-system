@@ -437,21 +437,34 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     expect(saveStoredEncounterSession).not.toHaveBeenCalled()
   })
 
-  it("rejects an engine-shaped (placement-less) add with missing-placement", async () => {
+  it("adds a zone-less participant session-only: no token, Instance row untouched (add-then-place)", async () => {
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
-      expectedInstanceVersion: 0,
       event: {
         kind: "addParticipant",
-        // No zoneId — parses through the engine arm, rejected at the boundary.
         setup: {
+          id: asParticipantId("c-unplaced"),
           side: "enemies",
-          entity: { id: "goblin-3", components: {} },
+          entity: {
+            id: "goblin-3",
+            components: { vitals: { base: 10, damage: 0 } },
+          },
         },
-      } as never,
+      },
     })
-    expect(result).toEqual(err("missing-placement"))
+
+    expect(result).toEqual(ok({ version: 1 }))
+    const blob = lastSavedBlob()
+    const joiner = blob.participants.find((p) => p.id === "c-unplaced")!
+    expect(joiner.locator).toEqual({
+      storage: "inline",
+      entity: {
+        id: "goblin-3",
+        components: { vitals: { base: 10, damage: 0 } },
+      },
+    })
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
   })
 
   it("removes a participant: roster slot + token drop together", async () => {

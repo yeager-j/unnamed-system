@@ -206,9 +206,10 @@ async function applySpatialEvent(
  * (`{ entity }`, validated through the {@link loadEntity} F6 seam) or durable
  * (`{ entityId }`, hydrated from the character row through
  * {@link rawInputsToEntity}) — **registers its locator in the out-of-band map**,
- * then runs the engine's paired cross-write and commits both rows in one
- * {@link guardMany} transaction. An engine-shaped (placement-less) add is
- * rejected with `missing-placement`.
+ * then runs the engine's paired cross-write. A placed add (`zoneId` present)
+ * commits both rows in one {@link guardMany} transaction; a zone-less add (the
+ * setup console's add-then-place flow, UNN-535) touches only the session row —
+ * the joiner holds no occupancy token until a `placeCombatant` event mints it.
  */
 async function applyAddParticipant(
   row: EncounterRowV2,
@@ -220,13 +221,7 @@ async function applyAddParticipant(
     | Extract<CombatEvent, { kind: "addParticipant" }>
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
   const setup = event.setup
-  if (!("zoneId" in setup)) return err("missing-placement")
-  if (expectedInstanceVersion === undefined) {
-    return err("missing-instance-version")
-  }
-
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
-  if (instance === null) return err("map-instance-not-found")
+  const zoneId = "zoneId" in setup ? setup.zoneId : undefined
 
   const participantId = setup.id ?? asParticipantId(newId())
 
@@ -249,13 +244,27 @@ async function applyAddParticipant(
     })
   }
 
+  const addEvent = {
+    kind: "addParticipant",
+    setup: { id: participantId, side: setup.side, entity },
+  } satisfies Extract<CombatEvent, { kind: "addParticipant" }>
+
+  if (zoneId === undefined) {
+    const next = createReduceSession(newId)(loadedSession.session, addEvent)
+    return persistSession(row, next, loadedSession, expectedVersion, row.status)
+  }
+
+  if (expectedInstanceVersion === undefined) {
+    return err("missing-instance-version")
+  }
+
+  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  if (instance === null) return err("map-instance-not-found")
+
   const next = addParticipantPaired(newId)(
     { session: loadedSession.session, mapInstance: instance.state },
-    {
-      kind: "addParticipant",
-      setup: { id: participantId, side: setup.side, entity },
-    },
-    setup.zoneId
+    addEvent,
+    zoneId
   )
 
   return persistPaired(
