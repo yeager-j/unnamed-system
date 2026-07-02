@@ -18,14 +18,14 @@ lib/actions/<aggregate>/revalidate.ts       # that aggregate's cache invalidatio
 ```
 
 The slice file is named for what it touches with **no aggregate prefix** — the
-folder already says it (same rule as `lib/db/writes/`): `encounter/events.ts`,
-not `encounter/encounter-events.ts`. Each aggregate brings its own auth gate,
+folder already says it (same rule as `lib/db/writes/`): `encounter/create.ts`,
+not `encounter/encounter-create.ts`. Each aggregate brings its own auth gate,
 concurrency token, and envelope:
 
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
 | `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
-| `encounter/` | `requireCampaignDM`                         | `{ encounterId, expectedVersion }` (inline until a 2nd action earns an `encounterMutationBase`) | single `version` per encounter |
+| `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
 | `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes; + `expectedCharacterVersion` on `commit/`) | encounter `version`; `commit/`'s durable arm guards `vitalsVersion` |
 
 > **Migration in progress.** The ~35 flat `character-*.ts` files at the root of

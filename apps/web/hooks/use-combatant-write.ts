@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
@@ -77,8 +77,22 @@ export function useCombatantWrite({
   applyOptimistic: (action: ConsoleOptimisticAction) => void
 }): { dispatchWrite: DispatchCombatantWrite } {
   const durableChains = useRef(new Map<string, Promise<unknown>>())
+  const [, startTransition] = useTransition()
 
-  const dispatchWrite: DispatchCombatantWrite = async (
+  // The whole dispatch runs as one async transition owned HERE — the mirror
+  // (`applyOptimistic`) targets the console's `useOptimistic` container, and an
+  // optimistic update outside a transition both warns and reverts immediately
+  // instead of holding until the action settles. Drawer controls call
+  // `dispatchWrite` bare, so the hook can't rely on callers wrapping it. The
+  // resolve-inside-transition shape keeps the caller-visible Promise<Result>.
+  const dispatchWrite: DispatchCombatantWrite = (participantId, write, deps) =>
+    new Promise((resolve) => {
+      startTransition(async () => {
+        resolve(await runWrite(participantId, write, deps))
+      })
+    })
+
+  const runWrite: DispatchCombatantWrite = async (
     participantId,
     write,
     deps
