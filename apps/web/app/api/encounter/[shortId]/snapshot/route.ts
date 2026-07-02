@@ -1,24 +1,30 @@
-import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
+import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 /**
  * Public **player-snapshot** endpoint at `/api/encounter/{shortId}/snapshot`
- * (UNN-323). No auth — it serves the same signed-out-visible redacted snapshot
- * the watch page renders, so a player's poll can read it. It is the plain-async
- * seam the RSC page (initial render) and the `useEncounterSnapshot` hook
- * (subsequent ~1.5s polls) share; the enemy-affinity redaction is already baked
- * into {@link getEncounterSnapshot}, so this handler ships only what a player may
- * see. Returns 404 when the `shortId` matches no encounter.
+ * (UNN-323 → UNN-535 on v2). No auth *guard* — the route is signed-out-visible
+ * — but the query derives the viewer from the request session, so an owner's
+ * poll keeps their own components while a spectator's is fully redacted
+ * (structurally dropped, never nulled). It is the plain-async seam the RSC page
+ * (initial render) and the `useEncounterSnapshot` hook (subsequent polls)
+ * share. Ships `{ snapshot, compositeVersion }` — the composite version is the
+ * equality token the client compares to skip no-op applies and to catch
+ * durable `vitalsVersion` bumps the two numeric tokens can't see. Returns 404
+ * when the `shortId` matches no encounter; a data-integrity arm is a 500.
  */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ shortId: string }> }
 ) {
   const { shortId } = await params
-  const snapshot = await getEncounterSnapshot(shortId)
+  const result = await getEncounterSnapshot(shortId)
 
-  if (!snapshot) {
-    return Response.json({ error: "Encounter not found" }, { status: 404 })
+  if (!result.ok) {
+    if (result.error === "encounter-not-found") {
+      return Response.json({ error: "Encounter not found" }, { status: 404 })
+    }
+    return Response.json({ error: result.error }, { status: 500 })
   }
 
-  return Response.json(snapshot)
+  return Response.json(result.value)
 }

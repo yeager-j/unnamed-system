@@ -4,7 +4,7 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
-import { loadLiveEncounterForCampaign } from "@/lib/db/queries/load-encounter"
+import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { characters } from "@/lib/db/schema/character"
 import { encounters } from "@/lib/db/schema/encounter"
@@ -130,8 +130,8 @@ export type DeleteCampaignError = "live-encounter-exists"
 export async function deleteCampaign(
   campaignId: string
 ): Promise<Result<void, DeleteCampaignError>> {
-  const live = await loadLiveEncounterForCampaign(campaignId)
-  if (live) return err("live-encounter-exists")
+  const live = await loadLiveEncounterIdForCampaign(campaignId)
+  if (live !== null) return err("live-encounter-exists")
 
   await db.transaction(async (tx) => {
     const instanceRows = await tx
