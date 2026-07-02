@@ -14,10 +14,8 @@ import {
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok } from "@workspace/game/foundation"
 
-import type {
-  EncounterRowV2,
-  LoadedEncounterForWrite,
-} from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { addCatalogEnemiesAction } from "./add-participants"
 
@@ -29,7 +27,7 @@ import { addCatalogEnemiesAction } from "./add-participants"
 const requireCampaignDM = vi.fn()
 const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
-const saveStoredEncounterSession = vi.fn()
+const saveEncounterSession = vi.fn()
 const revalidateEncounter = vi.fn()
 const publishEncounterPing = vi.fn()
 const instantiateEnemy = vi.fn()
@@ -43,9 +41,9 @@ vi.mock("@/lib/db/queries/load-encounter", () => ({
 vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
 }))
-vi.mock("@/lib/db/writes/encounter-v2", () => ({
-  saveStoredEncounterSession: (id: string, stored: StoredSession, v: number) =>
-    saveStoredEncounterSession(id, stored, v),
+vi.mock("@/lib/db/writes/encounter", () => ({
+  saveEncounterSession: (id: string, stored: StoredSession, v: number) =>
+    saveEncounterSession(id, stored, v),
 }))
 vi.mock("@/lib/game-engine-v2", () => ({
   instantiateEnemy: (key: string, id: string) => instantiateEnemy(key, id),
@@ -96,7 +94,7 @@ function makeLoaded(): LoadedEncounterForWrite {
       mapInstanceId: "mi-1",
       session: { round: 1 },
       version: 0,
-    } as EncounterRowV2,
+    } as EncounterRow,
     loaded: {
       session: makeSession(),
       locators: makeLocators(),
@@ -115,14 +113,14 @@ beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
   loadEncounterCampaignId.mockReset().mockResolvedValue(CAMPAIGN_ID)
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
-  saveStoredEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
+  saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   revalidateEncounter.mockReset()
   publishEncounterPing.mockReset()
   instantiateEnemy.mockReset().mockImplementation(stubGoblin)
 })
 
 function lastSavedBlob(): StoredSession {
-  const calls = saveStoredEncounterSession.mock.calls
+  const calls = saveEncounterSession.mock.calls
   return calls[calls.length - 1]![1] as StoredSession
 }
 
@@ -135,7 +133,7 @@ describe("addCatalogEnemiesAction", () => {
     })
 
     expect(result).toEqual(ok({ version: 1 }))
-    expect(saveStoredEncounterSession).toHaveBeenCalledTimes(1)
+    expect(saveEncounterSession).toHaveBeenCalledTimes(1)
 
     const blob = lastSavedBlob()
     expect(blob.participants).toHaveLength(3)
@@ -166,7 +164,7 @@ describe("addCatalogEnemiesAction", () => {
     })
 
     expect(result).toEqual(err("unknown-enemy"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("rejects a non-DM before the session loads", async () => {
@@ -183,7 +181,7 @@ describe("addCatalogEnemiesAction", () => {
   })
 
   it("propagates a stale guarded write without pinging", async () => {
-    saveStoredEncounterSession.mockResolvedValue(err("stale"))
+    saveEncounterSession.mockResolvedValue(err("stale"))
 
     const result = await addCatalogEnemiesAction({
       encounterId: ENCOUNTER_ID,

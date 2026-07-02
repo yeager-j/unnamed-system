@@ -11,7 +11,7 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
-import { saveStoredEncounterSession } from "@/lib/db/writes/encounter-v2"
+import { saveEncounterSession } from "@/lib/db/writes/encounter"
 import { instantiateEnemy } from "@/lib/game-engine-v2"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
@@ -73,7 +73,7 @@ export async function addCatalogEnemiesAction(
   const stored = saveSession(session, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
 
-  const saved = await saveStoredEncounterSession(
+  const saved = await saveEncounterSession(
     row.id,
     stored.value,
     expectedVersion

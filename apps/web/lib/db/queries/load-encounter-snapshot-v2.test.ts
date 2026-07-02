@@ -16,7 +16,7 @@ import { err, ok } from "@workspace/game/foundation"
 
 import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
 import type {
-  EncounterRowV2,
+  EncounterRow,
   LoadedEncounterForSnapshot,
 } from "@/lib/db/queries/load-encounter-v2"
 
@@ -153,7 +153,7 @@ function makeLoaded(): LoadedEncounterForSnapshot {
     status: "live",
     mapInstanceId: MAP_INSTANCE_ID,
     version: 2,
-  } as EncounterRowV2
+  } as EncounterRow
   const loaded: LoadedSession = {
     session: makeSession(),
     locators: makeLocators(),

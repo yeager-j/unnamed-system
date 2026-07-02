@@ -32,13 +32,8 @@ import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
  *    folds the versions into the composite snapshot version.
  */
 
-/** The encounter row with its blob re-typed to the parsed v2 contract. */
-export type EncounterRowV2 = Omit<EncounterRow, "session"> & {
-  session: StoredSession
-}
-
 export interface LoadedEncounterForWrite {
-  row: EncounterRowV2
+  row: EncounterRow
   loaded: LoadedSession
   /** Each durable participant's character `vitalsVersion`, keyed by entity id. */
   durableVersions: Map<string, number>
@@ -100,7 +95,7 @@ async function dissolveEncounterRow(
 
   const parsed = storedSessionSchema.safeParse(rawRow.session)
   if (!parsed.success) return err("invalid-session")
-  const row: EncounterRowV2 = { ...rawRow, session: parsed.data }
+  const row: EncounterRow = { ...rawRow, session: parsed.data }
 
   const durable = await loadDurableEntities(parsed.data)
 

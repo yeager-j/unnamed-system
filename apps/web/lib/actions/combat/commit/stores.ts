@@ -22,7 +22,7 @@ import {
   applyCombatantWrite,
   type WriterDeps,
 } from "@/lib/combat/commit/writers"
-import type { EncounterRowV2 } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   applyDamageForCharacter,
   applyHealForCharacter,
@@ -30,7 +30,7 @@ import {
   applySpendSPForCharacter,
   applyUsePrismaForCharacter,
 } from "@/lib/db/writes/adjust-pools"
-import { saveStoredEncounterSession } from "@/lib/db/writes/encounter-v2"
+import { saveEncounterSession } from "@/lib/db/writes/encounter"
 import { applyMechanicStateForCharacter } from "@/lib/db/writes/mechanic-state"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
@@ -113,7 +113,7 @@ function mintSessionEvent(
  * `no-prisma-max` until the max ships. Never read from the wire.
  */
 export function sessionStore(context: {
-  row: EncounterRowV2
+  row: EncounterRow
   loaded: LoadedSession
   participantId: ParticipantId
   expectedVersion: number
@@ -142,7 +142,7 @@ export function sessionStore(context: {
       const stored = saveSession(next, context.loaded.locators)
       if (!stored.ok) return err("locator-missing")
 
-      const saved = await saveStoredEncounterSession(
+      const saved = await saveEncounterSession(
         context.row.id,
         stored.value,
         context.expectedVersion

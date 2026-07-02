@@ -27,11 +27,13 @@ import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
-  type EncounterRowV2,
 } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
-import { setEncounterStatus } from "@/lib/db/writes/encounter"
-import { saveStoredEncounterSession } from "@/lib/db/writes/encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
+import {
+  saveEncounterSession,
+  setEncounterStatus,
+} from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
@@ -146,16 +148,16 @@ function isMapInstanceEvent(event: unknown): event is MapInstanceEvent {
  * encounter ping — the shared tail of every session-only write path.
  */
 async function persistSession(
-  row: EncounterRowV2,
+  row: EncounterRow,
   session: Session,
   loadedSession: LoadedSession,
   expectedVersion: number,
-  pingStatus: EncounterRowV2["status"]
+  pingStatus: EncounterRow["status"]
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
   const stored = saveSession(session, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
 
-  const saved = await saveStoredEncounterSession(
+  const saved = await saveEncounterSession(
     row.id,
     stored.value,
     expectedVersion
@@ -176,7 +178,7 @@ async function persistSession(
  * ping the Instance stream on the encounter channel.
  */
 async function applySpatialEvent(
-  row: EncounterRowV2,
+  row: EncounterRow,
   expectedInstanceVersion: number | undefined,
   event: MapInstanceEvent
 ): Promise<Result<{ version: number }, ApplyCombatEventError>> {
@@ -212,7 +214,7 @@ async function applySpatialEvent(
  * the joiner holds no occupancy token until a `placeCombatant` event mints it.
  */
 async function applyAddParticipant(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
   expectedInstanceVersion: number | undefined,
@@ -283,7 +285,7 @@ async function applyAddParticipant(
  * saver keys off the surviving roster.
  */
 async function applyRemoveParticipant(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   expectedVersion: number,
   expectedInstanceVersion: number | undefined,
@@ -317,7 +319,7 @@ async function applyRemoveParticipant(
  * session-mirroring client advances) and pings both streams.
  */
 async function persistPaired(
-  row: EncounterRowV2,
+  row: EncounterRow,
   next: EncounterState,
   loadedSession: LoadedSession,
   expectedVersion: number,
@@ -328,7 +330,7 @@ async function persistPaired(
 
   const result = await guardMany<{ version: number }, ApplyCombatEventError>(
     async (tx: WriteExecutor) => {
-      const enc = await saveStoredEncounterSession(
+      const enc = await saveEncounterSession(
         row.id,
         stored.value,
         expectedVersion,
@@ -362,7 +364,7 @@ async function persistPaired(
  * status flip fold into one {@link guardMany} transaction.
  */
 async function applyStartCombat(
-  row: EncounterRowV2,
+  row: EncounterRow,
   loadedSession: LoadedSession,
   campaignId: string,
   expectedVersion: number,
@@ -386,7 +388,7 @@ async function applyStartCombat(
 
   const result = await guardMany<{ version: number }, ApplyCombatEventError>(
     async (tx: WriteExecutor) => {
-      const saved = await saveStoredEncounterSession(
+      const saved = await saveEncounterSession(
         row.id,
         stored.value,
         expectedVersion,

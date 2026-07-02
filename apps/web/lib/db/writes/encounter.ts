@@ -1,11 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import {
-  err,
-  ok,
-  type CombatSession,
-  type Result,
-} from "@workspace/game/foundation"
+import type { StoredSession } from "@workspace/game-v2/encounter"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"
@@ -13,8 +9,9 @@ import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertWithShortId } from "@/lib/db/short-id"
 
 /**
- * Persistence for an encounter and its serialized {@link CombatSession}
- * (ADR Decision 3). The DM is the sole writer, so a single `version` token
+ * Persistence for an encounter and its serialized {@link StoredSession} — the
+ * engine-v2 persisted contract (ADR Decision 3; UNN-535 hard cutover). The DM
+ * is the sole writer, so a single `version` token
  * guards every mutation: each guarded write bumps `version` while conditioning
  * on `(id, version === expectedVersion)`, and on zero affected rows
  * disambiguates `"stale"` from `"encounter-not-found"`.
@@ -50,7 +47,7 @@ export async function createEncounter(
     campaignId: string
     name: string
     notes?: string | null
-    session: CombatSession
+    session: StoredSession
     mapInstanceId: string
     status?: EncounterStatus
   },
@@ -75,13 +72,16 @@ export async function createEncounter(
 }
 
 /**
- * The core guarded write the impure shell (UNN-332) calls after reducing an
- * event: replaces the whole `session` blob and bumps `version`, conditioned on
- * the caller's `expectedVersion`. Returns the new version on success.
+ * The core guarded write the impure shell calls after reducing an event:
+ * replaces the whole `session` blob (the fail-closed `saveSession` serializer's
+ * {@link StoredSession} output) and bumps `version`, conditioned on the
+ * caller's `expectedVersion`. Returns the new version on success. Formerly the
+ * `encounter-v2.ts` twin (`saveStoredEncounterSession`) — folded back here when
+ * the hard cutover retired the v1 blob shape (UNN-535).
  */
 export async function saveEncounterSession(
   encounterId: string,
-  session: CombatSession,
+  session: StoredSession,
   expectedVersion: number,
   executor: WriteExecutor = db
 ): Promise<Result<{ version: number }, EncounterWriteError>> {

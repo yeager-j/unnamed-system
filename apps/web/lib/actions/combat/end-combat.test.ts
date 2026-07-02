@@ -14,10 +14,8 @@ import {
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { err, ok } from "@workspace/game/foundation"
 
-import type {
-  EncounterRowV2,
-  LoadedEncounterForWrite,
-} from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { endCombatAction } from "./end-combat"
 
@@ -25,7 +23,7 @@ const requireCampaignDM = vi.fn()
 const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const loadMapInstanceV2ById = vi.fn()
-const saveStoredEncounterSession = vi.fn()
+const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
@@ -47,14 +45,12 @@ vi.mock("@/lib/db/queries/map-instance-v2", () => ({
 vi.mock("@/lib/db/writes/encounter", () => ({
   setEncounterStatus: (id: string, status: string, v: number, tx: unknown) =>
     setEncounterStatus(id, status, v, tx),
-}))
-vi.mock("@/lib/db/writes/encounter-v2", () => ({
-  saveStoredEncounterSession: (
+  saveEncounterSession: (
     id: string,
     stored: StoredSession,
     v: number,
     tx: unknown
-  ) => saveStoredEncounterSession(id, stored, v, tx),
+  ) => saveEncounterSession(id, stored, v, tx),
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
   saveMapInstanceState: (
@@ -162,7 +158,7 @@ function makeInstanceState(): MapInstanceState {
   }
 }
 
-function makeLoaded(status: EncounterRowV2["status"]): LoadedEncounterForWrite {
+function makeLoaded(status: EncounterRow["status"]): LoadedEncounterForWrite {
   return {
     row: {
       id: ENCOUNTER_ID,
@@ -173,7 +169,7 @@ function makeLoaded(status: EncounterRowV2["status"]): LoadedEncounterForWrite {
       mapInstanceId: MAP_INSTANCE_ID,
       session: { round: 3 },
       version: 4,
-    } as EncounterRowV2,
+    } as EncounterRow,
     loaded: { session: makeDirtySession(), locators: makeLocators() },
     durableVersions: new Map([["char-1", 3]]),
   }
@@ -188,7 +184,7 @@ beforeEach(() => {
     state: makeInstanceState(),
     version: 7,
   })
-  saveStoredEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
+  saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
   saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 8 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 6 }))
   revalidateEncounter.mockReset()
@@ -207,7 +203,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
     const result = await endCombatAction(INPUT)
     expect(result).toEqual(ok({ version: 6 }))
 
-    const blob = saveStoredEncounterSession.mock.calls[0]![1] as StoredSession
+    const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     const pc = blob.participants.find((p) => p.id === PC_ID)!
     const goblin = blob.participants.find((p) => p.id === GOBLIN_ID)!
     expect(pc.overlay).toEqual(defaultOverlay({ side: "players" }))
@@ -216,7 +212,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
 
   it("keeps durable references + inline live state through the sweep", async () => {
     await endCombatAction(INPUT)
-    const blob = saveStoredEncounterSession.mock.calls[0]![1] as StoredSession
+    const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     expect(blob.participants.find((p) => p.id === PC_ID)!.locator).toEqual({
       storage: "durable",
       entityId: "char-1",
@@ -241,7 +237,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
   it("flips the status to ended inside the same transaction and pings both streams", async () => {
     await endCombatAction(INPUT)
 
-    expect(saveStoredEncounterSession).toHaveBeenCalledWith(
+    expect(saveEncounterSession).toHaveBeenCalledWith(
       ENCOUNTER_ID,
       expect.anything(),
       4,
@@ -270,7 +266,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
     loadEncounterForWrite.mockResolvedValue(ok(makeLoaded("draft")))
     const result = await endCombatAction(INPUT)
     expect(result).toEqual(err("encounter-not-live"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("fails closed when a participant has no locator", async () => {
@@ -280,7 +276,7 @@ describe("endCombatAction — the composed combat-end (CD16)", () => {
 
     const result = await endCombatAction(INPUT)
     expect(result).toEqual(err("locator-missing"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("propagates a stale Instance write and fires no pings (rollback path)", async () => {

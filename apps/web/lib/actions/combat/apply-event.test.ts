@@ -15,10 +15,8 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/character"
 import { err, ok } from "@workspace/game/foundation"
 
-import type {
-  EncounterRowV2,
-  LoadedEncounterForWrite,
-} from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { applyCombatEventAction } from "./apply-event"
 
@@ -34,7 +32,7 @@ const loadEncounterForWrite = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
 const loadMapInstanceV2ById = vi.fn()
 const loadRawCharacterInputsById = vi.fn()
-const saveStoredEncounterSession = vi.fn()
+const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
 const revalidateEncounter = vi.fn()
@@ -61,14 +59,12 @@ vi.mock("@/lib/db/queries/load-character", () => ({
 vi.mock("@/lib/db/writes/encounter", () => ({
   setEncounterStatus: (id: string, status: string, v: number, tx: unknown) =>
     setEncounterStatus(id, status, v, tx),
-}))
-vi.mock("@/lib/db/writes/encounter-v2", () => ({
-  saveStoredEncounterSession: (
+  saveEncounterSession: (
     id: string,
     stored: StoredSession,
     v: number,
     tx: unknown
-  ) => saveStoredEncounterSession(id, stored, v, tx),
+  ) => saveEncounterSession(id, stored, v, tx),
 }))
 vi.mock("@/lib/db/writes/map-instance", () => ({
   saveMapInstanceState: (
@@ -170,7 +166,7 @@ function makeInstanceState(): MapInstanceState {
   }
 }
 
-function makeRow(status: EncounterRowV2["status"] = "draft"): EncounterRowV2 {
+function makeRow(status: EncounterRow["status"] = "draft"): EncounterRow {
   return {
     id: ENCOUNTER_ID,
     campaignId: CAMPAIGN_ID,
@@ -180,12 +176,12 @@ function makeRow(status: EncounterRowV2["status"] = "draft"): EncounterRowV2 {
     mapInstanceId: MAP_INSTANCE_ID,
     session: { round: 1 },
     version: 0,
-  } as EncounterRowV2
+  } as EncounterRow
 }
 
 function makeLoaded(
   overrides: Partial<{
-    row: EncounterRowV2
+    row: EncounterRow
     session: Session
     locators: LoadedSession["locators"]
   }> = {}
@@ -211,7 +207,7 @@ beforeEach(() => {
     version: 0,
   })
   loadRawCharacterInputsById.mockReset().mockResolvedValue(null)
-  saveStoredEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
+  saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
   revalidateEncounter.mockReset()
@@ -221,7 +217,7 @@ beforeEach(() => {
 
 /** The last blob handed to the guarded session write. */
 function lastSavedBlob(): StoredSession {
-  const calls = saveStoredEncounterSession.mock.calls
+  const calls = saveEncounterSession.mock.calls
   return calls[calls.length - 1]![1] as StoredSession
 }
 
@@ -260,7 +256,7 @@ describe("applyCombatEventAction — auth + parse boundary", () => {
         event: { kind, participantId: PC_ID, pool: "hp", amount: 3 },
       })
       expect(result).toEqual(err("invalid-input"))
-      expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+      expect(saveEncounterSession).not.toHaveBeenCalled()
     }
   )
 })
@@ -306,11 +302,11 @@ describe("applyCombatEventAction — generic session events", () => {
       event: { kind: "endTurn" },
     })
     expect(result).toEqual(err("locator-missing"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("propagates a stale guarded write", async () => {
-    saveStoredEncounterSession.mockResolvedValue(err("stale"))
+    saveEncounterSession.mockResolvedValue(err("stale"))
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,
@@ -331,7 +327,7 @@ describe("applyCombatEventAction — spatial events", () => {
     })
 
     expect(result).toEqual(ok({ version: 1 }))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
     expect(saveMapInstanceState).toHaveBeenCalledWith(
       "db",
       MAP_INSTANCE_ID,
@@ -434,7 +430,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
       },
     })
     expect(result).toEqual(err("character-not-found"))
-    expect(saveStoredEncounterSession).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
   it("adds a zone-less participant session-only: no token, Instance row untouched (add-then-place)", async () => {
