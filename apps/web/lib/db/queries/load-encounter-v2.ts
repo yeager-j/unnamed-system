@@ -7,11 +7,13 @@ import {
   type StoredEntity,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
+import type { Entity } from "@workspace/game-v2/kernel"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
 import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
+import { resolveEntity } from "@/lib/game-engine-v2"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
 /**
@@ -144,13 +146,52 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   )
   for (const { entityId, raw } of loadedRows) {
     if (raw === null) continue
-    const entity = rawInputsToEntity(raw)
+    const entity = withRowDepletion(
+      rawInputsToEntity(raw),
+      raw.row.currentHP,
+      raw.row.currentSP
+    )
     entities.set(entityId, { id: entity.id, components: entity.components })
     versions.set(entityId, raw.row.vitalsVersion)
     owners.set(entityId, raw.row.ownerId)
   }
 
   return { entities, versions, owners }
+}
+
+/**
+ * Joins the character row's **absolute** pools onto the projected entity as v2
+ * **signed depletion** (UNN-535 — the conversion `rawInputsToEntity` documents
+ * as "at cutover"): the projection can't know `damage = maxHP − currentHP`
+ * because the maxima are derived, so this boundary resolves the entity once and
+ * back-computes both depletions. Over-max v1 pools come out as negative
+ * depletion — exactly v2's over-max representation. The sheet path is untouched
+ * (its current pools stay CharacterRow passthrough, UNN-533); this join is the
+ * encounter loader's, so console, watch, and the write-router's validation all
+ * see the durable participant's true pools.
+ */
+function withRowDepletion(
+  entity: Entity,
+  currentHP: number,
+  currentSP: number
+): Entity {
+  const resolved = resolveEntity(entity)
+  const maxHP = resolved.components.vitals?.maxHP ?? 0
+  const maxSP = resolved.components.skillPool?.maxSP ?? 0
+  return {
+    ...entity,
+    components: {
+      ...entity.components,
+      vitals: {
+        ...(entity.components.vitals ?? { base: 0 }),
+        damage: maxHP - currentHP,
+      },
+      skillPool: {
+        ...(entity.components.skillPool ?? { base: 0 }),
+        spSpent: maxSP - currentSP,
+      },
+    },
+  }
 }
 
 /**
