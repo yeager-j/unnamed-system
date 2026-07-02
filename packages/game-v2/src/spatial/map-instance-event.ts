@@ -47,6 +47,11 @@ export const mapInstanceEventSchema = z.discriminatedUnion("kind", [
     toZoneId: z.string(),
   }),
   z.object({
+    kind: z.literal("placeCombatant"),
+    tokenKey: z.string(),
+    zoneId: z.string(),
+  }),
+  z.object({
     kind: z.literal("setEngagement"),
     tokenKey: z.string(),
     targetCombatantIds: z.array(participantIdSchema).min(1),

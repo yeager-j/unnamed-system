@@ -20,6 +20,7 @@ type ZoneGraphEvent = Extract<
   { kind: "addZone" | "removeZone" | "setZoneAdjacency" | "renameZone" }
 >
 type MoveEvent = Extract<MapInstanceEvent, { kind: "moveCombatant" }>
+type PlaceEvent = Extract<MapInstanceEvent, { kind: "placeCombatant" }>
 type EngagementEvent = Extract<
   MapInstanceEvent,
   { kind: "setEngagement" | "clearEngagement" }
@@ -74,6 +75,9 @@ export function reduceMapInstance(newId: () => string) {
 
       case "moveCombatant":
         return reduceMoveEvent(state, event)
+
+      case "placeCombatant":
+        return reducePlaceEvent(state, event)
 
       case "setEngagement":
       case "clearEngagement":
@@ -246,6 +250,42 @@ function reduceMoveEvent(
       unlink(token, targetId)
       const target = draft.occupancy[targetId]
       if (target !== undefined) unlink(target, self)
+    }
+  })
+}
+
+/**
+ * Placement slice for the **upserting** place gesture (UNN-535) — the setup
+ * console's add-then-place flow, where a participant added without a zone holds
+ * **no** token yet ({@link import("../encounter/reduce-encounter").comintMapInstance}'s
+ * honest-unplaced shape). Placing an un-tokened combatant mints its token in the
+ * target Zone with **free** engagement (the same genesis `addOccupant` writes);
+ * placing an already-tokened combatant is exactly a {@link reduceMoveEvent} move —
+ * one home for the move consequences (`move → break-engagement`, `move → reveal`).
+ * {@link reduceMoveEvent} stays move-only (a mistyped `tokenKey` on the combat
+ * board must not silently mint a stray token).
+ */
+function reducePlaceEvent(
+  state: MapInstanceState,
+  event: PlaceEvent
+): MapInstanceState {
+  if (state.occupancy[event.tokenKey] !== undefined) {
+    return reduceMoveEvent(state, {
+      kind: "moveCombatant",
+      tokenKey: event.tokenKey,
+      toZoneId: event.zoneId,
+    })
+  }
+  return produce(state, (draft) => {
+    draft.occupancy[event.tokenKey] = {
+      zoneId: event.zoneId,
+      engagement: { status: "free" },
+    }
+    if (
+      draft.geometry.zones[event.zoneId] !== undefined &&
+      !draft.reveal.revealedZoneIds.includes(event.zoneId)
+    ) {
+      draft.reveal.revealedZoneIds.push(event.zoneId)
     }
   })
 }

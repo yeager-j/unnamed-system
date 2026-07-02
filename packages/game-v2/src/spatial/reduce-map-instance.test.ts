@@ -229,6 +229,75 @@ describe("reduceMapInstance — moveCombatant engagement invariant (D28#1 SUPERS
   })
 })
 
+describe("reduceMapInstance — placeCombatant (upsert)", () => {
+  const unplaced = () => makeMapInstanceState(twoZones())
+
+  it("mints a Free token in the target zone for an un-tokened combatant", () => {
+    const next = reduceInstance(unplaced(), {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-a",
+    })
+
+    expect(next.occupancy.c0).toEqual({
+      zoneId: "zone-a",
+      engagement: { status: "free" },
+    })
+  })
+
+  it("reveals the entered zone on first placement, but not a phantom zone", () => {
+    const placed = reduceInstance(unplaced(), {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-a",
+    })
+    expect(placed.reveal.revealedZoneIds).toContain("zone-a")
+
+    const phantom = reduceInstance(unplaced(), {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-detached",
+    })
+    expect(phantom.occupancy.c0!.zoneId).toBe("zone-detached")
+    expect(phantom.reveal.revealedZoneIds).not.toContain("zone-detached")
+  })
+
+  it("moves an existing token with full move semantics (severs cross-zone engagement)", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: {
+        c0: engaged("zone-a", ["c1"]),
+        c1: engaged("zone-a", ["c0"]),
+      },
+    })
+
+    const next = reduceInstance(state, {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-b",
+    })
+
+    expect(next.occupancy.c0!.zoneId).toBe("zone-b")
+    expect(next.occupancy.c0!.engagement).toEqual({ status: "free" })
+    expect(next.occupancy.c1!.engagement).toEqual({ status: "free" })
+  })
+
+  it("is a no-op when re-placing a token in its occupied zone", () => {
+    const state = makeMapInstanceState({
+      ...twoZones(),
+      occupancy: { c0: free("zone-a") },
+    })
+
+    const next = reduceInstance(state, {
+      kind: "placeCombatant",
+      tokenKey: "c0",
+      zoneId: "zone-a",
+    })
+
+    expect(next).toBe(state)
+  })
+})
+
 describe("reduceMapInstance — engagement (symmetric)", () => {
   const pair = () =>
     makeMapInstanceState({

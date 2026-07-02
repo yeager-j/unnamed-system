@@ -141,6 +141,22 @@ describe("addParticipantPaired (addParticipant ↔ addOccupant)", () => {
     expect(added.id).toBe("minted-1")
     expect(next.mapInstance.occupancy["minted-1"]).toEqual(free("z3"))
   })
+
+  it("appends the roster slot with no token when the zone is omitted (add-then-place)", () => {
+    const state = stateOf([participantWith({ id: "p1" })])
+    const event: Extract<CombatEvent, { kind: "addParticipant" }> = {
+      kind: "addParticipant",
+      setup: {
+        id: asParticipantId("g1"),
+        side: "enemies",
+        entity: entity({}, "goblin"),
+      },
+    }
+    const next = addParticipantPaired(() => "unused")(state, event)
+    expect(next.session.participants.map((p) => p.id)).toContain("g1")
+    expect(next.mapInstance).toBe(state.mapInstance)
+    expect(next.mapInstance.occupancy.g1).toBeUndefined()
+  })
 })
 
 describe("removeParticipantPaired (removeParticipant ↔ removeOccupant-sever)", () => {

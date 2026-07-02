@@ -134,19 +134,27 @@ export function comintMapInstance(
  * `setup.id`, else a single `newId()`) and threaded into the session event so the
  * roster slot and the token can't disagree — closing the gap where the roster
  * reducer would otherwise mint an id this helper can't see.
+ *
+ * `zoneId` is optional (UNN-535, the add-then-place setup flow): a zone-less add
+ * appends the roster slot and mints **no** token — the honest-unplaced shape
+ * {@link comintMapInstance} documents (`zoneOf → undefined`) — and a later
+ * `placeCombatant` spatial event creates the token. `startCombat`'s placement
+ * gate (`isRosterFullyPlaced`) is what keeps an unplaced participant out of a
+ * zoned fight.
  */
 export function addParticipantPaired(newId: () => string) {
   const reduceSession = createReduceSession(newId)
   return (
     state: EncounterState,
     event: Extract<CombatEvent, { kind: "addParticipant" }>,
-    zoneId: string
+    zoneId?: string
   ): EncounterState => {
     const id = event.setup.id ?? asParticipantId(newId())
     const session = reduceSession(state.session, {
       ...event,
       setup: { ...event.setup, id },
     })
+    if (zoneId === undefined) return { ...state, session }
     const mapInstance = addOccupant(state.mapInstance, id, {
       zoneId,
       engagement: { status: "free" },

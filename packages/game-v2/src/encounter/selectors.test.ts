@@ -3,12 +3,19 @@ import { describe, expect, it } from "vitest"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
+import {
+  free,
+  makeGeometry,
+  makeMapInstanceState,
+  makeZone,
+} from "../spatial/__fixtures__/spatial"
 import { makeScene, sessionOf, type SceneSpec } from "./__fixtures__/session"
 import { DEFAULT_TURN_STATE, type OverlayComponents } from "./overlay"
 import {
   actionAvailability,
   appendOrdinals,
   eligibleParticipants,
+  isRosterFullyPlaced,
   nextDraftingSide,
   participantDisplayNames,
   participantName,
@@ -152,6 +159,42 @@ describe("actionAvailability (R11 / CD10 — constant 1/1/1, floored at 0)", () 
         turnsTakenThisRound: 1,
       })
     ).toEqual({ move: 0, standard: 0, reaction: 1 })
+  })
+})
+
+describe("isRosterFullyPlaced (the startCombat placement gate, UNN-535)", () => {
+  const roster = () =>
+    buildSession([
+      { id: "a", side: "players" },
+      { id: "b", side: "enemies" },
+    ]).session
+
+  it("passes a zone-less (mapless) Instance regardless of tokens", () => {
+    expect(isRosterFullyPlaced(roster(), makeMapInstanceState())).toBe(true)
+  })
+
+  it("fails when a participant holds no token", () => {
+    const state = makeMapInstanceState({
+      geometry: makeGeometry([makeZone("zone-a")]),
+      occupancy: { a: free("zone-a") },
+    })
+    expect(isRosterFullyPlaced(roster(), state)).toBe(false)
+  })
+
+  it("fails when a token points at a zone that no longer exists", () => {
+    const state = makeMapInstanceState({
+      geometry: makeGeometry([makeZone("zone-a")]),
+      occupancy: { a: free("zone-a"), b: free("zone-deleted") },
+    })
+    expect(isRosterFullyPlaced(roster(), state)).toBe(false)
+  })
+
+  it("passes when every participant holds a token in an existing zone", () => {
+    const state = makeMapInstanceState({
+      geometry: makeGeometry([makeZone("zone-a"), makeZone("zone-b")]),
+      occupancy: { a: free("zone-a"), b: free("zone-b") },
+    })
+    expect(isRosterFullyPlaced(roster(), state)).toBe(true)
   })
 })
 

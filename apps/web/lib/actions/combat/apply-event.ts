@@ -3,6 +3,7 @@
 import {
   addParticipantPaired,
   createReduceSession,
+  isRosterFullyPlaced,
   removeParticipantPaired,
   saveSession,
   type CombatEvent,
@@ -15,9 +16,7 @@ import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema
 import {
   reduceMapInstance as createReduceMapInstance,
   mapInstanceEventSchema,
-  zoneOf,
   type MapInstanceEvent,
-  type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
@@ -368,7 +367,7 @@ async function applyStartCombat(
   const instance = await loadMapInstanceV2ById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
-  if (hasUnplacedParticipants(loadedSession.session, instance.state)) {
+  if (!isRosterFullyPlaced(loadedSession.session, instance.state)) {
     return err("encounter-has-unplaced-combatants")
   }
 
@@ -403,22 +402,4 @@ async function applyStartCombat(
   })
   revalidateEncounter(row)
   return ok({ version: result.value.version })
-}
-
-/**
- * The authoritative server-side placement gate (v1's `isRosterFullyPlaced`
- * carried onto v2 reads): with zones defined, every participant must occupy a
- * token whose zone actually exists. A zone-less (mapless) Instance gates
- * nothing.
- */
-function hasUnplacedParticipants(
-  session: Session,
-  state: MapInstanceState
-): boolean {
-  const zones = state.geometry.zones
-  if (Object.keys(zones).length === 0) return false
-  return session.participants.some((participant) => {
-    const zoneId = zoneOf(state, participant.id)
-    return zoneId === undefined || !(zoneId in zones)
-  })
 }

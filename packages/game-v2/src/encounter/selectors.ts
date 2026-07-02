@@ -1,5 +1,7 @@
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.schema"
+import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 
 import type { TurnState } from "./overlay"
 import type { ParticipantView, ResolvedSession } from "./participant-view"
@@ -98,6 +100,26 @@ export function eligibleParticipants(
   return pendingParticipants(session, fallenIds).filter(
     (p) => p.overlay.allegiance.side === side
   )
+}
+
+/**
+ * The **placement gate** `startCombat` enforces and the console mirrors on its
+ * Start affordance (one rule, one home — promoted from the server action's
+ * private helper in UNN-535): once the Instance defines zones, every
+ * participant must hold an occupancy token in a zone that still exists. A
+ * zone-less (mapless) Instance gates nothing — placement is meaningless there,
+ * so the roster always counts as placed.
+ */
+export function isRosterFullyPlaced(
+  session: Session,
+  state: MapInstanceState
+): boolean {
+  const zones = state.geometry.zones
+  if (Object.keys(zones).length === 0) return true
+  return session.participants.every((participant) => {
+    const zoneId = zoneOf(state, participant.id)
+    return zoneId !== undefined && zoneId in zones
+  })
 }
 
 /** The remaining count of each per-turn action — the advisory action economy. */
