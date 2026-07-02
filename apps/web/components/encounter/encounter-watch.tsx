@@ -1,15 +1,17 @@
 "use client"
 
-import {
-  resolvePlayerZoneLayout,
-  type EncounterSnapshot,
-} from "@workspace/game/engine"
+import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
 import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
-import { useEncounterSnapshot } from "@/hooks/use-encounter-snapshot"
-import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
+import {
+  useEncounterSnapshot,
+  type WatchSnapshot,
+} from "@/hooks/use-encounter-snapshot"
+import { buildWatchView } from "@/lib/combat/view/watch-layout"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { PlayerTurnOrder } from "./player-turn-order"
@@ -17,29 +19,37 @@ import { WatchEnemiesRail } from "./watch-enemies-rail"
 import { ZoneLayout } from "./zone-layout"
 
 /**
- * The **player watch view** at `/c/encounter/{shortId}` (UNN-322). Seeds from the
- * server-rendered `initialSnapshot` and subscribes to the DM's live changes via
- * {@link useEncounterSnapshot} (realtime, polling fallback — UNN-371).
+ * The **player watch view** at `/c/encounter/{shortId}` (UNN-322 → UNN-535 on
+ * v2). Seeds from the server-rendered snapshot + composite version and
+ * subscribes to the DM's live changes via {@link useEncounterSnapshot}
+ * (realtime, polling fallback — UNN-371); the composite version is what the
+ * apply guard equality-compares, so a durable PC's HP bump invalidates even
+ * when both row tokens held still.
  *
  * Three-column layout: when the signed-in viewer owns combatant(s) here
  * (`ownedSheets`), their character sheet fills the left column
- * ({@link CombatSheetColumn}) and the battlefield spans the other two; a spectator
- * (no owned sheet) gets the battlefield full-width. The battlefield reuses the DM
- * console's {@link ZoneLayout} grid, shaped from the redacted snapshot
- * ({@link resolvePlayerZoneLayout}) — enemy attributes/affinities are already
- * absent (UNN-324). The status fork mirrors the lifecycle: `draft` waits, `ended`
- * a concluded banner, `live` the full tracker.
+ * ({@link CombatSheetColumn}) and the battlefield spans the other two; a
+ * spectator (no owned sheet) gets the battlefield full-width. Every combatant
+ * datum renders **structurally off the redacted components** (a dropped key ⇒
+ * no affordance) via {@link buildWatchView}. The status fork mirrors the
+ * lifecycle: `draft` waits, `ended` a concluded banner, `live` the full
+ * tracker.
  */
 export function EncounterWatch({
   shortId,
   initialSnapshot,
+  initialCompositeVersion,
   ownedSheets,
 }: {
   shortId: string
-  initialSnapshot: EncounterSnapshot
+  initialSnapshot: SpatialEncounterSnapshot
+  initialCompositeVersion: string
   ownedSheets: OwnedEncounterSheet[]
 }) {
-  const { snapshot, stale } = useEncounterSnapshot(shortId, initialSnapshot)
+  const { snapshot, stale } = useEncounterSnapshot(shortId, {
+    ...initialSnapshot,
+    compositeVersion: initialCompositeVersion,
+  })
   useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
   const hasSheets = ownedSheets.length > 0
 
@@ -84,23 +94,18 @@ export function EncounterWatch({
 
 /**
  * The battlefield column for a `live` / `ended` encounter: the zone map flexes
- * and scrolls in the upper area, while the redacted {@link WatchEnemiesRail} pins
- * to the bottom — as the enemy list wraps it grows (up to a cap) and shortens the
- * map above it, rather than the whole column scrolling as one.
+ * and scrolls in the upper area, while the redacted {@link WatchEnemiesRail}
+ * pins to the bottom — as the enemy list wraps it grows (up to a cap) and
+ * shortens the map above it, rather than the whole column scrolling as one.
  */
 function Battlefield({
   snapshot,
   ended,
 }: {
-  snapshot: EncounterSnapshot
+  snapshot: WatchSnapshot
   ended: boolean
 }) {
-  const enemies = snapshot.combatants.filter(
-    (combatant) => combatant.side === "enemies"
-  )
-  const zoneNameById = new Map(
-    snapshot.zones.map((zone) => [zone.id, zone.name])
-  )
+  const view = buildWatchView(snapshot)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -113,12 +118,15 @@ function Battlefield({
         <PlayerTurnOrder
           round={snapshot.round}
           currentActor={snapshot.currentActor}
-          combatants={snapshot.combatants}
+          combatants={view.combatants}
         />
-        <ZoneLayout view={resolvePlayerZoneLayout(snapshot)} />
+        <ZoneLayout view={view.layout} />
       </div>
-      {enemies.length > 0 ? (
-        <WatchEnemiesRail enemies={enemies} zoneNameById={zoneNameById} />
+      {view.enemies.length > 0 ? (
+        <WatchEnemiesRail
+          enemies={view.enemies}
+          zoneNameById={view.zoneNameById}
+        />
       ) : null}
     </div>
   )
@@ -136,18 +144,12 @@ function WaitingState() {
 
 /** The encounter's status, with a subtle "Reconnecting…" hint when a poll has
  *  failed but the last good snapshot is still shown. */
-function StatusPill({
-  status,
-  stale,
-}: {
-  status: EncounterSnapshot["status"]
-  stale: boolean
-}) {
+function StatusPill({ status, stale }: { status: string; stale: boolean }) {
   return (
     <span className="flex items-center gap-2 text-sm text-muted-foreground">
       {stale ? <span className="text-xs">Reconnecting…</span> : null}
       <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium">
-        {ENCOUNTER_STATUS_LABELS[status]}
+        {ENCOUNTER_STATUS_LABELS[status as EncounterStatus] ?? status}
       </span>
     </span>
   )

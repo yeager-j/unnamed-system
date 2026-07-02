@@ -7,12 +7,13 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import Image from "next/image"
 
-import { type Pool, type RailRow } from "@workspace/game/engine"
-import { COUNTER_KEYS } from "@workspace/game/foundation"
+import { COUNTER_KEYS } from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { VitalBar } from "@/components/shared/vital-bar"
+import type { Pool, RailRow } from "@/lib/combat/view/roster-view"
 import { initials } from "@/lib/ui/initials"
 import { COMBATANT_DOWN_LABELS, COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
@@ -30,7 +31,7 @@ export function CombatantRailRow({
   onSelect,
 }: {
   row: RailRow
-  onSelect: (combatantId: string) => void
+  onSelect: (participantId: ParticipantId) => void
 }) {
   const dimmed = row.hasActed || row.isFallen
 

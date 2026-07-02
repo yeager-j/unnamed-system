@@ -1,13 +1,8 @@
-import {
-  connectionFogState,
-  isConnectionLocked,
-  type ZoneLayoutView,
-} from "@workspace/game/engine"
+import { connectionFogState, isConnectionLocked } from "@workspace/game/engine"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
 import { type DungeonConnectionEdge as DungeonConnectionEdgeType } from "@/components/dungeon/canvas/connection-edge"
 import { type DungeonZoneToken } from "@/components/dungeon/canvas/explore/zone-node"
-import { type DungeonSetupZoneToken } from "@/components/dungeon/canvas/setup/token-chip"
 import {
   type CanvasNode,
   type DungeonCanvasMode,
@@ -38,11 +33,15 @@ export function tokensByZone(
   return byZone
 }
 
-function buildPlayNodes(
+/** Re-derive the React Flow node array from the (optimistic) Instance — the
+ *  {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas} runs this on
+ *  every Instance change. Only the play (exploration) board remains; the combat
+ *  and setup node builders return with dungeon combat on engine v2 (PR11d). */
+export function buildNodes(
   instance: MapInstanceState,
-  roster: Record<string, DungeonRosterEntry>
+  mode: DungeonCanvasMode
 ): CanvasNode[] {
-  const byZone = tokensByZone(instance, roster)
+  const byZone = tokensByZone(instance, mode.roster)
   return Object.values(instance.geometry.zones).map((zone) => ({
     id: zone.id,
     type: "dungeonZone",
@@ -54,65 +53,6 @@ function buildPlayNodes(
       tokens: byZone[zone.id] ?? [],
     },
   }))
-}
-
-function buildCombatNodes(
-  instance: MapInstanceState,
-  layout: ZoneLayoutView
-): CanvasNode[] {
-  const byZone = new Map(layout.zones.map((zone) => [zone.id, zone]))
-  return Object.values(instance.geometry.zones).map((zone) => {
-    const entry = byZone.get(zone.id)
-    return {
-      id: zone.id,
-      type: "dungeonCombatZone",
-      position: zone.position,
-      draggable: false,
-      data: {
-        zone,
-        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-        tokens: entry?.combatants ?? [],
-        // Engaged is a game rule (rulebook §3.5) — derived in the engine's
-        // ZoneLayoutView, not here (CLAUDE.md: no game logic in the UI layer).
-        engaged: entry?.engaged ?? false,
-        enchantment: entry?.enchantment,
-      },
-    }
-  })
-}
-
-function buildSetupNodes(
-  instance: MapInstanceState,
-  tokensByZone: Record<string, DungeonSetupZoneToken[]>
-): CanvasNode[] {
-  return Object.values(instance.geometry.zones).map((zone) => ({
-    id: zone.id,
-    type: "dungeonSetupZone",
-    position: zone.position,
-    draggable: false,
-    data: {
-      zone,
-      revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-      tokens: tokensByZone[zone.id] ?? [],
-    },
-  }))
-}
-
-/** Re-derive the React Flow node array from the (optimistic) Instance for the
- *  active phase — the {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas} runs this on
- *  every Instance change. */
-export function buildNodes(
-  instance: MapInstanceState,
-  mode: DungeonCanvasMode
-): CanvasNode[] {
-  switch (mode.kind) {
-    case "play":
-      return buildPlayNodes(instance, mode.roster)
-    case "combat":
-      return buildCombatNodes(instance, mode.layout)
-    case "setup":
-      return buildSetupNodes(instance, mode.tokensByZone)
-  }
 }
 
 /** The Instance's connections as read-only fog-styled floating edges. */

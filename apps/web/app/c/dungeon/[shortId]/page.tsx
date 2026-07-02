@@ -10,9 +10,7 @@ import {
   getDungeonSnapshot,
   hydrateOwnedDungeonSheets,
   loadOwnedDungeonCharacterIds,
-  loadOwnedDungeonCombatSheets,
 } from "@/lib/db/queries/load-dungeon-snapshot"
-import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -64,34 +62,16 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   ])
   if (!snapshot) notFound()
 
-  // While a fight runs on the delve, also seed the encounter watch's own-sheet
-  // column (UNN-467, AC8): the redacted encounter snapshot (combatant overlay +
-  // round/current-actor) and the viewer's own hydrated sheets. Loaded only during
-  // combat, so an exploration view pays nothing.
-  const combat = snapshot.combat
-  const [initialEncounterSnapshot, ownedSheets] = combat
-    ? await Promise.all([
-        getEncounterSnapshot(combat.encounterShortId),
-        viewerId
-          ? loadOwnedDungeonCombatSheets(shortId, viewerId)
-          : Promise.resolve([]),
-      ])
-    : [null, []]
-
-  // During exploration (no live fight) the viewer's own placed characters fill
-  // the Explore-tab column beside the map. `ownedCharacterIds` is already
-  // owner-filtered, so hydrating it reuses that walk rather than re-resolving.
-  const exploreSheets = combat
-    ? []
-    : await hydrateOwnedDungeonSheets(ownedCharacterIds)
+  // The viewer's own placed characters fill the Explore-tab column beside the
+  // map. `ownedCharacterIds` is already owner-filtered, so hydrating it reuses
+  // that walk rather than re-resolving.
+  const exploreSheets = await hydrateOwnedDungeonSheets(ownedCharacterIds)
 
   return (
     <DungeonWatch
       shortId={shortId}
       initialSnapshot={snapshot}
       ownedCharacterIds={ownedCharacterIds}
-      initialEncounterSnapshot={initialEncounterSnapshot}
-      ownedSheets={ownedSheets}
       exploreSheets={exploreSheets}
     />
   )

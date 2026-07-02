@@ -3,12 +3,10 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 
-import {
-  zoneEnchantmentEffects,
-  type EncounterSnapshot,
-} from "@workspace/game/engine"
+import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics"
+import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
-import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 /**
  * The zone-sourced effects each owned combatant's sheet should currently be
@@ -16,19 +14,21 @@ import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapsh
  * {@link zoneEnchantmentEffects} input `loadOwnedEncounterSheets` resolves
  * server-side, so the key changes precisely when a re-hydration would produce
  * a different sheet (Enchantment applied / raised / cleared / moved, or an
- * owned combatant changing Zone).
+ * owned combatant changing Zone). On v2 the combatant's zone reads off its
+ * redacted `position` component (absent / fog-blanked ⇒ no zone effects).
  */
 export function ownedSheetZoneEffectsKey(
-  snapshot: Pick<EncounterSnapshot, "enchantment" | "combatants">,
-  ownedSheets: ReadonlyArray<Pick<OwnedEncounterSheet, "combatantId">>
+  snapshot: Pick<SpatialEncounterSnapshot, "enchantment" | "combatants">,
+  ownedSheets: ReadonlyArray<Pick<OwnedEncounterSheet, "participantId">>
 ): string {
   return JSON.stringify(
     ownedSheets.map((sheet) => {
       const combatant = snapshot.combatants.find(
-        (candidate) => candidate.id === sheet.combatantId
+        (candidate) => candidate.id === sheet.participantId
       )
-      return combatant
-        ? zoneEnchantmentEffects(snapshot.enchantment, combatant.zoneId)
+      const zoneId = combatant?.components.position?.zoneId
+      return zoneId
+        ? zoneEnchantmentEffects(snapshot.enchantment ?? null, zoneId)
         : []
     })
   )
@@ -46,7 +46,7 @@ export function ownedSheetZoneEffectsKey(
  * already refreshes after every write.
  */
 export function useOwnedSheetZoneEffectsRefresh(
-  snapshot: EncounterSnapshot,
+  snapshot: SpatialEncounterSnapshot,
   ownedSheets: OwnedEncounterSheet[]
 ): void {
   const router = useRouter()

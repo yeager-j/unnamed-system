@@ -3,14 +3,11 @@
 import { MusicNotesIcon } from "@phosphor-icons/react"
 
 import {
-  ENCHANTMENTS_BY_TYPE,
-  type ZoneEnchantmentBadge,
-} from "@workspace/game/engine"
-import {
   ENCHANTMENT_TYPES,
+  ENCHANTMENTS_BY_TYPE,
   MAX_FORTE,
-  type MapInstanceEvent,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/mechanics"
+import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
@@ -18,6 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+
+import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-overview"
 
 interface ZoneEnchantmentControlProps {
   zoneId: string

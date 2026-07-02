@@ -1,24 +1,21 @@
 "use client"
 
-import { type CombatantDetail } from "@workspace/game/engine"
-import {
-  type Engagement,
-  type MapInstanceEvent,
-} from "@workspace/game/foundation"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
+import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { DetailSection } from "@/components/shared/detail-section"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**
- * The drawer's **ENGAGEMENT** section (UNN-316): the combatant's Free / "Engaged
- * with [names]" status and the control to set or clear it. Reuses the setup
- * {@link EngagementControl} (a popover of same-zone candidates) — its
- * `onChange(Engagement)` is mapped to the live `setEngagement` / `clearEngagement`
- * events, dispatched through the same optimistic `onCombatEvent` path the other
- * drawer controls use. Engagement is symmetric (the reducer mirrors onto the
- * targets); the *who* here is orthogonal to the *where* of POSITION (UNN-315).
- * DM-only is structural (the console route is DM-gated).
+ * The drawer's **ENGAGEMENT** section (UNN-316, on v2's spatial vocabulary):
+ * the combatant's Free / "Engaged with [names]" status and the control to set
+ * or clear it. Reuses the setup {@link EngagementControl} (a popover of
+ * candidates — v2's allegiance-gated same-zone set, plus current targets so an
+ * existing lock is always clearable) mapped to the `setEngagement` /
+ * `clearEngagement` spatial events, keyed by `tokenKey` (the participant id in
+ * combat). Engagement is symmetric (the spatial reducer mirrors onto targets).
  */
 export function CombatantEngagementSection({
   detail,
@@ -34,10 +31,10 @@ export function CombatantEngagementSection({
       engagement.status === "engaged"
         ? {
             kind: "setEngagement",
-            combatantId: detail.id,
+            tokenKey: detail.id,
             targetCombatantIds: engagement.targetCombatantIds,
           }
-        : { kind: "clearEngagement", combatantId: detail.id }
+        : { kind: "clearEngagement", tokenKey: detail.id }
     )
   }
 

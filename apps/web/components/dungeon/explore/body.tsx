@@ -40,15 +40,11 @@ const DungeonCanvas = dynamic(
 )
 
 /**
- * The run console's **Play (exploration)** phase — the non-combat half of the
- * console, driven by {@link useDungeonConsole}. The thin
- * {@link import("@/components/dungeon/run-console").DungeonRunConsole} orchestrator forks here
- * vs the {@link import("@/components/dungeon/combat/body").DungeonCombatBody} by mode, kept a
- * separate component (not one merged body) because exploration and combat own
- * **different** optimistic hooks — `useDungeonConsole` vs `useCombatConsole` — and
- * the rules of hooks forbid conditionally calling one or the other. The Play bar's
- * "Start an encounter" calls {@link onStartEncounter}, which the orchestrator turns
- * into the ephemeral Setup phase.
+ * The run console's **Play (exploration)** phase, driven by
+ * {@link useDungeonConsole} and rendered by the thin
+ * {@link import("@/components/dungeon/run-console").DungeonRunConsole}. The Play
+ * bar's "Start an encounter" affordance is disabled until dungeon combat returns
+ * on engine v2 (PR11d).
  *
  * Renders inside the persistent {@link import("@/components/dungeon/shell/console-shell").DungeonConsoleShell}
  * (UNN-488): its sidebar (party rows) is portaled into the shell's shared
@@ -62,14 +58,12 @@ export function DungeonExploreBody({
   roster,
   placedCharacters,
   campaignShortId,
-  onStartEncounter,
 }: {
   dungeon: DungeonRow
   instance: MapInstanceRow
   roster: Record<string, DungeonRosterEntry>
   placedCharacters: CharacterSummary[]
   campaignShortId: string
-  onStartEncounter: () => void
 }) {
   const {
     dungeonState,
@@ -162,7 +156,6 @@ export function DungeonExploreBody({
               openDetails: setSelectedZoneId,
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
-              startEncounter: onStartEncounter,
               finishDelve,
               mode,
               onModeChange: setMode,

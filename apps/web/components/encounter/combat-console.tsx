@@ -3,10 +3,12 @@
 import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
-import { type PcCombatantDetail } from "@workspace/game/engine"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { forteMarking } from "@workspace/game-v2/mechanics"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
+import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
 import { useCombatConsole } from "@/components/combat/console/use-combat-console"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { EndCombatDialog } from "@/components/combat/dialogs/end-combat"
@@ -16,8 +18,8 @@ import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
-import type { EncounterRow } from "@/lib/db/schema/encounter"
-import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import type { DurableHydration } from "@/lib/combat/view/detail-view"
+import type { ZoneOverview } from "@/lib/combat/view/zone-overview"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -25,54 +27,37 @@ import {
   COMBAT_TURN_SUBTITLES,
 } from "@/lib/ui/labels"
 
-import { ZoneLayout } from "./zone-layout"
-
 /**
- * The live DM combat console (UNN-344) — the post-`startCombat` turn-driving
- * surface, replacing the Phase-4 stub. It wires the done engine to the DM: the
- * derived turn-order selectors and the `endTurn` / `draftCombatant` /
- * `advanceRound` events, all through `applyCombatEvent` (no new write path).
+ * The live DM combat console (UNN-344), on engine v2 (UNN-535) — the
+ * post-`startCombat` turn-driving surface. The view derivation (turn order,
+ * roster, zones, phase, selected combatant, end-of-turn obligations) lives in
+ * {@link useCombatConsole}; this component is the mapless console's chrome.
  *
- * The view derivation (turn order, roster, zone layout, phase, the selected
- * combatant, end-of-turn obligations) lives in {@link useCombatConsole}, shared
- * with the dungeon combat body so the two can't drift; this component is the
- * standalone console's chrome (header, battlefield layout) only.
- *
- * The phase is **derived from the session** (ADR Decision 8) plus one
- * client-only modal flag for the end-of-turn beat:
- * - no current actor → **drafting** (opening pick or a fresh round);
- * - current actor, not acted → **active turn**;
- * - current actor, acted, modal open → **resolving** (End turn pressed);
- * - current actor, acted, modal closed → **drafting** the next actor.
- *
- * Below the spine sits the combatant **rail** (UNN-345) and the **battlefield**
- * zone layout (UNN-314, read-only; movement is UNN-315); tapping a rail row opens
- * the per-combatant **detail drawer** (UNN-345).
+ * The battlefield canvas is gone with v1's `resolveZoneLayout` — the mapless
+ * console renders an at-a-glance **zone overview** strip instead (occupants +
+ * the Zone Enchantment control per zone); the spatial canvas returns with the
+ * dungeon cutover (PR11d).
  */
 export function CombatConsole({
-  encounter,
-  instance,
+  data,
+  durableHydrationById,
   campaignShortId,
-  pcDetailById,
-  pcShortIdById,
 }: {
-  encounter: EncounterRow
-  instance: MapInstanceRow
+  data: EncounterForDM
+  durableHydrationById: Record<ParticipantId, DurableHydration>
   campaignShortId: string
-  pcDetailById: Record<string, PcCombatantDetail>
-  /** Each PC combatant's public shortId — the realtime channel key (UNN-373). */
-  pcShortIdById: Record<string, string>
 }) {
   const {
     session,
     isPending,
     dispatch,
+    dispatchWrite,
     endEncounter,
     onPcPing,
     view,
     currentActor,
     roster,
-    layout,
+    zones,
     fallenPcNames,
     obligations,
     phase,
@@ -84,8 +69,9 @@ export function CombatConsole({
     onEndTurn,
     onDraft,
     onAdvanceRound,
-  } = useCombatConsole(encounter, instance, pcDetailById, pcShortIdById)
+  } = useCombatConsole(data, durableHydrationById)
 
+  const { encounter } = data
   const advantageLabel = session.advantage
     ? COMBAT_ADVANTAGE_START_LABELS[session.advantage]
     : null
@@ -161,7 +147,7 @@ export function CombatConsole({
             </>
           )}
 
-          {session.combatants.length > 0 ? (
+          {session.participants.length > 0 ? (
             <TurnOrderStrip
               rows={view.rows}
               phase={phase}
@@ -192,43 +178,97 @@ export function CombatConsole({
         </div>
       </header>
 
-      {session.combatants.length === 0 ? (
+      {session.participants.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No combatants in this encounter.
         </p>
       ) : (
         <div className="flex flex-1 flex-col gap-6 md:flex-row">
           <CombatantRail roster={roster} onSelect={selectCombatant} />
-          <ZoneLayout
-            view={layout}
-            zoneAction={(zone) => (
-              <ZoneEnchantmentControl
-                zoneId={zone.id}
-                zoneName={zone.name}
-                enchantment={zone.enchantment}
-                onCombatEvent={dispatch}
-                disabled={isPending}
-              />
-            )}
-          />
+          {zones.length > 0 ? (
+            <section className="flex flex-1 flex-col gap-2">
+              <h2 className="font-heading text-sm font-medium">Zones</h2>
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {zones.map((zone) => (
+                  <ZoneCard
+                    key={zone.id}
+                    zone={zone}
+                    action={
+                      <ZoneEnchantmentControl
+                        zoneId={zone.id}
+                        zoneName={zone.name}
+                        enchantment={zone.enchantment}
+                        onCombatEvent={dispatch}
+                        disabled={isPending}
+                      />
+                    }
+                  />
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
       )}
 
-      <EndOfTurnModal
-        actorId={currentActor?.id ?? ""}
-        actorName={currentActor?.name ?? ""}
-        obligations={obligations}
-        open={endOfTurnOpen}
-        onCombatEvent={dispatch}
-        isPending={isPending}
-        onDone={closeEndOfTurn}
-      />
+      {currentActor ? (
+        <EndOfTurnModal
+          actorId={currentActor.id}
+          actorName={currentActor.name}
+          obligations={obligations}
+          open={endOfTurnOpen}
+          onCombatEvent={dispatch}
+          onApplyHp={(apply) =>
+            void dispatchWrite(
+              currentActor.id,
+              {
+                component: "vitals",
+                op: apply.delta < 0 ? "damage" : "heal",
+                amount: Math.abs(apply.delta),
+              },
+              {}
+            )
+          }
+          isPending={isPending}
+          onDone={closeEndOfTurn}
+        />
+      ) : null}
 
       <CombatantDrawer
         detail={selectedDetail}
         onClose={() => selectCombatant(null)}
         onCombatEvent={dispatch}
+        dispatchWrite={dispatchWrite}
       />
     </main>
+  )
+}
+
+/** One zone card: name + occupants + the per-zone Enchantment action. */
+function ZoneCard({
+  zone,
+  action,
+}: {
+  zone: ZoneOverview
+  action: React.ReactNode
+}) {
+  return (
+    <li className="flex flex-col gap-1 rounded-md border px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-sm font-medium">{zone.name}</span>
+          {zone.enchantment ? (
+            <Badge variant="secondary">
+              {zone.enchantment.name} {forteMarking(zone.enchantment.forte)}
+            </Badge>
+          ) : null}
+        </span>
+        {action}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {zone.occupantNames.length > 0
+          ? zone.occupantNames.join(", ")
+          : "Empty"}
+      </p>
+    </li>
   )
 }

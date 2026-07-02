@@ -15,10 +15,9 @@ import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
 /**
- * The **v2 encounter loader** (UNN-520 write path; UNN-530 snapshot path) — the
- * parallel twin of {@link import("./load-encounter").loadEncounterRowById} for
- * encounters whose `session` blob holds a v2 {@link StoredSession}. Two boundary
- * differences:
+ * The **encounter blob loader** (UNN-520 write path; UNN-530 snapshot path) —
+ * the one place the `session` jsonb is parsed and dissolved (the blob-free
+ * column reads live in `load-encounter.ts`). Two boundary responsibilities:
  *
  * 1. **The blob parses through {@link storedSessionSchema}** (the F6 discipline —
  *    never a `$type` cast), then {@link loadSession} dissolves each participant's
@@ -156,9 +155,7 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 
 /**
  * The campaign's single `live` encounter **id**, or `null` — the blob-agnostic
- * variant of {@link import("./load-encounter").loadLiveEncounterForCampaign}
- * for the v2 single-live guard (that one parses the blob through v1's schema,
- * which a v2 encounter's blob would fail). Selects two columns; never reads
+ * read behind the single-live guard. Selects two columns; never reads
  * `session`.
  */
 export async function loadLiveEncounterIdForCampaign(

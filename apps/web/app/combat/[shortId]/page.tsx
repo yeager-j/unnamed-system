@@ -1,15 +1,12 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { type InitiativeStats } from "@workspace/game/engine"
-
 import { CombatConsole } from "@/components/encounter/combat-console"
 import { EncounterSetup } from "@/components/encounter/encounter-setup"
 import { EncounterEndedStub } from "@/components/encounter/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
+import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
 
 import { getEncounterForDM } from "./encounter-access"
 
@@ -31,77 +28,58 @@ export async function generateMetadata({
 }
 
 /**
- * The DM combat console at `/combat/{shortId}` (UNN-335). The **status fork** is
- * this ticket's deliverable: a `draft` encounter renders the setup shell, a
- * `live` one the combat console, and an `ended` one a read-only terminal view.
- * Only the setup shell's frame is load-bearing here; the three branch bodies are
- * stubbed by their own downstream tickets.
+ * The DM combat console at `/combat/{shortId}` (UNN-335), on engine v2
+ * (UNN-535). The **status fork**: a `draft` encounter renders the setup shell,
+ * a `live` one the combat console, an `ended` one the read-only stub. The
+ * loader hands both client shells the same serializable {@link
+ * import("./encounter-access").EncounterForDM}; the live branch additionally
+ * hydrates the per-durable-participant drawer detail (party-scaled Skill
+ * cards + character-row display fields). v1's initiative-stat hydration for
+ * the draft branch is gone — v2's `compareInitiative` reads the resolved
+ * session directly.
  */
 export default async function CombatPage({ params }: PageProps) {
   const { shortId } = await params
   const result = await getEncounterForDM(shortId)
 
   if (!result) notFound()
-  const { encounter, instance } = result
 
   // getEncounterForDM already authorized the viewer against this campaign, so the
   // row exists; resolve its public shortId for the "← Campaign" back link.
-  const campaign = await loadCampaignRowById(encounter.campaignId)
+  const campaign = await loadCampaignRowById(result.encounter.campaignId)
   const campaignShortId = campaign?.shortId ?? ""
 
-  switch (encounter.status) {
+  switch (result.encounter.status) {
     case "draft": {
       const placedCharacters = await loadPlacedCharactersForCampaign(
-        encounter.campaignId
-      )
-      // The start-combat dialog suggests the higher-Agility first side (UNN-303 /
-      // rulebook 3.2), so it needs each placeable PC's derived Agility/Luck —
-      // hydrate them (as the `live` branch does for combatants) into a lean map.
-      const hydrated = await Promise.all(
-        placedCharacters.map((character) =>
-          loadHydratedCharacterById(character.id)
-        )
-      )
-      const pcStatsById: Record<string, InitiativeStats> = Object.fromEntries(
-        hydrated
-          .filter((character) => character !== null)
-          .map((character) => [
-            character.id,
-            {
-              agility: character.attributes.agility,
-              luck: character.attributes.luck,
-            },
-          ])
+        result.encounter.campaignId
       )
       return (
         <EncounterSetup
-          encounter={encounter}
-          instance={instance}
+          data={result}
           campaignShortId={campaignShortId}
           placedCharacters={placedCharacters}
-          pcStatsById={pcStatsById}
         />
       )
     }
     case "live": {
-      const { pcDetailById, pcShortIdById } = await loadCombatConsoleData(
-        encounter,
-        instance
+      const durableHydrationById = await loadCombatConsoleDataV2(
+        result.session,
+        result.instance.state,
+        result.participantMeta
       )
       return (
         <CombatConsole
-          encounter={encounter}
-          instance={instance}
+          data={result}
+          durableHydrationById={durableHydrationById}
           campaignShortId={campaignShortId}
-          pcDetailById={pcDetailById}
-          pcShortIdById={pcShortIdById}
         />
       )
     }
     case "ended":
       return (
         <EncounterEndedStub
-          encounter={encounter}
+          encounter={result.encounter}
           campaignShortId={campaignShortId}
         />
       )

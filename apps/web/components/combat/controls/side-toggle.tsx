@@ -1,6 +1,9 @@
 "use client"
 
-import { COMBAT_SIDES, type CombatSide } from "@workspace/game/foundation"
+import {
+  COMBAT_SIDES,
+  type CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
 import {
   ToggleGroup,
   ToggleGroupItem,

@@ -1,8 +1,10 @@
 "use client"
 
-import { type CombatantView } from "@workspace/game/engine"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
+
+import type { CombatantView } from "@/lib/combat/view/console-view"
 
 export type ConsolePhase = "active" | "resolving" | "drafting"
 
@@ -32,7 +34,7 @@ export function TurnOrderStrip({
   round: number
   roundComplete: boolean
   isPending: boolean
-  onDraft: (combatantId: string) => void
+  onDraft: (participantId: ParticipantId) => void
   onAdvanceRound: () => void
 }) {
   const isDrafting = phase === "drafting"

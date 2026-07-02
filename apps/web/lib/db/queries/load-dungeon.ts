@@ -126,7 +126,7 @@ export async function loadDungeonsForCampaign(
  * rule): the draft→active transition reads this before flipping a draft to
  * `active` and rejects the transition when another delve in the same campaign
  * already holds the slot. App-side enforcement — there is no DB uniqueness
- * constraint for MVP, matching {@link loadLiveEncounterForCampaign}.
+ * constraint for MVP, matching the encounters single-live guard.
  */
 export async function loadActiveDungeonForCampaign(
   campaignId: string

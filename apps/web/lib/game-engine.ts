@@ -19,17 +19,19 @@ import { deriveHydratedCharacterV2 } from "@/lib/game-engine-v2"
  * dependence stays confined here. Engine tests bind `makeTestGameData(...)` or a
  * narrow stub directly.
  */
+// The v1 combat-session exports (createCombatSession / reduceCombatSession and
+// friends) retired with the UNN-535 hard cutover — mapless combat runs on
+// `game-engine-v2.ts`. The v1 *spatial* pair stays: dungeon exploration is
+// still v1 until PR11d, and the bestiary browse renders v1 display data
+// (key-parity with the v2 catalog is exact; the commit path is fully v2).
 export const {
   toStatContext,
   buildStatContext,
   getArchetypeDisplay,
   buildArchetypeEntries,
   buildEnemyCatalogRows,
-  resolveCatalogEnemyStatblocks,
   statblockFromEnemy,
-  reduceCombatSession,
   reduceMapInstance,
-  endOfTurnObligations,
   buildLineageAtlas,
   getAtlasRecommendations,
   archetypeSwitcherGroups,
@@ -39,7 +41,6 @@ export const {
   equipItem,
   addItem,
   setItemQuantity,
-  createCombatSession,
   createMapInstance,
 } = createGameEngine(gameData)
 

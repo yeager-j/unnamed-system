@@ -5,8 +5,7 @@ import {
   MapPinIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
-import { type CombatantDetail } from "@workspace/game/engine"
-import { type MapInstanceEvent } from "@workspace/game/foundation"
+import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Select,
@@ -17,17 +16,16 @@ import {
 } from "@workspace/ui/components/select"
 
 import { DetailSection } from "@/components/shared/detail-section"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 
 /**
- * The drawer's **POSITION** section (UNN-315): the combatant's current zone plus
- * a "Move to…" select of its valid travel targets — the **adjacent** zones when
- * placed (rulebook §3.5), or every zone when unplaced (place a mid-combat
- * joiner). Selecting dispatches `moveCombatant` through the same optimistic
- * `onCombatEvent` path the other drawer controls use; the re-render moves the
- * combatant and recomputes the targets. The select is action-style (its value
- * stays the "Move to…" placeholder — you travel *to* a zone, never *to* your
- * own). DM-only is structural (the console route is DM-gated). Engagement is its
- * own section (UNN-316).
+ * The drawer's **POSITION** section (UNN-315, on v2's spatial vocabulary): the
+ * combatant's current zone plus a "Move to…" select of its valid targets — the
+ * **adjacent** zones when placed (rulebook §3.5), or every zone when unplaced.
+ * A placed combatant travels via `moveCombatant` (move-with-engagement-sever);
+ * an **unplaced** one has no token to move, so its first placement dispatches
+ * the upserting `placeCombatant` instead (the mid-combat joiner affordance —
+ * `moveCombatant` would no-op on a missing token).
  */
 export function CombatantPositionSection({
   detail,
@@ -48,8 +46,14 @@ export function CombatantPositionSection({
     )
   }
 
-  function move(toZoneId: string) {
-    onCombatEvent({ kind: "moveCombatant", combatantId: detail.id, toZoneId })
+  const placed = position.current !== null
+
+  function move(zoneId: string) {
+    onCombatEvent(
+      placed
+        ? { kind: "moveCombatant", tokenKey: detail.id, toZoneId: zoneId }
+        : { kind: "placeCombatant", tokenKey: detail.id, zoneId }
+    )
   }
 
   return (
@@ -74,7 +78,9 @@ export function CombatantPositionSection({
             >
               <ArrowsOutCardinalIcon aria-hidden />
               <SelectValue>
-                <span className="text-muted-foreground">Move to…</span>
+                <span className="text-muted-foreground">
+                  {placed ? "Move to…" : "Place in…"}
+                </span>
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="start">

@@ -7,38 +7,41 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import type { ReactNode } from "react"
 
-import { type CombatantDetail } from "@workspace/game/engine"
-import {
-  type ActionEconomyAction,
-  type CombatEvent,
-} from "@workspace/game/foundation"
+import type {
+  ActionEconomyAction,
+  ActionEconomyEvent,
+} from "@workspace/game-v2/encounter"
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { DetailSection } from "@/components/shared/detail-section"
+import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { ACTION_ECONOMY_LABELS } from "@/lib/ui/labels"
 
 /**
- * The drawer's **ACTIONS THIS TURN** section (UNN-310) — the three per-turn
- * action toggles (Move / Standard / Reaction). Each is **non-enforcing**: it
- * never blocks acting (ADR Decision 8), it is a tracking aid the DM eyeballs. A
- * pressed toggle = still available; the whole set refreshes at the start of a
- * normal turn via `draftCombatant`. Identical for PCs and enemies (overlay state).
+ * The drawer's **ACTIONS THIS TURN** section (UNN-310, on v2's consumption
+ * model) — the three per-turn action toggles (Move / Standard / Reaction).
+ * Non-enforcing: a tracking aid the DM eyeballs; drafting resets consumption.
+ * v2 stores *used counts*, so a toggle-off dispatches `adjustActionEconomy`
+ * with `delta: +1` (consume) and a toggle-on `delta: -1` (restore) — the
+ * delta merges against the loaded session instead of overwriting (the UNN-226
+ * lesson). The advisory availability the toggle renders is the selector's
+ * `available = max(0, 1 − used)`.
  */
 export function CombatantActionsSection({
   detail,
   onCombatEvent,
 }: {
   detail: CombatantDetail
-  onCombatEvent: (event: CombatEvent) => void
+  onCombatEvent: (event: ActionEconomyEvent) => void
 }) {
-  const { actionEconomy } = detail
+  const { actionAvailability } = detail
 
-  function set(action: ActionEconomyAction, available: boolean) {
+  function adjust(action: ActionEconomyAction, available: boolean) {
     onCombatEvent({
-      kind: "setActionEconomy",
-      combatantId: detail.id,
+      kind: "adjustActionEconomy",
+      participantId: detail.id,
       action,
-      available,
+      delta: available ? -1 : 1,
     })
   }
 
@@ -47,21 +50,21 @@ export function CombatantActionsSection({
       <div className="flex flex-wrap gap-2">
         <ActionToggle
           action="move"
-          available={actionEconomy.move}
+          available={actionAvailability.move > 0}
           icon={<ArrowsOutCardinalIcon aria-hidden />}
-          onToggle={(available) => set("move", available)}
+          onToggle={(available) => adjust("move", available)}
         />
         <ActionToggle
           action="standard"
-          available={actionEconomy.standard}
+          available={actionAvailability.standard > 0}
           icon={<SwordIcon aria-hidden />}
-          onToggle={(available) => set("standard", available)}
+          onToggle={(available) => adjust("standard", available)}
         />
         <ActionToggle
           action="reaction"
-          available={actionEconomy.reaction}
+          available={actionAvailability.reaction > 0}
           icon={<ArrowUUpLeftIcon aria-hidden />}
-          onToggle={(available) => set("reaction", available)}
+          onToggle={(available) => adjust("reaction", available)}
         />
       </div>
     </DetailSection>

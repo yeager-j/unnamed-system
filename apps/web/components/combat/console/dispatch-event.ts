@@ -1,98 +1,91 @@
-import { addOccupant, removeOccupant } from "@workspace/game/engine"
+import type { CombatEvent } from "@workspace/game-v2/encounter"
+import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import {
-  isMapInstanceEvent,
-  type CombatEvent,
+  mapInstanceEventSchema,
   type MapInstanceEvent,
-  type MapInstanceState,
-  type Result,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/game/foundation"
 
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
-import { applyCombatEvent } from "@/lib/actions/encounter/events"
-import type { ApplyCombatEventError } from "@/lib/actions/encounter/events.schema"
-import { reduceMapInstance } from "@/lib/game-engine"
+import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"
+import type { ApplyCombatEventError } from "@/lib/actions/combat/apply-event.schema"
+import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 
 /**
- * The optimistic action the Instance `useOptimistic` container reduces. Beyond a
- * wire {@link MapInstanceEvent} (a pure spatial edit), it carries the two
- * **occupancy cross-writes** that mirror an `addCombatant`/`removeCombatant`:
- * those are session-roster events the server applies to the Instance via the
- * `addOccupant`/`removeOccupant` pure helpers (they are deliberately **not**
- * `MapInstanceEvent`s — they never travel the spatial wire vocabulary), so the
- * optimistic mirror applies the same helpers here.
+ * The `addParticipant` gesture as the console dispatches it: the wire setup
+ * (client-minted `id` so the optimistic mirror and the server agree on the
+ * roster key) with a two-arm entity source — `{ entity }` for an inline
+ * combatant the client fully holds, `{ entityId }` for a durable PC joiner the
+ * *server* hydrates from its character row (R6.2).
  */
-export type InstanceOptimisticAction =
-  | { kind: "spatial"; event: MapInstanceEvent }
-  | { kind: "addOccupant"; combatantId: string; zoneId: string }
-  | { kind: "removeOccupant"; combatantId: string }
-
-/** The Instance optimistic reducer the hooks pass to `useOptimistic` — routes a
- *  spatial event through {@link reduceMapInstance} and an occupancy cross-write
- *  through the matching pure helper. */
-export function reduceInstanceOptimistic(
-  current: MapInstanceState,
-  action: InstanceOptimisticAction
-): MapInstanceState {
-  switch (action.kind) {
-    case "spatial":
-      return reduceMapInstance(current, action.event)
-    case "addOccupant":
-      return addOccupant(current, action.combatantId, {
-        zoneId: action.zoneId,
-        engagement: { status: "free" },
-      })
-    case "removeOccupant":
-      return removeOccupant(current, action.combatantId)
-  }
+export interface AddParticipantDispatch {
+  kind: "addParticipant"
+  setup: { id: ParticipantId; side: CombatSide; zoneId?: string } & (
+    | { entity: Entity }
+    | { entityId: string }
+  )
 }
+
+/** Every event the console/setup surfaces dispatch through this router. */
+export type ConsoleDispatchEvent =
+  | Exclude<CombatEvent, { kind: "addParticipant" }>
+  | AddParticipantDispatch
+  | MapInstanceEvent
 
 /**
  * The shared routing brain both combat write hooks (`useEncounterSetup`,
- * `useCombatConsole`) call from inside their pending transition. It encodes the
- * UNN-459 dual-row protocol once — which optimistic container an event mirrors,
- * which version queue serializes it, and how the cross-write reconciles both
- * version refs — so the two hooks stay thin and can't drift on the load-bearing
- * concurrency logic.
+ * `useCombatConsole`) call from inside their pending transition — rewritten
+ * onto engine v2 + {@link applyCombatEventAction} (UNN-535). It encodes the
+ * dual-row protocol once: which optimistic arm an event mirrors, which version
+ * queue serializes it, and how a cross-write reconciles both refs.
  *
- * Routing by {@link isMapInstanceEvent} (and the two cross-write kinds):
- * - **Pure spatial event** → mirror the Instance container, enqueue on the
- *   **Instance** queue. The action returns the bumped *Instance* version, which
- *   `instanceWrite` folds into its own ref.
- * - **`addCombatant` / `removeCombatant`** (cross-write) → mirror **both**
- *   containers (the session reduce + the matching occupancy helper), enqueue on
- *   the **encounter** queue (the action returns the bumped *encounter* version).
- *   Since the server also bumped the Instance row by one in the same txn, advance
- *   `instanceWrite`'s ref by one **by hand** on success — the monotonic ref
- *   guarantees this never regresses a token a later write already moved.
- * - **Other session event** → mirror the session container, enqueue on the
- *   **encounter** queue.
+ * Routing (by parse — the spatial and combat unions share no `kind`):
+ * - **Pure spatial event** → mirror `{ kind: "event" }` on the one container,
+ *   enqueue on the **Instance** queue (the action returns the bumped Instance
+ *   version, which `instanceWrite` folds into its own ref). The encounter
+ *   token rides along read fresh off the encounter ref.
+ * - **`addParticipant`** → the inline arm mirrors `{ kind: "addPaired" }`; the
+ *   durable arm (`{ entityId }`) mirrors **nothing** — the client has no
+ *   entity to build the roster row from (the server hydrates it, R6.2), so the
+ *   joiner appears on the RSC revalidation instead. Enqueued on the
+ *   **encounter** queue. A **placed** add commits both rows in one txn, so the
+ *   Instance ref hand-advances by one on success; a **zone-less** add is a
+ *   session-only write — the Instance row is untouched and its ref must not
+ *   move.
+ * - **`removeParticipant`** → mirror `{ kind: "removePaired" }`, encounter
+ *   queue. The server always persists **both** rows (the occupancy-sever runs
+ *   even for a token-less participant — `applyRemoveParticipant` goes through
+ *   `persistPaired` unconditionally), so the Instance ref always hand-advances
+ *   by one on success.
+ * - **Any other combat event** → mirror `{ kind: "event" }`, encounter queue.
  *
- * Every action call carries **both** version tokens (`expectedVersion` from the
- * encounter ref, `expectedInstanceVersion` from the Instance ref), read fresh
- * inside the queue's serialized dispatch — so back-to-back spatial edits read the
- * token their predecessor produced, never a stale outer-scope value (the UNN-226
- * trap). The `applyOptimistic` calls run *outside* the action so React mirrors
- * the edit immediately; the action reduces the same event server-side.
+ * Every action call carries **both** version tokens, read fresh inside the
+ * queue's serialized dispatch — never a stale outer-scope value (the UNN-226
+ * trap). Both queues one-shot stale-retry through their own refetch
+ * (`fetchEncounterVersion` / `fetchInstanceVersion`), wired where the queues
+ * are built. The `applyOptimistic` mirror runs *outside* the action so React
+ * paints the edit immediately; the server reduces the same event on the loaded
+ * row.
  */
 export async function dispatchCombatEvent({
   event,
   encounterId,
-  applySessionOptimistic,
-  applyInstanceOptimistic,
+  applyOptimistic,
   encounterWrite,
   instanceWrite,
 }: {
-  event: CombatEvent | MapInstanceEvent
+  event: ConsoleDispatchEvent
   encounterId: string
-  applySessionOptimistic: (event: CombatEvent) => void
-  applyInstanceOptimistic: (action: InstanceOptimisticAction) => void
+  applyOptimistic: (action: ConsoleOptimisticAction) => void
   encounterWrite: UseQueuedWriteReturn
   instanceWrite: UseQueuedWriteReturn
 }): Promise<Result<{ version: number }, ApplyCombatEventError>> {
   if (isMapInstanceEvent(event)) {
-    applyInstanceOptimistic({ kind: "spatial", event })
+    applyOptimistic({ kind: "event", event })
     return instanceWrite.enqueue((expectedInstanceVersion) =>
-      applyCombatEvent({
+      applyCombatEventAction({
         encounterId,
         expectedVersion: encounterWrite.versionRef.current,
         expectedInstanceVersion,
@@ -101,38 +94,90 @@ export async function dispatchCombatEvent({
     )
   }
 
-  if (event.kind === "addCombatant" || event.kind === "removeCombatant") {
-    applySessionOptimistic(event)
-    applyInstanceOptimistic(
-      event.kind === "addCombatant"
-        ? {
-            kind: "addOccupant",
-            combatantId: event.setup.id ?? "",
-            zoneId: event.setup.zoneId,
-          }
-        : { kind: "removeOccupant", combatantId: event.combatantId }
-    )
+  if (event.kind === "addParticipant") {
+    return dispatchAddParticipant({
+      event,
+      encounterId,
+      applyOptimistic,
+      encounterWrite,
+      instanceWrite,
+    })
+  }
+
+  if (event.kind === "removeParticipant") {
+    applyOptimistic({
+      kind: "removePaired",
+      participantId: event.participantId,
+    })
     const result = await encounterWrite.enqueue((expectedVersion) =>
-      applyCombatEvent({
+      applyCombatEventAction({
         encounterId,
         expectedVersion,
         expectedInstanceVersion: instanceWrite.versionRef.current,
         event,
       })
     )
-    if (result.ok) {
-      instanceWrite.versionRef.current += 1
-    }
+    if (result.ok) instanceWrite.versionRef.current += 1
     return result
   }
 
-  applySessionOptimistic(event)
+  applyOptimistic({ kind: "event", event })
   return encounterWrite.enqueue((expectedVersion) =>
-    applyCombatEvent({
+    applyCombatEventAction({
       encounterId,
       expectedVersion,
       expectedInstanceVersion: instanceWrite.versionRef.current,
       event,
     })
   )
+}
+
+async function dispatchAddParticipant({
+  event,
+  encounterId,
+  applyOptimistic,
+  encounterWrite,
+  instanceWrite,
+}: {
+  event: AddParticipantDispatch
+  encounterId: string
+  applyOptimistic: (action: ConsoleOptimisticAction) => void
+  encounterWrite: UseQueuedWriteReturn
+  instanceWrite: UseQueuedWriteReturn
+}): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+  const { setup } = event
+  if ("entity" in setup) {
+    applyOptimistic({
+      kind: "addPaired",
+      setup: { id: setup.id, side: setup.side, entity: setup.entity },
+      zoneId: setup.zoneId,
+    })
+  }
+  // The durable arm (`entityId`) mirrors nothing: the roster row's entity only
+  // exists server-side (hydrated from the character row, R6.2) — the joiner
+  // lands with the action's RSC revalidation.
+
+  const placed = setup.zoneId !== undefined
+  const result = await encounterWrite.enqueue((expectedVersion) =>
+    applyCombatEventAction({
+      encounterId,
+      expectedVersion,
+      expectedInstanceVersion: instanceWrite.versionRef.current,
+      event,
+    })
+  )
+  // Only a placed add writes the Instance row (the paired two-row txn); a
+  // zone-less add is session-only, so the Instance ref must not move.
+  if (result.ok && placed) instanceWrite.versionRef.current += 1
+  return result
+}
+
+/**
+ * Routes an event to the spatial arm — the discriminated-union parse is a cheap
+ * discriminator check (the engine's own routing doctrine, `reduce-encounter.ts`).
+ */
+function isMapInstanceEvent(
+  event: ConsoleDispatchEvent
+): event is MapInstanceEvent {
+  return mapInstanceEventSchema.safeParse(event).success
 }

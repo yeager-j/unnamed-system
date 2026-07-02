@@ -15,10 +15,8 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { err, ok } from "@workspace/game/foundation"
 
 import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
-import type {
-  EncounterRow,
-  LoadedEncounterForSnapshot,
-} from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
+import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { getEncounterSnapshot } from "./load-encounter-snapshot-v2"
 

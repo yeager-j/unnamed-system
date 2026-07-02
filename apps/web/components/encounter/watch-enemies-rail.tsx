@@ -3,11 +3,11 @@
 import { CheckIcon, MapPinIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { getAilment } from "@workspace/game/data"
-import { type PlayerVisibleCombatant } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { VitalBar } from "@/components/shared/vital-bar"
+import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
 
 /**
  * The watch view's **Enemies** rail — the redacted enemy roster pinned to the
@@ -24,7 +24,7 @@ export function WatchEnemiesRail({
   enemies,
   zoneNameById,
 }: {
-  enemies: PlayerVisibleCombatant[]
+  enemies: WatchCombatant[]
   zoneNameById: Map<string, string>
 }) {
   return (
@@ -40,7 +40,9 @@ export function WatchEnemiesRail({
           <li key={enemy.id}>
             <EnemyCard
               enemy={enemy}
-              zoneName={zoneNameById.get(enemy.zoneId) ?? null}
+              zoneName={
+                enemy.zoneId ? (zoneNameById.get(enemy.zoneId) ?? null) : null
+              }
             />
           </li>
         ))}
@@ -55,7 +57,7 @@ function EnemyCard({
   enemy,
   zoneName,
 }: {
-  enemy: PlayerVisibleCombatant
+  enemy: WatchCombatant
   zoneName: string | null
 }) {
   return (
@@ -76,9 +78,11 @@ function EnemyCard({
             className="size-4 shrink-0 text-muted-foreground"
           />
         ) : null}
-        <div className="w-20 shrink-0">
-          <VitalBar current={enemy.hp.current} max={enemy.hp.max} kind="hp" />
-        </div>
+        {enemy.hp ? (
+          <div className="w-20 shrink-0">
+            <VitalBar current={enemy.hp.current} max={enemy.hp.max} kind="hp" />
+          </div>
+        ) : null}
       </div>
 
       {zoneName || enemy.ailments.length > 0 ? (

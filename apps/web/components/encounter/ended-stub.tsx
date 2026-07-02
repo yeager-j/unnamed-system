@@ -3,15 +3,15 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 /**
  * Read-only view for an `ended` encounter (UNN-335). The encounter's combat
- * state was discarded when it ended (ADR Decision 2 — combat state lives on the
- * session, ending throws it away); this is a minimal terminal stub. Any
- * post-combat close-out flow (Spoils, etc.) is a deferred hook.
+ * state was swept when it ended (v2's `sweepOverlay` + `pruneCombat`); this is
+ * a minimal terminal stub. Any post-combat close-out flow (Spoils, etc.) is a
+ * deferred hook.
  */
 export function EncounterEndedStub({
   encounter,
   campaignShortId,
 }: {
-  encounter: EncounterRow
+  encounter: Pick<EncounterRow, "name">
   campaignShortId: string
 }) {
   return (

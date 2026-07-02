@@ -2,12 +2,9 @@
 
 import { XIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type EngageableTarget } from "@workspace/game/engine"
-import {
-  type CombatSide,
-  type Engagement,
-  type MapGeometry,
-} from "@workspace/game/foundation"
+import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
+import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import {
   Select,
@@ -19,6 +16,7 @@ import {
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { SideToggle } from "@/components/combat/controls/side-toggle"
+import type { EngageableTarget } from "@/lib/combat/view/detail-view"
 
 /**
  * One row of the encounter-setup roster (UNN-301). Beyond the side toggle +

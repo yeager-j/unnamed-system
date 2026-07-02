@@ -1,13 +1,16 @@
 import { eq } from "drizzle-orm"
 
-import { createCombatSession, createMapInstance } from "@workspace/game/engine"
 import {
-  type CombatSession,
-  type MapInstanceState,
-} from "@workspace/game/foundation"
+  defaultOverlay,
+  storedSessionSchema,
+  type StoredSession,
+} from "@workspace/game-v2/encounter"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { createMapInstance } from "@workspace/game/engine"
+import { type MapInstanceState } from "@workspace/game/foundation"
 
 import { encounters, getDb, mapInstances } from "@/lib/db"
-import { reduceCombatSession, reduceMapInstance } from "@/lib/game-engine"
+import { reduceMapInstance } from "@/lib/game-engine"
 
 import {
   createLiveEncounter,
@@ -21,12 +24,12 @@ import {
  * net). Mints a finalized PC, a dev-DM campaign, and a **live** encounter whose
  * **Map Instance** carries two adjacent zones (Courtyard ↔ Hall) with the PC
  * placed in Courtyard — the minimum to drive the drawer's `moveCombatant`
- * control and read the persisted `zoneId` back. After the M0 cutover (UNN-459)
- * the spatial state lives on the Instance, so the session is just the started
- * combat (built through the app-bound `reduceCombatSession`) and the zones /
- * occupancy are built through `reduceMapInstance` over a `MapInstanceState`;
- * both are persisted verbatim via the factory overrides. Per-run + torn down in
- * `afterAll`, so nothing it edits can race a parallel worker.
+ * control and read the persisted `zoneId` back. The session is a v2
+ * {@link StoredSession} (UNN-535): one started durable participant; the
+ * zones / occupancy are built through `reduceMapInstance` over a
+ * `MapInstanceState` (the blob shape is era-agnostic); both persist verbatim
+ * via the factory overrides. Per-run + torn down in `afterAll`, so nothing it
+ * edits can race a parallel worker.
  */
 
 const DEV_USER_ID = "dev-user-claude"
@@ -37,37 +40,30 @@ const PC_COMBATANT_ID = "mc-pc"
 const COURTYARD = { id: "zone-a", name: "Courtyard" } as const
 const HALL = { id: "zone-b", name: "Hall" } as const
 
-/** The session baseline: a single placed PC in a started (neutral, players-first)
- *  live session. Position lives on the Instance now, not the combatant. */
-function buildSession(characterId: string): CombatSession {
-  const base = createCombatSession(() => PC_COMBATANT_ID)([
-    {
-      id: PC_COMBATANT_ID,
-      side: "players",
-      ref: { kind: "pc", characterId },
-      zoneId: COURTYARD.id,
-    },
-  ])
-  return reduceCombatSession(base, {
-    kind: "startCombat",
+/** The session baseline: a single durable PC in a started (neutral,
+ *  players-first) live session. Position lives on the Instance, not here. */
+function buildSession(characterId: string): StoredSession {
+  return storedSessionSchema.parse({
+    round: 1,
+    currentActorId: null,
     advantage: "neutral",
     firstSide: "players",
-  })
+    participants: [
+      {
+        id: asParticipantId(PC_COMBATANT_ID),
+        locator: { storage: "durable", entityId: characterId },
+        overlay: defaultOverlay({ side: "players" }),
+      },
+    ],
+  } satisfies StoredSession)
 }
 
 /** The Instance baseline: the PC stands in Courtyard, adjacent to Hall. The PC
- *  is placed via its setup `zoneId` (not a `moveCombatant`), so the baseline is
- *  independent of the move reducer the spec exercises — the only move under test
- *  is the UI travel. */
-function buildInstanceState(characterId: string): MapInstanceState {
-  const base = createMapInstance(() => PC_COMBATANT_ID)([
-    {
-      id: PC_COMBATANT_ID,
-      side: "players",
-      ref: { kind: "pc", characterId },
-      zoneId: COURTYARD.id,
-    },
-  ])
+ *  token is laid down directly in occupancy (the setup-time placement), so the
+ *  baseline is independent of the move reducer the spec exercises — the only
+ *  move under test is the UI travel. */
+function buildInstanceState(): MapInstanceState {
+  const base = createMapInstance(() => PC_COMBATANT_ID)([])
 
   let state = reduceMapInstance(base, {
     kind: "addZone",
@@ -79,12 +75,22 @@ function buildInstanceState(characterId: string): MapInstanceState {
     name: HALL.name,
     zoneId: HALL.id,
   })
-  return reduceMapInstance(state, {
+  state = reduceMapInstance(state, {
     kind: "setZoneAdjacency",
     zoneIdA: COURTYARD.id,
     zoneIdB: HALL.id,
     adjacent: true,
   })
+  return {
+    ...state,
+    occupancy: {
+      ...state.occupancy,
+      [PC_COMBATANT_ID]: {
+        zoneId: COURTYARD.id,
+        engagement: { status: "free" },
+      },
+    },
+  }
 }
 
 export async function createMoveCombatantTarget(tracker: CleanupTracker) {
@@ -97,7 +103,7 @@ export async function createMoveCombatantTarget(tracker: CleanupTracker) {
     campaignId: campaign.id,
     status: "live",
     session: buildSession(pc.id),
-    mapInstanceState: buildInstanceState(pc.id),
+    mapInstanceState: buildInstanceState(),
   })
 
   /** Restores the encounter + Instance to the canonical baseline (PC back in
@@ -106,7 +112,7 @@ export async function createMoveCombatantTarget(tracker: CleanupTracker) {
     const db = getDb()
     await db
       .update(mapInstances)
-      .set({ state: buildInstanceState(pc.id), version: 0 })
+      .set({ state: buildInstanceState(), version: 0 })
       .where(eq(mapInstances.id, encounter.mapInstanceId))
     await db
       .update(encounters)

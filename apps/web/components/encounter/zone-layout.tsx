@@ -1,11 +1,7 @@
 import Image from "next/image"
 import { type ReactNode } from "react"
 
-import {
-  type ZoneLayoutEntry,
-  type ZoneLayoutView,
-  type ZoneToken,
-} from "@workspace/game/engine"
+import type { ZoneEnchantmentBadge } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -22,22 +18,51 @@ import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
+ * The battlefield grid's own **prop contract** (UNN-535) — the minimal
+ * structural slice this component renders, so both shapers (the watch's
+ * {@link import("@/lib/combat/view/watch-layout").buildWatchView} and the DM
+ * console's layout builder) satisfy it without a shared engine type. A token
+ * with a `portraitUrl` draws it; one without gets the side-tinted initials
+ * square — presence-driven, not a PC/enemy kind flag.
+ */
+export interface ZoneLayoutToken {
+  id: string
+  name: string
+  side: "players" | "enemies"
+  portraitUrl: string | null
+}
+
+export interface ZoneLayoutZone {
+  id: string
+  name: string
+  adjacentZoneNames: string[]
+  combatants: ZoneLayoutToken[]
+  enchantment?: ZoneEnchantmentBadge
+}
+
+export interface ZoneLayoutProps {
+  zones: ZoneLayoutZone[]
+  unplaced: ZoneLayoutToken[]
+  hasZones: boolean
+}
+
+/**
  * The read-only **battlefield** (UNN-314): one card per zone showing the
  * combatants in it, which zones it borders, and its Enchantment badge when the
  * session's Enchantment sits on it — plus an "Unplaced" overflow. Pure
- * presentation over the {@link ZoneLayoutView} the page shaped — it issues no
- * events and runs no logic in JSX. Shared shape so the player watch view
- * (UNN-334) can render the same component; the DM console alone passes
- * `zoneAction` (the per-zone Enchant menu), so the watch view stays read-only.
- * An encounter with no zones shows the theater-of-mind note; combatants always
- * remain in the rail.
+ * presentation over the shaped {@link ZoneLayoutProps} — it issues no events
+ * and runs no logic in JSX. Shared shape so the player watch view (UNN-334)
+ * renders the same component; the DM console alone passes `zoneAction` (the
+ * per-zone Enchant menu), so the watch view stays read-only. An encounter with
+ * no zones shows the theater-of-mind note; combatants always remain in the
+ * rail.
  */
 export function ZoneLayout({
   view,
   zoneAction,
 }: {
-  view: ZoneLayoutView
-  zoneAction?: (zone: ZoneLayoutEntry) => ReactNode
+  view: ZoneLayoutProps
+  zoneAction?: (zone: ZoneLayoutZone) => ReactNode
 }) {
   if (!view.hasZones) {
     return (
@@ -72,7 +97,7 @@ function ZoneCard({
   zone,
   action,
 }: {
-  zone: ZoneLayoutEntry
+  zone: ZoneLayoutZone
   action?: ReactNode
 }) {
   return (
@@ -122,7 +147,7 @@ function ZoneCard({
   )
 }
 
-function UnplacedCard({ tokens }: { tokens: ZoneToken[] }) {
+function UnplacedCard({ tokens }: { tokens: ZoneLayoutToken[] }) {
   return (
     <Card size="sm">
       <CardHeader>
@@ -148,7 +173,7 @@ function UnplacedCard({ tokens }: { tokens: ZoneToken[] }) {
 
 /** A combatant token: avatar + name, ringed by side (players vs enemies) so the
  *  side is legible even though zones mix both. */
-function TokenChip({ token }: { token: ZoneToken }) {
+function TokenChip({ token }: { token: ZoneLayoutToken }) {
   const bg =
     token.side === "players"
       ? "bg-blue-700/10 border-blue-700"
@@ -167,15 +192,16 @@ function TokenChip({ token }: { token: ZoneToken }) {
   )
 }
 
-/** PC ⇒ portrait; enemy ⇒ side-tinted initials square. Both carry a side-colored
- *  ring so players read distinct from enemies at a glance. */
-function TokenAvatar({ token }: { token: ZoneToken }) {
+/** A portrait when the token carries one; otherwise a side-tinted initials
+ *  square. Both carry a side-colored ring so players read distinct from enemies
+ *  at a glance. */
+function TokenAvatar({ token }: { token: ZoneLayoutToken }) {
   const ring =
     token.side === "players"
       ? "ring-1 ring-primary/40"
       : "ring-1 ring-destructive/40"
 
-  if (token.isPc) {
+  if (token.portraitUrl !== null) {
     return (
       <Image
         src={avatarSrc(token.portraitUrl, token.name || token.id)}

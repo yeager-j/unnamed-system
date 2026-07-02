@@ -17,14 +17,12 @@ import { useEffect, type ReactNode } from "react"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
 import { buildEdges, buildNodes } from "@/components/dungeon/canvas/build-nodes"
-import { DungeonCombatZoneNode } from "@/components/dungeon/canvas/combat/zone-node"
 import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "@/components/dungeon/canvas/connection-edge"
 import { TurnLoopBar } from "@/components/dungeon/canvas/explore/turn-loop-bar"
 import { DungeonZoneNode } from "@/components/dungeon/canvas/explore/zone-node"
-import { DungeonSetupZoneNode } from "@/components/dungeon/canvas/setup/zone-node"
 import {
   type CanvasNode,
   type DungeonCanvasMode,
@@ -41,22 +39,19 @@ import {
 
 const nodeTypes = {
   dungeonZone: DungeonZoneNode,
-  dungeonCombatZone: DungeonCombatZoneNode,
-  dungeonSetupZone: DungeonSetupZoneNode,
 }
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
 /**
- * The DM run console's shared map canvas (UNN-464 / UNN-467) — one controlled
- * React Flow surface for the exploration **play** board, the **combat** battlefield,
- * and the **setup** picker, branched by {@link DungeonCanvasMode}. It re-derives its
- * nodes/edges from the **optimistic** {@link MapInstanceState} (and the shaped combat
- * layout) on every change via {@link buildNodes}/{@link buildEdges}, so a
- * move/reveal/turn re-lays the board with no extra state. Zones are fixed cards;
- * connections are read-only fog-styled floating edges. The bottom `bar` (the play
- * {@link TurnLoopBar} or the combat panels) renders **inside** the flow as a Panel so
- * it can own the zoom controls; its dispatchers come from the context the run console
- * provides above the canvas.
+ * The DM run console's map canvas (UNN-464) — one controlled React Flow surface
+ * for the exploration **play** board ({@link DungeonCanvasMode}; the combat and
+ * setup boards return with dungeon combat on engine v2, PR11d). It re-derives its
+ * nodes/edges from the **optimistic** {@link MapInstanceState} on every change via
+ * {@link buildNodes}/{@link buildEdges}, so a move/reveal/turn re-lays the board
+ * with no extra state. Zones are fixed cards; connections are read-only fog-styled
+ * floating edges. The bottom `bar` (the play {@link TurnLoopBar}) renders
+ * **inside** the flow as a Panel so it can own the zoom controls; its dispatchers
+ * come from the context the run console provides above the canvas.
  */
 export function DungeonCanvas(props: {
   instance: MapInstanceState

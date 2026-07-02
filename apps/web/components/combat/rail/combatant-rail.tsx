@@ -2,9 +2,10 @@
 
 import { CaretDoubleDownIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type RailRow, type RosterView } from "@workspace/game/engine"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { CombatantRailRow } from "@/components/combat/rail/row"
+import type { RailRow, RosterView } from "@/lib/combat/view/roster-view"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -18,7 +19,7 @@ export function CombatantRail({
   onSelect,
 }: {
   roster: RosterView
-  onSelect: (combatantId: string) => void
+  onSelect: (participantId: ParticipantId) => void
 }) {
   return (
     <aside className="flex w-full shrink-0 flex-col gap-4 md:w-80">
@@ -64,7 +65,7 @@ function Group({
   title: string
   count: number
   rows: RailRow[]
-  onSelect: (combatantId: string) => void
+  onSelect: (participantId: ParticipantId) => void
   rollup?: React.ReactNode
 }) {
   return (

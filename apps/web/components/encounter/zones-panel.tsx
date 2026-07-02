@@ -3,10 +3,7 @@
 import { MapPinIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, type KeyboardEvent } from "react"
 
-import {
-  type MapGeometry,
-  type ZoneGraphEvent,
-} from "@workspace/game/foundation"
+import type { MapGeometry, MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Input } from "@workspace/ui/components/input"
@@ -17,14 +14,20 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+/** The zone-graph slice of the v2 spatial wire this panel emits. */
+export type ZoneGraphEvent = Extract<
+  MapInstanceEvent,
+  { kind: "addZone" | "removeZone" | "setZoneAdjacency" | "renameZone" }
+>
+
 /**
  * The encounter-setup **Zones** panel (UNN-301): the DM authors the encounter's
  * named zones and their adjacency. It owns no zone shape of its own — every edit
- * is emitted as a UNN-313 {@link ZoneGraphEvent} (`addZone` / `renameZone` /
+ * is emitted as a v2 {@link ZoneGraphEvent} (`addZone` / `renameZone` /
  * `removeZone` / `setZoneAdjacency`) through `onZoneEvent`, which the setup shell
- * routes to `applyCombatEvent` (the same path the rest of combat uses). Zones are
- * server-owned: the shell re-reads them after each event, so this panel renders
- * straight from the persisted `zones`/`adjacency` props.
+ * routes to `applyCombatEventAction` (the same path the rest of combat uses).
+ * Zones are server-owned: the shell re-reads them after each event, so this
+ * panel renders straight from the persisted `zones`/`adjacency` props.
  *
  * An encounter with no zones runs unzoned (theater-of-mind) — the empty state
  * says so. Adjacency is undirected; each zone's neighbor popover toggles the edge

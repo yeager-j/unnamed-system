@@ -1,8 +1,6 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { type InitiativeStats } from "@workspace/game/engine"
-
 import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
 import { DungeonPrep, type PrepZone } from "@/components/dungeon/prep"
 import { DungeonRunConsole } from "@/components/dungeon/run-console"
@@ -10,8 +8,6 @@ import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
-import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
-import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 
 import { getDungeonForDM } from "./dungeon-access"
@@ -78,42 +74,15 @@ export default async function DungeonPage({ params }: PageProps) {
     }
 
     case "active": {
-      // Combat is server-derived: a `live` encounter on this delve's own Instance
-      // (the shared-row invariant) means a fight is running, so the console forks
-      // into its combat phase. The same `instance` row backs both layers.
-      const liveEncounter = await loadLiveEncounterForMapInstance(
-        dungeon.mapInstanceId
-      )
-      const combat = liveEncounter
-        ? {
-            encounter: liveEncounter,
-            ...(await loadCombatConsoleData(liveEncounter, instance)),
-          }
-        : null
-
-      // Exploration hydrates each placeable PC once, for two reads: the Setup
-      // phase's higher-Agility first-side hint (derived Agility/Luck) and the
-      // exploration tokens' HP/SP bars (UNN-489). Skipped during combat — Setup is
-      // unreachable and the combat board draws vitals from its own ZoneLayoutView —
-      // so an exploration-only console pays no extra reads.
-      const hydratedParty = combat
-        ? []
-        : (
-            await Promise.all(
-              placedCharacters.map((character) =>
-                loadHydratedCharacterById(character.id)
-              )
-            )
-          ).filter((character) => character !== null)
-      const pcStatsById: Record<string, InitiativeStats> = Object.fromEntries(
-        hydratedParty.map((character) => [
-          character.id,
-          {
-            agility: character.attributes.agility,
-            luck: character.attributes.luck,
-          },
-        ])
-      )
+      // Exploration hydrates each placeable PC once, for the exploration tokens'
+      // HP/SP bars (UNN-489). Dungeon combat returns in PR11d.
+      const hydratedParty = (
+        await Promise.all(
+          placedCharacters.map((character) =>
+            loadHydratedCharacterById(character.id)
+          )
+        )
+      ).filter((character) => character !== null)
       const vitalsById = new Map(
         hydratedParty.map((character) => [
           character.id,
@@ -139,9 +108,7 @@ export default async function DungeonPage({ params }: PageProps) {
           instance={instance}
           roster={runRoster}
           placedCharacters={placedCharacters}
-          pcStatsById={pcStatsById}
           campaignShortId={campaignShortId}
-          combat={combat}
         />
       )
     }
