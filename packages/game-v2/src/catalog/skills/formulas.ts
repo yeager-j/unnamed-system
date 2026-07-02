@@ -7,7 +7,8 @@ import {
 
 /**
  * The closed set of Attack-Roll tier damage formulas used by the ported v1 skill
- * catalog, **keyed by their v1 string** (`"1d8 + Ma"`). v1 authored tier formulas
+ * and item catalogs, **keyed by their v1 string** (`"1d8 + Ma"`). v1 authored tier
+ * formulas
  * as free-form strings; v2 stores them as structured {@link DamageFormula} terms
  * (so a damage bonus folds as an array insert, never string surgery). Centralising
  * the conversion here — rather than re-spelling `[dice(1, 8), attr("ma")]` at every

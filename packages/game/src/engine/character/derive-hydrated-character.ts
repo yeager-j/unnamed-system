@@ -205,6 +205,7 @@ export function toRawInputs(character: HydratedCharacter): RawCharacterInputs {
     maxSkillDice: _maxSkillDice,
     affinityChart: _affinityChart,
     weaponAttackRoll: _weaponAttackRoll,
+    weaponDamageBonuses: _weaponDamageBonuses,
     activeMechanic: _activeMechanic,
     skills: _skills,
     ...row

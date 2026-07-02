@@ -3,6 +3,7 @@ import {
   getArchetype,
 } from "@workspace/game-v2/catalog/archetypes"
 import { getEnemy } from "@workspace/game-v2/catalog/enemies"
+import { getEquippableItem, getItem } from "@workspace/game-v2/catalog/items"
 import { getSkill } from "@workspace/game-v2/catalog/skills"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 
@@ -12,16 +13,15 @@ import type { GameData } from "@workspace/game-v2/kernel/ports"
  * `composition.ts`) permitted to be named by a `catalog` import; all engine logic
  * receives its lookups injected through the port, never by importing here.
  *
- * The **Skill** catalog (`catalog/skills/`) is ported in PR-S (UNN-506) and the
- * **Archetype** catalog (`catalog/archetypes/`) in UNN-504; Item content still awaits
- * its migration.
+ * The **Skill** catalog (`catalog/skills/`) is ported in PR-S (UNN-506), the
+ * **Archetype** catalog (`catalog/archetypes/`) in UNN-504, and the **Item**
+ * catalog (`catalog/items/`) in UNN-533.
  */
 export const gameData: GameData = {
   getArchetype,
   allArchetypes,
-  // Item content is migrated later; the engine + port land now, stubbed unknown.
-  getItem: () => undefined,
-  getEquippableItem: () => undefined,
+  getItem,
+  getEquippableItem,
   getSkill,
   getEnemy,
 }

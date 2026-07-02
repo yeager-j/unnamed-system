@@ -2,21 +2,35 @@ import { describe, expect, it } from "vitest"
 
 import type { Archetype } from "@workspace/game-v2/archetypes"
 import { createGameEngine } from "@workspace/game-v2/composition"
+import { makeItemLookups } from "@workspace/game-v2/items/__fixtures__/catalog"
+import type { Item as V2Item } from "@workspace/game-v2/items/item.schema"
 import type { CombatantEffect } from "@workspace/game-v2/kernel"
 import {
   makeArchetype as makeV2Archetype,
   makeTestGameData as makeV2GameData,
 } from "@workspace/game-v2/resolve/__fixtures__/derive"
+import type { Skill as V2Skill } from "@workspace/game-v2/skills/skill.schema"
 import { isFallen as v2IsFallen } from "@workspace/game-v2/vitals/operations"
-import { deriveHydratedCharacter } from "@workspace/game/engine"
+import {
+  deriveHydratedCharacter,
+  type RawCharacterInputs,
+} from "@workspace/game/engine"
 import { makeArchetype as makeV1Archetype } from "@workspace/game/engine/__fixtures__/archetypes"
 import {
   makeArchetypeRow,
   makeRawCharacterInputs,
 } from "@workspace/game/engine/__fixtures__/character"
 import { makeTestGameData as makeV1GameData } from "@workspace/game/engine/__fixtures__/game-data"
+import {
+  makeAttackSkill as makeV1AttackSkill,
+  makePassiveSkill as makeV1PassiveSkill,
+} from "@workspace/game/engine/__fixtures__/skills"
 import { isFallen as v1IsFallen } from "@workspace/game/foundation"
+import type { CombatContext } from "@workspace/game/foundation/character/state"
+import type { Item as V1Item } from "@workspace/game/foundation/items/schema"
+import type { Skill as V1Skill } from "@workspace/game/foundation/skills/schema"
 
+import { createDeriveHydratedCharacterV2 } from "@/lib/game-v2/derive-hydrated-character"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
 /**
@@ -319,5 +333,397 @@ describe("v2-only depletion the v1 model can't represent", () => {
     const v2 = resolve(enemy(130)).components
     expect(v2.vitals).toEqual({ maxHP: 100, currentHP: 0 })
     expect(v2IsFallen(v2.vitals!)).toBe(true)
+  })
+})
+
+/**
+ * **Full-sheet projection golden-master (UNN-533, PR11a).** Runs the whole
+ * v2-backed `createDeriveHydratedCharacterV2` projection against v1's
+ * `deriveHydratedCharacter` over fixture catalogs — the edges the real-catalog
+ * seed-parity suite (`derive-parity.test.ts`) can't reach: an `hp-percent` cost's
+ * floor, a `perPartyLineage` scaler with a party context, a null mechanic state's
+ * `initialState()` coercion, an unknown catalog item, and the one documented
+ * SUPERSEDE where the engines deliberately diverge.
+ *
+ * The dual materialization is deliberate: the two catalogs share keys but not
+ * shapes (v2 Skills/Items are facet-composed — UNN-506/UNN-503), so each spec
+ * authors its v1 and v2 artifacts side by side, sharing the effect literals
+ * (identical schemas on both sides).
+ */
+function projectBoth(opts: {
+  raw: RawCharacterInputs
+  context?: CombatContext
+  v1Archetypes?: readonly ReturnType<typeof makeV1Archetype>[]
+  v2Archetypes?: Record<string, Archetype>
+  v1Skills?: readonly V1Skill[]
+  v2Skills?: readonly V2Skill[]
+  v1Items?: readonly V1Item[]
+  v2Items?: readonly V2Item[]
+}) {
+  const lookups = makeV1GameData({
+    archetypes: opts.v1Archetypes,
+    skills: opts.v1Skills,
+    items: opts.v1Items,
+  })
+  const engine = createGameEngine({
+    ...makeV2GameData(opts.v2Archetypes ?? {}),
+    ...makeItemLookups({ items: opts.v2Items, skills: opts.v2Skills }),
+  })
+  return {
+    v1: deriveHydratedCharacter(lookups)(opts.raw, opts.context),
+    v2: createDeriveHydratedCharacterV2(lookups, engine)(
+      opts.raw,
+      opts.context
+    ),
+  }
+}
+
+describe("v1 ↔ v2 full-sheet projection golden-master", () => {
+  it("matches skills (hp-percent cost, scaler Attack Roll), weapon readouts, items, and talents", () => {
+    // Effect literals are shared verbatim by both catalogs (identical schemas).
+    const circleEffects = [
+      {
+        type: "attackRoll" as const,
+        source: "Fixture Circle",
+        scaler: {
+          kind: "perPartyLineage" as const,
+          lineage: "mage" as const,
+          amount: 1,
+          includesSelf: false,
+        },
+        when: { deliveries: ["magical" as const] },
+      },
+    ]
+    const attackRoll = { attribute: "ma" as const, tiers: [] }
+
+    // The granted Skill reuses the real key "garu" as an opaque id — v1's item
+    // `skillKey` is registry-narrowed, but the fixture object is what resolves.
+    const v1Skills: V1Skill[] = [
+      makeV1AttackSkill({
+        key: "agi",
+        cost: { kind: "hp-percent", amount: 5 },
+        damageType: "fire",
+        delivery: "magical",
+        attackRoll,
+      }),
+      makeV1PassiveSkill({ key: "magic-circle", effects: circleEffects }),
+      makeV1PassiveSkill({ key: "garu" }),
+    ]
+    const v2Skills: V2Skill[] = [
+      {
+        kind: "attack",
+        key: "agi",
+        name: "agi",
+        tagline: "agi",
+        description: "agi",
+        isSynthesis: false,
+        cost: { kind: "hp-percent", amount: 5 },
+        range: { kind: "known", value: "engaged" },
+        damage: { damageType: "fire", delivery: "magical" },
+        attackRoll,
+      },
+      {
+        kind: "passive",
+        key: "magic-circle",
+        name: "magic-circle",
+        tagline: "magic-circle",
+        description: "magic-circle",
+        isSynthesis: false,
+        effects: circleEffects,
+      },
+      {
+        kind: "passive",
+        key: "garu",
+        name: "garu",
+        tagline: "garu",
+        description: "garu",
+        isSynthesis: false,
+      },
+    ]
+
+    const v1Items: V1Item[] = [
+      {
+        key: "fixture-blade",
+        name: "Fixture Blade",
+        description: "A fixture weapon.",
+        stackSize: 1,
+        equip: {
+          slot: "weapon",
+          effects: [{ type: "attribute", target: "magic", amount: 1 }],
+          intrinsicAttack: {
+            range: { kind: "known", value: "engaged" },
+            damageType: "strike",
+            delivery: "physical",
+            attackRoll: { attribute: "st", tiers: [] },
+          },
+        },
+      },
+      {
+        key: "fixture-band",
+        name: "Fixture Band",
+        description: "A fixture accessory.",
+        stackSize: 1,
+        equip: {
+          slot: "accessory",
+          effects: [{ type: "skill", skillKey: "garu" }],
+        },
+      },
+    ]
+    const v2Items: V2Item[] = [
+      {
+        key: "fixture-blade",
+        name: "Fixture Blade",
+        description: "A fixture weapon.",
+        stackSize: 1,
+        equip: {
+          slot: "weapon",
+          effects: [{ type: "attribute", target: "magic", amount: 1 }],
+          intrinsicAttack: {
+            range: { kind: "known", value: "engaged" },
+            damageType: "strike",
+            delivery: "physical",
+            attackRoll: { attribute: "st", tiers: [] },
+          },
+        },
+      },
+      {
+        key: "fixture-band",
+        name: "Fixture Band",
+        description: "A fixture accessory.",
+        stackSize: 1,
+        equip: {
+          slot: "accessory",
+          effects: [{ type: "skill", skillKey: "garu" }],
+        },
+      },
+    ]
+
+    const raw = makeRawCharacterInputs({
+      row: {
+        level: 3,
+        activeArchetypeId: "arch-mage",
+        gainedTalents: ["climb"],
+      },
+      archetypeRows: [
+        makeArchetypeRow({
+          id: "arch-mage",
+          archetypeKey: "mage",
+          rank: 1,
+        }),
+      ],
+      inventoryRows: [
+        {
+          id: "inv-blade",
+          characterId: "fixture-char",
+          catalogItemKey: "fixture-blade",
+          equipped: true,
+          quantity: 1,
+        },
+        {
+          id: "inv-band",
+          characterId: "fixture-char",
+          catalogItemKey: "fixture-band",
+          equipped: true,
+          quantity: 1,
+        },
+        {
+          id: "inv-spare",
+          characterId: "fixture-char",
+          catalogItemKey: "fixture-blade",
+          equipped: false,
+          quantity: 2,
+        },
+      ],
+    })
+
+    const archetypeSpec = () => ({
+      key: "mage",
+      attributes: { strength: 0, magic: 4, agility: 1, luck: 1 },
+      affinities: { fire: "resist" } as const,
+      lineage: "mage" as const,
+      talents: ["athletics", "lift"] as ("athletics" | "lift")[],
+      skills: [
+        { rank: 1, skill: "agi" as const },
+        { rank: 1, skill: "magic-circle" as const },
+      ],
+    })
+
+    const { v1, v2 } = projectBoth({
+      raw,
+      context: { partyComposition: { mage: 3, warrior: 1 } },
+      v1Archetypes: [makeV1Archetype(archetypeSpec())],
+      v2Archetypes: { mage: makeV2Archetype(archetypeSpec()) },
+      v1Skills,
+      v2Skills,
+      v1Items,
+      v2Items,
+    })
+
+    expect(v2).toEqual(v1)
+    // Guard against a vacuous pass: the interesting readouts must be live.
+    expect(v1.skills.map((s) => s.key)).toEqual(["agi", "magic-circle", "garu"])
+    expect(v1.skills[0]?.resolvedCost).not.toBeNull()
+    expect(v1.skills[0]?.resolvedAttackRoll?.sources.length).toBeGreaterThan(1)
+    expect(v1.weaponAttackRoll).not.toBeNull()
+    expect(v1.talents).toEqual(["athletics", "climb", "lift"])
+  })
+
+  it("coerces a null mechanic state to initialState() for the active archetype", () => {
+    const archetype = {
+      key: "warrior",
+      attributes: { strength: 3, magic: 0, agility: 1, luck: 0 },
+      mastery: { kind: "hp", amount: 0 },
+      lineage: "warrior",
+      mechanic: "perfection",
+    } as const
+
+    const raw = makeRawCharacterInputs({
+      row: { activeArchetypeId: "arch-warrior" },
+      archetypeRows: [
+        makeArchetypeRow({
+          id: "arch-warrior",
+          archetypeKey: "warrior",
+          mechanicState: null,
+        }),
+      ],
+    })
+
+    const { v1, v2 } = projectBoth({
+      raw,
+      v1Archetypes: [makeV1Archetype({ ...archetype })],
+      v2Archetypes: { warrior: makeV2Archetype({ ...archetype }) },
+    })
+
+    expect(v2).toEqual(v1)
+    expect(v1.activeMechanic).toEqual({
+      kind: "perfection",
+      state: { kind: "perfection", rank: 0 },
+    })
+  })
+
+  it("folds a stored mechanic state's Attack-Roll effects into the weapon readout (Perfection rank 3)", () => {
+    const archetype = {
+      key: "warrior",
+      attributes: { strength: 3, magic: 0, agility: 1, luck: 0 },
+      lineage: "warrior",
+      mechanic: "perfection",
+    } as const
+    const weapon = {
+      key: "fixture-axe",
+      name: "Fixture Axe",
+      description: "A fixture weapon.",
+      stackSize: 1,
+      equip: {
+        slot: "weapon" as const,
+        intrinsicAttack: {
+          range: { kind: "known" as const, value: "engaged" as const },
+          damageType: "slash" as const,
+          delivery: "physical" as const,
+          attackRoll: { attribute: "st" as const, tiers: [] },
+        },
+      },
+    }
+
+    const raw = makeRawCharacterInputs({
+      row: { activeArchetypeId: "arch-warrior" },
+      archetypeRows: [
+        makeArchetypeRow({
+          id: "arch-warrior",
+          archetypeKey: "warrior",
+          mechanicState: { kind: "perfection", rank: 3 },
+        }),
+      ],
+      inventoryRows: [
+        {
+          id: "inv-axe",
+          characterId: "fixture-char",
+          catalogItemKey: "fixture-axe",
+          equipped: true,
+          quantity: 1,
+        },
+      ],
+    })
+
+    const { v1, v2 } = projectBoth({
+      raw,
+      v1Archetypes: [makeV1Archetype({ ...archetype })],
+      v2Archetypes: { warrior: makeV2Archetype({ ...archetype }) },
+      v1Items: [weapon],
+      v2Items: [weapon],
+    })
+
+    expect(v2).toEqual(v1)
+    expect(v1.activeMechanic?.state).toEqual({ kind: "perfection", rank: 3 })
+    // The Perfection bonus must actually land beside the attribute source.
+    expect(v1.weaponAttackRoll?.sources.length).toBeGreaterThan(1)
+  })
+
+  it("hydrates an unknown catalog item as `item: undefined` on both engines", () => {
+    const raw = makeRawCharacterInputs({
+      inventoryRows: [
+        {
+          id: "inv-relic",
+          characterId: "fixture-char",
+          catalogItemKey: "long-lost-relic",
+          equipped: true,
+          quantity: 1,
+        },
+      ],
+    })
+
+    const { v1, v2 } = projectBoth({ raw })
+
+    expect(v2).toEqual(v1)
+    expect(v1.inventory[0]?.item).toBeUndefined()
+    expect(v1.weaponAttackRoll).toBeNull()
+  })
+
+  it("SUPERSEDE (D19/UNN-503): equipment-granted Skills apply without an active archetype in v2 only", () => {
+    // v1 gates equipment grants on an active archetype (`active ? activeSkillsFor
+    // : []`); v2 collects them unconditionally — the accepted divergence, pinned
+    // here so a red diff points at the decision, not a bug. The granted Skill is
+    // effect-free, so every other derived field still matches.
+    const granted = {
+      kind: "passive" as const,
+      key: "garu",
+      name: "garu",
+      tagline: "garu",
+      description: "garu",
+      isSynthesis: false,
+    }
+    const band: V1Item & V2Item = {
+      key: "fixture-band",
+      name: "Fixture Band",
+      description: "A fixture accessory.",
+      stackSize: 1,
+      equip: {
+        slot: "accessory",
+        effects: [{ type: "skill", skillKey: "garu" }],
+      },
+    }
+
+    const raw = makeRawCharacterInputs({
+      inventoryRows: [
+        {
+          id: "inv-band",
+          characterId: "fixture-char",
+          catalogItemKey: "fixture-band",
+          equipped: true,
+          quantity: 1,
+        },
+      ],
+    })
+
+    const { v1, v2 } = projectBoth({
+      raw,
+      v1Skills: [makeV1PassiveSkill({ key: "garu" })],
+      v2Skills: [granted],
+      v1Items: [band],
+      v2Items: [band],
+    })
+
+    expect(v1.skills).toEqual([])
+    expect(v2.skills.map((s) => s.key)).toEqual(["garu"])
+    expect({ ...v2, skills: [] }).toEqual({ ...v1, skills: [] })
   })
 })

@@ -1,3 +1,4 @@
+import type { AttackRollContext } from "@workspace/game-v2/combat/attack-roll"
 import type { IntrinsicAttack } from "@workspace/game-v2/items/item.schema"
 import { getEquippedItem } from "@workspace/game-v2/items/resolve-inventory"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
@@ -26,6 +27,24 @@ export interface ResolvedBasicAttack {
  * **replaces this param** with a `naturalAttack` component read off the formed
  * entity (+ the `applyForm` carry) — do not build a durable caller around the param.
  */
+/**
+ * The {@link AttackRollContext} a basic attack rolls under — "a weapon attack is
+ * mechanically a Skill attack" (rulebook 3.3), so it presents as an `attack`-kind
+ * context and the same filter/scaler machinery applies. The v2 twin of v1's
+ * private `weaponAttackContext`; owned here so the rule stays with the basic
+ * attack it describes rather than re-derived by each consumer.
+ */
+export function intrinsicAttackRollContext(
+  attack: IntrinsicAttack
+): AttackRollContext {
+  return {
+    kind: "attack",
+    damageType: attack.damageType,
+    delivery: attack.delivery,
+    attribute: attack.attackRoll.attribute,
+  }
+}
+
 export function resolveBasicAttack(
   deps: Pick<GameData, "getItem">,
   entity: Entity,

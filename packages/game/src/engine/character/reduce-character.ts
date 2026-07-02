@@ -19,8 +19,11 @@ import type { HydratedCharacter } from "@workspace/game/foundation/character/hyd
 /**
  * Applies a {@link CharacterEdit} to a {@link HydratedCharacter} by projecting
  * back to {@link RawCharacterInputs}, routing to the matching per-domain slice
- * (in `./reduce/`), and re-deriving with {@link deriveHydratedCharacter} — the
- * same function the server loader uses. `newId` mints ids for inventory rows an
+ * (in `./reduce/`), and re-deriving through `derive` — which MUST be the same
+ * derivation the server loader uses, or optimistic frames drift. It defaults to
+ * v1's {@link deriveHydratedCharacter} over `lookups`; the composition root
+ * (`apps/web/lib/game-engine.ts`) injects the v2-backed derivation instead
+ * (UNN-533). `newId` mints ids for inventory rows an
  * `add` creates (the server's revalidate later replaces them with persisted
  * rows); it is bound at the composition root ({@link createGameEngine}) so the
  * engine core stays seam-free and tests inject a deterministic generator. A
@@ -29,7 +32,10 @@ import type { HydratedCharacter } from "@workspace/game/foundation/character/hyd
  */
 export function reduceCharacter(
   lookups: CharacterLookups & Pick<GameData, "allArchetypes">,
-  newId: () => string
+  newId: () => string,
+  derive: (
+    raw: RawCharacterInputs
+  ) => HydratedCharacter = deriveHydratedCharacter(lookups)
 ) {
   return (
     character: HydratedCharacter,
@@ -37,7 +43,7 @@ export function reduceCharacter(
   ): HydratedCharacter => {
     const raw = toRawInputs(character)
     const next = routeEdit(raw, character, edit, lookups, newId)
-    return next ? deriveHydratedCharacter(lookups)(next) : character
+    return next ? derive(next) : character
   }
 }
 

@@ -1,4 +1,7 @@
 import { createGameEngine } from "@workspace/game-v2/composition"
+import { gameData as v1GameData } from "@workspace/game/data"
+
+import { createDeriveHydratedCharacterV2 } from "@/lib/game-v2/derive-hydrated-character"
 
 /**
  * The **composition root for the v2 engine** (`@workspace/game-v2`) — the
@@ -8,7 +11,21 @@ import { createGameEngine } from "@workspace/game-v2/composition"
  * never threads the catalog by hand and the binding stays confined here.
  *
  * Deliberately minimal: only the functions an app surface already consumes are
- * re-exported (UNN-530 binds `resolveSession` for the snapshot read boundary).
- * PR11 (UNN-510) grows this as the console/watch flip to v2.
+ * re-exported (UNN-530 binds `resolveSession` for the snapshot read boundary;
+ * UNN-533 binds the sheet derivation). PR11 (UNN-510) grows this as the
+ * console/watch flip to v2.
  */
-export const { resolveSession } = createGameEngine()
+const engine = createGameEngine()
+
+export const { resolveSession, resolveEntity, resolveBasicAttack } = engine
+
+/**
+ * The v2-backed sheet derivation (UNN-533) — the one place the two engines meet:
+ * v1 supplies the catalog joins the `HydratedCharacter` shape carries (items,
+ * skills, talent names); v2 computes every derived value.
+ * `lib/game-engine.ts` re-exports this as `deriveHydratedCharacter`.
+ */
+export const deriveHydratedCharacterV2 = createDeriveHydratedCharacterV2(
+  v1GameData,
+  engine
+)
