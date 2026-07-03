@@ -9,6 +9,7 @@ import {
   useEncounterSnapshot,
   type WatchSnapshot,
 } from "@/hooks/use-encounter-snapshot"
+import type { SnapshotFetcher } from "@/hooks/use-snapshot-subscription"
 import { buildWatchView } from "@/lib/combat/view/watch-layout"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
@@ -40,16 +41,24 @@ export function EncounterWatch({
   initialSnapshot,
   initialCompositeVersion,
   ownedSheets,
+  fetcher,
 }: {
   shortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
   ownedSheets: OwnedEncounterSheet[]
+  /** Overrides the poll source (UNN-536): a delve combat watch fetches the
+   *  **fogged** snapshot. Defaults to the mapless full-map endpoint. */
+  fetcher?: SnapshotFetcher<WatchSnapshot>
 }) {
-  const { snapshot, stale } = useEncounterSnapshot(shortId, {
-    ...initialSnapshot,
-    compositeVersion: initialCompositeVersion,
-  })
+  const { snapshot, stale } = useEncounterSnapshot(
+    shortId,
+    {
+      ...initialSnapshot,
+      compositeVersion: initialCompositeVersion,
+    },
+    fetcher
+  )
   useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
   const hasSheets = ownedSheets.length > 0
 

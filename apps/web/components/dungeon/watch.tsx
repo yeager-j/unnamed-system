@@ -36,9 +36,10 @@ const DungeonWatchCanvas = dynamic(
  * subscribes via {@link useDungeonSnapshot} (realtime + ~1.5s poll fallback).
  *
  * Status-branched: `draft` waits, `active` shows the live fog map, `done` freezes
- * the final reveal. Exploration-only since the v1 combat cutover (UNN-535) — the
- * combat composition (dual-subscribe + own-sheet combat column) returns with
- * dungeon combat on engine v2 (PR11d).
+ * the final reveal. **Exploration-only**: during a live fight the watch page forks
+ * *above* this component to the fogged v2 combat watch
+ * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
+ * so this renders only the delve's exploration fog view.
  */
 export function DungeonWatch({
   shortId,

@@ -11,6 +11,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { DungeonEditCanvas } from "@/components/dungeon/canvas/edit-canvas"
 import { DungeonCanvasProvider } from "@/components/dungeon/canvas/explore/context"
 import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
+import { DungeonStartEncounterDialog } from "@/components/dungeon/combat/start-encounter-dialog"
 import { DungeonPartySidebar } from "@/components/dungeon/explore/party-sidebar"
 import { useDungeonConsole } from "@/components/dungeon/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/components/dungeon/explore/zone-sheet"
@@ -43,8 +44,8 @@ const DungeonCanvas = dynamic(
  * The run console's **Play (exploration)** phase, driven by
  * {@link useDungeonConsole} and rendered by the thin
  * {@link import("@/components/dungeon/run-console").DungeonRunConsole}. The Play
- * bar's "Start an encounter" affordance is disabled until dungeon combat returns
- * on engine v2 (PR11d).
+ * bar's "Start an encounter" affordance opens the pre-combat staging dialog
+ * ({@link DungeonStartEncounterDialog}, UNN-536).
  *
  * Renders inside the persistent {@link import("@/components/dungeon/shell/console-shell").DungeonConsoleShell}
  * (UNN-488): its sidebar (party rows) is portaled into the shell's shared
@@ -84,6 +85,15 @@ export function DungeonExploreBody({
   // delve's status (ADR — Console topology). Play draws tokens/fog; Edit swaps in
   // the Map builder over the live Instance geometry.
   const [mode, setMode] = useState<"play" | "edit">("play")
+  const [startOpen, setStartOpen] = useState(false)
+
+  const partyCharacterIds = Object.keys(instanceState.occupancy).filter(
+    (characterId) => roster[characterId] !== undefined
+  )
+  const zoneList = Object.values(instanceState.geometry.zones).map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+  }))
 
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
@@ -157,6 +167,7 @@ export function DungeonExploreBody({
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
+              onStartEncounter: () => setStartOpen(true),
               mode,
               onModeChange: setMode,
               disabled: isPending,
@@ -212,6 +223,16 @@ export function DungeonExploreBody({
         onLockConnection={(connectionId) =>
           dispatch({ kind: "lockConnection", connectionId })
         }
+      />
+
+      <DungeonStartEncounterDialog
+        open={startOpen}
+        onOpenChange={setStartOpen}
+        dungeonId={dungeon.id}
+        dungeonName={dungeon.name}
+        expectedInstanceVersion={instance.version}
+        partyCharacterIds={partyCharacterIds}
+        zones={zoneList}
       />
     </>
   )

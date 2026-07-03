@@ -12,7 +12,11 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
-import { encounters, type EncounterRow } from "@/lib/db/schema/encounter"
+import {
+  encounters,
+  type EncounterRow,
+  type EncounterStatus,
+} from "@/lib/db/schema/encounter"
 import { resolveEntity } from "@/lib/game-engine-v2"
 import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
 
@@ -211,6 +215,36 @@ export async function loadLiveEncounterIdForCampaign(
     .limit(1)
 
   return row?.id ?? null
+}
+
+/**
+ * The envelope of the single `live` encounter running on a given **Map Instance**,
+ * or `null` when none is — the blob-agnostic read behind a delve's combat-vs-explore
+ * mode fork (UNN-536). Matches on `mapInstanceId` (not `campaignId`): a campaign can
+ * hold a live standalone encounter on a *different* Instance, which is not this
+ * delve's fight. Selects three envelope columns; never reads or parses `session`, so
+ * the page loader can decide the mode cheaply before committing to the heavier
+ * `EncounterForDM` / snapshot load.
+ */
+export async function loadLiveEncounterForMapInstance(
+  mapInstanceId: string
+): Promise<{ id: string; shortId: string; status: EncounterStatus } | null> {
+  const [row] = await db
+    .select({
+      id: encounters.id,
+      shortId: encounters.shortId,
+      status: encounters.status,
+    })
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.mapInstanceId, mapInstanceId),
+        eq(encounters.status, "live")
+      )
+    )
+    .limit(1)
+
+  return row ?? null
 }
 
 /**

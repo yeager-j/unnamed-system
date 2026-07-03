@@ -15,6 +15,7 @@ import {
   type EncounterState,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { type Result } from "@workspace/game/foundation"
 
 import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
 import {
@@ -32,6 +33,7 @@ import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { parseVersionPing } from "@/hooks/version-ping"
 import { useMonotonicVersionMap } from "@/hooks/version-token-store"
 import { endCombatAction } from "@/lib/actions/combat/end-combat"
+import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import {
   reduceConsoleOptimistic,
@@ -78,13 +80,25 @@ import { resolveSession } from "@/lib/game-engine-v2"
  * keyed off `participantMeta[*].characterShortId`, with the monotonic per-PC
  * `vitals` map seeded from `participantMeta[*].vitalsVersion`.
  *
- * The dungeon fork is gone: dungeon combat is stubbed until PR11d, so
- * {@link endEncounter} is always the composed v2 {@link endCombatAction}
- * (sweep + prune + status flip, atomic over both tokens).
+ * **The combat-end write is the one route-varying seam (UNN-536).** The mapless
+ * encounter ends via the two-row {@link endCombatAction}; a delve ends via the
+ * three-row `endDungeonCombatAction` (+ the dungeon turn advance, a third version
+ * token). Rather than re-derive the route from `data`, the route body injects an
+ * {@link EndCombatPerformer} through `options.endCombat` — everything else (the
+ * two write queues, realtime, the optimistic container, every view builder) stays
+ * shared. The performer receives the enqueue-guarded encounter version + the
+ * current Instance version and returns an {@link EndCombatError}-typed result, so
+ * the dungeon collapses its two extra codes at its own boundary.
  */
+export type EndCombatPerformer = (expected: {
+  encounterVersion: number
+  instanceVersion: number
+}) => Promise<Result<{ version: number }, EndCombatError>>
+
 export function useCombatConsole(
   data: EncounterForDM,
-  durableHydrationById: Record<ParticipantId, DurableHydration> = {}
+  durableHydrationById: Record<ParticipantId, DurableHydration>,
+  options: { endCombat?: EndCombatPerformer } = {}
 ) {
   const { encounter, participantMeta } = data
   const router = useRouter()
@@ -193,21 +207,30 @@ export function useCombatConsole(
     applyOptimistic,
   })
 
+  const endCombat: EndCombatPerformer =
+    options.endCombat ??
+    (({ encounterVersion, instanceVersion }) =>
+      endCombatAction({
+        encounterId: encounter.id,
+        expectedVersion: encounterVersion,
+        expectedInstanceVersion: instanceVersion,
+      }))
+
   /**
    * Ends the encounter: the composed v2 combat-end (overlay sweep + occupancy
-   * prune + `ended` status flip, one transaction over both version tokens).
-   * Dispatched through the encounter queue so it serializes behind any
-   * in-flight session write; the Instance token reads its own ref (no
-   * in-flight move at end-time in practice). The server bumped the Instance
-   * row too, so its ref hand-advances on success.
+   * prune + `ended` status flip, one transaction over the version tokens — plus
+   * the dungeon turn advance when {@link options.endCombat} is the delve
+   * performer). Dispatched through the encounter queue so it serializes behind
+   * any in-flight session write; the Instance token reads its own ref (no
+   * in-flight move at end-time in practice). The server bumped the Instance row
+   * too, so its ref hand-advances on success.
    */
   function endEncounter() {
     startTransition(async () => {
       const result = await encounterWrite.enqueue((expectedVersion) =>
-        endCombatAction({
-          encounterId: encounter.id,
-          expectedVersion,
-          expectedInstanceVersion: instanceWrite.versionRef.current,
+        endCombat({
+          encounterVersion: expectedVersion,
+          instanceVersion: instanceWrite.versionRef.current,
         })
       )
       if (!result.ok) {

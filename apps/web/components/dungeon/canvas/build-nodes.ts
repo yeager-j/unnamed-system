@@ -1,6 +1,11 @@
-import { connectionFogState, isConnectionLocked } from "@workspace/game/engine"
-import type { MapInstanceState } from "@workspace/game/foundation"
+import {
+  connectionFogState,
+  isConnectionLocked,
+  zoneEnchantmentBadge,
+} from "@workspace/game/engine"
+import type { MapInstanceState, MapZone } from "@workspace/game/foundation"
 
+import { type DungeonCombatToken } from "@/components/dungeon/canvas/combat/zone-node"
 import { type DungeonConnectionEdge as DungeonConnectionEdgeType } from "@/components/dungeon/canvas/connection-edge"
 import { type DungeonZoneToken } from "@/components/dungeon/canvas/explore/zone-node"
 import {
@@ -8,6 +13,7 @@ import {
   type DungeonCanvasMode,
   type DungeonRosterEntry,
 } from "@/components/dungeon/canvas/types"
+import type { RailRow, RosterView } from "@/lib/combat/view/roster-view"
 
 /** The party tokens standing in each Zone (play mode), keyed by Zone id. Tokens
  *  whose occupant isn't in the delve roster are dropped — during exploration the
@@ -35,13 +41,22 @@ export function tokensByZone(
 
 /** Re-derive the React Flow node array from the (optimistic) Instance — the
  *  {@link import("@/components/dungeon/canvas/canvas").DungeonCanvas} runs this on
- *  every Instance change. Only the play (exploration) board remains; the combat
- *  and setup node builders return with dungeon combat on engine v2 (PR11d). */
+ *  every Instance change, keyed off the {@link DungeonCanvasMode}: the exploration
+ *  **play** board or the combat battlefield (UNN-536). */
 export function buildNodes(
   instance: MapInstanceState,
   mode: DungeonCanvasMode
 ): CanvasNode[] {
-  const byZone = tokensByZone(instance, mode.roster)
+  return mode.kind === "combat"
+    ? buildCombatNodes(instance, mode.roster)
+    : buildPlayNodes(instance, mode.roster)
+}
+
+function buildPlayNodes(
+  instance: MapInstanceState,
+  roster: Record<string, DungeonRosterEntry>
+): CanvasNode[] {
+  const byZone = tokensByZone(instance, roster)
   return Object.values(instance.geometry.zones).map((zone) => ({
     id: zone.id,
     type: "dungeonZone",
@@ -53,6 +68,52 @@ export function buildNodes(
       tokens: byZone[zone.id] ?? [],
     },
   }))
+}
+
+/** The combat battlefield's nodes: each authored Zone with the combatants standing
+ *  in it (grouped from the console {@link RosterView} by their occupancy zone), the
+ *  both-sides-present **Engaged** flag, and the Zone's Bard Enchantment badge. The
+ *  acting highlight + move affordances are read from the canvas context per node,
+ *  not baked here. */
+function buildCombatNodes(
+  instance: MapInstanceState,
+  roster: RosterView
+): CanvasNode[] {
+  const rowsByZone: Record<string, RailRow[]> = {}
+  for (const row of [...roster.players, ...roster.enemies]) {
+    const zoneId = instance.occupancy[row.id]?.zoneId
+    if (zoneId === undefined) continue
+    ;(rowsByZone[zoneId] ??= []).push(row)
+  }
+
+  return Object.values(instance.geometry.zones).map((zone: MapZone) => {
+    const tokens: DungeonCombatToken[] = (rowsByZone[zone.id] ?? []).map(
+      (row) => ({
+        id: row.id,
+        name: row.name,
+        side: row.side,
+        isPc: row.isPc,
+        portraitUrl: row.portraitUrl,
+        hp: row.hp,
+        sp: row.sp,
+        engaged: row.engagement.status === "engaged",
+      })
+    )
+    const sides = new Set(tokens.map((token) => token.side))
+    return {
+      id: zone.id,
+      type: "dungeonCombatZone",
+      position: zone.position,
+      draggable: false,
+      data: {
+        zone,
+        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+        tokens,
+        engaged: sides.has("players") && sides.has("enemies"),
+        enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
+      },
+    }
+  })
 }
 
 /** The Instance's connections as read-only fog-styled floating edges. */

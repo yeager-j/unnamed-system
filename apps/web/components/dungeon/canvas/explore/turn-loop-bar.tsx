@@ -49,6 +49,7 @@ export function TurnLoopBar() {
     turnCounter,
     advanceTurn,
     finishDelve,
+    onStartEncounter,
     mode,
     onModeChange,
     disabled,
@@ -90,14 +91,21 @@ export function TurnLoopBar() {
 
         <Separator orientation="vertical" className="mx-2" />
 
-        {/* Dungeon combat is disabled during the v1 combat cutover (UNN-535);
-            it returns on engine v2 in PR11d. A disabled trigger doesn't fire
-            Tooltip hover events, so the span carries the title. */}
-        <span title="Start an encounter — Combat returns in PR11d">
-          <Button size="icon" aria-label="Start an encounter" disabled>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                size="icon"
+                aria-label="Start an encounter"
+                onClick={onStartEncounter}
+                disabled={disabled}
+              />
+            }
+          >
             <SwordIcon weight="fill" />
-          </Button>
-        </span>
+          </TooltipTrigger>
+          <TooltipContent>Start an encounter</TooltipContent>
+        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger
