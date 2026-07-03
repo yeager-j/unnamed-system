@@ -55,9 +55,36 @@ export type GetEncounterSnapshotError =
   | "campaign-not-found"
   | "map-instance-not-found"
 
-/** The redacted watcher snapshot for one encounter, by watch-URL `shortId`. */
+/**
+ * The redacted watcher snapshot for one encounter, **full map — no fog clamp**
+ * (every mapless encounter is a standalone Instance). Fog is the caller's
+ * provenance decision, decided **once** here (mapless) vs. in
+ * {@link getDungeonCombatSnapshot} (a delve, fogged); it is NOT derivable inside
+ * the projector, which combat moves also write.
+ */
 export async function getEncounterSnapshot(
   shortId: string
+): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
+  return projectSnapshotCore(shortId, false)
+}
+
+/**
+ * The redacted watcher snapshot for a fight running **on a delve** (UNN-536) —
+ * the fogged twin of {@link getEncounterSnapshot}. A delve is fog-of-war: the
+ * projector clamps zones/connections/combatants to what the DM has revealed, so
+ * players see the combat battlefield exactly as far as they've explored.
+ */
+export async function getDungeonCombatSnapshot(
+  shortId: string
+): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
+  return projectSnapshotCore(shortId, true)
+}
+
+/** The shared load → derive-viewer → resolve → project → version-fold core, with
+ *  the one `fog` clamp decided by each entry point. */
+async function projectSnapshotCore(
+  shortId: string,
+  fog: boolean
 ): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
   const loaded = await loadEncounterForSnapshot(shortId)
   if (!loaded.ok) return loaded
@@ -85,11 +112,7 @@ export async function getEncounterSnapshot(
     },
     instance.state,
     instance.version,
-    // Every mapless encounter is a standalone Instance — full map, no fog
-    // clamp. Fog is the caller's provenance decision (a delve's combat watch
-    // passes its exploration fog state when it returns in PR11d); it is NOT
-    // derivable from reveal state, which combat moves also write.
-    false
+    fog
   )
 
   return ok({

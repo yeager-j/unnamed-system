@@ -46,8 +46,10 @@ function buildRoster(
  * `shortId` (UNN-466), or `null` when no dungeon matches (the page's 404 / the API
  * route's 404). The impure shell around the pure {@link projectDungeonSnapshot}: it
  * loads the dungeon + its Map Instance and the campaign's placed-character roster
- * (for token names/portraits), then projects. The snapshot is always combat-free —
- * the live-combat overlay returns with dungeon combat on engine v2 (PR11d).
+ * (for token names/portraits), then projects. The snapshot is always combat-free:
+ * during a live fight the watch page forks to the fogged v2 combat watch
+ * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
+ * so this exploration snapshot never carries a combat overlay.
  *
  * The fog **redaction lives in the projector**, so it is unconditional and
  * server-side — this loader never ships DM notes, undiscovered Zones, or unrevealed

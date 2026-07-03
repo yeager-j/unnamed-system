@@ -9,6 +9,7 @@ import {
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { createMapInstance } from "@workspace/game/engine"
 import {
+  createDungeonState,
   mapGeometrySchema,
   type MapGeometry,
   type MapInstanceState,
@@ -21,6 +22,7 @@ import {
 import {
   campaigns,
   characters,
+  dungeons,
   encounters,
   getDb,
   mapInstances,
@@ -48,6 +50,7 @@ export interface CleanupTracker {
   campaignIds: string[]
   characterIds: string[]
   encounterIds: string[]
+  dungeonIds: string[]
   mapInstanceIds: string[]
   mapIds: string[]
 }
@@ -57,6 +60,7 @@ export function createTracker(): CleanupTracker {
     campaignIds: [],
     characterIds: [],
     encounterIds: [],
+    dungeonIds: [],
     mapInstanceIds: [],
     mapIds: [],
   }
@@ -283,10 +287,66 @@ export async function createLiveEncounter(
   return { id, shortId: id, url: `/combat/${id}`, mapInstanceId }
 }
 
+export interface TestDungeon {
+  id: string
+  shortId: string
+  url: string
+  watchUrl: string
+  mapInstanceId: string
+}
+
 /**
- * Deletes everything the tracker minted, FK-safe (encounters before their Map
- * Instances — the `mapInstanceId` FK is `restrict`, so the Instance can't drop
- * while a referencing encounter exists; encounters → characters → campaigns,
+ * Mints an **active** dungeon (UNN-536) in `campaignId` **plus its Map Instance**
+ * (`dungeons.mapInstanceId` is a `restrict` FK). The `mapInstanceState` carries
+ * the delve geometry + the party's exploration occupancy tokens — the baseline the
+ * combat cutover layers over. The dungeon `state` starts fresh (turn 0). The DM is
+ * `campaign.dmUserId`, so `getDungeonForDM` admits the dev user.
+ */
+export async function createActiveDungeon(
+  tracker: CleanupTracker,
+  opts: {
+    campaignId: string
+    mapInstanceState: MapInstanceState
+    name?: string
+  }
+): Promise<TestDungeon> {
+  const suffix = uniqueSuffix()
+  const id = `e2e-dungeon-${suffix}`
+  const mapInstanceId = `e2e-mi-${suffix}`
+  const db = getDb()
+
+  await db.insert(mapInstances).values({
+    id: mapInstanceId,
+    state: opts.mapInstanceState,
+    version: 0,
+  })
+  tracker.mapInstanceIds.push(mapInstanceId)
+
+  await db.insert(dungeons).values({
+    id,
+    shortId: id,
+    campaignId: opts.campaignId,
+    mapInstanceId,
+    name: opts.name ?? "E2E delve",
+    status: "active",
+    state: createDungeonState(),
+    version: 0,
+  })
+  tracker.dungeonIds.push(id)
+
+  return {
+    id,
+    shortId: id,
+    url: `/dungeon/${id}`,
+    watchUrl: `/c/dungeon/${id}`,
+    mapInstanceId,
+  }
+}
+
+/**
+ * Deletes everything the tracker minted, FK-safe (encounters + dungeons before
+ * their Map Instances — the `mapInstanceId` FK is `restrict`, so the Instance
+ * can't drop while a referencing row exists; then characters → campaigns,
  * deleting a character cascades its child rows). Idempotent: rows a test already
  * removed are simply absent. Call once in `afterAll`.
  */
@@ -296,6 +356,17 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
     await db
       .delete(encounters)
       .where(inArray(encounters.id, tracker.encounterIds))
+  }
+  if (tracker.dungeonIds.length > 0) {
+    await db.delete(dungeons).where(inArray(dungeons.id, tracker.dungeonIds))
+  }
+  // App-created encounters on a tracked Instance (a delve fight the spec started
+  // through the UI) aren't in `encounterIds`, but their `restrict` FK would block
+  // the Instance delete below — sweep them by Instance so cleanup stays FK-safe.
+  if (tracker.mapInstanceIds.length > 0) {
+    await db
+      .delete(encounters)
+      .where(inArray(encounters.mapInstanceId, tracker.mapInstanceIds))
   }
   if (tracker.mapInstanceIds.length > 0) {
     await db
@@ -314,6 +385,7 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
     await db.delete(maps).where(inArray(maps.id, tracker.mapIds))
   }
   tracker.encounterIds.length = 0
+  tracker.dungeonIds.length = 0
   tracker.mapInstanceIds.length = 0
   tracker.characterIds.length = 0
   tracker.campaignIds.length = 0

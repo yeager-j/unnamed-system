@@ -17,6 +17,7 @@ import { useEffect, type ReactNode } from "react"
 import type { MapInstanceState } from "@workspace/game/foundation"
 
 import { buildEdges, buildNodes } from "@/components/dungeon/canvas/build-nodes"
+import { DungeonCombatZoneNode } from "@/components/dungeon/canvas/combat/zone-node"
 import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
@@ -39,13 +40,14 @@ import {
 
 const nodeTypes = {
   dungeonZone: DungeonZoneNode,
+  dungeonCombatZone: DungeonCombatZoneNode,
 }
 const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 
 /**
  * The DM run console's map canvas (UNN-464) — one controlled React Flow surface
- * for the exploration **play** board ({@link DungeonCanvasMode}; the combat and
- * setup boards return with dungeon combat on engine v2, PR11d). It re-derives its
+ * for the exploration **play** board and the live **combat** battlefield
+ * ({@link DungeonCanvasMode}; combat landed on engine v2 in UNN-536). It re-derives its
  * nodes/edges from the **optimistic** {@link MapInstanceState} on every change via
  * {@link buildNodes}/{@link buildEdges}, so a move/reveal/turn re-lays the board
  * with no extra state. Zones are fixed cards; connections are read-only fog-styled

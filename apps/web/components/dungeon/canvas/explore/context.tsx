@@ -30,6 +30,8 @@ export interface DungeonCanvasContextValue {
   advanceTurn: () => void
   /** Ends the delve (`active → done`) after a confirm. */
   finishDelve: () => void
+  /** Opens the pre-combat staging dialog to begin an encounter (UNN-536). */
+  onStartEncounter: () => void
   /** The current Edit ⇄ Play mode (the bar's toggle read-out). */
   mode: DungeonConsoleMode
   /** Switches between Play (tokens/fog) and Edit (the Map builder). */

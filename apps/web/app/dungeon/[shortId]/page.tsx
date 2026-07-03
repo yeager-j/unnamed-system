@@ -1,16 +1,22 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { getEncounterForDM } from "@/app/combat/[shortId]/encounter-access"
 import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
 import { DungeonPrep, type PrepZone } from "@/components/dungeon/prep"
-import { DungeonRunConsole } from "@/components/dungeon/run-console"
+import {
+  DungeonRunConsole,
+  type DungeonRunMode,
+} from "@/components/dungeon/run-console"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
+import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 
-import { getDungeonForDM } from "./dungeon-access"
+import { getDungeonForDM, type DungeonForDM } from "./dungeon-access"
 
 interface PageProps {
   params: Promise<{ shortId: string }>
@@ -74,41 +80,14 @@ export default async function DungeonPage({ params }: PageProps) {
     }
 
     case "active": {
-      // Exploration hydrates each placeable PC once, for the exploration tokens'
-      // HP/SP bars (UNN-489). Dungeon combat returns in PR11d.
-      const hydratedParty = (
-        await Promise.all(
-          placedCharacters.map((character) =>
-            loadHydratedCharacterById(character.id)
-          )
-        )
-      ).filter((character) => character !== null)
-      const vitalsById = new Map(
-        hydratedParty.map((character) => [
-          character.id,
-          {
-            hp: { current: character.currentHP, max: character.maxHP },
-            sp: { current: character.currentSP, max: character.maxSP },
-          },
-        ])
-      )
-      const runRoster: Record<string, DungeonRosterEntry> = Object.fromEntries(
-        placedCharacters.map((character) => [
-          character.id,
-          {
-            name: character.name,
-            portraitUrl: character.portraitUrl,
-            ...vitalsById.get(character.id),
-          },
-        ])
-      )
+      // The combat-vs-explore distinction, decided once here: a live encounter on
+      // the delve's Instance means the fight phase (UNN-536); else exploration.
+      const mode = await resolveRunMode(dungeon, instance, placedCharacters)
       return (
         <DungeonRunConsole
           dungeon={dungeon}
-          instance={instance}
-          roster={runRoster}
-          placedCharacters={placedCharacters}
           campaignShortId={campaignShortId}
+          mode={mode}
         />
       )
     }
@@ -131,4 +110,59 @@ export default async function DungeonPage({ params }: PageProps) {
         </main>
       )
   }
+}
+
+/**
+ * Resolves the active delve's run mode — the single combat-vs-explore fork. A live
+ * encounter on the delve's Map Instance means combat (UNN-536): resolve the full
+ * {@link getEncounterForDM} view + its drawer hydration. Otherwise exploration:
+ * hydrate each placed PC once for its token's HP/SP bars (UNN-489).
+ */
+async function resolveRunMode(
+  dungeon: DungeonForDM["dungeon"],
+  instance: DungeonForDM["instance"],
+  placedCharacters: Awaited<ReturnType<typeof loadPlacedCharactersForCampaign>>
+): Promise<DungeonRunMode> {
+  const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
+  if (live) {
+    const data = await getEncounterForDM(live.shortId)
+    if (data) {
+      const durableHydrationById = await loadCombatConsoleDataV2(
+        data.session,
+        data.instance.state,
+        data.participantMeta
+      )
+      return { kind: "combat", data, durableHydrationById }
+    }
+    // A live row we can't resolve for the DM is a data-integrity failure; fall
+    // through to exploration rather than 404 the whole delve.
+  }
+
+  const hydratedParty = (
+    await Promise.all(
+      placedCharacters.map((character) =>
+        loadHydratedCharacterById(character.id)
+      )
+    )
+  ).filter((character) => character !== null)
+  const vitalsById = new Map(
+    hydratedParty.map((character) => [
+      character.id,
+      {
+        hp: { current: character.currentHP, max: character.maxHP },
+        sp: { current: character.currentSP, max: character.maxSP },
+      },
+    ])
+  )
+  const roster: Record<string, DungeonRosterEntry> = Object.fromEntries(
+    placedCharacters.map((character) => [
+      character.id,
+      {
+        name: character.name,
+        portraitUrl: character.portraitUrl,
+        ...vitalsById.get(character.id),
+      },
+    ])
+  )
+  return { kind: "explore", instance, roster, placedCharacters }
 }
