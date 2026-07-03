@@ -2,7 +2,7 @@
 
 import { PlusIcon, SwordIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import type {
@@ -82,19 +82,13 @@ export function DungeonStartEncounterDialog({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const enemyRows = useMemo(
-    () =>
-      [...buildEnemyCatalogRows()].sort((a, b) => a.name.localeCompare(b.name)),
-    []
+  // React Compiler keeps these stable by their inputs — no manual memo (matching
+  // the sibling explore/body.tsx convention).
+  const enemyRows = [...buildEnemyCatalogRows()].sort((a, b) =>
+    a.name.localeCompare(b.name)
   )
-  const enemyNameByKey = useMemo(
-    () => new Map(enemyRows.map((row) => [row.key, row.name])),
-    [enemyRows]
-  )
-  const zoneNameById = useMemo(
-    () => new Map(zones.map((zone) => [zone.id, zone.name])),
-    [zones]
-  )
+  const enemyNameByKey = new Map(enemyRows.map((row) => [row.key, row.name]))
+  const zoneNameById = new Map(zones.map((zone) => [zone.id, zone.name]))
 
   const [advantage, setAdvantage] = useState<CombatAdvantage>("neutral")
   const [firstSide, setFirstSide] = useState<CombatSide>("players")
