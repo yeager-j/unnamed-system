@@ -32,13 +32,12 @@ system, so most of the Skill catalog's passive entries convert for free.
   without this, A→B→A ping-pong is a farm). This is the parry-replacement —
   generation tied to the system's real skill axis (Affinity knowledge, Down
   sequencing, chain routing). A full 4-person chain distributes ~10 AP,
-  escalating toward the finisher, who is also the Prime Time caller.
-  Escalation makes routing order a genuine decision (AP-poor allies want
-  late positions; the finisher wants the party solvent for Prime Time's
-  cost) and makes hogging a Follow-Up visibly forfeit the crescendo. The
-  Follow-Up +1 lands mid-turn, so the bonus action can afford a bigger
-  Skill than the main action could. Note Technicals feed this engine with
-  no extra rule: Technical → Downed → Follow-Up → AP.
+  escalating toward the finisher. Escalation makes routing order a genuine
+  decision (AP-poor allies want late positions) and makes hogging a
+  Follow-Up visibly forfeit the crescendo. The Follow-Up +1 lands mid-turn,
+  so the bonus action can afford a bigger Skill than the main action could.
+  Note Technicals feed this engine with no extra rule: Technical → Downed →
+  Follow-Up → AP.
 - **Guard**: +1 AP. A "nothing to do" turn now banks something.
 - **Ambush**: winning side starts with +2 AP each. This is deliberate: it makes
   a dungeon turn spent on Move Quietly convert into combat economy, keeping
@@ -70,11 +69,19 @@ mechanical form; AP is the same currency for everyone. HP costs remain
 available as *flavor* on specific reckless Skills (a Berserker Skill costing
 AP **and** blood), but they are no longer how physical damage is priced.
 
-**Prime Time is fueled by party AP** — every party member pays the listed cost
-(Phantom Tracer: 2 each). This replaces the "party pays SP" clause and gives
-Prime Time the ephemeral, party-pooled shape of E33's Gradient: the Shift
-chain builds it, the whole table pays for it, and it can't be pre-banked
-across fights.
+**Prime Time runs on the Applause meter** (see `Applause & Prime Time`), the
+Gradient analog: a shared party meter, 0–7, +1 per enemy Downed, ephemeral
+per combat. Full meter → any healthy member may call their Prime Time in
+place of a Standard Action, emptying it. This *replaces* the Shift-chain
+trigger (chains are already paid via escalating AP — no double-dipping) and
+the party-pays-AP cost. It also fixes a structural flaw: chain-triggered
+Prime Time could effectively never fire against a lone boss (each chain link
+needs a fresh Down; a solo enemy Downs once per turn), locking the ultimate
+out of exactly the fights it belongs in. A meter fed by Downs across rounds
+arrives *because* the fight is long. Consequence to note: Downs now drive
+tempo (Follow-Up), economy (AP), the meter, and Showtime! — enemy
+Down-frequency is the single difficulty dial, so stat-block design must
+treat it as such.
 
 ## Thief Conversion Decisions
 
@@ -105,8 +112,11 @@ demonstrates the unification on a single sheet.
    If fights snowball, the first knob to turn is weapon generation (drop to
    +1 hit / 0 miss), not the tick.
 2. Is Marked Prey's threshold (3 Tells) right for a Rank-cap of 5 Tells?
-3. Phantom Tracer at 2 AP per member — too cheap mid-Shift-chain, when the
-   party has already been spending to generate the Downs? Playtest.
+3. Applause sizing: is 7 right? Watch two failure modes in playtest —
+   trash fights with 5+ enemies filling the meter and turning Prime Time
+   into free cleanup, and grindy boss fights where Downs are so rare the
+   meter never fills. The dial is the fill rate (e.g., bosses could be
+   worth 2 Applause per Down) before it's the meter size.
 4. Path differentiation: is Starting AP 2 vs. 4 a big enough hook to carry the
    creation choice, or does the AP path need a second knob (e.g., +1 AP cap)?
 5. The Follow-Up/Shift engine inverts parry availability: parries paid most
