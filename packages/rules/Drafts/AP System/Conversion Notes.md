@@ -69,7 +69,7 @@ mechanical form; AP is the same currency for everyone. HP costs remain
 available as *flavor* on specific reckless Skills (a Berserker Skill costing
 AP **and** blood), but they are no longer how physical damage is priced.
 
-**Prime Time runs on the Applause meter** (see `Applause & Prime Time`), the
+**Prime Time runs on the Prime Time Meter** (see `Prime Time Meter`), the
 Gradient analog: a shared party meter, 0–7, +1 per enemy Downed, ephemeral
 per combat. Full meter → any healthy member may call their Prime Time in
 place of a Standard Action, emptying it. This *replaces* the Shift-chain
@@ -112,11 +112,11 @@ demonstrates the unification on a single sheet.
    If fights snowball, the first knob to turn is weapon generation (drop to
    +1 hit / 0 miss), not the tick.
 2. Is Marked Prey's threshold (3 Tells) right for a Rank-cap of 5 Tells?
-3. Applause sizing: is 7 right? Watch two failure modes in playtest —
+3. Meter sizing: is 7 right? Watch two failure modes in playtest —
    trash fights with 5+ enemies filling the meter and turning Prime Time
    into free cleanup, and grindy boss fights where Downs are so rare the
-   meter never fills. The dial is the fill rate (e.g., bosses could be
-   worth 2 Applause per Down) before it's the meter size.
+   meter never fills. The dial is the fill rate (e.g., bosses could fill
+   2 points per Down) before it's the meter size.
 4. Path differentiation: is Starting AP 2 vs. 4 a big enough hook to carry the
    creation choice, or does the AP path need a second knob (e.g., +1 AP cap)?
 5. The Follow-Up/Shift engine inverts parry availability: parries paid most
