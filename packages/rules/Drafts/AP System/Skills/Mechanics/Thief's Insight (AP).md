@@ -12,6 +12,6 @@ type: Mechanic
 > ***Suspicion.*** Some of your Skills may list a Tell threshold to gain additional benefits. This represents a minimum number of Tells on your target. When you use such a Skill, the DM will roll a d12. If the result is lower than the number of Tells on the target, they catch you red-handed and become suspicious. Your accumulated Tells are lost, the Skill's additional effect fails, and you cannot gain Tells on that target again until the end of your next turn.
 >
 > **Study**
-> As a Standard Action on your turn, you can choose one target that you can see in your Zone, learn one of their Tells, and gain 1 AP.
+> As a Standard Action on your turn, you can choose one target that you can see in your Zone and learn one of their Tells.
 
 ^25ba15

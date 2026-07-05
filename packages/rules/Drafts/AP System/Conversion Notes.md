@@ -20,8 +20,12 @@ system, so most of the Skill catalog's passive entries convert for free.
   universal decision).
 - You start each combat at your **Starting AP** (2 / 3 / 4 by path; +1 at
   Levels 10 and 20).
-- **Weapon attack**: +2 AP on hit, +1 on miss. This is the dependable floor —
-  no Archetype mechanic is ever the *only* way to afford Skills.
+- **Turn tick**: +1 AP at the start of each of your turns (per E33). This is
+  the true floor — nobody is ever fully stalled, so Archetype mechanics and
+  Skills never need to generate AP themselves; they can be pure accelerators
+  and discounters.
+- **Weapon attack**: +2 AP on hit, +1 on miss. The dependable way to build
+  faster than the tick.
 - **Guard**: +1 AP. A "nothing to do" turn now banks something.
 - **Ambush**: winning side starts with +2 AP each. This is deliberate: it makes
   a dungeon turn spent on Move Quietly convert into combat economy, keeping
@@ -31,20 +35,21 @@ system, so most of the Skill catalog's passive entries convert for free.
 
 ## Cost Mapping
 
-From the Idea Board's SP table, priced in rounds-to-afford from a Balanced
-start (3 AP, +2 per weapon attack):
+From the Idea Board's SP table, priced in time-to-afford from a Balanced
+start (3 AP, +1 tick each turn, +2 per weapon attack — so a build turn nets
++3 and even a casting turn nets the tick):
 
 | Tier         | Old cost (Magical) | AP  | Affordable...                |
 | ------------ | ------------------ | --- | ---------------------------- |
-| Weak         | 4 SP               | 2   | immediately                  |
-| Weak/Group   | 10 SP              | 3   | immediately                  |
-| Medium       | 8 SP               | 3   | immediately                  |
-| Medium/Group | 16 SP              | 4–5 | after ~1 build turn          |
-| Heavy        | 12 SP              | 5   | after ~1 build turn          |
-| Heavy/Group  | 24 SP              | 6–7 | after ~2 build turns         |
-| Severe       | 48 SP              | 7   | after ~2 build turns         |
-| Severe/Group | 54 SP              | 8   | after ~3 build turns         |
-| Colossal     | 99 SP              | 9   | full bank — the whole arc    |
+| Weak         | 4 SP               | 2   | turn 1; near-at-will         |
+| Weak/Group   | 10 SP              | 3   | turn 1                       |
+| Medium       | 8 SP               | 3   | turn 1                       |
+| Medium/Group | 16 SP              | 4–5 | turn 1–2                     |
+| Heavy        | 12 SP              | 5   | turn 2                       |
+| Heavy/Group  | 24 SP              | 6–7 | turn 2, with a build turn    |
+| Severe       | 48 SP              | 7   | turn 2, with a build turn    |
+| Severe/Group | 54 SP              | 8   | turn 3                       |
+| Colossal     | 99 SP              | 9   | turn 3, all-in — the arc     |
 
 **HP costs are removed as the default physical price.** The physical/magical
 cost split (% max HP vs. SP) was the system's caster/martial asymmetry in
@@ -64,16 +69,16 @@ The Thief was chosen because its current kit is billed in two currencies
 (Feint/Cruel Attack cost %HP; Flash Bomb/Memory Blow cost SP) — it
 demonstrates the unification on a single sheet.
 
-- **Study now grants 1 AP** alongside the Tell. The Rank-1 turn is a genuine
-  three-way choice: weapon attack (2 AP + damage), Feint (damage + Tells,
-  worse AP), or Study (Tell + 1 AP, no damage). Investment vs. tempo.
+- **No generator Skills.** With the per-turn tick guaranteeing flow, the
+  Thief's mechanic doesn't need to produce AP — it *discounts* it. Study is
+  unchanged from the original; its cost is the foregone weapon-attack AP,
+  which is exactly the investment-vs-tempo game we want.
 - **Marked Prey (new)**: Skills cost 1 less AP (min 1) against a target with
   3+ Tells. Tells are now an economic engine, not just an accuracy bonus —
   and Suspicion busting your Tells busts the discount too, so the
   push-your-luck game gets sharper without a new rule.
-- **Feint** costs 1 AP and refunds 2 on an `11+` Attack Roll. It's the kit's
-  generator-Skill — slightly worse expected AP than a weapon attack, in
-  exchange for Tell generation on the same action.
+- **Feint** is the original card verbatim, priced at 2 AP (Weak single). With
+  the tick, it's near-at-will — the bread-and-butter Tell farmer.
 - **Cruel Attack** at 3 AP is affordable from a Balanced start on turn 1 —
   intentionally, since it's the Follow-Up payoff Skill and should be castable
   the moment someone Downs an enemy.
@@ -82,8 +87,10 @@ demonstrates the unification on a single sheet.
 
 ## Open Tuning Questions
 
-1. Are hit/miss generation rates (2/1) right, or should a miss generate 0?
-   (Current draft softens whiff-punishment; pure E33 would be hit-only.)
+1. Is the total economy too rich? Tick (+1) plus weapon attack (+2 hit /
+   +1 miss) means a build turn nets +3; Severe Skills come online by turn 2.
+   If fights snowball, the first knob to turn is weapon generation (drop to
+   +1 hit / 0 miss), not the tick.
 2. Is Marked Prey's threshold (3 Tells) right for a Rank-cap of 5 Tells?
 3. Phantom Tracer at 2 AP per member — too cheap mid-Shift-chain, when the
    party has already been spending to generate the Downs? Playtest.
