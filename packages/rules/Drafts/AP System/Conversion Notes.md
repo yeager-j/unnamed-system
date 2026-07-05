@@ -25,7 +25,14 @@ system, so most of the Skill catalog's passive entries convert for free.
   Skills never need to generate AP themselves; they can be pure accelerators
   and discounters.
 - **Weapon attack**: +2 AP on hit, +1 on miss. The dependable way to build
-  faster than the tick.
+  faster than the tick. Opportunity Attacks count (Reactions join the engine).
+- **Follow-Ups & Shifts**: +1 AP when you gain a Follow-Up; +1 AP when a
+  Follow-Up is Shifted to you. This is the parry-replacement — generation
+  tied to the system's real skill axis (Affinity knowledge, Down sequencing,
+  chain routing). Each chain link is a Down, so a full 4-person chain
+  distributes ~+7 AP, and the receiver subsidy is what keeps a chain funded
+  toward its Prime Time trigger. The Follow-Up +1 lands mid-turn, so the
+  bonus action can afford a bigger Skill than the main action could.
 - **Guard**: +1 AP. A "nothing to do" turn now banks something.
 - **Ambush**: winning side starts with +2 AP each. This is deliberate: it makes
   a dungeon turn spent on Move Quietly convert into combat economy, keeping
@@ -96,7 +103,17 @@ demonstrates the unification on a single sheet.
    party has already been spending to generate the Downs? Playtest.
 4. Path differentiation: is Starting AP 2 vs. 4 a big enough hook to carry the
    creation choice, or does the AP path need a second knob (e.g., +1 AP cap)?
-5. Not yet drafted, needed for a full migration: Despair (SP drain → AP
+5. The Follow-Up/Shift engine inverts parry availability: parries paid most
+   in hard fights; Follow-Ups pay most in solved ones. Down-immune or
+   Weakness-less bosses silence the skill-expression channel right when fuel
+   matters most. Candidate second outlet: **Technicals grant +1 AP** (same
+   knowledge axis, works on most bosses, gives ailment builds a generation
+   seat). Avoid evasion-based generation (+1 on enemy miss) — passive, no
+   choice attached, turns Sukukaja stacking into an AFK engine.
+6. Enemy-side AP: recommend monsters don't track AP at all — their Skill
+   budgets are designed into the stat block (as in E33). Otherwise DM
+   bookkeeping triples and enemy Downs feed an enemy economy nobody enjoys.
+7. Not yet drafted, needed for a full migration: Despair (SP drain → AP
    drain), Forget ("costs HP or SP" → "costs AP"), Purple Prisma (delete or
    repurpose), Partial Rest's Skill-Dice clause (dead text under AP; see the
    Hit-Dice-battery proposal), and the 2.2 dungeon-turn retune (15–20 min
