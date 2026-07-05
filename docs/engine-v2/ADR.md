@@ -1,6 +1,6 @@
 # ADR: Engine v2 — A Capability/Component Game Engine
 
-**Status:** Accepted (design) · build not started
+**Status:** Accepted · built and load-bearing — all combat runs on it (UNN-520/530/535/536), sheet derivation is v2-computed (UNN-533) _(header corrected 2026-07-04; the character-domain successor program is [`characters/ADR.md`](./characters/ADR.md))_
 **Scope:** the core entity/combat engine (`@workspace/game-v2`). The Map-Instance
 spatial subsystem is **explicitly out of scope** — see _Deferred_.
 **Supersedes:** the design intent of `@workspace/game/src/engine` (v1).

@@ -1,6 +1,6 @@
 # ADR: Engine v2 — The Map-Instance Spatial Subsystem (Tier 3)
 
-**Status:** Accepted (design) · build not started
+**Status:** Accepted · engine built + golden-mastered (`dungeon-spatial-golden-master.test.ts`); the exploration consumer tail rides UNN-540 _(header corrected 2026-07-04 — it stale-claimed "build not started" while code was ahead of docs)_
 **Scope:** the **spatial** layer of `@workspace/game-v2` deferred by both prior ADRs to
 "its own future ADR" — zone geometry + `reduceMapGeometry`, the Map-Instance occupancy
 token (the instance home for `Position` + `Engagement`), the movement / engagement

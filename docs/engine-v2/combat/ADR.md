@@ -1,6 +1,6 @@
 # ADR: Engine v2 — The Combat / Encounter Subsystem
 
-**Status:** Accepted (design) · build not started
+**Status:** Accepted · built and shipped (UNN-515/516/517/520/530/533/535/536 — mapless + dungeon combat both run on it) _(header corrected 2026-07-04)_
 **Scope:** the **non-spatial** combat/encounter subsystem of `@workspace/game-v2` —
 the Session container, the pure combat reducer, encounter-overlay components, the
 turn loop + initiative + action-economy budget, end-of-turn obligations, the
