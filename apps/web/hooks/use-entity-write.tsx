@@ -98,17 +98,30 @@ export function EntityWriteProvider({
 }) {
   const { profile } = loaded
 
+  // One call per class at the top level — hooks inside an object literal trip
+  // the React Compiler's transform (a hook-order crash at runtime).
+  const identityVersionRef = useMonotonicVersionRef(profile.versions.identity)
+  const vitalsVersionRef = useMonotonicVersionRef(profile.versions.vitals)
+  const inventoryVersionRef = useMonotonicVersionRef(profile.versions.inventory)
+  const progressionVersionRef = useMonotonicVersionRef(
+    profile.versions.progression
+  )
+  const identityQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const vitalsQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const inventoryQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const progressionQueueRef = useRef<Promise<void>>(Promise.resolve())
+
   const versionRefs: Record<VersionClass, RefObject<number>> = {
-    identity: useMonotonicVersionRef(profile.versions.identity),
-    vitals: useMonotonicVersionRef(profile.versions.vitals),
-    inventory: useMonotonicVersionRef(profile.versions.inventory),
-    progression: useMonotonicVersionRef(profile.versions.progression),
+    identity: identityVersionRef,
+    vitals: vitalsVersionRef,
+    inventory: inventoryVersionRef,
+    progression: progressionVersionRef,
   }
   const queueRefs: Record<VersionClass, RefObject<Promise<void>>> = {
-    identity: useRef<Promise<void>>(Promise.resolve()),
-    vitals: useRef<Promise<void>>(Promise.resolve()),
-    inventory: useRef<Promise<void>>(Promise.resolve()),
-    progression: useRef<Promise<void>>(Promise.resolve()),
+    identity: identityQueueRef,
+    vitals: vitalsQueueRef,
+    inventory: inventoryQueueRef,
+    progression: progressionQueueRef,
   }
 
   const [frame, applyLocal] = useOptimistic(
