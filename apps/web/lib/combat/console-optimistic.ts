@@ -9,7 +9,7 @@ import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 
 /**
@@ -46,7 +46,7 @@ export type ConsoleOptimisticAction =
   | {
       kind: "write"
       participantId: ParticipantId
-      write: EntityWrite
+      write: CombatEntityWrite
       deps: WriterDeps
     }
 

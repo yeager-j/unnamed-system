@@ -58,6 +58,9 @@ export function combatErrorMessage(
     case "no-prisma-max":
     case "no-prisma-charges":
     case "no-transitions":
+    // A creation-family refusal (UNN-556) — unreachable through the narrowed
+    // encounter wire, but the shared refusal union carries it.
+    case "allocation-cap-exceeded":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }

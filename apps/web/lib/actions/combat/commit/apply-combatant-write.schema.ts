@@ -5,17 +5,18 @@ import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.sc
 import type { EntityWriteError } from "@/lib/actions/entity/entity-row-store"
 import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
-import { entityWriteSchema } from "@/lib/entity/commit/write.schema"
+import { combatEntityWriteSchema } from "@/lib/entity/commit/write.schema"
 
 import { encounterMutationBase } from "../../encounter/encounter-mutation.schema"
 
 /**
  * Input schema for {@link applyCombatantWriteAction} (UNN-520) — the
  * write-router's own wire, carrying the storage-blind
- * {@link entityWriteSchema} descriptor plus the participant it targets.
- * **No storage claim rides here**: the server derives the home from its own
- * locator map, so a tampered client cannot route a durable write through the
- * session arm or vice versa.
+ * {@link combatEntityWriteSchema} descriptor (the combat-relevant subset of the
+ * entity write vocabulary — the character-only creation families reject at this
+ * boundary, UNN-556) plus the participant it targets. **No storage claim rides
+ * here**: the server derives the home from its own locator map, so a tampered
+ * client cannot route a durable write through the session arm or vice versa.
  *
  * Two version tokens, one per possible home: `expectedVersion` is the
  * encounter row's (the session arm's guard); `expectedCharacterVersion` is the
@@ -26,7 +27,7 @@ import { encounterMutationBase } from "../../encounter/encounter-mutation.schema
 export const ApplyCombatantWriteSchema = encounterMutationBase.extend({
   participantId: participantIdSchema,
   expectedCharacterVersion: z.number().int().nonnegative().optional(),
-  write: entityWriteSchema,
+  write: combatEntityWriteSchema,
 })
 
 export type ApplyCombatantWriteInput = z.input<typeof ApplyCombatantWriteSchema>

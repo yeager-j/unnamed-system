@@ -16,12 +16,12 @@ import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 
 export type DispatchCombatantWrite = (
   participantId: ParticipantId,
-  write: EntityWrite,
+  write: CombatEntityWrite,
   deps: WriterDeps
 ) => Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
 
@@ -150,7 +150,7 @@ export function useCombatantWrite({
     characterId: string,
     seedVersion: number,
     participantId: ParticipantId,
-    write: EntityWrite
+    write: CombatEntityWrite
   ): Promise<Result<CommittedWrite, ApplyCombatantWriteError>> {
     const dispatch = (expectedCharacterVersion: number) =>
       applyCombatantWriteAction({
