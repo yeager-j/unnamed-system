@@ -1,6 +1,7 @@
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import type { EquippableItem, Item } from "@workspace/game-v2/items/item.schema"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 /**
@@ -83,4 +84,12 @@ export interface GameData {
    * {@link Entity} into an inline combatant. `resolve` and loaders never call it.
    */
   getEnemy(key: string): Entity | undefined
+
+  /**
+   * The canonical starting weapon for an Origin {@link Lineage} (UNN-556) —
+   * `undefined` while the Lineage's starter hasn't shipped, which finalize
+   * surfaces as a structured refusal. Setup-time only (character finalization
+   * seeds the equipment component with it); `resolve` never calls it.
+   */
+  startingWeaponForLineage(lineage: Lineage): string | undefined
 }

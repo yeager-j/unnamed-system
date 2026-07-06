@@ -93,6 +93,7 @@ const data: GameData = {
       (s) => s.key === key
     ),
   getEnemy: () => undefined,
+  startingWeaponForLineage: () => undefined,
 }
 
 function resolvedPC(

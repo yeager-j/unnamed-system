@@ -51,6 +51,7 @@ export function makeTestGameData(
     getEquippableItem: () => undefined,
     getSkill: () => undefined,
     getEnemy: () => undefined,
+    startingWeaponForLineage: () => undefined,
   }
 }
 

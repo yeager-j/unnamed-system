@@ -4,6 +4,7 @@ import {
   type ArchetypeTier,
 } from "@workspace/game-v2/archetypes/archetype"
 import type { InheritanceSlot } from "@workspace/game-v2/archetypes/archetypes.schema"
+import { ORIGIN_ARCHETYPE_RANK } from "@workspace/game-v2/archetypes/creation"
 import { isInheritableSkill } from "@workspace/game-v2/archetypes/inheritance"
 import type { ResolvedRosterEntry } from "@workspace/game-v2/archetypes/resolved"
 import {
@@ -360,7 +361,13 @@ export function previewArchetypeSkills(
           active: archetype.key,
           origin: archetype.key,
           savedArchetypeRanks: 0,
-          roster: [{ key: archetype.key, rank: 2, inheritanceSlots: [] }],
+          roster: [
+            {
+              key: archetype.key,
+              rank: ORIGIN_ARCHETYPE_RANK,
+              inheritanceSlots: [],
+            },
+          ],
         },
         attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
         affinities: { base: {} },

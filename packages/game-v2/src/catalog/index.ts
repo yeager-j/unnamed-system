@@ -4,6 +4,7 @@ import {
 } from "@workspace/game-v2/catalog/archetypes"
 import { getEnemy } from "@workspace/game-v2/catalog/enemies"
 import { getEquippableItem, getItem } from "@workspace/game-v2/catalog/items"
+import { startingWeaponForLineage } from "@workspace/game-v2/catalog/items/starting-weapons"
 import { getSkill } from "@workspace/game-v2/catalog/skills"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 
@@ -24,4 +25,5 @@ export const gameData: GameData = {
   getEquippableItem,
   getSkill,
   getEnemy,
+  startingWeaponForLineage,
 }

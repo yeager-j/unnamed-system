@@ -49,6 +49,7 @@ import {
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
+import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 import {
   applyFullRest,
@@ -211,6 +212,10 @@ export function createGameEngine(deps: GameData = gameData) {
     // Creation-eligible Origin set (E1 — UNN-552): the catalog filtered to the
     // initiate tier, bound over the `allArchetypes` port.
     creationArchetypes: creationArchetypes(deps),
+    // Starting weapon by Origin Lineage (S1 — UNN-556): the finalize action seeds
+    // the equipment component with it. A direct port pass-through.
+    startingWeaponForLineage: (lineage: Lineage) =>
+      deps.startingWeaponForLineage(lineage),
     // Talent resolution (E3 — UNN-554): the derived Talent roster (owned +
     // active-Archetype union) + the sheet/builder display partitions. Talent names
     // come from the domain-local catalog; only `getArchetype` is injected. The sheet

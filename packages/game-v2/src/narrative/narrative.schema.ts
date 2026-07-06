@@ -39,3 +39,42 @@ export const narrativeSchema = z.object({
 })
 
 export type Narrative = z.infer<typeof narrativeSchema>
+
+/**
+ * The eight nullable text fields of {@link narrativeSchema}, as a value — the
+ * write descriptor's `setField` enum and any per-field UI iterate this so they
+ * cannot drift from the schema.
+ */
+export const NARRATIVE_TEXT_FIELDS = [
+  "ancestry",
+  "background",
+  "backstory",
+  "personality",
+  "hopes",
+  "dreams",
+  "fears",
+  "secrets",
+] as const satisfies readonly (keyof Narrative)[]
+
+export type NarrativeTextField = (typeof NARRATIVE_TEXT_FIELDS)[number]
+
+/**
+ * A canonical empty Narrative. Every text field is nullable but **not**
+ * optional, so a component minted as `{}` would fail the load seam — creation
+ * (the draft mint, the narrative Writer's create-from-absent) starts from this
+ * instead.
+ */
+export function emptyNarrative(): Narrative {
+  return {
+    ancestry: null,
+    background: null,
+    backstory: null,
+    personality: null,
+    hopes: null,
+    dreams: null,
+    fears: null,
+    secrets: null,
+    knives: [],
+    chains: [],
+  }
+}
