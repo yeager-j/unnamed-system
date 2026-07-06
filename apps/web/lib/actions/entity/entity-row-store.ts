@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireOwnerOrCampaignDMForEntity } from "@/lib/auth/campaign-access"
+import type { EntityStatus } from "@/lib/db/schema/entity"
 import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 import {
   applyEntityWrite,
@@ -33,10 +34,12 @@ export type EntityWriteError =
   | EntityGuardError
   | "entity-load-failed"
 
-/** The bumped class token + the entity's shortId (the pinged channel key). */
+/** The bumped class token + the entity's shortId (the pinged channel key) and
+ *  lifecycle status (the entity door's revalidation reads it). */
 export interface EntityCommit {
   version: number
   shortId: string
+  status: EntityStatus
 }
 
 /**
@@ -76,5 +79,9 @@ export async function commitEntityWrite(
   )
   if (!bumped.ok) return bumped
 
-  return ok({ version: bumped.value.version, shortId: row.shortId })
+  return ok({
+    version: bumped.value.version,
+    shortId: row.shortId,
+    status: row.status,
+  })
 }

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
+import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useDebouncedAutoSave } from "./use-debounced-auto-save"
 
 vi.mock("../lib/actions/character-versions", () => ({
@@ -56,9 +57,23 @@ async function flushMicrotasks(): Promise<void> {
   })
 }
 
-const FIXED_ARGS = {
-  characterId: "char-test",
-  surface: "name" as const,
+/**
+ * The sheet wrapper's dispatch pipeline (silent retry + broadcast), closed over
+ * a test version ref — what `useCharacterAutoSave` supplies in production, so
+ * these tests keep exercising the hook + pipeline integration end-to-end.
+ */
+function wrapperDispatch(versionRef: { current: number }) {
+  return (
+    action: (
+      expectedVersion: number
+    ) => Promise<Result<{ value: string; version: number }, string>>
+  ) =>
+    dispatchCharacterWriteWithRetry({
+      characterId: "char-test",
+      surface: "name",
+      versionRef,
+      action,
+    })
 }
 
 describe("useDebouncedAutoSave", () => {
@@ -77,9 +92,8 @@ describe("useDebouncedAutoSave", () => {
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
       })
     )
@@ -120,17 +134,15 @@ describe("useDebouncedAutoSave", () => {
 
     const fieldA = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef: shared,
+        dispatchWrite: wrapperDispatch(shared),
         save: a.save,
       })
     )
     const fieldB = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef: shared,
+        dispatchWrite: wrapperDispatch(shared),
         save: b.save,
       })
     )
@@ -166,18 +178,16 @@ describe("useDebouncedAutoSave", () => {
 
     const fieldA = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef: shared,
+        dispatchWrite: wrapperDispatch(shared),
         saveQueueRef: queue,
         save: a.save,
       })
     )
     const fieldB = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef: shared,
+        dispatchWrite: wrapperDispatch(shared),
         saveQueueRef: queue,
         save: b.save,
       })
@@ -212,9 +222,8 @@ describe("useDebouncedAutoSave", () => {
 
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -249,9 +258,8 @@ describe("useDebouncedAutoSave", () => {
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
       })
     )
@@ -274,9 +282,8 @@ describe("useDebouncedAutoSave", () => {
 
     const { result, unmount } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         isEmpty: (next) => next.trim().length === 0,
       })
@@ -309,9 +316,8 @@ describe("useDebouncedAutoSave", () => {
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         onError,
       })
@@ -354,9 +360,8 @@ describe("useDebouncedAutoSave", () => {
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         onError,
       })
@@ -405,9 +410,8 @@ describe("useDebouncedAutoSave", () => {
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         onError,
       })
@@ -440,9 +444,8 @@ describe("useDebouncedAutoSave", () => {
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
       useDebouncedAutoSave({
-        ...FIXED_ARGS,
         serverValue: "Mira",
-        versionRef,
+        dispatchWrite: wrapperDispatch(versionRef),
         save,
         onError,
       })

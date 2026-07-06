@@ -11,10 +11,6 @@ import { toast } from "sonner"
 
 import { type Result } from "@workspace/game/foundation"
 
-import type { EditSurface } from "@/lib/db/version-classes"
-
-import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
-
 /**
  * Debounced auto-save lifecycle for a free-text owner-mode field. Every
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
@@ -30,39 +26,32 @@ import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
  * does not let the consumer thread the token itself, because every place
  * I've seen consumers do that has eventually drifted from the prop. This is
  * the shared core; consumers go through the provider-bound wrappers
- * `useCharacterAutoSave` (sheet) / `useBuilderAutoSave` (builder), which
- * resolve the *shared* per-write-class `versionRef` and pass it in — the same
- * way `useCharacterWrite` / `useBuilderWrite` wrap the click-write dispatch.
- * Because every same-class field reads and writes that one ref (UNN-274), a
- * sibling field's successful bump is visible in the same frame — no waiting on
- * the `revalidate → prop-sync` round-trip. The provider keeps the token synced
- * from the server prop — the sheet's
- * {@link import("./version-token-store").VersionTokenStore}, the builder's
- * {@link useMonotonicVersionRef} — as the fallback for cross-tab / external bumps.
+ * `useCharacterAutoSave` (sheet) / `useEntityAutoSave` (builder), which
+ * resolve the *shared* per-write-class token + queue and supply the
+ * {@link UseDebouncedAutoSaveArgs.dispatchWrite} pipeline that reads and bumps
+ * it — the same way the click-write wrappers own their dispatch. Because every
+ * same-class field flows through that one token, a sibling field's successful
+ * bump is visible in the same frame — no waiting on the `revalidate →
+ * prop-sync` round-trip. The provider keeps the token synced from the server
+ * prop as the fallback for cross-tab / external bumps.
  *
  * Saves are serialized via a promise chain (`saveQueueRef`): when a save is
  * dispatched while another is in flight, it chains behind the in-flight one
- * and reads the *fresh* `versionRef.current` (just written by the prior save's
- * success branch) before its own request goes out. That closes the same-value
+ * and reads the *fresh* class token (just written by the prior save's success
+ * branch) before its own request goes out. That closes the same-value
  * and different-value debounce+blur races for this field. When the wrappers
  * pass the provider's *shared* per-class queue (UNN-274), the chain spans
  * every same-class field too: blurring N sibling fields back-to-back (faster
  * than a round-trip) serializes them, so each reads the freshly-bumped token
- * instead of all dispatching at the stale pre-bump version and colliding on
- * the silent-retry. Without a shared queue the hook still serializes its own
- * writes via an internal fallback queue.
+ * instead of all dispatching at the stale pre-bump version and colliding.
+ * Without a shared queue the hook still serializes its own writes via an
+ * internal fallback queue.
  *
- * On success, the shared ref is updated from `result.value.version`
- * immediately, so a rapid follow-up save — by this field or a sibling —
- * doesn't have to wait for React commit + effect to propagate the prop.
- *
- * **Silent stale retry + cross-tab broadcast** (UNN-203). Every save flows
- * through {@link dispatchCharacterWriteWithRetry}, which on `"stale"`
- * refetches the current per-class version and re-dispatches once before
- * the consumer's error path runs, and on success broadcasts the
- * invalidation to sibling tabs. The hook's failure branch therefore only
- * fires when a write stales *twice in a row* — a real conflict, not a
- * sibling-component race.
+ * Stale handling is the wrapper's dispatch pipeline's business: the sheet's
+ * `dispatchCharacterWriteWithRetry` silently retries once + broadcasts to
+ * sibling tabs (UNN-203); the entity door surfaces `"stale"` to the failure
+ * branch directly (UNN-556). Either way this hook's failure branch means a
+ * real conflict, not a sibling-component race.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
  * hook only checks reference equality for last-saved skips, so a consumer
@@ -90,12 +79,6 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   /** The current value from the server. Drives the initial draft and the
    *  rollback target on failure. */
   serverValue: TValue
-  /** The *shared* per-write-class version ref from the provider (UNN-274).
-   *  Supplied by the `useCharacterAutoSave` / `useBuilderAutoSave` wrappers, so
-   *  every same-class field reads and writes one token and a sibling's bump is
-   *  visible in-frame. The provider keeps it synced from the server prop as the
-   *  cross-tab/external fallback. */
-  versionRef: RefObject<number>
   /** The *shared* per-write-class save queue from the provider (UNN-274).
    *  Supplied by the wrappers so same-class debounced fields serialize their
    *  saves through one chain — back-to-back sibling edits each read the
@@ -103,15 +86,20 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    *  Omitted, the hook falls back to an internal queue that serializes only
    *  this field's own debounce+blur. */
   saveQueueRef?: RefObject<Promise<void>>
-  /** Owning character — used by the silent-retry path to refetch the
-   *  fresh per-class version after a `"stale"` and by the broadcast
-   *  pipeline to notify sibling tabs. */
-  characterId: string
-  /** The edit surface this editor mutates. Passed through to
-   *  {@link dispatchCharacterWriteWithRetry}, which resolves its per-write-class
-   *  bucket — the one driving the refetch field and the broadcast tag — from the
-   *  surface→class map (UNN-233). */
-  surface: EditSurface
+  /**
+   * The write pipeline `save` dispatches through — owned by the provider-bound
+   * wrapper, so the hook itself is storage-blind (UNN-556). The sheet's
+   * `useCharacterAutoSave` supplies the v1 silent-retry + cross-tab-broadcast
+   * pipeline (`dispatchCharacterWriteWithRetry`); the builder's
+   * `useEntityAutoSave` supplies the entity door's plain guarded dispatch.
+   * Contract: call `action` with the latest class token and update the shared
+   * `versionRef` from a success before resolving.
+   */
+  dispatchWrite: (
+    action: (
+      expectedVersion: number
+    ) => Promise<Result<{ value: TValue; version: number }, TError>>
+  ) => Promise<Result<{ value: TValue; version: number }, TError | "stale">>
   /** Persists `value`, conditioned on `expectedVersion`. */
   save: (
     value: TValue,
@@ -125,7 +113,7 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   /** Used for `value === lastSaved` short-circuits. Default: `Object.is`. */
   isEqual?: (a: TValue, b: TValue) => boolean
   /** Override the default Sonner toast. */
-  onError?: (error: TError) => void
+  onError?: (error: TError | "stale") => void
 }
 
 export interface UseDebouncedAutoSaveReturn<TValue> {
@@ -145,10 +133,8 @@ export interface UseDebouncedAutoSaveReturn<TValue> {
 
 export function useDebouncedAutoSave<TValue, TError extends string>({
   serverValue,
-  versionRef,
   saveQueueRef,
-  characterId,
-  surface,
+  dispatchWrite,
   save,
   debounceMs = 500,
   isEmpty = () => false,
@@ -170,12 +156,9 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       if (isEqual(next, lastSavedRef.current)) return
 
       try {
-        const result = await dispatchCharacterWriteWithRetry({
-          characterId,
-          surface,
-          versionRef,
-          action: (expectedVersion) => save(next, expectedVersion),
-        })
+        const result = await dispatchWrite((expectedVersion) =>
+          save(next, expectedVersion)
+        )
 
         if (result.ok) {
           lastSavedRef.current = result.value.value

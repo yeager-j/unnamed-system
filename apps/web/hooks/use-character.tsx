@@ -187,8 +187,15 @@ export function useCharacter(): HydratedCharacter {
 export function useCharacterAutoSave<TValue, TError extends string>(
   args: Omit<
     UseDebouncedAutoSaveArgs<TValue, TError>,
-    "versionRef" | "saveQueueRef"
-  >
+    "saveQueueRef" | "dispatchWrite"
+  > & {
+    /** Owning character — used by the silent-retry path to refetch the fresh
+     *  per-class version after a `"stale"` and by the broadcast pipeline. */
+    characterId: string
+    /** The edit surface this editor mutates; its per-write-class token + queue
+     *  resolve from {@link EDIT_SURFACE_CLASS} (UNN-233). */
+    surface: EditSurface
+  }
 ): UseDebouncedAutoSaveReturn<TValue> {
   const editor = useContext(CharacterEditorContext)
   if (!editor) {
@@ -196,11 +203,19 @@ export function useCharacterAutoSave<TValue, TError extends string>(
       "useCharacterAutoSave must be used within a CharacterProvider"
     )
   }
-  const characterClass = EDIT_SURFACE_CLASS[args.surface]
+  const { characterId, surface, ...rest } = args
+  const characterClass = EDIT_SURFACE_CLASS[surface]
+  const versionRef = editor.tokens.ref(characterClass)
   return useDebouncedAutoSave({
-    ...args,
-    versionRef: editor.tokens.ref(characterClass),
+    ...rest,
     saveQueueRef: editor.saveQueues[characterClass],
+    dispatchWrite: (action) =>
+      dispatchCharacterWriteWithRetry({
+        characterId,
+        surface,
+        versionRef,
+        action,
+      }),
   })
 }
 
