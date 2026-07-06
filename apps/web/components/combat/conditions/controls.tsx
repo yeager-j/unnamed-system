@@ -9,9 +9,11 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 
 import {
+  AILMENTS,
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,
   DEFAULT_BATTLE_CONDITION_TURNS,
+  getAilment,
   type AilmentEvent,
   type AilmentKey,
   type BattleConditionAxisAction,
@@ -23,7 +25,6 @@ import {
   type ConditionDurations,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { AILMENTS, getAilment } from "@workspace/game/data"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"

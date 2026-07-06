@@ -7,14 +7,14 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { useEffect, useRef, useState } from "react"
 
-import type {
-  AilmentEvent,
-  AilmentHpApply,
-  EndOfTurnAilment,
-  EndOfTurnObligations,
+import {
+  getAilment,
+  type AilmentEvent,
+  type AilmentHpApply,
+  type EndOfTurnAilment,
+  type EndOfTurnObligations,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { getAilment } from "@workspace/game/data"
 import {
   Alert,
   AlertAction,

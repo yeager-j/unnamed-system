@@ -1,4 +1,4 @@
-import { getTalent } from "@workspace/game/data"
+import { getTalent } from "@workspace/game-v2/talents"
 import { type Statblock } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"

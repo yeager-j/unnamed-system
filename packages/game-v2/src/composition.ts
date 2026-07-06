@@ -57,6 +57,11 @@ import {
 } from "@workspace/game-v2/resources"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import {
+  resolveTalents,
+  resolveTalentsForBuilder,
+  resolveTalentsForSheet,
+} from "@workspace/game-v2/talents"
+import {
   addSpark,
   coerceVirtueAllocation,
   describeAllocationProgress,
@@ -206,6 +211,14 @@ export function createGameEngine(deps: GameData = gameData) {
     // Creation-eligible Origin set (E1 — UNN-552): the catalog filtered to the
     // initiate tier, bound over the `allArchetypes` port.
     creationArchetypes: creationArchetypes(deps),
+    // Talent resolution (E3 — UNN-554): the derived Talent roster (owned +
+    // active-Archetype union) + the sheet/builder display partitions. Talent names
+    // come from the domain-local catalog; only `getArchetype` is injected. The sheet
+    // partition reads owned Talents + active Archetype off the ResolvedEntity.
+    resolveTalents: (ownedKeys: string[], activeArchetypeKey: string | null) =>
+      resolveTalents(ownedKeys, activeArchetypeKey, deps),
+    resolveTalentsForSheet: resolveTalentsForSheet(deps),
+    resolveTalentsForBuilder: resolveTalentsForBuilder(deps),
     // Virtues (E1 — UNN-552): the Spark transitions + the creation-allocation
     // validators + the path display reads. All pure — no catalog, re-exposed as-is.
     addSpark,

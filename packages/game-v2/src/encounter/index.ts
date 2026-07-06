@@ -21,6 +21,7 @@
  * display-only {@link endOfTurnObligations} producers.
  */
 export * from "./vocab"
+export * from "./ailments"
 export * from "./overlay"
 export * from "./instance"
 export * from "./session"
