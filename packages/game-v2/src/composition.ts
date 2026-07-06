@@ -213,9 +213,11 @@ export function createGameEngine(deps: GameData = gameData) {
     // initiate tier, bound over the `allArchetypes` port.
     creationArchetypes: creationArchetypes(deps),
     // Starting weapon by Origin Lineage (S1 — UNN-556): the finalize action seeds
-    // the equipment component with it. A direct port pass-through.
+    // the equipment component with it. A direct port pass-through, as is the
+    // catalog Archetype lookup finalize resolves the Origin through.
     startingWeaponForLineage: (lineage: Lineage) =>
       deps.startingWeaponForLineage(lineage),
+    getArchetype: (key: string) => deps.getArchetype(key),
     // Talent resolution (E3 — UNN-554): the derived Talent roster (owned +
     // active-Archetype union) + the sheet/builder display partitions. Talent names
     // come from the domain-local catalog; only `getArchetype` is injected. The sheet

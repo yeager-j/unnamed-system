@@ -1,0 +1,36 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildFinalizePatch > mint golden-master: the full patch over a max-complexity draft 1`] = `
+{
+  "equipment": {
+    "items": [
+      {
+        "catalogItemKey": "longsword",
+        "equipped": true,
+        "id": "seeded-item-id",
+        "quantity": 1,
+      },
+    ],
+  },
+  "exhaustion": {
+    "level": 0,
+  },
+  "mechanics": {
+    "states": {
+      "perfection": {
+        "kind": "perfection",
+        "rank": 0,
+      },
+    },
+  },
+  "status": "finalized",
+  "talents": [
+    {
+      "key": "iron-stomach",
+    },
+    {
+      "key": "night-owl",
+    },
+  ],
+}
+`;

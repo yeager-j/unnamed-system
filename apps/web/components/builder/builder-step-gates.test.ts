@@ -1,75 +1,75 @@
 import { describe, expect, it } from "vitest"
 
+import type { VirtueRanks } from "@workspace/game-v2/virtues"
+
 import {
   findStepGateFailures,
   nextGateForStep,
-  type StepGateCharacter,
+  type StepGateInput,
 } from "./builder-step-gates"
 
 /**
- * A canonical "everything is valid" character. Each test starts from this and
- * overrides only the fields it wants to test, so a future required-field
- * addition surfaces as a single TypeScript error here instead of N missing
- * properties across every test.
+ * A canonical "everything is valid" draft. Each test starts from this and
+ * overrides only the slices it wants to test.
  */
-function validCharacter(
-  overrides: Partial<StepGateCharacter> = {}
-): StepGateCharacter {
+function validDraft(overrides: {
+  name?: string
+  origin?: string | null
+  ranks?: VirtueRanks
+}): StepGateInput {
+  const origin = overrides.origin === undefined ? "warrior" : overrides.origin
   return {
-    name: "Astrid Vey",
-    originArchetypeKey: "warrior",
-    virtueExpression: 0,
-    virtueEmpathy: 2,
-    virtueWisdom: 1,
-    virtueFocus: 1,
-    knives: Array.from({ length: 4 }, (_, i) => ({
-      id: `knife-${i}`,
-      characterId: "char-1",
-      title: `Knife ${i}`,
-      description: null,
-      order: i,
-    })),
-    chains: [
-      {
-        id: "chain-0",
-        characterId: "char-1",
-        title: "Chain",
-        description: null,
-        order: 0,
+    name: overrides.name ?? "Astrid Vey",
+    components: {
+      virtues: {
+        ranks: overrides.ranks ?? {
+          expression: 0,
+          empathy: 2,
+          wisdom: 1,
+          focus: 1,
+        },
+        sparkLog: [],
       },
-    ],
-    personalityTraits: "- Sharp",
-    hopes: "- Find sister",
-    dreams: "Build a school.",
-    fears: "- Drowning",
-    secrets: "- Can't read",
-    ...overrides,
+      ...(origin === null
+        ? {}
+        : {
+            archetypes: {
+              active: origin,
+              origin,
+              savedArchetypeRanks: 0,
+              roster: [{ key: origin, rank: 2, inheritanceSlots: [] }],
+            },
+          }),
+    },
   }
 }
 
 describe("nextGateForStep", () => {
   describe("corpus", () => {
     it("blocks when no Origin is picked", () => {
-      const result = nextGateForStep(
-        "corpus",
-        validCharacter({ originArchetypeKey: null })
-      )
+      const result = nextGateForStep("corpus", validDraft({ origin: null }))
       expect(result.canAdvance).toBe(false)
       expect(result.canAdvance === false && result.reason).toMatch(/origin/i)
     })
 
+    it("blocks when the archetypes component is entirely absent", () => {
+      expect(
+        nextGateForStep("corpus", { name: "Astrid", components: {} }).canAdvance
+      ).toBe(false)
+    })
+
     it("allows once Origin is set", () => {
-      expect(nextGateForStep("corpus", validCharacter()).canAdvance).toBe(true)
+      expect(nextGateForStep("corpus", validDraft({})).canAdvance).toBe(true)
     })
   })
 
   describe("ortus", () => {
-    it("blocks an invalid Virtue allocation", () => {
-      // Default-shape `validCharacter()` already has 1×+2 + 2×+1; perturb
-      // it so we have two +2s, which violates the creation rule.
+    it("blocks an invalid Virtue allocation (two +2s)", () => {
       const result = nextGateForStep(
         "ortus",
-        validCharacter({ virtueExpression: 2, virtueEmpathy: 2 })
+        validDraft({
+          ranks: { expression: 2, empathy: 2, wisdom: 1, focus: 1 },
+        })
       )
       expect(result.canAdvance).toBe(false)
       expect(result.canAdvance === false && result.reason).toMatch(/virtue/i)
@@ -79,63 +79,56 @@ describe("nextGateForStep", () => {
       expect(
         nextGateForStep(
           "ortus",
-          validCharacter({
-            virtueExpression: 0,
-            virtueEmpathy: 0,
-            virtueWisdom: 0,
-            virtueFocus: 0,
+          validDraft({
+            ranks: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
           })
         ).canAdvance
       ).toBe(false)
     })
 
+    it("blocks when the virtues component is entirely absent", () => {
+      expect(
+        nextGateForStep("ortus", { name: "Astrid", components: {} }).canAdvance
+      ).toBe(false)
+    })
+
     it("allows the canonical creation allocation", () => {
-      expect(nextGateForStep("ortus", validCharacter()).canAdvance).toBe(true)
+      expect(nextGateForStep("ortus", validDraft({})).canAdvance).toBe(true)
     })
   })
 
   describe("persona", () => {
     it("blocks an empty name", () => {
-      const result = nextGateForStep("persona", validCharacter({ name: "" }))
+      const result = nextGateForStep("persona", validDraft({ name: "" }))
       expect(result.canAdvance).toBe(false)
       expect(result.canAdvance === false && result.reason).toMatch(/name/i)
     })
 
     it("blocks a whitespace-only name", () => {
       expect(
-        nextGateForStep("persona", validCharacter({ name: "   " })).canAdvance
+        nextGateForStep("persona", validDraft({ name: "   " })).canAdvance
       ).toBe(false)
     })
 
     it("allows any non-whitespace name", () => {
-      expect(nextGateForStep("persona", validCharacter()).canAdvance).toBe(true)
+      expect(nextGateForStep("persona", validDraft({})).canAdvance).toBe(true)
     })
   })
 
   describe("ungated slugs", () => {
     it("permissively advances for movements without a gate (e.g. Animus)", () => {
-      // Movement 3 is intentionally ungated — the writer view is opt-in.
-      expect(nextGateForStep("animus", validCharacter()).canAdvance).toBe(true)
+      expect(nextGateForStep("animus", validDraft({})).canAdvance).toBe(true)
     })
   })
 })
 
 describe("findStepGateFailures", () => {
   it("returns an empty list when every gate passes", () => {
-    expect(findStepGateFailures(validCharacter())).toEqual([])
+    expect(findStepGateFailures(validDraft({}))).toEqual([])
   })
 
   it("returns one failure per failing movement, in wizard order", () => {
-    const failures = findStepGateFailures(
-      validCharacter({
-        name: "",
-        originArchetypeKey: null,
-        virtueExpression: 0,
-        virtueEmpathy: 0,
-        virtueWisdom: 0,
-        virtueFocus: 0,
-      })
-    )
+    const failures = findStepGateFailures({ name: "", components: {} })
     expect(failures.map((f) => f.stepSlug)).toEqual([
       "corpus",
       "ortus",
@@ -147,9 +140,7 @@ describe("findStepGateFailures", () => {
   })
 
   it("reports only the movements that fail", () => {
-    const failures = findStepGateFailures(
-      validCharacter({ originArchetypeKey: null })
-    )
+    const failures = findStepGateFailures(validDraft({ origin: null }))
     expect(failures).toHaveLength(1)
     expect(failures[0]!.stepSlug).toBe("corpus")
   })

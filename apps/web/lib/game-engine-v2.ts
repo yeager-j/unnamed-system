@@ -30,6 +30,7 @@ export const {
   previewArchetypeSkills,
   resolveTalentsForBuilder,
   startingWeaponForLineage,
+  getArchetype,
 } = engine
 
 /**

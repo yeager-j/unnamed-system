@@ -1,9 +1,8 @@
-import { isValidCreationAllocation } from "@workspace/game/engine"
-
-import type {
-  CharacterChainRow,
-  CharacterKnifeRow,
-} from "@/lib/db/schema/character"
+import type { ComponentRegistry } from "@workspace/game-v2/kernel"
+import {
+  isValidCreationAllocation,
+  ZERO_VIRTUE_ALLOCATION,
+} from "@workspace/game-v2/virtues"
 
 import type { MovementSlug } from "./builder-steps"
 
@@ -15,8 +14,8 @@ import type { MovementSlug } from "./builder-steps"
  *   time, surfaces the reason as the disabled-link tooltip);
  * - the route page on Movement 4 (calls `findStepGateFailures` to gate the
  *   Finalize button on every required input, not just persona's name);
- * - the `finalizeCharacterAction` Server Action (canonical server-side
- *   gate — re-runs every predicate and rejects the finalize on the first
+ * - `buildFinalizePatch` (`lib/entity/finalize.ts` — the canonical server-side
+ *   gate: re-runs every predicate and refuses the finalize on the first
  *   failure).
  *
  * Corpus, Ortus, and Persona gate; Movement 3 (Animus) is permissive by
@@ -24,26 +23,15 @@ import type { MovementSlug } from "./builder-steps"
  * Identity Traits do not block finalize) and intentionally does not appear
  * here.
  *
- * The input is the minimal structural slice of the builder character every
- * predicate needs. The route's `BuilderCharacter` and the action's loaded
- * row both satisfy this shape without wrapping.
+ * The input is the loaded entity's own vocabulary (UNN-556): the `name`
+ * column plus the authored component bag — the route's loaded pair and the
+ * finalize action's assembled row both satisfy it without wrapping.
  */
 
-/** The minimal builder-character slice the gates inspect. */
-export interface StepGateCharacter {
+/** The minimal draft slice the gates inspect. */
+export interface StepGateInput {
   name: string
-  originArchetypeKey: string | null
-  virtueExpression: number
-  virtueEmpathy: number
-  virtueWisdom: number
-  virtueFocus: number
-  knives: readonly CharacterKnifeRow[]
-  chains: readonly CharacterChainRow[]
-  personalityTraits: string | null
-  hopes: string | null
-  dreams: string | null
-  fears: string | null
-  secrets: string | null
+  components: Partial<ComponentRegistry>
 }
 
 export type StepGateResult =
@@ -63,11 +51,11 @@ export type GatedStepSlug = "corpus" | "ortus" | "persona"
  */
 export function nextGateForStep(
   slug: MovementSlug,
-  character: StepGateCharacter
+  draft: StepGateInput
 ): StepGateResult {
   switch (slug) {
     case "corpus": {
-      if (character.originArchetypeKey === null) {
+      if ((draft.components.archetypes?.origin ?? null) === null) {
         return {
           canAdvance: false,
           reason: "Pick an Origin Archetype to continue.",
@@ -76,12 +64,8 @@ export function nextGateForStep(
       return { canAdvance: true }
     }
     case "ortus": {
-      const allocation = {
-        expression: character.virtueExpression,
-        empathy: character.virtueEmpathy,
-        wisdom: character.virtueWisdom,
-        focus: character.virtueFocus,
-      }
+      const allocation =
+        draft.components.virtues?.ranks ?? ZERO_VIRTUE_ALLOCATION
       if (!isValidCreationAllocation(allocation)) {
         return {
           canAdvance: false,
@@ -92,7 +76,7 @@ export function nextGateForStep(
       return { canAdvance: true }
     }
     case "persona": {
-      if (character.name.trim().length === 0) {
+      if (draft.name.trim().length === 0) {
         return {
           canAdvance: false,
           reason: "Give your character a name to finalize.",
@@ -128,12 +112,10 @@ export const GATED_STEPS: readonly GatedStepSlug[] = [
  * uses the result to gate the Finalize button; the finalize Server Action
  * uses it to reject mid-write if anything has changed since the click.
  */
-export function findStepGateFailures(
-  character: StepGateCharacter
-): GateFailure[] {
+export function findStepGateFailures(draft: StepGateInput): GateFailure[] {
   const failures: GateFailure[] = []
   for (const slug of GATED_STEPS) {
-    const result = nextGateForStep(slug, character)
+    const result = nextGateForStep(slug, draft)
     if (!result.canAdvance) {
       failures.push({ stepSlug: slug, reason: result.reason })
     }

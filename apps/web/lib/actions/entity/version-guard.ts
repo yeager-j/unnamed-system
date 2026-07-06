@@ -4,7 +4,7 @@ import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
-import { entity } from "@/lib/db/schema/entity"
+import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
 import type { EntityWritePatch } from "@/lib/entity/commit/writers"
 import { publishCharacterPing } from "@/lib/realtime/publish"
@@ -28,6 +28,26 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
  */
 
 export type EntityGuardError = "entity-not-found" | "stale"
+
+/**
+ * The app-owned column half of a guarded write (ADR §2.4: "app-column writes
+ * stay classic per-field Server Actions ... both compose
+ * `bumpEntityVersionGuarded`"). `campaignId` is deliberately excluded —
+ * placement is unguarded (v1 parity) — as are the keys/tokens themselves.
+ */
+export type EntityColumnPatch = Partial<
+  Pick<
+    EntityRow,
+    "name" | "portraitUrl" | "pronouns" | "notes" | "builderStep" | "status"
+  >
+>
+
+/**
+ * Everything one guarded UPDATE may SET: component columns (a Writer's patch)
+ * and/or app-owned columns (a column action's patch). Both species bump their
+ * declared class; finalize is the one write that spans both halves.
+ */
+export type EntityRowPatch = EntityWritePatch & EntityColumnPatch
 
 const VERSION_COLUMNS = {
   identity: entity.identityVersion,
@@ -66,7 +86,7 @@ export async function bumpEntityVersionGuarded(
   entityId: string,
   versionClass: VersionClass,
   expectedVersion: number,
-  patch: EntityWritePatch
+  patch: EntityRowPatch
 ): Promise<Result<{ version: number }, EntityGuardError>> {
   const column = VERSION_COLUMNS[versionClass]
 
