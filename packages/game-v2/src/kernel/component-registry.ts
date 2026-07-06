@@ -12,9 +12,12 @@ import type {
 } from "@workspace/game-v2/kernel/vocab"
 import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
 import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
+import type { Narrative } from "@workspace/game-v2/narrative/narrative.schema"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Path } from "@workspace/game-v2/progression/path.schema"
+import type { SparkLog } from "@workspace/game-v2/progression/spark-log.schema"
+import type { Virtues } from "@workspace/game-v2/progression/virtues.schema"
 import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
 import type {
   ResolvedExhaustion,
@@ -96,6 +99,14 @@ export interface ComponentRegistry {
   // channel + the basic-attack resolver, NOT a fold output — hence no
   // `ResolvedComponentRegistry` entry below.
   equipment: Equipment
+  // Rulebook progression + identity state minted fresh for the character domain
+  // (Characters v2 S0 — UNN-551). `virtues`/`sparkLog` are the Virtue ranks + the
+  // Spark log (CH17); `narrative` is the authored identity content (CH16). All
+  // three are **pass-through** read-units (authored == effective) — they appear in
+  // `ResolvedComponentRegistry` below and resolve emits them unchanged.
+  virtues: Virtues
+  sparkLog: SparkLog
+  narrative: Narrative
 }
 
 /**
@@ -136,4 +147,11 @@ export interface ResolvedComponentRegistry {
   // re-walking the authored `Mechanics` component. Emitted only when ≥1 is active;
   // DM-side only (dropped from every watcher, like `pendingEffects`) — UNN-525.
   activeMechanics: ResolvedActiveMechanic[]
+  // Pass-through identity/progression read-units (UNN-551) — authored == effective,
+  // the `identity`/`talents` precedent. The character surfaces read them off the
+  // resolved entity; the visibility table drops all three from every combat viewer
+  // (they never ride the encounter snapshot).
+  virtues: Virtues
+  sparkLog: SparkLog
+  narrative: Narrative
 }

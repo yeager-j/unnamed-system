@@ -10,9 +10,12 @@ import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
 import { presentationSchema } from "@workspace/game-v2/kernel/presentation.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { mechanicsSchema } from "@workspace/game-v2/mechanics/mechanics.schema"
+import { narrativeSchema } from "@workspace/game-v2/narrative/narrative.schema"
 import { levelSchema } from "@workspace/game-v2/progression/level.schema"
 import { manualBonusesSchema } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import { pathSchema } from "@workspace/game-v2/progression/path.schema"
+import { sparkLogSchema } from "@workspace/game-v2/progression/spark-log.schema"
+import { virtuesSchema } from "@workspace/game-v2/progression/virtues.schema"
 import { exhaustionSchema } from "@workspace/game-v2/resources/exhaustion.schema"
 import { resourcesSchema } from "@workspace/game-v2/resources/resources.schema"
 import { skillsSchema } from "@workspace/game-v2/skills/skills.schema"
@@ -41,7 +44,7 @@ type ComponentSchemas = {
   [K in keyof ComponentRegistry]: z.ZodType<ComponentRegistry[K]>
 }
 
-const componentSchemas: ComponentSchemas = {
+export const componentSchemas: ComponentSchemas = {
   identity: identitySchema,
   presentation: presentationSchema,
   attributes: attributesSchema,
@@ -58,6 +61,9 @@ const componentSchemas: ComponentSchemas = {
   exhaustion: exhaustionSchema,
   mechanics: mechanicsSchema,
   equipment: equipmentSchema,
+  virtues: virtuesSchema,
+  sparkLog: sparkLogSchema,
+  narrative: narrativeSchema,
 }
 
 /**
