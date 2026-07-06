@@ -155,8 +155,9 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
     .poll(async () => (await getInlineEnemyVitals(draft.id, "Goblin"))?.damage)
     .toBe(6)
 
-  // Durable PC damage lands on the character row (the CD19 router's durable
-  // arm) — polled off `characters.currentHP`, not the session blob.
+  // Durable PC damage lands on the PC's `entity` row via the write-router's
+  // durable arm (UNN-551) — polled off the resolved entity HP, not the session
+  // blob.
   await page.keyboard.press("Escape")
   await expect(drawer).toBeHidden()
   await page
@@ -168,6 +169,12 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
   await expect
     .poll(async () => await getCharacterCurrentHP(pcId))
     .toBe(pcHpBefore - 5)
+
+  // The durable write's optimistic transition defers the adjust-pool popover's
+  // close (it settles when the round-trip completes, ~0.5s); wait for it before
+  // Escaping the drawer, else Escape closes the still-open popover, not the
+  // drawer. (Cosmetic combat-only delay, revisited with the S2 optimistic model.)
+  await expect(page.getByRole("button", { name: "Take damage" })).toBeHidden()
 
   // End the encounter → the read-only ended stub.
   await page.keyboard.press("Escape")
