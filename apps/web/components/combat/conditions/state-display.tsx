@@ -1,6 +1,6 @@
 "use client"
 
-import { getAilment } from "@workspace/game/data"
+import { getAilment } from "@workspace/game-v2/encounter"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,

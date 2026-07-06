@@ -1,4 +1,4 @@
-import { getTalent } from "@workspace/game/data"
+import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 import {
   type DungeonReminder,
   type RecommendationReason,
@@ -26,7 +26,6 @@ import {
   type SkillKind,
   type StainElement,
   type SuggestedPath,
-  type TalentKey,
   type VirtueKey,
 } from "@workspace/game/foundation"
 

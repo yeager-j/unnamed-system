@@ -9,7 +9,7 @@ import type {
   CounterEvent,
 } from "@workspace/game-v2/encounter"
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
-import { getTalent } from "@workspace/game/data"
+import { getTalent } from "@workspace/game-v2/talents"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   ResponsiveDialog,

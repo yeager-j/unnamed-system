@@ -2,7 +2,7 @@
 
 import { CheckIcon, MapPinIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { getAilment } from "@workspace/game/data"
+import { getAilment } from "@workspace/game-v2/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
