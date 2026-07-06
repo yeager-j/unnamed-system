@@ -15,8 +15,8 @@ import { characterRowId } from "./seed-character"
  * `characters` row (so the entity's derived pools match exactly what the sheet
  * would show), then stores **native signed depletion** from the fixture's `damage`
  * (v1 stored absolute pools; v2 stores the depletion) and the net-new
- * `virtues`/`sparkLog`/`narrative` components the projection doesn't carry. The
- * `characters` row must already exist (call after {@link insertCharacter}).
+ * `virtues` (ranks + Spark log) / `narrative` components the projection doesn't
+ * carry. The `characters` row must already exist (call after {@link insertCharacter}).
  *
  * Idempotent: the entity row is upserted, so a re-seed neither duplicates it nor
  * disturbs its id/shortId.
@@ -73,8 +73,7 @@ export async function insertSeedEntity(
     attributes: projected.attributes,
     affinities: projected.affinities,
     talents: projected.talents,
-    virtues: character.virtues,
-    sparkLog: character.sparkLog,
+    virtues: { ranks: character.virtues, sparkLog: character.sparkLog },
     narrative: {
       ancestry: character.ancestryText,
       background: character.backgroundText,

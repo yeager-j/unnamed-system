@@ -2,6 +2,7 @@ import {
   archetypeSwitcherGroups,
   buildArchetypeEntries,
   buildLineageAtlas,
+  creationArchetypes,
   getArchetypeDisplay,
   getAtlasRecommendations,
   previewArchetypeSkills,
@@ -33,9 +34,14 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter"
 import {
+  addItem,
   applyInventoryMutation,
+  equipItem,
+  removeItem,
   resolveBasicAttack,
   resolveInventory,
+  setItemQuantity,
+  unequipItem,
   type IntrinsicAttack,
   type InventoryItemState,
   type InventoryMutation,
@@ -45,6 +51,17 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import {
+  addSpark,
+  coerceVirtueAllocation,
+  describeAllocationProgress,
+  eligibleVirtuesForRankUp,
+  isValidCreationAllocation,
+  rankUpVirtue,
+  sparkLogBreakdown,
+  wouldExceedAllocationCap,
+} from "@workspace/game-v2/virtues"
+import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
@@ -82,6 +99,27 @@ export function createGameEngine(deps: GameData = gameData) {
       entity: Entity,
       formNaturalAttack: IntrinsicAttack | null
     ) => resolveBasicAttack(deps, entity, formNaturalAttack),
+    // The granular item mutations `applyInventoryMutation` routes to, exposed
+    // directly (UNN-552) for surfaces that drive one op rather than the router.
+    // `equip`/`add`/`setQuantity` need the catalog (slot/`stackSize`), bound over
+    // `deps`; `unequip`/`remove` are pure list transforms.
+    equipItem: (items: readonly InventoryItemState[], itemId: string) =>
+      equipItem(deps)(items, itemId),
+    unequipItem: (items: readonly InventoryItemState[], itemId: string) =>
+      unequipItem(items, itemId),
+    addItem: (
+      items: readonly InventoryItemState[],
+      catalogItemKey: string,
+      quantity: number,
+      newId: () => string
+    ) => addItem(deps)(items, catalogItemKey, quantity, newId),
+    setItemQuantity: (
+      items: readonly InventoryItemState[],
+      itemId: string,
+      quantity: number
+    ) => setItemQuantity(deps)(items, itemId, quantity),
+    removeItem: (items: readonly InventoryItemState[], itemId: string) =>
+      removeItem(items, itemId),
     // Encounter (UNN-515): mint a fresh Session from setup, instantiating any
     // catalog-enemy setup entries via `getEnemy`. `newId` is a runtime arg (the
     // applyInventoryMutation pattern), bound by the caller per mint.
@@ -160,6 +198,21 @@ export function createGameEngine(deps: GameData = gameData) {
     getAtlasRecommendations: getAtlasRecommendations(deps),
     archetypeSwitcherGroups: archetypeSwitcherGroups(deps),
     previewArchetypeSkills: previewArchetypeSkills(deps),
+    // Creation-eligible Origin set (E1 — UNN-552): the catalog filtered to the
+    // initiate tier, bound over the `allArchetypes` port.
+    creationArchetypes: creationArchetypes(deps),
+    // Virtues (E1 — UNN-552): the Spark transitions + the creation-allocation
+    // validators + the path display reads. All pure — no catalog, re-exposed as-is.
+    addSpark,
+    rankUpVirtue,
+    eligibleVirtuesForRankUp,
+    sparkLogBreakdown,
+    isValidCreationAllocation,
+    coerceVirtueAllocation,
+    wouldExceedAllocationCap,
+    describeAllocationProgress,
+    getPathStats,
+    getPathDice,
   }
 }
 

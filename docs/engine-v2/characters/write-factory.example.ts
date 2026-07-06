@@ -224,7 +224,7 @@ export const ENTITY_WRITERS: WriterMap = {
         components,
         write.virtue
       ) as Result<
-        Pick<StoredComponents, "virtues" | "sparkLog">, // rank-up touches both
+        Pick<StoredComponents, "virtues">, // ranks + log are one component (E1)
         WriteRefusal
       >,
   },

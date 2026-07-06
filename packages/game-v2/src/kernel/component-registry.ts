@@ -16,8 +16,6 @@ import type { Narrative } from "@workspace/game-v2/narrative/narrative.schema"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
 import type { ManualBonuses } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import type { Path } from "@workspace/game-v2/progression/path.schema"
-import type { SparkLog } from "@workspace/game-v2/progression/spark-log.schema"
-import type { Virtues } from "@workspace/game-v2/progression/virtues.schema"
 import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
 import type {
   ResolvedExhaustion,
@@ -27,6 +25,7 @@ import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
 import type { Skills } from "@workspace/game-v2/skills/skills.schema"
 import type { Talents } from "@workspace/game-v2/talents/talents.schema"
+import type { Virtues } from "@workspace/game-v2/virtues/virtues.schema"
 import type {
   ResolvedSkillPool,
   ResolvedVitals,
@@ -100,12 +99,12 @@ export interface ComponentRegistry {
   // `ResolvedComponentRegistry` entry below.
   equipment: Equipment
   // Rulebook progression + identity state minted fresh for the character domain
-  // (Characters v2 S0 — UNN-551). `virtues`/`sparkLog` are the Virtue ranks + the
-  // Spark log (CH17); `narrative` is the authored identity content (CH16). All
-  // three are **pass-through** read-units (authored == effective) — they appear in
-  // `ResolvedComponentRegistry` below and resolve emits them unchanged.
+  // (Characters v2 S0 — UNN-551). `virtues` is the four Virtue ranks + the Spark
+  // progress log (CH17; one component, E1/UNN-552 merged S0's split); `narrative`
+  // is the authored identity content (CH16). Both are **pass-through** read-units
+  // (authored == effective) — they appear in `ResolvedComponentRegistry` below and
+  // resolve emits them unchanged.
   virtues: Virtues
-  sparkLog: SparkLog
   narrative: Narrative
 }
 
@@ -149,9 +148,8 @@ export interface ResolvedComponentRegistry {
   activeMechanics: ResolvedActiveMechanic[]
   // Pass-through identity/progression read-units (UNN-551) — authored == effective,
   // the `identity`/`talents` precedent. The character surfaces read them off the
-  // resolved entity; the visibility table drops all three from every combat viewer
+  // resolved entity; the visibility table drops both from every combat viewer
   // (they never ride the encounter snapshot).
   virtues: Virtues
-  sparkLog: SparkLog
   narrative: Narrative
 }

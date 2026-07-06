@@ -105,28 +105,25 @@ describe("entity table ⇔ durable component registry", () => {
     expect(
       componentSchemas.vitals.safeParse({ base: 30, damage: 5 }).success
     ).toBe(true)
-    // Net-new component bounds (UNN-551): the schemas the entity columns store.
+    // Net-new component bounds (UNN-551; ranks + Spark log merged into one
+    // `virtues` component in E1/UNN-552): the schema the entity column stores.
     expect(
       componentSchemas.virtues.safeParse({
-        expression: 7,
-        empathy: 0,
-        wisdom: 0,
-        focus: 0,
+        ranks: { expression: 7, empathy: 0, wisdom: 0, focus: 0 },
+        sparkLog: Array(7).fill("focus"),
       }).success
     ).toBe(true)
     expect(
       componentSchemas.virtues.safeParse({
-        expression: 8,
-        empathy: 0,
-        wisdom: 0,
-        focus: 0,
+        ranks: { expression: 8, empathy: 0, wisdom: 0, focus: 0 },
+        sparkLog: [],
       }).success
     ).toBe(false)
     expect(
-      componentSchemas.sparkLog.safeParse(Array(7).fill("focus")).success
-    ).toBe(true)
-    expect(
-      componentSchemas.sparkLog.safeParse(Array(8).fill("focus")).success
+      componentSchemas.virtues.safeParse({
+        ranks: { expression: 0, empathy: 0, wisdom: 0, focus: 0 },
+        sparkLog: Array(8).fill("focus"),
+      }).success
     ).toBe(false)
     expect(
       componentSchemas.narrative.safeParse({

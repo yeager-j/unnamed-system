@@ -469,6 +469,20 @@ takes one class — **progression** wins (the live sheet surface; builder-time
 allocation contends with nothing). The v1 split protected surfaces that never
 actually race.
 
+**Amendment (E1 — UNN-552, 2026-07-06): `Virtues` and `SparkLog` are ONE
+component, not two.** S0 minted them as two durable components/columns (`virtues`
+ranks + `sparkLog`). Jackson flagged the split during E1 as a leak: you never
+have ranks without a log or a log without ranks, and `rankUpVirtue` reads and
+writes **both atomically** — the textbook granularity signal for a single
+component (O1/D8, "the smallest cluster one system reads/writes together"). v1
+itself modeled them as one interface (`SparkCharacter { sparkLog, virtues }`), so
+the S0 split was the deviation. They already share the write class (progression),
+combat treatment (`DROP_FROM_ALL`), and PC-only lifecycle — nothing argued for
+two. Merged to `virtues = { ranks, sparkLog }`, homed in its own `virtues/`
+domain folder (out of `progression/`); the `entity.sparkLog` column is dropped
+(migration 0028). One column → one progression guard/token covers both the
+`addSpark` and `rankUpVirtue` writes.
+
 ---
 
 ## CH18 — Optimistic frames run `resolveEntity` on the client, uniformly · **Settled** (2026-07-05; Jackson's lean, sharpened)
