@@ -8,15 +8,15 @@ import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
 import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
-import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
 import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import type { Pool } from "@/lib/combat/view/roster-view"
 import { vitalsAffordances } from "@/lib/combat/view/vitals-affordances"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 /**
  * The drawer's **VITALS** section, rewritten onto the CD19 write-router
- * (UNN-535). Every adjust dispatches a storage-blind {@link CombatantWrite}
+ * (UNN-535). Every adjust dispatches a storage-blind {@link EntityWrite}
  * descriptor through {@link DispatchCombatantWrite} — the router decides the
  * home server-side, the console's optimistic container predicts it against the
  * current frame — so damage/heal work identically on an inline enemy and a
@@ -39,7 +39,7 @@ export function CombatantVitalsSection({
 }) {
   const affordances = vitalsAffordances(detail.isPc, detail.deps)
 
-  function write(descriptor: CombatantWrite) {
+  function write(descriptor: EntityWrite) {
     void dispatchWrite(detail.id, descriptor, detail.deps)
   }
 

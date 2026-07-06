@@ -9,26 +9,28 @@ import {
   applySpendSP,
 } from "@workspace/game-v2/vitals/operations"
 
-import type { CombatantWrite, MechanicWrite, PoolWrite } from "./write.schema"
+import type { VersionClass } from "@/lib/db/version-classes"
+
+import type { EntityWrite, MechanicWrite, PoolWrite } from "./write.schema"
 
 /**
- * The **Writers** (UNN-520; ADR §2.9) — the storage-blind half of the
- * write-router. One entry per write-side component family, each wrapping the
- * engine's existing pure operations. `applyOp` is:
+ * The **Writers** (UNN-520/UNN-551; ADR §2.4/§2.9) — the storage-blind half of
+ * the write pipeline, shared by every surface that writes a durable entity (the
+ * character sheet, the builder, and combat's durable arm). One entry per
+ * write-side component family, each wrapping the engine's pure operations.
+ * `applyOp` is:
  *
- * - the **optimistic client predictor** — the deferred `useCombatantWrite`
- *   hook applies the returned patch to its latest optimistic frame (reducer-form
- *   `useOptimistic`, the UNN-226 stale-closure lesson), and
- * - the **session arm's validation pre-mint** — the server runs it before
- *   minting the reducer event, so a capability miss or an unaffordable spend is
- *   a real error at the boundary rather than a silent reducer no-op. (The
- *   durable arm validates inside its per-field wrappers instead — each home
- *   commits natively, amended CD19.)
+ * - the **optimistic client predictor** — the dispatching hook applies the
+ *   returned patch to its latest optimistic frame (reducer-form `useOptimistic`,
+ *   the UNN-226 stale-closure lesson), and
+ * - the **server's validation pre-mint** — the Store runs it before committing,
+ *   so a capability miss or an unaffordable spend is a real error at the boundary
+ *   rather than a silent no-op.
  *
  * {@link WriterDeps} carries the resolved values a validation needs (Prisma's
- * cap). **Derived independently by client (from its view model) and server
- * (from its own resolve); never accepted over the wire** — a client could
- * otherwise lie about its caps.
+ * cap). **Derived independently by client (from its view model) and server (from
+ * its own resolve); never accepted over the wire** — a client could otherwise lie
+ * about its caps.
  */
 export interface WriterDeps {
   /** The resolved Prisma charge cap; `undefined` while the max is unknown. */
@@ -36,50 +38,64 @@ export interface WriterDeps {
 }
 
 /** A Writer's refusal — surfaced by the action, never silently dropped. */
-export type CombatantWriteRefusal =
+export type EntityWriteRefusal =
   | "capability-missing"
   | "no-prisma-max"
   | "no-prisma-charges"
   | "no-transitions"
 
 /**
- * The authored-component patch a Writer predicts — whole updated components,
- * so the optimistic frame merges + re-resolves exactly like a server read.
+ * The authored-component patch a Writer predicts — whole updated components, so
+ * the optimistic frame merges + re-resolves exactly like a server read. Widened
+ * to the durable registry (CH5): a character transition (Rest) spans vitals +
+ * skillPool + resources + exhaustion in one patch. Each patch key maps 1:1 to an
+ * `entity` component column, so the guarded UPDATE touches exactly the written
+ * components. The combat Writers below produce the single-component degenerate
+ * case of this type.
+ *
+ * `identity`/`presentation` are excluded: the descriptor router never writes the
+ * `name`/`portraitUrl` metadata — those are classic per-field column actions
+ * (ADR §2.4) — so a router patch spans only durable **component** columns.
  */
-export type CombatantWritePatch = Partial<
-  Pick<ComponentRegistry, "vitals" | "skillPool" | "resources" | "mechanics">
+export type EntityWritePatch = Partial<
+  Omit<ComponentRegistry, "identity" | "presentation">
 >
 
 type Components = Partial<ComponentRegistry>
 
-export interface ComponentWriter<W extends CombatantWrite = CombatantWrite> {
+export interface EntityWriter<W extends EntityWrite = EntityWrite> {
   component: W["component"]
-  /** The character version class every durable commit of this family guards on. */
-  durableClass: "vitals"
+  /**
+   * The version class every durable commit of this family guards on — a fact of
+   * the Writer (CH4), declared once and read by both the client (which token to
+   * send) and the server (which token to bump). The combat families all guard
+   * `vitals`; the character families that land later carry `identity` /
+   * `progression`.
+   */
+  durableClass: VersionClass
   applyOp(
     components: Components,
     write: W,
     deps: WriterDeps
-  ): Result<CombatantWritePatch, CombatantWriteRefusal>
+  ): Result<EntityWritePatch, EntityWriteRefusal>
 }
 
 // The pools arm is ONE union member covering both components, so a naive
 // per-key Extract would collapse to `never` — the two pool entries share it.
 type WriterMap = {
-  vitals: ComponentWriter<PoolWrite>
-  skillPool: ComponentWriter<PoolWrite>
-  resources: ComponentWriter<
-    Extract<CombatantWrite, { component: "resources" }>
-  >
-  mechanics: ComponentWriter<MechanicWrite>
+  vitals: EntityWriter<PoolWrite>
+  skillPool: EntityWriter<PoolWrite>
+  resources: EntityWriter<Extract<EntityWrite, { component: "resources" }>>
+  mechanics: EntityWriter<MechanicWrite>
 }
 
 /**
  * One Writer per component family. `vitals` and `skillPool` share their op
- * vocabulary but operate on different component types through different
- * engine operations — two entries varying the noun, one shape.
+ * vocabulary but operate on different component types through different engine
+ * operations — two entries varying the noun, one shape. Combat's original
+ * `COMPONENT_WRITERS` are absorbed here as the built subset.
  */
-export const COMPONENT_WRITERS: WriterMap = {
+export const ENTITY_WRITERS: WriterMap = {
   vitals: {
     component: "vitals",
     durableClass: "vitals",
@@ -162,23 +178,23 @@ export const COMPONENT_WRITERS: WriterMap = {
 }
 
 /**
- * The correlated dispatch over {@link COMPONENT_WRITERS} — the single entry
- * point both the optimistic client and the session store call, so the
- * component-to-Writer pairing is decided once with exact narrowing.
+ * The correlated dispatch over {@link ENTITY_WRITERS} — the single entry point
+ * both the optimistic client and the server Store call, so the component-to-Writer
+ * pairing is decided once with exact narrowing.
  */
-export function applyCombatantWrite(
+export function applyEntityWrite(
   components: Components,
-  write: CombatantWrite,
+  write: EntityWrite,
   deps: WriterDeps
-): Result<CombatantWritePatch, CombatantWriteRefusal> {
+): Result<EntityWritePatch, EntityWriteRefusal> {
   switch (write.component) {
     case "vitals":
-      return COMPONENT_WRITERS.vitals.applyOp(components, write, deps)
+      return ENTITY_WRITERS.vitals.applyOp(components, write, deps)
     case "skillPool":
-      return COMPONENT_WRITERS.skillPool.applyOp(components, write, deps)
+      return ENTITY_WRITERS.skillPool.applyOp(components, write, deps)
     case "resources":
-      return COMPONENT_WRITERS.resources.applyOp(components, write, deps)
+      return ENTITY_WRITERS.resources.applyOp(components, write, deps)
     case "mechanics":
-      return COMPONENT_WRITERS.mechanics.applyOp(components, write, deps)
+      return ENTITY_WRITERS.mechanics.applyOp(components, write, deps)
   }
 }

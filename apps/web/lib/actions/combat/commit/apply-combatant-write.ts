@@ -53,9 +53,10 @@ export async function applyCombatantWriteAction(
 
 /**
  * The one decision point from locator shape to Store — durable participants
- * commit through their character row (guarded on the wire's
- * `expectedCharacterVersion`), inline participants through the session blob
- * (guarded on the encounter `expectedVersion`).
+ * commit through their `entity` row (guarded on the wire's
+ * `expectedCharacterVersion`, which carries the entity's `vitalsVersion`), inline
+ * participants through the session blob (guarded on the encounter
+ * `expectedVersion`).
  */
 function storeFor(
   loaded: LoadedEncounterForWrite,
@@ -72,7 +73,7 @@ function storeFor(
     }
     return ok(
       entityRowStore({
-        characterId: locator.entityId,
+        entityId: locator.entityId,
         expectedVersion: input.expectedCharacterVersion,
       })
     )

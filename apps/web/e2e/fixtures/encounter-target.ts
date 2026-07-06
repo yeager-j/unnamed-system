@@ -14,10 +14,12 @@ import { createMapInstance } from "@workspace/game/engine"
 import { type MapInstanceState } from "@workspace/game/foundation"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
-import { characters, encounters, getDb } from "@/lib/db"
+import { encounters, entity, getDb } from "@/lib/db"
+import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
-import { instantiateEnemy } from "@/lib/game-engine-v2"
+import { instantiateEnemy, resolveEntity } from "@/lib/game-engine-v2"
+import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,
@@ -344,30 +346,39 @@ export async function getDurableParticipantSide(
   return overlayComponentsSchema.parse(participant.overlay).allegiance.side
 }
 
-/** The characters row's `currentHP` — where a durable combatant's HP damage
- *  lands (the character row is the PC's storage home, never the session). */
+/** The durable combatant's **resolved** current HP — where a durable HP write
+ *  now lands (UNN-551): the `entity` row's signed `vitals.damage`, folded through
+ *  `resolveEntity` (currentHP = maxHP − damage). The entity is the PC's combat
+ *  storage home, never the session. */
 export async function getCharacterCurrentHP(
   characterId: string
 ): Promise<number> {
-  const [row] = await getDb()
-    .select({ currentHP: characters.currentHP })
-    .from(characters)
-    .where(eq(characters.id, characterId))
-    .limit(1)
-  if (!row) throw new Error(`character ${characterId} missing`)
-  return row.currentHP
+  const row = await loadEntityRowById(characterId)
+  if (!row) throw new Error(`entity ${characterId} missing`)
+  const loaded = loadEntityRow(row)
+  if (!loaded.ok)
+    throw new Error(`entity ${characterId} has invalid components`)
+  return resolveEntity(loaded.value).components.vitals?.currentHP ?? 0
 }
 
-/** Restores a seeded character's `currentHP` — the fixture reset never touches
- *  character rows, so a spec that damages a seeded PC puts the HP back itself. */
+/** Restores a seeded combatant's current HP by resetting its `entity` depletion —
+ *  the fixture reset never touches entity rows, so a spec that damages a seeded PC
+ *  puts the HP back itself. */
 export async function setCharacterCurrentHP(
   characterId: string,
   currentHP: number
 ): Promise<void> {
+  const row = await loadEntityRowById(characterId)
+  if (!row) return
+  const loaded = loadEntityRow(row)
+  if (!loaded.ok) return
+  const maxHP = resolveEntity(loaded.value).components.vitals?.maxHP ?? 0
   await getDb()
-    .update(characters)
-    .set({ currentHP })
-    .where(eq(characters.id, characterId))
+    .update(entity)
+    .set({
+      vitals: { base: row.vitals?.base ?? 0, damage: maxHP - currentHP },
+    })
+    .where(eq(entity.id, characterId))
 }
 
 export async function resetEncounterFixtures(): Promise<void> {

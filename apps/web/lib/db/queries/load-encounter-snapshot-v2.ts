@@ -145,6 +145,13 @@ export interface OwnedEncounterSheet {
  * Each sheet hydrates with the encounter's party composition for its own side
  * (the `perPartyLineage` Attack-Roll scalers, UNN-367) and its zone's resolved
  * Enchantment effects — the same scaled values the DM drawer shows.
+ *
+ * **S0 degraded window (UNN-551):** the watch's owned-sheet column is a v1
+ * `HydratedCharacter` render, and a durable combatant is now an `entity` row with
+ * no `characters` twin — so `loadHydratedCharacterById` returns null and this
+ * yields **empty** (the column simply doesn't render). It does not crash. The v2
+ * owned-sheet read model — the resolved read-units the redesigned watch column
+ * consumes — lands with the sheet slice (S2), which replaces this loader wholesale.
  */
 export async function loadOwnedEncounterSheets(
   shortId: string,

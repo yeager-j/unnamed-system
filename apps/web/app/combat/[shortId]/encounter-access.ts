@@ -10,8 +10,8 @@ import { db } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
-import { characters } from "@/lib/db/schema/character"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
+import { entity } from "@/lib/db/schema/entity"
 
 /**
  * One participant's storage home + the durable tokens the console's write
@@ -100,8 +100,8 @@ export const getEncounterForDM = cache(
 
 /**
  * Projects the loader's out-of-band locator map into the serializable
- * {@link ParticipantMeta} record, batch-resolving each durable character's
- * public `shortId` (the realtime channel key) in one indexed read.
+ * {@link ParticipantMeta} record, batch-resolving each durable participant's
+ * public `entity` `shortId` (the realtime channel key) in one indexed read.
  */
 async function buildParticipantMeta(
   locators: Map<ParticipantId, StoredEntityLocator>,
@@ -117,9 +117,9 @@ async function buildParticipantMeta(
 
   const shortIdRows = durableIds.length
     ? await db
-        .select({ id: characters.id, shortId: characters.shortId })
-        .from(characters)
-        .where(inArray(characters.id, durableIds))
+        .select({ id: entity.id, shortId: entity.shortId })
+        .from(entity)
+        .where(inArray(entity.id, durableIds))
     : []
   const shortIdById = new Map(shortIdRows.map((row) => [row.id, row.shortId]))
 

@@ -17,7 +17,7 @@ const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
 const loadMapInstanceV2ById = vi.fn()
-const loadRawCharacterInputsById = vi.fn()
+const loadEntityRowById = vi.fn()
 const createEncounter = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
@@ -38,8 +38,8 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
 vi.mock("@/lib/db/queries/map-instance-v2", () => ({
   loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
 }))
-vi.mock("@/lib/db/queries/load-character", () => ({
-  loadRawCharacterInputsById: (id: string) => loadRawCharacterInputsById(id),
+vi.mock("@/lib/db/queries/load-entity", () => ({
+  loadEntityRowById: (id: string) => loadEntityRowById(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   createEncounter: (input: unknown, tx: unknown) => createEncounter(input, tx),
@@ -55,10 +55,10 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
 }))
-vi.mock("@/lib/game-v2/raw-inputs-to-entity", () => ({
-  rawInputsToEntity: (raw: { id: string }): Entity => ({
-    id: raw.id,
-    components: { vitals: { base: 20, damage: 0 } },
+vi.mock("@/lib/game-v2/entity-row-to-bag", () => ({
+  loadEntityRow: (row: { id: string }): { ok: true; value: Entity } => ({
+    ok: true,
+    value: { id: row.id, components: { vitals: { base: 20, damage: 0 } } },
   }),
 }))
 vi.mock("@/lib/game-engine-v2", () => ({
@@ -141,7 +141,7 @@ beforeEach(() => {
     state: makeInstanceState(),
     version: 7,
   })
-  loadRawCharacterInputsById.mockReset().mockResolvedValue({ id: PC_ID })
+  loadEntityRowById.mockReset().mockResolvedValue({ id: PC_ID })
   createEncounter
     .mockReset()
     .mockResolvedValue({ id: "new-enc", shortId: "new-short" })

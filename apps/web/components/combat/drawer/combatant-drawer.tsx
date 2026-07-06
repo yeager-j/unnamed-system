@@ -11,7 +11,6 @@ import type {
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { getTalent } from "@workspace/game/data"
 import { Badge } from "@workspace/ui/components/badge"
-import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -32,7 +31,6 @@ import { CombatantVitalsSection } from "@/components/combat/drawer/vitals-sectio
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
-import { SkillRow } from "@/components/shared/skill-row"
 import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
 import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { initials } from "@/lib/ui/initials"
@@ -56,11 +54,9 @@ export type DrawerEvent =
  * durable PC HP/SP is writable again, superseding UNN-482).
  *
  * The read-only stat sections render **by capability**: Attributes /
- * Affinities appear iff their read-unit resolved — no PC-vs-enemy fork decides
- * the layout. The one genuine storage fork is Skills: a durable participant's
- * party-scaled Skill cards come off its character row (the shared
- * {@link SkillRow}), while an inline participant lists its resolved entity
- * skills.
+ * Affinities / Skills appear iff their read-unit resolved — no PC-vs-enemy fork
+ * decides the layout. Skills in particular come off the resolved participant
+ * view uniformly for every combatant (UNN-551 removed the durable storage fork).
  */
 export function CombatantDrawer({
   detail,
@@ -178,27 +174,14 @@ function DrawerBody({
 }
 
 /**
- * The one genuine storage fork: a durable participant's Skill cards are the
- * character row's party-scaled hydration (the shared {@link SkillRow}); an
- * inline participant lists its resolved entity skills (name · tagline).
+ * Skills render **uniformly** off the resolved participant view for every
+ * combatant — durable PC or inline enemy (UNN-551). The old rich-vs-lean storage
+ * fork (a durable PC's party-scaled v1 `HydratedSkill` cards vs an inline
+ * combatant's lean list) is gone: an entity PC has no v1 row to hydrate, and its
+ * `resolvedSkills` are already in the session view. UNN-538 makes this list rich
+ * again — for *everyone* — off `ResolvedSkill`.
  */
 function SkillsSection({ detail }: { detail: CombatantDetail }) {
-  const attributes = detail.attributes
-  if (detail.durable) {
-    if (detail.durable.skills.length === 0 || attributes === null) {
-      return null
-    }
-    return (
-      <DetailSection title="Skills">
-        <ItemGroup className="gap-0">
-          {detail.durable.skills.map((skill) => (
-            <SkillRow key={skill.key} skill={skill} attributes={attributes} />
-          ))}
-        </ItemGroup>
-      </DetailSection>
-    )
-  }
-
   if (detail.resolvedSkills.length === 0) return null
   return (
     <DetailSection title="Skills">

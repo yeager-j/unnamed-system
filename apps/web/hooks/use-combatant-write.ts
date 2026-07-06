@@ -15,16 +15,13 @@ import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
-import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
-import {
-  applyCombatantWrite,
-  type WriterDeps,
-} from "@/lib/combat/commit/writers"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 
 export type DispatchCombatantWrite = (
   participantId: ParticipantId,
-  write: CombatantWrite,
+  write: EntityWrite,
   deps: WriterDeps
 ) => Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
 
@@ -102,7 +99,7 @@ export function useCombatantWrite({
       toast.error(combatErrorMessage("participant-not-found"))
       return err("participant-not-found")
     }
-    const predicted = applyCombatantWrite(components, write, deps)
+    const predicted = applyEntityWrite(components, write, deps)
     if (!predicted.ok) {
       toast.error(combatErrorMessage(predicted.error))
       return predicted
@@ -153,7 +150,7 @@ export function useCombatantWrite({
     characterId: string,
     seedVersion: number,
     participantId: ParticipantId,
-    write: CombatantWrite
+    write: EntityWrite
   ): Promise<Result<CommittedWrite, ApplyCombatantWriteError>> {
     const dispatch = (expectedCharacterVersion: number) =>
       applyCombatantWriteAction({

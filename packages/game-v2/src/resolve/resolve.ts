@@ -95,6 +95,9 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
       talents,
       resources,
       exhaustion,
+      virtues,
+      sparkLog,
+      narrative,
     } = entity.components
     const effects = context.effects ?? []
 
@@ -215,6 +218,21 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
     // `resolveEntity`, alongside the passive-skill effects that feed the pool above.
     if (talents) {
       components.talents = talents
+    }
+
+    // Identity/progression pass-throughs (UNN-551) — authored == effective, like
+    // `talents`. The character surfaces read them off the resolved entity; the
+    // visibility table drops all three from every combat viewer.
+    if (virtues) {
+      components.virtues = virtues
+    }
+
+    if (sparkLog) {
+      components.sparkLog = sparkLog
+    }
+
+    if (narrative) {
+      components.narrative = narrative
     }
 
     return { id: entity.id, components }

@@ -9,11 +9,8 @@ import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
-import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
-import {
-  applyCombatantWrite,
-  type WriterDeps,
-} from "@/lib/combat/commit/writers"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 
 /**
  * The **one optimistic container** the DM console + encounter setup reduce
@@ -29,8 +26,8 @@ import {
  *   engine's paired pure helpers so the roster slot and the occupancy token
  *   can't disagree (a zone-less `addPaired` mints no token — the add-then-place
  *   setup flow).
- * - `write` — one combatant component write, predicted by the Writers'
- *   {@link applyCombatantWrite} **against the participant found in the current
+ * - `write` — one entity component write, predicted by the Writers'
+ *   {@link applyEntityWrite} **against the participant found in the current
  *   frame**. This is the structural UNN-226 fix: the action carries the write
  *   *descriptor*, never a post-state composed in a click handler's closure — so
  *   two back-to-back damage writes each apply to the frame the previous one
@@ -49,7 +46,7 @@ export type ConsoleOptimisticAction =
   | {
       kind: "write"
       participantId: ParticipantId
-      write: CombatantWrite
+      write: EntityWrite
       deps: WriterDeps
     }
 
@@ -101,7 +98,7 @@ function applyWriteToFrame(
   const participant = state.session.participants[index]
   if (participant === undefined) return state
 
-  const predicted = applyCombatantWrite(
+  const predicted = applyEntityWrite(
     participant.entity.components,
     action.write,
     action.deps

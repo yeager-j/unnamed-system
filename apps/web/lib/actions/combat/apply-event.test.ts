@@ -12,7 +12,6 @@ import {
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/character"
 import { err, ok } from "@workspace/game/foundation"
 
 import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
@@ -31,7 +30,7 @@ const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
 const loadMapInstanceV2ById = vi.fn()
-const loadRawCharacterInputsById = vi.fn()
+const loadEntityRowById = vi.fn()
 const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
@@ -53,8 +52,14 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
 vi.mock("@/lib/db/queries/map-instance-v2", () => ({
   loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
 }))
-vi.mock("@/lib/db/queries/load-character", () => ({
-  loadRawCharacterInputsById: (id: string) => loadRawCharacterInputsById(id),
+vi.mock("@/lib/db/queries/load-entity", () => ({
+  loadEntityRowById: (id: string) => loadEntityRowById(id),
+}))
+vi.mock("@/lib/game-v2/entity-row-to-bag", () => ({
+  loadEntityRow: (row: { id: string }) => ({
+    ok: true,
+    value: { id: row.id, components: { vitals: { base: 20, damage: 0 } } },
+  }),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   setEncounterStatus: (id: string, status: string, v: number, tx: unknown) =>
@@ -206,7 +211,7 @@ beforeEach(() => {
     state: makeInstanceState(),
     version: 0,
   })
-  loadRawCharacterInputsById.mockReset().mockResolvedValue(null)
+  loadEntityRowById.mockReset().mockResolvedValue(null)
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
@@ -386,9 +391,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
   })
 
   it("adds a durable mid-combat joiner (R6.2): hydrates the row + registers the durable locator", async () => {
-    loadRawCharacterInputsById.mockResolvedValue(
-      makeRawCharacterInputs({ row: { id: "char-2", name: "Momo" } })
-    )
+    loadEntityRowById.mockResolvedValue({ id: "char-2", name: "Momo" })
 
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
@@ -406,7 +409,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     })
 
     expect(result).toEqual(ok({ version: 1 }))
-    expect(loadRawCharacterInputsById).toHaveBeenCalledWith("char-2")
+    expect(loadEntityRowById).toHaveBeenCalledWith("char-2")
     const blob = lastSavedBlob()
     const joiner = blob.participants.find((p) => p.id === "c-momo")!
     expect(joiner.locator).toEqual({ storage: "durable", entityId: "char-2" })
@@ -419,7 +422,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
   })
 
   it("rejects a durable joiner whose character row is gone", async () => {
-    loadRawCharacterInputsById.mockResolvedValue(null)
+    loadEntityRowById.mockResolvedValue(null)
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,

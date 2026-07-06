@@ -7,18 +7,16 @@ import {
   type StoredEntity,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
-import type { Entity } from "@workspace/game-v2/kernel"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
-import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
+import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import {
   encounters,
   type EncounterRow,
   type EncounterStatus,
 } from "@/lib/db/schema/encounter"
-import { resolveEntity } from "@/lib/game-engine-v2"
-import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
+import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 /**
  * The **encounter blob loader** (UNN-520 write path; UNN-530 snapshot path) —
@@ -29,10 +27,11 @@ import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
  *    never a `$type` cast), then {@link loadSession} dissolves each participant's
  *    storage home into a uniform `Participant.entity`, returning the out-of-band
  *    locator map the write side keys every home decision on.
- * 2. **Durable participants hydrate from their character rows**: the locators'
- *    `entityId`s batch-load through the `rawInputsToEntity` projection, and each
- *    row's `vitalsVersion` is returned alongside — the expected-version token the
- *    durable write arm (the UNN-520 write-router) guards on. The snapshot path
+ * 2. **Durable participants hydrate from their `entity` rows** (UNN-551): the
+ *    locators' `entityId`s batch-load `entity` rows and assemble into the runtime
+ *    `Entity` (signed depletion is stored natively, so there is no absolute-pool
+ *    join — the row *is* the truth), and each row's `vitalsVersion` is returned
+ *    alongside as the durable write arm's guard token. The snapshot path
  *    additionally reads each row's `ownerId` (the viewer-derivation input) and
  *    folds the versions into the composite snapshot version.
  */
@@ -118,11 +117,12 @@ async function dissolveEncounterRow(
 }
 
 /**
- * Batch-hydrates every durable locator's character row into the
- * {@link StoredEntity} shape the engine's `DurableSource` serves, plus each
- * row's `vitalsVersion` and `ownerId`. A missing row is simply absent from the
- * maps — the engine's loader reports it as a `missing-durable` issue with the
- * offending participant id, so the miss is decided in one place.
+ * Batch-loads every durable locator's `entity` row and assembles it into the
+ * {@link StoredEntity} shape the engine's `DurableSource` serves, plus each row's
+ * `vitalsVersion` and `ownerId`. A missing row — or one whose stored components
+ * fail the load-seam shape validation — is simply absent from the maps, and the
+ * engine's loader reports it as a `missing-durable` issue with the offending
+ * participant id, so the miss is decided in one place.
  */
 async function loadDurableEntities(stored: StoredSession): Promise<{
   entities: Map<string, StoredEntity>
@@ -142,60 +142,18 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
   const entities = new Map<string, StoredEntity>()
   const versions = new Map<string, number>()
   const owners = new Map<string, string>()
-  const loadedRows = await Promise.all(
-    entityIds.map(async (entityId) => ({
-      entityId,
-      raw: await loadRawCharacterInputsById(entityId),
-    }))
-  )
-  for (const { entityId, raw } of loadedRows) {
-    if (raw === null) continue
-    const entity = withRowDepletion(
-      rawInputsToEntity(raw),
-      raw.row.currentHP,
-      raw.row.currentSP
-    )
-    entities.set(entityId, { id: entity.id, components: entity.components })
-    versions.set(entityId, raw.row.vitalsVersion)
-    owners.set(entityId, raw.row.ownerId)
+  for (const row of await loadEntityRowsByIds(entityIds)) {
+    const loaded = loadEntityRow(row)
+    if (!loaded.ok) continue
+    entities.set(row.id, {
+      id: loaded.value.id,
+      components: loaded.value.components,
+    })
+    versions.set(row.id, row.vitalsVersion)
+    owners.set(row.id, row.ownerId)
   }
 
   return { entities, versions, owners }
-}
-
-/**
- * Joins the character row's **absolute** pools onto the projected entity as v2
- * **signed depletion** (UNN-535 — the conversion `rawInputsToEntity` documents
- * as "at cutover"): the projection can't know `damage = maxHP − currentHP`
- * because the maxima are derived, so this boundary resolves the entity once and
- * back-computes both depletions. Over-max v1 pools come out as negative
- * depletion — exactly v2's over-max representation. The sheet path is untouched
- * (its current pools stay CharacterRow passthrough, UNN-533); this join is the
- * encounter loader's, so console, watch, and the write-router's validation all
- * see the durable participant's true pools.
- */
-function withRowDepletion(
-  entity: Entity,
-  currentHP: number,
-  currentSP: number
-): Entity {
-  const resolved = resolveEntity(entity)
-  const maxHP = resolved.components.vitals?.maxHP ?? 0
-  const maxSP = resolved.components.skillPool?.maxSP ?? 0
-  return {
-    ...entity,
-    components: {
-      ...entity.components,
-      vitals: {
-        ...(entity.components.vitals ?? { base: 0 }),
-        damage: maxHP - currentHP,
-      },
-      skillPool: {
-        ...(entity.components.skillPool ?? { base: 0 }),
-        spSpent: maxSP - currentSP,
-      },
-    },
-  }
 }
 
 /**

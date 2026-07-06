@@ -10,32 +10,17 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter/session-event"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { getMechanic } from "@workspace/game-v2/mechanics"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
-import {
-  requireCampaignDM,
-  requireOwnerOrCampaignDM,
-} from "@/lib/auth/campaign-access"
-import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
-import {
-  applyCombatantWrite,
-  type WriterDeps,
-} from "@/lib/combat/commit/writers"
+import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
-import {
-  applyDamageForCharacter,
-  applyHealForCharacter,
-  applyRecoverSPForCharacter,
-  applySpendSPForCharacter,
-  applyUsePrismaForCharacter,
-} from "@/lib/db/writes/adjust-pools"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import { applyMechanicStateForCharacter } from "@/lib/db/writes/mechanic-state"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../../encounter/revalidate"
-import { revalidateCharacter } from "../../revalidate"
+import { commitEntityWrite } from "../../entity/entity-row-store"
 import type { ApplyCombatantWriteError } from "./apply-combatant-write.schema"
 
 /**
@@ -43,7 +28,7 @@ import type { ApplyCombatantWriteError } from "./apply-combatant-write.schema"
  * behind one interface, so the action body past `storeFor` is branchless. The
  * interface is **descriptor-in** (`commit(write)`), not `commit(patch)`: the
  * patch composition survives client-side as the optimistic predictor
- * (`applyCombatantWrite`); server-side each home commits natively —
+ * (`applyEntityWrite`); server-side each home commits natively —
  *
  * - the **session arm** by reducer event (CD4: the reducer stays the single
  *   pure session writer — commit-by-event, never patch-merge), and
@@ -57,7 +42,7 @@ export interface CombatantStore {
   /** Which gate this home runs — declarative, for tests and the CLAUDE.md. */
   auth: "campaign-dm" | "owner-or-campaign-dm"
   commit(
-    write: CombatantWrite
+    write: EntityWrite
   ): Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
 }
 
@@ -78,7 +63,7 @@ const newId = () => crypto.randomUUID()
  */
 function mintSessionEvent(
   participantId: ParticipantId,
-  write: CombatantWrite
+  write: EntityWrite
 ): SessionEvent {
   switch (write.component) {
     case "vitals":
@@ -129,7 +114,7 @@ export function sessionStore(context: {
       if (participant === undefined) return err("participant-not-found")
 
       const deps: WriterDeps = {}
-      const validated = applyCombatantWrite(
+      const validated = applyEntityWrite(
         participant.entity.components,
         write,
         deps
@@ -163,77 +148,37 @@ export function sessionStore(context: {
 }
 
 /**
- * The **durable** home: the participant is a reference to a character row, so
- * the write delegates per-component to the existing per-field wrappers — each
- * one loads, validates, merges, and bumps `vitalsVersion` itself
- * (`publishCharacterPing` fires inside the version guard). The v2↔v1 shape
- * translation is decided **once, here**: signed depletion ↔ absolute
- * `currentHP`/`currentSP` columns, the `Mechanics.states` record ↔ the active
- * Archetype's single `mechanicState` jsonb.
+ * The **durable** home is the encounter's **address adapter** (UNN-551): the
+ * participant is a reference to an `entity` row, so this forwards to the shared
+ * native `commitEntityWrite` — the *same* `Writer ∘ entityRowStore` composition
+ * the character surfaces use. It owns nothing the character door doesn't: auth
+ * (owner-or-campaign-DM, inside `commitEntityWrite`), the pure Writer, the guarded
+ * component-column write, and the realtime ping (in the version guard). The only
+ * combat-specific thing here is that the address was an `entityId` resolved from a
+ * participant locator rather than passed directly.
  *
- * **Interim semantic rule (one semantic per storage home):** until the v2
- * entity table lands (UNN-511/PR12), durable writes carry v1 semantics — v1's
- * clamps (no over-max HP), v1's active-mechanic constraint (`wrong-mechanic`
- * when the named mechanic isn't the active Archetype's), and **no `setMax`**
- * (a PC's max derives from the engine; `unsupported-durable-write`). The
- * sheet's own buttons and the console therefore agree on every PC row; the
- * divergence from the ephemeral arm's v2 semantics is deliberate and dies at
- * PR12.
+ * Signed depletion is native now, so over-max HP works and `setMax` is a real
+ * write — the v1 interim semantics (absolute columns, `unsupported-durable-write`)
+ * are gone with the per-field wrappers this used to delegate to.
  */
 export function entityRowStore(context: {
-  characterId: string
+  entityId: string
   expectedVersion: number
 }): CombatantStore {
   return {
     auth: "owner-or-campaign-dm",
     async commit(write) {
-      const character = await requireOwnerOrCampaignDM(context.characterId)
-
-      const committed = await commitDurable(context, write)
+      const committed = await commitEntityWrite(
+        context.entityId,
+        write,
+        context.expectedVersion
+      )
       if (!committed.ok) return committed
 
-      revalidateCharacter(character)
       return ok({
         version: committed.value.version,
-        channel: { domain: "character", shortId: character.shortId },
+        channel: { domain: "character", shortId: committed.value.shortId },
       })
     },
-  }
-}
-
-/** The per-component delegation to the v1 per-field wrappers. */
-async function commitDurable(
-  context: { characterId: string; expectedVersion: number },
-  write: CombatantWrite
-): Promise<Result<{ version: number }, ApplyCombatantWriteError>> {
-  const { characterId, expectedVersion } = context
-
-  switch (write.component) {
-    case "vitals": {
-      if (write.op === "setMax") return err("unsupported-durable-write")
-      const apply =
-        write.op === "damage" ? applyDamageForCharacter : applyHealForCharacter
-      return apply(characterId, write.amount, expectedVersion)
-    }
-    case "skillPool": {
-      if (write.op === "setMax") return err("unsupported-durable-write")
-      const apply =
-        write.op === "damage"
-          ? applySpendSPForCharacter
-          : applyRecoverSPForCharacter
-      return apply(characterId, write.amount, expectedVersion)
-    }
-    case "resources":
-      return applyUsePrismaForCharacter(characterId, expectedVersion)
-    case "mechanics": {
-      const transitions = getMechanic(write.mechanic)?.transitions
-      if (transitions === undefined) return err("no-transitions")
-      return applyMechanicStateForCharacter(
-        characterId,
-        write.mechanic,
-        (state) => transitions.apply(state, write.transition),
-        expectedVersion
-      )
-    }
   }
 }

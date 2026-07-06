@@ -21,12 +21,11 @@ import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
 import type { MapInstanceState, MapZone } from "@workspace/game-v2/spatial"
 import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
-import type { HydratedSkill } from "@workspace/game/foundation"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
-import type { WriterDeps } from "@/lib/combat/commit/writers"
 import { hpPool, spPool, type Pool } from "@/lib/combat/view/roster-view"
 import { adjacentZones } from "@/lib/combat/view/zone-graph"
+import type { WriterDeps } from "@/lib/entity/commit/writers"
 
 /**
  * The per-combatant **drawer model** — the v2 successor of v1's
@@ -36,11 +35,11 @@ import { adjacentZones } from "@/lib/combat/view/zone-graph"
  * resolved — no `kind` branch decides what an "enemy" vs a "PC" shows.
  *
  * The one place the storage home surfaces is the {@link DurableDetail} slice
- * (`null` for an inline participant): the character-row identity + the
- * party-scaled v1-shaped Skill cards the hydration loader supplies — display
- * data that genuinely lives on the character row, plus the tokens the durable
- * write path guards on. An inline participant's skills come off the resolved
- * view instead ({@link CombatantDetail.resolvedSkills}).
+ * (`null` for an inline participant): the entity-row identity (class name,
+ * pronouns) the hydration loader supplies, plus the tokens the durable write path
+ * guards on. Skills are **not** here — every combatant's skills come off the
+ * resolved participant view ({@link CombatantDetail.resolvedSkills}), so there is
+ * no rich-vs-lean storage fork (UNN-551; UNN-538 makes that resolved list rich).
  */
 
 export interface EngageableTarget {
@@ -67,15 +66,14 @@ export interface CombatantPosition {
   targets: MapZone[]
 }
 
-/** The character-row slice a durable participant's drawer additionally shows. */
+/** The entity-row slice a durable participant's drawer additionally shows.
+ *  Skills are NOT here — every combatant renders its skills from the resolved
+ *  participant view ({@link CombatantDetail.resolvedSkills}), durable or inline. */
 export interface DurableDetail {
   characterId: string
   vitalsVersion: number
   className: string | null
   pronouns: string | null
-  /** Party-scaled v1-shaped Skill cards (the shared SkillRow's input),
-   *  hydrated per durable participant by `load-combat-console-data-v2`. */
-  skills: HydratedSkill[]
 }
 
 export interface CombatantDetail {
@@ -115,7 +113,6 @@ export interface CombatantDetail {
 export interface DurableHydration {
   className: string | null
   pronouns: string | null
-  skills: HydratedSkill[]
 }
 
 /** Builds the drawer model for one participant, or `null` for an unknown id. */
@@ -166,7 +163,6 @@ export function combatantDetail(
             vitalsVersion: meta.vitalsVersion,
             className: hydration?.className ?? null,
             pronouns: hydration?.pronouns ?? null,
-            skills: hydration?.skills ?? [],
           }
         : null,
   }

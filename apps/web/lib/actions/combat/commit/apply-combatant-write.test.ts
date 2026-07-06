@@ -17,28 +17,21 @@ import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { applyCombatantWriteAction } from "./apply-combatant-write"
 
-// The router's seams: the v2 write-path loader, the two auth gates (one per
-// home), the guarded blob write (session arm), and the per-field character
-// wrappers (durable arm). Stub them all; the descriptor schema, the Writers,
-// the reducer, and the fail-closed saver run for real — the contract under
-// test is the routing, not the arithmetic.
+// The router's seams: the v2 write-path loader, the session auth gate + guarded
+// blob write (session arm), and the shared native durable Store (durable arm,
+// which owns its own auth + guard, tested in entity-row-store's own suite). Stub
+// them; the descriptor schema, the Writers, the reducer, and the fail-closed
+// saver run for real — the contract under test is the *routing*, not the durable
+// commit's arithmetic.
 const requireCampaignDM = vi.fn()
-const requireOwnerOrCampaignDM = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const saveEncounterSession = vi.fn()
-const applyDamageForCharacter = vi.fn()
-const applyHealForCharacter = vi.fn()
-const applySpendSPForCharacter = vi.fn()
-const applyRecoverSPForCharacter = vi.fn()
-const applyUsePrismaForCharacter = vi.fn()
-const applyMechanicStateForCharacter = vi.fn()
+const commitEntityWrite = vi.fn()
 const publishEncounterPing = vi.fn()
 const revalidateEncounter = vi.fn()
-const revalidateCharacter = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
-  requireOwnerOrCampaignDM: (id: string) => requireOwnerOrCampaignDM(id),
 }))
 vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
@@ -51,25 +44,9 @@ vi.mock("@/lib/db/writes/encounter", () => ({
     tx: unknown
   ) => saveEncounterSession(id, stored, v, tx),
 }))
-vi.mock("@/lib/db/writes/adjust-pools", () => ({
-  applyDamageForCharacter: (id: string, amount: number, v: number) =>
-    applyDamageForCharacter(id, amount, v),
-  applyHealForCharacter: (id: string, amount: number, v: number) =>
-    applyHealForCharacter(id, amount, v),
-  applySpendSPForCharacter: (id: string, amount: number, v: number) =>
-    applySpendSPForCharacter(id, amount, v),
-  applyRecoverSPForCharacter: (id: string, amount: number, v: number) =>
-    applyRecoverSPForCharacter(id, amount, v),
-  applyUsePrismaForCharacter: (id: string, v: number) =>
-    applyUsePrismaForCharacter(id, v),
-}))
-vi.mock("@/lib/db/writes/mechanic-state", () => ({
-  applyMechanicStateForCharacter: (
-    id: string,
-    kind: string,
-    transition: (state: unknown) => unknown,
-    v: number
-  ) => applyMechanicStateForCharacter(id, kind, transition, v),
+vi.mock("@/lib/actions/entity/entity-row-store", () => ({
+  commitEntityWrite: (id: string, write: unknown, v: number) =>
+    commitEntityWrite(id, write, v),
 }))
 vi.mock("@/lib/realtime/publish", () => ({
   publishEncounterPing: (shortId: string, ping: unknown) =>
@@ -78,10 +55,6 @@ vi.mock("@/lib/realtime/publish", () => ({
 vi.mock("../../encounter/revalidate", () => ({
   revalidateEncounter: (encounter: { shortId: string }) =>
     revalidateEncounter(encounter),
-}))
-vi.mock("../../revalidate", () => ({
-  revalidateCharacter: (character: { shortId: string }) =>
-    revalidateCharacter(character),
 }))
 
 const ENCOUNTER_ID = "encounter-1"
@@ -155,34 +128,13 @@ function makeLoaded(): LoadedEncounterForWrite {
 
 beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: "campaign-1" })
-  requireOwnerOrCampaignDM.mockReset().mockResolvedValue({
-    id: "char-1",
-    shortId: "chr1",
-    status: "finalized",
-  })
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 5 }))
-  applyDamageForCharacter
+  commitEntityWrite
     .mockReset()
-    .mockResolvedValue(ok({ currentHP: 15, version: 8 }))
-  applyHealForCharacter
-    .mockReset()
-    .mockResolvedValue(ok({ currentHP: 25, version: 8 }))
-  applySpendSPForCharacter
-    .mockReset()
-    .mockResolvedValue(ok({ currentSP: 8, version: 8 }))
-  applyRecoverSPForCharacter
-    .mockReset()
-    .mockResolvedValue(ok({ currentSP: 12, version: 8 }))
-  applyUsePrismaForCharacter
-    .mockReset()
-    .mockResolvedValue(ok({ prismaCharges: 1, version: 8 }))
-  applyMechanicStateForCharacter
-    .mockReset()
-    .mockResolvedValue(ok({ value: { kind: "valor", value: 3 }, version: 8 }))
+    .mockResolvedValue(ok({ version: 8, shortId: "chr1" }))
   publishEncounterPing.mockReset()
   revalidateEncounter.mockReset()
-  revalidateCharacter.mockReset()
 })
 
 const BASE = { encounterId: ENCOUNTER_ID, expectedVersion: 4 }
@@ -213,15 +165,15 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
         },
       },
     })
-    // The durable wrappers never run for an inline participant.
-    expect(applyDamageForCharacter).not.toHaveBeenCalled()
+    // The durable Store never runs for an inline participant.
+    expect(commitEntityWrite).not.toHaveBeenCalled()
     expect(publishEncounterPing).toHaveBeenCalledWith("enc1", {
       version: 5,
       status: "live",
     })
   })
 
-  it("routes a durable participant through the entity-row arm (per-field wrapper)", async () => {
+  it("routes a durable participant through the shared entity Store", async () => {
     const result = await applyCombatantWriteAction({
       ...BASE,
       participantId: PC_ID,
@@ -232,11 +184,15 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     expect(result).toEqual(
       ok({ version: 8, channel: { domain: "character", shortId: "chr1" } })
     )
-    expect(requireOwnerOrCampaignDM).toHaveBeenCalledWith("char-1")
-    expect(applyDamageForCharacter).toHaveBeenCalledWith("char-1", 5, 7)
+    // Forwarded verbatim to the native store, keyed by the locator's entity id
+    // and guarded on the wire's entity-version token; the store owns auth + commit.
+    expect(commitEntityWrite).toHaveBeenCalledWith(
+      "char-1",
+      { component: "vitals", op: "damage", amount: 5 },
+      7
+    )
     // A durable write NEVER reaches the session blob — the routing invariant.
     expect(saveEncounterSession).not.toHaveBeenCalled()
-    expect(revalidateCharacter).toHaveBeenCalled()
   })
 
   it("the server's locator map is authoritative — the wire carries no home to lie about", async () => {
@@ -250,7 +206,7 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     })
     expect(result).toEqual(err("missing-character-version"))
     expect(saveEncounterSession).not.toHaveBeenCalled()
-    expect(applyDamageForCharacter).not.toHaveBeenCalled()
+    expect(commitEntityWrite).not.toHaveBeenCalled()
   })
 
   it("rejects an unknown participant", async () => {
@@ -276,8 +232,10 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
     expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
-  it("durable arm: a viewer who is neither owner nor this character's campaign DM is rejected", async () => {
-    requireOwnerOrCampaignDM.mockRejectedValue(new Error("forbidden"))
+  it("durable arm: the store's own gate rejection propagates (owner-or-campaign-DM)", async () => {
+    // The durable gate lives inside `commitEntityWrite` (one gate for the sheet
+    // buttons and the console); a `forbidden()` there surfaces as a rejection.
+    commitEntityWrite.mockRejectedValue(new Error("forbidden"))
     await expect(
       applyCombatantWriteAction({
         ...BASE,
@@ -286,7 +244,7 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
         write: { component: "vitals", op: "heal", amount: 2 },
       })
     ).rejects.toThrow("forbidden")
-    expect(applyHealForCharacter).not.toHaveBeenCalled()
+    expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 })
 
@@ -348,74 +306,30 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
   })
 })
 
-describe("applyCombatantWriteAction — durable-arm semantics (interim rule)", () => {
-  it("delegates each component to its per-field wrapper", async () => {
-    await applyCombatantWriteAction({
-      ...BASE,
-      participantId: PC_ID,
-      expectedCharacterVersion: 7,
-      write: { component: "skillPool", op: "heal", amount: 3 },
-    })
-    expect(applyRecoverSPForCharacter).toHaveBeenCalledWith("char-1", 3, 7)
-
-    await applyCombatantWriteAction({
-      ...BASE,
-      participantId: PC_ID,
-      expectedCharacterVersion: 7,
-      write: { component: "resources", op: "usePrisma" },
-    })
-    expect(applyUsePrismaForCharacter).toHaveBeenCalledWith("char-1", 7)
-
-    await applyCombatantWriteAction({
-      ...BASE,
-      participantId: PC_ID,
-      expectedCharacterVersion: 7,
-      write: {
+describe("applyCombatantWriteAction — durable arm forwards to the entity Store", () => {
+  it("forwards every component family verbatim (no per-field fan-out)", async () => {
+    for (const write of [
+      { component: "skillPool", op: "heal", amount: 3 },
+      { component: "resources", op: "usePrisma" },
+      {
         component: "mechanics",
         mechanic: "valor",
         transition: { op: "adjust", delta: 1 },
       },
-    })
-    expect(applyMechanicStateForCharacter).toHaveBeenCalledWith(
-      "char-1",
-      "valor",
-      expect.any(Function),
-      7
-    )
+    ] as const) {
+      commitEntityWrite.mockClear()
+      await applyCombatantWriteAction({
+        ...BASE,
+        participantId: PC_ID,
+        expectedCharacterVersion: 7,
+        write,
+      })
+      expect(commitEntityWrite).toHaveBeenCalledWith("char-1", write, 7)
+    }
   })
 
-  it("the durable mechanic delegation applies the same registry transition", async () => {
-    await applyCombatantWriteAction({
-      ...BASE,
-      participantId: PC_ID,
-      expectedCharacterVersion: 7,
-      write: {
-        component: "mechanics",
-        mechanic: "valor",
-        transition: { op: "adjust", delta: 2 },
-      },
-    })
-    const transition = applyMechanicStateForCharacter.mock.calls[0]![2] as (
-      state: unknown
-    ) => unknown
-    expect(transition({ kind: "valor", value: 3 })).toEqual({
-      kind: "valor",
-      value: 5,
-    })
-  })
-
-  it("refuses setMax on a durable row (a PC's max derives from the engine)", async () => {
-    const result = await applyCombatantWriteAction({
-      ...BASE,
-      participantId: PC_ID,
-      expectedCharacterVersion: 7,
-      write: { component: "vitals", op: "setMax", amount: 40 },
-    })
-    expect(result).toEqual(err("unsupported-durable-write"))
-  })
-
-  it("propagates a stale character write", async () => {
-    applyDamageForCharacter.mockResolvedValue(err("stale"))
+  it("propagates the store's guard error (stale)", async () => {
+    commitEntityWrite.mockResolvedValue(err("stale"))
     const result = await applyCombatantWriteAction({
       ...BASE,
       participantId: PC_ID,
@@ -423,7 +337,22 @@ describe("applyCombatantWriteAction — durable-arm semantics (interim rule)", (
       write: { component: "vitals", op: "damage", amount: 1 },
     })
     expect(result).toEqual(err("stale"))
-    expect(revalidateCharacter).not.toHaveBeenCalled()
+  })
+
+  it("routes setMax to the store now that a durable max is a real write (v2)", async () => {
+    // Native depletion: `setMax` no longer refuses on a durable row — it forwards
+    // like any other write (the store owns the semantics, tested in its suite).
+    await applyCombatantWriteAction({
+      ...BASE,
+      participantId: PC_ID,
+      expectedCharacterVersion: 7,
+      write: { component: "vitals", op: "setMax", amount: 40 },
+    })
+    expect(commitEntityWrite).toHaveBeenCalledWith(
+      "char-1",
+      { component: "vitals", op: "setMax", amount: 40 },
+      7
+    )
   })
 })
 

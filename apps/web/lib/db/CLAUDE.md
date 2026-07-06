@@ -8,9 +8,9 @@ lib/db/
 ├── index.ts         Barrel: re-exports client + schema (import via @/lib/db)
 ├── env.ts           DB env resolution
 ├── seed.ts          Idempotent dev/E2E seed (npm run db:seed)
-├── schema/          Drizzle tables + columns; row types (CharacterRow, …) are owned by @workspace/game/foundation, conformance.test.ts proves the tables match
+├── schema/          Drizzle tables + columns; v1 row types (CharacterRow, …) are owned by @workspace/game/foundation; the v2 `entity` table (UNN-551) owns its own `EntityRow` off the table (it is the component-column projection of the durable ComponentRegistry) and conformance.test.ts proves both the v1 tables and the entity column-set ↔ registry match
 ├── migrations/      drizzle-kit SQL migrations + meta
-├── queries/         Reads: load-character (central loader), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, consumed by the delete/unplace/kick/leave writes), load-dungeon (UNN-462: by-shortId row + campaignId resolver for the DM-write gate + version for stale-retry)
+├── queries/         Reads: load-character (central v1 loader), load-entity (UNN-551: by-id + batch entity-row reads the combat durable arm assembles), character-list, versions, encounter-lock (the UNN-330 live-encounter lock primitives — isCharacterLiveEncounterCombatant / memberHasLiveEncounterCombatant, now over `entity`, consumed by the delete/unplace/kick/leave writes), load-dungeon (UNN-462: by-shortId row + campaignId resolver for the DM-write gate + version for stale-retry)
 └── writes/          Per-concern persistence wrappers + the version-guard primitive
 ```
 
