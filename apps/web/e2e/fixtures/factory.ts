@@ -24,12 +24,14 @@ import {
   characters,
   dungeons,
   encounters,
+  entity,
   getDb,
   mapInstances,
   maps,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertCharacter } from "@/lib/db/seed-character"
+import { insertSeedEntity } from "@/lib/db/seed-entity"
 
 /**
  * Ephemeral E2E test-data factory (UNN-343). Write-path specs mint exactly the
@@ -106,6 +108,9 @@ export async function createTestCharacter(
     name: `${name} ${suffix}`,
   })
   const id = await insertCharacter(character, ownerId)
+  // Dual-mint the v2 `entity` row (shared id, unplaced — UNN-551) so a factory
+  // character can be a durable combatant; `placeCharacter` sets its campaignId.
+  await insertSeedEntity(character, ownerId, null)
   tracker.characterIds.push(id)
   return {
     id,
@@ -146,15 +151,20 @@ export async function createTestCampaign(
   }
 }
 
-/** Sets (or clears, with `null`) a character's campaign placement. */
+/** Sets (or clears, with `null`) a character's campaign placement — on **both**
+ *  the v1 `characters` row (old sheet) and its shared-id `entity` row (UNN-551),
+ *  so the durable write path's `requireOwnerOrCampaignDMForEntity` and the
+ *  encounter-lock (which read `entity.campaignId`) admit the placed combatant. */
 export async function placeCharacter(
   characterId: string,
   campaignId: string | null
 ): Promise<void> {
-  await getDb()
+  const db = getDb()
+  await db
     .update(characters)
     .set({ campaignId })
     .where(eq(characters.id, characterId))
+  await db.update(entity).set({ campaignId }).where(eq(entity.id, characterId))
 }
 
 export interface TestMap {
@@ -374,6 +384,8 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
       .where(inArray(mapInstances.id, tracker.mapInstanceIds))
   }
   if (tracker.characterIds.length > 0) {
+    // The dual-minted `entity` rows share the character ids (UNN-551).
+    await db.delete(entity).where(inArray(entity.id, tracker.characterIds))
     await db
       .delete(characters)
       .where(inArray(characters.id, tracker.characterIds))

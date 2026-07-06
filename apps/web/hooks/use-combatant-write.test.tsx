@@ -11,8 +11,8 @@ import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useMonotonicVersionMap } from "@/hooks/version-token-store"
 import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-combatant-write"
 import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
-import type { CombatantWrite } from "@/lib/combat/commit/write.schema"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 import { useCombatantWrite } from "./use-combatant-write"
 
@@ -40,7 +40,7 @@ const META: Record<string, ParticipantMeta> = {
   },
 }
 
-const damage: CombatantWrite = { component: "vitals", op: "damage", amount: 2 }
+const damage: EntityWrite = { component: "vitals", op: "damage", amount: 2 }
 
 function renderWriteHook() {
   const mirrored: ConsoleOptimisticAction[] = []

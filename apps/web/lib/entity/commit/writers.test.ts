@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { combatantWriteSchema } from "./write.schema"
-import { applyCombatantWrite } from "./writers"
+import { entityWriteSchema } from "./write.schema"
+import { applyEntityWrite } from "./writers"
 
-describe("combatantWriteSchema — the storage-blind descriptor", () => {
+describe("entityWriteSchema — the storage-blind descriptor", () => {
   it.each([
     { component: "vitals", op: "damage", amount: 5 },
     { component: "vitals", op: "heal", amount: 3 },
@@ -20,7 +20,7 @@ describe("combatantWriteSchema — the storage-blind descriptor", () => {
       transition: { op: "setFrenzyMode", value: true },
     },
   ])("accepts %j", (write) => {
-    expect(combatantWriteSchema.safeParse(write).success).toBe(true)
+    expect(entityWriteSchema.safeParse(write).success).toBe(true)
   })
 
   it.each([
@@ -37,18 +37,18 @@ describe("combatantWriteSchema — the storage-blind descriptor", () => {
     // A mechanic with no write surface rejects at the boundary.
     { component: "mechanics", mechanic: "enchantment", transition: {} },
   ])("rejects %j", (write) => {
-    expect(combatantWriteSchema.safeParse(write).success).toBe(false)
+    expect(entityWriteSchema.safeParse(write).success).toBe(false)
   })
 })
 
-describe("applyCombatantWrite — pools", () => {
+describe("applyEntityWrite — pools", () => {
   const components = {
     vitals: { base: 20, damage: 5 },
     skillPool: { base: 10, spSpent: 4 },
   }
 
   it("damage adds signed depletion (v2 semantics)", () => {
-    const result = applyCombatantWrite(
+    const result = applyEntityWrite(
       components,
       { component: "vitals", op: "damage", amount: 7 },
       {}
@@ -60,7 +60,7 @@ describe("applyCombatantWrite — pools", () => {
   })
 
   it("heal floors at 0 and preserves an over-max balance (no-op)", () => {
-    const healed = applyCombatantWrite(
+    const healed = applyEntityWrite(
       components,
       { component: "vitals", op: "heal", amount: 9 },
       {}
@@ -70,7 +70,7 @@ describe("applyCombatantWrite — pools", () => {
       value: { vitals: { base: 20, damage: 0 } },
     })
 
-    const overMax = applyCombatantWrite(
+    const overMax = applyEntityWrite(
       { vitals: { base: 20, damage: -3 } },
       { component: "vitals", op: "heal", amount: 5 },
       {}
@@ -82,7 +82,7 @@ describe("applyCombatantWrite — pools", () => {
   })
 
   it("skillPool damage/heal ride spend/recover", () => {
-    const spent = applyCombatantWrite(
+    const spent = applyEntityWrite(
       components,
       { component: "skillPool", op: "damage", amount: 2 },
       {}
@@ -94,7 +94,7 @@ describe("applyCombatantWrite — pools", () => {
   })
 
   it("setMax writes the authored base", () => {
-    const result = applyCombatantWrite(
+    const result = applyEntityWrite(
       components,
       { component: "vitals", op: "setMax", amount: 30 },
       {}
@@ -106,7 +106,7 @@ describe("applyCombatantWrite — pools", () => {
   })
 
   it("refuses a write against an absent component (capability-missing)", () => {
-    const result = applyCombatantWrite(
+    const result = applyEntityWrite(
       { vitals: { base: 20, damage: 0 } },
       { component: "skillPool", op: "damage", amount: 1 },
       {}
@@ -115,28 +115,28 @@ describe("applyCombatantWrite — pools", () => {
   })
 })
 
-describe("applyCombatantWrite — resources (deps-driven refusal)", () => {
+describe("applyEntityWrite — resources (deps-driven refusal)", () => {
   const components = {
     resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 1 },
   }
   const use = { component: "resources", op: "usePrisma" } as const
 
   it("refuses without a resolved max (no-prisma-max)", () => {
-    expect(applyCombatantWrite(components, use, {})).toEqual({
+    expect(applyEntityWrite(components, use, {})).toEqual({
       ok: false,
       error: "no-prisma-max",
     })
   })
 
   it("refuses at the cap (no-prisma-charges)", () => {
-    expect(applyCombatantWrite(components, use, { maxPrisma: 1 })).toEqual({
+    expect(applyEntityWrite(components, use, { maxPrisma: 1 })).toEqual({
       ok: false,
       error: "no-prisma-charges",
     })
   })
 
   it("uses a charge under the cap", () => {
-    expect(applyCombatantWrite(components, use, { maxPrisma: 2 })).toEqual({
+    expect(applyEntityWrite(components, use, { maxPrisma: 2 })).toEqual({
       ok: true,
       value: {
         resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 2 },
@@ -145,16 +145,16 @@ describe("applyCombatantWrite — resources (deps-driven refusal)", () => {
   })
 
   it("refuses without the component (capability-missing)", () => {
-    expect(applyCombatantWrite({}, use, { maxPrisma: 2 })).toEqual({
+    expect(applyEntityWrite({}, use, { maxPrisma: 2 })).toEqual({
       ok: false,
       error: "capability-missing",
     })
   })
 })
 
-describe("applyCombatantWrite — mechanics", () => {
+describe("applyEntityWrite — mechanics", () => {
   it("applies a validated transition through the registry", () => {
-    const result = applyCombatantWrite(
+    const result = applyEntityWrite(
       {
         mechanics: {
           states: { perfection: { kind: "perfection", rank: 2 } },
@@ -176,7 +176,7 @@ describe("applyCombatantWrite — mechanics", () => {
   })
 
   it("refuses when the participant lacks that mechanic's state", () => {
-    const result = applyCombatantWrite(
+    const result = applyEntityWrite(
       { mechanics: { states: {} } },
       {
         component: "mechanics",

@@ -65,7 +65,6 @@ export default async function CombatPage({ params }: PageProps) {
     case "live": {
       const durableHydrationById = await loadCombatConsoleDataV2(
         result.session,
-        result.instance.state,
         result.participantMeta
       )
       return (

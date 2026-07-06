@@ -25,8 +25,17 @@ concurrency token, and envelope:
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
 | `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
+| `entity/`    | `requireOwnerOrCampaignDMForEntity` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
-| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes; + `expectedCharacterVersion` on `commit/`) | encounter `version`; `commit/`'s durable arm guards `vitalsVersion` |
+| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes; + `expectedCharacterVersion` on `commit/`) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
+
+> **The `entity/` aggregate (UNN-551)** is the descriptor → Writer → Store pipeline
+> for durable component writes: `commitEntityWrite` (auth + assemble + pure Writer
+> + guarded column commit) and `bumpEntityVersionGuarded`. The neutral vocabulary
+> (schema, `ENTITY_WRITERS`) lives in `lib/entity/commit/`. It is the shared engine
+> both the character surfaces (the entity door, `applyEntityWriteAction`) and
+> combat's durable arm (the encounter door forwards here) commit through — one
+> write architecture, two doors.
 
 > **Migration in progress.** The ~35 flat `character-*.ts` files at the root of
 > `lib/actions/` predate this convention; they belong under `character/` (dropping

@@ -16,15 +16,15 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
-import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
+import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
 import { createSession, instantiateEnemy } from "@/lib/game-engine-v2"
-import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
+import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 import {
   publishDungeonInstancePing,
   publishEncounterPing,
@@ -88,16 +88,20 @@ export async function startDungeonEncounterAction(
   const setups: ParticipantSetup[] = []
   const locators = new Map<ParticipantId, StoredEntityLocator>()
 
-  // Party PCs — durable participants whose id === characterId, so the delve
-  // token doubles as the combat token (no re-placement needed).
+  // Party PCs — durable participants whose id === entityId (= characterId under
+  // the shared-id convention), so the delve token doubles as the combat token (no
+  // re-placement needed). A party PC with no `entity` row can't fight (the S0
+  // degraded window — only entity-row PCs are combat-capable).
   for (const characterId of partyCharacterIds) {
-    const raw = await loadRawCharacterInputsById(characterId)
-    if (raw === null) return err("character-not-found")
+    const row = await loadEntityRowById(characterId)
+    if (row === null) return err("character-not-found")
+    const loaded = loadEntityRow(row)
+    if (!loaded.ok) return err("character-not-found")
     const participantId = asParticipantId(characterId)
     setups.push({
       id: participantId,
       side: "players",
-      source: { entity: rawInputsToEntity(raw) },
+      source: { entity: loaded.value },
     })
     locators.set(participantId, { storage: "durable", entityId: characterId })
   }

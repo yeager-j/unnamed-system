@@ -1,4 +1,4 @@
-import type { WriterDeps } from "@/lib/combat/commit/writers"
+import type { WriterDeps } from "@/lib/entity/commit/writers"
 
 /**
  * The drawer's vitals **affordance gates** (UNN-535) — a pure predicate the

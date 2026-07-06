@@ -22,12 +22,12 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db, type WriteExecutor } from "@/lib/db/client"
-import { loadRawCharacterInputsById } from "@/lib/db/queries/load-character"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
 } from "@/lib/db/queries/load-encounter-v2"
+import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
@@ -36,7 +36,7 @@ import {
 } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { rawInputsToEntity } from "@/lib/game-v2/raw-inputs-to-entity"
+import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 import {
   publishEncounterInstancePing,
   publishEncounterPing,
@@ -206,8 +206,8 @@ async function applySpatialEvent(
 /**
  * `addParticipant`: resolves the joiner's entity from its wire source — inline
  * (`{ entity }`, validated through the {@link loadEntity} F6 seam) or durable
- * (`{ entityId }`, hydrated from the character row through
- * {@link rawInputsToEntity}) — **registers its locator in the out-of-band map**,
+ * (`{ entityId }`, assembled from the `entity` row through
+ * {@link loadEntityRow}) — **registers its locator in the out-of-band map**,
  * then runs the engine's paired cross-write. A placed add (`zoneId` present)
  * commits both rows in one {@link guardMany} transaction; a zone-less add (the
  * setup console's add-then-place flow, UNN-535) touches only the session row —
@@ -229,9 +229,11 @@ async function applyAddParticipant(
 
   let entity: Entity
   if ("entityId" in setup) {
-    const raw = await loadRawCharacterInputsById(setup.entityId)
-    if (raw === null) return err("character-not-found")
-    entity = rawInputsToEntity(raw)
+    const durableRow = await loadEntityRowById(setup.entityId)
+    if (durableRow === null) return err("character-not-found")
+    const loaded = loadEntityRow(durableRow)
+    if (!loaded.ok) return err("invalid-entity")
+    entity = loaded.value
     loadedSession.locators.set(participantId, {
       storage: "durable",
       entityId: setup.entityId,

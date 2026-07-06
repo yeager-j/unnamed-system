@@ -51,15 +51,13 @@ export function combatErrorMessage(
     case "invalid-entity":
     case "locator-missing":
     case "missing-character-version":
+    case "entity-not-found":
+    case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
-    case "unsupported-durable-write":
     case "capability-missing":
     case "no-prisma-max":
     case "no-prisma-charges":
     case "no-transitions":
-    case "no-active-archetype":
-    case "wrong-mechanic":
-    case "non-positive-amount":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }

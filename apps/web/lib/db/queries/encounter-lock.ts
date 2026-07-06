@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { loadLiveEncounterDurableEntityIds } from "@/lib/db/queries/load-encounter-v2"
-import { characters } from "@/lib/db/schema/character"
+import { entity } from "@/lib/db/schema/entity"
 
 /**
  * The **live-encounter lock** (ADR lifecycle rulings, UNN-330): a character that
@@ -28,9 +28,9 @@ export async function isCharacterLiveEncounterCombatant(
   characterId: string
 ): Promise<boolean> {
   const [row] = await db
-    .select({ campaignId: characters.campaignId })
-    .from(characters)
-    .where(eq(characters.id, characterId))
+    .select({ campaignId: entity.campaignId })
+    .from(entity)
+    .where(eq(entity.id, characterId))
     .limit(1)
 
   const campaignId = row?.campaignId
@@ -55,11 +55,9 @@ export async function memberHasLiveEncounterCombatant(
   if (durableIds === null || durableIds.length === 0) return false
 
   const owned = await db
-    .select({ id: characters.id })
-    .from(characters)
-    .where(
-      and(inArray(characters.id, durableIds), eq(characters.ownerId, userId))
-    )
+    .select({ id: entity.id })
+    .from(entity)
+    .where(and(inArray(entity.id, durableIds), eq(entity.ownerId, userId)))
     .limit(1)
 
   return owned.length > 0

@@ -2,10 +2,29 @@ import { forbidden } from "next/navigation"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"
+import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { CharacterRow } from "@/lib/db/schema/character"
+import type { EntityRow } from "@/lib/db/schema/entity"
 
 import { auth } from "./index"
+
+/**
+ * The owner-or-campaign-DM check, shared by the character and entity gates: the
+ * row's owner, or the DM of the campaign it is placed into, may write it. Two
+ * queries max — the campaign is loaded only on a non-owner viewer of a placed row.
+ */
+async function isOwnerOrCampaignDM(
+  viewerId: string,
+  placement: { ownerId: string; campaignId: string | null }
+): Promise<boolean> {
+  if (placement.ownerId === viewerId) return true
+  if (placement.campaignId) {
+    const campaign = await loadCampaignRowById(placement.campaignId)
+    if (campaign && campaign.dmUserId === viewerId) return true
+  }
+  return false
+}
 
 /**
  * Authorization gate for campaign-DM-only mutations — the encounter side of the
@@ -61,12 +80,28 @@ export async function requireOwnerOrCampaignDM(
 
   const character = await loadCharacterRowById(characterId)
   if (!character) forbidden()
-  if (character.ownerId === viewerId) return character
+  if (await isOwnerOrCampaignDM(viewerId, character)) return character
 
-  if (character.campaignId) {
-    const campaign = await loadCampaignRowById(character.campaignId)
-    if (campaign && campaign.dmUserId === viewerId) return character
-  }
+  forbidden()
+}
+
+/**
+ * The entity-row twin of {@link requireOwnerOrCampaignDM} (UNN-551): the durable
+ * write pipeline gates a component write against the `entity` row's own
+ * owner/placement — a player writes their own PC, the campaign DM may too (v1
+ * parity). Loads and returns the {@link EntityRow} so the Store assembles from it
+ * without re-querying. Same posture, one gate per write path.
+ */
+export async function requireOwnerOrCampaignDMForEntity(
+  entityId: string
+): Promise<EntityRow> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) forbidden()
+
+  const row = await loadEntityRowById(entityId)
+  if (!row) forbidden()
+  if (await isOwnerOrCampaignDM(viewerId, row)) return row
 
   forbidden()
 }

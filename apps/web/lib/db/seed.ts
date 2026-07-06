@@ -17,6 +17,7 @@ import {
   SEEDED_ENCOUNTERS,
 } from "../../e2e/fixtures/encounter-target"
 import { insertCharacter } from "./seed-character"
+import { insertSeedEntity } from "./seed-entity"
 
 /**
  * Idempotent database seed. Persists the {@link SEED_CHARACTERS} roster so the
@@ -165,6 +166,13 @@ async function seedEncounterFixtures(): Promise<void> {
     .update(characters)
     .set({ campaignId: campaignB.id })
     .where(eq(characters.id, liveCombatPc.characterId))
+
+  // UNN-551: dual-mint each placed combat-showcase PC as a v2 `entity` row
+  // (shared id), so the encounters' durable locators resolve it and the console /
+  // snapshot / encounter-lock key off the entity. The `characters` rows above stay
+  // for the (still-v1) sheet through the degraded window.
+  await insertSeedEntity(placedPc.seed, DEV_USER.id, campaignA.id)
+  await insertSeedEntity(liveCombatPc.seed, DEV_USER.id, campaignB.id)
 
   for (const encounter of SEEDED_ENCOUNTERS) {
     // Mint the Map Instance first (UNN-459 — `encounters.mapInstanceId` is

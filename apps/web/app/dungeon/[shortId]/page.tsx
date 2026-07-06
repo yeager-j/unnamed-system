@@ -129,7 +129,6 @@ async function resolveRunMode(
     if (data) {
       const durableHydrationById = await loadCombatConsoleDataV2(
         data.session,
-        data.instance.state,
         data.participantMeta
       )
       return { kind: "combat", data, durableHydrationById }
