@@ -251,6 +251,7 @@ export function useEntityAutoSave(
   }
 ): UseDebouncedAutoSaveReturn<string> {
   const { entityId, versionRefs, queueRefs } = useWriteApi("useEntityAutoSave")
+  const dispatchWithFreshTokens = useRefreshingDispatch()
   const { makeWrite, ...rest } = args
 
   const durableClass =
@@ -270,12 +271,37 @@ export function useEntityAutoSave(
         ? { ok: true, value: { value, version: result.value.version } }
         : result
     },
-    dispatchWrite: async (action) => {
-      const result = await action(versionRef.current)
-      if (result.ok) versionRef.current = result.value.version
-      return result
-    },
+    dispatchWrite: (action) => dispatchWithFreshTokens(versionRef, action),
   })
+}
+
+/**
+ * The debounced wrappers' shared dispatch: read the class token, bump it on
+ * success — and on `"stale"` trigger `router.refresh()` so the provider
+ * re-renders with fresh server versions and the monotonic refs move forward.
+ * Without the refresh, a cross-tab/external bump would strand this tab: the
+ * field rolls back but every follow-up save re-sends the same stale token.
+ * (The click-write path in {@link useEntityWrite} does the same.)
+ */
+function useRefreshingDispatch() {
+  const router = useRouter()
+  return async function dispatchWithFreshTokens<TValue, TError extends string>(
+    versionRef: RefObject<number>,
+    action: (
+      expectedVersion: number
+    ) => Promise<
+      | { ok: true; value: { value: TValue; version: number } }
+      | { ok: false; error: TError }
+    >
+  ) {
+    const result = await action(versionRef.current)
+    if (result.ok) {
+      versionRef.current = result.value.version
+    } else if (result.error === "stale") {
+      router.refresh()
+    }
+    return result
+  }
 }
 
 /**
@@ -300,6 +326,7 @@ export function useEntityColumnSave<TValue, TError extends string>(
   const { entityId, versionRefs, queueRefs } = useWriteApi(
     "useEntityColumnSave"
   )
+  const dispatchWithFreshTokens = useRefreshingDispatch()
   const { save, ...rest } = args
   const versionRef = versionRefs.identity
 
@@ -308,11 +335,7 @@ export function useEntityColumnSave<TValue, TError extends string>(
     saveQueueRef: queueRefs.identity,
     save: (value, expectedVersion) =>
       save(value, { entityId, expectedVersion }),
-    dispatchWrite: async (action) => {
-      const result = await action(versionRef.current)
-      if (result.ok) versionRef.current = result.value.version
-      return result
-    },
+    dispatchWrite: (action) => dispatchWithFreshTokens(versionRef, action),
   })
 }
 

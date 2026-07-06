@@ -12,11 +12,13 @@ import { commitEntityWrite } from "./entity-row-store"
  * refusal short-circuits before the guard.
  */
 const requireOwnerOrCampaignDMForEntity = vi.fn()
+const requireEntityOwner = vi.fn()
 const bumpEntityVersionGuarded = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireOwnerOrCampaignDMForEntity: (id: string) =>
     requireOwnerOrCampaignDMForEntity(id),
+  requireEntityOwner: (id: string) => requireEntityOwner(id),
 }))
 vi.mock("./version-guard", () => ({
   bumpEntityVersionGuarded: (
@@ -41,6 +43,8 @@ function row(overrides: Record<string, unknown>) {
 }
 
 beforeEach(() => {
+  requireOwnerOrCampaignDMForEntity.mockReset()
+  requireEntityOwner.mockReset()
   bumpEntityVersionGuarded.mockReset().mockResolvedValue(ok({ version: 8 }))
 })
 
@@ -110,6 +114,40 @@ describe("commitEntityWrite — native durable component writes", () => {
 
     expect(result).toEqual({ ok: false, error: "capability-missing" })
     expect(bumpEntityVersionGuarded).not.toHaveBeenCalled()
+  })
+
+  it("gates a vitals-class write owner-or-campaign-DM, never the strict-owner gate", async () => {
+    requireOwnerOrCampaignDMForEntity.mockResolvedValue(
+      row({ vitals: { base: 20, damage: 0 } })
+    )
+
+    await commitEntityWrite(
+      "e1",
+      { component: "vitals", op: "damage", amount: 1 },
+      3
+    )
+
+    expect(requireOwnerOrCampaignDMForEntity).toHaveBeenCalledWith("e1")
+    expect(requireEntityOwner).not.toHaveBeenCalled()
+  })
+
+  it("gates a non-vitals-class write strict-owner — a campaign DM cannot rewrite creation/identity state", async () => {
+    requireEntityOwner.mockResolvedValue(row({}))
+
+    const result = await commitEntityWrite(
+      "e1",
+      {
+        component: "narrative",
+        op: "setField",
+        field: "secrets",
+        value: "only mine",
+      },
+      3
+    )
+
+    expect(requireEntityOwner).toHaveBeenCalledWith("e1")
+    expect(requireOwnerOrCampaignDMForEntity).not.toHaveBeenCalled()
+    expect(result.ok).toBe(true)
   })
 
   it("errs `entity-load-failed` when the stored components are malformed", async () => {

@@ -1,6 +1,9 @@
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
-import { requireOwnerOrCampaignDMForEntity } from "@/lib/auth/campaign-access"
+import {
+  requireEntityOwner,
+  requireOwnerOrCampaignDMForEntity,
+} from "@/lib/auth/campaign-access"
 import type { EntityStatus } from "@/lib/db/schema/entity"
 import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 import {
@@ -22,11 +25,19 @@ import {
  * (the entity door) and combat's durable arm (the encounter door forwards here).
  * `Writer ∘ entityRowStore`, always — no storage fork downstream of the address.
  *
- * The whole path in one place: authorize (the Store's gate, owner-or-campaign-DM),
- * assemble the row into a runtime entity, run the Writer's pure `applyOp` to
- * predict the patch, then commit it version-guarded on the Writer's own class. The
- * patch composition lives server-side here (descriptor-in), so "the client composes
+ * The whole path in one place: authorize (the Store's gate — see below), assemble
+ * the row into a runtime entity, run the Writer's pure `applyOp` to predict the
+ * patch, then commit it version-guarded on the Writer's own class. The patch
+ * composition lives server-side here (descriptor-in), so "the client composes
  * the full post-state" is unrepresentable (UNN-226).
+ *
+ * **The gate is a fact of the Writer's class (UNN-556).** v1 granted the campaign
+ * DM exactly the in-play surfaces (pools/mechanics — the vitals class); creation
+ * and identity state were always owner-only. The same CH4 move that made the
+ * version class a Writer fact makes the auth posture one: a `vitals`-class write
+ * admits owner-or-campaign-DM (the DM console's sanctioned access), every other
+ * class requires the strict owner — a DM must not be able to rewrite a placed
+ * player's Origin, Virtues, or narrative (Secrets!) through this door.
  */
 
 export type EntityWriteError =
@@ -58,7 +69,11 @@ export async function commitEntityWrite(
   write: EntityWrite,
   expectedVersion: number
 ): Promise<Result<EntityCommit, EntityWriteError>> {
-  const row = await requireOwnerOrCampaignDMForEntity(entityId)
+  const { durableClass } = ENTITY_WRITERS[write.component]
+  const row =
+    durableClass === "vitals"
+      ? await requireOwnerOrCampaignDMForEntity(entityId)
+      : await requireEntityOwner(entityId)
 
   const loaded = loadEntityRow(row)
   if (!loaded.ok) return err("entity-load-failed")
@@ -70,7 +85,6 @@ export async function commitEntityWrite(
   )
   if (!predicted.ok) return predicted
 
-  const { durableClass } = ENTITY_WRITERS[write.component]
   const bumped = await bumpEntityVersionGuarded(
     entityId,
     durableClass,

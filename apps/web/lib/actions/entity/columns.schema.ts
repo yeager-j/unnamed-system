@@ -20,7 +20,7 @@ export const UpdateEntityNameSchema = entityMutationBase.extend({
 export type UpdateEntityNameInput = z.input<typeof UpdateEntityNameSchema>
 
 export const UpdateEntityPronounsSchema = entityMutationBase.extend({
-  pronouns: z.string().max(40),
+  pronouns: z.string().max(64),
 })
 export type UpdateEntityPronounsInput = z.input<
   typeof UpdateEntityPronounsSchema

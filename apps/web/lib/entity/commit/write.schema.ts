@@ -126,11 +126,17 @@ const virtuesArm = z.object({
   }),
 })
 
+/** v1's server-side prose bound (`character-narrative` / identity traits). */
+const NARRATIVE_TEXT_MAX = 8000
+/** v1's Knife/Chain bounds (`named-entry-list` schemas). */
+const BEAT_TITLE_MAX = 120
+const BEAT_DESCRIPTION_MAX = 4000
+
 const narrativeFieldArm = z.object({
   component: z.literal("narrative"),
   op: z.literal("setField"),
   field: z.enum(NARRATIVE_TEXT_FIELDS),
-  value: z.string(),
+  value: z.string().max(NARRATIVE_TEXT_MAX),
 })
 
 /**
@@ -153,14 +159,27 @@ const narrativeRemoveEntryArm = z.object({
   index: z.number().int().nonnegative(),
 })
 
-const narrativeSetEntryArm = z.object({
-  component: z.literal("narrative"),
-  op: z.literal("setListEntry"),
-  list: z.enum(["knives", "chains"]),
-  index: z.number().int().nonnegative(),
-  field: z.enum(["title", "description"]),
-  value: z.string(),
-})
+const narrativeSetEntryArm = z
+  .object({
+    component: z.literal("narrative"),
+    op: z.literal("setListEntry"),
+    list: z.enum(["knives", "chains"]),
+    index: z.number().int().nonnegative(),
+    field: z.enum(["title", "description"]),
+    value: z.string().max(BEAT_DESCRIPTION_MAX),
+  })
+  .check((ctx) => {
+    if (
+      ctx.value.field === "title" &&
+      ctx.value.value.length > BEAT_TITLE_MAX
+    ) {
+      ctx.issues.push({
+        code: "custom",
+        message: `title exceeds ${BEAT_TITLE_MAX} characters`,
+        input: ctx.value,
+      })
+    }
+  })
 
 /**
  * The **combat-relevant subset** — the only vocabulary the encounter door

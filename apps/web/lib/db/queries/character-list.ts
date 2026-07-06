@@ -26,7 +26,9 @@ export interface CharacterSummary {
   builderStep: number
 }
 
-const summaryProjection = {
+/** The one `entity` → {@link CharacterSummary} column set — shared with the
+ *  campaign roster read (`load-campaign.ts`) so the projections can't drift. */
+export const characterSummaryProjection = {
   id: entity.id,
   shortId: entity.shortId,
   name: entity.name,
@@ -46,7 +48,7 @@ export async function loadOwnedCharacterSummaries(
   ownerId: string
 ): Promise<CharacterSummary[]> {
   return db
-    .select(summaryProjection)
+    .select(characterSummaryProjection)
     .from(entity)
     .where(eq(entity.ownerId, ownerId))
     .orderBy(asc(entity.name))
@@ -63,7 +65,7 @@ export async function loadPlacedCharactersForCampaign(
   campaignId: string
 ): Promise<CharacterSummary[]> {
   return db
-    .select(summaryProjection)
+    .select(characterSummaryProjection)
     .from(entity)
     .where(
       and(eq(entity.campaignId, campaignId), eq(entity.status, "finalized"))
@@ -94,7 +96,7 @@ export async function loadOwnedFinalizedCharactersWithPlacement(
 ): Promise<OwnedPlacementCharacter[]> {
   return db
     .select({
-      ...summaryProjection,
+      ...characterSummaryProjection,
       campaignId: entity.campaignId,
       placedCampaignName: campaigns.name,
     })
