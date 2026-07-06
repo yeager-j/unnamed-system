@@ -55,16 +55,18 @@ describe("bumpEntityVersionGuarded — disjoint per-class column footprint", () 
     expect(publishCharacterPing).toHaveBeenCalledWith("s1", { vitals: 8 })
   })
 
-  it("a progression write SETs only its component columns + the progression token", async () => {
+  it("a progression write SETs only its component column + the progression token", async () => {
     await bumpEntityVersionGuarded("e1", "progression", 2, {
-      virtues: { expression: 3, empathy: 0, wisdom: 0, focus: 0 },
-      sparkLog: [],
+      virtues: {
+        ranks: { expression: 3, empathy: 0, wisdom: 0, focus: 0 },
+        sparkLog: [],
+      },
     })
 
     const keys = Object.keys(setArg.mock.calls[0]![0]).sort()
     // A cross-class token (`vitalsVersion`, `identityVersion`, …) is NEVER in the
     // set — that disjointness is why a concurrent vitals write can't be clobbered.
-    expect(keys).toEqual(["progressionVersion", "sparkLog", "virtues"])
+    expect(keys).toEqual(["progressionVersion", "virtues"])
   })
 
   it("returns `stale` when the guard misses but the row exists", async () => {

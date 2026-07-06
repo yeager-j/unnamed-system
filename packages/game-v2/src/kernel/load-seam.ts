@@ -14,12 +14,11 @@ import { narrativeSchema } from "@workspace/game-v2/narrative/narrative.schema"
 import { levelSchema } from "@workspace/game-v2/progression/level.schema"
 import { manualBonusesSchema } from "@workspace/game-v2/progression/manual-bonuses.schema"
 import { pathSchema } from "@workspace/game-v2/progression/path.schema"
-import { sparkLogSchema } from "@workspace/game-v2/progression/spark-log.schema"
-import { virtuesSchema } from "@workspace/game-v2/progression/virtues.schema"
 import { exhaustionSchema } from "@workspace/game-v2/resources/exhaustion.schema"
 import { resourcesSchema } from "@workspace/game-v2/resources/resources.schema"
 import { skillsSchema } from "@workspace/game-v2/skills/skills.schema"
 import { talentsSchema } from "@workspace/game-v2/talents/talents.schema"
+import { virtuesSchema } from "@workspace/game-v2/virtues/virtues.schema"
 import { skillPoolSchema } from "@workspace/game-v2/vitals/skill-pool.schema"
 import { vitalsSchema } from "@workspace/game-v2/vitals/vitals.schema"
 
@@ -62,7 +61,6 @@ export const componentSchemas: ComponentSchemas = {
   mechanics: mechanicsSchema,
   equipment: equipmentSchema,
   virtues: virtuesSchema,
-  sparkLog: sparkLogSchema,
   narrative: narrativeSchema,
 }
 

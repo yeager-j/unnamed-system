@@ -99,7 +99,7 @@ src/
                    Entity / Has / guard, the ComponentRegistry +
                    ResolvedComponentRegistry, the load seam, the effects
                    primitive, Result, the GameData port, and the re-declared vocab
-  attributes/ affinities/ vitals/ resources/ progression/ archetypes/
+  attributes/ affinities/ vitals/ resources/ progression/ virtues/ archetypes/
   skills/ talents/ items/ mechanics/ combat/ encounter/ visibility/ resolve/
                    one folder per domain — and one folder per PR (the cohesion cut)
   catalog/         authored content implementing the GameData port

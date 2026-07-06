@@ -68,7 +68,7 @@ const STATS: Record<Relationship, Visibility> = {
  * - **Stats, drop to opponent + spectator** — `attributes`, `affinities` (RED-4).
  * - **Drop from all five** — resolved read-units that never belong on a watch
  *   surface (`skills`/`talents`/`resources`/`exhaustion`/`archetypes`/`virtues`/
- *   `sparkLog`/`narrative` are sheet data, never in v1's snapshot; `pendingEffects`
+ *   `narrative` are sheet data, never in v1's snapshot; `pendingEffects`
  *   is a display-only DM producer that would leak attack math; `activeMechanics` is
  *   internal mechanic state — Frenzy pain, Perfection rank). Explicit rather than
  *   defaulted, so the security posture of every component is reviewed, not inferred.
@@ -100,7 +100,6 @@ export const VISIBILITY = {
   // fields (Secrets); owner/public gating of it is the sheet's app-level boundary,
   // not this combat policy, which drops it wholesale.
   virtues: DROP_FROM_ALL,
-  sparkLog: DROP_FROM_ALL,
   narrative: DROP_FROM_ALL,
 } satisfies Record<ProjectableKey, Record<Relationship, Visibility>>
 

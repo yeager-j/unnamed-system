@@ -80,7 +80,6 @@ export const entity = pgTable("entity", {
   mechanics: jsonb("mechanics").$type<ComponentRegistry["mechanics"]>(),
   equipment: jsonb("equipment").$type<ComponentRegistry["equipment"]>(),
   virtues: jsonb("virtues").$type<ComponentRegistry["virtues"]>(),
-  sparkLog: jsonb("sparkLog").$type<ComponentRegistry["sparkLog"]>(),
   narrative: jsonb("narrative").$type<ComponentRegistry["narrative"]>(),
 
   // ── Per-write-class optimistic-concurrency tokens (CH4) ────────────────────
