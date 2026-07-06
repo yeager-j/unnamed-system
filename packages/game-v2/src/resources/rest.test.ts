@@ -19,9 +19,13 @@ import {
  *   hitDiceRemaining R   → hitDiceUsed   = 2 − R
  *
  * and every expectation asserts the returned depletion patch rather than a
- * derived current. v1's two Zod input-schema describe-blocks are intentionally
- * not ported: amount validation moves to the S2a Server Action (the v2
- * depletion-op convention), so no engine-side schema exists to test.
+ * derived current.
+ *
+ * v1's two Zod input-schema describe-blocks aren't ported verbatim (that schema
+ * lands at the S2a Server Action for form UX), but the non-negative-integer bound
+ * they enforced (A8) is not dropped: the client-shipped engine now guards it
+ * itself, returning `invalid-input` — the "rejects a negative/fractional amount"
+ * cases below cover that boundary in place of the schema tests.
  */
 function makeComponents(
   overrides: Partial<RestComponents> = {}
@@ -138,16 +142,31 @@ describe("applyPartialRest", () => {
     expect(result).toEqual({ ok: false, error: "insufficient-skill-dice" })
   })
 
-  it("fails on a negative Skill Dice spend", () => {
+  it("rejects a negative Skill Dice spend", () => {
     const result = applyPartialRest(makeComponents(), {
       skillDiceToSpend: -1,
       rolled: 0,
     })
 
-    expect(result).toStrictEqual({
-      ok: false,
-      error: "insufficient-skill-dice",
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("rejects a fractional Skill Dice spend", () => {
+    const result = applyPartialRest(makeComponents(), {
+      skillDiceToSpend: 1.5,
+      rolled: 0,
     })
+
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("rejects a fractional rolled SP amount", () => {
+    const result = applyPartialRest(makeComponents(), {
+      skillDiceToSpend: 0,
+      rolled: 2.5,
+    })
+
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
   })
 
   it("succeeds when spending exactly the remaining Skill Dice", () => {
@@ -245,14 +264,31 @@ describe("applyRespite", () => {
     expect(result).toEqual({ ok: false, error: "insufficient-hit-dice" })
   })
 
-  it("fails on a negative Hit Dice spend", () => {
-    // v1 fixture: hitDiceRemaining 3 → L2 (max Hit Dice 3).
-    const result = applyRespite(makeComponents({ level: { value: 2 } }), {
+  it("rejects a negative Hit Dice spend", () => {
+    const result = applyRespite(makeComponents(), {
       hitDiceToSpend: -1,
       rolled: 0,
     })
 
-    expect(result).toStrictEqual({ ok: false, error: "insufficient-hit-dice" })
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("rejects a fractional Hit Dice spend", () => {
+    const result = applyRespite(makeComponents(), {
+      hitDiceToSpend: 1.5,
+      rolled: 0,
+    })
+
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("rejects a fractional rolled HP amount", () => {
+    const result = applyRespite(makeComponents(), {
+      hitDiceToSpend: 0,
+      rolled: 3.5,
+    })
+
+    expect(result).toStrictEqual({ ok: false, error: "invalid-input" })
   })
 
   it("succeeds when spending exactly the remaining Hit Dice", () => {

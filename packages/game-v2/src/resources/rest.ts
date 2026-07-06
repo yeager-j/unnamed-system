@@ -28,8 +28,11 @@ import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
  * and only to reject an over-spend of unspent dice.
  *
  * The MVP never rolls: where the rules call for a die, the caller passes the
- * player-entered `rolled` result. Amount validation (positive integer) lives in
- * the Server Action schema at cutover, as with the atomic ops.
+ * player-entered `rolled` result. Both amounts must be non-negative integers: the
+ * engine enforces that **itself** (it ships to the client and is directly callable,
+ * so it can't rely on the caller having validated) and returns `invalid-input`. The
+ * S2a Server Action's Zod schema re-checks the same bound (A8) for form-level error
+ * messages — the engine guard is the corruption backstop, not the UX one.
  */
 
 /**
@@ -58,9 +61,26 @@ export interface RestPatch {
 
 /**
  * Expected, recoverable failures (not programmer errors): the caller asked to
- * spend more Skill or Hit Dice than the character has unspent. Mirrors v1's union.
+ * spend more Skill or Hit Dice than the character has unspent
+ * (`insufficient-*-dice`, v1's union), or passed a malformed amount — negative,
+ * fractional, `NaN`/`Infinity` (`invalid-input`). The latter is a v2 addition: v1
+ * kept its non-negative-integer guard in a co-located Zod schema, so moving that
+ * schema out to the S2a action (E2 plan) would leave the client-shipped engine
+ * unguarded — the engine now owns the backstop instead.
  */
-export type RestError = "insufficient-skill-dice" | "insufficient-hit-dice"
+export type RestError =
+  | "insufficient-skill-dice"
+  | "insufficient-hit-dice"
+  | "invalid-input"
+
+/**
+ * A player-entered spend or roll must be a non-negative integer (A8). `NaN` and
+ * `Infinity` fail {@link Number.isInteger} too, so this one predicate rejects every
+ * malformed amount before it can smear a fractional value into an integer pool.
+ */
+function isNonNegativeInteger(amount: number): boolean {
+  return Number.isInteger(amount) && amount >= 0
+}
 
 /** Player-entered Partial Rest choices: Skill Dice to spend and the SP they roll. */
 export interface PartialRestInput {
@@ -94,17 +114,25 @@ export function applyFullRest(components: RestComponents): RestPatch {
  * A Partial Rest: HP restored to max; `skillDiceToSpend` Skill Dice consumed (not
  * regained until the next Full Rest) and the player-rolled `rolled` SP recovered,
  * clamped at max SP by {@link applyRecoverSP}. Hit Dice and Exhaustion are
- * untouched. Fails — without producing a patch — with `insufficient-skill-dice`
- * when the spend exceeds the unspent Skill Dice.
+ * untouched. Fails — without producing a patch — with `invalid-input` for a
+ * malformed amount, or `insufficient-skill-dice` when the spend exceeds the unspent
+ * Skill Dice.
  */
 export function applyPartialRest(
   components: RestComponents,
   { skillDiceToSpend, rolled }: PartialRestInput
 ): Result<RestPatch, RestError> {
+  if (
+    !isNonNegativeInteger(skillDiceToSpend) ||
+    !isNonNegativeInteger(rolled)
+  ) {
+    return err("invalid-input")
+  }
+
   const remaining =
     computeMaxSkillDice(components.level.value) -
     components.resources.skillDiceUsed
-  if (skillDiceToSpend < 0 || skillDiceToSpend > remaining) {
+  if (skillDiceToSpend > remaining) {
     return err("insufficient-skill-dice")
   }
 
@@ -121,16 +149,20 @@ export function applyPartialRest(
  * A Respite: the player-rolled `rolled` HP recovered, clamped at max HP by
  * {@link applyHeal}, and `hitDiceToSpend` Hit Dice consumed (not regained until
  * the next Full Rest). SP and Exhaustion are untouched. Fails — without producing
- * a patch — with `insufficient-hit-dice` when the spend exceeds the unspent Hit
- * Dice.
+ * a patch — with `invalid-input` for a malformed amount, or `insufficient-hit-dice`
+ * when the spend exceeds the unspent Hit Dice.
  */
 export function applyRespite(
   components: RestComponents,
   { hitDiceToSpend, rolled }: RespiteInput
 ): Result<RestPatch, RestError> {
+  if (!isNonNegativeInteger(hitDiceToSpend) || !isNonNegativeInteger(rolled)) {
+    return err("invalid-input")
+  }
+
   const remaining =
     computeMaxHitDice(components.level.value) - components.resources.hitDiceUsed
-  if (hitDiceToSpend < 0 || hitDiceToSpend > remaining) {
+  if (hitDiceToSpend > remaining) {
     return err("insufficient-hit-dice")
   }
 
