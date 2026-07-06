@@ -26,7 +26,7 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
  *   (a mechanic that ships no write surface rejects here, at the boundary).
  * - `path` / `archetypes` / `talents` / `virtues` / `narrative` — the creation
  *   families (S1, UNN-556): the builder's authored-choice writes. `narrative` is
- *   per-field set ops + whole-list knife/chain replaces (CH16) — a descriptor is
+ *   per-field set ops + per-entry Knife/Chain list ops (CH16) — a descriptor is
  *   structurally a per-field write, so "client composes the full post-state" is
  *   unrepresentable (UNN-226).
  *
@@ -133,13 +133,33 @@ const narrativeFieldArm = z.object({
   value: z.string(),
 })
 
-const narrativeListArm = z.object({
+/**
+ * Per-entry Knife/Chain list ops. Deliberately NOT a whole-list replace: a
+ * debounced title save and a sibling description save composing the full list
+ * client-side would clobber each other — the UNN-226 failure class at list
+ * granularity. Entries are addressed by index (display order IS the array
+ * order, D36); the server merges against its own row.
+ */
+const narrativeAddEntryArm = z.object({
   component: z.literal("narrative"),
-  op: z.literal("setList"),
+  op: z.literal("addListEntry"),
   list: z.enum(["knives", "chains"]),
-  entries: z.array(
-    z.object({ title: z.string(), description: z.string().nullable() })
-  ),
+})
+
+const narrativeRemoveEntryArm = z.object({
+  component: z.literal("narrative"),
+  op: z.literal("removeListEntry"),
+  list: z.enum(["knives", "chains"]),
+  index: z.number().int().nonnegative(),
+})
+
+const narrativeSetEntryArm = z.object({
+  component: z.literal("narrative"),
+  op: z.literal("setListEntry"),
+  list: z.enum(["knives", "chains"]),
+  index: z.number().int().nonnegative(),
+  field: z.enum(["title", "description"]),
+  value: z.string(),
 })
 
 /**
@@ -166,7 +186,9 @@ export const entityWriteSchema = z.union([
   talentsArm,
   virtuesArm,
   narrativeFieldArm,
-  narrativeListArm,
+  narrativeAddEntryArm,
+  narrativeRemoveEntryArm,
+  narrativeSetEntryArm,
 ])
 
 export type EntityWrite = z.infer<typeof entityWriteSchema>

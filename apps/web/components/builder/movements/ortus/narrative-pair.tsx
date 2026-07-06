@@ -7,14 +7,13 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
-import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
+import { useEntityAutoSave, useLoadedCharacter } from "@/hooks/use-entity-write"
 
 /**
  * Movement 2's two short setting-defined slots — Ancestry and Background
  * (rulebook 1.4, ADR-002 §"Movement 2 — The Past"). Single-line text fields
- * with rules-cited ghost text. Each auto-saves through the shared
- * `useDebouncedAutoSave` hook on the identity write class.
+ * with rules-cited ghost text. Each auto-saves as a `narrative.setField`
+ * descriptor through the shared debounced-autosave lifecycle (identity class).
  *
  * Backstory is intentionally NOT here — it lives in the Animus writer
  * (Movement 3) where all long-form prose is edited as Markdown.
@@ -23,34 +22,32 @@ const ANCESTRY_MAX = 160
 const BACKGROUND_MAX = 160
 
 export function NarrativePair() {
-  const { id: characterId, ancestryText, backgroundText } = useBuilderDraft()
+  const { entity } = useLoadedCharacter()
+  const narrative = entity.components.narrative
 
   return (
     <div className="flex flex-col gap-5">
       <SingleLineField
-        characterId={characterId}
         field="ancestry"
         label="Ancestry"
         description="Setting-defined: ask your DM what the campaign offers. Free text — bonuses live in the relevant section, not parsed from here."
         placeholder="e.g. Half-elf, Tiefling, Dwarf…"
         maxLength={ANCESTRY_MAX}
-        serverValue={ancestryText ?? ""}
+        serverValue={narrative?.ancestry ?? ""}
       />
       <SingleLineField
-        characterId={characterId}
         field="background"
         label="Background"
         description="What did your character do before the adventure? A noble, a thief, a soldier? Setting-defined, like Ancestry."
         placeholder="e.g. Disgraced noble, Street thief, Battlefield medic…"
         maxLength={BACKGROUND_MAX}
-        serverValue={backgroundText ?? ""}
+        serverValue={narrative?.background ?? ""}
       />
     </div>
   )
 }
 
 function SingleLineField({
-  characterId,
   field,
   label,
   description,
@@ -58,7 +55,6 @@ function SingleLineField({
   maxLength,
   serverValue,
 }: {
-  characterId: string
   field: "ancestry" | "background"
   label: string
   description: string
@@ -66,26 +62,15 @@ function SingleLineField({
   maxLength: number
   serverValue: string
 }) {
-  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
+  const { value, setValue, revert, onFocusChange } = useEntityAutoSave({
     serverValue,
-    characterId,
-    surface: "narrative",
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, expectedVersion) => {
-      const result = await updateCharacterNarrativeAction({
-        characterId,
-        field,
-        text: next,
-        expectedVersion,
-      })
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next, version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => ({
+      component: "narrative",
+      op: "setField",
+      field,
+      value: next,
+    }),
   })
 
   const inputId = `character-${field}`

@@ -14,8 +14,8 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useBuilderDraft } from "@/hooks/use-builder-draft"
-import { setBuilderStepAction } from "@/lib/actions/character-identity"
+import { useEntityIdentityToken } from "@/hooks/use-entity-write"
+import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
 
 import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
 
@@ -29,7 +29,7 @@ import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
  * Archetype grid) without scrolling to the end.
  *
  * The footer also owns the wizard's navigation action. The continue link
- * calls `setBuilderStepAction` before navigating so a returning player's
+ * calls `setEntityBuilderStepAction` before navigating so a returning player's
  * "Resume building" card deep-links to the right movement, and renders a
  * disabled-reason tooltip when `canAdvance={false}` so per-movement tickets
  * can gate progress on missing required inputs.
@@ -194,7 +194,7 @@ function ContinueLink({
   canAdvance: boolean
   disabledReason?: string
 }) {
-  const { id: characterId, identityVersion } = useBuilderDraft()
+  const identityToken = useEntityIdentityToken()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canAdvance
@@ -202,12 +202,14 @@ function ContinueLink({
   function onClick() {
     if (!canAdvance) return
     startTransition(async () => {
-      const result = await setBuilderStepAction({
-        characterId,
+      const result = await setEntityBuilderStepAction({
+        entityId: identityToken.entityId,
         step: nextIndex,
-        expectedVersion: identityVersion,
+        expectedVersion: identityToken.read(),
       })
-      if (!result.ok && result.error !== "stale") {
+      if (result.ok) {
+        identityToken.bump(result.value.version)
+      } else if (result.error !== "stale") {
         toast.error("Couldn't advance. Try again.")
         return
       }

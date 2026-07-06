@@ -54,13 +54,15 @@ export function combatErrorMessage(
     case "entity-not-found":
     case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
+    // The Writer refusals; the creation-family ones (allocation cap, entry
+    // index — UNN-556) are unreachable through the narrowed encounter wire,
+    // but the shared refusal union carries them.
     case "capability-missing":
     case "no-prisma-max":
     case "no-prisma-charges":
     case "no-transitions":
-    // A creation-family refusal (UNN-556) — unreachable through the narrowed
-    // encounter wire, but the shared refusal union carries it.
     case "allocation-cap-exceeded":
+    case "entry-not-found":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }

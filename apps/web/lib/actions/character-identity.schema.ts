@@ -41,19 +41,6 @@ export type RemoveCharacterPortraitError =
   | CharacterIdentityPersistenceError
 
 /**
- * Tracks the highest step the player has reached in the wizard so the
- * "Resume building" card on My Characters can deep-link to the right step.
- * Bounded by the BUILDER_STEPS array length (currently 5).
- */
-export const SetBuilderStepSchema = characterMutationBase.extend({
-  step: z.number().int().min(0).max(99),
-})
-export type SetBuilderStepInput = z.input<typeof SetBuilderStepSchema>
-export type SetBuilderStepError =
-  | "invalid-input"
-  | CharacterIdentityPersistenceError
-
-/**
  * Portrait upload submits a multipart FormData — the action peels the file
  * + ids out and validates them directly (no Zod, since File isn't really a
  * Zod-friendly value). Errors enumerate both upload-side failures and

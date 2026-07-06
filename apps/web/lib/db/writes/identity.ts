@@ -71,25 +71,6 @@ export async function clearCharacterPortrait(
   })
 }
 
-/**
- * Bumps the `builderStep` cursor monotonically — accepts both forward
- * (Next) and backward (Back) navigation, since the wizard wants the cursor
- * to reflect "where the player currently is" rather than "the high-water
- * mark." The card on My Characters reads this so "Resume building"
- * deep-links to the same step the user left.
- */
-export async function setCharacterBuilderStep(
-  characterId: string,
-  step: number,
-  expectedVersion: number
-): Promise<
-  Result<CharacterIdentityPersistenceSuccess, CharacterIdentityPersistenceError>
-> {
-  return runIdentityUpdate(characterId, expectedVersion, "builderStep", {
-    builderStep: step,
-  })
-}
-
 async function runIdentityUpdate(
   characterId: string,
   expectedVersion: number,

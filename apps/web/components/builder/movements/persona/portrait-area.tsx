@@ -1,7 +1,7 @@
 "use client"
 
 import { CameraIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useRef } from "react"
+import { useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -12,11 +12,14 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
 import {
-  removeCharacterPortraitAction,
-  uploadCharacterPortraitAction,
-} from "@/lib/actions/character-identity"
+  useEntityIdentityToken,
+  useLoadedCharacter,
+} from "@/hooks/use-entity-write"
+import {
+  removeEntityPortraitAction,
+  uploadEntityPortraitAction,
+} from "@/lib/actions/entity/columns"
 import {
   MAX_PORTRAIT_BYTES,
   messageForPortraitUploadError,
@@ -30,14 +33,15 @@ import {
  * with the name field for attention. Once uploaded, the image fills the
  * same circular frame.
  *
- * Upload pipeline: `dispatchCharacterWriteWithRetry` keyed on
- * `identityVersion`, silent stale-retry, cross-tab broadcast. Client-side
- * mime + size guards mirror what the server enforces so the user gets
- * fast feedback.
+ * Upload pipeline: the entity portrait column actions keyed on the shared
+ * identity token. Client-side mime + size guards mirror what the server
+ * enforces so the user gets fast feedback.
  */
 export function PortraitArea() {
-  const { id: characterId, portraitUrl } = useBuilderDraft()
-  const { pending, write } = useBuilderWrite()
+  const { profile } = useLoadedCharacter()
+  const portraitUrl = profile.portraitUrl
+  const identityToken = useEntityIdentityToken()
+  const [pending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
 
   function openPicker() {
@@ -58,34 +62,31 @@ export function PortraitArea() {
       return
     }
 
-    write({
-      surface: "portrait",
-      action: async (expectedVersion) => {
-        const formData = new FormData()
-        formData.append("characterId", characterId)
-        formData.append("expectedVersion", String(expectedVersion))
-        formData.append("file", file)
-        return uploadCharacterPortraitAction(formData)
-      },
-      onError: (error) => {
-        toast.error(messageForPortraitUploadError(error))
-        return true
-      },
+    startTransition(async () => {
+      const formData = new FormData()
+      formData.append("entityId", identityToken.entityId)
+      formData.append("expectedVersion", String(identityToken.read()))
+      formData.append("file", file)
+      const result = await uploadEntityPortraitAction(formData)
+      if (result.ok) {
+        identityToken.bump(result.value.version)
+        return
+      }
+      toast.error(messageForPortraitUploadError(result.error))
     })
   }
 
   function onRemove() {
-    write({
-      surface: "portrait",
-      action: (expectedVersion) =>
-        removeCharacterPortraitAction({
-          characterId,
-          expectedVersion,
-        }),
-      messages: {
-        stale: "Couldn't remove the portrait. Try again.",
-        error: "Couldn't remove the portrait. Try again.",
-      },
+    startTransition(async () => {
+      const result = await removeEntityPortraitAction({
+        entityId: identityToken.entityId,
+        expectedVersion: identityToken.read(),
+      })
+      if (result.ok) {
+        identityToken.bump(result.value.version)
+        return
+      }
+      toast.error("Couldn't remove the portrait. Try again.")
     })
   }
 

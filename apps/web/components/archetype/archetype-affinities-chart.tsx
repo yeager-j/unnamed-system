@@ -7,6 +7,10 @@ import { DetailSection } from "@/components/shared/detail-section"
 
 import { ArchetypeAffinityChip } from "./archetype-affinity-chips"
 
+/** The structural slice this widget reads — both engines' catalog Archetypes
+ *  satisfy it (UNN-556: the builder passes v2, the sheet passes v1). */
+type AffinitiesSlice = Pick<Archetype, "affinities">
+
 /**
  * The full Affinity block: a chip for every non-Neutral Affinity in the
  * Archetype's chart plus the "Other damage types Neutral" reminder. Shared by
@@ -15,7 +19,7 @@ import { ArchetypeAffinityChip } from "./archetype-affinity-chips"
 export function ArchetypeAffinitiesChart({
   archetype,
 }: {
-  archetype: Archetype
+  archetype: AffinitiesSlice
 }) {
   const chips = AFFINITY_DAMAGE_TYPES.flatMap((type) => {
     const affinity = archetype.affinities[type]

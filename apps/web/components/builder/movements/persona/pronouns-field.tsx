@@ -3,8 +3,11 @@
 import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
-import { updateCharacterPronounsAction } from "@/lib/actions/character-identity"
+import {
+  useEntityColumnSave,
+  useLoadedCharacter,
+} from "@/hooks/use-entity-write"
+import { updateEntityPronounsAction } from "@/lib/actions/entity/columns"
 
 const MAX_LENGTH = 64
 
@@ -16,15 +19,13 @@ const MAX_LENGTH = 64
  * `EditablePronouns`.
  */
 export function PronounsField() {
-  const { id: characterId, pronouns } = useBuilderDraft()
-  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
-    serverValue: pronouns ?? "",
-    characterId,
-    surface: "pronouns",
+  const { profile } = useLoadedCharacter()
+  const { value, setValue, revert, onFocusChange } = useEntityColumnSave({
+    serverValue: profile.pronouns ?? "",
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, expectedVersion) => {
-      const result = await updateCharacterPronounsAction({
-        characterId,
+    save: async (next, { entityId, expectedVersion }) => {
+      const result = await updateEntityPronounsAction({
+        entityId,
         pronouns: next.trim(),
         expectedVersion,
       })

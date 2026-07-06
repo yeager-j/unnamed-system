@@ -17,7 +17,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
-import { deleteCharacterAction } from "@/lib/actions/delete-character"
+import { deleteEntityAction } from "@/lib/actions/entity/delete"
 import { CHARACTER_DELETE_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 interface DeleteCharacterDialogProps {
@@ -90,7 +90,7 @@ function DiscardDraftDialog({
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await deleteCharacterAction({ characterId })
+      const result = await deleteEntityAction({ entityId: characterId })
 
       if (result.ok) {
         toast.success("Draft discarded.")
@@ -99,7 +99,7 @@ function DiscardDraftDialog({
         return
       }
 
-      if (result.error === "character-not-found") {
+      if (result.error === "entity-not-found") {
         toast.error("Draft already discarded.")
         onOpenChange(false)
         router.refresh()
@@ -160,8 +160,8 @@ function TypeToConfirmDialog({
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await deleteCharacterAction({
-        characterId,
+      const result = await deleteEntityAction({
+        entityId: characterId,
         confirmationName: typed,
       })
 
@@ -172,7 +172,7 @@ function TypeToConfirmDialog({
         return
       }
 
-      if (result.error === "character-not-found") {
+      if (result.error === "entity-not-found") {
         toast.error("Character already deleted.")
         handleOpenChange(false)
         router.refresh()

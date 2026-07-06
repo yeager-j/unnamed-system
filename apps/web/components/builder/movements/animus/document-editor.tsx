@@ -2,7 +2,6 @@
 
 import { toast } from "sonner"
 
-import { type Result } from "@workspace/game/foundation"
 import {
   Field,
   FieldDescription,
@@ -13,43 +12,24 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
-import { useBuilderAutoSave } from "@/hooks/use-builder-draft"
-import type { EditSurface } from "@/lib/db/version-classes"
+import { useEntityAutoSave } from "@/hooks/use-entity-write"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 /**
  * The title + Markdown body pair the Movement 3 writer renders for the
  * active document.
  *
- * Two independent `useBuilderAutoSave` instances drive title and body
- * separately. Both write the identity class and resolve the *same* shared
- * version ref (UNN-274), so the title's bump is visible to the body's next
- * save in-frame — no version race between them.
+ * Two independent {@link useEntityAutoSave} instances drive title and body
+ * separately. Both dispatch identity-class narrative descriptors through the
+ * provider's shared token + queue (UNN-274), so the title's bump is visible
+ * to the body's next save in-frame — no version race between them — and the
+ * server merges each write per field/entry, so they can't clobber each other.
  *
  * Every document — editable (Knives / Chains) or fixed (Backstory /
  * Identity Traits) — renders the same Input + description + Separator +
- * Markdown body. Fixed documents pass no `updateTitle` action, which
- * flips the input to `readOnly` so the styling and rhythm stay identical
- * across kinds.
+ * Markdown body. Fixed documents pass no `makeTitleWrite`, which flips the
+ * input to `readOnly` so the styling and rhythm stay identical across kinds.
  */
-export interface DocumentEditorMutationResult {
-  version: number
-}
-
-export interface DocumentEditorActions {
-  /**
-   * When omitted, the title input is rendered `readOnly` (Backstory and
-   * Identity Traits — the player can't rename the section name).
-   */
-  updateTitle?: (
-    title: string,
-    expectedVersion: number
-  ) => Promise<Result<DocumentEditorMutationResult, string>>
-  updateDescription: (
-    description: string | null,
-    expectedVersion: number
-  ) => Promise<Result<DocumentEditorMutationResult, string>>
-}
-
 export interface DocumentEditorMessages {
   /** Aria label for the body editor. Should describe the document. */
   bodyAriaLabel: string
@@ -71,15 +51,13 @@ export interface DocumentEditorMessages {
 }
 
 export function DocumentEditor({
-  characterId,
   documentId,
   title,
   body,
-  actions,
+  makeTitleWrite,
+  makeBodyWrite,
   messages,
-  surface,
 }: {
-  characterId: string
   /**
    * Stable per-document id used to seed the input element's `id` for label
    * association. Avoids cross-document `htmlFor` collisions when the
@@ -88,58 +66,44 @@ export function DocumentEditor({
   documentId: string
   title: string
   body: string
-  actions: DocumentEditorActions
+  /**
+   * When omitted, the title input is rendered `readOnly` (Backstory and
+   * Identity Traits — the player can't rename the section name).
+   */
+  makeTitleWrite?: (title: string) => EntityWrite
+  makeBodyWrite: (body: string) => EntityWrite
   messages: DocumentEditorMessages
-  surface: EditSurface
 }) {
   const onError = () => toast.error(messages.saveError)
-  const isTitleEditable = !!actions.updateTitle
+  const isTitleEditable = !!makeTitleWrite
 
-  const titleState = useBuilderAutoSave({
+  const titleState = useEntityAutoSave({
     serverValue: title,
-    characterId,
-    surface,
     isEqual: (a, b) => a.trim() === b.trim(),
     // No `isEmpty` guard — clearing the title is a legitimate edit. The
-    // sidebar renders "New Knife" / "New Chain" as a fallback label when
-    // the saved title is empty; the editor's own placeholder cues the
+    // sidebar renders "Untitled Knife" / "Untitled Chain" as a fallback label
+    // when the saved title is empty; the editor's own placeholder cues the
     // player to type one.
     onError,
-    save: async (next, expectedVersion) => {
-      if (!actions.updateTitle) {
-        return { ok: true, value: { value: next, version: expectedVersion } }
-      }
-      const result = await actions.updateTitle(next.trim(), expectedVersion)
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next.trim(), version: result.value.version },
-        }
-      }
-      return result
-    },
+    // A fixed title never dispatches: without a descriptor builder there is
+    // nothing to write, so the no-op builder below is unreachable (the input
+    // is readOnly). The narrowing keeps one hook call for both shapes.
+    makeWrite: (next) =>
+      makeTitleWrite
+        ? makeTitleWrite(next.trim())
+        : {
+            component: "narrative",
+            op: "setField",
+            field: "backstory",
+            value: next,
+          },
   })
 
-  const bodyState = useBuilderAutoSave({
+  const bodyState = useEntityAutoSave({
     serverValue: body,
-    characterId,
-    surface,
     isEqual: (a, b) => a.trim() === b.trim(),
     onError,
-    save: async (next, expectedVersion) => {
-      const normalized = next.trim().length === 0 ? null : next
-      const result = await actions.updateDescription(
-        normalized,
-        expectedVersion
-      )
-      if (result.ok) {
-        return {
-          ok: true,
-          value: { value: next, version: result.value.version },
-        }
-      }
-      return result
-    },
+    makeWrite: (next) => makeBodyWrite(next),
   })
 
   const titleInputId = `writer-title-${documentId}`

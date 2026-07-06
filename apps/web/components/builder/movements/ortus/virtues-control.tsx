@@ -3,18 +3,18 @@
 import { useState } from "react"
 import { toast } from "sonner"
 
+import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game-v2/kernel/vocab"
 import {
   coerceVirtueAllocation,
   describeAllocationProgress,
   wouldExceedAllocationCap,
+  ZERO_VIRTUE_ALLOCATION,
   type VirtueAllocation,
-} from "@workspace/game/engine"
-import { VIRTUE_KEYS, type VirtueKey } from "@workspace/game/foundation"
+} from "@workspace/game-v2/virtues"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import { setCharacterVirtuesAction } from "@/lib/actions/character-virtues"
+import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
 import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/lib/ui/labels"
 
 const RANKS = [0, 1, 2] as const
@@ -30,30 +30,22 @@ const RANKS = [0, 1, 2] as const
  * without trial-and-error. Clearing (○) is always enabled — the player
  * frees a slot by clicking it on the row currently holding the rank.
  *
- * Every state change writes optimistically through the canonical retry
- * pipeline (UNN-180). The Server Action's Zod schema upper-bounds (twos ≤ 1,
- * ones ≤ 2) match the UI's gating; the Continue gate on this movement
- * checks the full creation rule (one +2, two +1s, all different).
+ * Every state change dispatches a `virtues.setAllocation` descriptor
+ * (progression class — the token routing is the provider's business). The
+ * Writer's cap refusal (twos ≤ 1, ones ≤ 2) matches the UI's gating; the
+ * Continue gate on this movement checks the full creation rule (one +2, two
+ * +1s, all different).
  */
 export function VirtuesControl() {
-  const {
-    id: characterId,
-    virtueExpression,
-    virtueEmpathy,
-    virtueWisdom,
-    virtueFocus,
-  } = useBuilderDraft()
-  const { write } = useBuilderWrite()
-  // Derived from the draft's four virtue columns. React Compiler (UNN-241)
-  // memoizes this on those four values, so its identity is stable across
+  const { entity } = useLoadedCharacter()
+  const { dispatch } = useEntityWrite()
+  // Derived from the entity's virtues component. React Compiler (UNN-241)
+  // memoizes this on the underlying ranks, so its identity is stable across
   // re-renders that don't change them — exactly what the `previousAllocation`
   // sync below depends on.
-  const allocation = coerceVirtueAllocation({
-    expression: virtueExpression,
-    empathy: virtueEmpathy,
-    wisdom: virtueWisdom,
-    focus: virtueFocus,
-  })
+  const allocation = coerceVirtueAllocation(
+    entity.components.virtues?.ranks ?? ZERO_VIRTUE_ALLOCATION
+  )
   // Local draft seeded from the server. Plain useState rather than
   // `useOptimistic` because rapid sequential clicks (e.g. +2 then +1 then
   // +1) would otherwise reset to the in-flight server prop between actions
@@ -73,27 +65,23 @@ export function VirtuesControl() {
 
   function applyAllocation(next: VirtueAllocation) {
     setDraft(next)
-    write({
-      surface: "virtuesAllocation",
-      action: (expectedVersion) =>
-        setCharacterVirtuesAction({
-          characterId,
-          ...next,
-          expectedVersion,
-        }),
-      messages: {
-        stale:
-          "Someone else updated this character — refresh to see the latest.",
-        error: "Couldn't save your Virtues. Try again.",
-      },
-      onError: (error) => {
-        if (error === "character-not-found") {
-          toast.error("This character was deleted.")
-          return true
-        }
-        return false
-      },
-    })
+    dispatch(
+      { component: "virtues", op: "setAllocation", ranks: next },
+      {
+        messages: {
+          stale:
+            "Someone else updated this character — refresh to see the latest.",
+          error: "Couldn't save your Virtues. Try again.",
+        },
+        onError: (error) => {
+          if (error === "entity-not-found") {
+            toast.error("This character was deleted.")
+            return true
+          }
+          return false
+        },
+      }
+    )
   }
 
   function setRank(key: VirtueKey, rank: 0 | 1 | 2) {

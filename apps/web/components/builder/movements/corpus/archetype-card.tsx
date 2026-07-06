@@ -1,13 +1,13 @@
 "use client"
 
-import { getMechanic } from "@workspace/game/engine"
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import {
   AFFINITY_DAMAGE_TYPES,
   ATTRIBUTE_KEYS,
   type Affinity,
   type AffinityDamageType,
-  type Archetype,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/kernel/vocab"
+import { getMechanic } from "@workspace/game-v2/mechanics"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatModifier } from "@/components/archetype/format"

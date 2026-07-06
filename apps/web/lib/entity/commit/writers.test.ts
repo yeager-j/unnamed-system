@@ -202,11 +202,15 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
       ranks: { expression: 2, empathy: 1, wisdom: 1, focus: 0 },
     },
     { component: "narrative", op: "setField", field: "hopes", value: "peace" },
+    { component: "narrative", op: "addListEntry", list: "knives" },
+    { component: "narrative", op: "removeListEntry", list: "chains", index: 0 },
     {
       component: "narrative",
-      op: "setList",
+      op: "setListEntry",
       list: "knives",
-      entries: [{ title: "The debt", description: null }],
+      index: 1,
+      field: "title",
+      value: "The debt",
     },
   ])("accepts %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(true)
@@ -226,6 +230,14 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
       ranks: { expression: 3, empathy: 1, wisdom: 1, focus: 0 },
     },
     { component: "narrative", op: "setField", field: "knives", value: "x" },
+    {
+      component: "narrative",
+      op: "setListEntry",
+      list: "knives",
+      index: -1,
+      field: "title",
+      value: "x",
+    },
   ])("rejects %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(false)
   })
@@ -254,7 +266,7 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
       ranks: { expression: 2, empathy: 1, wisdom: 1, focus: 0 },
     },
     { component: "narrative", op: "setField", field: "hopes", value: "x" },
-    { component: "narrative", op: "setList", list: "chains", entries: [] },
+    { component: "narrative", op: "addListEntry", list: "chains" },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })
@@ -420,17 +432,94 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
     })
   })
 
-  it("narrative.setList replaces one list and leaves the other fields intact", () => {
+  it("narrative.addListEntry appends an empty beat", () => {
     const base = { ...emptyNarrative(), backstory: "kept" }
-    const entries = [{ title: "The debt", description: "unpaid" }]
     const result = applyEntityWrite(
       { narrative: base },
-      { component: "narrative", op: "setList", list: "knives", entries },
+      { component: "narrative", op: "addListEntry", list: "knives" },
       {}
     )
     expect(result).toEqual({
       ok: true,
-      value: { narrative: { ...base, knives: entries } },
+      value: {
+        narrative: { ...base, knives: [{ title: "", description: null }] },
+      },
+    })
+  })
+
+  it("narrative.setListEntry edits one entry field in place", () => {
+    const base = {
+      ...emptyNarrative(),
+      knives: [
+        { title: "The debt", description: "unpaid" },
+        { title: "Mira", description: null },
+      ],
+    }
+    const result = applyEntityWrite(
+      { narrative: base },
+      {
+        component: "narrative",
+        op: "setListEntry",
+        list: "knives",
+        index: 1,
+        field: "description",
+        value: "my sister",
+      },
+      {}
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        narrative: {
+          ...base,
+          knives: [
+            { title: "The debt", description: "unpaid" },
+            { title: "Mira", description: "my sister" },
+          ],
+        },
+      },
+    })
+  })
+
+  it("narrative.setListEntry refuses an out-of-range index (raced a remove)", () => {
+    const result = applyEntityWrite(
+      { narrative: emptyNarrative() },
+      {
+        component: "narrative",
+        op: "setListEntry",
+        list: "knives",
+        index: 0,
+        field: "title",
+        value: "x",
+      },
+      {}
+    )
+    expect(result).toEqual({ ok: false, error: "entry-not-found" })
+  })
+
+  it("narrative.removeListEntry splices the addressed entry", () => {
+    const base = {
+      ...emptyNarrative(),
+      chains: [
+        { title: "A", description: null },
+        { title: "B", description: null },
+      ],
+    }
+    const result = applyEntityWrite(
+      { narrative: base },
+      {
+        component: "narrative",
+        op: "removeListEntry",
+        list: "chains",
+        index: 0,
+      },
+      {}
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        narrative: { ...base, chains: [{ title: "B", description: null }] },
+      },
     })
   })
 })

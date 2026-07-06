@@ -1,15 +1,16 @@
-import { type Archetype, type PathChoice } from "@workspace/game/foundation"
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
+import type { PathChoice } from "@workspace/game-v2/kernel/vocab"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { ArchetypeAffinitiesChart } from "@/components/archetype/archetype-affinities-chart"
 import { ArchetypeAttributesGrid } from "@/components/archetype/archetype-attributes-grid"
 import { ArchetypeMechanicProse } from "@/components/archetype/archetype-mechanic-prose"
-import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-skills"
+import { ArchetypeResolvedSkills } from "@/components/archetype/archetype-resolved-skills"
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
-import { SkillRow } from "@/components/shared/skill-row"
-import { previewArchetypeSkills } from "@/lib/game-engine"
+import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
+import { previewArchetypeSkills } from "@/lib/game-engine-v2"
 
 /**
  * The body of the Movement 1 Origin Archetype detail {@link ArchetypeDialog}
@@ -37,11 +38,17 @@ export function ArchetypeDetail({
       <ArchetypeTalents archetype={archetype} />
       <ArchetypeMechanicProse archetype={archetype} />
       <Separator />
-      <ArchetypeRankedSkills ranks={ranks} attributes={archetype.attributes} />
+      <ArchetypeResolvedSkills
+        ranks={ranks}
+        attributes={archetype.attributes}
+      />
       {synthesis ? (
         <DetailSection title="Synthesis Skill">
           <ItemGroup className="gap-0">
-            <SkillRow skill={synthesis} attributes={archetype.attributes} />
+            <ResolvedSkillRow
+              resolved={synthesis}
+              attributes={archetype.attributes}
+            />
           </ItemGroup>
         </DetailSection>
       ) : null}

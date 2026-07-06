@@ -57,6 +57,7 @@ export type EntityWriteRefusal =
   | "no-prisma-charges"
   | "no-transitions"
   | "allocation-cap-exceeded"
+  | "entry-not-found"
 
 /**
  * The authored-component patch a Writer predicts — whole updated components, so
@@ -263,24 +264,67 @@ export const ENTITY_WRITERS: WriterMap = {
   },
 
   /**
-   * Per-field prose sets + whole-list knife/chain replaces (CH16). An empty
-   * string stores as `null` so the payload stays canonical against the
-   * nullable schema.
+   * Per-field prose sets + per-entry Knife/Chain list ops (CH16). An empty
+   * string stores as `null` (text fields and entry descriptions) so the
+   * payload stays canonical against the nullable schema. Entries address by
+   * index — display order IS the array order (D36); an out-of-range index
+   * refuses `entry-not-found` (a remove raced the edit).
    */
   narrative: {
     component: "narrative",
     durableClass: "identity",
     applyOp(components, write) {
       const base = components.narrative ?? emptyNarrative()
-      return ok({
-        narrative:
-          write.op === "setField"
-            ? {
-                ...base,
-                [write.field]: write.value === "" ? null : write.value,
-              }
-            : { ...base, [write.list]: write.entries },
-      })
+      switch (write.op) {
+        case "setField":
+          return ok({
+            narrative: {
+              ...base,
+              [write.field]: write.value === "" ? null : write.value,
+            },
+          })
+        case "addListEntry":
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: [
+                ...base[write.list],
+                { title: "", description: null },
+              ],
+            },
+          })
+        case "removeListEntry": {
+          if (write.index >= base[write.list].length) {
+            return err("entry-not-found")
+          }
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: base[write.list].filter(
+                (_entry, index) => index !== write.index
+              ),
+            },
+          })
+        }
+        case "setListEntry": {
+          const entry = base[write.list][write.index]
+          if (entry === undefined) return err("entry-not-found")
+          const value =
+            write.field === "description" && write.value === ""
+              ? null
+              : write.value
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: base[write.list].map((existing, index) =>
+                index === write.index
+                  ? { ...existing, [write.field]: value }
+                  : existing
+              ),
+            },
+          })
+        }
+      }
     },
   },
 }

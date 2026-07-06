@@ -1,8 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 
 import { slugForStepIndex } from "@/components/builder/builder-steps"
-
-import { getBuilderCharacter } from "./_loader"
+import { loadCharacterByShortId } from "@/lib/character/load"
 
 /**
  * `/builder/[shortId]` is the canonical entry — it doesn't render a step
@@ -16,8 +15,10 @@ export default async function BuilderEntryPage({
   params: Promise<{ shortId: string }>
 }) {
   const { shortId } = await params
-  const character = await getBuilderCharacter(shortId)
-  if (!character) notFound()
+  const loaded = await loadCharacterByShortId(shortId)
+  if (!loaded) notFound()
 
-  redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+  redirect(
+    `/builder/${shortId}/${slugForStepIndex(loaded.profile.builderStep)}`
+  )
 }

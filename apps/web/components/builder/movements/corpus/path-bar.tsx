@@ -1,34 +1,20 @@
 "use client"
 
 import { Radio as RadioPrimitive } from "@base-ui/react/radio"
-import { useOptimistic } from "react"
 import { toast } from "sonner"
 
-import { getPathStats } from "@workspace/game/engine"
-import { PATH_CHOICES, type PathChoice } from "@workspace/game/foundation"
+import { PATH_CHOICES, type PathChoice } from "@workspace/game-v2/kernel/vocab"
+import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import { updateCharacterPathAction } from "@/lib/actions/character-path"
+import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { Sparkle } from "../../../shared/celestial"
 
-/**
- * Per-path die pairing — presentation-only copy not owned by the game engine.
- * `hp` and `sp` are the integer die-face counts (d12 → 12) driving both the
- * displayed die label and the HP-share split rendered in the balance bar.
- * Starting HP / SP come from {@link getPathStats}, the single source of truth.
- */
-const PATH_DIE: Record<PathChoice, { hp: number; sp: number }> = {
-  "health-focused": { hp: 12, sp: 8 },
-  balanced: { hp: 10, sp: 10 },
-  "skill-focused": { hp: 8, sp: 12 },
-}
-
-function formatDie(die: { hp: number; sp: number }): string {
-  return `d${die.hp} / d${die.sp}`
+function formatDie(die: { hitDie: number; skillDie: number }): string {
+  return `d${die.hitDie} / d${die.skillDie}`
 }
 
 /**
@@ -36,49 +22,42 @@ function formatDie(die: { hp: number; sp: number }): string {
  * segments rendered as a single horizontal bar; selecting one "shifts" the
  * visual accent across the bar to communicate the HP / SP balance. Die pair
  * and starting HP / SP sit underneath each segment so the tradeoff reads at
- * a glance.
+ * a glance — both from the engine's one `PATH_STATS` source
+ * ({@link getPathStats} / {@link getPathDice}).
  *
- * Persists through the canonical optimistic-toggle dispatch (UNN-180) keyed
- * on `identityVersion`; the action layer is reused as-is from the original
- * radio-card picker.
+ * Persists as a `path.setChoice` descriptor through the provider's optimistic
+ * dispatch (UNN-556) — the selection reads back off the shared frame.
  */
 export function PathBar() {
-  const { id: characterId, pathChoice } = useBuilderDraft()
-  const { write } = useBuilderWrite()
-  const [optimisticPath, setOptimisticPath] = useOptimistic(
-    pathChoice,
-    (_current: PathChoice, next: PathChoice) => next
-  )
+  const { entity } = useLoadedCharacter()
+  const { dispatch } = useEntityWrite()
+  const optimisticPath = entity.components.path?.choice ?? "balanced"
 
   function handleChange(next: PathChoice) {
     if (next === optimisticPath) return
-    write({
-      surface: "path",
-      optimistic: () => setOptimisticPath(next),
-      action: (expectedVersion) =>
-        updateCharacterPathAction({
-          characterId,
-          pathChoice: next,
-          expectedVersion,
-        }),
-      messages: {
-        stale:
-          "Someone else updated this character — refresh to see the latest.",
-        error: "Couldn't save your path. Try again.",
-      },
-      onError: (error) => {
-        if (error === "character-not-found") {
-          toast.error("This character was deleted.")
-          return true
-        }
-        return false
-      },
-    })
+    dispatch(
+      { component: "path", op: "setChoice", choice: next },
+      {
+        messages: {
+          stale:
+            "Someone else updated this character — refresh to see the latest.",
+          error: "Couldn't save your path. Try again.",
+        },
+        onError: (error) => {
+          if (error === "entity-not-found") {
+            toast.error("This character was deleted.")
+            return true
+          }
+          return false
+        },
+      }
+    )
   }
 
-  const selectedDie = PATH_DIE[optimisticPath]
+  const selectedDie = getPathDice(optimisticPath)
   const selectedStats = getPathStats(optimisticPath)
-  const hpShare = (selectedDie.hp / (selectedDie.hp + selectedDie.sp)) * 100
+  const hpShare =
+    (selectedDie.hitDie / (selectedDie.hitDie + selectedDie.skillDie)) * 100
 
   return (
     <section className="flex flex-col gap-3">
@@ -121,7 +100,7 @@ export function PathBar() {
                     : "text-muted-foreground"
                 )}
               >
-                {formatDie(PATH_DIE[choice])}
+                {formatDie(getPathDice(choice))}
               </span>
             </RadioPrimitive.Root>
           )

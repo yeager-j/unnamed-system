@@ -5,7 +5,6 @@ import { err, type Result } from "@workspace/game/foundation"
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {
   clearCharacterPortrait,
-  setCharacterBuilderStep,
   updateCharacterPortraitUrl,
   updateCharacterPronouns,
   type CharacterIdentityPersistenceSuccess,
@@ -14,12 +13,9 @@ import { uploadPortrait } from "@/lib/storage/portrait-upload"
 
 import {
   RemoveCharacterPortraitSchema,
-  SetBuilderStepSchema,
   UpdateCharacterPronounsSchema,
   type RemoveCharacterPortraitError,
   type RemoveCharacterPortraitInput,
-  type SetBuilderStepError,
-  type SetBuilderStepInput,
   type UpdateCharacterPronounsError,
   type UpdateCharacterPronounsInput,
   type UploadCharacterPortraitError,
@@ -27,11 +23,9 @@ import {
 import { revalidateCharacter } from "./revalidate"
 
 /**
- * The four identity-class write surfaces the wizard composes with — grouped
- * here so the builder's many small "edit one identity field" actions don't
- * explode into a one-file-per-action sprawl. The existing
- * `updateCharacterNameAction` remains in its own file for now; folding it in
- * is a follow-up.
+ * The sheet's remaining identity-class write surfaces (pronouns, portrait) —
+ * the builder's siblings moved to the entity aggregate (UNN-556) and these
+ * follow when the sheet slice lands (S2).
  *
  * Every action follows the canonical pattern documented in
  * `lib/actions/CLAUDE.md`: parse → `requireOwner` → persistence wrapper →
@@ -74,25 +68,6 @@ export async function removeCharacterPortraitAction(
 
   const result = await clearCharacterPortrait(
     character.id,
-    parsed.data.expectedVersion
-  )
-
-  if (result.ok) revalidateCharacter(character)
-
-  return result
-}
-
-export async function setBuilderStepAction(
-  input: SetBuilderStepInput
-): Promise<Result<CharacterIdentityPersistenceSuccess, SetBuilderStepError>> {
-  const parsed = SetBuilderStepSchema.safeParse(input)
-  if (!parsed.success) return err("invalid-input")
-
-  const character = await requireOwner(parsed.data.characterId)
-
-  const result = await setCharacterBuilderStep(
-    character.id,
-    parsed.data.step,
     parsed.data.expectedVersion
   )
 

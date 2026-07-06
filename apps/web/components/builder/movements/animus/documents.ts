@@ -1,12 +1,9 @@
-import type {
-  CharacterChainRow,
-  CharacterKnifeRow,
-} from "@/lib/db/schema/character"
-import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
+import type { Narrative } from "@workspace/game-v2/narrative"
 
 import {
   IDENTITY_TRAIT_MESSAGES,
   IDENTITY_TRAIT_ORDER,
+  type IdentityTraitField,
 } from "./identity-trait-messages"
 
 /**
@@ -15,10 +12,15 @@ import {
  * sidebar renders and the writer pane resolves back to its persisted text
  * via {@link resolveDocumentContent}.
  *
+ * Knives and Chains address their entry by **array index** (stringified):
+ * v2's `narrative` component stores them as ordered `IdentityBeat` lists
+ * with no row ids — display order IS the array order (D36) — and the
+ * per-entry write descriptors address the same index.
+ *
  * Each ref carries its display label at construction time so the sidebar
  * component never case-splits on `kind` for labeling. The discriminator is
- * present so the pane can dispatch to the matching Server Action (Knife
- * title-update, Identity Trait update, …) without ambiguity.
+ * present so the pane can build the matching write descriptor (Knife
+ * title-edit, Identity Trait update, …) without ambiguity.
  */
 export type DocumentRef =
   | { kind: "backstory"; id: "backstory"; label: "Backstory" }
@@ -60,18 +62,14 @@ export const UNTITLED_KNIFE = "Untitled Knife"
 export const UNTITLED_CHAIN = "Untitled Chain"
 
 /**
- * Builds the sidebar's grouped document list from the loaded builder
- * character. Order matches the rulebook's Movement 3 flow: long-form
+ * Builds the sidebar's grouped document list from the draft's narrative
+ * component. Order matches the rulebook's Movement 3 flow: long-form
  * Backstory first, then the stakes (Knives), the limitations (Chains),
  * and finally the Identity Traits that build on top of them.
  */
-export function buildDocumentGroups({
-  knives,
-  chains,
-}: {
-  knives: readonly CharacterKnifeRow[]
-  chains: readonly CharacterChainRow[]
-}): DocumentGroup[] {
+export function buildDocumentGroups(
+  narrative: Narrative | undefined
+): DocumentGroup[] {
   return [
     {
       kind: "backstory",
@@ -83,8 +81,12 @@ export function buildDocumentGroups({
     {
       kind: "knives",
       label: "Knives",
-      entries: knives.map(
-        (k): DocumentRef => ({ kind: "knife", id: k.id, label: k.title })
+      entries: (narrative?.knives ?? []).map(
+        (knife, index): DocumentRef => ({
+          kind: "knife",
+          id: String(index),
+          label: knife.title,
+        })
       ),
       canAdd: true,
       canRemove: true,
@@ -92,8 +94,12 @@ export function buildDocumentGroups({
     {
       kind: "chains",
       label: "Chains",
-      entries: chains.map(
-        (c): DocumentRef => ({ kind: "chain", id: c.id, label: c.title })
+      entries: (narrative?.chains ?? []).map(
+        (chain, index): DocumentRef => ({
+          kind: "chain",
+          id: String(index),
+          label: chain.title,
+        })
       ),
       canAdd: true,
       canRemove: true,
@@ -118,14 +124,14 @@ export function buildDocumentGroups({
 export const DEFAULT_DOCUMENT_REF: DocumentRef = BACKSTORY_REF
 
 /**
- * Resolves a `DocumentRef` against the loaded character to the per-document
- * content the writer pane renders. Returns `null` if the ref no longer
- * matches an entry (e.g. the Knife was just removed) — the caller falls
- * back to {@link DEFAULT_DOCUMENT_REF}.
+ * Resolves a `DocumentRef` against the draft's narrative component to the
+ * per-document content the writer pane renders. Returns `null` if the ref no
+ * longer matches an entry (e.g. the Knife was just removed) — the caller
+ * falls back to {@link DEFAULT_DOCUMENT_REF}.
  */
 export interface ResolvedDocument {
   ref: DocumentRef
-  /** Empty string for unset Backstory / Identity Trait columns. */
+  /** Empty string for unset Backstory / Identity Trait fields. */
   body: string
   /** Present for Knife / Chain refs whose title is player-editable. */
   title: string | null
@@ -133,50 +139,24 @@ export interface ResolvedDocument {
 
 export function resolveDocumentContent(
   ref: DocumentRef,
-  source: {
-    backstoryText: string | null
-    knives: readonly CharacterKnifeRow[]
-    chains: readonly CharacterChainRow[]
-    personalityTraits: string | null
-    hopes: string | null
-    dreams: string | null
-    fears: string | null
-    secrets: string | null
-  }
+  narrative: Narrative | undefined
 ): ResolvedDocument | null {
   switch (ref.kind) {
     case "backstory":
-      return { ref, body: source.backstoryText ?? "", title: null }
+      return { ref, body: narrative?.backstory ?? "", title: null }
     case "knife": {
-      const knife = source.knives.find((k) => k.id === ref.id)
+      const knife = narrative?.knives[Number(ref.id)]
       if (!knife) return null
       return { ref, body: knife.description ?? "", title: knife.title }
     }
     case "chain": {
-      const chain = source.chains.find((c) => c.id === ref.id)
+      const chain = narrative?.chains[Number(ref.id)]
       if (!chain) return null
       return { ref, body: chain.description ?? "", title: chain.title }
     }
-    case "identity": {
-      const column = identityColumnFor(ref.id)
-      return { ref, body: source[column] ?? "", title: null }
-    }
+    case "identity":
+      return { ref, body: narrative?.[ref.id] ?? "", title: null }
   }
-}
-
-const IDENTITY_COLUMN_FOR_FIELD = {
-  personality: "personalityTraits",
-  hope: "hopes",
-  dream: "dreams",
-  fear: "fears",
-  secret: "secrets",
-} as const satisfies Record<
-  IdentityTraitField,
-  "personalityTraits" | "hopes" | "dreams" | "fears" | "secrets"
->
-
-function identityColumnFor(field: IdentityTraitField) {
-  return IDENTITY_COLUMN_FOR_FIELD[field]
 }
 
 /** Comparator helpers for context selection equality. */
