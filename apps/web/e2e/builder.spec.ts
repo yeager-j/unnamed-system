@@ -1,23 +1,26 @@
 import { expect, test } from "@playwright/test"
 import { and, eq } from "drizzle-orm"
 
-import { characters, getDb } from "@/lib/db"
+import { entity, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 
 /**
- * Builder shell — the contract this PR delivers (UNN-214):
+ * Builder E2E — rebuilt for the v2 cutover (UNN-556): a draft is an `entity`
+ * row from step one, every edit writes through the entity pipeline, and
+ * finalize is a validation gate + status flip that lands on My Characters.
+ * The visual design (and therefore most selectors) carries over from the v1
+ * suite (UNN-214..218); every DB assertion reads the `entity` row's component
+ * columns.
  *
  * - A fresh draft lands on `/corpus`.
  * - The chapter header renders the Roman + serif title for each movement.
  * - The Continue link advances the row's `builderStep` cursor AND navigates.
- * - `/builder/{shortId}` (no movement segment) redirects to the cursor,
- *   not always Movement 1.
- * - Visited dots navigate back; upcoming dots are inert.
- * - Movement 4 (Persona) has no Continue link and a named back-link.
- *
- * Movement bodies are placeholders here — per-movement tickets
- * (UNN-215 → UNN-218) own end-to-end content coverage for each movement.
+ * - `/builder/{shortId}` (no movement segment) redirects to the cursor.
+ * - Per-movement writes land on their component columns (path, archetypes at
+ *   the Origin auto-rank, virtues ranks, narrative fields + Knife entries).
+ * - Finalize seeds the starting weapon, flips `status`, writes NO pool
+ *   values, and redirects to `/`.
  */
 
 const DEV_USER_ID = "dev-user-claude"
@@ -26,10 +29,8 @@ test.describe.configure({ mode: "serial" })
 
 async function clearDevUserDrafts(): Promise<void> {
   await getDb()
-    .delete(characters)
-    .where(
-      and(eq(characters.ownerId, DEV_USER_ID), eq(characters.status, "draft"))
-    )
+    .delete(entity)
+    .where(and(eq(entity.ownerId, DEV_USER_ID), eq(entity.status, "draft")))
 }
 
 function shortIdFromBuilderUrl(url: string): string {
@@ -38,20 +39,20 @@ function shortIdFromBuilderUrl(url: string): string {
   return match[1]!
 }
 
-async function readBuilderStep(shortId: string): Promise<number> {
+async function readEntityRow(shortId: string) {
   const [row] = await getDb()
-    .select({ builderStep: characters.builderStep })
-    .from(characters)
-    .where(eq(characters.shortId, shortId))
+    .select()
+    .from(entity)
+    .where(eq(entity.shortId, shortId))
     .limit(1)
-  if (!row) throw new Error(`no row for shortId=${shortId}`)
-  return row.builderStep
+  if (!row) throw new Error(`no entity row for shortId=${shortId}`)
+  return row
 }
 
 /**
- * Movement 1's Continue is gated on an Origin Archetype being selected
- * (UNN-215). Specs that need to walk past Corpus open the Warrior card's detail
- * dialog and click its Choose button to satisfy the gate before they ever touch
+ * Movement 1's Continue is gated on an Origin Archetype being selected.
+ * Specs that need to walk past Corpus open the Warrior card's detail dialog
+ * and click its Choose button to satisfy the gate before they ever touch
  * Continue. Choosing closes the dialog, so we confirm via the card's check.
  */
 async function chooseWarriorOrigin(
@@ -68,33 +69,31 @@ async function chooseWarriorOrigin(
   ).toBeVisible()
 }
 
+/** Polls until the Origin landed on the `archetypes` component. */
+async function expectOriginPersisted(shortId: string): Promise<void> {
+  await expect
+    .poll(
+      async () => (await readEntityRow(shortId)).archetypes?.origin ?? null,
+      {
+        timeout: 5000,
+      }
+    )
+    .toBe("warrior")
+}
+
 /**
- * Movement 2's Continue is gated on a valid creation Virtue allocation
- * (UNN-216): exactly one +2, two +1s, one 0. Helper for specs that walk
- * past Ortus.
- *
- * `setCharacterVirtuesAction` writes the full 4-rank snapshot per click.
- * Sequential clicks can race the in-flight action — between each click we
- * poll the DB until the rank persisted, then issue the next click. This is
- * slower than waiting for an optimistic-UI signal but it's the only way to
- * guarantee `versionRef.current` is fresh for the next dispatch.
+ * Movement 2's Continue is gated on a valid creation Virtue allocation:
+ * exactly one +2, two +1s, one 0. Helper for specs that walk past Ortus.
+ * Each click dispatches a whole-allocation descriptor; we poll the `virtues`
+ * component between clicks so the shared progression token is fresh for the
+ * next dispatch.
  */
 async function setValidVirtueAllocation(
   page: import("@playwright/test").Page,
   shortId: string
 ): Promise<void> {
-  async function readVirtues() {
-    const [row] = await getDb()
-      .select({
-        expression: characters.virtueExpression,
-        empathy: characters.virtueEmpathy,
-        wisdom: characters.virtueWisdom,
-        focus: characters.virtueFocus,
-      })
-      .from(characters)
-      .where(eq(characters.shortId, shortId))
-      .limit(1)
-    return row
+  async function readRanks() {
+    return (await readEntityRow(shortId)).virtues?.ranks ?? null
   }
 
   await page
@@ -102,7 +101,7 @@ async function setValidVirtueAllocation(
     .getByRole("button", { name: "+2" })
     .click()
   await expect
-    .poll(async () => (await readVirtues())?.expression ?? null, {
+    .poll(async () => (await readRanks())?.expression ?? null, {
       timeout: 5000,
     })
     .toBe(2)
@@ -112,7 +111,7 @@ async function setValidVirtueAllocation(
     .getByRole("button", { name: "+1" })
     .click()
   await expect
-    .poll(async () => (await readVirtues())?.empathy ?? null, { timeout: 5000 })
+    .poll(async () => (await readRanks())?.empathy ?? null, { timeout: 5000 })
     .toBe(1)
 
   await page
@@ -120,7 +119,7 @@ async function setValidVirtueAllocation(
     .getByRole("button", { name: "+1" })
     .click()
   await expect
-    .poll(async () => (await readVirtues())?.wisdom ?? null, { timeout: 5000 })
+    .poll(async () => (await readRanks())?.wisdom ?? null, { timeout: 5000 })
     .toBe(1)
 
   // Reload so the server-rendered Continue button picks up the fresh gate
@@ -137,7 +136,7 @@ test.describe("builder shell", () => {
   test.beforeEach(clearDevUserDrafts)
   test.afterAll(clearDevUserDrafts)
 
-  test("renders chapter chrome, advances the cursor on Continue, and bounces /builder to the cursor", async ({
+  test("mints an entity draft, renders chapter chrome, advances the cursor on Continue, and bounces /builder to the cursor", async ({
     page,
   }) => {
     await page.goto("/")
@@ -145,6 +144,15 @@ test.describe("builder shell", () => {
 
     await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
+
+    // The draft IS an entity row from step one, minted with the component
+    // skeleton (depletion-native zeros; creation components absent).
+    const draft = await readEntityRow(shortId)
+    expect(draft.status).toBe("draft")
+    expect(draft.vitals).toEqual({ base: 0, damage: 0 })
+    expect(draft.path).toEqual({ choice: "balanced" })
+    expect(draft.archetypes).toBeNull()
+    expect(draft.equipment).toBeNull()
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Corpus" })
@@ -160,7 +168,7 @@ test.describe("builder shell", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Ortus" })
     ).toBeVisible()
-    expect(await readBuilderStep(shortId)).toBe(1)
+    expect((await readEntityRow(shortId)).builderStep).toBe(1)
 
     await page.goto(`/builder/${shortId}`)
     await expect(page).toHaveURL(`/builder/${shortId}/ortus`)
@@ -200,10 +208,8 @@ test.describe("builder shell", () => {
 })
 
 /**
- * Movement 1 content tests (UNN-215). These cover the per-movement contract
- * the shell tests don't reach: Path-responsive grid sort, gate behavior,
- * affinity rendering, and the single-card-expanded invariant. They share the
- * file-level serial mode + DEV_USER cleanup with the shell suite.
+ * Movement 1 content tests: Path-responsive grid sort, gate behavior,
+ * affinity rendering, and the single-card-expanded invariant.
  */
 test.describe("movement 1 — corpus", () => {
   test.use({ storageState: STORAGE_STATE })
@@ -211,7 +217,7 @@ test.describe("movement 1 — corpus", () => {
   test.beforeEach(clearDevUserDrafts)
   test.afterAll(clearDevUserDrafts)
 
-  test("Path selection persists and re-sorts the Archetype grid by fit", async ({
+  test("Path selection persists to the path component and re-sorts the Archetype grid by fit", async ({
     page,
   }) => {
     await page.goto("/")
@@ -237,12 +243,11 @@ test.describe("movement 1 — corpus", () => {
     )
     await expect(firstCard).toHaveAttribute("data-archetype", "warrior")
 
-    const [row] = await getDb()
-      .select({ pathChoice: characters.pathChoice })
-      .from(characters)
-      .where(eq(characters.shortId, shortId))
-      .limit(1)
-    expect(row?.pathChoice).toBe("health-focused")
+    await expect
+      .poll(async () => (await readEntityRow(shortId)).path?.choice ?? null, {
+        timeout: 5000,
+      })
+      .toBe("health-focused")
   })
 
   test("Continue is gated on an Origin until one is chosen", async ({
@@ -263,30 +268,23 @@ test.describe("movement 1 — corpus", () => {
     ).toBeEnabled()
   })
 
-  test("Origin selection persists across reload", async ({ page }) => {
+  test("Origin selection mints the roster entry at the Origin auto-rank and persists across reload", async ({
+    page,
+  }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
     await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     await chooseWarriorOrigin(page)
+    await expectOriginPersisted(shortId)
 
-    // The optimistic UI flips to "Warrior chosen" immediately; the Server
-    // Action commits asynchronously. Poll until the row reflects the write
-    // before reloading so we're not racing the action.
-    await expect
-      .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ activeArchetypeId: characters.activeArchetypeId })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.activeArchetypeId ?? null
-        },
-        { timeout: 5000 }
-      )
-      .not.toBeNull()
+    // Origin auto-sets Rank 2 (rulebook 1.3 / PRD §5.1) on the keyed roster.
+    const archetypes = (await readEntityRow(shortId)).archetypes
+    expect(archetypes?.roster).toEqual([
+      { key: "warrior", rank: 2, inheritanceSlots: [] },
+    ])
+    expect(archetypes?.active).toBe("warrior")
 
     await page.reload()
 
@@ -338,8 +336,8 @@ test.describe("movement 1 — corpus", () => {
 })
 
 /**
- * Movement 2 content tests (UNN-216). Covers the Virtue allocation gate,
- * Ancestry/Background persistence, and the Talents picker's pickup cap.
+ * Movement 2 content tests: the Virtue allocation gate, Ancestry/Background
+ * persistence on the narrative component, and the Virtue budget lockout.
  */
 test.describe("movement 2 — ortus", () => {
   test.use({ storageState: STORAGE_STATE })
@@ -363,21 +361,15 @@ test.describe("movement 2 — ortus", () => {
     await expect(continueButton).toBeDisabled()
 
     // Allocate 1×+2 + 2×+1, sequentially so optimistic state settles between
-    // clicks (each click writes through dispatchCharacterWriteWithRetry).
+    // clicks (each click dispatches through the provider's progression queue).
     await page
       .locator('[data-virtue="expression"]')
       .getByRole("button", { name: "+2" })
       .click()
     await expect
       .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ v: characters.virtueExpression })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.v ?? null
-        },
+        async () =>
+          (await readEntityRow(shortId)).virtues?.ranks.expression ?? null,
         { timeout: 5000 }
       )
       .toBe(2)
@@ -411,14 +403,8 @@ test.describe("movement 2 — ortus", () => {
       .click()
     await expect
       .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ v: characters.virtueExpression })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.v ?? null
-        },
+        async () =>
+          (await readEntityRow(shortId)).virtues?.ranks.expression ?? null,
         { timeout: 5000 }
       )
       .toBe(2)
@@ -432,7 +418,9 @@ test.describe("movement 2 — ortus", () => {
     }
   })
 
-  test("Ancestry and Background auto-save", async ({ page }) => {
+  test("Ancestry and Background auto-save onto the narrative component", async ({
+    page,
+  }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
     await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
@@ -450,15 +438,10 @@ test.describe("movement 2 — ortus", () => {
     await expect
       .poll(
         async () => {
-          const [row] = await getDb()
-            .select({
-              ancestryText: characters.ancestryText,
-              backgroundText: characters.backgroundText,
-            })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row ? [row.ancestryText, row.backgroundText].join(" / ") : null
+          const narrative = (await readEntityRow(shortId)).narrative
+          return narrative
+            ? [narrative.ancestry, narrative.background].join(" / ")
+            : null
         },
         { timeout: 5000 }
       )
@@ -467,8 +450,79 @@ test.describe("movement 2 — ortus", () => {
 })
 
 /**
- * Movement 4 content tests (UNN-218). Covers Persona's contract: auto-focus
- * on the name field, the Finalize gate, and the commit-to-sheet redirect.
+ * Movement 3 content tests (net-new for UNN-556): the writer's Knife list
+ * rides the narrative component's per-entry ops — add, rename, and describe
+ * must compose without clobbering each other.
+ */
+test.describe("movement 3 — animus", () => {
+  test.use({ storageState: STORAGE_STATE })
+
+  test.beforeEach(clearDevUserDrafts)
+  test.afterAll(clearDevUserDrafts)
+
+  test("adding a Knife selects it; title and description edits land on the same entry", async ({
+    page,
+  }) => {
+    await page.goto("/")
+    await page.getByRole("button", { name: "Create new character" }).click()
+    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    const shortId = shortIdFromBuilderUrl(page.url())
+
+    await page.goto(`/builder/${shortId}/animus`)
+
+    await page.getByRole("button", { name: "Add Knife" }).click()
+
+    // The new entry becomes the active document — its editable title input
+    // (Untitled placeholder) replaces the fixed Backstory title.
+    const title = page.getByPlaceholder("Untitled Knife")
+    await expect(title).toBeVisible()
+    await expect
+      .poll(
+        async () => (await readEntityRow(shortId)).narrative?.knives.length,
+        { timeout: 5000 }
+      )
+      .toBe(1)
+
+    await title.fill("My sister Mira")
+    await title.blur()
+    await expect
+      .poll(
+        async () =>
+          (await readEntityRow(shortId)).narrative?.knives[0]?.title ?? null,
+        { timeout: 5000 }
+      )
+      .toBe("My sister Mira")
+
+    // The debounced description save must not clobber the just-saved title
+    // (the per-entry `setListEntry` op merges server-side). The body is a
+    // ProseMirror contenteditable (no textbox role).
+    const body = page.locator(".ProseMirror")
+    await body.click()
+    await body.fill("I promised I would come back to her.")
+    await page.getByRole("button", { name: "Add Chain" }).click()
+
+    await expect
+      .poll(
+        async () => (await readEntityRow(shortId)).narrative?.knives[0] ?? null,
+        { timeout: 5000 }
+      )
+      .toEqual({
+        title: "My sister Mira",
+        description: "I promised I would come back to her.",
+      })
+    await expect
+      .poll(
+        async () => (await readEntityRow(shortId)).narrative?.chains.length,
+        { timeout: 5000 }
+      )
+      .toBe(1)
+  })
+})
+
+/**
+ * Movement 4 content tests: auto-focus on the name field, the Finalize gate,
+ * and the finalize commit — status flip + starting-weapon seed + NO pool
+ * materialization, landing on My Characters.
  */
 test.describe("movement 4 — persona", () => {
   test.use({ storageState: STORAGE_STATE })
@@ -511,17 +565,7 @@ test.describe("movement 4 — persona", () => {
     await nameInput.blur()
     await expect(finalizeButton).toBeDisabled()
     await expect
-      .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ name: characters.name })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.name ?? null
-        },
-        { timeout: 5000 }
-      )
+      .poll(async () => (await readEntityRow(shortId)).name, { timeout: 5000 })
       .toBe("Garron Vey")
 
     // Backtrack to Corpus + Ortus to satisfy the corpus + ortus gates, then
@@ -529,19 +573,7 @@ test.describe("movement 4 — persona", () => {
     // /persona shows it pre-filled and all three gates pass.
     await page.goto(`/builder/${shortId}/corpus`)
     await chooseWarriorOrigin(page)
-    await expect
-      .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ activeArchetypeId: characters.activeArchetypeId })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.activeArchetypeId ?? null
-        },
-        { timeout: 5000 }
-      )
-      .not.toBeNull()
+    await expectOriginPersisted(shortId)
 
     await page.goto(`/builder/${shortId}/ortus`)
     await setValidVirtueAllocation(page, shortId)
@@ -550,7 +582,7 @@ test.describe("movement 4 — persona", () => {
     await expect(finalizeButton).toBeEnabled()
   })
 
-  test("Finalize commits the character and redirects to the editable sheet", async ({
+  test("Finalize flips status, seeds the starting weapon, writes no pool values, and lands on My Characters", async ({
     page,
   }) => {
     await page.goto("/")
@@ -559,19 +591,7 @@ test.describe("movement 4 — persona", () => {
     const shortId = shortIdFromBuilderUrl(page.url())
 
     await chooseWarriorOrigin(page)
-    await expect
-      .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ activeArchetypeId: characters.activeArchetypeId })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.activeArchetypeId ?? null
-        },
-        { timeout: 5000 }
-      )
-      .not.toBeNull()
+    await expectOriginPersisted(shortId)
 
     await page.goto(`/builder/${shortId}/ortus`)
     await setValidVirtueAllocation(page, shortId)
@@ -583,30 +603,37 @@ test.describe("movement 4 — persona", () => {
     // Blur to flush the debounced auto-save before the finalize click.
     await nameInput.blur()
     await expect
-      .poll(
-        async () => {
-          const [row] = await getDb()
-            .select({ name: characters.name })
-            .from(characters)
-            .where(eq(characters.shortId, shortId))
-            .limit(1)
-          return row?.name ?? null
-        },
-        { timeout: 5000 }
-      )
+      .poll(async () => (await readEntityRow(shortId)).name, { timeout: 5000 })
       .toBe("Garron Vey")
 
     await page.getByRole("button", { name: "Finalize character" }).click()
 
-    // Match the sheet URL with or without a trailing query string.
-    await expect(page).toHaveURL(new RegExp(`/c/${shortId}(\\?|$)`))
+    // Finalize lands on My Characters (the v2 sheet route arrives with S2a)
+    // and the new card renders from the repointed entity list query.
+    await expect(page).toHaveURL(/\/(\?.*)?$/)
+    await expect(page.getByText("Garron Vey")).toBeVisible()
 
-    const [row] = await getDb()
-      .select({ status: characters.status, name: characters.name })
-      .from(characters)
-      .where(eq(characters.shortId, shortId))
-      .limit(1)
-    expect(row?.status).toBe("finalized")
-    expect(row?.name).toBe("Garron Vey")
+    const row = await readEntityRow(shortId)
+    expect(row.status).toBe("finalized")
+    expect(row.name).toBe("Garron Vey")
+    // The Origin Lineage's canonical starting weapon, equipped.
+    expect(row.equipment?.items).toHaveLength(1)
+    expect(row.equipment?.items[0]).toMatchObject({
+      catalogItemKey: "longsword",
+      equipped: true,
+      quantity: 1,
+    })
+    // The Origin's mechanic seeded at its initial state.
+    expect(row.mechanics?.states.perfection).toMatchObject({
+      kind: "perfection",
+    })
+    // NO pool materialization — depletion-native zeros mean "full by
+    // definition"; the maxima resolve from the path formula (CH3).
+    expect(row.vitals).toEqual({ base: 0, damage: 0 })
+    expect(row.skillPool).toEqual({ base: 0, spSpent: 0 })
+
+    // Cleanup: finalized rows aren't drafts, so the suite's draft sweep
+    // won't collect this one.
+    await getDb().delete(entity).where(eq(entity.shortId, shortId))
   })
 })

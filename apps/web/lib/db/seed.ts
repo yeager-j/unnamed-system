@@ -114,6 +114,11 @@ async function seedCharacter(
   ownerId: string
 ): Promise<void> {
   await insertCharacter(character, ownerId)
+  // UNN-556: every seeded character gets its shared-id `entity` twin — My
+  // Characters, placement, and Import-PCs read the entity table now, so a
+  // v1-only row would be invisible. (Placement fixtures re-set campaignId on
+  // both rows afterwards.)
+  await insertSeedEntity(character, ownerId, null)
   console.log(
     `  ✓ ${character.name} (/c/${character.shortId}) — L${character.level} ${character.activeArchetypeKey}`
   )

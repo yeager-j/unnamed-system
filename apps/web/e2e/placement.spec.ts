@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
-import { characters } from "@/lib/db/schema/character"
 import { encounters } from "@/lib/db/schema/encounter"
+import { entity } from "@/lib/db/schema/entity"
 import {
   CHARACTER_PLACEMENT_CONSENT,
   CHARACTER_UNPLACE_CONSENT,
@@ -52,9 +52,9 @@ test.beforeAll(async () => {
 
 async function readPlacement(): Promise<string | null> {
   const [row] = await getDb()
-    .select({ campaignId: characters.campaignId })
-    .from(characters)
-    .where(eq(characters.id, char.id))
+    .select({ campaignId: entity.campaignId })
+    .from(entity)
+    .where(eq(entity.id, char.id))
   return row!.campaignId
 }
 
