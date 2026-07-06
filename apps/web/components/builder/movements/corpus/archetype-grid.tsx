@@ -1,14 +1,13 @@
 "use client"
 
 import { motion, MotionConfig } from "motion/react"
-import { useOptimistic, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 
-import { INITIATE_ARCHETYPES, type ArchetypeKey } from "@workspace/game/data"
-import { sortArchetypesByPath } from "@workspace/game/engine"
+import { sortArchetypesByPath } from "@workspace/game-v2/archetypes/display"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import { setOriginArchetypeAction } from "@/lib/actions/origin-archetype"
+import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import { creationArchetypes } from "@/lib/game-engine-v2"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { Sparkle } from "../../../shared/celestial"
@@ -17,58 +16,53 @@ import { ArchetypeDialog } from "./archetype-dialog"
 
 /**
  * The Movement 1 Origin Archetype grid (UNN-215 / ADR-002 §"The Archetype
- * grid"). Renders every initiate-tier Archetype as a compact card in a 3-col
- * grid (1-col mobile). Tapping a card opens an {@link ArchetypeDialog} with the
- * full detail and a "Choose [Lineage] as Origin" CTA; choosing commits the
- * Origin and closes the dialog. The selected Archetype keeps its compact-card
- * check regardless of which (if any) card is currently open.
+ * grid"). Renders every creation-eligible (initiate-tier) Archetype as a
+ * compact card in a 3-col grid (1-col mobile). Tapping a card opens an
+ * {@link ArchetypeDialog} with the full detail and a "Choose [Lineage] as
+ * Origin" CTA; choosing commits the Origin and closes the dialog. The selected
+ * Archetype keeps its compact-card check regardless of which (if any) card is
+ * currently open.
  *
- * Sort responds to `pathChoice`: a Health-Focused player sees HP-matched
- * Lineages first (see {@link sortArchetypesByPath}). A draft's row always
- * carries a Path (defaulted to `"balanced"` by `startCharacterDraft`), so
- * this never sees a null.
+ * Sort responds to the path choice: a Health-Focused player sees HP-matched
+ * Lineages first (see {@link sortArchetypesByPath}). A draft's skeleton always
+ * carries a Path (defaulted to `"balanced"` by the mint), so this never sees
+ * an absent one. Selection dispatches an `archetypes.setOrigin` descriptor
+ * (progression class) and reads back off the shared optimistic frame.
  */
 export function ArchetypeGrid() {
-  const { id: characterId, pathChoice, originArchetypeKey } = useBuilderDraft()
-  const { pending, write } = useBuilderWrite()
-  const [optimisticKey, setOptimisticKey] = useOptimistic(
-    originArchetypeKey,
-    (_current: string | null, next: ArchetypeKey) => next
-  )
+  const { entity } = useLoadedCharacter()
+  const { pending, dispatch } = useEntityWrite()
+  const pathChoice = entity.components.path?.choice ?? "balanced"
+  const optimisticKey = entity.components.archetypes?.origin ?? null
   const [openKey, setOpenKey] = useState<string | null>(null)
 
-  const sorted = sortArchetypesByPath(INITIATE_ARCHETYPES, pathChoice)
+  const sorted = sortArchetypesByPath(creationArchetypes(), pathChoice)
   const open = sorted.find((a) => a.key === openKey) ?? null
 
-  function handleChoose(archetypeKey: ArchetypeKey) {
+  function handleChoose(archetypeKey: string) {
     handleSelect(archetypeKey)
     setOpenKey(null)
   }
 
-  function handleSelect(archetypeKey: ArchetypeKey) {
+  function handleSelect(archetypeKey: string) {
     if (archetypeKey === optimisticKey) return
-    write({
-      surface: "originArchetype",
-      optimistic: () => setOptimisticKey(archetypeKey),
-      action: (expectedVersion) =>
-        setOriginArchetypeAction({
-          characterId,
-          archetypeKey,
-          expectedVersion,
-        }),
-      messages: {
-        stale:
-          "Someone else updated this character — refresh to see the latest.",
-        error: "Couldn't save your Origin. Try again.",
-      },
-      onError: (error) => {
-        if (error === "character-not-found") {
-          toast.error("This character was deleted.")
-          return true
-        }
-        return false
-      },
-    })
+    dispatch(
+      { component: "archetypes", op: "setOrigin", archetypeKey },
+      {
+        messages: {
+          stale:
+            "Someone else updated this character — refresh to see the latest.",
+          error: "Couldn't save your Origin. Try again.",
+        },
+        onError: (error) => {
+          if (error === "entity-not-found") {
+            toast.error("This character was deleted.")
+            return true
+          }
+          return false
+        },
+      }
+    )
   }
 
   return (

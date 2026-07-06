@@ -25,7 +25,7 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { setCharacterCampaignAction } from "@/lib/actions/set-character-campaign"
+import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
 import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
 import {
   CHARACTER_PLACEMENT_CONSENT,
@@ -66,8 +66,8 @@ export function AddCharacterDialog({
     if (!selected) return
     const character = selected
     startTransition(async () => {
-      const result = await setCharacterCampaignAction({
-        characterId: character.id,
+      const result = await setEntityCampaignAction({
+        entityId: character.id,
         campaignId,
       })
       if (result.ok) {

@@ -1,4 +1,13 @@
-import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
+import type { NarrativeTextField } from "@workspace/game-v2/narrative"
+
+/**
+ * The five Identity Trait fields, as the v2 `narrative` component names them
+ * (a subset of its text fields).
+ */
+export type IdentityTraitField = Extract<
+  NarrativeTextField,
+  "personality" | "hopes" | "dreams" | "fears" | "secrets"
+>
 
 /**
  * Per-kind copy for the five Step-4 Identity sections. Pulled into its own
@@ -17,10 +26,10 @@ export interface IdentityTraitMessages {
 
 export const IDENTITY_TRAIT_ORDER: readonly IdentityTraitField[] = [
   "personality",
-  "hope",
-  "dream",
-  "fear",
-  "secret",
+  "hopes",
+  "dreams",
+  "fears",
+  "secrets",
 ] as const
 
 export const IDENTITY_TRAIT_MESSAGES: Record<
@@ -35,7 +44,7 @@ export const IDENTITY_TRAIT_MESSAGES: Record<
       "- Blunt\n- Slow to anger\n- Always sharpens her knife when thinking",
     emptyReason: "Add at least one Personality Trait to continue.",
   },
-  hope: {
+  hopes: {
     label: "Hopes",
     description:
       "Short-term, realistic goals your character is actively working toward — concrete enough that you and the DM will recognize one being fulfilled. One or two.",
@@ -43,14 +52,14 @@ export const IDENTITY_TRAIT_MESSAGES: Record<
       "- Earn enough to free my sister from indenture\n- Find the family that left me at the temple gate",
     emptyReason: "Add at least one Hope to continue.",
   },
-  dream: {
+  dreams: {
     label: "Dreams",
     description:
       "A long-term, larger-than-life goal your character cannot achieve alone — and may not achieve in their lifetime. Choose one.",
     placeholder: "To end the century-long war between Caelin and the Reach.",
     emptyReason: "Add a Dream to continue.",
   },
-  fear: {
+  fears: {
     label: "Fears",
     description:
       "Things that paralyze your character now but might be overcome through play. Every Fear emerges from a specific wound — capture both. One or two.",
@@ -58,7 +67,7 @@ export const IDENTITY_TRAIT_MESSAGES: Record<
       "- Drowning. My brother fell through the ice when we were eight.\n- Being thought a coward.",
     emptyReason: "Add at least one Fear to continue.",
   },
-  secret: {
+  secrets: {
     label: "Secrets",
     description:
       "Things only your character (and perhaps a very small circle) knows, which would be devastating if revealed. Share each with your DM in private. One or two.",

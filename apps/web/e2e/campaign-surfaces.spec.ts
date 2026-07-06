@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm"
 import { getDb } from "@/lib/db"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { characters } from "@/lib/db/schema/character"
+import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -153,6 +154,12 @@ test("removing a player unplaces their characters", async ({ page }) => {
     .insert(campaignUsers)
     .values({ campaignId, userId: SEED_USER_ID })
     .onConflictDoNothing()
+  // The roster + placement surfaces read `entity.campaignId` (UNN-556); the
+  // v1 twin stays in sync like the factory's placeCharacter does.
+  await getDb()
+    .update(entity)
+    .set({ campaignId })
+    .where(eq(entity.id, SEED_WARRIOR_ID))
   await getDb()
     .update(characters)
     .set({ campaignId })
@@ -186,9 +193,9 @@ test("removing a player unplaces their characters", async ({ page }) => {
   expect(members).toHaveLength(0)
 
   const [warrior] = await getDb()
-    .select({ campaignId: characters.campaignId })
-    .from(characters)
-    .where(eq(characters.id, SEED_WARRIOR_ID))
+    .select({ campaignId: entity.campaignId })
+    .from(entity)
+    .where(eq(entity.id, SEED_WARRIOR_ID))
   expect(warrior!.campaignId).toBeNull()
 })
 

@@ -587,7 +587,9 @@ export const STAIN_ELEMENT_LABELS: Record<StainElement, string> = {
 
 /**
  * Display label for a Talent, resolved from the canonical registry; falls back
- * to the raw key if it doesn't match a shipped Talent.
+ * to the raw key if it doesn't match a shipped Talent. Accepts open strings —
+ * v2 stores Talent keys unnarrowed (an Archetype grant or a persisted pick may
+ * predate the canonical list).
  */
-export const talentLabel = (key: TalentKey): string =>
+export const talentLabel = (key: TalentKey | string): string =>
   getTalent(key)?.name ?? key

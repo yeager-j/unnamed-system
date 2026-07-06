@@ -3,14 +3,14 @@ import { type ReactNode } from "react"
 
 import { BuilderProviderShell } from "@/components/builder/builder-provider-shell"
 import { auth } from "@/lib/auth"
-
-import { getBuilderCharacter } from "./_loader"
+import { loadCharacterByShortId } from "@/lib/character/load"
 
 /**
- * The builder route gate. Loads the draft row by `shortId` once per
- * request (memoized via `getBuilderCharacter`), enforces that the viewer
- * is the owner, and redirects finalized characters to their public sheet
- * (the builder isn't useful for a complete character).
+ * The builder route gate. Loads the draft entity by `shortId` once per
+ * request (memoized via `loadCharacterByShortId`), enforces that the viewer
+ * is the owner, and bounces finalized characters to My Characters (`/` — the
+ * v2 sheet route arrives with S2a; the builder isn't useful for a complete
+ * character either way).
  *
  * Wraps the rendered tree in {@link BuilderProviderShell}, which mounts
  * the Movement 3 writer's `SidebarProvider` at the layout level so the
@@ -37,12 +37,10 @@ export default async function BuilderLayout({
   const viewerId = session?.user?.id
   if (!viewerId) forbidden()
 
-  const character = await getBuilderCharacter(shortId)
-  if (!character) notFound()
-  if (character.ownerId !== viewerId) forbidden()
-  if (character.status === "finalized") redirect(`/c/${shortId}`)
+  const loaded = await loadCharacterByShortId(shortId)
+  if (!loaded) notFound()
+  if (loaded.profile.ownerId !== viewerId) forbidden()
+  if (loaded.profile.status === "finalized") redirect("/")
 
-  return (
-    <BuilderProviderShell character={character}>{children}</BuilderProviderShell>
-  )
+  return <BuilderProviderShell loaded={loaded}>{children}</BuilderProviderShell>
 }

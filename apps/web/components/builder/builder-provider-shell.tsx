@@ -9,8 +9,8 @@ import {
   SidebarProvider,
 } from "@workspace/ui/components/sidebar"
 
-import type { BuilderCharacter } from "@/app/builder/[shortId]/_loader"
-import { BuilderDraftProvider } from "@/hooks/use-builder-draft"
+import { EntityWriteProvider } from "@/hooks/use-entity-write"
+import type { LoadedCharacter } from "@/lib/character/load"
 
 import { AnimusDocumentProvider } from "./movements/animus/animus-context"
 import { WriterSidebar } from "./movements/animus/writer-sidebar"
@@ -32,10 +32,10 @@ import { WriterSidebar } from "./movements/animus/writer-sidebar"
  * document selection survives a back-and-forth to a sibling movement.
  */
 export function BuilderProviderShell({
-  character,
+  loaded,
   children,
 }: {
-  character: BuilderCharacter
+  loaded: LoadedCharacter
   children: ReactNode
 }) {
   const pathname = usePathname() ?? ""
@@ -43,7 +43,7 @@ export function BuilderProviderShell({
 
   return (
     <AnimusDocumentProvider>
-      <BuilderDraftProvider character={character}>
+      <EntityWriteProvider loaded={loaded}>
         <SidebarProvider
           open={isAnimus}
           onOpenChange={() => {}}
@@ -54,12 +54,15 @@ export function BuilderProviderShell({
               site-wide 56px sticky `<header>`. Push it down by that much so
               the top entry (Backstory) sits below the chrome. The mobile
               `<Sheet>` variant is unaffected — it's its own portal. */}
-          <Sidebar variant="floating" className="top-14 h-[calc(100svh-3.5rem)]">
+          <Sidebar
+            variant="floating"
+            className="top-14 h-[calc(100svh-3.5rem)]"
+          >
             {isAnimus ? <WriterSidebar /> : null}
           </Sidebar>
           <SidebarInset>{children}</SidebarInset>
         </SidebarProvider>
-      </BuilderDraftProvider>
+      </EntityWriteProvider>
     </AnimusDocumentProvider>
   )
 }

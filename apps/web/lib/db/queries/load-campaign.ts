@@ -6,10 +6,13 @@ import {
   campaignUsers,
   type CampaignRow,
 } from "@/lib/db/schema/campaign"
-import { characterArchetypes, characters } from "@/lib/db/schema/character"
+import { entity } from "@/lib/db/schema/entity"
 import { users } from "@/lib/db/schema/user"
 
-import type { CharacterSummary } from "./character-list"
+import {
+  characterSummaryProjection,
+  type CharacterSummary,
+} from "./character-list"
 
 /**
  * Reads for the `campaigns` table. The campaign is the durable DM↔player
@@ -17,7 +20,7 @@ import type { CharacterSummary } from "./character-list"
  * guard (`requireCampaignDM`) and the campaign surfaces (UNN-329). Most reads
  * touch only `campaigns` / `campaignUsers`; the roster read (`loadCampaignRoster`)
  * is cross-domain by nature — it joins `users` for member display and groups the
- * campaign's placed `characters` onto each member.
+ * campaign's placed characters (`entity.campaignId`, UNN-556) onto each member.
  */
 
 /** The raw `campaigns` row by id, or `null` when no campaign matches. */
@@ -118,24 +121,10 @@ export async function loadCampaignRoster(
     .orderBy(asc(users.name))
 
   const characterRows = await db
-    .select({
-      ownerId: characters.ownerId,
-      id: characters.id,
-      shortId: characters.shortId,
-      name: characters.name,
-      level: characters.level,
-      portraitUrl: characters.portraitUrl,
-      activeArchetypeKey: characterArchetypes.archetypeKey,
-      status: characters.status,
-      builderStep: characters.builderStep,
-    })
-    .from(characters)
-    .leftJoin(
-      characterArchetypes,
-      eq(characters.activeArchetypeId, characterArchetypes.id)
-    )
-    .where(eq(characters.campaignId, campaignId))
-    .orderBy(asc(characters.name))
+    .select({ ownerId: entity.ownerId, ...characterSummaryProjection })
+    .from(entity)
+    .where(eq(entity.campaignId, campaignId))
+    .orderBy(asc(entity.name))
 
   const charactersByOwner = new Map<string, CharacterSummary[]>()
   for (const { ownerId, ...summary } of characterRows) {

@@ -5,7 +5,7 @@ import { SkillKindBadge } from "./skill-kind-badge"
 
 type RowBadgeSlotProps =
   | { damageType: SkillRowDamageType; kind?: never }
-  | { damageType?: never; kind: Exclude<SkillKind, "attack"> }
+  | { damageType?: never; kind: SkillKind }
 
 /**
  * Fixed-width column for the leftmost chip in a Skills-list row. Attack

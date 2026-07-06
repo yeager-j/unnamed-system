@@ -23,6 +23,14 @@ export const {
   resolveBasicAttack,
   createSession,
   instantiateEnemy,
+  // The builder's creation reads (S1 — UNN-556). Deps-bound only; pure no-deps
+  // helpers (allocation validators, sortArchetypesByPath, path stats) are
+  // imported straight from their @workspace/game-v2 barrels at call sites.
+  creationArchetypes,
+  previewArchetypeSkills,
+  resolveTalentsForBuilder,
+  startingWeaponForLineage,
+  getArchetype,
 } = engine
 
 /**

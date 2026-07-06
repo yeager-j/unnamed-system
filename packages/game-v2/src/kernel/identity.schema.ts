@@ -21,9 +21,15 @@ import { z } from "zod/v4"
  * Per-component `*.schema.ts` files are pure authored shapes (D33): a Zod schema
  * + its inferred type, no logic and no port/catalog imports. The schema is the
  * load-seam contract; the inferred {@link Identity} is what the registry stores.
+ *
+ * `name` admits the empty string: a builder draft is an entity row from step
+ * one (UNN-556, ADR §2.8) and is minted unnamed — the player names it in
+ * Movement 4 (ADR-002's "name-last"). Finalize gates on a non-empty name, so a
+ * *playable* entity is always named; the seam merely tolerates the draft
+ * window.
  */
 export const identitySchema = z.object({
-  name: z.string().min(1),
+  name: z.string(),
 })
 
 export type Identity = z.infer<typeof identitySchema>

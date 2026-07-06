@@ -15,7 +15,7 @@ import { err, ok, type Result } from "@workspace/game/foundation"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
@@ -42,7 +42,7 @@ export interface CombatantStore {
   /** Which gate this home runs — declarative, for tests and the CLAUDE.md. */
   auth: "campaign-dm" | "owner-or-campaign-dm"
   commit(
-    write: EntityWrite
+    write: CombatEntityWrite
   ): Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
 }
 
@@ -63,7 +63,7 @@ const newId = () => crypto.randomUUID()
  */
 function mintSessionEvent(
   participantId: ParticipantId,
-  write: EntityWrite
+  write: CombatEntityWrite
 ): SessionEvent {
   switch (write.component) {
     case "vitals":

@@ -2,26 +2,11 @@
 
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
-import { useBuilderDraft } from "@/hooks/use-builder-draft"
-import {
-  updateCharacterChainDescriptionAction,
-  updateCharacterChainTitleAction,
-} from "@/lib/actions/character-chains"
-import { updateCharacterIdentityTraitAction } from "@/lib/actions/character-identity-traits"
-import {
-  updateCharacterKnifeDescriptionAction,
-  updateCharacterKnifeTitleAction,
-} from "@/lib/actions/character-knives"
-import { updateCharacterNarrativeAction } from "@/lib/actions/character-narrative"
-import type { EditSurface } from "@/lib/db/version-classes"
-import type { IdentityTraitField } from "@/lib/db/writes/identity-traits"
+import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 import { useAnimusDocument } from "./animus-context"
-import {
-  DocumentEditor,
-  type DocumentEditorActions,
-  type DocumentEditorMessages,
-} from "./document-editor"
+import { DocumentEditor, type DocumentEditorMessages } from "./document-editor"
 import {
   resolveDocumentContent,
   UNTITLED_CHAIN,
@@ -29,41 +14,26 @@ import {
   type DocumentRef,
   type ResolvedDocument,
 } from "./documents"
+import type { IdentityTraitField } from "./identity-trait-messages"
 
 /**
  * The right-hand pane of the Movement 3 writer. Reads the active document
- * from {@link useAnimusDocument}, resolves it against the loaded character
- * data, and renders a {@link DocumentEditor} keyed on the resolved ref so a
- * doc swap unmounts the previous editor (no value bleed between docs).
+ * from {@link useAnimusDocument}, resolves it against the draft's narrative
+ * component, and renders a {@link DocumentEditor} keyed on the resolved ref so
+ * a doc swap unmounts the previous editor (no value bleed between docs).
  *
  * The `SidebarTrigger` at top-left is `md:hidden` — on desktop the sidebar
  * is permanently visible; on mobile this trigger toggles the built-in
  * `<Sheet>` drawer.
  */
 export function WriterPane() {
-  const {
-    id: characterId,
-    backstoryText,
-    knives,
-    chains,
-    personalityTraits,
-    hopes,
-    dreams,
-    fears,
-    secrets,
-  } = useBuilderDraft()
+  const { entity } = useLoadedCharacter()
   const { activeRef } = useAnimusDocument()
 
-  const resolved = resolveDocumentContent(activeRef, {
-    backstoryText,
-    knives,
-    chains,
-    personalityTraits,
-    hopes,
-    dreams,
-    fears,
-    secrets,
-  })
+  const resolved = resolveDocumentContent(
+    activeRef,
+    entity.components.narrative
+  )
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -72,11 +42,7 @@ export function WriterPane() {
       </div>
 
       {resolved ? (
-        <ActiveDocument
-          key={documentKey(resolved.ref)}
-          characterId={characterId}
-          resolved={resolved}
-        />
+        <ActiveDocument key={documentKey(resolved.ref)} resolved={resolved} />
       ) : (
         <p className="text-sm text-muted-foreground italic">
           That entry is no longer available. Pick a section from the sidebar.
@@ -86,32 +52,24 @@ export function WriterPane() {
   )
 }
 
-function ActiveDocument({
-  characterId,
-  resolved,
-}: {
-  characterId: string
-  resolved: ResolvedDocument
-}) {
+function ActiveDocument({ resolved }: { resolved: ResolvedDocument }) {
   const { ref, title, body } = resolved
-  const { actions, messages, surface } = wireActions({ characterId, ref })
+  const { makeTitleWrite, makeBodyWrite, messages } = wireDescriptors(ref)
 
-  // Editable titles (Knives / Chains) carry their own value from the DB;
-  // fixed titles (Backstory / Identity Traits) display the canonical
-  // section label from the ref. `DocumentEditor` flips the input to
-  // read-only when `actions.updateTitle` is undefined, so the styling
-  // stays identical either way.
+  // Editable titles (Knives / Chains) carry their own persisted value; fixed
+  // titles (Backstory / Identity Traits) display the canonical section label
+  // from the ref. `DocumentEditor` flips the input to read-only when
+  // `makeTitleWrite` is undefined, so the styling stays identical either way.
   const displayedTitle = title ?? ref.label
 
   return (
     <DocumentEditor
-      characterId={characterId}
       documentId={documentKey(ref)}
       title={displayedTitle}
       body={body}
-      actions={actions}
+      makeTitleWrite={makeTitleWrite}
+      makeBodyWrite={makeBodyWrite}
       messages={messages}
-      surface={surface}
     />
   )
 }
@@ -120,35 +78,26 @@ function documentKey(ref: DocumentRef): string {
   return `${ref.kind}:${ref.id}`
 }
 
-function wireActions({
-  characterId,
-  ref,
-}: {
-  characterId: string
-  ref: DocumentRef
-}): {
-  actions: DocumentEditorActions
+/**
+ * Wires the active document to its write descriptors — the one place a
+ * document kind maps to the narrative ops it edits (`setField` for prose
+ * fields, `setListEntry` for a Knife/Chain's title/description). The server
+ * merges per field/entry, so two debounced saves can never clobber each other.
+ */
+function wireDescriptors(ref: DocumentRef): {
+  makeTitleWrite?: (title: string) => EntityWrite
+  makeBodyWrite: (body: string) => EntityWrite
   messages: DocumentEditorMessages
-  surface: EditSurface
 } {
   switch (ref.kind) {
     case "backstory":
       return {
-        surface: "narrative",
-        actions: {
-          updateDescription: async (text, expectedVersion) => {
-            const result = await updateCharacterNarrativeAction({
-              characterId,
-              field: "backstory",
-              text: text ?? "",
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-        },
+        makeBodyWrite: (body) => ({
+          component: "narrative",
+          op: "setField",
+          field: "backstory",
+          value: body,
+        }),
         messages: {
           bodyAriaLabel: "Backstory",
           bodyPlaceholder:
@@ -160,33 +109,22 @@ function wireActions({
       }
     case "knife":
       return {
-        surface: "knives",
-        actions: {
-          updateTitle: async (title, expectedVersion) => {
-            const result = await updateCharacterKnifeTitleAction({
-              characterId,
-              knifeId: ref.id,
-              title,
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-          updateDescription: async (text, expectedVersion) => {
-            const result = await updateCharacterKnifeDescriptionAction({
-              characterId,
-              knifeId: ref.id,
-              description: text ?? "",
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-        },
+        makeTitleWrite: (title) => ({
+          component: "narrative",
+          op: "setListEntry",
+          list: "knives",
+          index: Number(ref.id),
+          field: "title",
+          value: title,
+        }),
+        makeBodyWrite: (body) => ({
+          component: "narrative",
+          op: "setListEntry",
+          list: "knives",
+          index: Number(ref.id),
+          field: "description",
+          value: body,
+        }),
         messages: {
           bodyAriaLabel: `${ref.label || "Knife"} — description`,
           bodyPlaceholder: "Why does this matter? What's at stake?",
@@ -198,33 +136,22 @@ function wireActions({
       }
     case "chain":
       return {
-        surface: "chains",
-        actions: {
-          updateTitle: async (title, expectedVersion) => {
-            const result = await updateCharacterChainTitleAction({
-              characterId,
-              chainId: ref.id,
-              title,
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-          updateDescription: async (text, expectedVersion) => {
-            const result = await updateCharacterChainDescriptionAction({
-              characterId,
-              chainId: ref.id,
-              description: text ?? "",
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-        },
+        makeTitleWrite: (title) => ({
+          component: "narrative",
+          op: "setListEntry",
+          list: "chains",
+          index: Number(ref.id),
+          field: "title",
+          value: title,
+        }),
+        makeBodyWrite: (body) => ({
+          component: "narrative",
+          op: "setListEntry",
+          list: "chains",
+          index: Number(ref.id),
+          field: "description",
+          value: body,
+        }),
         messages: {
           bodyAriaLabel: `${ref.label || "Chain"} — description`,
           bodyPlaceholder: "What limits your character? Why does it bind them?",
@@ -236,21 +163,12 @@ function wireActions({
       }
     case "identity":
       return {
-        surface: "identityTraits",
-        actions: {
-          updateDescription: async (text, expectedVersion) => {
-            const result = await updateCharacterIdentityTraitAction({
-              characterId,
-              field: ref.id,
-              text: text ?? "",
-              expectedVersion,
-            })
-            if (result.ok) {
-              return { ok: true, value: { version: result.value.version } }
-            }
-            return result
-          },
-        },
+        makeBodyWrite: (body) => ({
+          component: "narrative",
+          op: "setField",
+          field: ref.id,
+          value: body,
+        }),
         messages: {
           bodyAriaLabel: ref.label,
           bodyPlaceholder: `Write your ${ref.label}…`,
@@ -265,13 +183,13 @@ function identityDescriptionFor(field: IdentityTraitField): string {
   switch (field) {
     case "personality":
       return "A Personality Trait is a small, specific habit or quirk that makes your character recognizable at the table. The strongest Personality Traits are things another player at the table could mimic after one session. Write 2-4 Personality Traits."
-    case "hope":
+    case "hopes":
       return "A Hope is a short-term, realistic goal your character is actively working toward. Hopes are the engine of your character's near-term decisions, and they should be concrete enough that you and the DM can recognize when one is fulfilled. Write 1-2 Hopes."
-    case "dream":
+    case "dreams":
       return "A Dream is a long-term, larger-than-life goal your character cannot achieve alone — and may not achieve in their lifetime. Where Hopes drive your character's next session, Dreams drive their whole life. Examples include ending a century-long war between two kingdoms or creating a world without lawyers. Write one Dream."
-    case "fear":
+    case "fears":
       return "A Fear is something that paralyzes your character *right now* but which they can plausibly overcome through the events of the campaign. Every Fear emerges from a specific trauma in your character's past. The fear itself (whether concrete or abstract) is important, but what matters more is the wound underneath it. Write 1-2 Fears."
-    case "secret":
+    case "secrets":
       return "A Secret is something only your character (and perhaps a very small circle of others) knows, and which would be devastating if revealed. A Secret does not have to be about your character — it might be that you accidentally killed your brother, or it might be that you know the King is a Lich. Write 1-2 Secrets."
   }
 }

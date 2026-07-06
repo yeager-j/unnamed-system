@@ -22,6 +22,19 @@ export async function loadEntityRowById(
   return row ?? null
 }
 
+/** One entity row by its public `shortId` (the `/builder/{shortId}` and
+ *  `/c/{shortId}` route key), or `null` when it doesn't exist. */
+export async function loadEntityRowByShortId(
+  shortId: string
+): Promise<EntityRow | null> {
+  const [row] = await db
+    .select()
+    .from(entity)
+    .where(eq(entity.shortId, shortId))
+    .limit(1)
+  return row ?? null
+}
+
 /** A batch of entity rows by id (order not guaranteed; callers key by `id`). */
 export async function loadEntityRowsByIds(
   entityIds: readonly string[]

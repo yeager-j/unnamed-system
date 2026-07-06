@@ -16,7 +16,7 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
-import { setCharacterCampaignAction } from "@/lib/actions/set-character-campaign"
+import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
 import {
   CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,
   CHARACTER_UNPLACE_CONSENT,
@@ -40,8 +40,8 @@ export function RemovePlacementButton({
 
   function onConfirm() {
     startTransition(async () => {
-      const result = await setCharacterCampaignAction({
-        characterId,
+      const result = await setEntityCampaignAction({
+        entityId: characterId,
         campaignId: null,
       })
       setOpen(false)

@@ -1,4 +1,3 @@
-import { type Archetype } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { DetailSection } from "@/components/shared/detail-section"
@@ -10,7 +9,13 @@ import { formatTalentLabel } from "./format"
  * surface (live sheet, builder drawer). Returns `null` when the Archetype
  * grants no Talents so the section vanishes cleanly.
  */
-export function ArchetypeTalents({ archetype }: { archetype: Archetype }) {
+/** The structural slice these widgets read — both engines' catalog Archetypes
+ *  satisfy it (v1 narrows talents to `TalentKey[]`, v2 keeps open strings). */
+interface TalentsSlice {
+  talents: readonly string[]
+}
+
+export function ArchetypeTalents({ archetype }: { archetype: TalentsSlice }) {
   if (archetype.talents.length === 0) return null
   return (
     <DetailSection title="Talents">
@@ -30,7 +35,11 @@ export function ArchetypeTalents({ archetype }: { archetype: Archetype }) {
  * no section frame. Surfaced for callers (compact summary row, builder
  * Origin card) that compose their own section frame.
  */
-export function ArchetypeTalentChips({ archetype }: { archetype: Archetype }) {
+export function ArchetypeTalentChips({
+  archetype,
+}: {
+  archetype: TalentsSlice
+}) {
   if (archetype.talents.length === 0) return null
   return (
     <>

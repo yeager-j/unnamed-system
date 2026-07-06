@@ -105,3 +105,21 @@ export async function requireOwnerOrCampaignDMForEntity(
 
   forbidden()
 }
+
+/**
+ * The entity-row twin of `requireOwner` (`viewer-role.ts`) — the strict-owner
+ * gate for the column actions and lifecycle writes (name, portrait, builder
+ * step, finalize, delete, placement), where v1 never granted the DM. Loads and
+ * returns the {@link EntityRow}; trips `forbidden()` on missing session,
+ * missing row, or a non-owner viewer.
+ */
+export async function requireEntityOwner(entityId: string): Promise<EntityRow> {
+  const session = await auth()
+  const viewerId = session?.user?.id
+  if (!viewerId) forbidden()
+
+  const row = await loadEntityRowById(entityId)
+  if (!row || row.ownerId !== viewerId) forbidden()
+
+  return row
+}

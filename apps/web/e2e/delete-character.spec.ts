@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
-import { characters, getDb } from "@/lib/db"
+import { entity, getDb } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 import { createDeleteTarget } from "./fixtures/delete-target"
@@ -54,9 +54,9 @@ test.describe("delete character — guarded cases", () => {
     await expect(page.getByRole("alertdialog")).toHaveCount(0)
 
     const [row] = await getDb()
-      .select({ id: characters.id })
-      .from(characters)
-      .where(eq(characters.id, target.id))
+      .select({ id: entity.id })
+      .from(entity)
+      .where(eq(entity.id, target.id))
       .limit(1)
     expect(row?.id).toBe(target.id)
   })
@@ -105,9 +105,9 @@ test.describe("delete character — happy path", () => {
 
     // Persistence: row and dependent rows are gone (cascade).
     const surviving = await getDb()
-      .select({ id: characters.id })
-      .from(characters)
-      .where(eq(characters.id, target.id))
+      .select({ id: entity.id })
+      .from(entity)
+      .where(eq(entity.id, target.id))
     expect(surviving).toHaveLength(0)
 
     // Public URL is 404 immediately.

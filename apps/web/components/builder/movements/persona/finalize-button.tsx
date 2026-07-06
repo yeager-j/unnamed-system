@@ -13,15 +13,16 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useBuilderDraft } from "@/hooks/use-builder-draft"
-import { finalizeCharacterAction } from "@/lib/actions/character-finalize"
-import type { FinalizeCharacterError } from "@/lib/actions/character-finalize.schema"
+import { useEntityIdentityToken } from "@/hooks/use-entity-write"
+import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
+import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
 
 /**
  * Movement 4's commit button (ADR-002 §"Movement 4 — The Person"). Flips the
- * draft to `finalized` via the Server Action and routes to the editable
- * sheet at `/c/{shortId}` on success. The label is exactly "Finalize
- * character" per the ticket — not "Continue", not "Next", not "Create."
+ * draft to `finalized` via the Server Action and routes to My Characters on
+ * success (the v2 sheet route arrives with S2a — UNN-557). The label is
+ * exactly "Finalize character" per the ticket — not "Continue", not "Next",
+ * not "Create."
  *
  * Disabled until every gated movement passes (`canFinalize` comes from
  * `findStepGateFailures(draft).length === 0` in `PersonaStep`). When disabled,
@@ -35,7 +36,7 @@ export function FinalizeButton({
   canFinalize: boolean
   disabledReason?: string
 }) {
-  const { id: characterId, identityVersion } = useBuilderDraft()
+  const identityToken = useEntityIdentityToken()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canFinalize
@@ -43,13 +44,13 @@ export function FinalizeButton({
   function onClick() {
     if (!canFinalize) return
     startTransition(async () => {
-      const result = await finalizeCharacterAction({
-        characterId,
-        expectedVersion: identityVersion,
+      const result = await finalizeEntityAction({
+        entityId: identityToken.entityId,
+        expectedVersion: identityToken.read(),
       })
       if (result.ok) {
         toast.success("Character finalized.")
-        router.push(`/c/${result.value.shortId}`)
+        router.push("/")
         return
       }
       surfaceError(result.error)
@@ -77,7 +78,7 @@ export function FinalizeButton({
   )
 }
 
-function surfaceError(error: FinalizeCharacterError): void {
+function surfaceError(error: FinalizeEntityError): void {
   if (typeof error === "object" && error.kind === "missing-requirement") {
     toast.error(error.reason)
     return
@@ -96,7 +97,7 @@ function surfaceError(error: FinalizeCharacterError): void {
     toast.error("Pick an Origin Archetype before finalizing.")
     return
   }
-  if (error === "character-not-found") {
+  if (error === "entity-not-found") {
     toast.error("This draft no longer exists. Refresh to see your characters.")
     return
   }

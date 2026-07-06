@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import {
   MAX_PLAYER_ADDED_TALENTS,
   type TalentKey,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/talents/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Combobox,
@@ -28,12 +28,8 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import {
-  addGainedTalentAction,
-  removeGainedTalentAction,
-} from "@/lib/actions/character-talents"
-import { resolveTalentsForBuilder } from "@/lib/game-engine"
+import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import { resolveTalentsForBuilder } from "@/lib/game-engine-v2"
 import { talentLabel } from "@/lib/ui/labels"
 
 /**
@@ -52,68 +48,45 @@ import { talentLabel } from "@/lib/ui/labels"
  *    the remaining canonical list. Origin-derived Talents are excluded
  *    from the picker (already granted). Cap = {@link MAX_PLAYER_ADDED_TALENTS}.
  *
- * Writes flow through the identity-class retry pipeline. The diff is computed
- * from `value` vs. the prior selection so a Combobox change with multiple
- * deltas issues one add or one remove (the typical interaction is a single
- * toggle, but we don't assume it). Concurrent writes to `gainedTalents` are
- * the server's problem — `addGainedTalent` / `removeGainedTalent` are
- * read-modify-write inside a transaction with the identity-class bump.
+ * A change dispatches ONE whole-list `talents.setGained` descriptor (identity
+ * class) — the descriptor is structurally a per-field write, so there is no
+ * add/remove action pair to race. The picker's value is the stored list
+ * filtered against the current Origin's grants (the Writer deliberately does
+ * not prune on an Origin switch — CH15 class disjointness — so this display
+ * filter is what keeps a stale grant from showing as a player pick; finalize
+ * prunes the stored list for real).
  */
 export function TalentsPicker() {
-  const {
-    id: characterId,
-    originArchetypeKey,
-    gainedTalents,
-  } = useBuilderDraft()
-  const { pending, write } = useBuilderWrite()
+  const { entity } = useLoadedCharacter()
+  const { pending, dispatch } = useEntityWrite()
   const anchor = useComboboxAnchor()
 
+  const originArchetypeKey = entity.components.archetypes?.origin ?? null
   const { origin, selectable } = resolveTalentsForBuilder(originArchetypeKey)
+  const originGranted = new Set(origin)
+  // Stored keys are open strings in v2; the picker treats them as canonical
+  // keys for display (an unknown key simply never matches the canonical list).
+  const gainedTalents = (entity.components.talents ?? [])
+    .map(({ key }) => key)
+    .filter((key) => !originGranted.has(key)) as TalentKey[]
   const atCap = gainedTalents.length >= MAX_PLAYER_ADDED_TALENTS
 
   function handleChange(next: TalentKey[]) {
-    const added = next.find((k) => !gainedTalents.includes(k))
-    const removed = gainedTalents.find((k) => !next.includes(k))
-
-    if (added) {
-      if (atCap) {
-        toast.error(`You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`)
-        return
-      }
-      write({
-        surface: "talents",
-        action: (expectedVersion) =>
-          addGainedTalentAction({
-            characterId,
-            talentKey: added,
-            expectedVersion,
-          }),
+    const added = next.some((k) => !gainedTalents.includes(k))
+    if (added && atCap) {
+      toast.error(`You can pick at most ${MAX_PLAYER_ADDED_TALENTS} Talents.`)
+      return
+    }
+    dispatch(
+      { component: "talents", op: "setGained", keys: next },
+      {
         messages: {
           stale:
             "Someone else updated this character — refresh to see the latest.",
-          error: "Couldn't add Talent. Try again.",
+          error: "Couldn't save Talents. Try again.",
         },
-        // Duplicate is a benign cross-tab race; the next prop sync reflects it.
-        onError: (error) => error === "duplicate-talent",
-      })
-      return
-    }
-
-    if (removed) {
-      write({
-        surface: "talents",
-        action: (expectedVersion) =>
-          removeGainedTalentAction({
-            characterId,
-            talentKey: removed,
-            expectedVersion,
-          }),
-        messages: {
-          stale: "Couldn't remove Talent. Try again.",
-          error: "Couldn't remove Talent. Try again.",
-        },
-      })
-    }
+      }
+    )
   }
 
   return (

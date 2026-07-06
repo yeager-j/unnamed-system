@@ -2,8 +2,11 @@
 
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useBuilderAutoSave, useBuilderDraft } from "@/hooks/use-builder-draft"
-import { updateCharacterNameAction } from "@/lib/actions/character-name"
+import {
+  useEntityColumnSave,
+  useLoadedCharacter,
+} from "@/hooks/use-entity-write"
+import { updateEntityNameAction } from "@/lib/actions/entity/columns"
 
 const MAX_LENGTH = 64
 
@@ -14,31 +17,26 @@ const MAX_LENGTH = 64
  * supporting it. Auto-focused on mount so the player can start typing
  * immediately.
  *
- * Reuses the same `useDebouncedAutoSave` plumbing as the sheet header's
- * editable name (debounced keystroke + blur save, optimistic concurrency on
- * `identityVersion`, Escape-revert).
+ * Reuses the same debounced-autosave plumbing as the sheet header's editable
+ * name (debounced keystroke + blur save, optimistic concurrency on the
+ * identity token, Escape-revert) — a classic per-field column action.
  */
 export function NameField() {
-  const { id: characterId, name } = useBuilderDraft()
-  const { value, setValue, revert, onFocusChange } = useBuilderAutoSave({
-    serverValue: name,
-    characterId,
-    surface: "name",
+  const { profile } = useLoadedCharacter()
+  const { value, setValue, revert, onFocusChange } = useEntityColumnSave({
+    serverValue: profile.name,
     isEmpty: (next) => next.trim().length === 0,
     isEqual: (a, b) => a.trim() === b.trim(),
-    save: async (next, expectedVersion) => {
-      const result = await updateCharacterNameAction({
-        characterId,
+    save: async (next, { entityId, expectedVersion }) => {
+      const result = await updateEntityNameAction({
+        entityId,
         name: next.trim(),
         expectedVersion,
       })
       if (result.ok) {
         return {
           ok: true,
-          value: {
-            value: result.value.name,
-            version: result.value.version,
-          },
+          value: { value: next.trim(), version: result.value.version },
         }
       }
       return result

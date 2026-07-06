@@ -4,6 +4,7 @@ import { BuilderShell } from "@/components/builder/builder-shell"
 import {
   findStepGateFailures,
   nextGateForStep,
+  type StepGateInput,
 } from "@/components/builder/builder-step-gates"
 import {
   indexOfStep,
@@ -13,8 +14,7 @@ import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/movements/ortus"
 import { PersonaStep } from "@/components/builder/movements/persona"
-
-import { getBuilderCharacter, type BuilderCharacter } from "../_loader"
+import { loadCharacterByShortId } from "@/lib/character/load"
 
 /**
  * Renders the body for a single builder movement. The slug is validated
@@ -33,32 +33,36 @@ export default async function BuilderStepPage({
   const currentIndex = indexOfStep(step)
   if (currentIndex === null) notFound()
 
-  const character = await getBuilderCharacter(shortId)
-  if (!character) notFound()
+  const loaded = await loadCharacterByShortId(shortId)
+  if (!loaded) notFound()
 
   const slug = step as MovementSlug
-  const gate = nextGateForStep(slug, character)
+  const gateInput: StepGateInput = {
+    name: loaded.profile.name,
+    components: loaded.entity.components,
+  }
+  const gate = nextGateForStep(slug, gateInput)
 
   return (
     <BuilderShell
       shortId={shortId}
       currentStepSlug={slug}
-      highestVisitedStepIndex={character.builderStep}
+      highestVisitedStepIndex={loaded.profile.builderStep}
       canAdvance={gate.canAdvance}
       disabledReason={gate.canAdvance ? undefined : gate.reason}
       hideHeader={slug === "animus"}
     >
-      {renderMovementBody({ slug, character })}
+      {renderMovementBody({ slug, gateInput })}
     </BuilderShell>
   )
 }
 
 function renderMovementBody({
   slug,
-  character,
+  gateInput,
 }: {
   slug: MovementSlug
-  character: BuilderCharacter
+  gateInput: StepGateInput
 }) {
   switch (slug) {
     case "corpus":
@@ -71,7 +75,7 @@ function renderMovementBody({
       // Finalize must honor every gate, not just persona's name. Computed
       // here (Server Component) and passed down so `PersonaStep` need not be
       // a client component — see its JSDoc for the hydration reason.
-      const failures = findStepGateFailures(character)
+      const failures = findStepGateFailures(gateInput)
       return (
         <PersonaStep
           canFinalize={failures.length === 0}

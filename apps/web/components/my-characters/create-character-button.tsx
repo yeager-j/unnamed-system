@@ -9,7 +9,7 @@ import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { FIRST_STEP_SLUG } from "@/components/builder/builder-steps"
-import { startCharacterDraftAction } from "@/lib/actions/start-character-draft"
+import { startEntityDraftAction } from "@/lib/actions/entity/start-draft"
 
 /**
  * The "Create new character" CTA. Each click spins up a brand-new draft
@@ -25,7 +25,7 @@ export function CreateCharacterButton({ className }: { className?: string }) {
 
   function onClick() {
     startTransition(async () => {
-      const result = await startCharacterDraftAction()
+      const result = await startEntityDraftAction()
       if (!result.ok) {
         toast.error("Couldn't start a new character. Try again.")
         return

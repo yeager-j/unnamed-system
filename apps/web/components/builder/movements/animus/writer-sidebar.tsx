@@ -14,15 +14,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
-import { useBuilderDraft, useBuilderWrite } from "@/hooks/use-builder-draft"
-import {
-  addCharacterChainAction,
-  removeCharacterChainAction,
-} from "@/lib/actions/character-chains"
-import {
-  addCharacterKnifeAction,
-  removeCharacterKnifeAction,
-} from "@/lib/actions/character-knives"
+import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
 
 import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"
@@ -44,16 +36,20 @@ const ANIMUS_STEP = BUILDER_STEPS[indexOfStep("animus")!]!
  * the selection in the `AnimusDocumentContext` so the pane (in the page
  * subtree) swaps.
  *
- * Add (Knives/Chains only) wires through `useBuilderWrite`. On success, the
- * new entry becomes the active document so the player lands ready to type.
+ * Add (Knives/Chains only) dispatches a `narrative.addListEntry` descriptor;
+ * the new entry's index is the current list length, so the selection can move
+ * there optimistically — the row itself appears in the same frame via the
+ * provider's optimistic narrative.
  *
- * Remove (Knives/Chains only) reuses the same write hook. If the active
- * document is the one being removed, the selection falls back to Backstory
- * so the pane has something to render.
+ * Remove (Knives/Chains only) dispatches `narrative.removeListEntry`.
+ * Entries are index-addressed (v2 stores ordered lists, no row ids), so a
+ * removal shifts every later sibling down one: the selection follows —
+ * reset to Backstory when the active entry itself was removed, decrement
+ * when a preceding sibling was.
  */
 export function WriterSidebar() {
-  const { knives, chains } = useBuilderDraft()
-  const groups = buildDocumentGroups({ knives, chains })
+  const { entity } = useLoadedCharacter()
+  const groups = buildDocumentGroups(entity.components.narrative)
 
   return (
     <>
@@ -97,7 +93,8 @@ function WriterSidebarHeader() {
 
 function SidebarSection({ group }: { group: DocumentGroup }) {
   const { activeRef, selectDocument, resetToDefault } = useAnimusDocument()
-  const { pending, write, characterId } = useBuilderWrite()
+  const { entity } = useLoadedCharacter()
+  const { pending, dispatch } = useEntityWrite()
 
   const showCount = group.kind === "knives" || group.kind === "chains"
   const showHeading = group.kind !== "backstory"
@@ -109,55 +106,52 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
       kind === "knives"
         ? "Couldn't add the Knife. Try again."
         : "Couldn't add the Chain. Try again."
-    write({
-      surface: kind,
-      action: (expectedVersion) =>
-        kind === "knives"
-          ? addCharacterKnifeAction({ characterId, title: "", expectedVersion })
-          : addCharacterChainAction({
-              characterId,
-              title: "",
-              expectedVersion,
-            }),
-      messages: { stale: message, error: message },
-      onSuccess: (value) =>
-        selectDocument({
-          kind: kind === "knives" ? "knife" : "chain",
-          id: value.id,
-          label: "",
-        }),
-    })
+    const newIndex = entity.components.narrative?.[kind].length ?? 0
+    dispatch(
+      { component: "narrative", op: "addListEntry", list: kind },
+      {
+        messages: { stale: message, error: message },
+        onSuccess: () =>
+          selectDocument({
+            kind: kind === "knives" ? "knife" : "chain",
+            id: String(newIndex),
+            label: "",
+          }),
+      }
+    )
   }
 
   function handleRemove(ref: DocumentRef) {
     if (!group.canRemove) return
     if (ref.kind !== "knife" && ref.kind !== "chain") return
 
-    const wasActive = refsEqual(activeRef, ref)
+    const list = ref.kind === "knife" ? "knives" : "chains"
+    const removedIndex = Number(ref.id)
     const message =
       ref.kind === "knife"
         ? "Couldn't remove the Knife. Try again."
         : "Couldn't remove the Chain. Try again."
 
-    write({
-      surface: ref.kind === "knife" ? "knives" : "chains",
-      action: (expectedVersion) =>
-        ref.kind === "knife"
-          ? removeCharacterKnifeAction({
-              characterId,
-              knifeId: ref.id,
-              expectedVersion,
-            })
-          : removeCharacterChainAction({
-              characterId,
-              chainId: ref.id,
-              expectedVersion,
-            }),
-      messages: { stale: message, error: message },
-      onSuccess: () => {
-        if (wasActive) resetToDefault()
+    dispatch(
+      {
+        component: "narrative",
+        op: "removeListEntry",
+        list,
+        index: removedIndex,
       },
-    })
+      {
+        messages: { stale: message, error: message },
+        onSuccess: () => {
+          if (activeRef.kind !== ref.kind) return
+          const activeIndex = Number(activeRef.id)
+          if (activeIndex === removedIndex) {
+            resetToDefault()
+          } else if (activeIndex > removedIndex) {
+            selectDocument({ ...activeRef, id: String(activeIndex - 1) })
+          }
+        },
+      }
+    )
   }
 
   return (

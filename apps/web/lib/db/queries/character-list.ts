@@ -1,18 +1,15 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
-import {
-  characterArchetypes,
-  characters,
-  type CharacterStatus,
-} from "@/lib/db/schema/character"
+import { entity, type EntityStatus } from "@/lib/db/schema/entity"
 
 /**
  * Summary view of a character for the My Characters home page: just the
- * columns the card grid renders. Distinct from {@link HydratedCharacter} so
- * the list query can stay a single round-trip and never pulls JSON columns,
- * child rows, or derived stats it would not display.
+ * columns the card grid renders, off the v2 `entity` table (UNN-556 — the
+ * minimal repoint; S3 owns the redesign). `level` and the active Archetype
+ * key project out of their component jsonb columns so a 50-character roster
+ * stays one round trip with no child-table join.
  *
  * Drafts (UNN-204) appear here alongside finalized characters but the card
  * renders a distinct draft affordance; `status` and `builderStep` drive
@@ -25,43 +22,40 @@ export interface CharacterSummary {
   level: number
   portraitUrl: string | null
   activeArchetypeKey: string | null
-  status: CharacterStatus
+  status: EntityStatus
   builderStep: number
 }
 
+/** The one `entity` → {@link CharacterSummary} column set — shared with the
+ *  campaign roster read (`load-campaign.ts`) so the projections can't drift. */
+export const characterSummaryProjection = {
+  id: entity.id,
+  shortId: entity.shortId,
+  name: entity.name,
+  level: sql<number>`coalesce((${entity.level}->>'value')::int, 1)`,
+  portraitUrl: entity.portraitUrl,
+  activeArchetypeKey: sql<string | null>`${entity.archetypes}->>'active'`,
+  status: entity.status,
+  builderStep: entity.builderStep,
+}
+
 /**
- * Every character owned by `ownerId`, ordered by most-recently-updated first.
- * A single `LEFT JOIN` on `characters.activeArchetypeId` resolves the active
- * Archetype's key in the same query, so a 50-character roster is one round
- * trip — the "no N+1" guarantee the ticket calls out.
+ * Every entity character owned by `ownerId`, ordered by name. One round trip —
+ * the "no N+1" guarantee the original ticket calls out — via the jsonb
+ * projections above.
  */
 export async function loadOwnedCharacterSummaries(
   ownerId: string
 ): Promise<CharacterSummary[]> {
-  const rows = await db
-    .select({
-      id: characters.id,
-      shortId: characters.shortId,
-      name: characters.name,
-      level: characters.level,
-      portraitUrl: characters.portraitUrl,
-      activeArchetypeKey: characterArchetypes.archetypeKey,
-      status: characters.status,
-      builderStep: characters.builderStep,
-    })
-    .from(characters)
-    .leftJoin(
-      characterArchetypes,
-      eq(characters.activeArchetypeId, characterArchetypes.id)
-    )
-    .where(eq(characters.ownerId, ownerId))
-    .orderBy(asc(characters.name))
-
-  return rows
+  return db
+    .select(characterSummaryProjection)
+    .from(entity)
+    .where(eq(entity.ownerId, ownerId))
+    .orderBy(asc(entity.name))
 }
 
 /**
- * Every **finalized** character placed into `campaignId` (`characters.campaignId`),
+ * Every **finalized** character placed into `campaignId` (`entity.campaignId`),
  * as the same one-round-trip {@link CharacterSummary} projection. Backs the
  * encounter setup shell's Import-PCs panel (UNN-298): the DM picks combatants
  * from the campaign's placed roster, not every character they own. Drafts are
@@ -70,31 +64,13 @@ export async function loadOwnedCharacterSummaries(
 export async function loadPlacedCharactersForCampaign(
   campaignId: string
 ): Promise<CharacterSummary[]> {
-  const rows = await db
-    .select({
-      id: characters.id,
-      shortId: characters.shortId,
-      name: characters.name,
-      level: characters.level,
-      portraitUrl: characters.portraitUrl,
-      activeArchetypeKey: characterArchetypes.archetypeKey,
-      status: characters.status,
-      builderStep: characters.builderStep,
-    })
-    .from(characters)
-    .leftJoin(
-      characterArchetypes,
-      eq(characters.activeArchetypeId, characterArchetypes.id)
-    )
+  return db
+    .select(characterSummaryProjection)
+    .from(entity)
     .where(
-      and(
-        eq(characters.campaignId, campaignId),
-        eq(characters.status, "finalized")
-      )
+      and(eq(entity.campaignId, campaignId), eq(entity.status, "finalized"))
     )
-    .orderBy(asc(characters.name))
-
-  return rows
+    .orderBy(asc(entity.name))
 }
 
 /**
@@ -120,25 +96,12 @@ export async function loadOwnedFinalizedCharactersWithPlacement(
 ): Promise<OwnedPlacementCharacter[]> {
   return db
     .select({
-      id: characters.id,
-      shortId: characters.shortId,
-      name: characters.name,
-      level: characters.level,
-      portraitUrl: characters.portraitUrl,
-      activeArchetypeKey: characterArchetypes.archetypeKey,
-      status: characters.status,
-      builderStep: characters.builderStep,
-      campaignId: characters.campaignId,
+      ...characterSummaryProjection,
+      campaignId: entity.campaignId,
       placedCampaignName: campaigns.name,
     })
-    .from(characters)
-    .leftJoin(
-      characterArchetypes,
-      eq(characters.activeArchetypeId, characterArchetypes.id)
-    )
-    .leftJoin(campaigns, eq(characters.campaignId, campaigns.id))
-    .where(
-      and(eq(characters.ownerId, ownerId), eq(characters.status, "finalized"))
-    )
-    .orderBy(asc(characters.name))
+    .from(entity)
+    .leftJoin(campaigns, eq(entity.campaignId, campaigns.id))
+    .where(and(eq(entity.ownerId, ownerId), eq(entity.status, "finalized")))
+    .orderBy(asc(entity.name))
 }

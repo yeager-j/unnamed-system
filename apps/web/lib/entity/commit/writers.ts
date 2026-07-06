@@ -1,7 +1,11 @@
+import { ORIGIN_ARCHETYPE_RANK } from "@workspace/game-v2/archetypes/creation"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { VIRTUE_KEYS } from "@workspace/game-v2/kernel/vocab"
 import { getMechanic } from "@workspace/game-v2/mechanics"
+import { emptyNarrative } from "@workspace/game-v2/narrative"
 import { applyUsePrisma } from "@workspace/game-v2/resources/operations"
+import { coerceVirtueAllocation } from "@workspace/game-v2/virtues"
 import {
   applyDamage,
   applyHeal,
@@ -11,7 +15,16 @@ import {
 
 import type { VersionClass } from "@/lib/db/version-classes"
 
-import type { EntityWrite, MechanicWrite, PoolWrite } from "./write.schema"
+import type {
+  ArchetypesWrite,
+  EntityWrite,
+  MechanicWrite,
+  NarrativeWrite,
+  PathWrite,
+  PoolWrite,
+  TalentsWrite,
+  VirtuesWrite,
+} from "./write.schema"
 
 /**
  * The **Writers** (UNN-520/UNN-551; ADR §2.4/§2.9) — the storage-blind half of
@@ -43,6 +56,8 @@ export type EntityWriteRefusal =
   | "no-prisma-max"
   | "no-prisma-charges"
   | "no-transitions"
+  | "allocation-cap-exceeded"
+  | "entry-not-found"
 
 /**
  * The authored-component patch a Writer predicts — whole updated components, so
@@ -87,6 +102,11 @@ type WriterMap = {
   skillPool: EntityWriter<PoolWrite>
   resources: EntityWriter<Extract<EntityWrite, { component: "resources" }>>
   mechanics: EntityWriter<MechanicWrite>
+  path: EntityWriter<PathWrite>
+  archetypes: EntityWriter<ArchetypesWrite>
+  talents: EntityWriter<TalentsWrite>
+  virtues: EntityWriter<VirtuesWrite>
+  narrative: EntityWriter<NarrativeWrite>
 }
 
 /**
@@ -175,6 +195,138 @@ export const ENTITY_WRITERS: WriterMap = {
       })
     },
   },
+
+  // ── The creation families (S1 — UNN-556). The builder's authored-choice
+  // writes; each creates its component from absent, since a fresh draft mints
+  // only the always-present skeleton (lib/entity/draft.ts). ──────────────────
+
+  path: {
+    component: "path",
+    durableClass: "identity",
+    applyOp: (_components, write) => ok({ path: { choice: write.choice } }),
+  },
+
+  /**
+   * Origin selection — create-from-absent and switch are the same move: the
+   * Origin roster entry is minted fresh at {@link ORIGIN_ARCHETYPE_RANK} (v1's
+   * delete-and-replace parity). Deliberately does NOT prune origin-granted keys
+   * from `talents` or reset `mechanics` (v1 did both): a progression-class
+   * patch must not span identity-/vitals-class columns (CH15 disjointness).
+   * Talent hygiene is the picker's display filter + finalize's prune; mechanic
+   * state is seeded at finalize (`resolve` falls back to `initialStateFor`
+   * meanwhile).
+   */
+  archetypes: {
+    component: "archetypes",
+    durableClass: "progression",
+    applyOp: (components, write) =>
+      ok({
+        archetypes: {
+          active: write.archetypeKey,
+          origin: write.archetypeKey,
+          savedArchetypeRanks: components.archetypes?.savedArchetypeRanks ?? 0,
+          roster: [
+            {
+              key: write.archetypeKey,
+              rank: ORIGIN_ARCHETYPE_RANK,
+              inheritanceSlots: [],
+            },
+          ],
+        },
+      }),
+  },
+
+  /** Whole-list replace of the player-added Talents (cap + dedupe on the wire). */
+  talents: {
+    component: "talents",
+    durableClass: "identity",
+    applyOp: (_components, write) =>
+      ok({ talents: write.keys.map((key) => ({ key })) }),
+  },
+
+  /**
+   * The creation allocation (rulebook 1.2). Refuses only the cap (>1 Virtue at
+   * +2, >2 at +1) — partial mid-flow allocations are legal; full validity is
+   * the step gate + finalize validator. The Spark log rides along untouched.
+   */
+  virtues: {
+    component: "virtues",
+    durableClass: "progression",
+    applyOp(components, write) {
+      const ranks = coerceVirtueAllocation(write.ranks)
+      const twos = VIRTUE_KEYS.filter((key) => ranks[key] === 2).length
+      const ones = VIRTUE_KEYS.filter((key) => ranks[key] === 1).length
+      if (twos > 1 || ones > 2) return err("allocation-cap-exceeded")
+      return ok({
+        virtues: { ranks, sparkLog: components.virtues?.sparkLog ?? [] },
+      })
+    },
+  },
+
+  /**
+   * Per-field prose sets + per-entry Knife/Chain list ops (CH16). An empty
+   * string stores as `null` (text fields and entry descriptions) so the
+   * payload stays canonical against the nullable schema. Entries address by
+   * index — display order IS the array order (D36); an out-of-range index
+   * refuses `entry-not-found` (a remove raced the edit).
+   */
+  narrative: {
+    component: "narrative",
+    durableClass: "identity",
+    applyOp(components, write) {
+      const base = components.narrative ?? emptyNarrative()
+      switch (write.op) {
+        case "setField":
+          return ok({
+            narrative: {
+              ...base,
+              [write.field]: write.value === "" ? null : write.value,
+            },
+          })
+        case "addListEntry":
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: [
+                ...base[write.list],
+                { title: "", description: null },
+              ],
+            },
+          })
+        case "removeListEntry": {
+          if (write.index >= base[write.list].length) {
+            return err("entry-not-found")
+          }
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: base[write.list].filter(
+                (_entry, index) => index !== write.index
+              ),
+            },
+          })
+        }
+        case "setListEntry": {
+          const entry = base[write.list][write.index]
+          if (entry === undefined) return err("entry-not-found")
+          const value =
+            write.field === "description" && write.value === ""
+              ? null
+              : write.value
+          return ok({
+            narrative: {
+              ...base,
+              [write.list]: base[write.list].map((existing, index) =>
+                index === write.index
+                  ? { ...existing, [write.field]: value }
+                  : existing
+              ),
+            },
+          })
+        }
+      }
+    },
+  },
 }
 
 /**
@@ -196,5 +348,15 @@ export function applyEntityWrite(
       return ENTITY_WRITERS.resources.applyOp(components, write, deps)
     case "mechanics":
       return ENTITY_WRITERS.mechanics.applyOp(components, write, deps)
+    case "path":
+      return ENTITY_WRITERS.path.applyOp(components, write, deps)
+    case "archetypes":
+      return ENTITY_WRITERS.archetypes.applyOp(components, write, deps)
+    case "talents":
+      return ENTITY_WRITERS.talents.applyOp(components, write, deps)
+    case "virtues":
+      return ENTITY_WRITERS.virtues.applyOp(components, write, deps)
+    case "narrative":
+      return ENTITY_WRITERS.narrative.applyOp(components, write, deps)
   }
 }

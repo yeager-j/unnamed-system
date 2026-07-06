@@ -5,6 +5,10 @@ import { ATTRIBUTE_SHORT_LABELS } from "@/lib/ui/labels"
 
 import { formatModifier } from "./format"
 
+/** The structural slice this widget reads — both engines' catalog Archetypes
+ *  satisfy it (UNN-556: the builder passes v2, the sheet passes v1). */
+type AttributesSlice = Pick<Archetype, "attributes">
+
 /**
  * The four-cell Attribute mini-grid shared by the Active Archetype card on
  * the Archetypes tab, the per-Archetype drawer, and the Origin Archetype
@@ -14,7 +18,7 @@ import { formatModifier } from "./format"
 export function ArchetypeAttributesGrid({
   archetype,
 }: {
-  archetype: Archetype
+  archetype: AttributesSlice
 }) {
   return (
     <DetailSection title="Attributes">

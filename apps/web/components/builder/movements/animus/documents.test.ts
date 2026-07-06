@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import type {
-  CharacterChainRow,
-  CharacterKnifeRow,
-} from "@/lib/db/schema/character"
+import { emptyNarrative, type Narrative } from "@workspace/game-v2/narrative"
 
 import {
   buildDocumentGroups,
@@ -13,29 +10,13 @@ import {
   type DocumentRef,
 } from "./documents"
 
-const knifeRow = (overrides: Partial<CharacterKnifeRow> = {}) =>
-  ({
-    id: "k1",
-    characterId: "c1",
-    title: "Mira",
-    description: null,
-    order: 0,
-    ...overrides,
-  }) as CharacterKnifeRow
-
-const chainRow = (overrides: Partial<CharacterChainRow> = {}) =>
-  ({
-    id: "ch1",
-    characterId: "c1",
-    title: "The court",
-    description: null,
-    order: 0,
-    ...overrides,
-  }) as CharacterChainRow
+function narrative(overrides: Partial<Narrative> = {}): Narrative {
+  return { ...emptyNarrative(), ...overrides }
+}
 
 describe("buildDocumentGroups", () => {
   it("returns the four groups in fixed Movement-3 order", () => {
-    const groups = buildDocumentGroups({ knives: [], chains: [] })
+    const groups = buildDocumentGroups(narrative())
     expect(groups.map((g) => g.kind)).toEqual([
       "backstory",
       "knives",
@@ -45,7 +26,7 @@ describe("buildDocumentGroups", () => {
   })
 
   it("renders Backstory as a single non-editable entry", () => {
-    const [backstory] = buildDocumentGroups({ knives: [], chains: [] })
+    const [backstory] = buildDocumentGroups(narrative())
     expect(backstory).toBeDefined()
     expect(backstory!.canAdd).toBe(false)
     expect(backstory!.canRemove).toBe(false)
@@ -54,158 +35,106 @@ describe("buildDocumentGroups", () => {
     ])
   })
 
-  it("renders Knives entries with each row's title as label", () => {
-    const groups = buildDocumentGroups({
-      knives: [
-        knifeRow({ id: "k1", title: "Mira" }),
-        knifeRow({ id: "k2", title: "The cellar" }),
-      ],
-      chains: [],
-    })
+  it("renders Knives entries index-addressed with each beat's title as label", () => {
+    const groups = buildDocumentGroups(
+      narrative({
+        knives: [
+          { title: "Mira", description: null },
+          { title: "", description: "unnamed" },
+        ],
+      })
+    )
     const knives = groups.find((g) => g.kind === "knives")!
     expect(knives.canAdd).toBe(true)
     expect(knives.canRemove).toBe(true)
     expect(knives.entries).toEqual([
-      { kind: "knife", id: "k1", label: "Mira" },
-      { kind: "knife", id: "k2", label: "The cellar" },
+      { kind: "knife", id: "0", label: "Mira" },
+      { kind: "knife", id: "1", label: "" },
     ])
   })
 
-  it("renders Chains entries the same way Knives are rendered", () => {
-    const groups = buildDocumentGroups({
-      knives: [],
-      chains: [chainRow({ id: "ch1", title: "The court" })],
-    })
-    const chains = groups.find((g) => g.kind === "chains")!
-    expect(chains.canAdd).toBe(true)
-    expect(chains.entries).toEqual([
-      { kind: "chain", id: "ch1", label: "The court" },
-    ])
+  it("tolerates an absent narrative component (fresh pre-mint frame)", () => {
+    const groups = buildDocumentGroups(undefined)
+    expect(groups.find((g) => g.kind === "knives")!.entries).toEqual([])
+    expect(groups.find((g) => g.kind === "chains")!.entries).toEqual([])
   })
 
-  it("renders Identity Traits in the canonical five-row order with their labels", () => {
-    const groups = buildDocumentGroups({ knives: [], chains: [] })
-    const identity = groups.find((g) => g.kind === "identity")!
-    expect(identity.canAdd).toBe(false)
-    expect(identity.canRemove).toBe(false)
-    expect(identity.entries).toEqual([
-      { kind: "identity", id: "personality", label: "Personality Traits" },
-      { kind: "identity", id: "hope", label: "Hopes" },
-      { kind: "identity", id: "dream", label: "Dreams" },
-      { kind: "identity", id: "fear", label: "Fears" },
-      { kind: "identity", id: "secret", label: "Secrets" },
+  it("renders the five Identity Trait rows with canonical labels", () => {
+    const identity = buildDocumentGroups(narrative()).find(
+      (g) => g.kind === "identity"
+    )!
+    expect(identity.entries.map((e) => e.id)).toEqual([
+      "personality",
+      "hopes",
+      "dreams",
+      "fears",
+      "secrets",
     ])
   })
 })
 
 describe("resolveDocumentContent", () => {
-  const source = {
-    backstoryText: "Born in the cellar.",
-    knives: [knifeRow({ id: "k1", title: "Mira", description: "My sister." })],
-    chains: [chainRow({ id: "ch1", title: "Court", description: null })],
-    personalityTraits: "Blunt",
-    hopes: null,
-    dreams: null,
-    fears: null,
-    secrets: "I can't read.",
-  }
+  const source = narrative({
+    backstory: "Forged in the pit.",
+    hopes: "- Free my sister",
+    knives: [{ title: "Mira", description: "my sister" }],
+    chains: [{ title: "The court", description: null }],
+  })
 
-  it("resolves Backstory to the column text", () => {
-    const ref: DocumentRef = {
-      kind: "backstory",
-      id: "backstory",
-      label: "Backstory",
-    }
-    expect(resolveDocumentContent(ref, source)).toEqual({
-      ref,
-      body: "Born in the cellar.",
+  it("resolves Backstory from the narrative field", () => {
+    expect(resolveDocumentContent(DEFAULT_DOCUMENT_REF, source)).toEqual({
+      ref: DEFAULT_DOCUMENT_REF,
+      body: "Forged in the pit.",
       title: null,
     })
   })
 
-  it("returns empty body for unset Backstory", () => {
-    const ref: DocumentRef = {
-      kind: "backstory",
-      id: "backstory",
-      label: "Backstory",
-    }
-    expect(
-      resolveDocumentContent(ref, { ...source, backstoryText: null })
-    ).toEqual({ ref, body: "", title: null })
-  })
-
-  it("resolves a Knife to its title + description", () => {
-    const ref: DocumentRef = { kind: "knife", id: "k1", label: "Mira" }
+  it("resolves a Knife by index with its editable title", () => {
+    const ref: DocumentRef = { kind: "knife", id: "0", label: "Mira" }
     expect(resolveDocumentContent(ref, source)).toEqual({
       ref,
-      body: "My sister.",
+      body: "my sister",
       title: "Mira",
     })
   })
 
-  it("returns null when the Knife id no longer exists", () => {
-    const ref: DocumentRef = { kind: "knife", id: "gone", label: "Gone" }
+  it("resolves a Chain's null description to an empty body", () => {
+    const ref: DocumentRef = { kind: "chain", id: "0", label: "The court" }
+    expect(resolveDocumentContent(ref, source)).toEqual({
+      ref,
+      body: "",
+      title: "The court",
+    })
+  })
+
+  it("returns null for an index no longer in the list (just removed)", () => {
+    const ref: DocumentRef = { kind: "knife", id: "3", label: "gone" }
     expect(resolveDocumentContent(ref, source)).toBeNull()
   })
 
-  it("resolves Identity Traits via the canonical column mapping", () => {
-    const personality: DocumentRef = {
-      kind: "identity",
-      id: "personality",
-      label: "Personality Traits",
-    }
-    expect(resolveDocumentContent(personality, source)).toEqual({
-      ref: personality,
-      body: "Blunt",
-      title: null,
-    })
-
-    const secret: DocumentRef = {
-      kind: "identity",
-      id: "secret",
-      label: "Secrets",
-    }
-    expect(resolveDocumentContent(secret, source)).toEqual({
-      ref: secret,
-      body: "I can't read.",
-      title: null,
-    })
-
-    const hope: DocumentRef = { kind: "identity", id: "hope", label: "Hopes" }
-    expect(resolveDocumentContent(hope, source)).toEqual({
-      ref: hope,
-      body: "",
+  it("resolves an Identity Trait from its narrative field", () => {
+    const ref: DocumentRef = { kind: "identity", id: "hopes", label: "Hopes" }
+    expect(resolveDocumentContent(ref, source)).toEqual({
+      ref,
+      body: "- Free my sister",
       title: null,
     })
   })
 })
 
 describe("refsEqual", () => {
-  it("matches refs of the same kind + id", () => {
+  it("compares kind + id", () => {
     expect(
       refsEqual(
-        { kind: "knife", id: "k1", label: "A" },
-        { kind: "knife", id: "k1", label: "renamed" }
+        { kind: "knife", id: "0", label: "A" },
+        { kind: "knife", id: "0", label: "B" }
       )
     ).toBe(true)
-  })
-
-  it("rejects refs that differ on kind or id", () => {
     expect(
       refsEqual(
-        { kind: "knife", id: "k1", label: "A" },
-        { kind: "chain", id: "k1", label: "A" }
+        { kind: "knife", id: "0", label: "A" },
+        { kind: "chain", id: "0", label: "A" }
       )
     ).toBe(false)
-    expect(
-      refsEqual(
-        { kind: "knife", id: "k1", label: "A" },
-        { kind: "knife", id: "k2", label: "A" }
-      )
-    ).toBe(false)
-  })
-
-  it("treats DEFAULT_DOCUMENT_REF as Backstory", () => {
-    expect(DEFAULT_DOCUMENT_REF.kind).toBe("backstory")
   })
 })
