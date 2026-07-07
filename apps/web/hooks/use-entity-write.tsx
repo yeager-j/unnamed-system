@@ -20,11 +20,7 @@ import type { CharacterProfile, LoadedCharacter } from "@/lib/character/load"
 import type { VersionClass } from "@/lib/db/version-classes"
 import { mergeComponentPatch } from "@/lib/entity/commit/merge-patch"
 import type { EntityWrite } from "@/lib/entity/commit/write.schema"
-import {
-  applyEntityWrite,
-  ENTITY_WRITERS,
-  type WriterDeps,
-} from "@/lib/entity/commit/writers"
+import { applyEntityWrite, ENTITY_WRITERS } from "@/lib/entity/commit/writers"
 import { resolveEntity } from "@/lib/game-engine-v2"
 
 import {
@@ -70,13 +66,6 @@ interface EntityFrame {
 
 interface LoadedFrame extends EntityFrame {
   profile: CharacterProfile
-}
-
-/** Resolved values the Writers' validations need, derived from the client's
- *  own view. Only Prisma's cap today — unresolved until its upgrade tree
- *  ships, so it stays absent (parity with the server's `serverDeps`). */
-function clientDeps(): WriterDeps {
-  return {}
 }
 
 interface EntityWriteApi {
@@ -127,11 +116,7 @@ export function EntityWriteProvider({
   const [frame, applyLocal] = useOptimistic(
     { entity: loaded.entity, resolved: loaded.resolved },
     (prev: EntityFrame, write: EntityWrite): EntityFrame => {
-      const predicted = applyEntityWrite(
-        prev.entity.components,
-        write,
-        clientDeps()
-      )
+      const predicted = applyEntityWrite(prev.entity.components, write)
       if (!predicted.ok) return prev
       const entity = mergeComponentPatch(prev.entity, predicted.value)
       return { entity, resolved: resolveEntity(entity) }

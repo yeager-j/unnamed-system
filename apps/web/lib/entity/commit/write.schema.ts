@@ -4,6 +4,7 @@ import { PATH_CHOICES } from "@workspace/game-v2/kernel/vocab"
 import { MECHANIC_KINDS } from "@workspace/game-v2/kernel/vocab/mechanics"
 import { getMechanic } from "@workspace/game-v2/mechanics"
 import { NARRATIVE_TEXT_FIELDS } from "@workspace/game-v2/narrative"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game-v2/resources/exhaustion.schema"
 import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
 
 /**
@@ -24,8 +25,12 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
  * - `mechanics` — one mechanic-state transition, its `transition` payload
  *   validated **per-mechanic** against the registry's own `transitions.schema`
  *   (a mechanic that ships no write surface rejects here, at the boundary).
+ * - `rest` / `exhaustion` / `level` — the sheet's character transitions (S2a,
+ *   UNN-557): the E2 rest trio (a vitals-class multi-component patch),
+ *   Exhaustion tracking, and Victories/level-up (a progression-class patch).
  * - `path` / `archetypes` / `talents` / `virtues` / `narrative` — the creation
- *   families (S1, UNN-556): the builder's authored-choice writes. `narrative` is
+ *   families (S1, UNN-556): the builder's authored-choice writes, plus the
+ *   sheet's active-Archetype switch (`archetypes.setActive`). `narrative` is
  *   per-field set ops + per-entry Knife/Chain list ops (CH16) — a descriptor is
  *   structurally a per-field write, so "client composes the full post-state" is
  *   unrepresentable (UNN-226).
@@ -45,6 +50,51 @@ const poolsArm = z.object({
 const resourcesArm = z.object({
   component: z.literal("resources"),
   op: z.literal("usePrisma"),
+})
+
+const diceSpend = z.number().int().nonnegative()
+
+/**
+ * The rest transitions (E2, rulebook 2.5) — the multi-component write that forced
+ * the CH5 patch widening: one descriptor, one `vitals`-class guard, one UPDATE
+ * spanning vitals/skillPool/resources/exhaustion. The dice bounds re-check the
+ * engine's A8 guard for form-level error messages; the engine remains the
+ * corruption backstop.
+ */
+const restFullArm = z.object({
+  component: z.literal("rest"),
+  op: z.literal("fullRest"),
+})
+
+const restPartialArm = z.object({
+  component: z.literal("rest"),
+  op: z.literal("partialRest"),
+  skillDiceToSpend: diceSpend,
+  rolled: diceSpend,
+})
+
+const restRespiteArm = z.object({
+  component: z.literal("rest"),
+  op: z.literal("respite"),
+  hitDiceToSpend: diceSpend,
+  rolled: diceSpend,
+})
+
+/** Direct Exhaustion tracking (0–6) — the sheet's stepper (D27 durable level). */
+const exhaustionArm = z.object({
+  component: z.literal("exhaustion"),
+  op: z.literal("setLevel"),
+  level: z.number().int().min(0).max(MAX_EXHAUSTION_LEVEL),
+})
+
+/**
+ * Victory tracking + level-up (rulebook 1.6). Level-up is deliberately a
+ * single-class write: it patches only progression-class columns
+ * (`level` + `archetypes`) — vitals/dice rise by deriving from the new level.
+ */
+const levelArm = z.object({
+  component: z.literal("level"),
+  op: z.enum(["awardVictory", "removeVictory", "levelUp"]),
 })
 
 const mechanicsArm = z
@@ -84,9 +134,20 @@ const pathArm = z.object({
  * catalog-validated on the wire — v1 parity; an unknown key simply never
  * resolves and surfaces at finalize as `no-origin-archetype`.
  */
-const archetypesArm = z.object({
+const archetypesOriginArm = z.object({
   component: z.literal("archetypes"),
   op: z.literal("setOrigin"),
+  archetypeKey: z.string().min(1),
+})
+
+/**
+ * Switching the active Archetype (rulebook 1.3; the sheet rail's switcher). The
+ * Writer refuses a key outside the unlocked roster; the Respite timing rule is
+ * the table's to enforce, not the tracker's (v1 parity — ungated).
+ */
+const archetypesSetActiveArm = z.object({
+  component: z.literal("archetypes"),
+  op: z.literal("setActive"),
   archetypeKey: z.string().min(1),
 })
 
@@ -200,8 +261,14 @@ export const entityWriteSchema = z.union([
   poolsArm,
   resourcesArm,
   mechanicsArm,
+  restFullArm,
+  restPartialArm,
+  restRespiteArm,
+  exhaustionArm,
+  levelArm,
   pathArm,
-  archetypesArm,
+  archetypesOriginArm,
+  archetypesSetActiveArm,
   talentsArm,
   virtuesArm,
   narrativeFieldArm,
@@ -220,6 +287,11 @@ export type PoolWrite = Extract<
 
 /** The mechanics arm alone. */
 export type MechanicWrite = Extract<EntityWrite, { component: "mechanics" }>
+
+/** The character-transition arms (S2a — UNN-557), one per Writer. */
+export type RestWrite = Extract<EntityWrite, { component: "rest" }>
+export type ExhaustionWrite = Extract<EntityWrite, { component: "exhaustion" }>
+export type LevelWrite = Extract<EntityWrite, { component: "level" }>
 
 /** The creation-family arms (UNN-556), one per Writer. */
 export type PathWrite = Extract<EntityWrite, { component: "path" }>

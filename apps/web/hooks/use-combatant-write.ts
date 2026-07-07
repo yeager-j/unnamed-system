@@ -17,12 +17,11 @@ import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
+import { applyEntityWrite } from "@/lib/entity/commit/writers"
 
 export type DispatchCombatantWrite = (
   participantId: ParticipantId,
-  write: CombatEntityWrite,
-  deps: WriterDeps
+  write: CombatEntityWrite
 ) => Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
 
 /**
@@ -48,10 +47,7 @@ export type DispatchCombatantWrite = (
  *   the character `vitalsVersion` — it must **never** touch the encounter
  *   queue's ref (the durable write doesn't bump the encounter row).
  *
- * `deps` comes from the drawer's view model (the resolved caps — see
- * {@link WriterDeps}), never the wire: the Writers validate against values the
- * client derived from its own resolved frame, and the server re-derives its
- * own. A Writer **refusal** from the local pre-check short-circuits before any
+ * A Writer **refusal** from the local pre-check short-circuits before any
  * dispatch — programmer-bug tier (the affordance shouldn't have rendered), so
  * it toasts and never hits the network. Every failure toasts here (the one
  * error-copy home), and the result is returned for callers that care.
@@ -82,30 +78,26 @@ export function useCombatantWrite({
   // instead of holding until the action settles. Drawer controls call
   // `dispatchWrite` bare, so the hook can't rely on callers wrapping it. The
   // resolve-inside-transition shape keeps the caller-visible Promise<Result>.
-  const dispatchWrite: DispatchCombatantWrite = (participantId, write, deps) =>
+  const dispatchWrite: DispatchCombatantWrite = (participantId, write) =>
     new Promise((resolve) => {
       startTransition(async () => {
-        resolve(await runWrite(participantId, write, deps))
+        resolve(await runWrite(participantId, write))
       })
     })
 
-  const runWrite: DispatchCombatantWrite = async (
-    participantId,
-    write,
-    deps
-  ) => {
+  const runWrite: DispatchCombatantWrite = async (participantId, write) => {
     const components = componentsOf(participantId)
     if (components === undefined) {
       toast.error(combatErrorMessage("participant-not-found"))
       return err("participant-not-found")
     }
-    const predicted = applyEntityWrite(components, write, deps)
+    const predicted = applyEntityWrite(components, write)
     if (!predicted.ok) {
       toast.error(combatErrorMessage(predicted.error))
       return predicted
     }
 
-    applyOptimistic({ kind: "write", participantId, write, deps })
+    applyOptimistic({ kind: "write", participantId, write })
 
     const meta = metaOf(participantId)
     const result =

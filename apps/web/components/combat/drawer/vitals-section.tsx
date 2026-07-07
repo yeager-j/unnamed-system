@@ -27,8 +27,7 @@ import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
  * Affordances are gated by {@link vitalsAffordances}, not a kind branch: a
  * pool's damage/heal renders iff the pool **resolved** (`hp`/`sp` non-null),
  * `setMax` is inline-only (a PC's max derives from the engine), and `usePrisma`
- * renders only when `deps.maxPrisma` is resolved — today never, so no Prisma
- * button exists anywhere.
+ * renders only when the participant resolved a Prisma pool.
  */
 export function CombatantVitalsSection({
   detail,
@@ -37,10 +36,10 @@ export function CombatantVitalsSection({
   detail: CombatantDetail
   dispatchWrite: DispatchCombatantWrite
 }) {
-  const affordances = vitalsAffordances(detail.isPc, detail.deps)
+  const affordances = vitalsAffordances(detail.isPc, detail.hasPrisma)
 
   function write(descriptor: CombatEntityWrite) {
-    void dispatchWrite(detail.id, descriptor, detail.deps)
+    void dispatchWrite(detail.id, descriptor)
   }
 
   return (
