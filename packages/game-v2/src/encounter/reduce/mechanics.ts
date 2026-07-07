@@ -14,9 +14,12 @@ import type { MechanicTransitionEvent } from "../session-event"
  *
  * 1. **unknown participant id** → same-ref (Immer no-op).
  * 2. **capability-absence** → same-ref: a participant without a `Mechanics`
- *    component, or without a **recorded state** for the named mechanic, no-ops —
- *    presence = ownership (D3); the reducer never conjures an `initialState()`
- *    into the blob for a mechanic the participant doesn't carry.
+ *    component no-ops — presence = ownership (D3). An **absent-but-owned
+ *    state** (the component exists, the named mechanic has no stored entry)
+ *    seeds from the mechanic's `initialState()` — the UNN-557 read-path
+ *    mirror, matching the Writer (`ENTITY_WRITERS.mechanics`) so the
+ *    optimistic prediction, the durable commit, and this session commit
+ *    transition from exactly the state the widget rendered.
  * 3. apply the validated transition descriptor through the mechanic's own
  *    registry {@link import("@workspace/game-v2/mechanics/definition").MechanicDefinition.transitions apply}
  *    — the Writer validated the descriptor pre-mint (CD19), so it is total here;
@@ -37,12 +40,14 @@ export function reduceMechanicTransition(
     if (participant === undefined) return
 
     const mechanics = participant.entity.components.mechanics
-    const current = mechanics?.states[event.mechanic]
-    if (mechanics === undefined || current === undefined) return
+    if (mechanics === undefined) return
 
-    const transitions = getMechanic(event.mechanic)?.transitions
-    if (transitions === undefined) return
+    const definition = getMechanic(event.mechanic)
+    const transitions = definition?.transitions
+    if (definition === undefined || transitions === undefined) return
 
+    const current =
+      mechanics.states[event.mechanic] ?? definition.initialState()
     mechanics.states[event.mechanic] = transitions.apply(
       current,
       event.transition
