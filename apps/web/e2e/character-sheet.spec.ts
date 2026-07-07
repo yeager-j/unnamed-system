@@ -104,8 +104,17 @@ test("a respite over-spend refuses inline; a valid respite heals", async ({
   page,
 }) => {
   await page.goto(target.url)
-  const before = await readPool(page, "HP")
-  expect(before.current).toBeLessThan(before.max)
+
+  // Set up the wound this test heals — self-contained, so it holds whether or
+  // not the @smoke round-trip test ran (the CI full suite excludes @smoke).
+  const fresh = await readPool(page, "HP")
+  await page.getByRole("button", { name: "Adjust HP" }).click()
+  await page.getByLabel("Adjust HP amount").fill("6")
+  await page.getByRole("button", { name: "Damage" }).click()
+  await expect(poolValue(page, "HP")).toHaveText(
+    `${fresh.current - 6} / ${fresh.max}`
+  )
+  const before = { current: fresh.current - 6, max: fresh.max }
 
   await page.getByRole("button", { name: "Rest" }).click()
   // The variant toggle and the confirm button share the variant's label —
