@@ -21,8 +21,17 @@
  * `@/lib/db/schema/character` row types are.
  */
 
-/** The four per-write-class version tokens `characters` carries (UNN-140). */
-export type VersionClass = "identity" | "vitals" | "inventory" | "progression"
+/** The four per-write-class version tokens `characters` (and the `entity` row,
+ *  CH4) carry — the runtime tuple, for wire schemas (`z.enum`). */
+export const VERSION_CLASSES = [
+  "identity",
+  "vitals",
+  "inventory",
+  "progression",
+] as const
+
+/** The four per-write-class version tokens (UNN-140). */
+export type VersionClass = (typeof VERSION_CLASSES)[number]
 
 /**
  * Identity-class surfaces: creation-time and stable-identity edits that share

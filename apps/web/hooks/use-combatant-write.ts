@@ -14,7 +14,7 @@ import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-com
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
-import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
+import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 import { applyEntityWrite } from "@/lib/entity/commit/writers"
@@ -164,7 +164,10 @@ export function useCombatantWrite({
     }
     if (first.error !== "stale") return first
 
-    const fresh = await getCombatantVitalsVersionAction({ characterId })
+    const fresh = await getEntityClassVersionAction({
+      entityId: characterId,
+      versionClass: "vitals",
+    })
     if (!fresh.ok) return first
     characterVersions.bump(characterId, fresh.value.version)
 

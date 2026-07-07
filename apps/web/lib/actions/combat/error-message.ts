@@ -2,7 +2,6 @@ import type { AddCatalogEnemiesError } from "./add-participants.schema"
 import type { ApplyCombatEventError } from "./apply-event.schema"
 import type { ApplyCombatantWriteError } from "./commit/apply-combatant-write.schema"
 import type { EndCombatError } from "./end-combat.schema"
-import type { CombatantVitalsVersionError } from "./vitals-version.schema"
 
 /**
  * Maps a v2 combat Server-Action error to its user-facing toast copy — the one
@@ -19,7 +18,6 @@ export function combatErrorMessage(
     | ApplyCombatantWriteError
     | EndCombatError
     | AddCatalogEnemiesError
-    | CombatantVitalsVersionError
 ): string {
   switch (error) {
     case "campaign-already-has-live-encounter":

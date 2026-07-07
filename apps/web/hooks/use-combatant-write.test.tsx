@@ -10,7 +10,7 @@ import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useMonotonicVersionMap } from "@/hooks/version-token-store"
 import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-combatant-write"
-import { getCombatantVitalsVersionAction } from "@/lib/actions/combat/vitals-version"
+import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
@@ -19,13 +19,13 @@ import { useCombatantWrite } from "./use-combatant-write"
 vi.mock("@/lib/actions/combat/commit/apply-combatant-write", () => ({
   applyCombatantWriteAction: vi.fn(),
 }))
-vi.mock("@/lib/actions/combat/vitals-version", () => ({
-  getCombatantVitalsVersionAction: vi.fn(),
+vi.mock("@/lib/actions/entity/versions", () => ({
+  getEntityClassVersionAction: vi.fn(),
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 
 const writeAction = vi.mocked(applyCombatantWriteAction)
-const versionAction = vi.mocked(getCombatantVitalsVersionAction)
+const versionAction = vi.mocked(getEntityClassVersionAction)
 
 const inlineId = asParticipantId("p-inline")
 const durableId = asParticipantId("p-durable")
@@ -155,7 +155,10 @@ describe("useCombatantWrite", () => {
     })
 
     expect(result!.ok).toBe(true)
-    expect(versionAction).toHaveBeenCalledWith({ characterId: "char-1" })
+    expect(versionAction).toHaveBeenCalledWith({
+      entityId: "char-1",
+      versionClass: "vitals",
+    })
     expect(writeAction).toHaveBeenLastCalledWith(
       expect.objectContaining({ expectedCharacterVersion: 8 })
     )
