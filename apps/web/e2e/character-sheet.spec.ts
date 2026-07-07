@@ -192,7 +192,7 @@ test("switching the active archetype swaps the mechanic widget and skills", asyn
 }) => {
   await page.goto(target.url)
   await page.getByRole("button", { name: "Switch Archetype" }).click()
-  await page.getByRole("button", { name: /Mage · Rk 1/ }).click()
+  await page.getByRole("button", { name: /Mage · Rank 1/ }).click()
 
   // The optimistic re-fold swaps the widget + kit in the same frame.
   await expect(
@@ -201,7 +201,7 @@ test("switching the active archetype swaps the mechanic widget and skills", asyn
 
   // Switch back for any later run against the same row.
   await page.getByRole("button", { name: "Switch Archetype" }).click()
-  await page.getByRole("button", { name: /Knight · Rk 2/ }).click()
+  await page.getByRole("button", { name: /Knight · Rank 2/ }).click()
   await expect(
     page.getByRole("region", { name: "Archetype Mechanic" }).getByText("Valor")
   ).toBeVisible()
