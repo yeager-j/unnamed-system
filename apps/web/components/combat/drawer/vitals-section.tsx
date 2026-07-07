@@ -4,10 +4,10 @@ import { HeartIcon, SparkleIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { Badge } from "@workspace/ui/components/badge"
 
+import type { DispatchCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
 import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import type { Pool } from "@/lib/combat/view/roster-view"
 import { vitalsAffordances } from "@/lib/combat/view/vitals-affordances"
