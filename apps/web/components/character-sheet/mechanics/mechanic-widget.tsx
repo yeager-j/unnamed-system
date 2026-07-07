@@ -1,56 +1,78 @@
 "use client"
 
-import { getArchetype } from "@workspace/game/data"
-import { getMechanic } from "@workspace/game/engine"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
+import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 
-import { useCharacter } from "@/hooks/use-character"
+import { useLoadedCharacter } from "@/hooks/use-entity-write"
 
-import { renderMechanicWidget } from "./widget-registry"
+import { DisplayOnlyWidget } from "./display-only-widget"
+import { FrenzyWidget } from "./frenzy-widget"
+import { ModeToggleWidget } from "./mode-toggle-widget"
+import { PerfectionWidget } from "./perfection-widget"
+import { StainsWidget } from "./stains-widget"
+import { ValorWidget } from "./valor-widget"
 
 /**
- * The Combat-tab unique-mechanic widget. Renders the active Archetype's
- * mechanic display when one is set; otherwise nothing. Dispatch happens here
- * by mechanic kind — each per-kind widget owns its own state-rendering and
- * shares no shape, by design (mechanics are deliberately heterogeneous).
+ * The rail's Archetype-mechanic slot (design handoff item 7): one widget per
+ * mechanic kind, keyed off the resolved `activeMechanics` read-unit — swapping
+ * the active Archetype swaps the widget in the same optimistic frame. Every
+ * write-capable widget dispatches `mechanics`-family descriptors through the
+ * provider (widget blindness, CH20); the table-tracked mechanics (Tells,
+ * Enchantment fortes) render display-only cards.
  *
- * Reads the hydrated character from {@link useCharacter} so callers don't
- * have to prop-drill. Each individual per-kind widget does the same when it
- * needs more than `state` (see Path of Dawn's Luck-derived Lumina cap).
- *
- * Read-only in this slice: no controls, no actions. Edit affordances land
- * with write infrastructure.
+ * This dispatch is a reducer-style exhaustive switch over a closed vocabulary
+ * (the registry's 9 kinds), so it stays a `switch`, not a lookup registry.
  */
 export function MechanicWidget() {
-  const character = useCharacter()
-  const active = character.activeMechanic
-  if (!active) return null
+  const { resolved } = useLoadedCharacter()
+  const active = resolved.components.activeMechanics ?? []
 
-  const archetype = character.activeArchetypeKey
-    ? getArchetype(character.activeArchetypeKey)
-    : undefined
-  const mechanic = archetype?.mechanic ? getMechanic(archetype.mechanic) : null
-  if (!archetype || !mechanic) return null
+  if (active.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {mechanic.displayName}
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
-            {archetype.name}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="mb-4 text-sm text-muted-foreground">{mechanic.tagline}</p>
-        {renderMechanicWidget(active.state)}
-      </CardContent>
-    </Card>
+    <>
+      {active.map((mechanic) => (
+        <section
+          key={mechanic.kind}
+          aria-label="Archetype Mechanic"
+          className="flex flex-col gap-2 rounded-md border bg-background/60 p-2.5"
+        >
+          <WidgetFor mechanic={mechanic} />
+        </section>
+      ))}
+    </>
   )
+}
+
+function WidgetFor({ mechanic }: { mechanic: ResolvedActiveMechanic }) {
+  const { kind, state } = mechanic
+  switch (state.kind) {
+    case "valor":
+      return <ValorWidget state={state} />
+    case "frenzy":
+      return <FrenzyWidget state={state} />
+    case "perfection":
+      return <PerfectionWidget state={state} />
+    case "stains":
+      return <StainsWidget state={state} />
+    case "path-of-dawn":
+      return (
+        <ModeToggleWidget
+          mechanic="path-of-dawn"
+          modeLabel="Dawn Mode"
+          on={state.dawnMode}
+        />
+      )
+    case "path-of-dusk":
+      return (
+        <ModeToggleWidget
+          mechanic="path-of-dusk"
+          modeLabel="Dusk Mode"
+          on={state.duskMode}
+        />
+      )
+    case "thiefs-insight":
+    case "elemental-larceny":
+    case "enchantment":
+      return <DisplayOnlyWidget kind={kind} />
+  }
 }

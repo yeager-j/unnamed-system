@@ -1,21 +1,12 @@
-import { derivePartyCompositionBySide } from "@workspace/game-v2/encounter"
-import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics"
 import {
   projectSpatialEncounterSnapshot,
   type SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
-import {
-  err,
-  ok,
-  type HydratedCharacter,
-  type Result,
-} from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { deriveViewer } from "@/lib/auth/derive-viewer"
 import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
 import { resolveSession } from "@/lib/game-engine-v2"
@@ -123,77 +114,4 @@ async function projectSnapshotCore(
       durableVersions,
     }),
   })
-}
-
-/** A durable combatant the watch viewer owns: the roster id it occupies (the
- *  key overlay events + combatant writes target) + its hydrated sheet. */
-export interface OwnedEncounterSheet {
-  participantId: ParticipantId
-  character: HydratedCharacter
-}
-
-/**
- * The hydrated sheets for the encounter's durable combatants the **signed-in
- * viewer owns** — what fills the watch view's left column. Empty for a
- * spectator, a signed-out viewer, or a member with no placed character here. A
- * viewer can own more than one combatant in an encounter (the column tabs
- * between them). The v2 twin of the v1 loader (UNN-535): ownership reads off
- * the already-surfaced `durableOwners` map, so only the viewer's own
- * characters hydrate — another player's full sheet is never loaded, let alone
- * shipped; the redacted snapshot remains the only PC data a non-owner receives.
- *
- * Each sheet hydrates with the encounter's party composition for its own side
- * (the `perPartyLineage` Attack-Roll scalers, UNN-367) and its zone's resolved
- * Enchantment effects — the same scaled values the DM drawer shows.
- *
- * **S0 degraded window (UNN-551):** the watch's owned-sheet column is a v1
- * `HydratedCharacter` render, and a durable combatant is now an `entity` row with
- * no `characters` twin — so `loadHydratedCharacterById` returns null and this
- * yields **empty** (the column simply doesn't render). It does not crash. The v2
- * owned-sheet read model — the resolved read-units the redesigned watch column
- * consumes — lands with the sheet slice (S2), which replaces this loader wholesale.
- */
-export async function loadOwnedEncounterSheets(
-  shortId: string,
-  viewerId: string
-): Promise<OwnedEncounterSheet[]> {
-  const loaded = await loadEncounterForSnapshot(shortId)
-  if (!loaded.ok) return []
-  const { row, loaded: session, durableOwners } = loaded.value
-
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
-  if (!instance) return []
-
-  const owned = session.session.participants.flatMap((participant) => {
-    const locator = session.locators.get(participant.id)
-    if (locator?.storage !== "durable") return []
-    if (durableOwners.get(locator.entityId) !== viewerId) return []
-    return [
-      {
-        participantId: participant.id,
-        characterId: locator.entityId,
-        side: participant.overlay.allegiance.side,
-        zoneId: instance.state.occupancy[participant.id]?.zoneId ?? "",
-      },
-    ]
-  })
-  if (owned.length === 0) return []
-
-  const view = resolveSession(session.session, instance.state)
-  const compositionBySide = derivePartyCompositionBySide(view)
-
-  const sheets = await Promise.all(
-    owned.map(async (pc) => {
-      const character = await loadHydratedCharacterById(pc.characterId, {
-        partyComposition: compositionBySide[pc.side],
-        zoneEffects: zoneEnchantmentEffects(
-          instance.state.enchantment,
-          pc.zoneId
-        ),
-      })
-      return character ? { participantId: pc.participantId, character } : null
-    })
-  )
-
-  return sheets.filter((sheet) => sheet !== null)
 }

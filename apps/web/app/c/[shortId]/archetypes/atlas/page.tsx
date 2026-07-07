@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
+import { LineageAtlas } from "@/components/atlas/lineage-atlas"
 import { slugForStepIndex } from "@/components/builder/builder-steps"
-import { LineageAtlas } from "@/components/character-sheet/archetypes/atlas/lineage-atlas"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { CharacterProvider } from "@/hooks/use-character"
 import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"

@@ -1,74 +1,76 @@
 "use client"
 
 import {
+  VALOR_MAX,
   VALOR_THRESHOLD_DESCRIPTIONS,
   VALOR_THRESHOLDS,
-} from "@workspace/game/engine"
-import { VALOR_MAX, type ValorState } from "@workspace/game/foundation"
+  type ValorState,
+} from "@workspace/game-v2/mechanics/knight/valor"
+import { cn } from "@workspace/ui/lib/utils"
 
-import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useEntityWrite } from "@/hooks/use-entity-write"
 
-import { ValorStepper } from "./knight/valor-stepper"
+import { GoldSegmentBar } from "../rail/gold-segment-bar"
+import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
 /**
- * Knight — Valor rendering. A row of 7 pips (0–7) shows the current score
- * with the fraction readout and the owner's +/- stepper alongside; a
- * threshold ladder beneath spells out which passive benefits are active.
- * Only the 3+ threshold is engine-applied (the Affinity card already shows
- * the Slash/Pierce/Strike → Resist change); the others are narrative and
- * not modelled as engine data.
- *
- * Reads `characterId` and `vitalsVersion` from {@link useCharacter} — the
- * widget-registry contract keeps `state` as the only structural prop, and
- * per-widget context lookups match the precedent set by Path of Dawn's
- * Luck-derived cap.
+ * Knight — Valor (the design's reference widget): the gold 7-segment gauge,
+ * the owner's ± stepper (Valor moves with table events — Knight's Protection,
+ * opportunity attacks — so the sheet tracks it manually), and the 5-row
+ * threshold ladder with rows at or under the current Valor lit and the rest
+ * dimmed. The 3+ row is engine-visible (it flips the physical affinities to
+ * Resist through the resolve fold); the others are narrative.
  */
 export function ValorWidget({ state }: { state: ValorState }) {
+  const { dispatch, pending } = useEntityWrite()
+
+  const adjust = (delta: number) =>
+    dispatch({
+      component: "mechanics",
+      mechanic: "valor",
+      transition: { op: "adjust", delta },
+    })
+
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium" aria-label="Current Valor">
-          Valor
-        </span>
-        <ol className="flex items-center gap-1" aria-hidden="true">
-          {Array.from({ length: VALOR_MAX }, (_, index) => (
-            <li
-              key={index}
-              className={
-                index < state.value
-                  ? "h-3 w-3 rounded-full bg-foreground"
-                  : "h-3 w-3 rounded-full border border-border"
-              }
-            />
-          ))}
-        </ol>
-        <span className="font-mono text-sm text-muted-foreground">
-          {state.value} / {VALOR_MAX}
-        </span>
-        <OwnerOnly>
-          <ValorStepper value={state.value} />
-        </OwnerOnly>
-      </div>
-      <ul className="flex flex-col gap-1.5 text-sm">
+    <>
+      <WidgetHeader name="Valor" value={`${state.value}/${VALOR_MAX}`} />
+      <GoldSegmentBar
+        segments={VALOR_MAX}
+        filled={state.value}
+        label={`${state.value} of ${VALOR_MAX} Valor`}
+        size="gauge"
+      />
+      <WidgetStepper
+        label="Valor"
+        onAdjust={adjust}
+        decrementDisabled={state.value === 0}
+        incrementDisabled={state.value >= VALOR_MAX}
+        pending={pending}
+      />
+      <ul className="flex flex-col gap-1">
         {VALOR_THRESHOLDS.map((threshold) => {
           const reached = state.value >= threshold
           return (
             <li
               key={threshold}
-              className={
-                reached
-                  ? "text-foreground"
-                  : "text-muted-foreground line-through decoration-muted-foreground/40"
-              }
+              className={cn(
+                "flex gap-2 text-xs leading-snug",
+                reached ? "text-foreground" : "opacity-40"
+              )}
             >
-              <span className="mr-2 inline-block w-6 font-mono">
+              <span
+                className={cn(
+                  "w-5 shrink-0 font-semibold tabular-nums",
+                  reached && "text-gold"
+                )}
+              >
                 {threshold}+
               </span>
-              {VALOR_THRESHOLD_DESCRIPTIONS[threshold]}
+              <span>{VALOR_THRESHOLD_DESCRIPTIONS[threshold]}</span>
             </li>
           )
         })}
       </ul>
-    </div>
+    </>
   )
 }
