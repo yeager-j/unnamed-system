@@ -49,7 +49,9 @@ import {
  */
 export async function endCombatAction(
   input: EndCombatInput
-): Promise<Result<{ version: number }, EndCombatError>> {
+): Promise<
+  Result<{ version: number; instanceVersion: number }, EndCombatError>
+> {
   const parsed = EndCombatSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -121,5 +123,8 @@ export async function endCombatAction(
   publishEncounterInstancePing(row.shortId, result.value.instanceVersion)
   revalidateEncounter(row)
 
-  return ok({ version: result.value.encounterVersion })
+  return ok({
+    version: result.value.encounterVersion,
+    instanceVersion: result.value.instanceVersion,
+  })
 }

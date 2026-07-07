@@ -201,7 +201,7 @@ const INPUT = {
 describe("endCombatAction — the composed combat-end (CD16)", () => {
   it("saves the SWEPT session: every overlay fresh, sides preserved", async () => {
     const result = await endCombatAction(INPUT)
-    expect(result).toEqual(ok({ version: 6 }))
+    expect(result).toEqual(ok({ version: 6, instanceVersion: 8 }))
 
     const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     const pc = blob.participants.find((p) => p.id === PC_ID)!

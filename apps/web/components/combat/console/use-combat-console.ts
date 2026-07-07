@@ -82,7 +82,9 @@ import { resolveSession } from "@/lib/game-engine-v2"
 export type EndCombatPerformer = (expected: {
   encounterVersion: number
   instanceVersion: number
-}) => Promise<Result<{ version: number }, EndCombatError>>
+}) => Promise<
+  Result<{ version: number; instanceVersion: number }, EndCombatError>
+>
 
 export function useCombatConsole(
   data: EncounterForDM,
@@ -192,8 +194,8 @@ export function useCombatConsole(
    * the dungeon turn advance when {@link options.endCombat} is the delve
    * performer). Dispatched through the encounter queue so it serializes behind
    * any in-flight session write; the Instance token reads its own ref (no
-   * in-flight move at end-time in practice). The server bumped the Instance row
-   * too, so its ref hand-advances on success.
+   * in-flight move at end-time in practice). The action returns the bumped
+   * Instance version, folded forward-only into its queue's token (UNN-567).
    */
   function endEncounter() {
     startTransition(async () => {
@@ -207,7 +209,7 @@ export function useCombatConsole(
         toast.error(combatErrorMessage(result.error))
         return
       }
-      instanceWrite.versionRef.current += 1
+      instanceWrite.bump(result.value.instanceVersion)
       router.refresh()
     })
   }

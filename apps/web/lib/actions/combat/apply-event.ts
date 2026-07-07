@@ -46,6 +46,7 @@ import { revalidateEncounter } from "../encounter/revalidate"
 import {
   ApplyCombatEventSchema,
   type AddParticipantWireEvent,
+  type AppliedCombatEvent,
   type ApplyCombatEventError,
   type ApplyCombatEventInput,
 } from "./apply-event.schema"
@@ -78,7 +79,7 @@ import {
  */
 export async function applyCombatEventAction(
   input: ApplyCombatEventInput
-): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
   const parsed = ApplyCombatEventSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -221,7 +222,7 @@ async function applyAddParticipant(
   event:
     | AddParticipantWireEvent
     | Extract<CombatEvent, { kind: "addParticipant" }>
-): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
   const setup = event.setup
   const zoneId = "zoneId" in setup ? setup.zoneId : undefined
 
@@ -292,7 +293,7 @@ async function applyRemoveParticipant(
   expectedVersion: number,
   expectedInstanceVersion: number | undefined,
   event: Extract<CombatEvent, { kind: "removeParticipant" }>
-): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
   if (expectedInstanceVersion === undefined) {
     return err("missing-instance-version")
   }
@@ -318,7 +319,9 @@ async function applyRemoveParticipant(
  * The shared two-row commit for the paired roster cross-writes: session blob +
  * Instance state in one {@link guardMany} transaction, guarded on their own
  * version tokens. Returns the bumped **encounter** version (the token the
- * session-mirroring client advances) and pings both streams.
+ * session-mirroring client advances) plus the bumped **Instance** version (the
+ * client folds it into the Instance queue's ref — UNN-567), and pings both
+ * streams.
  */
 async function persistPaired(
   row: EncounterRow,
@@ -326,37 +329,42 @@ async function persistPaired(
   loadedSession: LoadedSession,
   expectedVersion: number,
   expectedInstanceVersion: number
-): Promise<Result<{ version: number }, ApplyCombatEventError>> {
+): Promise<Result<AppliedCombatEvent, ApplyCombatEventError>> {
   const stored = saveSession(next.session, loadedSession.locators)
   if (!stored.ok) return err("locator-missing")
 
-  const result = await guardMany<{ version: number }, ApplyCombatEventError>(
-    async (tx: WriteExecutor) => {
-      const enc = await saveEncounterSession(
-        row.id,
-        stored.value,
-        expectedVersion,
-        tx
-      )
-      if (!enc.ok) return enc
-      const inst = await saveMapInstanceState(
-        tx,
-        row.mapInstanceId,
-        next.mapInstance,
-        expectedInstanceVersion
-      )
-      if (!inst.ok) return inst
-      return ok({ version: enc.value.version })
-    }
-  )
+  const result = await guardMany<
+    { version: number; instanceVersion: number },
+    ApplyCombatEventError
+  >(async (tx: WriteExecutor) => {
+    const enc = await saveEncounterSession(
+      row.id,
+      stored.value,
+      expectedVersion,
+      tx
+    )
+    if (!enc.ok) return enc
+    const inst = await saveMapInstanceState(
+      tx,
+      row.mapInstanceId,
+      next.mapInstance,
+      expectedInstanceVersion
+    )
+    if (!inst.ok) return inst
+    return ok({
+      version: enc.value.version,
+      instanceVersion: inst.value.version,
+    })
+  })
   if (!result.ok) return result
 
   publishEncounterPing(row.shortId, {
     version: result.value.version,
     status: row.status,
   })
+  publishEncounterInstancePing(row.shortId, result.value.instanceVersion)
   revalidateEncounter(row)
-  return ok({ version: result.value.version })
+  return ok(result.value)
 }
 
 /**

@@ -56,7 +56,9 @@ import { revalidateDungeon } from "./revalidate"
  */
 export async function endDungeonCombatAction(
   input: EndDungeonCombatInput
-): Promise<Result<{ version: number }, EndDungeonCombatError>> {
+): Promise<
+  Result<{ version: number; instanceVersion: number }, EndDungeonCombatError>
+> {
   const parsed = EndDungeonCombatSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -155,5 +157,8 @@ export async function endDungeonCombatAction(
   })
   revalidateDungeon(dungeon)
 
-  return ok({ version: result.value.encounterVersion })
+  return ok({
+    version: result.value.encounterVersion,
+    instanceVersion: result.value.instanceVersion,
+  })
 }

@@ -228,7 +228,7 @@ const INPUT = {
 describe("endDungeonCombatAction — three-row composed combat-end (PR11c)", () => {
   it("sweeps the session, prunes ephemeral tokens, keeps PC token in place", async () => {
     const result = await endDungeonCombatAction(INPUT)
-    expect(result).toEqual(ok({ version: 6 }))
+    expect(result).toEqual(ok({ version: 6, instanceVersion: 8 }))
 
     const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
     expect(blob.participants.find((p) => p.id === PC_ID)!.overlay).toEqual(

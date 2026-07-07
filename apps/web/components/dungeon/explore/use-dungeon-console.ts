@@ -139,7 +139,7 @@ export function useDungeonConsole(
         toast.error(dungeonErrorMessage(result.error))
         return
       }
-      instanceWrite.versionRef.current = result.value.instanceVersion
+      instanceWrite.bump(result.value.instanceVersion)
       router.refresh()
     })
   }

@@ -149,11 +149,11 @@ describe("dispatchCombatEvent", () => {
     expect(result.current.instanceWrite.versionRef.current).toBe(21)
   })
 
-  it("hand-advances the instance ref on a placed add but not a zone-less one", async () => {
+  it("folds the returned instance version on a placed add but not a zone-less one", async () => {
     const { result } = renderQueues()
     const mirrored: ConsoleOptimisticAction[] = []
     const entity = { id: "e-1", components: {} }
-    applyAction.mockResolvedValue(ok({ version: 6 }))
+    applyAction.mockResolvedValue(ok({ version: 6, instanceVersion: 12 }))
 
     await act(async () => {
       await dispatchCombatEvent({
@@ -167,7 +167,8 @@ describe("dispatchCombatEvent", () => {
         instanceWrite: result.current.instanceWrite,
       })
     })
-    expect(result.current.instanceWrite.versionRef.current).toBe(10)
+    // The paired action reported the bumped Instance row — folded, not assumed.
+    expect(result.current.instanceWrite.versionRef.current).toBe(12)
     expect(mirrored).toEqual([
       {
         kind: "addPaired",
@@ -189,8 +190,9 @@ describe("dispatchCombatEvent", () => {
         instanceWrite: result.current.instanceWrite,
       })
     })
-    // Zone-less add: session-only write — the instance ref must not move.
-    expect(result.current.instanceWrite.versionRef.current).toBe(10)
+    // Zone-less add: session-only write returns no instanceVersion — the
+    // instance ref must not move.
+    expect(result.current.instanceWrite.versionRef.current).toBe(12)
     expect(mirrored[1]).toEqual({
       kind: "addPaired",
       setup: { id: participantId, side: "enemies", entity },
@@ -227,10 +229,10 @@ describe("dispatchCombatEvent", () => {
     )
   })
 
-  it("always advances the instance ref on removeParticipant (both rows persist)", async () => {
+  it("folds the returned instance version on removeParticipant (both rows persist)", async () => {
     const { result } = renderQueues()
     const mirrored: ConsoleOptimisticAction[] = []
-    applyAction.mockResolvedValue(ok({ version: 6 }))
+    applyAction.mockResolvedValue(ok({ version: 6, instanceVersion: 12 }))
 
     await act(async () => {
       await dispatchCombatEvent({
@@ -243,7 +245,7 @@ describe("dispatchCombatEvent", () => {
     })
 
     expect(mirrored).toEqual([{ kind: "removePaired", participantId }])
-    expect(result.current.instanceWrite.versionRef.current).toBe(10)
+    expect(result.current.instanceWrite.versionRef.current).toBe(12)
     expect(result.current.encounterWrite.versionRef.current).toBe(6)
   })
 })
