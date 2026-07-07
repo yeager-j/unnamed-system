@@ -1,5 +1,11 @@
 {
   "enabledPlugins": {
     "ably@ably-agent-skills": true
+  },
+  "permissions": {
+    "additionalDirectories": [
+      "/Users/jackson/Developer/Showtime/rules",
+      "/Users/jackson/Developer/Showtime/artifacts"
+    ]
   }
 }

@@ -1,6 +1,6 @@
 # Unnamed System — Character Sheet App
 
-A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in `packages/rules` (an Obsidian vault with a comprehensive `CLAUDE.md` index). The product spec is in that vault's `PRD.md`.
+A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in a **sibling Obsidian-vault repo** at `/Users/jackson/Developer/Showtime/rules` (its own git repo with a comprehensive `CLAUDE.md` index — extracted from `packages/rules` 2026-07-07).
 
 ## Installation & Running the App
 
@@ -105,13 +105,21 @@ packages/game-v2/  Capability/component engine (@workspace/game-v2), successor t
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
-packages/rules/     Obsidian vault with game mechanics rules
-docs/               Long-form feature specs (PRD/ADR), one folder per feature
-                    (e.g. docs/initiative-tracker/). Canonical source of truth;
-                    Linear docs are stubs linking here. docs/brand/ holds the
-                    visual-identity brand guide ("mystical theater", dark-only:
+docs/               Long-form feature specs (PRD/ADR/technical design), one folder
+                    per feature (e.g. docs/initiative-tracker/). Canonical source
+                    of truth; Linear docs are stubs linking here. docs/brand/ holds
+                    the visual-identity brand guide ("mystical theater", dark-only:
                     indigo hero, gold accent, DM Serif Display + Hanken Grotesk).
+                    Specs that gate code live HERE; heavy design artifacts do not
+                    (see Sibling repos below).
 ```
+
+**Sibling repos** (each its own git repo, readable via `additionalDirectories` in `.claude/settings.json`):
+
+- `/Users/jackson/Developer/Showtime/rules` — the game-rules Obsidian vault (extracted from `packages/rules`, history preserved). Read its `CLAUDE.md` index first, as before.
+- `/Users/jackson/Developer/Showtime/artifacts` — write-once design handoffs/prototypes/screenshots, grouped by feature (e.g. `artifacts/campaign-planner/design_handoff_campaign_clock/`). PRDs point here.
+
+The app repo is slated to move to `/Users/jackson/Developer/Showtime/showtime-app` (making these true siblings); when creating **worktrees**, put them under `Showtime/` as siblings so any relative pointers keep resolving.
 
 Inside `apps/web/`:
 
