@@ -119,7 +119,7 @@ docs/               Long-form feature specs (PRD/ADR/technical design), one fold
 - `/Users/jackson/Developer/Showtime/rules` — the game-rules Obsidian vault (extracted from `packages/rules`, history preserved). Read its `CLAUDE.md` index first, as before.
 - `/Users/jackson/Developer/Showtime/artifacts` — write-once design handoffs/prototypes/screenshots, grouped by feature (e.g. `artifacts/campaign-planner/design_handoff_campaign_clock/`). PRDs point here.
 
-The app repo is slated to move to `/Users/jackson/Developer/Showtime/showtime-app` (making these true siblings); when creating **worktrees**, put them under `Showtime/` as siblings so any relative pointers keep resolving.
+The app repo lives at `/Users/jackson/Developer/Showtime/showtime-app` (moved 2026-07-07 from `~/Developer/unnamed-system`, making these true siblings); when creating **worktrees**, put them under `Showtime/` as siblings so any relative pointers keep resolving.
 
 Inside `apps/web/`:
 

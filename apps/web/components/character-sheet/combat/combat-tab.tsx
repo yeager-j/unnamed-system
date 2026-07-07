@@ -49,7 +49,7 @@ export function CombatTab({ cells }: { cells: AffinityStripCell[] }) {
         {skills.length > 0 && attributes ? (
           <section aria-label="Skills" className="flex flex-col gap-2">
             <SectionLabel>Skills · {skills.length}</SectionLabel>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
               {skills.map((skill) => (
                 <SkillCard
                   key={skill.skill.key}
