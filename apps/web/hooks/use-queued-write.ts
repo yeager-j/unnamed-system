@@ -5,42 +5,37 @@ import { useRef, type RefObject } from "react"
 import { type Result } from "@workspace/game/foundation"
 
 import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
+import { createWriteQueue, type WriteQueueTokenPort } from "./write-queue"
 
 /**
- * The single queued versioned-write primitive the encounter surfaces compose
- * through (UNN-378) — the *receive half* of the optimistic-concurrency protocol
- * the DM console, encounter setup, and the player's own-combat-event surface all
- * used to hand-roll with diverging, buggy semantics. It owns three things and
- * nothing else:
+ * The single-row façade over the queued versioned-write core (UNN-378;
+ * UNN-567) — the *receive half* of the optimistic-concurrency protocol the DM
+ * console, encounter setup, and the dungeon console compose for their
+ * encounter/Instance rows. The protocol itself (serialized dispatch, monotonic
+ * token accounting, one-shot stale-retry) lives in {@link createWriteQueue};
+ * this hook owns only the React wiring:
  *
  * 1. **A monotonic version ref** ({@link useMonotonicVersionRef}) synced
- *    forward-only from `serverVersion`, so a stale render frame can never roll
- *    the token back below one a write already advanced.
- * 2. **A serialized dispatch queue** (a promise chain, the same shape
- *    `useDebouncedAutoSave`'s `saveQueueRef` uses): each `enqueue` chains behind
- *    the in-flight write and reads the **fresh** `versionRef.current` its
- *    predecessor produced, so back-to-back dispatches can't collide on one stale
- *    `expectedVersion` — the second tap within a round-trip lands instead of
- *    being spuriously rejected as `stale`.
- * 3. **One-shot stale-retry** (when `refetchVersion` is supplied): on a genuine
- *    cross-writer `"stale"`, refetch the current server version, forward the ref,
- *    and retry the action once; a second `"stale"` is a real conflict and falls
- *    through to the caller's error path. Retrying is safe because the encounter
- *    Server Action re-reduces the *event* onto the latest persisted session.
+ *    forward-only from `serverVersion`, exposed as `versionRef` so callers can
+ *    read it for an optimistic frame's expected version, hand it to the
+ *    realtime ping compare, or ride it as the *other* row's token in a paired
+ *    write (`dispatch-event.ts` reads both).
+ * 2. **The token port + spine** handed to the core — the port's `bump` is the
+ *    forward-only set, also returned as {@link UseQueuedWriteReturn.bump} for
+ *    folding a paired action's returned sibling version (never hand-advance by
+ *    `+= 1`; fold what the server returned).
  *
- * The hook owns **no** `useTransition`, `useOptimistic`, toast, `router.refresh()`,
- * or disabling — those stay the caller's. It returns the version ref (read it for
- * the optimistic frame's expected version, hand it to the realtime ping compare)
- * and `enqueue`.
+ * The hook owns **no** `useTransition`, `useOptimistic`, toast,
+ * `router.refresh()`, or disabling — those stay the caller's.
  *
- * **Reconcile cadence.** Each caller still `router.refresh()`es per write, inside
- * its own pending transition, exactly as before — that keeps each transition's
- * optimistic frame mounted until its truth lands (no flicker). Collapsing a burst
- * of N rapid clicks into a single end-of-burst reconcile is deliberately *not*
- * here: it only pays off once controls stop disabling on `isPending` (the
- * spam-click follow-up), and doing it correctly means rethinking the per-transition
- * optimistic revert — entangled enough to belong with that work. The queue this
- * hook adds is the prerequisite that unblocks it.
+ * **Reconcile cadence.** Each caller still `router.refresh()`es per write,
+ * inside its own pending transition, exactly as before — that keeps each
+ * transition's optimistic frame mounted until its truth lands (no flicker).
+ * Collapsing a burst of N rapid clicks into a single end-of-burst reconcile is
+ * deliberately *not* here: it only pays off once controls stop disabling on
+ * `isPending` (the spam-click follow-up), and doing it correctly means
+ * rethinking the per-transition optimistic revert — entangled enough to belong
+ * with that work.
  */
 export interface UseQueuedWriteArgs {
   serverVersion: number
@@ -53,6 +48,9 @@ export interface UseQueuedWriteArgs {
 
 export interface UseQueuedWriteReturn {
   versionRef: RefObject<number>
+  /** Forward-only fold of a server-returned version into the token — for
+   *  paired writes whose action bumped this row as a side effect. */
+  bump: (version: number) => void
   enqueue: <TSuccess extends { version: number }, TError extends string>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ) => Promise<Result<TSuccess, TError>>
@@ -63,39 +61,18 @@ export function useQueuedWrite({
   refetchVersion,
 }: UseQueuedWriteArgs): UseQueuedWriteReturn {
   const versionRef = useMonotonicVersionRef(serverVersion)
-  const queueRef = useRef<Promise<unknown>>(Promise.resolve())
+  const chainRef = useRef<Promise<void>>(Promise.resolve())
 
-  function enqueue<TSuccess extends { version: number }, TError extends string>(
-    action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-  ): Promise<Result<TSuccess, TError>> {
-    const run = queueRef.current.then(() => dispatch(action))
-    // Keep the queue resolved even if a dispatch rejects, so the next enqueue
-    // still flows behind it rather than inheriting a rejected chain.
-    queueRef.current = run.catch(() => {})
-    return run
+  // The port and core are recreated per render (they're cheap closures); all
+  // state lives in the two refs above, and a fresh closure means the core
+  // always sees this render's `refetchVersion` without a staleness bridge.
+  const token: WriteQueueTokenPort = {
+    read: () => versionRef.current,
+    bump: (version) => {
+      if (version > versionRef.current) versionRef.current = version
+    },
   }
+  const queue = createWriteQueue({ token, refetchVersion, chain: chainRef })
 
-  async function dispatch<
-    TSuccess extends { version: number },
-    TError extends string,
-  >(
-    action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
-  ): Promise<Result<TSuccess, TError>> {
-    const first = await action(versionRef.current)
-    if (first.ok) {
-      versionRef.current = first.value.version
-      return first
-    }
-    if (first.error !== "stale" || !refetchVersion) return first
-
-    const fresh = await refetchVersion()
-    if (fresh === null) return first
-    if (fresh > versionRef.current) versionRef.current = fresh
-
-    const second = await action(versionRef.current)
-    if (second.ok) versionRef.current = second.value.version
-    return second
-  }
-
-  return { versionRef, enqueue }
+  return { versionRef, bump: token.bump, enqueue: queue.enqueue }
 }

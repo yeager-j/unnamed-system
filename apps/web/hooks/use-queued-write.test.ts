@@ -167,4 +167,14 @@ describe("useQueuedWrite", () => {
     await expect(next!).resolves.toEqual(ok({ version: 2 }))
     expect(result.current.versionRef.current).toBe(2)
   })
+
+  it("bump folds forward-only — a paired write's sibling version advances, a stale one is dropped", () => {
+    const { result } = renderHook(() => useQueuedWrite({ serverVersion: 4 }))
+
+    act(() => result.current.bump(7))
+    expect(result.current.versionRef.current).toBe(7)
+
+    act(() => result.current.bump(5))
+    expect(result.current.versionRef.current).toBe(7)
+  })
 })
