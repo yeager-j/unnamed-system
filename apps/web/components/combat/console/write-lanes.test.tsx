@@ -214,6 +214,7 @@ describe("useCombatantLanes — channels + pings", () => {
     const { rendered, onFresher } = renderLanes()
     act(() => {
       rendered.result.current.lanes.onPcPing("char-1", {
+        kind: "entity",
         versions: { vitals: 9 },
       })
     })
@@ -225,7 +226,19 @@ describe("useCombatantLanes — channels + pings", () => {
     act(() => {
       // The seeding effect has forwarded the map to the meta's vitalsVersion 3.
       rendered.result.current.lanes.onPcPing("char-1", {
+        kind: "entity",
         versions: { vitals: 3 },
+      })
+    })
+    expect(onFresher).not.toHaveBeenCalled()
+  })
+
+  it("onPcPing ignores v1 characters-row pings — their counters aren't the durable vitals token", () => {
+    const { rendered, onFresher } = renderLanes()
+    act(() => {
+      rendered.result.current.lanes.onPcPing("char-1", {
+        kind: "character",
+        versions: { vitals: 9 },
       })
     })
     expect(onFresher).not.toHaveBeenCalled()

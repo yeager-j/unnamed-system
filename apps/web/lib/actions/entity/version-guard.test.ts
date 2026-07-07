@@ -32,8 +32,8 @@ vi.mock("@/lib/db/client", () => ({
   },
 }))
 vi.mock("@/lib/realtime/publish", () => ({
-  publishCharacterPing: (shortId: string, versions: unknown) =>
-    publishCharacterPing(shortId, versions),
+  publishCharacterPing: (shortId: string, kind: string, versions: unknown) =>
+    publishCharacterPing(shortId, kind, versions),
 }))
 
 beforeEach(() => {
@@ -52,7 +52,9 @@ describe("bumpEntityVersionGuarded — disjoint per-class column footprint", () 
     expect(result).toEqual({ ok: true, value: { version: 8 } })
     const keys = Object.keys(setArg.mock.calls[0]![0]).sort()
     expect(keys).toEqual(["vitals", "vitalsVersion"])
-    expect(publishCharacterPing).toHaveBeenCalledWith("s1", { vitals: 8 })
+    expect(publishCharacterPing).toHaveBeenCalledWith("s1", "entity", {
+      vitals: 8,
+    })
   })
 
   it("a progression write SETs only its component column + the progression token", async () => {

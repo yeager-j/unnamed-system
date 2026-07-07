@@ -127,7 +127,7 @@ export function DungeonExploreBody({
           domain="character"
           shortId={character.shortId}
           onPing={(data) => {
-            if (parseCharacterPing(data)) scheduleRefresh()
+            if (parseCharacterPing(data, "any")) scheduleRefresh()
           }}
         />
       ))}

@@ -171,7 +171,7 @@ export async function applyAdjustExhaustionForCharacter(
   if (updated.length === 0) return staleOrMissing(db, characterId)
 
   const { exhaustion, vitalsVersion, shortId } = updated[0]!
-  publishCharacterPing(shortId, { vitals: vitalsVersion })
+  publishCharacterPing(shortId, "character", { vitals: vitalsVersion })
 
   return ok({
     value: exhaustion,

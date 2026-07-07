@@ -29,7 +29,6 @@ import {
   type PingedVersions,
 } from "./character-version-sync"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
-import { useCharacterVersionBroadcast } from "./use-character-versions-broadcast"
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveArgs,
@@ -58,13 +57,13 @@ import {
  * On a read-only sheet nothing dispatches, so `useCharacter()` simply returns
  * the never-mutated server value.
  *
- * Also mounts both remote-change listeners — the per-character
- * `BroadcastChannel` (UNN-203, cross-tab) and the Ably invalidation channel
- * (UNN-372, cross-user) — funneled through one version-compare: a ping whose
+ * Also mounts the remote-change listener — the Ably invalidation channel
+ * (UNN-372; cross-user and, since the UNN-203 `BroadcastChannel` was retired
+ * in UNN-569, cross-tab too) — behind one version-compare: a ping whose
  * versions beat the local refs forwards them and `router.refresh()`es; the
- * writer's own tab (and any tab the other transport already reached) sees
- * nothing fresher and skips. Works signed-out too: the public sheet
- * subscribes by knowledge of the shortId, same as the snapshot API.
+ * writer's own tab sees nothing fresher and skips. Works signed-out too: the
+ * public sheet subscribes by knowledge of the shortId, same as the snapshot
+ * API.
  */
 
 const CharacterContext = createContext<HydratedCharacter | null>(null)
@@ -135,20 +134,18 @@ export function CharacterProvider({
     },
   }
 
-  // The shared remote-change handler (UNN-372): both transports — the Ably
-  // ping and the UNN-203 cross-tab broadcast — funnel here, so a tab whose
-  // refs are already current (the writer itself, or a tab the other transport
-  // reached first) skips the redundant refresh.
+  // The remote-change handler (UNN-372): a tab whose refs are already current
+  // (the writer itself, or a tab a refresh already reached) skips the
+  // redundant refresh.
   function applyRemoteVersions(versions: PingedVersions) {
     if (tokens.forward(versions)) router.refresh()
   }
 
-  useCharacterVersionBroadcast(character.id, applyRemoteVersions)
   useRealtimeChannel({
     domain: "character",
     shortId: character.shortId,
     onPing: (data) => {
-      const versions = parseCharacterPing(data)
+      const versions = parseCharacterPing(data, "character")
       if (versions) applyRemoteVersions(versions)
     },
     onReconnect: () => router.refresh(),
@@ -190,7 +187,7 @@ export function useCharacterAutoSave<TValue, TError extends string>(
     "saveQueueRef" | "dispatchWrite"
   > & {
     /** Owning character — used by the silent-retry path to refetch the fresh
-     *  per-class version after a `"stale"` and by the broadcast pipeline. */
+     *  per-class version after a `"stale"`. */
     characterId: string
     /** The edit surface this editor mutates; its per-write-class token + queue
      *  resolve from {@link EDIT_SURFACE_CLASS} (UNN-233). */

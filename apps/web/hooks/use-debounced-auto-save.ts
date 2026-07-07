@@ -47,11 +47,10 @@ import { type Result } from "@workspace/game/foundation"
  * Without a shared queue the hook still serializes its own writes via an
  * internal fallback queue.
  *
- * Stale handling is the wrapper's dispatch pipeline's business: the sheet's
- * `dispatchCharacterWriteWithRetry` silently retries once + broadcasts to
- * sibling tabs (UNN-203); the entity door surfaces `"stale"` to the failure
- * branch directly (UNN-556). Either way this hook's failure branch means a
- * real conflict, not a sibling-component race.
+ * Stale handling is the wrapper's dispatch pipeline's business: both the v1
+ * `dispatchCharacterWriteWithRetry` and the entity door's retrying dispatch
+ * silently retry once on `"stale"` (UNN-203/UNN-568), so this hook's failure
+ * branch means a real conflict, not a sibling-component race.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
  * hook only checks reference equality for last-saved skips, so a consumer
@@ -88,10 +87,10 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   saveQueueRef?: RefObject<Promise<void>>
   /**
    * The write pipeline `save` dispatches through — owned by the provider-bound
-   * wrapper, so the hook itself is storage-blind (UNN-556). The sheet's
-   * `useCharacterAutoSave` supplies the v1 silent-retry + cross-tab-broadcast
-   * pipeline (`dispatchCharacterWriteWithRetry`); the builder's
-   * `useEntityAutoSave` supplies the entity door's plain guarded dispatch.
+   * wrapper, so the hook itself is storage-blind (UNN-556). The v1 sheet's
+   * `useCharacterAutoSave` supplies the silent-retry pipeline
+   * (`dispatchCharacterWriteWithRetry`); the builder's `useEntityAutoSave`
+   * supplies the entity door's plain guarded dispatch.
    * Contract: call `action` with the latest class token and update the shared
    * `versionRef` from a success before resolving.
    */
