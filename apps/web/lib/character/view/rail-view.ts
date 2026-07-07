@@ -1,0 +1,155 @@
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
+import { renderFormula } from "@workspace/game-v2/combat/formula"
+import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
+import { getMechanic } from "@workspace/game-v2/mechanics"
+import {
+  canLevelUp,
+  MAX_LEVEL,
+  VICTORIES_PER_LEVEL,
+} from "@workspace/game-v2/progression/leveling"
+import { PRISMA_HEAL } from "@workspace/game-v2/resources/derive"
+import { MAX_EXHAUSTION_LEVEL } from "@workspace/game-v2/resources/exhaustion.schema"
+
+import type { CharacterProfile } from "@/lib/character/load"
+
+/**
+ * The sheet's persistent **left rail** view model (UNN-557; design handoff
+ * "The Left Rail") — one pure shaping pass from the loaded pair to exactly what
+ * the rail renders, so the components stay layout-only. Sections are `null`
+ * when their read-unit didn't resolve (a data-shy entity renders a shorter
+ * rail, never a crash).
+ */
+export interface RailView {
+  name: string
+  pronouns: string | null
+  portraitUrl: string | null
+  level: number | null
+  archetype: RailArchetype | null
+  hp: RailPool | null
+  sp: RailPool | null
+  victories: RailVictories | null
+  attributes: AttributeScores | null
+  prisma: RailPrisma | null
+  exhaustion: RailExhaustion | null
+}
+
+export interface RailPool {
+  current: number
+  max: number
+}
+
+/** The archetype pill + its switch menu (mechanic names as hints). */
+export interface RailArchetype {
+  activeKey: string | null
+  activeName: string | null
+  activeRank: number | null
+  options: RailArchetypeOption[]
+}
+
+export interface RailArchetypeOption {
+  key: string
+  name: string
+  rank: number
+  mechanicName: string | null
+  isActive: boolean
+}
+
+export interface RailVictories {
+  banked: number
+  threshold: number
+  /** Victories still needed for the next level (0 when level-up is available). */
+  toNext: number
+  canLevelUp: boolean
+  atMaxLevel: boolean
+}
+
+export interface RailPrisma {
+  current: number
+  max: number
+  /** The heal-per-charge display string (e.g. `"2d8 + 4"`). */
+  healFormula: string
+}
+
+export interface RailExhaustion {
+  level: number
+  max: number
+  description: string
+}
+
+export function buildRailView(
+  profile: Pick<CharacterProfile, "name" | "pronouns" | "portraitUrl">,
+  entity: Entity,
+  resolved: ResolvedEntity,
+  getArchetype: (key: string) => Archetype | undefined
+): RailView {
+  const { archetypes, vitals, skillPool, attributes, resources } =
+    resolved.components
+  // Level + Victories are authored state (no derivation), so they read off the
+  // entity — the resolve fold emits no `level` read-unit.
+  const level = entity.components.level
+
+  return {
+    name: profile.name,
+    pronouns: profile.pronouns,
+    portraitUrl: profile.portraitUrl,
+    level: level?.value ?? null,
+    archetype: archetypes ? railArchetype(archetypes, getArchetype) : null,
+    hp: vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null,
+    sp: skillPool
+      ? { current: skillPool.currentSP, max: skillPool.maxSP }
+      : null,
+    victories: level
+      ? {
+          banked: level.victories,
+          threshold: VICTORIES_PER_LEVEL,
+          toNext: Math.max(0, VICTORIES_PER_LEVEL - level.victories),
+          canLevelUp: canLevelUp(level),
+          atMaxLevel: level.value >= MAX_LEVEL,
+        }
+      : null,
+    attributes: attributes ?? null,
+    prisma: resources
+      ? {
+          current: resources.currentPrisma,
+          max: resources.maxPrisma,
+          healFormula: renderFormula(PRISMA_HEAL),
+        }
+      : null,
+    exhaustion: resolved.components.exhaustion
+      ? {
+          level: resolved.components.exhaustion.level,
+          max: MAX_EXHAUSTION_LEVEL,
+          description: resolved.components.exhaustion.description,
+        }
+      : null,
+  }
+}
+
+function railArchetype(
+  archetypes: NonNullable<ResolvedEntity["components"]["archetypes"]>,
+  getArchetype: (key: string) => Archetype | undefined
+): RailArchetype {
+  const options = archetypes.roster.map((entry) => {
+    const definition = getArchetype(entry.key)
+    const mechanic = definition?.mechanic
+      ? getMechanic(definition.mechanic)
+      : undefined
+    return {
+      key: entry.key,
+      name: definition?.name ?? entry.key,
+      rank: entry.rank,
+      mechanicName: mechanic?.displayName ?? null,
+      isActive: entry.key === archetypes.active,
+    }
+  })
+
+  const active = options.find((option) => option.isActive)
+
+  return {
+    activeKey: archetypes.active,
+    activeName: active?.name ?? null,
+    activeRank: active?.rank ?? null,
+    options,
+  }
+}
