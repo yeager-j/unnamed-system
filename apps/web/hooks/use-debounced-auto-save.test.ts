@@ -13,10 +13,6 @@ vi.mock("../lib/actions/character-versions", () => ({
   getCharacterVersionsAction: vi.fn(),
 }))
 
-vi.mock("./use-character-versions-broadcast", () => ({
-  broadcastCharacterVersion: vi.fn(),
-}))
-
 type SaveCall = {
   value: string
   expectedVersion: number
@@ -58,9 +54,9 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 /**
- * The sheet wrapper's dispatch pipeline (silent retry + broadcast), closed over
- * a test version ref — what `useCharacterAutoSave` supplies in production, so
- * these tests keep exercising the hook + pipeline integration end-to-end.
+ * The sheet wrapper's dispatch pipeline (silent retry), closed over a test
+ * version ref — what `useCharacterAutoSave` supplies in production, so these
+ * tests keep exercising the hook + pipeline integration end-to-end.
  */
 function wrapperDispatch(versionRef: { current: number }) {
   return (

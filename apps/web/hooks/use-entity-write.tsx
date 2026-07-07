@@ -26,11 +26,16 @@ import { applyEntityWrite, ENTITY_WRITERS } from "@/lib/entity/commit/writers"
 import { resolveEntity } from "@/lib/game-engine-v2"
 
 import {
+  forwardPingedVersions,
+  parseCharacterPing,
+} from "./character-version-sync"
+import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveArgs,
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
 import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
+import { useRealtimeChannel } from "./use-realtime-channel"
 import {
   createWriteQueue,
   runVersionedWrite,
@@ -63,6 +68,11 @@ import {
  * - **The door** — every write goes to `applyEntityWriteAction` (the entity
  *   door). Column actions (name, portrait — the app-column species) stay
  *   classic per-field leaves via {@link useEntityColumnSave}.
+ *
+ * It also mounts the **cross-writer reconcile channel** (UNN-569): the
+ * `character` realtime listener whose pings forward the class tokens and
+ * `router.refresh()` only when genuinely fresher — see
+ * {@link forwardPingedVersions}.
  *
  * Widget blindness: components receive {@link useEntityWrite}'s `dispatch` /
  * {@link useEntityAutoSave} from this provider and never import the Server
@@ -174,6 +184,24 @@ export function EntityWriteProvider({
 
   const runVersioned: ClassWriteRun = (versionClass, action) =>
     runVersionedWrite(tokenFor(versionClass), refetchFor(versionClass), action)
+
+  // The cross-writer reconcile channel (UNN-569): every guarded entity commit
+  // pings `character:{shortId}` with its class's new version, so a genuinely
+  // fresher ping — the DM console damaging this PC mid-combat, a sibling tab —
+  // forwards the tokens and refreshes; echoes of this tab's own writes are
+  // already absorbed and no-op. Inert without ABLY_API_KEY, like every listener.
+  const router = useRouter()
+  useRealtimeChannel({
+    domain: "character",
+    shortId: profile.shortId,
+    onPing: (data) => {
+      const versions = parseCharacterPing(data)
+      if (versions && forwardPingedVersions(versionRefs, versions)) {
+        router.refresh()
+      }
+    },
+    onReconnect: () => router.refresh(),
+  })
 
   const [frame, applyLocal] = useOptimistic(
     { entity: loaded.entity, resolved: loaded.resolved },

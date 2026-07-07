@@ -21,8 +21,25 @@ import {
 
 const { routerRefresh } = vi.hoisted(() => ({ routerRefresh: vi.fn() }))
 
+/** The provider's channel subscription, captured by the hook mock so tests can
+ *  feed pings/reconnects as if Ably delivered them. */
+interface CapturedChannel {
+  domain: string
+  shortId: string
+  onPing: (data: unknown) => void
+  onReconnect?: () => void
+}
+const { capturedChannel } = vi.hoisted(() => ({
+  capturedChannel: { current: null as CapturedChannel | null },
+}))
+
 vi.mock("@/lib/actions/entity/apply-entity-write", () => ({
   applyEntityWriteAction: vi.fn(),
+}))
+vi.mock("./use-realtime-channel", () => ({
+  useRealtimeChannel: (args: CapturedChannel) => {
+    capturedChannel.current = args
+  },
 }))
 vi.mock("@/lib/actions/entity/versions", () => ({
   getEntityClassVersionAction: vi.fn(),
@@ -82,6 +99,7 @@ beforeEach(() => {
   versionAction.mockReset()
   routerRefresh.mockReset()
   vi.mocked(toast.error).mockReset()
+  capturedChannel.current = null
 })
 
 describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
@@ -183,6 +201,65 @@ describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
     )
 
     await act(async () => releaseIdentity(commit(2)))
+  })
+})
+
+describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () => {
+  const ping = (data: unknown) =>
+    act(() => capturedChannel.current!.onPing(data))
+
+  it("subscribes to the character channel by the profile's shortId", () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    expect(capturedChannel.current).toMatchObject({
+      domain: "character",
+      shortId: "abc123",
+    })
+  })
+
+  it("a genuinely fresher ping refreshes and forwards the class token to the next write", async () => {
+    writeAction.mockResolvedValueOnce(commit(8))
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    ping({ versions: { vitals: 7 } })
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      result.current.dispatch(damage)
+    })
+    await flush()
+
+    // The dispatch read the pinged token — no stale round-trip.
+    expect(writeAction).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedVersion: 7 })
+    )
+    expect(versionAction).not.toHaveBeenCalled()
+  })
+
+  it("suppresses echoes and junk: nothing fresher never refreshes", () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    ping({ versions: { vitals: 1 } }) // equal to the known token
+    ping({ versions: { bogus: 99 } }) // foreign key
+    ping("junk") // malformed payload
+    expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("an echo of this tab's own committed write does not refresh", async () => {
+    writeAction.mockResolvedValueOnce(commit(2))
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage)
+    })
+    await flush()
+
+    ping({ versions: { vitals: 2 } })
+    expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("refreshes once a dropped connection comes back", () => {
+    renderHook(() => useEntityWrite(), { wrapper })
+    act(() => capturedChannel.current!.onReconnect?.())
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
   })
 })
 

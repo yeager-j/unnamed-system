@@ -11,15 +11,11 @@ import { deriveHydratedCharacter } from "@/lib/game-engine"
 
 import { CharacterProvider, useCharacterWrite } from "./use-character"
 
-// The provider mounts the realtime + cross-tab listeners and reads next's
-// router; stub them so this is a pure client-logic test (no Ably, no
-// BroadcastChannel, no router context). None are exercised by the write path.
+// The provider mounts the realtime listener and reads next's router; stub
+// them so this is a pure client-logic test (no Ably, no router context).
+// Neither is exercised by the write path.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 vi.mock("./use-realtime-channel", () => ({ useRealtimeChannel: vi.fn() }))
-vi.mock("./use-character-versions-broadcast", () => ({
-  useCharacterVersionBroadcast: vi.fn(),
-  broadcastCharacterVersion: vi.fn(),
-}))
 vi.mock("../lib/actions/character-versions", () => ({
   getCharacterVersionsAction: vi.fn(),
 }))
