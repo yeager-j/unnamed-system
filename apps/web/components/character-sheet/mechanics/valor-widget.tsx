@@ -22,7 +22,7 @@ import { WidgetHeader, WidgetStepper } from "./widget-chrome"
  * Resist through the resolve fold); the others are narrative.
  */
 export function ValorWidget({ state }: { state: ValorState }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const adjust = (delta: number) =>
     dispatch({
@@ -45,7 +45,6 @@ export function ValorWidget({ state }: { state: ValorState }) {
         onAdjust={adjust}
         decrementDisabled={state.value === 0}
         incrementDisabled={state.value >= VALOR_MAX}
-        pending={pending}
       />
       <ul className="flex flex-col gap-1">
         {VALOR_THRESHOLDS.map((threshold) => {

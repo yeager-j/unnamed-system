@@ -12,9 +12,10 @@ export const SHEET_TABS = [{ key: "combat", label: "Combat" }] as const
 export type SheetTabKey = (typeof SHEET_TABS)[number]["key"]
 
 /**
- * The bottom tab dock (design handoff "Layout"): the four context tabs live
- * under the content column, thumb-reachable in a two-handed tablet hold. Plain
- * buttons with a `tablist` contract so specs address tabs by role.
+ * The bottom tab dock (design frame `10a`): a full-width bar under both
+ * panes, tabs spread evenly and thumb-reachable in a two-handed tablet hold;
+ * the active tab carries an indigo top edge + tint. Plain buttons with a
+ * `tablist` contract so specs address tabs by role.
  */
 export function SheetDock({
   active,
@@ -27,7 +28,7 @@ export function SheetDock({
     <nav
       role="tablist"
       aria-label="Sheet sections"
-      className="sticky bottom-0 z-10 flex justify-center gap-1 rounded-lg border bg-card/95 p-1 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      className="flex shrink-0 border-t bg-background"
     >
       {SHEET_TABS.map(({ key, label }) => (
         <button
@@ -37,10 +38,10 @@ export function SheetDock({
           aria-selected={active === key}
           onClick={() => onSelect(key)}
           className={cn(
-            "flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors sm:max-w-40",
+            "flex-1 border-t-2 px-4 py-2.5 text-sm font-medium transition-colors",
             active === key
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "-mt-px border-primary bg-primary/15 text-foreground"
+              : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
           )}
         >
           {label}

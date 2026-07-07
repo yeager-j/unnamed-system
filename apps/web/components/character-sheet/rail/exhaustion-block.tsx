@@ -17,7 +17,7 @@ import type { RailExhaustion } from "@/lib/character/view/rail-view"
  * own.
  */
 export function ExhaustionBlock({ view }: { view: RailExhaustion }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   const setLevel = (level: number) =>
     dispatch({ component: "exhaustion", op: "setLevel", level })
@@ -44,7 +44,7 @@ export function ExhaustionBlock({ view }: { view: RailExhaustion }) {
             size="icon-sm"
             variant="outline"
             aria-label="Decrease exhaustion"
-            disabled={pending || view.level === 0}
+            disabled={view.level === 0}
             onClick={() => setLevel(view.level - 1)}
           >
             <MinusIcon aria-hidden />
@@ -53,7 +53,7 @@ export function ExhaustionBlock({ view }: { view: RailExhaustion }) {
             size="icon-sm"
             variant="outline"
             aria-label="Increase exhaustion"
-            disabled={pending || view.level >= view.max}
+            disabled={view.level >= view.max}
             onClick={() => setLevel(view.level + 1)}
           >
             <PlusIcon aria-hidden />

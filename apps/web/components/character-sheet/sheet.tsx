@@ -33,10 +33,13 @@ export function CharacterSheet({ loaded }: { loaded: LoadedCharacter }) {
 }
 
 /**
- * The shared frame (design handoff "Layout"): rail ~300px, content column
- * topped by the affinity strip, dock pinned under the content. The active tab
- * is in-memory client state (the sheet always opens on Combat); the dock only
- * shows tabs that have shipped (S2b–d add theirs).
+ * The shared frame (design frame `10a`): a split pane under the site header —
+ * the ~300px rail and the content column scroll **independently** (nothing
+ * floats; the rail is a flat bordered panel), with the tab dock as a
+ * full-width bar pinned under both. The active tab is in-memory client state
+ * (the sheet always opens on Combat); the dock only shows tabs that have
+ * shipped (S2b–d add theirs). Below `lg` the panes stack and the page scrolls
+ * as one.
  */
 function SheetShell() {
   const { profile, entity, resolved } = useLoadedCharacter()
@@ -46,11 +49,11 @@ function SheetShell() {
   const affinities = buildAffinityStrip(resolved)
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 lg:min-h-0">
+    <main className="flex flex-col lg:h-[calc(100svh-3.5rem)] lg:overflow-hidden">
       <SheetCommandPalette onNavigate={setTab} />
-      <div className="flex flex-1 flex-col gap-4 lg:grid lg:min-h-0 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <SheetRail view={rail} />
-        <div className="flex min-w-0 flex-col gap-4">
+        <div className="min-w-0 flex-1 px-5 py-4 lg:overflow-y-auto">
           {tab === "combat" ? <CombatTab cells={affinities} /> : null}
         </div>
       </div>

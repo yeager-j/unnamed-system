@@ -22,7 +22,7 @@ export function SheetRail({ view }: { view: RailView }) {
   return (
     <aside
       aria-label="Character"
-      className="flex flex-col gap-4 rounded-lg border bg-card p-4 lg:min-h-0 lg:overflow-y-auto"
+      className="flex shrink-0 flex-col gap-5 border-b px-5 py-4 lg:w-[300px] lg:overflow-y-auto lg:border-r lg:border-b-0"
     >
       <IdentityBlock view={view} />
       <VitalsBlock hp={view.hp} sp={view.sp} />

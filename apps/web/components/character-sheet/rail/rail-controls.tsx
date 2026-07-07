@@ -14,6 +14,7 @@ import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useEntityWrite } from "@/hooks/use-entity-write"
 import type { RailView } from "@/lib/character/view/rail-view"
 
+import { SectionLabel } from "../section-label"
 import { RestDialog } from "./rest-dialog"
 
 type ControlKey = "hp" | "sp" | "victories"
@@ -33,36 +34,39 @@ export function RailControls({ view }: { view: RailView }) {
 
   return (
     <OwnerOnly>
-      <section aria-label="Controls" className="grid grid-cols-2 gap-1.5">
-        {view.hp ? (
-          <AdjustPoolControl
-            label="Adjust HP"
-            component="vitals"
-            positiveLabel="Heal"
-            negativeLabel="Damage"
-            open={open === "hp"}
-            onOpenChange={toggle("hp")}
-          />
-        ) : null}
-        {view.sp ? (
-          <AdjustPoolControl
-            label="Adjust SP"
-            component="skillPool"
-            positiveLabel="Restore"
-            negativeLabel="Spend"
-            open={open === "sp"}
-            onOpenChange={toggle("sp")}
-          />
-        ) : null}
-        <RestDialog />
-        {view.victories ? (
-          <VictoriesControl
-            open={open === "victories"}
-            onOpenChange={toggle("victories")}
-            canLevelUp={view.victories.canLevelUp}
-            banked={view.victories.banked}
-          />
-        ) : null}
+      <section aria-label="Controls" className="flex flex-col gap-2">
+        <SectionLabel>Controls</SectionLabel>
+        <div className="grid grid-cols-2 gap-1.5">
+          {view.hp ? (
+            <AdjustPoolControl
+              label="Adjust HP"
+              component="vitals"
+              positiveLabel="Heal"
+              negativeLabel="Damage"
+              open={open === "hp"}
+              onOpenChange={toggle("hp")}
+            />
+          ) : null}
+          {view.sp ? (
+            <AdjustPoolControl
+              label="Adjust SP"
+              component="skillPool"
+              positiveLabel="Restore"
+              negativeLabel="Spend"
+              open={open === "sp"}
+              onOpenChange={toggle("sp")}
+            />
+          ) : null}
+          <RestDialog />
+          {view.victories ? (
+            <VictoriesControl
+              open={open === "victories"}
+              onOpenChange={toggle("victories")}
+              canLevelUp={view.victories.canLevelUp}
+              banked={view.victories.banked}
+            />
+          ) : null}
+        </div>
       </section>
     </OwnerOnly>
   )
@@ -179,7 +183,6 @@ function VictoriesControl({
       <PopoverContent align="start" className="flex w-56 flex-col gap-1.5 p-3">
         <Button
           size="sm"
-          disabled={pending}
           onClick={() => dispatch({ component: "level", op: "awardVictory" })}
         >
           + Award Victory
@@ -187,7 +190,7 @@ function VictoriesControl({
         <Button
           size="sm"
           variant="outline"
-          disabled={pending || banked === 0}
+          disabled={banked === 0}
           onClick={() => dispatch({ component: "level", op: "removeVictory" })}
         >
           − Remove Victory

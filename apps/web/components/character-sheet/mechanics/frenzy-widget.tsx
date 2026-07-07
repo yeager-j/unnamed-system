@@ -43,7 +43,6 @@ export function FrenzyWidget({ state }: { state: FrenzyState }) {
         onAdjust={(delta) => write({ op: "adjustPain", delta })}
         decrementDisabled={state.pain === 0}
         incrementDisabled={state.pain >= FRENZY_PAIN_MAX}
-        pending={pending}
       />
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs">

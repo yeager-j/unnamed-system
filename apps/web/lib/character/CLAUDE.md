@@ -8,12 +8,16 @@ when S2 lands, the pure per-surface view builders.
   `{ profile, entity, resolved }` triple. `profile` is the app-owned columns;
   `entity` is the authored component bag (the optimistic re-fold's base and
   where surfaces read authored choices); `resolved` is the engine's read-units.
-- `view/` (S2) — pure per-surface view builders over that triple, mirroring
-  `lib/combat/view/`. **There is no shared flattener** — no `HydratedCharacter`
-  successor. A shared view slice may exist only when two surfaces genuinely
-  render the same one, and it is named for its content, never its storage (the
-  F1 tripwire: a view type with a `durable`/`row` discriminant is the kind
-  branch resurfacing).
+- `view/` (S2a — UNN-557) — pure per-surface view builders over that triple,
+  mirroring `lib/combat/view/`: `rail-view.ts` (the sheet's persistent rail —
+  note Level/Victories read off the authored `entity`, no resolved read-unit
+  exists), `affinity-strip.ts` (11 cells, neutral-filled), `skill-sources.ts`
+  (per-skill provenance labels for the card's effect line). Skill cards
+  themselves render `ResolvedSkill` directly — no per-card view type. **There
+  is no shared flattener** — no `HydratedCharacter` successor. A shared view
+  slice may exist only when two surfaces genuinely render the same one, and it
+  is named for its content, never its storage (the F1 tripwire: a view type
+  with a `durable`/`row` discriminant is the kind branch resurfacing).
 
 **Nothing in this folder computes.** Derivation happens in the engine
 (`resolveEntity`), shaping in `view/`, rendering in components (anti-goal 1).

@@ -23,13 +23,13 @@ export function GoldSegmentBar({
       aria-valuenow={Math.min(filled, segments)}
       aria-valuemin={0}
       aria-valuemax={segments}
-      className={cn("flex w-full gap-0.5", size === "thin" ? "h-1.5" : "h-2.5")}
+      className={cn("flex w-full gap-1", size === "thin" ? "h-1.5" : "h-2")}
     >
       {Array.from({ length: segments }, (_, index) => (
         <span
           key={index}
           className={cn(
-            "flex-1 rounded-[1px]",
+            "flex-1 rounded-full",
             index < filled ? "bg-gold" : "bg-muted"
           )}
         />

@@ -16,7 +16,9 @@ export function WidgetHeader({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-xs font-semibold">{name}</span>
+      <span className="text-[11px] font-semibold tracking-[0.12em] uppercase">
+        {name}
+      </span>
       {value !== undefined ? (
         <span className="font-display text-lg text-gold tabular-nums">
           {value}
@@ -32,13 +34,11 @@ export function WidgetStepper({
   onAdjust,
   decrementDisabled,
   incrementDisabled,
-  pending,
 }: {
   label: string
   onAdjust: (delta: number) => void
   decrementDisabled: boolean
   incrementDisabled: boolean
-  pending: boolean
 }) {
   return (
     <OwnerOnly>
@@ -47,7 +47,7 @@ export function WidgetStepper({
           size="icon-sm"
           variant="outline"
           aria-label={`Decrease ${label}`}
-          disabled={pending || decrementDisabled}
+          disabled={decrementDisabled}
           onClick={() => onAdjust(-1)}
         >
           <MinusIcon aria-hidden />
@@ -56,7 +56,7 @@ export function WidgetStepper({
           size="icon-sm"
           variant="outline"
           aria-label={`Increase ${label}`}
-          disabled={pending || incrementDisabled}
+          disabled={incrementDisabled}
           onClick={() => onAdjust(1)}
         >
           <PlusIcon aria-hidden />

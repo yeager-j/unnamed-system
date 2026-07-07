@@ -8,6 +8,7 @@ import type { AffinityStripCell } from "@/lib/character/view/affinity-strip"
 import { skillSourceLabels } from "@/lib/character/view/skill-sources"
 import { getArchetype } from "@/lib/game-engine-v2"
 
+import { SectionLabel } from "../section-label"
 import { AffinityStrip } from "./affinity-strip"
 import { SkillCard } from "./skill-card"
 
@@ -42,29 +43,32 @@ export function CombatTab({ cells }: { cells: AffinityStripCell[] }) {
     )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <AffinityStrip cells={cells} />
       {skills.length > 0 && attributes ? (
-        <section
-          aria-label="Skills"
-          className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
-        >
-          {skills.map((skill) => (
-            <SkillCard
-              key={skill.skill.key}
-              resolved={skill}
-              attributes={attributes}
-              sourceLabel={sources.get(skill.skill.key)}
-              showUse={role === "owner"}
-              useDisabled={
-                pending ||
-                (skill.resolvedCost !== null && !canAfford(skill.resolvedCost))
-              }
-              onUse={
-                skill.resolvedCost ? () => use(skill.resolvedCost!) : undefined
-              }
-            />
-          ))}
+        <section aria-label="Skills" className="flex flex-col gap-2">
+          <SectionLabel>Skills · {skills.length}</SectionLabel>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(17rem,1fr))] gap-3">
+            {skills.map((skill) => (
+              <SkillCard
+                key={skill.skill.key}
+                resolved={skill}
+                attributes={attributes}
+                sourceLabel={sources.get(skill.skill.key)}
+                showUse={role === "owner"}
+                useDisabled={
+                  pending ||
+                  (skill.resolvedCost !== null &&
+                    !canAfford(skill.resolvedCost))
+                }
+                onUse={
+                  skill.resolvedCost
+                    ? () => use(skill.resolvedCost!)
+                    : undefined
+                }
+              />
+            ))}
+          </div>
         </section>
       ) : (
         <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">

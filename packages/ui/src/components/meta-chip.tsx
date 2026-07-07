@@ -43,7 +43,9 @@ function MetaChip({
         <span className="font-medium">{label}</span>
       ) : (
         <>
-          <span className="text-muted-foreground">{label}</span>
+          <span className="font-mono text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">
+            {label}
+          </span>
           <span className="font-medium">{value}</span>
         </>
       )}

@@ -69,7 +69,6 @@ export function PerfectionWidget({ state }: { state: PerfectionState }) {
           onAdjust={(delta) => write({ op: "adjust", delta })}
           decrementDisabled={state.rank === 0}
           incrementDisabled={state.rank >= PERFECTION_MAX_RANK}
-          pending={pending}
         />
       </div>
     </>

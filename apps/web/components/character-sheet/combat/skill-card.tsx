@@ -12,6 +12,7 @@ import {
   hydrateFormulaText,
 } from "@workspace/game-v2/skills/formula-text"
 import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
+import type { SkillCost } from "@workspace/game-v2/skills/skill.schema"
 import { Button } from "@workspace/ui/components/button"
 import { MetaChip } from "@workspace/ui/components/meta-chip"
 import {
@@ -24,21 +25,17 @@ import { cn } from "@workspace/ui/lib/utils"
 import { rangeLabel } from "@/components/shared/resolved-skill-card-utils"
 import { SideEffectBadge } from "@/components/shared/side-effect-badge"
 import { SkillText } from "@/components/shared/skill-text"
-import {
-  DAMAGE_TYPE_LABELS,
-  DELIVERY_LABELS,
-  SKILL_KIND_LABELS,
-} from "@/lib/ui/labels"
+import { DAMAGE_TYPE_LABELS, SKILL_KIND_LABELS } from "@/lib/ui/labels"
 
 import { ELEMENT_GLYPHS, elementTone, type ElementKey } from "./element-tokens"
 
 /**
  * The Banner Skill card (design handoff `SkillCard.dc.html` — the
- * high-fidelity component): element-tinted banner header (glow + glyph
- * watermark, type chip, cost coin, display-serif name), one-line description,
- * meta chips, the damage ladder for rolling Skills (`D20 + N` header in the
- * element hue, crit row de-emphasized, breakdown in a tooltip), the
- * source-labelled effect line, and Use Skill.
+ * high-fidelity component): a tall element-tinted banner (diagonal hatch +
+ * glyph watermark, element chip top-left, authored-cost coin top-right,
+ * display-serif name at the banner's foot), description, meta chips, the
+ * damage ladder for rolling Skills (`D20 + N` header in the element hue with
+ * the breakdown in a tooltip), the source-labelled effect line, and Use Skill.
  *
  * Consumes {@link ResolvedSkill} directly — the shared v2 skill vocabulary
  * (UNN-538's drawer adopts the same renderer), with the formula work done by
@@ -64,49 +61,53 @@ export function SkillCard({
   const tone = elementTone(element)
   const Glyph = ELEMENT_GLYPHS[element]
 
-  const typeChip = skill.damage
-    ? `${DAMAGE_TYPE_LABELS[skill.damage.damageType]} · ${DELIVERY_LABELS[skill.damage.delivery]}`
+  const chipLabel = skill.damage
+    ? DAMAGE_TYPE_LABELS[skill.damage.damageType]
     : SKILL_KIND_LABELS[skill.kind]
 
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border bg-card">
       <header
         className={cn(
-          "relative flex flex-col gap-2 bg-gradient-to-bl to-transparent p-3 pb-2.5",
+          "relative flex min-h-28 flex-col justify-between gap-3 bg-gradient-to-bl to-transparent p-3",
           tone.banner
         )}
       >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(135deg,transparent,transparent_7px,rgb(255_255_255/0.035)_7px,rgb(255_255_255/0.035)_9px)]"
+        />
         <Glyph
           aria-hidden
           weight="fill"
           className={cn(
-            "pointer-events-none absolute -top-2 -right-2 size-16 opacity-15",
+            "pointer-events-none absolute top-1/2 right-3 size-24 -translate-y-1/2 opacity-15",
             tone.text
           )}
         />
-        <div className="flex items-start justify-between gap-2">
+        <div className="relative flex items-start justify-between gap-2">
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide uppercase",
+              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase",
               tone.chip
             )}
           >
             <Glyph aria-hidden className="size-3" />
-            {typeChip}
+            {chipLabel}
           </span>
-          {resolved.resolvedCost ? (
-            <CostCoin cost={resolved.resolvedCost} />
-          ) : null}
+          {skill.cost ? <CostCoin cost={skill.cost} /> : null}
         </div>
-        <h3 className="font-display text-lg leading-tight">{skill.name}</h3>
+        <h3 className="relative font-display text-2xl leading-none">
+          {skill.name}
+        </h3>
       </header>
 
-      <div className="flex flex-1 flex-col gap-2.5 p-3 pt-2">
-        <p className="line-clamp-2 text-xs text-muted-foreground">
+      <div className="flex flex-1 flex-col gap-3 p-3">
+        <p className="line-clamp-2 text-sm text-muted-foreground">
           {skill.tagline}
         </p>
 
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {skill.cost ? (
             <MetaChip
               label="Cost"
@@ -151,45 +152,45 @@ export function SkillCard({
         ) : null}
 
         {skill.effect ? (
-          <div className="text-xs">
+          <div className="text-sm">
             {sourceLabel ? (
-              <span className="font-semibold text-muted-foreground">
-                {sourceLabel} —{" "}
-              </span>
+              <span className="font-semibold">{sourceLabel} — </span>
             ) : null}
-            <SkillText className="inline text-xs prose-p:inline [&_p]:inline">
+            <SkillText className="inline text-sm prose-p:inline [&_p]:inline">
               {skill.effect}
             </SkillText>
           </div>
         ) : null}
 
         {showUse && skill.cost ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-auto w-full"
-            disabled={useDisabled}
-            onClick={onUse}
-          >
-            Use Skill
-          </Button>
+          <div className="mt-auto pt-1">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={useDisabled}
+              onClick={onUse}
+            >
+              Use Skill
+            </Button>
+          </div>
         ) : null}
       </div>
     </article>
   )
 }
 
-/** The banner's circular cost coin: amount over pool (design handoff). */
-function CostCoin({ cost }: { cost: { kind: "sp" | "hp"; amount: number } }) {
+/** The banner's circular cost coin — the AUTHORED cost (`5%`/`HP`, `4`/`SP`),
+ *  matching the design; the resolved absolute HP gates the Use button. */
+function CostCoin({ cost }: { cost: SkillCost }) {
+  const amount = cost.kind === "sp" ? `${cost.amount}` : `${cost.amount}%`
+  const pool = cost.kind === "sp" ? "SP" : "HP"
   return (
     <span
-      className="flex size-9 shrink-0 flex-col items-center justify-center rounded-full border bg-background/70 leading-none"
-      aria-label={`Costs ${cost.amount} ${cost.kind.toUpperCase()}`}
+      className="flex size-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full border border-foreground/25 bg-background/60 leading-none backdrop-blur-sm"
+      aria-label={`Costs ${amount} ${pool}`}
     >
-      <span className="text-xs font-semibold tabular-nums">{cost.amount}</span>
-      <span className="text-[8px] text-muted-foreground uppercase">
-        {cost.kind}
-      </span>
+      <span className="text-sm font-semibold tabular-nums">{amount}</span>
+      <span className="text-[8px] text-muted-foreground uppercase">{pool}</span>
     </span>
   )
 }
@@ -201,10 +202,16 @@ function showTargets(targets: string | undefined): targets is string {
   return !/^1(\s|$)/.test(targets.trim())
 }
 
+/** The design's compact dice spelling (`1d6+2`): joins tighten, multi-word
+ *  attribute names (`St or Ma`) keep their internal spaces. */
+function compactFormula(rendered: string): string {
+  return rendered.replaceAll(" + ", "+").replaceAll(" − ", "−")
+}
+
 /**
- * The bordered tier table: element-hued header (`D20 + N` never wraps, with
- * the per-source breakdown in a tooltip), one row per d20 band with its
- * bonus-folded damage formula and effect tags, the crit row de-emphasized.
+ * The tier table: an element-hued header row (`D20 + N` never wraps; the
+ * per-source breakdown in a tooltip) over hairline-separated band rows with
+ * bonus-folded compact damage formulas and effect tags.
  */
 function DamageLadder({
   tiers,
@@ -225,58 +232,52 @@ function DamageLadder({
     .join(" · ")
 
   return (
-    <div className="overflow-hidden rounded-md border">
+    <div className="overflow-hidden rounded-md">
       <Tooltip>
         <TooltipTrigger
           render={
             <div
               className={cn(
-                "grid cursor-default grid-cols-[auto_1fr_auto] items-baseline gap-x-3 px-2.5 py-1.5 text-[10px] font-semibold tracking-wide uppercase",
+                "grid cursor-default grid-cols-[5.5rem_1fr_auto] items-baseline gap-x-3 rounded-md px-2.5 py-1.5 font-mono text-[10px] font-semibold tracking-wider uppercase",
                 tone
               )}
             />
           }
         >
-          <span className="text-sm font-bold whitespace-nowrap normal-case">
-            D20&nbsp;{formatSignedBonus(roll.total)}
+          <span className="text-sm font-bold whitespace-nowrap">
+            D20 {formatSignedBonus(roll.total).replace(" ", " ")}
           </span>
           <span>Damage</span>
           <span>Effect</span>
         </TooltipTrigger>
         <TooltipContent side="top">{breakdown}</TooltipContent>
       </Tooltip>
-      <ul className="divide-y">
-        {tiers.map((tier) => {
-          const crit = tier.band.includes("+")
-          return (
-            <li
-              key={tier.band}
-              className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 px-2.5 py-1.5 text-xs"
-            >
-              <span
-                className={cn(
-                  "w-10 font-mono tabular-nums",
-                  crit ? "text-muted-foreground" : "font-medium"
-                )}
-              >
-                {tier.band}
-              </span>
-              <span className="font-mono">
-                {tier.formula
-                  ? renderFormula(
+      <ul>
+        {tiers.map((tier) => (
+          <li
+            key={tier.band}
+            className="grid grid-cols-[5.5rem_1fr_auto] items-center gap-x-3 border-b border-border/60 px-2.5 py-1.5 text-sm last:border-b-0"
+          >
+            <span className="font-mono text-xs text-muted-foreground tabular-nums">
+              {tier.band}
+            </span>
+            <span className="font-mono text-sm">
+              {tier.formula
+                ? compactFormula(
+                    renderFormula(
                       foldDamageBonuses(tier.formula, bonusTerms),
                       attributes
                     )
-                  : "—"}
-              </span>
-              <span className="flex justify-end gap-1">
-                {tier.sideEffects.map((key) => (
-                  <SideEffectBadge key={key} sideEffectKey={key} />
-                ))}
-              </span>
-            </li>
-          )
-        })}
+                  )
+                : "—"}
+            </span>
+            <span className="flex justify-end gap-1">
+              {tier.sideEffects.map((key) => (
+                <SideEffectBadge key={key} sideEffectKey={key} />
+              ))}
+            </span>
+          </li>
+        ))}
       </ul>
     </div>
   )

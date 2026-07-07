@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -97,29 +98,34 @@ export function SheetCommandPalette({
       title="Command palette"
       description="Jump to a section or adjust vitals"
     >
-      <CommandInput placeholder="Type a command…" />
-      <CommandList>
-        <CommandEmpty>No matching commands.</CommandEmpty>
-        <CommandGroup heading="Go to">
-          {SHEET_TABS.map(({ key, label }) => (
-            <CommandItem key={key} onSelect={() => run(() => onNavigate(key))}>
-              {label}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        {vitals.length > 0 ? (
-          <CommandGroup heading="Vitals">
-            {vitals.map((command) => (
+      <Command>
+        <CommandInput placeholder="Type a command…" />
+        <CommandList>
+          <CommandEmpty>No matching commands.</CommandEmpty>
+          <CommandGroup heading="Go to">
+            {SHEET_TABS.map(({ key, label }) => (
               <CommandItem
-                key={command.label}
-                onSelect={() => write(command.descriptor)}
+                key={key}
+                onSelect={() => run(() => onNavigate(key))}
               >
-                {command.label}
+                {label}
               </CommandItem>
             ))}
           </CommandGroup>
-        ) : null}
-      </CommandList>
+          {vitals.length > 0 ? (
+            <CommandGroup heading="Vitals">
+              {vitals.map((command) => (
+                <CommandItem
+                  key={command.label}
+                  onSelect={() => write(command.descriptor)}
+                >
+                  {command.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+        </CommandList>
+      </Command>
     </CommandDialog>
   )
 }

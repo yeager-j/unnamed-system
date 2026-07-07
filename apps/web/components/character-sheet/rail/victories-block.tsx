@@ -16,11 +16,16 @@ export function VictoriesBlock({ view }: { view: RailVictories }) {
       : `${view.toNext} to level up`
 
   return (
-    <section aria-label="Victories" className="flex flex-col gap-1">
+    <section aria-label="Victories" className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
-        <span className="text-xs font-semibold text-gold">Victories</span>
+        <span className="text-[11px] font-semibold tracking-[0.12em] text-gold uppercase">
+          Victories
+        </span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {Math.min(view.banked, view.threshold)} / {view.threshold} · {caption}
+          <span className="font-semibold text-foreground">
+            {Math.min(view.banked, view.threshold)}
+          </span>{" "}
+          / {view.threshold} · {caption}
         </span>
       </div>
       <GoldSegmentBar

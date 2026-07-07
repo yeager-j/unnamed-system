@@ -1,5 +1,4 @@
 import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
-import { formatSignedBonus } from "@workspace/game-v2/skills/formula-text"
 
 import { ATTRIBUTE_SHORT_LABELS } from "@/lib/ui/labels"
 
@@ -7,8 +6,8 @@ const ATTRIBUTE_ORDER = ["strength", "magic", "agility", "luck"] as const
 
 /**
  * The rail's 4-cell attribute row — St / Ma / Ag / Lu with signed modifiers
- * (design handoff). Values are the resolved scores, so an archetype switch or
- * equipment change moves them optimistically.
+ * (design handoff: `+2`, `−1`, a bare `0`). Values are the resolved scores, so
+ * an archetype switch or equipment change moves them optimistically.
  */
 export function AttributesBlock({
   attributes,
@@ -26,10 +25,15 @@ export function AttributesBlock({
             {ATTRIBUTE_SHORT_LABELS[key]}
           </div>
           <div className="text-sm font-medium tabular-nums">
-            {formatSignedBonus(attributes[key])}
+            {signedModifier(attributes[key])}
           </div>
         </div>
       ))}
     </section>
   )
+}
+
+function signedModifier(value: number): string {
+  if (value === 0) return "0"
+  return value > 0 ? `+${value}` : `−${Math.abs(value)}`
 }

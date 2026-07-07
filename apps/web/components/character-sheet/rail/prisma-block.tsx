@@ -16,7 +16,7 @@ import type { RailPrisma } from "@/lib/character/view/rail-view"
  * the button also disables there.
  */
 export function PrismaBlock({ view }: { view: RailPrisma }) {
-  const { dispatch, pending } = useEntityWrite()
+  const { dispatch } = useEntityWrite()
 
   return (
     <section
@@ -55,7 +55,7 @@ export function PrismaBlock({ view }: { view: RailPrisma }) {
           <Button
             size="sm"
             variant="outline"
-            disabled={pending || view.current === 0}
+            disabled={view.current === 0}
             onClick={() =>
               dispatch({ component: "resources", op: "usePrisma" })
             }
