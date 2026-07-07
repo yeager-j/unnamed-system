@@ -30,12 +30,21 @@ ONLY for state a combat surface genuinely writes; the rejection test pins the
 subset. A multi-component patch (rest, levelUp) must keep its columns inside
 one version class — CH15's disjoint-footprint guarantee is per class.
 
-## The two optimistic hooks (Open Q5 — deliberate, revisit at convergence)
+## The two optimistic hooks (Open Q5 — container split stays, policy split ended)
 
 `useEntityWrite` (character routes) and `useCombatantWrite` (encounters) both
 predict via the same Writers but reconcile differently: the entity door
 re-folds `resolveEntity` client-side and catches up via route revalidation;
 the console pushes the patch into its session-frame reducer and reconciles via
-the pc-ping refetch. They stayed separate at S2a because the reconcile
-channels genuinely differ (router.refresh vs Ably ping); converge only if one
-channel wins.
+the pc-ping refetch. That **container** split stays deliberate (the reconcile
+channels genuinely differ); converge only if one channel wins.
+
+The **stale-policy** split ended with UNN-567/568: both doors now run the same
+`hooks/write-queue.ts` protocol core — serialized per-token spine + one-shot
+stale-retry through `getEntityClassVersionAction` — so a cross-writer stale on
+the one genuinely multi-writer row (player on sheet + DM on console) self-heals
+from either side. A stale that survives the retry is a real conflict: the
+entity door toasts + `router.refresh()`; the console toasts and lets the
+optimistic frame revert. The debounced auto-save species runs the exported
+single-pass `runVersionedWrite` (never `enqueue` — it is already chained on
+the class spine; enqueueing from inside a chained step would wait on itself).

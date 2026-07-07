@@ -1,0 +1,279 @@
+// @vitest-environment jsdom
+
+import { act, renderHook } from "@testing-library/react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+
+import type { Entity } from "@workspace/game-v2/kernel/entity"
+import { err, ok, type Result } from "@workspace/game/foundation"
+
+import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
+import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
+import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
+import type { CharacterProfile, LoadedCharacter } from "@/lib/character/load"
+import type { EntityWrite } from "@/lib/entity/commit/write.schema"
+import { resolveEntity } from "@/lib/game-engine-v2"
+
+import {
+  EntityWriteProvider,
+  useEntityAutoSave,
+  useEntityWrite,
+} from "./use-entity-write"
+
+const { routerRefresh } = vi.hoisted(() => ({ routerRefresh: vi.fn() }))
+
+vi.mock("@/lib/actions/entity/apply-entity-write", () => ({
+  applyEntityWriteAction: vi.fn(),
+}))
+vi.mock("@/lib/actions/entity/versions", () => ({
+  getEntityClassVersionAction: vi.fn(),
+}))
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefresh }),
+}))
+
+const writeAction = vi.mocked(applyEntityWriteAction)
+const versionAction = vi.mocked(getEntityClassVersionAction)
+const { toast } = await import("sonner")
+
+const entity: Entity = {
+  id: "char-1",
+  components: { vitals: { base: 10, damage: 0 } },
+}
+
+const profile = {
+  id: "char-1",
+  shortId: "abc123",
+  ownerId: "user-1",
+  campaignId: null,
+  status: "finalized" as const,
+  builderStep: 5,
+  name: "Test",
+  portraitUrl: null,
+  pronouns: null,
+  notes: null,
+  versions: { identity: 1, vitals: 1, inventory: 1, progression: 1 },
+} satisfies CharacterProfile
+
+const loaded: LoadedCharacter = {
+  profile,
+  entity,
+  resolved: resolveEntity(entity),
+}
+
+const commit = (version: number): Result<EntityCommit, never> =>
+  ok({ version, shortId: "abc123", status: "finalized" })
+
+const damage: EntityWrite = { component: "vitals", op: "damage", amount: 1 }
+const talents: EntityWrite = {
+  component: "talents",
+  op: "setGained",
+  keys: ["sneak"],
+}
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+  <EntityWriteProvider loaded={loaded}>{children}</EntityWriteProvider>
+)
+
+const flush = () => act(async () => {})
+
+beforeEach(() => {
+  writeAction.mockReset()
+  versionAction.mockReset()
+  routerRefresh.mockReset()
+  vi.mocked(toast.error).mockReset()
+})
+
+describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
+  it("silently retries a cross-writer stale with the refetched class token", async () => {
+    writeAction
+      .mockResolvedValueOnce(err("stale"))
+      .mockResolvedValueOnce(commit(6))
+    versionAction.mockResolvedValue(ok({ version: 5 }))
+    const onSuccess = vi.fn()
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage, { onSuccess })
+    })
+    await flush()
+
+    expect(writeAction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ expectedVersion: 1 })
+    )
+    expect(versionAction).toHaveBeenCalledWith({
+      entityId: "char-1",
+      versionClass: "vitals",
+    })
+    expect(writeAction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ expectedVersion: 5 })
+    )
+    expect(onSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ version: 6 })
+    )
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("a stale that survives the retry is a real conflict: toast + refresh", async () => {
+    writeAction.mockResolvedValue(err("stale"))
+    versionAction.mockResolvedValue(ok({ version: 5 }))
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage)
+    })
+    await flush()
+
+    expect(writeAction).toHaveBeenCalledTimes(2)
+    expect(toast.error).toHaveBeenCalledWith(
+      "This character changed elsewhere — refreshing."
+    )
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
+  })
+
+  it("serializes same-class writes so the second reads the bumped token", async () => {
+    writeAction
+      .mockResolvedValueOnce(commit(2))
+      .mockResolvedValueOnce(commit(3))
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(damage)
+      result.current.dispatch(damage)
+    })
+    await flush()
+
+    expect(writeAction).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ expectedVersion: 1 })
+    )
+    expect(writeAction).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ expectedVersion: 2 })
+    )
+  })
+
+  it("keeps class queues isolated — an in-flight identity write never blocks a vitals write", async () => {
+    let releaseIdentity!: (value: Result<EntityCommit, never>) => void
+    writeAction.mockImplementation((input) =>
+      input.write.component === "talents"
+        ? new Promise((resolve) => {
+            releaseIdentity = resolve
+          })
+        : Promise.resolve(commit(2))
+    )
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => {
+      result.current.dispatch(talents) // identity class — parked in flight
+      result.current.dispatch(damage) // vitals class — its own spine
+    })
+    await flush()
+
+    // The vitals write dispatched (and committed) while identity is parked.
+    expect(writeAction).toHaveBeenCalledTimes(2)
+    expect(writeAction).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expectedVersion: 1,
+        write: damage,
+      })
+    )
+
+    await act(async () => releaseIdentity(commit(2)))
+  })
+})
+
+describe("useEntityAutoSave — the shared class spine (UNN-568)", () => {
+  it("a click write chains behind an in-flight debounced save on the same class and reads its bumped token", async () => {
+    let releaseSave!: (value: Result<EntityCommit, never>) => void
+    writeAction.mockImplementation((input) => {
+      const write = input.write as EntityWrite
+      if (write.component === "narrative") {
+        return new Promise((resolve) => {
+          releaseSave = resolve
+        })
+      }
+      return Promise.resolve(commit(9))
+    })
+
+    const { result } = renderHook(
+      () => ({
+        autoSave: useEntityAutoSave({
+          serverValue: "old",
+          makeWrite: (value) => ({
+            component: "narrative",
+            op: "setField",
+            field: "ancestry",
+            value,
+          }),
+        }),
+        write: useEntityWrite(),
+      }),
+      { wrapper }
+    )
+
+    // Kick the debounced save (identity class) and park it in flight. The
+    // draft state must commit before flush reads it, so two acts.
+    await act(async () => {
+      result.current.autoSave.setValue("new")
+    })
+    await act(async () => {
+      result.current.autoSave.flush()
+    })
+    expect(writeAction).toHaveBeenCalledTimes(1)
+
+    // A click write in the same class chains behind it on the shared spine.
+    await act(async () => {
+      result.current.write.dispatch(talents)
+    })
+    expect(writeAction).toHaveBeenCalledTimes(1)
+
+    // Releasing the save bumps the identity token; the click write follows
+    // with the fresh token — never the stale pre-save value.
+    await act(async () => releaseSave(commit(4)))
+    await flush()
+
+    expect(writeAction).toHaveBeenCalledTimes(2)
+    expect(writeAction).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedVersion: 4, write: talents })
+    )
+  })
+
+  it("a debounced save's surviving stale refreshes the route (cross-tab strand guard)", async () => {
+    writeAction.mockResolvedValue(err("stale"))
+    versionAction.mockResolvedValue(ok({ version: 7 }))
+
+    const { result } = renderHook(
+      () =>
+        useEntityAutoSave({
+          serverValue: "old",
+          makeWrite: (value) => ({
+            component: "narrative",
+            op: "setField",
+            field: "ancestry",
+            value,
+          }),
+        }),
+      { wrapper }
+    )
+
+    await act(async () => {
+      result.current.setValue("new")
+    })
+    await act(async () => {
+      result.current.flush()
+    })
+    await flush()
+
+    // Retried once (stale → refetch 7 → retry), then surfaced + refreshed.
+    expect(writeAction).toHaveBeenCalledTimes(2)
+    expect(writeAction).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedVersion: 7 })
+    )
+    expect(routerRefresh).toHaveBeenCalledTimes(1)
+    expect(toast.error).toHaveBeenCalled()
+  })
+})

@@ -12,10 +12,12 @@ import {
 import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { Result } from "@workspace/game/foundation"
 
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-write.schema"
 import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
+import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import type { CharacterProfile, LoadedCharacter } from "@/lib/character/load"
 import type { VersionClass } from "@/lib/db/version-classes"
 import { mergeComponentPatch } from "@/lib/entity/commit/merge-patch"
@@ -29,6 +31,11 @@ import {
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
 import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
+import {
+  createWriteQueue,
+  runVersionedWrite,
+  type WriteQueueTokenPort,
+} from "./write-queue"
 
 /**
  * The character surfaces' write provider (ADR §2.4/CH18; UNN-556) — the
@@ -43,20 +50,23 @@ import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
  *   depletion, a skill preview) move in the same frame (the CH18 re-fold; the
  *   cheap-algebra shortcut is rejected). A Writer refusal returns the previous
  *   frame — no optimistic lie.
- * - **Per-class version tokens + save queues** (UNN-140/UNN-274, generalized
- *   from the builder's single identity lane): a write reads the token of *its
- *   Writer's* declared class and serializes on that class's queue, so ortus
- *   writing `talents` (identity) and `virtues` (progression) in one sitting
- *   can never collide or misfile a token.
+ * - **Per-class version tokens + write queues** (UNN-140/UNN-274; UNN-568):
+ *   a write reads the token of *its Writer's* declared class and serializes on
+ *   that class's spine — the shared `write-queue` core, so ortus writing
+ *   `talents` (identity) and `virtues` (progression) in one sitting can never
+ *   collide or misfile a token, and a genuine cross-writer `"stale"` (the DM
+ *   console writing this PC's vitals mid-combat) **silently one-shot-retries**
+ *   with a refetched class token ({@link getEntityClassVersionAction}) — the
+ *   same policy the console's durable lanes run, decided once in the core. A
+ *   stale that survives the retry is a real conflict: toast +
+ *   `router.refresh()`.
  * - **The door** — every write goes to `applyEntityWriteAction` (the entity
- *   door). Stale handling is the ADR's simple model: toast + `router.refresh()`
- *   (v1's silent multi-tab retry was dropped with its broadcast pipeline; the
- *   per-class queues remove the dominant same-tab stale source).
+ *   door). Column actions (name, portrait — the app-column species) stay
+ *   classic per-field leaves via {@link useEntityColumnSave}.
  *
  * Widget blindness: components receive {@link useEntityWrite}'s `dispatch` /
  * {@link useEntityAutoSave} from this provider and never import the Server
- * Action. Column actions (name, portrait — the app-column species) stay
- * classic per-field leaves via {@link useEntityColumnSave}.
+ * Action.
  */
 
 interface EntityFrame {
@@ -68,11 +78,28 @@ interface LoadedFrame extends EntityFrame {
   profile: CharacterProfile
 }
 
+/** A guarded dispatch on one class's token: `action` receives the expected
+ *  version, a success's `version` folds back into the token. */
+type ClassWriteRun = <
+  TSuccess extends { version: number },
+  TError extends string,
+>(
+  versionClass: VersionClass,
+  action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
+) => Promise<Result<TSuccess, TError>>
+
 interface EntityWriteApi {
   entityId: string
   versionRefs: Record<VersionClass, RefObject<number>>
   queueRefs: Record<VersionClass, RefObject<Promise<void>>>
   applyLocal: (write: EntityWrite) => void
+  /** Serialized dispatch on the class's spine + one-shot stale-retry — the
+   *  click-write path. */
+  enqueue: ClassWriteRun
+  /** One retrying protocol pass with NO enqueue — for callers already chained
+   *  on the class spine (the debounced auto-save runs inside its own queued
+   *  step; enqueueing from there would wait on itself). */
+  runVersioned: ClassWriteRun
 }
 
 const EntityFrameContext = createContext<LoadedFrame | null>(null)
@@ -113,6 +140,41 @@ export function EntityWriteProvider({
     progression: progressionQueueRef,
   }
 
+  // The token port + refetch for one class — assembled at event time inside
+  // `enqueue`/`runVersioned` (never during render; the ref stays unread until
+  // a dispatch). `bump` is forward-only: the monotonic invariant lives in the
+  // port (write-queue's contract).
+  function tokenFor(versionClass: VersionClass): WriteQueueTokenPort {
+    const ref = versionRefs[versionClass]
+    return {
+      read: () => ref.current,
+      bump: (version) => {
+        if (version > ref.current) ref.current = version
+      },
+    }
+  }
+  function refetchFor(
+    versionClass: VersionClass
+  ): () => Promise<number | null> {
+    return async () => {
+      const fresh = await getEntityClassVersionAction({
+        entityId: profile.id,
+        versionClass,
+      })
+      return fresh.ok ? fresh.value.version : null
+    }
+  }
+
+  const enqueue: ClassWriteRun = (versionClass, action) =>
+    createWriteQueue({
+      token: tokenFor(versionClass),
+      refetchVersion: refetchFor(versionClass),
+      chain: queueRefs[versionClass],
+    }).enqueue(action)
+
+  const runVersioned: ClassWriteRun = (versionClass, action) =>
+    runVersionedWrite(tokenFor(versionClass), refetchFor(versionClass), action)
+
   const [frame, applyLocal] = useOptimistic(
     { entity: loaded.entity, resolved: loaded.resolved },
     (prev: EntityFrame, write: EntityWrite): EntityFrame => {
@@ -128,6 +190,8 @@ export function EntityWriteProvider({
     versionRefs,
     queueRefs,
     applyLocal,
+    enqueue,
+    runVersioned,
   }
 
   return (
@@ -173,45 +237,37 @@ export interface EntityDispatchOptions {
 
 /**
  * The click-write primitive: optimistic frame + descriptor dispatch through
- * the entity door, serialized on the Writer's class queue. Each consumer gets
- * its own `pending` (local `useTransition` — no global lock).
+ * the entity door, serialized on the Writer's class queue with the shared
+ * one-shot stale-retry (UNN-568). A `"stale"` that reaches the failure branch
+ * survived the retry — a real conflict, so it toasts and refreshes. Each
+ * consumer gets its own `pending` (local `useTransition` — no global lock).
  */
 export function useEntityWrite() {
-  const { entityId, versionRefs, queueRefs, applyLocal } =
-    useWriteApi("useEntityWrite")
+  const { entityId, applyLocal, enqueue } = useWriteApi("useEntityWrite")
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
     const durableClass = ENTITY_WRITERS[write.component].durableClass
-    const versionRef = versionRefs[durableClass]
-    const queueRef = queueRefs[durableClass]
 
     startTransition(async () => {
       applyLocal(write)
 
-      const queued = queueRef.current.then(async () => {
-        const result = await applyEntityWriteAction({
-          entityId,
-          expectedVersion: versionRef.current,
-          write,
-        })
-        if (result.ok) {
-          versionRef.current = result.value.version
-          opts?.onSuccess?.(result.value)
-          return
-        }
-        if (opts?.onError?.(result.error)) return
-        toast.error(
-          result.error === "stale"
-            ? (opts?.messages?.stale ??
-                "This character changed elsewhere — refreshing.")
-            : (opts?.messages?.error ?? "Couldn't save. Try again.")
-        )
-        if (result.error === "stale") router.refresh()
-      })
-      queueRef.current = queued.catch(() => {})
-      await queued
+      const result = await enqueue(durableClass, (expectedVersion) =>
+        applyEntityWriteAction({ entityId, expectedVersion, write })
+      )
+      if (result.ok) {
+        opts?.onSuccess?.(result.value)
+        return
+      }
+      if (opts?.onError?.(result.error)) return
+      toast.error(
+        result.error === "stale"
+          ? (opts?.messages?.stale ??
+              "This character changed elsewhere — refreshing.")
+          : (opts?.messages?.error ?? "Couldn't save. Try again.")
+      )
+      if (result.error === "stale") router.refresh()
     })
   }
 
@@ -235,13 +291,12 @@ export function useEntityAutoSave(
     makeWrite: (value: string) => EntityWrite
   }
 ): UseDebouncedAutoSaveReturn<string> {
-  const { entityId, versionRefs, queueRefs } = useWriteApi("useEntityAutoSave")
-  const dispatchWithFreshTokens = useRefreshingDispatch()
+  const { entityId, queueRefs } = useWriteApi("useEntityAutoSave")
+  const dispatchWithRetry = useRetryingDispatch("useEntityAutoSave")
   const { makeWrite, ...rest } = args
 
   const durableClass =
     ENTITY_WRITERS[makeWrite(rest.serverValue).component].durableClass
-  const versionRef = versionRefs[durableClass]
 
   return useDebouncedAutoSave<string, ApplyEntityWriteError>({
     ...rest,
@@ -256,22 +311,25 @@ export function useEntityAutoSave(
         ? { ok: true, value: { value, version: result.value.version } }
         : result
     },
-    dispatchWrite: (action) => dispatchWithFreshTokens(versionRef, action),
+    dispatchWrite: (action) => dispatchWithRetry(durableClass, action),
   })
 }
 
 /**
- * The debounced wrappers' shared dispatch: read the class token, bump it on
- * success — and on `"stale"` trigger `router.refresh()` so the provider
- * re-renders with fresh server versions and the monotonic refs move forward.
- * Without the refresh, a cross-tab/external bump would strand this tab: the
- * field rolls back but every follow-up save re-sends the same stale token.
- * (The click-write path in {@link useEntityWrite} does the same.)
+ * The debounced wrappers' shared dispatch (UNN-568): one retrying protocol
+ * pass on the class token — `runVersioned`, **never** `enqueue`, because the
+ * debounced lifecycle already chained this call on the class spine
+ * (`saveQueueRef`) and enqueueing from inside a chained step would wait on
+ * itself. A stale that survives the retry triggers `router.refresh()` so the
+ * provider re-renders with fresh server versions and the monotonic refs move
+ * forward — without it, a cross-tab/external bump would strand this tab.
+ * (The click-write path in {@link useEntityWrite} refreshes the same way.)
  */
-function useRefreshingDispatch() {
+function useRetryingDispatch(caller: string) {
+  const { runVersioned } = useWriteApi(caller)
   const router = useRouter()
-  return async function dispatchWithFreshTokens<TValue, TError extends string>(
-    versionRef: RefObject<number>,
+  return async function dispatchWithRetry<TValue, TError extends string>(
+    versionClass: VersionClass,
     action: (
       expectedVersion: number
     ) => Promise<
@@ -279,12 +337,8 @@ function useRefreshingDispatch() {
       | { ok: false; error: TError }
     >
   ) {
-    const result = await action(versionRef.current)
-    if (result.ok) {
-      versionRef.current = result.value.version
-    } else if (result.error === "stale") {
-      router.refresh()
-    }
+    const result = await runVersioned(versionClass, action)
+    if (!result.ok && result.error === "stale") router.refresh()
     return result
   }
 }
@@ -308,19 +362,16 @@ export function useEntityColumnSave<TValue, TError extends string>(
     >
   }
 ): UseDebouncedAutoSaveReturn<TValue> {
-  const { entityId, versionRefs, queueRefs } = useWriteApi(
-    "useEntityColumnSave"
-  )
-  const dispatchWithFreshTokens = useRefreshingDispatch()
+  const { entityId, queueRefs } = useWriteApi("useEntityColumnSave")
+  const dispatchWithRetry = useRetryingDispatch("useEntityColumnSave")
   const { save, ...rest } = args
-  const versionRef = versionRefs.identity
 
   return useDebouncedAutoSave<TValue, TError>({
     ...rest,
     saveQueueRef: queueRefs.identity,
     save: (value, expectedVersion) =>
       save(value, { entityId, expectedVersion }),
-    dispatchWrite: (action) => dispatchWithFreshTokens(versionRef, action),
+    dispatchWrite: (action) => dispatchWithRetry("identity", action),
   })
 }
 
