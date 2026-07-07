@@ -198,12 +198,18 @@ export const ENTITY_WRITERS: WriterMap = {
     durableClass: "vitals",
     applyOp(components, write) {
       const mechanics = components.mechanics
-      const current = mechanics?.states[write.mechanic]
-      if (mechanics === undefined || current === undefined) {
-        return err("capability-missing")
+      if (mechanics === undefined) return err("capability-missing")
+      const definition = getMechanic(write.mechanic)
+      const transitions = definition?.transitions
+      if (definition === undefined || transitions === undefined) {
+        return err("no-transitions")
       }
-      const transitions = getMechanic(write.mechanic)?.transitions
-      if (transitions === undefined) return err("no-transitions")
+      // Mirror the read path (`getActiveMechanics`): an absent-but-owned state
+      // reads as the mechanic's initial state, so the first write transitions
+      // from exactly what the widget showed — finalize only seeds the Origin's
+      // mechanic, and later roster entries have no stored state until touched.
+      const current =
+        mechanics.states[write.mechanic] ?? definition.initialState()
       return ok({
         mechanics: {
           states: {

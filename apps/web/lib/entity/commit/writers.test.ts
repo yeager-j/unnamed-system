@@ -185,9 +185,27 @@ describe("applyEntityWrite — mechanics", () => {
     })
   })
 
-  it("refuses when the participant lacks that mechanic's state", () => {
+  it("coerces an absent-but-owned state to the mechanic's initial state (the read path's fallback)", () => {
+    // Finalize only seeds the Origin's mechanic; a later roster entry has no
+    // stored state until first touched, yet its widget renders from the
+    // synthesized initial state — the first write must transition from that.
     const result = applyEntityWrite(
       { mechanics: { states: {} } },
+      {
+        component: "mechanics",
+        mechanic: "valor",
+        transition: { op: "adjust", delta: 1 },
+      }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: { mechanics: { states: { valor: { kind: "valor", value: 1 } } } },
+    })
+  })
+
+  it("refuses without the mechanics component (capability-missing)", () => {
+    const result = applyEntityWrite(
+      {},
       {
         component: "mechanics",
         mechanic: "valor",
