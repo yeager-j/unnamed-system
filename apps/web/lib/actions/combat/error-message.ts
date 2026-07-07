@@ -50,6 +50,7 @@ export function combatErrorMessage(
     case "participant-load-failed":
     case "invalid-entity":
     case "locator-missing":
+    case "missing-encounter-version":
     case "missing-character-version":
     case "entity-not-found":
     case "entity-load-failed":

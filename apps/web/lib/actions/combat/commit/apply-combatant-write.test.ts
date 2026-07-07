@@ -137,12 +137,17 @@ beforeEach(() => {
   revalidateEncounter.mockReset()
 })
 
-const BASE = { encounterId: ENCOUNTER_ID, expectedVersion: 4 }
+const BASE = { encounterId: ENCOUNTER_ID }
+/** The session arm's honest envelope — the encounter token only (UNN-567). */
+const INLINE = { ...BASE, expectedVersion: 4 }
+/** The durable arm's honest envelope — the entity `vitals` token only, no
+ *  encounter rider (UNN-567). */
+const DURABLE = { ...BASE, expectedCharacterVersion: 7 }
 
 describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => {
   it("routes an inline participant through the session arm (reducer + blob)", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       write: { component: "vitals", op: "damage", amount: 7 },
     })
@@ -175,9 +180,8 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
 
   it("routes a durable participant through the shared entity Store", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...DURABLE,
       participantId: PC_ID,
-      expectedCharacterVersion: 7,
       write: { component: "vitals", op: "damage", amount: 5 },
     })
 
@@ -196,11 +200,12 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
   })
 
   it("the server's locator map is authoritative — the wire carries no home to lie about", async () => {
-    // A client hoping to route the PC through the session arm has no field to
-    // say so: the same input as the durable test, minus the character token,
-    // is refused rather than falling through to the blob.
+    // A client believing the PC is inline sends the inline envelope (the
+    // encounter token, no character token). The locator says durable, so the
+    // write fails closed on the durable arm's own requirement rather than
+    // falling through to the blob — a wrong belief cannot mis-route.
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: PC_ID,
       write: { component: "vitals", op: "damage", amount: 5 },
     })
@@ -209,9 +214,23 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     expect(commitEntityWrite).not.toHaveBeenCalled()
   })
 
+  it("the session arm requires its own token — an inline write without the encounter version fails closed (UNN-567)", async () => {
+    // The mirror case: a client believing the goblin durable sends only a
+    // character token. The locator says inline; the session arm refuses
+    // symmetric with the durable arm rather than guessing a guard.
+    const result = await applyCombatantWriteAction({
+      ...DURABLE,
+      participantId: GOBLIN_ID,
+      write: { component: "vitals", op: "damage", amount: 5 },
+    })
+    expect(result).toEqual(err("missing-encounter-version"))
+    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(commitEntityWrite).not.toHaveBeenCalled()
+  })
+
   it("rejects an unknown participant", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: asParticipantId("ghost"),
       write: { component: "vitals", op: "damage", amount: 1 },
     })
@@ -224,7 +243,7 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
     requireCampaignDM.mockRejectedValue(new Error("forbidden"))
     await expect(
       applyCombatantWriteAction({
-        ...BASE,
+        ...INLINE,
         participantId: GOBLIN_ID,
         write: { component: "vitals", op: "damage", amount: 1 },
       })
@@ -238,9 +257,8 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
     commitEntityWrite.mockRejectedValue(new Error("forbidden"))
     await expect(
       applyCombatantWriteAction({
-        ...BASE,
+        ...DURABLE,
         participantId: PC_ID,
-        expectedCharacterVersion: 7,
         write: { component: "vitals", op: "heal", amount: 2 },
       })
     ).rejects.toThrow("forbidden")
@@ -251,7 +269,7 @@ describe("applyCombatantWriteAction — auth (one gate per home)", () => {
 describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
   it("refuses an SP write against a no-skillPool participant (capability no-op → real error)", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       write: { component: "skillPool", op: "damage", amount: 2 },
     })
@@ -259,9 +277,14 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
     expect(saveEncounterSession).not.toHaveBeenCalled()
   })
 
-  it("refuses a mechanic transition the participant doesn't carry", async () => {
+  it("seeds an absent-but-owned mechanic state from its initial state (the S2a read-path mirror)", async () => {
+    // The goblin owns a `mechanics` component (perfection) but has no stored
+    // valor state — since UNN-557 the Writer transitions from the mechanic's
+    // initial state, mirroring what `getActiveMechanics` renders. (A truly
+    // mechanics-less participant still refuses; the skillPool test below pins
+    // the capability-missing arm.)
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       write: {
         component: "mechanics",
@@ -269,13 +292,23 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
         transition: { op: "adjust", delta: 1 },
       },
     })
-    expect(result).toEqual(err("capability-missing"))
-    expect(saveEncounterSession).not.toHaveBeenCalled()
+    expect(result.ok).toBe(true)
+    const blob = saveEncounterSession.mock.calls[0]![1] as StoredSession
+    const goblin = blob.participants.find((p) => p.id === GOBLIN_ID)!
+    const entity = (
+      goblin.locator as { entity: { components: { mechanics: unknown } } }
+    ).entity
+    expect(entity.components.mechanics).toEqual({
+      states: {
+        perfection: { kind: "perfection", rank: 1 },
+        valor: { kind: "valor", value: 1 },
+      },
+    })
   })
 
   it("refuses a session-arm usePrisma before any reduce (deps-driven)", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       write: { component: "resources", op: "usePrisma" },
     })
@@ -286,7 +319,7 @@ describe("applyCombatantWriteAction — Writer refusals (session arm)", () => {
 
   it("applies a carried mechanic transition into the blob", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       write: {
         component: "mechanics",
@@ -319,9 +352,8 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
     ] as const) {
       commitEntityWrite.mockClear()
       await applyCombatantWriteAction({
-        ...BASE,
+        ...DURABLE,
         participantId: PC_ID,
-        expectedCharacterVersion: 7,
         write,
       })
       expect(commitEntityWrite).toHaveBeenCalledWith("char-1", write, 7)
@@ -343,9 +375,8 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
     // Native depletion: `setMax` no longer refuses on a durable row — it forwards
     // like any other write (the store owns the semantics, tested in its suite).
     await applyCombatantWriteAction({
-      ...BASE,
+      ...DURABLE,
       participantId: PC_ID,
-      expectedCharacterVersion: 7,
       write: { component: "vitals", op: "setMax", amount: 40 },
     })
     expect(commitEntityWrite).toHaveBeenCalledWith(
@@ -359,7 +390,7 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
 describe("applyCombatantWriteAction — parse boundary", () => {
   it("rejects a malformed descriptor (foreign mechanic transition) as invalid-input", async () => {
     const result = await applyCombatantWriteAction({
-      ...BASE,
+      ...INLINE,
       participantId: GOBLIN_ID,
       // Well-typed (transition is `unknown` on the wire) but fails the
       // per-mechanic registry validation inside the schema.
