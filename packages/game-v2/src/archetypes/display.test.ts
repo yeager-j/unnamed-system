@@ -107,7 +107,7 @@ function resolvedPC(
   const entity: Entity = {
     id: "pc",
     components: {
-      level: { value: 5 },
+      level: { value: 5, victories: 0 },
       path: { choice: "health-focused" },
       archetypes: {
         active,

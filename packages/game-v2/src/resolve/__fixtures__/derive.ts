@@ -108,7 +108,7 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
     id,
     components: {
       identity: { name },
-      level: { value: level },
+      level: { value: level, victories: 0 },
       path: { choice: pathChoice },
       archetypes: {
         active,

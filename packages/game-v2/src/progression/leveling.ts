@@ -1,17 +1,21 @@
+import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
-import {
-  computeMaxHitDice,
-  computeMaxSkillDice,
-} from "@workspace/game-v2/resources/derive"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
+import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 
 /**
- * Level-up resolution, re-homed from v1 (`engine/character/leveling.ts`):
- * spending 7 Victories for a level, 2 saveable Archetype Ranks, and a refreshed
- * Hit/Skill Dice pool. Pure — returns a fresh character, never mutates. Max HP/SP
- * is *not* touched here; it derives from `level` (so bumping level is enough).
+ * Victory + level-up transitions (rulebook 1.1, 1.6), component-native on the
+ * depletion model (Characters v2 S2a; supersedes the v1-shaped re-home). Each is
+ * pure and returns a patch the caller shallow-merges per key — the atomic-op
+ * pattern (`vitals/operations.ts`), spanning components where the transition does
+ * (`resources/rest.ts` precedent).
  *
- * Spark-log / Virtue rank-up (also v1's leveling.ts) is a separate progression
- * concern (a write reducer) and lands with the progression-writes PR.
+ * Level-up **does not restore vitals** (ADR §2.2, settled 2026-07-05): `damage`
+ * persists and current HP/SP rises by exactly the max delta, which the depletion
+ * model expresses with zero code here. The dice pools DO refill (v1 parity):
+ * zeroing the `*Used` counts is the depletion spelling of v1's
+ * "refill to the new level's max".
  */
 
 /** Victories needed per level and the hard level ceiling (rulebook 1.1, 1.6). */
@@ -21,13 +25,31 @@ export const MAX_LEVEL = 30
 /** Saveable Archetype Ranks granted by one level-up (rulebook 1.6). */
 export const ARCHETYPE_RANKS_PER_LEVEL = 2
 
-/** The character state level-up resolution reads and rewrites. */
-export interface LevelingCharacter {
-  level: number
-  victories: number
-  savedArchetypeRanks: number
-  hitDiceRemaining: number
-  skillDiceRemaining: number
+/** Award one Victory. Banking past {@link VICTORIES_PER_LEVEL} is allowed (v1
+ *  parity) — overflow carries through the next level-up. */
+export function applyAwardVictory(level: Level): Pick<Level, "victories"> {
+  return { victories: level.victories + 1 }
+}
+
+/** Remove one Victory (a mis-click correction), clamped at 0 — not a refusal. */
+export function applyRemoveVictory(level: Level): Pick<Level, "victories"> {
+  return { victories: Math.max(0, level.victories - 1) }
+}
+
+/** The stored-component slice level-up reads and rewrites. */
+export type LevelingComponents = Pick<
+  ComponentRegistry,
+  "level" | "archetypes" | "resources"
+>
+
+/**
+ * An entity-level patch: each key holds only the field(s) level-up changed; the
+ * caller shallow-merges each onto the matching stored component.
+ */
+export interface LevelUpPatch {
+  level: Level
+  archetypes: Pick<Archetypes, "savedArchetypeRanks">
+  resources: Pick<Resources, "hitDiceUsed" | "skillDiceUsed">
 }
 
 /** Expected, recoverable failures (not programmer errors). */
@@ -37,35 +59,35 @@ export type LevelingError = "insufficient-victories" | "max-level"
  * Whether the character may level up now: ≥ {@link VICTORIES_PER_LEVEL} Victories
  * banked and below {@link MAX_LEVEL}.
  */
-export function canLevelUp(character: LevelingCharacter): boolean {
-  return (
-    character.victories >= VICTORIES_PER_LEVEL && character.level < MAX_LEVEL
-  )
+export function canLevelUp(level: Level): boolean {
+  return level.victories >= VICTORIES_PER_LEVEL && level.value < MAX_LEVEL
 }
 
 /**
- * Spends {@link VICTORIES_PER_LEVEL} Victories: +1 level, +2 saved ranks, dice
- * pools refilled to the new level's totals. Victory overflow carries forward.
- * Fails — without mutating — at {@link MAX_LEVEL} (`max-level`, checked first) or
- * with too few Victories (`insufficient-victories`).
+ * Spends {@link VICTORIES_PER_LEVEL} Victories: +1 level (overflow Victories
+ * carry), +{@link ARCHETYPE_RANKS_PER_LEVEL} saved Archetype Ranks, and both dice
+ * pools refilled (`*Used` zeroed — the level-derived max rises and the spend
+ * resets). Fails — without producing a patch — at {@link MAX_LEVEL} (`max-level`,
+ * checked first) or with too few Victories (`insufficient-victories`).
  */
 export function applyLevelUp(
-  character: LevelingCharacter
-): Result<LevelingCharacter, LevelingError> {
-  if (character.level >= MAX_LEVEL) return err("max-level")
-  if (character.victories < VICTORIES_PER_LEVEL) {
+  components: LevelingComponents
+): Result<LevelUpPatch, LevelingError> {
+  const { level, archetypes } = components
+  if (level.value >= MAX_LEVEL) return err("max-level")
+  if (level.victories < VICTORIES_PER_LEVEL) {
     return err("insufficient-victories")
   }
 
-  const level = character.level + 1
-
   return ok({
-    ...character,
-    level,
-    victories: character.victories - VICTORIES_PER_LEVEL,
-    savedArchetypeRanks:
-      character.savedArchetypeRanks + ARCHETYPE_RANKS_PER_LEVEL,
-    hitDiceRemaining: computeMaxHitDice(level),
-    skillDiceRemaining: computeMaxSkillDice(level),
+    level: {
+      value: level.value + 1,
+      victories: level.victories - VICTORIES_PER_LEVEL,
+    },
+    archetypes: {
+      savedArchetypeRanks:
+        archetypes.savedArchetypeRanks + ARCHETYPE_RANKS_PER_LEVEL,
+    },
+    resources: { hitDiceUsed: 0, skillDiceUsed: 0 },
   })
 }

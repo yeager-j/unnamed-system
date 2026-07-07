@@ -1,62 +1,96 @@
 import { describe, expect, it } from "vitest"
 
+import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import type { Level } from "@workspace/game-v2/progression/level.schema"
 import {
+  applyAwardVictory,
   applyLevelUp,
+  applyRemoveVictory,
   canLevelUp,
   MAX_LEVEL,
-  type LevelingCharacter,
+  type LevelingComponents,
 } from "@workspace/game-v2/progression/leveling"
 
-function character(
-  overrides: Partial<LevelingCharacter> = {}
-): LevelingCharacter {
+function level(overrides: Partial<Level> = {}): Level {
+  return { value: 1, victories: 0, ...overrides }
+}
+
+function components(
+  levelOverrides: Partial<Level> = {},
+  savedArchetypeRanks = 0
+): LevelingComponents {
+  const archetypes: Archetypes = {
+    active: "knight",
+    origin: "knight",
+    savedArchetypeRanks,
+    roster: [{ key: "knight", rank: 1, inheritanceSlots: [] }],
+  }
   return {
-    level: 1,
-    victories: 0,
-    savedArchetypeRanks: 0,
-    hitDiceRemaining: 2,
-    skillDiceRemaining: 5,
-    ...overrides,
+    level: level(levelOverrides),
+    archetypes,
+    resources: { hitDiceUsed: 1, skillDiceUsed: 3, prismaUsed: 1 },
   }
 }
 
+describe("applyAwardVictory / applyRemoveVictory", () => {
+  it("award increments; banking past 7 is allowed", () => {
+    expect(applyAwardVictory(level({ victories: 6 }))).toEqual({ victories: 7 })
+    expect(applyAwardVictory(level({ victories: 8 }))).toEqual({ victories: 9 })
+  })
+
+  it("remove decrements, clamped at 0", () => {
+    expect(applyRemoveVictory(level({ victories: 2 }))).toEqual({
+      victories: 1,
+    })
+    expect(applyRemoveVictory(level({ victories: 0 }))).toEqual({
+      victories: 0,
+    })
+  })
+})
+
 describe("canLevelUp", () => {
   it("true at ≥ 7 victories below the cap", () => {
-    expect(canLevelUp(character({ victories: 7 }))).toBe(true)
-    expect(canLevelUp(character({ victories: 6 }))).toBe(false)
+    expect(canLevelUp(level({ victories: 7 }))).toBe(true)
+    expect(canLevelUp(level({ victories: 6 }))).toBe(false)
   })
 
   it("false at the level cap regardless of victories", () => {
-    expect(canLevelUp(character({ level: MAX_LEVEL, victories: 99 }))).toBe(
-      false
-    )
+    expect(canLevelUp(level({ value: MAX_LEVEL, victories: 99 }))).toBe(false)
   })
 })
 
 describe("applyLevelUp", () => {
-  it("+1 level, −7 victories (overflow carries), +2 saved ranks, dice refilled to new max", () => {
-    const result = applyLevelUp(
-      character({ level: 4, victories: 9, savedArchetypeRanks: 1 })
-    )
+  it("+1 level, −7 victories (overflow carries), +2 saved ranks, dice spends reset", () => {
+    const result = applyLevelUp(components({ value: 4, victories: 9 }, 1))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.value.level).toBe(5)
-      expect(result.value.victories).toBe(2) // 9 − 7 carries
-      expect(result.value.savedArchetypeRanks).toBe(3)
-      expect(result.value.hitDiceRemaining).toBe(6) // level 5 + 1
-      expect(result.value.skillDiceRemaining).toBe(13) // 2·5 + 3
+      expect(result.value.level).toEqual({ value: 5, victories: 2 })
+      expect(result.value.archetypes).toEqual({ savedArchetypeRanks: 3 })
+      expect(result.value.resources).toEqual({
+        hitDiceUsed: 0,
+        skillDiceUsed: 0,
+      })
+    }
+  })
+
+  it("does not touch vitals or prisma (damage persists across level-up)", () => {
+    const result = applyLevelUp(components({ victories: 7 }))
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value).not.toHaveProperty("vitals")
+      expect(result.value.resources).not.toHaveProperty("prismaUsed")
     }
   })
 
   it("fails 'insufficient-victories' without mutating", () => {
-    const input = character({ victories: 6 })
+    const input = components({ victories: 6 })
     const result = applyLevelUp(input)
     expect(result).toEqual({ ok: false, error: "insufficient-victories" })
-    expect(input.level).toBe(1)
+    expect(input.level).toEqual({ value: 1, victories: 6 })
   })
 
   it("fails 'max-level' — checked before the victory check", () => {
-    const result = applyLevelUp(character({ level: MAX_LEVEL, victories: 99 }))
+    const result = applyLevelUp(components({ value: MAX_LEVEL, victories: 99 }))
     expect(result).toEqual({ ok: false, error: "max-level" })
   })
 })
