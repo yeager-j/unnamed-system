@@ -29,6 +29,8 @@ export const {
   creationArchetypes,
   previewArchetypeSkills,
   resolveTalentsForBuilder,
+  // The sheet's Talents card (S2b — UNN-558).
+  resolveTalentsForSheet,
   startingWeaponForLineage,
   getArchetype,
 } = engine

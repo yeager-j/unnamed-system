@@ -13,6 +13,8 @@ import { getArchetype } from "@/lib/game-engine-v2"
 
 import { CombatTab } from "./combat/combat-tab"
 import { SheetCommandPalette } from "./command-palette"
+import { ExploreTab } from "./explore/explore-tab"
+import { JournalTab } from "./journal/journal-tab"
 import { SheetRail } from "./rail/rail"
 import { SheetDock, type SheetTabKey } from "./tab-dock"
 
@@ -55,6 +57,8 @@ function SheetShell() {
         <SheetRail view={rail} />
         <div className="min-w-0 flex-1 lg:overflow-y-auto">
           {tab === "combat" ? <CombatTab cells={affinities} /> : null}
+          {tab === "explore" ? <ExploreTab /> : null}
+          {tab === "journal" ? <JournalTab /> : null}
         </div>
       </div>
       <SheetDock active={tab} onSelect={setTab} />

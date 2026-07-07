@@ -54,8 +54,9 @@ export function combatErrorMessage(
     case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
     // The Writer refusals; the character-family ones (allocation cap, entry
-    // index, rest/leveling — UNN-556/UNN-557) are unreachable through the
-    // narrowed encounter wire, but the shared refusal union carries them.
+    // index, rest/leveling, the Spark loop — UNN-556/UNN-557/UNN-558) are
+    // unreachable through the narrowed encounter wire, but the shared refusal
+    // union carries them.
     case "capability-missing":
     case "no-prisma-charges":
     case "no-transitions":
@@ -66,6 +67,10 @@ export function combatErrorMessage(
     case "insufficient-hit-dice":
     case "insufficient-victories":
     case "max-level":
+    case "log-full":
+    case "log-not-full":
+    case "virtue-not-eligible":
+    case "rank-capped":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }
