@@ -10,7 +10,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
+import { applyEntityWrite } from "@/lib/entity/commit/writers"
 
 /**
  * The **one optimistic container** the DM console + encounter setup reduce
@@ -47,7 +47,6 @@ export type ConsoleOptimisticAction =
       kind: "write"
       participantId: ParticipantId
       write: CombatEntityWrite
-      deps: WriterDeps
     }
 
 /**
@@ -100,8 +99,7 @@ function applyWriteToFrame(
 
   const predicted = applyEntityWrite(
     participant.entity.components,
-    action.write,
-    action.deps
+    action.write
   )
   if (!predicted.ok) return state
 

@@ -4,15 +4,18 @@
  */
 
 /**
- * Resolved consumable-dice capability: the level-derived maxima (PR2) plus the
- * derived `current = max(0, max − used)`. Prisma carries **no** resolved maximum
- * yet — its derivation waits on the upgrade tree (D26) — so it is absent here.
+ * Resolved consumable capability: the level-derived dice maxima (PR2) and the
+ * Prisma cap (base 2 until the upgrade tree ships, S2a), each with the derived
+ * `current = max(0, max − used)`. The heal-per-charge display formula is the
+ * `PRISMA_HEAL` constant in `derive.ts`, not per-entity data.
  */
 export interface ResolvedResources {
   maxHitDice: number
   currentHitDice: number
   maxSkillDice: number
   currentSkillDice: number
+  maxPrisma: number
+  currentPrisma: number
 }
 
 /**

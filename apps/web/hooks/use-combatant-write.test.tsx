@@ -73,7 +73,7 @@ describe("useCombatantWrite", () => {
     )
 
     await act(async () => {
-      await rendered.result.current.dispatchWrite(inlineId, damage, {})
+      await rendered.result.current.dispatchWrite(inlineId, damage)
     })
 
     expect(writeAction).toHaveBeenCalledWith({
@@ -84,7 +84,7 @@ describe("useCombatantWrite", () => {
     })
     expect(rendered.result.current.encounterWrite.versionRef.current).toBe(6)
     expect(mirrored).toEqual([
-      { kind: "write", participantId: inlineId, write: damage, deps: {} },
+      { kind: "write", participantId: inlineId, write: damage },
     ])
   })
 
@@ -95,7 +95,7 @@ describe("useCombatantWrite", () => {
     )
 
     await act(async () => {
-      await rendered.result.current.dispatchWrite(durableId, damage, {})
+      await rendered.result.current.dispatchWrite(durableId, damage)
     })
 
     expect(writeAction).toHaveBeenCalledWith({
@@ -123,8 +123,8 @@ describe("useCombatantWrite", () => {
 
     await act(async () => {
       await Promise.all([
-        rendered.result.current.dispatchWrite(durableId, damage, {}),
-        rendered.result.current.dispatchWrite(durableId, damage, {}),
+        rendered.result.current.dispatchWrite(durableId, damage),
+        rendered.result.current.dispatchWrite(durableId, damage),
       ])
     })
 
@@ -151,11 +151,7 @@ describe("useCombatantWrite", () => {
       ReturnType<typeof rendered.result.current.dispatchWrite>
     >
     await act(async () => {
-      result = await rendered.result.current.dispatchWrite(
-        durableId,
-        damage,
-        {}
-      )
+      result = await rendered.result.current.dispatchWrite(durableId, damage)
     })
 
     expect(result!.ok).toBe(true)
@@ -174,11 +170,11 @@ describe("useCombatantWrite", () => {
     >
     await act(async () => {
       // The frame's components carry no skillPool → capability-missing.
-      result = await rendered.result.current.dispatchWrite(
-        inlineId,
-        { component: "skillPool", op: "damage", amount: 1 },
-        {}
-      )
+      result = await rendered.result.current.dispatchWrite(inlineId, {
+        component: "skillPool",
+        op: "damage",
+        amount: 1,
+      })
     })
 
     expect(result!).toEqual(err("capability-missing"))

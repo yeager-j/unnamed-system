@@ -21,6 +21,13 @@ describe("entityWriteSchema — the storage-blind descriptor", () => {
       mechanic: "frenzy",
       transition: { op: "setFrenzyMode", value: true },
     },
+    { component: "rest", op: "fullRest" },
+    { component: "rest", op: "partialRest", skillDiceToSpend: 2, rolled: 7 },
+    { component: "rest", op: "respite", hitDiceToSpend: 1, rolled: 4 },
+    { component: "exhaustion", op: "setLevel", level: 3 },
+    { component: "level", op: "awardVictory" },
+    { component: "level", op: "levelUp" },
+    { component: "archetypes", op: "setActive", archetypeKey: "mage" },
   ])("accepts %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(true)
   })
@@ -30,6 +37,10 @@ describe("entityWriteSchema — the storage-blind descriptor", () => {
     { component: "vitals", op: "damage", amount: -3 },
     { component: "vitals", op: "usePrisma" },
     { component: "resources", op: "damage", amount: 1 },
+    { component: "rest", op: "partialRest", skillDiceToSpend: -1, rolled: 4 },
+    { component: "rest", op: "respite", hitDiceToSpend: 1, rolled: 2.5 },
+    { component: "exhaustion", op: "setLevel", level: 7 },
+    { component: "level", op: "setLevel", value: 5 },
     // A foreign transition descriptor fails the per-mechanic registry schema.
     {
       component: "mechanics",
@@ -50,11 +61,11 @@ describe("applyEntityWrite — pools", () => {
   }
 
   it("damage adds signed depletion (v2 semantics)", () => {
-    const result = applyEntityWrite(
-      components,
-      { component: "vitals", op: "damage", amount: 7 },
-      {}
-    )
+    const result = applyEntityWrite(components, {
+      component: "vitals",
+      op: "damage",
+      amount: 7,
+    })
     expect(result).toEqual({
       ok: true,
       value: { vitals: { base: 20, damage: 12 } },
@@ -62,11 +73,11 @@ describe("applyEntityWrite — pools", () => {
   })
 
   it("heal floors at 0 and preserves an over-max balance (no-op)", () => {
-    const healed = applyEntityWrite(
-      components,
-      { component: "vitals", op: "heal", amount: 9 },
-      {}
-    )
+    const healed = applyEntityWrite(components, {
+      component: "vitals",
+      op: "heal",
+      amount: 9,
+    })
     expect(healed).toEqual({
       ok: true,
       value: { vitals: { base: 20, damage: 0 } },
@@ -74,8 +85,7 @@ describe("applyEntityWrite — pools", () => {
 
     const overMax = applyEntityWrite(
       { vitals: { base: 20, damage: -3 } },
-      { component: "vitals", op: "heal", amount: 5 },
-      {}
+      { component: "vitals", op: "heal", amount: 5 }
     )
     expect(overMax).toEqual({
       ok: true,
@@ -84,11 +94,11 @@ describe("applyEntityWrite — pools", () => {
   })
 
   it("skillPool damage/heal ride spend/recover", () => {
-    const spent = applyEntityWrite(
-      components,
-      { component: "skillPool", op: "damage", amount: 2 },
-      {}
-    )
+    const spent = applyEntityWrite(components, {
+      component: "skillPool",
+      op: "damage",
+      amount: 2,
+    })
     expect(spent).toEqual({
       ok: true,
       value: { skillPool: { base: 10, spSpent: 6 } },
@@ -96,11 +106,11 @@ describe("applyEntityWrite — pools", () => {
   })
 
   it("setMax writes the authored base", () => {
-    const result = applyEntityWrite(
-      components,
-      { component: "vitals", op: "setMax", amount: 30 },
-      {}
-    )
+    const result = applyEntityWrite(components, {
+      component: "vitals",
+      op: "setMax",
+      amount: 30,
+    })
     expect(result).toEqual({
       ok: true,
       value: { vitals: { base: 30, damage: 5 } },
@@ -110,35 +120,22 @@ describe("applyEntityWrite — pools", () => {
   it("refuses a write against an absent component (capability-missing)", () => {
     const result = applyEntityWrite(
       { vitals: { base: 20, damage: 0 } },
-      { component: "skillPool", op: "damage", amount: 1 },
-      {}
+      { component: "skillPool", op: "damage", amount: 1 }
     )
     expect(result).toEqual({ ok: false, error: "capability-missing" })
   })
 })
 
-describe("applyEntityWrite — resources (deps-driven refusal)", () => {
-  const components = {
-    resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 1 },
-  }
+describe("applyEntityWrite — resources", () => {
   const use = { component: "resources", op: "usePrisma" } as const
 
-  it("refuses without a resolved max (no-prisma-max)", () => {
-    expect(applyEntityWrite(components, use, {})).toEqual({
-      ok: false,
-      error: "no-prisma-max",
-    })
-  })
-
-  it("refuses at the cap (no-prisma-charges)", () => {
-    expect(applyEntityWrite(components, use, { maxPrisma: 1 })).toEqual({
-      ok: false,
-      error: "no-prisma-charges",
-    })
-  })
-
-  it("uses a charge under the cap", () => {
-    expect(applyEntityWrite(components, use, { maxPrisma: 2 })).toEqual({
+  it("uses a charge under the base cap", () => {
+    expect(
+      applyEntityWrite(
+        { resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 1 } },
+        use
+      )
+    ).toEqual({
       ok: true,
       value: {
         resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 2 },
@@ -146,8 +143,20 @@ describe("applyEntityWrite — resources (deps-driven refusal)", () => {
     })
   })
 
+  it("refuses at the cap (no-prisma-charges)", () => {
+    expect(
+      applyEntityWrite(
+        { resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 2 } },
+        use
+      )
+    ).toEqual({
+      ok: false,
+      error: "no-prisma-charges",
+    })
+  })
+
   it("refuses without the component (capability-missing)", () => {
-    expect(applyEntityWrite({}, use, { maxPrisma: 2 })).toEqual({
+    expect(applyEntityWrite({}, use)).toEqual({
       ok: false,
       error: "capability-missing",
     })
@@ -166,8 +175,7 @@ describe("applyEntityWrite — mechanics", () => {
         component: "mechanics",
         mechanic: "perfection",
         transition: { op: "adjust", delta: 1 },
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,
@@ -177,15 +185,32 @@ describe("applyEntityWrite — mechanics", () => {
     })
   })
 
-  it("refuses when the participant lacks that mechanic's state", () => {
+  it("coerces an absent-but-owned state to the mechanic's initial state (the read path's fallback)", () => {
+    // Finalize only seeds the Origin's mechanic; a later roster entry has no
+    // stored state until first touched, yet its widget renders from the
+    // synthesized initial state — the first write must transition from that.
     const result = applyEntityWrite(
       { mechanics: { states: {} } },
       {
         component: "mechanics",
         mechanic: "valor",
         transition: { op: "adjust", delta: 1 },
-      },
-      {}
+      }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: { mechanics: { states: { valor: { kind: "valor", value: 1 } } } },
+    })
+  })
+
+  it("refuses without the mechanics component (capability-missing)", () => {
+    const result = applyEntityWrite(
+      {},
+      {
+        component: "mechanics",
+        mechanic: "valor",
+        transition: { op: "adjust", delta: 1 },
+      }
     )
     expect(result).toEqual({ ok: false, error: "capability-missing" })
   })
@@ -267,17 +292,182 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
     },
     { component: "narrative", op: "setField", field: "hopes", value: "x" },
     { component: "narrative", op: "addListEntry", list: "chains" },
+    { component: "rest", op: "fullRest" },
+    { component: "exhaustion", op: "setLevel", level: 2 },
+    { component: "level", op: "awardVictory" },
+    { component: "archetypes", op: "setActive", archetypeKey: "mage" },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })
 })
 
+describe("applyEntityWrite — character transitions (UNN-557)", () => {
+  const resting = {
+    vitals: { base: 0, damage: 12 },
+    skillPool: { base: 0, spSpent: 9 },
+    resources: { hitDiceUsed: 2, skillDiceUsed: 3, prismaUsed: 1 },
+    exhaustion: { level: 2 },
+    level: { value: 4, victories: 0 },
+    path: { choice: "balanced" as const },
+  }
+
+  it("rest.fullRest zeroes every spend and steps exhaustion down (whole components)", () => {
+    const result = applyEntityWrite(resting, {
+      component: "rest",
+      op: "fullRest",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        vitals: { base: 0, damage: 0 },
+        skillPool: { base: 0, spSpent: 0 },
+        resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 0 },
+        exhaustion: { level: 1 },
+      },
+    })
+  })
+
+  it("rest.partialRest spends skill dice + recovers rolled SP; patch omits untouched components", () => {
+    const result = applyEntityWrite(resting, {
+      component: "rest",
+      op: "partialRest",
+      skillDiceToSpend: 2,
+      rolled: 6,
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        vitals: { base: 0, damage: 0 },
+        skillPool: { base: 0, spSpent: 3 },
+        resources: { hitDiceUsed: 2, skillDiceUsed: 5, prismaUsed: 1 },
+      },
+    })
+  })
+
+  it("rest.respite refuses an over-spend of hit dice (failure matrix)", () => {
+    // L4 ⇒ maxHitDice 5; 2 used ⇒ 3 unspent.
+    const result = applyEntityWrite(resting, {
+      component: "rest",
+      op: "respite",
+      hitDiceToSpend: 4,
+      rolled: 10,
+    })
+    expect(result).toEqual({ ok: false, error: "insufficient-hit-dice" })
+  })
+
+  it("rest refuses when a resting component is absent (capability-missing)", () => {
+    const { exhaustion: _exhaustion, ...withoutExhaustion } = resting
+    const result = applyEntityWrite(withoutExhaustion, {
+      component: "rest",
+      op: "fullRest",
+    })
+    expect(result).toEqual({ ok: false, error: "capability-missing" })
+  })
+
+  it("exhaustion.setLevel writes the level", () => {
+    const result = applyEntityWrite(resting, {
+      component: "exhaustion",
+      op: "setLevel",
+      level: 5,
+    })
+    expect(result).toEqual({ ok: true, value: { exhaustion: { level: 5 } } })
+  })
+
+  it("level.awardVictory / removeVictory track the bank", () => {
+    const awarded = applyEntityWrite(resting, {
+      component: "level",
+      op: "awardVictory",
+    })
+    expect(awarded).toEqual({
+      ok: true,
+      value: { level: { value: 4, victories: 1 } },
+    })
+
+    const removed = applyEntityWrite(resting, {
+      component: "level",
+      op: "removeVictory",
+    })
+    expect(removed).toEqual({
+      ok: true,
+      value: { level: { value: 4, victories: 0 } },
+    })
+  })
+
+  it("level.levelUp spends 7 victories into level + saved ranks (progression-only patch)", () => {
+    const components = {
+      level: { value: 4, victories: 8 },
+      archetypes: {
+        active: "knight",
+        origin: "knight",
+        savedArchetypeRanks: 1,
+        roster: [{ key: "knight", rank: 3, inheritanceSlots: [] }],
+      },
+    }
+    const result = applyEntityWrite(components, {
+      component: "level",
+      op: "levelUp",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        level: { value: 5, victories: 1 },
+        archetypes: { ...components.archetypes, savedArchetypeRanks: 3 },
+      },
+    })
+  })
+
+  it("level.levelUp refuses under 7 victories", () => {
+    const result = applyEntityWrite(
+      { ...resting, archetypes: { ...knightRoster() } },
+      { component: "level", op: "levelUp" }
+    )
+    expect(result).toEqual({ ok: false, error: "insufficient-victories" })
+  })
+
+  it("archetypes.setActive re-points active within the roster", () => {
+    const components = {
+      archetypes: {
+        ...knightRoster(),
+        roster: [
+          { key: "knight", rank: 3, inheritanceSlots: [] },
+          { key: "mage", rank: 1, inheritanceSlots: [] },
+        ],
+      },
+    }
+    const result = applyEntityWrite(components, {
+      component: "archetypes",
+      op: "setActive",
+      archetypeKey: "mage",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: { archetypes: { ...components.archetypes, active: "mage" } },
+    })
+  })
+
+  it("archetypes.setActive refuses a key outside the roster (not-unlocked)", () => {
+    const result = applyEntityWrite(
+      { archetypes: knightRoster() },
+      { component: "archetypes", op: "setActive", archetypeKey: "priest" }
+    )
+    expect(result).toEqual({ ok: false, error: "not-unlocked" })
+  })
+})
+
+function knightRoster() {
+  return {
+    active: "knight",
+    origin: "knight",
+    savedArchetypeRanks: 0,
+    roster: [{ key: "knight", rank: 3, inheritanceSlots: [] }],
+  }
+}
+
 describe("applyEntityWrite — creation families (UNN-556)", () => {
   it("path.setChoice replaces the choice (identity class)", () => {
     const result = applyEntityWrite(
       { path: { choice: "balanced" } },
-      { component: "path", op: "setChoice", choice: "skill-focused" },
-      {}
+      { component: "path", op: "setChoice", choice: "skill-focused" }
     )
     expect(result).toEqual({
       ok: true,
@@ -289,8 +479,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
   it("archetypes.setOrigin creates from absent at the Origin auto-rank", () => {
     const result = applyEntityWrite(
       {},
-      { component: "archetypes", op: "setOrigin", archetypeKey: "warrior" },
-      {}
+      { component: "archetypes", op: "setOrigin", archetypeKey: "warrior" }
     )
     expect(result).toEqual({
       ok: true,
@@ -316,8 +505,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
           roster: [{ key: "warrior", rank: 2, inheritanceSlots: [] }],
         },
       },
-      { component: "archetypes", op: "setOrigin", archetypeKey: "mage" },
-      {}
+      { component: "archetypes", op: "setOrigin", archetypeKey: "mage" }
     )
     expect(result).toEqual({
       ok: true,
@@ -335,8 +523,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
   it("talents.setGained replaces the whole list", () => {
     const result = applyEntityWrite(
       { talents: [{ key: "old" }] },
-      { component: "talents", op: "setGained", keys: ["acrobat", "chef"] },
-      {}
+      { component: "talents", op: "setGained", keys: ["acrobat", "chef"] }
     )
     expect(result).toEqual({
       ok: true,
@@ -352,8 +539,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         component: "virtues",
         op: "setAllocation",
         ranks: { expression: 2, empathy: 0, wisdom: 0, focus: 0 },
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,
@@ -375,8 +561,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
   ])("virtues.setAllocation refuses the cap violation %j", (ranks) => {
     const result = applyEntityWrite(
       { virtues: { ranks: zeroRanks(), sparkLog: [] } },
-      { component: "virtues", op: "setAllocation", ranks },
-      {}
+      { component: "virtues", op: "setAllocation", ranks }
     )
     expect(result).toEqual({ ok: false, error: "allocation-cap-exceeded" })
   })
@@ -388,8 +573,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         component: "virtues",
         op: "setAllocation",
         ranks: { expression: 0, empathy: 1, wisdom: 0, focus: 0 },
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,
@@ -410,8 +594,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         op: "setField",
         field: "hopes",
         value: "peace",
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,
@@ -423,8 +606,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
   it("narrative.setField stores an empty string as null (canonical payload)", () => {
     const result = applyEntityWrite(
       { narrative: { ...emptyNarrative(), hopes: "peace" } },
-      { component: "narrative", op: "setField", field: "hopes", value: "" },
-      {}
+      { component: "narrative", op: "setField", field: "hopes", value: "" }
     )
     expect(result).toEqual({
       ok: true,
@@ -436,8 +618,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
     const base = { ...emptyNarrative(), backstory: "kept" }
     const result = applyEntityWrite(
       { narrative: base },
-      { component: "narrative", op: "addListEntry", list: "knives" },
-      {}
+      { component: "narrative", op: "addListEntry", list: "knives" }
     )
     expect(result).toEqual({
       ok: true,
@@ -464,8 +645,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         index: 1,
         field: "description",
         value: "my sister",
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,
@@ -491,8 +671,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         index: 0,
         field: "title",
         value: "x",
-      },
-      {}
+      }
     )
     expect(result).toEqual({ ok: false, error: "entry-not-found" })
   })
@@ -512,8 +691,7 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         op: "removeListEntry",
         list: "chains",
         index: 0,
-      },
-      {}
+      }
     )
     expect(result).toEqual({
       ok: true,

@@ -54,15 +54,19 @@ export function combatErrorMessage(
     case "entity-not-found":
     case "entity-load-failed":
       return "Something went wrong with this encounter's data. Reload and try again."
-    // The Writer refusals; the creation-family ones (allocation cap, entry
-    // index — UNN-556) are unreachable through the narrowed encounter wire,
-    // but the shared refusal union carries them.
+    // The Writer refusals; the character-family ones (allocation cap, entry
+    // index, rest/leveling — UNN-556/UNN-557) are unreachable through the
+    // narrowed encounter wire, but the shared refusal union carries them.
     case "capability-missing":
-    case "no-prisma-max":
     case "no-prisma-charges":
     case "no-transitions":
     case "allocation-cap-exceeded":
     case "entry-not-found":
+    case "not-unlocked":
+    case "insufficient-skill-dice":
+    case "insufficient-hit-dice":
+    case "insufficient-victories":
+    case "max-level":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }

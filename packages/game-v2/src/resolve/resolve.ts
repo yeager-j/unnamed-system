@@ -24,6 +24,7 @@ import { manualBonusPool } from "@workspace/game-v2/progression/manual-bonuses"
 import {
   computeMaxHitDice,
   computeMaxSkillDice,
+  PRISMA_BASE_CHARGES,
 } from "@workspace/game-v2/resources/derive"
 import { getExhaustionLevel } from "@workspace/game-v2/resources/exhaustion-table"
 import { computeMaxHP, computeMaxSP } from "@workspace/game-v2/vitals/derive"
@@ -189,6 +190,8 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
         currentHitDice: Math.max(0, maxHitDice - resources.hitDiceUsed),
         maxSkillDice,
         currentSkillDice: Math.max(0, maxSkillDice - resources.skillDiceUsed),
+        maxPrisma: PRISMA_BASE_CHARGES,
+        currentPrisma: Math.max(0, PRISMA_BASE_CHARGES - resources.prismaUsed),
       }
     }
 

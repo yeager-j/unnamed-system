@@ -97,7 +97,7 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
  * HP and SP share a shape today but are free to diverge.
  */
 export function computeMaxHP(
-  level: Level | undefined,
+  level: Pick<Level, "value"> | undefined,
   path: Path | undefined,
   vitals: Pick<Vitals, "base">,
   pool: BonusPool
@@ -108,7 +108,7 @@ export function computeMaxHP(
 
 /** Effective **max SP** — the SP peer of {@link computeMaxHP}. */
 export function computeMaxSP(
-  level: Level | undefined,
+  level: Pick<Level, "value"> | undefined,
   path: Path | undefined,
   skillPool: Pick<SkillPool, "base">,
   pool: BonusPool

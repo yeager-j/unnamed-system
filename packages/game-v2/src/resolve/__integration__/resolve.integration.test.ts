@@ -80,6 +80,8 @@ describe("createResolve — base layer over a derived PC entity", () => {
       currentHitDice: 6,
       maxSkillDice: 13,
       currentSkillDice: 13,
+      maxPrisma: 2,
+      currentPrisma: 2,
     })
   })
 
@@ -307,7 +309,7 @@ describe("resolveEntity — collected skills (hydrated) + direct talents", () =>
       id: "intellect-devourer",
       components: {
         identity: { name: "Intellect Devourer" },
-        level: { value: 4 },
+        level: { value: 4, victories: 0 },
         attributes: {
           base: { strength: -2, magic: 2, agility: 1, luck: 0 },
         },
@@ -376,6 +378,8 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
       currentHitDice: 4,
       maxSkillDice: 13,
       currentSkillDice: 9,
+      maxPrisma: 2,
+      currentPrisma: 2,
     })
   })
 
@@ -393,7 +397,7 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
       id: "no-resources",
       components: {
         identity: { name: "Spectre" },
-        level: { value: 5 },
+        level: { value: 5, victories: 0 },
         vitals: { base: 100, damage: 0 },
       },
     }
@@ -483,7 +487,7 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
     const formed = applyForm(entity, bear)
 
     // Level rides through (you're still your true level in form); Path detaches.
-    expect(formed.components.level).toEqual({ value: 5 })
+    expect(formed.components.level).toEqual({ value: 5, victories: 0 })
     expect(formed.components.path).toBeUndefined()
 
     const resolved = resolve(formed)

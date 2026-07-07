@@ -11,14 +11,9 @@ import { auth } from "@/lib/auth"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import {
   getDungeonSnapshot,
-  hydrateOwnedDungeonSheets,
   loadOwnedDungeonCharacterIds,
 } from "@/lib/db/queries/load-dungeon-snapshot"
-import {
-  getDungeonCombatSnapshot,
-  loadOwnedEncounterSheets,
-  type OwnedEncounterSheet,
-} from "@/lib/db/queries/load-encounter-snapshot-v2"
+import { getDungeonCombatSnapshot } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 
 interface PageProps {
@@ -62,7 +57,6 @@ interface DungeonCombatWatchData {
   encounterShortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
-  ownedSheets: OwnedEncounterSheet[]
 }
 
 /**
@@ -73,8 +67,7 @@ interface DungeonCombatWatchData {
  * back to the exploration view rather than 404 the whole delve.
  */
 async function resolveDungeonCombatWatch(
-  shortId: string,
-  viewerId: string | undefined
+  shortId: string
 ): Promise<DungeonCombatWatchData | null> {
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
@@ -82,19 +75,13 @@ async function resolveDungeonCombatWatch(
   const live = await loadLiveEncounterForMapInstance(dungeon.mapInstanceId)
   if (!live) return null
 
-  const [snapshotResult, ownedSheets] = await Promise.all([
-    getDungeonCombatSnapshot(live.shortId),
-    viewerId
-      ? loadOwnedEncounterSheets(live.shortId, viewerId)
-      : Promise.resolve([]),
-  ])
+  const snapshotResult = await getDungeonCombatSnapshot(live.shortId)
   if (!snapshotResult.ok) return null
 
   return {
     encounterShortId: live.shortId,
     initialSnapshot: snapshotResult.value.snapshot,
     initialCompositeVersion: snapshotResult.value.compositeVersion,
-    ownedSheets,
   }
 }
 
@@ -106,7 +93,7 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   // The combat-vs-explore fork, decided once: a live encounter on the delve's
   // Instance composes the **fogged** v2 combat watch (UNN-536); else the
   // exploration fog view below stays the flat happy path.
-  const combat = await resolveDungeonCombatWatch(shortId, viewerId)
+  const combat = await resolveDungeonCombatWatch(shortId)
   if (combat) return <DungeonCombatWatch {...combat} />
 
   const [snapshot, ownedCharacterIds] = await Promise.all([
@@ -117,17 +104,11 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   ])
   if (!snapshot) notFound()
 
-  // The viewer's own placed characters fill the Explore-tab column beside the
-  // map. `ownedCharacterIds` is already owner-filtered, so hydrating it reuses
-  // that walk rather than re-resolving.
-  const exploreSheets = await hydrateOwnedDungeonSheets(ownedCharacterIds)
-
   return (
     <DungeonWatch
       shortId={shortId}
       initialSnapshot={snapshot}
       ownedCharacterIds={ownedCharacterIds}
-      exploreSheets={exploreSheets}
     />
   )
 }

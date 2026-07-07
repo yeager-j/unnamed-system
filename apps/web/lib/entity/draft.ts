@@ -37,7 +37,7 @@ export function draftEntityComponents(): DraftComponents {
     vitals: { base: 0, damage: 0 },
     skillPool: { base: 0, spSpent: 0 },
     resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 0 },
-    level: { value: 1 },
+    level: { value: 1, victories: 0 },
     path: { choice: "balanced" },
     virtues: { ranks: ZERO_VIRTUE_ALLOCATION, sparkLog: [] },
     narrative: emptyNarrative(),

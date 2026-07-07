@@ -3,10 +3,8 @@ import { notFound } from "next/navigation"
 import { cache } from "react"
 
 import { EncounterWatch } from "@/components/encounter/encounter-watch"
-import { auth } from "@/lib/auth"
 import {
   getEncounterSnapshot,
-  loadOwnedEncounterSheets,
   type EncounterSnapshotResult,
 } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
@@ -47,22 +45,12 @@ export async function generateMetadata({
  * intentionally public; a missing `shortId` (or an unparseable row) 404s
  * rather than erroring.
  *
- * For the 3-column layout it *also* resolves the signed-in viewer (`auth()`) to
- * the durable combatant(s) they own here ({@link loadOwnedEncounterSheets})
- * and passes their hydrated sheets for the left column. A signed-out spectator
- * resolves to none and sees the battlefield full-width — the page stays public.
+ * The own-sheet left column was removed with the old sheet tree (UNN-557); its
+ * v2 rebuild is a follow-up, and players manage vitals from `/c/{shortId}`.
  */
 export default async function EncounterWatchPage({ params }: PageProps) {
   const { shortId } = await params
-  const session = await auth()
-  const viewerId = session?.user?.id
-
-  const [result, ownedSheets] = await Promise.all([
-    getSnapshot(shortId),
-    viewerId
-      ? loadOwnedEncounterSheets(shortId, viewerId)
-      : Promise.resolve([]),
-  ])
+  const result = await getSnapshot(shortId)
   if (!result) notFound()
 
   return (
@@ -70,7 +58,6 @@ export default async function EncounterWatchPage({ params }: PageProps) {
       shortId={shortId}
       initialSnapshot={result.snapshot}
       initialCompositeVersion={result.compositeVersion}
-      ownedSheets={ownedSheets}
     />
   )
 }

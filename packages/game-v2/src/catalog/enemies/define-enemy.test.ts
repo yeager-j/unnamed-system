@@ -31,7 +31,7 @@ describe("defineEnemy", () => {
       id: "fixture-enemy",
       components: {
         identity: { name: "Fixture Enemy" },
-        level: { value: 3 },
+        level: { value: 3, victories: 0 },
         attributes: { base: { strength: 1, magic: -1, agility: 2, luck: 0 } },
         affinities: { base: { fire: "weak", ice: "resist" } },
         vitals: { base: 28, damage: 0 },

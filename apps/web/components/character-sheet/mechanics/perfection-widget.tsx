@@ -2,77 +2,75 @@
 
 import {
   attackBonusForRank,
-  formatSignedBonus,
+  PERFECTION_MAX_RANK,
   PERFECTION_RANK_LABELS,
   rankLabel,
-} from "@workspace/game/engine"
-import { type PerfectionState } from "@workspace/game/foundation"
+  type PerfectionState,
+} from "@workspace/game-v2/mechanics/warrior/perfection"
+import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useEntityWrite } from "@/hooks/use-entity-write"
 
-import { usePerfectionControls } from "./warrior/perfection-controls"
+import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
 /**
- * Warrior — Perfection rendering. Big current letter (D / C / B / A / S)
- * with every step shown as a ladder beneath it so the player can see how
- * far they've climbed and what's next. The Attack Roll bonus the active
- * step grants is called out underneath; below D it reads "no bonus" so
- * the player isn't left staring at "+ 0".
- *
- * Owner mode (UNN-228) adds step `−` / `+` controls between the bonus
- * text and the ladder, plus a labelled "Reset to D" beneath. Optimistic
- * rank state lives in the {@link usePerfectionControls} hook so the big
- * letter, bonus text, and ladder all reflect the in-flight value before
- * the server response lands.
+ * Warrior — Perfection: the D → S rank track with its Attack-Roll bonus (the
+ * bonus folds into every card's `D20 + N` through the resolve fold), plus the
+ * owner's step/reset controls.
  */
 export function PerfectionWidget({ state }: { state: PerfectionState }) {
-  const controls = usePerfectionControls({ rank: state.rank })
+  const { dispatch, pending } = useEntityWrite()
 
-  const displayRank = state.rank
-  const bonus = attackBonusForRank(displayRank)
+  const write = (transition: unknown) =>
+    dispatch({ component: "mechanics", mechanic: "perfection", transition })
+
+  const bonus = attackBonusForRank(state.rank)
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <div
-        aria-label={`Perfection rank ${rankLabel(displayRank)}`}
-        className="font-mono text-6xl leading-none font-bold"
-      >
-        {rankLabel(displayRank)}
+    <>
+      <WidgetHeader name="Perfection" value={rankLabel(state.rank)} />
+      <div className="flex items-center gap-1">
+        {PERFECTION_RANK_LABELS.map((label, index) => (
+          <span
+            key={label}
+            className={cn(
+              "flex-1 rounded-sm border py-0.5 text-center text-xs font-semibold",
+              index <= state.rank && index > 0
+                ? "border-gold/60 text-gold"
+                : index === 0 && state.rank === 0
+                  ? "border-border text-foreground"
+                  : "text-muted-foreground opacity-50"
+            )}
+          >
+            {label}
+          </span>
+        ))}
       </div>
-      <p className="text-sm text-muted-foreground">
-        {bonus > 0 ? (
-          <>
-            Attack Roll{" "}
-            <span className="font-mono text-foreground">
-              {formatSignedBonus(bonus)}
-            </span>
-          </>
-        ) : (
-          "No Attack Roll bonus yet — land a hit to climb the chain."
-        )}
-      </p>
-      <OwnerOnly>{controls.stepButtons}</OwnerOnly>
-      <ol
-        className="flex items-center gap-1 font-mono text-xs"
-        aria-label="Perfection ladder"
-      >
-        {PERFECTION_RANK_LABELS.map((label, index) => {
-          const isCurrent = index === displayRank
-          return (
-            <li
-              key={label}
-              className={
-                isCurrent
-                  ? "rounded-md border border-foreground bg-foreground px-2 py-0.5 text-background"
-                  : "rounded-md border border-border px-2 py-0.5 text-muted-foreground"
-              }
-            >
-              {label}
-            </li>
-          )
-        })}
-      </ol>
-      <OwnerOnly>{controls.resetButton}</OwnerOnly>
-    </div>
+      {bonus > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          +{bonus} to Attack Rolls
+        </p>
+      ) : null}
+      <div className="flex items-center justify-between">
+        <OwnerOnly>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pending || state.rank === 0}
+            onClick={() => write({ op: "reset" })}
+          >
+            Reset
+          </Button>
+        </OwnerOnly>
+        <WidgetStepper
+          label="Perfection rank"
+          onAdjust={(delta) => write({ op: "adjust", delta })}
+          decrementDisabled={state.rank === 0}
+          incrementDisabled={state.rank >= PERFECTION_MAX_RANK}
+        />
+      </div>
+    </>
   )
 }

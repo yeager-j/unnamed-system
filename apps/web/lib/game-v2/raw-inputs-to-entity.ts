@@ -35,7 +35,7 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
     id: row.id,
     components: {
       identity: { name: row.name },
-      level: { value: row.level },
+      level: { value: row.level, victories: row.victories },
       path: { choice: row.pathChoice },
       archetypes: {
         active: keyOf(row.activeArchetypeId),

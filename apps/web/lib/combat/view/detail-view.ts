@@ -25,7 +25,6 @@ import { isFallen } from "@workspace/game-v2/vitals/operations"
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import { hpPool, spPool, type Pool } from "@/lib/combat/view/roster-view"
 import { adjacentZones } from "@/lib/combat/view/zone-graph"
-import type { WriterDeps } from "@/lib/entity/commit/writers"
 
 /**
  * The per-combatant **drawer model** — the v2 successor of v1's
@@ -102,10 +101,9 @@ export interface CombatantDetail {
   affinities: AffinityChart | null
   resolvedSkills: ResolvedSkill[]
   talentKeys: string[]
-  /** The resolved caps the Writers validate against — derived from the view
-   *  model, never the wire. `maxPrisma` stays `undefined` until the v2 upgrade
-   *  tree ships a resolvable cap, so no Prisma affordance renders anywhere. */
-  deps: WriterDeps
+  /** Whether the participant resolved a Prisma pool (a `resources` read-unit)
+   *  — gates the drawer's use-Prisma affordance. */
+  hasPrisma: boolean
   durable: DurableDetail | null
 }
 
@@ -155,7 +153,7 @@ export function combatantDetail(
     talentKeys: (participant.entity.components.talents ?? []).map(
       (talent) => talent.key
     ),
-    deps: {},
+    hasPrisma: participantView.components.resources !== undefined,
     durable:
       meta?.storage === "durable"
         ? {

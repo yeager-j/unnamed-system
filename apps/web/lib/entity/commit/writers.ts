@@ -4,7 +4,20 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { VIRTUE_KEYS } from "@workspace/game-v2/kernel/vocab"
 import { getMechanic } from "@workspace/game-v2/mechanics"
 import { emptyNarrative } from "@workspace/game-v2/narrative"
+import {
+  applyAwardVictory,
+  applyLevelUp,
+  applyRemoveVictory,
+} from "@workspace/game-v2/progression/leveling"
+import { PRISMA_BASE_CHARGES } from "@workspace/game-v2/resources/derive"
 import { applyUsePrisma } from "@workspace/game-v2/resources/operations"
+import {
+  applyFullRest,
+  applyPartialRest,
+  applyRespite,
+  type RestComponents,
+  type RestPatch,
+} from "@workspace/game-v2/resources/rest"
 import { coerceVirtueAllocation } from "@workspace/game-v2/virtues"
 import {
   applyDamage,
@@ -14,14 +27,18 @@ import {
 } from "@workspace/game-v2/vitals/operations"
 
 import type { VersionClass } from "@/lib/db/version-classes"
+import type { LiftedComponentKey } from "@/lib/game-v2/entity-row-to-bag"
 
 import type {
   ArchetypesWrite,
   EntityWrite,
+  ExhaustionWrite,
+  LevelWrite,
   MechanicWrite,
   NarrativeWrite,
   PathWrite,
   PoolWrite,
+  RestWrite,
   TalentsWrite,
   VirtuesWrite,
 } from "./write.schema"
@@ -40,24 +57,24 @@ import type {
  *   so a capability miss or an unaffordable spend is a real error at the boundary
  *   rather than a silent no-op.
  *
- * {@link WriterDeps} carries the resolved values a validation needs (Prisma's
- * cap). **Derived independently by client (from its view model) and server (from
- * its own resolve); never accepted over the wire** — a client could otherwise lie
- * about its caps.
+ * Validation inputs are the stored components themselves plus engine-derived
+ * constants (the Prisma cap, dice maxima from `level`) — nothing is accepted
+ * over the wire, and client prediction and server commit derive identically.
  */
-export interface WriterDeps {
-  /** The resolved Prisma charge cap; `undefined` while the max is unknown. */
-  maxPrisma?: number
-}
 
 /** A Writer's refusal — surfaced by the action, never silently dropped. */
 export type EntityWriteRefusal =
   | "capability-missing"
-  | "no-prisma-max"
   | "no-prisma-charges"
   | "no-transitions"
   | "allocation-cap-exceeded"
   | "entry-not-found"
+  | "not-unlocked"
+  | "insufficient-skill-dice"
+  | "insufficient-hit-dice"
+  | "invalid-input"
+  | "insufficient-victories"
+  | "max-level"
 
 /**
  * The authored-component patch a Writer predicts — whole updated components, so
@@ -68,12 +85,13 @@ export type EntityWriteRefusal =
  * components. The combat Writers below produce the single-component degenerate
  * case of this type.
  *
- * `identity`/`presentation` are excluded: the descriptor router never writes the
- * `name`/`portraitUrl` metadata — those are classic per-field column actions
- * (ADR §2.4) — so a router patch spans only durable **component** columns.
+ * The lifted components (`identity`/`presentation`) are excluded: the descriptor
+ * router never writes the `name`/`portraitUrl` metadata — those are classic
+ * per-field column actions (ADR §2.4) — so a router patch spans only durable
+ * **component** columns.
  */
 export type EntityWritePatch = Partial<
-  Omit<ComponentRegistry, "identity" | "presentation">
+  Omit<ComponentRegistry, LiftedComponentKey>
 >
 
 type Components = Partial<ComponentRegistry>
@@ -90,8 +108,7 @@ export interface EntityWriter<W extends EntityWrite = EntityWrite> {
   durableClass: VersionClass
   applyOp(
     components: Components,
-    write: W,
-    deps: WriterDeps
+    write: W
   ): Result<EntityWritePatch, EntityWriteRefusal>
 }
 
@@ -102,6 +119,9 @@ type WriterMap = {
   skillPool: EntityWriter<PoolWrite>
   resources: EntityWriter<Extract<EntityWrite, { component: "resources" }>>
   mechanics: EntityWriter<MechanicWrite>
+  rest: EntityWriter<RestWrite>
+  exhaustion: EntityWriter<ExhaustionWrite>
+  level: EntityWriter<LevelWrite>
   path: EntityWriter<PathWrite>
   archetypes: EntityWriter<ArchetypesWrite>
   talents: EntityWriter<TalentsWrite>
@@ -165,11 +185,10 @@ export const ENTITY_WRITERS: WriterMap = {
   resources: {
     component: "resources",
     durableClass: "vitals",
-    applyOp(components, _write, deps) {
+    applyOp(components) {
       const resources = components.resources
       if (resources === undefined) return err("capability-missing")
-      if (deps.maxPrisma === undefined) return err("no-prisma-max")
-      const used = applyUsePrisma(resources, deps.maxPrisma)
+      const used = applyUsePrisma(resources, PRISMA_BASE_CHARGES)
       if (!used.ok) return used
       return ok({ resources: { ...resources, ...used.value } })
     },
@@ -179,12 +198,18 @@ export const ENTITY_WRITERS: WriterMap = {
     durableClass: "vitals",
     applyOp(components, write) {
       const mechanics = components.mechanics
-      const current = mechanics?.states[write.mechanic]
-      if (mechanics === undefined || current === undefined) {
-        return err("capability-missing")
+      if (mechanics === undefined) return err("capability-missing")
+      const definition = getMechanic(write.mechanic)
+      const transitions = definition?.transitions
+      if (definition === undefined || transitions === undefined) {
+        return err("no-transitions")
       }
-      const transitions = getMechanic(write.mechanic)?.transitions
-      if (transitions === undefined) return err("no-transitions")
+      // Mirror the read path (`getActiveMechanics`): an absent-but-owned state
+      // reads as the mechanic's initial state, so the first write transitions
+      // from exactly what the widget showed — finalize only seeds the Origin's
+      // mechanic, and later roster entries have no stored state until touched.
+      const current =
+        mechanics.states[write.mechanic] ?? definition.initialState()
       return ok({
         mechanics: {
           states: {
@@ -193,6 +218,95 @@ export const ENTITY_WRITERS: WriterMap = {
           },
         },
       })
+    },
+  },
+
+  // ── The character transitions (S2a — UNN-557): the sheet's rest / exhaustion /
+  // victory-and-level writes over the E1/E2 engine transitions. ────────────────
+
+  /**
+   * The E2 rest trio — the multi-component write that forced the CH5 patch
+   * widening. One descriptor, one `vitals`-class guard, one UPDATE spanning the
+   * four columns (all vitals-class, so the footprint stays class-disjoint). The
+   * engine returns changed *fields*; this merges them onto the whole stored
+   * components (the patch contract: whole components, 1:1 with columns).
+   */
+  rest: {
+    component: "rest",
+    durableClass: "vitals",
+    applyOp(components, write) {
+      const { vitals, skillPool, resources, exhaustion, level } = components
+      if (!vitals || !skillPool || !resources || !exhaustion || !level) {
+        return err("capability-missing")
+      }
+      const resting: RestComponents = {
+        vitals,
+        skillPool,
+        resources,
+        exhaustion,
+        level,
+      }
+      const patch: Result<RestPatch, EntityWriteRefusal> =
+        write.op === "fullRest"
+          ? ok(applyFullRest(resting))
+          : write.op === "partialRest"
+            ? applyPartialRest(resting, write)
+            : applyRespite(resting, write)
+      if (!patch.ok) return patch
+      const changed = patch.value
+      return ok({
+        ...(changed.vitals && { vitals: { ...vitals, ...changed.vitals } }),
+        ...(changed.skillPool && {
+          skillPool: { ...skillPool, ...changed.skillPool },
+        }),
+        ...(changed.resources && {
+          resources: { ...resources, ...changed.resources },
+        }),
+        ...(changed.exhaustion && {
+          exhaustion: { ...exhaustion, ...changed.exhaustion },
+        }),
+      })
+    },
+  },
+
+  /** Direct Exhaustion tracking (D27) — the sheet's 0–6 stepper. */
+  exhaustion: {
+    component: "exhaustion",
+    durableClass: "vitals",
+    applyOp(components, write) {
+      const exhaustion = components.exhaustion
+      if (exhaustion === undefined) return err("capability-missing")
+      return ok({ exhaustion: { ...exhaustion, level: write.level } })
+    },
+  },
+
+  /**
+   * Victories + level-up (rulebook 1.6). Level-up patches only progression-class
+   * columns (`level`, `archetypes`) — the single-class write ADR §2.2 promises;
+   * maxes rise by deriving from the new level, spends persist.
+   */
+  level: {
+    component: "level",
+    durableClass: "progression",
+    applyOp(components, write) {
+      const level = components.level
+      if (level === undefined) return err("capability-missing")
+      switch (write.op) {
+        case "awardVictory":
+          return ok({ level: { ...level, ...applyAwardVictory(level) } })
+        case "removeVictory":
+          return ok({ level: { ...level, ...applyRemoveVictory(level) } })
+        case "levelUp": {
+          const archetypes = components.archetypes
+          if (archetypes === undefined) return err("capability-missing")
+          const patch = applyLevelUp({ level, archetypes })
+          if (!patch.ok) return patch
+          return ok({
+            level: patch.value.level,
+            archetypes: { ...archetypes, ...patch.value.archetypes },
+          })
+        }
+      }
     },
   },
 
@@ -207,33 +321,54 @@ export const ENTITY_WRITERS: WriterMap = {
   },
 
   /**
-   * Origin selection — create-from-absent and switch are the same move: the
-   * Origin roster entry is minted fresh at {@link ORIGIN_ARCHETYPE_RANK} (v1's
+   * `setOrigin` — create-from-absent and switch are the same move: the Origin
+   * roster entry is minted fresh at {@link ORIGIN_ARCHETYPE_RANK} (v1's
    * delete-and-replace parity). Deliberately does NOT prune origin-granted keys
    * from `talents` or reset `mechanics` (v1 did both): a progression-class
    * patch must not span identity-/vitals-class columns (CH15 disjointness).
    * Talent hygiene is the picker's display filter + finalize's prune; mechanic
    * state is seeded at finalize (`resolve` falls back to `initialStateFor`
    * meanwhile).
+   *
+   * `setActive` — the sheet rail's switcher: re-point `active` to an unlocked
+   * roster key (`not-unlocked` otherwise). Mechanic state, ranks, and slots all
+   * ride the roster untouched — switching is a pointer move.
    */
   archetypes: {
     component: "archetypes",
     durableClass: "progression",
-    applyOp: (components, write) =>
-      ok({
-        archetypes: {
-          active: write.archetypeKey,
-          origin: write.archetypeKey,
-          savedArchetypeRanks: components.archetypes?.savedArchetypeRanks ?? 0,
-          roster: [
-            {
-              key: write.archetypeKey,
-              rank: ORIGIN_ARCHETYPE_RANK,
-              inheritanceSlots: [],
+    applyOp(components, write) {
+      switch (write.op) {
+        case "setOrigin":
+          return ok({
+            archetypes: {
+              active: write.archetypeKey,
+              origin: write.archetypeKey,
+              savedArchetypeRanks:
+                components.archetypes?.savedArchetypeRanks ?? 0,
+              roster: [
+                {
+                  key: write.archetypeKey,
+                  rank: ORIGIN_ARCHETYPE_RANK,
+                  inheritanceSlots: [],
+                },
+              ],
             },
-          ],
-        },
-      }),
+          })
+        case "setActive": {
+          const archetypes = components.archetypes
+          if (archetypes === undefined) return err("capability-missing")
+          if (
+            !archetypes.roster.some((entry) => entry.key === write.archetypeKey)
+          ) {
+            return err("not-unlocked")
+          }
+          return ok({
+            archetypes: { ...archetypes, active: write.archetypeKey },
+          })
+        }
+      }
+    },
   },
 
   /** Whole-list replace of the player-added Talents (cap + dedupe on the wire). */
@@ -336,27 +471,32 @@ export const ENTITY_WRITERS: WriterMap = {
  */
 export function applyEntityWrite(
   components: Components,
-  write: EntityWrite,
-  deps: WriterDeps
+  write: EntityWrite
 ): Result<EntityWritePatch, EntityWriteRefusal> {
   switch (write.component) {
     case "vitals":
-      return ENTITY_WRITERS.vitals.applyOp(components, write, deps)
+      return ENTITY_WRITERS.vitals.applyOp(components, write)
     case "skillPool":
-      return ENTITY_WRITERS.skillPool.applyOp(components, write, deps)
+      return ENTITY_WRITERS.skillPool.applyOp(components, write)
     case "resources":
-      return ENTITY_WRITERS.resources.applyOp(components, write, deps)
+      return ENTITY_WRITERS.resources.applyOp(components, write)
     case "mechanics":
-      return ENTITY_WRITERS.mechanics.applyOp(components, write, deps)
+      return ENTITY_WRITERS.mechanics.applyOp(components, write)
+    case "rest":
+      return ENTITY_WRITERS.rest.applyOp(components, write)
+    case "exhaustion":
+      return ENTITY_WRITERS.exhaustion.applyOp(components, write)
+    case "level":
+      return ENTITY_WRITERS.level.applyOp(components, write)
     case "path":
-      return ENTITY_WRITERS.path.applyOp(components, write, deps)
+      return ENTITY_WRITERS.path.applyOp(components, write)
     case "archetypes":
-      return ENTITY_WRITERS.archetypes.applyOp(components, write, deps)
+      return ENTITY_WRITERS.archetypes.applyOp(components, write)
     case "talents":
-      return ENTITY_WRITERS.talents.applyOp(components, write, deps)
+      return ENTITY_WRITERS.talents.applyOp(components, write)
     case "virtues":
-      return ENTITY_WRITERS.virtues.applyOp(components, write, deps)
+      return ENTITY_WRITERS.virtues.applyOp(components, write)
     case "narrative":
-      return ENTITY_WRITERS.narrative.applyOp(components, write, deps)
+      return ENTITY_WRITERS.narrative.applyOp(components, write)
   }
 }

@@ -10,7 +10,6 @@ import {
   applyEntityWrite,
   ENTITY_WRITERS,
   type EntityWriteRefusal,
-  type WriterDeps,
 } from "@/lib/entity/commit/writers"
 import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
@@ -53,17 +52,6 @@ export interface EntityCommit {
   status: EntityStatus
 }
 
-/**
- * Resolved values a Writer's validation needs, derived server-side (never the
- * wire). Only Prisma's cap today, which stays `undefined` until the v2 upgrade
- * tree ships a resolvable max — so `usePrisma` refuses `no-prisma-max` and no
- * Prisma affordance renders (parity with the session arm). A vitals/skillPool/
- * mechanic write needs none of it.
- */
-function serverDeps(): WriterDeps {
-  return {}
-}
-
 export async function commitEntityWrite(
   entityId: string,
   write: EntityWrite,
@@ -78,11 +66,7 @@ export async function commitEntityWrite(
   const loaded = loadEntityRow(row)
   if (!loaded.ok) return err("entity-load-failed")
 
-  const predicted = applyEntityWrite(
-    loaded.value.components,
-    write,
-    serverDeps()
-  )
+  const predicted = applyEntityWrite(loaded.value.components, write)
   if (!predicted.ok) return predicted
 
   const bumped = await bumpEntityVersionGuarded(

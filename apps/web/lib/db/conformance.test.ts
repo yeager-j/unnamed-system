@@ -7,6 +7,11 @@ import type { MechanicState as MechanicStateV2 } from "@workspace/game-v2/mechan
 import type { MechanicState as MechanicStateV1 } from "@workspace/game/foundation"
 
 import {
+  LIFTED_COMPONENT_KEYS,
+  type LiftedComponentKey,
+} from "@/lib/game-v2/entity-row-to-bag"
+
+import {
   characterArchetypes,
   characterChains,
   characterKnives,
@@ -67,8 +72,8 @@ describe("persisted table ⇔ game record conformance", () => {
  * absent). `componentSchemas` (`load-seam.ts`) is the runtime key list + the
  * per-column payload contract.
  */
-const LIFTED_KEYS = ["identity", "presentation"] as const
-type LiftedKey = (typeof LIFTED_KEYS)[number]
+const LIFTED_KEYS = LIFTED_COMPONENT_KEYS
+type LiftedKey = LiftedComponentKey
 type DurableComponentColumn = Exclude<keyof ComponentRegistry, LiftedKey>
 
 describe("entity table ⇔ durable component registry", () => {

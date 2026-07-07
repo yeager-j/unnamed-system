@@ -2,8 +2,6 @@
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
-import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
-import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import {
   useEncounterSnapshot,
@@ -11,7 +9,6 @@ import {
 } from "@/hooks/use-encounter-snapshot"
 import type { SnapshotFetcher } from "@/hooks/use-snapshot-subscription"
 import { buildWatchView } from "@/lib/combat/view/watch-layout"
-import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
@@ -27,26 +24,26 @@ import { ZoneLayout } from "./zone-layout"
  * apply guard equality-compares, so a durable PC's HP bump invalidates even
  * when both row tokens held still.
  *
- * Three-column layout: when the signed-in viewer owns combatant(s) here
- * (`ownedSheets`), their character sheet fills the left column
- * ({@link CombatSheetColumn}) and the battlefield spans the other two; a
- * spectator (no owned sheet) gets the battlefield full-width. Every combatant
- * datum renders **structurally off the redacted components** (a dropped key ⇒
- * no affordance) via {@link buildWatchView}. The status fork mirrors the
- * lifecycle: `draft` waits, `ended` a concluded banner, `live` the full
- * tracker.
+ * Every combatant datum renders **structurally off the redacted components**
+ * (a dropped key ⇒ no affordance) via {@link buildWatchView}. The status fork
+ * mirrors the lifecycle: `draft` waits, `ended` a concluded banner, `live` the
+ * full tracker.
+ *
+ * The own-sheet left column (the v1 `CombatSheetColumn`) was removed with the
+ * old sheet tree (UNN-557) — it had rendered empty since S0 (durable
+ * combatants are entity rows with no v1 twin). Its v2 rebuild on the new sheet
+ * components is a follow-up; meanwhile a player manages vitals from their own
+ * sheet at `/c/{shortId}`.
  */
 export function EncounterWatch({
   shortId,
   initialSnapshot,
   initialCompositeVersion,
-  ownedSheets,
   fetcher,
 }: {
   shortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
-  ownedSheets: OwnedEncounterSheet[]
   /** Overrides the poll source (UNN-536): a delve combat watch fetches the
    *  **fogged** snapshot. Defaults to the mapless full-map endpoint. */
   fetcher?: SnapshotFetcher<WatchSnapshot>
@@ -59,9 +56,6 @@ export function EncounterWatch({
     },
     fetcher
   )
-  useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
-  const hasSheets = ownedSheets.length > 0
-
   const battlefield =
     snapshot.status === "draft" ? (
       <WaitingState />
@@ -83,20 +77,9 @@ export function EncounterWatch({
         <StatusPill status={snapshot.status} stale={stale} />
       </header>
 
-      {hasSheets ? (
-        <div className="grid grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-3">
-          <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-            <CombatSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
-          </div>
-          <div className="flex min-w-0 flex-col lg:col-span-2 lg:min-h-0">
-            {battlefield}
-          </div>
-        </div>
-      ) : (
-        <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
-          {battlefield}
-        </div>
-      )}
+      <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+        {battlefield}
+      </div>
     </main>
   )
 }

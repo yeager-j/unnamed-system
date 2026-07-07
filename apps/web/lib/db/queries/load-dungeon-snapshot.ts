@@ -107,28 +107,6 @@ export async function getDungeonSnapshot(
 }
 
 /**
- * The viewer's own hydrated character sheets for the delve's **exploration**
- * (non-combat) player view (`/c/dungeon/{shortId}`), feeding the Explore-tab
- * column beside the fog map. Hydrate-only: it takes the already-resolved owned
- * `characterId`s (the page computes them once for the fog self-highlight, so we
- * don't re-walk occupancy) and loads each full sheet. Returns bare
- * {@link HydratedCharacter}s — exploration has no combatant, so no
- * `combatantId`.
- *
- * Privacy: callers pass only ids the viewer owns ({@link
- * loadOwnedDungeonCharacterIds}, owner-filtered on the cheap character row), so
- * a non-owner's sheet is never hydrated.
- */
-export async function hydrateOwnedDungeonSheets(
-  ownedCharacterIds: string[]
-): Promise<HydratedCharacter[]> {
-  const characters = await Promise.all(
-    ownedCharacterIds.map((id) => loadHydratedCharacterById(id))
-  )
-  return characters.filter((character) => character !== null)
-}
-
-/**
  * The `characterId`s of the party tokens in this delve that the **signed-in viewer
  * owns** — the set the fog view self-highlights (ADR — *self-identifying*). Empty
  * for a spectator, a signed-out viewer, or a member with no placed character here.

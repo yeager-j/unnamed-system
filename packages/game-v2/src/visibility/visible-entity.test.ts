@@ -35,6 +35,8 @@ const ENEMY_COMPONENTS: Partial<ParticipantViewComponents> = {
     currentHitDice: 1,
     maxSkillDice: 2,
     currentSkillDice: 1,
+    maxPrisma: 2,
+    currentPrisma: 2,
   },
   exhaustion: { level: 0, description: "Rested" },
   archetypes: {

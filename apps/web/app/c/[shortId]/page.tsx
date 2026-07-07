@@ -1,72 +1,58 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
-import { cache } from "react"
-
-import { archetypeDisplayName } from "@workspace/game/data"
 
 import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
-import { Affinities } from "@/components/character-sheet/affinities"
-import { Archetypes } from "@/components/character-sheet/archetypes"
-import { CombatState } from "@/components/character-sheet/combat-state"
-import { CommandPalette } from "@/components/character-sheet/command-palette"
-import { ExploreTab } from "@/components/character-sheet/explore/explore-tab"
-import { Inventory } from "@/components/character-sheet/inventory"
-import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
-import { RanksBanner } from "@/components/character-sheet/ranks-banner"
-import { SheetCommandSurfacesProvider } from "@/components/character-sheet/sheet-command-surfaces-context"
-import { SheetHeader } from "@/components/character-sheet/sheet-header"
-import { SheetNavProvider } from "@/components/character-sheet/sheet-nav-context"
-import { SheetTabs } from "@/components/character-sheet/sheet-tabs"
-import { Skills } from "@/components/character-sheet/skills"
+import { CharacterSheet } from "@/components/character-sheet/sheet"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
-import { CharacterProvider } from "@/hooks/use-character"
 import { getViewerRole } from "@/lib/auth/viewer-role"
-import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
+import { loadCharacterByShortId } from "@/lib/character/load"
+import { getArchetype } from "@/lib/game-engine-v2"
 
 /**
- * The public, read-only character sheet at `/c/{shortId}`. UNN-143 landed the
- * route + typed data spine ({@link loadHydratedCharacterByShortId}); UNN-145/146
- * filled the persistent header (identity, HP/SP, Attributes, Victories). UNN-154
- * organizes the body into four play-context tabs (Combat / Explore / Inventory /
- * Archetypes) above which the header stays fixed. Sections not yet built are
- * dashed placeholders within their tab, filled in by sibling tickets, each
- * reading what it needs off the hydrated character. The active tab is in-memory
- * client state (it always opens on Combat); see {@link SheetNavProvider}.
+ * The character sheet at `/c/{shortId}` (S2a — UNN-557): the v2 entity sheet,
+ * Showtime! redesign. The route is the read boundary's mount point:
+ * {@link loadCharacterByShortId} loads + resolves once (React-cached, so
+ * `generateMetadata` shares the query), and the client
+ * {@link CharacterSheet} mounts the `EntityWriteProvider` over the loaded
+ * triple — every interactive control dispatches descriptors through it.
+ *
+ * Publicly viewable; owner-mode controls render only for the owner
+ * (`ViewerRoleProvider`). Drafts are scoped to their owner: the owner is
+ * routed into the builder, everyone else sees the non-dismissable "not ready"
+ * dialog (v1 parity, UNN-204).
  */
 
 interface PageProps {
   params: Promise<{ shortId: string }>
 }
 
-/**
- * Per-request memoized load so `generateMetadata` and the page itself resolve
- * the character once, not twice.
- */
-const getCharacter = cache((shortId: string) =>
-  loadHydratedCharacterByShortId(shortId)
-)
-
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { shortId } = await params
-  const character = await getCharacter(shortId)
+  const loaded = await loadCharacterByShortId(shortId)
 
-  if (!character) {
+  if (!loaded) {
     return { title: "Character not found — Showtime!" }
   }
-
-  // Drafts never get a real page rendered — give crawlers a neutral title
-  // and skip the OG block so a shared WIP URL doesn't leak the draft name.
-  if (character.status === "draft") {
+  if (loaded.profile.status === "draft") {
     return { title: "Character in progress — Showtime!" }
   }
 
-  const title = `${character.name} — Showtime!`
-  const description = `Level ${character.level} ${archetypeDisplayName(
-    character.activeArchetypeKey
-  )} — ${character.name}'s character sheet for Showtime!`
+  const { profile, entity, resolved } = loaded
+  const activeKey = resolved.components.archetypes?.active
+  const archetypeName = activeKey ? getArchetype(activeKey)?.name : undefined
+  const level = entity.components.level?.value
+
+  const title = `${profile.name} — Showtime!`
+  const description = [
+    level ? `Level ${level}` : null,
+    archetypeName ?? null,
+    `${profile.name}'s character sheet for Showtime!`,
+  ]
+    .filter(Boolean)
+    .join(" — ")
 
   return {
     title,
@@ -77,66 +63,26 @@ export async function generateMetadata({
 
 export default async function CharacterSheetPage({ params }: PageProps) {
   const { shortId } = await params
-  const character = await getCharacter(shortId)
+  const loaded = await loadCharacterByShortId(shortId)
 
-  if (!character) {
+  if (!loaded) {
     notFound()
   }
 
-  const role = await getViewerRole(character)
+  const role = await getViewerRole(loaded.profile)
 
-  // Drafts (UNN-204) are scoped to their owner. The owner shouldn't be
-  // staring at a half-built sheet — route them into the builder. Everyone
-  // else sees a non-dismissable "not ready" dialog; the URL is shareable
-  // from the moment a draft exists, but the WIP state never leaks.
-  if (character.status === "draft") {
+  if (loaded.profile.status === "draft") {
     if (role === "owner") {
-      redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+      redirect(
+        `/builder/${shortId}/${slugForStepIndex(loaded.profile.builderStep)}`
+      )
     }
     return <DraftInProgressDialog />
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
-      <ViewerRoleProvider role={role}>
-        <CharacterProvider character={character}>
-          <SheetNavProvider>
-            <SheetCommandSurfacesProvider>
-              <CommandPalette />
-
-              <SheetHeader />
-
-              <RanksBanner />
-
-              <SheetTabs
-                combat={
-                  <>
-                    <section aria-label="Affinities">
-                      <Affinities />
-                    </section>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      {character.activeMechanic ? (
-                        <section aria-label="Archetype Mechanic">
-                          <MechanicWidget />
-                        </section>
-                      ) : null}
-                      <section aria-label="Combat State">
-                        <CombatState />
-                      </section>
-                    </div>
-                    <section aria-label="Skills">
-                      <Skills />
-                    </section>
-                  </>
-                }
-                explore={<ExploreTab />}
-                inventory={<Inventory />}
-                archetypes={<Archetypes />}
-              />
-            </SheetCommandSurfacesProvider>
-          </SheetNavProvider>
-        </CharacterProvider>
-      </ViewerRoleProvider>
-    </main>
+    <ViewerRoleProvider role={role}>
+      <CharacterSheet loaded={loaded} />
+    </ViewerRoleProvider>
   )
 }

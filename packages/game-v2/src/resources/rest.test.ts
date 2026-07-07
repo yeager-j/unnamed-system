@@ -35,7 +35,7 @@ function makeComponents(
     skillPool: { base: 0, spSpent: 0 },
     resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 0 },
     exhaustion: { level: 0 },
-    level: { value: 1 },
+    level: { value: 1, victories: 0 },
     ...overrides,
   }
 }
@@ -215,7 +215,7 @@ describe("applyRespite", () => {
     const result = applyRespite(
       makeComponents({
         vitals: { base: 0, damage: 12 },
-        level: { value: 2 },
+        level: { value: 2, victories: 0 },
       }),
       { hitDiceToSpend: 2, rolled: 9 }
     )
@@ -319,7 +319,7 @@ describe("applyRespite", () => {
     // v1 fixture: currentHP 6, hitDiceRemaining 3 → L2 (max Hit Dice 3).
     const components = makeComponents({
       vitals: { base: 0, damage: 14 },
-      level: { value: 2 },
+      level: { value: 2, victories: 0 },
     })
     const snapshot = structuredClone(components)
 

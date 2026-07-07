@@ -61,13 +61,11 @@ describe("reduceConsoleOptimistic", () => {
       kind: "write",
       participantId: goblinId,
       write: { component: "vitals", op: "damage", amount: 3 },
-      deps: {},
     })
     const afterSecond = reduce(afterFirst, {
       kind: "write",
       participantId: goblinId,
       write: { component: "vitals", op: "damage", amount: 4 },
-      deps: {},
     })
 
     const vitals = afterSecond.session.participants[0]!.entity.components.vitals
@@ -91,7 +89,6 @@ describe("reduceConsoleOptimistic", () => {
       participantId: goblinId,
       // The goblin carries no skillPool — capability-missing refusal.
       write: { component: "skillPool", op: "damage", amount: 2 },
-      deps: {},
     })
 
     expect(next).toBe(state)

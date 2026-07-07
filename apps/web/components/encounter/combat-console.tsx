@@ -209,15 +209,11 @@ export function CombatConsole({
           open={endOfTurnOpen}
           onCombatEvent={dispatch}
           onApplyHp={(apply) =>
-            void dispatchWrite(
-              currentActor.id,
-              {
-                component: "vitals",
-                op: apply.delta < 0 ? "damage" : "heal",
-                amount: Math.abs(apply.delta),
-              },
-              {}
-            )
+            void dispatchWrite(currentActor.id, {
+              component: "vitals",
+              op: apply.delta < 0 ? "damage" : "heal",
+              amount: Math.abs(apply.delta),
+            })
           }
           isPending={isPending}
           onDone={closeEndOfTurn}

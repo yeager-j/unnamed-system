@@ -22,11 +22,20 @@ import type { EntityRow } from "@/lib/db/schema/entity"
  * the runtime entity carries exactly the components the row stored.
  */
 
+/**
+ * The components **lifted from metadata columns** instead of having a column of
+ * their own (`name` → `identity`, `portraitUrl` → `presentation`) — the CH15
+ * exception, decided once here at the assemble seam. Every other site that needs
+ * the distinction (the conformance test's column-set pin, `EntityWritePatch`'s
+ * exclusion) derives from this const; a third lifted component is one edit.
+ */
+export const LIFTED_COMPONENT_KEYS = ["identity", "presentation"] as const
+export type LiftedComponentKey = (typeof LIFTED_COMPONENT_KEYS)[number]
+
 // The durable component *columns* — every registry key with a load schema except
-// the two lifted from metadata columns. Derived from the load-seam's total map so
-// it can't drift from the registry (the same correspondence the conformance test
-// pins).
-const LIFTED_KEYS = new Set(["identity", "presentation"])
+// the lifted ones. Derived from the load-seam's total map so it can't drift from
+// the registry (the same correspondence the conformance test pins).
+const LIFTED_KEYS: ReadonlySet<string> = new Set(LIFTED_COMPONENT_KEYS)
 const COMPONENT_COLUMN_KEYS = Object.keys(componentSchemas).filter(
   (key) => !LIFTED_KEYS.has(key)
 )

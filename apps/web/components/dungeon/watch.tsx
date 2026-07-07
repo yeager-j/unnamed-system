@@ -1,13 +1,10 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { type ReactNode } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game/engine"
-import { type HydratedCharacter } from "@workspace/game/foundation"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
 import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
@@ -40,19 +37,19 @@ const DungeonWatchCanvas = dynamic(
  * *above* this component to the fogged v2 combat watch
  * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
  * so this renders only the delve's exploration fog view.
+ *
+ * The own-sheet Explore column (the v1 `DungeonExploreSheetColumn`) was removed
+ * with the old sheet tree (UNN-557) — it had rendered empty since S0. Its v2
+ * rebuild (on the S2b Explore surface) is a follow-up.
  */
 export function DungeonWatch({
   shortId,
   initialSnapshot,
   ownedCharacterIds,
-  exploreSheets,
 }: {
   shortId: string
   initialSnapshot: DungeonSnapshot
   ownedCharacterIds: string[]
-  /** The viewer's own hydrated sheets for the exploration Explore column, shown
-   *  beside the map. `[]` for a spectator. */
-  exploreSheets: HydratedCharacter[]
 }) {
   const { snapshot, stale } = useDungeonSnapshot(shortId, initialSnapshot)
 
@@ -93,37 +90,10 @@ export function DungeonWatch({
               This delve has wrapped. Below is the map as it was last left.
             </p>
           ) : null}
-          {exploreSheets.length > 0 ? (
-            <WatchSplit canvas={fogCanvas}>
-              <DungeonExploreSheetColumn characters={exploreSheets} />
-            </WatchSplit>
-          ) : (
-            <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
-          )}
+          <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
         </>
       )}
     </main>
-  )
-}
-
-/**
- * The watch's split layout while a viewer has their own sheet(s) to show: the
- * sheet column (scrolling on its own at `lg`) beside the fog map (2/3).
- */
-function WatchSplit({
-  children,
-  canvas,
-}: {
-  children: ReactNode
-  canvas: ReactNode
-}) {
-  return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-3">
-      <div className="min-w-0 border-b p-4 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
-        {children}
-      </div>
-      <div className="min-h-0 lg:col-span-2">{canvas}</div>
-    </div>
   )
 }
 

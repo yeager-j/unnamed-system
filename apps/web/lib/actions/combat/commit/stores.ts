@@ -16,7 +16,7 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite, type WriterDeps } from "@/lib/entity/commit/writers"
+import { applyEntityWrite } from "@/lib/entity/commit/writers"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../../encounter/revalidate"
@@ -92,10 +92,8 @@ function mintSessionEvent(
  *
  * The Writer's `applyOp` runs first as the **validation pre-mint** (CD19): a
  * capability miss or an unaffordable Prisma use errs at the boundary instead
- * of silently no-oping in the reducer. Its deps are derived server-side —
- * currently `{}`: Prisma's resolved max is not yet derivable in v2 (the
- * upgrade tree is unshipped), so a session-arm `usePrisma` refuses with
- * `no-prisma-max` until the max ships. Never read from the wire.
+ * of silently no-oping in the reducer. Validation inputs are the stored
+ * components plus engine constants (the base Prisma cap) — never the wire.
  */
 export function sessionStore(context: {
   row: EncounterRow
@@ -113,12 +111,7 @@ export function sessionStore(context: {
       )
       if (participant === undefined) return err("participant-not-found")
 
-      const deps: WriterDeps = {}
-      const validated = applyEntityWrite(
-        participant.entity.components,
-        write,
-        deps
-      )
+      const validated = applyEntityWrite(participant.entity.components, write)
       if (!validated.ok) return validated
 
       const event = mintSessionEvent(context.participantId, write)

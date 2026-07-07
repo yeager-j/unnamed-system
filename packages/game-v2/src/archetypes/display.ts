@@ -355,7 +355,7 @@ export function previewArchetypeSkills(
     const entity: Entity = {
       id: "preview",
       components: {
-        level: { value: 1 },
+        level: { value: 1, victories: 0 },
         path: { choice: pathChoice },
         archetypes: {
           active: archetype.key,

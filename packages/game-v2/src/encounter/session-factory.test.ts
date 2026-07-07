@@ -19,7 +19,7 @@ const goblinTemplate: Entity = {
   id: "goblin",
   components: {
     identity: { name: "Goblin" },
-    level: { value: 1 },
+    level: { value: 1, victories: 0 },
     attributes: { base: { strength: 0, magic: -1, agility: 1, luck: 0 } },
     affinities: { base: { wind: "weak", dark: "resist" } },
     vitals: { base: 16, damage: 0 },
@@ -103,7 +103,10 @@ describe("createSessionFactory — entity source arms", () => {
     ]).participants[0]!
 
     expect(participant.entity.components.identity).toEqual({ name: "Goblin" })
-    expect(participant.entity.components.level).toEqual({ value: 1 })
+    expect(participant.entity.components.level).toEqual({
+      value: 1,
+      victories: 0,
+    })
     expect(participant.entity.components.attributes).toEqual({
       base: { strength: 0, magic: -1, agility: 1, luck: 0 },
     })
