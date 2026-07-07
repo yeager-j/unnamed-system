@@ -53,7 +53,7 @@ function SheetShell() {
       <SheetCommandPalette onNavigate={setTab} />
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <SheetRail view={rail} />
-        <div className="min-w-0 flex-1 px-5 py-4 lg:overflow-y-auto">
+        <div className="min-w-0 flex-1 lg:overflow-y-auto">
           {tab === "combat" ? <CombatTab cells={affinities} /> : null}
         </div>
       </div>

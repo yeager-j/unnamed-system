@@ -28,7 +28,7 @@ export function SheetDock({
     <nav
       role="tablist"
       aria-label="Sheet sections"
-      className="flex shrink-0 border-t bg-background"
+      className="flex shrink-0 border-t bg-background max-lg:sticky max-lg:bottom-0 max-lg:z-20"
     >
       {SHEET_TABS.map(({ key, label }) => (
         <button

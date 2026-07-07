@@ -93,7 +93,7 @@ function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
                 )}
               >
                 <span>
-                  {option.name} · Rk {option.rank}
+                  {option.name} · Rank {option.rank}
                 </span>
                 {option.mechanicName ? (
                   <span className="text-xs text-muted-foreground">

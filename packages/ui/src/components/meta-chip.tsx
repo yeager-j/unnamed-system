@@ -3,13 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@workspace/ui/lib/utils"
 
 const metaChipVariants = cva(
-  "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[11px] leading-tight",
+  "inline-flex items-center gap-1 rounded-sm border px-2 py-1 font-mono text-xs leading-tight font-extrabold uppercase",
   {
     variants: {
       variant: {
-        default: "border-border bg-muted/40 text-foreground",
+        default:
+          "border-border bg-muted/40 text-foreground [&>span]:text-muted-foreground",
         muted: "border-border bg-transparent text-muted-foreground",
         destructive: "border-destructive/40 bg-destructive/10 text-destructive",
+        hp: "border-emerald-400/40 bg-emerald-400/10 [&>span]:text-emerald-300",
+        sp: "border-blue-400/40 bg-blue-400/10 [&>span]:text-blue-300",
       },
     },
     defaultVariants: { variant: "default" },
@@ -40,13 +43,11 @@ function MetaChip({
       {...props}
     >
       {value === undefined ? (
-        <span className="font-medium">{label}</span>
+        <span>{label}</span>
       ) : (
         <>
-          <span className="font-mono text-[9px] font-semibold tracking-wider text-muted-foreground uppercase">
-            {label}
-          </span>
-          <span className="font-medium">{value}</span>
+          <span>{label}</span>
+          {value}
         </>
       )}
     </span>

@@ -15,7 +15,7 @@ export function AffinityStrip({ cells }: { cells: AffinityStripCell[] }) {
   return (
     <section aria-label="Affinities" className="flex flex-col gap-2">
       <SectionLabel>Affinities</SectionLabel>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(4.25rem,1fr))] gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {cells.map((cell) => {
           const weak = cell.affinity === "weak"
           const guarded =
@@ -24,7 +24,7 @@ export function AffinityStrip({ cells }: { cells: AffinityStripCell[] }) {
             <div
               key={cell.type}
               className={cn(
-                "flex flex-col items-center gap-0.5 rounded-md border px-1.5 py-1.5",
+                "flex aspect-square w-12 flex-col items-center justify-center gap-1 rounded-md border-2 px-1.5 transition-colors duration-300 ease-out",
                 weak && "border-destructive/60 bg-destructive/5",
                 guarded && "border-teal-400/50 bg-teal-400/5"
               )}
@@ -34,7 +34,7 @@ export function AffinityStrip({ cells }: { cells: AffinityStripCell[] }) {
               </span>
               <span
                 className={cn(
-                  "text-xs font-semibold",
+                  "text-xs font-extrabold",
                   weak && "text-destructive",
                   guarded && "text-teal-300",
                   cell.affinity === "neutral" && "text-muted-foreground"

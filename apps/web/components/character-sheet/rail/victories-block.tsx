@@ -9,12 +9,6 @@ import { GoldSegmentBar } from "./gold-segment-bar"
  * controls block.
  */
 export function VictoriesBlock({ view }: { view: RailVictories }) {
-  const caption = view.atMaxLevel
-    ? "Max level"
-    : view.canLevelUp
-      ? "Ready to level up"
-      : `${view.toNext} to level up`
-
   return (
     <section aria-label="Victories" className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between">
@@ -25,7 +19,7 @@ export function VictoriesBlock({ view }: { view: RailVictories }) {
           <span className="font-semibold text-foreground">
             {Math.min(view.banked, view.threshold)}
           </span>{" "}
-          / {view.threshold} · {caption}
+          / {view.threshold}
         </span>
       </div>
       <GoldSegmentBar

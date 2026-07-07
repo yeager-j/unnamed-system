@@ -20,11 +20,14 @@ export function AttributesBlock({
       className="grid grid-cols-4 gap-1.5 text-center"
     >
       {ATTRIBUTE_ORDER.map((key) => (
-        <div key={key} className="rounded-md border bg-background/60 py-1.5">
+        <div
+          key={key}
+          className="flex flex-col gap-0.5 rounded-md border bg-background/60 py-2"
+        >
           <div className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
             {ATTRIBUTE_SHORT_LABELS[key]}
           </div>
-          <div className="text-sm font-medium tabular-nums">
+          <div className="text-lg leading-none font-semibold tabular-nums">
             {signedModifier(attributes[key])}
           </div>
         </div>
