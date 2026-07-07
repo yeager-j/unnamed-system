@@ -51,6 +51,13 @@ Consequences to keep in mind:
   (v1's rule), not the encounter's campaign — one gate for the sheet buttons and
   the console, so the two surfaces can never disagree about who may write a PC row.
 
+**Durable-arm revalidation (UNN-567).** `commitEntityWrite` pings only the
+character channel, so the durable arm additionally calls `revalidateEncounter`
+on success — the RSC payload rides the write's transition response like the
+session arm's, and the console's optimistic frame no longer flash-reverts while
+waiting for the pc-ping refresh. (Only this encounter's route; any other
+surface showing the PC still catches up via the ping.)
+
 ## One semantic per storage home — resolved (UNN-551)
 
 The interim divergence (durable = v1 absolute-column semantics, ephemeral = v2

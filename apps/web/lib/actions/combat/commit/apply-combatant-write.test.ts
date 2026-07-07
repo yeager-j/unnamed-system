@@ -197,6 +197,12 @@ describe("applyCombatantWriteAction — the locator-derived home (CD19)", () => 
     )
     // A durable write NEVER reaches the session blob — the routing invariant.
     expect(saveEncounterSession).not.toHaveBeenCalled()
+    // But it DOES revalidate this encounter's route (UNN-567): the RSC payload
+    // rides the transition response, so the console's optimistic frame doesn't
+    // flash back to the stale base while waiting for the pc-ping refresh.
+    expect(revalidateEncounter).toHaveBeenCalledWith(
+      expect.objectContaining({ shortId: "enc1" })
+    )
   })
 
   it("the server's locator map is authoritative — the wire carries no home to lie about", async () => {
@@ -360,7 +366,7 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
     }
   })
 
-  it("propagates the store's guard error (stale)", async () => {
+  it("propagates the store's guard error (stale) and revalidates nothing", async () => {
     commitEntityWrite.mockResolvedValue(err("stale"))
     const result = await applyCombatantWriteAction({
       ...BASE,
@@ -369,6 +375,7 @@ describe("applyCombatantWriteAction — durable arm forwards to the entity Store
       write: { component: "vitals", op: "damage", amount: 1 },
     })
     expect(result).toEqual(err("stale"))
+    expect(revalidateEncounter).not.toHaveBeenCalled()
   })
 
   it("routes setMax to the store now that a durable max is a real write (v2)", async () => {

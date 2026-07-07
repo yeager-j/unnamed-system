@@ -75,6 +75,7 @@ function storeFor(
     }
     return ok(
       entityRowStore({
+        row: loaded.row,
         entityId: locator.entityId,
         expectedVersion: input.expectedCharacterVersion,
       })

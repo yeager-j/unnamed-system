@@ -5,7 +5,11 @@ import { useRef, type RefObject } from "react"
 import { type Result } from "@workspace/game/foundation"
 
 import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
-import { createWriteQueue, type WriteQueueTokenPort } from "./write-queue"
+import {
+  createWriteQueue,
+  type WriteQueue,
+  type WriteQueueTokenPort,
+} from "./write-queue"
 
 /**
  * The single-row façade over the queued versioned-write core (UNN-378;
@@ -63,16 +67,18 @@ export function useQueuedWrite({
   const versionRef = useMonotonicVersionRef(serverVersion)
   const chainRef = useRef<Promise<void>>(Promise.resolve())
 
-  // The port and core are recreated per render (they're cheap closures); all
-  // state lives in the two refs above, and a fresh closure means the core
-  // always sees this render's `refetchVersion` without a staleness bridge.
+  // All state lives in the two refs; the port and core are cheap closures
+  // assembled at event time (never during render — the ref stays unread until
+  // a dispatch), so the core always sees this render's `refetchVersion`
+  // without a staleness bridge.
   const token: WriteQueueTokenPort = {
     read: () => versionRef.current,
     bump: (version) => {
       if (version > versionRef.current) versionRef.current = version
     },
   }
-  const queue = createWriteQueue({ token, refetchVersion, chain: chainRef })
+  const enqueue: WriteQueue["enqueue"] = (action) =>
+    createWriteQueue({ token, refetchVersion, chain: chainRef }).enqueue(action)
 
-  return { versionRef, bump: token.bump, enqueue: queue.enqueue }
+  return { versionRef, bump: token.bump, enqueue }
 }
