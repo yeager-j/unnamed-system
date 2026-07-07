@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useOptimistic, useRef, useState, useTransition } from "react"
+import { useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -18,7 +18,6 @@ import {
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { useCombatantLanes } from "@/components/combat/console/write-lanes"
-import { type ConsolePhase } from "@/components/combat/turn-order-strip"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/hooks/fetch-instance-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
@@ -32,10 +31,6 @@ import {
   type ConsoleOptimisticAction,
 } from "@/lib/combat/console-optimistic"
 import { buildConsoleView } from "@/lib/combat/view/console-view"
-import {
-  combatantDetail,
-  type DurableHydration,
-} from "@/lib/combat/view/detail-view"
 import { buildRosterView } from "@/lib/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/lib/combat/view/zone-overview"
 import { resolveSession } from "@/lib/game-engine-v2"
@@ -91,7 +86,6 @@ export type EndCombatPerformer = (expected: {
 
 export function useCombatConsole(
   data: EncounterForDM,
-  durableHydrationById: Record<ParticipantId, DurableHydration>,
   options: { endCombat?: EndCombatPerformer } = {}
 ) {
   const { encounter, participantMeta } = data
@@ -219,10 +213,6 @@ export function useCombatConsole(
   }
 
   // ── The derived combat view (UNN-467, rebuilt on v2 view builders) ────────
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedCombatantId, setSelectedCombatantId] =
-    useState<ParticipantId | null>(null)
-
   // React Compiler memoizes these by their data deps — one resolveSession per
   // optimistic frame, every read below folding over the same resolved view.
   const resolved = resolveSession(state.session, state.mapInstance)
@@ -239,40 +229,15 @@ export function useCombatConsole(
     .filter((row) => row.isFallen)
     .map((row) => row.name)
 
-  const phase: ConsolePhase =
-    currentActor === null
-      ? "drafting"
-      : !currentActor.hasActed
-        ? "active"
-        : modalOpen
-          ? "resolving"
-          : "drafting"
-
-  const selectedDetail =
-    selectedCombatantId !== null
-      ? combatantDetail(
-          state.session,
-          resolved,
-          state.mapInstance,
-          selectedCombatantId,
-          participantMeta[selectedCombatantId],
-          durableHydrationById[selectedCombatantId]
-        )
-      : null
-
   const obligations =
     currentActor !== null
       ? endOfTurnObligations(resolved, currentActor.id)
       : null
 
-  function onEndTurn() {
-    dispatch({ kind: "endTurn" })
-    setModalOpen(true)
-  }
-
   return {
     session: state.session,
     instance: state.mapInstance,
+    resolved,
     isPending,
     dispatch,
     dispatchWrite,
@@ -285,14 +250,7 @@ export function useCombatConsole(
     zoneLayout,
     fallenPcNames,
     obligations,
-    phase,
     pcChannelIds: lanes.pcChannels,
-    // selection + end-of-turn modal
-    selectedDetail,
-    selectCombatant: setSelectedCombatantId,
-    endOfTurnOpen: modalOpen && phase === "resolving",
-    closeEndOfTurn: () => setModalOpen(false),
-    onEndTurn,
     onDraft: (participantId: ParticipantId) =>
       dispatch({ kind: "draftCombatant", participantId }),
     onAdvanceRound: () => dispatch({ kind: "advanceRound" }),

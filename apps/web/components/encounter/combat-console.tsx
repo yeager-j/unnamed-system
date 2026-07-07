@@ -9,6 +9,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
 import { useCombatConsole } from "@/components/combat/console/use-combat-console"
+import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { EndCombatDialog } from "@/components/combat/dialogs/end-combat"
 import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
@@ -50,6 +51,8 @@ export function CombatConsole({
 }) {
   const {
     session,
+    instance,
+    resolved,
     isPending,
     dispatch,
     dispatchWrite,
@@ -61,16 +64,27 @@ export function CombatConsole({
     zoneLayout,
     fallenPcNames,
     obligations,
-    phase,
     pcChannelIds,
+    onDraft,
+    onAdvanceRound,
+  } = useCombatConsole(data)
+
+  const {
+    phase,
     selectedDetail,
     selectCombatant,
     endOfTurnOpen,
     closeEndOfTurn,
     onEndTurn,
-    onDraft,
-    onAdvanceRound,
-  } = useCombatConsole(data, durableHydrationById)
+  } = useCombatSelection({
+    session,
+    resolved,
+    instance,
+    participantMeta: data.participantMeta,
+    durableHydrationById,
+    currentActor,
+    dispatch,
+  })
 
   const { encounter } = data
   const advantageLabel = session.advantage
