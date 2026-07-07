@@ -28,7 +28,6 @@ function components(
   return {
     level: level(levelOverrides),
     archetypes,
-    resources: { hitDiceUsed: 1, skillDiceUsed: 3, prismaUsed: 1 },
   }
 }
 
@@ -60,25 +59,20 @@ describe("canLevelUp", () => {
 })
 
 describe("applyLevelUp", () => {
-  it("+1 level, −7 victories (overflow carries), +2 saved ranks, dice spends reset", () => {
+  it("+1 level, −7 victories (overflow carries), +2 saved ranks", () => {
     const result = applyLevelUp(components({ value: 4, victories: 9 }, 1))
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.level).toEqual({ value: 5, victories: 2 })
       expect(result.value.archetypes).toEqual({ savedArchetypeRanks: 3 })
-      expect(result.value.resources).toEqual({
-        hitDiceUsed: 0,
-        skillDiceUsed: 0,
-      })
     }
   })
 
-  it("does not touch vitals or prisma (damage persists across level-up)", () => {
+  it("touches only progression-class components — no vitals or resources key (single-class write, ADR §2.2)", () => {
     const result = applyLevelUp(components({ victories: 7 }))
     expect(result.ok).toBe(true)
     if (result.ok) {
-      expect(result.value).not.toHaveProperty("vitals")
-      expect(result.value.resources).not.toHaveProperty("prismaUsed")
+      expect(Object.keys(result.value).sort()).toEqual(["archetypes", "level"])
     }
   })
 

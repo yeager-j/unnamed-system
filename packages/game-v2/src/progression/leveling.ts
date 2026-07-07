@@ -2,7 +2,6 @@ import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
-import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 
 /**
  * Victory + level-up transitions (rulebook 1.1, 1.6), component-native on the
@@ -11,11 +10,12 @@ import type { Resources } from "@workspace/game-v2/resources/resources.schema"
  * pattern (`vitals/operations.ts`), spanning components where the transition does
  * (`resources/rest.ts` precedent).
  *
- * Level-up **does not restore vitals** (ADR §2.2, settled 2026-07-05): `damage`
- * persists and current HP/SP rises by exactly the max delta, which the depletion
- * model expresses with zero code here. The dice pools DO refill (v1 parity):
- * zeroing the `*Used` counts is the depletion spelling of v1's
- * "refill to the new level's max".
+ * Level-up is a **single-class write** (ADR §2.2, the load-bearing consequence):
+ * it touches only progression-class columns (`level`, `archetypes`). Vitals and
+ * dice pools are untouched — `damage`/`*Used` persist, and current rises by
+ * exactly the max delta the new level derives (D9). This SUPERSEDES v1's
+ * refill-dice-to-new-max (rulebook 1.6's "+1 Hit Die + 2 Skill Dice" is the max
+ * growing, which depletion expresses with zero code; refills belong to rests).
  */
 
 /** Victories needed per level and the hard level ceiling (rulebook 1.1, 1.6). */
@@ -37,10 +37,7 @@ export function applyRemoveVictory(level: Level): Pick<Level, "victories"> {
 }
 
 /** The stored-component slice level-up reads and rewrites. */
-export type LevelingComponents = Pick<
-  ComponentRegistry,
-  "level" | "archetypes" | "resources"
->
+export type LevelingComponents = Pick<ComponentRegistry, "level" | "archetypes">
 
 /**
  * An entity-level patch: each key holds only the field(s) level-up changed; the
@@ -49,7 +46,6 @@ export type LevelingComponents = Pick<
 export interface LevelUpPatch {
   level: Level
   archetypes: Pick<Archetypes, "savedArchetypeRanks">
-  resources: Pick<Resources, "hitDiceUsed" | "skillDiceUsed">
 }
 
 /** Expected, recoverable failures (not programmer errors). */
@@ -65,10 +61,10 @@ export function canLevelUp(level: Level): boolean {
 
 /**
  * Spends {@link VICTORIES_PER_LEVEL} Victories: +1 level (overflow Victories
- * carry), +{@link ARCHETYPE_RANKS_PER_LEVEL} saved Archetype Ranks, and both dice
- * pools refilled (`*Used` zeroed — the level-derived max rises and the spend
- * resets). Fails — without producing a patch — at {@link MAX_LEVEL} (`max-level`,
- * checked first) or with too few Victories (`insufficient-victories`).
+ * carry) and +{@link ARCHETYPE_RANKS_PER_LEVEL} saved Archetype Ranks. Max HP/SP
+ * and the dice maxima rise by deriving from the new level — spent pools persist.
+ * Fails — without producing a patch — at {@link MAX_LEVEL} (`max-level`, checked
+ * first) or with too few Victories (`insufficient-victories`).
  */
 export function applyLevelUp(
   components: LevelingComponents
@@ -88,6 +84,5 @@ export function applyLevelUp(
       savedArchetypeRanks:
         archetypes.savedArchetypeRanks + ARCHETYPE_RANKS_PER_LEVEL,
     },
-    resources: { hitDiceUsed: 0, skillDiceUsed: 0 },
   })
 }
