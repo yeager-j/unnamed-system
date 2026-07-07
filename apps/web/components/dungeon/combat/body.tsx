@@ -12,6 +12,7 @@ import {
   useCombatConsole,
   type EndCombatPerformer,
 } from "@/components/combat/console/use-combat-console"
+import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import { DungeonCanvas } from "@/components/dungeon/canvas/canvas"
@@ -72,6 +73,7 @@ export function DungeonCombatBody({
   const {
     session,
     instance: instanceState,
+    resolved,
     isPending,
     dispatch,
     dispatchWrite,
@@ -82,16 +84,27 @@ export function DungeonCombatBody({
     roster,
     fallenPcNames,
     obligations,
-    phase,
     pcChannelIds,
+    onDraft,
+    onAdvanceRound,
+  } = useCombatConsole(data, { endCombat })
+
+  const {
+    phase,
     selectedDetail,
     selectCombatant,
     endOfTurnOpen,
     closeEndOfTurn,
     onEndTurn,
-    onDraft,
-    onAdvanceRound,
-  } = useCombatConsole(data, durableHydrationById, { endCombat })
+  } = useCombatSelection({
+    session,
+    resolved,
+    instance: instanceState,
+    participantMeta: data.participantMeta,
+    durableHydrationById,
+    currentActor,
+    dispatch,
+  })
 
   const [moveAnywhere, setMoveAnywhere] = useState(false)
 

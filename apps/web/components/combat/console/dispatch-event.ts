@@ -10,7 +10,10 @@ import { type Result } from "@workspace/game/foundation"
 
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"
-import type { ApplyCombatEventError } from "@/lib/actions/combat/apply-event.schema"
+import type {
+  AppliedCombatEvent,
+  ApplyCombatEventError,
+} from "@/lib/actions/combat/apply-event.schema"
 import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 
 /**
@@ -117,7 +120,7 @@ export async function dispatchCombatEvent({
         event,
       })
     )
-    if (result.ok) instanceWrite.versionRef.current += 1
+    foldInstanceVersion(instanceWrite, result)
     return result
   }
 
@@ -157,7 +160,6 @@ async function dispatchAddParticipant({
   // exists server-side (hydrated from the character row, R6.2) — the joiner
   // lands with the action's RSC revalidation.
 
-  const placed = setup.zoneId !== undefined
   const result = await encounterWrite.enqueue((expectedVersion) =>
     applyCombatEventAction({
       encounterId,
@@ -166,10 +168,23 @@ async function dispatchAddParticipant({
       event,
     })
   )
-  // Only a placed add writes the Instance row (the paired two-row txn); a
-  // zone-less add is session-only, so the Instance ref must not move.
-  if (result.ok && placed) instanceWrite.versionRef.current += 1
+  // Only a placed add writes the Instance row (the paired two-row txn) — the
+  // action says so by returning the bumped Instance version; a zone-less add
+  // is session-only, returns none, and the Instance ref doesn't move.
+  foldInstanceVersion(instanceWrite, result)
   return result
+}
+
+/** Folds a paired write's returned Instance version into the Instance queue's
+ *  token (forward-only) — the server's word for which rows it bumped, replacing
+ *  the hand-advanced `+= 1` assumption (UNN-567). */
+function foldInstanceVersion(
+  instanceWrite: UseQueuedWriteReturn,
+  result: Result<AppliedCombatEvent, ApplyCombatEventError>
+): void {
+  if (result.ok && result.value.instanceVersion !== undefined) {
+    instanceWrite.bump(result.value.instanceVersion)
+  }
 }
 
 /**

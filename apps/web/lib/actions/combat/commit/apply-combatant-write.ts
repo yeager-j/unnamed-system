@@ -54,16 +54,18 @@ export async function applyCombatantWriteAction(
 /**
  * The one decision point from locator shape to Store — durable participants
  * commit through their `entity` row (guarded on the wire's
- * `expectedCharacterVersion`, which carries the entity's `vitalsVersion`), inline
- * participants through the session blob (guarded on the encounter
- * `expectedVersion`).
+ * `expectedCharacterVersion`, which carries the entity's `vitalsVersion`),
+ * inline participants through the session blob (guarded on the encounter
+ * `expectedVersion`). Each arm requires **its own** token and ignores the
+ * other's (UNN-567): a client whose storage belief is wrong fails closed with
+ * the arm's `missing-*-version` — it cannot mis-route.
  */
 function storeFor(
   loaded: LoadedEncounterForWrite,
   locator: StoredEntityLocator,
   input: {
     participantId: ParticipantId
-    expectedVersion: number
+    expectedVersion?: number
     expectedCharacterVersion?: number
   }
 ): Result<CombatantStore, ApplyCombatantWriteError> {
@@ -73,10 +75,14 @@ function storeFor(
     }
     return ok(
       entityRowStore({
+        row: loaded.row,
         entityId: locator.entityId,
         expectedVersion: input.expectedCharacterVersion,
       })
     )
+  }
+  if (input.expectedVersion === undefined) {
+    return err("missing-encounter-version")
   }
   return ok(
     sessionStore({

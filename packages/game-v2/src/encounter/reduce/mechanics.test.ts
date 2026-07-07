@@ -46,14 +46,22 @@ describe("reduceMechanicTransition — guards", () => {
     ).toBe(session)
   })
 
-  it("is a no-op (same-ref) when the participant lacks that mechanic's state", () => {
+  it("seeds an absent-but-owned mechanic state from initialState (the UNN-557 read-path mirror)", () => {
+    // The component exists but valor has no stored entry — the reducer
+    // transitions from the mechanic's initial state, exactly like the Writer's
+    // optimistic prediction and the durable commit, so the session arm can't
+    // silently drop a write the widget rendered as applicable.
     const session = sessionOf([perfectionParticipant()])
+    const next = reduceMechanicTransition(
+      session,
+      event("valor", { op: "adjust", delta: 1 })
+    )
     expect(
-      reduceMechanicTransition(
-        session,
-        event("valor", { op: "adjust", delta: 1 })
-      )
-    ).toBe(session)
+      next.participants[0]!.entity.components.mechanics!.states.valor
+    ).toEqual({ kind: "valor", value: 1 })
+    expect(
+      next.participants[0]!.entity.components.mechanics!.states.perfection
+    ).toEqual({ kind: "perfection", rank: 1 })
   })
 
   it("is a no-op (same-ref) for a mechanic with no transitions surface", () => {

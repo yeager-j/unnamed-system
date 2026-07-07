@@ -19,8 +19,16 @@ semantics — exists once, in `lib/entity/`; this door only supplies the address
 `storeFor` derives the home **from the locator's shape** in the server's own
 out-of-band map (`loadEncounterForWrite`): `{ storage: "durable" }` → the shared
 native `entityRowStore` (forwards to `commitEntityWrite`); `{ storage: "inline" }`
-→ the session blob via `sessionStore`. The wire carries **no storage claim** — a
-client cannot route around the decision. Everything past `storeFor` is branchless.
+→ the session blob via `sessionStore`. The wire carries **no storage claim for
+routing or auth** — a client cannot route around the decision. Everything past
+`storeFor` is branchless.
+
+**Per-arm tokens (UNN-567).** The envelope's two version tokens are each
+optional on the wire and required by their own arm: the session arm guards on
+`expectedVersion` (refusing `missing-encounter-version` without it), the durable
+arm on `expectedCharacterVersion` (refusing `missing-character-version`) — no
+token rides as a passenger. Sending a token is the client's belief about the
+home made harmless: a wrong belief can only fail closed, never mis-route.
 
 ## The deliberate two-auth-gate aggregate (ADR §2.11 "honest cost")
 
@@ -42,6 +50,13 @@ Consequences to keep in mind:
 - The durable gate authorizes against the **entity's own campaign placement**
   (v1's rule), not the encounter's campaign — one gate for the sheet buttons and
   the console, so the two surfaces can never disagree about who may write a PC row.
+
+**Durable-arm revalidation (UNN-567).** `commitEntityWrite` pings only the
+character channel, so the durable arm additionally calls `revalidateEncounter`
+on success — the RSC payload rides the write's transition response like the
+session arm's, and the console's optimistic frame no longer flash-reverts while
+waiting for the pc-ping refresh. (Only this encounter's route; any other
+surface showing the PC still catches up via the ping.)
 
 ## One semantic per storage home — resolved (UNN-551)
 

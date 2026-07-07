@@ -1,13 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import {
-  useEffect,
-  useOptimistic,
-  useRef,
-  useState,
-  useTransition,
-} from "react"
+import { useOptimistic, useRef, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -22,16 +16,13 @@ import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
-import { decidePcPing } from "@/components/combat/console/pc-ping"
-import { type ConsolePhase } from "@/components/combat/turn-order-strip"
-import { parseCharacterPing } from "@/hooks/character-version-sync"
+import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
+import { useCombatantLanes } from "@/components/combat/console/write-lanes"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/hooks/fetch-instance-version"
-import { useCombatantWrite } from "@/hooks/use-combatant-write"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { useRealtimeChannel } from "@/hooks/use-realtime-channel"
 import { parseVersionPing } from "@/hooks/version-ping"
-import { useMonotonicVersionMap } from "@/hooks/version-token-store"
 import { endCombatAction } from "@/lib/actions/combat/end-combat"
 import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
@@ -40,10 +31,6 @@ import {
   type ConsoleOptimisticAction,
 } from "@/lib/combat/console-optimistic"
 import { buildConsoleView } from "@/lib/combat/view/console-view"
-import {
-  combatantDetail,
-  type DurableHydration,
-} from "@/lib/combat/view/detail-view"
 import { buildRosterView } from "@/lib/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/lib/combat/view/zone-overview"
 import { resolveSession } from "@/lib/game-engine-v2"
@@ -68,17 +55,19 @@ import { resolveSession } from "@/lib/game-engine-v2"
  * `fetchInstanceVersion`).
  *
  * **Component writes** (HP/SP damage & heal — on inline enemies *and* durable
- * PCs, deliberately superseding UNN-482's read-only PC vitals per this
- * ticket's AC) go through {@link useCombatantWrite}: prediction into the same
- * container, dispatch routed by storage home — inline through the encounter
- * queue, durable through a per-character `vitalsVersion` chain that never
- * touches the encounter ref.
+ * PCs, deliberately superseding UNN-482's read-only PC vitals per UNN-535's
+ * AC) go through {@link useCombatantWrite}: prediction into the same
+ * container, then dispatch on the participant's write lane. The lanes —
+ * `useCombatantLanes` (UNN-567), the client half of the CD19 router — resolve
+ * `participantMeta` once, so this hook never reads a storage tag: inline lanes
+ * ride the encounter queue, durable lanes a per-character queue over the same
+ * write-queue core that never touches the encounter ref.
  *
  * **Realtime (UNN-373)** is unchanged in shape: the encounter channel's
  * kind-routed ping compare (encounter vs mapInstance version streams), the
- * microtask-deduped `scheduleRefresh`, and the per-PC character channels — now
- * keyed off `participantMeta[*].characterShortId`, with the monotonic per-PC
- * `vitals` map seeded from `participantMeta[*].vitalsVersion`.
+ * microtask-deduped `scheduleRefresh`, and the per-PC character channels —
+ * both the channel list and the per-PC ping handler come resolved off the
+ * lanes module.
  *
  * **The combat-end write is the one route-varying seam (UNN-536).** The mapless
  * encounter ends via the two-row {@link endCombatAction}; a delve ends via the
@@ -93,11 +82,12 @@ import { resolveSession } from "@/lib/game-engine-v2"
 export type EndCombatPerformer = (expected: {
   encounterVersion: number
   instanceVersion: number
-}) => Promise<Result<{ version: number }, EndCombatError>>
+}) => Promise<
+  Result<{ version: number; instanceVersion: number }, EndCombatError>
+>
 
 export function useCombatConsole(
   data: EncounterForDM,
-  durableHydrationById: Record<ParticipantId, DurableHydration>,
   options: { endCombat?: EndCombatPerformer } = {}
 ) {
   const { encounter, participantMeta } = data
@@ -121,21 +111,6 @@ export function useCombatConsole(
     refetchVersion: () => fetchInstanceVersion(encounter.shortId),
   })
   const { versionRef } = encounterWrite
-
-  /**
-   * The per-PC `vitals` token map: the realtime ping compare ({@link onPcPing})
-   * *and* the durable write arm's expected-version source share it, seeded /
-   * forward-synced from the loader-projected `participantMeta` (the keyspace —
-   * which durable participants exist — lives in that prop).
-   */
-  const pcVitals = useMonotonicVersionMap<string>()
-  useEffect(() => {
-    for (const meta of Object.values(participantMeta)) {
-      if (meta.storage === "durable") {
-        pcVitals.bump(meta.characterId, meta.vitalsVersion)
-      }
-    }
-  }, [participantMeta, pcVitals])
 
   const refreshScheduled = useRef(false)
   function scheduleRefresh() {
@@ -164,17 +139,6 @@ export function useCombatConsole(
     onReconnect: () => router.refresh(),
   })
 
-  /** Handler for one PC combatant's character-channel ping (UNN-373). */
-  function onPcPing(characterId: string, data: unknown) {
-    const versions = parseCharacterPing(data)
-    if (!versions) return
-    const decision = decidePcPing(versions, pcVitals.read(characterId))
-    if (decision.nextVitals !== undefined) {
-      pcVitals.bump(characterId, decision.nextVitals)
-    }
-    if (decision.refresh) scheduleRefresh()
-  }
-
   function dispatch(event: ConsoleDispatchEvent) {
     startTransition(async () => {
       const result = await dispatchCombatEvent({
@@ -196,11 +160,19 @@ export function useCombatConsole(
     })
   }
 
-  const { dispatchWrite } = useCombatantWrite({
+  // The client half of the CD19 router (UNN-567): participantMeta resolved
+  // once into per-participant write lanes; the channel list + ping handler
+  // ride along, so no `meta.storage` read survives in this hook.
+  const lanes = useCombatantLanes({
     encounterId: encounter.id,
     encounterWrite,
-    characterVersions: pcVitals,
-    metaOf: (participantId) => participantMeta[participantId],
+    participantMeta,
+    rosterIds: state.session.participants.map((p) => p.id),
+    onFresher: scheduleRefresh,
+  })
+
+  const { dispatchWrite } = useCombatantWrite({
+    laneOf: lanes.laneOf,
     componentsOf: (participantId) =>
       state.session.participants.find((p) => p.id === participantId)?.entity
         .components,
@@ -222,8 +194,8 @@ export function useCombatConsole(
    * the dungeon turn advance when {@link options.endCombat} is the delve
    * performer). Dispatched through the encounter queue so it serializes behind
    * any in-flight session write; the Instance token reads its own ref (no
-   * in-flight move at end-time in practice). The server bumped the Instance row
-   * too, so its ref hand-advances on success.
+   * in-flight move at end-time in practice). The action returns the bumped
+   * Instance version, folded forward-only into its queue's token (UNN-567).
    */
   function endEncounter() {
     startTransition(async () => {
@@ -237,16 +209,12 @@ export function useCombatConsole(
         toast.error(combatErrorMessage(result.error))
         return
       }
-      instanceWrite.versionRef.current += 1
+      instanceWrite.bump(result.value.instanceVersion)
       router.refresh()
     })
   }
 
   // ── The derived combat view (UNN-467, rebuilt on v2 view builders) ────────
-  const [modalOpen, setModalOpen] = useState(false)
-  const [selectedCombatantId, setSelectedCombatantId] =
-    useState<ParticipantId | null>(null)
-
   // React Compiler memoizes these by their data deps — one resolveSession per
   // optimistic frame, every read below folding over the same resolved view.
   const resolved = resolveSession(state.session, state.mapInstance)
@@ -263,57 +231,20 @@ export function useCombatConsole(
     .filter((row) => row.isFallen)
     .map((row) => row.name)
 
-  const phase: ConsolePhase =
-    currentActor === null
-      ? "drafting"
-      : !currentActor.hasActed
-        ? "active"
-        : modalOpen
-          ? "resolving"
-          : "drafting"
-
-  const selectedDetail =
-    selectedCombatantId !== null
-      ? combatantDetail(
-          state.session,
-          resolved,
-          state.mapInstance,
-          selectedCombatantId,
-          participantMeta[selectedCombatantId],
-          durableHydrationById[selectedCombatantId]
-        )
-      : null
-
   const obligations =
     currentActor !== null
       ? endOfTurnObligations(resolved, currentActor.id)
       : null
 
-  // One realtime listener per durable participant in the (optimistic) roster,
-  // keyed by character shortId — deduped, since a character could in principle
-  // occupy two slots (UNN-373).
-  const pcChannelIds = dedupeByCharacter(
-    state.session.participants.flatMap((participant) => {
-      const meta = participantMeta[participant.id]
-      return meta?.storage === "durable" && meta.characterShortId !== ""
-        ? [{ characterId: meta.characterId, shortId: meta.characterShortId }]
-        : []
-    })
-  )
-
-  function onEndTurn() {
-    dispatch({ kind: "endTurn" })
-    setModalOpen(true)
-  }
-
   return {
     session: state.session,
     instance: state.mapInstance,
+    resolved,
     isPending,
     dispatch,
     dispatchWrite,
     endEncounter,
-    onPcPing,
+    onPcPing: lanes.onPcPing,
     // derived combat view
     view,
     currentActor,
@@ -321,27 +252,9 @@ export function useCombatConsole(
     zoneLayout,
     fallenPcNames,
     obligations,
-    phase,
-    pcChannelIds,
-    // selection + end-of-turn modal
-    selectedDetail,
-    selectCombatant: setSelectedCombatantId,
-    endOfTurnOpen: modalOpen && phase === "resolving",
-    closeEndOfTurn: () => setModalOpen(false),
-    onEndTurn,
+    pcChannelIds: lanes.pcChannels,
     onDraft: (participantId: ParticipantId) =>
       dispatch({ kind: "draftCombatant", participantId }),
     onAdvanceRound: () => dispatch({ kind: "advanceRound" }),
   }
-}
-
-function dedupeByCharacter(
-  channels: { characterId: string; shortId: string }[]
-): { characterId: string; shortId: string }[] {
-  const seen = new Set<string>()
-  return channels.filter((channel) => {
-    if (seen.has(channel.characterId)) return false
-    seen.add(channel.characterId)
-    return true
-  })
 }

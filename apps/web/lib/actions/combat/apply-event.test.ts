@@ -372,7 +372,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
       },
     })
 
-    expect(result).toEqual(ok({ version: 1 }))
+    expect(result).toEqual(ok({ version: 1, instanceVersion: 1 }))
     const blob = lastSavedBlob()
     const joiner = blob.participants.find((p) => p.id === "c-new")!
     expect(joiner.locator).toEqual({
@@ -408,7 +408,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
       },
     })
 
-    expect(result).toEqual(ok({ version: 1 }))
+    expect(result).toEqual(ok({ version: 1, instanceVersion: 1 }))
     expect(loadEntityRowById).toHaveBeenCalledWith("char-2")
     const blob = lastSavedBlob()
     const joiner = blob.participants.find((p) => p.id === "c-momo")!
@@ -474,7 +474,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
       event: { kind: "removeParticipant", participantId: GOBLIN_ID },
     })
 
-    expect(result).toEqual(ok({ version: 1 }))
+    expect(result).toEqual(ok({ version: 1, instanceVersion: 1 }))
     const blob = lastSavedBlob()
     expect(blob.participants.map((p) => p.id)).toEqual([PC_ID])
     const savedInstance = saveMapInstanceState.mock

@@ -62,6 +62,18 @@ export const ApplyCombatEventSchema = encounterMutationBase.extend({
 export type ApplyCombatEventInput = z.input<typeof ApplyCombatEventSchema>
 
 /**
+ * The action's success envelope: the bumped version of the row the event's
+ * queue owns, plus — for the paired roster cross-writes — the bumped Instance
+ * version, so the client folds the real token instead of hand-advancing by one
+ * (UNN-567). A session-only write omits it; a pure-spatial write's `version`
+ * IS the Instance version.
+ */
+export interface AppliedCombatEvent {
+  version: number
+  instanceVersion?: number
+}
+
+/**
  * The v1 error surface carried over (single-live guard, placement enforcement,
  * missing Instance token, write staleness) plus the v2 loader's data-integrity
  * codes and the wire-specific rejections: `character-not-found` /

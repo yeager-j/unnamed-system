@@ -1404,6 +1404,16 @@ the runtime `Participant` is home-blind post-F1, so the map is where the derived
 durable gate reuses UNN-297's existing `requireOwnerOrCampaignDM` (character-placement-scoped) rather
 than minting an encounter-campaign-scoped twin, so the sheet and the console share one authority answer.
 
+**AMENDED (UNN-567, 2026-07-07 — per-arm tokens).** The router wire's two version tokens are each
+**optional and per-arm**: the session arm requires `expectedVersion` (`missing-encounter-version`), the
+durable arm `expectedCharacterVersion` (`missing-character-version`) — no token rides as a passenger
+(the durable write previously carried a live-read encounter token the server ignored). "No storage claim
+on the wire" is thereby scoped honestly: the claim holds for **routing and auth** (the locator overrides
+everything); the tokens are the client's belief made harmless — a wrong belief fails closed, never
+mis-routes. The client half also gained its Store at last: `useCombatantLanes` (the `clientStoreFor` of
+the sketch) resolves `ParticipantMeta` once into per-participant write lanes over one shared
+`createWriteQueue` protocol core, deleting the hand-rolled durable chain.
+
 ---
 
 ### CD20 — The multi-home / multi-write atomic batch · **Superseded by CD21** · _extends CD19; builds on CD7, CD16_

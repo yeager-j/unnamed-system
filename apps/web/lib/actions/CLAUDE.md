@@ -27,7 +27,7 @@ concurrency token, and envelope:
 | `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
 | `entity/`    | `requireOwnerOrCampaignDMForEntity` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
-| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes; + `expectedCharacterVersion` on `commit/`) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
+| `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
 
 > **The `entity/` aggregate (UNN-551)** is the descriptor → Writer → Store pipeline
 > for durable component writes: `commitEntityWrite` (auth + assemble + pure Writer

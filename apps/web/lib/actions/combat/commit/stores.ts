@@ -153,8 +153,15 @@ export function sessionStore(context: {
  * Signed depletion is native now, so over-max HP works and `setMax` is a real
  * write — the v1 interim semantics (absolute columns, `unsupported-durable-write`)
  * are gone with the per-field wrappers this used to delegate to.
+ *
+ * On success it also revalidates **this encounter's** route (UNN-567):
+ * `commitEntityWrite` pings only the character channel, so without the
+ * revalidation the console's optimistic frame dropped on settle and briefly
+ * showed the stale base until the pc-ping's refresh landed. With it, the RSC
+ * payload rides the transition response exactly like the session arm's.
  */
 export function entityRowStore(context: {
+  row: EncounterRow
   entityId: string
   expectedVersion: number
 }): CombatantStore {
@@ -168,6 +175,7 @@ export function entityRowStore(context: {
       )
       if (!committed.ok) return committed
 
+      revalidateEncounter(context.row)
       return ok({
         version: committed.value.version,
         channel: { domain: "character", shortId: committed.value.shortId },

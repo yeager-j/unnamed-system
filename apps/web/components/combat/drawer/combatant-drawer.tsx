@@ -22,6 +22,7 @@ import {
 import { useLastPresent } from "@workspace/ui/hooks/use-last-present"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { DispatchCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { CombatantActionsSection } from "@/components/combat/drawer/actions-section"
 import { CombatantConditionsSection } from "@/components/combat/drawer/conditions-section"
 import { CombatantCountersSection } from "@/components/combat/drawer/counters-section"
@@ -31,7 +32,6 @@ import { CombatantVitalsSection } from "@/components/combat/drawer/vitals-sectio
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
-import type { DispatchCombatantWrite } from "@/hooks/use-combatant-write"
 import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
