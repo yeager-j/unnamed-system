@@ -166,7 +166,7 @@ export async function applyLevelUpForCharacter(
   if (updated.length === 0) return staleOrMissing(db, characterId)
 
   const { progressionVersion, vitalsVersion, shortId } = updated[0]!
-  publishCharacterPing(shortId, {
+  publishCharacterPing(shortId, "character", {
     progression: progressionVersion,
     vitals: vitalsVersion,
   })

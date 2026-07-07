@@ -99,7 +99,7 @@ export async function bumpCharacterVersionGuarded(
   if (updated.length === 0) return staleOrMissing(executor, characterId)
 
   const { version, shortId } = updated[0]!
-  publishCharacterPing(shortId, { [versionClass]: version })
+  publishCharacterPing(shortId, "character", { [versionClass]: version })
 
   return ok({ version })
 }

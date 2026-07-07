@@ -189,13 +189,15 @@ export function EntityWriteProvider({
   // pings `character:{shortId}` with its class's new version, so a genuinely
   // fresher ping — the DM console damaging this PC mid-combat, a sibling tab —
   // forwards the tokens and refreshes; echoes of this tab's own writes are
-  // already absorbed and no-op. Inert without ABLY_API_KEY, like every listener.
+  // already absorbed and no-op. Only "entity"-kind pings feed the compare —
+  // a v1 `characters`-row ping (the Atlas, until S3) carries the *other*
+  // family's counters. Inert without ABLY_API_KEY, like every listener.
   const router = useRouter()
   useRealtimeChannel({
     domain: "character",
     shortId: profile.shortId,
     onPing: (data) => {
-      const versions = parseCharacterPing(data)
+      const versions = parseCharacterPing(data, "entity")
       if (versions && forwardPingedVersions(versionRefs, versions)) {
         router.refresh()
       }

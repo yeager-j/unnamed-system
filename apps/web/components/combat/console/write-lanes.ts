@@ -166,7 +166,7 @@ export function useCombatantLanes({
   }
 
   function onPcPing(characterId: string, data: unknown) {
-    const versions = parseCharacterPing(data)
+    const versions = parseCharacterPing(data, "entity")
     if (!versions) return
     const decision = decidePcPing(versions, pcVitals.read(characterId))
     if (decision.nextVitals !== undefined) {

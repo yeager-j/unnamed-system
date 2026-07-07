@@ -220,7 +220,7 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () 
     writeAction.mockResolvedValueOnce(commit(8))
 
     const { result } = renderHook(() => useEntityWrite(), { wrapper })
-    ping({ versions: { vitals: 7 } })
+    ping({ kind: "entity", versions: { vitals: 7 } })
     expect(routerRefresh).toHaveBeenCalledTimes(1)
 
     await act(async () => {
@@ -237,10 +237,32 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () 
 
   it("suppresses echoes and junk: nothing fresher never refreshes", () => {
     renderHook(() => useEntityWrite(), { wrapper })
-    ping({ versions: { vitals: 1 } }) // equal to the known token
-    ping({ versions: { bogus: 99 } }) // foreign key
+    ping({ kind: "entity", versions: { vitals: 1 } }) // equal to the known token
+    ping({ kind: "entity", versions: { bogus: 99 } }) // foreign key
     ping("junk") // malformed payload
     expect(routerRefresh).not.toHaveBeenCalled()
+  })
+
+  it("ignores v1 characters-row pings — the other family's counters must not poison the entity refs", async () => {
+    writeAction.mockResolvedValueOnce(commit(2))
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    // A v1 write bumps the characters row's counter far above the entity
+    // row's; forwarding it would strand the forward-only ref above the true
+    // entity version and every later write would send a too-high token.
+    ping({ kind: "character", versions: { identity: 40 } })
+    ping({ versions: { identity: 40 } }) // untagged legacy: ambiguous, dropped
+    expect(routerRefresh).not.toHaveBeenCalled()
+
+    await act(async () => {
+      result.current.dispatch(talents) // identity class
+    })
+    await flush()
+
+    // The identity write still reads the untouched entity token.
+    expect(writeAction).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedVersion: 1 })
+    )
   })
 
   it("an echo of this tab's own committed write does not refresh", async () => {
@@ -252,7 +274,7 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () 
     })
     await flush()
 
-    ping({ versions: { vitals: 2 } })
+    ping({ kind: "entity", versions: { vitals: 2 } })
     expect(routerRefresh).not.toHaveBeenCalled()
   })
 

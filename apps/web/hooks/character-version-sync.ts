@@ -3,7 +3,7 @@
 import type { RefObject } from "react"
 
 import type { VersionClass } from "@/lib/db/version-classes"
-import type { CharacterPing } from "@/lib/realtime/publish"
+import type { CharacterPing, CharacterPingKind } from "@/lib/realtime/publish"
 
 /**
  * Parsing + forwarding for character invalidation pings (UNN-372). Every
@@ -21,15 +21,29 @@ export type PingedVersions = CharacterPing["versions"]
 
 /**
  * Narrows an untrusted ping payload to its `versions` map, or `null` when the
- * shape is wrong. Pings are advisory — a malformed one is dropped, never an
- * error. Junk keys/values inside the map are tolerated here and filtered by
- * {@link import("./version-token-store").VersionTokenStore.forward}.
+ * shape is wrong or the ping's `kind` isn't the one this consumer tracks.
+ * Pings are advisory — a malformed one is dropped, never an error. Junk
+ * keys/values inside the map are tolerated here and filtered by the caller's
+ * forward-only compare.
+ *
+ * `kind` is mandatory because the dual-minted rows share the channel
+ * ({@link CharacterPingKind}): a consumer that compares version tokens **must**
+ * name its row family, or a ping from the other family strands its
+ * forward-only tokens above the true value. `"any"` is for refresh-only
+ * consumers (no token compare — e.g. the dungeon explore body), which want
+ * every write regardless of family. A ping with no `kind` (a not-yet-updated
+ * server during a deploy window) is ambiguous and dropped by family-filtered
+ * consumers — worth a briefly missed live update, never a corrupted token.
  */
-export function parseCharacterPing(data: unknown): PingedVersions | null {
+export function parseCharacterPing(
+  data: unknown,
+  kind: CharacterPingKind | "any"
+): PingedVersions | null {
   if (typeof data !== "object" || data === null) return null
-  const versions = (data as { versions?: unknown }).versions
-  if (typeof versions !== "object" || versions === null) return null
-  return versions as PingedVersions
+  const ping = data as { kind?: unknown; versions?: unknown }
+  if (kind !== "any" && ping.kind !== kind) return null
+  if (typeof ping.versions !== "object" || ping.versions === null) return null
+  return ping.versions as PingedVersions
 }
 
 /**

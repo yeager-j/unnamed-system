@@ -23,11 +23,24 @@ import { getAblyRest } from "./client"
  */
 
 /**
- * The character ping body: touched version classes mapped to their new values,
- * mirroring the UNN-203 `BroadcastChannel` message so the sheet's per-class
- * version-compare can be reused as-is by the subscription ticket (UNN-372).
+ * Which row family's version counters a {@link CharacterPing} carries. The
+ * shared-id dual mint (UNN-551) means the v1 `characters` row and the v2
+ * `entity` row ping the **same** `character:{shortId}` channel, but their
+ * per-class counters advance independently — so a ping must say which family
+ * it bumped, or a subscriber's forward-only version compare cross-wires the
+ * two and strands its tokens above the true value (the same disease
+ * {@link VersionKind} cures on the encounter/dungeon channels). Dissolves with
+ * the v1 row (S4).
+ */
+export type CharacterPingKind = "character" | "entity"
+
+/**
+ * The character ping body: which row family moved, and the touched version
+ * classes mapped to their new values, feeding the subscribers' per-class
+ * version-compare (UNN-372/UNN-569).
  */
 export interface CharacterPing {
+  kind: CharacterPingKind
   versions: Partial<Record<VersionClass, number>>
 }
 
@@ -89,14 +102,17 @@ function schedulePublish(
 }
 
 /**
- * Pings a character's channel after a successful guarded write. `versions`
- * carries only the classes that write bumped (one, or both for level-up).
+ * Pings a character's channel after a successful guarded write. `kind` names
+ * the row family whose counters moved (`"entity"` from the entity door,
+ * `"character"` from the v1 write core); `versions` carries only the classes
+ * that write bumped (one, or both for level-up).
  */
 export function publishCharacterPing(
   shortId: string,
+  kind: CharacterPingKind,
   versions: CharacterPing["versions"]
 ): void {
-  schedulePublish("character", shortId, { versions })
+  schedulePublish("character", shortId, { kind, versions })
 }
 
 /** Pings an encounter's channel after a successful **session** write (the

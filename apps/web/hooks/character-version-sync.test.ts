@@ -9,17 +9,54 @@ import {
 } from "./character-version-sync"
 
 describe("parseCharacterPing", () => {
-  it("extracts the versions map from a well-formed ping", () => {
-    expect(parseCharacterPing({ versions: { vitals: 6 } })).toEqual({
+  it("extracts the versions map from a well-formed ping of the expected kind", () => {
+    expect(
+      parseCharacterPing({ kind: "entity", versions: { vitals: 6 } }, "entity")
+    ).toEqual({ vitals: 6 })
+    expect(
+      parseCharacterPing(
+        { kind: "character", versions: { vitals: 6 } },
+        "character"
+      )
+    ).toEqual({ vitals: 6 })
+  })
+
+  it("drops a ping from the other row family — its counters are not ours", () => {
+    expect(
+      parseCharacterPing(
+        { kind: "character", versions: { progression: 40 } },
+        "entity"
+      )
+    ).toBeNull()
+    expect(
+      parseCharacterPing(
+        { kind: "entity", versions: { vitals: 6 } },
+        "character"
+      )
+    ).toBeNull()
+  })
+
+  it("drops an untagged legacy ping for family-filtered consumers (ambiguous)", () => {
+    expect(parseCharacterPing({ versions: { vitals: 6 } }, "entity")).toBeNull()
+  })
+
+  it('accepts any family (and untagged) for kind "any" — refresh-only consumers', () => {
+    expect(
+      parseCharacterPing({ kind: "character", versions: { vitals: 6 } }, "any")
+    ).toEqual({ vitals: 6 })
+    expect(
+      parseCharacterPing({ kind: "entity", versions: { vitals: 6 } }, "any")
+    ).toEqual({ vitals: 6 })
+    expect(parseCharacterPing({ versions: { vitals: 6 } }, "any")).toEqual({
       vitals: 6,
     })
   })
 
   it("returns null for malformed payloads", () => {
-    expect(parseCharacterPing(null)).toBeNull()
-    expect(parseCharacterPing("ping")).toBeNull()
-    expect(parseCharacterPing({})).toBeNull()
-    expect(parseCharacterPing({ versions: "vitals" })).toBeNull()
+    expect(parseCharacterPing(null, "any")).toBeNull()
+    expect(parseCharacterPing("ping", "any")).toBeNull()
+    expect(parseCharacterPing({}, "any")).toBeNull()
+    expect(parseCharacterPing({ versions: "vitals" }, "any")).toBeNull()
   })
 })
 

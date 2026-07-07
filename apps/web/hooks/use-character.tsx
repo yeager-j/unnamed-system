@@ -145,7 +145,7 @@ export function CharacterProvider({
     domain: "character",
     shortId: character.shortId,
     onPing: (data) => {
-      const versions = parseCharacterPing(data)
+      const versions = parseCharacterPing(data, "character")
       if (versions) applyRemoteVersions(versions)
     },
     onReconnect: () => router.refresh(),

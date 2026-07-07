@@ -99,7 +99,7 @@ export async function bumpEntityVersionGuarded(
   if (updated.length === 0) return staleOrMissing(entityId)
 
   const { version, shortId } = updated[0]!
-  publishCharacterPing(shortId, { [versionClass]: version })
+  publishCharacterPing(shortId, "entity", { [versionClass]: version })
 
   return ok({ version })
 }
