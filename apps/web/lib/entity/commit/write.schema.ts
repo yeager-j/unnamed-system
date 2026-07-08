@@ -163,6 +163,26 @@ const archetypesSetActiveArm = z.object({
   archetypeKey: z.string().min(1),
 })
 
+/**
+ * Configuring an Inheritance Slot on an unlocked Archetype (rulebook 1.3; the
+ * sheet's Archetypes tab, S2d — UNN-560). `archetypeKey` is the **owner**
+ * Archetype whose slot this is; `slotIndex` addresses one of its
+ * catalog-granted slots. A non-null `sourceArchetypeKey` + `skillKey` fills the
+ * slot with a Skill inherited from another unlocked Archetype; both `null`
+ * clears it (one `op`, the empty state is a value — rule #9). The Writer is the
+ * sole inheritability gate — the resolve fold (`inheritedSkills`) honors any
+ * resolvable slot Skill without re-checking — so it validates owner/slot-bounds
+ * and `isInheritableSkill` before persisting.
+ */
+const archetypesSetSlotArm = z.object({
+  component: z.literal("archetypes"),
+  op: z.literal("setInheritanceSlot"),
+  archetypeKey: z.string().min(1),
+  slotIndex: z.number().int().nonnegative(),
+  sourceArchetypeKey: z.string().min(1).nullable(),
+  skillKey: z.string().min(1).nullable(),
+})
+
 /** Whole-list replace of the player-added Talents (open-string keys, v2). */
 const talentsArm = z
   .object({
@@ -320,6 +340,7 @@ export const entityWriteSchema = z.union([
   pathArm,
   archetypesOriginArm,
   archetypesSetActiveArm,
+  archetypesSetSlotArm,
   talentsArm,
   talentsAddArm,
   talentsRemoveArm,

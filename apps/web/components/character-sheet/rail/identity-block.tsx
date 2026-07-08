@@ -13,6 +13,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite } from "@/hooks/use-entity-write"
 import type { RailArchetype, RailView } from "@/lib/character/view/rail-view"
+import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**
  * The rail's identity block: display-serif name, muted pronouns, the level
@@ -71,39 +72,51 @@ function ArchetypePill({ archetype }: { archetype: RailArchetype }) {
         <p className="px-2 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
           Switch Archetype
         </p>
-        <ul className="flex flex-col">
-          {archetype.options.map((option) => (
-            <li key={option.key}>
-              <button
-                type="button"
-                disabled={pending || option.isActive}
-                onClick={() => {
-                  dispatch({
-                    component: "archetypes",
-                    op: "setActive",
-                    archetypeKey: option.key,
-                  })
-                  setOpen(false)
-                }}
-                className={cn(
-                  "flex w-full items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-                  option.isActive
-                    ? "bg-primary/10 font-medium"
-                    : "hover:bg-muted"
-                )}
-              >
-                <span>
-                  {option.name} · Rank {option.rank}
-                </span>
-                {option.mechanicName ? (
-                  <span className="text-xs text-muted-foreground">
-                    {option.mechanicName}
-                  </span>
-                ) : null}
-              </button>
-            </li>
+        <div className="flex flex-col gap-1.5">
+          {archetype.groups.map((group) => (
+            <div key={group.lineage}>
+              <p className="px-2 py-1 text-[0.7rem] font-medium tracking-wide text-muted-foreground uppercase">
+                {LINEAGE_LABELS[group.lineage]}
+              </p>
+              <ul className="flex flex-col">
+                {group.options.map((option) => {
+                  const isActive = option.key === archetype.activeKey
+                  return (
+                    <li key={option.key}>
+                      <button
+                        type="button"
+                        disabled={pending || isActive}
+                        onClick={() => {
+                          dispatch({
+                            component: "archetypes",
+                            op: "setActive",
+                            archetypeKey: option.key,
+                          })
+                          setOpen(false)
+                        }}
+                        className={cn(
+                          "flex w-full items-baseline justify-between gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+                          isActive
+                            ? "bg-primary/10 font-medium"
+                            : "hover:bg-muted"
+                        )}
+                      >
+                        <span>
+                          {option.name} · Rank {option.rank}
+                        </span>
+                        {option.mechanicName ? (
+                          <span className="text-xs text-muted-foreground">
+                            {option.mechanicName}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </PopoverContent>
     </Popover>
   )

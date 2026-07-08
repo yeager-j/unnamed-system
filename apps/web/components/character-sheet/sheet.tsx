@@ -9,8 +9,9 @@ import {
 import type { LoadedCharacter } from "@/lib/character/load"
 import { buildAffinityStrip } from "@/lib/character/view/affinity-strip"
 import { buildRailView } from "@/lib/character/view/rail-view"
-import { getArchetype } from "@/lib/game-engine-v2"
+import { archetypeSwitcherGroups } from "@/lib/game-engine-v2"
 
+import { ArchetypesTab } from "./archetypes/archetypes-tab"
 import { CombatTab } from "./combat/combat-tab"
 import { SheetCommandPalette } from "./command-palette"
 import { ExploreTab } from "./explore/explore-tab"
@@ -48,7 +49,7 @@ function SheetShell() {
   const { profile, entity, resolved } = useLoadedCharacter()
   const [tab, setTab] = useState<SheetTabKey>("combat")
 
-  const rail = buildRailView(profile, entity, resolved, getArchetype)
+  const rail = buildRailView(profile, entity, resolved, archetypeSwitcherGroups)
   const affinities = buildAffinityStrip(resolved)
 
   return (
@@ -61,6 +62,7 @@ function SheetShell() {
           {tab === "explore" ? <ExploreTab /> : null}
           {tab === "journal" ? <JournalTab /> : null}
           {tab === "inventory" ? <InventoryTab /> : null}
+          {tab === "archetypes" ? <ArchetypesTab /> : null}
         </div>
       </div>
       <SheetDock active={tab} onSelect={setTab} />

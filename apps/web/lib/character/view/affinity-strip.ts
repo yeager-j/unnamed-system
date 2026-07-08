@@ -16,12 +16,22 @@ export interface AffinityStripCell {
   affinity: Affinity
 }
 
-export function buildAffinityStrip(
-  resolved: ResolvedEntity
+/**
+ * The 11 strip cells for any affinity chart, neutral-filled — the shared shaper
+ * behind {@link buildAffinityStrip} (the resolved character) and the Archetypes
+ * tab's per-Archetype strip (`archetype.affinities`, S2d — UNN-560).
+ */
+export function affinityCells(
+  chart: Partial<Record<AffinityDamageType, Affinity>> | undefined
 ): AffinityStripCell[] {
-  const chart = resolved.components.affinities
   return AFFINITY_DAMAGE_TYPES.map((type) => ({
     type,
     affinity: chart?.[type] ?? "neutral",
   }))
+}
+
+export function buildAffinityStrip(
+  resolved: ResolvedEntity
+): AffinityStripCell[] {
+  return affinityCells(resolved.components.affinities)
 }

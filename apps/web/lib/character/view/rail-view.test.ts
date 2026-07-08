@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
-import { getArchetype, resolveEntity } from "@/lib/game-engine-v2"
+import { archetypeSwitcherGroups, resolveEntity } from "@/lib/game-engine-v2"
 
 import { buildAffinityStrip } from "./affinity-strip"
 import { buildRailView } from "./rail-view"
@@ -47,7 +47,7 @@ describe("buildRailView", () => {
       profile,
       entity,
       resolveEntity(entity),
-      getArchetype
+      archetypeSwitcherGroups
     )
 
     expect(rail.name).toBe("Cassian Vale")
@@ -71,22 +71,23 @@ describe("buildRailView", () => {
     expect(rail.exhaustion?.level).toBe(2)
   })
 
-  it("builds the switch menu from the roster with mechanic-name hints", () => {
+  it("builds the lineage-grouped switch menu from the roster with mechanic-name hints", () => {
     const entity = knight()
     const rail = buildRailView(
       profile,
       entity,
       resolveEntity(entity),
-      getArchetype
+      archetypeSwitcherGroups
     )
 
     expect(rail.archetype?.activeKey).toBe("knight")
+    expect(rail.archetype?.activeName).toBe("Knight")
     expect(rail.archetype?.activeRank).toBe(2)
-    expect(rail.archetype?.options).toHaveLength(2)
-    const knightOption = rail.archetype!.options.find(
-      (option) => option.key === "knight"
-    )
-    expect(knightOption?.isActive).toBe(true)
+    // Knight + Mage are distinct Lineages ⇒ two single-option groups.
+    expect(rail.archetype?.groups).toHaveLength(2)
+    const options = rail.archetype!.groups.flatMap((group) => group.options)
+    expect(options).toHaveLength(2)
+    const knightOption = options.find((option) => option.key === "knight")
     expect(knightOption?.mechanicName).toBe("Valor")
   })
 
@@ -95,7 +96,12 @@ describe("buildRailView", () => {
       id: "bare",
       components: { identity: { name: "Bare" } },
     }
-    const rail = buildRailView(profile, bare, resolveEntity(bare), getArchetype)
+    const rail = buildRailView(
+      profile,
+      bare,
+      resolveEntity(bare),
+      archetypeSwitcherGroups
+    )
     expect(rail.level).toBeNull()
     expect(rail.hp).toBeNull()
     expect(rail.victories).toBeNull()

@@ -3,13 +3,13 @@
 import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
 import { sortSkillsByKind } from "@workspace/game-v2/skills/sort"
 
+import { SkillBannerCard } from "@/components/shared/skill-banner-card"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
 import type { AffinityStripCell } from "@/lib/character/view/affinity-strip"
 
 import { SectionLabel } from "../section-label"
 import { AffinityStrip } from "./affinity-strip"
-import { SkillCard } from "./skill-card"
 
 /**
  * The Combat tab (S2a): the affinity strip over the 3-column Skill-card grid
@@ -51,7 +51,7 @@ export function CombatTab({ cells }: { cells: AffinityStripCell[] }) {
             <SectionLabel>Skills · {skills.length}</SectionLabel>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-3">
               {skills.map((skill) => (
-                <SkillCard
+                <SkillBannerCard
                   key={skill.skill.key}
                   resolved={skill}
                   attributes={attributes}

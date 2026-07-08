@@ -1,8 +1,8 @@
 import { hasUnlockedRank } from "@workspace/game-v2/archetypes/rank"
 import type { ResolvedArchetypeSkill } from "@workspace/game-v2/archetypes/resolved-skill"
 import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
-import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
+import { cn } from "@workspace/ui/lib/utils"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
@@ -12,11 +12,12 @@ import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
  * `ArchetypeRankedSkills` peer the builder's Origin picker renders (UNN-556;
  * the S2 Archetypes tab reuses it, and the v1 twin dies with the old sheet).
  *
- * When `currentRank` is provided, ranks at-or-below it render unlocked
- * (`ResolvedSkillRow` with the full popover); ranks above render as muted
- * name-only Badges. When `currentRank` is omitted (catalog preview — builder
- * Origin picker), every rank renders unlocked. `attributes` flows through so
- * the popover's formulas hydrate against the caller's choice of scores.
+ * Every rank renders as full {@link ResolvedSkillRow}s with the preview
+ * popover. When `currentRank` is provided, ranks above it are labelled "Locked"
+ * and dimmed but stay previewable — a Rank you'll unlock is worth inspecting.
+ * When `currentRank` is omitted (catalog preview — builder Origin picker),
+ * nothing is locked. `attributes` flows through so the popover's formulas
+ * hydrate against the caller's choice of scores.
  */
 export function ArchetypeResolvedSkills({
   ranks,
@@ -55,29 +56,15 @@ export function ArchetypeResolvedSkills({
                 </span>
               )}
             </div>
-            {unlocked ? (
-              <ItemGroup className="gap-0">
-                {skills.map((ranked) => (
-                  <ResolvedSkillRow
-                    key={ranked.skill.key}
-                    resolved={ranked}
-                    attributes={attributes}
-                  />
-                ))}
-              </ItemGroup>
-            ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {skills.map((ranked) => (
-                  <Badge
-                    key={ranked.skill.key}
-                    variant="outline"
-                    className="text-muted-foreground"
-                  >
-                    {ranked.skill.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
+            <ItemGroup className={cn("gap-0", !unlocked && "opacity-50")}>
+              {skills.map((ranked) => (
+                <ResolvedSkillRow
+                  key={ranked.skill.key}
+                  resolved={ranked}
+                  attributes={attributes}
+                />
+              ))}
+            </ItemGroup>
           </div>
         )
       })}

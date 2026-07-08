@@ -1,8 +1,7 @@
-import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
+import type { ArchetypeSwitcherGroup } from "@workspace/game-v2/archetypes/display"
 import { renderFormula } from "@workspace/game-v2/combat/formula"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
-import { getMechanic } from "@workspace/game-v2/mechanics"
 import {
   canLevelUp,
   MAX_LEVEL,
@@ -39,20 +38,16 @@ export interface RailPool {
   max: number
 }
 
-/** The archetype pill + its switch menu (mechanic names as hints). */
+/**
+ * The archetype pill + its switch menu. Options are the engine's
+ * lineage-grouped {@link ArchetypeSwitcherGroup}s (the "switcher-groups" read,
+ * C8–C10) — the pill's popover groups by Lineage, Tier-then-name within one.
+ */
 export interface RailArchetype {
   activeKey: string | null
   activeName: string | null
   activeRank: number | null
-  options: RailArchetypeOption[]
-}
-
-export interface RailArchetypeOption {
-  key: string
-  name: string
-  rank: number
-  mechanicName: string | null
-  isActive: boolean
+  groups: ArchetypeSwitcherGroup[]
 }
 
 export interface RailVictories {
@@ -81,7 +76,7 @@ export function buildRailView(
   profile: Pick<CharacterProfile, "name" | "pronouns" | "portraitUrl">,
   entity: Entity,
   resolved: ResolvedEntity,
-  getArchetype: (key: string) => Archetype | undefined
+  switcherGroups: (resolved: ResolvedEntity) => ArchetypeSwitcherGroup[]
 ): RailView {
   const { archetypes, vitals, skillPool, attributes, resources } =
     resolved.components
@@ -94,7 +89,9 @@ export function buildRailView(
     pronouns: profile.pronouns,
     portraitUrl: profile.portraitUrl,
     level: level?.value ?? null,
-    archetype: archetypes ? railArchetype(archetypes, getArchetype) : null,
+    archetype: archetypes
+      ? railArchetype(archetypes, switcherGroups(resolved))
+      : null,
     hp: vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null,
     sp: skillPool
       ? { current: skillPool.currentSP, max: skillPool.maxSP }
@@ -128,28 +125,16 @@ export function buildRailView(
 
 function railArchetype(
   archetypes: NonNullable<ResolvedEntity["components"]["archetypes"]>,
-  getArchetype: (key: string) => Archetype | undefined
+  groups: ArchetypeSwitcherGroup[]
 ): RailArchetype {
-  const options = archetypes.roster.map((entry) => {
-    const definition = getArchetype(entry.key)
-    const mechanic = definition?.mechanic
-      ? getMechanic(definition.mechanic)
-      : undefined
-    return {
-      key: entry.key,
-      name: definition?.name ?? entry.key,
-      rank: entry.rank,
-      mechanicName: mechanic?.displayName ?? null,
-      isActive: entry.key === archetypes.active,
-    }
-  })
-
-  const active = options.find((option) => option.isActive)
+  const active = groups
+    .flatMap((group) => group.options)
+    .find((option) => option.key === archetypes.active)
 
   return {
     activeKey: archetypes.active,
     activeName: active?.name ?? null,
     activeRank: active?.rank ?? null,
-    options,
+    groups,
   }
 }

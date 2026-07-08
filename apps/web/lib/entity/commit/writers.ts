@@ -1,4 +1,6 @@
+import type { InheritanceSlot } from "@workspace/game-v2/archetypes/archetypes.schema"
 import { ORIGIN_ARCHETYPE_RANK } from "@workspace/game-v2/archetypes/creation"
+import { isInheritableSkill } from "@workspace/game-v2/archetypes/inheritance"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { VIRTUE_KEYS } from "@workspace/game-v2/kernel/vocab"
@@ -31,6 +33,7 @@ import {
 } from "@workspace/game-v2/vitals/operations"
 
 import type { VersionClass } from "@/lib/db/version-classes"
+import { getArchetype } from "@/lib/game-engine-v2"
 import type { LiftedComponentKey } from "@/lib/game-v2/entity-row-to-bag"
 
 import {
@@ -146,6 +149,19 @@ type WriterMap = {
   virtues: EntityWriter<VirtuesWrite>
   narrative: EntityWriter<NarrativeWrite>
   equipment: EntityWriter<EquipmentWrite>
+}
+
+/** Upsert one Inheritance Slot into a roster entry's sparse slot array by
+ *  `slotIndex` — replacing a configured slot or appending a fresh one. */
+function upsertInheritanceSlot(
+  slots: InheritanceSlot[],
+  slot: InheritanceSlot
+): InheritanceSlot[] {
+  return slots.some((existing) => existing.slotIndex === slot.slotIndex)
+    ? slots.map((existing) =>
+        existing.slotIndex === slot.slotIndex ? slot : existing
+      )
+    : [...slots, slot]
 }
 
 /**
@@ -352,6 +368,14 @@ export const ENTITY_WRITERS: WriterMap = {
    * `setActive` — the sheet rail's switcher: re-point `active` to an unlocked
    * roster key (`not-unlocked` otherwise). Mechanic state, ranks, and slots all
    * ride the roster untouched — switching is a pointer move.
+   *
+   * `setInheritanceSlot` — the Archetypes tab's slot editor (S2d). The **sole**
+   * inheritability gate: `inheritedSkills` grants any resolvable slot Skill
+   * without re-checking, so this validates owner membership, slot bounds
+   * (`getArchetype(owner).inheritanceSlots`), and — for a fill — that the source
+   * is owned and the Skill `isInheritableSkill` at its Rank. Both keys `null`
+   * clears the slot. The catalog reads (`getArchetype`, `isInheritableSkill`)
+   * run identically on the optimistic client and the server pre-mint.
    */
   archetypes: {
     component: "archetypes",
@@ -384,6 +408,65 @@ export const ENTITY_WRITERS: WriterMap = {
           }
           return ok({
             archetypes: { ...archetypes, active: write.archetypeKey },
+          })
+        }
+        case "setInheritanceSlot": {
+          const archetypes = components.archetypes
+          if (archetypes === undefined) return err("capability-missing")
+          const owner = archetypes.roster.find(
+            (entry) => entry.key === write.archetypeKey
+          )
+          if (owner === undefined) return err("not-unlocked")
+          const ownerArchetype = getArchetype(write.archetypeKey)
+          if (
+            ownerArchetype === undefined ||
+            write.slotIndex >= ownerArchetype.inheritanceSlots
+          ) {
+            return err("invalid-input")
+          }
+
+          if (write.skillKey !== null) {
+            // A slot inherits from *another* unlocked Archetype (rulebook 1.3);
+            // a self-source would smuggle the owner's own kit into an inherited
+            // slot, which survives a form swap when the kit itself is suppressed.
+            if (
+              write.sourceArchetypeKey === null ||
+              write.sourceArchetypeKey === write.archetypeKey
+            ) {
+              return err("invalid-input")
+            }
+            const source = getArchetype(write.sourceArchetypeKey)
+            const sourceRank = archetypes.roster.find(
+              (entry) => entry.key === write.sourceArchetypeKey
+            )?.rank
+            if (source === undefined || sourceRank === undefined) {
+              return err("not-unlocked")
+            }
+            if (!isInheritableSkill(source, sourceRank, write.skillKey)) {
+              return err("invalid-input")
+            }
+          }
+
+          const nextSlots =
+            write.skillKey !== null
+              ? upsertInheritanceSlot(owner.inheritanceSlots, {
+                  slotIndex: write.slotIndex,
+                  sourceArchetypeKey: write.sourceArchetypeKey,
+                  skillKey: write.skillKey,
+                })
+              : owner.inheritanceSlots.filter(
+                  (slot) => slot.slotIndex !== write.slotIndex
+                )
+
+          return ok({
+            archetypes: {
+              ...archetypes,
+              roster: archetypes.roster.map((entry) =>
+                entry.key === write.archetypeKey
+                  ? { ...entry, inheritanceSlots: nextSlots }
+                  : entry
+              ),
+            },
           })
         }
       }

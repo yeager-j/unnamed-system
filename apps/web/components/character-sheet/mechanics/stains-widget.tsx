@@ -15,11 +15,11 @@ import {
 } from "@workspace/ui/components/popover"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { elementTone } from "@/components/shared/element-tokens"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite } from "@/hooks/use-entity-write"
 import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
 
-import { elementTone } from "../combat/element-tokens"
 import { WidgetHeader } from "./widget-chrome"
 
 /**
