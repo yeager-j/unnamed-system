@@ -6,11 +6,11 @@ import {
   VALOR_THRESHOLDS,
   type ValorState,
 } from "@workspace/game-v2/mechanics/knight/valor"
+import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useEntityWrite } from "@/hooks/use-entity-write"
 
-import { GoldSegmentBar } from "../rail/gold-segment-bar"
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
 /**
@@ -34,11 +34,12 @@ export function ValorWidget({ state }: { state: ValorState }) {
   return (
     <>
       <WidgetHeader name="Valor" value={`${state.value}/${VALOR_MAX}`} />
-      <GoldSegmentBar
-        segments={VALOR_MAX}
-        filled={state.value}
+      <SegmentMeter
+        variant="gold"
+        size="md"
+        max={VALOR_MAX}
+        value={state.value}
         label={`${state.value} of ${VALOR_MAX} Valor`}
-        size="gauge"
       />
       <WidgetStepper
         label="Valor"

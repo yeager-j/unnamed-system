@@ -5,12 +5,12 @@ import {
   FRENZY_PAIN_MAX,
   type FrenzyState,
 } from "@workspace/game-v2/mechanics/berserker/frenzy"
+import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useEntityWrite } from "@/hooks/use-entity-write"
 
-import { GoldSegmentBar } from "../rail/gold-segment-bar"
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 
 /**
@@ -32,11 +32,12 @@ export function FrenzyWidget({ state }: { state: FrenzyState }) {
         name="Frenzy"
         value={`Pain ${state.pain}/${FRENZY_PAIN_MAX}`}
       />
-      <GoldSegmentBar
-        segments={FRENZY_PAIN_MAX}
-        filled={state.pain}
+      <SegmentMeter
+        variant="intensity"
+        size="md"
+        max={FRENZY_PAIN_MAX}
+        value={state.pain}
         label={`${state.pain} of ${FRENZY_PAIN_MAX} Pain`}
-        size="gauge"
       />
       <WidgetStepper
         label="Pain"
