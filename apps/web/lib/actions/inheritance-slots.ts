@@ -1,6 +1,6 @@
 "use server"
 
-import { err, type Result } from "@workspace/game/foundation"
+import { err, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireOwner } from "@/lib/auth/viewer-role"
 import {

@@ -1,6 +1,6 @@
 "use server"
 
-import { err, type Result } from "@workspace/game/foundation"
+import { err, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireMapOwner } from "@/lib/auth/map-access"
 import { renameMap, saveMapGeometry } from "@/lib/db/writes/map"

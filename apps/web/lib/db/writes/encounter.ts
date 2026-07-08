@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
 import type { StoredSession } from "@workspace/game-v2/encounter"
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounterExists } from "@/lib/db/queries/load-encounter"

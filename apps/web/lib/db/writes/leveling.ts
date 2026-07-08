@@ -1,11 +1,11 @@
 import { and, eq } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   applyLevelUp,
   type LevelingCharacter,
   type LevelingError,
 } from "@workspace/game/engine"
-import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadCharacterRowById } from "@/lib/db/queries/load-character"

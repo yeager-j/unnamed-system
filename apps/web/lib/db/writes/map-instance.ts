@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { type WriteExecutor } from "@/lib/db/client"
 import { mapInstances } from "@/lib/db/schema/map-instance"

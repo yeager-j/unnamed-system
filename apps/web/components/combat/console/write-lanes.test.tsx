@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok } from "@workspace/game/foundation"
+import { err, ok } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import { useQueuedWrite } from "@/hooks/use-queued-write"

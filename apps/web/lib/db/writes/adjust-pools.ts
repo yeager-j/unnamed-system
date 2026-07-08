@@ -1,3 +1,4 @@
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   applyDamage,
   applyHeal,
@@ -7,7 +8,6 @@ import {
   type AdjustAmountError,
   type UsePrismaError,
 } from "@workspace/game/engine"
-import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"

@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { getCharacterVersionsAction } from "../lib/actions/character-versions"
 import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"

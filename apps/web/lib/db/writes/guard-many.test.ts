@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game/foundation"
+import { err, ok } from "@workspace/game-v2/kernel/result"
 
 // `guardMany` wraps `db.transaction`, whose only behavior that matters here is:
 // it runs the callback, and a throw inside it rolls back + propagates. Emulate

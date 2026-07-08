@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm"
 
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   MAX_CURRENCY,
   removeItem,
@@ -9,7 +10,6 @@ import {
   type InventoryItemState,
   type QuantityError,
 } from "@workspace/game/engine"
-import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { characters, inventoryItems } from "@/lib/db/schema/character"

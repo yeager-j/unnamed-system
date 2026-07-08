@@ -7,7 +7,7 @@ import {
   type StoredEntity,
   type StoredSession,
 } from "@workspace/game-v2/encounter"
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"

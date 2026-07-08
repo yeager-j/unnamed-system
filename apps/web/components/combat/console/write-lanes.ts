@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { type Result } from "@workspace/game/foundation"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import { parseCharacterPing } from "@/hooks/character-version-sync"

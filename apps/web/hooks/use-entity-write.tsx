@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
-import type { Result } from "@workspace/game/foundation"
+import type { Result } from "@workspace/game-v2/kernel/result"
 
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-write.schema"

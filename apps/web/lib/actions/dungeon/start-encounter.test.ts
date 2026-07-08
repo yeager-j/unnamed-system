@@ -6,8 +6,8 @@ import {
 } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { ok } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { ok } from "@workspace/game/foundation"
 
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok } from "@workspace/game/foundation"
+import { err, ok } from "@workspace/game-v2/kernel/result"
 
 import type { MapRow } from "@/lib/db/schema/map"
 

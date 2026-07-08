@@ -10,7 +10,7 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter/session-event"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import type { EncounterRow } from "@/lib/db/schema/encounter"

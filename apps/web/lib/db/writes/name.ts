@@ -1,4 +1,4 @@
-import { ok, type Result } from "@workspace/game/foundation"
+import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
 import { EDIT_SURFACE_CLASS } from "@/lib/db/version-classes"

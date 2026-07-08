@@ -1,3 +1,4 @@
+import { type Result } from "@workspace/game-v2/kernel/result"
 import {
   reduceMapInstance as createReduceMapInstance,
   reduceDungeon,
@@ -6,7 +7,6 @@ import {
   type MapInstanceEvent,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
-import { type Result } from "@workspace/game/foundation"
 
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"

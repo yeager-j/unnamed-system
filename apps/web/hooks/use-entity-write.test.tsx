@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"

@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import type { CharacterRow } from "@/lib/db/schema/character"
 import { deriveHydratedCharacter } from "@/lib/game-engine"
