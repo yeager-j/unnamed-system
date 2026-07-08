@@ -229,6 +229,10 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
     { component: "narrative", op: "setField", field: "hopes", value: "peace" },
     { component: "narrative", op: "addListEntry", list: "knives" },
     { component: "narrative", op: "removeListEntry", list: "chains", index: 0 },
+    { component: "virtues", op: "addSpark", virtue: "empathy" },
+    { component: "virtues", op: "rankUp", virtue: "focus" },
+    { component: "talents", op: "add", key: "chef" },
+    { component: "talents", op: "remove", key: "chef" },
     {
       component: "narrative",
       op: "setListEntry",
@@ -254,6 +258,9 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
       op: "setAllocation",
       ranks: { expression: 3, empathy: 1, wisdom: 1, focus: 0 },
     },
+    // not a Virtue
+    { component: "virtues", op: "addSpark", virtue: "courage" },
+    { component: "talents", op: "add", key: "" },
     { component: "narrative", op: "setField", field: "knives", value: "x" },
     {
       component: "narrative",
@@ -296,6 +303,10 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
     { component: "exhaustion", op: "setLevel", level: 2 },
     { component: "level", op: "awardVictory" },
     { component: "archetypes", op: "setActive", archetypeKey: "mage" },
+    { component: "virtues", op: "addSpark", virtue: "wisdom" },
+    { component: "virtues", op: "rankUp", virtue: "wisdom" },
+    { component: "talents", op: "add", key: "chef" },
+    { component: "talents", op: "remove", key: "chef" },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })
@@ -699,6 +710,132 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
         narrative: { ...base, chains: [{ title: "B", description: null }] },
       },
     })
+  })
+})
+
+describe("applyEntityWrite — the Spark loop + Talent learning (UNN-558)", () => {
+  const fullLog = [
+    "wisdom",
+    "wisdom",
+    "empathy",
+    "focus",
+    "wisdom",
+    "empathy",
+    "focus",
+  ] as const
+
+  it("virtues.addSpark appends the tagged Spark", () => {
+    const result = applyEntityWrite(
+      { virtues: { ranks: zeroRanks(), sparkLog: ["wisdom"] } },
+      { component: "virtues", op: "addSpark", virtue: "empathy" }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        virtues: { ranks: zeroRanks(), sparkLog: ["wisdom", "empathy"] },
+      },
+    })
+  })
+
+  it("virtues.addSpark refuses the 8th Spark (log-full — the forced-rank-up prompt)", () => {
+    const result = applyEntityWrite(
+      { virtues: { ranks: zeroRanks(), sparkLog: [...fullLog] } },
+      { component: "virtues", op: "addSpark", virtue: "wisdom" }
+    )
+    expect(result).toEqual({ ok: false, error: "log-full" })
+  })
+
+  it("virtues.rankUp bumps an eligible Virtue and clears the log", () => {
+    const result = applyEntityWrite(
+      { virtues: { ranks: zeroRanks(), sparkLog: [...fullLog] } },
+      { component: "virtues", op: "rankUp", virtue: "wisdom" }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        virtues: { ranks: { ...zeroRanks(), wisdom: 1 }, sparkLog: [] },
+      },
+    })
+  })
+
+  it("virtues.rankUp refuses before the log is full", () => {
+    const result = applyEntityWrite(
+      { virtues: { ranks: zeroRanks(), sparkLog: ["wisdom"] } },
+      { component: "virtues", op: "rankUp", virtue: "wisdom" }
+    )
+    expect(result).toEqual({ ok: false, error: "log-not-full" })
+  })
+
+  it("virtues.rankUp refuses a Virtue absent from the log (eligibility)", () => {
+    const result = applyEntityWrite(
+      { virtues: { ranks: zeroRanks(), sparkLog: [...fullLog] } },
+      { component: "virtues", op: "rankUp", virtue: "expression" }
+    )
+    expect(result).toEqual({ ok: false, error: "virtue-not-eligible" })
+  })
+
+  it("virtues.rankUp refuses at the rank ceiling, keeping the log spendable", () => {
+    const components = {
+      virtues: {
+        ranks: { ...zeroRanks(), wisdom: 7 },
+        sparkLog: [...fullLog],
+      },
+    }
+    const result = applyEntityWrite(components, {
+      component: "virtues",
+      op: "rankUp",
+      virtue: "wisdom",
+    })
+    expect(result).toEqual({ ok: false, error: "rank-capped" })
+    expect(components.virtues.sparkLog).toHaveLength(7)
+  })
+
+  it("virtues.addSpark / rankUp refuse without the component", () => {
+    const spark = applyEntityWrite(
+      {},
+      { component: "virtues", op: "addSpark", virtue: "wisdom" }
+    )
+    const rank = applyEntityWrite(
+      {},
+      { component: "virtues", op: "rankUp", virtue: "wisdom" }
+    )
+    expect(spark).toEqual({ ok: false, error: "capability-missing" })
+    expect(rank).toEqual({ ok: false, error: "capability-missing" })
+  })
+
+  it("talents.add appends, creating from absent", () => {
+    const result = applyEntityWrite(
+      {},
+      { component: "talents", op: "add", key: "chef" }
+    )
+    expect(result).toEqual({ ok: true, value: { talents: [{ key: "chef" }] } })
+  })
+
+  it("talents.add is idempotent on a duplicate key", () => {
+    const result = applyEntityWrite(
+      { talents: [{ key: "chef" }] },
+      { component: "talents", op: "add", key: "chef" }
+    )
+    expect(result).toEqual({ ok: true, value: { talents: [{ key: "chef" }] } })
+  })
+
+  it("talents.remove filters the addressed key", () => {
+    const result = applyEntityWrite(
+      { talents: [{ key: "chef" }, { key: "acrobat" }] },
+      { component: "talents", op: "remove", key: "chef" }
+    )
+    expect(result).toEqual({
+      ok: true,
+      value: { talents: [{ key: "acrobat" }] },
+    })
+  })
+
+  it("talents.remove refuses a missing key (raced a remove)", () => {
+    const result = applyEntityWrite(
+      { talents: [{ key: "acrobat" }] },
+      { component: "talents", op: "remove", key: "chef" }
+    )
+    expect(result).toEqual({ ok: false, error: "entry-not-found" })
   })
 })
 

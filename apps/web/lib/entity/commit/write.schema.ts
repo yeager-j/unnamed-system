@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { PATH_CHOICES } from "@workspace/game-v2/kernel/vocab"
+import { PATH_CHOICES, VIRTUE_KEYS } from "@workspace/game-v2/kernel/vocab"
 import { MECHANIC_KINDS } from "@workspace/game-v2/kernel/vocab/mechanics"
 import { getMechanic } from "@workspace/game-v2/mechanics"
 import { NARRATIVE_TEXT_FIELDS } from "@workspace/game-v2/narrative"
@@ -30,7 +30,9 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
  *   Exhaustion tracking, and Victories/level-up (a progression-class patch).
  * - `path` / `archetypes` / `talents` / `virtues` / `narrative` — the creation
  *   families (S1, UNN-556): the builder's authored-choice writes, plus the
- *   sheet's active-Archetype switch (`archetypes.setActive`). `narrative` is
+ *   sheet's active-Archetype switch (`archetypes.setActive`), the Spark loop
+ *   (`virtues.addSpark`/`rankUp`), and per-entry Talent learning
+ *   (`talents.add`/`remove`) — the S2b Explore-tab writes. `narrative` is
  *   per-field set ops + per-entry Knife/Chain list ops (CH16) — a descriptor is
  *   structurally a per-field write, so "client composes the full post-state" is
  *   unrepresentable (UNN-226).
@@ -168,6 +170,26 @@ const talentsArm = z
     }
   })
 
+/**
+ * Per-entry Talent ops (S2b, the sheet's Add/Remove Talent controls). Not a
+ * whole-list replace: N remove buttons plus an Add popover all write one
+ * column, so composing the full list client-side is the UNN-226 clobber class.
+ * Deliberately uncapped — {@link MAX_PLAYER_ADDED_TALENTS} is a *creation*
+ * bound (the builder's `setGained` keeps it); the sheet's Add is the
+ * downtime-learning surface (rulebook 2.1, five downtime slots per Talent).
+ */
+const talentsAddArm = z.object({
+  component: z.literal("talents"),
+  op: z.literal("add"),
+  key: z.string().min(1),
+})
+
+const talentsRemoveArm = z.object({
+  component: z.literal("talents"),
+  op: z.literal("remove"),
+  key: z.string().min(1),
+})
+
 const virtueRank = z.number().int().min(0).max(2)
 
 /**
@@ -185,6 +207,25 @@ const virtuesArm = z.object({
     wisdom: virtueRank,
     focus: virtueRank,
   }),
+})
+
+/**
+ * The Spark loop (S2b, rulebook 1.2): earning a Spark tagged with its Virtue,
+ * and the forced rank-up once the log fills. The Writer wraps the E1 spark
+ * transitions, so eligibility (Virtue in a full log) and the rank ceiling are
+ * the engine's refusals — `log-full` on the 8th Spark is what the sheet
+ * surfaces as the forced-rank-up prompt.
+ */
+const virtuesAddSparkArm = z.object({
+  component: z.literal("virtues"),
+  op: z.literal("addSpark"),
+  virtue: z.enum(VIRTUE_KEYS),
+})
+
+const virtuesRankUpArm = z.object({
+  component: z.literal("virtues"),
+  op: z.literal("rankUp"),
+  virtue: z.enum(VIRTUE_KEYS),
 })
 
 /** v1's server-side prose bound (`character-narrative` / identity traits). */
@@ -270,7 +311,11 @@ export const entityWriteSchema = z.union([
   archetypesOriginArm,
   archetypesSetActiveArm,
   talentsArm,
+  talentsAddArm,
+  talentsRemoveArm,
   virtuesArm,
+  virtuesAddSparkArm,
+  virtuesRankUpArm,
   narrativeFieldArm,
   narrativeAddEntryArm,
   narrativeRemoveEntryArm,

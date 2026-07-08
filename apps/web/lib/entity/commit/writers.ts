@@ -18,7 +18,11 @@ import {
   type RestComponents,
   type RestPatch,
 } from "@workspace/game-v2/resources/rest"
-import { coerceVirtueAllocation } from "@workspace/game-v2/virtues"
+import {
+  addSpark,
+  coerceVirtueAllocation,
+  rankUpVirtue,
+} from "@workspace/game-v2/virtues"
 import {
   applyDamage,
   applyHeal,
@@ -62,7 +66,9 @@ import type {
  * over the wire, and client prediction and server commit derive identically.
  */
 
-/** A Writer's refusal — surfaced by the action, never silently dropped. */
+/** A Writer's refusal — surfaced by the action, never silently dropped.
+ *  The four Spark members mirror {@link SparkError} so the virtues Writer
+ *  returns the engine's `Result` directly (the `applyUsePrisma` precedent). */
 export type EntityWriteRefusal =
   | "capability-missing"
   | "no-prisma-charges"
@@ -75,6 +81,10 @@ export type EntityWriteRefusal =
   | "invalid-input"
   | "insufficient-victories"
   | "max-level"
+  | "log-full"
+  | "log-not-full"
+  | "virtue-not-eligible"
+  | "rank-capped"
 
 /**
  * The authored-component patch a Writer predicts — whole updated components, so
@@ -371,30 +381,81 @@ export const ENTITY_WRITERS: WriterMap = {
     },
   },
 
-  /** Whole-list replace of the player-added Talents (cap + dedupe on the wire). */
+  /**
+   * `setGained` — whole-list replace of the player-added Talents (the builder's
+   * picker; cap + dedupe on the wire). `add`/`remove` — the sheet's per-entry
+   * downtime-learning ops (S2b): add is idempotent (a double-click races itself
+   * harmlessly) and creates-from-absent; remove refuses `entry-not-found` so a
+   * raced remove surfaces instead of silently no-oping.
+   */
   talents: {
     component: "talents",
     durableClass: "identity",
-    applyOp: (_components, write) =>
-      ok({ talents: write.keys.map((key) => ({ key })) }),
+    applyOp(components, write) {
+      switch (write.op) {
+        case "setGained":
+          return ok({ talents: write.keys.map((key) => ({ key })) })
+        case "add": {
+          const talents = components.talents ?? []
+          if (talents.some((talent) => talent.key === write.key)) {
+            return ok({ talents })
+          }
+          return ok({ talents: [...talents, { key: write.key }] })
+        }
+        case "remove": {
+          const talents = components.talents ?? []
+          if (!talents.some((talent) => talent.key === write.key)) {
+            return err("entry-not-found")
+          }
+          return ok({
+            talents: talents.filter((talent) => talent.key !== write.key),
+          })
+        }
+      }
+    },
   },
 
   /**
-   * The creation allocation (rulebook 1.2). Refuses only the cap (>1 Virtue at
-   * +2, >2 at +1) — partial mid-flow allocations are legal; full validity is
-   * the step gate + finalize validator. The Spark log rides along untouched.
+   * `setAllocation` — the creation allocation (rulebook 1.2). Refuses only the
+   * cap (>1 Virtue at +2, >2 at +1) — partial mid-flow allocations are legal;
+   * full validity is the step gate + finalize validator. The Spark log rides
+   * along untouched.
+   *
+   * `addSpark` / `rankUp` — the Spark loop (S2b, rulebook 1.2) over the E1
+   * transitions: the engine owns eligibility (Virtue in a *full* log), the
+   * rank ceiling, and the log clearing on rank-up; its {@link SparkError}
+   * refusals pass through unchanged (`log-full` is the sheet's forced-rank-up
+   * prompt).
    */
   virtues: {
     component: "virtues",
     durableClass: "progression",
     applyOp(components, write) {
-      const ranks = coerceVirtueAllocation(write.ranks)
-      const twos = VIRTUE_KEYS.filter((key) => ranks[key] === 2).length
-      const ones = VIRTUE_KEYS.filter((key) => ranks[key] === 1).length
-      if (twos > 1 || ones > 2) return err("allocation-cap-exceeded")
-      return ok({
-        virtues: { ranks, sparkLog: components.virtues?.sparkLog ?? [] },
-      })
+      switch (write.op) {
+        case "setAllocation": {
+          const ranks = coerceVirtueAllocation(write.ranks)
+          const twos = VIRTUE_KEYS.filter((key) => ranks[key] === 2).length
+          const ones = VIRTUE_KEYS.filter((key) => ranks[key] === 1).length
+          if (twos > 1 || ones > 2) return err("allocation-cap-exceeded")
+          return ok({
+            virtues: { ranks, sparkLog: components.virtues?.sparkLog ?? [] },
+          })
+        }
+        case "addSpark": {
+          const virtues = components.virtues
+          if (virtues === undefined) return err("capability-missing")
+          const next = addSpark(virtues, write.virtue)
+          if (!next.ok) return next
+          return ok({ virtues: next.value })
+        }
+        case "rankUp": {
+          const virtues = components.virtues
+          if (virtues === undefined) return err("capability-missing")
+          const next = rankUpVirtue(virtues, write.virtue)
+          if (!next.ok) return next
+          return ok({ virtues: next.value })
+        }
+      }
     },
   },
 

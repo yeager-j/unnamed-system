@@ -3,11 +3,16 @@
 import { cn } from "@workspace/ui/lib/utils"
 
 /**
- * The sheet's context tabs. Combat / Explore / Inventory / Archetypes is the
- * settled IA (ADR §4 S2); an entry joins this list only when its tab ships
- * (S2b–d), so the dock never advertises an empty surface.
+ * The sheet's context tabs. Combat / Explore / Journal / Inventory /
+ * Archetypes is the settled IA (ADR §4 S2, amended in S2b — UNN-558 split the
+ * narrative surface into Explore and Journal); an entry joins this list only
+ * when its tab ships (S2c–d), so the dock never advertises an empty surface.
  */
-export const SHEET_TABS = [{ key: "combat", label: "Combat" }] as const
+export const SHEET_TABS = [
+  { key: "combat", label: "Combat" },
+  { key: "explore", label: "Explore" },
+  { key: "journal", label: "Journal" },
+] as const
 
 export type SheetTabKey = (typeof SHEET_TABS)[number]["key"]
 
