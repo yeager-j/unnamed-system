@@ -1,9 +1,9 @@
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-  type Archetype,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"

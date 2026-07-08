@@ -1,7 +1,5 @@
-import {
-  AFFINITY_DAMAGE_TYPES,
-  type Archetype,
-} from "@workspace/game/foundation"
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
+import { AFFINITY_DAMAGE_TYPES } from "@workspace/game-v2/kernel/vocab"
 
 import { DetailSection } from "@/components/shared/detail-section"
 

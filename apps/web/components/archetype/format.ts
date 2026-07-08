@@ -1,4 +1,4 @@
-import { type Mastery } from "@workspace/game/foundation"
+import { type Mastery } from "@workspace/game-v2/archetypes/archetype"
 
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 

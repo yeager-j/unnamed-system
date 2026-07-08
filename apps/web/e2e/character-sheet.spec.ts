@@ -13,7 +13,8 @@ import {
  * rebuilt over the entity door. One factory-minted Knight (dual-minted entity
  * row) exercises the rail's writes — pools, rest (incl. the over-spend
  * refusal), victories → level-up, prisma, the Valor mechanic, the archetype
- * switch — and the Combat tab's skill cards + Use Skill.
+ * switch — the Combat tab's skill cards + Use Skill, and the Archetypes tab's
+ * inheritance-slot assign/clear (S2d — UNN-560).
  *
  * **Serial**: every test mutates the one target; `beforeEach` reloads the
  * sheet so each starts from the persisted state its predecessor left. The
@@ -205,6 +206,65 @@ test("switching the active archetype swaps the mechanic widget and skills", asyn
   await expect(
     page.getByRole("region", { name: "Archetype Mechanic" }).getByText("Valor")
   ).toBeVisible()
+})
+
+test("assign, persist, and clear an Archetype inheritance slot", async ({
+  page,
+}) => {
+  // A dedicated Knight so the active Archetype is deterministic — the slot's
+  // owner (and the Combat kit its inherited Skill joins) must not depend on
+  // whichever Archetype the archetype-switch test left active on `target`.
+  // Knight (owner) inherits from Mage (Rank 1 ⇒ offers Agi).
+  const inheritor = await createTestCharacter(tracker, {
+    name: "Inheritor Knight",
+    activeArchetypeKey: "knight",
+    archetypes: [
+      {
+        archetypeKey: "knight",
+        rank: 2,
+        mechanicState: { kind: "valor", value: 0 },
+      },
+      {
+        archetypeKey: "mage",
+        rank: 1,
+        mechanicState: { kind: "stains", tokens: [null, null, null, null] },
+      },
+    ],
+  })
+  await page.goto(inheritor.url)
+  await page.getByRole("tab", { name: "Archetypes" }).click()
+
+  const filled = page.getByText(/\d \/ 2 filled/)
+  await expect(filled).toHaveText("0 / 2 filled")
+
+  // Fill Knight's first slot from the picker (the roster's other Archetype
+  // supplies its rank-unlocked Skills — Mage's Agi here).
+  await page.getByRole("button", { name: "Assign Skill" }).first().click()
+  const option = page.getByRole("option").first()
+  const skillName = ((await option.textContent()) ?? "").trim()
+  expect(skillName.length).toBeGreaterThan(0)
+  await option.click()
+  await expect(filled).toHaveText("1 / 2 filled")
+
+  // Persisted — poll a reload (an immediate reload would abort the commit).
+  await expect(async () => {
+    await page.reload()
+    await page.getByRole("tab", { name: "Archetypes" }).click()
+    await expect(page.getByText(/\d \/ 2 filled/)).toHaveText("1 / 2 filled")
+  }).toPass()
+
+  // The inherited Skill now casts on the Combat tab (its owner is active).
+  await page.getByRole("tab", { name: "Combat" }).click()
+  await expect(
+    page.getByRole("region", { name: "Skills" }).getByText(skillName, {
+      exact: true,
+    })
+  ).toBeVisible()
+
+  // Clear restores the empty slot.
+  await page.getByRole("tab", { name: "Archetypes" }).click()
+  await page.getByRole("button", { name: "Clear" }).first().click()
+  await expect(filled).toHaveText("0 / 2 filled")
 })
 
 test("Use Skill spends the resolved SP cost", async ({ page }) => {

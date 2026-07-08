@@ -234,6 +234,22 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
     { component: "talents", op: "add", key: "chef" },
     { component: "talents", op: "remove", key: "chef" },
     {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    },
+    {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 1,
+      sourceArchetypeKey: null,
+      skillKey: null,
+    },
+    {
       component: "narrative",
       op: "setListEntry",
       list: "knives",
@@ -270,6 +286,24 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
       field: "title",
       value: "x",
     },
+    // negative slot index off the wire
+    {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: -1,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    },
+    // empty owner key
+    {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    },
   ])("rejects %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(false)
   })
@@ -303,6 +337,14 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
     { component: "exhaustion", op: "setLevel", level: 2 },
     { component: "level", op: "awardVictory" },
     { component: "archetypes", op: "setActive", archetypeKey: "mage" },
+    {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    },
     { component: "virtues", op: "addSpark", virtue: "wisdom" },
     { component: "virtues", op: "rankUp", virtue: "wisdom" },
     { component: "talents", op: "add", key: "chef" },
@@ -482,6 +524,211 @@ function knightRoster() {
     roster: [{ key: "knight", rank: 3, inheritanceSlots: [] }],
   }
 }
+
+describe("applyEntityWrite — inheritance slots (UNN-560)", () => {
+  // Knight (owner, 2 catalog slots) + Mage (source, rank 2 ⇒ offers agi/bufu).
+  function knightMage() {
+    return {
+      archetypes: {
+        active: "knight",
+        origin: "knight",
+        savedArchetypeRanks: 0,
+        roster: [
+          { key: "knight", rank: 4, inheritanceSlots: [] },
+          { key: "mage", rank: 2, inheritanceSlots: [] },
+        ],
+      },
+    }
+  }
+
+  it("assigns an inheritable Skill into the owner's slot", () => {
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          ...knightMage().archetypes,
+          roster: [
+            {
+              key: "knight",
+              rank: 4,
+              inheritanceSlots: [
+                { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
+              ],
+            },
+            { key: "mage", rank: 2, inheritanceSlots: [] },
+          ],
+        },
+      },
+    })
+  })
+
+  it("replaces a configured slot in place (Change)", () => {
+    const components = {
+      archetypes: {
+        ...knightMage().archetypes,
+        roster: [
+          {
+            key: "knight",
+            rank: 4,
+            inheritanceSlots: [
+              { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
+            ],
+          },
+          { key: "mage", rank: 2, inheritanceSlots: [] },
+        ],
+      },
+    }
+    const result = applyEntityWrite(components, {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "bufu",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          ...components.archetypes,
+          roster: [
+            {
+              key: "knight",
+              rank: 4,
+              inheritanceSlots: [
+                { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "bufu" },
+              ],
+            },
+            { key: "mage", rank: 2, inheritanceSlots: [] },
+          ],
+        },
+      },
+    })
+  })
+
+  it("clears a slot (both keys null removes the entry)", () => {
+    const components = {
+      archetypes: {
+        ...knightMage().archetypes,
+        roster: [
+          {
+            key: "knight",
+            rank: 4,
+            inheritanceSlots: [
+              { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
+            ],
+          },
+          { key: "mage", rank: 2, inheritanceSlots: [] },
+        ],
+      },
+    }
+    const result = applyEntityWrite(components, {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: null,
+      skillKey: null,
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          ...components.archetypes,
+          roster: [
+            { key: "knight", rank: 4, inheritanceSlots: [] },
+            { key: "mage", rank: 2, inheritanceSlots: [] },
+          ],
+        },
+      },
+    })
+  })
+
+  it("refuses a Skill the source's Rank doesn't unlock (invalid-input)", () => {
+    // magic-circle is Mage Rank 5; source Mage is only Rank 2.
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "magic-circle",
+    })
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("refuses the source's Synthesis Skill (never inheritable)", () => {
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "elemental-apocalypse",
+    })
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("refuses a slot index past the owner's catalog slot count (invalid-input)", () => {
+    // Knight grants 2 slots ⇒ indices 0,1; index 2 is out of range.
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 2,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    })
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+  })
+
+  it("refuses when the owner is not in the roster (not-unlocked)", () => {
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "warrior",
+      slotIndex: 0,
+      sourceArchetypeKey: "mage",
+      skillKey: "agi",
+    })
+    expect(result).toEqual({ ok: false, error: "not-unlocked" })
+  })
+
+  it("refuses when the source is not owned (not-unlocked)", () => {
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "warrior",
+      skillKey: "cleave",
+    })
+    expect(result).toEqual({ ok: false, error: "not-unlocked" })
+  })
+
+  it("refuses without the archetypes component (capability-missing)", () => {
+    const result = applyEntityWrite(
+      {},
+      {
+        component: "archetypes",
+        op: "setInheritanceSlot",
+        archetypeKey: "knight",
+        slotIndex: 0,
+        sourceArchetypeKey: "mage",
+        skillKey: "agi",
+      }
+    )
+    expect(result).toEqual({ ok: false, error: "capability-missing" })
+  })
+})
 
 describe("applyEntityWrite — creation families (UNN-556)", () => {
   it("path.setChoice replaces the choice (identity class)", () => {

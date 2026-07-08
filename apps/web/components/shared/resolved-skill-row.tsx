@@ -16,8 +16,8 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import { ResolvedSkillCard } from "./resolved-skill-card"
 import { RowBadgeSlot } from "./row-badge-slot"
+import { SkillBannerCard } from "./skill-banner-card"
 import { SkillCostBadge } from "./skill-cost-badge"
 
 interface ResolvedSkillRowProps {
@@ -77,13 +77,13 @@ export function ResolvedSkillRow({
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-80"
+        className="w-84 border-none bg-transparent p-0 shadow-xl"
         initialFocus={false}
       >
-        <ResolvedSkillCard
+        <SkillBannerCard
           resolved={resolved}
           attributes={attributes}
-          showCost={showCost}
+          showUse={false}
         />
       </PopoverContent>
     </Popover>

@@ -29,6 +29,14 @@ export const {
   creationArchetypes,
   previewArchetypeSkills,
   resolveTalentsForBuilder,
+  // The sheet's Archetypes tab (S2d — UNN-560): the active-entry shaper, the
+  // roster-entry builder its inheritance picker resolves source groups from,
+  // and the lineage-grouped switcher options the rail's pill renders. Pure,
+  // deps-free helpers (`inheritanceSourceGroups`, `isInheritableSkill`) are
+  // imported straight from `@workspace/game-v2/archetypes/inheritance`.
+  getArchetypeDisplay,
+  buildArchetypeEntries,
+  archetypeSwitcherGroups,
   // The sheet's Talents card (S2b — UNN-558).
   resolveTalentsForSheet,
   // The sheet's Inventory tab (S2c — UNN-559): the display shaper + the

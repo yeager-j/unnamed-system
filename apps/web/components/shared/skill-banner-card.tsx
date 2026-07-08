@@ -44,11 +44,13 @@ import {
  * damage ladder for rolling Skills (`D20 + N` header in the element hue with
  * the breakdown in a tooltip), the source-labelled effect line, and Use Skill.
  *
- * Consumes {@link ResolvedSkill} directly — the shared v2 skill vocabulary
- * (UNN-538's drawer adopts the same renderer), with the formula work done by
- * the engine's `renderFormula`/`foldDamageBonuses` (no string surgery).
+ * Consumes {@link ResolvedSkill} directly — the shared v2 skill vocabulary.
+ * The Combat tab renders it as a grid tile (with **Use Skill**); every skill
+ * row's preview popover (`ResolvedSkillRow`) renders the same card with
+ * `showUse={false}`, so a skill reads identically wherever it surfaces (S2d —
+ * UNN-560). Formula work is the engine's (`renderFormula`/`foldDamageBonuses`).
  */
-export function SkillCard({
+export function SkillBannerCard({
   resolved,
   attributes,
   onUse,

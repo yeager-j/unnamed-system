@@ -1,4 +1,5 @@
-import { ATTRIBUTE_KEYS, type Archetype } from "@workspace/game/foundation"
+import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
+import { ATTRIBUTE_KEYS } from "@workspace/game-v2/kernel/vocab"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
