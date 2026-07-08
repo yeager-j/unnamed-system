@@ -7,6 +7,7 @@ import { CharacterSheet } from "@/components/character-sheet/sheet"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadCharacterByShortId } from "@/lib/character/load"
+import { redactLoadedCharacterForViewer } from "@/lib/character/redact"
 import { getArchetype } from "@/lib/game-engine-v2"
 
 /**
@@ -82,7 +83,7 @@ export default async function CharacterSheetPage({ params }: PageProps) {
 
   return (
     <ViewerRoleProvider role={role}>
-      <CharacterSheet loaded={loaded} />
+      <CharacterSheet loaded={redactLoadedCharacterForViewer(loaded, role)} />
     </ViewerRoleProvider>
   )
 }

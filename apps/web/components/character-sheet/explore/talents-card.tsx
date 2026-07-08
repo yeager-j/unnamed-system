@@ -88,7 +88,9 @@ export function TalentsCard() {
         <div className="flex flex-wrap content-start gap-2">
           {chips.map((chip) => (
             <Badge
-              key={chip.key}
+              // An owned Talent the active Archetype also grants renders twice
+              // (locked + removable), so the key carries the source.
+              key={`${chip.inherited ? "inherited" : "owned"}-${chip.key}`}
               variant={chip.inherited ? "secondary" : "outline"}
               className={
                 chip.inherited

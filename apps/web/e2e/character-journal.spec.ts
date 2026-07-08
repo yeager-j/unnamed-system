@@ -86,7 +86,9 @@ test("Explore is read-only for a signed-out viewer and hides Secrets", async ({
   expect(await page.getByRole("button", { name: "Add Talent" }).count()).toBe(0)
   expect(await page.getByRole("button", { name: /^Remove / }).count()).toBe(0)
 
-  // Secrets is owner-only (rulebook 1.5: shared with the DM in private).
-  expect(await page.getByText("Forged the succession papers.").count()).toBe(0)
+  // Secrets is owner-only (rulebook 1.5: shared with the DM in private) — and
+  // redacted server-side, so it must be absent from the whole document (DOM +
+  // inlined RSC payload), not merely unrendered.
   expect(await page.getByText("Secrets").count()).toBe(0)
+  expect(await page.content()).not.toContain("Forged the succession papers.")
 })
