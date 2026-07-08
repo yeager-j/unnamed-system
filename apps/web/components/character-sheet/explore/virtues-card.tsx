@@ -10,7 +10,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-import { cn } from "@workspace/ui/lib/utils"
+import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
@@ -69,9 +69,9 @@ export function VirtuesCard() {
             </dt>
             <SegmentMeter
               label={`${VIRTUE_LABELS[virtue]} rank`}
-              segments={view.maxRank}
-              filled={rank}
-              tone="rank"
+              max={view.maxRank}
+              value={rank}
+              variant="primary"
             />
             <dd className="w-4 shrink-0 text-right font-mono text-sm font-bold tabular-nums">
               {rank}
@@ -124,9 +124,9 @@ export function VirtuesCard() {
         <div className="flex flex-col gap-1.5">
           <SegmentMeter
             label="Spark log"
-            segments={view.sparkCapacity}
-            filled={view.sparkCount}
-            tone="spark"
+            max={view.sparkCapacity}
+            value={view.sparkCount}
+            variant="gold"
           />
           {view.breakdown.length > 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -146,47 +146,5 @@ export function VirtuesCard() {
         onOpenChange={setRankUpOpen}
       />
     </SheetCard>
-  )
-}
-
-/**
- * The card's segmented meter, two tones: neutral `rank` fill for the four
- * Virtue rows, `spark` (primary) fill for the log so progress toward the
- * forced rank-up reads distinctly.
- */
-function SegmentMeter({
-  label,
-  segments,
-  filled,
-  tone,
-}: {
-  label: string
-  segments: number
-  filled: number
-  tone: "rank" | "spark"
-}) {
-  return (
-    <div
-      role="meter"
-      aria-label={label}
-      aria-valuenow={Math.min(filled, segments)}
-      aria-valuemin={0}
-      aria-valuemax={segments}
-      className="flex h-2 w-full gap-1"
-    >
-      {Array.from({ length: segments }, (_, index) => (
-        <span
-          key={index}
-          className={cn(
-            "flex-1 rounded-full",
-            index < filled
-              ? tone === "spark"
-                ? "bg-primary"
-                : "bg-foreground/60"
-              : "bg-muted"
-          )}
-        />
-      ))}
-    </div>
   )
 }

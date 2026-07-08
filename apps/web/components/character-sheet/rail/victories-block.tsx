@@ -1,6 +1,6 @@
-import type { RailVictories } from "@/lib/character/view/rail-view"
+import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 
-import { GoldSegmentBar } from "./gold-segment-bar"
+import type { RailVictories } from "@/lib/character/view/rail-view"
 
 /**
  * The rail's Victories bar (design handoff): a thin 7-segment gold gauge —
@@ -22,11 +22,12 @@ export function VictoriesBlock({ view }: { view: RailVictories }) {
           / {view.threshold}
         </span>
       </div>
-      <GoldSegmentBar
-        segments={view.threshold}
-        filled={view.banked}
+      <SegmentMeter
+        variant="gold"
+        size="sm"
+        max={view.threshold}
+        value={view.banked}
         label={`${view.banked} of ${view.threshold} victories`}
-        size="thin"
       />
     </section>
   )
