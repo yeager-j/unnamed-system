@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { BaseEdge, EdgeLabelRenderer, type EdgeProps } from "@xyflow/react"
 
-import type { MapConnection } from "@workspace/game/foundation"
+import type { MapConnection } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 

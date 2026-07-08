@@ -2,7 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react"
 
-import type { ConnectionFlag } from "@workspace/game/engine"
+import type { ConnectionFlag } from "@workspace/game-v2/spatial"
 
 /**
  * The edit dispatchers the custom {@link import("./zone-node").ZoneNode} /

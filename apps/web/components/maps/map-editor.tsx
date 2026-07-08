@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic"
 import { useState } from "react"
 
-import type { MapGeometry } from "@workspace/game/foundation"
+import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { useMapAutoSave } from "@/hooks/use-map-autosave"
