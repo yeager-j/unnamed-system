@@ -29,7 +29,10 @@ export function Wallet({ currency }: { currency: number }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
-  const amount = Number.parseInt(draft, 10)
+  // Number(...) over parseInt: "1.5"/"1e3" must fail the integer check as the
+  // value they represent, not silently truncate to a passing prefix. An empty
+  // draft is NaN, not Number("")'s 0.
+  const amount = draft.trim() === "" ? Number.NaN : Number(draft)
   const valid =
     Number.isInteger(amount) && amount >= 0 && amount <= MAX_CURRENCY
 

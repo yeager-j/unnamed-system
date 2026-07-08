@@ -43,8 +43,15 @@ export function AddItemDialog() {
   const [quantityDraft, setQuantityDraft] = useState("1")
 
   const groups = itemsByGroup()
+  // Number(...) over parseInt: "1.5"/"1e2" must fail the integer check as the
+  // value they represent, not silently truncate to a passing prefix. An empty
+  // draft is NaN, not Number("")'s 0.
   const quantity =
-    selected && isStackable(selected) ? Number.parseInt(quantityDraft, 10) : 1
+    selected && isStackable(selected)
+      ? quantityDraft.trim() === ""
+        ? Number.NaN
+        : Number(quantityDraft)
+      : 1
   const valid =
     selected !== null &&
     Number.isInteger(quantity) &&
