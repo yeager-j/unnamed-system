@@ -65,6 +65,13 @@ export interface GameData {
   getItem(key: string): Item | undefined
 
   /**
+   * The **whole** Item catalog (UNN-559) — the add-item picker enumerates every
+   * shipped item grouped by capability, the `allArchetypes` precedent. Setup/
+   * display-time only; the mutation engine and `resolve` never call it.
+   */
+  allItems(): readonly Item[]
+
+  /**
    * A catalog {@link EquippableItem} by key (PR5) — the equip-only narrowing the
    * equip swap + equipment contribution read (slot, `equip.effects`, weapon
    * `intrinsicAttack`). `undefined` for an unknown OR non-equippable key.

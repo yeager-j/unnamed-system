@@ -48,6 +48,7 @@ export function makeTestGameData(
     // Items/Skills default to empty (PR5). A test needing item/skill content spreads
     // `makeItemLookups({...})` (items/__fixtures__) over this.
     getItem: () => undefined,
+    allItems: () => [],
     getEquippableItem: () => undefined,
     getSkill: () => undefined,
     getEnemy: () => undefined,
@@ -131,7 +132,9 @@ export function makeDerivedEntity(options: DerivedEntityOptions = {}): Entity {
         ? { exhaustion: { level: exhaustion } }
         : {}),
       ...(mechanics !== undefined ? { mechanics: { states: mechanics } } : {}),
-      ...(equipment !== undefined ? { equipment: { items: equipment } } : {}),
+      ...(equipment !== undefined
+        ? { equipment: { items: equipment, currency: 0 } }
+        : {}),
     },
   }
 }

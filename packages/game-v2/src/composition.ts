@@ -34,14 +34,9 @@ import {
   type SessionEvent,
 } from "@workspace/game-v2/encounter"
 import {
-  addItem,
   applyInventoryMutation,
-  equipItem,
-  removeItem,
   resolveBasicAttack,
   resolveInventory,
-  setItemQuantity,
-  unequipItem,
   type IntrinsicAttack,
   type InventoryItemState,
   type InventoryMutation,
@@ -106,31 +101,15 @@ export function createGameEngine(deps: GameData = gameData) {
     ) => applyInventoryMutation(items, mutation, deps, newId),
     resolveInventory: (items: readonly InventoryItemState[]) =>
       resolveInventory(deps, items),
+    // The whole-catalog enumeration behind the add-item picker (UNN-559). The
+    // granular per-op bindings (`equipItem`…, UNN-552) were dropped the same
+    // ticket: the equipment Writer drives `applyInventoryMutation` (the router),
+    // and no surface composed a single op.
+    allItems: () => deps.allItems(),
     resolveBasicAttack: (
       entity: Entity,
       formNaturalAttack: IntrinsicAttack | null
     ) => resolveBasicAttack(deps, entity, formNaturalAttack),
-    // The granular item mutations `applyInventoryMutation` routes to, exposed
-    // directly (UNN-552) for surfaces that drive one op rather than the router.
-    // `equip`/`add`/`setQuantity` need the catalog (slot/`stackSize`), bound over
-    // `deps`; `unequip`/`remove` are pure list transforms.
-    equipItem: (items: readonly InventoryItemState[], itemId: string) =>
-      equipItem(deps)(items, itemId),
-    unequipItem: (items: readonly InventoryItemState[], itemId: string) =>
-      unequipItem(items, itemId),
-    addItem: (
-      items: readonly InventoryItemState[],
-      catalogItemKey: string,
-      quantity: number,
-      newId: () => string
-    ) => addItem(deps)(items, catalogItemKey, quantity, newId),
-    setItemQuantity: (
-      items: readonly InventoryItemState[],
-      itemId: string,
-      quantity: number
-    ) => setItemQuantity(deps)(items, itemId, quantity),
-    removeItem: (items: readonly InventoryItemState[], itemId: string) =>
-      removeItem(items, itemId),
     // Encounter (UNN-515): mint a fresh Session from setup, instantiating any
     // catalog-enemy setup entries via `getEnemy`. `newId` is a runtime arg (the
     // applyInventoryMutation pattern), bound by the caller per mint.

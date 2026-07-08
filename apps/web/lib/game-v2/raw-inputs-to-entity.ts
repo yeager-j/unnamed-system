@@ -73,6 +73,7 @@ export function rawInputsToEntity(raw: RawCharacterInputs): Entity {
             quantity,
           })
         ),
+        currency: row.currency,
       },
       talents: row.gainedTalents.map((key) => ({ key })),
       // A PC's stat capabilities have a zeros/neutral/0 base (D37); the Archetypes

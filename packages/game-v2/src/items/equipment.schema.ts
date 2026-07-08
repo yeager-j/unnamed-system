@@ -29,8 +29,28 @@ export const inventoryItemSchema = z.object({
  *  persisted inventory row, transport-agnostic. */
 export type InventoryItemState = z.infer<typeof inventoryItemSchema>
 
+/** The wallet's ceiling — carried from v1's `MAX_CURRENCY` (display sanity, not
+ *  a game rule). {@link adjustCurrency} clamps to it; the schema rejects past it. */
+export const MAX_CURRENCY = 99_999_999
+
 export const equipmentSchema = z.object({
   items: z.array(inventoryItemSchema).default([]),
+  /** Carried gold (UNN-559). Lives on Equipment — the wallet renders on the
+   *  Inventory tab and writes ride the same inventory-class token, so currency
+   *  is component state, not an app column (supersedes v1's `characters.currency`). */
+  currency: z.number().int().min(0).max(MAX_CURRENCY).default(0),
 })
 
 export type Equipment = z.infer<typeof equipmentSchema>
+
+/**
+ * Adjusts the wallet by a signed delta, clamping the result to
+ * `[0, MAX_CURRENCY]` — delta (not set) semantics, the `applyDamage`/`applyHeal`
+ * shape: each write says what *changed*, the current total is read from the
+ * operand, so back-to-back adjustments sum instead of last-write-wins.
+ */
+export function adjustCurrency(equipment: Equipment, delta: number): Equipment {
+  const next = equipment.currency + Math.trunc(delta)
+  const clamped = Math.max(0, Math.min(MAX_CURRENCY, next))
+  return { ...equipment, currency: clamped }
+}

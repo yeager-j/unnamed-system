@@ -71,6 +71,10 @@ export function combatErrorMessage(
     case "log-not-full":
     case "virtue-not-eligible":
     case "rank-capped":
+    case "item-not-found":
+    case "catalog-item-unknown":
+    case "invalid-quantity":
+    case "duplicate-item-id":
       return "That change can't apply to this combatant. Reload and try again."
   }
 }

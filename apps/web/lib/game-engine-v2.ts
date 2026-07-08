@@ -31,6 +31,11 @@ export const {
   resolveTalentsForBuilder,
   // The sheet's Talents card (S2b — UNN-558).
   resolveTalentsForSheet,
+  // The sheet's Inventory tab (S2c — UNN-559): the display shaper + the
+  // add-item picker's catalog enumeration. Writes go through the equipment
+  // Writer (`lib/entity/commit/arms/inventory`), not this barrel.
+  resolveInventory,
+  allItems,
   startingWeaponForLineage,
   getArchetype,
 } = engine

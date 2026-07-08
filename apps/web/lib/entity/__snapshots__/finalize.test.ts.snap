@@ -3,6 +3,7 @@
 exports[`buildFinalizePatch > mint golden-master: the full patch over a max-complexity draft 1`] = `
 {
   "equipment": {
+    "currency": 0,
     "items": [
       {
         "catalogItemKey": "longsword",

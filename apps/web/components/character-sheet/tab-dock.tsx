@@ -12,6 +12,7 @@ export const SHEET_TABS = [
   { key: "combat", label: "Combat" },
   { key: "explore", label: "Explore" },
   { key: "journal", label: "Journal" },
+  { key: "inventory", label: "Inventory" },
 ] as const
 
 export type SheetTabKey = (typeof SHEET_TABS)[number]["key"]

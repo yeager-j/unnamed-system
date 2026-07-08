@@ -141,6 +141,7 @@ describe("buildFinalizePatch", () => {
           quantity: 1,
         },
       ],
+      currency: 0,
     })
   })
 })

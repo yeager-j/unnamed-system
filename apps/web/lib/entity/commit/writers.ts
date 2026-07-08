@@ -33,6 +33,11 @@ import {
 import type { VersionClass } from "@/lib/db/version-classes"
 import type { LiftedComponentKey } from "@/lib/game-v2/entity-row-to-bag"
 
+import {
+  equipmentWriter,
+  type EquipmentWrite,
+  type InventoryWriteRefusal,
+} from "./arms/inventory"
 import type {
   ArchetypesWrite,
   EntityWrite,
@@ -68,7 +73,9 @@ import type {
 
 /** A Writer's refusal — surfaced by the action, never silently dropped.
  *  The four Spark members mirror {@link SparkError} so the virtues Writer
- *  returns the engine's `Result` directly (the `applyUsePrisma` precedent). */
+ *  returns the engine's `Result` directly (the `applyUsePrisma` precedent);
+ *  {@link InventoryWriteRefusal} folds in the item engine's refusals the same
+ *  way (UNN-559). */
 export type EntityWriteRefusal =
   | "capability-missing"
   | "no-prisma-charges"
@@ -85,6 +92,7 @@ export type EntityWriteRefusal =
   | "log-not-full"
   | "virtue-not-eligible"
   | "rank-capped"
+  | InventoryWriteRefusal
 
 /**
  * The authored-component patch a Writer predicts — whole updated components, so
@@ -137,6 +145,7 @@ type WriterMap = {
   talents: EntityWriter<TalentsWrite>
   virtues: EntityWriter<VirtuesWrite>
   narrative: EntityWriter<NarrativeWrite>
+  equipment: EntityWriter<EquipmentWrite>
 }
 
 /**
@@ -523,6 +532,10 @@ export const ENTITY_WRITERS: WriterMap = {
       }
     },
   },
+
+  // The Inventory-tab family (S2c — UNN-559), the first arm sourced from a
+  // per-domain module; dispatch composition stays here.
+  equipment: equipmentWriter,
 }
 
 /**
@@ -559,5 +572,7 @@ export function applyEntityWrite(
       return ENTITY_WRITERS.virtues.applyOp(components, write)
     case "narrative":
       return ENTITY_WRITERS.narrative.applyOp(components, write)
+    case "equipment":
+      return ENTITY_WRITERS.equipment.applyOp(components, write)
   }
 }

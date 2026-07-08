@@ -81,6 +81,7 @@ export function buildFinalizePatch(
           quantity: 1,
         },
       ],
+      currency: 0,
     },
     mechanics: {
       states:

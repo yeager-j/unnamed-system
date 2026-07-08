@@ -7,6 +7,13 @@ import { NARRATIVE_TEXT_FIELDS } from "@workspace/game-v2/narrative"
 import { MAX_EXHAUSTION_LEVEL } from "@workspace/game-v2/resources/exhaustion.schema"
 import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
 
+import {
+  equipmentAddArm,
+  equipmentCurrencyArm,
+  equipmentItemOpArm,
+  equipmentSetQuantityArm,
+} from "./arms/inventory"
+
 /**
  * The **serializable entity-write descriptor** (UNN-520/UNN-551/UNN-556; CD19) —
  * the one shape every durable-component write travels as, from the optimistic
@@ -36,6 +43,9 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
  *   per-field set ops + per-entry Knife/Chain list ops (CH16) — a descriptor is
  *   structurally a per-field write, so "client composes the full post-state" is
  *   unrepresentable (UNN-226).
+ * - `equipment` — the Inventory-tab family (S2c, UNN-559), sourced from the
+ *   first per-domain arm module (`./arms/inventory`) and composed into this one
+ *   union.
  *
  * **No storage field** — the entity's durable-vs-inline home is never on the
  * wire; the server derives it from the authoritative out-of-band locator map, so
@@ -320,6 +330,10 @@ export const entityWriteSchema = z.union([
   narrativeAddEntryArm,
   narrativeRemoveEntryArm,
   narrativeSetEntryArm,
+  equipmentItemOpArm,
+  equipmentAddArm,
+  equipmentSetQuantityArm,
+  equipmentCurrencyArm,
 ])
 
 export type EntityWrite = z.infer<typeof entityWriteSchema>
@@ -344,3 +358,6 @@ export type ArchetypesWrite = Extract<EntityWrite, { component: "archetypes" }>
 export type TalentsWrite = Extract<EntityWrite, { component: "talents" }>
 export type VirtuesWrite = Extract<EntityWrite, { component: "virtues" }>
 export type NarrativeWrite = Extract<EntityWrite, { component: "narrative" }>
+
+/** The Inventory-tab arm (S2c — UNN-559), sourced from its arm module. */
+export type { EquipmentWrite } from "./arms/inventory"
