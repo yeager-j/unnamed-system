@@ -143,6 +143,13 @@ export const ITEM_GROUP_LABELS = {
   consumable: "Consumables",
 } as const
 
+/** Singular per-row category labels for the Inventory table's badge —
+ *  {@link SLOT_LABELS} widened with the non-equippable group. */
+export const ITEM_CATEGORY_LABELS = {
+  ...SLOT_LABELS,
+  consumable: "Consumable",
+} as const
+
 /** Skill discriminator labels for the popover header badge. */
 export const SKILL_KIND_LABELS: Record<SkillKind, string> = {
   attack: "Attack",

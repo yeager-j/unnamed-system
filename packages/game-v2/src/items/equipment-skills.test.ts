@@ -59,7 +59,7 @@ const equipped = (catalogItemKey: string): InventoryItemState => ({
 
 const entityWith = (items: InventoryItemState[]): Entity => ({
   id: "e",
-  components: { equipment: { items } },
+  components: { equipment: { items, currency: 0 } },
 })
 
 describe("equipmentGrantedSkills", () => {

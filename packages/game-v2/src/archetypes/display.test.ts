@@ -87,6 +87,7 @@ const data: GameData = {
   getArchetype: (key) => ({ warrior, mage })[key as "warrior" | "mage"],
   allArchetypes: () => [warrior, mage],
   getItem: () => undefined,
+  allItems: () => [],
   getEquippableItem: () => undefined,
   getSkill: (key) =>
     [cleave, tempestSlash, slashBoost, peerless, fireball].find(

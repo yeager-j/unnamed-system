@@ -29,8 +29,26 @@ export const inventoryItemSchema = z.object({
  *  persisted inventory row, transport-agnostic. */
 export type InventoryItemState = z.infer<typeof inventoryItemSchema>
 
+/** The wallet's ceiling — carried from v1's `MAX_CURRENCY` (display sanity, not
+ *  a game rule). {@link setCurrency} clamps to it; the schema rejects past it. */
+export const MAX_CURRENCY = 99_999_999
+
 export const equipmentSchema = z.object({
   items: z.array(inventoryItemSchema).default([]),
+  /** Carried gold (UNN-559). Lives on Equipment — the wallet renders on the
+   *  Inventory tab and writes ride the same inventory-class token, so currency
+   *  is component state, not an app column (supersedes v1's `characters.currency`). */
+  currency: z.number().int().min(0).max(MAX_CURRENCY).default(0),
 })
 
 export type Equipment = z.infer<typeof equipmentSchema>
+
+/**
+ * Sets the wallet to an absolute amount, clamped to `[0, MAX_CURRENCY]` with a
+ * floor — set (not delta) semantics: the inventory-class version guard already
+ * serializes concurrent writers, so the shown amount is what persists.
+ */
+export function setCurrency(equipment: Equipment, amount: number): Equipment {
+  const clamped = Math.max(0, Math.min(MAX_CURRENCY, Math.floor(amount)))
+  return { ...equipment, currency: clamped }
+}

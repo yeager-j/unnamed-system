@@ -51,6 +51,11 @@ for (const [key, item] of Object.entries(ITEMS_BY_KEY_RAW)) {
 /** Every catalog item, validated and in registration order. */
 export const ITEMS: readonly Item[] = [...ITEMS_BY_KEY.values()]
 
+/** The whole-catalog port (UNN-559) — the add-item picker's enumeration. */
+export function allItems(): readonly Item[] {
+  return ITEMS
+}
+
 /** Looks up any catalog item by its slug key, across every capability. */
 export function getItem(key: string): Item | undefined {
   return ITEMS_BY_KEY.get(key)

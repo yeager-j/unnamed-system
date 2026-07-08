@@ -131,6 +131,7 @@ const pc: Entity = {
         { id: "1", catalogItemKey: "blade", equipped: true, quantity: 1 },
         { id: "2", catalogItemKey: "stone", equipped: true, quantity: 1 },
       ],
+      currency: 0,
     },
   },
 }

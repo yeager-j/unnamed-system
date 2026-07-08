@@ -307,6 +307,15 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
     { component: "virtues", op: "rankUp", virtue: "wisdom" },
     { component: "talents", op: "add", key: "chef" },
     { component: "talents", op: "remove", key: "chef" },
+    { component: "equipment", op: "equip", itemId: "a" },
+    {
+      component: "equipment",
+      op: "add",
+      catalogItemKey: "soul-drop",
+      quantity: 1,
+      idSeed: "0f37bd58-9f9a-4bb1-b34d-6f7f0e2f8f11",
+    },
+    { component: "equipment", op: "setCurrency", amount: 5 },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })
