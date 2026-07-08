@@ -37,7 +37,7 @@ test.describe("signed-in", () => {
       ).toBeVisible()
 
       const irisCard = page
-        .locator('[data-slot="item"]')
+        .locator('[data-slot="card"]')
         .filter({ hasText: "Iris Vey" })
       await expect(irisCard).toBeVisible()
       await expect(irisCard.getByText(/Level 1 ·/)).toBeVisible()
@@ -69,7 +69,7 @@ test.describe("signed-in", () => {
     await page.goto("/")
 
     const irisCard = page
-      .locator('[data-slot="item"]')
+      .locator('[data-slot="card"]')
       .filter({ hasText: "Iris Vey" })
     await irisCard.getByRole("button", { name: "Actions for Iris Vey" }).click()
 
