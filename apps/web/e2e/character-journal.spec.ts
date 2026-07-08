@@ -86,9 +86,14 @@ test("Explore is read-only for a signed-out viewer and hides Secrets", async ({
   expect(await page.getByRole("button", { name: "Add Talent" }).count()).toBe(0)
   expect(await page.getByRole("button", { name: /^Remove / }).count()).toBe(0)
 
-  // Secrets is owner-only (rulebook 1.5: shared with the DM in private) — and
-  // redacted server-side, so it must be absent from the whole document (DOM +
-  // inlined RSC payload), not merely unrendered.
-  expect(await page.getByText("Secrets").count()).toBe(0)
+  // Secrets is owner-only (rulebook 1.5: shared with the DM in private): the
+  // block renders as deliberately-covered Skeleton bars, and the value is
+  // redacted server-side — absent from the whole document (DOM + inlined RSC
+  // payload), not merely unrendered.
+  const identity = page.getByRole("region", { name: "Identity" })
+  await expect(identity.getByText("Secrets")).toBeVisible()
+  await expect(
+    identity.getByRole("img", { name: /Secrets are hidden/ })
+  ).toBeVisible()
   expect(await page.content()).not.toContain("Forged the succession papers.")
 })

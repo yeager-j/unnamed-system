@@ -1,13 +1,14 @@
 "use client"
 
 import type { Narrative } from "@workspace/game-v2/narrative"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import {
   IDENTITY_TRAIT_MESSAGES,
   type IdentityTraitField,
 } from "@/components/builder/movements/animus/identity-trait-messages"
 import { Prose } from "@/components/shared/prose"
-import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useViewerRole } from "@/components/shell/viewer-role"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 
 import { SectionLabel } from "../section-label"
@@ -16,10 +17,12 @@ import { SheetCard } from "../sheet-card"
 /**
  * The Identity card (design frame `10b`; rulebook 1.5): the five Identity
  * Traits as read-only Markdown — Personality full-width, then Hopes / Dreams
- * and Fears / Secrets paired. **Secrets renders for the owner only** (the
- * rulebook shares them with the DM in private; this is the narrative
- * component's app-level read boundary). Editing arrives with its own
- * affordance in a later ticket.
+ * and Fears / Secrets paired. **Secrets is owner-only**: the value is
+ * redacted server-side (`lib/character/redact.ts` — the rulebook shares
+ * Secrets with the DM in private), and a non-owner sees the block as
+ * deliberately-covered Skeleton bars rather than an absent section, so the
+ * redaction reads as intentional. Editing arrives with its own affordance in
+ * a later ticket.
  */
 export function IdentityCard() {
   const { entity } = useLoadedCharacter()
@@ -36,11 +39,34 @@ export function IdentityCard() {
         <TraitBlock field="hopes" narrative={narrative} />
         <TraitBlock field="dreams" narrative={narrative} />
         <TraitBlock field="fears" narrative={narrative} />
-        <OwnerOnly>
-          <TraitBlock field="secrets" narrative={narrative} />
-        </OwnerOnly>
+        <SecretsBlock narrative={narrative} />
       </div>
     </SheetCard>
+  )
+}
+
+function SecretsBlock({ narrative }: { narrative: Narrative | undefined }) {
+  const role = useViewerRole()
+  if (role === "owner") {
+    return <TraitBlock field="secrets" narrative={narrative} />
+  }
+
+  return (
+    <div>
+      <SectionLabel className="mb-1.5">
+        {IDENTITY_TRAIT_MESSAGES.secrets.label}
+      </SectionLabel>
+      <div
+        role="img"
+        aria-label="Secrets are hidden — shared with the DM in private"
+        className="flex flex-col gap-1.5 pt-1"
+      >
+        {/* Static (animate-none): a pulsing skeleton reads as "loading",
+            a still one as "covered". */}
+        <Skeleton className="h-3.5 w-full animate-none" />
+        <Skeleton className="h-3.5 w-3/5 animate-none" />
+      </div>
+    </div>
   )
 }
 
