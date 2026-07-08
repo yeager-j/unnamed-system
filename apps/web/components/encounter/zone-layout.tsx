@@ -1,7 +1,6 @@
 import Image from "next/image"
 import { type ReactNode } from "react"
 
-import type { ZoneEnchantmentBadge } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -14,6 +13,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
+import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 

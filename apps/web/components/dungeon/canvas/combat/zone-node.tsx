@@ -6,7 +6,6 @@ import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { MapZone } from "@workspace/game-v2/spatial"
-import { type ZoneEnchantmentBadge } from "@workspace/game/engine"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -16,6 +15,7 @@ import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluste
 import { ZoneCardFrame } from "@/components/dungeon/canvas/zone-card-frame"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { Pool } from "@/lib/combat/view/roster-view"
+import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
 
 import { useDungeonCombatCanvas } from "./context"
 
