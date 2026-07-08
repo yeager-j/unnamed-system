@@ -9,6 +9,7 @@ import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
 import { auth } from "@/lib/auth"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { loadCharacterByShortId } from "@/lib/character/load"
+import { redactLoadedCharacterForViewer } from "@/lib/character/redact"
 
 /**
  * The Lineage Atlas (UNN-239) — the *growth* surface for spending Saved
@@ -57,7 +58,9 @@ export default async function LineageAtlasPage({ params }: PageProps) {
 
   return (
     <ViewerRoleProvider role={role}>
-      <EntityWriteProvider loaded={loaded}>
+      <EntityWriteProvider
+        loaded={redactLoadedCharacterForViewer(loaded, role)}
+      >
         <LineageAtlas hiddenArchetypeKeys={hiddenArchetypeKeys} />
       </EntityWriteProvider>
     </ViewerRoleProvider>
