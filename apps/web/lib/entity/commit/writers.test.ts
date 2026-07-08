@@ -665,6 +665,20 @@ describe("applyEntityWrite — inheritance slots (UNN-560)", () => {
     expect(result).toEqual({ ok: false, error: "invalid-input" })
   })
 
+  it("refuses a self-source (a slot inherits from another Archetype)", () => {
+    // Knight owning a slot filled from Knight — Skewer is Knight's own kit,
+    // unlocked at its Rank, so only the same-Archetype guard rejects it.
+    const result = applyEntityWrite(knightMage(), {
+      component: "archetypes",
+      op: "setInheritanceSlot",
+      archetypeKey: "knight",
+      slotIndex: 0,
+      sourceArchetypeKey: "knight",
+      skillKey: "skewer",
+    })
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+  })
+
   it("refuses the source's Synthesis Skill (never inheritable)", () => {
     const result = applyEntityWrite(knightMage(), {
       component: "archetypes",

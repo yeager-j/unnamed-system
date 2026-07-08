@@ -426,7 +426,15 @@ export const ENTITY_WRITERS: WriterMap = {
           }
 
           if (write.skillKey !== null) {
-            if (write.sourceArchetypeKey === null) return err("invalid-input")
+            // A slot inherits from *another* unlocked Archetype (rulebook 1.3);
+            // a self-source would smuggle the owner's own kit into an inherited
+            // slot, which survives a form swap when the kit itself is suppressed.
+            if (
+              write.sourceArchetypeKey === null ||
+              write.sourceArchetypeKey === write.archetypeKey
+            ) {
+              return err("invalid-input")
+            }
             const source = getArchetype(write.sourceArchetypeKey)
             const sourceRank = archetypes.roster.find(
               (entry) => entry.key === write.sourceArchetypeKey
