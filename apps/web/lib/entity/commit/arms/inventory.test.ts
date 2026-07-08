@@ -40,7 +40,8 @@ describe("entityWriteSchema — the equipment arms", () => {
       idSeed: SEED,
     },
     { component: "equipment", op: "setQuantity", itemId: "a", quantity: 0 },
-    { component: "equipment", op: "setCurrency", amount: 120 },
+    { component: "equipment", op: "addCurrency", amount: 120 },
+    { component: "equipment", op: "removeCurrency", amount: 35 },
   ])("accepts %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(true)
   })
@@ -83,9 +84,10 @@ describe("entityWriteSchema — the equipment arms", () => {
       itemId: "a",
       quantity: 1.5,
     },
-    // wallet bounds
-    { component: "equipment", op: "setCurrency", amount: -1 },
-    { component: "equipment", op: "setCurrency", amount: MAX_CURRENCY + 1 },
+    // wallet bounds — deltas are positive; the verb carries the sign
+    { component: "equipment", op: "addCurrency", amount: 0 },
+    { component: "equipment", op: "removeCurrency", amount: -1 },
+    { component: "equipment", op: "addCurrency", amount: MAX_CURRENCY + 1 },
     // foreign op
     { component: "equipment", op: "consume", itemId: "a" },
   ])("rejects %j", (write) => {
@@ -276,24 +278,49 @@ describe("applyEntityWrite — equipment setQuantity", () => {
   })
 })
 
-describe("applyEntityWrite — equipment setCurrency (the wallet)", () => {
-  it("sets the absolute amount, leaving rows untouched", () => {
+describe("applyEntityWrite — equipment addCurrency/removeCurrency (the wallet)", () => {
+  it("addCurrency sums onto the stored total, leaving rows untouched", () => {
     const components = bag([row("sword", "longsword")], 10)
     const result = applyEntityWrite(components, {
       component: "equipment",
-      op: "setCurrency",
-      amount: 120,
+      op: "addCurrency",
+      amount: 35,
     })
     expect(result.ok && result.value.equipment).toEqual({
       items: [row("sword", "longsword")],
-      currency: 120,
+      currency: 45,
     })
+  })
+
+  it("removeCurrency subtracts, clamping an over-spend at 0", () => {
+    const spend = applyEntityWrite(bag([], 40), {
+      component: "equipment",
+      op: "removeCurrency",
+      amount: 15,
+    })
+    expect(spend.ok && spend.value.equipment?.currency).toBe(25)
+
+    const overspend = applyEntityWrite(bag([], 10), {
+      component: "equipment",
+      op: "removeCurrency",
+      amount: 25,
+    })
+    expect(overspend.ok && overspend.value.equipment?.currency).toBe(0)
+  })
+
+  it("addCurrency clamps at MAX_CURRENCY", () => {
+    const result = applyEntityWrite(bag([], MAX_CURRENCY), {
+      component: "equipment",
+      op: "addCurrency",
+      amount: 1,
+    })
+    expect(result.ok && result.value.equipment?.currency).toBe(MAX_CURRENCY)
   })
 
   it("creates the component from absent", () => {
     const result = applyEntityWrite(
       {},
-      { component: "equipment", op: "setCurrency", amount: 42 }
+      { component: "equipment", op: "addCurrency", amount: 42 }
     )
     expect(result.ok && result.value.equipment).toEqual({
       items: [],

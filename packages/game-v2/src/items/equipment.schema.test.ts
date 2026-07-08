@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  adjustCurrency,
   MAX_CURRENCY,
-  setCurrency,
 } from "@workspace/game-v2/items/equipment.schema"
 import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
 
@@ -36,25 +36,30 @@ describe("Equipment component load-seam round-trip", () => {
   })
 })
 
-describe("setCurrency", () => {
+describe("adjustCurrency", () => {
   const wallet = (currency: number) => ({ items: [], currency })
 
-  it("sets an absolute amount, preserving items", () => {
+  it("applies a signed delta, preserving items", () => {
     const items = [
       { id: "a", catalogItemKey: "sword", equipped: true, quantity: 1 },
     ]
-    expect(setCurrency({ items, currency: 5 }, 120)).toEqual({
+    expect(adjustCurrency({ items, currency: 5 }, 35)).toEqual({
       items,
-      currency: 120,
+      currency: 40,
     })
+    expect(adjustCurrency({ items, currency: 40 }, -15).currency).toBe(25)
   })
 
-  it("floors fractions and clamps below at 0", () => {
-    expect(setCurrency(wallet(10), 7.9).currency).toBe(7)
-    expect(setCurrency(wallet(10), -3).currency).toBe(0)
+  it("truncates fractional deltas", () => {
+    expect(adjustCurrency(wallet(10), 7.9).currency).toBe(17)
+    expect(adjustCurrency(wallet(10), -7.9).currency).toBe(3)
+  })
+
+  it("clamps below at 0 (an over-spend empties the purse)", () => {
+    expect(adjustCurrency(wallet(10), -25).currency).toBe(0)
   })
 
   it("clamps above at MAX_CURRENCY", () => {
-    expect(setCurrency(wallet(0), MAX_CURRENCY + 1).currency).toBe(MAX_CURRENCY)
+    expect(adjustCurrency(wallet(MAX_CURRENCY), 1).currency).toBe(MAX_CURRENCY)
   })
 })

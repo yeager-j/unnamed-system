@@ -2,10 +2,10 @@ import { z } from "zod/v4"
 
 import { getEquippableItem, getItem } from "@workspace/game-v2/catalog/items"
 import {
+  adjustCurrency,
   applyInventoryMutation,
   itemKeySchema,
   MAX_CURRENCY,
-  setCurrency,
   type InventoryItemState,
   type InventoryMutation,
   type InventoryMutationError,
@@ -72,19 +72,20 @@ export const equipmentSetQuantityArm = z.object({
   quantity: z.number().int().min(0).max(999),
 })
 
-/** The wallet (D3): set-semantics — the inventory-class guard serializes
- *  writers, so the shown amount is what persists. */
-export const equipmentSetCurrencyArm = z.object({
+/** The wallet: delta-semantics, the pools `damage`/`heal` shape — a positive
+ *  amount plus a verb op, so each write says what changed and the engine merges
+ *  against the stored total (back-to-back adjustments sum; UNN-226 structural). */
+export const equipmentCurrencyArm = z.object({
   component: z.literal("equipment"),
-  op: z.literal("setCurrency"),
-  amount: z.number().int().min(0).max(MAX_CURRENCY),
+  op: z.enum(["addCurrency", "removeCurrency"]),
+  amount: z.number().int().min(1).max(MAX_CURRENCY),
 })
 
 export type EquipmentWrite =
   | z.infer<typeof equipmentItemOpArm>
   | z.infer<typeof equipmentAddArm>
   | z.infer<typeof equipmentSetQuantityArm>
-  | z.infer<typeof equipmentSetCurrencyArm>
+  | z.infer<typeof equipmentCurrencyArm>
 
 /** The engine's item refusals plus the replay guard on seeded ids. */
 export type InventoryWriteRefusal = InventoryMutationError | "duplicate-item-id"
@@ -93,8 +94,20 @@ const CATALOG_LOOKUPS = { getItem, getEquippableItem }
 
 const EMPTY_EQUIPMENT = { items: [], currency: 0 }
 
+type CurrencyWrite = Extract<
+  EquipmentWrite,
+  { op: "addCurrency" | "removeCurrency" }
+>
+
+/** Guard (not a bare `||` check) so the item-op path narrows to the mutation
+ *  subset — both arms carry union-typed `op` discriminants, which plain
+ *  control-flow narrowing can't exclude across. */
+function isCurrencyWrite(write: EquipmentWrite): write is CurrencyWrite {
+  return write.op === "addCurrency" || write.op === "removeCurrency"
+}
+
 function toMutation(
-  write: Exclude<EquipmentWrite, { op: "setCurrency" }>
+  write: Exclude<EquipmentWrite, CurrencyWrite>
 ): InventoryMutation {
   switch (write.op) {
     case "equip":
@@ -133,19 +146,20 @@ function hasDuplicateIds(items: readonly InventoryItemState[]): boolean {
 
 /**
  * `equip`/`unequip`/`add`/`setQuantity`/`remove` over the pure
- * `applyInventoryMutation` router, plus the `setCurrency` wallet set. `add` and
- * `setCurrency` create the component from absent (a drafted entity may not
- * carry an inventory yet — the talents precedent); the row-addressed ops refuse
- * `capability-missing` instead. `duplicate-item-id` refuses a replayed or
- * colliding `idSeed` before it corrupts the row set.
+ * `applyInventoryMutation` router, plus the `addCurrency`/`removeCurrency`
+ * wallet deltas. `add` and the wallet ops create the component from absent (a
+ * drafted entity may not carry an inventory yet — the talents precedent); the
+ * row-addressed ops refuse `capability-missing` instead. `duplicate-item-id`
+ * refuses a replayed or colliding `idSeed` before it corrupts the row set.
  */
 export const equipmentWriter: EntityWriter<EquipmentWrite> = {
   component: "equipment",
   durableClass: "inventory",
   applyOp(components, write): Result<EntityWritePatch, EntityWriteRefusal> {
-    if (write.op === "setCurrency") {
+    if (isCurrencyWrite(write)) {
       const equipment = components.equipment ?? EMPTY_EQUIPMENT
-      return ok({ equipment: setCurrency(equipment, write.amount) })
+      const delta = write.op === "addCurrency" ? write.amount : -write.amount
+      return ok({ equipment: adjustCurrency(equipment, delta) })
     }
 
     const equipment =

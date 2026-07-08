@@ -129,16 +129,25 @@ test("the qty stepper and remove persist through the inventory token", async ({
     .toBeNull()
 })
 
-test("the wallet set persists to equipment.currency", async ({ page }) => {
+test("the wallet Add/Remove deltas sum onto equipment.currency", async ({
+  page,
+}) => {
   await openInventory(page)
+  const inventory = page.getByRole("region", { name: "Inventory" })
+  const amount = page.getByRole("spinbutton", { name: "Adjust gold amount" })
 
-  await page.getByRole("button", { name: "Edit gold" }).click()
-  await page.getByRole("spinbutton", { name: "Gold" }).fill("120")
-  await page.getByRole("button", { name: "Save" }).click()
+  await page.getByRole("button", { name: "Adjust gold" }).click()
+  await amount.fill("150")
+  await page.getByRole("button", { name: "Add", exact: true }).click()
+  await expect(inventory).toContainText("150 gp")
+  await expect
+    .poll(async () => (await target.getEquipment())?.currency)
+    .toBe(150)
 
-  await expect(page.getByRole("region", { name: "Inventory" })).toContainText(
-    "120 gp"
-  )
+  await page.getByRole("button", { name: "Adjust gold" }).click()
+  await amount.fill("30")
+  await page.getByRole("button", { name: "Remove", exact: true }).click()
+  await expect(inventory).toContainText("120 gp")
   await expect
     .poll(async () => (await target.getEquipment())?.currency)
     .toBe(120)

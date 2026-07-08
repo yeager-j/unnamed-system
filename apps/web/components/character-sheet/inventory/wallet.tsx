@@ -6,7 +6,6 @@ import { useState } from "react"
 import { MAX_CURRENCY } from "@workspace/game-v2/items"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
 import {
   Popover,
   PopoverContent,
@@ -18,14 +17,15 @@ import { useEntityWrite } from "@/hooks/use-entity-write"
 
 /**
  * The wallet (S2c — UNN-559): the gp readout plus the owner's coin-button
- * popover, a single set-semantics `equipment.setCurrency` write per save (the
- * inventory-class guard serializes concurrent writers, so the shown amount is
- * what persists). Reads the optimistic frame via its prop, so the readout
- * moves in the same interaction.
+ * adjust popover — the `AdjustPoolControl` shape (amount + Add/Remove), one
+ * `addCurrency`/`removeCurrency` delta descriptor per click, so the table says
+ * what changed and the engine does the arithmetic (back-to-back adjustments
+ * sum; an over-spend clamps at 0). Reads the optimistic frame via its prop,
+ * so the readout moves in the same interaction.
  */
 export function Wallet({ currency }: { currency: number }) {
   const role = useViewerRole()
-  const { dispatch } = useEntityWrite()
+  const { dispatch, pending } = useEntityWrite()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState("")
 
@@ -34,13 +34,13 @@ export function Wallet({ currency }: { currency: number }) {
   // draft is NaN, not Number("")'s 0.
   const amount = draft.trim() === "" ? Number.NaN : Number(draft)
   const valid =
-    Number.isInteger(amount) && amount >= 0 && amount <= MAX_CURRENCY
+    Number.isInteger(amount) && amount >= 1 && amount <= MAX_CURRENCY
 
-  const save = () => {
+  const apply = (op: "addCurrency" | "removeCurrency") => {
     if (!valid) return
     setOpen(false)
     dispatch(
-      { component: "equipment", op: "setCurrency", amount },
+      { component: "equipment", op, amount },
       { messages: { error: "Couldn't update the wallet. Try again." } }
     )
   }
@@ -60,38 +60,47 @@ export function Wallet({ currency }: { currency: number }) {
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
-          if (next) setDraft(String(currency))
+          if (next) setDraft("")
         }}
       >
         <PopoverTrigger
           render={
-            <Button size="icon-sm" variant="ghost" aria-label="Edit gold" />
+            <Button size="icon-sm" variant="ghost" aria-label="Adjust gold" />
           }
         >
           <CoinsIcon aria-hidden />
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-56">
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              save()
+        <PopoverContent align="end" className="flex w-56 flex-col gap-2 p-3">
+          <Input
+            type="number"
+            min={1}
+            inputMode="numeric"
+            placeholder="Amount"
+            aria-label="Adjust gold amount"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") apply("addCurrency")
             }}
-          >
-            <Label htmlFor="wallet-gold">Gold</Label>
-            <Input
-              id="wallet-gold"
-              type="number"
-              min={0}
-              max={MAX_CURRENCY}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              autoFocus
-            />
-            <Button type="submit" size="sm" disabled={!valid}>
-              Save
+            autoFocus
+          />
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button
+              size="sm"
+              disabled={pending || !valid}
+              onClick={() => apply("addCurrency")}
+            >
+              Add
             </Button>
-          </form>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending || !valid}
+              onClick={() => apply("removeCurrency")}
+            >
+              Remove
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
     </div>

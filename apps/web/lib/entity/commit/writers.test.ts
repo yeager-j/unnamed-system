@@ -315,7 +315,7 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
       quantity: 1,
       idSeed: "0f37bd58-9f9a-4bb1-b34d-6f7f0e2f8f11",
     },
-    { component: "equipment", op: "setCurrency", amount: 5 },
+    { component: "equipment", op: "addCurrency", amount: 5 },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })

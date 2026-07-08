@@ -9,8 +9,8 @@ import { MAX_PLAYER_ADDED_TALENTS } from "@workspace/game-v2/talents/vocab"
 
 import {
   equipmentAddArm,
+  equipmentCurrencyArm,
   equipmentItemOpArm,
-  equipmentSetCurrencyArm,
   equipmentSetQuantityArm,
 } from "./arms/inventory"
 
@@ -333,7 +333,7 @@ export const entityWriteSchema = z.union([
   equipmentItemOpArm,
   equipmentAddArm,
   equipmentSetQuantityArm,
-  equipmentSetCurrencyArm,
+  equipmentCurrencyArm,
 ])
 
 export type EntityWrite = z.infer<typeof entityWriteSchema>
