@@ -11,7 +11,10 @@
  * combat composition binds its `SpatialReads` adapter from (SD8).
  */
 export * from "./geometry.schema"
+export * from "./geometry-warnings"
+export * from "./instance-factory"
 export * from "./map-instance.schema"
+export * from "./resolve-zone-exits"
 export * from "./dungeon.schema"
 export * from "./geometry-event"
 export * from "./map-instance-event"
