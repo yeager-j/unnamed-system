@@ -16,7 +16,7 @@ import { startDungeonEncounterAction } from "./start-encounter"
 const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
-const loadMapInstanceV2ById = vi.fn()
+const loadMapInstanceById = vi.fn()
 const loadEntityRowById = vi.fn()
 const createEncounter = vi.fn()
 const saveMapInstanceState = vi.fn()
@@ -35,8 +35,8 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadLiveEncounterIdForCampaign: (id: string) =>
     loadLiveEncounterIdForCampaign(id),
 }))
-vi.mock("@/lib/db/queries/map-instance-v2", () => ({
-  loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
   loadEntityRowById: (id: string) => loadEntityRowById(id),
@@ -136,7 +136,7 @@ beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
   loadDungeonRowById.mockReset().mockResolvedValue(makeDungeonRow())
   loadLiveEncounterIdForCampaign.mockReset().mockResolvedValue(null)
-  loadMapInstanceV2ById.mockReset().mockResolvedValue({
+  loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
     version: 7,
@@ -233,7 +233,7 @@ describe("startDungeonEncounterAction — atomic already-live mint (PR11c)", () 
   it("rejects a party member with no exploration token (unplaced roster)", async () => {
     const bare = makeInstanceState()
     delete bare.occupancy[PC_ID]
-    loadMapInstanceV2ById.mockResolvedValue({
+    loadMapInstanceById.mockResolvedValue({
       id: MAP_INSTANCE_ID,
       state: bare,
       version: 7,

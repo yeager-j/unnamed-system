@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm"
 
-import { dungeonStateSchema } from "@workspace/game/foundation"
+import { dungeonStateSchema } from "@workspace/game-v2/spatial"
 
 import { db } from "@/lib/db/client"
 import {

@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm"
 import {
   dungeonStateSchema,
   mapInstanceStateSchema,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import {
   makeSeedCharacter,

@@ -7,8 +7,9 @@ import {
   deriveDungeonRoster,
   isZoneRevealed,
   resolveZoneExits,
-} from "@workspace/game/engine"
-import type { MapInstanceState, MapZone } from "@workspace/game/foundation"
+  type MapInstanceState,
+  type MapZone,
+} from "@workspace/game-v2/spatial"
 import {
   AlertDialog,
   AlertDialogAction,

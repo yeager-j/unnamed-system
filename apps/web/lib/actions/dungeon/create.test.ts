@@ -1,21 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import { emptyMapInstance } from "@workspace/game-v2/spatial"
+
 import type { MapRow } from "@/lib/db/schema/map"
 
 import { createDungeonAction } from "./create"
 
-// The action touches: the DM gate, the Map-by-shortId lookup, the engine's blank
-// Instance factory, and the two writes composed in a `db.transaction`. Stub all of
-// them so this is a pure unit test of the orchestration — the create schema +
-// `createDungeonState` run for real. `requireCampaignDM` throws `forbidden()`; stub
-// it to throw a sentinel so the rejection is assertable, and to return a campaign
-// row (with `dmUserId`) on success so the Map-ownership check has something to
-// compare against. `db.transaction` runs its body inline with a sentinel executor.
+// The action touches: the DM gate, the Map-by-shortId lookup, and the two writes
+// composed in a `db.transaction`. Stub all of them so this is a pure unit test of
+// the orchestration — the create schema + the pure engine mints
+// (`createDungeonState`, `emptyMapInstance`) run for real. `requireCampaignDM`
+// throws `forbidden()`; stub it to throw a sentinel so the rejection is
+// assertable, and to return a campaign row (with `dmUserId`) on success so the
+// Map-ownership check has something to compare against. `db.transaction` runs its
+// body inline with a sentinel executor.
 const requireCampaignDM = vi.fn()
 const loadMapByShortId = vi.fn()
 const createDungeon = vi.fn()
 const insertMapInstance = vi.fn()
-const createMapInstance = vi.fn()
 
 vi.mock("@/lib/auth/campaign-access", () => ({
   requireCampaignDM: (id: string) => requireCampaignDM(id),
@@ -33,9 +35,6 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
     state: unknown,
     mapId?: string
   ) => insertMapInstance(tx, id, state, mapId),
-}))
-vi.mock("@/lib/game-engine", () => ({
-  createMapInstance: (setup: unknown) => createMapInstance(setup),
 }))
 vi.mock("@/lib/db/client", () => ({
   db: { transaction: async (body: (tx: unknown) => unknown) => body("tx") },
@@ -72,7 +71,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   requireCampaignDM.mockResolvedValue({ id: CAMPAIGN_ID, dmUserId: DM_ID })
   loadMapByShortId.mockResolvedValue(map())
-  createMapInstance.mockReturnValue({ blank: true })
   createDungeon.mockResolvedValue({ id: "dungeon-1", shortId: "dgn-short" })
 })
 
@@ -114,7 +112,7 @@ describe("createDungeonAction", () => {
     expect(result).toEqual({ ok: true, value: { shortId: "dgn-short" } })
 
     const [, instanceId, state, mapId] = insertMapInstance.mock.calls[0]!
-    expect(state).toEqual({ blank: true })
+    expect(state).toEqual(emptyMapInstance())
     expect(mapId).toBe(MAP_ID)
 
     expect(createDungeon).toHaveBeenCalledWith(

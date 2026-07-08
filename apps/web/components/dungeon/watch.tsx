@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 
-import { type DungeonSnapshot } from "@workspace/game/engine"
+import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"

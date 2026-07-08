@@ -28,7 +28,7 @@ import { endDungeonCombatAction } from "./end-combat"
 const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
 const loadEncounterForWrite = vi.fn()
-const loadMapInstanceV2ById = vi.fn()
+const loadMapInstanceById = vi.fn()
 const saveEncounterSession = vi.fn()
 const setEncounterStatus = vi.fn()
 const saveMapInstanceState = vi.fn()
@@ -47,8 +47,8 @@ vi.mock("@/lib/db/queries/load-dungeon", () => ({
 vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
 }))
-vi.mock("@/lib/db/queries/map-instance-v2", () => ({
-  loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   setEncounterStatus: (id: string, status: string, v: number, tx: unknown) =>
@@ -202,7 +202,7 @@ beforeEach(() => {
   requireCampaignDM.mockReset().mockResolvedValue({ id: CAMPAIGN_ID })
   loadDungeonRowById.mockReset().mockResolvedValue(makeDungeonRow())
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded("live")))
-  loadMapInstanceV2ById.mockReset().mockResolvedValue({
+  loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
     version: 7,

@@ -1,12 +1,11 @@
 "use server"
 
-import { addOccupant, mapInstanceFromGeometry } from "@workspace/game/engine"
 import {
-  err,
-  ok,
+  addOccupant,
+  mapInstanceFromGeometry,
   type MapInstanceState,
-  type Result,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
@@ -120,9 +119,9 @@ export async function startDelveAction(
  *
  * **Security invariant (fog-redaction gate):** a real delve reveals ≥1 starting
  * Zone here, which is what {@link
- * import("@workspace/game/engine/encounter/resolve-reveal").isFogActive} keys off
- * to fog-redact the public encounter snapshot ({@link
- * import("@workspace/game/engine/encounter/player-snapshot").projectPlayerSnapshot}).
+ * import("@workspace/game-v2/spatial/reveal").isFogActive} keys off to fog-redact
+ * the public encounter snapshot ({@link
+ * import("@workspace/game-v2/visibility").projectSpatialEncounterSnapshot}).
  * The only way `revealedZoneIds` stays empty is a degenerate delve whose every
  * placement points off-geometry (no party token on a real Zone) — broken, not a
  * runnable fight. If an explicit delve marker ever lands on the Instance, prefer

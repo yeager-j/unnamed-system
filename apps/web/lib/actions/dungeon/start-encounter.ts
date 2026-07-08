@@ -19,7 +19,7 @@ import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
@@ -82,7 +82,7 @@ export async function startDungeonEncounterAction(
   const liveId = await loadLiveEncounterIdForCampaign(dungeon.campaignId)
   if (liveId !== null) return err("campaign-already-has-live-encounter")
 
-  const instance = await loadMapInstanceV2ById(dungeon.mapInstanceId)
+  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const setups: ParticipantSetup[] = []

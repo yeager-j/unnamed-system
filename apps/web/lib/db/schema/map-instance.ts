@@ -4,7 +4,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import {
   mapInstanceStateSchema,
   type MapInstanceState,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import { maps } from "./map"
 

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm"
 import {
   mapGeometrySchema,
   mapInstanceStateSchema,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import { getDb, mapInstances, maps } from "@/lib/db"
 import { deleteMap, saveMapGeometry } from "@/lib/db/writes/map"

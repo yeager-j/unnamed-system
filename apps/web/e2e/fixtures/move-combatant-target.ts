@@ -6,11 +6,13 @@ import {
   type StoredSession,
 } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { createMapInstance } from "@workspace/game/engine"
-import { type MapInstanceState } from "@workspace/game/foundation"
+import {
+  reduceMapInstance as createReduceMapInstance,
+  emptyMapInstance,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 
 import { encounters, getDb, mapInstances } from "@/lib/db"
-import { reduceMapInstance } from "@/lib/game-engine"
 
 import {
   createLiveEncounter,
@@ -36,6 +38,8 @@ const DEV_USER_ID = "dev-user-claude"
 
 /** Stable so the spec can read the moved combatant straight off the Instance. */
 const PC_COMBATANT_ID = "mc-pc"
+
+const reduceMapInstance = createReduceMapInstance(() => crypto.randomUUID())
 
 const COURTYARD = { id: "zone-a", name: "Courtyard" } as const
 const HALL = { id: "zone-b", name: "Hall" } as const
@@ -63,7 +67,7 @@ function buildSession(characterId: string): StoredSession {
  *  baseline is independent of the move reducer the spec exercises — the only
  *  move under test is the UI travel. */
 function buildInstanceState(): MapInstanceState {
-  const base = createMapInstance(() => PC_COMBATANT_ID)([])
+  const base = emptyMapInstance()
 
   let state = reduceMapInstance(base, {
     kind: "addZone",

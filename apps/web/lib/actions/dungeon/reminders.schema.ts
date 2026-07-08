@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { randomEncounterIntervalSchema } from "@workspace/game/foundation"
+import { randomEncounterIntervalSchema } from "@workspace/game-v2/spatial"
 
 import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
 

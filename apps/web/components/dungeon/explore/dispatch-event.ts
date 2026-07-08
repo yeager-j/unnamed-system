@@ -1,17 +1,19 @@
-import { reduceDungeon } from "@workspace/game/engine"
 import {
-  isDungeonEvent,
+  reduceMapInstance as createReduceMapInstance,
+  reduceDungeon,
   type DungeonEvent,
   type DungeonState,
   type MapInstanceEvent,
   type MapInstanceState,
-  type Result,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
+import { type Result } from "@workspace/game/foundation"
 
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"
-import type { ApplyDungeonEventError } from "@/lib/actions/dungeon/events.schema"
-import { reduceMapInstance } from "@/lib/game-engine"
+import {
+  isDungeonEvent,
+  type ApplyDungeonEventError,
+} from "@/lib/actions/dungeon/events.schema"
 
 /** The Dungeon optimistic reducer the console's `useOptimistic` container runs —
  *  the turn-loop events only (`markActed`/`advanceTurn`); the same `reduceDungeon`
@@ -23,10 +25,13 @@ export function reduceDungeonOptimistic(
   return reduceDungeon(current, event)
 }
 
+const clientNewId = () => crypto.randomUUID()
+const reduceMapInstance = createReduceMapInstance(clientNewId)
+
 /** The Instance optimistic reducer for the dungeon console — in Play mode every
  *  spatial edit is a `moveCombatant`/reveal {@link MapInstanceEvent} through the
- *  pre-bound {@link reduceMapInstance} (no `addCombatant` cross-write here — that
- *  is combat's; a delve places tokens at start, not mid-turn). */
+ *  client-bound {@link reduceMapInstance} (no `addCombatant` cross-write here —
+ *  that is combat's; a delve places tokens at start, not mid-turn). */
 export function reduceDungeonInstanceOptimistic(
   current: MapInstanceState,
   event: MapInstanceEvent

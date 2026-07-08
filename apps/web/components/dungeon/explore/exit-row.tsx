@@ -8,7 +8,7 @@ import {
   LockOpenIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
-import { type ZoneExit } from "@workspace/game/engine"
+import { type ZoneExit } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 
 /**

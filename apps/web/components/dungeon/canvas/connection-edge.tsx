@@ -7,7 +7,7 @@ import {
   type EdgeProps,
 } from "@xyflow/react"
 
-import type { ConnectionFogState } from "@workspace/game/engine"
+import type { ConnectionFogState } from "@workspace/game-v2/spatial"
 
 import { EdgeFlagBadge } from "@/components/shared/canvas/edge-flag-badge"
 import { useFloatingEdgePath } from "@/components/shared/canvas/use-floating-edge-path"
