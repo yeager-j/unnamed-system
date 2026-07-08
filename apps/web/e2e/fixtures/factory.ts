@@ -7,13 +7,13 @@ import {
   type StoredSession,
 } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { createMapInstance } from "@workspace/game/engine"
 import {
   createDungeonState,
+  emptyMapInstance,
   mapGeometrySchema,
   type MapGeometry,
   type MapInstanceState,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import {
   makeSeedCharacter,
@@ -212,7 +212,7 @@ export async function createTestMapInstance(
     .values({
       id,
       mapId: opts.mapId ?? null,
-      state: opts.state ?? createMapInstance(() => "")([]),
+      state: opts.state ?? emptyMapInstance(),
       version: 0,
     })
   tracker.mapInstanceIds.push(id)
@@ -277,7 +277,7 @@ export async function createLiveEncounter(
   const db = getDb()
   await db.insert(mapInstances).values({
     id: mapInstanceId,
-    state: opts.mapInstanceState ?? createMapInstance(() => "")([]),
+    state: opts.mapInstanceState ?? emptyMapInstance(),
     version: 0,
   })
   tracker.mapInstanceIds.push(mapInstanceId)

@@ -14,7 +14,7 @@ import {
 import { useTheme } from "next-themes"
 import { useEffect, type ReactNode } from "react"
 
-import type { MapInstanceState } from "@workspace/game/foundation"
+import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import { buildEdges, buildNodes } from "@/components/dungeon/canvas/build-nodes"
 import { DungeonCombatZoneNode } from "@/components/dungeon/canvas/combat/zone-node"

@@ -1,9 +1,9 @@
 import {
   connectionFogState,
   isConnectionLocked,
-  zoneEnchantmentBadge,
-} from "@workspace/game/engine"
-import type { MapInstanceState, MapZone } from "@workspace/game/foundation"
+  type MapInstanceState,
+  type MapZone,
+} from "@workspace/game-v2/spatial"
 
 import { type DungeonCombatToken } from "@/components/dungeon/canvas/combat/zone-node"
 import { type DungeonConnectionEdge as DungeonConnectionEdgeType } from "@/components/dungeon/canvas/connection-edge"
@@ -14,6 +14,7 @@ import {
   type DungeonRosterEntry,
 } from "@/components/dungeon/canvas/types"
 import type { RailRow, RosterView } from "@/lib/combat/view/roster-view"
+import { zoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
 
 /** The party tokens standing in each Zone (play mode), keyed by Zone id. Tokens
  *  whose occupant isn't in the delve roster are dropped — during exploration the

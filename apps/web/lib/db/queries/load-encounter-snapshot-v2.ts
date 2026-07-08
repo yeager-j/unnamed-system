@@ -8,7 +8,7 @@ import { deriveViewer } from "@/lib/auth/derive-viewer"
 import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { resolveSession } from "@/lib/game-engine-v2"
 
 /**
@@ -83,7 +83,7 @@ async function projectSnapshotCore(
 
   const [campaign, instance] = await Promise.all([
     loadCampaignRowById(row.campaignId),
-    loadMapInstanceV2ById(row.mapInstanceId),
+    loadMapInstanceById(row.mapInstanceId),
   ])
   if (!campaign) return err("campaign-not-found")
   if (!instance) return err("map-instance-not-found")

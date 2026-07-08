@@ -1,8 +1,7 @@
 "use client"
 
-import { type Pool } from "@workspace/game/engine"
-
 import { TokenChip } from "@/components/dungeon/canvas/token-chip"
+import { type Pool } from "@/lib/combat/view/roster-view"
 
 /**
  * A party-member chip inside a Zone card — a PC's spatial presence on the dungeon
@@ -24,15 +23,12 @@ export function DungeonTokenChip({
   hp,
   sp,
   owned = false,
-  acting = false,
 }: {
   name: string
   portraitUrl: string | null
   hp?: Pool
   sp?: Pool | null
   owned?: boolean
-  /** Combat only (the watch battlefield) — the acting combatant's gold ring. */
-  acting?: boolean
 }) {
   return (
     <TokenChip
@@ -42,7 +38,6 @@ export function DungeonTokenChip({
       hp={hp}
       sp={sp}
       owned={owned}
-      acting={acting}
     />
   )
 }

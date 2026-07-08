@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import type {
   MapGeometryEvent,
   MapInstanceState,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { tokensByZone } from "@/components/dungeon/canvas/build-nodes"

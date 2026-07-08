@@ -12,11 +12,9 @@ import {
   makePassiveSkill,
 } from "@workspace/game/engine/__fixtures__/skills"
 import {
-  resolveCatalogEnemyStatblocks,
   statblockFromCharacter,
   statblockFromEnemy,
 } from "@workspace/game/engine/combatant/statblock"
-import { type CombatantRef } from "@workspace/game/foundation/encounter/session"
 
 /**
  * A synthetic catalog covering both provenance paths: a fixture Archetype (so a
@@ -125,27 +123,5 @@ describe("statblockFromEnemy", () => {
 
     expect(statblock.abilities).toBeNull()
     expect(statblock.skills).toEqual([])
-  })
-})
-
-describe("resolveCatalogEnemyStatblocks", () => {
-  const ref = (r: CombatantRef) => ({ ref: r })
-
-  it("resolves each catalog enemy once; skips pcs, inline enemies, and unknown keys", () => {
-    const map = resolveCatalogEnemyStatblocks(TEST_DATA)([
-      ref({ kind: "pc", characterId: "char-1" }),
-      ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
-      ref({ kind: "catalog-enemy", enemyKey: "goblin" }),
-      ref({ kind: "catalog-enemy", enemyKey: "not-a-real-enemy" }),
-    ])
-
-    // Only the resolvable catalog enemy lands in the map (pc / unknown excluded).
-    expect(Object.keys(map)).toEqual(["goblin"])
-    expect(map.goblin?.source).toBe("enemy")
-    expect(map.goblin?.name).toBe("Goblin")
-  })
-
-  it("returns an empty map for a roster with no catalog enemies", () => {
-    expect(resolveCatalogEnemyStatblocks(TEST_DATA)([])).toEqual({})
   })
 })

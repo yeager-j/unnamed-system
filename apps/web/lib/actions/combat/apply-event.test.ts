@@ -29,7 +29,7 @@ const requireCampaignDM = vi.fn()
 const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
-const loadMapInstanceV2ById = vi.fn()
+const loadMapInstanceById = vi.fn()
 const loadEntityRowById = vi.fn()
 const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
@@ -49,8 +49,8 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadLiveEncounterIdForCampaign: (id: string) =>
     loadLiveEncounterIdForCampaign(id),
 }))
-vi.mock("@/lib/db/queries/map-instance-v2", () => ({
-  loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
   loadEntityRowById: (id: string) => loadEntityRowById(id),
@@ -206,7 +206,7 @@ beforeEach(() => {
   loadEncounterCampaignId.mockReset().mockResolvedValue(CAMPAIGN_ID)
   loadEncounterForWrite.mockReset().mockResolvedValue(ok(makeLoaded()))
   loadLiveEncounterIdForCampaign.mockReset().mockResolvedValue(null)
-  loadMapInstanceV2ById.mockReset().mockResolvedValue({
+  loadMapInstanceById.mockReset().mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
     version: 0,
@@ -516,7 +516,7 @@ describe("applyCombatEventAction — startCombat", () => {
   it("rejects when zones are defined and a participant is unplaced", async () => {
     const state = makeInstanceState()
     delete state.occupancy[GOBLIN_ID]
-    loadMapInstanceV2ById.mockResolvedValue({
+    loadMapInstanceById.mockResolvedValue({
       id: MAP_INSTANCE_ID,
       state,
       version: 0,

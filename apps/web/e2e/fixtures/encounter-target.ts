@@ -10,8 +10,10 @@ import {
 import { loadEntity, type Entity } from "@workspace/game-v2/kernel"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
-import { createMapInstance } from "@workspace/game/engine"
-import { type MapInstanceState } from "@workspace/game/foundation"
+import {
+  emptyMapInstance,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, entity, getDb } from "@/lib/db"
@@ -222,7 +224,7 @@ function seededEncounter(
     url: `/combat/encounter-${slug}`,
     session,
     mapInstanceId: `seed-mi-encounter-${slug}`,
-    mapInstanceState: createMapInstance(deterministicIds(slug))([]),
+    mapInstanceState: emptyMapInstance(),
   }
 }
 

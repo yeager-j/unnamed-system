@@ -2,11 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   createDungeonState,
-  err,
-  ok,
   type DungeonState,
   type MapInstanceState,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
+import { err, ok } from "@workspace/game/foundation"
 
 import { applyDungeonEvent } from "./events"
 

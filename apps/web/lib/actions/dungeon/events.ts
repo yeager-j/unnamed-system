@@ -1,13 +1,11 @@
 "use server"
 
-import { reduceDungeon } from "@workspace/game/engine"
 import {
-  err,
-  isDungeonEvent,
-  ok,
+  reduceMapInstance as createReduceMapInstance,
+  reduceDungeon,
   type MapInstanceEvent,
-  type Result,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
@@ -19,7 +17,6 @@ import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { reduceMapInstance } from "@/lib/game-engine"
 import {
   publishDungeonInstancePing,
   publishDungeonPing,
@@ -27,6 +24,7 @@ import {
 
 import {
   ApplyDungeonEventSchema,
+  isDungeonEvent,
   type ApplyDungeonEventError,
   type ApplyDungeonEventInput,
 } from "./events.schema"
@@ -36,9 +34,9 @@ import { revalidateDungeon } from "./revalidate"
  * The impure shell that drives the dungeon run console (ADR — *Reducer topology*,
  * *Temporal layers invoke spatial transitions*): it applies one event to a delve
  * and saves the result, version-guarded. The wire event is a union of the turn
- * loop {@link import("@workspace/game/foundation").DungeonEvent} and the spatial
- * {@link MapInstanceEvent}; this action **routes on** `isDungeonEvent` to the
- * right reducer + row, the exploration-time peer of `applyCombatEvent`.
+ * loop {@link import("@workspace/game-v2/spatial").DungeonEvent} and the spatial
+ * {@link MapInstanceEvent}; this action **routes on** {@link isDungeonEvent} to
+ * the right reducer + row, the exploration-time peer of `applyCombatEvent`.
  *
  * Flow: parse → authorize against the owning campaign **before** any state load
  * (`requireCampaignDM` trips `forbidden()` for a non-DM) → branch:
@@ -89,6 +87,8 @@ export async function applyDungeonEvent(
   return applySpatialEvent(dungeon, expectedInstanceVersion, event)
 }
 
+const newId = () => crypto.randomUUID()
+
 /**
  * A pure spatial write on the delve's Map Instance: load it, reduce, save the
  * single Instance row guarded on `expectedInstanceVersion`, and fire a
@@ -110,7 +110,7 @@ async function applySpatialEvent(
   const instance = await loadMapInstanceById(dungeon.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
-  const next = reduceMapInstance(instance.state, event)
+  const next = createReduceMapInstance(newId)(instance.state, event)
   const saved = await saveMapInstanceState(
     db,
     dungeon.mapInstanceId,

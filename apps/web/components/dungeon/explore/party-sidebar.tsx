@@ -6,8 +6,9 @@ import Image from "next/image"
 import {
   activeActedCharacterIds,
   deriveDungeonRoster,
-} from "@workspace/game/engine"
-import type { DungeonState, MapInstanceState } from "@workspace/game/foundation"
+  type DungeonState,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 import {
   DropdownMenu,
   DropdownMenuContent,

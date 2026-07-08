@@ -1,12 +1,7 @@
 import { and, eq, sql } from "drizzle-orm"
 
-import {
-  err,
-  mapGeometrySchema,
-  ok,
-  type MapGeometry,
-  type Result,
-} from "@workspace/game/foundation"
+import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { db } from "@/lib/db/client"
 import { maps } from "@/lib/db/schema/map"

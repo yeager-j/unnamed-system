@@ -2,8 +2,10 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
-import { type DungeonSnapshot } from "@workspace/game/engine"
+import {
+  type DungeonSnapshot,
+  type SpatialEncounterSnapshot,
+} from "@workspace/game-v2/visibility"
 
 import { DungeonCombatWatch } from "@/components/dungeon/combat/watch"
 import { DungeonWatch } from "@/components/dungeon/watch"

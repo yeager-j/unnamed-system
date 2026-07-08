@@ -10,32 +10,24 @@ import {
   isZoneRevealed as v2Revealed,
   deriveDungeonRoster as v2Roster,
 } from "@workspace/game-v2/spatial"
-import {
-  activeActedCharacterIds as v1ActiveActed,
-  connectionFogState as v1Fog,
-  isFogActive as v1FogActive,
-  isConnectionLocked as v1Locked,
-  reduceDungeon as v1Reduce,
-  dungeonReminders as v1Reminders,
-  isZoneRevealed as v1Revealed,
-  deriveDungeonRoster as v1Roster,
-} from "@workspace/game/engine"
 
 /**
- * **Golden-master parity (UNN-529).** The v1 spatial reducers + fog derivations are
- * the acceptance spec for their v2 re-homes (PRESERVE). v1 is the oracle — expected
- * values are never hand-coded — so a mis-ported branch in v2 fails loudly here. This
- * is the one place both engines are importable (game-v2 forbids `@workspace/game`,
- * D32), so the v1↔v2 cross-check lives in apps/web, not in-package.
+ * **Pinned golden master (UNN-529 → UNN-540).** The v1 spatial reducers + fog
+ * derivations were the acceptance spec for their v2 re-homes (PRESERVE); until the
+ * UNN-540 cutover this suite compared v2 against the live v1 oracle. The oracle was
+ * deleted with the v1 spatial engine, so every expected value below is the **literal
+ * observed on the final green oracle run** (2026-07-08, the same commit that deleted
+ * v1) — the suite survives as a pinned-fixture regression over the frozen spec.
+ * A failure means v2's behavior moved off the v1-parity baseline: treat it as an
+ * incident, never `vitest -u`-style re-pinning.
  *
  * Scope is the behaviorally-identical surface: the dungeon turn loop, the derived
  * roster/reminder selectors, and the three-state connection fog derivation. The
- * player **snapshot** is intentionally *not* golden-mastered for deep equality — v2
- * deliberately SUPERSEDES its shape (drops v1's second enemy-redaction path, CD12),
- * so it is covered by its own in-package security gate instead.
+ * player **snapshot** is intentionally *not* pinned — v2 deliberately SUPERSEDES its
+ * shape (drops v1's second enemy-redaction path, CD12), so it is covered by its own
+ * in-package security gate instead.
  */
 
-// One plain fixture shape, structurally valid for both engines' nominal types.
 const conn = (
   id: string,
   fromZoneId: string,
@@ -95,53 +87,54 @@ describe("golden-master: connectionFogState (the three-state fog derivation)", (
       label: "both revealed",
       c: conn("c", "a", "b"),
       r: reveal({ revealedZoneIds: ["a", "b"] }),
+      expected: "revealed",
     },
     {
       label: "one revealed",
       c: conn("c", "a", "b"),
       r: reveal({ revealedZoneIds: ["a"] }),
+      expected: "known-exit",
     },
     {
       label: "neither revealed",
       c: conn("c", "a", "b"),
       r: reveal({ revealedZoneIds: ["x"] }),
+      expected: "stripped",
     },
     {
       label: "hidden unsurfaced",
       c: conn("c", "a", "b", { hidden: true }),
       r: reveal({ revealedZoneIds: ["a"] }),
+      expected: "stripped",
     },
     {
       label: "hidden surfaced",
       c: conn("c", "a", "b", { hidden: true }),
       r: reveal({ revealedZoneIds: ["a"], revealedConnectionIds: ["c"] }),
+      expected: "known-exit",
     },
-  ]
-  it.each(cases)("matches v1 for $label", ({ c, r }) => {
-    expect(v2Fog(c, r)).toBe(v1Fog(c, r))
+  ] as const
+  it.each(cases)("matches the v1 pin for $label", ({ c, r, expected }) => {
+    expect(v2Fog(c, r)).toBe(expected)
   })
 })
 
 describe("golden-master: fog predicates", () => {
-  it("isFogActive matches v1", () => {
-    expect(v2FogActive(reveal())).toBe(v1FogActive(reveal()))
-    expect(v2FogActive(reveal({ revealedZoneIds: ["a"] }))).toBe(
-      v1FogActive(reveal({ revealedZoneIds: ["a"] }))
-    )
+  it("isFogActive matches the v1 pin", () => {
+    expect(v2FogActive(reveal())).toBe(false)
+    expect(v2FogActive(reveal({ revealedZoneIds: ["a"] }))).toBe(true)
   })
 
-  it("isZoneRevealed matches v1", () => {
+  it("isZoneRevealed matches the v1 pin", () => {
     const r = reveal({ revealedZoneIds: ["a"] })
-    expect(v2Revealed(r, "a")).toBe(v1Revealed(r, "a"))
-    expect(v2Revealed(r, "b")).toBe(v1Revealed(r, "b"))
+    expect(v2Revealed(r, "a")).toBe(true)
+    expect(v2Revealed(r, "b")).toBe(false)
   })
 
-  it("isConnectionLocked matches v1", () => {
+  it("isConnectionLocked matches the v1 pin", () => {
     const c = conn("c", "a", "b", { locked: true })
-    expect(v2Locked(c, reveal())).toBe(v1Locked(c, reveal()))
-    expect(v2Locked(c, reveal({ unlockedConnectionIds: ["c"] }))).toBe(
-      v1Locked(c, reveal({ unlockedConnectionIds: ["c"] }))
-    )
+    expect(v2Locked(c, reveal())).toBe(true)
+    expect(v2Locked(c, reveal({ unlockedConnectionIds: ["c"] }))).toBe(false)
   })
 })
 
@@ -153,42 +146,72 @@ describe("golden-master: reduceDungeon (the turn loop)", () => {
     { kind: "advanceTurn" as const },
   ]
 
-  it("produces v1-identical state across a full event sequence", () => {
-    let v1 = dungeonState({ turnCounter: 3 })
-    let v2 = dungeonState({ turnCounter: 3 })
-    for (const event of events) {
-      v1 = v1Reduce(v1, event)
-      v2 = v2Reduce(v2, event)
-      expect(v2).toEqual(v1)
+  it("produces the v1-pinned state at each step of a full event sequence", () => {
+    const settings = {
+      randomEncounters: { enabled: false, intervalTurns: 6 as const },
     }
+    const expected = [
+      {
+        turnCounter: 3,
+        actedCharacterIds: ["c1"],
+        reminderSettings: settings,
+      },
+      {
+        turnCounter: 3,
+        actedCharacterIds: ["c1"],
+        reminderSettings: settings,
+      },
+      {
+        turnCounter: 3,
+        actedCharacterIds: ["c1", "c2"],
+        reminderSettings: settings,
+      },
+      {
+        turnCounter: 4,
+        actedCharacterIds: [],
+        reminderSettings: settings,
+      },
+    ]
+
+    let state = dungeonState({ turnCounter: 3 })
+    events.forEach((event, index) => {
+      state = v2Reduce(state, event)
+      expect(state).toEqual(expected[index])
+    })
   })
 })
 
 describe("golden-master: derived selectors", () => {
-  it("deriveDungeonRoster matches v1", () => {
+  it("deriveDungeonRoster matches the v1 pin", () => {
     const mapInstance = mapInstanceWith({
       c1: { zoneId: "z1" },
       c2: { zoneId: "z2" },
     })
-    expect(v2Roster(mapInstance).sort()).toEqual(v1Roster(mapInstance).sort())
+    expect(v2Roster(mapInstance).sort()).toEqual(["c1", "c2"])
   })
 
-  it("activeActedCharacterIds prunes stale ids like v1", () => {
+  it("activeActedCharacterIds prunes stale ids like the v1 pin", () => {
     const state = dungeonState({ actedCharacterIds: ["c1", "gone"] })
-    expect(v2ActiveActed(state, ["c1", "c2"])).toEqual(
-      v1ActiveActed(state, ["c1", "c2"])
-    )
+    expect(v2ActiveActed(state, ["c1", "c2"])).toEqual(["c1"])
   })
 
-  it("dungeonReminders matches v1 across the day", () => {
-    for (const turnCounter of [0, 6, 12, 49, 50, 52]) {
+  it("dungeonReminders matches the v1 pin across the day", () => {
+    const expectedByTurn: Record<number, { kind: string; turn: number }[]> = {
+      0: [],
+      6: [{ kind: "random-encounter", turn: 6 }],
+      12: [{ kind: "random-encounter", turn: 12 }],
+      49: [{ kind: "exhaustion-onset", turn: 49 }],
+      50: [],
+      52: [{ kind: "exhaustion-onset", turn: 52 }],
+    }
+    for (const [turn, expected] of Object.entries(expectedByTurn)) {
       const state = dungeonState({
-        turnCounter,
+        turnCounter: Number(turn),
         reminderSettings: {
           randomEncounters: { enabled: true, intervalTurns: 6 },
         },
       })
-      expect(v2Reminders(state)).toEqual(v1Reminders(state))
+      expect(v2Reminders(state)).toEqual(expected)
     }
   })
 })

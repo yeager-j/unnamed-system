@@ -8,10 +8,11 @@ import type {
   SpatialEncounterSnapshot,
   VisibleCombatant,
 } from "@workspace/game-v2/visibility"
+
 import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
-} from "@workspace/game/engine"
+} from "@/lib/combat/view/zone-enchantment-badge"
 
 /**
  * The watch view's display shaping (UNN-535) — the pure per-render fold that

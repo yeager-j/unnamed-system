@@ -2,17 +2,15 @@
 
 import {
   createDungeonState,
-  err,
-  ok,
-  type Result,
-} from "@workspace/game/foundation"
+  emptyMapInstance,
+} from "@workspace/game-v2/spatial"
+import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
 import { loadMapByShortId } from "@/lib/db/queries/load-map"
 import { createDungeon } from "@/lib/db/writes/dungeon"
 import { insertMapInstance } from "@/lib/db/writes/map-instance"
-import { createMapInstance } from "@/lib/game-engine"
 
 import {
   CreateDungeonSchema,
@@ -27,9 +25,9 @@ import {
  * hands back a `shortId`.
  *
  * Selecting a Map mints the dungeon's Map Instance. Per UNN-465 the Instance is
- * born **blank** (`createMapInstance([])`) but records `mapId` = the chosen Map,
- * so the link is durable; the geometry → Instance snapshot deriver is deferred to
- * UNN-464 (it needs the richer `MapInstanceState`). Create touches **two** rows in
+ * born **blank** ({@link emptyMapInstance}) but records `mapId` = the chosen Map,
+ * so the link is durable; delve-start snapshots the geometry into it
+ * (`mapInstanceFromGeometry`). Create touches **two** rows in
  * one transaction — the Instance (so `dungeon.mapInstanceId` is non-null) and the
  * dungeon referencing it — and the `shortId`-collision retry re-runs the whole
  * closure, so a partial create can't strand an Instance or a dungeon.
@@ -53,7 +51,7 @@ export async function createDungeonAction(
 
   const mapInstanceId = crypto.randomUUID()
   const { shortId } = await db.transaction(async (tx) => {
-    await insertMapInstance(tx, mapInstanceId, createMapInstance([]), map.id)
+    await insertMapInstance(tx, mapInstanceId, emptyMapInstance(), map.id)
     return createDungeon(
       {
         campaignId: parsed.data.campaignId,

@@ -8,7 +8,7 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import {
   saveEncounterSession,
   setEncounterStatus,
@@ -66,7 +66,7 @@ export async function endCombatAction(
   const { row, loaded: loadedSession } = loaded.value
   if (row.status !== "live") return err("encounter-not-live")
 
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  const instance = await loadMapInstanceById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const swept = sweepOverlay(loadedSession.session)

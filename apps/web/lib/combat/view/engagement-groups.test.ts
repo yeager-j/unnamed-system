@@ -1,30 +1,28 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  groupTokensByEngagement,
-  type ZoneToken,
-} from "@workspace/game/engine/encounter/resolve-zone-layout"
-import { type Engagement } from "@workspace/game/foundation/combat/engagement"
+import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 
-function token(id: string, engagement?: Engagement): ZoneToken {
-  return {
-    id,
-    name: id,
-    side: "players",
-    isPc: true,
-    portraitUrl: null,
-    hp: { current: 10, max: 10 },
-    sp: { current: 5, max: 5 },
-    engagement,
-  }
+import { groupTokensByEngagement } from "./engagement-groups"
+
+interface TestToken {
+  id: string
+  engagement?: Engagement
+}
+
+function token(id: string, engagement?: Engagement): TestToken {
+  return { id, engagement }
 }
 
 function engaged(...targetCombatantIds: string[]): Engagement {
-  return { status: "engaged", targetCombatantIds }
+  return {
+    status: "engaged",
+    targetCombatantIds: targetCombatantIds.map(asParticipantId),
+  }
 }
 
 /** Groups reduced to their member ids — the property under test. */
-function ids(groups: ZoneToken[][]): string[][] {
+function ids(groups: TestToken[][]): string[][] {
   return groups.map((group) => group.map((member) => member.id))
 }
 

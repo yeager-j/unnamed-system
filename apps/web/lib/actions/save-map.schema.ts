@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { mapGeometrySchema } from "@workspace/game/foundation"
+import { mapGeometrySchema } from "@workspace/game-v2/spatial"
 
 /**
  * Input schema for {@link import("./save-map").saveMapAction} (UNN-460) — the

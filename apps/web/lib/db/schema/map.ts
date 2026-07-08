@@ -1,7 +1,7 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import { mapGeometrySchema, type MapGeometry } from "@workspace/game/foundation"
+import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
 
 import { users } from "./user"
 

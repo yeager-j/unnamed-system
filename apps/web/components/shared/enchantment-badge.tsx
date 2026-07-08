@@ -1,12 +1,13 @@
 import { MusicNotesIcon } from "@phosphor-icons/react"
 
-import { type ZoneEnchantmentBadge } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+
+import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
 
 /**
  * The Zone's Enchantment badge: name + the Forte as its dynamic marking

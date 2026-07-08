@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth"
 import { db } from "@/lib/db/client"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 
@@ -73,7 +73,7 @@ export const getEncounterForDM = cache(
     const campaign = await loadCampaignRowById(row.campaignId)
     if (!campaign || campaign.dmUserId !== viewerId) return null
 
-    const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+    const instance = await loadMapInstanceById(row.mapInstanceId)
     if (!instance) return null
 
     const participantMeta = await buildParticipantMeta(

@@ -1,4 +1,4 @@
-import type { MapGeometry } from "@workspace/game/foundation/map/geometry"
+import type { MapGeometry } from "@workspace/game-v2/spatial/geometry.schema"
 
 /**
  * Pure non-blocking validations over a {@link MapGeometry} (UNN-461). A gridless

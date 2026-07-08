@@ -1,10 +1,10 @@
+import type { MapConnection } from "@workspace/game-v2/spatial/geometry.schema"
+import type { MapInstanceState } from "@workspace/game-v2/spatial/map-instance.schema"
 import {
   connectionFogState,
   isConnectionLocked,
   isZoneRevealed,
-} from "@workspace/game/engine/encounter/resolve-reveal"
-import type { MapInstanceState } from "@workspace/game/foundation/encounter/map-instance"
-import type { MapConnection } from "@workspace/game/foundation/map/geometry"
+} from "@workspace/game-v2/spatial/reveal"
 
 /**
  * One exit out of a Zone on the run console: the connection, its far endpoint's

@@ -32,7 +32,7 @@ const auth = vi.fn()
 const isCampaignMember = vi.fn()
 const loadCampaignRowById = vi.fn()
 const loadEncounterForSnapshot = vi.fn()
-const loadMapInstanceV2ById = vi.fn()
+const loadMapInstanceById = vi.fn()
 
 vi.mock("@/lib/auth/index", () => ({ auth: () => auth() }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
@@ -44,8 +44,8 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
   loadEncounterForSnapshot: (shortId: string) =>
     loadEncounterForSnapshot(shortId),
 }))
-vi.mock("@/lib/db/queries/map-instance-v2", () => ({
-  loadMapInstanceV2ById: (id: string) => loadMapInstanceV2ById(id),
+vi.mock("@/lib/db/queries/map-instance", () => ({
+  loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 
 const DM_ID = "user-dm"
@@ -194,7 +194,7 @@ beforeEach(() => {
     shortId: "camp1",
     dmUserId: DM_ID,
   })
-  loadMapInstanceV2ById.mockResolvedValue({
+  loadMapInstanceById.mockResolvedValue({
     id: MAP_INSTANCE_ID,
     state: makeInstanceState(),
     version: 5,
@@ -300,7 +300,7 @@ describe("getEncounterSnapshot — envelope + composite version (UNN-530 AC)", (
   })
 
   it("surfaces a missing Map-Instance as a data-integrity error", async () => {
-    loadMapInstanceV2ById.mockResolvedValue(null)
+    loadMapInstanceById.mockResolvedValue(null)
     signedInAs(null)
 
     expect(await getEncounterSnapshot(SHORT_ID)).toEqual(

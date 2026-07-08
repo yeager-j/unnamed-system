@@ -1,12 +1,12 @@
 "use client"
 
-import { getAilment } from "@workspace/game-v2/encounter"
 import {
   BATTLE_CONDITION_AXIS_KEYS,
   BATTLE_CONDITION_FLAG_KEYS,
+  getAilment,
   type BattleConditions,
   type ConditionDurations,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,

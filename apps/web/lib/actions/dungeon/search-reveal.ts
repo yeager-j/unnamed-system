@@ -1,6 +1,9 @@
 "use server"
 
-import { reduceDungeon } from "@workspace/game/engine"
+import {
+  reduceMapInstance as createReduceMapInstance,
+  reduceDungeon,
+} from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
@@ -10,7 +13,6 @@ import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { reduceMapInstance } from "@/lib/game-engine"
 import { publishDungeonPing } from "@/lib/realtime/publish"
 
 import { revalidateDungeon } from "./revalidate"
@@ -59,7 +61,7 @@ export async function searchRevealAction(
     kind: "markActed",
     characterId,
   })
-  const nextInstance = reduceMapInstance(instance.state, event)
+  const nextInstance = createReduceMapInstance(newId)(instance.state, event)
 
   const result = await guardMany<
     { version: number; instanceVersion: number },
@@ -95,3 +97,5 @@ export async function searchRevealAction(
   revalidateDungeon(dungeon)
   return ok(result.value)
 }
+
+const newId = () => crypto.randomUUID()

@@ -1,15 +1,14 @@
 "use server"
 
 import { saveSession, sweepOverlay } from "@workspace/game-v2/encounter"
-import { pruneCombat } from "@workspace/game-v2/spatial"
-import { reduceDungeon } from "@workspace/game/engine"
+import { pruneCombat, reduceDungeon } from "@workspace/game-v2/spatial"
 import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { saveDungeonState } from "@/lib/db/writes/dungeon"
 import {
   saveEncounterSession,
@@ -47,8 +46,8 @@ import { revalidateDungeon } from "./revalidate"
  * ones, read off the authoritative out-of-band map (the lifecycle-axis
  * generalization of v1's "non-`pc` combatants", already banked by the mapless
  * `endCombatAction`). PC HP/SP lives on the character row, so post-combat vitals
- * carry over for free. `reduceDungeon` is the **v1** exploration reducer (the
- * delve's `state` is still v1 — this is the sole expected v1 import).
+ * carry over for free. `reduceDungeon` is the v2 exploration reducer — the whole
+ * delve runs on `game-v2/spatial` since the UNN-540 cutover.
  *
  * Guards: `requireCampaignDM`; the encounter must run on this delve's Instance and
  * be `live`. The intra-encounter version chains: the status flip guards on the
@@ -82,7 +81,7 @@ export async function endDungeonCombatAction(
     return err("encounter-not-on-dungeon")
   }
 
-  const instance = await loadMapInstanceV2ById(dungeon.mapInstanceId)
+  const instance = await loadMapInstanceById(dungeon.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const swept = sweepOverlay(loadedSession.session)

@@ -8,7 +8,7 @@ import {
   type DungeonEvent,
   type MapInstanceEvent,
   type RandomEncounterInterval,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import {
   dispatchDungeonEvent,

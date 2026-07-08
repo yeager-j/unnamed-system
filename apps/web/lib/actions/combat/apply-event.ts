@@ -28,7 +28,7 @@ import {
   loadLiveEncounterIdForCampaign,
 } from "@/lib/db/queries/load-encounter-v2"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
-import { loadMapInstanceV2ById } from "@/lib/db/queries/map-instance-v2"
+import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
   saveEncounterSession,
@@ -187,7 +187,7 @@ async function applySpatialEvent(
     return err("missing-instance-version")
   }
 
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  const instance = await loadMapInstanceById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const next = createReduceMapInstance(newId)(instance.state, event)
@@ -263,7 +263,7 @@ async function applyAddParticipant(
     return err("missing-instance-version")
   }
 
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  const instance = await loadMapInstanceById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const next = addParticipantPaired(newId)(
@@ -298,7 +298,7 @@ async function applyRemoveParticipant(
     return err("missing-instance-version")
   }
 
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  const instance = await loadMapInstanceById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   const next = removeParticipantPaired(newId)(
@@ -385,7 +385,7 @@ async function applyStartCombat(
     return err("campaign-already-has-live-encounter")
   }
 
-  const instance = await loadMapInstanceV2ById(row.mapInstanceId)
+  const instance = await loadMapInstanceById(row.mapInstanceId)
   if (instance === null) return err("map-instance-not-found")
 
   if (!isRosterFullyPlaced(loadedSession.session, instance.state)) {

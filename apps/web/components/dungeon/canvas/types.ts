@@ -1,13 +1,11 @@
-import { type Pool } from "@workspace/game/engine"
-
 import { type DungeonCombatZoneNode as DungeonCombatZoneNodeType } from "@/components/dungeon/canvas/combat/zone-node"
 import { type DungeonZoneNode as DungeonZoneNodeType } from "@/components/dungeon/canvas/explore/zone-node"
-import { type RosterView } from "@/lib/combat/view/roster-view"
+import { type Pool, type RosterView } from "@/lib/combat/view/roster-view"
 
 /**
  * A party member as the DM run console's exploration board draws it — display data
  * keyed by `characterId`. The DM counterpart of the player snapshot's
- * {@link import("@workspace/game/engine").DungeonRosterEntry}; vitals are optional
+ * {@link import("@workspace/game-v2/visibility").DungeonRosterEntry}; vitals are optional
  * here because the DM board fills them from the hydrated party (absent ⇒ no bars),
  * whereas the redacted player snapshot always carries them.
  */

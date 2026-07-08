@@ -20,10 +20,11 @@ import { deriveHydratedCharacterV2 } from "@/lib/game-engine-v2"
  * narrow stub directly.
  */
 // The v1 combat-session exports (createCombatSession / reduceCombatSession and
-// friends) retired with the UNN-535 hard cutover — mapless combat runs on
-// `game-engine-v2.ts`. The v1 *spatial* pair stays: dungeon exploration is
-// still v1 until PR11d, and the bestiary browse renders v1 display data
-// (key-parity with the v2 catalog is exact; the commit path is fully v2).
+// friends) retired with the UNN-535 hard cutover, and the v1 spatial pair
+// (reduceMapInstance / createMapInstance) with the UNN-540 exploration cutover —
+// the whole dungeon runs on `@workspace/game-v2/spatial`. The bestiary browse
+// still renders v1 display data (key-parity with the v2 catalog is exact; the
+// commit path is fully v2).
 export const {
   toStatContext,
   buildStatContext,
@@ -31,7 +32,6 @@ export const {
   buildArchetypeEntries,
   buildEnemyCatalogRows,
   statblockFromEnemy,
-  reduceMapInstance,
   buildLineageAtlas,
   getAtlasRecommendations,
   archetypeSwitcherGroups,
@@ -41,7 +41,6 @@ export const {
   equipItem,
   addItem,
   setItemQuantity,
-  createMapInstance,
 } = createGameEngine(gameData)
 
 /**

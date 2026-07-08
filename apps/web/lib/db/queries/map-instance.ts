@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import { mapInstanceStateSchema } from "@workspace/game/foundation"
+import { mapInstanceStateSchema } from "@workspace/game-v2/spatial"
 
 import { db } from "@/lib/db/client"
 import { mapInstances, type MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -10,9 +10,10 @@ import { mapInstances, type MapInstanceRow } from "@/lib/db/schema/map-instance"
  * references by `mapInstanceId` (Dungeon Map ADR). Like the encounter loader, the
  * jsonb `state` is parsed through {@link mapInstanceStateSchema} on read so zod
  * defaults run and a blob persisted before a field existed can't reach a caller
- * with that field `undefined`. The combat console + player watch load this
- * alongside the encounter to render position / engagement / enchantment, which
- * the M0 cutover (UNN-459) moved off the `CombatSession`.
+ * with that field `undefined` — and the returned state carries the engine's types
+ * (branded `ParticipantId`s inside engagement), so it feeds the spatial reducers
+ * without a cast. The **one** Map-Instance loader: combat and dungeon exploration
+ * both read through it (the v1↔v2 twin-loader duality dissolved with UNN-540).
  */
 function withParsedState(row: MapInstanceRow): MapInstanceRow {
   return { ...row, state: mapInstanceStateSchema.parse(row.state) }

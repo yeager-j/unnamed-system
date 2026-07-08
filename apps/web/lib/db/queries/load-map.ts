@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm"
 
-import { mapGeometrySchema } from "@workspace/game/foundation"
+import { mapGeometrySchema } from "@workspace/game-v2/spatial"
 
 import { db } from "@/lib/db/client"
 import { maps, type MapRow } from "@/lib/db/schema/map"

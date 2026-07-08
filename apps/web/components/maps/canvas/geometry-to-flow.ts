@@ -4,7 +4,7 @@ import type {
   MapConnection,
   MapGeometry,
   MapZone,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 /**
  * Adapts a domain {@link MapGeometry} into the `{ nodes, edges }` shape React Flow

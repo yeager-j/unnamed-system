@@ -1,10 +1,12 @@
 import { and, eq } from "drizzle-orm"
 
-import { createMapInstance } from "@workspace/game/engine"
-import { type MapInstanceState } from "@workspace/game/foundation"
+import {
+  reduceMapInstance as createReduceMapInstance,
+  emptyMapInstance,
+  type MapInstanceState,
+} from "@workspace/game-v2/spatial"
 
 import { dungeons, encounters, getDb, mapInstances } from "@/lib/db"
-import { reduceMapInstance } from "@/lib/game-engine"
 
 import {
   createActiveDungeon,
@@ -26,13 +28,15 @@ import {
 
 const DEV_USER_ID = "dev-user-claude"
 
+const reduceMapInstance = createReduceMapInstance(() => crypto.randomUUID())
+
 /** The PC's combat participant id === its `characterId` (the delve token doubles
  *  as the combat token), so the spec reads it off occupancy by the character id. */
 const ENTRY = { id: "zone-entry", name: "Entry" } as const
 const HALL = { id: "zone-hall", name: "Hall" } as const
 
 function buildInstanceState(characterId: string): MapInstanceState {
-  const base = createMapInstance(() => characterId)([])
+  const base = emptyMapInstance()
   let state = reduceMapInstance(base, {
     kind: "addZone",
     name: ENTRY.name,

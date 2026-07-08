@@ -2,6 +2,7 @@ import {
   asParticipantId,
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
+import { emptyMapInstance } from "@workspace/game-v2/spatial/instance-factory"
 import {
   mapInstanceEventSchema,
   type MapInstanceEvent,
@@ -80,22 +81,6 @@ export function createReduceEncounter(newId: () => string) {
     }
     const session = reduceSession(state.session, event)
     return session === state.session ? state : { ...state, session }
-  }
-}
-
-/** A fresh, empty Map-Instance — no geometry, occupancy, enchantment, or reveal. The
- *  co-mint default for a mapless / standalone encounter; a delve passes the
- *  geometry-snapshotted Map-Instance as `base`. */
-function emptyMapInstance(): MapInstanceState {
-  return {
-    geometry: { zones: {}, connections: {} },
-    occupancy: {},
-    enchantment: null,
-    reveal: {
-      revealedZoneIds: [],
-      revealedConnectionIds: [],
-      unlockedConnectionIds: [],
-    },
   }
 }
 

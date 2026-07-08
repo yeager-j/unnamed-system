@@ -5,7 +5,7 @@ import {
   dungeonStateSchema,
   type DungeonState,
   type DungeonStatus,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/spatial"
 
 import { campaigns } from "./campaign"
 import { mapInstances } from "./map-instance"
@@ -20,7 +20,7 @@ import { mapInstances } from "./map-instance"
  *
  * `shortId` backs the DM console (`/dungeon/{shortId}`) and the player fog view
  * (`/c/dungeon/{shortId}`). {@link DungeonStatus} (`draft`/`active`/`done`) is
- * owned by the game domain (`@workspace/game/foundation`).
+ * owned by the game domain (`@workspace/game-v2/spatial`).
  *
  * FK lifecycle (ADR, *FK lifecycle*):
  * - `campaignId` → {@link campaigns} **cascade** — a dungeon dies with its

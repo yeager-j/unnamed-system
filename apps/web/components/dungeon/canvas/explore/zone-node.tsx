@@ -8,14 +8,14 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 
-import { type Pool } from "@workspace/game/engine"
-import type { MapZone } from "@workspace/game/foundation"
+import type { MapZone } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useDungeonCanvas } from "@/components/dungeon/canvas/explore/context"
 import { DungeonTokenChip } from "@/components/dungeon/canvas/explore/token-chip"
 import { ZoneCardFrame } from "@/components/dungeon/canvas/zone-card-frame"
+import { type Pool } from "@/lib/combat/view/roster-view"
 
 export type DungeonZoneToken = {
   characterId: string

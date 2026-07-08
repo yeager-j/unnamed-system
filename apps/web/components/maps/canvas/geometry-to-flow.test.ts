@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { mapGeometrySchema, type MapGeometry } from "@workspace/game/foundation"
+import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
 
 import { geometryToFlow } from "./geometry-to-flow"
 

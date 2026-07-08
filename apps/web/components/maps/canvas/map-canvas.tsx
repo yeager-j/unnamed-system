@@ -29,12 +29,10 @@ import {
   duplicateZoneNames,
   reduceMapGeometry,
   type ConnectionFlag,
-} from "@workspace/game/engine"
-import type {
-  MapGeometry,
-  MapGeometryEvent,
-  MapZone,
-} from "@workspace/game/foundation"
+  type MapGeometry,
+  type MapGeometryEvent,
+  type MapZone,
+} from "@workspace/game-v2/spatial"
 import {
   Alert,
   AlertDescription,

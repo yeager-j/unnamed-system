@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import type { MapGeometry } from "@workspace/game/foundation"
+import type { MapGeometry } from "@workspace/game-v2/spatial"
 
 import { saveMapAction } from "@/lib/actions/save-map"
 

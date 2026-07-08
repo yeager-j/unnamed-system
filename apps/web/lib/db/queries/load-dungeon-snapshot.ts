@@ -2,7 +2,7 @@ import {
   projectDungeonSnapshot,
   type DungeonRosterEntry,
   type DungeonSnapshot,
-} from "@workspace/game/engine"
+} from "@workspace/game-v2/visibility"
 import type { HydratedCharacter } from "@workspace/game/foundation"
 
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"

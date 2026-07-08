@@ -1,6 +1,6 @@
 "use client"
 
-import { type DungeonSnapshot } from "@workspace/game/engine"
+import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
 import {
   useSnapshotSubscription,

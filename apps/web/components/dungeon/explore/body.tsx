@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { dungeonReminders } from "@workspace/game/engine"
+import { dungeonReminders } from "@workspace/game-v2/spatial"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
@@ -96,7 +96,7 @@ export function DungeonExploreBody({
   }))
 
   const moveToken = (characterId: string, toZoneId: string) =>
-    dispatch({ kind: "moveCombatant", combatantId: characterId, toZoneId })
+    dispatch({ kind: "moveCombatant", tokenKey: characterId, toZoneId })
 
   // React Compiler keeps this referentially stable across renders where `roster`
   // is unchanged, so the canvas's node-sync effect doesn't re-derive — no manual
