@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import {
-  err,
-  ok,
-  type MapGeometry,
-  type MapInstanceState,
-} from "@workspace/game/foundation"
+import type { MapGeometry, MapInstanceState } from "@workspace/game-v2/spatial"
+import { err, ok } from "@workspace/game/foundation"
 
 import { startDelveAction } from "./delve-start"
 

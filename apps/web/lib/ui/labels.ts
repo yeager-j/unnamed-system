@@ -1,8 +1,14 @@
+import type {
+  CombatAdvantage,
+  CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
+import type {
+  DungeonReminder,
+  RandomEncounterInterval,
+} from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
-import {
-  type DungeonReminder,
-  type RecommendationReason,
-} from "@workspace/game/engine"
+import { type RecommendationReason } from "@workspace/game/engine"
 import {
   type Affinity,
   type AffinityDamageType,
@@ -10,17 +16,13 @@ import {
   type AttributeKey,
   type BattleConditionState,
   type BonusTargetKey,
-  type CombatAdvantage,
-  type CombatSide,
   type CounterKey,
   type DamageType,
   type Delivery,
   type EnemyFamily,
-  type Engagement,
   type EquipSlot,
   type Lineage,
   type PathChoice,
-  type RandomEncounterInterval,
   type Range,
   type ResolvedSkillCost,
   type SkillKind,

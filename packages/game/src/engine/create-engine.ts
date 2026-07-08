@@ -18,17 +18,7 @@ import {
   resolveTalentsForBuilder,
   resolveTalentsForSheet,
 } from "@workspace/game/engine/character/talents/display"
-import {
-  resolveCatalogEnemyStatblocks,
-  statblockFromEnemy,
-} from "@workspace/game/engine/combatant/statblock"
-import { endOfTurnObligations } from "@workspace/game/engine/encounter/end-of-turn"
-import { reduceMapInstance } from "@workspace/game/engine/encounter/reduce-map-instance"
-import { reduceCombatSession } from "@workspace/game/engine/encounter/reduce-session"
-import {
-  createCombatSession,
-  createMapInstance,
-} from "@workspace/game/engine/encounter/session-factory"
+import { statblockFromEnemy } from "@workspace/game/engine/combatant/statblock"
 import { buildEnemyCatalogRows } from "@workspace/game/engine/enemies/catalog-rows"
 import {
   addItem,
@@ -65,11 +55,7 @@ export function createGameEngine(
     getArchetypeDisplay: getArchetypeDisplay(data),
     buildArchetypeEntries: buildArchetypeEntries(data),
     buildEnemyCatalogRows: buildEnemyCatalogRows(data),
-    resolveCatalogEnemyStatblocks: resolveCatalogEnemyStatblocks(data),
     statblockFromEnemy: statblockFromEnemy(data),
-    reduceCombatSession: reduceCombatSession(data, newId),
-    reduceMapInstance: reduceMapInstance(newId),
-    endOfTurnObligations: endOfTurnObligations(data),
     buildLineageAtlas: buildLineageAtlas(data),
     getAtlasRecommendations: getAtlasRecommendations(data),
     archetypeSwitcherGroups: archetypeSwitcherGroups(data),
@@ -79,8 +65,6 @@ export function createGameEngine(
     equipItem: equipItem(data),
     addItem: addItem(data),
     setItemQuantity: setItemQuantity(data),
-    createCombatSession: createCombatSession(newId),
-    createMapInstance: createMapInstance(newId),
   }
 }
 

@@ -11,7 +11,6 @@ import {
   type DamageType,
 } from "@workspace/game/foundation/combat/affinity"
 import { type ResolvedAttackRoll } from "@workspace/game/foundation/combat/attack"
-import { type CombatantRef } from "@workspace/game/foundation/encounter/session"
 import { type EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
 
 /**
@@ -27,10 +26,10 @@ import { type EnemyDefinition } from "@workspace/game/foundation/enemies/schema"
  * detail and the three statblock renderers share one model instead of
  * re-deriving per side.
  *
- * Named `Statblock` rather than `Combatant` because the latter is already the
- * **session-instance** type (`foundation/encounter/session`) — the placed
+ * Named `Statblock` rather than `Combatant` because the latter was the
+ * session-instance type in the retired v1 encounter slice — the placed
  * combatant with its ref, side, zone, and overlay. A `Statblock` is the static
- * resolved sheet; the session combatant layers working HP / ailments / position
+ * resolved sheet; a session participant layers working HP / ailments / position
  * on top of it.
  */
 export interface Statblock {
@@ -104,31 +103,4 @@ export function statblockFromEnemy(lookups: Pick<GameData, "getSkill">) {
     weaponAttackRoll: null,
     abilities: enemy.abilities ?? null,
   })
-}
-
-/**
- * Resolves the {@link Statblock} of every **catalog-enemy** combatant in a roster
- * (session combatants or setup combatants — both carry a {@link CombatantRef}),
- * keyed by `enemyKey`. The encounter read shapers (rail/console/initiative/…)
- * take this map and read names / HP / attributes off it instead of touching the
- * catalog — the #3 boundary-resolution peer of the PC-detail map each already
- * injects. Built once per render at the assembly boundary (UNN-354); a key that
- * resolves to no definition is omitted (the shaper falls back to the raw key).
- */
-export function resolveCatalogEnemyStatblocks(
-  lookups: Pick<GameData, "getSkill" | "getEnemy">
-) {
-  const toStatblock = statblockFromEnemy(lookups)
-  return (
-    combatants: readonly { ref: CombatantRef }[]
-  ): Record<string, Statblock> => {
-    const byKey: Record<string, Statblock> = {}
-    for (const { ref } of combatants) {
-      // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — the `kind` test narrows the union so `ref.enemyKey` type-checks, but is runtime-redundant with the `if (definition)` guard below (a non-catalog ref has no `enemyKey`, so `getEnemy(undefined)` returns undefined and it's skipped either way); `byKey[...]` is a resolve-once optimization that yields the same map.
-      if (ref.kind !== "catalog-enemy" || byKey[ref.enemyKey]) continue
-      const definition = lookups.getEnemy(ref.enemyKey)
-      if (definition) byKey[ref.enemyKey] = toStatblock(definition)
-    }
-    return byKey
-  }
 }
