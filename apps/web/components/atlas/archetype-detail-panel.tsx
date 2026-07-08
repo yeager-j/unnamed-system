@@ -3,17 +3,13 @@
 import { LockSimpleIcon } from "@phosphor-icons/react"
 import { useRef } from "react"
 
-import { getArchetype } from "@workspace/game/data"
-import {
-  hasUnlockedRank,
-  MASTERY_RANK,
-  type AtlasNode,
-} from "@workspace/game/engine"
+import { MASTERY_RANK } from "@workspace/game-v2/archetypes/archetype"
+import { type AtlasNode } from "@workspace/game-v2/archetypes/atlas"
 import {
   LINEAGE_SUGGESTED_PATH,
   type AttributeScores,
   type PathChoice,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ItemGroup } from "@workspace/ui/components/item"
@@ -32,13 +28,13 @@ import { ArchetypeAffinitiesChart } from "@/components/archetype/archetype-affin
 import { ArchetypeAttributesGrid } from "@/components/archetype/archetype-attributes-grid"
 import { ArchetypeDetailHeader } from "@/components/archetype/archetype-detail-header"
 import { ArchetypeMechanicProse } from "@/components/archetype/archetype-mechanic-prose"
-import { ArchetypeRankedSkills } from "@/components/archetype/archetype-ranked-skills"
+import { ArchetypeResolvedSkills } from "@/components/archetype/archetype-resolved-skills"
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
-import { SkillRow } from "@/components/shared/skill-row"
+import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { previewArchetypeSkills } from "@/lib/game-engine"
+import { getArchetype, previewArchetypeSkills } from "@/lib/game-engine-v2"
 import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"
@@ -104,7 +100,7 @@ function PanelBody({
   pathChoice: PathChoice
   onClose: () => void
 }) {
-  const { archetype, state, characterArchetypeId } = node
+  const { archetype, state } = node
   const locked = state.kind === "locked"
   const ownedRank =
     state.kind === "owned" || state.kind === "mastered" ? state.rank : 0
@@ -167,7 +163,7 @@ function PanelBody({
 
         <Separator />
 
-        <ArchetypeRankedSkills
+        <ArchetypeResolvedSkills
           ranks={ranks}
           currentRank={ownedRank}
           attributes={attributes}
@@ -175,15 +171,9 @@ function PanelBody({
 
         {synthesis ? (
           <DetailSection title="Synthesis Skill">
-            {hasUnlockedRank(ownedRank, synthesis.rank) ? (
-              <ItemGroup className="gap-0">
-                <SkillRow skill={synthesis} attributes={attributes} />
-              </ItemGroup>
-            ) : (
-              <Badge variant="outline" className="w-fit text-muted-foreground">
-                {synthesis.name} — Rank {synthesis.rank}
-              </Badge>
-            )}
+            <ItemGroup className="gap-0">
+              <ResolvedSkillRow resolved={synthesis} attributes={attributes} />
+            </ItemGroup>
           </DetailSection>
         ) : null}
       </div>
@@ -206,7 +196,6 @@ function PanelBody({
             <ArchetypeActionButton
               archetype={archetype}
               state={state}
-              characterArchetypeId={characterArchetypeId}
               savedRanks={savedRanks}
             />
           </OwnerOnly>

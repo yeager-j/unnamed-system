@@ -43,7 +43,27 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card-header"
       className={cn(
-        "group/card-header @container/card-header grid auto-rows-min items-start gap-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)",
+        "group/card-header @container/card-header grid auto-rows-min items-start gap-x-3 gap-y-1 rounded-t-xl px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] has-data-[slot=card-media]:grid-cols-[auto_1fr] [.border-b]:pb-(--card-spacing)",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+/**
+ * A leading media slot for {@link CardHeader} — a portrait, icon, or badge that
+ * sits to the left of the title and description (the "media object" layout).
+ * Present-only: the header opens a leading `auto` column via its
+ * `has-data-[slot=card-media]` variant, and the media spans the title +
+ * description rows so the text stacks beside it.
+ */
+function CardMedia({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="card-media"
+      className={cn(
+        "col-start-1 row-span-2 row-start-1 self-center",
         className
       )}
       {...props}
@@ -113,6 +133,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
 export {
   Card,
   CardHeader,
+  CardMedia,
   CardFooter,
   CardTitle,
   CardAction,

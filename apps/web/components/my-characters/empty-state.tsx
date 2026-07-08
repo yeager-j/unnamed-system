@@ -20,8 +20,8 @@ export function EmptyCharacters() {
       <EmptyHeader>
         <EmptyTitle>No characters yet</EmptyTitle>
         <EmptyDescription>
-          The Character Builder is on its way. When it ships, your roster will
-          start filling up here.
+          Create your first character to start your roster. They&rsquo;ll show
+          up here, ready to open or keep building.
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>

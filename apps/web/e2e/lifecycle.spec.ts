@@ -180,7 +180,7 @@ test("a live-combatant character cannot be deleted", async ({ page }) => {
 /** Opens the delete dialog for the test character from its My Characters card. */
 async function openDeleteCharacterDialog(page: Page) {
   await page.goto("/")
-  const card = page.locator("[data-slot=item]").filter({ hasText: char.name })
+  const card = page.locator("[data-slot=card]").filter({ hasText: char.name })
   await card.getByRole("button", { name: `Actions for ${char.name}` }).click()
   await page.getByRole("menuitem", { name: "Delete" }).click()
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { MapTrifoldIcon } from "@phosphor-icons/react"
 import Link from "next/link"
 
 import { hasMasteryBonus } from "@workspace/game-v2/archetypes/archetype"
@@ -66,7 +67,11 @@ export function ArchetypesTab() {
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-3 px-5 py-4 lg:grid-cols-2">
       <div className="flex flex-col gap-3">
-        <ActiveArchetypeCard entry={activeEntry} origin={isOrigin} />
+        <ActiveArchetypeCard
+          entry={activeEntry}
+          origin={isOrigin}
+          shortId={profile.shortId}
+        />
         <MechanicCard archetype={activeEntry.archetype} />
       </div>
       <div className="flex flex-col gap-3">
@@ -103,28 +108,41 @@ function Panel({
 function ActiveArchetypeCard({
   entry,
   origin,
+  shortId,
 }: {
   entry: ArchetypeEntry
   origin: boolean
+  shortId: string
 }) {
   const { archetype, rank } = entry
   return (
     <Panel>
-      <ArchetypeDetailHeader
-        archetype={archetype}
-        rank={rank}
-        origin={origin}
-        trailing={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge>Active</Badge>
-            {hasMasteryBonus(rank) ? (
+      <div className="flex items-start justify-between gap-3">
+        <ArchetypeDetailHeader
+          archetype={archetype}
+          rank={rank}
+          origin={origin}
+          trailing={
+            hasMasteryBonus(rank) ? (
               <Badge variant="secondary">
                 Mastery · {formatMasteryDescription(archetype.mastery)}
               </Badge>
-            ) : null}
-          </div>
-        }
-      />
+            ) : null
+          }
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          nativeButton={false}
+          render={
+            <Link href={`/c/${shortId}/archetypes/atlas`}>
+              <MapTrifoldIcon weight="bold" />
+              Lineage Atlas
+            </Link>
+          }
+        />
+      </div>
       <DetailSection title="Attributes">
         <AttributesBlock attributes={archetype.attributes} />
       </DetailSection>

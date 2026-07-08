@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 
-import { type AtlasNodeState } from "@workspace/game/engine"
-import { type Archetype } from "@workspace/game/foundation"
+import { type Archetype } from "@workspace/game-v2/archetypes/archetype"
+import { type AtlasNodeState } from "@workspace/game-v2/archetypes/atlas"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,11 +17,7 @@ import {
 import { Button, ButtonProps } from "@workspace/ui/components/button"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
-import { useCharacterWrite } from "@/hooks/use-character"
-import {
-  rankUpArchetypeAction,
-  unlockArchetypeAction,
-} from "@/lib/actions/archetype-ranks"
+import { useEntityWrite } from "@/hooks/use-entity-write"
 
 const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
 
@@ -30,31 +26,30 @@ const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
  * flow shared by the detail panel and the recommendation slots. Its label and
  * behavior follow the node's {@link AtlasNodeState}:
  *
- * - `unlockable` → "Unlock for 1 Rank"
- * - `owned`      → "Rank up for 1 Rank"
+ * - `unlockable` → "Unlock"
+ * - `owned`      → "Rank up"
  * - `mastered`   → "Mastered" (inert)
  * - `locked`     → "Prerequisites not met" (inert)
  *
  * An actionable button still disables when no Saved Rank is available; the
- * {@link TooltipButton} surfaces the reason on hover/focus. The write goes
- * through the shared optimistic pipeline on the `spendArchetypeRank` surface,
- * so the card, sidebar count, and Saved-Ranks counter all re-render in the same
- * frame.
+ * {@link TooltipButton} surfaces the reason on hover/focus. Both cases dispatch
+ * the same `spendArchetypeRank` descriptor keyed by Archetype **key** (S3 —
+ * UNN-561): the Writer reads the roster and decides unlock-vs-rank-up. The
+ * optimistic frame re-folds, so the card, sidebar count, and Saved-Ranks
+ * counter all move in one frame.
  */
 export function ArchetypeActionButton({
   archetype,
   state,
-  characterArchetypeId,
   savedRanks,
   ...props
 }: {
   archetype: Archetype
   state: AtlasNodeState
-  characterArchetypeId: string | null
   savedRanks: number
 } & ButtonProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const { write, pending, characterId } = useCharacterWrite()
+  const { dispatch, pending } = useEntityWrite()
 
   if (state.kind === "mastered") {
     return (
@@ -78,31 +73,14 @@ export function ArchetypeActionButton({
   const noRanks = savedRanks <= 0
 
   function confirm() {
-    if (isUnlock) {
-      write({
-        edit: { kind: "unlockArchetype", archetypeKey: archetype.key },
-        surface: "spendArchetypeRank",
-        action: (expectedVersion) =>
-          unlockArchetypeAction({
-            characterId,
-            archetypeKey: archetype.key,
-            expectedVersion,
-          }),
-        messages: { error: `Couldn't unlock ${archetype.name}. Try again.` },
-      })
-    } else if (characterArchetypeId) {
-      write({
-        edit: { kind: "rankUpArchetype", characterArchetypeId },
-        surface: "spendArchetypeRank",
-        action: (expectedVersion) =>
-          rankUpArchetypeAction({
-            characterId,
-            characterArchetypeId,
-            expectedVersion,
-          }),
-        messages: { error: `Couldn't rank up ${archetype.name}. Try again.` },
-      })
-    }
+    dispatch(
+      {
+        component: "archetypes",
+        op: "spendArchetypeRank",
+        archetypeKey: archetype.key,
+      },
+      { messages: { error: `Couldn't ${verb} ${archetype.name}. Try again.` } }
+    )
     setConfirmOpen(false)
   }
 
@@ -130,9 +108,7 @@ export function ArchetypeActionButton({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirm}>
-              {isUnlock ? "Unlock" : "Rank up"}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirm}>{label}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

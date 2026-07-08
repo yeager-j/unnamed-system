@@ -257,6 +257,7 @@ describe("entityWriteSchema — the creation families (UNN-556)", () => {
       field: "title",
       value: "The debt",
     },
+    { component: "archetypes", op: "spendArchetypeRank", archetypeKey: "mage" },
   ])("accepts %j", (write) => {
     expect(entityWriteSchema.safeParse(write).success).toBe(true)
   })
@@ -358,6 +359,7 @@ describe("combatEntityWriteSchema — the encounter-wire subset (UNN-556)", () =
       idSeed: "0f37bd58-9f9a-4bb1-b34d-6f7f0e2f8f11",
     },
     { component: "equipment", op: "addCurrency", amount: 5 },
+    { component: "archetypes", op: "spendArchetypeRank", archetypeKey: "mage" },
   ])("rejects the character-only family %j", (write) => {
     expect(combatEntityWriteSchema.safeParse(write).success).toBe(false)
   })
@@ -738,6 +740,109 @@ describe("applyEntityWrite — inheritance slots (UNN-560)", () => {
         slotIndex: 0,
         sourceArchetypeKey: "mage",
         skillKey: "agi",
+      }
+    )
+    expect(result).toEqual({ ok: false, error: "capability-missing" })
+  })
+})
+
+describe("applyEntityWrite — spend archetype rank (UNN-561)", () => {
+  // A Warrior origin at Rank 4 with Ranks to spend and nothing else unlocked.
+  function warriorBoard(savedArchetypeRanks = 3) {
+    return {
+      archetypes: {
+        active: "warrior",
+        origin: "warrior",
+        savedArchetypeRanks,
+        roster: [{ key: "warrior", rank: 4, inheritanceSlots: [] }],
+      },
+    }
+  }
+
+  it("unlocks an un-owned prereq-free Archetype at Rank 1, spending a Rank", () => {
+    const result = applyEntityWrite(warriorBoard(), {
+      component: "archetypes",
+      op: "spendArchetypeRank",
+      archetypeKey: "mage",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          active: "warrior",
+          origin: "warrior",
+          savedArchetypeRanks: 2,
+          roster: [
+            { key: "warrior", rank: 4, inheritanceSlots: [] },
+            { key: "mage", rank: 1, inheritanceSlots: [] },
+          ],
+        },
+      },
+    })
+  })
+
+  it("ranks up an owned Archetype into Mastery (Rank 4 → 5), spending a Rank", () => {
+    const result = applyEntityWrite(warriorBoard(), {
+      component: "archetypes",
+      op: "spendArchetypeRank",
+      archetypeKey: "warrior",
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          active: "warrior",
+          origin: "warrior",
+          savedArchetypeRanks: 2,
+          roster: [{ key: "warrior", rank: 5, inheritanceSlots: [] }],
+        },
+      },
+    })
+  })
+
+  it("refuses with no Saved Ranks to spend (no-saved-ranks)", () => {
+    const result = applyEntityWrite(warriorBoard(0), {
+      component: "archetypes",
+      op: "spendArchetypeRank",
+      archetypeKey: "mage",
+    })
+    expect(result).toEqual({ ok: false, error: "no-saved-ranks" })
+  })
+
+  it("refuses to unlock an Archetype with unmet prerequisites (prerequisites-not-met)", () => {
+    // Elemental Thief requires Thief at Rank 5, which this board never owned.
+    const result = applyEntityWrite(warriorBoard(), {
+      component: "archetypes",
+      op: "spendArchetypeRank",
+      archetypeKey: "elemental-thief",
+    })
+    expect(result).toEqual({ ok: false, error: "prerequisites-not-met" })
+  })
+
+  it("refuses to rank up an Archetype already at Mastery (rank-capped)", () => {
+    const board = {
+      archetypes: {
+        active: "warrior",
+        origin: "warrior",
+        savedArchetypeRanks: 3,
+        roster: [{ key: "warrior", rank: 5, inheritanceSlots: [] }],
+      },
+    }
+    const result = applyEntityWrite(board, {
+      component: "archetypes",
+      op: "spendArchetypeRank",
+      archetypeKey: "warrior",
+    })
+    expect(result).toEqual({ ok: false, error: "rank-capped" })
+  })
+
+  it("refuses without the archetypes component (capability-missing)", () => {
+    const result = applyEntityWrite(
+      {},
+      {
+        component: "archetypes",
+        op: "spendArchetypeRank",
+        archetypeKey: "mage",
       }
     )
     expect(result).toEqual({ ok: false, error: "capability-missing" })

@@ -1,5 +1,5 @@
-import { type AtlasRecommendation } from "@workspace/game/engine"
-import { type PathChoice } from "@workspace/game/foundation"
+import { type AtlasRecommendation } from "@workspace/game-v2/archetypes/atlas"
+import { type PathChoice } from "@workspace/game-v2/kernel/vocab"
 
 import {
   LINEAGE_DISPLAY,
@@ -70,7 +70,7 @@ function RecommendationCard({
   recommendation: AtlasRecommendation
   savedRanks: number
 }) {
-  const { archetype, state, characterArchetypeId, reason } = recommendation
+  const { archetype, state, reason } = recommendation
   const reasonDisplay = RECOMMENDATION_REASON_DISPLAY[reason]
   const ReasonIcon = RECOMMENDATION_REASON_ICONS[reasonDisplay.icon]
   const display = LINEAGE_DISPLAY[recommendation.archetype.lineage]
@@ -98,7 +98,6 @@ function RecommendationCard({
         variant="secondary"
         archetype={archetype}
         state={state}
-        characterArchetypeId={characterArchetypeId}
         savedRanks={savedRanks}
         size="sm"
       />

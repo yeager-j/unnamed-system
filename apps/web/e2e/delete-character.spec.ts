@@ -36,7 +36,7 @@ test.afterAll(async () => {
 async function openDeleteDialog(page: import("@playwright/test").Page) {
   await page.goto("/")
   const card = page
-    .locator('[data-slot="item"]')
+    .locator('[data-slot="card"]')
     .filter({ hasText: target.name })
   await card.getByRole("button", { name: `Actions for ${target.name}` }).click()
   await page.getByRole("menuitem", { name: "Delete" }).click()
@@ -99,7 +99,7 @@ test.describe("delete character — happy path", () => {
 
     // The card disappears from the roster after `router.refresh()` lands.
     await expect(
-      page.locator('[data-slot="item"]').filter({ hasText: target.name })
+      page.locator('[data-slot="card"]').filter({ hasText: target.name })
     ).toHaveCount(0)
     await expect(page.getByRole("alertdialog")).toHaveCount(0)
 

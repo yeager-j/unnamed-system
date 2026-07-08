@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react"
 
-import { type AtlasLineage } from "@workspace/game/engine"
+import { type AtlasLineage } from "@workspace/game-v2/archetypes/atlas"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
