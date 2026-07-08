@@ -12,7 +12,7 @@ import { NotesCard } from "./notes-card"
  */
 export function JournalTab() {
   return (
-    <div className="flex flex-col gap-3 px-5 py-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 py-4">
       <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
         <BeatsCard list="knives" />
         <BeatsCard list="chains" />
