@@ -1,6 +1,6 @@
 import { ArrowFatLineUpIcon, PathIcon } from "@phosphor-icons/react"
 
-import { type PathChoice } from "@workspace/game/foundation"
+import { type PathChoice } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"

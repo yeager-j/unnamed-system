@@ -1,6 +1,11 @@
 "use server"
 
+import { forbidden } from "next/navigation"
+
 import { type Result } from "@workspace/game-v2/kernel/result"
+
+import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
+import { auth } from "@/lib/auth"
 
 import {
   ApplyEntityWriteSchema,
@@ -29,6 +34,21 @@ export async function applyEntityWriteAction(
 ): Promise<Result<EntityCommit, ApplyEntityWriteError>> {
   const parsed = ApplyEntityWriteSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: "invalid-input" }
+
+  // Spending a Rank on a restricted Archetype is the one write whose legality
+  // depends on the viewer's identity, not just the stored state: the pure
+  // Writer is catalog-only (it runs on the optimistic client too), so the
+  // per-user allowlist gate that keeps a gated Archetype out of a non-
+  // allowlisted viewer's Atlas is re-enforced here at the door.
+  const { write } = parsed.data
+  if (write.component === "archetypes" && write.op === "spendArchetypeRank") {
+    const session = await auth()
+    if (
+      hiddenArchetypeKeysFor(session?.user?.email).includes(write.archetypeKey)
+    ) {
+      forbidden()
+    }
+  }
 
   const result = await commitEntityWrite(
     parsed.data.entityId,

@@ -1,7 +1,5 @@
 import type { Metadata } from "next"
 
-import { ItemGroup } from "@workspace/ui/components/item"
-
 import { CharacterCard } from "@/components/my-characters/character-card"
 import { CreateCharacterButton } from "@/components/my-characters/create-character-button"
 import { EmptyCharacters } from "@/components/my-characters/empty-state"
@@ -43,11 +41,16 @@ export default async function MyCharactersPage() {
       {characters.length === 0 ? (
         <EmptyCharacters />
       ) : (
-        <ItemGroup className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul
+          role="list"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {characters.map((character) => (
-            <CharacterCard key={character.id} character={character} />
+            <li key={character.id}>
+              <CharacterCard character={character} />
+            </li>
           ))}
-        </ItemGroup>
+        </ul>
       )}
     </main>
   )

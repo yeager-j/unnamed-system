@@ -71,6 +71,8 @@ export function combatErrorMessage(
     case "log-not-full":
     case "virtue-not-eligible":
     case "rank-capped":
+    case "no-saved-ranks":
+    case "prerequisites-not-met":
     case "item-not-found":
     case "catalog-item-unknown":
     case "invalid-quantity":

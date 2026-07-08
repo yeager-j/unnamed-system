@@ -58,10 +58,11 @@ export function CharacterCardActions({
 
   return (
     <>
-      <ButtonGroup>
+      <ButtonGroup className="w-full">
         <Button
           variant="outline"
           size="sm"
+          className="flex-1"
           nativeButton={false}
           render={<Link href={href} />}
         >

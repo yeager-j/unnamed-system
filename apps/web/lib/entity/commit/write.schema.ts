@@ -183,6 +183,20 @@ const archetypesSetSlotArm = z.object({
   skillKey: z.string().min(1).nullable(),
 })
 
+/**
+ * Spending one Saved Archetype Rank on `archetypeKey` (the Lineage Atlas, S3 —
+ * UNN-561). One op for both unlock and rank-up: the roster is the source of
+ * truth for owned-ness, so the Writer decides — an un-owned key unlocks it at
+ * Rank 1 (prerequisites permitting), an owned key ranks it up toward Mastery.
+ * The restricted-Archetype allowlist is re-checked server-side at the entity
+ * door (the pure Writer is catalog-only and runs on the client too).
+ */
+const archetypesSpendRankArm = z.object({
+  component: z.literal("archetypes"),
+  op: z.literal("spendArchetypeRank"),
+  archetypeKey: z.string().min(1),
+})
+
 /** Whole-list replace of the player-added Talents (open-string keys, v2). */
 const talentsArm = z
   .object({
@@ -341,6 +355,7 @@ export const entityWriteSchema = z.union([
   archetypesOriginArm,
   archetypesSetActiveArm,
   archetypesSetSlotArm,
+  archetypesSpendRankArm,
   talentsArm,
   talentsAddArm,
   talentsRemoveArm,

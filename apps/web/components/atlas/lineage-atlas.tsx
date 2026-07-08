@@ -8,14 +8,18 @@ import {
   filterAtlasLineagesToUnlocked,
   type AtlasLineage,
   type AtlasNode,
-} from "@workspace/game/engine"
+} from "@workspace/game-v2/archetypes/atlas"
+import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useCharacter } from "@/hooks/use-character"
-import { buildLineageAtlas, getAtlasRecommendations } from "@/lib/game-engine"
+import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  buildLineageAtlas,
+  getAtlasRecommendations,
+} from "@/lib/game-engine-v2"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"
 import { AtlasSidebar } from "./atlas-sidebar"
@@ -53,8 +57,16 @@ export function LineageAtlas({
 }: {
   hiddenArchetypeKeys?: readonly string[]
 }) {
-  const character = useCharacter()
-  const view = buildLineageAtlas(character, { hiddenArchetypeKeys })
+  const { profile, entity, resolved } = useLoadedCharacter()
+  const view = buildLineageAtlas(resolved, { hiddenArchetypeKeys })
+  const pathChoice = entity.components.path?.choice ?? "balanced"
+  const level = entity.components.level?.value ?? 1
+  const attributes: AttributeScores = resolved.components.attributes ?? {
+    strength: 0,
+    magic: 0,
+    agility: 0,
+    luck: 0,
+  }
 
   const [selectedLineage, setSelectedLineage] = useState<string>(
     () =>
@@ -80,7 +92,7 @@ export function LineageAtlas({
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">
         <Link
-          href={`/c/${character.shortId}`}
+          href={`/c/${profile.shortId}`}
           className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon aria-hidden /> Back to sheet
@@ -92,16 +104,12 @@ export function LineageAtlas({
         <RanksHeader
           savedRanks={view.savedRanks}
           unlockedCount={view.unlockedCount}
-          pathChoice={character.pathChoice}
+          pathChoice={pathChoice}
         />
 
         <RecommendationSlots
-          recommendations={getAtlasRecommendations(
-            view,
-            character.pathChoice,
-            character.level
-          )}
-          pathChoice={character.pathChoice}
+          recommendations={getAtlasRecommendations(view, pathChoice, level)}
+          pathChoice={pathChoice}
           savedRanks={view.savedRanks}
         />
 
@@ -142,8 +150,8 @@ export function LineageAtlas({
       <ArchetypeDetailPanel
         node={selectedNode}
         savedRanks={view.savedRanks}
-        attributes={character.attributes}
-        pathChoice={character.pathChoice}
+        attributes={attributes}
+        pathChoice={pathChoice}
         onClose={() => setSelectedKey(null)}
       />
     </main>

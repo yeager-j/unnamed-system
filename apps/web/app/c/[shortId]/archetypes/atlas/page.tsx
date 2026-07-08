@@ -4,11 +4,11 @@ import { notFound, redirect } from "next/navigation"
 import { LineageAtlas } from "@/components/atlas/lineage-atlas"
 import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
-import { CharacterProvider } from "@/hooks/use-character"
+import { EntityWriteProvider } from "@/hooks/use-entity-write"
 import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
 import { auth } from "@/lib/auth"
 import { getViewerRole } from "@/lib/auth/viewer-role"
-import { loadHydratedCharacterByShortId } from "@/lib/db/queries/load-character"
+import { loadCharacterByShortId } from "@/lib/character/load"
 
 /**
  * The Lineage Atlas (UNN-239) — the *growth* surface for spending Saved
@@ -35,17 +35,19 @@ export const metadata: Metadata = {
 
 export default async function LineageAtlasPage({ params }: PageProps) {
   const { shortId } = await params
-  const character = await loadHydratedCharacterByShortId(shortId)
+  const loaded = await loadCharacterByShortId(shortId)
 
-  if (!character) {
+  if (!loaded) {
     notFound()
   }
 
-  const role = await getViewerRole(character)
+  const role = await getViewerRole(loaded.profile)
 
-  if (character.status === "draft") {
+  if (loaded.profile.status === "draft") {
     if (role === "owner") {
-      redirect(`/builder/${shortId}/${slugForStepIndex(character.builderStep)}`)
+      redirect(
+        `/builder/${shortId}/${slugForStepIndex(loaded.profile.builderStep)}`
+      )
     }
     redirect(`/c/${shortId}`)
   }
@@ -55,9 +57,9 @@ export default async function LineageAtlasPage({ params }: PageProps) {
 
   return (
     <ViewerRoleProvider role={role}>
-      <CharacterProvider character={character}>
+      <EntityWriteProvider loaded={loaded}>
         <LineageAtlas hiddenArchetypeKeys={hiddenArchetypeKeys} />
-      </CharacterProvider>
+      </EntityWriteProvider>
     </ViewerRoleProvider>
   )
 }

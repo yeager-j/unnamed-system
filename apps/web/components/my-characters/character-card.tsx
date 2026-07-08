@@ -1,21 +1,26 @@
-import Image from "next/image"
-
-import { archetypeDisplayName } from "@workspace/game/data"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
+  Card,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardMedia,
+  CardTitle,
+} from "@workspace/ui/components/card"
 
 import {
   BUILDER_STEPS,
   slugForStepIndex,
 } from "@/components/builder/builder-steps"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
+import { getArchetype } from "@/lib/game-engine-v2"
+import { initials } from "@/lib/ui/initials"
+import { LINEAGE_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CharacterCardActions } from "./character-card-actions"
@@ -25,17 +30,15 @@ interface CharacterCardProps {
 }
 
 /**
- * One tile in the My Characters grid. Renders as an `Item` row so the portrait
- * sits beside the name + level rather than dominating a tall card — a roster
- * of rows with the at-a-glance details right next to the face. Trailing
- * actions are the split button (Open + the action menu).
+ * One tile in the My Characters grid (S3 — UNN-561): a {@link Card} with the
+ * portrait as a leading {@link CardMedia} avatar beside the name + at-a-glance
+ * details, and the Open/Resume split button anchored in the footer.
  *
- * Drafts (UNN-204) appear in the same grid with a "Draft" badge, an
- * `"In progress · Step N of M"` subtitle, and a primary CTA that routes
- * back into the builder instead of opening the public sheet. A draft whose
- * name field is empty (per ADR-002 name-last) renders as "New draft" with
- * a generic avatar seed — a follow-on ticket will synthesize a richer label
- * (e.g. "Stains Mage draft") from the picked Path + Origin.
+ * Drafts (UNN-204) share the grid with a "Draft" badge, an
+ * `"In progress · Step N of M"` subtitle, and a primary CTA that routes back
+ * into the builder rather than the public sheet. A draft whose name is empty
+ * (ADR-002 name-last) renders as "New draft" with a generic avatar seed until
+ * the player names them in Movement 4.
  */
 export function CharacterCard({ character }: CharacterCardProps) {
   const isDraft = character.status === "draft"
@@ -46,24 +49,31 @@ export function CharacterCard({ character }: CharacterCardProps) {
   const displayName = displayNameFor(character)
 
   return (
-    <Item variant="outline">
-      <ItemMedia variant="image">
-        <Image
-          width={64}
-          height={64}
-          className="object-cover"
-          src={avatarSrc(
-            character.portraitUrl,
-            character.name.trim() || character.shortId
-          )}
-          alt=""
-        />
-      </ItemMedia>
-      <ItemContent>
-        <ItemTitle className="flex items-center gap-2">{displayName}</ItemTitle>
-        <ItemDescription>{describe(character)}</ItemDescription>
-      </ItemContent>
-      <ItemActions>
+    <Card size="sm" className="h-full justify-between">
+      <CardHeader>
+        <CardMedia>
+          <Avatar size="lg">
+            <AvatarImage
+              src={avatarSrc(
+                character.portraitUrl,
+                character.name.trim() || character.shortId
+              )}
+              alt=""
+            />
+            <AvatarFallback>{initials(displayName)}</AvatarFallback>
+          </Avatar>
+        </CardMedia>
+        <CardTitle className="flex items-center gap-2">
+          {displayName}
+          {isDraft ? (
+            <Badge variant="secondary" className="font-normal">
+              Draft
+            </Badge>
+          ) : null}
+        </CardTitle>
+        <CardDescription>{describe(character)}</CardDescription>
+      </CardHeader>
+      <CardFooter>
         <CharacterCardActions
           characterId={character.id}
           name={character.name}
@@ -71,8 +81,8 @@ export function CharacterCard({ character }: CharacterCardProps) {
           href={href}
           primaryLabel={primaryLabel}
         />
-      </ItemActions>
-    </Item>
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -87,10 +97,18 @@ function displayNameFor(character: CharacterSummary): string {
   return "New draft"
 }
 
+/**
+ * The at-a-glance subtitle: a draft's progress through the builder, or a
+ * finalized character's level and active Archetype Lineage.
+ */
 function describe(character: CharacterSummary): string {
   if (character.status === "draft") {
     const stepNumber = Math.min(character.builderStep + 1, BUILDER_STEPS.length)
-    return `Step ${stepNumber} of ${BUILDER_STEPS.length}`
+    return `In progress · Step ${stepNumber} of ${BUILDER_STEPS.length}`
   }
-  return `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`
+  const archetype = character.activeArchetypeKey
+    ? getArchetype(character.activeArchetypeKey)
+    : undefined
+  const lineage = archetype ? LINEAGE_LABELS[archetype.lineage] : "Adventurer"
+  return `Level ${character.level} · ${lineage}`
 }

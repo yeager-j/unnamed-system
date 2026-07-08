@@ -37,6 +37,10 @@ export const {
   getArchetypeDisplay,
   buildArchetypeEntries,
   archetypeSwitcherGroups,
+  // The Lineage Atlas growth surface (S3 — UNN-561): the tree/state shaper and
+  // the Path-aware recommendation picker, both bound to the catalog here.
+  buildLineageAtlas,
+  getAtlasRecommendations,
   // The sheet's Talents card (S2b — UNN-558).
   resolveTalentsForSheet,
   // The sheet's Inventory tab (S2c — UNN-559): the display shaper + the

@@ -12,8 +12,10 @@ import "server-only"
  * Two consumers:
  *  - the Atlas page computes {@link hiddenArchetypeKeysFor} for the viewer and
  *    passes the keys to `buildLineageAtlas`, which drops them from the tree;
- *  - `unlockArchetypeAction` calls {@link isArchetypeAllowedFor} to reject an
- *    unlock of a restricted Archetype by a non-allowlisted owner.
+ *  - the entity door (`applyEntityWriteAction`) re-checks
+ *    {@link hiddenArchetypeKeysFor} before a `spendArchetypeRank` write, so a
+ *    tampered request cannot unlock a restricted Archetype the viewer may not
+ *    see (the pure Writer is catalog-only and runs on the client too).
  *
  * Server-only: it reads `process.env`, so it must never reach the client bundle
  * (the Atlas client component receives the resolved key list as a prop).

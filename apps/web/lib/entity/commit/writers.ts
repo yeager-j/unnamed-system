@@ -1,4 +1,6 @@
+import { MASTERY_RANK } from "@workspace/game-v2/archetypes/archetype"
 import type { InheritanceSlot } from "@workspace/game-v2/archetypes/archetypes.schema"
+import { unmetPrerequisites } from "@workspace/game-v2/archetypes/atlas"
 import { ORIGIN_ARCHETYPE_RANK } from "@workspace/game-v2/archetypes/creation"
 import { isInheritableSkill } from "@workspace/game-v2/archetypes/inheritance"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
@@ -95,6 +97,8 @@ export type EntityWriteRefusal =
   | "log-not-full"
   | "virtue-not-eligible"
   | "rank-capped"
+  | "no-saved-ranks"
+  | "prerequisites-not-met"
   | InventoryWriteRefusal
 
 /**
@@ -464,6 +468,53 @@ export const ENTITY_WRITERS: WriterMap = {
               roster: archetypes.roster.map((entry) =>
                 entry.key === write.archetypeKey
                   ? { ...entry, inheritanceSlots: nextSlots }
+                  : entry
+              ),
+            },
+          })
+        }
+        case "spendArchetypeRank": {
+          const archetypes = components.archetypes
+          if (archetypes === undefined) return err("capability-missing")
+          if (archetypes.savedArchetypeRanks <= 0) {
+            return err("no-saved-ranks")
+          }
+
+          const owned = archetypes.roster.find(
+            (entry) => entry.key === write.archetypeKey
+          )
+
+          // Un-owned key ⇒ unlock at Rank 1, prerequisites permitting. Owned ⇒
+          // rank up toward Mastery. One op; the roster decides which (rule #9).
+          if (owned === undefined) {
+            const archetype = getArchetype(write.archetypeKey)
+            if (archetype === undefined) return err("invalid-input")
+            const ownedRankByKey = new Map(
+              archetypes.roster.map((entry) => [entry.key, entry.rank])
+            )
+            if (unmetPrerequisites(archetype, ownedRankByKey).length > 0) {
+              return err("prerequisites-not-met")
+            }
+            return ok({
+              archetypes: {
+                ...archetypes,
+                savedArchetypeRanks: archetypes.savedArchetypeRanks - 1,
+                roster: [
+                  ...archetypes.roster,
+                  { key: write.archetypeKey, rank: 1, inheritanceSlots: [] },
+                ],
+              },
+            })
+          }
+
+          if (owned.rank >= MASTERY_RANK) return err("rank-capped")
+          return ok({
+            archetypes: {
+              ...archetypes,
+              savedArchetypeRanks: archetypes.savedArchetypeRanks - 1,
+              roster: archetypes.roster.map((entry) =>
+                entry.key === write.archetypeKey
+                  ? { ...entry, rank: entry.rank + 1 }
                   : entry
               ),
             },
