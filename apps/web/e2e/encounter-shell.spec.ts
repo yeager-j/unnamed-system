@@ -1,4 +1,9 @@
-import { expect, test, type APIRequestContext } from "@playwright/test"
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test"
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
@@ -36,6 +41,18 @@ test.beforeEach(async () => {
 })
 
 const PLACED_PC_NAME = encounterTarget.placedPc.seed.name
+
+/**
+ * The combatant drawer, scoped to the sheet element. The drawer's "Adjust HP/SP"
+ * control is itself a `role="dialog"` popover, so an unscoped `getByRole("dialog")`
+ * matches two elements while that popover is mid-exit-animation (a strict-mode
+ * race). Filtering to `data-slot="sheet-content"` pins the locator to the sheet.
+ */
+function combatantDrawer(page: Page) {
+  return page
+    .getByRole("dialog")
+    .and(page.locator('[data-slot="sheet-content"]'))
+}
 
 test("create → import a placed PC → Start → live console", async ({ page }) => {
   // A multi-write journey (create → roster add → status flip): triple the
@@ -144,7 +161,7 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
   // inline goblin must SUM — the second predicts off the current optimistic
   // frame, never a stale closure. Only the DB knows the persisted truth.
   await page.getByRole("button", { name: "Open Goblin detail" }).click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
   for (let hit = 0; hit < 2; hit++) {
     await drawer.getByRole("button", { name: "Adjust HP", exact: true }).click()
     await page.getByLabel("Amount").fill("3")
@@ -372,7 +389,7 @@ test("rail row opens the PC detail drawer (UNN-345)", async ({ page }) => {
   await expect(page.getByText("Enemies · 2")).toBeVisible()
 
   await page.getByRole("button", { name: "Open Roan Vale detail" }).click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
   await expect(drawer.getByText("Attributes")).toBeVisible()
   await expect(drawer.getByText("Affinities")).toBeVisible()
   // PC vitals are writable again on v2 (UNN-535 supersedes UNN-482's read-only
@@ -393,7 +410,7 @@ test("rail row opens an enemy detail drawer (UNN-345)", async ({ page }) => {
   // renders by capability, so the Affinities section is structurally absent
   // (snapshot, not poll — the desirable state is "absent").
   await page.getByRole("button", { name: "Open Cave Bat detail" }).click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
   await expect(
     drawer.getByText(/Edits affect this enemy in this encounter only/)
   ).toBeVisible()
@@ -412,7 +429,7 @@ test("enemy HP adjust drives the bar down to a Dead badge (UNN-309)", async ({
   await expect(caveBat).toContainText("8/8")
 
   await caveBat.click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
   await drawer.getByRole("button", { name: "Adjust HP", exact: true }).click()
   await page.getByLabel("Amount").fill("9")
   await page.getByRole("button", { name: "Take damage" }).click()
@@ -431,7 +448,7 @@ test("catalog enemy HP is adjustable on its inline entity (UNN-309/535)", async 
   // drawer's controls are live and read the depleted pool back.
   await page.goto(encounterTarget.live.url)
   await page.getByRole("button", { name: "Open Goblin detail" }).click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
 
   const adjustHp = drawer.getByRole("button", {
     name: "Adjust HP",
@@ -454,7 +471,7 @@ test("drawer edits session-overlay ailments + action economy (UNN-310)", async (
   // perturb the (serial) turn-flow tests.
   await page.goto(encounterTarget.live.url)
   await page.getByRole("button", { name: "Open Goblin detail" }).click()
-  const drawer = page.getByRole("dialog")
+  const drawer = combatantDrawer(page)
 
   // Action economy: Reaction toggles from available to used.
   await drawer.getByRole("button", { name: "Reaction available" }).click()
