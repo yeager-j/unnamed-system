@@ -392,6 +392,18 @@ export const COMBAT_ADVANTAGE_SETUP_LABELS: Record<CombatAdvantage, string> = {
   enemies: "Enemies ambush",
 }
 
+/** Heading for the opening-advantage picker rendered as a segmented control. */
+export const COMBAT_AMBUSH_HEADING = "Who ambushes?"
+
+/** The same options as a segmented control, where the group's own label carries
+ *  the noun and each item only names the side that gets the jump. */
+export const COMBAT_ADVANTAGE_COMPACT_LABELS: Record<CombatAdvantage, string> =
+  {
+    players: "Players",
+    neutral: "Neither",
+    enemies: "Enemies",
+  }
+
 export const COMBAT_ADVANTAGE_SETUP_HINTS: Record<CombatAdvantage, string> = {
   players: "Players take all their opening turns before the enemies act.",
   neutral: "Standard alternating order — the highest-Agility side leads.",

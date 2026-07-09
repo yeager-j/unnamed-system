@@ -8,7 +8,8 @@ import { cleanup, createTracker } from "./fixtures/factory"
  * E2E for the dungeon combat cutover (UNN-536, PR11c) — the delve's full combat
  * phase on engine v2. Signed in as the dev user (DM of the ephemeral campaign), it
  * drives the shipped flow end-to-end: from exploration, **Start an encounter**
- * (stage an enemy → Begin) mints a live encounter on the delve's shared Instance;
+ * opens the shared bestiary staging route (UNN-541) where queueing a creature and
+ * hitting Begin mints a live encounter on the delve's shared Instance;
  * **End encounter** prunes the fight and advances the delve turn. Every assertion
  * reads the persisted round-trip **through the DB** (per e2e/CLAUDE.md — a Server
  * Action + `revalidatePath` write isn't settled at `networkidle`), so it locks the
@@ -41,15 +42,28 @@ test("runs a delve's full combat phase: begin → end, atomic + PC in place", as
   expect(await target.getLiveEncounter()).toBeNull()
   expect(await target.getDungeonTurn()).toBe(0)
 
-  // Start an encounter — stage one enemy onto a zone, then Begin.
+  // Start an encounter — browse the shared bestiary (UNN-541), drop one creature
+  // into the delve's first zone, then Begin.
   await page.getByRole("button", { name: "Start an encounter" }).click()
-  const dialog = page.getByRole("dialog", { name: "Start an encounter" })
-  await expect(dialog).toBeVisible()
+  await expect(page).toHaveURL(
+    new RegExp(`/dungeon/${target.dungeon.shortId}/encounter$`)
+  )
 
-  await dialog.getByRole("combobox").first().click()
-  await page.getByRole("option").first().click()
-  await dialog.getByRole("button", { name: "Stage enemy" }).click()
-  await dialog.getByRole("button", { name: "Begin encounter" }).click()
+  await page
+    .getByRole("textbox", { name: "Search the bestiary" })
+    .fill("Goblin")
+  await page
+    .getByRole("button", { name: "Queue Goblin", exact: true })
+    .first()
+    .click()
+  await expect(
+    page.getByRole("button", { name: /^Remove Goblin in .* from queue$/ })
+  ).toBeVisible()
+
+  await page.getByRole("button", { name: "Begin encounter" }).click()
+  await expect(page).toHaveURL(
+    new RegExp(`/dungeon/${target.dungeon.shortId}$`)
+  )
 
   // The mint is a Server-Action write; poll the DB, not networkidle.
   await expect.poll(async () => await target.getLiveEncounter()).not.toBeNull()
