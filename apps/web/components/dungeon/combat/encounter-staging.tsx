@@ -95,6 +95,21 @@ export function DungeonEncounterStaging({
 
   const backHref = `/dungeon/${shortId}`
 
+  /** The list's `+` can't disable itself — the panel is queue-blind by design — so
+   *  an add onto a full group says why it did nothing rather than no-opping. */
+  function stage(enemyKey: string) {
+    const group = staged.find(
+      (entry) => entry.enemyKey === enemyKey && entry.zoneId === dropZoneId
+    )
+    if (group && group.count >= queue.maxCount) {
+      toast.warning(
+        `${enemyName(enemyKey)} is capped at ${queue.maxCount} per zone.`
+      )
+      return
+    }
+    queue.add(enemyKey, dropZoneId)
+  }
+
   function returnToConsole() {
     queue.clear()
     router.push(backHref)
@@ -159,7 +174,7 @@ export function DungeonEncounterStaging({
       </header>
 
       <EnemyCatalogPanel
-        onAdd={(enemyKey) => queue.add(enemyKey, dropZoneId)}
+        onAdd={stage}
         rail={
           <EnemyQueueRail
             items={staged.map((entry) => ({
@@ -181,6 +196,7 @@ export function DungeonEncounterStaging({
             totalCount={stagedCount}
             isPending={isPending}
             commitLabel="Begin encounter"
+            maxCount={queue.maxCount}
             headerAccessory={
               <ZoneSelect
                 value={dropZoneId}

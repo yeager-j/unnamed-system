@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import { MAX_STAGED_ENEMY_COUNT } from "@/lib/actions/dungeon/start-encounter.schema"
+
 import {
   addEntry,
   removeEntry,
@@ -8,6 +10,7 @@ import {
   type StagedEnemyEntry,
 } from "./staged-enemy-queue"
 import {
+  capEntryCounts,
   moveEntryZone,
   type DungeonStagedEnemy,
 } from "./use-dungeon-enemy-queue"
@@ -112,5 +115,41 @@ describe("the delve queue's enemy × zone identity", () => {
     ]
 
     expect(moveEntryZone(entries, "wraith::hall", "hall")).toBe(entries)
+  })
+})
+
+describe("the delve queue's per-group ceiling", () => {
+  it("holds a group at the count the start-encounter wire accepts", () => {
+    const queued = capEntryCounts([
+      { enemyKey: "goblin", zoneId: "entry", count: 21 },
+    ])
+
+    expect(queued).toEqual([
+      { enemyKey: "goblin", zoneId: "entry", count: MAX_STAGED_ENEMY_COUNT },
+    ])
+  })
+
+  it("caps a merge that would push two groups past the ceiling", () => {
+    const merged = moveEntryZone(
+      [
+        { enemyKey: "goblin", zoneId: "entry", count: 15 },
+        { enemyKey: "goblin", zoneId: "hall", count: 12 },
+      ],
+      "goblin::entry",
+      "hall"
+    )
+
+    expect(merged).toEqual([{ enemyKey: "goblin", zoneId: "hall", count: 27 }])
+    expect(capEntryCounts(merged)).toEqual([
+      { enemyKey: "goblin", zoneId: "hall", count: MAX_STAGED_ENEMY_COUNT },
+    ])
+  })
+
+  it("leaves a queue already within the ceiling untouched", () => {
+    const queued: DungeonStagedEnemy[] = [
+      { enemyKey: "goblin", zoneId: "entry", count: MAX_STAGED_ENEMY_COUNT },
+    ]
+
+    expect(capEntryCounts(queued)).toEqual(queued)
   })
 })

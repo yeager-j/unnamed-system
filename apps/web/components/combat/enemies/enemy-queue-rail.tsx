@@ -36,6 +36,10 @@ export interface QueuedEnemyItem {
   detail?: ReactNode
 }
 
+/** No per-group ceiling: the mapless commit (`addCatalogEnemiesAction`) takes any
+ *  positive count, so its stepper never disables. */
+const UNCAPPED = Number.POSITIVE_INFINITY
+
 /**
  * The "Queued enemies" staging rail (UNN-346): the local cart the DM builds
  * before committing. Shows each queued group with a quantity stepper + remove,
@@ -46,12 +50,16 @@ export interface QueuedEnemyItem {
  * `headerAccessory` and `children` are the two consumer slots (UNN-541): the
  * delve hangs its "drop into" zone select off the header and its advantage /
  * first-side controls above the commit button, so both surfaces share one cart.
+ * `maxCount` is the per-group ceiling its commit's wire enforces, if any — the
+ * steppers disable there rather than letting the DM build a batch that Begin
+ * would reject.
  */
 export function EnemyQueueRail({
   items,
   totalCount,
   isPending,
   commitLabel = "Add to encounter",
+  maxCount = UNCAPPED,
   headerAccessory,
   children,
   onIncrement,
@@ -64,6 +72,7 @@ export function EnemyQueueRail({
   totalCount: number
   isPending: boolean
   commitLabel?: string
+  maxCount?: number
   headerAccessory?: ReactNode
   children?: ReactNode
   onIncrement: (id: string) => void
@@ -102,6 +111,7 @@ export function EnemyQueueRail({
               <QueuedEnemyRow
                 key={item.id}
                 item={item}
+                atMax={item.count >= maxCount}
                 onIncrement={() => onIncrement(item.id)}
                 onDecrement={() => onDecrement(item.id)}
                 onRemove={() => onRemove(item.id)}
@@ -140,11 +150,13 @@ export function EnemyQueueRail({
 
 function QueuedEnemyRow({
   item,
+  atMax,
   onIncrement,
   onDecrement,
   onRemove,
 }: {
   item: QueuedEnemyItem
+  atMax: boolean
   onIncrement: () => void
   onDecrement: () => void
   onRemove: () => void
@@ -174,6 +186,7 @@ function QueuedEnemyRow({
             size="icon-sm"
             variant="ghost"
             aria-label={`Add one ${label}`}
+            disabled={atMax}
             onClick={onIncrement}
           >
             <PlusIcon weight="bold" />
