@@ -7,6 +7,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import { getEnemy } from "@workspace/game-v2/catalog/enemies"
+import { resolveFirstSide } from "@workspace/game-v2/encounter"
 import type {
   CombatAdvantage,
   CombatSide,
@@ -84,7 +85,8 @@ export function DungeonEncounterStaging({
 
   const [dropZoneId, setDropZoneId] = useState(() => zones[0]?.id ?? "")
   const [advantage, setAdvantage] = useState<CombatAdvantage>("neutral")
-  const [firstSide, setFirstSide] = useState<CombatSide>("players")
+  const [neutralFirstSide, setNeutralFirstSide] =
+    useState<CombatSide>("players")
 
   const zoneNameById = new Map(zones.map((zone) => [zone.id, zone.name]))
   // A zone the DM deleted while the queue sat in localStorage stages nothing.
@@ -105,7 +107,7 @@ export function DungeonEncounterStaging({
         expectedInstanceVersion,
         name: dungeonName.trim() || "Encounter",
         advantage,
-        firstSide: advantage === "neutral" ? firstSide : advantage,
+        firstSide: resolveFirstSide(advantage, neutralFirstSide),
         partyCharacterIds,
         enemies: staged,
       })
@@ -203,8 +205,8 @@ export function DungeonEncounterStaging({
             <AdvantageControls
               advantage={advantage}
               onAdvantageChange={setAdvantage}
-              firstSide={firstSide}
-              onFirstSideChange={setFirstSide}
+              neutralFirstSide={neutralFirstSide}
+              onNeutralFirstSideChange={setNeutralFirstSide}
             />
           </EnemyQueueRail>
         }
@@ -253,16 +255,19 @@ function ZoneSelect({
   )
 }
 
+/** The opening declaration: who ambushes, and — only when nobody does — who leads.
+ *  `neutralFirstSide` is the DM's pick for that case, not the resolved first side
+ *  (`resolveFirstSide` decides that at commit). */
 function AdvantageControls({
   advantage,
   onAdvantageChange,
-  firstSide,
-  onFirstSideChange,
+  neutralFirstSide,
+  onNeutralFirstSideChange,
 }: {
   advantage: CombatAdvantage
   onAdvantageChange: (advantage: CombatAdvantage) => void
-  firstSide: CombatSide
-  onFirstSideChange: (side: CombatSide) => void
+  neutralFirstSide: CombatSide
+  onNeutralFirstSideChange: (side: CombatSide) => void
 }) {
   return (
     <div className="mb-3 flex flex-col gap-2 text-xs">
@@ -295,7 +300,10 @@ function AdvantageControls({
           <span className="text-muted-foreground">
             {COMBAT_FIRST_SIDE_HEADING}
           </span>
-          <SideToggle side={firstSide} onChange={onFirstSideChange} />
+          <SideToggle
+            side={neutralFirstSide}
+            onChange={onNeutralFirstSideChange}
+          />
         </div>
       ) : null}
     </div>

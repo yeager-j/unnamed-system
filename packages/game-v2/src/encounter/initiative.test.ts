@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import {
+  COMBAT_ADVANTAGES,
+  COMBAT_SIDES,
+} from "@workspace/game-v2/kernel/vocab/combat"
 
 import { makeScene } from "./__fixtures__/session"
-import { compareInitiative } from "./initiative"
+import { compareInitiative, resolveFirstSide } from "./initiative"
 
 /** Resolved Attributes read-unit carrying only the two initiative inputs. */
 function attrs(agility: number, luck: number): ResolvedEntity["components"] {
@@ -99,5 +103,28 @@ describe("compareInitiative (R3 / CD9a — uniform resolve, no kind branch)", ()
     const comparison = compareInitiative(view)
     expect(comparison.enemies.highestAgility).toBe(8)
     expect(comparison.players.highestAgility).toBeNull()
+  })
+})
+
+describe("resolveFirstSide", () => {
+  it("lets an ambushing side lead outright, whatever the neutral pick was", () => {
+    for (const neutralPick of COMBAT_SIDES) {
+      expect(resolveFirstSide("players", neutralPick)).toBe("players")
+      expect(resolveFirstSide("enemies", neutralPick)).toBe("enemies")
+    }
+  })
+
+  it("defers to the DM's pick on a neutral opening", () => {
+    for (const neutralPick of COMBAT_SIDES) {
+      expect(resolveFirstSide("neutral", neutralPick)).toBe(neutralPick)
+    }
+  })
+
+  it("always resolves to a real side", () => {
+    for (const advantage of COMBAT_ADVANTAGES) {
+      for (const neutralPick of COMBAT_SIDES) {
+        expect(COMBAT_SIDES).toContain(resolveFirstSide(advantage, neutralPick))
+      }
+    }
   })
 })

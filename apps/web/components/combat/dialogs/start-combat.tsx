@@ -3,7 +3,10 @@
 import { SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
-import type { InitiativeComparison } from "@workspace/game-v2/encounter"
+import {
+  resolveFirstSide,
+  type InitiativeComparison,
+} from "@workspace/game-v2/encounter"
 import type {
   CombatAdvantage,
   CombatSide,
@@ -87,8 +90,7 @@ export function StartCombatDialog({
   }
 
   function confirm() {
-    const firstSide = advantage === "neutral" ? neutralFirstSide : advantage
-    onStart(advantage, firstSide)
+    onStart(advantage, resolveFirstSide(advantage, neutralFirstSide))
     setOpen(false)
   }
 

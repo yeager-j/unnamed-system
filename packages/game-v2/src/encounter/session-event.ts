@@ -209,7 +209,9 @@ export type AddParticipantSetup = z.infer<typeof addParticipantSetupSchema>
  * `startCombat` opens the encounter: the DM declares the opening `advantage` and
  * which side acts first. The reducer records both **verbatim** (no normalisation,
  * R2.1) and is a no-op once `advantage` is non-null (R2.2). Resolving `firstSide`
- * and the DB `draft → live` status flip are the shell's job.
+ * from the declared advantage belongs to
+ * {@link import("./initiative").resolveFirstSide} — not the reducer, and not each
+ * start-combat surface; the DB `draft → live` status flip is the shell's job.
  */
 export type StartCombatEvent = Extract<CombatEvent, { kind: "startCombat" }>
 
