@@ -1,11 +1,1 @@
-# `components/dungeon` — dungeon run console + player watch
-
-**Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration).
-
-Organized **by phase/viewer**: root holds the three route-facing entries (run-console = DM console rendering the exploration Play phase, prep = DM draft placement, watch = player read-only view) + explore-sheet-column (the watch's own-sheet column rendering the sheet's Explore tab). shell/ is the persistent DungeonConsoleShell + DungeonSidebarSlot (UNN-488, eases --sidebar-width across phase swaps).
-
-explore/ is the Play phase (body, party-sidebar, zone-sheet, exit-row, use-dungeon-console, dispatch-event). combat/ is the **combat phase on engine v2** (UNN-536): body (drives the shared `combat/console/use-combat-console`, injecting the three-row `endDungeonCombatAction` as the one route-varying seam), sidebar (the shared CombatantRail), end-combat-dialog, start-encounter-dialog (the **client-side** pre-combat staging — stage enemies onto zones, no persisted draft; "Start an encounter" on the Play bar opens it → `startDungeonEncounterAction` mints an already-live encounter), and watch (the delve combat player view — reuses the mapless `EncounterWatch` with a **fogged** fetcher). There is no `setup/` folder: staging is the dialog, not a phase. The combat-vs-explore fork is decided **once** at each route loader (a live encounter on the delve's Instance), never re-checked below.
-
-canvas/ is the React Flow layer: shared core at its root (canvas, build-nodes, types, zone-card-frame, connection-edge, floating-edge-handles, token-glyph, viewport-store, mode-toggle, edit-canvas) + a subfolder per surface — explore/, combat/ (UNN-536: zone-node/token-chip/context/turn-bar/spine-panel — the live battlefield, tokens grouped from the console RosterView by occupancy zone; `DungeonCanvasMode` is now `play | combat`), and watch/ (the player view, formerly "fog"; the fog-of-war *mechanic* keeps the engine's ConnectionFogState name; also owns engaged-cluster). Each surface holds its own zone-node/token-chip/context.
-
-Imports cross-reference via the @/components/dungeon/… alias. Rendered by app/dungeon/[shortId]/ (DM) + app/c/dungeon/[shortId]/ (watch).
+@AGENTS.md
