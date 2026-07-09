@@ -25,7 +25,7 @@ import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
-import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { COMBAT_DRAFT_HEADINGS } from "@/lib/ui/labels"
 

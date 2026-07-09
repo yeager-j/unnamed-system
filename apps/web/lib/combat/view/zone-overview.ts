@@ -10,6 +10,7 @@ import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
 } from "@/lib/combat/view/zone-enchantment-badge"
+import { adjacencyMap } from "@/lib/combat/view/zone-graph"
 
 /**
  * The mapless console's **battlefield layout** — the DM-side twin of the
@@ -48,31 +49,6 @@ export interface ConsoleZoneLayout {
   hasZones: boolean
 }
 
-/** Undirected adjacency names per zone, from the Instance's connections. */
-function adjacencyNames(
-  instanceState: MapInstanceState
-): Map<string, string[]> {
-  const zones = instanceState.geometry.zones
-  const byZone = new Map<string, string[]>()
-  for (const connection of Object.values(instanceState.geometry.connections)) {
-    const fromName = zones[connection.fromZoneId]?.name
-    const toName = zones[connection.toZoneId]?.name
-    if (toName !== undefined) {
-      byZone.set(connection.fromZoneId, [
-        ...(byZone.get(connection.fromZoneId) ?? []),
-        toName,
-      ])
-    }
-    if (fromName !== undefined) {
-      byZone.set(connection.toZoneId, [
-        ...(byZone.get(connection.toZoneId) ?? []),
-        fromName,
-      ])
-    }
-  }
-  return byZone
-}
-
 /** Builds the battlefield layout for one (optimistic) frame, zones in authored
  *  order, tokens in session order. */
 export function buildConsoleZoneLayout(
@@ -92,13 +68,16 @@ export function buildConsoleZoneLayout(
   }))
 
   const zones = instanceState.geometry.zones
-  const adjacency = adjacencyNames(instanceState)
+  const neighborsByZone = adjacencyMap(instanceState.geometry)
 
   return {
     zones: Object.values(zones).map((zone) => ({
       id: zone.id,
       name: zone.name,
-      adjacentZoneNames: adjacency.get(zone.id) ?? [],
+      adjacentZoneNames: (neighborsByZone[zone.id] ?? []).flatMap((id) => {
+        const name = zones[id]?.name
+        return name === undefined ? [] : [name]
+      }),
       combatants: tokens.filter((token) => token.zoneId === zone.id),
       enchantment: zoneEnchantmentBadge(instanceState.enchantment, zone.id),
     })),

@@ -10,8 +10,8 @@ import type { DungeonCombatToken } from "./zone-node"
  * A combatant chip inside a combat zone card (UNN-536) — the shared
  * {@link TokenChip} shell plus the combat extras: the **acting** token gains the
  * gold acting ring and a filled sword badge; a merely **engaged** token shows a
- * dimmed sword. Side tint, glyph, and vital bars all come from the shell. A PC
- * shows its portrait; an enemy falls back to initials.
+ * dimmed sword. Side tint, glyph, and vital bars all come from the shell — a
+ * token with uploaded art shows it, any other falls back to initials.
  *
  * Presentational only — the {@link import("./zone-node").DungeonCombatZoneNode}
  * owns the tap-to-open-drawer interaction through its context.
@@ -27,7 +27,7 @@ export function DungeonCombatTokenChip({
     <TokenChip
       side={token.side}
       name={token.name}
-      portraitUrl={token.isPc ? token.portraitUrl : null}
+      portraitUrl={token.portraitUrl}
       hp={token.hp}
       sp={token.sp}
       acting={acting}

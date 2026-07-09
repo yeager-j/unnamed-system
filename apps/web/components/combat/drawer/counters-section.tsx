@@ -6,7 +6,9 @@ import {
   COUNTER_KEYS,
   type CounterEvent,
   type CounterKey,
+  type Counters,
 } from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
@@ -20,7 +22,6 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { COUNTER_HINTS, COUNTER_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -34,15 +35,14 @@ import { COUNTER_HINTS, COUNTER_LABELS } from "@/lib/ui/labels"
  * taps merge on the server instead of overwriting (the UNN-226 lesson).
  */
 export function CombatantCountersSection({
-  detail,
+  participantId,
+  counters,
   onCombatEvent,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  counters: Counters
   onCombatEvent: (event: CounterEvent) => void
 }) {
-  const participantId = detail.id
-  const { counters } = detail
-
   const active = COUNTER_KEYS.filter((key) => (counters[key] ?? 0) > 0)
   const addable = COUNTER_KEYS.filter((key) => (counters[key] ?? 0) === 0)
 

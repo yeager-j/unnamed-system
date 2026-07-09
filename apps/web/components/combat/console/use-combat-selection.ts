@@ -9,11 +9,11 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import type { ConsoleDispatchEvent } from "@/components/combat/console/dispatch-event"
 import { type ConsolePhase } from "@/components/combat/turn-order-strip"
+import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
 import type { CurrentActorView } from "@/lib/combat/view/console-view"
 import {
   combatantDetail,
   type CombatantDetail,
-  type CombatantSheetSlice,
 } from "@/lib/combat/view/detail-view"
 
 /**

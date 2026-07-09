@@ -11,7 +11,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
-import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
 import { db } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"
 import { resolveEntity, resolveSession } from "@/lib/game-engine-v2"

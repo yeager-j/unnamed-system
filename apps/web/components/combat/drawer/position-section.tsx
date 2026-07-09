@@ -5,6 +5,7 @@ import {
   MapPinIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { Badge } from "@workspace/ui/components/badge"
 import {
@@ -16,7 +17,7 @@ import {
 } from "@workspace/ui/components/select"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
+import type { CombatantPosition } from "@/lib/combat/view/detail-view"
 
 /**
  * The drawer's **POSITION** section (UNN-315, on v2's spatial vocabulary): the
@@ -28,14 +29,14 @@ import type { CombatantDetail } from "@/lib/combat/view/detail-view"
  * `moveCombatant` would no-op on a missing token).
  */
 export function CombatantPositionSection({
-  detail,
+  participantId,
+  position,
   onCombatEvent,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  position: CombatantPosition | null
   onCombatEvent: (event: MapInstanceEvent) => void
 }) {
-  const position = detail.position
-
   if (position === null) {
     return (
       <DetailSection title="Position">
@@ -51,8 +52,8 @@ export function CombatantPositionSection({
   function move(zoneId: string) {
     onCombatEvent(
       placed
-        ? { kind: "moveCombatant", tokenKey: detail.id, toZoneId: zoneId }
-        : { kind: "placeCombatant", tokenKey: detail.id, zoneId }
+        ? { kind: "moveCombatant", tokenKey: participantId, toZoneId: zoneId }
+        : { kind: "placeCombatant", tokenKey: participantId, zoneId }
     )
   }
 

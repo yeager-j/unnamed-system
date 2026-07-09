@@ -38,7 +38,7 @@ export function TokenChip({
   side: TokenSide
   name: string
   portraitUrl?: string | null
-  hp?: Pool
+  hp?: Pool | null
   sp?: Pool | null
   /** The watch viewer's own character — a gold self-tint (replaces the side tint). */
   owned?: boolean

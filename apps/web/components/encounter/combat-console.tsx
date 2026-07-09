@@ -18,7 +18,7 @@ import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
-import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
