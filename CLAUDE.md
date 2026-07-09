@@ -70,8 +70,8 @@ If you can't answer those questions, don't write the hack. A hack should _only_ 
 
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/my-feature`.
 - Reuse existing `Result` utility where appropriate.
-- Avoid prop-drilling. `HydratedCharacter` is supplied via `useCharacter()`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
-- Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `packages/game/src/engine/mechanics`.
+- Avoid prop-drilling. A character surface reads the loaded `{ profile, entity, resolved }` triple from its route provider (`lib/character/load.ts`; see `lib/character/CLAUDE.md`) and writes through `useEntityWrite`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
+- Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `packages/game-v2/src/mechanics`.
 - **Display labels live in `apps/web/lib/ui/labels.ts`.** Any `Record<X, string>` map that turns a domain key into a human-readable string (damage types, attributes, lineages, ranges, etc.) goes there — don't redefine inline, even for a one-off consumer.
 - **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `packages/game/src/engine/<domain>/` (e.g. `resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
 - Never put game logic in the UI layer. The UI should simply render what the game engine provides it.

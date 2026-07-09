@@ -24,8 +24,7 @@ concurrency token, and envelope:
 
 | Aggregate    | Auth gate                                   | Envelope                                                                                        | Concurrency                    |
 | ------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------ |
-| `character/` | `requireOwner` / `requireOwnerOrCampaignDM` | `characterMutationBase` (`{ characterId, <class>Version }`)                                     | per-write-class (below)        |
-| `entity/`    | `requireOwnerOrCampaignDMForEntity` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
+| `entity/`    | `requireOwnerOrCampaignDMForEntity` / `requireEntityOwner` (in the Store) | `{ entityId, expectedVersion, write }` (the descriptor router — UNN-551) | per-write-class on the `entity` row (`bumpEntityVersionGuarded`) |
 | `encounter/` | `requireCampaignDM`                         | `encounterMutationBase` (`{ encounterId, expectedVersion }`) | single `version` per encounter |
 | `combat/`    | `requireCampaignDM`; `commit/` is the sanctioned two-gate exception (see its `CLAUDE.md`) | `encounterMutationBase` (+ `expectedInstanceVersion` for spatial/paired writes); `commit/` carries its own per-arm envelope (`expectedVersion` / `expectedCharacterVersion`, each optional on the wire and required by its arm — UNN-567) | encounter `version`; `commit/`'s durable arm forwards to `entity/` and guards `entity.vitalsVersion` |
 
@@ -37,10 +36,22 @@ concurrency token, and envelope:
 > combat's durable arm (the encounter door forwards here) commit through — one
 > write architecture, two doors.
 
-> **Migration in progress.** The ~35 flat `character-*.ts` files at the root of
-> `lib/actions/` predate this convention; they belong under `character/` (dropping
-> the prefix) and move there in a dedicated tech-debt ticket. New actions go
-> straight into the aggregate-folder layout — `encounter/` is the first.
+> **The v1 `character/` aggregate retired in UNN-562 (S4).** Durable character
+> writes now go exclusively through the `entity/` door (the descriptor → Writer →
+> Store pipeline above); there is no `requireOwner` / `characterMutationBase` /
+> `EDIT_SURFACE_CLASS` / `bumpCharacterVersionGuarded` path anymore. The remaining
+> flat `lib/actions/*.ts` files (create-campaign, delete-map, join-campaign, …)
+> are **campaign/map** actions predating the aggregate-folder convention; they
+> belong under their aggregate folder and move there in a dedicated tech-debt
+> ticket. New actions go straight into the aggregate-folder layout.
+
+> **⚠️ The "The pattern" / "Concurrency" / "Mechanic writes" / "Client patterns"
+> sections below still describe the retired v1 character write path** (they predate
+> S4). The per-write-class concurrency model carried over to the entity door
+> (`bumpEntityVersionGuarded` guards the same four classes on the `entity` row),
+> but the concrete v1 functions they reference are gone — read them for the
+> *model*, `lib/entity/commit` + `lib/actions/entity` for the live code. A full
+> rewrite of these sections is tracked doc-debt.
 
 ## The pattern
 
