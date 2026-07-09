@@ -17,8 +17,8 @@ import { previewArchetypeSkills } from "@/lib/game-engine-v2"
  * (UNN-215 / ADR-002 §"The Archetype grid"): the full Affinity chart,
  * Attributes grid, Talents, Mechanic prose, Ranked Skills, and Synthesis for
  * one Archetype. Composes only atoms from `components/archetype/` plus the
- * shared `SkillRow` cross-feature primitive, so it renders identically wherever
- * an Origin Archetype is inspected.
+ * shared `ResolvedSkillRow` cross-feature primitive, so it renders identically
+ * wherever an Origin Archetype is inspected.
  */
 export function ArchetypeDetail({
   archetype,

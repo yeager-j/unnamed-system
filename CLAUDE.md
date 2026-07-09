@@ -73,7 +73,7 @@ If you can't answer those questions, don't write the hack. A hack should _only_ 
 - Avoid prop-drilling. A character surface reads the loaded `{ profile, entity, resolved }` triple from its route provider (`lib/character/load.ts`; see `lib/character/CLAUDE.md`) and writes through `useEntityWrite`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
 - Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `packages/game-v2/src/mechanics`.
 - **Display labels live in `apps/web/lib/ui/labels.ts`.** Any `Record<X, string>` map that turns a domain key into a human-readable string (damage types, attributes, lineages, ranges, etc.) goes there — don't redefine inline, even for a one-off consumer.
-- **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `packages/game/src/engine/<domain>/` (e.g. `resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
+- **Per-tab data shaping lives next to the data, not in the component.** The inline `.filter().map()` blocks that turn hydrated state into the shape a section renders should be a pure helper in `packages/game-v2/src/<domain>/` (e.g. `items/resolve-inventory.ts`, `archetypes/display.ts`) — the tab root calls one helper and focuses on layout.
 - Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
 - **Owner-mode writes that touch one of several fields on a shared column: use per-field Server Actions, not "client builds the full object."** When multiple controls (toggles, segmented selects) all write to one jsonb column, do not have each control compose the full post-state from `useOptimistic`'s value in a closure and POST that — back-to-back clicks read a stale outer-scope value, the second write silently overwrites the first, the optimistic UI lies, and the test catches it before you do. Instead, expose one action per field (`setBattleConditionAxisAction(axis, state)`, `setBattleConditionFlagAction(flag, value)`), let the server read the row and merge. UNN-226's Charged/Concentrating bug is the cautionary tale; `apps/web/lib/actions/combat-state.ts` is the worked example.
 
@@ -101,8 +101,7 @@ Turborepo monorepo with npm workspaces:
 
 ```
 apps/web/          Next.js 16 app (App Router, RSC, Server Actions)
-packages/game/     Pure game engine + data (@workspace/game) — foundation/data/engine layers; see below
-packages/game-v2/  Capability/component engine (@workspace/game-v2), successor to packages/game — domain-first layout (kernel/ substrate + one folder per domain/PR), independent (zero @workspace/game imports, gated by depcheck.mjs). Design in docs/engine-v2/; PR1 (UNN-499) scaffolds kernel/ only
+packages/game-v2/  The game engine + data (@workspace/game-v2) — the v1 packages/game was retired in UNN-594. Domain-first layout (kernel/ substrate + one folder per domain/PR + catalog/ authored content), depcheck.mjs-gated (ports-not-catalog + one-way spatial seam). Design in docs/engine-v2/. UNN-563 (S5) renames it @workspace/game-v2 → @workspace/game
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
 packages/eslint-config/
 packages/typescript-config/
@@ -133,7 +132,7 @@ apps/web/
 │   ├── character-sheet/       The v2 entity sheet (S2a — UNN-557, Showtime! redesign): sheet.tsx mounts EntityWriteProvider over the loaded triple; rail/ (identity + lineage-grouped archetype switcher, vitals, victories, controls incl. rest-dialog, prisma, exhaustion), mechanics/ (per-mechanic widgets over descriptor dispatch), combat/ (affinity strip + ResolvedSkill banner cards), archetypes/ (S2d — UNN-560: active-Archetype detail + inheritance-slot editor over the archetypes/display family; the switcher stays on the rail), tab-dock + the ⌘K command-palette. The ResolvedSkill banner card + element-tokens are shared primitives (components/shared/), rendered by the combat grid and every skill-row preview popover.
 │   ├── atlas/                 Lineage Atlas growth surface (UNN-239; route app/c/[shortId]/archetypes/atlas/) — still v1-backed (useCharacter + archetype-ranks) until S3 re-points it; renders only for dual-minted seed rows meanwhile
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
-│   ├── shared/                Cross-feature primitives: DetailSection, SkillRow + its popover subsystem, Prose, etc. shared/canvas/ holds the route-agnostic React Flow primitives the Map editor + dungeon run console share (UNN-464): floating-edge.ts (pure border-intersection geometry) + use-floating-edge-path.ts (the bezier-path hook). Note: floating edges still require the custom node to render at least one source + one target Handle — React Flow won't create an edge for a handle-less node; the floating math only overrides where it attaches.
+│   ├── shared/                Cross-feature primitives: DetailSection, ResolvedSkillRow + its popover subsystem (skill-banner-card), Prose, etc. shared/canvas/ holds the route-agnostic React Flow primitives the Map editor + dungeon run console share (UNN-464): floating-edge.ts (pure border-intersection geometry) + use-floating-edge-path.ts (the bezier-path hook). Note: floating edges still require the custom node to render at least one source + one target Handle — React Flow won't create an edge for a handle-less node; the floating math only overrides where it attaches.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   ├── combat/                **Shared combat UI kit** (UNN-492): route-agnostic combat components rendered by both the mapless encounter and the dungeon combat canvas. See combat/CLAUDE.md.
 │   ├── encounter/             **Mapless-encounter feature** (UNN-492): DM console (app/combat/[shortId]/) + player watch (app/c/encounter/[shortId]/). See encounter/CLAUDE.md.
@@ -142,7 +141,6 @@ apps/web/
 │   ├── dungeon/               **Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration). DM console at app/dungeon/[shortId]/, watch at app/c/dungeon/[shortId]/. See dungeon/CLAUDE.md.
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
-├── scripts/                   One-off maintenance scripts run via tsx (e.g. generate-formula-fixture.ts — the UNN-557 formula pin generator)
 ├── e2e/                       Playwright specs
 │   └── fixtures/              E2E test-data factory (UNN-343). factory.ts mints ephemeral characters/campaigns/encounters with unique-per-run ids + a CleanupTracker (afterAll cleanup); each write spec's <thing>-target.ts wraps it as createXTarget(tracker) returning helpers bound to the new id. encounter-target.ts is the kept seeded combat showcase (campaigns A/B + encounters) for encounter-shell/join. See e2e/CLAUDE.md "Write-spec discipline".
 └── lib/
@@ -151,7 +149,7 @@ apps/web/
     ├── archetypes/            Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
     ├── combat/                Neutral (client+server) v2 combat vocabulary: the storage-blind write descriptor + Writers now live in lib/entity/commit/ (entityWriteSchema/ENTITY_WRITERS — combat is a consumer, no parallel vocabulary); console-optimistic.ts is the console's optimistic container (consumed via hooks/use-combatant-write — UNN-535); view/ holds the pure view builders the combat kit + watch render (console/roster/detail/zone-overview/watch-layout); snapshot-version.ts is the composite snapshot-version fold (encounter × instance × durable vitalsVersions) the watch's apply guard equality-compares (UNN-530).
     ├── character/             The v2 character read side (ADR §2.6; UNN-556/557): load.ts is the one load boundary (`loadCharacterByShortId` → { profile, entity, resolved }) the builder + sheet mount; view/ holds the pure per-surface builders (rail-view, affinity-strip, skill-sources). See character/CLAUDE.md.
-    ├── (game/ extracted to packages/game — see "packages/game" below)
+    ├── game-engine-v2.ts      The app's engine composition root — binds the game-v2 catalog once and re-exports the pre-bound functions app code calls (`resolveEntity`, `resolveSession`, the builder/sheet reads).
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── realtime/              Ably invalidation pings (UNN-370; docs/realtime/ADR.md): lazy REST publish from the write choke points + a generic subscribe hook; no-ops to polling without ABLY_API_KEY. See realtime/CLAUDE.md.
     ├── db/                    Persistence, grouped by role (see below)
@@ -163,14 +161,15 @@ apps/web/
 layout, the **wrapper naming rule**, and the version-guard composition pattern
 live in **`apps/web/lib/db/CLAUDE.md`** (auto-loads when you work there).
 
-### `packages/game` (`@workspace/game`)
+### `packages/game-v2` (`@workspace/game-v2`)
 
-The pure game engine + data, extracted from `apps/web/lib/game` (see
-`docs/engine-reorg`). A runtime-pure leaf — no React/Next/DB — with three layers
-under `src/` (`foundation → data → engine`), each its own barrel entry point. The
-layer map, import/dependency rules, the lookup-port pattern, and the engine test
-split + test-signal tooling live in **`packages/game/CLAUDE.md`** (auto-loads when
-you work there).
+The capability/component game engine + data — the sole engine since the v1
+`packages/game` was retired (UNN-594). A runtime-pure leaf (no React/Next/DB)
+laid out domain-first: a `kernel/` component substrate, one folder per domain,
+and a `catalog/` of authored content behind the `GameData` port. The model,
+core invariants, layout, dependency gradient, and `depcheck.mjs` gates live in
+**`packages/game-v2/CLAUDE.md`** (auto-loads when you work there). The app binds
+the catalog once in `apps/web/lib/game-engine-v2.ts`.
 
 ## Commands
 
@@ -188,7 +187,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 
 ## Testing
 
-- **Unit (Vitest):** pure game mechanics in `packages/game/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game/CLAUDE.md`**.
+- **Unit (Vitest):** pure game mechanics in `packages/game-v2/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game-v2/CLAUDE.md`**.
 - **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database. The two-tier CI model (`e2e` runner suite vs. `@smoke` preview subset), `@smoke`-tagging discipline, and the write-path factory pattern live in **`apps/web/e2e/CLAUDE.md`**.
 
 ## Tech Stack
@@ -203,7 +202,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 - **Hosting**: Vercel + Neon + Vercel Blob
 - **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 
-Game data (Archetypes, Skills, Talents, Ailments) is **hardcoded TypeScript** in the repo — not in the database. Demo-only Archetypes (`packages/game/src/data/archetypes/demo/`) are merged into the runtime catalog only when `NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES=true` (local dev + Vercel Preview), never in Production — they let the Lineage Atlas exercise tier trees before the real higher-tier data ships.
+Game data (Archetypes, Skills, Talents, Ailments, Enemies) is **hardcoded TypeScript** in the repo (`packages/game-v2/src/catalog/`) — not in the database. A shipped-but-gated Archetype (`elemental-thief`) sits in the catalog unconditionally and is hidden per-viewer via the Atlas's `hiddenArchetypeKeys` (an env-var email allowlist, `lib/archetypes/restricted.ts`), not a build flag.
 
 ## Game Rules
 

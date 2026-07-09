@@ -3,8 +3,6 @@ import { describe, expect, expectTypeOf, it } from "vitest"
 
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import { componentSchemas } from "@workspace/game-v2/kernel/load-seam"
-import type { MechanicState as MechanicStateV2 } from "@workspace/game-v2/mechanics/mechanics.schema"
-import type { MechanicState as MechanicStateV1 } from "@workspace/game/foundation"
 
 import {
   LIFTED_COMPONENT_KEYS,
@@ -95,16 +93,5 @@ describe("entity table ⇔ durable component registry", () => {
         chains: [],
       }).success
     ).toBe(true)
-  })
-})
-
-/**
- * Per-kind mechanic state is byte-identical v1 ↔ v2 (ADR §2.2 verified fact): the
- * `mechanics` component column stores the same shape the v1 `characterArchetype`
- * rows did, so folding the child rows into the column can't reshape the state.
- */
-describe("mechanic per-kind state identity v1 ⇔ v2", () => {
-  it("v2 MechanicState equals v1 MechanicState", () => {
-    expectTypeOf<MechanicStateV2>().toEqualTypeOf<MechanicStateV1>()
   })
 })

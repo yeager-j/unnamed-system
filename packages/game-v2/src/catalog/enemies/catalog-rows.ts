@@ -1,12 +1,21 @@
-import { type GameData } from "@workspace/game/engine/ports"
-import { type AffinityDamageType } from "@workspace/game/foundation/combat/affinity"
-import type { EnemyFamily } from "@workspace/game/foundation/enemies/schema"
+import {
+  ENEMIES,
+  getEnemyFamily,
+  type EnemyFamily,
+} from "@workspace/game-v2/catalog/enemies"
+import type {
+  Affinity,
+  AffinityDamageType,
+} from "@workspace/game-v2/kernel/vocab"
 
 /**
  * One catalog enemy as the browse table renders it (UNN-346) — the lean
  * projection the master list needs (name, family, level, HP) plus the creature's
- * `weaknesses` for the at-a-glance row tags. Pure display shaping, kept here next
- * to the data rather than inline in the list component.
+ * `weaknesses` for the at-a-glance row tags. Read off the authored enemy
+ * {@link import("@workspace/game-v2/kernel").Entity} templates directly (no
+ * resolve): the browse list wants the authored numbers, not derived ones. Pure
+ * display shaping, kept here next to the catalog rather than inline in the list
+ * component.
  */
 export interface EnemyCatalogRow {
   key: string
@@ -25,11 +34,11 @@ export interface EnemyCatalogFilter {
   family: EnemyFamily | null
 }
 
-/** The damage types an enemy's sparse affinity chart marks as Weak. */
+/** The damage types an enemy's sparse authored affinity chart marks as Weak. */
 function weaknessesOf(
-  affinities: Partial<Record<AffinityDamageType, string>>
+  affinities: Partial<Record<AffinityDamageType, Affinity>>
 ): AffinityDamageType[] {
-  return (Object.entries(affinities) as [AffinityDamageType, string][])
+  return (Object.entries(affinities) as [AffinityDamageType, Affinity][])
     .filter(([, affinity]) => affinity === "weak")
     .map(([damageType]) => damageType)
 }
@@ -39,19 +48,15 @@ function weaknessesOf(
  * one per enemy. A row's family always resolves (every key has one), so the
  * fallback is a defensive `"humanoid"` that can't be hit at runtime.
  */
-export function buildEnemyCatalogRows(
-  lookups: Pick<GameData, "allEnemies" | "getEnemyFamily">
-) {
-  return (): EnemyCatalogRow[] =>
-    lookups.allEnemies().map((enemy) => ({
-      key: enemy.key,
-      name: enemy.name,
-      // Stryker disable next-line StringLiteral: equivalent — every catalog enemy has a registered family, so this defensive fallback is unreachable at runtime.
-      family: lookups.getEnemyFamily(enemy.key) ?? "humanoid",
-      level: enemy.level,
-      maxHP: enemy.maxHP,
-      weaknesses: weaknessesOf(enemy.affinities),
-    }))
+export function buildEnemyCatalogRows(): EnemyCatalogRow[] {
+  return ENEMIES.map((entity) => ({
+    key: entity.id,
+    name: entity.components.identity?.name ?? entity.id,
+    family: getEnemyFamily(entity.id) ?? "humanoid",
+    level: entity.components.level?.value ?? 0,
+    maxHP: entity.components.vitals?.base ?? 0,
+    weaknesses: weaknessesOf(entity.components.affinities?.base ?? {}),
+  }))
 }
 
 /**
@@ -65,8 +70,6 @@ export function filterEnemyCatalogRows(
   const needle = search.trim().toLowerCase()
   return rows.filter((row) => {
     const matchesFamily = family === null || row.family === family
-    // An empty needle matches every row via `includes("")`, so no explicit
-    // empty-search short-circuit is needed.
     const matchesSearch = row.name.toLowerCase().includes(needle)
     return matchesFamily && matchesSearch
   })

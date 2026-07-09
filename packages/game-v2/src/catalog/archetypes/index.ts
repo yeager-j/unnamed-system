@@ -65,6 +65,15 @@ export function getArchetype(key: string): Archetype | undefined {
   return ARCHETYPES_BY_KEY.get(key)
 }
 
+/**
+ * A character's active Archetype display name, or `"Adventurer"` when the key is
+ * `null` (no active Archetype) or resolves to no Archetype. The single fallback
+ * every PC-display surface shares so the phrasing can't drift between them.
+ */
+export function archetypeDisplayName(key: string | null): string {
+  return (key ? getArchetype(key)?.name : undefined) ?? "Adventurer"
+}
+
 /** Every catalog Archetype (the `allArchetypes` port — the Atlas walks all of them). */
 export function allArchetypes(): Archetype[] {
   return [...ARCHETYPES]

@@ -7,7 +7,6 @@ import { toast } from "sonner"
 import {
   type DungeonEvent,
   type MapInstanceEvent,
-  type RandomEncounterInterval,
 } from "@workspace/game-v2/spatial"
 
 import {
@@ -17,10 +16,6 @@ import {
 } from "@/components/dungeon/explore/dispatch-event"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
-import {
-  setRandomEncounterIntervalAction,
-  setRandomEncountersEnabledAction,
-} from "@/lib/actions/dungeon/reminders"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
 import { getDungeonVersionAction } from "@/lib/actions/dungeon/version"
@@ -161,43 +156,6 @@ export function useDungeonConsole(
     })
   }
 
-  /** The per-field reminder-setting writes (UNN-226): not `reduceDungeon` events,
-   *  so they enqueue their own action on the dungeon queue and reconcile by
-   *  refresh (a settings toggle needs no instant optimistic frame). */
-  function setRandomEncountersEnabled(enabled: boolean) {
-    startTransition(async () => {
-      const result = await dungeonWrite.enqueue((expectedVersion) =>
-        setRandomEncountersEnabledAction({
-          dungeonId: dungeon.id,
-          enabled,
-          expectedVersion,
-        })
-      )
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
-  }
-
-  function setRandomEncounterInterval(intervalTurns: RandomEncounterInterval) {
-    startTransition(async () => {
-      const result = await dungeonWrite.enqueue((expectedVersion) =>
-        setRandomEncounterIntervalAction({
-          dungeonId: dungeon.id,
-          intervalTurns,
-          expectedVersion,
-        })
-      )
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
-  }
-
   return {
     dungeonState,
     instanceState,
@@ -205,8 +163,6 @@ export function useDungeonConsole(
     dispatch,
     searchReveal,
     finishDelve,
-    setRandomEncountersEnabled,
-    setRandomEncounterInterval,
     scheduleRefresh,
   }
 }

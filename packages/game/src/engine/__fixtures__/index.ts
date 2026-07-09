@@ -1,7 +1,0 @@
-export * from "@workspace/game/engine/__fixtures__/archetypes"
-export * from "@workspace/game/engine/__fixtures__/character"
-export * from "@workspace/game/engine/__fixtures__/enemies"
-export * from "@workspace/game/engine/__fixtures__/fixtures"
-export * from "@workspace/game/engine/__fixtures__/game-data"
-export * from "@workspace/game/engine/__fixtures__/skills"
-export * from "@workspace/game/engine/__fixtures__/talents"

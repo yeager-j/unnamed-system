@@ -4,7 +4,7 @@ import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 /** A party token's current + max pools, the shape the dungeon roster + fog
  *  snapshot draw each health/skill bar from. */
-export interface TokenVitals {
+interface TokenVitals {
   hp: { current: number; max: number }
   sp: { current: number; max: number }
 }

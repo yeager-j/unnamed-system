@@ -84,6 +84,7 @@ export function ResolvedSkillRow({
           resolved={resolved}
           attributes={attributes}
           showUse={false}
+          showCost={showCost}
         />
       </PopoverContent>
     </Popover>
