@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 
 import {
   getEnemy,
@@ -18,44 +18,27 @@ import { enemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
 import { resolveEntity } from "@/lib/game-engine-v2"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
-import { EnemyQueueRail } from "./enemy-queue-rail"
 import { EnemyStatblockCard } from "./enemy-statblock-card"
 
-/** One staged creature: a catalog key and how many of it are queued. */
-export interface StagedEnemy {
-  enemyKey: string
-  count: number
-}
-
 /**
- * The catalog **browse-and-stage** inner surface (UNN-467) — the three-column
- * master-detail (searchable/family-filtered list · statblock card · staging rail)
- * extracted from {@link import("@/components/encounter/enemy-catalog-browser").EnemyCatalogBrowser} so
- * three consumers share it: the standalone setup route (its own header + commit
- * routing wrap this), the dungeon encounter Setup phase, and the mid-fight
- * add-combatant dialog. It owns only the **browse** UI state (search / family /
- * selection); the staged `queue` and the commit/cancel verbs are the parent's, so
- * each consumer decides how the queue is held (localStorage vs ephemeral state)
- * and what "commit" does.
+ * The catalog **browse** inner surface (UNN-467) — the three-column master-detail
+ * (searchable/family-filtered list · statblock card · staging rail) shared by the
+ * mapless encounter's browse route
+ * ({@link import("@/components/encounter/enemy-catalog-browser").EnemyCatalogBrowser})
+ * and the delve's pre-combat staging
+ * ({@link import("@/components/dungeon/combat/encounter-staging").DungeonEncounterStaging}).
+ *
+ * It owns only the **browse** UI state (search / family / selection). The staged
+ * queue is the consumer's — it arrives already rendered as `rail` (UNN-541), so
+ * neither the queue's identity (enemy key vs. enemy × zone) nor what "commit"
+ * means reaches this layer.
  */
 export function EnemyCatalogPanel({
-  queue,
-  isPending,
+  rail,
   onAdd,
-  onIncrement,
-  onDecrement,
-  onRemove,
-  onCommit,
-  onCancel,
 }: {
-  queue: StagedEnemy[]
-  isPending: boolean
+  rail: ReactNode
   onAdd: (enemyKey: string) => void
-  onIncrement: (enemyKey: string) => void
-  onDecrement: (enemyKey: string) => void
-  onRemove: (enemyKey: string) => void
-  onCommit: () => void
-  onCancel: () => void
 }) {
   const [search, setSearch] = useState("")
   const [family, setFamily] = useState<EnemyFamily | null>(null)
@@ -78,13 +61,6 @@ export function EnemyCatalogPanel({
           getEnemyFamily(selectedKey) ?? null
         )
       : null
-
-  const queueItems = queue.map((entry) => ({
-    enemyKey: entry.enemyKey,
-    name: getEnemy(entry.enemyKey)?.components.identity?.name ?? entry.enemyKey,
-    count: entry.count,
-  }))
-  const totalCount = queue.reduce((sum, entry) => sum + entry.count, 0)
 
   return (
     <div className="grid min-h-0 grid-cols-1 lg:flex-1 lg:grid-cols-[18rem_1fr_20rem]">
@@ -117,18 +93,7 @@ export function EnemyCatalogPanel({
         )}
       </div>
 
-      <div className="lg:min-h-0 lg:border-l">
-        <EnemyQueueRail
-          items={queueItems}
-          totalCount={totalCount}
-          isPending={isPending}
-          onIncrement={onIncrement}
-          onDecrement={onDecrement}
-          onRemove={onRemove}
-          onCommit={onCommit}
-          onCancel={onCancel}
-        />
-      </div>
+      <div className="lg:min-h-0 lg:border-l">{rail}</div>
     </div>
   )
 }

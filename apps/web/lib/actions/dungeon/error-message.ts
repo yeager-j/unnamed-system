@@ -1,8 +1,8 @@
 /**
  * Maps any dungeon Server Action error to its user-facing toast copy. Shared by
  * every dungeon write surface (the run console's turn loop / move / reveal, the
- * delve-start + search-that-reveals gestures, the status flip, and the reminder
- * settings) so the phrasing can't drift between them — the dungeon peer of
+ * delve-start + search-that-reveals gestures, the status flip, the pre-combat
+ * staging surface, and the reminder settings) so the phrasing can't drift between them — the dungeon peer of
  * `encounterErrorMessage`. The union is the superset of every dungeon action's
  * error type; a narrower per-action error is assignable to it.
  */
@@ -18,9 +18,18 @@ export type DungeonActionError =
   | "delve-not-active"
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
+  | "character-not-found"
+  | "unknown-enemy"
+  | "locator-missing"
 
 export function dungeonErrorMessage(error: DungeonActionError): string {
   switch (error) {
+    case "character-not-found":
+      return "A party member no longer exists. Reload and try again."
+    case "unknown-enemy":
+      return "One of the staged enemies isn't in the catalog anymore."
+    case "locator-missing":
+      return "Something looks off with the roster. Reload and try again."
     case "campaign-already-has-active-delve":
       return "This campaign already has an active delve."
     case "delve-not-draft":

@@ -10,9 +10,11 @@ import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
+import { getEnemy } from "@workspace/game-v2/catalog/enemies"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
+import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
@@ -26,6 +28,10 @@ import { combatErrorMessage } from "@/lib/actions/combat/error-message"
  * (add-then-place), so the commit is a session-only write and carries no
  * Instance token. The queue is localStorage-backed (a reload never loses it).
  */
+function enemyName(enemyKey: string): string {
+  return getEnemy(enemyKey)?.components.identity?.name ?? enemyKey
+}
+
 export function EnemyCatalogBrowser({
   encounterId,
   shortId,
@@ -116,17 +122,26 @@ export function EnemyCatalogBrowser({
       </header>
 
       <EnemyCatalogPanel
-        queue={queue.queue}
-        isPending={isPending}
         onAdd={queue.add}
-        onIncrement={(key) => queue.add(key)}
-        onDecrement={(key) => {
-          const entry = queue.queue.find((item) => item.enemyKey === key)
-          queue.setCount(key, (entry?.count ?? 0) - 1)
-        }}
-        onRemove={queue.remove}
-        onCommit={commit}
-        onCancel={returnToSetup}
+        rail={
+          <EnemyQueueRail
+            items={queue.queue.map((entry) => ({
+              id: entry.enemyKey,
+              name: enemyName(entry.enemyKey),
+              count: entry.count,
+            }))}
+            totalCount={queue.totalCount}
+            isPending={isPending}
+            onIncrement={(key) => queue.add(key)}
+            onDecrement={(key) => {
+              const entry = queue.queue.find((item) => item.enemyKey === key)
+              queue.setCount(key, (entry?.count ?? 0) - 1)
+            }}
+            onRemove={queue.remove}
+            onCommit={commit}
+            onCancel={returnToSetup}
+          />
+        }
       />
     </main>
   )

@@ -1,4 +1,7 @@
-import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import type {
+  CombatAdvantage,
+  CombatSide,
+} from "@workspace/game-v2/kernel/vocab/combat"
 
 import type { ParticipantView, ResolvedSession } from "./participant-view"
 
@@ -102,4 +105,21 @@ export function compareInitiative(view: ResolvedSession): InitiativeComparison {
   const players = sideInitiative(statsForSide("players"))
   const enemies = sideInitiative(statsForSide("enemies"))
   return { players, enemies, suggested: suggestedSide(players, enemies) }
+}
+
+/**
+ * The side that acts first, given the DM's declared opening (rulebook 3.2). An
+ * **ambush** leads outright — the advantaged side *is* the first side, and the
+ * DM's neutral pick is irrelevant. Only a `neutral` opening defers to that pick
+ * (itself seeded from {@link InitiativeComparison.suggested}).
+ *
+ * The `startCombat` reducer records `advantage`/`firstSide` verbatim (R2.1), so
+ * this resolution is the shell's — and it lives here, once, rather than inline at
+ * each start-combat surface (the mapless dialog, the delve's staging surface).
+ */
+export function resolveFirstSide(
+  advantage: CombatAdvantage,
+  neutralFirstSide: CombatSide
+): CombatSide {
+  return advantage === "neutral" ? neutralFirstSide : advantage
 }

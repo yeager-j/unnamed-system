@@ -16,6 +16,13 @@ import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
  * the opening `advantage`/`firstSide` the DM declared. `expectedInstanceVersion`
  * guards the shared Instance the co-mint folds enemy tokens onto.
  */
+/**
+ * How many copies of one creature a single staged group may carry. The staging
+ * surface enforces the same ceiling on its queue (`useDungeonEnemyQueue`) so the
+ * DM can never build a batch this schema would reject — one number, both homes.
+ */
+export const MAX_STAGED_ENEMY_COUNT = 20
+
 export const StartDungeonEncounterSchema = z.object({
   dungeonId: z.string(),
   expectedInstanceVersion: z.number().int().nonnegative(),
@@ -27,7 +34,7 @@ export const StartDungeonEncounterSchema = z.object({
     z.object({
       enemyKey: z.string(),
       zoneId: z.string(),
-      count: z.number().int().min(1).max(20),
+      count: z.number().int().min(1).max(MAX_STAGED_ENEMY_COUNT),
     })
   ),
 })

@@ -128,7 +128,7 @@ Inside `apps/web/`:
 
 ```
 apps/web/
-├── app/                       Next routes. app/dungeon/[shortId]/ is the DM dungeon console (UNN-462, M2): a thin status-aware route stub gated by its co-located dungeon-access.ts `getDungeonForDM` loader (DM-only, 404-collapsing ≅ getEncounterForDM); the React Flow run console (turn loop, token placement/movement, reveal) lands in UNN-463/464
+├── app/                       Next routes. app/dungeon/[shortId]/ is the DM dungeon console (UNN-462, M2): a thin status-aware route stub gated by its co-located dungeon-access.ts `getDungeonForDM` loader (DM-only, 404-collapsing ≅ getEncounterForDM); the React Flow run console (turn loop, token placement/movement, reveal) lands in UNN-463/464; its encounter/ sub-route is the pre-combat bestiary staging surface (UNN-541), gated by the same loader
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
