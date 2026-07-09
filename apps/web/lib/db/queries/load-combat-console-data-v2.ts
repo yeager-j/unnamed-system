@@ -3,6 +3,8 @@ import { inArray } from "drizzle-orm"
 import { getArchetype } from "@workspace/game-v2/catalog/archetypes"
 import {
   derivePartyCompositionBySide,
+  participantZoneEffects,
+  spatialReadsFor,
   type Session,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -25,6 +27,7 @@ export async function loadCombatConsoleDataV2(
   instance: MapInstanceState,
   participantMeta: Record<ParticipantId, ParticipantMeta>
 ): Promise<Record<ParticipantId, CombatantSheetSlice>> {
+  const spatialReads = spatialReadsFor(instance)
   const partyCompositionBySide = derivePartyCompositionBySide(
     resolveSession(session, instance)
   )
@@ -39,6 +42,7 @@ export async function loadCombatConsoleDataV2(
         className: activeKey ? (getArchetype(activeKey)?.name ?? null) : null,
         skills:
           resolveEntity(participant.entity, {
+            effects: participantZoneEffects(spatialReads, participant.id),
             partyComposition:
               partyCompositionBySide[participant.overlay.allegiance.side],
           }).components.skills ?? [],
