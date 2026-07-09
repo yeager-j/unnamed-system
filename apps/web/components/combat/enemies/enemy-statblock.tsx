@@ -20,7 +20,8 @@ import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
  * Sections with nothing to show are omitted.
  */
 export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
-  const { attributes, affinities, talentKeys, resolvedSkills } = view
+  const { attributes, affinities, talentKeys, resolvedSkills, hasSkillPool } =
+    view
   return (
     <>
       {attributes ? (
@@ -57,7 +58,7 @@ export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
                 key={resolved.skill.key}
                 resolved={resolved}
                 attributes={attributes}
-                showCost={false}
+                showCost={hasSkillPool}
               />
             ))}
           </ItemGroup>

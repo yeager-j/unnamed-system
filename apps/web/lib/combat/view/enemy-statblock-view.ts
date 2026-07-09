@@ -27,6 +27,11 @@ export interface EnemyStatblockView {
   attributes: AttributeScores | null
   affinities: AffinityChart | null
   resolvedSkills: ResolvedSkill[]
+  /** Whether the entity resolves a Skill Pool (an SP resource). Gates the Skill
+   *  cost display — an entity with no pool pays no SP, so a cost coin/chip would
+   *  mislead. A capability question, not a PC-vs-enemy one (catalog enemies
+   *  simply carry no `skillPool`). */
+  hasSkillPool: boolean
   /** Talent slugs; the UI resolves display names. */
   talentKeys: string[]
 }
@@ -50,6 +55,7 @@ export function enemyStatblockView(
     attributes: resolved.components.attributes ?? null,
     affinities: resolved.components.affinities ?? null,
     resolvedSkills: resolved.components.skills ?? [],
+    hasSkillPool: resolved.components.skillPool !== undefined,
     talentKeys: (entity.components.talents ?? []).map((talent) => talent.key),
   }
 }

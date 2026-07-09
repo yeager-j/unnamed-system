@@ -56,12 +56,17 @@ export function SkillBannerCard({
   onUse,
   useDisabled,
   showUse,
+  showCost = true,
 }: {
   resolved: ResolvedSkill
   attributes: AttributeScores
   onUse?: () => void
   useDisabled?: boolean
   showUse: boolean
+  /** Whether to render the cost coin + Cost meta chip. Defaults to `true`; a
+   *  caller whose entity resolves no Skill Pool (no SP resource) passes `false`,
+   *  since a cost with no pool to pay it from would mislead. */
+  showCost?: boolean
 }) {
   const { skill, resolvedCost } = resolved
   const element = elementKeyForSkill(skill)
@@ -104,7 +109,7 @@ export function SkillBannerCard({
             <Glyph aria-hidden className="size-3" />
             {chipLabel}
           </span>
-          {resolvedCost ? <CostCoin cost={resolvedCost} /> : null}
+          {showCost && resolvedCost ? <CostCoin cost={resolvedCost} /> : null}
         </div>
         <h3 className="relative font-display text-2xl leading-none">
           {skill.name}
@@ -117,7 +122,7 @@ export function SkillBannerCard({
         </p>
 
         <div className="flex flex-wrap gap-1.5">
-          {resolvedCost ? (
+          {showCost && resolvedCost ? (
             <MetaChip
               label="Cost"
               variant={resolvedCost.kind === "sp" ? "sp" : "hp"}
