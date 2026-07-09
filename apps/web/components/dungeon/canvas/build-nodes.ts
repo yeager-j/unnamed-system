@@ -93,7 +93,6 @@ function buildCombatNodes(
         id: row.id,
         name: row.name,
         side: row.side,
-        isPc: row.isPc,
         portraitUrl: row.portraitUrl,
         hp: row.hp,
         sp: row.sp,

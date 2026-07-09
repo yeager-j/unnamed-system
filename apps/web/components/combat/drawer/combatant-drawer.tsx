@@ -34,9 +34,11 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
-import { initials } from "@/lib/ui/initials"
-import { avatarSrc } from "@/lib/ui/portrait"
+import type { CombatantAvatar } from "@/lib/combat/view/avatar"
+import type {
+  CombatantDetail,
+  CombatantStats,
+} from "@/lib/combat/view/detail-view"
 
 /** Every event the drawer's editable sections can emit — overlay edits plus
  *  the spatial position/engagement events. The console's dispatch (a superset
@@ -57,8 +59,9 @@ export type DrawerEvent =
  *
  * The read-only stat sections render **by capability**: Attributes /
  * Affinities / Skills appear iff their read-unit resolved — no PC-vs-enemy fork
- * decides the layout. Skills in particular come off the resolved participant
- * view uniformly for every combatant (UNN-551 removed the durable storage fork).
+ * decides the layout. Each section takes exactly the {@link CombatantDetail}
+ * slice it renders; every PC-vs-enemy display question arrives pre-resolved
+ * (avatar variant, subtitle, down label, edit-scope note).
  */
 export function CombatantDrawer({
   detail,
@@ -97,63 +100,75 @@ function DrawerBody({
   onCombatEvent: (event: DrawerEvent) => void
   dispatchWrite: DispatchCombatantWrite
 }) {
+  const { header, overlay, stats } = detail
   return (
     <ResponsiveDialogContent className="data-[side=right]:sm:max-w-md">
       <ResponsiveDialogHeader className="flex-row items-center gap-3 space-y-0">
-        <HeaderAvatar detail={detail} />
+        <HeaderAvatar avatar={header.avatar} />
         <div className="flex min-w-0 flex-col">
           <ResponsiveDialogTitle className="truncate">
-            {detail.name}
+            {header.name}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {subtitle(detail)}
+            {header.subtitle}
           </ResponsiveDialogDescription>
         </div>
       </ResponsiveDialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
         <CombatantActionsSection
-          detail={detail}
+          participantId={detail.id}
+          availability={detail.actionAvailability}
           onCombatEvent={onCombatEvent}
         />
-        <CombatantVitalsSection detail={detail} dispatchWrite={dispatchWrite} />
+        <CombatantVitalsSection
+          participantId={detail.id}
+          vitals={detail.vitals}
+          dispatchWrite={dispatchWrite}
+        />
         <CombatantConditionsSection
-          detail={detail}
+          participantId={detail.id}
+          ailments={overlay.ailments}
+          battleConditions={overlay.battleConditions}
+          conditionDurations={overlay.conditionDurations}
           onCombatEvent={onCombatEvent}
         />
         <CombatantCountersSection
-          detail={detail}
+          participantId={detail.id}
+          counters={overlay.counters}
           onCombatEvent={onCombatEvent}
         />
         <CombatantPositionSection
-          detail={detail}
+          participantId={detail.id}
+          position={detail.position}
           onCombatEvent={onCombatEvent}
         />
         <CombatantEngagementSection
-          detail={detail}
+          participantId={detail.id}
+          engagement={detail.engagement}
           onCombatEvent={onCombatEvent}
         />
 
-        {detail.attributes ? (
+        {stats.attributes ? (
           <DetailSection title="Attributes">
-            <AttributeGrid attributes={detail.attributes} />
+            <AttributeGrid attributes={stats.attributes} />
           </DetailSection>
         ) : null}
 
-        {detail.affinities ? (
+        {stats.affinities ? (
           <DetailSection title="Affinities">
             <AffinityGrid
-              chart={detail.affinities}
+              chart={stats.affinities}
               columnsClassName="grid-cols-4"
             />
           </DetailSection>
         ) : null}
 
-        {detail.talentKeys !== null ? (
+        {stats.talentKeys !== null ? (
           <DetailSection title="Talents">
-            {detail.talentKeys.length > 0 ? (
+            {stats.talentKeys.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {detail.talentKeys.map((key) => (
+                {stats.talentKeys.map((key) => (
                   <Badge key={key} variant="outline">
                     {getTalent(key)?.name ?? key}
                   </Badge>
@@ -165,14 +180,12 @@ function DrawerBody({
           </DetailSection>
         ) : null}
 
-        <SkillsSection detail={detail} />
+        <SkillsSection stats={stats} />
       </div>
 
       <ResponsiveDialogFooter className="border-t">
         <p className="text-xs text-muted-foreground">
-          {detail.isPc
-            ? `HP/SP changes here write ${detail.name}'s character sheet; conditions apply to this encounter.`
-            : "Edits affect this enemy in this encounter only."}
+          {header.persistenceNote}
         </p>
       </ResponsiveDialogFooter>
     </ResponsiveDialogContent>
@@ -188,33 +201,22 @@ function DrawerBody({
  * for PCs and session-resolved Skills for inline combatants. Every list renders
  * through the shared resolved-Skill row and banner-card popover.
  */
-function SkillsSection({ detail }: { detail: CombatantDetail }) {
-  if (detail.skills.length === 0) return null
+function SkillsSection({ stats }: { stats: CombatantStats }) {
+  if (stats.skills.length === 0) return null
   return (
     <DetailSection title="Skills">
       <ItemGroup className="gap-0">
-        {detail.skills.map((resolved) => (
+        {stats.skills.map((resolved) => (
           <ResolvedSkillRow
             key={resolved.skill.key}
             resolved={resolved}
-            attributes={detail.attributes ?? ZERO_ATTRIBUTES}
-            showCost={detail.hasSkillPool}
+            attributes={stats.attributes ?? ZERO_ATTRIBUTES}
+            showCost={stats.hasSkillPool}
           />
         ))}
       </ItemGroup>
     </DetailSection>
   )
-}
-
-/** `Level N · Class · pronouns` (each part present iff known). */
-function subtitle(detail: CombatantDetail): string {
-  return [
-    detail.level !== null ? `Level ${detail.level}` : null,
-    detail.className ?? (detail.isPc ? null : "Enemy"),
-    detail.pronouns,
-  ]
-    .filter(Boolean)
-    .join(" · ")
 }
 
 const ZERO_ATTRIBUTES = {
@@ -224,11 +226,11 @@ const ZERO_ATTRIBUTES = {
   luck: 0,
 } as const
 
-function HeaderAvatar({ detail }: { detail: CombatantDetail }) {
-  if (detail.isPc) {
+function HeaderAvatar({ avatar }: { avatar: CombatantAvatar }) {
+  if (avatar.kind === "portrait") {
     return (
       <Image
-        src={avatarSrc(detail.portraitUrl, detail.name || detail.id)}
+        src={avatar.src}
         alt=""
         width={40}
         height={40}
@@ -241,12 +243,12 @@ function HeaderAvatar({ detail }: { detail: CombatantDetail }) {
       aria-hidden
       className={cn(
         "flex size-10 shrink-0 items-center justify-center rounded-none text-xs font-semibold",
-        detail.side === "players"
+        avatar.side === "players"
           ? "bg-primary/10 text-primary"
           : "bg-destructive/10 text-destructive"
       )}
     >
-      {initials(detail.name)}
+      {avatar.label}
     </span>
   )
 }

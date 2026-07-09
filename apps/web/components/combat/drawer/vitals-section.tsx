@@ -2,17 +2,16 @@
 
 import { HeartIcon, SparkleIcon } from "@phosphor-icons/react/dist/ssr"
 
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
 
 import type { DispatchCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
+import type { CombatantVitalsView } from "@/lib/combat/view/detail-view"
 import type { Pool } from "@/lib/combat/view/roster-view"
-import { vitalsAffordances } from "@/lib/combat/view/vitals-affordances"
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 /**
  * The drawer's **VITALS** section, rewritten onto the CD19 write-router
@@ -24,39 +23,35 @@ import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
  * per UNN-535's AC: the DM can adjust a placed PC's HP/SP again, guarded on the
  * character's own `vitalsVersion`).
  *
- * Affordances are gated by {@link vitalsAffordances}, not a kind branch: a
- * pool's damage/heal renders iff the pool **resolved** (`hp`/`sp` non-null),
- * `setMax` is inline-only (a PC's max derives from the engine), and `usePrisma`
- * renders only when the participant resolved a Prisma pool.
+ * Affordances arrive pre-gated on the {@link CombatantVitalsView}, not a kind
+ * branch: a pool's damage/heal renders iff the pool **resolved** (`hp`/`sp`
+ * non-null), `setMax` is inline-only (a PC's max derives from the engine), and
+ * `usePrisma` renders only when the participant resolved a Prisma pool.
  */
 export function CombatantVitalsSection({
-  detail,
+  participantId,
+  vitals,
   dispatchWrite,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  vitals: CombatantVitalsView
   dispatchWrite: DispatchCombatantWrite
 }) {
-  const affordances = vitalsAffordances(detail.isPc, detail.hasPrisma)
+  const { affordances } = vitals
 
   function write(descriptor: CombatEntityWrite) {
-    void dispatchWrite(detail.id, descriptor)
+    void dispatchWrite(participantId, descriptor)
   }
 
   return (
     <DetailSection title="Vitals">
       <div className="flex flex-col gap-3">
-        {detail.hp ? (
+        {vitals.hp ? (
           <PoolRow
             label="HP"
-            pool={detail.hp}
+            pool={vitals.hp}
             kind="hp"
-            downBadge={
-              detail.isFallen
-                ? detail.isPc
-                  ? COMBATANT_DOWN_LABELS.pc
-                  : COMBATANT_DOWN_LABELS.enemy
-                : null
-            }
+            downBadge={vitals.downLabel}
             control={
               <AdjustPoolPopover
                 label="Adjust HP"
@@ -76,10 +71,10 @@ export function CombatantVitalsSection({
           <p className="text-sm text-muted-foreground">No HP to track.</p>
         )}
 
-        {detail.sp ? (
+        {vitals.sp ? (
           <PoolRow
             label="SP"
-            pool={detail.sp}
+            pool={vitals.sp}
             kind="sp"
             control={
               <AdjustPoolPopover
@@ -98,9 +93,9 @@ export function CombatantVitalsSection({
           />
         ) : null}
 
-        {detail.hp && affordances.setMax ? (
+        {vitals.hp && affordances.setMax ? (
           <MaxHpControl
-            hp={detail.hp}
+            hp={vitals.hp}
             onSetMax={(amount) =>
               write({ component: "vitals", op: "setMax", amount })
             }

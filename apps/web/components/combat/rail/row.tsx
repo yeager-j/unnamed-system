@@ -13,10 +13,9 @@ import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { VitalBar } from "@/components/shared/vital-bar"
+import type { CombatantAvatar } from "@/lib/combat/view/avatar"
 import type { Pool, RailRow } from "@/lib/combat/view/roster-view"
-import { initials } from "@/lib/ui/initials"
-import { COMBATANT_DOWN_LABELS, COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
-import { avatarSrc } from "@/lib/ui/portrait"
+import { COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**
  * One combatant row in the rail (UNN-345). Token + name + HP (and SP for PCs)
@@ -47,16 +46,14 @@ export function CombatantRailRow({
       )}
     >
       <div className="flex items-center gap-2.5">
-        <Token row={row} />
+        <Token avatar={row.avatar} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5">
               <span className="truncate text-sm font-medium">{row.name}</span>
-              {row.isFallen ? (
+              {row.downLabel ? (
                 <Badge variant="destructive" className="shrink-0">
-                  {row.isPc
-                    ? COMBATANT_DOWN_LABELS.pc
-                    : COMBATANT_DOWN_LABELS.enemy}
+                  {row.downLabel}
                 </Badge>
               ) : null}
               {row.isDowned ? (
@@ -86,7 +83,7 @@ export function CombatantRailRow({
             </span>
           </div>
 
-          <VitalRow label="HP" pool={row.hp} kind="hp" />
+          {row.hp ? <VitalRow label="HP" pool={row.hp} kind="hp" /> : null}
           {row.sp ? <VitalRow label="SP" pool={row.sp} kind="sp" /> : null}
         </div>
       </div>
@@ -136,12 +133,13 @@ function VitalRow({
   )
 }
 
-/** PC ⇒ portrait or stable gradient; enemy ⇒ a side-tinted initials square. */
-function Token({ row }: { row: RailRow }) {
-  if (row.isPc) {
+/** Renders the pre-resolved {@link CombatantAvatar} variant: a portrait image
+ *  or a side-tinted initials square. */
+function Token({ avatar }: { avatar: CombatantAvatar }) {
+  if (avatar.kind === "portrait") {
     return (
       <Image
-        src={avatarSrc(row.portraitUrl, row.name || row.id)}
+        src={avatar.src}
         alt=""
         width={36}
         height={36}
@@ -154,12 +152,12 @@ function Token({ row }: { row: RailRow }) {
       aria-hidden
       className={cn(
         "flex size-9 shrink-0 items-center justify-center rounded-none text-[10px] font-semibold",
-        row.side === "players"
+        avatar.side === "players"
           ? "bg-primary/10 text-primary"
           : "bg-destructive/10 text-destructive"
       )}
     >
-      {initials(row.name)}
+      {avatar.label}
     </span>
   )
 }

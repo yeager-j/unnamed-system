@@ -480,6 +480,17 @@ export const COMBATANT_DOWN_LABELS = {
 } as const
 
 /**
+ * The combatant drawer footer's where-do-edits-land note, keyed by storage
+ * home: a durable PC's HP/SP writes land on its character sheet, an inline
+ * enemy's edits live and die with the encounter.
+ */
+export const COMBATANT_EDIT_SCOPE_NOTES = {
+  pc: (name: string) =>
+    `HP/SP changes here write ${name}'s character sheet; conditions apply to this encounter.`,
+  enemy: "Edits affect this enemy in this encounter only.",
+} as const
+
+/**
  * The non-blocking end-of-combat reminder (UNN-320): Fallen PCs recover to 1 HP,
  * but the tracker never writes a character row — each player sets it on their own
  * sheet. Display-only; ending the encounter writes nothing to characters.

@@ -19,14 +19,15 @@ import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-ba
 
 import { useDungeonCombatCanvas } from "./context"
 
-/** One combatant on the combat board — the display subset of a `RailRow`. */
+/** One combatant on the combat board — the display subset of a `RailRow`.
+ *  `portraitUrl` is the uploaded token art or `null` (the chip's glyph falls
+ *  back to initials). */
 export interface DungeonCombatToken {
   id: ParticipantId
   name: string
   side: CombatSide
-  isPc: boolean
   portraitUrl: string | null
-  hp: Pool
+  hp: Pool | null
   sp: Pool | null
   /** Locked in melee here (any survivor engagement) — draws the dimmed sword. */
   engaged: boolean

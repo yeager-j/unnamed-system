@@ -117,7 +117,7 @@ describe("useCombatSelection — drawer selection", () => {
     expect(rendered.result.current.selectedDetail).toBeNull()
 
     act(() => rendered.result.current.selectCombatant(goblinId))
-    expect(rendered.result.current.selectedDetail?.name).toBe("Goblin")
+    expect(rendered.result.current.selectedDetail?.header.name).toBe("Goblin")
 
     act(() => rendered.result.current.selectCombatant(null))
     expect(rendered.result.current.selectedDetail).toBeNull()

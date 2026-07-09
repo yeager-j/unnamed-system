@@ -8,13 +8,14 @@ import {
 import type { ReactNode } from "react"
 
 import type {
+  ActionAvailability,
   ActionEconomyAction,
   ActionEconomyEvent,
 } from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { ACTION_ECONOMY_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -28,18 +29,18 @@ import { ACTION_ECONOMY_LABELS } from "@/lib/ui/labels"
  * `available = max(0, 1 − used)`.
  */
 export function CombatantActionsSection({
-  detail,
+  participantId,
+  availability,
   onCombatEvent,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  availability: ActionAvailability
   onCombatEvent: (event: ActionEconomyEvent) => void
 }) {
-  const { actionAvailability } = detail
-
   function adjust(action: ActionEconomyAction, available: boolean) {
     onCombatEvent({
       kind: "adjustActionEconomy",
-      participantId: detail.id,
+      participantId,
       action,
       delta: available ? -1 : 1,
     })
@@ -50,19 +51,19 @@ export function CombatantActionsSection({
       <div className="flex flex-wrap gap-2">
         <ActionToggle
           action="move"
-          available={actionAvailability.move > 0}
+          available={availability.move > 0}
           icon={<ArrowsOutCardinalIcon aria-hidden />}
           onToggle={(available) => adjust("move", available)}
         />
         <ActionToggle
           action="standard"
-          available={actionAvailability.standard > 0}
+          available={availability.standard > 0}
           icon={<SwordIcon aria-hidden />}
           onToggle={(available) => adjust("standard", available)}
         />
         <ActionToggle
           action="reaction"
-          available={actionAvailability.reaction > 0}
+          available={availability.reaction > 0}
           icon={<ArrowUUpLeftIcon aria-hidden />}
           onToggle={(available) => adjust("reaction", available)}
         />

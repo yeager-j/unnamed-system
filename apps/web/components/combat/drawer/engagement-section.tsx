@@ -1,11 +1,12 @@
 "use client"
 
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
+import type { CombatantEngagementView } from "@/lib/combat/view/detail-view"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -18,23 +19,25 @@ import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
  * combat). Engagement is symmetric (the spatial reducer mirrors onto targets).
  */
 export function CombatantEngagementSection({
-  detail,
+  participantId,
+  engagement,
   onCombatEvent,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  engagement: CombatantEngagementView
   onCombatEvent: (event: MapInstanceEvent) => void
 }) {
-  const { value, targetNames, candidates } = detail.engagement
+  const { value, targetNames, candidates } = engagement
 
-  function onChange(engagement: Engagement) {
+  function onChange(next: Engagement) {
     onCombatEvent(
-      engagement.status === "engaged"
+      next.status === "engaged"
         ? {
             kind: "setEngagement",
-            tokenKey: detail.id,
-            targetCombatantIds: engagement.targetCombatantIds,
+            tokenKey: participantId,
+            targetCombatantIds: next.targetCombatantIds,
           }
-        : { kind: "clearEngagement", tokenKey: detail.id }
+        : { kind: "clearEngagement", tokenKey: participantId }
     )
   }
 

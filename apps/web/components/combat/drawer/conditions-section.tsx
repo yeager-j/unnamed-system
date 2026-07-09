@@ -2,12 +2,15 @@
 
 import type {
   AilmentEvent,
+  Ailments,
   BattleConditionEvent,
+  BattleConditions,
+  ConditionDurations,
 } from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { ConditionsControls } from "@/components/combat/conditions/controls"
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 
 /**
  * The drawer's **AILMENT & CONDITIONS** section (UNN-310) — the session-overlay
@@ -17,19 +20,25 @@ import type { CombatantDetail } from "@/lib/combat/view/detail-view"
  * Identical for every participant (overlay state is uniform).
  */
 export function CombatantConditionsSection({
-  detail,
+  participantId,
+  ailments,
+  battleConditions,
+  conditionDurations,
   onCombatEvent,
 }: {
-  detail: CombatantDetail
+  participantId: ParticipantId
+  ailments: Ailments
+  battleConditions: BattleConditions
+  conditionDurations: ConditionDurations
   onCombatEvent: (event: AilmentEvent | BattleConditionEvent) => void
 }) {
   return (
     <DetailSection title="Ailment & conditions">
       <ConditionsControls
-        participantId={detail.id}
-        battleConditions={detail.battleConditions}
-        conditionDurations={detail.conditionDurations}
-        ailments={detail.ailments}
+        participantId={participantId}
+        battleConditions={battleConditions}
+        conditionDurations={conditionDurations}
+        ailments={ailments}
         onCombatEvent={onCombatEvent}
       />
     </DetailSection>

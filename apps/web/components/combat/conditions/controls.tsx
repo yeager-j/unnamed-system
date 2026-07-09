@@ -60,7 +60,8 @@ const DOWNED_KEY: AilmentKey = "downed"
  * - **Charged / Concentrating** — manual on/off flags (`setBattleConditionFlag`).
  *
  * Presentational and emit-only: the DM drawer's `combatant-conditions-section`
- * feeds it from a `CombatantDetail` and emits through `applyCombatEvent`. The
+ * feeds it the participant's session overlay and emits through
+ * `applyCombatEvent`. The
  * player watch no longer edits its own overlay — combat conditions are the DM's to
  * set — so the DM is the only caller that mounts this for editing.
  */

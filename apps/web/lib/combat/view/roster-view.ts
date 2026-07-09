@@ -14,17 +14,19 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import { combatantAvatar, type CombatantAvatar } from "@/lib/combat/view/avatar"
+import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 /**
  * The display projection the combatant **rail** renders — the v2 successor of
  * v1's `engine/encounter/roster-view.ts`, folding over the {@link
  * ResolvedSession} so a PC and an enemy read their pools/portrait through the
  * exact same resolved read-units (no injected PC map, no `ref.kind` branch).
- * The one storage read left is `isPc` — the participant's storage *home*
- * (durable = a character row backs it), projected once at the loader boundary
- * into {@link ParticipantMeta} and consumed resolved here — it drives the
- * portrait-vs-initials token and the "manages their own HP" copy, never a
- * mechanics branch.
+ * The participant's storage *home* (durable = a character row backs it) is
+ * projected once at the loader boundary into {@link ParticipantMeta} and
+ * **dies in this builder**: it resolves into the {@link CombatantAvatar}
+ * variant and the Fallen/Dead `downLabel`, never a mechanics branch — no
+ * `isPc` boolean survives for the rail to re-branch on.
  */
 
 /** A current/max pool, the shape both vitals bars render. */
@@ -33,19 +35,23 @@ export interface Pool {
   max: number
 }
 
-/** One participant as a rail row. `sp` is `null` when the entity resolves no
- *  SkillPool read-unit (enemies without SP). */
+/** One participant as a rail row. `hp`/`sp` are `null` when the entity
+ *  resolves no such read-unit. */
 export interface RailRow {
   id: ParticipantId
   name: string
   side: CombatSide
-  isPc: boolean
+  avatar: CombatantAvatar
   isCurrent: boolean
   hasActed: boolean
   isFallen: boolean
   isDowned: boolean
-  hp: Pool
+  /** The Fallen/Dead badge copy, `null` while up. */
+  downLabel: string | null
+  hp: Pool | null
   sp: Pool | null
+  /** The *uploaded* token art or `null` — raw material for the 20px canvas
+   *  glyph, which falls back to initials rather than `avatar`'s gradient. */
   portraitUrl: string | null
   engagement: Engagement
   /** The participant's zone *display name*, or `null` when unplaced/unzoned. */
@@ -63,13 +69,11 @@ export interface RosterView {
   downedEnemyCount: number
 }
 
-/** The resolved HP pool off a participant view, `{0,0}` when the entity
- *  resolves no Vitals read-unit (the rail's defensive default). */
-export function hpPool(participantView: ParticipantView): Pool {
+/** The resolved HP pool, or `null` when the entity carries no Vitals —
+ *  absence, not an empty `{0,0}` pool. */
+export function hpPool(participantView: ParticipantView): Pool | null {
   const vitals = participantView.components.vitals
-  return vitals
-    ? { current: vitals.currentHP, max: vitals.maxHP }
-    : { current: 0, max: 0 }
+  return vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null
 }
 
 /** The resolved SP pool, or `null` when the entity carries no SkillPool. */
@@ -94,20 +98,34 @@ export function buildRosterView(
     const participantView = view.get(participant.id)
     if (participantView === undefined) return []
     const zoneId = zoneOf(instanceState, participant.id)
+    const name = nameById.get(participant.id) ?? participant.id
+    const side = participant.overlay.allegiance.side
+    const isPc = participantMeta[participant.id]?.storage === "durable"
+    const isFallen = fallenIds.has(participant.id)
+    const portraitUrl =
+      participantView.components.presentation?.portraitUrl ?? null
     return [
       {
         id: participant.id,
-        name: nameById.get(participant.id) ?? participant.id,
-        side: participant.overlay.allegiance.side,
-        isPc: participantMeta[participant.id]?.storage === "durable",
+        name,
+        side,
+        avatar: combatantAvatar({
+          isPc,
+          portraitUrl,
+          name,
+          id: participant.id,
+          side,
+        }),
         isCurrent: participant.id === session.currentActorId,
         hasActed: participant.overlay.turnState.turnsTakenThisRound > 0,
-        isFallen: fallenIds.has(participant.id),
+        isFallen,
         isDowned: participant.overlay.ailments.includes("downed"),
+        downLabel: isFallen
+          ? COMBATANT_DOWN_LABELS[isPc ? "pc" : "enemy"]
+          : null,
         hp: hpPool(participantView),
         sp: spPool(participantView),
-        portraitUrl:
-          participantView.components.presentation?.portraitUrl ?? null,
+        portraitUrl,
         engagement: participantView.components.engagement ?? {
           status: "free",
         },

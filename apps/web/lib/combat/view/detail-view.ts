@@ -3,10 +3,9 @@ import {
   engagementCandidates,
   participantDisplayNames,
   type ActionAvailability,
-  type Ailments,
-  type BattleConditions,
-  type ConditionDurations,
-  type Counters,
+  type OverlayComponents,
+  type Participant,
+  type ParticipantView,
   type ResolvedSession,
   type Session,
 } from "@workspace/game-v2/encounter"
@@ -16,7 +15,6 @@ import type {
   AffinityChart,
   AttributeScores,
 } from "@workspace/game-v2/kernel/vocab"
-import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
 import type { MapInstanceState, MapZone } from "@workspace/game-v2/spatial"
@@ -24,19 +22,32 @@ import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
+import { combatantAvatar, type CombatantAvatar } from "@/lib/combat/view/avatar"
 import { hpPool, spPool, type Pool } from "@/lib/combat/view/roster-view"
+import {
+  vitalsAffordances,
+  type VitalsAffordances,
+} from "@/lib/combat/view/vitals-affordances"
 import { adjacentZones } from "@/lib/combat/view/zone-graph"
+import {
+  COMBATANT_DOWN_LABELS,
+  COMBATANT_EDIT_SCOPE_NOTES,
+} from "@/lib/ui/labels"
 
 /**
- * The per-combatant **drawer model** — the v2 successor of v1's
- * `combatantDetail`. The read-only stat sections are shaped **by capability**:
- * `attributes`/`affinities`/`hp`/`sp` are each `null` exactly when the entity
- * resolves no such read-unit, and the drawer renders a section iff its datum
- * resolved — no `kind` branch decides what an "enemy" vs a "PC" shows.
+ * The per-combatant **drawer model** — a composition of one view per drawer
+ * region, not a flat field bag: each section component takes exactly its slice.
+ * The read-only stats are shaped **by capability**: `attributes`/`affinities`/
+ * `hp`/`sp` are each `null` exactly when the entity resolves no such read-unit,
+ * and the drawer renders a section iff its datum resolved.
  *
- * The loader may supply a character-sheet display slice for a PC, but this output
- * is storage-blind: the drawer receives the display fields and one resolved Skills
- * list it needs, never the storage tier or write tokens that produced them.
+ * The loader's storage projection (`meta.storage`) **dies in this builder**:
+ * every PC-vs-enemy display question — avatar variant, subtitle fallback, down
+ * label, edit-scope note, the setMax affordance — is resolved here into a
+ * value, so no `isPc` boolean survives for the UI to re-branch on (the F1
+ * leak). The drawer receives display answers and one resolved Skills list,
+ * never the storage tier or write tokens that produced them.
  */
 
 export interface EngageableTarget {
@@ -63,48 +74,50 @@ export interface CombatantPosition {
   targets: MapZone[]
 }
 
-/** The display data only a character sheet contributes to a combatant drawer.
- *  Inline combatants have no sheet and instead use their session-resolved Skills. */
-export interface CombatantSheetSlice {
-  className: string | null
-  pronouns: string | null
+/** The drawer's header + footer display, every part pre-resolved. */
+export interface CombatantHeader {
+  name: string
+  /** `Level N · Class · pronouns` (each part present iff known); an inline
+   *  combatant with no class shows `Enemy`. */
+  subtitle: string
+  avatar: CombatantAvatar
+  /** The footer's where-do-edits-land note — the one place the drawer talks
+   *  about persistence, resolved to copy here. */
+  persistenceNote: string
+}
+
+/** The vitals section's feed. `hp`/`sp` are `null` when the read-unit didn't
+ *  resolve; `downLabel` is the Fallen/Dead badge, `null` while up. */
+export interface CombatantVitalsView {
+  hp: Pool | null
+  sp: Pool | null
+  downLabel: string | null
+  affordances: VitalsAffordances
+}
+
+/** The read-only stat sections' feed (null/empty ⇔ the read-unit didn't
+ *  resolve). `talentKeys: null` means the entity lacks the talents capability;
+ *  `[]` means it has the capability but currently owns no Talents. */
+export interface CombatantStats {
+  attributes: AttributeScores | null
+  affinities: AffinityChart | null
   skills: ResolvedSkill[]
+  talentKeys: string[] | null
+  hasSkillPool: boolean
 }
 
 export interface CombatantDetail {
   id: ParticipantId
-  name: string
-  side: CombatSide
-  /** Storage home projected to the display question the token/footer ask. */
-  isPc: boolean
-  level: number | null
-  portraitUrl: string | null
-  className: string | null
-  pronouns: string | null
-  // editable overlay
-  ailments: Ailments
-  battleConditions: BattleConditions
-  conditionDurations: ConditionDurations
-  counters: Counters
+  header: CombatantHeader
+  /** The participant's editable session overlay, **verbatim** — the
+   *  conditions/counters sections render and edit these engine values
+   *  directly, so a new overlay field never threads through this model. */
+  overlay: OverlayComponents
   actionAvailability: ActionAvailability
-  // spatial
   position: CombatantPosition | null
   engagement: CombatantEngagementView
-  // vitals (null ⇔ the capability didn't resolve)
-  hp: Pool | null
-  sp: Pool | null
-  isFallen: boolean
-  // read-only stats (null/empty ⇔ the read-unit didn't resolve)
-  attributes: AttributeScores | null
-  affinities: AffinityChart | null
-  skills: ResolvedSkill[]
-  /** `null` means the entity lacks the talents capability; `[]` means it has
-   *  the capability but currently owns no Talents. */
-  talentKeys: string[] | null
-  hasSkillPool: boolean
-  /** Whether the participant resolved a Prisma pool (a `resources` read-unit)
-   *  — gates the drawer's use-Prisma affordance. */
-  hasPrisma: boolean
+  vitals: CombatantVitalsView
+  stats: CombatantStats
 }
 
 /** Builds the drawer model for one participant, or `null` for an unknown id. */
@@ -121,42 +134,91 @@ export function combatantDetail(
   if (participant === undefined || participantView === undefined) return null
 
   const nameById = participantDisplayNames(view)
-  const vitals = participantView.components.vitals
-  const overlay = participant.overlay
-  const hasTalentCapability = resolvedGuard("talents")(participantView)
-  const hasSkillPool = resolvedGuard("skillPool")(participantView)
-  const hasResources = resolvedGuard("resources")(participantView)
+  const name = nameById.get(participantId) ?? participantId
   const isPc = meta?.storage === "durable"
 
   return {
     id: participantId,
-    name: nameById.get(participantId) ?? participantId,
-    side: overlay.allegiance.side,
-    isPc,
-    level: participant.entity.components.level?.value ?? null,
-    portraitUrl: participantView.components.presentation?.portraitUrl ?? null,
-    ailments: overlay.ailments,
-    battleConditions: overlay.battleConditions,
-    conditionDurations: overlay.conditionDurations,
-    counters: overlay.counters,
-    actionAvailability: actionAvailability(overlay.turnState),
+    header: combatantHeader(
+      participant,
+      participantView,
+      name,
+      isPc,
+      sheetSlice
+    ),
+    overlay: participant.overlay,
+    actionAvailability: actionAvailability(participant.overlay.turnState),
     position: combatantPosition(instanceState, participantId),
     engagement: engagementView(session, instanceState, participantId, nameById),
-    hp: participantView.components.vitals ? hpPool(participantView) : null,
+    vitals: combatantVitals(participantView, isPc),
+    stats: combatantStats(participantView, sheetSlice),
+  }
+}
+
+function combatantHeader(
+  participant: Participant,
+  participantView: ParticipantView,
+  name: string,
+  isPc: boolean,
+  sheetSlice: CombatantSheetSlice | undefined
+): CombatantHeader {
+  const level = participant.entity.components.level?.value
+  const subtitle = [
+    level !== undefined ? `Level ${level}` : null,
+    sheetSlice?.className ?? (isPc ? null : "Enemy"),
+    sheetSlice?.pronouns ?? null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+  return {
+    name,
+    subtitle,
+    avatar: combatantAvatar({
+      isPc,
+      portraitUrl: participantView.components.presentation?.portraitUrl ?? null,
+      name,
+      id: participant.id,
+      side: participant.overlay.allegiance.side,
+    }),
+    persistenceNote: isPc
+      ? COMBATANT_EDIT_SCOPE_NOTES.pc(name)
+      : COMBATANT_EDIT_SCOPE_NOTES.enemy,
+  }
+}
+
+function combatantVitals(
+  participantView: ParticipantView,
+  isPc: boolean
+): CombatantVitalsView {
+  const vitals = participantView.components.vitals
+  return {
+    hp: hpPool(participantView),
     sp: spPool(participantView),
-    isFallen: vitals !== undefined && isFallen(vitals),
+    downLabel:
+      vitals !== undefined && isFallen(vitals)
+        ? COMBATANT_DOWN_LABELS[isPc ? "pc" : "enemy"]
+        : null,
+    affordances: vitalsAffordances(
+      isPc,
+      resolvedGuard("resources")(participantView)
+    ),
+  }
+}
+
+function combatantStats(
+  participantView: ParticipantView,
+  sheetSlice: CombatantSheetSlice | undefined
+): CombatantStats {
+  const hasTalentCapability = resolvedGuard("talents")(participantView)
+  return {
     attributes: participantView.components.attributes ?? null,
     affinities: participantView.components.affinities ?? null,
-    skills: isPc
-      ? (sheetSlice?.skills ?? participantView.components.skills ?? [])
-      : (participantView.components.skills ?? []),
+    skills: sheetSlice?.skills ?? participantView.components.skills ?? [],
     talentKeys: hasTalentCapability
       ? participantView.components.talents.map((talent) => talent.key)
       : null,
-    hasSkillPool,
-    hasPrisma: hasResources,
-    className: sheetSlice?.className ?? null,
-    pronouns: sheetSlice?.pronouns ?? null,
+    hasSkillPool: resolvedGuard("skillPool")(participantView),
   }
 }
 
