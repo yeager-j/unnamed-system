@@ -4,7 +4,10 @@ import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import { EncounterWatch } from "@/components/encounter/encounter-watch"
 import type { WatchSnapshot } from "@/hooks/use-encounter-snapshot"
-import type { EncounterSnapshotResult } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import type {
+  EncounterSnapshotResult,
+  OwnedEncounterSheet,
+} from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 /** Polls the **fogged** combat snapshot for a delve fight (UNN-536) — the fog
  *  twin of the mapless watch's default fetcher, hitting the delve-scoped route. */
@@ -33,16 +36,19 @@ export function DungeonCombatWatch({
   encounterShortId,
   initialSnapshot,
   initialCompositeVersion,
+  ownedSheets,
 }: {
   encounterShortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
+  ownedSheets: OwnedEncounterSheet[]
 }) {
   return (
     <EncounterWatch
       shortId={encounterShortId}
       initialSnapshot={initialSnapshot}
       initialCompositeVersion={initialCompositeVersion}
+      ownedSheets={ownedSheets}
       fetcher={fetchFoggedSnapshot}
     />
   )

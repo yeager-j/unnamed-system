@@ -9,6 +9,7 @@ import type { EncounterInstanceComponents } from "./instance"
 import { defaultOverlay } from "./overlay"
 import {
   assembleParticipantView,
+  participantResolveContext,
   participantZoneEffects,
   resolveParticipant,
   resolveSession,
@@ -59,6 +60,36 @@ describe("participantZoneEffects — the SpatialReads → enchantment projection
     expect(
       participantZoneEffects(toccataAtZ1, asParticipantId("ghost"))
     ).toEqual([])
+  })
+})
+
+describe("participantResolveContext — the sheet-surfaces' shared context (UNN-566)", () => {
+  const playerAtZ1 = makeParticipant(
+    { id: "e1", components: {} },
+    asParticipantId("p1"),
+    { side: "players" }
+  )
+  const COMPOSITION = { players: { mage: 2 }, enemies: { warlock: 1 } }
+
+  it("carries the zone effects AND the participant's own side's party composition", () => {
+    expect(
+      participantResolveContext(toccataAtZ1, COMPOSITION, playerAtZ1)
+    ).toEqual({
+      effects: [TOCCATA_FF],
+      partyComposition: { mage: 2 },
+    })
+  })
+
+  it("reads the side off the allegiance overlay — a charmed PC scales with the side it fights for", () => {
+    const charmed = makeParticipant(
+      { id: "e1", components: {} },
+      asParticipantId("p1"),
+      { side: "enemies" }
+    )
+    expect(
+      participantResolveContext(toccataAtZ1, COMPOSITION, charmed)
+        .partyComposition
+    ).toEqual({ warlock: 1 })
   })
 })
 

@@ -10,12 +10,17 @@ import {
 import { DungeonCombatWatch } from "@/components/dungeon/combat/watch"
 import { DungeonWatch } from "@/components/dungeon/watch"
 import { auth } from "@/lib/auth"
+import { loadCharactersByIds } from "@/lib/character/load"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import {
   getDungeonSnapshot,
   loadOwnedDungeonCharacterIds,
 } from "@/lib/db/queries/load-dungeon-snapshot"
-import { getDungeonCombatSnapshot } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import {
+  getDungeonCombatSnapshot,
+  loadOwnedEncounterSheets,
+  type OwnedEncounterSheet,
+} from "@/lib/db/queries/load-encounter-snapshot-v2"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 
 interface PageProps {
@@ -52,13 +57,15 @@ export async function generateMetadata({
  *
  * It *also* resolves the signed-in viewer (`auth()`) to the party token(s) they own
  * in this delve ({@link loadOwnedDungeonCharacterIds}) so the view can self-highlight
- * them. A signed-out spectator resolves to none and sees the map with nothing
- * highlighted — the page stays public.
+ * them — and loads those characters' sheets for the watch's own-sheet Explore column
+ * (UNN-566). A signed-out spectator resolves to none and sees the map with nothing
+ * highlighted and no column — the page stays public.
  */
 interface DungeonCombatWatchData {
   encounterShortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
+  ownedSheets: OwnedEncounterSheet[]
 }
 
 /**
@@ -69,7 +76,8 @@ interface DungeonCombatWatchData {
  * back to the exploration view rather than 404 the whole delve.
  */
 async function resolveDungeonCombatWatch(
-  shortId: string
+  shortId: string,
+  viewerId: string | undefined
 ): Promise<DungeonCombatWatchData | null> {
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
@@ -84,6 +92,9 @@ async function resolveDungeonCombatWatch(
     encounterShortId: live.shortId,
     initialSnapshot: snapshotResult.value.snapshot,
     initialCompositeVersion: snapshotResult.value.compositeVersion,
+    ownedSheets: viewerId
+      ? await loadOwnedEncounterSheets(live.shortId, viewerId)
+      : [],
   }
 }
 
@@ -95,7 +106,7 @@ export default async function DungeonWatchPage({ params }: PageProps) {
   // The combat-vs-explore fork, decided once: a live encounter on the delve's
   // Instance composes the **fogged** v2 combat watch (UNN-536); else the
   // exploration fog view below stays the flat happy path.
-  const combat = await resolveDungeonCombatWatch(shortId)
+  const combat = await resolveDungeonCombatWatch(shortId, viewerId)
   if (combat) return <DungeonCombatWatch {...combat} />
 
   const [snapshot, ownedCharacterIds] = await Promise.all([
@@ -111,6 +122,7 @@ export default async function DungeonWatchPage({ params }: PageProps) {
       shortId={shortId}
       initialSnapshot={snapshot}
       ownedCharacterIds={ownedCharacterIds}
+      ownedSheets={await loadCharactersByIds(ownedCharacterIds)}
     />
   )
 }

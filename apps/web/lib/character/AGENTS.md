@@ -8,6 +8,11 @@ when S2 lands, the pure per-surface view builders.
   `{ profile, entity, resolved }` triple. `profile` is the app-owned columns;
   `entity` is the authored component bag (the optimistic re-fold's base and
   where surfaces read authored choices); `resolved` is the engine's read-units.
+  `loadCharactersByIds(ids)` is the batch twin (the dungeon watch's own-sheet
+  column, UNN-566): same triple per id, in the caller's order, skipping a row
+  that fails the load seam rather than 404ing a whole watch page.
+  `toCharacterProfile(row)` is the profile projection alone, for the loaders
+  that already hold a dissolved entity (a durable combatant off the session).
 - `view/` (S2a — UNN-557) — pure per-surface view builders over that triple,
   mirroring `lib/combat/view/`: `rail-view.ts` (the sheet's persistent rail —
   note Level/Victories read off the authored `entity`, no resolved read-unit

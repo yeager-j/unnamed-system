@@ -2,6 +2,8 @@
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
+import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
+import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import {
   useEncounterSnapshot,
@@ -9,6 +11,7 @@ import {
 } from "@/hooks/use-encounter-snapshot"
 import type { SnapshotFetcher } from "@/hooks/use-snapshot-subscription"
 import { buildWatchView } from "@/lib/combat/view/watch-layout"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
@@ -29,21 +32,23 @@ import { ZoneLayout } from "./zone-layout"
  * mirrors the lifecycle: `draft` waits, `ended` a concluded banner, `live` the
  * full tracker.
  *
- * The own-sheet left column (the v1 `CombatSheetColumn`) was removed with the
- * old sheet tree (UNN-557) — it had rendered empty since S0 (durable
- * combatants are entity rows with no v1 twin). Its v2 rebuild on the new sheet
- * components is a follow-up; meanwhile a player manages vitals from their own
- * sheet at `/c/{shortId}`.
+ * A signed-in viewer who owns combatant(s) here also gets the {@link
+ * CombatSheetColumn} on the left (UNN-566), so vitals and the Archetype
+ * mechanic are managed in place. A spectator owns none, so the column doesn't
+ * render and the battlefield takes the full width.
  */
 export function EncounterWatch({
   shortId,
   initialSnapshot,
   initialCompositeVersion,
+  ownedSheets,
   fetcher,
 }: {
   shortId: string
   initialSnapshot: SpatialEncounterSnapshot
   initialCompositeVersion: string
+  /** The viewer's own combatants here — empty for a spectator. */
+  ownedSheets: OwnedEncounterSheet[]
   /** Overrides the poll source (UNN-536): a delve combat watch fetches the
    *  **fogged** snapshot. Defaults to the mapless full-map endpoint. */
   fetcher?: SnapshotFetcher<WatchSnapshot>
@@ -56,6 +61,8 @@ export function EncounterWatch({
     },
     fetcher
   )
+  useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
+
   const battlefield =
     snapshot.status === "draft" ? (
       <WaitingState />
@@ -77,8 +84,18 @@ export function EncounterWatch({
         <StatusPill status={snapshot.status} stale={stale} />
       </header>
 
-      <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
-        {battlefield}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {ownedSheets.length > 0 ? (
+          <aside
+            aria-label="Your characters"
+            className="shrink-0 border-b px-4 py-4 lg:w-[340px] lg:overflow-y-auto lg:border-r lg:border-b-0"
+          >
+            <CombatSheetColumn snapshot={snapshot} ownedSheets={ownedSheets} />
+          </aside>
+        ) : null}
+        <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1">
+          {battlefield}
+        </div>
       </div>
     </main>
   )

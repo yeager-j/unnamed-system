@@ -41,6 +41,7 @@ test.beforeEach(async () => {
 })
 
 const PLACED_PC_NAME = encounterTarget.placedPc.seed.name
+const LIVE_COMBAT_PC_NAME = encounterTarget.liveCombatPc.seed.name
 
 /**
  * The combatant drawer, scoped to the sheet element. The drawer's "Adjust HP/SP"
@@ -526,6 +527,38 @@ test("404s for an encounter in another DM's campaign", async ({ page }) => {
   expect(response?.status()).toBe(404)
 })
 
+/**
+ * The watch's own-sheet column (UNN-566): the dev user owns Roan Vale, who
+ * stands in Campaign B's live encounter, so the watch mounts their sheet in
+ * owner mode. The write goes through the entity door — the same descriptor the
+ * `/c/{shortId}` rail dispatches — so the assertion is the durable row, not
+ * just the bar.
+ */
+test("the watch's own-sheet column adjusts the owner's HP durably (UNN-566)", async ({
+  page,
+}) => {
+  const pcId = encounterTarget.liveCombatPc.characterId
+  const hpBefore = await getCharacterCurrentHP(pcId)
+
+  await page.goto(`/c/encounter/${encounterTarget.live.shortId}`)
+  const column = page.getByRole("complementary", { name: "Your characters" })
+  await expect(
+    column.getByRole("heading", { name: LIVE_COMBAT_PC_NAME })
+  ).toBeVisible()
+  await expect(column.getByText(`${hpBefore} / `)).toBeVisible()
+
+  await column.getByRole("button", { name: "Adjust HP" }).click()
+  await page.getByLabel("Adjust HP amount").fill("4")
+  await page.getByRole("button", { name: "Damage", exact: true }).click()
+
+  await expect
+    .poll(async () => await getCharacterCurrentHP(pcId))
+    .toBe(hpBefore - 4)
+  await expect(column.getByText(`${hpBefore - 4} / `)).toBeVisible()
+
+  await setCharacterCurrentHP(pcId, hpBefore)
+})
+
 test.describe("signed out", () => {
   // A fresh context with no auth cookie — the watch and the snapshot API are
   // public, and the spectator relationship is the strictest redaction tier.
@@ -548,6 +581,12 @@ test.describe("signed out", () => {
     // (one snapshot read — the API test below is the structural check).
     expect(await page.getByText("Attributes").count()).toBe(0)
     expect(await page.getByText("Affinities").count()).toBe(0)
+
+    // A spectator owns no combatant here, so the own-sheet column never mounts
+    // and the battlefield takes the full width (UNN-566).
+    expect(
+      await page.getByRole("complementary", { name: "Your characters" }).count()
+    ).toBe(0)
   })
 
   test("the snapshot API structurally drops enemy attributes/affinities (UNN-535)", async ({

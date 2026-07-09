@@ -5,8 +5,10 @@ import dynamic from "next/dynamic"
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
+import type { LoadedCharacter } from "@/lib/character/load"
 import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a
@@ -38,18 +40,23 @@ const DungeonWatchCanvas = dynamic(
  * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
  * so this renders only the delve's exploration fog view.
  *
- * The own-sheet Explore column (the v1 `DungeonExploreSheetColumn`) was removed
- * with the old sheet tree (UNN-557) — it had rendered empty since S0. Its v2
- * rebuild (on the S2b Explore surface) is a follow-up.
+ * A signed-in viewer with character(s) in the delve also gets the
+ * {@link DungeonExploreSheetColumn} on the left (UNN-566). A spectator has
+ * none, so the fog map takes the full width.
  */
 export function DungeonWatch({
   shortId,
   initialSnapshot,
   ownedCharacterIds,
+  ownedSheets,
 }: {
   shortId: string
   initialSnapshot: DungeonSnapshot
+  /** The party tokens to self-highlight. Stays the authority for the canvas:
+   *  a character whose row fails the load seam still owns its token. */
   ownedCharacterIds: string[]
+  /** The viewer's own characters here — empty for a spectator. */
+  ownedSheets: LoadedCharacter[]
 }) {
   const { snapshot, stale } = useDungeonSnapshot(shortId, initialSnapshot)
 
@@ -90,7 +97,17 @@ export function DungeonWatch({
               This delve has wrapped. Below is the map as it was last left.
             </p>
           ) : null}
-          <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
+          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+            {ownedSheets.length > 0 ? (
+              <aside
+                aria-label="Your characters"
+                className="shrink-0 overflow-y-auto border-b px-4 py-4 lg:w-[340px] lg:border-r lg:border-b-0"
+              >
+                <DungeonExploreSheetColumn characters={ownedSheets} />
+              </aside>
+            ) : null}
+            <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
+          </div>
         </>
       )}
     </main>
