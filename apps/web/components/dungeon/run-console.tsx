@@ -10,7 +10,7 @@ import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
 import { DungeonCombatBody } from "@/components/dungeon/combat/body"
 import { DungeonExploreBody } from "@/components/dungeon/explore/body"
 import { DungeonConsoleShell } from "@/components/dungeon/shell/console-shell"
-import type { DurableHydration } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -39,7 +39,7 @@ export type DungeonRunMode =
   | {
       kind: "combat"
       data: EncounterForDM
-      durableHydrationById: Record<ParticipantId, DurableHydration>
+      combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
     }
 
 export function DungeonRunConsole({
@@ -71,7 +71,7 @@ export function DungeonRunConsole({
         <DungeonCombatBody
           dungeon={dungeon}
           data={mode.data}
-          durableHydrationById={mode.durableHydrationById}
+          combatantSheetSliceById={mode.combatantSheetSliceById}
           campaignShortId={campaignShortId}
         />
       ) : (

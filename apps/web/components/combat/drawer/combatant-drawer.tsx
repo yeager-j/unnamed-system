@@ -11,6 +11,7 @@ import type {
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { getTalent } from "@workspace/game-v2/talents"
 import { Badge } from "@workspace/ui/components/badge"
+import { ItemGroup } from "@workspace/ui/components/item"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
@@ -32,6 +33,7 @@ import { CombatantVitalsSection } from "@/components/combat/drawer/vitals-sectio
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
+import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import type { CombatantDetail } from "@/lib/combat/view/detail-view"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
@@ -147,15 +149,19 @@ function DrawerBody({
           </DetailSection>
         ) : null}
 
-        {!detail.durable && detail.talentKeys.length > 0 ? (
+        {detail.talentKeys !== null ? (
           <DetailSection title="Talents">
-            <div className="flex flex-wrap gap-1.5">
-              {detail.talentKeys.map((key) => (
-                <Badge key={key} variant="outline">
-                  {getTalent(key)?.name ?? key}
-                </Badge>
-              ))}
-            </div>
+            {detail.talentKeys.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {detail.talentKeys.map((key) => (
+                  <Badge key={key} variant="outline">
+                    {getTalent(key)?.name ?? key}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No talents.</p>
+            )}
           </DetailSection>
         ) : null}
 
@@ -178,23 +184,24 @@ function DrawerBody({
  * combatant — durable PC or inline enemy (UNN-551). The old rich-vs-lean storage
  * fork (a durable PC's party-scaled v1 `HydratedSkill` cards vs an inline
  * combatant's lean list) is gone: an entity PC has no v1 row to hydrate, and its
- * `resolvedSkills` are already in the session view. UNN-538 makes this list rich
- * again — for *everyone* — off `ResolvedSkill`.
+ * `skills` are decided at the drawer-model boundary: party-scaled sheet Skills
+ * for PCs and session-resolved Skills for inline combatants. Every list renders
+ * through the shared resolved-Skill row and banner-card popover.
  */
 function SkillsSection({ detail }: { detail: CombatantDetail }) {
-  if (detail.resolvedSkills.length === 0) return null
+  if (detail.skills.length === 0) return null
   return (
     <DetailSection title="Skills">
-      <ul className="flex flex-col gap-2">
-        {detail.resolvedSkills.map(({ skill }) => (
-          <li key={skill.key} className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium">{skill.name}</span>
-            <span className="text-xs text-muted-foreground">
-              {skill.tagline}
-            </span>
-          </li>
+      <ItemGroup className="gap-0">
+        {detail.skills.map((resolved) => (
+          <ResolvedSkillRow
+            key={resolved.skill.key}
+            resolved={resolved}
+            attributes={detail.attributes ?? ZERO_ATTRIBUTES}
+            showCost={detail.hasSkillPool}
+          />
         ))}
-      </ul>
+      </ItemGroup>
     </DetailSection>
   )
 }
@@ -203,12 +210,19 @@ function SkillsSection({ detail }: { detail: CombatantDetail }) {
 function subtitle(detail: CombatantDetail): string {
   return [
     detail.level !== null ? `Level ${detail.level}` : null,
-    detail.durable?.className ?? (detail.isPc ? null : "Enemy"),
-    detail.durable?.pronouns,
+    detail.className ?? (detail.isPc ? null : "Enemy"),
+    detail.pronouns,
   ]
     .filter(Boolean)
     .join(" · ")
 }
+
+const ZERO_ATTRIBUTES = {
+  strength: 0,
+  magic: 0,
+  agility: 0,
+  luck: 0,
+} as const
 
 function HeaderAvatar({ detail }: { detail: CombatantDetail }) {
   if (detail.isPc) {

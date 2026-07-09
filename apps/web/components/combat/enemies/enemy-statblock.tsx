@@ -38,15 +38,19 @@ export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
         )}
       </DetailSection>
 
-      {talentKeys.length > 0 ? (
+      {talentKeys !== null ? (
         <DetailSection title="Talents">
-          <div className="flex flex-wrap gap-1.5">
-            {talentKeys.map((key) => (
-              <Badge key={key} variant="outline">
-                {getTalent(key)?.name ?? key}
-              </Badge>
-            ))}
-          </div>
+          {talentKeys.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {talentKeys.map((key) => (
+                <Badge key={key} variant="outline">
+                  {getTalent(key)?.name ?? key}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No talents.</p>
+          )}
         </DetailSection>
       ) : null}
 

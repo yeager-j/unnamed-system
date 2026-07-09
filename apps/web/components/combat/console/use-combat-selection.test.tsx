@@ -61,7 +61,7 @@ function renderSelection(currentActor: CurrentActorView | null) {
       resolved: resolveSession(session, instance),
       instance,
       participantMeta: { [goblinId]: { storage: "inline" } },
-      durableHydrationById: {},
+      combatantSheetSliceById: {},
       currentActor,
       dispatch: (event) => dispatched.push(event),
     })
