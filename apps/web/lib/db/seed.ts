@@ -16,7 +16,6 @@ import {
   encounterTarget,
   SEEDED_ENCOUNTERS,
 } from "../../e2e/fixtures/encounter-target"
-import { insertCharacter } from "./seed-character"
 import { insertSeedEntity } from "./seed-entity"
 
 /**
@@ -47,7 +46,7 @@ if (!process.env.DATABASE_URL) {
   if (existsSync(envPath)) process.loadEnvFile(envPath)
 }
 
-const { db, users, characters, campaigns, encounters, mapInstances, dungeons } =
+const { db, users, entity, campaigns, encounters, mapInstances, dungeons } =
   await import("./index")
 
 /**
@@ -113,11 +112,6 @@ async function seedCharacter(
   character: SeedCharacter,
   ownerId: string
 ): Promise<void> {
-  await insertCharacter(character, ownerId)
-  // UNN-556: every seeded character gets its shared-id `entity` twin — My
-  // Characters, placement, and Import-PCs read the entity table now, so a
-  // v1-only row would be invisible. (Placement fixtures re-set campaignId on
-  // both rows afterwards.)
   await insertSeedEntity(character, ownerId, null)
   console.log(
     `  ✓ ${character.name} (/c/${character.shortId}) — L${character.level} ${character.activeArchetypeKey}`
@@ -159,23 +153,10 @@ async function seedEncounterFixtures(): Promise<void> {
       .onConflictDoUpdate({ target: campaigns.id, set: campaign })
   }
 
-  // Place the PC into Campaign A (its draft's roster + the import-PCs panel).
-  await db
-    .update(characters)
-    .set({ campaignId: campaignA.id })
-    .where(eq(characters.id, placedPc.characterId))
-
-  // Place the live-combat PC into Campaign B (it is a combatant in B's live
-  // encounter — UNN-344).
-  await db
-    .update(characters)
-    .set({ campaignId: campaignB.id })
-    .where(eq(characters.id, liveCombatPc.characterId))
-
-  // UNN-551: dual-mint each placed combat-showcase PC as a v2 `entity` row
-  // (shared id), so the encounters' durable locators resolve it and the console /
-  // snapshot / encounter-lock key off the entity. The `characters` rows above stay
-  // for the (still-v1) sheet through the degraded window.
+  // Place each combat-showcase PC by minting its `entity` row with the
+  // campaignId set (UNN-551): Campaign A gets the draft-roster / import-PCs PC,
+  // Campaign B the combatant in its live encounter (UNN-344). The console /
+  // snapshot / encounter-lock all key off the entity.
   await insertSeedEntity(placedPc.seed, DEV_USER.id, campaignA.id)
   await insertSeedEntity(liveCombatPc.seed, DEV_USER.id, campaignB.id)
 
@@ -327,11 +308,11 @@ async function seed(): Promise<void> {
   // finalized, so scoping by `status='draft'` keeps the showcase roster
   // intact.
   await db
-    .delete(characters)
+    .delete(entity)
     .where(
       and(
-        inArray(characters.ownerId, [SEED_USER.id, DEV_USER.id]),
-        eq(characters.status, "draft")
+        inArray(entity.ownerId, [SEED_USER.id, DEV_USER.id]),
+        eq(entity.status, "draft")
       )
     )
 
