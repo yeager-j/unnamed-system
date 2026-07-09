@@ -8,7 +8,6 @@
 export * from "./client"
 export * from "./schema/user"
 export * from "./schema/campaign"
-export * from "./schema/character"
 export * from "./schema/entity"
 export * from "./schema/dungeon"
 export * from "./schema/encounter"

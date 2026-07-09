@@ -204,6 +204,13 @@
       "when": 1783317122194,
       "tag": "0028_unn_552_merge_virtues_sparklog",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783556704652,
+      "tag": "0029_unn_562_drop_v1_character_tables",
+      "breakpoints": true
     }
   ]
 }
