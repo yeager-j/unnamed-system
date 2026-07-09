@@ -2,7 +2,7 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 
-import type { CharacterStatus } from "@/lib/db/schema/character"
+import type { EntityStatus } from "@/lib/db/schema/entity"
 
 /**
  * Centralized cache invalidation for the character sheet route. Every
@@ -19,7 +19,7 @@ import type { CharacterStatus } from "@/lib/db/schema/character"
  */
 export function revalidateCharacter(character: {
   shortId: string
-  status: CharacterStatus
+  status: EntityStatus
 }): void {
   revalidatePath(`/c/${character.shortId}`)
   if (character.status === "draft") {

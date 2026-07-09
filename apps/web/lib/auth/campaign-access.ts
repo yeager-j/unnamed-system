@@ -1,10 +1,8 @@
 import { forbidden } from "next/navigation"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadCharacterRowById } from "@/lib/db/queries/load-character"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
-import type { CharacterRow } from "@/lib/db/schema/character"
 import type { EntityRow } from "@/lib/db/schema/entity"
 
 import { auth } from "./index"
@@ -57,40 +55,17 @@ export async function requireCampaignDM(
 
 /**
  * Authorization gate for the PC-vitals (pools) writes — `damage`/`heal`/
- * `spendSP`/`recoverSP`/`usePrisma` (UNN-297). Widens `requireOwner`
- * (`viewer-role.ts`) by the campaign-DM branch: the character's owner *or* the
- * DM of the campaign the character is placed into may adjust HP/SP. The
- * two-writer race (player heals while DM damages) is HP/SP-only and reconciled
- * by the existing `vitalsVersion` guard, so no extra locking is needed here.
+ * `spendSP`/`recoverSP`/`usePrisma` (UNN-297/UNN-551): a component write is
+ * gated against the `entity` row's own owner/placement — the character's owner
+ * *or* the DM of the campaign it is placed into may adjust HP/SP. The two-writer
+ * race (player heals while DM damages) is HP/SP-only and reconciled by the
+ * `vitalsVersion` guard, so no extra locking is needed here.
  *
- * Loads the character row first (as `requireOwner` does); on an owner match it
- * returns immediately — no campaign query. Otherwise, if the character is placed
- * (`campaignId` non-null), it loads the campaign and compares `dmUserId`. Trips
- * `forbidden()` (HTTP 403) on any failure — missing session, missing character,
- * a non-owner whose character is unplaced, or a viewer who is not the campaign's
- * DM. Returns the loaded {@link CharacterRow} on success so callers don't
- * re-query. Two queries max, no joins.
- */
-export async function requireOwnerOrCampaignDM(
-  characterId: string
-): Promise<CharacterRow> {
-  const session = await auth()
-  const viewerId = session?.user?.id
-  if (!viewerId) forbidden()
-
-  const character = await loadCharacterRowById(characterId)
-  if (!character) forbidden()
-  if (await isOwnerOrCampaignDM(viewerId, character)) return character
-
-  forbidden()
-}
-
-/**
- * The entity-row twin of {@link requireOwnerOrCampaignDM} (UNN-551): the durable
- * write pipeline gates a component write against the `entity` row's own
- * owner/placement — a player writes their own PC, the campaign DM may too (v1
- * parity). Loads and returns the {@link EntityRow} so the Store assembles from it
- * without re-querying. Same posture, one gate per write path.
+ * Loads the entity row first; on an owner match it returns immediately — no
+ * campaign query. Otherwise, if the character is placed (`campaignId` non-null),
+ * it loads the campaign and compares `dmUserId`. Trips `forbidden()` (HTTP 403)
+ * on any failure. Returns the loaded {@link EntityRow} so the Store assembles
+ * from it without re-querying. Two queries max, no joins.
  */
 export async function requireOwnerOrCampaignDMForEntity(
   entityId: string

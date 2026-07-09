@@ -1,6 +1,5 @@
 import type { Entity } from "@workspace/game-v2/kernel"
 import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
-import { type StatContext } from "@workspace/game/engine"
 import {
   type BattleConditions,
   type ManualBonuses,
@@ -11,14 +10,12 @@ import {
   type TalentKey,
 } from "@workspace/game/foundation"
 
-import { buildStatContext } from "@/lib/game-engine"
-
 /**
  * The seed roster, as plain character specs decoupled from persistence. The
- * database seed script (`lib/db/seed.ts`) turns these into rows; the game-engine
- * integration suite feeds the same specs through {@link buildSeedStatCharacter}
- * so seed correctness and the derived-value pipeline are tested against one
- * source of truth. Nothing here imports Drizzle or touches the database.
+ * database seed (`lib/db/seed-entity.ts`) and the derivation golden master both
+ * project these specs into a v2 `entity` through {@link seedCharacterToEntity},
+ * so seed rows and pinned fixtures derive from one source of truth. Nothing here
+ * imports Drizzle or touches the database.
  *
  * The roster is deliberately stable showcase data: it covers every MVP
  * Archetype, three life stages, Mastery, cross-Archetype Inheritance Slots,
@@ -689,42 +686,4 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
  */
 export function archetypeId(slug: string, archetypeKey: string): string {
   return `seed-arch-${slug}-${archetypeKey}`
-}
-
-/**
- * Maps a seed spec onto the pure {@link StatContext} the
- * derived-value engine consumes — the exact hydration the database seed and the
- * public sheet both rely on. Inheritance-Slot `sourceArchetypeKey`s are
- * resolved to sibling-row ids via {@link archetypeId} so cross-Archetype
- * inheritance is exercised end to end.
- */
-export function buildSeedStatCharacter(character: SeedCharacter): StatContext {
-  return buildStatContext(
-    {
-      pathChoice: character.pathChoice,
-      level: character.level,
-      manualBonuses: character.manualBonuses,
-      activeCharacterArchetypeId: archetypeId(
-        character.slug,
-        character.activeArchetypeKey
-      ),
-    },
-    character.archetypes.map((archetype) => ({
-      id: archetypeId(character.slug, archetype.archetypeKey),
-      archetypeKey: archetype.archetypeKey,
-      rank: archetype.rank,
-      inheritanceSlots: (archetype.inheritanceSlots ?? []).map((slot) => ({
-        slotIndex: slot.slotIndex,
-        sourceCharacterArchetypeId: archetypeId(
-          character.slug,
-          slot.sourceArchetypeKey
-        ),
-        skillKey: slot.skillKey,
-      })),
-      mechanicState: archetype.mechanicState ?? null,
-    })),
-    character.items
-      .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
-  )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import type { PingedVersions } from "@/hooks/character-version-sync"
-import { EDIT_SURFACE_CLASS, type VersionClass } from "@/lib/db/version-classes"
+import { VERSION_CLASSES, type VersionClass } from "@/lib/db/version-classes"
 
 /**
  * The DM console's refresh decision for one PC combatant's character ping
@@ -16,7 +16,7 @@ import { EDIT_SURFACE_CLASS, type VersionClass } from "@/lib/db/version-classes"
  *   those classes, so such a ping is always someone else's change.
  */
 
-const VERSION_CLASSES = new Set<string>(Object.values(EDIT_SURFACE_CLASS))
+const VERSION_CLASS_SET = new Set<string>(VERSION_CLASSES)
 
 export interface PcPingDecision {
   /** The forwarded vitals version, present only when the ping was fresher. */
@@ -37,7 +37,7 @@ export function decidePcPing(
   const hasNonVitalsClass = Object.entries(versions).some(
     ([versionClass, version]) =>
       versionClass !== ("vitals" satisfies VersionClass) &&
-      VERSION_CLASSES.has(versionClass) &&
+      VERSION_CLASS_SET.has(versionClass) &&
       typeof version === "number" &&
       Number.isFinite(version)
   )

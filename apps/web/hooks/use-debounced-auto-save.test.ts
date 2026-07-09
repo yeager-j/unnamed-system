@@ -5,13 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
-import { getCharacterVersionsAction } from "../lib/actions/character-versions"
-import { dispatchCharacterWriteWithRetry } from "./dispatch-character-write"
 import { useDebouncedAutoSave } from "./use-debounced-auto-save"
 
-vi.mock("../lib/actions/character-versions", () => ({
-  getCharacterVersionsAction: vi.fn(),
-}))
+/** Stand-in for the entity door's class-version refetch, so the silent-retry
+ *  path stays covered after S4 (UNN-562) deleted the v1 dispatch pipeline. */
+const refetchVersion = vi.fn<() => Promise<number>>()
 
 type SaveCall = {
   value: string
@@ -54,28 +52,36 @@ async function flushMicrotasks(): Promise<void> {
 }
 
 /**
- * The sheet wrapper's dispatch pipeline (silent retry), closed over a test
- * version ref — what `useCharacterAutoSave` supplies in production, so these
- * tests keep exercising the hook + pipeline integration end-to-end.
+ * A retrying dispatch mirroring the retired v1 `dispatchCharacterWriteWithRetry`
+ * contract (UNN-203), inlined here — its production successor is the entity
+ * door's `useRetryingDispatch` (exercised by `use-entity-write.test.tsx`). Call
+ * `action(version)`; on `"stale"`, refetch the fresh class version once and
+ * retry; advance `versionRef` on every success. Keeps the hook's serialization
+ * + silent-retry behavior under test without the deleted v1 modules.
  */
 function wrapperDispatch(versionRef: { current: number }) {
-  return (
+  return async (
     action: (
       expectedVersion: number
     ) => Promise<Result<{ value: string; version: number }, string>>
-  ) =>
-    dispatchCharacterWriteWithRetry({
-      characterId: "char-test",
-      surface: "name",
-      versionRef,
-      action,
-    })
+  ): Promise<Result<{ value: string; version: number }, string>> => {
+    const first = await action(versionRef.current)
+    if (first.ok) {
+      versionRef.current = first.value.version
+      return first
+    }
+    if (first.error !== "stale") return first
+    versionRef.current = await refetchVersion()
+    const second = await action(versionRef.current)
+    if (second.ok) versionRef.current = second.value.version
+    return second
+  }
 }
 
 describe("useDebouncedAutoSave", () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    vi.mocked(getCharacterVersionsAction).mockReset()
+    refetchVersion.mockReset()
   })
 
   afterEach(() => {
@@ -344,14 +350,7 @@ describe("useDebouncedAutoSave", () => {
   it("on first-attempt stale, silently refetches + retries before surfacing an error", async () => {
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
-    vi.mocked(getCharacterVersionsAction).mockResolvedValue(
-      ok({
-        identityVersion: 5,
-        vitalsVersion: 0,
-        inventoryVersion: 0,
-        progressionVersion: 0,
-      })
-    )
+    refetchVersion.mockResolvedValue(5)
 
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
@@ -377,7 +376,7 @@ describe("useDebouncedAutoSave", () => {
     await flushMicrotasks()
     await flushMicrotasks()
 
-    expect(getCharacterVersionsAction).toHaveBeenCalledOnce()
+    expect(refetchVersion).toHaveBeenCalledOnce()
     expect(calls).toHaveLength(2)
     expect(calls[1]!.expectedVersion).toBe(5)
 
@@ -394,14 +393,7 @@ describe("useDebouncedAutoSave", () => {
   it("on second stale (retry also fails), rolls back and surfaces the error", async () => {
     const { save, calls } = makeControlledSave()
     const onError = vi.fn()
-    vi.mocked(getCharacterVersionsAction).mockResolvedValue(
-      ok({
-        identityVersion: 5,
-        vitalsVersion: 0,
-        inventoryVersion: 0,
-        progressionVersion: 0,
-      })
-    )
+    refetchVersion.mockResolvedValue(5)
 
     const versionRef = { current: 0 }
     const { result } = renderHook(() =>
