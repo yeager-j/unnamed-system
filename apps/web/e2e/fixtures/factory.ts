@@ -75,7 +75,7 @@ function uniqueSuffix(): string {
 export interface TestCharacter {
   /** DB row id (`seed-char-${slug}`) for direct pokes. */
   id: string
-  /** Unique-per-run slug — feeds `archetypeId(slug, key)` for child-row pokes. */
+  /** Unique-per-run slug — the stable seed for the entity's deterministic id. */
   slug: string
   shortId: string
   /** `/c/${shortId}` — a `page.goto(...)` target. */

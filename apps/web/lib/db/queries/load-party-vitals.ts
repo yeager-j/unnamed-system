@@ -11,8 +11,8 @@ export interface TokenVitals {
 
 /**
  * Resolves the current HP/SP pools for a set of `entity` ids (UNN-562 — the v2
- * successor of the per-PC `loadHydratedCharacterById` fan-out the dungeon roster
- * + fog snapshot used). Batch-reads the rows, assembles + `resolveEntity`s each
+ * successor of the per-PC v1 hydration fan-out the dungeon roster + fog snapshot
+ * used). Batch-reads the rows, assembles + `resolveEntity`s each
  * once, and returns a map keyed by id; a row that fails the load seam is a
  * data-integrity fault and is skipped (a caller that draws a token for it falls
  * back to a zero pool). Order-independent — callers key by id.

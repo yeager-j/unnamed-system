@@ -11,7 +11,7 @@ import { entity, getDb } from "./index"
  * console, snapshot fold, and encounter-lock all key off the same id.
  *
  * The component bag comes straight off the native {@link seedCharacterToEntity}
- * projection (UNN-562 — no v1 `characters` row and no `rawInputsToEntity` shim);
+ * projection (UNN-562 — no v1 `characters` row and no v1→v2 projection shim);
  * `name` / `portraitUrl` are stored as the entity's metadata columns rather than
  * the lifted `identity` / `presentation` components.
  *

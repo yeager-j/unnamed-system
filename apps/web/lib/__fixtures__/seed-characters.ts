@@ -188,10 +188,10 @@ function seedItemId(slug: string, index: number): string {
 
 /**
  * Projects a persistence-free {@link SeedCharacter} spec onto a v2 component
- * {@link Entity} — the native successor of the retired v1→v2 `rawInputsToEntity`
- * shim (UNN-562). The database seed (`lib/db/seed-entity.ts`) and the derivation
- * golden master both build their entity through this one projection, so seed
- * rows and pinned fixtures derive from a single source of truth.
+ * {@link Entity} — the native successor of the retired v1→v2 projection shim
+ * (UNN-562). The database seed (`lib/db/seed-entity.ts`) and the real-catalog
+ * derivation guard both build their entity through this one projection, so seed
+ * rows and the derivation test derive from a single source of truth.
  *
  * The mapping is direct because `SeedCharacter` already keys its Archetype
  * roster and Inheritance Slots by **Archetype key** (no surrogate-id
@@ -678,12 +678,3 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     partyComposition: null,
   },
 ]
-
-/**
- * The deterministic id of a character's `characterArchetype` row. Stable across
- * seed re-runs and used to wire Inheritance-Slot cross-references between an
- * Archetype and its sibling rows on the same character.
- */
-export function archetypeId(slug: string, archetypeKey: string): string {
-  return `seed-arch-${slug}-${archetypeKey}`
-}
