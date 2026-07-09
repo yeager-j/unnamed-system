@@ -1,11 +1,6 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import {
-  dungeonStateSchema,
-  type DungeonState,
-  type DungeonStatus,
-} from "@workspace/game-v2/spatial"
+import type { DungeonState, DungeonStatus } from "@workspace/game-v2/spatial"
 
 import { campaigns } from "./campaign"
 import { mapInstances } from "./map-instance"
@@ -53,11 +48,6 @@ export const dungeons = pgTable("dungeon", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 })
-
-export const insertDungeonSchema = createInsertSchema(dungeons, {
-  state: dungeonStateSchema,
-})
-export const selectDungeonSchema = createSelectSchema(dungeons)
 
 export type { DungeonStatus }
 export type DungeonRow = typeof dungeons.$inferSelect

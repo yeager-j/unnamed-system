@@ -23,7 +23,7 @@ import { insertWithShortId } from "@/lib/db/short-id"
  * authoring is single-owner with no cross-row atomic gesture (no `guardMany`).
  */
 
-export type MapWriteError = "map-not-found" | "stale"
+type MapWriteError = "map-not-found" | "stale"
 
 /**
  * Creates an empty Map owned by `userId` with a minted, collision-retried

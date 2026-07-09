@@ -1,35 +1,33 @@
 import type {
+  ArchetypeTier,
+  RecommendationReason,
+} from "@workspace/game-v2/archetypes"
+import type { EnemyFamily } from "@workspace/game-v2/catalog/enemies"
+import type {
+  BattleConditionState,
+  CounterKey,
+} from "@workspace/game-v2/encounter"
+import type { EquipSlot } from "@workspace/game-v2/items"
+import type {
+  Affinity,
+  AffinityDamageType,
+  AttributeKey,
+  DamageType,
+  Lineage,
+  PathChoice,
+  Range,
+  SkillKind,
+  SuggestedPath,
+  VirtueKey,
+} from "@workspace/game-v2/kernel/vocab"
+import type {
   CombatAdvantage,
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
-import type {
-  DungeonReminder,
-  RandomEncounterInterval,
-} from "@workspace/game-v2/spatial"
+import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
+import type { DungeonReminder } from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
-import { type RecommendationReason } from "@workspace/game/engine"
-import {
-  type Affinity,
-  type AffinityDamageType,
-  type ArchetypeTier,
-  type AttributeKey,
-  type BattleConditionState,
-  type BonusTargetKey,
-  type CounterKey,
-  type DamageType,
-  type Delivery,
-  type EnemyFamily,
-  type EquipSlot,
-  type Lineage,
-  type PathChoice,
-  type Range,
-  type ResolvedSkillCost,
-  type SkillKind,
-  type StainElement,
-  type SuggestedPath,
-  type VirtueKey,
-} from "@workspace/game/foundation"
 
 import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
@@ -55,19 +53,6 @@ export const ATTRIBUTE_SHORT_LABELS: Record<AttributeKey, string> = {
   magic: "Ma",
   agility: "Ag",
   luck: "Lu",
-}
-
-/**
- * Attribute and pool bonus targets used by item Attribute effects: the four
- * Attributes plus HP and SP.
- */
-export const BONUS_TARGET_LABELS: Record<BonusTargetKey, string> = {
-  hp: "HP",
-  sp: "SP",
-  strength: "Strength",
-  magic: "Magic",
-  agility: "Agility",
-  luck: "Luck",
 }
 
 /**
@@ -119,12 +104,6 @@ export const DAMAGE_TYPE_LABELS: Record<DamageType | "special", string> = {
   ...AFFINITY_DAMAGE_TYPE_LABELS,
   almighty: "Almighty",
   special: "Special",
-}
-
-/** Damage delivery: `Physical` / `Magical`. */
-export const DELIVERY_LABELS: Record<Delivery, string> = {
-  physical: "Physical",
-  magical: "Magical",
 }
 
 /** Singular equip-slot labels for the per-row slot badge. */
@@ -555,17 +534,6 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   all: "All",
 }
 
-/** Random-encounter cadence options on the dungeon run console (1 turn ≈ 10 min). */
-export const RANDOM_ENCOUNTER_INTERVAL_LABELS: Record<
-  RandomEncounterInterval,
-  string
-> = {
-  1: "Every 10 min (1 turn)",
-  2: "Every 20 min (2 turns)",
-  3: "Every 30 min (3 turns)",
-  6: "Every hour (6 turns)",
-}
-
 /**
  * Title + body for the dungeon run console's DM reminder nudges (UNN-464), keyed
  * by the pure-selector {@link DungeonReminder} kind. The rail renders these; the
@@ -583,15 +551,6 @@ export const DUNGEON_REMINDER_COPY: Record<
     title: "Exhaustion accrues",
     body: "Past the 48-turn day: a level of Exhaustion would accrue (tracked on the sheet).",
   },
-}
-
-/** The five Stain elements the Mage can hold. */
-export const STAIN_ELEMENT_LABELS: Record<StainElement, string> = {
-  fire: "Fire",
-  ice: "Ice",
-  elec: "Elec",
-  wind: "Wind",
-  light: "Light",
 }
 
 /**

@@ -1,48 +1,42 @@
 import { PlusIcon, SwordIcon } from "@phosphor-icons/react/dist/ssr"
 
-import { type Statblock } from "@workspace/game/engine"
-import { type EnemyFamily } from "@workspace/game/foundation"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { DetailSection } from "@/components/shared/detail-section"
+import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
 import { ENEMY_FAMILY_LABELS } from "@/lib/ui/labels"
 
 /**
  * Standalone statblock for a catalog enemy in the browse surface (UNN-346): the
  * header (name / level / family / add) and Vitals, then the shared
- * {@link EnemyStatblock} body (Attributes / Affinities / Talents / Skills /
- * Abilities) — the same renderer the DM combat drawer uses, fed by the same
- * {@link Statblock} (UNN-350). `family` is passed alongside because it is a
- * property of where the entry lives in the catalog, not of the statblock.
+ * {@link EnemyStatblock} body (Attributes / Affinities / Talents / Skills) — the
+ * same renderer the DM combat drawer uses, fed by the same
+ * {@link EnemyStatblockView} the enemy is projected onto (UNN-350).
  */
 export function EnemyStatblockCard({
-  statblock,
-  family,
+  view,
   onAdd,
 }: {
-  statblock: Statblock
-  family: EnemyFamily | null
+  view: EnemyStatblockView
   onAdd: () => void
 }) {
   return (
     <div className="flex flex-col gap-4">
       <header className="flex items-start gap-3">
-        <EnemyAvatar name={statblock.name} className="size-12 text-base" />
+        <EnemyAvatar name={view.name} className="size-12 text-base" />
         <div className="min-w-0 flex-1">
-          <h2 className="font-heading text-2xl font-medium">
-            {statblock.name}
-          </h2>
+          <h2 className="font-heading text-2xl font-medium">{view.name}</h2>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {statblock.level !== null ? (
-              <Badge variant="outline">Level {statblock.level}</Badge>
+            {view.level !== null ? (
+              <Badge variant="outline">Level {view.level}</Badge>
             ) : null}
-            {family ? (
+            {view.family ? (
               <Badge variant="outline">
                 <SwordIcon weight="bold" />
-                {ENEMY_FAMILY_LABELS[family]}
+                {ENEMY_FAMILY_LABELS[view.family]}
               </Badge>
             ) : null}
             <Badge variant="secondary">5E Catalog</Badge>
@@ -50,7 +44,7 @@ export function EnemyStatblockCard({
         </div>
         <Button
           size="icon-sm"
-          aria-label={`Queue ${statblock.name}`}
+          aria-label={`Queue ${view.name}`}
           onClick={onAdd}
         >
           <PlusIcon weight="bold" />
@@ -60,7 +54,7 @@ export function EnemyStatblockCard({
       <DetailSection title="Vitals">
         <p>
           <span className="font-heading text-3xl font-medium text-hp">
-            {statblock.maxHP}
+            {view.maxHP}
           </span>{" "}
           <span className="text-sm text-muted-foreground">max HP</span>
         </p>
@@ -69,7 +63,7 @@ export function EnemyStatblockCard({
         </p>
       </DetailSection>
 
-      <EnemyStatblock statblock={statblock} />
+      <EnemyStatblock view={view} />
     </div>
   )
 }

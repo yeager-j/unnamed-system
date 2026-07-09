@@ -39,7 +39,7 @@ export interface EncounterSnapshotResult {
   compositeVersion: string
 }
 
-export type GetEncounterSnapshotError =
+type GetEncounterSnapshotError =
   | "encounter-not-found"
   | "invalid-session"
   | "participant-load-failed"

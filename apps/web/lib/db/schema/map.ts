@@ -1,7 +1,6 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
+import type { MapGeometry } from "@workspace/game-v2/spatial"
 
 import { users } from "./user"
 
@@ -39,10 +38,5 @@ export const maps = pgTable("map", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 })
-
-export const insertMapSchema = createInsertSchema(maps, {
-  geometry: mapGeometrySchema,
-})
-export const selectMapSchema = createSelectSchema(maps)
 
 export type MapRow = typeof maps.$inferSelect

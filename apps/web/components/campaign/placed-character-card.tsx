@@ -1,6 +1,6 @@
 import Image from "next/image"
 
-import { archetypeDisplayName } from "@workspace/game/data"
+import { archetypeDisplayName } from "@workspace/game-v2/catalog/archetypes"
 import {
   Item,
   ItemActions,

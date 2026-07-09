@@ -9,7 +9,7 @@ function, etc.). If a use case doesn't fit, raise it.
 ## Directory layout — group by aggregate
 
 Actions are grouped into a folder per **aggregate** (the persisted entity they
-write), matching how `lib/game/` and `lib/db/writes/` are already organized:
+write), matching how `lib/db/writes/` is organized:
 
 ```
 lib/actions/<aggregate>/<slice>.ts          # the "use server" action(s)
@@ -45,223 +45,151 @@ concurrency token, and envelope:
 > belong under their aggregate folder and move there in a dedicated tech-debt
 > ticket. New actions go straight into the aggregate-folder layout.
 
-> **⚠️ The "The pattern" / "Concurrency" / "Mechanic writes" / "Client patterns"
-> sections below still describe the retired v1 character write path** (they predate
-> S4). The per-write-class concurrency model carried over to the entity door
-> (`bumpEntityVersionGuarded` guards the same four classes on the `entity` row),
-> but the concrete v1 functions they reference are gone — read them for the
-> *model*, `lib/entity/commit` + `lib/actions/entity` for the live code. A full
-> rewrite of these sections is tracked doc-debt.
+## The pattern — two doors, one engine
 
-## The pattern
+Durable **character/entity** writes and the other aggregates take different doors,
+but the shape rhymes: parse the wire, authorize, persist version-guarded,
+revalidate.
 
-The Zod schema lives in `<domain>.schema.ts` alongside the action. A
-`"use server"` module can only export async functions, so any client
-component that wants to pre-validate (or any code outside the action that
-references the input type) imports from the `.schema.ts` file directly.
+**Durable character writes go through the entity door** (`lib/actions/entity/`,
+ADR §2.4). A character surface's provider dispatches a serializable
+component-write **descriptor** (`entityWriteSchema`, `lib/entity/commit/write.schema.ts`)
+to `applyEntityWriteAction`, which hands off to `commitEntityWrite` — the shared
+Store that owns auth, assembling the row into a runtime `Entity`, running the pure
+**Writer** (`ENTITY_WRITERS.applyOp`), and the guarded column commit
+(`bumpEntityVersionGuarded`). App-owned columns (name, portrait, pronouns, notes,
+builderStep, status) stay classic per-field actions (`lib/actions/entity/columns.ts`)
+composing the same guard; `finalize` spans both halves. The neutral descriptor +
+Writers are documented in **`lib/entity/commit/CLAUDE.md`**; combat's durable arm
+forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
-Every owner-mode mutation carries the same envelope — the character id and the
-per-write-class version token (UNN-140) — so it is not restated per file.
-Extend the shared `characterMutationBase` (`./character-mutation.schema`) with
-the domain payload instead (UNN-253):
-
-```ts
-// lib/actions/<domain>.schema.ts
-import { z } from "zod/v4"
-
-import { characterMutationBase } from "./character-mutation.schema"
-
-export const SomeWriteSchema = characterMutationBase.extend({
-  // ... the actual domain fields ...
-})
-
-export type SomeWriteInput = z.input<typeof SomeWriteSchema>
-export type SomeWriteError = "invalid-input" | DbError
-```
-
-A write that takes no payload beyond the envelope is just
-`export const SomeWriteSchema = characterMutationBase`.
+**The other aggregates** (`encounter/`, campaign, map, dungeon) are classic
+per-file Server Actions. The Zod schema lives in `<slice>.schema.ts` alongside the
+action (a `"use server"` module can only export async functions, so a client that
+pre-validates imports the schema file directly). The skeleton:
 
 ```ts
-// lib/actions/<domain>.ts
+// lib/actions/<aggregate>/<slice>.ts
 "use server"
 
-import { requireOwner } from "@/lib/auth/viewer-role"
-import { dbWrite } from "@/lib/db/<domain>"
-import { type Result } from "@workspace/game/foundation"
+import { type Result } from "@workspace/game-v2/kernel/result"
+
+import { requireCampaignDM } from "@/lib/auth/viewer-role"
+import { dbWrite } from "@/lib/db/writes/<aggregate>"
 
 import {
   SomeWriteSchema,
   type SomeWriteError,
   type SomeWriteInput,
-} from "./<domain>.schema"
-import { revalidateCharacter } from "./revalidate"
+} from "./<slice>.schema"
+import { revalidateAggregate } from "./revalidate"
 
 export async function someWriteAction(
   input: SomeWriteInput
 ): Promise<Result<SuccessValue, SomeWriteError>> {
-  // 1. Parse input — never trust the wire.
-  const parsed = SomeWriteSchema.safeParse(input)
+  const parsed = SomeWriteSchema.safeParse(input) // 1. never trust the wire
   if (!parsed.success) return { ok: false, error: "invalid-input" }
 
-  // 2. Authorize — the only sanctioned gate. Trips `forbidden()` (HTTP 403)
-  //    on missing session, missing character, or wrong owner. Returns the
-  //    loaded CharacterRow so we don't re-query.
-  const character = await requireOwner(parsed.data.characterId)
+  await requireCampaignDM(parsed.data.encounterId) // 2. the sanctioned gate — throws forbidden()
 
-  // 3. Persistence wrapper does the load → optional pure engine transition →
-  //    conditional UPDATE (see Concurrency below).
-  const result = await dbWrite(character.id, parsed.data /* ... */)
-
-  // 4. Revalidate the sheet route via the shared helper so derived stats
-  //    (attributes, affinities, weapon attack roll, etc.) re-render with
-  //    the new state.
-  if (result.ok) revalidateCharacter(character)
-
+  const result = await dbWrite(parsed.data) // 3. load → pure transition → version-guarded UPDATE
+  if (result.ok) revalidateAggregate(result.value) // 4. re-render dependents
   return result
 }
 ```
 
+`Result` comes from `@workspace/game-v2/kernel/result`. The per-aggregate
+envelopes and gates are the table above.
+
 ## Concurrency
 
-Every DB wrapper here is built on **per-write-class optimistic concurrency**
-(UNN-140). One integer counter per write class lives on the `character` row —
-`identityVersion`, `vitalsVersion`, `inventoryVersion`, `progressionVersion` —
-and every owner write is gated on exactly one of them.
+Every door is built on **per-write-class optimistic concurrency**. The durable
+`entity` row carries four class tokens — `identityVersion`, `vitalsVersion`,
+`inventoryVersion`, `progressionVersion` (`VersionClass`,
+[`lib/db/version-classes.ts`](../db/version-classes.ts)) — and a guarded write
+bumps exactly one while conditioning on `(id, <class>Version === expectedVersion)`:
+`bumpEntityVersionGuarded(entityId, class, expectedVersion, patch)`
+([`lib/actions/entity/version-guard.ts`](./entity/version-guard.ts)). Each Writer
+declares which class it belongs to (`durableClass` on its `WriterMap` entry —
+CH4), so the class is a property of the write, decided once. The component-column
+projection (CH15) makes per-field safety **structural**: a patch's keys are 1:1
+with `entity` component **columns**, so `SET`ing them touches only the written
+components and cannot clobber a sibling class's column. A multi-component patch
+(rest, levelUp) must keep its columns inside one class.
 
-Which **edit surface** bumps which class is a deliberate, per-surface (not
-per-table) decision. The single source of truth is the typed
-`EDIT_SURFACE_CLASS` map in
-[`lib/db/version-classes.ts`](../db/version-classes.ts): the client
-(`useCharacterWrite({ surface })` / `useDebouncedAutoSave({ surface })`) resolves
-the class from it, and every server wrapper passes `EDIT_SURFACE_CLASS.<surface>`
-to `bumpCharacterVersionGuarded`, so the two layers are the same value and can't
-silently disagree (UNN-233). The table below mirrors that map — keep them in sync:
+The other aggregates carry a single `version` per row (`encounter`,
+`map-instance`, …), bumped and guarded the same way. Every wrapper:
 
-| Write class                            | Edit surfaces                                                                                                                                                                                                  | Notes                                                                                                                                                                                                                 |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `identityVersion`                      | `name`, `pronouns`, `portrait`, `narrative`, `identityTraits`, `path`, `originArchetype`, `activeArchetype`, `inheritanceSlots`, `builderStep`, `knives`, `chains`, `talents`, `virtuesAllocation`, `finalize` | Creation-time + stable-identity edits. `virtuesAllocation` is the builder's rulebook-1.2 allocation — distinct from `virtueRankUp` below.                                                                             |
-| `vitalsVersion`                        | `pools`, `cast`, `ailments`, `battleConditions`, `exhaustion`, `prisma`, `clearCombatState`, `rest`, `mechanic`                                                                                                | In-play Combat-tab state.                                                                                                                                                                                             |
-| `inventoryVersion`                     | `inventoryItems`, `currency`                                                                                                                                                                                   | **`currency` rides here despite being a `characters` column** — the wallet lives on the Inventory tab, so it shares the class for optimistic-frame coherence (UNN-223). The canonical per-surface-not-per-table case. |
-| `progressionVersion`                   | `victories`, `virtueRankUp`, `spark`                                                                                                                                                                           | Sheet-side Virtue rank-up / Spark — progression, unlike the builder's identity-class `virtuesAllocation`.                                                                                                             |
-| `progressionVersion` + `vitalsVersion` | `levelUp`                                                                                                                                                                                                      | The one **cross-class** write — gated on both tokens and bumps both, so it carries an `expectedVersions` pair and is _not_ in `EDIT_SURFACE_CLASS`. See `leveling.applyLevelUp`.                                      |
-
-The shape of every wrapper:
-
-- Conditions the `UPDATE` on `WHERE id = ? AND <class>Version = ?`.
-- Increments `<class>Version` atomically in the same `SET` clause
-  (`sql\`${characters.<class>Version} + 1\``).
-- Returns `Result.err("stale")` when the row count is zero (and
-  `"character-not-found"` if the row was deleted, disambiguated by a
-  follow-up `characterExists` check).
+- Conditions the `UPDATE` on `WHERE id = ? AND <token> = ?` and increments the
+  token atomically in the same `SET`.
+- Returns `err("stale")` on zero rows (disambiguated to `"entity-not-found"` /
+  `"<aggregate>-not-found"` by a follow-up existence check).
 - Returns the new `version` in the success value so the client can chain
   follow-up saves without a re-fetch.
-- Cross-class writes (currently only `leveling.applyLevelUp`, which touches
-  vitals + progression) condition on _both_ expected versions and bump both.
 
-Per-class scoping is the load-bearing property: a debounced notes save in
-flight does not get falsely staled by a blur on an unrelated vitals counter.
-Two writes in the _same_ class still race (correctly — that's the point).
+Per-class scoping is the load-bearing property: a debounced narrative save in
+flight is not falsely staled by a vitals-counter blur. Two writes in the _same_
+class still race (correctly — that's the point). The `"stale"` code is the
+consumer-facing seam; swapping the underlying strategy later (serializable
+transactions, refetch + retry, finer partitioning) won't touch call sites.
 
-Child-table writes (e.g. inventory items) run inside a `db.transaction` and
-bump `<class>Version` conditionally **first**, so the row lock either blocks
-a concurrent writer or causes the conditional `WHERE` to miss with no child
-rows touched.
+## Mechanic writes
 
-The `"stale"` error code is the consumer-facing seam; swapping the
-underlying strategy later (serializable transactions, automatic refetch +
-retry, finer per-class partitioning) won't touch action call sites.
-
-`characters.updatedAt` is still on the row as a "last touched" display
-column but is no longer the concurrency token.
-
-## Mechanic writes — a specialization where the DB wrapper layer collapses
-
-Per-Archetype mechanic writes (UNN-227+, e.g. Valor, Perfection) share a
-single persistence primitive: [lib/db/writes/mechanic-state.ts](../db/writes/mechanic-state.ts)
-exports `applyMechanicStateForCharacter<K>(characterId, kind, transition, expectedVersion)`,
-which runs the whole transaction (load the active `characterArchetype`,
-validate kind, run the pure transition, conditional `vitalsVersion` bump,
-write `mechanicState` back).
-
-Because that primitive owns the entire persistence step, the per-mechanic
-DB wrapper file has nothing left to do — it would be a typed alias around
-a one-line composition. So mechanic actions skip the DB wrapper layer
-entirely and compose the pure transition inline:
-
-```ts
-// lib/actions/mechanics/knight/valor.ts
-const delta = parsed.data.direction === "increment" ? 1 : -1
-const result = await applyMechanicStateForCharacter(
-  character.id,
-  "valor",
-  (state) => adjustValor(state, delta),
-  parsed.data.expectedVersion
-)
-```
-
-The pure transition (`adjustValor`, `resetPerfection`, …) lives next to
-the `MechanicDefinition` in `packages/game/src/engine/mechanics/<lineage>/<kind>.ts`,
-where the game-layer tests already exercise it. Adding a new mechanic
-write surface is therefore: pure transition (game/), action + schema
-(actions/mechanics/), UI control (components/character-sheet/mechanics/).
-Three files, no DB layer.
-
-**This collapse only applies when the shared primitive owns everything.**
-The general 3-layer pattern below still holds for writes with per-domain
-logic — `adjust-pools`, `combat-state`, `inventory`, `rest`, `leveling`
-all have meaningful DB wrappers because they coordinate across columns
-(or child tables), run engine validation, or compose engine transitions
-that aren't expressible as a single transition function. Earn the layer
-by needing it; don't add one for symmetry.
+Per-Archetype mechanics (Valor, Perfection, Frenzy, Stains, Path of Dawn, …) are
+**ordinary component writes through the entity door** — the `mechanics` component
+with its own descriptor op, predicted by `ENTITY_WRITERS` and guarded on
+`vitalsVersion` like any in-play state. There is no dedicated mechanic persistence
+primitive anymore (the v1 `applyMechanicStateForCharacter` retired with the v1
+tables, UNN-562). The pure per-mechanic transition lives with its
+`MechanicDefinition` in `packages/game-v2/src/mechanics/<lineage>/<kind>.ts`, where
+the engine tests exercise it; the widget
+(`components/character-sheet/mechanics/<kind>-widget.tsx`) dispatches through
+`useEntityWrite`. Adding a mechanic write is: pure transition (game-v2), a
+descriptor op + Writer case (`lib/entity/commit`), a widget.
 
 ## Client patterns
 
-Two shapes prove the pattern (UNN-180):
+Character surfaces mount **`EntityWriteProvider`** (over the loaded
+`{ profile, entity, resolved }` triple) and write through **`useEntityWrite`**
+([`hooks/use-entity-write.tsx`](../../hooks/use-entity-write.tsx)). It predicts
+optimistically via the **same pure Writers** the server validates with
+(`ENTITY_WRITERS`) and re-folds `resolveEntity` client-side, so the optimistic
+frame is structurally identical to the persisted result — engine isomorphism, no
+merge-patch drift — then catches up when route revalidation settles the base. Two
+shapes recur:
 
 ### 1. Debounced auto-save on a free-text field
 
-Use `useDebouncedAutoSave` (`hooks/use-debounced-auto-save.ts`). It owns
-the whole lifecycle: draft state, debounce, in-flight guard against the
-debounce + blur double-fire, `lastSavedRef` for skipping no-op edits,
-`updatedAtRef` with the prop-sync + on-success dual-writer, Escape-to-
-revert, and the failure-rollback + Sonner toast. The component just
-renders the input and forwards `onFocus`/`onBlur` so the hook knows when
-to pause draft-from-prop sync.
-
-Example: `components/character-sheet/editable-character-name.tsx`.
-
-No success indicator: the typed value staying in the input is the
-confirmation, and a routine-save channel that stays quiet means a real
-error reads as one.
+`useDebouncedAutoSave` (`hooks/use-debounced-auto-save.ts`) owns the whole
+lifecycle: draft state, debounce, the in-flight guard against the debounce + blur
+double-fire, `lastSavedRef` no-op skipping, Escape-to-revert, and the
+failure-rollback + Sonner toast. The component renders the input and forwards
+`onFocus`/`onBlur`. Example:
+`components/character-sheet/editable-character-name.tsx`. No success indicator —
+the value staying in the input is the confirmation, so a routine-save channel that
+stays quiet means a real error reads as one.
 
 ### 2. Optimistic toggle on a click action
 
-`components/character-sheet/inventory.tsx`
-
-The user clicks Equip / Unequip. The parent component's `useOptimistic`
-applies the change via the **same pure engine** (`equipItem` / `unequipItem`)
-the server uses, so the optimistic frame is structurally identical to what
-the server will persist — no risk of drift. After the Server Action returns,
-`revalidatePath` re-derives every dependent stat (attributes, affinities,
-weapon attack roll). Failures toast via Sonner; React reverts the optimistic
-state automatically when the transition resolves.
+The user clicks a control (equip/unequip, a mechanic step, an inheritance-slot
+pick); the provider's optimistic reducer applies the descriptor op via the same
+Writer the server runs, so the optimistic frame is what the server will persist —
+no drift. Revalidation then re-derives every dependent stat (attributes,
+affinities, weapon attack roll). Failures toast via Sonner; React reverts the
+optimistic state when the transition resolves. (Encounters use the sibling
+`useCombatantWrite` — same Writers, a different reconcile channel; see
+`lib/entity/commit/CLAUDE.md`.)
 
 ## Failure modes the UI must handle
 
-| Error code              | Surface                                          |
-| ----------------------- | ------------------------------------------------ |
-| `invalid-input`         | Toast — generic "Couldn't save". Programmer bug. |
-| `character-not-found`   | Toast — the character was deleted out from under |
-|                         | the viewer. Usually means redirect to `/`.       |
-| `stale`                 | Toast — "Someone else updated this character —   |
-|                         | refresh to see the latest." Optimistic rollback. |
-| Domain engine error     | Toast — domain-specific copy (rare; usually a    |
-| (e.g. `item-not-found`) | bug, since the affordance shouldn't have been    |
-|                         | rendered).                                       |
+| Error code                                   | Surface                                                                                             |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `invalid-input`                              | Toast — generic "Couldn't save". Programmer bug.                                                    |
+| `entity-not-found` / `<aggregate>-not-found` | Toast — the row was deleted out from under the viewer. Usually a redirect to `/`.                   |
+| `stale`                                      | Toast — "Someone else updated this — refresh to see the latest." Optimistic rollback.              |
+| Domain engine error (e.g. `item-not-found`)  | Toast — domain-specific copy (rare; usually a bug, since the affordance shouldn't have rendered).   |
 
-`requireOwner` failures throw via Next's `forbidden()` and never return — the
-client sees a 403, not an error code. Do not try to handle this in the UI;
-the affordance shouldn't be visible to non-owners in the first place
-(`<OwnerOnly>` enforces this), and a 403 from a tampered call is the correct
-outcome.
+Auth-gate failures throw via Next's `forbidden()` and never return — the client
+sees a 403, not an error code. Do not try to handle this in the UI: the affordance
+shouldn't be visible to non-owners in the first place (`<OwnerOnly>` enforces
+this), and a 403 from a tampered call is the correct outcome.

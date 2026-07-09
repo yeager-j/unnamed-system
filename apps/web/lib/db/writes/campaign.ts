@@ -62,7 +62,7 @@ export async function rotateJoinToken(campaignId: string): Promise<string> {
   return joinToken
 }
 
-export type RemoveCampaignMemberError = "live-encounter-lock"
+type RemoveCampaignMemberError = "live-encounter-lock"
 
 /**
  * Removes `userId` from `campaignId`'s roster and **unplaces their characters**
@@ -103,7 +103,7 @@ export async function removeCampaignMember(
   return ok(undefined)
 }
 
-export type DeleteCampaignError = "live-encounter-exists"
+type DeleteCampaignError = "live-encounter-exists"
 
 /**
  * Deletes a campaign (UNN-330). Refuses with `live-encounter-exists` while a

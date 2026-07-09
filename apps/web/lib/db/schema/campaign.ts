@@ -1,5 +1,4 @@
 import { pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
 import { users } from "./user"
 
@@ -61,11 +60,4 @@ export const campaignUsers = pgTable(
   ]
 )
 
-export const insertCampaignSchema = createInsertSchema(campaigns)
-export const selectCampaignSchema = createSelectSchema(campaigns)
-
-export const insertCampaignUserSchema = createInsertSchema(campaignUsers)
-export const selectCampaignUserSchema = createSelectSchema(campaignUsers)
-
 export type CampaignRow = typeof campaigns.$inferSelect
-export type CampaignUserRow = typeof campaignUsers.$inferSelect

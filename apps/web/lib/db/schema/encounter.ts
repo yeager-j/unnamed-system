@@ -1,14 +1,16 @@
 import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
-import {
-  storedSessionSchema,
-  type StoredSession,
-} from "@workspace/game-v2/encounter"
-import { type EncounterStatus } from "@workspace/game/foundation"
+import type { StoredSession } from "@workspace/game-v2/encounter"
 
 import { campaigns } from "./campaign"
 import { mapInstances } from "./map-instance"
+
+/**
+ * An encounter's lifecycle status. A persistence concern the game engine does
+ * not own — v2 treats the `draft → live` flip as the shell's job and packages no
+ * status type — so the column's contract lives here with the table.
+ */
+export type EncounterStatus = "draft" | "live" | "ended"
 
 /**
  * An encounter is a run of the initiative tracker inside a campaign. Its whole
@@ -22,7 +24,8 @@ import { mapInstances } from "./map-instance"
  *
  * `shortId` backs the signed-out-visible player watch view; `status` gates the
  * single-live-encounter-per-campaign rule (enforced app-side, UNN-302).
- * {@link EncounterStatus} is owned by the game domain (`@workspace/game/foundation`).
+ * {@link EncounterStatus} is defined locally — a persistence concern the engine
+ * doesn't package.
  *
  * `mapInstanceId` references the encounter's spatial truth — the
  * {@link mapInstances} row that owns zones/occupancy/engagement/enchantment
@@ -56,10 +59,4 @@ export const encounters = pgTable("encounter", {
     .$onUpdate(() => new Date()),
 })
 
-export const insertEncounterSchema = createInsertSchema(encounters, {
-  session: storedSessionSchema,
-})
-export const selectEncounterSchema = createSelectSchema(encounters)
-
-export type { EncounterStatus }
 export type EncounterRow = typeof encounters.$inferSelect

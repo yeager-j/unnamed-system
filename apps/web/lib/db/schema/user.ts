@@ -5,7 +5,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
-import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 
 /**
  * Tables below follow the canonical `@auth/drizzle-adapter` Postgres schema
@@ -72,10 +71,3 @@ export const verificationTokens = pgTable(
     }),
   ]
 )
-
-/**
- * Runtime Zod schemas for Server Action input validation. JSON columns are
- * refined with their structural schemas so validation is real, not `any`.
- */
-export const insertUserSchema = createInsertSchema(users)
-export const selectUserSchema = createSelectSchema(users)

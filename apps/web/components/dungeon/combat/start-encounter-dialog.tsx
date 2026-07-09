@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
+import { buildEnemyCatalogRows } from "@workspace/game-v2/catalog/enemies/catalog-rows"
 import type {
   CombatAdvantage,
   CombatSide,
@@ -34,7 +35,6 @@ import {
 import { SideToggle } from "@/components/combat/controls/side-toggle"
 import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
 import type { StartDungeonEncounterError } from "@/lib/actions/dungeon/start-encounter.schema"
-import { buildEnemyCatalogRows } from "@/lib/game-engine"
 import {
   COMBAT_ADVANTAGE_SETUP_HINTS,
   COMBAT_ADVANTAGE_SETUP_LABELS,

@@ -1,7 +1,7 @@
 import {
   ATTRIBUTE_KEYS,
   type AttributeScores,
-} from "@workspace/game/foundation"
+} from "@workspace/game-v2/kernel/vocab"
 
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
 

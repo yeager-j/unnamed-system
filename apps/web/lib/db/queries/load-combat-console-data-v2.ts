@@ -1,8 +1,8 @@
 import { inArray } from "drizzle-orm"
 
+import { getArchetype } from "@workspace/game-v2/catalog/archetypes"
 import type { Session } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { getArchetype } from "@workspace/game/data"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import type { DurableHydration } from "@/lib/combat/view/detail-view"

@@ -29,25 +29,3 @@ export function ArchetypeTalents({ archetype }: { archetype: TalentsSlice }) {
     </DetailSection>
   )
 }
-
-/**
- * Compact-row chip variant of {@link ArchetypeTalents}: just the badges,
- * no section frame. Surfaced for callers (compact summary row, builder
- * Origin card) that compose their own section frame.
- */
-export function ArchetypeTalentChips({
-  archetype,
-}: {
-  archetype: TalentsSlice
-}) {
-  if (archetype.talents.length === 0) return null
-  return (
-    <>
-      {archetype.talents.map((talent) => (
-        <Badge key={talent} variant="secondary">
-          {formatTalentLabel(talent)}
-        </Badge>
-      ))}
-    </>
-  )
-}

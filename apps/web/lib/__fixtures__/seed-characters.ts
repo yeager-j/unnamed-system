@@ -1,14 +1,14 @@
+import type { PartyComposition } from "@workspace/game-v2/combat"
+import type { BattleConditions } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel"
-import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
-import {
-  type BattleConditions,
-  type ManualBonuses,
-  type MechanicState,
-  type PartyComposition,
-  type PathChoice,
-  type SparkLog,
-  type TalentKey,
-} from "@workspace/game/foundation"
+import type { PathChoice } from "@workspace/game-v2/kernel/vocab"
+import type {
+  Mechanics,
+  MechanicState,
+} from "@workspace/game-v2/mechanics/mechanics.schema"
+import type { ManualBonuses } from "@workspace/game-v2/progression"
+import type { TalentKey } from "@workspace/game-v2/talents"
+import type { SparkLog } from "@workspace/game-v2/virtues"
 
 /**
  * The seed roster, as plain character specs decoupled from persistence. The

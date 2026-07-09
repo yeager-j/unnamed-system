@@ -197,10 +197,8 @@ function AxisRow({
 }
 
 /** The live read-out for one axis: state icon + label, with the turns-remaining
- *  countdown when a duration clock is running. Exported so the player watch's
- *  read-only {@link import("@/components/combat/conditions/state-display").CombatStateDisplay} shows the
- *  identical axis read-out the DM editor does (no drift). */
-export function AxisStateDisplay({
+ *  countdown when a duration clock is running. Rendered by {@link ConditionsControls}. */
+function AxisStateDisplay({
   state,
   duration,
 }: {

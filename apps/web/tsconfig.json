@@ -4,7 +4,6 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      "@workspace/game/*": ["../../packages/game/src/*"],
       "@workspace/game-v2/*": ["../../packages/game-v2/src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"]
     },

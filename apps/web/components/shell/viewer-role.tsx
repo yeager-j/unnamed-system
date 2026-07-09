@@ -51,13 +51,3 @@ export function useViewerRole(): ViewerRole {
 export function OwnerOnly({ children }: { children: React.ReactNode }) {
   return useViewerRole() === "owner" ? <>{children}</> : null
 }
-
-/**
- * The inverse of {@link OwnerOnly}: renders `children` for signed-in
- * non-owners and signed-out viewers. Used to swap an owner-mode affordance
- * for a read-only fallback at the same spot in the tree (e.g. an inline
- * editor vs. a static heading) without restructuring the layout.
- */
-export function NonOwner({ children }: { children: React.ReactNode }) {
-  return useViewerRole() === "owner" ? null : <>{children}</>
-}

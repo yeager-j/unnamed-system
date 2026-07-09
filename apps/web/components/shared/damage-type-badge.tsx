@@ -1,4 +1,4 @@
-import { type DamageType } from "@workspace/game/foundation"
+import { type DamageType } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 

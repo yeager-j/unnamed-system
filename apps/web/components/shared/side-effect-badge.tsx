@@ -1,5 +1,5 @@
-import { getSideEffect } from "@workspace/game/data"
-import { type SideEffectKey } from "@workspace/game/foundation"
+import { getSideEffect } from "@workspace/game-v2/combat"
+import { type SideEffectKey } from "@workspace/game-v2/kernel/vocab"
 import {
   Tooltip,
   TooltipContent,

@@ -1,47 +1,46 @@
 import { getTalent } from "@workspace/game-v2/talents"
-import { type Statblock } from "@workspace/game/engine"
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 
 import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
-import { Prose } from "@/components/shared/prose"
-import { SkillRow } from "@/components/shared/skill-row"
+import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
+import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
 
 /**
- * The read-only body of an enemy's {@link Statblock}: Attributes, Affinities,
- * Talents, Skills, and freeform Abilities. The single renderer shared by the DM
- * combat drawer (UNN-345) and the catalog browse pane (UNN-346) — both derive a
- * `Statblock` (a PC or enemy alike) and hand it here, so the enemy stats render
+ * The read-only body of an enemy's statblock: Attributes, Affinities, Talents,
+ * and Skills. The single renderer shared by the DM combat drawer (UNN-345) and
+ * the catalog browse pane (UNN-346) — both project an enemy onto an
+ * {@link EnemyStatblockView} and hand it here, so the enemy stats render
  * identically in both places instead of each surface re-implementing the grids.
  *
- * Skills reuse the shared {@link SkillRow} (cost row suppressed — enemies pay no
- * Skill costs), so the Attack Roll readout matches a character's. Sections with
- * nothing to show are omitted.
+ * Skills reuse the shared {@link ResolvedSkillRow} (cost row suppressed —
+ * enemies pay no Skill costs), so the Attack Roll readout matches a character's.
+ * Sections with nothing to show are omitted.
  */
-export function EnemyStatblock({ statblock }: { statblock: Statblock }) {
+export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
+  const { attributes, affinities, talentKeys, resolvedSkills } = view
   return (
     <>
-      <DetailSection title="Attributes">
-        <AttributeGrid attributes={statblock.attributes} />
-      </DetailSection>
+      {attributes ? (
+        <DetailSection title="Attributes">
+          <AttributeGrid attributes={attributes} />
+        </DetailSection>
+      ) : null}
 
       <DetailSection title="Affinities">
-        {statblock.affinities ? (
-          <AffinityGrid
-            chart={statblock.affinities}
-            columnsClassName="grid-cols-4"
-          />
+        {affinities ? (
+          <AffinityGrid chart={affinities} columnsClassName="grid-cols-4" />
         ) : (
           <p className="text-sm text-muted-foreground">No affinity data.</p>
         )}
       </DetailSection>
 
-      {statblock.talents.length > 0 ? (
+      {talentKeys.length > 0 ? (
         <DetailSection title="Talents">
           <div className="flex flex-wrap gap-1.5">
-            {statblock.talents.map((key) => (
+            {talentKeys.map((key) => (
               <Badge key={key} variant="outline">
                 {getTalent(key)?.name ?? key}
               </Badge>
@@ -50,24 +49,18 @@ export function EnemyStatblock({ statblock }: { statblock: Statblock }) {
         </DetailSection>
       ) : null}
 
-      {statblock.skills.length > 0 ? (
+      {resolvedSkills.length > 0 && attributes ? (
         <DetailSection title="Skills">
           <ItemGroup className="gap-0">
-            {statblock.skills.map((skill) => (
-              <SkillRow
-                key={skill.key}
-                skill={skill}
-                attributes={statblock.attributes}
+            {resolvedSkills.map((resolved) => (
+              <ResolvedSkillRow
+                key={resolved.skill.key}
+                resolved={resolved}
+                attributes={attributes}
                 showCost={false}
               />
             ))}
           </ItemGroup>
-        </DetailSection>
-      ) : null}
-
-      {statblock.abilities ? (
-        <DetailSection title="Abilities">
-          <Prose>{statblock.abilities}</Prose>
         </DetailSection>
       ) : null}
     </>

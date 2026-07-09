@@ -2,15 +2,20 @@
 
 import { useState } from "react"
 
-import { getEnemy, getEnemyFamily } from "@workspace/game/data"
 import {
+  getEnemy,
+  getEnemyFamily,
+  type EnemyFamily,
+} from "@workspace/game-v2/catalog/enemies"
+import {
+  buildEnemyCatalogRows,
   enemyFamilyCounts,
   filterEnemyCatalogRows,
   groupEnemyRowsByLevel,
-} from "@workspace/game/engine"
-import { type EnemyFamily } from "@workspace/game/foundation"
+} from "@workspace/game-v2/catalog/enemies/catalog-rows"
 
-import { buildEnemyCatalogRows, statblockFromEnemy } from "@/lib/game-engine"
+import { enemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
+import { resolveEntity } from "@/lib/game-engine-v2"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
 import { EnemyQueueRail } from "./enemy-queue-rail"
@@ -64,14 +69,19 @@ export function EnemyCatalogPanel({
   const groups = groupEnemyRowsByLevel(filtered)
   const familyCounts = enemyFamilyCounts(rows)
 
-  const selectedDefinition = selectedKey ? getEnemy(selectedKey) : undefined
-  const selectedStatblock = selectedDefinition
-    ? statblockFromEnemy(selectedDefinition)
-    : null
+  const selectedEntity = selectedKey ? getEnemy(selectedKey) : undefined
+  const selectedView =
+    selectedEntity && selectedKey
+      ? enemyStatblockView(
+          selectedEntity,
+          resolveEntity(selectedEntity),
+          getEnemyFamily(selectedKey) ?? null
+        )
+      : null
 
   const queueItems = queue.map((entry) => ({
     enemyKey: entry.enemyKey,
-    name: getEnemy(entry.enemyKey)?.name ?? entry.enemyKey,
+    name: getEnemy(entry.enemyKey)?.components.identity?.name ?? entry.enemyKey,
     count: entry.count,
   }))
   const totalCount = queue.reduce((sum, entry) => sum + entry.count, 0)
@@ -95,10 +105,9 @@ export function EnemyCatalogPanel({
       </div>
 
       <div className="border-b p-6 lg:min-h-0 lg:overflow-y-auto lg:border-b-0">
-        {selectedStatblock && selectedKey ? (
+        {selectedView && selectedKey ? (
           <EnemyStatblockCard
-            statblock={selectedStatblock}
-            family={getEnemyFamily(selectedKey) ?? null}
+            view={selectedView}
             onAdd={() => onAdd(selectedKey)}
           />
         ) : (

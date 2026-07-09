@@ -98,7 +98,7 @@ export const entity = pgTable("entity", {
  * The entity kind (metadata, not a component `kind` tag — F4). `'pc'` today; the
  * durable-NPC seam widens this to `'pc' | 'npc'`.
  */
-export type EntityKind = "pc"
+type EntityKind = "pc"
 
 /** The entity lifecycle gate: a builder draft, or a finalized playable entity. */
 export type EntityStatus = "draft" | "finalized"
