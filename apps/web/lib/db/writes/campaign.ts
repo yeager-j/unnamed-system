@@ -1,12 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
-import { characters } from "@/lib/db/schema/character"
 import { encounters } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
@@ -67,10 +66,10 @@ export type RemoveCampaignMemberError = "live-encounter-lock"
 
 /**
  * Removes `userId` from `campaignId`'s roster and **unplaces their characters**
- * (`entity.campaignId → null`, UNN-556 — plus the vestigial v1 twin until S4)
- * in one transaction — the shared kick/leave cascade (UNN-329 + UNN-330). The
- * `set null` FK only fires when the *campaign* is deleted, not when a
- * `campaignUsers` row is, so the unplacing is an explicit `UPDATE` here.
+ * (`entity.campaignId → null`, UNN-556) in one transaction — the shared
+ * kick/leave cascade (UNN-329 + UNN-330). The `set null` FK only fires when the
+ * *campaign* is deleted, not when a `campaignUsers` row is, so the unplacing is
+ * an explicit `UPDATE` here.
  *
  * Refuses with `live-encounter-lock` when the player owns a character that is a
  * combatant in the campaign's live encounter (UNN-330): removing them would
@@ -99,17 +98,6 @@ export async function removeCampaignMember(
       .update(entity)
       .set({ campaignId: null })
       .where(and(eq(entity.campaignId, campaignId), eq(entity.ownerId, userId)))
-    // The v1 twin is vestigial after UNN-556 (nothing reads it) but stays in
-    // sync until S4 drops the table.
-    await tx
-      .update(characters)
-      .set({ campaignId: null })
-      .where(
-        and(
-          eq(characters.campaignId, campaignId),
-          eq(characters.ownerId, userId)
-        )
-      )
   })
 
   return ok(undefined)
@@ -122,7 +110,7 @@ export type DeleteCampaignError = "live-encounter-exists"
  * `live` encounter is running — the DM must end it first. Otherwise a
  * `DELETE FROM campaign`: Postgres cascade-deletes the `encounters` and
  * `campaignUsers` rows (`onDelete: "cascade"` FKs) and nulls every placed
- * `characters.campaignId` (`onDelete: "set null"` FK), so the characters survive
+ * `entity.campaignId` (`onDelete: "set null"` FK), so the characters survive
  * unplaced — no explicit UPDATE needed.
  *
  * The encounters' Map Instances are **app-cleaned** here (UNN-459): the

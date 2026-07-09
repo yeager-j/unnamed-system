@@ -21,7 +21,6 @@ import {
 } from "@/lib/__fixtures__/seed-characters"
 import {
   campaigns,
-  characters,
   dungeons,
   encounters,
   entity,
@@ -30,7 +29,6 @@ import {
   maps,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
-import { insertCharacter } from "@/lib/db/seed-character"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
 
 /**
@@ -77,7 +75,7 @@ function uniqueSuffix(): string {
 export interface TestCharacter {
   /** DB row id (`seed-char-${slug}`) for direct pokes. */
   id: string
-  /** Unique-per-run slug — feeds `archetypeId(slug, key)` for child-row pokes. */
+  /** Unique-per-run slug — the stable seed for the entity's deterministic id. */
   slug: string
   shortId: string
   /** `/c/${shortId}` — a `page.goto(...)` target. */
@@ -107,10 +105,8 @@ export async function createTestCharacter(
     shortId: slug,
     name: `${name} ${suffix}`,
   })
-  const id = await insertCharacter(character, ownerId)
-  // Dual-mint the v2 `entity` row (shared id, unplaced — UNN-551) so a factory
-  // character can be a durable combatant; `placeCharacter` sets its campaignId.
-  await insertSeedEntity(character, ownerId, null)
+  // Mint the v2 `entity` row (unplaced — `placeCharacter` sets its campaignId).
+  const id = await insertSeedEntity(character, ownerId, null)
   tracker.characterIds.push(id)
   return {
     id,
@@ -151,19 +147,15 @@ export async function createTestCampaign(
   }
 }
 
-/** Sets (or clears, with `null`) a character's campaign placement — on **both**
- *  the v1 `characters` row (old sheet) and its shared-id `entity` row (UNN-551),
- *  so the durable write path's `requireOwnerOrCampaignDMForEntity` and the
- *  encounter-lock (which read `entity.campaignId`) admit the placed combatant. */
+/** Sets (or clears, with `null`) a character's campaign placement on its
+ *  `entity` row (UNN-551), so the durable write path's
+ *  `requireOwnerOrCampaignDMForEntity` and the encounter-lock (which read
+ *  `entity.campaignId`) admit the placed combatant. */
 export async function placeCharacter(
   characterId: string,
   campaignId: string | null
 ): Promise<void> {
   const db = getDb()
-  await db
-    .update(characters)
-    .set({ campaignId })
-    .where(eq(characters.id, characterId))
   await db.update(entity).set({ campaignId }).where(eq(entity.id, characterId))
 }
 
@@ -384,11 +376,7 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
       .where(inArray(mapInstances.id, tracker.mapInstanceIds))
   }
   if (tracker.characterIds.length > 0) {
-    // The dual-minted `entity` rows share the character ids (UNN-551).
     await db.delete(entity).where(inArray(entity.id, tracker.characterIds))
-    await db
-      .delete(characters)
-      .where(inArray(characters.id, tracker.characterIds))
   }
   if (tracker.campaignIds.length > 0) {
     await db.delete(campaigns).where(inArray(campaigns.id, tracker.campaignIds))

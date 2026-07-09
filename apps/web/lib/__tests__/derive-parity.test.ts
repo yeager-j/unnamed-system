@@ -1,118 +1,72 @@
 import { describe, expect, it } from "vitest"
 
-import { gameData } from "@workspace/game/data"
-import {
-  deriveHydratedCharacter,
-  type RawCharacterInputs,
-} from "@workspace/game/engine"
-import { makeRawCharacterInputs } from "@workspace/game/engine/__fixtures__/character"
-import type { CombatContext } from "@workspace/game/foundation/character/state"
-
-import { deriveHydratedCharacterV2 } from "@/lib/game-engine-v2"
+import { resolveEntity } from "@/lib/game-engine-v2"
 
 import {
-  archetypeId,
   SEED_CHARACTERS,
-  type SeedCharacter,
+  seedCharacterToEntity,
 } from "../__fixtures__/seed-characters"
 
 /**
- * **Full-projection parity over the real seed roster (UNN-533, PR11a).** The
- * surface-level analogue of the fixture-backed golden master: build every seed
- * character's {@link RawCharacterInputs} (the same assembly `lib/db/seed-character.ts`
- * persists), derive with v1's `deriveHydratedCharacter` (real catalogs, the oracle)
- * and the v2-backed `deriveHydratedCharacterV2`, and assert the **entire**
- * `HydratedCharacter` deep-equals — passthrough and all 13 derived fields, down to
- * each skill's resolved cost/Attack Roll/damage-bonus labels. This is the CI gate
- * behind the cutover flip in `lib/game-engine.ts`; any drifting leaf shows up by
- * JSON path in the vitest diff.
+ * **Real-catalog derivation guard (UNN-562 S4).** The v2 engine's own
+ * derivation math is pinned with hand-verified numbers by
+ * `packages/game-v2`'s `resolve.integration.test.ts` — but those are
+ * *fixture*-backed by design (the engine is independence- and fixture-first).
+ * The one thing they can't catch is a broken **production catalog** entry (a
+ * typo in an archetype's HP formula, a wiped affinity table), because they
+ * never touch it.
  *
- * The combat-context variant threads the tracker's inputs (party composition +
- * zone effects) through both engines, so the encounter-aware derive path — the
- * `perPartyLineage` scaler and the zone-effect fold — is gated too.
+ * This suite closes that gap without freezing brittle full-output snapshots:
+ * it runs the real `resolveEntity` over the real seed roster and asserts
+ * *behavioral invariants* — resolves cleanly, pools scale with level, a manual
+ * bonus lands, the active Archetype resolves. A production-catalog regression
+ * that unit tests miss (and that an e2e "it renders" wouldn't flag) fails here.
  */
 
-const v1Derive = deriveHydratedCharacter(gameData)
+const bySlug = (slug: string) => {
+  const seed = SEED_CHARACTERS.find((s) => s.slug === slug)
+  if (!seed) throw new Error(`no seed '${slug}'`)
+  return seed
+}
 
-function seedToRawInputs(seed: SeedCharacter): RawCharacterInputs {
-  const characterId = `seed-char-${seed.slug}`
-  return makeRawCharacterInputs({
-    row: {
-      id: characterId,
-      shortId: seed.shortId,
-      name: seed.name,
-      pronouns: seed.pronouns,
-      level: seed.level,
-      pathChoice: seed.pathChoice,
-      manualBonuses: seed.manualBonuses,
-      gainedTalents: seed.gainedTalents,
-      activeArchetypeId: archetypeId(seed.slug, seed.activeArchetypeKey),
-      originCharacterArchetypeId: archetypeId(
-        seed.slug,
-        seed.originArchetypeKey ?? seed.activeArchetypeKey
-      ),
-      savedArchetypeRanks: seed.savedArchetypeRanks ?? 0,
-    },
-    archetypeRows: seed.archetypes.map((archetype) => ({
-      id: archetypeId(seed.slug, archetype.archetypeKey),
-      characterId,
-      archetypeKey: archetype.archetypeKey,
-      rank: archetype.rank,
-      inheritanceSlots: (archetype.inheritanceSlots ?? []).map((slot) => ({
-        slotIndex: slot.slotIndex,
-        sourceCharacterArchetypeId: archetypeId(
-          seed.slug,
-          slot.sourceArchetypeKey
-        ),
-        skillKey: slot.skillKey,
-      })),
-      mechanicState: archetype.mechanicState ?? null,
-    })),
-    inventoryRows: seed.items.map((item, index) => ({
-      id: `seed-item-${seed.slug}-${index}`,
-      characterId,
-      catalogItemKey: item.catalogItemKey,
-      equipped: item.equipped,
-      quantity: item.quantity ?? 1,
-    })),
+const componentsOf = (seed: ReturnType<typeof bySlug>) =>
+  resolveEntity(seedCharacterToEntity(seed)).components
+
+describe("v2 derivation over the real catalog", () => {
+  it("resolves every seed cleanly, emitting the core read-units", () => {
+    for (const seed of SEED_CHARACTERS) {
+      const c = componentsOf(seed)
+      expect(c.attributes, seed.slug).toBeDefined()
+      expect(c.affinities, seed.slug).toBeDefined()
+      expect(c.vitals?.maxHP, seed.slug).toBeGreaterThan(0)
+      expect(c.skillPool?.maxSP, seed.slug).toBeGreaterThan(0)
+      expect(c.resources?.maxHitDice, seed.slug).toBeGreaterThanOrEqual(1)
+      expect(c.resources?.maxSkillDice, seed.slug).toBeGreaterThanOrEqual(1)
+    }
   })
-}
 
-/** The tracker's encounter-scoped inputs, exercised over every seed: a mixed
- *  party (drives `perPartyLineage` scalers like Magic Circle / Ailment Boost)
- *  plus zone effects of every foldable type. */
-const COMBAT_CONTEXT: CombatContext = {
-  partyComposition: { warrior: 2, mage: 1, knight: 1, healer: 1 },
-  zoneEffects: [
-    { type: "attribute", target: "magic", amount: 3 },
-    { type: "affinity", damageTypes: ["fire"], affinity: "resist" },
-    {
-      type: "attackRoll",
-      amount: 2,
-      source: "Zone Enchantment",
-      when: { deliveries: ["magical"] },
-    },
-    {
-      type: "damage",
-      dice: { count: 1, sides: 4 },
-      source: "Zone Enchantment",
-      when: { deliveries: ["magical"] },
-    },
-  ],
-}
-
-describe("v1 ↔ v2 full-sheet derivation parity (seed roster, real catalogs)", () => {
-  for (const seed of SEED_CHARACTERS) {
-    it(`derives ${seed.slug} (L${seed.level}) identically`, () => {
-      const raw = seedToRawInputs(seed)
-      expect(deriveHydratedCharacterV2(raw)).toEqual(v1Derive(raw))
-    })
-
-    it(`derives ${seed.slug} identically under a combat context`, () => {
-      const raw = seedToRawInputs(seed)
-      expect(deriveHydratedCharacterV2(raw, COMBAT_CONTEXT)).toEqual(
-        v1Derive(raw, COMBAT_CONTEXT)
+  it("resolves each seed's active Archetype to its authored key", () => {
+    for (const seed of SEED_CHARACTERS) {
+      expect(componentsOf(seed).archetypes?.active, seed.slug).toBe(
+        seed.activeArchetypeKey
       )
-    })
-  }
+    }
+  })
+
+  it("scales max pools with level (L1 warrior < L13 mage < L30 fallen)", () => {
+    const maxHP = (slug: string) => componentsOf(bySlug(slug)).vitals!.maxHP
+    expect(maxHP("warrior")).toBeLessThan(maxHP("mage"))
+    expect(maxHP("mage")).toBeLessThan(maxHP("fallen"))
+  })
+
+  it("lands a manual attribute bonus on the resolved attribute (Calliope: +1 magic)", () => {
+    // seed-mage carries `manualBonuses: { magic: 1 }`; dropping it must lower
+    // the resolved magic attribute by exactly that flat bonus (rulebook 2.4).
+    const mage = bySlug("mage")
+    const withBonus = componentsOf(mage).attributes!.magic
+    const withoutBonus = resolveEntity(
+      seedCharacterToEntity({ ...mage, manualBonuses: {} })
+    ).components.attributes!.magic
+    expect(withBonus).toBe(withoutBonus + 1)
+  })
 })

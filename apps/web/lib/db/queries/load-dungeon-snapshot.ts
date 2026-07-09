@@ -3,15 +3,12 @@ import {
   type DungeonRosterEntry,
   type DungeonSnapshot,
 } from "@workspace/game-v2/visibility"
-import type { HydratedCharacter } from "@workspace/game/foundation"
 
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import {
-  loadCharacterRowById,
-  loadHydratedCharacterById,
-} from "@/lib/db/queries/load-character"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
+import { loadEntityRowById } from "@/lib/db/queries/load-entity"
+import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 
 /** The placed party as the snapshot projector reads it: display identity plus the
@@ -78,18 +75,7 @@ export async function getDungeonSnapshot(
   const partyIds = Object.keys(instance.state.occupancy).filter((id) =>
     placedIds.has(id)
   )
-  const hydrated = (
-    await Promise.all(partyIds.map((id) => loadHydratedCharacterById(id)))
-  ).filter((character): character is HydratedCharacter => character !== null)
-  const vitalsById = new Map(
-    hydrated.map((character) => [
-      character.id,
-      {
-        hp: { current: character.currentHP, max: character.maxHP },
-        sp: { current: character.currentSP, max: character.maxSP },
-      },
-    ])
-  )
+  const vitalsById = await loadPartyVitalsByIds(partyIds)
   const roster = buildRoster(placed, vitalsById)
 
   return projectDungeonSnapshot(
@@ -130,7 +116,7 @@ export async function loadOwnedDungeonCharacterIds(
 
   const owned = await Promise.all(
     tokenCharacterIds.map(async (characterId) => {
-      const row = await loadCharacterRowById(characterId)
+      const row = await loadEntityRowById(characterId)
       return row?.ownerId === viewerId ? characterId : null
     })
   )

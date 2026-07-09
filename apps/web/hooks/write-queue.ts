@@ -1,4 +1,4 @@
-import { type Result } from "@workspace/game/foundation"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 /**
  * The React-free core of the queued versioned-write protocol (UNN-567) — the

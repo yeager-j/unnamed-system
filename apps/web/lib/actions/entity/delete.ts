@@ -8,7 +8,6 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
 import { isCharacterLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
-import { characters } from "@/lib/db/schema/character"
 import { entity } from "@/lib/db/schema/entity"
 
 import {
@@ -24,12 +23,8 @@ import {
  * `live-encounter-lock` when the entity is a combatant in its campaign's live
  * encounter (UNN-330 — the lock query already reads `entity`).
  *
- * The delete removes the `entity` row **and** the same-id v1 `characters` row
- * in one transaction: seed/e2e characters are dual-minted with a shared id
- * (S0), so deleting only the entity would leave a live orphan at the v1
- * `/c/{shortId}` route. A builder-born entity has no v1 twin — the second
- * DELETE simply matches nothing. Deliberately not version-guarded (v1 parity:
- * the typed name is the intent gate).
+ * Deliberately not version-guarded (v1 parity: the typed name is the intent
+ * gate).
  */
 export async function deleteEntityAction(
   input: DeleteEntityInput
@@ -52,14 +47,10 @@ export async function deleteEntityAction(
     return err("live-encounter-lock")
   }
 
-  const deleted = await db.transaction(async (tx) => {
-    const removed = await tx
-      .delete(entity)
-      .where(eq(entity.id, row.id))
-      .returning({ id: entity.id })
-    await tx.delete(characters).where(eq(characters.id, row.id))
-    return removed
-  })
+  const deleted = await db
+    .delete(entity)
+    .where(eq(entity.id, row.id))
+    .returning({ id: entity.id })
 
   if (deleted.length === 0) return err("entity-not-found")
 

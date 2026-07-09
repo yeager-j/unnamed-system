@@ -3,7 +3,6 @@ import { and, eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
-import { characters } from "@/lib/db/schema/character"
 import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"
@@ -62,9 +61,9 @@ test.afterAll(async () => {
   // Unplace the warrior in case a cascade test failed before removing it
   // (deleting its campaign below would also FK-null it, but be explicit).
   await getDb()
-    .update(characters)
+    .update(entity)
     .set({ campaignId: null })
-    .where(eq(characters.id, SEED_WARRIOR_ID))
+    .where(eq(entity.id, SEED_WARRIOR_ID))
   for (const shortId of createdCampaignShortIds) {
     await getDb().delete(campaigns).where(eq(campaigns.shortId, shortId))
   }
@@ -154,16 +153,11 @@ test("removing a player unplaces their characters", async ({ page }) => {
     .insert(campaignUsers)
     .values({ campaignId, userId: SEED_USER_ID })
     .onConflictDoNothing()
-  // The roster + placement surfaces read `entity.campaignId` (UNN-556); the
-  // v1 twin stays in sync like the factory's placeCharacter does.
+  // The roster + placement surfaces read `entity.campaignId` (UNN-556).
   await getDb()
     .update(entity)
     .set({ campaignId })
     .where(eq(entity.id, SEED_WARRIOR_ID))
-  await getDb()
-    .update(characters)
-    .set({ campaignId })
-    .where(eq(characters.id, SEED_WARRIOR_ID))
 
   await page.goto(`/campaigns/${shortId}`)
   // The roster shows the member with their placed character.

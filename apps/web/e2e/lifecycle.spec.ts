@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
-import { characters } from "@/lib/db/schema/character"
+import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -46,9 +46,9 @@ test.afterEach(async () => {
 
 async function readCharCampaignId(): Promise<string | null> {
   const [row] = await getDb()
-    .select({ campaignId: characters.campaignId })
-    .from(characters)
-    .where(eq(characters.id, char.id))
+    .select({ campaignId: entity.campaignId })
+    .from(entity)
+    .where(eq(entity.id, char.id))
   return row!.campaignId
 }
 
@@ -171,9 +171,9 @@ test("a live-combatant character cannot be deleted", async ({ page }) => {
   ).toBeVisible()
   // Still present.
   const rows = await getDb()
-    .select({ id: characters.id })
-    .from(characters)
-    .where(eq(characters.id, char.id))
+    .select({ id: entity.id })
+    .from(entity)
+    .where(eq(entity.id, char.id))
   expect(rows).toHaveLength(1)
 })
 

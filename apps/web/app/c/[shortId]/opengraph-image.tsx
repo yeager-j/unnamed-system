@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og"
 
-import { loadCharacterRowByShortId } from "@/lib/db/queries/load-character"
+import { loadEntityRowByShortId } from "@/lib/db/queries/load-entity"
 
 /**
  * The `/c/{shortId}` OpenGraph image. Uses the character's portrait when one
@@ -47,7 +47,7 @@ function FallbackCard({ name }: { name: string | null }) {
 
 export default async function OpenGraphImage({ params }: OgProps) {
   const { shortId } = await params
-  const character = await loadCharacterRowByShortId(shortId)
+  const character = await loadEntityRowByShortId(shortId)
 
   const element = character?.portraitUrl ? (
     <img

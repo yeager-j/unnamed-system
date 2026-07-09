@@ -1,7 +1,7 @@
 "use server"
 
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { DungeonState } from "@workspace/game-v2/spatial"
-import { err, ok, type Result } from "@workspace/game/foundation"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"

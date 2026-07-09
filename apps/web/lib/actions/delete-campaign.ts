@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { err, ok, type Result } from "@workspace/game/foundation"
+import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { deleteCampaign } from "@/lib/db/writes/campaign"

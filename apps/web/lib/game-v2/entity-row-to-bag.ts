@@ -10,9 +10,9 @@ import type { EntityRow } from "@/lib/db/schema/entity"
 
 /**
  * The **assemble seam** (CD14, generalized to the durable home — UNN-551): the
- * `entity` row → runtime `Entity` projection. It is the entity-table successor of
- * `rawInputsToEntity`, and lives in `apps/web` (not the game-v2 kernel) because it
- * reads a Drizzle row shape, which the independence-gated engine may not name.
+ * `entity` row → runtime `Entity` projection. It lives in `apps/web` (not the
+ * game-v2 kernel) because it reads a Drizzle row shape, which the
+ * independence-gated engine may not name.
  *
  * Two responsibilities, kept separate: **assemble** (here) gathers the row's
  * non-null component columns into a component bag and **lifts** the `name` /

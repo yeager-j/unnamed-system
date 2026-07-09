@@ -11,10 +11,10 @@ import {
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadHydratedCharacterById } from "@/lib/db/queries/load-character"
 import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
+import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 
 import { getDungeonForDM, type DungeonForDM } from "./dungeon-access"
 
@@ -137,21 +137,8 @@ async function resolveRunMode(
     // through to exploration rather than 404 the whole delve.
   }
 
-  const hydratedParty = (
-    await Promise.all(
-      placedCharacters.map((character) =>
-        loadHydratedCharacterById(character.id)
-      )
-    )
-  ).filter((character) => character !== null)
-  const vitalsById = new Map(
-    hydratedParty.map((character) => [
-      character.id,
-      {
-        hp: { current: character.currentHP, max: character.maxHP },
-        sp: { current: character.currentSP, max: character.maxSP },
-      },
-    ])
+  const vitalsById = await loadPartyVitalsByIds(
+    placedCharacters.map((character) => character.id)
   )
   const roster: Record<string, DungeonRosterEntry> = Object.fromEntries(
     placedCharacters.map((character) => [

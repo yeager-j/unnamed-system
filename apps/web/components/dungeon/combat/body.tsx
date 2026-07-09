@@ -3,8 +3,8 @@
 import { useState } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { err } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
-import { err } from "@workspace/game/foundation"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"

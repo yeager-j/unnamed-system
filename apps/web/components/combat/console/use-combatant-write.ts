@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, type Result } from "@workspace/game/foundation"
+import { err, type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"

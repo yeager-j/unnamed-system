@@ -4,9 +4,8 @@ import { ZERO_VIRTUE_ALLOCATION } from "@workspace/game-v2/virtues"
 
 /**
  * The component keys a fresh draft is minted with — the always-present PC
- * skeleton, mirroring `rawInputsToEntity`'s conventions (D37: stat capabilities
- * carry a zeros/neutral/0 base; the real values come from the Archetypes +
- * Level/Path layers as the player builds).
+ * skeleton (D37: stat capabilities carry a zeros/neutral/0 base; the real values
+ * come from the Archetypes + Level/Path layers as the player builds).
  */
 export type DraftComponents = Pick<
   ComponentRegistry,

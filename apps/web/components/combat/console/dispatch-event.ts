@@ -1,12 +1,12 @@
 import type { CombatEvent } from "@workspace/game-v2/encounter"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import { type Result } from "@workspace/game-v2/kernel/result"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import {
   mapInstanceEventSchema,
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
-import { type Result } from "@workspace/game/foundation"
 
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"

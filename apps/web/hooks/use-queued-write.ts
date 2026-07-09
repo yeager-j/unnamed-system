@@ -2,7 +2,7 @@
 
 import { useRef, type RefObject } from "react"
 
-import { type Result } from "@workspace/game/foundation"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
 import {

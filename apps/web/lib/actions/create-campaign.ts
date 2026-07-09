@@ -2,7 +2,7 @@
 
 import { unauthorized } from "next/navigation"
 
-import { ok, type Result } from "@workspace/game/foundation"
+import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { auth } from "@/lib/auth"
 import { createCampaign } from "@/lib/db/writes/campaign"

@@ -12,7 +12,7 @@ import {
   asParticipantId,
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
-import { err, ok } from "@workspace/game/foundation"
+import { err, ok } from "@workspace/game-v2/kernel/result"
 
 import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterRow } from "@/lib/db/schema/encounter"

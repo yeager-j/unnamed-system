@@ -11,12 +11,12 @@ import {
   asParticipantId,
   type ParticipantId,
 } from "@workspace/game-v2/kernel/participant-id.schema"
+import { err, ok } from "@workspace/game-v2/kernel/result"
 import {
   createDungeonState,
   type DungeonState,
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
-import { err, ok } from "@workspace/game/foundation"
 
 import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"

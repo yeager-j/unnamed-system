@@ -1,7 +1,7 @@
 "use server"
 
 import { comintMapInstance, saveSession } from "@workspace/game-v2/encounter"
-import { ok, type Result } from "@workspace/game/foundation"
+import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"

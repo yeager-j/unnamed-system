@@ -1,4 +1,5 @@
-import { type StatContext } from "@workspace/game/engine"
+import type { Entity } from "@workspace/game-v2/kernel"
+import type { Mechanics } from "@workspace/game-v2/mechanics/mechanics.schema"
 import {
   type BattleConditions,
   type ManualBonuses,
@@ -9,14 +10,12 @@ import {
   type TalentKey,
 } from "@workspace/game/foundation"
 
-import { buildStatContext } from "@/lib/game-engine"
-
 /**
  * The seed roster, as plain character specs decoupled from persistence. The
- * database seed script (`lib/db/seed.ts`) turns these into rows; the game-engine
- * integration suite feeds the same specs through {@link buildSeedStatCharacter}
- * so seed correctness and the derived-value pipeline are tested against one
- * source of truth. Nothing here imports Drizzle or touches the database.
+ * database seed (`lib/db/seed-entity.ts`) and the derivation golden master both
+ * project these specs into a v2 `entity` through {@link seedCharacterToEntity},
+ * so seed rows and pinned fixtures derive from one source of truth. Nothing here
+ * imports Drizzle or touches the database.
  *
  * The roster is deliberately stable showcase data: it covers every MVP
  * Archetype, three life stages, Mastery, cross-Archetype Inheritance Slots,
@@ -173,6 +172,113 @@ export function makeSeedCharacter(
   }
 
   return { ...defaults, ...overrides }
+}
+
+/** The deterministic id a seed character's `entity` row carries (the S0
+ *  shared-id convention — an encounter's durable locator resolves it). */
+export function seedEntityId(slug: string): string {
+  return `seed-char-${slug}`
+}
+
+/** A seed inventory row's deterministic id — stable across re-seeds so the
+ *  equipment component (and any pinned snapshot of it) doesn't churn. */
+function seedItemId(slug: string, index: number): string {
+  return `seed-item-${slug}-${index}`
+}
+
+/**
+ * Projects a persistence-free {@link SeedCharacter} spec onto a v2 component
+ * {@link Entity} — the native successor of the retired v1→v2 projection shim
+ * (UNN-562). The database seed (`lib/db/seed-entity.ts`) and the real-catalog
+ * derivation guard both build their entity through this one projection, so seed
+ * rows and the derivation test derive from a single source of truth.
+ *
+ * The mapping is direct because `SeedCharacter` already keys its Archetype
+ * roster and Inheritance Slots by **Archetype key** (no surrogate-id
+ * translation, unlike the old shim). A PC's stat capabilities carry a
+ * zeros/neutral/0 `base` (D37) — the real values come from the Archetypes +
+ * Level/Path layers. Depletion rides the fixture's optional `damage` (v2 stores
+ * signed depletion, not the absolute pools v1 stored).
+ */
+export function seedCharacterToEntity(character: SeedCharacter): Entity {
+  const damage = character.damage
+  return {
+    id: seedEntityId(character.slug),
+    components: {
+      identity: { name: character.name },
+      presentation: { portraitUrl: undefined },
+      level: { value: character.level, victories: character.victories },
+      path: { choice: character.pathChoice },
+      archetypes: {
+        active: character.activeArchetypeKey,
+        origin: character.originArchetypeKey ?? character.activeArchetypeKey,
+        savedArchetypeRanks: character.savedArchetypeRanks ?? 0,
+        roster: character.archetypes.map((archetype) => ({
+          key: archetype.archetypeKey,
+          rank: archetype.rank,
+          inheritanceSlots: (archetype.inheritanceSlots ?? []).map((slot) => ({
+            slotIndex: slot.slotIndex,
+            sourceArchetypeKey: slot.sourceArchetypeKey,
+            skillKey: slot.skillKey,
+          })),
+        })),
+      },
+      manualBonuses: character.manualBonuses,
+      // v1 persisted one nullable mechanicState per Archetype row; v2 keys the
+      // Mechanics component by mechanic kind (D36 — the state's own discriminant,
+      // 1:1 with its Archetype, so folding can't collide).
+      mechanics: {
+        states: Object.fromEntries(
+          character.archetypes
+            .flatMap((archetype) =>
+              archetype.mechanicState ? [archetype.mechanicState] : []
+            )
+            .map((state) => [state.kind, state])
+        ) as Mechanics["states"],
+      },
+      equipment: {
+        items: character.items.map((item, index) => ({
+          id: seedItemId(character.slug, index),
+          catalogItemKey: item.catalogItemKey,
+          equipped: item.equipped,
+          quantity: item.quantity ?? 1,
+        })),
+        currency: 0,
+      },
+      talents: character.gainedTalents.map((key) => ({ key })),
+      // Stat capabilities have a zeros/neutral/0 base (D37); the layers above
+      // supply the real values.
+      attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
+      affinities: { base: {} },
+      vitals: { base: 0, damage: damage?.hp ?? 0 },
+      skillPool: { base: 0, spSpent: damage?.sp ?? 0 },
+      resources: {
+        hitDiceUsed: damage?.hitDiceSpent ?? 0,
+        skillDiceUsed: damage?.skillDiceSpent ?? 0,
+        prismaUsed: 0,
+      },
+      exhaustion: { level: character.exhaustion },
+      virtues: { ranks: character.virtues, sparkLog: character.sparkLog },
+      narrative: {
+        ancestry: character.ancestryText,
+        background: character.backgroundText,
+        backstory: character.backstoryText,
+        personality: character.personalityTraits,
+        hopes: character.hopes,
+        dreams: character.dreams,
+        fears: character.fears,
+        secrets: character.secrets,
+        knives: character.knives.map((knife) => ({
+          title: knife.title,
+          description: knife.description,
+        })),
+        chains: character.chains.map((chain) => ({
+          title: chain.title,
+          description: chain.description,
+        })),
+      },
+    },
+  }
 }
 
 export const SEED_CHARACTERS: SeedCharacter[] = [
@@ -572,50 +678,3 @@ export const SEED_CHARACTERS: SeedCharacter[] = [
     partyComposition: null,
   },
 ]
-
-/**
- * The deterministic id of a character's `characterArchetype` row. Stable across
- * seed re-runs and used to wire Inheritance-Slot cross-references between an
- * Archetype and its sibling rows on the same character.
- */
-export function archetypeId(slug: string, archetypeKey: string): string {
-  return `seed-arch-${slug}-${archetypeKey}`
-}
-
-/**
- * Maps a seed spec onto the pure {@link StatContext} the
- * derived-value engine consumes — the exact hydration the database seed and the
- * public sheet both rely on. Inheritance-Slot `sourceArchetypeKey`s are
- * resolved to sibling-row ids via {@link archetypeId} so cross-Archetype
- * inheritance is exercised end to end.
- */
-export function buildSeedStatCharacter(character: SeedCharacter): StatContext {
-  return buildStatContext(
-    {
-      pathChoice: character.pathChoice,
-      level: character.level,
-      manualBonuses: character.manualBonuses,
-      activeCharacterArchetypeId: archetypeId(
-        character.slug,
-        character.activeArchetypeKey
-      ),
-    },
-    character.archetypes.map((archetype) => ({
-      id: archetypeId(character.slug, archetype.archetypeKey),
-      archetypeKey: archetype.archetypeKey,
-      rank: archetype.rank,
-      inheritanceSlots: (archetype.inheritanceSlots ?? []).map((slot) => ({
-        slotIndex: slot.slotIndex,
-        sourceCharacterArchetypeId: archetypeId(
-          character.slug,
-          slot.sourceArchetypeKey
-        ),
-        skillKey: slot.skillKey,
-      })),
-      mechanicState: archetype.mechanicState ?? null,
-    })),
-    character.items
-      .filter((item) => item.equipped)
-      .map((item) => item.catalogItemKey)
-  )
-}
