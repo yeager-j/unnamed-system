@@ -13,7 +13,7 @@ import type { CurrentActorView } from "@/lib/combat/view/console-view"
 import {
   combatantDetail,
   type CombatantDetail,
-  type DurableHydration,
+  type CombatantSheetSlice,
 } from "@/lib/combat/view/detail-view"
 
 /**
@@ -32,7 +32,7 @@ export function useCombatSelection({
   resolved,
   instance,
   participantMeta,
-  durableHydrationById,
+  combatantSheetSliceById,
   currentActor,
   dispatch,
 }: {
@@ -40,7 +40,7 @@ export function useCombatSelection({
   resolved: ResolvedSession
   instance: MapInstanceState
   participantMeta: Record<ParticipantId, ParticipantMeta>
-  durableHydrationById: Record<ParticipantId, DurableHydration>
+  combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
   currentActor: CurrentActorView | null
   dispatch: (event: ConsoleDispatchEvent) => void
 }): {
@@ -72,7 +72,7 @@ export function useCombatSelection({
           instance,
           selectedCombatantId,
           participantMeta[selectedCombatantId],
-          durableHydrationById[selectedCombatantId]
+          combatantSheetSliceById[selectedCombatantId]
         )
       : null
 

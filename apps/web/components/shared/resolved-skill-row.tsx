@@ -52,7 +52,7 @@ export function ResolvedSkillRow({
       <PopoverTrigger
         render={
           <Item
-            render={<button type="button" />}
+            render={<button type="button" aria-label={skill.name} />}
             className="cursor-pointer hover:bg-muted/60"
           />
         }

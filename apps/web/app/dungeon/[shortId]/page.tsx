@@ -127,11 +127,12 @@ async function resolveRunMode(
   if (live) {
     const data = await getEncounterForDM(live.shortId)
     if (data) {
-      const durableHydrationById = await loadCombatConsoleDataV2(
+      const combatantSheetSliceById = await loadCombatConsoleDataV2(
         data.session,
+        data.instance.state,
         data.participantMeta
       )
-      return { kind: "combat", data, durableHydrationById }
+      return { kind: "combat", data, combatantSheetSliceById }
     }
     // A live row we can't resolve for the DM is a data-integrity failure; fall
     // through to exploration rather than 404 the whole delve.

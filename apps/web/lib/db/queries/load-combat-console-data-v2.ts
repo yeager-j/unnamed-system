@@ -1,31 +1,37 @@
 import { inArray } from "drizzle-orm"
 
 import { getArchetype } from "@workspace/game-v2/catalog/archetypes"
-import type { Session } from "@workspace/game-v2/encounter"
+import {
+  derivePartyCompositionBySide,
+  participantZoneEffects,
+  spatialReadsFor,
+  type Session,
+} from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
-import type { DurableHydration } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
 import { db } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"
+import { resolveEntity, resolveSession } from "@/lib/game-engine-v2"
 
 /**
- * The per-**durable-participant** drawer hydration (UNN-535; UNN-551) — the two
- * fields the resolved session view doesn't already carry: the active Archetype's
- * **display name** (a catalog lookup off the entity's own `archetypes.active`, in
- * the session already) and the **pronouns** app column (batch-read from `entity`).
- *
- * **Skills are no longer loaded here.** The drawer renders each combatant's skills
- * from the resolved participant view uniformly — the durable-only rich `HydratedSkill`
- * hydration (and its party-composition second pass) is gone with the storage fork;
- * UNN-538 restores rich `ResolvedSkill` cards for *every* combatant off that same view.
- * Keyed by **participantId**, storage decided once off {@link ParticipantMeta}.
+ * The per-character-sheet drawer slice (UNN-538): active Archetype display name,
+ * app-column pronouns, and Skills hydrated with the encounter's party composition.
+ * The loader is the one sanctioned storage boundary: it decides which participants
+ * have a sheet, then emits only the content the drawer needs.
  */
 export async function loadCombatConsoleDataV2(
   session: Session,
+  instance: MapInstanceState,
   participantMeta: Record<ParticipantId, ParticipantMeta>
-): Promise<Record<ParticipantId, DurableHydration>> {
-  const durable = session.participants.flatMap((participant) => {
+): Promise<Record<ParticipantId, CombatantSheetSlice>> {
+  const spatialReads = spatialReadsFor(instance)
+  const partyCompositionBySide = derivePartyCompositionBySide(
+    resolveSession(session, instance)
+  )
+  const sheetParticipants = session.participants.flatMap((participant) => {
     const meta = participantMeta[participant.id]
     if (meta?.storage !== "durable") return []
     const activeKey = participant.entity.components.archetypes?.active
@@ -34,26 +40,39 @@ export async function loadCombatConsoleDataV2(
         participantId: participant.id,
         entityId: meta.characterId,
         className: activeKey ? (getArchetype(activeKey)?.name ?? null) : null,
+        skills:
+          resolveEntity(participant.entity, {
+            effects: participantZoneEffects(spatialReads, participant.id),
+            partyComposition:
+              partyCompositionBySide[participant.overlay.allegiance.side],
+          }).components.skills ?? [],
       },
     ]
   })
-  if (durable.length === 0) return {}
+  if (sheetParticipants.length === 0) return {}
 
   const pronounsRows = await db
     .select({ id: entity.id, pronouns: entity.pronouns })
     .from(entity)
-    .where(inArray(entity.id, [...new Set(durable.map((pc) => pc.entityId))]))
+    .where(
+      inArray(entity.id, [
+        ...new Set(
+          sheetParticipants.map((participant) => participant.entityId)
+        ),
+      ])
+    )
   const pronounsById = new Map(
     pronounsRows.map((row) => [row.id, row.pronouns])
   )
 
   return Object.fromEntries(
-    durable.map((pc) => [
-      pc.participantId,
+    sheetParticipants.map((participant) => [
+      participant.participantId,
       {
-        className: pc.className,
-        pronouns: pronounsById.get(pc.entityId) ?? null,
-      } satisfies DurableHydration,
+        className: participant.className,
+        pronouns: pronounsById.get(participant.entityId) ?? null,
+        skills: participant.skills,
+      } satisfies CombatantSheetSlice,
     ])
   )
 }

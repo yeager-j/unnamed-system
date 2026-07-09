@@ -18,7 +18,7 @@ import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
-import type { DurableHydration } from "@/lib/combat/view/detail-view"
+import type { CombatantSheetSlice } from "@/lib/combat/view/detail-view"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -42,11 +42,11 @@ import { ZoneLayout } from "./zone-layout"
  */
 export function CombatConsole({
   data,
-  durableHydrationById,
+  combatantSheetSliceById,
   campaignShortId,
 }: {
   data: EncounterForDM
-  durableHydrationById: Record<ParticipantId, DurableHydration>
+  combatantSheetSliceById: Record<ParticipantId, CombatantSheetSlice>
   campaignShortId: string
 }) {
   const {
@@ -81,7 +81,7 @@ export function CombatConsole({
     resolved,
     instance,
     participantMeta: data.participantMeta,
-    durableHydrationById,
+    combatantSheetSliceById,
     currentActor,
     dispatch,
   })

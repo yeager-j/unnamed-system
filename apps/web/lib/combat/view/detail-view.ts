@@ -10,6 +10,7 @@ import {
   type ResolvedSession,
   type Session,
 } from "@workspace/game-v2/encounter"
+import { resolvedGuard } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   AffinityChart,
@@ -33,12 +34,9 @@ import { adjacentZones } from "@/lib/combat/view/zone-graph"
  * resolves no such read-unit, and the drawer renders a section iff its datum
  * resolved — no `kind` branch decides what an "enemy" vs a "PC" shows.
  *
- * The one place the storage home surfaces is the {@link DurableDetail} slice
- * (`null` for an inline participant): the entity-row identity (class name,
- * pronouns) the hydration loader supplies, plus the tokens the durable write path
- * guards on. Skills are **not** here — every combatant's skills come off the
- * resolved participant view ({@link CombatantDetail.resolvedSkills}), so there is
- * no rich-vs-lean storage fork (UNN-551; UNN-538 makes that resolved list rich).
+ * The loader may supply a character-sheet display slice for a PC, but this output
+ * is storage-blind: the drawer receives the display fields and one resolved Skills
+ * list it needs, never the storage tier or write tokens that produced them.
  */
 
 export interface EngageableTarget {
@@ -65,14 +63,12 @@ export interface CombatantPosition {
   targets: MapZone[]
 }
 
-/** The entity-row slice a durable participant's drawer additionally shows.
- *  Skills are NOT here — every combatant renders its skills from the resolved
- *  participant view ({@link CombatantDetail.resolvedSkills}), durable or inline. */
-export interface DurableDetail {
-  characterId: string
-  vitalsVersion: number
+/** The display data only a character sheet contributes to a combatant drawer.
+ *  Inline combatants have no sheet and instead use their session-resolved Skills. */
+export interface CombatantSheetSlice {
   className: string | null
   pronouns: string | null
+  skills: ResolvedSkill[]
 }
 
 export interface CombatantDetail {
@@ -83,6 +79,8 @@ export interface CombatantDetail {
   isPc: boolean
   level: number | null
   portraitUrl: string | null
+  className: string | null
+  pronouns: string | null
   // editable overlay
   ailments: Ailments
   battleConditions: BattleConditions
@@ -99,18 +97,14 @@ export interface CombatantDetail {
   // read-only stats (null/empty ⇔ the read-unit didn't resolve)
   attributes: AttributeScores | null
   affinities: AffinityChart | null
-  resolvedSkills: ResolvedSkill[]
-  talentKeys: string[]
+  skills: ResolvedSkill[]
+  /** `null` means the entity lacks the talents capability; `[]` means it has
+   *  the capability but currently owns no Talents. */
+  talentKeys: string[] | null
+  hasSkillPool: boolean
   /** Whether the participant resolved a Prisma pool (a `resources` read-unit)
    *  — gates the drawer's use-Prisma affordance. */
   hasPrisma: boolean
-  durable: DurableDetail | null
-}
-
-/** The loader-supplied per-durable-participant hydration the drawer folds in. */
-export interface DurableHydration {
-  className: string | null
-  pronouns: string | null
 }
 
 /** Builds the drawer model for one participant, or `null` for an unknown id. */
@@ -120,7 +114,7 @@ export function combatantDetail(
   instanceState: MapInstanceState,
   participantId: ParticipantId,
   meta: ParticipantMeta | undefined,
-  hydration: DurableHydration | undefined
+  sheetSlice: CombatantSheetSlice | undefined
 ): CombatantDetail | null {
   const participant = session.participants.find((p) => p.id === participantId)
   const participantView = view.get(participantId)
@@ -129,12 +123,16 @@ export function combatantDetail(
   const nameById = participantDisplayNames(view)
   const vitals = participantView.components.vitals
   const overlay = participant.overlay
+  const hasTalentCapability = resolvedGuard("talents")(participantView)
+  const hasSkillPool = resolvedGuard("skillPool")(participantView)
+  const hasResources = resolvedGuard("resources")(participantView)
+  const isPc = meta?.storage === "durable"
 
   return {
     id: participantId,
     name: nameById.get(participantId) ?? participantId,
     side: overlay.allegiance.side,
-    isPc: meta?.storage === "durable",
+    isPc,
     level: participant.entity.components.level?.value ?? null,
     portraitUrl: participantView.components.presentation?.portraitUrl ?? null,
     ailments: overlay.ailments,
@@ -149,20 +147,16 @@ export function combatantDetail(
     isFallen: vitals !== undefined && isFallen(vitals),
     attributes: participantView.components.attributes ?? null,
     affinities: participantView.components.affinities ?? null,
-    resolvedSkills: participantView.components.skills ?? [],
-    talentKeys: (participant.entity.components.talents ?? []).map(
-      (talent) => talent.key
-    ),
-    hasPrisma: participantView.components.resources !== undefined,
-    durable:
-      meta?.storage === "durable"
-        ? {
-            characterId: meta.characterId,
-            vitalsVersion: meta.vitalsVersion,
-            className: hydration?.className ?? null,
-            pronouns: hydration?.pronouns ?? null,
-          }
-        : null,
+    skills: isPc
+      ? (sheetSlice?.skills ?? participantView.components.skills ?? [])
+      : (participantView.components.skills ?? []),
+    talentKeys: hasTalentCapability
+      ? participantView.components.talents.map((talent) => talent.key)
+      : null,
+    hasSkillPool,
+    hasPrisma: hasResources,
+    className: sheetSlice?.className ?? null,
+    pronouns: sheetSlice?.pronouns ?? null,
   }
 }
 

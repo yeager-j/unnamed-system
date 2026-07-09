@@ -1,5 +1,9 @@
 import type { EnemyFamily } from "@workspace/game-v2/catalog/enemies"
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel"
+import {
+  resolvedGuard,
+  type Entity,
+  type ResolvedEntity,
+} from "@workspace/game-v2/kernel"
 import type {
   AffinityChart,
   AttributeScores,
@@ -33,7 +37,9 @@ export interface EnemyStatblockView {
    *  simply carry no `skillPool`). */
   hasSkillPool: boolean
   /** Talent slugs; the UI resolves display names. */
-  talentKeys: string[]
+  /** `null` when Talents are unsupported; an empty list is a supported but
+   * currently empty Talent capability. */
+  talentKeys: string[] | null
 }
 
 /**
@@ -56,6 +62,8 @@ export function enemyStatblockView(
     affinities: resolved.components.affinities ?? null,
     resolvedSkills: resolved.components.skills ?? [],
     hasSkillPool: resolved.components.skillPool !== undefined,
-    talentKeys: (entity.components.talents ?? []).map((talent) => talent.key),
+    talentKeys: resolvedGuard("talents")(resolved)
+      ? resolved.components.talents.map((talent) => talent.key)
+      : null,
   }
 }
