@@ -27,6 +27,10 @@ export default {
     // Test doubles, not engine rules — mutating them is noise (no test asserts on
     // a fixture's internals). Mirrors vitest.config's coverage exclude.
     "!src/**/__fixtures__/**",
+    // `__laws__` is test code that happens not to end in `.test.ts` (a property
+    // shared between a law and its negative control). The laws still *run* under
+    // Stryker and kill mutants; they are not themselves mutation targets.
+    "!src/**/__laws__/**",
   ],
   reporters: ["html", "json", "clear-text", "progress"],
   // Run against the mutation config so `__contract__` (real-catalog) tests are

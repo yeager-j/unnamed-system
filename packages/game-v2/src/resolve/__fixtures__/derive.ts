@@ -38,13 +38,21 @@ export function makeArchetype(overrides: Partial<Archetype> = {}): Archetype {
   }
 }
 
-/** A fixture `GameData` backed by an in-memory archetype map, keyed by slug. */
+/**
+ * A fixture `GameData` backed by an in-memory archetype map, keyed by slug. The
+ * lookup goes through a `Map`, as the real catalog's does: an Archetype key is an
+ * open string off a jsonb column, so a plain-object index answers
+ * `getArchetype("constructor")` with `Object.prototype.constructor` — a Function
+ * the fold then reads `.skills` off. The port promises `undefined` for an unknown
+ * key; a fixture that breaks that promise makes the engine look broken.
+ */
 export function makeTestGameData(
   archetypes: Record<string, Archetype> = {}
 ): GameData {
+  const byKey = new Map(Object.entries(archetypes))
   return {
-    getArchetype: (key) => archetypes[key],
-    allArchetypes: () => Object.values(archetypes),
+    getArchetype: (key) => byKey.get(key),
+    allArchetypes: () => [...byKey.values()],
     // Items/Skills default to empty (PR5). A test needing item/skill content spreads
     // `makeItemLookups({...})` (items/__fixtures__) over this.
     getItem: () => undefined,

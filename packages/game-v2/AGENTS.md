@@ -104,6 +104,8 @@ src/
                    one folder per domain — and one folder per PR (the cohesion cut)
   catalog/         authored content implementing the GameData port
   composition.ts   binds catalog → engine (the createGameEngine equivalent)
+  __fixtures__/    cross-domain test doubles — arbitraries/ holds arbitraryEntity
+                   and the total per-component arbitrary map (see Laws, below)
 ```
 
 PR1 (UNN-499) scaffolded `kernel/`; subsequent PRs have filled most domain
@@ -138,6 +140,56 @@ name a domain shape.
 - **Greenfield carry-over** (D2): reuse v1's wins — foundation vocabulary, Zod-first
   discipline, the pure DI + composition root, the mechanics registry,
   exhaustive-switch reducers, the derive math — re-homed onto components.
+
+## Laws (property-based tests)
+
+Stryker mutates the **code**; fast-check mutates the **inputs**. The engine's
+central claim — _any_ entity carrying the components qualifies — is universally
+quantified over ~2^18 component subsets, and example tests only check points in
+it. Laws close that gap (UNN-598).
+
+```
+src/__fixtures__/arbitraries/   arbitraryEntity + one arbitrary per component
+src/<domain>/__laws__/          *.laws.test.ts — the properties themselves
+```
+
+- **`componentArbitraries` is total** over `ComponentRegistry`, exactly as
+  `load-seam.ts`'s schema map is: a new component without an arbitrary is a
+  **compile error**, so add both in the same PR. Every arbitrary must emit a value
+  that is already a fixed point of its load schema (defaulted fields present,
+  optional fields absent rather than `undefined`) — `arbitraries.test.ts` pins that
+  as a meta-property, so the generator can't drift from the schemas.
+- **Catalog keys are injected, never imported** (`CatalogVocab`) — the same
+  ports-not-catalog discipline `depcheck.mjs` enforces on engine logic. Pass
+  `HOSTILE_VOCAB` to generate dangling references: the load seam validates a key's
+  *shape*, never its *referent*, so "does `resolve` survive any bag that parses?"
+  is the stronger totality question and the one that finds real bugs.
+- Use `record` from `__fixtures__/arbitraries/record`, not `fc.record` — it pins
+  `noNullPrototype`, without which `toStrictEqual` fails on prototype noise.
+- `__laws__` modules that aren't `*.test.ts` (a property shared between a law and
+  its negative control) are test code: excluded from the coverage and Stryker
+  `mutate` sets, but they still run under Stryker and kill mutants.
+- **A green property proves nothing until it can go red.** `vitals/__laws__/negative-control.laws.test.ts`
+  aims the heal-clamp property at a deliberately broken clamp and asserts it fails.
+  Add one whenever a law guards a subtle invariant.
+
+### Reproducing a failure
+
+Seeds are **random by default** — that is the point; a pinned seed turns a law into
+a slow example test that stops discovering after its first green run. On failure
+fast-check prints the seed and the shrink path:
+
+```bash
+FC_SEED=1234567890 npm run test -w packages/game-v2   # replay that exact run
+FC_NUM_RUNS=2000 npm run test                         # deepen the search
+```
+
+The `test` task is **uncached** in `turbo.json`. A cached task is skipped on a cache
+hit, and with an unset `FC_SEED` nothing about the run changes when the sources
+don't — so a cached `test` would replay the first green result forever and the laws
+would stop sampling new inputs, which is the one thing they exist to do. Declaring
+`FC_SEED` in `globalEnv` only invalidates the cache when the seed is *set*; that
+covers replay, not exploration.
 
 ## Known design tensions
 

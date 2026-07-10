@@ -9,13 +9,19 @@ import { z } from "zod/v4"
  * the effective `maxSP`, uniformly (D37 — no `max: MaxSource` fork).
  *
  * `spSpent` (D9) is the depletion field: `currentSP = max(0, maxSP − spSpent)`.
- * SP has no over-max analogue to HP's Usury loan, but it mirrors the model —
- * over-spend floors the *derived* current at 0 without losing the stored count.
+ * Over-spend floors the *derived* current at 0 without losing the stored count.
  * Defaults to `0` (full SP) so a pre-PR3 `{ base }` blob still loads (D3).
+ *
+ * Unlike {@link import("./vitals.schema").Vitals}'s signed `damage`, `spSpent` is
+ * **non-negative**: over-max HP is a rule (Usury's Payday Loan lends vitality and
+ * says the enemy's "current HP may exceed its maximum"), and over-max SP is not.
+ * So the illegal state is made unrepresentable here rather than defended by every
+ * op that touches it — which is why {@link import("./operations").applyRecoverSP}
+ * needs no over-max guard where `applyHeal` does.
  */
 export const skillPoolSchema = z.object({
   base: z.number().int(),
-  spSpent: z.number().int().default(0),
+  spSpent: z.number().int().min(0).default(0),
 })
 
 export type SkillPool = z.infer<typeof skillPoolSchema>

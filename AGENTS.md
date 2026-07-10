@@ -191,6 +191,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 ## Testing
 
 - **Unit (Vitest):** pure game mechanics in `packages/game-v2/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game-v2/CLAUDE.md`**.
+- **Laws (fast-check):** `**/__laws__/*.laws.test.ts` — property-based tests over `arbitraryEntity`, quantified where an example test can only sample (UNN-598). Totality + the depletion algebra live in `packages/game-v2`; the optimistic-isomorphism law (Writer patch + re-fold ≡ commit → reload → resolve, over all 13 write families) lives in `apps/web/lib/entity/commit/__laws__/`, because the Writers do. Writing arbitraries and reproducing a failing seed (`FC_SEED`) are documented in **`packages/game-v2/CLAUDE.md`**.
 - **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database. The two-tier CI model (`e2e` runner suite vs. `@smoke` preview subset), `@smoke`-tagging discipline, and the write-path factory pattern live in **`apps/web/e2e/CLAUDE.md`**.
 
 ## Tech Stack

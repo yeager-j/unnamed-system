@@ -53,10 +53,25 @@ import {
  * is the router's decision (ADR §2.4/§2.9).
  */
 
+/**
+ * The wire sanity bound on a pool write — the `equipmentAddArm.quantity` /
+ * `equipmentCurrencyArm.amount` precedent. It keeps absurd magnitudes off the wire;
+ * it is **not** what makes the stored depletion safe. `applyDamage`/`applySpendSP`
+ * saturate at the safe-integer boundary their load schema admits, because the wire
+ * bound constrains one write while the *stored* value it accumulates onto is
+ * unbounded — a row written before this bound existed already carries a depletion
+ * a single later write could push out of the domain. Defense lives at the op
+ * (`vitals/operations.ts`), where the depletion law quantifies over it.
+ *
+ * The isomorphism law quantifies over exactly this arm's domain, so the bound stays
+ * honest about what the door admits.
+ */
+export const MAX_POOL_AMOUNT = 9_999
+
 const poolsArm = z.object({
   component: z.enum(["vitals", "skillPool"]),
   op: z.enum(["damage", "heal", "setMax"]),
-  amount: z.number().int().positive(),
+  amount: z.number().int().positive().max(MAX_POOL_AMOUNT),
 })
 
 const resourcesArm = z.object({
