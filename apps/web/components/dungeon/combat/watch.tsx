@@ -112,7 +112,13 @@ export function DungeonCombatWatchBody({
 
   // The shared Instance advanced (a move, a reveal, an enchant) — the pieces
   // just refetched over it, so pull the board through the same guarded apply.
-  const lastInstanceVersion = useRef(snapshot.instanceVersion)
+  // Baselined against `board.instanceVersion`, not the combat snapshot's own:
+  // a watch that mounts (or reconnects) mid-fight can load the fogged combat
+  // snapshot after a board reveal already landed, so the board arrives behind
+  // `snapshot.instanceVersion` on the very first render. Baselining off the
+  // combat snapshot would make this effect a no-op and leave the board stale
+  // until the next unrelated Instance write.
+  const lastInstanceVersion = useRef(board.instanceVersion)
   useEffect(() => {
     if (snapshot.instanceVersion === lastInstanceVersion.current) return
     lastInstanceVersion.current = snapshot.instanceVersion
