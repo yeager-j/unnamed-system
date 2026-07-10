@@ -16,7 +16,10 @@ import {
   applyRecoverSP,
   applySpendSP,
 } from "@workspace/game-v2/vitals/operations"
-import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
+import {
+  skillPoolSchema,
+  type SkillPool,
+} from "@workspace/game-v2/vitals/skill-pool.schema"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
@@ -36,12 +39,10 @@ const arbitraryVitals: fc.Arbitrary<Vitals> = record({
 })
 
 /**
- * `spSpent` is non-negative here, unlike `damage`. The schema stores it signed for
- * symmetry, but **over-max SP is not a rule**: Usury's Payday Loan grants over-max
- * *HP* only, and no write op can drive `spSpent` below zero. Accordingly
- * `applyRecoverSP` carries no over-max guard where `applyHeal` does — so a
- * negative `spSpent` is outside the domain these laws quantify over, not a case
- * they cover.
+ * `spSpent` is non-negative, unlike `damage` — **over-max SP is not a rule**, and
+ * the schema makes that state unrepresentable rather than asking each op to defend
+ * against it. This arbitrary is therefore the schema's whole domain, not a slice
+ * of it.
  */
 const arbitrarySkillPool: fc.Arbitrary<SkillPool> = record({
   base: fc.integer({ min: 1, max: 60 }),
@@ -203,6 +204,39 @@ describe("the skill pool mirrors HP", () => {
           )
           const total = amounts.reduce((sum, amount) => sum + amount, 0)
           expect(spent.spSpent).toBe(pool.spSpent + total)
+        }
+      )
+    )
+  })
+
+  it("never leaves the pool in a state its own schema rejects", () => {
+    fc.assert(
+      fc.property(
+        arbitrarySkillPool,
+        fc.array(
+          fc.oneof(
+            record({
+              op: fc.constant("spend" as const),
+              amount: fc.integer({ min: -90, max: 90 }),
+            }),
+            record({
+              op: fc.constant("recover" as const),
+              amount: fc.integer({ min: -90, max: 90 }),
+            })
+          ),
+          { maxLength: 6 }
+        ),
+        (pool, operations) => {
+          const final = operations.reduce(
+            (current, { op, amount }) => ({
+              ...current,
+              ...(op === "spend"
+                ? applySpendSP(current, amount)
+                : applyRecoverSP(current, amount)),
+            }),
+            pool
+          )
+          expect(skillPoolSchema.safeParse(final).success).toBe(true)
         }
       )
     )

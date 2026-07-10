@@ -51,12 +51,17 @@ export function applyHeal(
 /**
  * Spend SP: `spSpent + amount`. Over-spend floors the *derived* `currentSP` at 0
  * (in `resolve`) without losing the stored count — the SP peer of overkill HP.
+ *
+ * Floored at 0, unlike {@link applyDamage}: a negative `amount` would be a *grant*
+ * of over-max SP, which is not a rule (see {@link SkillPool}) and which the load
+ * schema rejects — so the op refuses to emit a component that could not be stored.
+ * Every caller passes a positive amount, where the floor is inert.
  */
 export function applySpendSP(
   skillPool: SkillPool,
   amount: number
 ): Pick<SkillPool, "spSpent"> {
-  return { spSpent: skillPool.spSpent + amount }
+  return { spSpent: Math.max(0, skillPool.spSpent + amount) }
 }
 
 /** Recover SP: reduce `spSpent`, floored at 0 — no over-recovery above `maxSP`. */

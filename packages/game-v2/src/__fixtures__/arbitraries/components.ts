@@ -43,7 +43,9 @@ type ComponentArbitraries = {
 
 /** Signed integers small enough to read in a counterexample, wide enough to cross every clamp. */
 const smallInt = fc.integer({ min: -20, max: 40 })
-const depletion = fc.integer({ min: -50, max: 200 })
+/** Signed: negative `damage` is over-max HP, the Usury loan. SP has no such rule. */
+const damage = fc.integer({ min: -50, max: 200 })
+const spSpent = fc.integer({ min: 0, max: 200 })
 const poolBase = fc.integer({ min: 0, max: 200 })
 
 const arbitraryAffinity = fc.constantFrom(...AFFINITIES)
@@ -96,9 +98,9 @@ export const componentArbitraries: ComponentArbitraries = {
 
   affinities: () => record({ base: arbitraryPartialAffinityChart }),
 
-  vitals: () => record({ base: poolBase, damage: depletion }),
+  vitals: () => record({ base: poolBase, damage }),
 
-  skillPool: () => record({ base: poolBase, spSpent: depletion }),
+  skillPool: () => record({ base: poolBase, spSpent }),
 
   skills: (vocab) =>
     fc.array(
