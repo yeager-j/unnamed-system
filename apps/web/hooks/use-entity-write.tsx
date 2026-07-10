@@ -13,6 +13,7 @@ import { toast } from "sonner"
 
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { Result } from "@workspace/game-v2/kernel/result"
+import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-write.schema"
@@ -51,10 +52,14 @@ import {
  * - **The optimistic frame** — one reducer-form `useOptimistic` holding
  *   `{ entity, resolved }`. A dispatch applies the *same pure Writer* the
  *   server commits with ({@link applyEntityWrite}), merges the patch, and
- *   re-runs `resolveEntity` client-side, so **derived** values (a max under
- *   depletion, a skill preview) move in the same frame (the CH18 re-fold; the
- *   cheap-algebra shortcut is rejected). A Writer refusal returns the previous
- *   frame — no optimistic lie.
+ *   re-runs `resolveEntity` client-side **through the same `resolveContext`
+ *   the server resolved the base frame with**, so **derived** values (a max
+ *   under depletion, a party-scaled skill preview) move in the same frame (the
+ *   CH18 re-fold; the cheap-algebra shortcut is rejected). A Writer refusal
+ *   returns the previous frame — no optimistic lie. The server stays the sole
+ *   resolver of the base: when the *context* changes (a Zone Enchantment
+ *   raised under an owned combatant), it is the **route's** job to re-pull, not
+ *   this provider's to re-derive.
  * - **Per-class version tokens + write queues** (UNN-140/UNN-274; UNN-568):
  *   a write reads the token of *its Writer's* declared class and serializes on
  *   that class's spine — the shared `write-queue` core, so ortus writing
@@ -117,9 +122,15 @@ const EntityWriteContext = createContext<EntityWriteApi | null>(null)
 
 export function EntityWriteProvider({
   loaded,
+  resolveContext = {},
   children,
 }: {
   loaded: LoadedCharacter
+  /** The encounter context `loaded.resolved` was folded with, re-applied on
+   *  every optimistic re-fold. Inert off-encounter (the character routes) —
+   *  the watch's own-sheet column passes its combatant's zone effects + party
+   *  composition (UNN-566). */
+  resolveContext?: ResolveContext
   children: React.ReactNode
 }) {
   const { profile } = loaded
@@ -211,7 +222,7 @@ export function EntityWriteProvider({
       const predicted = applyEntityWrite(prev.entity.components, write)
       if (!predicted.ok) return prev
       const entity = mergeComponentPatch(prev.entity, predicted.value)
-      return { entity, resolved: resolveEntity(entity) }
+      return { entity, resolved: resolveEntity(entity, resolveContext) }
     }
   )
 

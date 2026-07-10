@@ -198,8 +198,10 @@ function AxisRow({
 }
 
 /** The live read-out for one axis: state icon + label, with the turns-remaining
- *  countdown when a duration clock is running. Rendered by {@link ConditionsControls}. */
-function AxisStateDisplay({
+ *  countdown when a duration clock is running. Rendered by the DM's {@link
+ *  ConditionsControls} and by the watch's read-only {@link
+ *  import("./state-display").CombatStateDisplay}, so both spell an axis the same. */
+export function AxisStateDisplay({
   state,
   duration,
 }: {

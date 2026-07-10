@@ -1,7 +1,9 @@
+import type { PartyComposition } from "@workspace/game-v2/combat/party"
 import type { ResolvedComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import type { CombatantEffect } from "@workspace/game-v2/kernel/effects.schema"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
+import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics/zone-enchantment"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 
@@ -61,6 +63,29 @@ export function participantZoneEffects(
   const zoneId = spatial.zoneOf(participantId)
   if (zoneId === undefined) return []
   return zoneEnchantmentEffects(spatial.activeEnchantment(), zoneId)
+}
+
+/**
+ * The **full encounter context** one participant's sheet resolves with: its zone's
+ * Enchantment effects and its side's {@link PartyComposition} (the `perPartyLineage`
+ * Attack-Roll scalers). Every surface that shows a combatant's *sheet* numbers — the
+ * DM's drawer and the watching player's own-sheet column — must resolve through this,
+ * or the same Skill reads two different values to the two of them. It's one function
+ * rather than a "keep these two fields in sync" comment at each loader.
+ *
+ * Distinct from {@link resolveParticipant}, which the whole-session fold uses: that
+ * one deliberately carries **effects only**, since the snapshot's per-combatant read
+ * is stat state, not a party-scaled Skill preview.
+ */
+export function participantResolveContext(
+  spatial: SpatialReads,
+  compositionBySide: Record<CombatSide, PartyComposition>,
+  participant: Participant
+): ResolveContext {
+  return {
+    effects: participantZoneEffects(spatial, participant.id),
+    partyComposition: compositionBySide[participant.overlay.allegiance.side],
+  }
 }
 
 /**

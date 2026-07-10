@@ -3,7 +3,6 @@
 import { useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
 import {
   Popover,
   PopoverContent,
@@ -15,6 +14,7 @@ import { useEntityWrite } from "@/hooks/use-entity-write"
 import type { RailView } from "@/lib/character/view/rail-view"
 
 import { SectionLabel } from "../section-label"
+import { AdjustPoolControl } from "./adjust-pool-control"
 import { RestDialog } from "./rest-dialog"
 
 type ControlKey = "hp" | "sp" | "victories"
@@ -69,87 +69,6 @@ export function RailControls({ view }: { view: RailView }) {
         </div>
       </section>
     </OwnerOnly>
-  )
-}
-
-/**
- * A pool-adjust popover: number input + the two signed buttons. Each click is
- * one `damage`/`heal` descriptor — the server merges against its own row, so
- * back-to-back clicks sum (UNN-226 is structural now).
- */
-function AdjustPoolControl({
-  label,
-  component,
-  positiveLabel,
-  negativeLabel,
-  open,
-  onOpenChange,
-}: {
-  label: string
-  component: "vitals" | "skillPool"
-  positiveLabel: string
-  negativeLabel: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const { dispatch, pending } = useEntityWrite()
-  const [amount, setAmount] = useState("")
-
-  const parsed = Number.parseInt(amount, 10)
-  const valid = Number.isInteger(parsed) && parsed > 0
-
-  const apply = (op: "damage" | "heal") => {
-    if (!valid) return
-    dispatch({ component, op, amount: parsed })
-    setAmount("")
-    onOpenChange(false)
-  }
-
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger
-        render={
-          <Button
-            variant={open ? "secondary" : "outline"}
-            size="sm"
-            className="w-full"
-          />
-        }
-      >
-        {label}
-      </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-56 flex-col gap-2 p-3">
-        <Input
-          type="number"
-          min={1}
-          inputMode="numeric"
-          placeholder="Amount"
-          aria-label={`${label} amount`}
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") apply("heal")
-          }}
-        />
-        <div className="grid grid-cols-2 gap-1.5">
-          <Button
-            size="sm"
-            disabled={pending || !valid}
-            onClick={() => apply("heal")}
-          >
-            {positiveLabel}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={pending || !valid}
-            onClick={() => apply("damage")}
-          >
-            {negativeLabel}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
   )
 }
 

@@ -1,15 +1,31 @@
+import { cache } from "react"
+
+import {
+  derivePartyCompositionBySide,
+  participantResolveContext,
+  spatialReadsFor,
+} from "@workspace/game-v2/encounter"
+import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 import {
   projectSpatialEncounterSnapshot,
   type SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
 
 import { deriveViewer } from "@/lib/auth/derive-viewer"
+import { toCharacterProfile, type LoadedCharacter } from "@/lib/character/load"
 import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
+import {
+  loadEncounterForSnapshot,
+  type LoadedEncounterForSnapshot,
+} from "@/lib/db/queries/load-encounter-v2"
+import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
-import { resolveSession } from "@/lib/game-engine-v2"
+import type { CampaignRow } from "@/lib/db/schema/campaign"
+import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { resolveEntity, resolveSession } from "@/lib/game-engine-v2"
 
 /**
  * The **v2 snapshot read boundary** (UNN-530; combat ADR §2.6/CD12) — the query
@@ -71,22 +87,51 @@ export async function getDungeonCombatSnapshot(
   return projectSnapshotCore(shortId, true)
 }
 
+/**
+ * The encounter's row + dissolved session + its campaign and Map Instance —
+ * everything both reads on this module need. `cache()`-memoized because a watch
+ * page runs **two** of them per request (the snapshot and the viewer's owned
+ * sheets), and they must agree on the same session anyway.
+ */
+const loadSnapshotInputs = cache(
+  async (
+    shortId: string
+  ): Promise<Result<SnapshotInputs, GetEncounterSnapshotError>> => {
+    const loaded = await loadEncounterForSnapshot(shortId)
+    if (!loaded.ok) return loaded
+
+    const [campaign, instance] = await Promise.all([
+      loadCampaignRowById(loaded.value.row.campaignId),
+      loadMapInstanceById(loaded.value.row.mapInstanceId),
+    ])
+    if (!campaign) return err("campaign-not-found")
+    if (!instance) return err("map-instance-not-found")
+
+    return ok({ ...loaded.value, campaign, instance })
+  }
+)
+
+interface SnapshotInputs extends LoadedEncounterForSnapshot {
+  campaign: CampaignRow
+  instance: MapInstanceRow
+}
+
 /** The shared load → derive-viewer → resolve → project → version-fold core, with
  *  the one `fog` clamp decided by each entry point. */
 async function projectSnapshotCore(
   shortId: string,
   fog: boolean
 ): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
-  const loaded = await loadEncounterForSnapshot(shortId)
-  if (!loaded.ok) return loaded
-  const { row, loaded: session, durableVersions, durableOwners } = loaded.value
-
-  const [campaign, instance] = await Promise.all([
-    loadCampaignRowById(row.campaignId),
-    loadMapInstanceById(row.mapInstanceId),
-  ])
-  if (!campaign) return err("campaign-not-found")
-  if (!instance) return err("map-instance-not-found")
+  const inputs = await loadSnapshotInputs(shortId)
+  if (!inputs.ok) return inputs
+  const {
+    row,
+    loaded: session,
+    durableVersions,
+    durableOwners,
+    campaign,
+    instance,
+  } = inputs.value
 
   const viewer = await deriveViewer({ campaign, durableOwners })
   const view = resolveSession(session.session, instance.state)
@@ -113,5 +158,87 @@ async function projectSnapshotCore(
       instanceVersion: instance.version,
       durableVersions,
     }),
+  })
+}
+
+/**
+ * A durable combatant the watch viewer owns: the roster id it occupies (the key
+ * the snapshot's overlay reads correlate on), its loaded `{ profile, entity,
+ * resolved }` triple, and the encounter context that triple was resolved with —
+ * which the watch column's `EntityWriteProvider` re-folds its optimistic frame
+ * through, so a click's predicted numbers match the server's.
+ */
+export interface OwnedEncounterSheet {
+  participantId: ParticipantId
+  character: LoadedCharacter
+  resolveContext: ResolveContext
+}
+
+/**
+ * The sheets for the encounter's durable combatants the **signed-in viewer
+ * owns** — what fills the watch view's own-sheet column (UNN-566). Empty for a
+ * spectator, a signed-out viewer, or a campaign member with no character placed
+ * here; the column then doesn't render and the battlefield takes the full width.
+ *
+ * Ownership reads off the already-surfaced `durableOwners` map, so only the
+ * viewer's own characters are assembled — another player's entity is never
+ * loaded, let alone shipped. The redacted snapshot remains the only PC data a
+ * non-owner receives.
+ *
+ * Each sheet resolves through `participantResolveContext` — the same builder the
+ * DM drawer's loader calls — so a player's Skill card and the DM's cannot show
+ * different numbers for the same combatant.
+ *
+ * **A stale party composition is accepted, not fixed.** The column re-pulls
+ * when the snapshot implies a different sheet (`useOwnedSheetRefresh`), but a
+ * DM adding a combatant mid-fight changes only the composition — which no
+ * client key can see, and whose one available trigger (`encounter.version`)
+ * also advances on every damage tick. A refresh there would refetch every sheet
+ * on every hit to fix a scaler that moves once a fight.
+ */
+export async function loadOwnedEncounterSheets(
+  shortId: string,
+  viewerId: string
+): Promise<OwnedEncounterSheet[]> {
+  const inputs = await loadSnapshotInputs(shortId)
+  if (!inputs.ok) return []
+  const { loaded: session, durableOwners, instance } = inputs.value
+
+  const owned = session.session.participants.flatMap((participant) => {
+    const locator = session.locators.get(participant.id)
+    if (locator?.storage !== "durable") return []
+    if (durableOwners.get(locator.entityId) !== viewerId) return []
+    return [{ participant, entityId: locator.entityId }]
+  })
+  if (owned.length === 0) return []
+
+  const spatialReads = spatialReadsFor(instance.state)
+  const compositionBySide = derivePartyCompositionBySide(
+    resolveSession(session.session, instance.state)
+  )
+  const rows = await loadEntityRowsByIds(owned.map((pc) => pc.entityId))
+  const rowById = new Map(rows.map((entityRow) => [entityRow.id, entityRow]))
+
+  return owned.flatMap(({ participant, entityId }) => {
+    const entityRow = rowById.get(entityId)
+    if (!entityRow) return []
+
+    const resolveContext = participantResolveContext(
+      spatialReads,
+      compositionBySide,
+      participant
+    )
+
+    return [
+      {
+        participantId: participant.id,
+        character: {
+          profile: toCharacterProfile(entityRow),
+          entity: participant.entity,
+          resolved: resolveEntity(participant.entity, resolveContext),
+        },
+        resolveContext,
+      },
+    ]
   })
 }
