@@ -190,11 +190,11 @@ export interface OwnedEncounterSheet {
  * different numbers for the same combatant.
  *
  * **A stale party composition is accepted, not fixed.** The column re-pulls
- * when its zone effects change (`useOwnedSheetZoneEffectsRefresh`), but a DM
- * adding a combatant mid-fight changes only the composition — which no client
- * key can see, and whose one available trigger (`encounter.version`) also
- * advances on every damage tick. A refresh there would refetch every sheet on
- * every hit to fix a scaler that moves once a fight.
+ * when the snapshot implies a different sheet (`useOwnedSheetRefresh`), but a
+ * DM adding a combatant mid-fight changes only the composition — which no
+ * client key can see, and whose one available trigger (`encounter.version`)
+ * also advances on every damage tick. A refresh there would refetch every sheet
+ * on every hit to fix a scaler that moves once a fight.
  */
 export async function loadOwnedEncounterSheets(
   shortId: string,

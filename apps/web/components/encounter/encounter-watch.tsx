@@ -3,7 +3,7 @@
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column"
-import { useOwnedSheetZoneEffectsRefresh } from "@/components/combat/watch/combat-sheet-refresh"
+import { useOwnedSheetRefresh } from "@/components/combat/watch/owned-sheet-refresh"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import {
   useEncounterSnapshot,
@@ -61,7 +61,7 @@ export function EncounterWatch({
     },
     fetcher
   )
-  useOwnedSheetZoneEffectsRefresh(snapshot, ownedSheets)
+  useOwnedSheetRefresh(snapshot, ownedSheets)
 
   const battlefield =
     snapshot.status === "draft" ? (
