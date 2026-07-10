@@ -73,6 +73,13 @@ Load-bearing rules a new slice must preserve (ADR §-refs + D-numbers for the wh
   HP is just negative damage (no temp-HP buffer; `maxHP` stays honest); each
   **operation** owns its clamp (heal floors at 0, an HP cost is strict-`>`, SP is
   `>=`). One universal model across HP / SP / dice / Prisma.
+- **Transitions return whole updated components** (UNN-601): a multi-component
+  transition (the rest trio, `applyLevelUp`) returns a precise
+  `Pick<ComponentRegistry, …>` of **whole** components — the one patch vocabulary
+  the app's Writers and guarded column UPDATE speak — so callers assign each key
+  wholesale, never merge per field. Field-level `Pick`s are the **atomic-op**
+  pattern (`vitals/operations.ts`), merged *within* a component; that shape stops
+  at the transition boundary.
 - **Lifecycle is the storage axis** (§2.2/§2.5; D11–D13): durable (entity row +
   `components` jsonb) vs encounter-overlay (session blob) vs catalog (authored TS) —
   and it decides whether combat clears a component. Rule of thumb: _anything that must

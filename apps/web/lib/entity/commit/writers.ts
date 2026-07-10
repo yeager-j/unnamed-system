@@ -20,7 +20,6 @@ import {
   applyPartialRest,
   applyRespite,
   type RestComponents,
-  type RestPatch,
 } from "@workspace/game-v2/resources/rest"
 import {
   addSpark,
@@ -267,8 +266,8 @@ export const ENTITY_WRITERS: WriterMap = {
    * The E2 rest trio — the multi-component write that forced the CH5 patch
    * widening. One descriptor, one `vitals`-class guard, one UPDATE spanning the
    * four columns (all vitals-class, so the footprint stays class-disjoint). The
-   * engine returns changed *fields*; this merges them onto the whole stored
-   * components (the patch contract: whole components, 1:1 with columns).
+   * engine already speaks the patch contract (whole updated components, 1:1
+   * with columns — UNN-601), so its result is returned verbatim.
    */
   rest: {
     component: "rest",
@@ -285,26 +284,11 @@ export const ENTITY_WRITERS: WriterMap = {
         exhaustion,
         level,
       }
-      const patch: Result<RestPatch, EntityWriteRefusal> =
-        write.op === "fullRest"
-          ? ok(applyFullRest(resting))
-          : write.op === "partialRest"
-            ? applyPartialRest(resting, write)
-            : applyRespite(resting, write)
-      if (!patch.ok) return patch
-      const changed = patch.value
-      return ok({
-        ...(changed.vitals && { vitals: { ...vitals, ...changed.vitals } }),
-        ...(changed.skillPool && {
-          skillPool: { ...skillPool, ...changed.skillPool },
-        }),
-        ...(changed.resources && {
-          resources: { ...resources, ...changed.resources },
-        }),
-        ...(changed.exhaustion && {
-          exhaustion: { ...exhaustion, ...changed.exhaustion },
-        }),
-      })
+      return write.op === "fullRest"
+        ? ok(applyFullRest(resting))
+        : write.op === "partialRest"
+          ? applyPartialRest(resting, write)
+          : applyRespite(resting, write)
     },
   },
 
@@ -332,18 +316,13 @@ export const ENTITY_WRITERS: WriterMap = {
       if (level === undefined) return err("capability-missing")
       switch (write.op) {
         case "awardVictory":
-          return ok({ level: { ...level, ...applyAwardVictory(level) } })
+          return ok({ level: applyAwardVictory(level) })
         case "removeVictory":
-          return ok({ level: { ...level, ...applyRemoveVictory(level) } })
+          return ok({ level: applyRemoveVictory(level) })
         case "levelUp": {
           const archetypes = components.archetypes
           if (archetypes === undefined) return err("capability-missing")
-          const patch = applyLevelUp({ level, archetypes })
-          if (!patch.ok) return patch
-          return ok({
-            level: patch.value.level,
-            archetypes: { ...archetypes, ...patch.value.archetypes },
-          })
+          return applyLevelUp({ level, archetypes })
         }
       }
     },

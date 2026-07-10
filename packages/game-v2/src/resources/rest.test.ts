@@ -18,8 +18,8 @@ import {
  *   skillDiceRemaining R → skillDiceUsed = 5 − R
  *   hitDiceRemaining R   → hitDiceUsed   = 2 − R
  *
- * and every expectation asserts the returned depletion patch rather than a
- * derived current.
+ * and every expectation asserts the returned whole updated components (their
+ * depletion fields) rather than a derived current.
  *
  * v1's two Zod input-schema describe-blocks aren't ported verbatim (that schema
  * lands at the S2a Server Action for form UX), but the non-negative-integer bound
@@ -51,8 +51,8 @@ describe("applyFullRest", () => {
       })
     )
 
-    expect(patch.vitals).toEqual({ damage: 0 })
-    expect(patch.skillPool).toEqual({ spSpent: 0 })
+    expect(patch.vitals).toEqual({ base: 0, damage: 0 })
+    expect(patch.skillPool).toEqual({ base: 0, spSpent: 0 })
     expect(patch.resources).toEqual({
       hitDiceUsed: 0,
       skillDiceUsed: 0,
@@ -99,9 +99,13 @@ describe("applyPartialRest", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.vitals).toEqual({ damage: 0 }) // v1 currentHP 20
-    expect(result.value.resources).toEqual({ skillDiceUsed: 3 }) // v1 remaining 2
-    expect(result.value.skillPool).toEqual({ spSpent: 28 }) // v1 currentSP 22
+    expect(result.value.vitals).toEqual({ base: 0, damage: 0 }) // v1 currentHP 20
+    expect(result.value.resources).toEqual({
+      hitDiceUsed: 0,
+      skillDiceUsed: 3, // v1 remaining 2
+      prismaUsed: 0,
+    })
+    expect(result.value.skillPool).toEqual({ base: 0, spSpent: 28 }) // v1 currentSP 22
   })
 
   it("clamps recovered SP at max SP", () => {
@@ -111,7 +115,7 @@ describe("applyPartialRest", () => {
       { skillDiceToSpend: 5, rolled: 99 }
     )
 
-    expect(result.ok && result.value.skillPool).toEqual({ spSpent: 0 })
+    expect(result.ok && result.value.skillPool).toEqual({ base: 0, spSpent: 0 })
   })
 
   it("does not restore Hit Dice or reduce Exhaustion", () => {
@@ -126,8 +130,12 @@ describe("applyPartialRest", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.resources?.hitDiceUsed).toBeUndefined()
-    expect(result.value.exhaustion).toBeUndefined()
+    expect(Object.keys(result.value).sort()).toEqual([
+      "resources",
+      "skillPool",
+      "vitals",
+    ])
+    expect(result.value.resources.hitDiceUsed).toBe(1)
   })
 
   it("fails when spending more Skill Dice than remaining", () => {
@@ -180,7 +188,11 @@ describe("applyPartialRest", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.resources).toEqual({ skillDiceUsed: 5 }) // v1 remaining 0
+    expect(result.value.resources).toEqual({
+      hitDiceUsed: 0,
+      skillDiceUsed: 5, // v1 remaining 0
+      prismaUsed: 0,
+    })
   })
 
   it("succeeds on a zero spend with zero remaining", () => {
@@ -222,8 +234,12 @@ describe("applyRespite", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.vitals).toEqual({ damage: 3 }) // v1 currentHP 17
-    expect(result.value.resources).toEqual({ hitDiceUsed: 2 }) // v1 remaining 1
+    expect(result.value.vitals).toEqual({ base: 0, damage: 3 }) // v1 currentHP 17
+    expect(result.value.resources).toEqual({
+      hitDiceUsed: 2, // v1 remaining 1
+      skillDiceUsed: 0,
+      prismaUsed: 0,
+    })
   })
 
   it("clamps recovered HP at max HP", () => {
@@ -233,7 +249,7 @@ describe("applyRespite", () => {
       { hitDiceToSpend: 2, rolled: 99 }
     )
 
-    expect(result.ok && result.value.vitals).toEqual({ damage: 0 })
+    expect(result.ok && result.value.vitals).toEqual({ base: 0, damage: 0 })
   })
 
   it("does not restore SP or reduce Exhaustion", () => {
@@ -248,8 +264,7 @@ describe("applyRespite", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.skillPool).toBeUndefined()
-    expect(result.value.exhaustion).toBeUndefined()
+    expect(Object.keys(result.value).sort()).toEqual(["resources", "vitals"])
   })
 
   it("fails when spending more Hit Dice than remaining", () => {
@@ -300,7 +315,11 @@ describe("applyRespite", () => {
 
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.value.resources).toEqual({ hitDiceUsed: 2 }) // v1 remaining 0
+    expect(result.value.resources).toEqual({
+      hitDiceUsed: 2, // v1 remaining 0
+      skillDiceUsed: 0,
+      prismaUsed: 0,
+    })
   })
 
   it("succeeds on a zero spend with zero remaining", () => {

@@ -1,4 +1,3 @@
-import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Level } from "@workspace/game-v2/progression/level.schema"
@@ -6,9 +5,9 @@ import type { Level } from "@workspace/game-v2/progression/level.schema"
 /**
  * Victory + level-up transitions (rulebook 1.1, 1.6), component-native on the
  * depletion model (Characters v2 S2a; supersedes the v1-shaped re-home). Each is
- * pure and returns a patch the caller shallow-merges per key — the atomic-op
- * pattern (`vitals/operations.ts`), spanning components where the transition does
- * (`resources/rest.ts` precedent).
+ * pure and returns **whole updated components** the caller assigns wholesale —
+ * the one patch vocabulary the Writers and the guarded column UPDATE speak
+ * (UNN-601; `resources/rest.ts` precedent).
  *
  * Level-up is a **single-class write** (ADR §2.2, the load-bearing consequence):
  * it touches only progression-class columns (`level`, `archetypes`). Vitals and
@@ -27,26 +26,17 @@ export const ARCHETYPE_RANKS_PER_LEVEL = 2
 
 /** Award one Victory. Banking past {@link VICTORIES_PER_LEVEL} is allowed (v1
  *  parity) — overflow carries through the next level-up. */
-export function applyAwardVictory(level: Level): Pick<Level, "victories"> {
-  return { victories: level.victories + 1 }
+export function applyAwardVictory(level: Level): Level {
+  return { ...level, victories: level.victories + 1 }
 }
 
 /** Remove one Victory (a mis-click correction), clamped at 0 — not a refusal. */
-export function applyRemoveVictory(level: Level): Pick<Level, "victories"> {
-  return { victories: Math.max(0, level.victories - 1) }
+export function applyRemoveVictory(level: Level): Level {
+  return { ...level, victories: Math.max(0, level.victories - 1) }
 }
 
 /** The stored-component slice level-up reads and rewrites. */
 export type LevelingComponents = Pick<ComponentRegistry, "level" | "archetypes">
-
-/**
- * An entity-level patch: each key holds only the field(s) level-up changed; the
- * caller shallow-merges each onto the matching stored component.
- */
-export interface LevelUpPatch {
-  level: Level
-  archetypes: Pick<Archetypes, "savedArchetypeRanks">
-}
 
 /** Expected, recoverable failures (not programmer errors). */
 export type LevelingError = "insufficient-victories" | "max-level"
@@ -68,7 +58,7 @@ export function canLevelUp(level: Level): boolean {
  */
 export function applyLevelUp(
   components: LevelingComponents
-): Result<LevelUpPatch, LevelingError> {
+): Result<Pick<ComponentRegistry, "level" | "archetypes">, LevelingError> {
   const { level, archetypes } = components
   if (level.value >= MAX_LEVEL) return err("max-level")
   if (level.victories < VICTORIES_PER_LEVEL) {
@@ -81,6 +71,7 @@ export function applyLevelUp(
       victories: level.victories - VICTORIES_PER_LEVEL,
     },
     archetypes: {
+      ...archetypes,
       savedArchetypeRanks:
         archetypes.savedArchetypeRanks + ARCHETYPE_RANKS_PER_LEVEL,
     },
