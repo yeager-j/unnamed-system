@@ -55,16 +55,16 @@ import {
 
 /**
  * The wire sanity bound on a pool write — the `equipmentAddArm.quantity` /
- * `equipmentCurrencyArm.amount` precedent, and load-bearing rather than cosmetic.
+ * `equipmentCurrencyArm.amount` precedent. It keeps absurd magnitudes off the wire;
+ * it is **not** what makes the stored depletion safe. `applyDamage`/`applySpendSP`
+ * saturate at the safe-integer boundary their load schema admits, because the wire
+ * bound constrains one write while the *stored* value it accumulates onto is
+ * unbounded — a row written before this bound existed already carries a depletion
+ * a single later write could push out of the domain. Defense lives at the op
+ * (`vitals/operations.ts`), where the depletion law quantifies over it.
  *
- * `applyDamage`/`applySpendSP` accumulate **unclamped** (a deliberate D10 choice:
- * overkill keeps its true magnitude), while `vitals.damage` loads as
- * `z.number().int()`, which is a *safe*-integer check. Without a bound, two
- * wire-valid `damage` writes of `Number.MAX_SAFE_INTEGER` sum past 2^53: the
- * optimistic client renders the frame, the row persists, and every later
- * `loadEntityRow` fails with `entity-load-failed` — the row is unreadable for
- * good. The isomorphism law quantifies over exactly this arm's domain, so the
- * bound is what keeps that law true.
+ * The isomorphism law quantifies over exactly this arm's domain, so the bound stays
+ * honest about what the door admits.
  */
 export const MAX_POOL_AMOUNT = 9_999
 

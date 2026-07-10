@@ -184,8 +184,12 @@ FC_SEED=1234567890 npm run test -w packages/game-v2   # replay that exact run
 FC_NUM_RUNS=2000 npm run test                         # deepen the search
 ```
 
-Both are declared in `turbo.json`'s `globalEnv`, so they are part of the test cache
-key and a re-run with a new value actually re-runs.
+The `test` task is **uncached** in `turbo.json`. A cached task is skipped on a cache
+hit, and with an unset `FC_SEED` nothing about the run changes when the sources
+don't — so a cached `test` would replay the first green result forever and the laws
+would stop sampling new inputs, which is the one thing they exist to do. Declaring
+`FC_SEED` in `globalEnv` only invalidates the cache when the seed is *set*; that
+covers replay, not exploration.
 
 ## Known design tensions
 

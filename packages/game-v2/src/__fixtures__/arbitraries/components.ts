@@ -43,10 +43,35 @@ type ComponentArbitraries = {
 
 /** Signed integers small enough to read in a counterexample, wide enough to cross every clamp. */
 const smallInt = fc.integer({ min: -20, max: 40 })
-/** Signed: negative `damage` is over-max HP, the Usury loan. SP has no such rule. */
-const damage = fc.integer({ min: -50, max: 200 })
-const spSpent = fc.integer({ min: 0, max: 200 })
 const poolBase = fc.integer({ min: 0, max: 200 })
+
+/**
+ * A depletion field spans a readable everyday band **and** the edges of its real
+ * domain — `z.number().int()` accepts exactly the safe integers, and a row already
+ * sitting near that boundary is the state where one more schema-valid write used to
+ * push the stored value out of the domain and brick the row for good. Generating
+ * only the comfortable band would leave that case unquantified while the law
+ * reported green.
+ */
+function depletion(min: number): fc.Arbitrary<number> {
+  const floor = Math.max(min, Number.MIN_SAFE_INTEGER)
+  return fc.oneof(
+    { weight: 9, arbitrary: fc.integer({ min: Math.max(min, -50), max: 200 }) },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom(
+        floor,
+        floor + 1,
+        Number.MAX_SAFE_INTEGER,
+        Number.MAX_SAFE_INTEGER - 1
+      ),
+    }
+  )
+}
+
+/** Signed: negative `damage` is over-max HP, the Usury loan. SP has no such rule. */
+const damage = depletion(Number.MIN_SAFE_INTEGER)
+const spSpent = depletion(0)
 
 const arbitraryAffinity = fc.constantFrom(...AFFINITIES)
 const arbitraryProse = fc.option(fc.string({ maxLength: 40 }), { nil: null })

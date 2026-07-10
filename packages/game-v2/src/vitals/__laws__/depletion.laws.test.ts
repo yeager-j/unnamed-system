@@ -20,7 +20,10 @@ import {
   skillPoolSchema,
   type SkillPool,
 } from "@workspace/game-v2/vitals/skill-pool.schema"
-import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
+import {
+  vitalsSchema,
+  type Vitals,
+} from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
  * **The depletion algebra.** Vitals are stored as signed depletion and current is
@@ -33,6 +36,13 @@ import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
  * order-independence of damage (what the signed model exists to buy) and the
  * over-max heal no-op (the clamp an example test can miss).
  */
+/**
+ * The **everyday** domain: depletion far from the safe-integer boundary, so the ops
+ * never saturate. The algebraic laws below hold *here* — saturation is precisely
+ * what a boundary trades associativity away for, so a monoid law quantified over
+ * the whole schema domain would be false, and stating that domain is the honest
+ * move rather than a convenient one. {@link arbitraryBoundedVitals} covers the edge.
+ */
 const arbitraryVitals: fc.Arbitrary<Vitals> = record({
   base: fc.integer({ min: 1, max: 200 }),
   damage: fc.integer({ min: -100, max: 300 }),
@@ -41,12 +51,32 @@ const arbitraryVitals: fc.Arbitrary<Vitals> = record({
 /**
  * `spSpent` is non-negative, unlike `damage` — **over-max SP is not a rule**, and
  * the schema makes that state unrepresentable rather than asking each op to defend
- * against it. This arbitrary is therefore the schema's whole domain, not a slice
- * of it.
+ * against it.
  */
 const arbitrarySkillPool: fc.Arbitrary<SkillPool> = record({
   base: fc.integer({ min: 1, max: 60 }),
   spSpent: fc.integer({ min: 0, max: 90 }),
+})
+
+/** A depletion field at the edges of its real domain — `z.number().int()`'s safe integers. */
+const arbitraryExtremeDepletion = (min: number) =>
+  fc.oneof(
+    fc.integer({ min: Math.max(min, -100), max: 300 }),
+    fc.constantFrom(
+      Math.max(min, Number.MIN_SAFE_INTEGER),
+      Number.MAX_SAFE_INTEGER,
+      Number.MAX_SAFE_INTEGER - 1
+    )
+  )
+
+const arbitraryBoundedVitals: fc.Arbitrary<Vitals> = record({
+  base: fc.integer({ min: 1, max: 200 }),
+  damage: arbitraryExtremeDepletion(Number.MIN_SAFE_INTEGER),
+})
+
+const arbitraryBoundedSkillPool: fc.Arbitrary<SkillPool> = record({
+  base: fc.integer({ min: 1, max: 60 }),
+  spSpent: arbitraryExtremeDepletion(0),
 })
 
 const arbitraryResources: fc.Arbitrary<Resources> = record({
@@ -209,39 +239,6 @@ describe("the skill pool mirrors HP", () => {
     )
   })
 
-  it("never leaves the pool in a state its own schema rejects", () => {
-    fc.assert(
-      fc.property(
-        arbitrarySkillPool,
-        fc.array(
-          fc.oneof(
-            record({
-              op: fc.constant("spend" as const),
-              amount: fc.integer({ min: -90, max: 90 }),
-            }),
-            record({
-              op: fc.constant("recover" as const),
-              amount: fc.integer({ min: -90, max: 90 }),
-            })
-          ),
-          { maxLength: 6 }
-        ),
-        (pool, operations) => {
-          const final = operations.reduce(
-            (current, { op, amount }) => ({
-              ...current,
-              ...(op === "spend"
-                ? applySpendSP(current, amount)
-                : applyRecoverSP(current, amount)),
-            }),
-            pool
-          )
-          expect(skillPoolSchema.safeParse(final).success).toBe(true)
-        }
-      )
-    )
-  })
-
   it("recover never overshoots max SP and never lowers current SP", () => {
     fc.assert(
       fc.property(
@@ -255,6 +252,70 @@ describe("the skill pool mirrors HP", () => {
         }
       )
     )
+  })
+})
+
+/**
+ * **An op never emits a component its own load schema rejects.** The failure this
+ * guards is not cosmetic: a stored depletion past the safe-integer boundary means
+ * the optimistic client renders a happy frame over a row that no later
+ * `loadEntityRow` can read — bricked for good, with no write to undo it.
+ *
+ * Quantified over the *whole* schema domain, boundary included. The everyday
+ * arbitraries above cannot reach the edge, and a row already sitting there is
+ * exactly the reachable case: `amount` is bounded on the wire, but the stored value
+ * it accumulates onto is not, and rows written before that bound existed carry it.
+ */
+describe("the pools stay inside the domain their schemas admit", () => {
+  const amounts = fc.array(fc.integer({ min: -9_999, max: 9_999 }), {
+    maxLength: 6,
+  })
+
+  it("no sequence of HP ops leaves vitals unparseable", () => {
+    fc.assert(
+      fc.property(arbitraryBoundedVitals, amounts, (vitals, sequence) => {
+        const final = sequence.reduce(
+          (current, amount) => ({
+            ...current,
+            ...(amount >= 0
+              ? applyDamage(current, amount)
+              : applyHeal(current, -amount)),
+          }),
+          vitals
+        )
+        expect(vitalsSchema.safeParse(final).success).toBe(true)
+      })
+    )
+  })
+
+  it("no sequence of SP ops leaves the skill pool unparseable", () => {
+    fc.assert(
+      fc.property(arbitraryBoundedSkillPool, amounts, (pool, sequence) => {
+        const final = sequence.reduce(
+          (current, amount) => ({
+            ...current,
+            ...(amount >= 0
+              ? applySpendSP(current, amount)
+              : applyRecoverSP(current, -amount)),
+          }),
+          pool
+        )
+        expect(skillPoolSchema.safeParse(final).success).toBe(true)
+      })
+    )
+  })
+
+  it("saturates rather than escaping the boundary", () => {
+    expect(
+      applyDamage({ base: 100, damage: Number.MAX_SAFE_INTEGER }, 9_999).damage
+    ).toBe(Number.MAX_SAFE_INTEGER)
+    expect(
+      applyDamage({ base: 100, damage: Number.MIN_SAFE_INTEGER }, -9_999).damage
+    ).toBe(Number.MIN_SAFE_INTEGER)
+    expect(
+      applySpendSP({ base: 30, spSpent: Number.MAX_SAFE_INTEGER }, 9_999)
+        .spSpent
+    ).toBe(Number.MAX_SAFE_INTEGER)
   })
 })
 
