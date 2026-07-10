@@ -33,17 +33,21 @@ function components(
 
 describe("applyAwardVictory / applyRemoveVictory", () => {
   it("award increments; banking past 7 is allowed", () => {
-    expect(applyAwardVictory(level({ victories: 6 }))).toEqual({ victories: 7 })
-    expect(applyAwardVictory(level({ victories: 8 }))).toEqual({ victories: 9 })
+    expect(applyAwardVictory(level({ victories: 6 }))).toEqual(
+      level({ victories: 7 })
+    )
+    expect(applyAwardVictory(level({ victories: 8 }))).toEqual(
+      level({ victories: 9 })
+    )
   })
 
   it("remove decrements, clamped at 0", () => {
-    expect(applyRemoveVictory(level({ victories: 2 }))).toEqual({
-      victories: 1,
-    })
-    expect(applyRemoveVictory(level({ victories: 0 }))).toEqual({
-      victories: 0,
-    })
+    expect(applyRemoveVictory(level({ victories: 2 }))).toEqual(
+      level({ victories: 1 })
+    )
+    expect(applyRemoveVictory(level({ victories: 0 }))).toEqual(
+      level({ victories: 0 })
+    )
   })
 })
 
@@ -64,7 +68,12 @@ describe("applyLevelUp", () => {
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.value.level).toEqual({ value: 5, victories: 2 })
-      expect(result.value.archetypes).toEqual({ savedArchetypeRanks: 3 })
+      expect(result.value.archetypes).toEqual({
+        active: "knight",
+        origin: "knight",
+        savedArchetypeRanks: 3,
+        roster: [{ key: "knight", rank: 1, inheritanceSlots: [] }],
+      })
     }
   })
 

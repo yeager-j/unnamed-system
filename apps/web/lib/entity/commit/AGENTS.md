@@ -5,9 +5,23 @@ The client+server half of the one durable write pipeline (ADR §2.4; UNN-551):
 travels as (no storage field, no version class on the wire), `writers.ts` the
 **Writer registry** (`ENTITY_WRITERS`) whose pure `applyOp` is both the
 optimistic predictor and the server's validation pre-mint, and
-`merge-patch.ts` the frame merge. The server-only Store + guarded commit live
-in `lib/actions/entity/`; combat's encounter door forwards its durable arm to
-the same composition.
+`merge-patch.ts` the patch algebra (the frame merge + `combinePatches`). The
+server-only Store + guarded commit live in `lib/actions/entity/`; combat's
+encounter door forwards its durable arm to the same composition.
+
+## The patch contract — one vocabulary
+
+There is exactly one patch shape end to end (UNN-601): **whole updated
+components**, keys 1:1 with `entity` columns (CH15), an explicit-`undefined`
+key meaning "delete the component" (NULL ⇔ absent). Engine transitions speak
+it natively — the rest trio and the leveling ops return whole components, so
+a Writer arm is check → transition → return, never a per-field spread.
+`combinePatches` composes two patches; its laws — **identity**,
+**associativity**, and **merge-compatibility**
+(`merge(merge(e,a),b) = merge(e, combine(a,b))`, including the delete/re-set
+edge) — live in `__laws__/patch-monoid.laws.test.ts`. Never hand-compose
+patches with conditional spreads (`...(p.vitals && { … })`): that drops an
+explicit-`undefined` deletion, the exact edge the negative control proves.
 
 ## Two write species — explained once
 

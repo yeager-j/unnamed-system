@@ -346,17 +346,11 @@ describe("a full rest zeroes depletion", () => {
     }),
   })
 
-  /** The shallow per-key merge the patch's contract asks of every caller. */
-  const rest = (components: RestComponents): RestComponents => {
-    const patch = applyFullRest(components)
-    return {
-      ...components,
-      vitals: { ...components.vitals, ...patch.vitals },
-      skillPool: { ...components.skillPool, ...patch.skillPool },
-      resources: { ...components.resources, ...patch.resources },
-      exhaustion: { ...components.exhaustion, ...patch.exhaustion },
-    }
-  }
+  /** The wholesale per-key assignment the patch's contract asks of every caller. */
+  const rest = (components: RestComponents): RestComponents => ({
+    ...components,
+    ...applyFullRest(components),
+  })
 
   it("clears every pool and steps exhaustion down by at most one", () => {
     fc.assert(

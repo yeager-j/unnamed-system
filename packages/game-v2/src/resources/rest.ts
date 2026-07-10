@@ -4,21 +4,18 @@ import {
   computeMaxHitDice,
   computeMaxSkillDice,
 } from "@workspace/game-v2/resources/derive"
-import type { Exhaustion } from "@workspace/game-v2/resources/exhaustion.schema"
-import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 import { applyHeal, applyRecoverSP } from "@workspace/game-v2/vitals/operations"
-import type { SkillPool } from "@workspace/game-v2/vitals/skill-pool.schema"
-import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
 /**
  * The three rest transitions — Full, Partial, Respite — that recover a
  * character's pools between encounters (rulebook `2.5 Resting & Exhaustion`, ADR
  * §2.4 / CH5), re-homed from v1's `combat/rest.ts` onto the signed-depletion
- * model. Each is pure and returns an **entity-level patch** (a
- * {@link RestPatch} spanning `vitals`/`skillPool`/`resources`/`exhaustion`): the
- * caller merges the present fields onto the entity's stored components and
- * re-resolves — the atomic-op pattern (`vitals/operations.ts`,
- * `resources/operations.ts`), scaled from one field to several.
+ * model. Each is pure and returns **whole updated components** — a precise
+ * `Pick<ComponentRegistry, …>` naming exactly the components it touched, in the
+ * one patch vocabulary the Writers and the guarded column UPDATE speak (UNN-601):
+ * the caller assigns each returned key wholesale and re-resolves, never merging
+ * per field. (The per-field `Pick` shape stays the atomic-op pattern *within* a
+ * component — `vitals/operations.ts` — and stops at the transition boundary.)
  *
  * **The depletion model makes "clamp at max" free** (D9/D10). Full HP is
  * `damage: 0`; recovered SP flows through {@link applyRecoverSP} (floors `spSpent`
@@ -44,20 +41,6 @@ export type RestComponents = Pick<
   ComponentRegistry,
   "vitals" | "skillPool" | "resources" | "exhaustion" | "level"
 >
-
-/**
- * An entity-level patch: each present key holds only the field(s) that transition
- * changed, mirroring the single-field `Pick` patches the atomic ops return. The
- * caller shallow-merges each present key onto the matching stored component.
- */
-export interface RestPatch {
-  vitals?: Pick<Vitals, "damage">
-  skillPool?: Pick<SkillPool, "spSpent">
-  resources?: Partial<
-    Pick<Resources, "hitDiceUsed" | "skillDiceUsed" | "prismaUsed">
-  >
-  exhaustion?: Pick<Exhaustion, "level">
-}
 
 /**
  * Expected, recoverable failures (not programmer errors): the caller asked to
@@ -101,12 +84,25 @@ export interface RespiteInput {
  * patch directly. The Prisma op is not composed here — refilling is a total zero,
  * not the partial spend that op guards.
  */
-export function applyFullRest(components: RestComponents): RestPatch {
+export function applyFullRest(
+  components: RestComponents
+): Pick<
+  ComponentRegistry,
+  "vitals" | "skillPool" | "resources" | "exhaustion"
+> {
   return {
-    vitals: { damage: 0 },
-    skillPool: { spSpent: 0 },
-    resources: { hitDiceUsed: 0, skillDiceUsed: 0, prismaUsed: 0 },
-    exhaustion: { level: Math.max(0, components.exhaustion.level - 1) },
+    vitals: { ...components.vitals, damage: 0 },
+    skillPool: { ...components.skillPool, spSpent: 0 },
+    resources: {
+      ...components.resources,
+      hitDiceUsed: 0,
+      skillDiceUsed: 0,
+      prismaUsed: 0,
+    },
+    exhaustion: {
+      ...components.exhaustion,
+      level: Math.max(0, components.exhaustion.level - 1),
+    },
   }
 }
 
@@ -121,7 +117,10 @@ export function applyFullRest(components: RestComponents): RestPatch {
 export function applyPartialRest(
   components: RestComponents,
   { skillDiceToSpend, rolled }: PartialRestInput
-): Result<RestPatch, RestError> {
+): Result<
+  Pick<ComponentRegistry, "vitals" | "skillPool" | "resources">,
+  RestError
+> {
   if (
     !isNonNegativeInteger(skillDiceToSpend) ||
     !isNonNegativeInteger(rolled)
@@ -137,9 +136,13 @@ export function applyPartialRest(
   }
 
   return ok({
-    vitals: { damage: 0 },
-    skillPool: applyRecoverSP(components.skillPool, rolled),
+    vitals: { ...components.vitals, damage: 0 },
+    skillPool: {
+      ...components.skillPool,
+      ...applyRecoverSP(components.skillPool, rolled),
+    },
     resources: {
+      ...components.resources,
       skillDiceUsed: components.resources.skillDiceUsed + skillDiceToSpend,
     },
   })
@@ -155,7 +158,7 @@ export function applyPartialRest(
 export function applyRespite(
   components: RestComponents,
   { hitDiceToSpend, rolled }: RespiteInput
-): Result<RestPatch, RestError> {
+): Result<Pick<ComponentRegistry, "vitals" | "resources">, RestError> {
   if (!isNonNegativeInteger(hitDiceToSpend) || !isNonNegativeInteger(rolled)) {
     return err("invalid-input")
   }
@@ -167,8 +170,9 @@ export function applyRespite(
   }
 
   return ok({
-    vitals: applyHeal(components.vitals, rolled),
+    vitals: { ...components.vitals, ...applyHeal(components.vitals, rolled) },
     resources: {
+      ...components.resources,
       hitDiceUsed: components.resources.hitDiceUsed + hitDiceToSpend,
     },
   })

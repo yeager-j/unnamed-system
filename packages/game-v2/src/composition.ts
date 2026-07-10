@@ -218,8 +218,8 @@ export function createGameEngine(deps: GameData = gameData) {
     getPathStats,
     getPathDice,
     // Rest transitions (E2 — UNN-553): Full/Partial/Respite pool recovery, returning
-    // entity-level depletion patches. All pure — no catalog, re-exposed as-is; the
-    // S2a Combat-tab rest dialog dispatches them through the entity write door.
+    // whole updated components (UNN-601). All pure — no catalog, re-exposed as-is;
+    // the S2a Combat-tab rest dialog dispatches them through the entity write door.
     applyFullRest,
     applyPartialRest,
     applyRespite,

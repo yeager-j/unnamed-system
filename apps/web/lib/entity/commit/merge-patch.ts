@@ -23,3 +23,30 @@ export function mergeComponentPatch(
   }
   return { ...entity, components }
 }
+
+/**
+ * Combines two patches into one that merges as their sequence: for every entity
+ * `e`, `mergeComponentPatch(mergeComponentPatch(e, a), b)` equals
+ * `mergeComponentPatch(e, combinePatches(a, b))`. Right-biased — `b` wins a
+ * shared key — so it is deliberately not commutative.
+ *
+ * The CH15 deletion semantics (NULL ⇔ absent) ride the spread: an explicit
+ * `undefined` key is an own key, so spread carries it and lets a later patch
+ * overwrite it — delete-then-set is a set, set-then-delete is a delete. That
+ * edge is exactly what a hand-rolled conditional spread
+ * (`...(patch.vitals && { vitals: … })`) silently drops, which is why patch
+ * composition lives here once instead of at each caller. Combining is also
+ * closed over deletion-free patches — no Writer emits one today, an invariant
+ * `__laws__/isomorphism.laws.test.ts` pins because the server's guarded UPDATE
+ * skips `undefined` columns rather than NULLing them.
+ *
+ * `(EntityWritePatch, combinePatches, {})` is a monoid; the identity,
+ * associativity, and merge-compatibility laws live in
+ * `__laws__/patch-monoid.laws.test.ts`.
+ */
+export function combinePatches(
+  a: EntityWritePatch,
+  b: EntityWritePatch
+): EntityWritePatch {
+  return { ...a, ...b }
+}
