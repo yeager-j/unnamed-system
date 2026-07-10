@@ -290,21 +290,40 @@ export interface DungeonSnapshotZone {
   enchantment?: SnapshotEnchantment
 }
 
+/**
+ * The live fight running on this delve's Instance, when one is — the linkage the
+ * watch client observes to swap between the exploration and combat compositions
+ * (UNN-603). **Visibility decision:** that a fight is running here — and its public
+ * watch `shortId` — is visible to every watcher including a signed-out spectator.
+ * The combat watch itself is signed-out-visible (its snapshot redacts per
+ * relationship), so withholding the linkage would hide nothing; it would only
+ * strand the exploration view unable to observe the phase change. Only the
+ * `shortId` crosses — never session content.
+ */
+export interface DungeonSnapshotCombat {
+  encounterShortId: string
+}
+
 /** The encounter-**row** + dungeon-**row** metadata the impure shell pairs with the
  *  pure {@link DungeonState}/{@link MapInstanceState}. `status` is the DB lifecycle
- *  string; both version tokens are row columns. */
+ *  string; both version tokens are row columns; `combat` is the live-encounter
+ *  envelope read ({@link DungeonSnapshotCombat}), absent when no fight is live. */
 export interface DungeonSnapshotMeta {
   name: string
   status: DungeonStatus
   campaignShortId: string
   version: number
   instanceVersion: number
+  combat?: DungeonSnapshotCombat
 }
 
 /**
  * The full redacted snapshot the exploration fog player view consumes. Thin and
  * JSON-serializable end to end. `turn` is the dungeon turn counter — exploration
  * surfaces only the counter, never the turn queue or acted-flags (DM-only).
+ * `combat` names the live fight on this Instance ({@link DungeonSnapshotCombat})
+ * and is **absent** when the delve is exploring — presence is the phase signal
+ * the watch client acts on.
  */
 export interface DungeonSnapshot {
   status: DungeonStatus
@@ -316,6 +335,7 @@ export interface DungeonSnapshot {
   zones: DungeonSnapshotZone[]
   connections: SnapshotConnection[]
   exits: SnapshotExit[]
+  combat?: DungeonSnapshotCombat
 }
 
 /** The active enchantment **for a specific revealed Zone**, or undefined. */
@@ -402,5 +422,6 @@ export function projectDungeonSnapshot(
     zones,
     connections,
     exits,
+    ...(meta.combat ? { combat: meta.combat } : {}),
   }
 }

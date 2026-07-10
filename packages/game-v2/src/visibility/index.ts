@@ -41,6 +41,7 @@ export {
   type SnapshotExit,
   type SnapshotEnchantment,
   type DungeonSnapshot,
+  type DungeonSnapshotCombat,
   type DungeonSnapshotZone,
   type DungeonSnapshotToken,
   type DungeonSnapshotMeta,

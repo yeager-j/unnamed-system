@@ -292,6 +292,38 @@ describe("projectDungeonSnapshot — the exploration-only sibling", () => {
     ])
   })
 
+  it("carries the live-fight linkage — the shortId only, nothing of the session (UNN-603)", () => {
+    const snap = projectDungeonSnapshot(
+      { ...DUNGEON_META, combat: { encounterShortId: "enc12345" } },
+      mapInstance,
+      {
+        turnCounter: 3,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(snap.combat).toEqual({ encounterShortId: "enc12345" })
+  })
+
+  it("omits combat structurally while the delve is exploring", () => {
+    const snap = projectDungeonSnapshot(
+      DUNGEON_META,
+      mapInstance,
+      {
+        turnCounter: 3,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(snap).not.toHaveProperty("combat")
+  })
+
   it("silhouettes the exit to the undiscovered zone (far zone absent)", () => {
     const snap = projectDungeonSnapshot(
       DUNGEON_META,
