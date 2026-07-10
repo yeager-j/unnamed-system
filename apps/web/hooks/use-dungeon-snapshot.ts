@@ -31,8 +31,10 @@ export type DungeonSnapshotState = SnapshotSubscriptionState<DungeonSnapshot>
  * `mapInstance`-kind ping is what drives the fog view's live updates, compared
  * against the Instance version ref. Everything stops once the delve is `"done"`.
  *
- * Dual-subscribing to the live encounter channel during combat (when a fight runs
- * on the dungeon) lands with the M4 combat integration, where that linkage exists.
+ * During a delve fight the snapshot's `combat` linkage swaps the watch body, and
+ * the combat body dual-subscribes to the fight's encounter channel — driving this
+ * snapshot's `refetch` when the shared Instance advances, since combat writes
+ * ping the encounter channel, not this one (UNN-604).
  */
 export function useDungeonSnapshot(
   shortId: string,

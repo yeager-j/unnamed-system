@@ -57,10 +57,11 @@ export type DungeonWatchZoneNode = Node<WatchZoneData, "fogZone">
  * in it (the viewer's own self-highlighted), its active Enchantment badge, and a
  * footer of **known-exit silhouettes** — one chip per exit leading somewhere
  * undiscovered, encoding only *that* an exit exists and whether it's locked (no
- * far-Zone name/contents). Enemies never appear here: a live fight forks the
- * watch page to the fogged combat watch (UNN-536), so the exploration snapshot
- * is combat-free by construction. The hidden handles only need to *exist* so
- * React Flow attaches the revealed-connection floating edges; the floating
+ * far-Zone name/contents). Enemies never appear here: during a live fight the
+ * board swaps to the {@link import("./combat-zone-node").DungeonWatchCombatZoneNode},
+ * whose pieces come from the fogged combat snapshot (UNN-604) — the exploration
+ * snapshot's tokens are always roster PCs. The hidden handles only need to *exist*
+ * so React Flow attaches the revealed-connection floating edges; the floating
  * router decides where they meet the border.
  */
 export function DungeonWatchZoneNode({

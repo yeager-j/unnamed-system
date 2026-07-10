@@ -1,10 +1,17 @@
 "use client"
 
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
+import { useEffect, useRef } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
+import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import {
+  DungeonCombatWatchBody,
+  type DungeonWatchCombatData,
+} from "@/components/dungeon/combat/watch"
 import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
@@ -30,25 +37,67 @@ const DungeonWatchCanvas = dynamic(
 )
 
 /**
- * The signed-out-visible **dungeon fog player view** at `/c/dungeon/{shortId}`
- * (UNN-466). Seeds from the server-rendered redacted `initialSnapshot` and
- * subscribes via {@link useDungeonSnapshot} (realtime + ~1.5s poll fallback).
+ * Refreshes the RSC props once per phase flip (UNN-604). The delve snapshot is
+ * the phase authority — `snapshot.combat` appearing or disappearing is what the
+ * subscription observes — but each phase needs server-loaded props the other
+ * render didn't carry (the combat phase's encounter seed + owner-resolved
+ * sheets). This is **prop rehydration, not the fork mechanism**: the surface
+ * stays mounted through the refresh, so client state (canvas viewport, open
+ * tabs) survives. Each guard is keyed so a flip refreshes exactly once and a
+ * later re-flip refreshes again.
+ */
+function usePhaseFlipRefresh(
+  snapshot: DungeonSnapshot,
+  combat: DungeonWatchCombatData | null
+) {
+  const router = useRouter()
+  const requestedCombatFor = useRef<string | null>(null)
+  const requestedExplore = useRef(false)
+
+  useEffect(() => {
+    const live = snapshot.status === "active" ? (snapshot.combat ?? null) : null
+
+    if (live) {
+      requestedExplore.current = false
+      if (combat?.encounterShortId === live.encounterShortId) return
+      if (requestedCombatFor.current === live.encounterShortId) return
+      requestedCombatFor.current = live.encounterShortId
+      router.refresh()
+      return
+    }
+
+    requestedCombatFor.current = null
+    if (combat !== null && !requestedExplore.current) {
+      requestedExplore.current = true
+      router.refresh()
+    }
+  }, [snapshot.status, snapshot.combat, combat, router])
+}
+
+/**
+ * The signed-out-visible **dungeon player watch** at `/c/dungeon/{shortId}`
+ * (UNN-466; one surface for both phases since UNN-604). Seeds from the
+ * server-rendered redacted `initialSnapshot` and subscribes via
+ * {@link useDungeonSnapshot} (realtime + ~1.5s poll fallback).
  *
- * Status-branched: `draft` waits, `active` shows the live fog map, `done` freezes
- * the final reveal. **Exploration-only**: during a live fight the watch page forks
- * *above* this component to the fogged v2 combat watch
- * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
- * so this renders only the delve's exploration fog view.
+ * Status-branched: `draft` waits, `active` shows the live fog map, `done`
+ * freezes the final reveal. **The phase is read from the snapshot**: while
+ * `snapshot.combat` names a live fight (and the page has loaded that fight's
+ * props), the body swaps to the {@link DungeonCombatWatchBody} — the same fog
+ * board with the redacted combatants joined on — and swaps back when the fight
+ * ends. No reload, no server fork: {@link usePhaseFlipRefresh} only rehydrates
+ * props.
  *
- * A signed-in viewer with character(s) in the delve also gets the
- * {@link DungeonExploreSheetColumn} on the left (UNN-566). A spectator has
- * none, so the fog map takes the full width.
+ * A signed-in viewer with character(s) in the delve also gets the phase's
+ * own-sheet column (Explore cards while exploring, the combat sheets in a
+ * fight). A spectator has none, so the map takes the full width.
  */
 export function DungeonWatch({
   shortId,
   initialSnapshot,
   ownedCharacterIds,
   ownedSheets,
+  combat,
 }: {
   shortId: string
   initialSnapshot: DungeonSnapshot
@@ -57,15 +106,20 @@ export function DungeonWatch({
   ownedCharacterIds: string[]
   /** The viewer's own characters here — empty for a spectator. */
   ownedSheets: LoadedCharacter[]
+  /** The live fight's watch data when the page loaded one, else `null`. */
+  combat: DungeonWatchCombatData | null
 }) {
-  const { snapshot, stale } = useDungeonSnapshot(shortId, initialSnapshot)
-
-  const fogCanvas = (
-    <DungeonWatchCanvas
-      snapshot={snapshot}
-      ownedCharacterIds={ownedCharacterIds}
-    />
+  const { snapshot, stale, refetch } = useDungeonSnapshot(
+    shortId,
+    initialSnapshot
   )
+  usePhaseFlipRefresh(snapshot, combat)
+
+  const inCombat =
+    snapshot.status === "active" &&
+    snapshot.combat !== undefined &&
+    combat !== null &&
+    combat.encounterShortId === snapshot.combat.encounterShortId
 
   return (
     <main className="flex h-[calc(100svh-3.5rem)] flex-col overflow-hidden">
@@ -79,7 +133,14 @@ export function DungeonWatch({
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {snapshot.status !== "draft" ? (
+          {inCombat ? (
+            <Badge
+              variant="outline"
+              className="border-destructive/40 text-destructive"
+            >
+              Combat
+            </Badge>
+          ) : snapshot.status !== "draft" ? (
             <span className="text-sm text-muted-foreground tabular-nums">
               Turn {snapshot.turn}
             </span>
@@ -90,6 +151,14 @@ export function DungeonWatch({
 
       {snapshot.status === "draft" ? (
         <WaitingState />
+      ) : inCombat ? (
+        <DungeonCombatWatchBody
+          key={combat.encounterShortId}
+          board={snapshot}
+          combat={combat}
+          ownedCharacterIds={ownedCharacterIds}
+          refetchBoard={refetch}
+        />
       ) : (
         <>
           {snapshot.status === "done" ? (
@@ -106,7 +175,13 @@ export function DungeonWatch({
                 <DungeonExploreSheetColumn characters={ownedSheets} />
               </aside>
             ) : null}
-            <div className="min-h-0 min-w-0 flex-1">{fogCanvas}</div>
+            <div className="min-h-0 min-w-0 flex-1">
+              <DungeonWatchCanvas
+                snapshot={snapshot}
+                ownedCharacterIds={ownedCharacterIds}
+                mode={{ kind: "explore" }}
+              />
+            </div>
           </div>
         </>
       )}
