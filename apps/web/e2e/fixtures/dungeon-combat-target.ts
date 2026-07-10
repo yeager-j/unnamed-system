@@ -53,6 +53,10 @@ function buildInstanceState(characterId: string): MapInstanceState {
     zoneIdB: HALL.id,
     adjacent: true,
   })
+  // The PC stands in Entry, so real play's move → reveal rule would have
+  // surfaced it — and the player watch draws only revealed Zones, so the
+  // watch specs need it visible on the fog board.
+  state = reduceMapInstance(state, { kind: "revealZone", zoneId: ENTRY.id })
   return {
     ...state,
     occupancy: {

@@ -41,12 +41,20 @@ const snapshot: SpatialEncounterSnapshot = {
       vitals: { currentHP: 12, maxHP: 16 },
       skillPool: { currentSP: 3, maxSP: 5 },
       ailments: ["burn"],
+      engagement: {
+        status: "engaged",
+        targetCombatantIds: [asParticipantId("gob-1")],
+      },
     }),
     visible("gob-1", {
       identity: { name: "Goblin" },
       allegiance: { side: "enemies" },
       turnState: { ...FRESH_TURN, turnsTakenThisRound: 1 },
       position: { zoneId: "z1" },
+      engagement: {
+        status: "engaged",
+        targetCombatantIds: [asParticipantId("hero")],
+      },
     }),
     visible("gob-2", {
       identity: { name: "Goblin" },
@@ -119,6 +127,21 @@ describe("buildWatchView", () => {
       "Straggler",
     ])
     expect(view.layout.hasZones).toBe(true)
+  })
+
+  it("carries the public engagement component through, structurally", () => {
+    const view = buildWatchView(snapshot)
+    const [hero, gob, clamped] = view.combatants
+
+    expect(hero?.engagement).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["gob-1"],
+    })
+    expect(gob?.engagement).toEqual({
+      status: "engaged",
+      targetCombatantIds: ["hero"],
+    })
+    expect(clamped).not.toHaveProperty("engagement")
   })
 
   it("rides the enchantment badge on its zone and names adjacency", () => {

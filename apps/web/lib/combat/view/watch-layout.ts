@@ -4,6 +4,7 @@ import {
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
+import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type {
   SpatialEncounterSnapshot,
   VisibleCombatant,
@@ -46,6 +47,9 @@ export interface WatchCombatant {
   /** Present iff the `skillPool` component survived redaction. */
   sp: Pool | null
   ailments: OverlayComponents["ailments"]
+  /** The public melee-lock (`engagement` is public-to-all) — the map watch
+   *  clusters locked tokens with it via `groupTokensByEngagement`. */
+  engagement?: Engagement
 }
 
 /** One zone card of the battlefield grid. */
@@ -105,6 +109,7 @@ function watchCombatant(
         }
       : null,
     ailments: components.ailments ?? [],
+    ...(components.engagement ? { engagement: components.engagement } : {}),
   }
 }
 
