@@ -34,7 +34,10 @@ import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { getArchetype, previewArchetypeSkills } from "@/lib/game-engine-v2"
+import {
+  getArchetype,
+  resolveCreationArchetypeSkills,
+} from "@/lib/game-engine-v2"
 import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"
@@ -104,7 +107,10 @@ function PanelBody({
   const locked = state.kind === "locked"
   const ownedRank =
     state.kind === "owned" || state.kind === "mastered" ? state.rank : 0
-  const { ranks, synthesis } = previewArchetypeSkills(archetype, pathChoice)
+  const { ranks, synthesis } = resolveCreationArchetypeSkills(
+    archetype,
+    pathChoice
+  )
   const suggestedPath = LINEAGE_SUGGESTED_PATH[archetype.lineage]
   // Focus the header on open rather than letting the dialog auto-focus the
   // first tabbable element — which, for an Archetype with no unlocked (hence

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
-import { archetypeSwitcherGroups, resolveEntity } from "@/lib/game-engine-v2"
+import { resolveEntity } from "@/lib/game-engine-v2"
 
 import { buildAffinityStrip } from "./affinity-strip"
 import { buildRailView } from "./rail-view"
@@ -43,12 +43,7 @@ function knight(overrides: Partial<Entity["components"]> = {}): Entity {
 describe("buildRailView", () => {
   it("shapes identity, pools, victories, prisma, and exhaustion from the loaded pair", () => {
     const entity = knight()
-    const rail = buildRailView(
-      profile,
-      entity,
-      resolveEntity(entity),
-      archetypeSwitcherGroups
-    )
+    const rail = buildRailView(profile, entity, resolveEntity(entity))
 
     expect(rail.name).toBe("Cassian Vale")
     expect(rail.pronouns).toBe("they/them")
@@ -73,12 +68,7 @@ describe("buildRailView", () => {
 
   it("builds the lineage-grouped switch menu from the roster with mechanic-name hints", () => {
     const entity = knight()
-    const rail = buildRailView(
-      profile,
-      entity,
-      resolveEntity(entity),
-      archetypeSwitcherGroups
-    )
+    const rail = buildRailView(profile, entity, resolveEntity(entity))
 
     expect(rail.archetype?.activeKey).toBe("knight")
     expect(rail.archetype?.activeName).toBe("Knight")
@@ -96,12 +86,7 @@ describe("buildRailView", () => {
       id: "bare",
       components: { identity: { name: "Bare" } },
     }
-    const rail = buildRailView(
-      profile,
-      bare,
-      resolveEntity(bare),
-      archetypeSwitcherGroups
-    )
+    const rail = buildRailView(profile, bare, resolveEntity(bare))
     expect(rail.level).toBeNull()
     expect(rail.hp).toBeNull()
     expect(rail.victories).toBeNull()

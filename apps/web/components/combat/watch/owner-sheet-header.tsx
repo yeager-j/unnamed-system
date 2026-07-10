@@ -6,7 +6,6 @@ import { AdjustPoolControl } from "@/components/character-sheet/rail/adjust-pool
 import { VitalsBlock } from "@/components/character-sheet/rail/vitals-block"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 import { buildRailView } from "@/lib/character/view/rail-view"
-import { archetypeSwitcherGroups } from "@/lib/game-engine-v2"
 
 /**
  * The own-sheet column's masthead, shared by both watches (UNN-566): identity,
@@ -22,7 +21,7 @@ export function OwnerSheetHeader() {
   const { profile, entity, resolved } = useLoadedCharacter()
   const [open, setOpen] = useState<"hp" | "sp" | null>(null)
 
-  const view = buildRailView(profile, entity, resolved, archetypeSwitcherGroups)
+  const view = buildRailView(profile, entity, resolved)
   const toggle = (key: "hp" | "sp") => (next: boolean) =>
     setOpen(next ? key : null)
 

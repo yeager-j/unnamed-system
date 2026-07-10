@@ -9,7 +9,6 @@ import {
 import type { LoadedCharacter } from "@/lib/character/load"
 import { buildAffinityStrip } from "@/lib/character/view/affinity-strip"
 import { buildRailView } from "@/lib/character/view/rail-view"
-import { archetypeSwitcherGroups } from "@/lib/game-engine-v2"
 
 import { ArchetypesTab } from "./archetypes/archetypes-tab"
 import { CombatTab } from "./combat/combat-tab"
@@ -49,7 +48,7 @@ function SheetShell() {
   const { profile, entity, resolved } = useLoadedCharacter()
   const [tab, setTab] = useState<SheetTabKey>("combat")
 
-  const rail = buildRailView(profile, entity, resolved, archetypeSwitcherGroups)
+  const rail = buildRailView(profile, entity, resolved)
   const affinities = buildAffinityStrip(resolved)
 
   return (

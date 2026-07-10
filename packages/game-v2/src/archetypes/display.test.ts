@@ -3,16 +3,13 @@ import { describe, expect, it } from "vitest"
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import type { InheritanceSlot } from "@workspace/game-v2/archetypes/archetypes.schema"
 import {
-  archetypeSwitcherGroups,
-  buildArchetypeEntries,
-  getArchetypeDisplay,
-  previewArchetypeSkills,
+  archetypesByLineage,
+  resolveArchetypeRoster,
   sortArchetypesByPath,
 } from "@workspace/game-v2/archetypes/display"
 import { inheritanceSourceGroups } from "@workspace/game-v2/archetypes/inheritance"
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
-import { createResolve } from "@workspace/game-v2/resolve/resolve"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 // — fixtures —
@@ -105,38 +102,41 @@ function resolvedPC(
   }>,
   active: string | null
 ): ResolvedEntity {
-  const entity: Entity = {
+  const activeArchetype = active ? data.getArchetype(active) : undefined
+  return {
     id: "pc",
     components: {
-      level: { value: 5, victories: 0 },
-      path: { choice: "health-focused" },
       archetypes: {
         active,
         origin: active,
         savedArchetypeRanks: 0,
+        activeLineage: activeArchetype?.lineage ?? null,
         roster: roster.map((r) => ({
           key: r.key,
           rank: r.rank,
+          mastered: r.rank >= 5,
           inheritanceSlots: r.inheritanceSlots ?? [],
         })),
       },
-      attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
-      affinities: { base: {} },
-      vitals: { base: 0, damage: 0 },
-      skillPool: { base: 0, spSpent: 0 },
+      attributes: activeArchetype?.attributes ?? {
+        strength: 0,
+        magic: 0,
+        agility: 0,
+        luck: 0,
+      },
+      vitals: { currentHP: 20, maxHP: 20 },
     },
   }
-  return createResolve(data)(entity)
 }
 
-describe("buildArchetypeEntries (C1–C5 — off the ResolvedEntity)", () => {
+describe("resolveArchetypeRoster (C1–C5 — off the ResolvedEntity)", () => {
   it("returns [] for an entity with no Archetypes component", () => {
     const enemy: ResolvedEntity = { id: "e", components: {} }
-    expect(buildArchetypeEntries(data)(enemy)).toEqual([])
+    expect(resolveArchetypeRoster(data)(enemy)).toEqual([])
   })
 
   it("one entry per roster Archetype in roster order; flags the active one (by key, C2)", () => {
-    const entries = buildArchetypeEntries(data)(
+    const entries = resolveArchetypeRoster(data)(
       resolvedPC(
         [
           { key: "warrior", rank: 3 },
@@ -150,14 +150,14 @@ describe("buildArchetypeEntries (C1–C5 — off the ResolvedEntity)", () => {
   })
 
   it("skips a roster key that no longer resolves to a catalog Archetype (drift)", () => {
-    const entries = buildArchetypeEntries(data)(
+    const entries = resolveArchetypeRoster(data)(
       resolvedPC([{ key: "ghost", rank: 1 }], "ghost")
     )
     expect(entries).toEqual([])
   })
 
   it("resolves Rank-keyed Skill costs + Attack Rolls against the live resolved stats (C4)", () => {
-    const [entry] = buildArchetypeEntries(data)(
+    const [entry] = resolveArchetypeRoster(data)(
       resolvedPC([{ key: "warrior", rank: 5 }], "warrior")
     )
     expect(entry!.ranks.map((r) => r.skill.key)).toEqual([
@@ -173,7 +173,7 @@ describe("buildArchetypeEntries (C1–C5 — off the ResolvedEntity)", () => {
   })
 
   it("resolves the Synthesis Skill (or null)", () => {
-    const [warriorEntry, mageEntry] = buildArchetypeEntries(data)(
+    const [warriorEntry, mageEntry] = resolveArchetypeRoster(data)(
       resolvedPC(
         [
           { key: "warrior", rank: 5 },
@@ -187,7 +187,7 @@ describe("buildArchetypeEntries (C1–C5 — off the ResolvedEntity)", () => {
   })
 })
 
-describe("buildArchetypeEntries — inheritance slot validity (C5, key-based)", () => {
+describe("resolveArchetypeRoster — inheritance slot validity (C5, key-based)", () => {
   const slots: InheritanceSlot[] = [
     { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "fireball" }, // valid
     { slotIndex: 1, sourceArchetypeKey: null, skillKey: null }, // empty ⇒ valid
@@ -202,7 +202,7 @@ describe("buildArchetypeEntries — inheritance slot validity (C5, key-based)", 
     ],
     "warrior"
   )
-  const [warriorEntry] = buildArchetypeEntries(data)(resolved)
+  const [warriorEntry] = resolveArchetypeRoster(data)(resolved)
 
   it("a configured slot from an owned source at an unlocked rank is valid", () => {
     const slot = warriorEntry!.slots[0]!
@@ -229,18 +229,9 @@ describe("buildArchetypeEntries — inheritance slot validity (C5, key-based)", 
   })
 })
 
-describe("getArchetypeDisplay (C6)", () => {
-  it("returns the active entry, or null when none is active", () => {
-    const resolved = resolvedPC([{ key: "warrior", rank: 3 }], "warrior")
-    expect(getArchetypeDisplay(data)(resolved).activeEntry?.key).toBe("warrior")
-    const inactive = resolvedPC([{ key: "warrior", rank: 3 }], null)
-    expect(getArchetypeDisplay(data)(inactive).activeEntry).toBeNull()
-  })
-})
-
-describe("archetypeSwitcherGroups (C8–C10)", () => {
+describe("archetypesByLineage (C8–C10)", () => {
   it("groups unlocked Archetypes by Lineage in canonical order, keyed by key", () => {
-    const groups = archetypeSwitcherGroups(data)(
+    const groups = archetypesByLineage(data)(
       resolvedPC(
         [
           { key: "mage", rank: 1 },
@@ -274,26 +265,9 @@ describe("sortArchetypesByPath (C11)", () => {
   })
 })
 
-describe("previewArchetypeSkills (C7 — synthetic Rank-2 single archetype)", () => {
-  it("resolves concrete Skill costs/Attack Rolls at the Origin auto-rank", () => {
-    const { ranks, synthesis } = previewArchetypeSkills(data)(
-      warrior,
-      "balanced"
-    )
-    expect(ranks.map((r) => r.skill.key)).toEqual([
-      "cleave",
-      "tempest-slash",
-      "slash-boost",
-    ])
-    expect(ranks[0]!.resolvedCost).toEqual({ kind: "sp", amount: 5 })
-    expect(ranks[0]!.resolvedAttackRoll?.total).toBe(3) // strength 3
-    expect(synthesis?.skill.key).toBe("peerless")
-  })
-})
-
 describe("inheritanceSourceGroups (D2 — over the resolved entries)", () => {
   it("groups every OTHER unlocked Archetype's in-rank Skills, dropping empty sources", () => {
-    const entries = buildArchetypeEntries(data)(
+    const entries = resolveArchetypeRoster(data)(
       resolvedPC(
         [
           { key: "warrior", rank: 3 },
@@ -310,7 +284,7 @@ describe("inheritanceSourceGroups (D2 — over the resolved entries)", () => {
 
   it("drops over-rank Skills from a source group", () => {
     // warrior at rank 1: cleave@1 in, tempest-slash@3 + slash-boost@5 out
-    const entries = buildArchetypeEntries(data)(
+    const entries = resolveArchetypeRoster(data)(
       resolvedPC(
         [
           { key: "warrior", rank: 1 },

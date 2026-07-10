@@ -37,17 +37,17 @@ export function resolveTalents(
   )
 }
 
-export interface TalentChip {
+export interface TalentRosterEntry {
   key: string
   label: string
   inherited: boolean
 }
 
-export interface ResolvedSheetTalents {
+export interface TalentRoster {
   /** Inherited Talents (alpha) followed by owned Talents (alpha) — render order. */
-  chips: TalentChip[]
+  entries: TalentRosterEntry[]
   /** Canonical Talents the character doesn't have yet (alpha) — feeds the Add popover. */
-  remaining: { key: TalentKey; label: string }[]
+  learnable: { key: TalentKey; label: string }[]
 }
 
 /**
@@ -60,8 +60,8 @@ export interface ResolvedSheetTalents {
  * owned Talents + active Archetype off the `ResolvedEntity` (the archetypes/display
  * precedent) — the sheet already renders the resolved entity.
  */
-export function resolveTalentsForSheet(deps: Pick<GameData, "getArchetype">) {
-  return (entity: ResolvedEntity): ResolvedSheetTalents => {
+export function resolveTalentRoster(deps: Pick<GameData, "getArchetype">) {
+  return (entity: ResolvedEntity): TalentRoster => {
     const owned = (entity.components.talents ?? []).map((talent) => talent.key)
     const inherited = archetypeTalents(
       entity.components.archetypes?.active ?? null,
@@ -69,7 +69,7 @@ export function resolveTalentsForSheet(deps: Pick<GameData, "getArchetype">) {
     )
     const byLabel = (a: string, b: string): number =>
       labelFor(a).localeCompare(labelFor(b))
-    const chips: TalentChip[] = [
+    const entries: TalentRosterEntry[] = [
       ...[...inherited].sort(byLabel).map((key) => ({
         key,
         label: labelFor(key),
@@ -83,17 +83,17 @@ export function resolveTalentsForSheet(deps: Pick<GameData, "getArchetype">) {
     ]
 
     const known = new Set<string>([...inherited, ...owned])
-    const remaining = TALENT_KEYS.filter((key) => !known.has(key))
+    const learnable = TALENT_KEYS.filter((key) => !known.has(key))
       .sort(byLabel)
       .map((key) => ({ key, label: labelFor(key) }))
 
-    return { chips, remaining }
+    return { entries, learnable }
   }
 }
 
-export interface ResolvedBuilderTalents {
+export interface OriginTalentChoices {
   /** Origin-granted Talents, in Archetype order — rendered as locked chips. */
-  origin: string[]
+  granted: string[]
   /**
    * Canonical Talents the player may pick: every Talent the Origin doesn't already
    * grant, in {@link TALENT_KEYS} order. Already-picked Talents stay in the list so
@@ -110,11 +110,13 @@ export interface ResolvedBuilderTalents {
  * definition. Depends only on the Origin key (the builder has a draft, not a resolved
  * entity).
  */
-export function resolveTalentsForBuilder(deps: Pick<GameData, "getArchetype">) {
-  return (originArchetypeKey: string | null): ResolvedBuilderTalents => {
-    const origin = archetypeTalents(originArchetypeKey, deps)
-    const originSet = new Set(origin)
+export function resolveOriginTalentChoices(
+  deps: Pick<GameData, "getArchetype">
+) {
+  return (originArchetypeKey: string | null): OriginTalentChoices => {
+    const granted = archetypeTalents(originArchetypeKey, deps)
+    const originSet = new Set(granted)
     const selectable = TALENT_KEYS.filter((key) => !originSet.has(key))
-    return { origin, selectable }
+    return { granted, selectable }
   }
 }

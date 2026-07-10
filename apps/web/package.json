@@ -7,6 +7,7 @@
     "dev": "next dev --turbopack",
     "build": "npm run db:migrate && next build",
     "start": "next start",
+    "depcheck": "node depcheck.mjs",
     "lint": "eslint",
     "format": "eslint --fix \"**/*.{ts,tsx}\" && prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",

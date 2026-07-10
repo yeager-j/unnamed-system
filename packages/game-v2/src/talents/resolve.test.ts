@@ -5,9 +5,9 @@ import type { ResolvedArchetypes } from "@workspace/game-v2/archetypes/resolved"
 import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import {
+  resolveOriginTalentChoices,
+  resolveTalentRoster,
   resolveTalents,
-  resolveTalentsForBuilder,
-  resolveTalentsForSheet,
 } from "@workspace/game-v2/talents/resolve"
 import { TALENT_KEYS } from "@workspace/game-v2/talents/vocab"
 
@@ -88,12 +88,12 @@ describe("resolveTalents (core union)", () => {
   })
 })
 
-describe("resolveTalentsForSheet (inherited-vs-owned partition)", () => {
+describe("resolveTalentRoster (inherited-vs-owned partition)", () => {
   it("splits Archetype-granted (inherited) from owned chips, each alpha", () => {
-    const { chips } = resolveTalentsForSheet(deps)(
+    const { entries } = resolveTalentRoster(deps)(
       resolvedEntity(["sneak", "perform"], "warrior")
     )
-    expect(chips).toEqual([
+    expect(entries).toEqual([
       { key: "athletics", label: "Athletics", inherited: true },
       { key: "climb", label: "Climb", inherited: true },
       { key: "lift", label: "Lift", inherited: true },
@@ -102,23 +102,23 @@ describe("resolveTalentsForSheet (inherited-vs-owned partition)", () => {
     ])
   })
 
-  it("omits every known Talent from `remaining`, keeps the rest alpha", () => {
-    const { remaining } = resolveTalentsForSheet(deps)(
+  it("omits every known Talent from `learnable`, keeps the rest alpha", () => {
+    const { learnable } = resolveTalentRoster(deps)(
       resolvedEntity(["sneak"], "warrior")
     )
-    const remainingKeys = remaining.map((entry) => entry.key)
+    const remainingKeys = learnable.map((entry) => entry.key)
     for (const known of ["climb", "lift", "athletics", "sneak"]) {
       expect(remainingKeys).not.toContain(known)
     }
-    expect(remaining).toHaveLength(TALENT_KEYS.length - 4)
-    expect(remaining[0]).toEqual({ key: "alchemy", label: "Alchemy" })
+    expect(learnable).toHaveLength(TALENT_KEYS.length - 4)
+    expect(learnable[0]).toEqual({ key: "alchemy", label: "Alchemy" })
   })
 
   it("labels an owned Talent that is also Archetype-granted in both groups (verbatim v1)", () => {
-    const { chips } = resolveTalentsForSheet(deps)(
+    const { entries } = resolveTalentRoster(deps)(
       resolvedEntity(["climb"], "warrior")
     )
-    const climbChips = chips.filter((chip) => chip.key === "climb")
+    const climbChips = entries.filter((entry) => entry.key === "climb")
     expect(climbChips).toEqual([
       { key: "climb", label: "Climb", inherited: true },
       { key: "climb", label: "Climb", inherited: false },
@@ -126,27 +126,27 @@ describe("resolveTalentsForSheet (inherited-vs-owned partition)", () => {
   })
 
   it("treats an entity with no Archetypes component as all-owned", () => {
-    const { chips } = resolveTalentsForSheet(deps)(
+    const { entries } = resolveTalentRoster(deps)(
       resolvedEntity(["lockpick"], null)
     )
-    expect(chips).toEqual([
+    expect(entries).toEqual([
       { key: "lockpick", label: "Lockpick", inherited: false },
     ])
   })
 })
 
-describe("resolveTalentsForBuilder (origin lock + selectable)", () => {
+describe("resolveOriginTalentChoices (origin lock + selectable)", () => {
   it("locks the Origin Talents and offers every other canonical Talent in key order", () => {
-    const { origin, selectable } = resolveTalentsForBuilder(deps)("warrior")
-    expect(origin).toEqual(["climb", "lift", "athletics"])
+    const { granted, selectable } = resolveOriginTalentChoices(deps)("warrior")
+    expect(granted).toEqual(["climb", "lift", "athletics"])
     expect(selectable).toEqual(
-      TALENT_KEYS.filter((key) => !origin.includes(key))
+      TALENT_KEYS.filter((key) => !granted.includes(key))
     )
   })
 
   it("offers the full canonical list when there is no Origin", () => {
-    const { origin, selectable } = resolveTalentsForBuilder(deps)(null)
-    expect(origin).toEqual([])
+    const { granted, selectable } = resolveOriginTalentChoices(deps)(null)
+    expect(granted).toEqual([])
     expect(selectable).toEqual([...TALENT_KEYS])
   })
 })

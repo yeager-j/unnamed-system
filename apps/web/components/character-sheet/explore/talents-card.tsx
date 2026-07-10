@@ -21,7 +21,7 @@ import {
 
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { resolveTalentsForSheet } from "@/lib/game-engine-v2"
+import { resolveTalentRoster } from "@/lib/game-engine-v2"
 
 import { SheetCard } from "../sheet-card"
 
@@ -39,7 +39,7 @@ export function TalentsCard() {
   const { dispatch } = useEntityWrite()
   const [addOpen, setAddOpen] = useState(false)
 
-  const { chips, remaining } = resolveTalentsForSheet(resolved)
+  const { entries, learnable } = resolveTalentRoster(resolved)
 
   const add = (key: string) => {
     setAddOpen(false)
@@ -71,7 +71,7 @@ export function TalentsCard() {
                 <CommandList>
                   <CommandEmpty>No Talent found.</CommandEmpty>
                   <CommandGroup>
-                    {remaining.map(({ key, label }) => (
+                    {learnable.map(({ key, label }) => (
                       <CommandItem key={key} onSelect={() => add(key)}>
                         {label}
                       </CommandItem>
@@ -84,9 +84,9 @@ export function TalentsCard() {
         </OwnerOnly>
       }
     >
-      {chips.length > 0 ? (
+      {entries.length > 0 ? (
         <div className="flex flex-wrap content-start gap-2">
-          {chips.map((chip) => (
+          {entries.map((chip) => (
             <Badge
               // An owned Talent the active Archetype also grants renders twice
               // (locked + removable), so the key carries the source.

@@ -4,7 +4,6 @@ import {
   type ArchetypeTier,
 } from "@workspace/game-v2/archetypes/archetype"
 import type { InheritanceSlot } from "@workspace/game-v2/archetypes/archetypes.schema"
-import { ORIGIN_ARCHETYPE_RANK } from "@workspace/game-v2/archetypes/creation"
 import { isInheritableSkill } from "@workspace/game-v2/archetypes/inheritance"
 import type { ResolvedRosterEntry } from "@workspace/game-v2/archetypes/resolved"
 import {
@@ -15,7 +14,7 @@ import type {
   PartyComposition,
   ScalerContext,
 } from "@workspace/game-v2/combat/party"
-import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
+import type { ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import {
   LINEAGE_SUGGESTED_PATH,
@@ -25,7 +24,6 @@ import {
   type SuggestedPath,
 } from "@workspace/game-v2/kernel/vocab"
 import { getMechanic } from "@workspace/game-v2/mechanics/registry"
-import { createResolve } from "@workspace/game-v2/resolve/resolve"
 import {
   resolveSkill,
   type ResolvedSkill,
@@ -78,17 +76,13 @@ export interface ArchetypeEntry {
   slots: ResolvedInheritanceSlot[]
 }
 
-export interface ArchetypeDisplay {
-  activeEntry: ArchetypeEntry | null
-}
-
 /** Off-entity inputs to the display resolvers — the party composition the
  *  attack-roll scaler reads (omit ⇒ no party scaling). */
 export interface ArchetypeDisplayContext {
   partyComposition?: PartyComposition | null
 }
 
-function rankedSkillsOf(
+export function resolveArchetypeSkills(
   archetype: Archetype,
   resolved: ResolvedEntity,
   scaler: ScalerContext | null,
@@ -170,7 +164,7 @@ function resolveSlots(
  * entry whose `key` no longer resolves to a catalog Archetype is skipped (drift).
  * Returns `[]` for an entity with no Archetypes component.
  */
-export function buildArchetypeEntries(
+export function resolveArchetypeRoster(
   deps: Pick<GameData, "getArchetype" | "getSkill">
 ) {
   return (
@@ -189,7 +183,7 @@ export function buildArchetypeEntries(
       const archetype = deps.getArchetype(entry.key)
       if (!archetype) return []
 
-      const { ranks, synthesis } = rankedSkillsOf(
+      const { ranks, synthesis } = resolveArchetypeSkills(
         archetype,
         resolved,
         scaler,
@@ -217,27 +211,9 @@ export function buildArchetypeEntries(
   }
 }
 
-/**
- * Shapes the Archetypes tab: the active Archetype entry (or `null`). Wraps
- * {@link buildArchetypeEntries} so the tab orchestrator stays on layout.
- */
-export function getArchetypeDisplay(
-  deps: Pick<GameData, "getArchetype" | "getSkill">
-) {
-  return (
-    resolved: ResolvedEntity,
-    context?: ArchetypeDisplayContext
-  ): ArchetypeDisplay => ({
-    activeEntry:
-      buildArchetypeEntries(deps)(resolved, context).find(
-        (entry) => entry.isActive
-      ) ?? null,
-  })
-}
-
 /** One unlocked Archetype as the header switcher shows it, keyed by the Archetype
  *  **key** the switch write targets (C9). */
-export interface ArchetypeSwitcherOption {
+export interface ArchetypeLineageOption {
   key: string
   name: string
   tier: ArchetypeTier
@@ -245,9 +221,9 @@ export interface ArchetypeSwitcherOption {
   mechanicName: string | null
 }
 
-export interface ArchetypeSwitcherGroup {
+export interface ArchetypeLineageGroup {
   lineage: Lineage
-  options: ArchetypeSwitcherOption[]
+  options: ArchetypeLineageOption[]
 }
 
 const LINEAGE_ORDER: Record<Lineage, number> = Object.fromEntries(
@@ -264,10 +240,10 @@ const TIER_ORDER = Object.fromEntries(
  * owner sheet. Canonical `LINEAGES` order; Tier-then-name within a Lineage; Lineages
  * with no unlocked Archetype are omitted; a roster key that doesn't resolve is skipped.
  */
-export function archetypeSwitcherGroups(deps: Pick<GameData, "getArchetype">) {
-  return (resolved: ResolvedEntity): ArchetypeSwitcherGroup[] => {
+export function archetypesByLineage(deps: Pick<GameData, "getArchetype">) {
+  return (resolved: ResolvedEntity): ArchetypeLineageGroup[] => {
     const roster = resolved.components.archetypes?.roster ?? []
-    const grouped = new Map<Lineage, ArchetypeSwitcherOption[]>()
+    const grouped = new Map<Lineage, ArchetypeLineageOption[]>()
 
     for (const entry of roster) {
       const archetype = deps.getArchetype(entry.key)
@@ -286,7 +262,7 @@ export function archetypeSwitcherGroups(deps: Pick<GameData, "getArchetype">) {
     }
 
     return [...grouped.entries()]
-      .map<ArchetypeSwitcherGroup>(([lineage, options]) => ({
+      .map<ArchetypeLineageGroup>(([lineage, options]) => ({
         lineage,
         options: [...options].sort((a, b) => {
           const tierDelta = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
@@ -330,59 +306,4 @@ export function sortArchetypesByPath<T extends Archetype>(
       ? aBucket - bBucket
       : LINEAGE_ORDER[a.lineage] - LINEAGE_ORDER[b.lineage]
   })
-}
-
-/**
- * Catalog-only preview of an Archetype's Skills (C7 — builder Step 2). Resolves
- * every Rank-keyed Skill (and Synthesis) against a **synthetic Rank-2,
- * equipment-less, single-Archetype** entity carrying the player's already-picked
- * `pathChoice` — Rank 2 is the Origin's auto-rank (below every Mastery rank), so the
- * preview shows concrete readouts ("1 HP", "Attack Roll +2") rather than percent
- * placeholders. Builds the entity, resolves it through the base fold, then runs the
- * same per-skill resolution the live sheet does.
- */
-export function previewArchetypeSkills(
-  deps: Pick<GameData, "getArchetype" | "getSkill">
-) {
-  const resolve = createResolve(deps)
-  return (
-    archetype: Archetype,
-    pathChoice: PathChoice
-  ): {
-    ranks: ResolvedArchetypeSkill[]
-    synthesis: ResolvedArchetypeSkill | null
-  } => {
-    const entity: Entity = {
-      id: "preview",
-      components: {
-        level: { value: 1, victories: 0 },
-        path: { choice: pathChoice },
-        archetypes: {
-          active: archetype.key,
-          origin: archetype.key,
-          savedArchetypeRanks: 0,
-          roster: [
-            {
-              key: archetype.key,
-              rank: ORIGIN_ARCHETYPE_RANK,
-              inheritanceSlots: [],
-            },
-          ],
-        },
-        attributes: { base: { strength: 0, magic: 0, agility: 0, luck: 0 } },
-        affinities: { base: {} },
-        vitals: { base: 0, damage: 0 },
-        skillPool: { base: 0, spSpent: 0 },
-      },
-    }
-    const resolved = resolve(entity)
-    // No party context in the preview (Rank-2, equipment-less synthetic entity), so
-    // the shared constructor's `partyComposition` defaults to null.
-    return rankedSkillsOf(
-      archetype,
-      resolved,
-      scalerFor(resolved),
-      deps.getSkill
-    )
-  }
 }

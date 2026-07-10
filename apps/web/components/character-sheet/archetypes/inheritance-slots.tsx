@@ -33,7 +33,7 @@ import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { buildArchetypeEntries } from "@/lib/game-engine-v2"
+import { resolveArchetypeRoster } from "@/lib/game-engine-v2"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -64,7 +64,7 @@ export function InheritanceSlots({
   // shares them, and the resolution re-hydrates every other Archetype's Skills.
   // Owner-only: a read-only viewer renders no picker, so it pays nothing.
   const sourceGroups: InheritanceSourceGroup[] = isOwner
-    ? inheritanceSourceGroups(buildArchetypeEntries(resolved), entry.key)
+    ? inheritanceSourceGroups(resolveArchetypeRoster(resolved), entry.key)
     : []
 
   if (total === 0) return null
