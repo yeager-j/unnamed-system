@@ -36,6 +36,7 @@ import {
  * order-independence of damage (what the signed model exists to buy) and the
  * over-max heal no-op (the clamp an example test can miss).
  */
+
 /**
  * The **everyday** domain: depletion far from the safe-integer boundary, so the ops
  * never saturate. The algebraic laws below hold *here* — saturation is precisely
