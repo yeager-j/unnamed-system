@@ -70,10 +70,23 @@ export function isValidCreationAllocation(
 }
 
 /**
+ * Whether an allocation already violates the rulebook 1.2 creation cap: more than
+ * one Virtue at +2, or more than two at +1. The single executable home for the
+ * cap — the write path checks it on the whole proposed allocation, and
+ * {@link wouldExceedAllocationCap} derives its per-segment answer from it.
+ */
+export function exceedsAllocationCap(allocation: VirtueAllocation): boolean {
+  const twos = VIRTUE_KEYS.filter((k) => allocation[k] === 2).length
+  const ones = VIRTUE_KEYS.filter((k) => allocation[k] === 1).length
+  return twos > 1 || ones > 2
+}
+
+/**
  * Returns `true` if setting `key` to `target` would push the allocation past the
- * rulebook 1.2 creation cap (>1 Virtue at +2, or >2 Virtues at +1). Clearing
- * (`target === 0`) and re-clicking the current rank are never disabled — the
- * Virtues control uses this to disable the cap-violating segment of each control.
+ * rulebook 1.2 creation cap. Clearing (`target === 0`) and re-clicking the current
+ * rank are never disabled — the Virtues control uses this to disable the
+ * cap-violating segment of each control. Derives its answer from
+ * {@link exceedsAllocationCap} over the hypothetical next allocation.
  */
 export function wouldExceedAllocationCap(
   allocation: VirtueAllocation,
@@ -82,10 +95,7 @@ export function wouldExceedAllocationCap(
 ): boolean {
   if (target === 0) return false
   if (allocation[key] === target) return false
-  const next: VirtueAllocation = { ...allocation, [key]: target }
-  const twos = VIRTUE_KEYS.filter((k) => next[k] === 2).length
-  const ones = VIRTUE_KEYS.filter((k) => next[k] === 1).length
-  return twos > 1 || ones > 2
+  return exceedsAllocationCap({ ...allocation, [key]: target })
 }
 
 /**

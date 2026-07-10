@@ -1,4 +1,7 @@
 import {
+  applySetInheritanceSlot,
+  applySetOrigin,
+  applySpendArchetypeRank,
   archetypeSwitcherGroups,
   buildArchetypeEntries,
   buildLineageAtlas,
@@ -197,6 +200,13 @@ export function createGameEngine(deps: GameData = gameData) {
     startingWeaponForLineage: (lineage: Lineage) =>
       deps.startingWeaponForLineage(lineage),
     getArchetype: (key: string) => deps.getArchetype(key),
+    // The archetype write transitions (UNN-595): the roster edits that own their
+    // rulebook invariants — Origin minting, Inheritance-Slot fills, and the
+    // Saved-Rank economy — bound to the catalog so the entity write door's four
+    // rule-bearing arms reduce to capability-check → transition → merge.
+    applySetOrigin: applySetOrigin(deps),
+    applySetInheritanceSlot: applySetInheritanceSlot(deps),
+    applySpendArchetypeRank: applySpendArchetypeRank(deps),
     // Talent resolution (E3 — UNN-554): the derived Talent roster (owned +
     // active-Archetype union) + the sheet/builder display partitions. Talent names
     // come from the domain-local catalog; only `getArchetype` is injected. The sheet

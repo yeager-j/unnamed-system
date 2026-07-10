@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
-import { creationArchetypes } from "@workspace/game-v2/archetypes/creation"
+import type { Archetypes } from "@workspace/game-v2/archetypes/archetypes.schema"
+import {
+  applySetOrigin,
+  creationArchetypes,
+} from "@workspace/game-v2/archetypes/creation"
 
 function archetype(overrides: Partial<Archetype> & { key: string }): Archetype {
   return {
@@ -18,6 +22,15 @@ function archetype(overrides: Partial<Archetype> & { key: string }): Archetype {
     ...overrides,
   }
 }
+
+const CATALOG = new Map(
+  [archetype({ key: "warrior" }), archetype({ key: "knight" })].map((a) => [
+    a.key,
+    a,
+  ])
+)
+
+const setOrigin = applySetOrigin({ getArchetype: (key) => CATALOG.get(key) })
 
 describe("creationArchetypes", () => {
   const catalog: Archetype[] = [
@@ -37,5 +50,61 @@ describe("creationArchetypes", () => {
       allArchetypes: () => [archetype({ key: "knight", tier: "adept" })],
     })()
     expect(eligible).toEqual([])
+  })
+})
+
+describe("applySetOrigin", () => {
+  it("mints the archetypes component from absent at ORIGIN_ARCHETYPE_RANK (rank 2)", () => {
+    const result = setOrigin({}, "warrior")
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          active: "warrior",
+          origin: "warrior",
+          savedArchetypeRanks: 0,
+          roster: [{ key: "warrior", rank: 2, inheritanceSlots: [] }],
+        },
+      },
+    })
+  })
+
+  it("switch = delete-and-replace, preserving banked Saved Ranks", () => {
+    const existing: Archetypes = {
+      active: "warrior",
+      origin: "warrior",
+      savedArchetypeRanks: 3,
+      roster: [
+        { key: "warrior", rank: 4, inheritanceSlots: [] },
+        { key: "mage", rank: 2, inheritanceSlots: [] },
+      ],
+    }
+    const result = setOrigin({ archetypes: existing }, "knight")
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        archetypes: {
+          active: "knight",
+          origin: "knight",
+          savedArchetypeRanks: 3,
+          roster: [{ key: "knight", rank: 2, inheritanceSlots: [] }],
+        },
+      },
+    })
+  })
+
+  it("touches only the archetypes component (single-class write)", () => {
+    const result = setOrigin({}, "warrior")
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(Object.keys(result.value)).toEqual(["archetypes"])
+    }
+  })
+
+  it("refuses 'invalid-input' for a key the catalog doesn't define, without mutating", () => {
+    const input = {}
+    const result = setOrigin(input, "nonexistent")
+    expect(result).toEqual({ ok: false, error: "invalid-input" })
+    expect(input).toEqual({})
   })
 })
