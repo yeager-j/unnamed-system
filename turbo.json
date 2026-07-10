@@ -16,7 +16,9 @@
     "NEXT_PUBLIC_INCLUDE_DEMO_ARCHETYPES",
     "ABLY_API_KEY",
     "VERCEL_ENV",
-    "VERCEL_GIT_COMMIT_REF"
+    "VERCEL_GIT_COMMIT_REF",
+    "FC_SEED",
+    "FC_NUM_RUNS"
   ],
   "tasks": {
     "build": {

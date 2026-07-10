@@ -33,6 +33,7 @@ export default defineConfig({
     environment: "node",
     include: ["**/*.test.ts", "**/*.test.tsx"],
     exclude: ["e2e/**", "node_modules/**"],
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
       // Coverage here is a GAP-FINDER for the pure game engine, not a quality
       // gate (UNN-351). It answers "which rules has no test ever run?" — so it

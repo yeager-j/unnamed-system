@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import { emptyNarrative } from "@workspace/game-v2/narrative"
 
-import { combatEntityWriteSchema, entityWriteSchema } from "./write.schema"
+import {
+  combatEntityWriteSchema,
+  entityWriteSchema,
+  MAX_POOL_AMOUNT,
+} from "./write.schema"
 import { applyEntityWrite, ENTITY_WRITERS } from "./writers"
 
 describe("entityWriteSchema — the storage-blind descriptor", () => {
@@ -35,6 +39,10 @@ describe("entityWriteSchema — the storage-blind descriptor", () => {
   it.each([
     { component: "vitals", op: "damage", amount: 0 },
     { component: "vitals", op: "damage", amount: -3 },
+    // Unbounded, `applyDamage` accumulates past the safe-integer range that
+    // `vitals.damage`'s load schema enforces, and the row stops loading forever.
+    { component: "vitals", op: "damage", amount: MAX_POOL_AMOUNT + 1 },
+    { component: "skillPool", op: "damage", amount: Number.MAX_SAFE_INTEGER },
     { component: "vitals", op: "usePrisma" },
     { component: "resources", op: "damage", amount: 1 },
     { component: "rest", op: "partialRest", skillDiceToSpend: -1, rolled: 4 },

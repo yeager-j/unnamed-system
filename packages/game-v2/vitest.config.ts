@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    setupFiles: ["./vitest.setup.ts"],
     coverage: {
       // Gap-finder for the logic layer (UNN-499/D33): `*.schema.ts` are pure
       // authored shapes, `catalog/` is authored data, `composition.ts` is wiring —
@@ -24,6 +25,7 @@ export default defineConfig({
         "src/**/*.schema.ts",
         "src/catalog/**",
         "src/**/__fixtures__/**",
+        "src/**/__laws__/**",
         "src/composition.ts",
       ],
     },

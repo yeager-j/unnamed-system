@@ -70,6 +70,7 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.2",
+    "fast-check": "^4.9.0",
     "jsdom": "^29.1.1",
     "tsx": "^4.22.0",
     "typescript": "^5.9.3",

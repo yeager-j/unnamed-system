@@ -45,17 +45,25 @@ const TALENT_NAMES: Record<TalentKey, string> = {
   monsters: "Monsters",
 }
 
-const TALENTS_BY_KEY = Object.fromEntries(
+/**
+ * A `Map`, like every other catalog index (`ARCHETYPES_BY_KEY`, `SKILLS_BY_KEY`,
+ * `ITEMS_BY_KEY`) — not a plain object. A Talent key is an open string off a jsonb
+ * column, so an object index answers `getTalent("constructor")` with
+ * `Object.prototype.constructor` and `getTalent("__proto__")` with
+ * `Object.prototype`. A `Map` has no prototype chain to walk into, and the lookup
+ * needs no cast to widen its key.
+ */
+const TALENTS_BY_KEY = new Map<string, Talent>(
   TALENT_KEYS.map((key) => [key, { key, name: TALENT_NAMES[key] }])
-) as Record<TalentKey, Talent>
+)
 
 /** Every canonical Talent, in {@link TALENT_KEYS} order. */
-export const TALENTS: readonly Talent[] = Object.values(TALENTS_BY_KEY)
+export const TALENTS: readonly Talent[] = [...TALENTS_BY_KEY.values()]
 
 /**
  * Looks up a canonical Talent by its slug key. Returns `undefined` when no Talent
  * matches.
  */
 export function getTalent(key: string): Talent | undefined {
-  return (TALENTS_BY_KEY as Record<string, Talent>)[key]
+  return TALENTS_BY_KEY.get(key)
 }

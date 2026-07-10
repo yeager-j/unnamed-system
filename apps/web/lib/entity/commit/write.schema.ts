@@ -53,10 +53,25 @@ import {
  * is the router's decision (ADR §2.4/§2.9).
  */
 
+/**
+ * The wire sanity bound on a pool write — the `equipmentAddArm.quantity` /
+ * `equipmentCurrencyArm.amount` precedent, and load-bearing rather than cosmetic.
+ *
+ * `applyDamage`/`applySpendSP` accumulate **unclamped** (a deliberate D10 choice:
+ * overkill keeps its true magnitude), while `vitals.damage` loads as
+ * `z.number().int()`, which is a *safe*-integer check. Without a bound, two
+ * wire-valid `damage` writes of `Number.MAX_SAFE_INTEGER` sum past 2^53: the
+ * optimistic client renders the frame, the row persists, and every later
+ * `loadEntityRow` fails with `entity-load-failed` — the row is unreadable for
+ * good. The isomorphism law quantifies over exactly this arm's domain, so the
+ * bound is what keeps that law true.
+ */
+export const MAX_POOL_AMOUNT = 9_999
+
 const poolsArm = z.object({
   component: z.enum(["vitals", "skillPool"]),
   op: z.enum(["damage", "heal", "setMax"]),
-  amount: z.number().int().positive(),
+  amount: z.number().int().positive().max(MAX_POOL_AMOUNT),
 })
 
 const resourcesArm = z.object({
