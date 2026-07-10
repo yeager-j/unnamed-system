@@ -7,6 +7,7 @@ import {
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
@@ -43,10 +44,10 @@ function buildRoster(
  * `shortId` (UNN-466), or `null` when no dungeon matches (the page's 404 / the API
  * route's 404). The impure shell around the pure {@link projectDungeonSnapshot}: it
  * loads the dungeon + its Map Instance and the campaign's placed-character roster
- * (for token names/portraits), then projects. The snapshot is always combat-free:
- * during a live fight the watch page forks to the fogged v2 combat watch
- * ({@link import("@/components/dungeon/combat/watch").DungeonCombatWatch}, UNN-536),
- * so this exploration snapshot never carries a combat overlay.
+ * (for token names/portraits), then projects. During a live fight the snapshot
+ * carries the fight's **linkage** (`combat.encounterShortId`, UNN-603) — the
+ * observable phase signal the watch client acts on — but never combat session
+ * content; the combatant data stays the fogged combat snapshot's concern.
  *
  * The fog **redaction lives in the projector**, so it is unconditional and
  * server-side — this loader never ships DM notes, undiscovered Zones, or unrevealed
@@ -61,10 +62,11 @@ export async function getDungeonSnapshot(
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
 
-  const [campaign, instance, placed] = await Promise.all([
+  const [campaign, instance, placed, liveEncounter] = await Promise.all([
     loadCampaignRowById(dungeon.campaignId),
     loadMapInstanceById(dungeon.mapInstanceId),
     loadPlacedCharactersForCampaign(dungeon.campaignId),
+    loadLiveEncounterForMapInstance(dungeon.mapInstanceId),
   ])
   if (!instance) return null
 
@@ -85,6 +87,9 @@ export async function getDungeonSnapshot(
       campaignShortId: campaign?.shortId ?? "",
       version: dungeon.version,
       instanceVersion: instance.version,
+      ...(liveEncounter
+        ? { combat: { encounterShortId: liveEncounter.shortId } }
+        : {}),
     },
     instance.state,
     dungeon.state,
