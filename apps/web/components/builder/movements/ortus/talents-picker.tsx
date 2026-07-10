@@ -29,7 +29,7 @@ import {
 } from "@workspace/ui/components/field"
 
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { resolveTalentsForBuilder } from "@/lib/game-engine-v2"
+import { resolveOriginTalentChoices } from "@/lib/game-engine-v2"
 import { talentLabel } from "@/lib/ui/labels"
 
 /**
@@ -62,8 +62,8 @@ export function TalentsPicker() {
   const anchor = useComboboxAnchor()
 
   const originArchetypeKey = entity.components.archetypes?.origin ?? null
-  const { origin, selectable } = resolveTalentsForBuilder(originArchetypeKey)
-  const originGranted = new Set(origin)
+  const { granted, selectable } = resolveOriginTalentChoices(originArchetypeKey)
+  const originGranted = new Set(granted)
   // Stored keys are open strings in v2; the picker treats them as canonical
   // keys for display (an unknown key simply never matches the canonical list).
   const gainedTalents = (entity.components.talents ?? [])
@@ -100,11 +100,11 @@ export function TalentsPicker() {
       </FieldDescription>
 
       <div className="flex flex-col gap-4">
-        {origin.length > 0 ? (
+        {granted.length > 0 ? (
           <div className="flex flex-col gap-2">
             <FieldLabel>From your Origin Archetype</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {origin.map((key) => (
+              {granted.map((key) => (
                 <Badge
                   key={key}
                   variant="secondary"

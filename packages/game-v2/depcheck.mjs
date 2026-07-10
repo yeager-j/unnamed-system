@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
  * `eslint-plugin-only-warn`, which downgrades every rule — including the
  * `no-restricted-imports` import bans — to a *warning*, so `eslint` exits 0 even
  * on a violation. This script fails closed (exit 1) so CI and the local loop
- * actually enforce the two load-bearing rules:
+ * actually enforce the load-bearing rules:
  *
  *  1. **Independence (D32).** v2 is the successor that replaces v1, so it imports
  *     **nothing** from `@workspace/game`. The dying types (`HydratedCharacter`,
@@ -18,6 +18,10 @@ import { fileURLToPath, pathToFileURL } from "node:url"
  *  2. **Logic never value-imports the concrete catalog (D33).** Catalog access is
  *     injected through the `kernel/ports` seam; only `catalog/**` (the
  *     implementation) and `composition.ts` (which binds it) may name it directly.
+ *  3. **Spatial is one-way (SD2).** `spatial/**` cannot import the combat-facing
+ *     encounter/combat/visibility domains that compose it.
+ *  4. **Resolve composes Archetypes.** `resolve/**` may import `archetypes/**`, but
+ *     Archetype modules cannot reach back into resolve and recreate their cycle.
  *
  * The ESLint rules in `eslint.config.js` mirror these for editor-time signal;
  * this script is the enforcement.
@@ -162,6 +166,31 @@ function isForbiddenSpatialImport(relPath, specifier) {
 }
 
 /**
+ * The resolve tier may compose Archetype reads; the Archetype domain must not
+ * reach back up into resolve or the two modules form a cycle.
+ * @param {string} relPath POSIX path relative to `src/`
+ * @param {string} specifier
+ * @returns {boolean}
+ */
+function isForbiddenArchetypeResolveImport(relPath, specifier) {
+  if (!relPath.startsWith("archetypes/")) return false
+
+  if (
+    specifier === "@workspace/game-v2/resolve" ||
+    specifier.startsWith("@workspace/game-v2/resolve/")
+  ) {
+    return true
+  }
+
+  return (
+    specifier.startsWith(".") &&
+    posix
+      .normalize(posix.join(posix.dirname(relPath), specifier))
+      .startsWith("resolve/")
+  )
+}
+
+/**
  * The pure rule check for one file's source — exported so the gate's own tests
  * can prove it fails closed on every import form (single-line, multi-line,
  * re-export, dynamic) without walking the filesystem.
@@ -205,6 +234,15 @@ export function scanSource(relPath, source) {
         rule: "spatial must not import encounter/combat/visibility — the seam is one-way (SD2)",
       })
     }
+
+    if (isForbiddenArchetypeResolveImport(relPath, specifier)) {
+      violations.push({
+        file: relPath,
+        line,
+        specifier,
+        rule: "archetypes must not import resolve — the seam is resolve → archetypes",
+      })
+    }
   }
   return violations
 }
@@ -232,6 +270,9 @@ function run() {
   console.log("✓ game-v2 dependency check passed (no forbidden imports).")
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   run()
 }

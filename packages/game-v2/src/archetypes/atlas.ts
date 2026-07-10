@@ -20,7 +20,7 @@ import { MAX_LEVEL } from "@workspace/game-v2/progression/leveling"
 /**
  * The Lineage Atlas view-model (ported from v1 `engine/archetypes/atlas.ts`) — the
  * *growth* view over the **whole** Archetype catalog, in contrast to
- * {@link import("./display").getArchetypeDisplay} which shapes only the Archetypes a
+ * {@link import("./display").resolveArchetypeRoster} which shapes only the Archetypes a
  * character has unlocked. v2 reads the owned roster off the **`ResolvedEntity`** and
  * keys ownership by Archetype **key** (`ownedKey`), replacing v1's surrogate
  * `characterArchetype` row id.

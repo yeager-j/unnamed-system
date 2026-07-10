@@ -141,4 +141,25 @@ describe("depcheck gate (scanSource)", () => {
       )
     ).toHaveLength(0)
   })
+
+  it("forbids archetypes → resolve and allows resolve → archetypes", () => {
+    expect(
+      scanSource(
+        "archetypes/display.ts",
+        `import { createResolve } from "@workspace/game-v2/resolve"\n`
+      )
+    ).toHaveLength(1)
+    expect(
+      scanSource(
+        "archetypes/sub/deep.ts",
+        `import { createResolve } from "../../resolve/resolve"\n`
+      )
+    ).toHaveLength(1)
+    expect(
+      scanSource(
+        "resolve/creation-archetype-skills.ts",
+        `import { resolveArchetypeSkills } from "@workspace/game-v2/archetypes/display"\n`
+      )
+    ).toHaveLength(0)
+  })
 })

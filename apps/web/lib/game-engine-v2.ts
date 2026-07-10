@@ -22,22 +22,21 @@ export const {
   // helpers (allocation validators, sortArchetypesByPath, path stats) are
   // imported straight from their @workspace/game-v2 barrels at call sites.
   creationArchetypes,
-  previewArchetypeSkills,
-  resolveTalentsForBuilder,
+  resolveCreationArchetypeSkills,
+  resolveOriginTalentChoices,
   // The sheet's Archetypes tab (S2d — UNN-560): the active-entry shaper, the
   // roster-entry builder its inheritance picker resolves source groups from,
   // and the lineage-grouped switcher options the rail's pill renders. Pure,
   // deps-free helpers (`inheritanceSourceGroups`, `isInheritableSkill`) are
   // imported straight from `@workspace/game-v2/archetypes/inheritance`.
-  getArchetypeDisplay,
-  buildArchetypeEntries,
-  archetypeSwitcherGroups,
+  resolveArchetypeRoster,
+  archetypesByLineage,
   // The Lineage Atlas growth surface (S3 — UNN-561): the tree/state shaper and
   // the Path-aware recommendation picker, both bound to the catalog here.
   buildLineageAtlas,
   getAtlasRecommendations,
   // The sheet's Talents card (S2b — UNN-558).
-  resolveTalentsForSheet,
+  resolveTalentRoster,
   // The sheet's Inventory tab (S2c — UNN-559): the display shaper + the
   // add-item picker's catalog enumeration. Writes go through the equipment
   // Writer (`lib/entity/commit/arms/inventory`), not this barrel.

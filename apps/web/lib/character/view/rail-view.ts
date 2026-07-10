@@ -1,4 +1,4 @@
-import type { ArchetypeSwitcherGroup } from "@workspace/game-v2/archetypes/display"
+import type { ArchetypeLineageGroup } from "@workspace/game-v2/archetypes/display"
 import { renderFormula } from "@workspace/game-v2/combat/formula"
 import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
@@ -11,6 +11,7 @@ import { PRISMA_HEAL } from "@workspace/game-v2/resources/derive"
 import { MAX_EXHAUSTION_LEVEL } from "@workspace/game-v2/resources/exhaustion.schema"
 
 import type { CharacterProfile } from "@/lib/character/load"
+import { archetypesByLineage } from "@/lib/game-engine-v2"
 
 /**
  * The sheet's persistent **left rail** view model (UNN-557; design handoff
@@ -39,15 +40,15 @@ export interface RailPool {
 }
 
 /**
- * The archetype pill + its switch menu. Options are the engine's
- * lineage-grouped {@link ArchetypeSwitcherGroup}s (the "switcher-groups" read,
- * C8–C10) — the pill's popover groups by Lineage, Tier-then-name within one.
+ * The archetype pill + its switch menu. Options are the engine's content-named
+ * lineage groups (C8–C10) — the pill's popover groups by Lineage, then
+ * Tier-and-name within one.
  */
 export interface RailArchetype {
   activeKey: string | null
   activeName: string | null
   activeRank: number | null
-  groups: ArchetypeSwitcherGroup[]
+  groups: ArchetypeLineageGroup[]
 }
 
 export interface RailVictories {
@@ -75,8 +76,7 @@ export interface RailExhaustion {
 export function buildRailView(
   profile: Pick<CharacterProfile, "name" | "pronouns" | "portraitUrl">,
   entity: Entity,
-  resolved: ResolvedEntity,
-  switcherGroups: (resolved: ResolvedEntity) => ArchetypeSwitcherGroup[]
+  resolved: ResolvedEntity
 ): RailView {
   const { archetypes, vitals, skillPool, attributes, resources } =
     resolved.components
@@ -90,7 +90,7 @@ export function buildRailView(
     portraitUrl: profile.portraitUrl,
     level: level?.value ?? null,
     archetype: archetypes
-      ? railArchetype(archetypes, switcherGroups(resolved))
+      ? railArchetype(archetypes, archetypesByLineage(resolved))
       : null,
     hp: vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null,
     sp: skillPool
@@ -125,7 +125,7 @@ export function buildRailView(
 
 function railArchetype(
   archetypes: NonNullable<ResolvedEntity["components"]["archetypes"]>,
-  groups: ArchetypeSwitcherGroup[]
+  groups: ArchetypeLineageGroup[]
 ): RailArchetype {
   const active = groups
     .flatMap((group) => group.options)

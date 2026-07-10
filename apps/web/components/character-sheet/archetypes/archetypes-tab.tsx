@@ -22,7 +22,7 @@ import { Prose } from "@/components/shared/prose"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 import { affinityCells } from "@/lib/character/view/affinity-strip"
-import { getArchetypeDisplay } from "@/lib/game-engine-v2"
+import { buildArchetypesTabView } from "@/lib/character/view/archetypes-tab"
 
 import { AffinityStrip } from "../combat/affinity-strip"
 import { AttributesBlock } from "../rail/attributes-block"
@@ -34,12 +34,12 @@ import { InheritanceSlots } from "./inheritance-slots"
  * roster/switch affordance lives on the persistent rail (`ArchetypePill`), so
  * this surface renders one Archetype — its identity (attributes/affinities/
  * talents), its unique mechanic prose, its Skills-by-Rank, and its inheritance
- * slots. Layout-only over `getArchetypeDisplay`; switching the active Archetype
+ * slots. Layout-only over `buildArchetypesTabView`; switching the active Archetype
  * in the rail re-folds and this whole surface follows in the same frame.
  */
 export function ArchetypesTab() {
   const { profile, resolved } = useLoadedCharacter()
-  const { activeEntry } = getArchetypeDisplay(resolved)
+  const { activeEntry } = buildArchetypesTabView(resolved)
   const attributes = resolved.components.attributes
   const isOrigin =
     activeEntry !== null &&

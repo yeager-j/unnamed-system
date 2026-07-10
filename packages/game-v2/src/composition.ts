@@ -2,39 +2,21 @@ import {
   applySetInheritanceSlot,
   applySetOrigin,
   applySpendArchetypeRank,
-  archetypeSwitcherGroups,
-  buildArchetypeEntries,
+  archetypesByLineage,
   buildLineageAtlas,
   creationArchetypes,
-  getArchetypeDisplay,
   getAtlasRecommendations,
-  previewArchetypeSkills,
+  resolveArchetypeRoster,
 } from "@workspace/game-v2/archetypes"
 import { gameData } from "@workspace/game-v2/catalog"
 import {
-  addParticipantPaired,
-  comintMapInstance,
-  compareInitiative,
-  createReduceEncounter,
-  createReduceSession,
   createSessionFactory,
-  derivePartyComposition,
-  derivePartyCompositionBySide,
-  endOfTurnObligations,
-  engagementCandidates,
-  fallenParticipantIds,
   instantiateCatalogEnemy,
   mapInstanceComponentsFor,
-  participantDisplayNames,
-  removeParticipantPaired,
   resolveSession,
   spatialReadsFor,
-  type CombatEvent,
-  type EncounterEvent,
-  type EncounterState,
   type ParticipantSetup,
   type Session,
-  type SessionEvent,
 } from "@workspace/game-v2/encounter"
 import {
   applyInventoryMutation,
@@ -45,32 +27,19 @@ import {
   type InventoryMutation,
 } from "@workspace/game-v2/items"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
-import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { GameData } from "@workspace/game-v2/kernel/ports"
 import type { Lineage } from "@workspace/game-v2/kernel/vocab"
-import { createResolve, createResolveEntity } from "@workspace/game-v2/resolve"
 import {
-  applyFullRest,
-  applyPartialRest,
-  applyRespite,
-} from "@workspace/game-v2/resources"
+  createResolve,
+  createResolveEntity,
+  resolveCreationArchetypeSkills,
+} from "@workspace/game-v2/resolve"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import {
+  resolveOriginTalentChoices,
+  resolveTalentRoster,
   resolveTalents,
-  resolveTalentsForBuilder,
-  resolveTalentsForSheet,
 } from "@workspace/game-v2/talents"
-import {
-  addSpark,
-  coerceVirtueAllocation,
-  describeAllocationProgress,
-  eligibleVirtuesForRankUp,
-  isValidCreationAllocation,
-  rankUpVirtue,
-  sparkLogBreakdown,
-  wouldExceedAllocationCap,
-} from "@workspace/game-v2/virtues"
-import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
 
 /**
  * The **composition root** (D33, the `createGameEngine` equivalent): the one place
@@ -122,44 +91,6 @@ export function createGameEngine(deps: GameData = gameData) {
     // appends to an existing session, so it instantiates enemies here instead
     // of re-minting; `undefined` flags a wire-supplied unknown key to reject.
     instantiateEnemy: instantiateCatalogEnemy(deps),
-    // The pure combat-session reducer + its composition root (UNN-517). `newId`
-    // is injected here (R24.3) — the reducer carries no catalog dep (CD4). The
-    // session reducer accepts the full `SessionEvent` (the write-router feeds it
-    // the ephemeral vitals events); `reduceEncounter` routes the combat **and**
-    // spatial wire over the now-concrete `EncounterState` (UNN-529, §2.9).
-    reduceSession: (
-      session: Session,
-      event: SessionEvent,
-      newId: () => string
-    ) => createReduceSession(newId)(session, event),
-    reduceEncounter: (
-      state: EncounterState,
-      event: EncounterEvent,
-      newId: () => string
-    ) => createReduceEncounter(newId)(state, event),
-    // The pure cross-row gestures the impure two-row `guardMany` transaction
-    // composes (UNN-529, §2.9): the birth co-mint (participantId === token key) +
-    // the add/remove occupancy pairings. Combat-end's `pruneCombat` is the spatial
-    // helper PR2 already ships; the status flip is an app-layer column.
-    comintMapInstance: (
-      session: Session,
-      placement: Record<ParticipantId, string>,
-      base?: MapInstanceState
-    ) => comintMapInstance(session, placement, base),
-    addParticipantPaired: (
-      state: EncounterState,
-      event: Extract<CombatEvent, { kind: "addParticipant" }>,
-      zoneId: string,
-      newId: () => string
-    ) => addParticipantPaired(newId)(state, event, zoneId),
-    removeParticipantPaired: (
-      state: EncounterState,
-      event: Extract<CombatEvent, { kind: "removeParticipant" }>,
-      newId: () => string
-    ) => removeParticipantPaired(newId)(state, event),
-    // The D28#2 allegiance-gated engagement-candidate selector (composition-tier,
-    // allegiance injected from the session overlay + spatial's zoneOf).
-    engagementCandidates,
     // Resolved-encounter view (UNN-525, read-bag wired UNN-529): resolve every
     // participant once with zone context, and fill the instance read-bag
     // (`position`/`engagement`) from the Map-Instance occupancy — both adapters
@@ -171,26 +102,15 @@ export function createGameEngine(deps: GameData = gameData) {
         resolveEntity,
         mapInstanceComponentsFor(mapInstance)
       ),
-    // Turn loop (UNN-518): pure functions of the resolved view — no `resolve`
-    // partial-application (UNN-525), so they're re-exposed as-is. The pure session
-    // selectors (pendingParticipants / nextDraftingSide / eligibleParticipants /
-    // actionAvailability) take no view and are imported from the encounter barrel.
-    compareInitiative,
-    fallenParticipantIds,
-    derivePartyComposition,
-    derivePartyCompositionBySide,
-    participantDisplayNames,
-    endOfTurnObligations,
-    // Archetypes (PR6 — UNN-504): the Atlas, archetype display/preview, and the
-    // switcher, bound to the catalog. The display/atlas functions read the archetype
+    // Archetypes (PR6 — UNN-504): content-named roster, Atlas, lineage groups, and
+    // creation-Skill reads bound to the catalog. These functions read the archetype
     // roster off the ResolvedEntity (the resolved Archetypes read-unit); the caller
     // resolves first, then hands the resolved entity here.
-    getArchetypeDisplay: getArchetypeDisplay(deps),
-    buildArchetypeEntries: buildArchetypeEntries(deps),
+    resolveArchetypeRoster: resolveArchetypeRoster(deps),
     buildLineageAtlas: buildLineageAtlas(deps),
     getAtlasRecommendations: getAtlasRecommendations(deps),
-    archetypeSwitcherGroups: archetypeSwitcherGroups(deps),
-    previewArchetypeSkills: previewArchetypeSkills(deps),
+    archetypesByLineage: archetypesByLineage(deps),
+    resolveCreationArchetypeSkills: resolveCreationArchetypeSkills(deps),
     // Creation-eligible Origin set (E1 — UNN-552): the catalog filtered to the
     // initiate tier, bound over the `allArchetypes` port.
     creationArchetypes: creationArchetypes(deps),
@@ -208,31 +128,12 @@ export function createGameEngine(deps: GameData = gameData) {
     applySetInheritanceSlot: applySetInheritanceSlot(deps),
     applySpendArchetypeRank: applySpendArchetypeRank(deps),
     // Talent resolution (E3 — UNN-554): the derived Talent roster (owned +
-    // active-Archetype union) + the sheet/builder display partitions. Talent names
-    // come from the domain-local catalog; only `getArchetype` is injected. The sheet
-    // partition reads owned Talents + active Archetype off the ResolvedEntity.
+    // active-Archetype union), full content roster, and Origin choices. Surface
+    // partitions live in the app view layer; only `getArchetype` is injected here.
     resolveTalents: (ownedKeys: string[], activeArchetypeKey: string | null) =>
       resolveTalents(ownedKeys, activeArchetypeKey, deps),
-    resolveTalentsForSheet: resolveTalentsForSheet(deps),
-    resolveTalentsForBuilder: resolveTalentsForBuilder(deps),
-    // Virtues (E1 — UNN-552): the Spark transitions + the creation-allocation
-    // validators + the path display reads. All pure — no catalog, re-exposed as-is.
-    addSpark,
-    rankUpVirtue,
-    eligibleVirtuesForRankUp,
-    sparkLogBreakdown,
-    isValidCreationAllocation,
-    coerceVirtueAllocation,
-    wouldExceedAllocationCap,
-    describeAllocationProgress,
-    getPathStats,
-    getPathDice,
-    // Rest transitions (E2 — UNN-553): Full/Partial/Respite pool recovery, returning
-    // whole updated components (UNN-601). All pure — no catalog, re-exposed as-is;
-    // the S2a Combat-tab rest dialog dispatches them through the entity write door.
-    applyFullRest,
-    applyPartialRest,
-    applyRespite,
+    resolveTalentRoster: resolveTalentRoster(deps),
+    resolveOriginTalentChoices: resolveOriginTalentChoices(deps),
   }
 }
 

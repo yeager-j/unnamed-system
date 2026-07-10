@@ -10,7 +10,7 @@ import { ArchetypeResolvedSkills } from "@/components/archetype/archetype-resolv
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import { previewArchetypeSkills } from "@/lib/game-engine-v2"
+import { resolveCreationArchetypeSkills } from "@/lib/game-engine-v2"
 
 /**
  * The body of the Movement 1 Origin Archetype detail {@link ArchetypeDialog}
@@ -27,7 +27,10 @@ export function ArchetypeDetail({
   archetype: Archetype
   pathChoice: PathChoice
 }) {
-  const { ranks, synthesis } = previewArchetypeSkills(archetype, pathChoice)
+  const { ranks, synthesis } = resolveCreationArchetypeSkills(
+    archetype,
+    pathChoice
+  )
 
   return (
     <div className="flex flex-col gap-6">

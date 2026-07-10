@@ -5,5 +5,6 @@
  * entry point that layers the active mechanic's form + effects on top. Reconciled
  * here so the pipeline has one coherent home (UNN-512), not split across folders.
  */
+export * from "./creation-archetype-skills"
 export * from "./resolve"
 export * from "./resolve-entity"
