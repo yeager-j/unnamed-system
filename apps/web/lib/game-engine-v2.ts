@@ -45,4 +45,10 @@ export const {
   allItems,
   startingWeaponForLineage,
   getArchetype,
+  // The archetype write transitions the entity write door dispatches (UNN-595):
+  // Origin minting, Inheritance-Slot fills, and the Saved-Rank economy — each
+  // owns its rulebook rules in `game-v2/archetypes`, so the Writer arms are thin.
+  applySetOrigin,
+  applySetInheritanceSlot,
+  applySpendArchetypeRank,
 } = engine

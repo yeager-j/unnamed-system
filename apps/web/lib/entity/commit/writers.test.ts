@@ -580,101 +580,6 @@ describe("applyEntityWrite — inheritance slots (UNN-560)", () => {
     })
   })
 
-  it("replaces a configured slot in place (Change)", () => {
-    const components = {
-      archetypes: {
-        ...knightMage().archetypes,
-        roster: [
-          {
-            key: "knight",
-            rank: 4,
-            inheritanceSlots: [
-              { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
-            ],
-          },
-          { key: "mage", rank: 2, inheritanceSlots: [] },
-        ],
-      },
-    }
-    const result = applyEntityWrite(components, {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 0,
-      sourceArchetypeKey: "mage",
-      skillKey: "bufu",
-    })
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        archetypes: {
-          ...components.archetypes,
-          roster: [
-            {
-              key: "knight",
-              rank: 4,
-              inheritanceSlots: [
-                { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "bufu" },
-              ],
-            },
-            { key: "mage", rank: 2, inheritanceSlots: [] },
-          ],
-        },
-      },
-    })
-  })
-
-  it("clears a slot (both keys null removes the entry)", () => {
-    const components = {
-      archetypes: {
-        ...knightMage().archetypes,
-        roster: [
-          {
-            key: "knight",
-            rank: 4,
-            inheritanceSlots: [
-              { slotIndex: 0, sourceArchetypeKey: "mage", skillKey: "agi" },
-            ],
-          },
-          { key: "mage", rank: 2, inheritanceSlots: [] },
-        ],
-      },
-    }
-    const result = applyEntityWrite(components, {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 0,
-      sourceArchetypeKey: null,
-      skillKey: null,
-    })
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        archetypes: {
-          ...components.archetypes,
-          roster: [
-            { key: "knight", rank: 4, inheritanceSlots: [] },
-            { key: "mage", rank: 2, inheritanceSlots: [] },
-          ],
-        },
-      },
-    })
-  })
-
-  it("refuses a Skill the source's Rank doesn't unlock (invalid-input)", () => {
-    // magic-circle is Mage Rank 5; source Mage is only Rank 2.
-    const result = applyEntityWrite(knightMage(), {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 0,
-      sourceArchetypeKey: "mage",
-      skillKey: "magic-circle",
-    })
-    expect(result).toEqual({ ok: false, error: "invalid-input" })
-  })
-
   it("refuses a self-source (a slot inherits from another Archetype)", () => {
     // Knight owning a slot filled from Knight — Skewer is Knight's own kit,
     // unlocked at its Rank, so only the same-Archetype guard rejects it.
@@ -687,55 +592,6 @@ describe("applyEntityWrite — inheritance slots (UNN-560)", () => {
       skillKey: "skewer",
     })
     expect(result).toEqual({ ok: false, error: "invalid-input" })
-  })
-
-  it("refuses the source's Synthesis Skill (never inheritable)", () => {
-    const result = applyEntityWrite(knightMage(), {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 0,
-      sourceArchetypeKey: "mage",
-      skillKey: "elemental-apocalypse",
-    })
-    expect(result).toEqual({ ok: false, error: "invalid-input" })
-  })
-
-  it("refuses a slot index past the owner's catalog slot count (invalid-input)", () => {
-    // Knight grants 2 slots ⇒ indices 0,1; index 2 is out of range.
-    const result = applyEntityWrite(knightMage(), {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 2,
-      sourceArchetypeKey: "mage",
-      skillKey: "agi",
-    })
-    expect(result).toEqual({ ok: false, error: "invalid-input" })
-  })
-
-  it("refuses when the owner is not in the roster (not-unlocked)", () => {
-    const result = applyEntityWrite(knightMage(), {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "warrior",
-      slotIndex: 0,
-      sourceArchetypeKey: "mage",
-      skillKey: "agi",
-    })
-    expect(result).toEqual({ ok: false, error: "not-unlocked" })
-  })
-
-  it("refuses when the source is not owned (not-unlocked)", () => {
-    const result = applyEntityWrite(knightMage(), {
-      component: "archetypes",
-      op: "setInheritanceSlot",
-      archetypeKey: "knight",
-      slotIndex: 0,
-      sourceArchetypeKey: "warrior",
-      skillKey: "cleave",
-    })
-    expect(result).toEqual({ ok: false, error: "not-unlocked" })
   })
 
   it("refuses without the archetypes component (capability-missing)", () => {
@@ -789,25 +645,6 @@ describe("applyEntityWrite — spend archetype rank (UNN-561)", () => {
     })
   })
 
-  it("ranks up an owned Archetype into Mastery (Rank 4 → 5), spending a Rank", () => {
-    const result = applyEntityWrite(warriorBoard(), {
-      component: "archetypes",
-      op: "spendArchetypeRank",
-      archetypeKey: "warrior",
-    })
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        archetypes: {
-          active: "warrior",
-          origin: "warrior",
-          savedArchetypeRanks: 2,
-          roster: [{ key: "warrior", rank: 5, inheritanceSlots: [] }],
-        },
-      },
-    })
-  })
-
   it("refuses with no Saved Ranks to spend (no-saved-ranks)", () => {
     const result = applyEntityWrite(warriorBoard(0), {
       component: "archetypes",
@@ -815,33 +652,6 @@ describe("applyEntityWrite — spend archetype rank (UNN-561)", () => {
       archetypeKey: "mage",
     })
     expect(result).toEqual({ ok: false, error: "no-saved-ranks" })
-  })
-
-  it("refuses to unlock an Archetype with unmet prerequisites (prerequisites-not-met)", () => {
-    // Elemental Thief requires Thief at Rank 5, which this board never owned.
-    const result = applyEntityWrite(warriorBoard(), {
-      component: "archetypes",
-      op: "spendArchetypeRank",
-      archetypeKey: "elemental-thief",
-    })
-    expect(result).toEqual({ ok: false, error: "prerequisites-not-met" })
-  })
-
-  it("refuses to rank up an Archetype already at Mastery (rank-capped)", () => {
-    const board = {
-      archetypes: {
-        active: "warrior",
-        origin: "warrior",
-        savedArchetypeRanks: 3,
-        roster: [{ key: "warrior", rank: 5, inheritanceSlots: [] }],
-      },
-    }
-    const result = applyEntityWrite(board, {
-      component: "archetypes",
-      op: "spendArchetypeRank",
-      archetypeKey: "warrior",
-    })
-    expect(result).toEqual({ ok: false, error: "rank-capped" })
   })
 
   it("refuses without the archetypes component (capability-missing)", () => {
@@ -889,31 +699,6 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
     expect(ENTITY_WRITERS.archetypes.durableClass).toBe("progression")
   })
 
-  it("archetypes.setOrigin switch is delete-and-replace, preserving saved ranks", () => {
-    const result = applyEntityWrite(
-      {
-        archetypes: {
-          active: "warrior",
-          origin: "warrior",
-          savedArchetypeRanks: 3,
-          roster: [{ key: "warrior", rank: 2, inheritanceSlots: [] }],
-        },
-      },
-      { component: "archetypes", op: "setOrigin", archetypeKey: "mage" }
-    )
-    expect(result).toEqual({
-      ok: true,
-      value: {
-        archetypes: {
-          active: "mage",
-          origin: "mage",
-          savedArchetypeRanks: 3,
-          roster: [{ key: "mage", rank: 2, inheritanceSlots: [] }],
-        },
-      },
-    })
-  })
-
   it("talents.setGained replaces the whole list", () => {
     const result = applyEntityWrite(
       { talents: [{ key: "old" }] },
@@ -947,15 +732,14 @@ describe("applyEntityWrite — creation families (UNN-556)", () => {
     expect(ENTITY_WRITERS.virtues.durableClass).toBe("progression")
   })
 
-  it.each([
-    // two Virtues at +2
-    { expression: 2, empathy: 2, wisdom: 0, focus: 0 },
-    // three Virtues at +1
-    { expression: 1, empathy: 1, wisdom: 1, focus: 0 },
-  ])("virtues.setAllocation refuses the cap violation %j", (ranks) => {
+  it("virtues.setAllocation propagates the engine cap refusal", () => {
     const result = applyEntityWrite(
       { virtues: { ranks: zeroRanks(), sparkLog: [] } },
-      { component: "virtues", op: "setAllocation", ranks }
+      {
+        component: "virtues",
+        op: "setAllocation",
+        ranks: { expression: 2, empathy: 2, wisdom: 0, focus: 0 },
+      }
     )
     expect(result).toEqual({ ok: false, error: "allocation-cap-exceeded" })
   })

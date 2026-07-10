@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   coerceVirtueAllocation,
   describeAllocationProgress,
+  exceedsAllocationCap,
   isValidCreationAllocation,
   wouldExceedAllocationCap,
   ZERO_VIRTUE_ALLOCATION,
@@ -246,5 +247,63 @@ describe("wouldExceedAllocationCap", () => {
       focus: 0,
     }
     expect(wouldExceedAllocationCap(overCap, "expression", 2)).toBe(false)
+  })
+})
+
+describe("exceedsAllocationCap", () => {
+  it("accepts the canonical one-+2-two-+1s allocation", () => {
+    expect(
+      exceedsAllocationCap({
+        expression: 2,
+        empathy: 1,
+        wisdom: 1,
+        focus: 0,
+      })
+    ).toBe(false)
+  })
+
+  it("accepts a partial mid-flow allocation and the all-zeros seed", () => {
+    expect(exceedsAllocationCap({ ...ZERO_VIRTUE_ALLOCATION })).toBe(false)
+    expect(
+      exceedsAllocationCap({
+        expression: 2,
+        empathy: 1,
+        wisdom: 0,
+        focus: 0,
+      })
+    ).toBe(false)
+  })
+
+  it("accepts exactly at the cap (one +2, two +1s), not past it", () => {
+    expect(
+      exceedsAllocationCap({
+        expression: 2,
+        empathy: 1,
+        wisdom: 1,
+        focus: 0,
+      })
+    ).toBe(false)
+  })
+
+  it("rejects a second Virtue at +2", () => {
+    expect(
+      exceedsAllocationCap({
+        expression: 2,
+        empathy: 2,
+        wisdom: 0,
+        focus: 0,
+      })
+    ).toBe(true)
+  })
+
+  it("rejects a third Virtue at +1", () => {
+    expect(
+      exceedsAllocationCap({
+        expression: 1,
+        empathy: 1,
+        wisdom: 1,
+        focus: 0,
+      })
+    ).toBe(true)
   })
 })

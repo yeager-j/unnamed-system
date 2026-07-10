@@ -14,8 +14,13 @@ encounter door forwards its durable arm to the same composition.
 There is exactly one patch shape end to end (UNN-601): **whole updated
 components**, keys 1:1 with `entity` columns (CH15), an explicit-`undefined`
 key meaning "delete the component" (NULL ⇔ absent). Engine transitions speak
-it natively — the rest trio and the leveling ops return whole components, so
-a Writer arm is check → transition → return, never a per-field spread.
+it natively — the rest trio, the leveling ops, and the archetype roster
+transitions (Origin minting / inheritance-slot / rank-spend — UNN-595) return
+whole components, so a Writer arm is check → transition → return, never a
+per-field spread. Every rule-bearing arm's game rules live in a `game-v2`
+domain transition (the `applyLevelUp` shape), so the engine — not the app door
+— owns its authored-state invariants; the Writer keeps only the capability
+check and its app-tier composition (e.g. the Virtue Spark-log carry).
 `combinePatches` composes two patches; its laws — **identity**,
 **associativity**, and **merge-compatibility**
 (`merge(merge(e,a),b) = merge(e, combine(a,b))`, including the delete/re-set
