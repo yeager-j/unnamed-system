@@ -26,7 +26,7 @@ import {
 } from "@/domain/entity/use-entity-write"
 import { resolveTalentRoster } from "@/domain/game-engine-v2"
 
-import { SheetCard } from "../sheet-card"
+import { SheetCard } from "./sheet-card"
 
 /**
  * The Talents card (design frame `10b`; rulebook 2.1): the full roster as

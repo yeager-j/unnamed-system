@@ -1,9 +1,8 @@
 "use client"
 
 import { Prose } from "@/components/shared/prose"
+import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
-
-import { SheetCard } from "../sheet-card"
 
 /**
  * The Notes card: the free-form `profile.notes` app column, read-only and

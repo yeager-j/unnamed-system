@@ -552,7 +552,7 @@ test("the watch's own-sheet column adjusts the owner's HP durably (UNN-566)", as
   await expect(column.getByText(`${hpBefore} / `)).toBeVisible()
 
   await column.getByRole("button", { name: "Adjust HP" }).click()
-  await page.getByLabel("Adjust HP amount").fill("4")
+  await page.getByLabel("Amount").fill("4")
   await page.getByRole("button", { name: "Damage", exact: true }).click()
 
   await expect

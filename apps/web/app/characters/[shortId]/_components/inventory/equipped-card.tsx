@@ -6,9 +6,8 @@ import {
   type ResolvedInventory,
 } from "@workspace/game-v2/items"
 
+import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
 import { SLOT_LABELS } from "@/domain/labels"
-
-import { SheetCard } from "../sheet-card"
 
 /**
  * The Equipped zone (v1 design carried into S2c): one column per equip slot —

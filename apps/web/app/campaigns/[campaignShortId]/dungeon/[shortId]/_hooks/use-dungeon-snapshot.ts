@@ -2,6 +2,7 @@
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
+import { fetchJsonSnapshot } from "@/lib/sync/fetch-json-snapshot"
 import {
   useSnapshotSubscription,
   type SnapshotFetcher,
@@ -12,13 +13,10 @@ async function fetchSnapshot(
   shortId: string,
   signal?: AbortSignal
 ): Promise<DungeonSnapshot> {
-  const response = await fetch(`/api/dungeon/${shortId}/snapshot`, {
-    cache: "no-store",
-    signal,
-  })
-  if (!response.ok)
-    throw new Error(`snapshot request failed: ${response.status}`)
-  return (await response.json()) as DungeonSnapshot
+  return fetchJsonSnapshot<DungeonSnapshot>(
+    `/api/dungeon/${shortId}/snapshot`,
+    signal
+  )
 }
 
 export type DungeonSnapshotState = SnapshotSubscriptionState<DungeonSnapshot>

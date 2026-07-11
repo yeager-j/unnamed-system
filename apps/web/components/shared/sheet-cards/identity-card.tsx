@@ -12,7 +12,7 @@ import {
 } from "@/domain/character/identity-trait-messages"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
-import { SheetCard } from "../sheet-card"
+import { SheetCard } from "./sheet-card"
 
 /**
  * The Identity card (design frame `10b`; rulebook 1.5): the five Identity

@@ -11,7 +11,7 @@ export type DungeonConsoleMode = "play" | "edit"
  * The run console's **Edit ⇄ Play** segmented control (UNN-486) — DM-local,
  * ephemeral UI orthogonal to the delve's status (ADR — *Console topology*). It
  * lives **inside** each board's bottom bar (the play {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/turn-loop-bar").TurnLoopBar}
- * and the Edit-mode {@link import("@/app/maps/_components/canvas/canvas-toolbar").CanvasToolbar}),
+ * and the Edit-mode {@link import("@/components/shared/canvas/canvas-toolbar").CanvasToolbar}),
  * so it sits in the same place across the swap instead of floating over the canvas.
  * Play draws tokens/fog; Edit swaps in the Map builder over the live Instance.
  */

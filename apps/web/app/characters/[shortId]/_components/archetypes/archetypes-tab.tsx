@@ -21,6 +21,7 @@ import { AffinityStrip } from "@/components/shared/affinity-strip"
 import { DetailSection } from "@/components/shared/detail-section"
 import { Prose } from "@/components/shared/prose"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
+import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
 import { affinityCells } from "@/domain/character/view/affinity-strip"
 import { buildArchetypesTabView } from "@/domain/character/view/archetypes-tab"
 import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
@@ -28,7 +29,6 @@ import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import { characterAtlasPath } from "@/lib/paths"
 
 import { AttributesBlock } from "../rail/attributes-block"
-import { SheetCard } from "../sheet-card"
 import { InheritanceSlots } from "./inheritance-slots"
 
 /**

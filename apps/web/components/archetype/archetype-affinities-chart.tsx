@@ -1,6 +1,6 @@
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
-import { AFFINITY_DAMAGE_TYPES } from "@workspace/game-v2/kernel/vocab"
 
+import { listNonNeutralAffinities } from "@/components/archetype/affinities"
 import { DetailSection } from "@/components/shared/detail-section"
 
 import { ArchetypeAffinityChip } from "./archetype-affinity-chips"
@@ -19,11 +19,7 @@ export function ArchetypeAffinitiesChart({
 }: {
   archetype: AffinitiesSlice
 }) {
-  const chips = AFFINITY_DAMAGE_TYPES.flatMap((type) => {
-    const affinity = archetype.affinities[type]
-    if (!affinity || affinity === "neutral") return []
-    return [{ type, affinity }]
-  })
+  const chips = listNonNeutralAffinities(archetype)
 
   return (
     <DetailSection title="Affinities">
