@@ -493,14 +493,25 @@ export const COMBATANT_DOWN_LABELS = {
 } as const
 
 /**
- * The combatant drawer footer's where-do-edits-land note, keyed by storage
+ * The combatant drawer footer's where-do-edits-land note, keyed by display
  * home: a durable PC's HP/SP writes land on its character sheet, an inline
- * enemy's edits live and die with the encounter.
+ * enemy's edits live and die with the encounter. Both arms take the name so
+ * the builder indexes the table without branching.
  */
 export const COMBATANT_EDIT_SCOPE_NOTES = {
   pc: (name: string) =>
     `HP/SP changes here write ${name}'s character sheet; conditions apply to this encounter.`,
-  enemy: "Edits affect this enemy in this encounter only.",
+  enemy: () => "Edits affect this enemy in this encounter only.",
+} as const
+
+/**
+ * The drawer subtitle's class-slot fallback, keyed by display home: a PC
+ * without a loaded class name shows nothing, an inline combatant shows
+ * `Enemy`.
+ */
+export const COMBATANT_CLASS_FALLBACKS = {
+  pc: null,
+  enemy: "Enemy",
 } as const
 
 /**

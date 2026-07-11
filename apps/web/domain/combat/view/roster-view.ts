@@ -18,6 +18,7 @@ import {
   combatantAvatar,
   type CombatantAvatar,
 } from "@/domain/combat/view/avatar"
+import { displayHome } from "@/domain/combat/view/display-home"
 import type { Pool } from "@/domain/combat/view/pool"
 import { COMBATANT_DOWN_LABELS } from "@/domain/labels"
 
@@ -28,9 +29,9 @@ import { COMBATANT_DOWN_LABELS } from "@/domain/labels"
  * exact same resolved read-units (no injected PC map, no `ref.kind` branch).
  * The participant's storage *home* (durable = a character row backs it) is
  * projected once at the loader boundary into {@link ParticipantMeta} and
- * **dies in this builder**: it resolves into the {@link CombatantAvatar}
- * variant and the Fallen/Dead `downLabel`, never a mechanics branch — no
- * `isPc` boolean survives for the rail to re-branch on.
+ * **dies at {@link displayHome}**: it resolves into the {@link
+ * CombatantAvatar} variant and the Fallen/Dead `downLabel`, never a mechanics
+ * branch — no storage boolean survives for the rail to re-branch on.
  */
 
 /** One participant as a rail row. `hp`/`sp` are `null` when the entity
@@ -98,7 +99,7 @@ export function buildRosterView(
     const zoneId = zoneOf(instanceState, participant.id)
     const name = nameById.get(participant.id) ?? participant.id
     const side = participant.overlay.allegiance.side
-    const isPc = participantMeta[participant.id]?.storage === "durable"
+    const home = displayHome(participantMeta[participant.id])
     const isFallen = fallenIds.has(participant.id)
     const portraitUrl =
       participantView.components.presentation?.portraitUrl ?? null
@@ -108,7 +109,7 @@ export function buildRosterView(
         name,
         side,
         avatar: combatantAvatar({
-          isPc,
+          home,
           portraitUrl,
           name,
           id: participant.id,
@@ -118,9 +119,7 @@ export function buildRosterView(
         hasActed: participant.overlay.turnState.turnsTakenThisRound > 0,
         isFallen,
         isDowned: participant.overlay.ailments.includes("downed"),
-        downLabel: isFallen
-          ? COMBATANT_DOWN_LABELS[isPc ? "pc" : "enemy"]
-          : null,
+        downLabel: isFallen ? COMBATANT_DOWN_LABELS[home] : null,
         hp: hpPool(participantView),
         sp: spPool(participantView),
         portraitUrl,

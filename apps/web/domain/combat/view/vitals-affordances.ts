@@ -1,3 +1,5 @@
+import type { DisplayHome } from "@/domain/combat/view/display-home"
+
 /**
  * The drawer's vitals **affordance gates** (UNN-535) — a pure predicate the
  * vitals section renders from, so "which buttons exist" is unit-testable
@@ -19,11 +21,11 @@ export interface VitalsAffordances {
 }
 
 export function vitalsAffordances(
-  isPc: boolean,
+  home: DisplayHome,
   hasPrisma: boolean
 ): VitalsAffordances {
   return {
-    setMax: !isPc,
+    setMax: home === "enemy",
     usePrisma: hasPrisma,
   }
 }
