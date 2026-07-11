@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { CombatConsole } from "@/components/encounter/combat-console"
-import { EncounterSetup } from "@/components/encounter/encounter-setup"
-import { EncounterEndedStub } from "@/components/encounter/ended-stub"
+import { CombatConsole } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/combat-console"
+import { EncounterSetup } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/encounter-setup"
+import { EncounterEndedStub } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/ended-stub"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { DungeonEncounterStaging } from "@/components/dungeon/combat/encounter-staging"
+import { DungeonEncounterStaging } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
 import { dungeonConsolePath } from "@/lib/paths"

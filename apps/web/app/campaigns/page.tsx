@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 
-import { CampaignCard } from "@/components/campaign/campaign-card"
-import { CreateCampaignButton } from "@/components/campaign/create-campaign-button"
+import { CampaignCard } from "@/app/campaigns/_components/campaign-card"
+import { CreateCampaignButton } from "@/app/campaigns/_components/create-campaign-button"
 import { SignedOutLanding } from "@/components/my-characters/signed-out-landing"
 import { auth } from "@/lib/auth"
 import {

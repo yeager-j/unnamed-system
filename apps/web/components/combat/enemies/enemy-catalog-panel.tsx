@@ -18,9 +18,9 @@ import { EnemyStatblockCard } from "./enemy-statblock-card"
  * The catalog **browse** inner surface (UNN-467) — the three-column master-detail
  * (searchable/family-filtered list · statblock card · staging rail) shared by the
  * mapless encounter's browse route
- * ({@link import("@/components/encounter/enemy-catalog-browser").EnemyCatalogBrowser})
+ * ({@link import("@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/enemy-catalog-browser").EnemyCatalogBrowser})
  * and the delve's pre-combat staging
- * ({@link import("@/components/dungeon/combat/encounter-staging").DungeonEncounterStaging}).
+ * ({@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging").DungeonEncounterStaging}).
  *
  * It owns only the **browse** UI state (search / family / selection). The staged
  * queue is the consumer's — it arrives already rendered as `rail` (UNN-541), so

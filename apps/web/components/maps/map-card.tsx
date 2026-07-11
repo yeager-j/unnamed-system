@@ -4,7 +4,7 @@ import type { MapRow } from "@/lib/db/schema/map"
 
 /**
  * A Map in the My Maps list (UNN-460) — name + zone count, linking to its editor
- * (`/maps/{shortId}`). Mirrors {@link import("@/components/campaign/campaign-card").CampaignCard}.
+ * (`/maps/{shortId}`). Mirrors {@link import("@/app/campaigns/_components/campaign-card").CampaignCard}.
  */
 export function MapCard({ map }: { map: MapRow }) {
   const zoneCount = Object.keys(map.geometry.zones).length

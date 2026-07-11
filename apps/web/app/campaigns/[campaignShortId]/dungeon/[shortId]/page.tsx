@@ -1,13 +1,16 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { getEncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
-import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
-import { DungeonPrep, type PrepZone } from "@/components/dungeon/prep"
+import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
+import {
+  DungeonPrep,
+  type PrepZone,
+} from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/prep"
 import {
   DungeonRunConsole,
   type DungeonRunMode,
-} from "@/components/dungeon/run-console"
+} from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/run-console"
+import { getEncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"

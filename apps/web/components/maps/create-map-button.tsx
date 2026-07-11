@@ -23,7 +23,7 @@ import { createMapAction } from "@/lib/actions/create-map"
 /**
  * "Create map" CTA on My Maps (UNN-460). Opens a dialog for the name, creates the
  * Map (owner = the caller), and routes to its editor — mirroring
- * {@link import("@/components/campaign/create-campaign-button").CreateCampaignButton}'s
+ * {@link import("@/app/campaigns/_components/create-campaign-button").CreateCampaignButton}'s
  * action-then-redirect shape. The geometry starts empty; the editor autosaves
  * Zones into it (the canvas lands in UNN-461).
  */

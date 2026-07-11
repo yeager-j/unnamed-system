@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { EnemyCatalogBrowser } from "@/components/encounter/enemy-catalog-browser"
+import { EnemyCatalogBrowser } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/enemy-catalog-browser"
 import { encounterConsolePath } from "@/lib/paths"
 
 import { getEncounterForDM } from "../encounter-access"
