@@ -33,7 +33,7 @@ import {
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 import { resolveOriginTalentChoices } from "@/domain/game-engine-v2"
-import { talentLabel } from "@/lib/ui/labels"
+import { talentLabel } from "@/domain/labels"
 
 /**
  * Talents picker for Movement 2 — Ortus (rulebook 2.1, PRD §5.2). Allows

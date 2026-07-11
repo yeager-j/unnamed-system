@@ -2,9 +2,8 @@
 
 import Image from "next/image"
 
+import { initials } from "@workspace/ui/lib/initials"
 import { cn } from "@workspace/ui/lib/utils"
-
-import { initials } from "@/lib/ui/initials"
 
 /**
  * The 20px portrait-or-initials square shared by every dungeon token chip — the

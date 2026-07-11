@@ -2,9 +2,9 @@ import Link from "next/link"
 
 import { Badge } from "@workspace/ui/components/badge"
 
+import { DUNGEON_STATUS_LABELS } from "@/domain/labels"
 import type { DungeonSummary } from "@/lib/db/queries/load-dungeon"
 import { dungeonConsolePath } from "@/lib/paths"
-import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
 
 /** Status → badge styling. `active` stands out; `draft`/`done` are muted. */
 const STATUS_VARIANT = {

@@ -1,4 +1,4 @@
-import type { SkillKind } from "@/lib/ui/vocab"
+import type { SkillKind } from "@/domain/vocab"
 
 import { DamageTypeBadge, type SkillRowDamageType } from "./damage-type-badge"
 import { SkillKindBadge } from "./skill-kind-badge"

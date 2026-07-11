@@ -17,8 +17,8 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
+import { LEAVE_CAMPAIGN_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { leaveCampaignAction } from "@/lib/actions/leave-campaign"
-import { LEAVE_CAMPAIGN_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 /**
  * "Leave campaign" control on the member overview (UNN-330). Removes the viewer's

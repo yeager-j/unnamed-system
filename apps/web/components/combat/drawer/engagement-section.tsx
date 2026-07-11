@@ -7,7 +7,7 @@ import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { DetailSection } from "@/components/shared/detail-section"
 import type { CombatantEngagementView } from "@/domain/combat/view/detail-view"
-import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
+import { ENGAGEMENT_STATUS_LABELS } from "@/domain/labels"
 
 /**
  * The drawer's **ENGAGEMENT** section (UNN-316, on v2's spatial vocabulary):

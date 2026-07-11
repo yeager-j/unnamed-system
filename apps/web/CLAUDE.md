@@ -20,8 +20,7 @@ runs on `npm run depcheck` and enforces three things:
   **marked-impure** files may runtime-import `lib`: a client hook (`use-*`) or a loader
   (`load-*`, or the bare `load` when the folder names the aggregate — `character/load.ts`).
   Every other domain file is the pure model/view core and may reach `lib` **only** with
-  `import type` (erased at build) — the sole runtime carve-out is `lib/ui` (pure display data,
-  dissolving in UNN-612, after which the carve-out goes). The invariant: **domain reads
+  `import type` (erased at build) — no runtime carve-out. The invariant: **domain reads
   (`load-`) and reacts (`use-`); it never writes persistence — mutations live in `lib/actions`.**
   So when a new domain file needs `lib` at runtime, the gate forces the choice — mark it
   `use-`/`load-`, or move the impurity out — rather than letting the pure core silently rot.

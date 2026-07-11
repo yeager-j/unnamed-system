@@ -13,7 +13,7 @@ import {
   useEntityWrite,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
+import { PATH_CHOICE_LABELS } from "@/domain/labels"
 
 function formatDie(die: { hitDie: number; skillDie: number }): string {
   return `d${die.hitDie} / d${die.skillDie}`

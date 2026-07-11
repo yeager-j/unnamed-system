@@ -7,7 +7,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
-import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
+import { COMBAT_SIDE_LABELS } from "@/domain/labels"
 
 /**
  * The watch view's **turn tracker** (UNN-322): the round number, who is acting

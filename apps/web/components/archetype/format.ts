@@ -1,6 +1,6 @@
 import { type Mastery } from "@workspace/game-v2/archetypes/archetype"
 
-import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
+import { ATTRIBUTE_LABELS } from "@/domain/labels"
 
 /** Signed Attribute modifier with a true Unicode minus: `+4`, `0`, `−3`. */
 export function formatModifier(value: number): string {

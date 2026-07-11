@@ -19,7 +19,7 @@ import {
   type CombatantAvatar,
 } from "@/domain/combat/view/avatar"
 import type { Pool } from "@/domain/combat/view/pool"
-import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
+import { COMBATANT_DOWN_LABELS } from "@/domain/labels"
 
 /**
  * The display projection the combatant **rail** renders — the v2 successor of

@@ -6,7 +6,7 @@ import {
 import { Badge } from "@workspace/ui/components/badge"
 
 import { listNonNeutralAffinities } from "@/components/archetype/affinities"
-import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
+import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/domain/labels"
 
 /**
  * The single Affinity chip used by both the compact summary row and the

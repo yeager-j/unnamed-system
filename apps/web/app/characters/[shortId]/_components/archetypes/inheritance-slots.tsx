@@ -38,7 +38,7 @@ import {
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 import { resolveArchetypeRoster } from "@/domain/game-engine-v2"
-import { LINEAGE_LABELS } from "@/lib/ui/labels"
+import { LINEAGE_LABELS } from "@/domain/labels"
 
 /**
  * The active Archetype's Inheritance Slots (S2d — UNN-560; rulebook 1.3). Each

@@ -14,7 +14,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react"
 
-import type { LineageIconKey } from "./labels"
+import type { LineageIconKey } from "@/domain/labels"
 
 /**
  * Resolves a {@link LineageIconKey} to its Phosphor icon component. Lives apart

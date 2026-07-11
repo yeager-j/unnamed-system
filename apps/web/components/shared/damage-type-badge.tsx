@@ -1,8 +1,8 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
-import type { DamageType } from "@/lib/ui/vocab"
+import { DAMAGE_TYPE_LABELS } from "@/domain/labels"
+import type { DamageType } from "@/domain/vocab"
 
 /**
  * The damage type slot reuses the Skill schema's `damageType` union, which

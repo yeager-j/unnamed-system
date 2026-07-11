@@ -19,8 +19,8 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
+import { CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR } from "@/domain/labels"
 import { deleteCampaignAction } from "@/lib/actions/delete-campaign"
-import { CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR } from "@/lib/ui/labels"
 
 /**
  * "Delete campaign" control on the DM manage page (UNN-330). Type-the-name

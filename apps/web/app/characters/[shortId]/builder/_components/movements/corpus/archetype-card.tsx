@@ -13,7 +13,7 @@ import {
   AFFINITY_LABELS,
   ATTRIBUTE_LABELS,
   LINEAGE_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 /**
  * The compact face of an Origin Archetype in the Movement 1 grid (UNN-215 /

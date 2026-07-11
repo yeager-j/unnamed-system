@@ -6,7 +6,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 
 import { CombatantRailRow } from "@/components/combat/rail/row"
 import type { RailRow, RosterView } from "@/domain/combat/view/roster-view"
-import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
+import { COMBAT_SIDE_LABELS } from "@/domain/labels"
 
 /**
  * The console's left **combatant rail** (UNN-345): PLAYERS and ENEMIES groups

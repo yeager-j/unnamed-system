@@ -18,7 +18,7 @@ import {
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   ENEMY_FAMILY_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 import { EnemyAvatar } from "./enemy-statblock-card"
 
