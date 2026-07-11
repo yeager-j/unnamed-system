@@ -28,7 +28,7 @@ import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
 } from "@/lib/db/queries/load-encounter-v2"
-import { loadEntityRowById } from "@/lib/db/queries/load-entity"
+import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import {
@@ -230,7 +230,9 @@ async function applyAddParticipant(
 
   let entity: Entity
   if ("entityId" in setup) {
-    const durableRow = await loadEntityRowById(setup.entityId)
+    // Live-only (R1 — UNN-571): the id is client-supplied combat setup, not a
+    // pinned locator, so a soft-deleted character can't be wired into the fight.
+    const durableRow = await loadLiveEntityRowById(setup.entityId)
     if (durableRow === null) return err("character-not-found")
     const loaded = loadEntityRow(durableRow)
     if (!loaded.ok) return err("invalid-entity")

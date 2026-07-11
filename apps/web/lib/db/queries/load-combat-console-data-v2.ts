@@ -21,6 +21,11 @@ import { entity } from "@/lib/db/schema/entity"
  * app-column pronouns, and Skills hydrated with the encounter's party composition.
  * The loader is the one sanctioned storage boundary: it decides which participants
  * have a sheet, then emits only the content the drawer needs.
+ *
+ * The pronouns read is by **pinned entity id** off the live session, so it stays
+ * `deletedAt`-blind (R1 — UNN-571): the live-encounter lock keeps a tombstone out
+ * of a live fight, so there is nothing to filter, and dropping a pinned id would
+ * blank a live combatant's drawer. See `schema/entity.ts` / `encounter-lock.ts`.
  */
 export async function loadCombatConsoleDataV2(
   session: Session,

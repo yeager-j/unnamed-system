@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm"
+import { and, asc, desc, eq, isNull } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import {
@@ -123,7 +123,7 @@ export async function loadCampaignRoster(
   const characterRows = await db
     .select({ ownerId: entity.ownerId, ...characterSummaryProjection })
     .from(entity)
-    .where(eq(entity.campaignId, campaignId))
+    .where(and(eq(entity.campaignId, campaignId), isNull(entity.deletedAt)))
     .orderBy(asc(entity.name))
 
   const charactersByOwner = new Map<string, CharacterSummary[]>()

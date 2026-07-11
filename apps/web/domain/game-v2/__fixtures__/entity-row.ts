@@ -74,6 +74,7 @@ const INERT_METADATA = {
   builderStep: 0,
   pronouns: null,
   notes: null,
+  deletedAt: null,
   identityVersion: 0,
   vitalsVersion: 0,
   inventoryVersion: 0,

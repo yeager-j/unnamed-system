@@ -39,7 +39,7 @@ vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
     loadLiveEncounterForMapInstance(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
-  loadEntityRowById: vi.fn(),
+  loadLiveEntityRowById: vi.fn(),
 }))
 vi.mock("@/lib/db/queries/load-party-vitals", () => ({
   loadPartyVitalsByIds: (ids: string[]) => loadPartyVitalsByIds(ids),

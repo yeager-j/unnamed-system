@@ -30,7 +30,7 @@ const loadEncounterCampaignId = vi.fn()
 const loadEncounterForWrite = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
 const loadMapInstanceById = vi.fn()
-const loadEntityRowById = vi.fn()
+const loadLiveEntityRowById = vi.fn()
 const saveEncounterSession = vi.fn()
 const saveMapInstanceState = vi.fn()
 const setEncounterStatus = vi.fn()
@@ -53,7 +53,7 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
-  loadEntityRowById: (id: string) => loadEntityRowById(id),
+  loadLiveEntityRowById: (id: string) => loadLiveEntityRowById(id),
 }))
 vi.mock("@/domain/game-v2/entity-row-to-bag", () => ({
   loadEntityRow: (row: { id: string }) => ({
@@ -211,7 +211,7 @@ beforeEach(() => {
     state: makeInstanceState(),
     version: 0,
   })
-  loadEntityRowById.mockReset().mockResolvedValue(null)
+  loadLiveEntityRowById.mockReset().mockResolvedValue(null)
   saveEncounterSession.mockReset().mockResolvedValue(ok({ version: 1 }))
   saveMapInstanceState.mockReset().mockResolvedValue(ok({ version: 1 }))
   setEncounterStatus.mockReset().mockResolvedValue(ok({ version: 2 }))
@@ -391,7 +391,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
   })
 
   it("adds a durable mid-combat joiner (R6.2): hydrates the row + registers the durable locator", async () => {
-    loadEntityRowById.mockResolvedValue({ id: "char-2", name: "Momo" })
+    loadLiveEntityRowById.mockResolvedValue({ id: "char-2", name: "Momo" })
 
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
@@ -409,7 +409,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
     })
 
     expect(result).toEqual(ok({ version: 1, instanceVersion: 1 }))
-    expect(loadEntityRowById).toHaveBeenCalledWith("char-2")
+    expect(loadLiveEntityRowById).toHaveBeenCalledWith("char-2")
     const blob = lastSavedBlob()
     const joiner = blob.participants.find((p) => p.id === "c-momo")!
     expect(joiner.locator).toEqual({ storage: "durable", entityId: "char-2" })
@@ -422,7 +422,7 @@ describe("applyCombatEventAction — paired roster cross-writes", () => {
   })
 
   it("rejects a durable joiner whose character row is gone", async () => {
-    loadEntityRowById.mockResolvedValue(null)
+    loadLiveEntityRowById.mockResolvedValue(null)
     const result = await applyCombatEventAction({
       encounterId: ENCOUNTER_ID,
       expectedVersion: 0,

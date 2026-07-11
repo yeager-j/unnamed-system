@@ -123,6 +123,13 @@ async function dissolveEncounterRow(
  * fail the load-seam shape validation — is simply absent from the maps, and the
  * engine's loader reports it as a `missing-durable` issue with the offending
  * participant id, so the miss is decided in one place.
+ *
+ * The snapshot fold reads by **pinned entity id** through `loadEntityRowsByIds`,
+ * which stays `deletedAt`-blind (R1 — UNN-571): a soft-deleted row must still
+ * hydrate its participant rather than become a `missing-durable` dangling ref
+ * that 404s the whole encounter. The live-encounter lock keeps tombstones out of
+ * live fights; for a non-live encounter a tombstoned participant renders as
+ * history (D4). See `schema/entity.ts`.
  */
 async function loadDurableEntities(stored: StoredSession): Promise<{
   entities: Map<string, StoredEntity>
