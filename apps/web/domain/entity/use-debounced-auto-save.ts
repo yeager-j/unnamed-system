@@ -11,6 +11,8 @@ import { toast } from "sonner"
 
 import { type Result } from "@workspace/game-v2/kernel/result"
 
+import { guardWrite } from "@/lib/sync/guard-write-transition"
+
 /**
  * Debounced auto-save lifecycle for a free-text owner-mode field. Every
  * UNN-180 pattern free-text consumer (name, notes, ancestry, background,
@@ -154,40 +156,39 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     const queued = queueRef.current.then(async () => {
       if (isEqual(next, lastSavedRef.current)) return
 
-      try {
-        const result = await dispatchWrite((expectedVersion) =>
-          save(next, expectedVersion)
-        )
-
-        if (result.ok) {
-          lastSavedRef.current = result.value.value
-          return
-        }
-
-        setLocalValue(lastSavedRef.current)
-
-        if (onError) {
-          onError(result.error)
-        } else if (result.error === "stale") {
-          toast.error("Couldn't sync — refresh to see the latest changes.")
-        } else {
+      // A *thrown* rejection (network drop, server crash, deploy-version skew,
+      // auth interrupt) rolls the draft back and toasts through `guardWrite`;
+      // a Next navigation signal (redirect/forbidden/…) rethrows instead of
+      // being swallowed (UNN-379). Throws aren't routed through `onError`
+      // because that's typed `TError` — expected failures return `Result.err`,
+      // not throw.
+      const result = await guardWrite(
+        () => dispatchWrite((expectedVersion) => save(next, expectedVersion)),
+        () => {
+          setLocalValue(lastSavedRef.current)
           toast.error("Couldn't save. Try again.")
         }
-      } catch (error) {
-        // `save` threw (network drop, server crash, auth interrupt) or our
-        // own error branch threw. Roll back, surface a generic toast, and
-        // let the queue keep flowing. Throws aren't routed through `onError`
-        // because that's typed `TError` — expected failures should return
-        // `Result.err`, not throw.
-        console.error("[useDebouncedAutoSave] save threw", error)
-        setLocalValue(lastSavedRef.current)
+      )
+      if (result === null) return
+
+      if (result.ok) {
+        lastSavedRef.current = result.value.value
+        return
+      }
+
+      setLocalValue(lastSavedRef.current)
+
+      if (onError) {
+        onError(result.error)
+      } else if (result.error === "stale") {
+        toast.error("Couldn't sync — refresh to see the latest changes.")
+      } else {
         toast.error("Couldn't save. Try again.")
       }
     })
-    // Safety net: even if the inner try/catch itself somehow rejects (a
-    // throw from `setLocalValue` or `toast`, an unhandled error in
-    // microtask scheduling), keep the queue resolved so the next save —
-    // including the unmount flush — still dispatches.
+    // Safety net: even if the error-handling above throws (from `setLocalValue`,
+    // `toast`, or an `onError` callback), keep the queue resolved so the next
+    // save — including the unmount flush — still dispatches.
     queueRef.current = queued.catch(() => {})
     return queued
   }

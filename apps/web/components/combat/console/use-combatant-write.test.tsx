@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, renderHook } from "@testing-library/react"
+import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -52,7 +53,7 @@ describe("useCombatantWrite", () => {
     })
     const { rendered, mirrored } = renderWriteHook(commit)
 
-    let result: CommitResult
+    let result: CommitResult | null
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         participantId,
@@ -71,7 +72,7 @@ describe("useCombatantWrite", () => {
     const commit = vi.fn()
     const { rendered, mirrored } = renderWriteHook(commit)
 
-    let result: CommitResult
+    let result: CommitResult | null
     await act(async () => {
       // The frame's components carry no skillPool → capability-missing.
       result = await rendered.result.current.dispatchWrite(participantId, {
@@ -90,7 +91,7 @@ describe("useCombatantWrite", () => {
     const commit = vi.fn()
     const { rendered, mirrored } = renderWriteHook(commit)
 
-    let result: CommitResult
+    let result: CommitResult | null
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         asParticipantId("ghost"),
@@ -107,7 +108,7 @@ describe("useCombatantWrite", () => {
     const commit = vi.fn(async () => err("stale" as const))
     const { rendered, mirrored } = renderWriteHook(commit)
 
-    let result: CommitResult
+    let result: CommitResult | null
     await act(async () => {
       result = await rendered.result.current.dispatchWrite(
         participantId,
@@ -117,6 +118,31 @@ describe("useCombatantWrite", () => {
 
     expect(result!).toEqual(err("stale"))
     // The optimistic mirror ran — React reverts it when the transition settles.
+    expect(mirrored).toHaveLength(1)
+  })
+
+  it("catches a thrown lane commit (transport failure): toasts and resolves to null", async () => {
+    const commit = vi.fn(async () => {
+      throw new Error("network down")
+    })
+    const { rendered, mirrored } = renderWriteHook(commit)
+
+    let result: CommitResult | null = ok({
+      version: 0,
+      channel: { domain: "encounter" as const, shortId: "enc" },
+    })
+    await act(async () => {
+      result = await rendered.result.current.dispatchWrite(
+        participantId,
+        damage
+      )
+    })
+
+    // A transport throw doesn't escape to the route boundary — it resolves to
+    // null with a generic toast, and the optimistic mirror (which ran before the
+    // commit) reverts when the transition settles.
+    expect(result).toBeNull()
+    expect(toast.error).toHaveBeenCalledWith("Couldn't save. Try again.")
     expect(mirrored).toHaveLength(1)
   })
 })

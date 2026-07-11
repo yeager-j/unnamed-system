@@ -11,6 +11,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { FIRST_STEP_SLUG } from "@/domain/character/builder-steps"
 import { startEntityDraftAction } from "@/lib/actions/entity/start-draft"
 import { characterBuilderPath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The "Create new character" CTA. Each click spins up a brand-new draft
@@ -25,14 +26,19 @@ export function CreateCharacterButton({ className }: { className?: string }) {
   const [isPending, startTransition] = useTransition()
 
   function onClick() {
-    startTransition(async () => {
-      const result = await startEntityDraftAction()
-      if (!result.ok) {
-        toast.error("Couldn't start a new character. Try again.")
-        return
-      }
-      router.push(characterBuilderPath(result.value.shortId, FIRST_STEP_SLUG))
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await startEntityDraftAction()
+          if (result.ok) {
+            router.push(
+              characterBuilderPath(result.value.shortId, FIRST_STEP_SLUG)
+            )
+          }
+        },
+        () => toast.error("Couldn't start a new character. Try again.")
+      )
+    )
   }
 
   return (

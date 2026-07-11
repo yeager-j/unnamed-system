@@ -19,6 +19,7 @@ import { Label } from "@workspace/ui/components/label"
 
 import { CHARACTER_DELETE_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { deleteEntityAction } from "@/lib/actions/entity/delete"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 interface DeleteCharacterDialogProps {
   characterId: string
@@ -89,25 +90,23 @@ function DiscardDraftDialog({
   const [pending, startTransition] = useTransition()
 
   function handleConfirm() {
-    startTransition(async () => {
-      const result = await deleteEntityAction({ entityId: characterId })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await deleteEntityAction({ entityId: characterId })
 
-      if (result.ok) {
-        toast.success("Draft discarded.")
-        onOpenChange(false)
-        router.refresh()
-        return
-      }
+          if (result.ok) {
+            toast.success("Draft discarded.")
+            onOpenChange(false)
+            router.refresh()
+            return
+          }
 
-      if (result.error === "entity-not-found") {
-        toast.error("Draft already discarded.")
-        onOpenChange(false)
-        router.refresh()
-        return
-      }
-
-      toast.error("Couldn't discard. Try again.")
-    })
+          toast.error("Couldn't discard. Try again.")
+        },
+        () => toast.error("Couldn't discard. Try again.")
+      )
+    )
   }
 
   return (
@@ -159,34 +158,32 @@ function TypeToConfirmDialog({
   const matches = typed.trim() === name
 
   function handleConfirm() {
-    startTransition(async () => {
-      const result = await deleteEntityAction({
-        entityId: characterId,
-        confirmationName: typed,
-      })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await deleteEntityAction({
+            entityId: characterId,
+            confirmationName: typed,
+          })
 
-      if (result.ok) {
-        toast.success(`${name} deleted.`)
-        handleOpenChange(false)
-        router.refresh()
-        return
-      }
+          if (result.ok) {
+            toast.success(`${name} deleted.`)
+            handleOpenChange(false)
+            router.refresh()
+            return
+          }
 
-      if (result.error === "entity-not-found") {
-        toast.error("Character already deleted.")
-        handleOpenChange(false)
-        router.refresh()
-        return
-      }
+          if (result.error === "live-encounter-lock") {
+            toast.error(CHARACTER_DELETE_LIVE_LOCK_ERROR)
+            handleOpenChange(false)
+            return
+          }
 
-      if (result.error === "live-encounter-lock") {
-        toast.error(CHARACTER_DELETE_LIVE_LOCK_ERROR)
-        handleOpenChange(false)
-        return
-      }
-
-      toast.error("Couldn't delete. Try again.")
-    })
+          toast.error("Couldn't delete. Try again.")
+        },
+        () => toast.error("Couldn't delete. Try again.")
+      )
+    )
   }
 
   return (

@@ -20,6 +20,7 @@ import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
 import { getDungeonVersionAction } from "@/lib/actions/dungeon/version"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 /**
@@ -93,67 +94,84 @@ export function useDungeonConsole(
   }
 
   function dispatch(event: DungeonEvent | MapInstanceEvent) {
-    startTransition(async () => {
-      const result = await dispatchDungeonEvent({
-        event,
-        dungeonId: dungeon.id,
-        applyDungeonOptimistic,
-        applyInstanceOptimistic,
-        dungeonWrite,
-        instanceWrite,
-      })
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await dispatchDungeonEvent({
+            event,
+            dungeonId: dungeon.id,
+            applyDungeonOptimistic,
+            applyInstanceOptimistic,
+            dungeonWrite,
+            instanceWrite,
+          })
+          if (!result.ok) {
+            toast.error(dungeonErrorMessage(result.error))
+            return
+          }
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
+      )
+    )
   }
 
   function searchReveal(characterId: string, event: MapInstanceEvent) {
-    startTransition(async () => {
-      applyDungeonOptimistic({ kind: "markActed", characterId })
-      applyInstanceOptimistic(event)
-      // This is a cross-write (marks the dungeon row + reveals on the Instance),
-      // but `dungeonWrite`'s one-shot stale-retry only refetches the *dungeon*
-      // version — `expectedInstanceVersion` rides the un-refetched Instance ref.
-      // So an Instance-stale conflict surfaces a toast rather than auto-recovering
-      // (same limitation the `instanceWrite` setup notes above). A real fix wants a
-      // discriminated stale-instance error + an instance-version read action — M3
-      // (UNN-468), where realtime/multi-tab makes a concurrent spatial writer real.
-      const result = await dungeonWrite.enqueue((expectedVersion) =>
-        searchRevealAction({
-          dungeonId: dungeon.id,
-          expectedVersion,
-          expectedInstanceVersion: instanceWrite.versionRef.current,
-          characterId,
-          event,
-        })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          applyDungeonOptimistic({ kind: "markActed", characterId })
+          applyInstanceOptimistic(event)
+          // This is a cross-write (marks the dungeon row + reveals on the
+          // Instance), but `dungeonWrite`'s one-shot stale-retry only refetches
+          // the *dungeon* version — `expectedInstanceVersion` rides the
+          // un-refetched Instance ref. So an Instance-stale conflict surfaces a
+          // toast rather than auto-recovering (same limitation the
+          // `instanceWrite` setup notes above). A real fix wants a discriminated
+          // stale-instance error + an instance-version read action — M3
+          // (UNN-468), where realtime/multi-tab makes a concurrent spatial
+          // writer real.
+          const result = await dungeonWrite.enqueue((expectedVersion) =>
+            searchRevealAction({
+              dungeonId: dungeon.id,
+              expectedVersion,
+              expectedInstanceVersion: instanceWrite.versionRef.current,
+              characterId,
+              event,
+            })
+          )
+          if (!result.ok) {
+            toast.error(dungeonErrorMessage(result.error))
+            return
+          }
+          instanceWrite.bump(result.value.instanceVersion)
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
       )
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      instanceWrite.bump(result.value.instanceVersion)
-      router.refresh()
-    })
+    )
   }
 
   function finishDelve() {
-    startTransition(async () => {
-      const result = await dungeonWrite.enqueue((expectedVersion) =>
-        setDungeonStatusAction({
-          dungeonId: dungeon.id,
-          status: "done",
-          expectedVersion,
-        })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await dungeonWrite.enqueue((expectedVersion) =>
+            setDungeonStatusAction({
+              dungeonId: dungeon.id,
+              status: "done",
+              expectedVersion,
+            })
+          )
+          if (!result.ok) {
+            toast.error(dungeonErrorMessage(result.error))
+            return
+          }
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
       )
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
+    )
   }
 
   return {

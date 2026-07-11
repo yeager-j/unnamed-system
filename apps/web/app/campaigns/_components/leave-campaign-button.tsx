@@ -19,6 +19,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { LEAVE_CAMPAIGN_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { leaveCampaignAction } from "@/lib/actions/leave-campaign"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Leave campaign" control on the member overview (UNN-330). Removes the viewer's
@@ -38,21 +39,26 @@ export function LeaveCampaignButton({
   const [isPending, startTransition] = useTransition()
 
   function onLeave() {
-    startTransition(async () => {
-      const result = await leaveCampaignAction({ campaignId })
-      if (result.ok) {
-        setOpen(false)
-        toast.success(`You left ${campaignName}.`)
-        router.push("/campaigns")
-        return
-      }
-      setOpen(false)
-      if (result.error === "live-encounter-lock") {
-        toast.error(LEAVE_CAMPAIGN_LIVE_LOCK_ERROR)
-        return
-      }
-      toast.error("Couldn't leave the campaign. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await leaveCampaignAction({ campaignId })
+          if (result.ok) {
+            setOpen(false)
+            toast.success(`You left ${campaignName}.`)
+            router.push("/campaigns")
+            return
+          }
+          setOpen(false)
+          if (result.error === "live-encounter-lock") {
+            toast.error(LEAVE_CAMPAIGN_LIVE_LOCK_ERROR)
+            return
+          }
+          toast.error("Couldn't leave the campaign. Try again.")
+        },
+        () => toast.error("Couldn't leave the campaign. Try again.")
+      )
+    )
   }
 
   return (

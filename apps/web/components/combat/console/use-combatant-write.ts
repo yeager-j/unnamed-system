@@ -13,13 +13,14 @@ import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
+import { guardWrite } from "@/lib/sync/guard-write-transition"
 
 import type { WriteLane } from "./write-lanes"
 
 export type DispatchCombatantWrite = (
   participantId: ParticipantId,
   write: CombatEntityWrite
-) => Promise<Result<CommittedWrite, ApplyCombatantWriteError>>
+) => Promise<Result<CommittedWrite, ApplyCombatantWriteError> | null>
 
 /**
  * The console's **combatant component-write dispatcher** (UNN-520; UNN-535;
@@ -62,11 +63,19 @@ export function useCombatantWrite({
   const dispatchWrite: DispatchCombatantWrite = (participantId, write) =>
     new Promise((resolve) => {
       startTransition(async () => {
-        resolve(await runWrite(participantId, write))
+        resolve(
+          await guardWrite(
+            () => runWrite(participantId, write),
+            () => toast.error("Couldn't save. Try again.")
+          )
+        )
       })
     })
 
-  const runWrite: DispatchCombatantWrite = async (participantId, write) => {
+  const runWrite = async (
+    participantId: ParticipantId,
+    write: CombatEntityWrite
+  ): Promise<Result<CommittedWrite, ApplyCombatantWriteError>> => {
     const components = componentsOf(participantId)
     const lane = laneOf(participantId)
     if (components === undefined || lane === undefined) {

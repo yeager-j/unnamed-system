@@ -20,6 +20,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 import { createCampaignAction } from "@/lib/actions/create-campaign"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Create campaign" CTA on My Campaigns (UNN-329). Opens a dialog for the name
@@ -47,20 +48,28 @@ export function CreateCampaignButton() {
     const name = String(formData.get("name") ?? "")
     const trimmedDescription = description.trim()
 
-    startTransition(async () => {
-      const result = await createCampaignAction({
-        name,
-        description: trimmedDescription || undefined,
-      })
-      if (!result.ok) {
-        toast.error(
-          "Couldn't create the campaign. Check the name and try again."
-        )
-        return
-      }
-      setOpen(false)
-      router.push(`/campaigns/${result.value.shortId}`)
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await createCampaignAction({
+            name,
+            description: trimmedDescription || undefined,
+          })
+          if (!result.ok) {
+            toast.error(
+              "Couldn't create the campaign. Check the name and try again."
+            )
+            return
+          }
+          setOpen(false)
+          router.push(`/campaigns/${result.value.shortId}`)
+        },
+        () =>
+          toast.error(
+            "Couldn't create the campaign. Check the name and try again."
+          )
+      )
+    )
   }
 
   return (

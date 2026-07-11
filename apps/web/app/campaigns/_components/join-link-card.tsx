@@ -30,6 +30,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { rotateJoinTokenAction } from "@/lib/actions/rotate-join-token"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The DM's shareable invite link on the campaign manage page (UNN-329): the
@@ -66,15 +67,20 @@ export function JoinLinkCard({
   }
 
   function onRegenerate() {
-    startTransition(async () => {
-      const result = await rotateJoinTokenAction({ campaignId })
-      setConfirmOpen(false)
-      if (!result.ok) {
-        toast.error("Couldn't regenerate the link. Try again.")
-        return
-      }
-      toast.success("New join link generated. The old one no longer works.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await rotateJoinTokenAction({ campaignId })
+          setConfirmOpen(false)
+          if (!result.ok) {
+            toast.error("Couldn't regenerate the link. Try again.")
+            return
+          }
+          toast.success("New join link generated. The old one no longer works.")
+        },
+        () => toast.error("Couldn't regenerate the link. Try again.")
+      )
+    )
   }
 
   return (

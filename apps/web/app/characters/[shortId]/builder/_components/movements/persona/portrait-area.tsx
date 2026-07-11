@@ -25,6 +25,7 @@ import {
   messageForPortraitUploadError,
   PORTRAIT_ACCEPT,
 } from "@/lib/storage/portrait-upload"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * Movement 4's portrait area. Sits at the visual top of the page. When
@@ -62,32 +63,42 @@ export function PortraitArea() {
       return
     }
 
-    startTransition(async () => {
-      const formData = new FormData()
-      formData.append("entityId", identityToken.entityId)
-      formData.append("expectedVersion", String(identityToken.read()))
-      formData.append("file", file)
-      const result = await uploadEntityPortraitAction(formData)
-      if (result.ok) {
-        identityToken.bump(result.value.version)
-        return
-      }
-      toast.error(messageForPortraitUploadError(result.error))
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const formData = new FormData()
+          formData.append("entityId", identityToken.entityId)
+          formData.append("expectedVersion", String(identityToken.read()))
+          formData.append("file", file)
+          const result = await uploadEntityPortraitAction(formData)
+          if (result.ok) {
+            identityToken.bump(result.value.version)
+            return
+          }
+          toast.error(messageForPortraitUploadError(result.error))
+        },
+        () => toast.error("Couldn't upload the portrait. Try again.")
+      )
+    )
   }
 
   function onRemove() {
-    startTransition(async () => {
-      const result = await removeEntityPortraitAction({
-        entityId: identityToken.entityId,
-        expectedVersion: identityToken.read(),
-      })
-      if (result.ok) {
-        identityToken.bump(result.value.version)
-        return
-      }
-      toast.error("Couldn't remove the portrait. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await removeEntityPortraitAction({
+            entityId: identityToken.entityId,
+            expectedVersion: identityToken.read(),
+          })
+          if (result.ok) {
+            identityToken.bump(result.value.version)
+            return
+          }
+          toast.error("Couldn't remove the portrait. Try again.")
+        },
+        () => toast.error("Couldn't remove the portrait. Try again.")
+      )
+    )
   }
 
   return (

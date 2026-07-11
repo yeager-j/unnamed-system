@@ -31,6 +31,7 @@ import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 import { parseVersionPing } from "@/lib/sync/version-ping"
@@ -140,24 +141,30 @@ export function useCombatConsole(
   })
 
   function dispatch(event: ConsoleDispatchEvent) {
-    startTransition(async () => {
-      const result = await dispatchCombatEvent({
-        event,
-        encounterId: encounter.id,
-        applyOptimistic,
-        encounterWrite,
-        instanceWrite,
-      })
-      if (!result.ok) {
-        toast.error(combatErrorMessage(result.error))
-        return
-      }
-      // No client `router.refresh()` per dispatch (UNN-482): the combat
-      // actions call `revalidateEncounter`, whose RSC payload rides this
-      // transition's action response and advances the `useOptimistic` base —
-      // a rapid burst accumulates and reconciles with zero client refreshes.
-      // PC HP (a cross-route read) stays live via the realtime PC-ping path.
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await dispatchCombatEvent({
+            event,
+            encounterId: encounter.id,
+            applyOptimistic,
+            encounterWrite,
+            instanceWrite,
+          })
+          if (!result.ok) {
+            toast.error(combatErrorMessage(result.error))
+            return
+          }
+          // No client `router.refresh()` per dispatch (UNN-482): the combat
+          // actions call `revalidateEncounter`, whose RSC payload rides this
+          // transition's action response and advances the `useOptimistic` base
+          // — a rapid burst accumulates and reconciles with zero client
+          // refreshes. PC HP (a cross-route read) stays live via the realtime
+          // PC-ping path.
+        },
+        () => toast.error("Couldn't save. Try again.")
+      )
+    )
   }
 
   // The client half of the CD19 router (UNN-567): participantMeta resolved
@@ -198,20 +205,25 @@ export function useCombatConsole(
    * Instance version, folded forward-only into its queue's token (UNN-567).
    */
   function endEncounter() {
-    startTransition(async () => {
-      const result = await encounterWrite.enqueue((expectedVersion) =>
-        endCombat({
-          encounterVersion: expectedVersion,
-          instanceVersion: instanceWrite.versionRef.current,
-        })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await encounterWrite.enqueue((expectedVersion) =>
+            endCombat({
+              encounterVersion: expectedVersion,
+              instanceVersion: instanceWrite.versionRef.current,
+            })
+          )
+          if (!result.ok) {
+            toast.error(combatErrorMessage(result.error))
+            return
+          }
+          instanceWrite.bump(result.value.instanceVersion)
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
       )
-      if (!result.ok) {
-        toast.error(combatErrorMessage(result.error))
-        return
-      }
-      instanceWrite.bump(result.value.instanceVersion)
-      router.refresh()
-    })
+    )
   }
 
   // ── The derived combat view (UNN-467, rebuilt on v2 view builders) ────────

@@ -18,6 +18,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { MEMBER_REMOVE_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { removeCampaignMemberAction } from "@/lib/actions/remove-campaign-member"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * Removes a player from the roster on the campaign manage page (UNN-329). Behind
@@ -37,19 +38,27 @@ export function RemovePlayerButton({
   const [isPending, startTransition] = useTransition()
 
   function onRemove() {
-    startTransition(async () => {
-      const result = await removeCampaignMemberAction({ campaignId, userId })
-      setOpen(false)
-      if (!result.ok) {
-        toast.error(
-          result.error === "live-encounter-lock"
-            ? MEMBER_REMOVE_LIVE_LOCK_ERROR
-            : "Couldn't remove the player. Try again."
-        )
-        return
-      }
-      toast.success(`Removed ${playerName} from the campaign.`)
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await removeCampaignMemberAction({
+            campaignId,
+            userId,
+          })
+          setOpen(false)
+          if (!result.ok) {
+            toast.error(
+              result.error === "live-encounter-lock"
+                ? MEMBER_REMOVE_LIVE_LOCK_ERROR
+                : "Couldn't remove the player. Try again."
+            )
+            return
+          }
+          toast.success(`Removed ${playerName} from the campaign.`)
+        },
+        () => toast.error("Couldn't remove the player. Try again.")
+      )
+    )
   }
 
   return (

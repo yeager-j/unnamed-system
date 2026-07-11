@@ -21,6 +21,7 @@ import { Textarea } from "@workspace/ui/components/textarea"
 
 import { createEncounterAction } from "@/lib/actions/encounter/create"
 import { encounterConsolePath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "New encounter" CTA on the campaign manage page (UNN-329). Opens a dialog for
@@ -44,21 +45,31 @@ export function CreateEncounterButton({
     const name = String(formData.get("name") ?? "")
     const notes = String(formData.get("notes") ?? "")
 
-    startTransition(async () => {
-      const result = await createEncounterAction({
-        campaignId,
-        name,
-        notes: notes || undefined,
-      })
-      if (!result.ok) {
-        toast.error(
-          "Couldn't create the encounter. Check the name and try again."
-        )
-        return
-      }
-      setOpen(false)
-      router.push(encounterConsolePath(campaignShortId, result.value.shortId))
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await createEncounterAction({
+            campaignId,
+            name,
+            notes: notes || undefined,
+          })
+          if (!result.ok) {
+            toast.error(
+              "Couldn't create the encounter. Check the name and try again."
+            )
+            return
+          }
+          setOpen(false)
+          router.push(
+            encounterConsolePath(campaignShortId, result.value.shortId)
+          )
+        },
+        () =>
+          toast.error(
+            "Couldn't create the encounter. Check the name and try again."
+          )
+      )
+    )
   }
 
   return (
