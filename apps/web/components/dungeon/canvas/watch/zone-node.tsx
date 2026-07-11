@@ -16,7 +16,7 @@ import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluste
 import { ExitChip } from "@/components/dungeon/canvas/watch/exit-chip"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import { groupTokensByEngagement } from "@/lib/combat/view/engagement-groups"
-import type { Pool } from "@/lib/combat/view/roster-view"
+import type { Pool } from "@/lib/combat/view/pool"
 import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
 
 export type WatchZoneToken = {

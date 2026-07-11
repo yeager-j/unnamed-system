@@ -19,9 +19,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react"
 
-import type { DamageType } from "@workspace/game-v2/kernel/vocab"
-import type { SkillKind } from "@workspace/game-v2/kernel/vocab/skills"
-import type { Skill } from "@workspace/game-v2/skills/skill.schema"
+import type { ElementKey } from "@/lib/combat/view/skill-card-view"
 
 /**
  * The Skill-card element system (design handoff "Element color system",
@@ -37,15 +35,9 @@ import type { Skill } from "@workspace/game-v2/skills/skill.schema"
  *
  * Attacks key off their damage type; the non-damage Skill kinds carry their own
  * tone — `ailment` violet, `passive` neutral, `heal` emerald, `support` stone
- * (see {@link elementKeyForSkill}).
+ * (the {@link ElementKey} the `skill-card-view` builder emits).
  */
-export type ElementKey =
-  | DamageType
-  | "special"
-  | "ailment"
-  | "passive"
-  | "heal"
-  | "support"
+export type { ElementKey }
 
 export interface ElementTone {
   text: string
@@ -72,25 +64,6 @@ const TONES: Record<ElementKey, ElementTone> = {
   passive: tone("neutral"),
   heal: tone("emerald"),
   support: tone("stone"),
-}
-
-/**
- * The Skill's tone key: attacks by their damage type, every other kind by its
- * own hue. Damage wins when present, so an ailment-inflicting *attack* still
- * reads by its element.
- */
-export function elementKeyForSkill(
-  skill: Pick<Skill, "damage" | "kind">
-): ElementKey {
-  return skill.damage?.damageType ?? KIND_ELEMENT_KEY[skill.kind]
-}
-
-const KIND_ELEMENT_KEY: Record<SkillKind, ElementKey> = {
-  attack: "special",
-  ailment: "ailment",
-  passive: "passive",
-  heal: "heal",
-  support: "support",
 }
 
 /**

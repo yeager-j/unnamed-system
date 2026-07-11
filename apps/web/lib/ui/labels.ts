@@ -3,6 +3,7 @@ import type {
   RecommendationReason,
 } from "@workspace/game-v2/archetypes"
 import type { EnemyFamily } from "@workspace/game-v2/catalog/enemies"
+import type { AttackRange } from "@workspace/game-v2/combat/attack.schema"
 import type {
   BattleConditionState,
   CounterKey,
@@ -556,6 +557,11 @@ export const KNOWN_RANGE_LABELS: Record<Range, string> = {
   "same-or-adjacent-zone": "Same/Adjacent Zone",
   all: "All",
 }
+
+/** A resolved Skill's Range as a display string — a `known` range maps through
+ *  {@link KNOWN_RANGE_LABELS}, a freeform range prints verbatim. */
+export const rangeLabel = (range: AttackRange): string =>
+  range.kind === "known" ? KNOWN_RANGE_LABELS[range.value] : range.value
 
 /**
  * Title + body for the dungeon run console's DM reminder nudges (UNN-464), keyed

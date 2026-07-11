@@ -1,8 +1,8 @@
-import { type DamageType } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
+import type { DamageType } from "@/lib/ui/vocab"
 
 /**
  * The damage type slot reuses the Skill schema's `damageType` union, which

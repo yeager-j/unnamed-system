@@ -10,7 +10,7 @@ import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
 import type { CombatantVitalsView } from "@/lib/combat/view/detail-view"
-import type { Pool } from "@/lib/combat/view/roster-view"
+import type { Pool } from "@/lib/combat/view/pool"
 import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 
 /**

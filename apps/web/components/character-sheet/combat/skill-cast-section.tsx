@@ -1,11 +1,12 @@
 "use client"
 
-import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
-import { sortSkillsByKind } from "@workspace/game-v2/skills/sort"
-
 import { SkillBannerCard } from "@/components/shared/skill-banner-card"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  buildSkillCardViews,
+  type SkillCardCost,
+} from "@/lib/combat/view/skill-card-view"
 
 import { SectionLabel } from "../section-label"
 
@@ -25,23 +26,22 @@ export function SkillCastSection() {
   const { resolved } = useLoadedCharacter()
   const { dispatch, pending } = useEntityWrite()
 
-  const skills = sortSkillsByKind(resolved.components.skills ?? [])
   const attributes = resolved.components.attributes
 
   const currentHP = resolved.components.vitals?.currentHP ?? 0
   const currentSP = resolved.components.skillPool?.currentSP ?? 0
 
-  const canAfford = (cost: ResolvedSkillCost) =>
+  const canAfford = (cost: SkillCardCost) =>
     cost.kind === "sp" ? cost.amount <= currentSP : cost.amount < currentHP
 
-  const use = (cost: ResolvedSkillCost) =>
+  const use = (cost: SkillCardCost) =>
     dispatch(
       cost.kind === "sp"
         ? { component: "skillPool", op: "damage", amount: cost.amount }
         : { component: "vitals", op: "damage", amount: cost.amount }
     )
 
-  if (skills.length === 0 || !attributes) {
+  if ((resolved.components.skills ?? []).length === 0 || !attributes) {
     return (
       <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
         No Skills yet.
@@ -49,23 +49,24 @@ export function SkillCastSection() {
     )
   }
 
+  const views = buildSkillCardViews(
+    resolved.components.skills ?? [],
+    attributes
+  )
+
   return (
     <section aria-label="Skills" className="flex flex-col gap-2">
-      <SectionLabel>Skills · {skills.length}</SectionLabel>
+      <SectionLabel>Skills · {views.length}</SectionLabel>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-3">
-        {skills.map((skill) => (
+        {views.map((view) => (
           <SkillBannerCard
-            key={skill.skill.key}
-            resolved={skill}
-            attributes={attributes}
+            key={view.key}
+            view={view}
             showUse={role === "owner"}
             useDisabled={
-              pending ||
-              (skill.resolvedCost !== null && !canAfford(skill.resolvedCost))
+              pending || (view.cost !== null && !canAfford(view.cost))
             }
-            onUse={
-              skill.resolvedCost ? () => use(skill.resolvedCost!) : undefined
-            }
+            onUse={view.cost ? () => use(view.cost!) : undefined}
           />
         ))}
       </div>

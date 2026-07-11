@@ -22,13 +22,13 @@ describe("enemyStatblockView talents", () => {
     }
 
     expect(
-      enemyStatblockView(absent, resolveEntity(absent), null).talentKeys
+      enemyStatblockView(absent, resolveEntity(absent), null).talentNames
     ).toBeNull()
     expect(
-      enemyStatblockView(empty, resolveEntity(empty), null).talentKeys
+      enemyStatblockView(empty, resolveEntity(empty), null).talentNames
     ).toEqual([])
     expect(
-      enemyStatblockView(goblin, resolveEntity(goblin), null).talentKeys
-    ).toEqual(["sneak"])
+      enemyStatblockView(goblin, resolveEntity(goblin), null).talentNames
+    ).toEqual(["Sneak"])
   })
 })

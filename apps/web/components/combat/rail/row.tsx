@@ -14,7 +14,8 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { VitalBar } from "@/components/shared/vital-bar"
 import type { CombatantAvatar } from "@/lib/combat/view/avatar"
-import type { Pool, RailRow } from "@/lib/combat/view/roster-view"
+import type { Pool } from "@/lib/combat/view/pool"
+import type { RailRow } from "@/lib/combat/view/roster-view"
 import { COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**

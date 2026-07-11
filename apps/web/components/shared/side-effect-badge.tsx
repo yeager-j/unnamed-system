@@ -1,11 +1,11 @@
-import { getSideEffect } from "@workspace/game-v2/combat"
-import { type SideEffectKey } from "@workspace/game-v2/kernel/vocab"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
+
+import type { SideEffectView } from "@/lib/combat/view/skill-card-view"
 
 import { Prose } from "./prose"
 
@@ -14,18 +14,16 @@ import { Prose } from "./prose"
  * canonical name (e.g. "Critical", "Insta-Kill (Light)") set as a small
  * uppercase mono pill, tinted by the Skill's element hue via `className` (a set
  * of border/text classes from the element-tone registry). The tooltip renders
- * the side effect's rule description. Unknown keys are skipped — the schema
- * rejects them at parse time, but this guards against bad persisted data.
+ * the side effect's rule description. The `skill-card-view` builder resolves the
+ * key to this {@link SideEffectView} (and drops unknown ones) upstream.
  */
 export function SideEffectBadge({
-  sideEffectKey,
+  sideEffect,
   className,
 }: {
-  sideEffectKey: SideEffectKey
+  sideEffect: SideEffectView
   className?: string
 }) {
-  const sideEffect = getSideEffect(sideEffectKey)
-  if (!sideEffect) return null
   return (
     <Tooltip>
       <TooltipTrigger

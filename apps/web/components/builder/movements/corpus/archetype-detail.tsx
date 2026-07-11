@@ -10,6 +10,7 @@ import { ArchetypeResolvedSkills } from "@/components/archetype/archetype-resolv
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
+import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
 import { resolveCreationArchetypeSkills } from "@/lib/game-engine-v2"
 
 /**
@@ -49,8 +50,7 @@ export function ArchetypeDetail({
         <DetailSection title="Synthesis Skill">
           <ItemGroup className="gap-0">
             <ResolvedSkillRow
-              resolved={synthesis}
-              attributes={archetype.attributes}
+              view={buildSkillCardView(synthesis, archetype.attributes)}
             />
           </ItemGroup>
         </DetailSection>

@@ -1,11 +1,11 @@
+import { cn } from "@workspace/ui/lib/utils"
+
+import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 import {
   AFFINITY_DAMAGE_TYPES,
   type Affinity,
   type AffinityDamageType,
-} from "@workspace/game-v2/kernel/vocab"
-import { cn } from "@workspace/ui/lib/utils"
-
-import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
+} from "@/lib/ui/vocab"
 
 /**
  * The read-only Affinity chart (PRD §6.1 / §7.1): all 11 charted damage types

@@ -4,19 +4,17 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
-import {
-  ENEMY_FAMILIES,
-  type EnemyFamily,
-} from "@workspace/game-v2/catalog/enemies"
-import {
-  type EnemyCatalogLevelGroup,
-  type EnemyCatalogRow,
-} from "@workspace/game-v2/catalog/enemies/catalog-rows"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { cn } from "@workspace/ui/lib/utils"
 
+import {
+  ENEMY_FAMILIES,
+  type EnemyCatalogLevelGroup,
+  type EnemyCatalogRow,
+  type EnemyFamily,
+} from "@/lib/combat/view/enemy-catalog-view"
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   ENEMY_FAMILY_LABELS,

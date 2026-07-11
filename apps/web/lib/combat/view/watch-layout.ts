@@ -10,6 +10,7 @@ import type {
   VisibleCombatant,
 } from "@workspace/game-v2/visibility"
 
+import type { Pool } from "@/lib/combat/view/pool"
 import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
@@ -25,12 +26,6 @@ import {
  * faithfully. Names are disambiguated once ({@link appendOrdinals}, NAME-3) so
  * turn order, rail, and zone tokens number duplicates identically.
  */
-
-/** A current/max display pool. */
-export interface Pool {
-  current: number
-  max: number
-}
 
 /** One combatant as every watch surface renders it. */
 export interface WatchCombatant {

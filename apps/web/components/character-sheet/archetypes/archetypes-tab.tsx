@@ -23,6 +23,7 @@ import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 import { affinityCells } from "@/lib/character/view/affinity-strip"
 import { buildArchetypesTabView } from "@/lib/character/view/archetypes-tab"
+import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
 
 import { AffinityStrip } from "../combat/affinity-strip"
 import { AttributesBlock } from "../rail/attributes-block"
@@ -189,8 +190,7 @@ function SkillsCard({
         <DetailSection title="Synthesis Skill">
           <ItemGroup className="gap-0">
             <ResolvedSkillRow
-              resolved={entry.synthesis!}
-              attributes={attributes}
+              view={buildSkillCardView(entry.synthesis!, attributes)}
             />
           </ItemGroup>
         </DetailSection>

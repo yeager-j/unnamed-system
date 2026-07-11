@@ -1,9 +1,5 @@
-import {
-  ATTRIBUTE_KEYS,
-  type AttributeScores,
-} from "@workspace/game-v2/kernel/vocab"
-
 import { ATTRIBUTE_LABELS } from "@/lib/ui/labels"
+import { ATTRIBUTE_KEYS, type AttributeScores } from "@/lib/ui/vocab"
 
 /**
  * The read-only Attributes label/value list (PRD §6.1 / §7.1): Strength, Magic,

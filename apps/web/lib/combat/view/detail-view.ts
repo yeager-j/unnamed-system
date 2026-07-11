@@ -24,7 +24,8 @@ import { isFallen } from "@workspace/game-v2/vitals/operations"
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
 import { combatantAvatar, type CombatantAvatar } from "@/lib/combat/view/avatar"
-import { hpPool, spPool, type Pool } from "@/lib/combat/view/roster-view"
+import type { Pool } from "@/lib/combat/view/pool"
+import { hpPool, spPool } from "@/lib/combat/view/roster-view"
 import {
   vitalsAffordances,
   type VitalsAffordances,
