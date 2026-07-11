@@ -30,7 +30,7 @@ never a second stored fact:
 | Entity kind (pc/npc) | which subtype table points at it | derived (R3 landed — UNN-573) |
 
 The cost is concentrated selector complexity — one pure, DB-free module
-(`lib/planner/`) with unit tests — bought back everywhere as zero
+(`domain/planner/`) with unit tests — bought back everywhere as zero
 sync/compensation obligations on edits, deletes, and re-tags. **One deliberate
 exception:** the day-end warning's bulk actions (Resolve All / Defer
 Unresolved) write *stored* beat facts, so un-advance is **scoped**, not
@@ -331,7 +331,7 @@ node; the surrounding prose autosaves as usual. Two flows composing.
   non-breaking by construction. The engine applies the Initiate origin floor
   itself (it already tracks `isOrigin`/`originLineage`); *why* a lineage
   opened never crosses the boundary. The app-side fold over `campaignNpc`
-  rows + `storyTier` is a pure `lib/planner/` function; the
+  rows + `storyTier` is a pure `domain/planner/` function; the
   `campaigns.lineageGating` boolean (default false, edited in Manage) turns
   it on.
 
@@ -359,7 +359,9 @@ small table.
   is narration, not enforcement, and the DM can't know the delve's length
   in advance.
 - **Runner card:** dungeon name, "Open dungeon console" (the existing
-  `/dungeon/[shortId]`), Mark resolved / Reopen (on the claim), Remove
+  dungeon console route `/campaigns/[campaignShortId]/dungeon/[shortId]`,
+  built via `lib/paths.ts`'s `dungeonConsolePath`), Mark resolved / Reopen
+  (on the claim), Remove
   (unclaim → downtime). **Coupling is one-directional and manual:** the
   dungeon console never touches the clock; dungeon `status` never
   auto-resolves the slot; nothing auto-advances. The PRD's old "no FK to
@@ -379,7 +381,7 @@ small table.
 
 ### D10 — Shell, routing, and the two write flows
 
-- **Routes** nest under `app/campaigns/[shortId]/`: root page = Day Runner,
+- **Routes** nest under `app/campaigns/[campaignShortId]/`: root page = Day Runner,
   siblings `notes/`, `calendar/`, `chronicle/`, `articles/[id]`, `npcs/[id]`,
   and the existing manage content relocated to `manage/`. The **viewer fork
   is decided once at the root page**: DM → Day Runner; member → today's
@@ -398,9 +400,9 @@ small table.
   `markdown-field` already guards echo resets). Failure = keep the buffer,
   retry quietly, "couldn't save" indicator. LWW per D6.
   **Hook lineage (corrected by validation):** a generic debounced core
-  already exists — `hooks/use-debounced-auto-save.ts` — but it is coupled to
+  already exists — `domain/entity/use-debounced-auto-save.ts` — but it is coupled to
   the per-write-class version-token providers; the closer LWW precedent is
-  `hooks/use-map-autosave.ts`, and **UNN-483 already tracks extracting the
+  `app/maps/_hooks/use-map-autosave.ts`, and **UNN-483 already tracks extracting the
   shared core those two duplicate**. The planner consumes that consolidated
   LWW core (landing UNN-483 as part of phase 3 if it hasn't landed) rather
   than minting a third duplicate.
@@ -410,7 +412,7 @@ small table.
   they happen (day-stamped `currentDay`) instead of recalled at 11pm.
 - **Runner vitals glance read boundary:** the roster needs N placed
   characters' resolved state per render. One batch read (the
-  `queries/load-entity` batch precedent) → `entity-row-to-bag` → the v2
+  `lib/db/queries/load-entity` batch precedent) → `domain/game-v2/entity-row-to-bag` → the v2
   `resolve` fold → a pure glance view builder. Never N×
   `loadCharacterByShortId`.
 - The clock record is minted by an explicit **"Start the clock"** action
@@ -509,9 +511,10 @@ campaignUpdateConcern updateId FK cascade · participantKind · participantId
 ```
 
 Modified: `campaigns` + `lineageGating bool default false`; `entity` +
-`deletedAt` (R1) and interim `kind: 'npc'` (R2). New dependency:
+`deletedAt` (R1 — landed, UNN-571). (`entity.kind` was **dropped** in R3, not
+widened to `'npc'` — the interim R2 guard was canceled; see §6.) New dependency:
 `@tiptap/suggestion` (+ popover positioning). Schema files:
-`schema/campaign-clock.ts`, `schema/campaign-world.ts`.
+`lib/db/schema/campaign-clock.ts`, `lib/db/schema/campaign-world.ts`.
 
 **First-of-kind warning:** this schema leans on partial unique indexes and
 CHECK constraints, of which the existing schema has **zero**. Both are
@@ -523,7 +526,7 @@ Per-entity timeline read = updates where primary-or-concerned (union over the
 two indexes), ordered `(day, authoredAt)`; Chronicle paginates on the cursor
 index.
 
-## 4. Pure layer — `lib/planner/`
+## 4. Pure layer — `domain/planner/`
 
 Selectors (see §0 table): `slotKind` (beat → story; claim → dungeon; else
 downtime), `dayProgress`, `deadlineState`,
@@ -532,12 +535,14 @@ downtime), `dayProgress`, `deadlineState`,
 cap), `dayEndReadiness`, `availabilityFold` (origin + bond lanes →
 `narrativeGate` map; storyTier 0 pre-clock), `isSetAside`, `isStub`,
 `isFrozenDay`. Plus per-surface view builders (`view/runner.ts`,
-`view/calendar.ts`, `view/chronicle.ts`, …) per the `lib/character/view`
+`view/calendar.ts`, `view/chronicle.ts`, …) per the `domain/character/view`
 precedent, the chip-token grammar module (serialize/parse/extract — also
 feeds the `campaignBeatMention` maintenance), and the campaign-scoped
-participant resolver. All DB-free, unit-tested. Components under
-`components/planner/` (runner/, notes/, calendar/, chronicle/, world/,
-composer/). The custom Article-type picker offers a hardcoded curated list ∪
+participant resolver. All DB-free, unit-tested. Components are
+feature-colocated under `app/campaigns/[campaignShortId]/_components/`
+(runner/, notes/, calendar/, chronicle/, world/, composer/) per the
+feature-first colocation rule (UNN-610) — importable across the campaign
+route subtree, not a shared `components/` kit. The custom Article-type picker offers a hardcoded curated list ∪
 the campaign's existing distinct `type` values; the column stays free text.
 
 ## 5. Write map
@@ -618,9 +623,13 @@ campaign's names into another.
   NPC-as-combatant (phase 2+) makes this real by adding components to the same
   entity row — no new mint, so the same lock + pinned-blind reads carry over.
   Prerequisite for phase 2. Valuable independent of this feature.
-- **R2 — Interim `kind: 'npc'` + PC-query filters.** Widen `EntityKind`;
-  add the `kind` filter to **all three** `character-list.ts` queries and any
-  placement/roster read. Lands with phase 2.
+- **R2 — Interim `kind: 'npc'` + PC-query filters. Canceled (UNN-572,
+  superseded by R3).** R2 was the *interim* guard (widen `EntityKind` +
+  add `kind='pc'` filters to the PC-facing `character-list.ts` queries),
+  needed only while `entity.kind` still existed. R3 **dropped** `entity.kind`
+  outright — an entity's kind is now which subtype table points at it, so no
+  filter was ever needed. My Characters naturally shows no NPCs because it
+  reads the `playerCharacter` subtype, which an NPC entity has no row in.
 - **R3 — `playerCharacter` subtype extraction. Landed (UNN-573).** `ownerId`
   (→`userId`)/`status`/`builderStep`/`campaignId` moved to the new `playerCharacter`
   subtype table (`schema/player-character.ts`); `kind` was **dropped** (an entity's
@@ -646,7 +655,8 @@ Each phase shippable; PRD's milestone list superseded by this (the PRD's M1
 had the composer depending on participants that didn't exist until its M4 —
 the world substrate is pulled forward).
 
-0. **Riders R1, R2** (R3 floats free)
+0. **Riders R1 (landed, UNN-571), R3 (landed, UNN-573)** — R2 canceled
+   (UNN-572, superseded by R3)
 1. **Clock core** — drizzle spike (partial uniques + CHECKs) first; clock
    record, slot rows, advance/un-advance/skip (+ montage pass), add-days +
    template, route restructure + rail shell incl. tablet breakpoints (Manage
