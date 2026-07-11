@@ -1,7 +1,7 @@
 import { z } from "zod/v4"
 
+import type { FinalizeRefusal } from "@/domain/entity/finalize"
 import type { EntityGuardError } from "@/lib/actions/entity/version-guard"
-import type { FinalizeRefusal } from "@/lib/entity/finalize"
 
 import { entityMutationBase } from "./entity-mutation.schema"
 

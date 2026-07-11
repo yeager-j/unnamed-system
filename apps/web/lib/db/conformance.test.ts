@@ -7,7 +7,7 @@ import { componentSchemas } from "@workspace/game-v2/kernel/load-seam"
 import {
   LIFTED_COMPONENT_KEYS,
   type LiftedComponentKey,
-} from "@/lib/game-v2/entity-row-to-bag"
+} from "@/domain/game-v2/entity-row-to-bag"
 
 import { entity, type EntityRow } from "./schema/entity"
 

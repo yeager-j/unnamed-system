@@ -8,11 +8,11 @@ import {
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { instantiateEnemy } from "@/domain/game-engine-v2"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import { instantiateEnemy } from "@/lib/game-engine-v2"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../encounter/revalidate"

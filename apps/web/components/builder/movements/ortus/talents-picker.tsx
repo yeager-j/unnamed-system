@@ -28,8 +28,8 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 
+import { resolveOriginTalentChoices } from "@/domain/game-engine-v2"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { resolveOriginTalentChoices } from "@/lib/game-engine-v2"
 import { talentLabel } from "@/lib/ui/labels"
 
 /**

@@ -45,7 +45,7 @@ vi.mock("@/lib/db/writes/encounter", () => ({
   saveEncounterSession: (id: string, stored: StoredSession, v: number) =>
     saveEncounterSession(id, stored, v),
 }))
-vi.mock("@/lib/game-engine-v2", () => ({
+vi.mock("@/domain/game-engine-v2", () => ({
   instantiateEnemy: (key: string, id: string) => instantiateEnemy(key, id),
 }))
 vi.mock("../encounter/revalidate", () => ({

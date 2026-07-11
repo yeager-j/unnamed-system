@@ -8,7 +8,7 @@ import {
   type OwnedSheet,
 } from "@/components/combat/watch/owned-sheet-tabs"
 import { OwnerSheetHeader } from "@/components/combat/watch/owner-sheet-header"
-import type { LoadedCharacter } from "@/lib/character/load"
+import type { LoadedCharacter } from "@/domain/character/load"
 
 /**
  * The dungeon watch's **own-sheet column** during exploration (UNN-566): the

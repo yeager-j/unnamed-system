@@ -7,8 +7,8 @@ import { makeParticipant, type Session } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import type { CurrentActorView } from "@/lib/combat/view/console-view"
-import { resolveSession } from "@/lib/game-engine-v2"
+import type { CurrentActorView } from "@/domain/combat/view/console-view"
+import { resolveSession } from "@/domain/game-engine-v2"
 
 import type { ConsoleDispatchEvent } from "./dispatch-event"
 import { useCombatSelection } from "./use-combat-selection"

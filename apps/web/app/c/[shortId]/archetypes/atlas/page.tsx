@@ -4,12 +4,12 @@ import { notFound, redirect } from "next/navigation"
 import { LineageAtlas } from "@/components/atlas/lineage-atlas"
 import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
+import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
+import { loadCharacterByShortId } from "@/domain/character/load"
+import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { EntityWriteProvider } from "@/hooks/use-entity-write"
-import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
 import { auth } from "@/lib/auth"
 import { getViewerRole } from "@/lib/auth/viewer-role"
-import { loadCharacterByShortId } from "@/lib/character/load"
-import { redactLoadedCharacterForViewer } from "@/lib/character/redact"
 
 /**
  * The Lineage Atlas (UNN-239) — the *growth* surface for spending Saved

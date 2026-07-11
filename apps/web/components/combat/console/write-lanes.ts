@@ -6,6 +6,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import { type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { parseCharacterPing } from "@/hooks/character-version-sync"
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { useMonotonicVersionMap } from "@/hooks/version-token-store"
@@ -14,7 +15,6 @@ import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-com
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
-import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
 
 import { decidePcPing } from "./pc-ping"
 

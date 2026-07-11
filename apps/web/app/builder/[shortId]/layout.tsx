@@ -2,8 +2,8 @@ import { forbidden, notFound, redirect } from "next/navigation"
 import { type ReactNode } from "react"
 
 import { BuilderProviderShell } from "@/components/builder/builder-provider-shell"
+import { loadCharacterByShortId } from "@/domain/character/load"
 import { auth } from "@/lib/auth"
-import { loadCharacterByShortId } from "@/lib/character/load"
 
 /**
  * The builder route gate. Loads the draft entity by `shortId` once per

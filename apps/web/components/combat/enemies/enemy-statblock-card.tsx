@@ -6,7 +6,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { DetailSection } from "@/components/shared/detail-section"
-import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
+import { type EnemyStatblockView } from "@/domain/combat/view/enemy-statblock-view"
 import { ENEMY_FAMILY_LABELS } from "@/lib/ui/labels"
 
 /**

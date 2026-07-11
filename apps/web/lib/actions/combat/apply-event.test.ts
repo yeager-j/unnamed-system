@@ -55,7 +55,7 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
 vi.mock("@/lib/db/queries/load-entity", () => ({
   loadEntityRowById: (id: string) => loadEntityRowById(id),
 }))
-vi.mock("@/lib/game-v2/entity-row-to-bag", () => ({
+vi.mock("@/domain/game-v2/entity-row-to-bag", () => ({
   loadEntityRow: (row: { id: string }) => ({
     ok: true,
     value: { id: row.id, components: { vitals: { base: 20, damage: 0 } } },

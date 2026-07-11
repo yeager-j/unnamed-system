@@ -29,13 +29,13 @@ import {
 } from "@workspace/ui/components/toggle-group"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/hooks/use-entity-write"
 import {
   rowMatchesGroups,
   rowMatchesQuery,
   type InventoryGroup,
   type InventoryRow,
-} from "@/lib/character/view/inventory-table"
+} from "@/domain/character/view/inventory-table"
+import { useEntityWrite } from "@/hooks/use-entity-write"
 import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/lib/ui/labels"
 
 /**

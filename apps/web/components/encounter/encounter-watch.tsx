@@ -7,11 +7,11 @@ import { useOwnedSheetRefresh } from "@/components/combat/watch/owned-sheet-refr
 import { PlayerTurnOrder } from "@/components/combat/watch/player-turn-order"
 import { WatchEnemiesRail } from "@/components/combat/watch/watch-enemies-rail"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
+import { buildWatchView } from "@/domain/combat/view/watch-layout"
 import {
   useEncounterSnapshot,
   type WatchSnapshot,
 } from "@/hooks/use-encounter-snapshot"
-import { buildWatchView } from "@/lib/combat/view/watch-layout"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"

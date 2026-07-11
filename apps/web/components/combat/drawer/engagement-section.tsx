@@ -6,7 +6,7 @@ import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { DetailSection } from "@/components/shared/detail-section"
-import type { CombatantEngagementView } from "@/lib/combat/view/detail-view"
+import type { CombatantEngagementView } from "@/domain/combat/view/detail-view"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**

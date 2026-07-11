@@ -14,7 +14,7 @@ import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/movements/ortus"
 import { PersonaStep } from "@/components/builder/movements/persona"
-import { loadCharacterByShortId } from "@/lib/character/load"
+import { loadCharacterByShortId } from "@/domain/character/load"
 
 /**
  * Renders the body for a single builder movement. The slug is validated

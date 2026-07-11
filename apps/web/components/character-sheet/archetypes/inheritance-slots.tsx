@@ -32,9 +32,9 @@ import {
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
+import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
+import { resolveArchetypeRoster } from "@/domain/game-engine-v2"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
-import { resolveArchetypeRoster } from "@/lib/game-engine-v2"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -15,9 +15,9 @@ import { TokenChip } from "@/components/dungeon/canvas/token-chip"
 import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/components/dungeon/canvas/watch/exit-chip"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
-import { groupTokensByEngagement } from "@/lib/combat/view/engagement-groups"
-import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import { groupTokensByEngagement } from "@/domain/combat/view/engagement-groups"
+import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 
 import type { WatchZoneExit } from "./zone-node"
 

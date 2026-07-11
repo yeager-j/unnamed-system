@@ -14,7 +14,7 @@ import {
   type EnemyCatalogLevelGroup,
   type EnemyCatalogRow,
   type EnemyFamily,
-} from "@/lib/combat/view/enemy-catalog-view"
+} from "@/domain/combat/view/enemy-catalog-view"
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   ENEMY_FAMILY_LABELS,

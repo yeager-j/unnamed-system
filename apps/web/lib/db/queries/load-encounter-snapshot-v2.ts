@@ -13,9 +13,13 @@ import {
   type SpatialEncounterSnapshot,
 } from "@workspace/game-v2/visibility"
 
+import {
+  toCharacterProfile,
+  type LoadedCharacter,
+} from "@/domain/character/load"
+import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
+import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
 import { deriveViewer } from "@/lib/auth/derive-viewer"
-import { toCharacterProfile, type LoadedCharacter } from "@/lib/character/load"
-import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadEncounterForSnapshot,
@@ -25,7 +29,6 @@ import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
-import { resolveEntity, resolveSession } from "@/lib/game-engine-v2"
 
 /**
  * The **v2 snapshot read boundary** (UNN-530; combat ADR §2.6/CD12) — the query

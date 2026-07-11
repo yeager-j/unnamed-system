@@ -6,7 +6,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 
 import type { ConsolePhase } from "@/components/combat/turn-order-strip"
-import type { CombatantView } from "@/lib/combat/view/console-view"
+import type { CombatantView } from "@/domain/combat/view/console-view"
 
 /**
  * The combat-phase state + dispatchers the canvas-internal chrome reads — the

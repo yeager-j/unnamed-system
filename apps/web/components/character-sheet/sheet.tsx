@@ -2,13 +2,13 @@
 
 import { useState } from "react"
 
+import type { LoadedCharacter } from "@/domain/character/load"
+import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
+import { buildRailView } from "@/domain/character/view/rail-view"
 import {
   EntityWriteProvider,
   useLoadedCharacter,
 } from "@/hooks/use-entity-write"
-import type { LoadedCharacter } from "@/lib/character/load"
-import { buildAffinityStrip } from "@/lib/character/view/affinity-strip"
-import { buildRailView } from "@/lib/character/view/rail-view"
 
 import { ArchetypesTab } from "./archetypes/archetypes-tab"
 import { CombatTab } from "./combat/combat-tab"

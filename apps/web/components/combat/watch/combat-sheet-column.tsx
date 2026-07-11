@@ -7,8 +7,8 @@ import { AffinityStrip } from "@/components/character-sheet/combat/affinity-stri
 import { SkillCastSection } from "@/components/character-sheet/combat/skill-cast-section"
 import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { CombatStateDisplay } from "@/components/combat/conditions/state-display"
+import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
-import { buildAffinityStrip } from "@/lib/character/view/affinity-strip"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 import { OwnedSheetTabs, type OwnedSheet } from "./owned-sheet-tabs"

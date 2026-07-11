@@ -10,8 +10,8 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 
+import type { VirtuesCardView } from "@/domain/character/view/virtues-card"
 import { useEntityWrite } from "@/hooks/use-entity-write"
-import type { VirtuesCardView } from "@/lib/character/view/virtues-card"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**

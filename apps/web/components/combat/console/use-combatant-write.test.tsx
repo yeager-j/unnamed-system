@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
-import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 import { useCombatantWrite } from "./use-combatant-write"
 import type { WriteLane } from "./write-lanes"

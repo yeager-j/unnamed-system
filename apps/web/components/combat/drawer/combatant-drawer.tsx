@@ -34,12 +34,12 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import type { CombatantAvatar } from "@/lib/combat/view/avatar"
+import type { CombatantAvatar } from "@/domain/combat/view/avatar"
 import type {
   CombatantDetail,
   CombatantStats,
-} from "@/lib/combat/view/detail-view"
-import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
+} from "@/domain/combat/view/detail-view"
+import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
 
 /** Every event the drawer's editable sections can emit — overlay edits plus
  *  the spatial position/engagement events. The console's dispatch (a superset

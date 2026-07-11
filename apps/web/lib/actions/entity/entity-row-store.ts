@@ -1,17 +1,17 @@
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
+import {
+  applyEntityWrite,
+  ENTITY_WRITERS,
+  type EntityWriteRefusal,
+} from "@/domain/entity/commit/writers"
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import {
   requireEntityOwner,
   requireOwnerOrCampaignDMForEntity,
 } from "@/lib/auth/campaign-access"
 import type { EntityStatus } from "@/lib/db/schema/entity"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
-import {
-  applyEntityWrite,
-  ENTITY_WRITERS,
-  type EntityWriteRefusal,
-} from "@/lib/entity/commit/writers"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 import {
   bumpEntityVersionGuarded,

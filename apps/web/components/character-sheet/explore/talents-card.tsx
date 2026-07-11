@@ -20,8 +20,8 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
+import { resolveTalentRoster } from "@/domain/game-engine-v2"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { resolveTalentRoster } from "@/lib/game-engine-v2"
 
 import { SheetCard } from "../sheet-card"
 

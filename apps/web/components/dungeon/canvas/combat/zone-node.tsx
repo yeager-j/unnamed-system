@@ -14,8 +14,8 @@ import { DungeonCombatTokenChip } from "@/components/dungeon/canvas/combat/token
 import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluster"
 import { ZoneCardFrame } from "@/components/dungeon/canvas/zone-card-frame"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
-import type { Pool } from "@/lib/combat/view/pool"
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import type { Pool } from "@/domain/combat/view/pool"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 
 import { useDungeonCombatCanvas } from "./context"
 

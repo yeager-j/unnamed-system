@@ -12,11 +12,11 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
+import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { saveEncounterSession } from "@/lib/db/writes/encounter"
-import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite } from "@/lib/entity/commit/writers"
 import { publishEncounterPing } from "@/lib/realtime/publish"
 
 import { revalidateEncounter } from "../../encounter/revalidate"

@@ -9,7 +9,7 @@ import {
   groupEnemyRowsByLevel,
   selectedEnemyStatblock,
   type EnemyFamily,
-} from "@/lib/combat/view/enemy-catalog-view"
+} from "@/domain/combat/view/enemy-catalog-view"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
 import { EnemyStatblockCard } from "./enemy-statblock-card"

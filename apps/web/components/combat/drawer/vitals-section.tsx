@@ -9,9 +9,9 @@ import type { DispatchCombatantWrite } from "@/components/combat/console/use-com
 import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { CombatantVitalsView } from "@/lib/combat/view/detail-view"
-import type { Pool } from "@/lib/combat/view/pool"
-import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
+import type { CombatantVitalsView } from "@/domain/combat/view/detail-view"
+import type { Pool } from "@/domain/combat/view/pool"
+import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 
 /**
  * The drawer's **VITALS** section, rewritten onto the CD19 write-router

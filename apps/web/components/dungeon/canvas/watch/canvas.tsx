@@ -35,8 +35,8 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
-import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
-import { zoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
+import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 
 const nodeTypes = {
   fogZone: DungeonWatchZoneNode,

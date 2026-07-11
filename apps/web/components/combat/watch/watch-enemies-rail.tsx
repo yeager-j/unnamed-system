@@ -7,7 +7,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
+import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 
 /**
  * The watch view's **Enemies** rail — the redacted enemy roster pinned to the

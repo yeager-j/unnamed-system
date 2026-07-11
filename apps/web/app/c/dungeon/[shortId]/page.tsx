@@ -6,8 +6,8 @@ import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
 import type { DungeonWatchCombatData } from "@/components/dungeon/combat/watch"
 import { DungeonWatch } from "@/components/dungeon/watch"
+import { loadCharactersByIds } from "@/domain/character/load"
 import { auth } from "@/lib/auth"
-import { loadCharactersByIds } from "@/lib/character/load"
 import {
   getDungeonSnapshot,
   loadOwnedDungeonCharacterIds,

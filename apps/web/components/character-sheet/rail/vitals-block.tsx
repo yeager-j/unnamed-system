@@ -1,5 +1,5 @@
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { RailPool } from "@/lib/character/view/rail-view"
+import type { RailPool } from "@/domain/character/view/rail-view"
 
 /**
  * The rail's HP/SP readout — display-only (design handoff: "No inline editing

@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-overview"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-overview"
 
 interface ZoneEnchantmentControlProps {
   zoneId: string

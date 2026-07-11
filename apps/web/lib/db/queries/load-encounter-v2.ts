@@ -9,6 +9,7 @@ import {
 } from "@workspace/game-v2/encounter"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { db } from "@/lib/db/client"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import {
@@ -16,7 +17,6 @@ import {
   type EncounterRow,
   type EncounterStatus,
 } from "@/lib/db/schema/encounter"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 /**
  * The **encounter blob loader** (UNN-520 write path; UNN-530 snapshot path) —

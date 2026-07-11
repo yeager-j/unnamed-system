@@ -1,6 +1,6 @@
 "use client"
 
-import type { RailView } from "@/lib/character/view/rail-view"
+import type { RailView } from "@/domain/character/view/rail-view"
 
 import { MechanicWidget } from "../mechanics/mechanic-widget"
 import { AttributesBlock } from "./attributes-block"

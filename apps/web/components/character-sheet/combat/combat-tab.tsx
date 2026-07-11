@@ -1,6 +1,6 @@
 "use client"
 
-import type { AffinityStripCell } from "@/lib/character/view/affinity-strip"
+import type { AffinityStripCell } from "@/domain/character/view/affinity-strip"
 
 import { AffinityStrip } from "./affinity-strip"
 import { SkillCastSection } from "./skill-cast-section"

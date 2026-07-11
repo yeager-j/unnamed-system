@@ -6,7 +6,7 @@ import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
 
 import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { DungeonSidebarHeader } from "@/components/dungeon/shell/sidebar-header"
-import type { RosterView } from "@/lib/combat/view/roster-view"
+import type { RosterView } from "@/domain/combat/view/roster-view"
 
 /**
  * The run console's left panel during **combat** (UNN-536) — the Party panel

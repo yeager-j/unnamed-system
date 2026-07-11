@@ -13,14 +13,14 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 import { initials } from "@/lib/ui/initials"
 import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
  * The battlefield grid's own **prop contract** (UNN-535) — the minimal
  * structural slice this component renders, so both shapers (the watch's
- * {@link import("@/lib/combat/view/watch-layout").buildWatchView} and the DM
+ * {@link import("@/domain/combat/view/watch-layout").buildWatchView} and the DM
  * console's layout builder) satisfy it without a shared engine type. A token
  * with a `portraitUrl` draws it; one without gets the side-tinted initials
  * square — presence-driven, not a PC/enemy kind flag.

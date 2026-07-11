@@ -6,8 +6,8 @@ import { toast } from "sonner"
 
 import { sortArchetypesByPath } from "@workspace/game-v2/archetypes/display"
 
+import { creationArchetypes } from "@/domain/game-engine-v2"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { creationArchetypes } from "@/lib/game-engine-v2"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { Sparkle } from "../../../shared/celestial"

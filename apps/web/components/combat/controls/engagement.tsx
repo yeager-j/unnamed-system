@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import type { EngageableTarget } from "@/lib/combat/view/detail-view"
+import type { EngageableTarget } from "@/domain/combat/view/detail-view"
 import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
 
 /**

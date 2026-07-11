@@ -15,9 +15,9 @@ import { FloatingEdgeHandles } from "@/components/dungeon/canvas/floating-edge-h
 import { EngagedCluster } from "@/components/dungeon/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/components/dungeon/canvas/watch/exit-chip"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
-import { groupTokensByEngagement } from "@/lib/combat/view/engagement-groups"
-import type { Pool } from "@/lib/combat/view/pool"
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import { groupTokensByEngagement } from "@/domain/combat/view/engagement-groups"
+import type { Pool } from "@/domain/combat/view/pool"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 
 export type WatchZoneToken = {
   characterId: string

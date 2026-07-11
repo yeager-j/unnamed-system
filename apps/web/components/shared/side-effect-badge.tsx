@@ -5,7 +5,7 @@ import {
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { SideEffectView } from "@/lib/combat/view/skill-card-view"
+import type { SideEffectView } from "@/domain/combat/view/skill-card-view"
 
 import { Prose } from "./prose"
 

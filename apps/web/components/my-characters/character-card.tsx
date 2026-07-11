@@ -17,8 +17,8 @@ import {
   BUILDER_STEPS,
   slugForStepIndex,
 } from "@/components/builder/builder-steps"
+import { getArchetype } from "@/domain/game-engine-v2"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
-import { getArchetype } from "@/lib/game-engine-v2"
 import { initials } from "@/lib/ui/initials"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"

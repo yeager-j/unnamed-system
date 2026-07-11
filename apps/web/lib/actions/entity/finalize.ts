@@ -2,10 +2,10 @@
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { buildFinalizePatch } from "@/domain/entity/finalize"
+import { getArchetype, startingWeaponForLineage } from "@/domain/game-engine-v2"
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
-import { buildFinalizePatch } from "@/lib/entity/finalize"
-import { getArchetype, startingWeaponForLineage } from "@/lib/game-engine-v2"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 import {
   FinalizeEntitySchema,

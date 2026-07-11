@@ -34,11 +34,11 @@ import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
+import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
 import {
   getArchetype,
   resolveCreationArchetypeSkills,
-} from "@/lib/game-engine-v2"
+} from "@/domain/game-engine-v2"
 import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"

@@ -3,7 +3,7 @@
 import type { ResolvedInventory } from "@workspace/game-v2/items"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { buildInventoryRows } from "@/lib/character/view/inventory-table"
+import { buildInventoryRows } from "@/domain/character/view/inventory-table"
 
 import { SheetCard } from "../sheet-card"
 import { AddItemDialog } from "./add-item-dialog"

@@ -11,10 +11,10 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
-import type { CombatantSheetSlice } from "@/lib/combat/sheet-slice"
+import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
 import { db } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"
-import { resolveEntity, resolveSession } from "@/lib/game-engine-v2"
 
 /**
  * The per-character-sheet drawer slice (UNN-538): active Archetype display name,

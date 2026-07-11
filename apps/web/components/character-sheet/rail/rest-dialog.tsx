@@ -19,8 +19,8 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useEntityWrite } from "@/hooks/use-entity-write"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 type RestVariant = "fullRest" | "partialRest" | "respite"
 

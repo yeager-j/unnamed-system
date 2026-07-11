@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { entityWriteSchema } from "@/lib/entity/commit/write.schema"
+import { entityWriteSchema } from "@/domain/entity/commit/write.schema"
 
 import type { EntityWriteError } from "./entity-row-store"
 

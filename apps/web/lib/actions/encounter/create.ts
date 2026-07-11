@@ -3,11 +3,11 @@
 import { comintMapInstance, saveSession } from "@workspace/game-v2/encounter"
 import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { createSession } from "@/domain/game-engine-v2"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { insertMapInstance } from "@/lib/db/writes/map-instance"
-import { createSession } from "@/lib/game-engine-v2"
 
 import {
   CreateEncounterSchema,

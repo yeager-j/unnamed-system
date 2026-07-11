@@ -14,7 +14,7 @@ import {
 import { err, ok } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import { foldSnapshotVersion } from "@/lib/combat/snapshot-version"
+import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
 import type { LoadedEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 

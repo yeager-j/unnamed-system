@@ -14,6 +14,8 @@ import {
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { createSession, instantiateEnemy } from "@/domain/game-engine-v2"
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
@@ -23,8 +25,6 @@ import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { createSession, instantiateEnemy } from "@/lib/game-engine-v2"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 import {
   publishDungeonInstancePing,
   publishEncounterPing,
