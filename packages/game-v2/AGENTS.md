@@ -65,9 +65,12 @@ Load-bearing rules a new slice must preserve (ADR §-refs + D-numbers for the wh
   Two registries: authored/stored (`ComponentRegistry`) vs computed
   (`ResolvedComponentRegistry`); reads consume the resolved entity, writes target the
   authored components then re-resolve.
-- **Forms _are_ entities** (§2.3; D38): a form swap is a pure `Entity → Entity` merge
-  (`applyForm`) run **before** `resolve` — no form struct, no form branch in the fold.
-  Shapechanger and Nyx Arcana are the _same_ path.
+- **Forms _are_ entities** (§2.3; D38/D47): a form swap is a pure `Entity → Entity`
+  fold of the per-component `FORM_SWAP_POLICY` table (`resolve/form-swap-policy.ts`)
+  run **before** `resolve` — no form struct, no form branch in the fold, no inline
+  merge logic. Doctrine (D47): _a form is a body; you bring your mind, your wounds,
+  and your capacity_ — `vitals`/`skillPool`/`level`/`path` are the self's and never
+  the form's. Shapechanger and Nyx Arcana are the _same_ path.
 - **Vitals are depletion** (§2.4; D9/D10/D26): store depletion (signed `damage`,
   `spSpent`, `*Used`), derive current (`currentHP = max(0, maxHP − damage)`). Over-max
   HP is just negative damage (no temp-HP buffer; `maxHP` stays honest); each
@@ -83,7 +86,9 @@ Load-bearing rules a new slice must preserve (ADR §-refs + D-numbers for the wh
 - **Lifecycle is the storage axis** (§2.2/§2.5; D11–D13): durable (entity row +
   `components` jsonb) vs encounter-overlay (session blob) vs catalog (authored TS) —
   and it decides whether combat clears a component. Rule of thumb: _anything that must
-  survive a form swap is its own component, never an overridden capability._
+  survive a form swap is its own component, never an overridden capability_ — enforced
+  per component by `FORM_SWAP_POLICY` (D47): a new registry component fails the build
+  until it declares a swap verdict.
 - **The encounter is a Session container, not an entity** (§2.6; D29): the combat
   reducer stays pure `(session, event) → session`; the loader dissolves
   durable-vs-inline storage into a uniform `Participant.entity` so **no `kind` reaches

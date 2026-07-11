@@ -13,8 +13,8 @@ import {
   orderEffectPool,
   stampEffects,
 } from "@workspace/game-v2/resolve/effect-pool"
+import { applyForm } from "@workspace/game-v2/resolve/form-swap-policy"
 import {
-  applyForm,
   createResolve,
   type ResolveContext,
 } from "@workspace/game-v2/resolve/resolve"

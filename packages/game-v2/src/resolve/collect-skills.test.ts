@@ -15,7 +15,7 @@ import {
   collectSkills,
   skillEffects,
 } from "@workspace/game-v2/resolve/collect-skills"
-import { applyForm } from "@workspace/game-v2/resolve/resolve"
+import { applyForm } from "@workspace/game-v2/resolve/form-swap-policy"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 const strBuff: CombatantEffect = {
@@ -155,15 +155,15 @@ describe("collectSkills — the one deduped collection (intrinsic + kit + inheri
     expect(keys.filter((k) => k === "shared")).toEqual(["shared"])
   })
 
-  it("under a form: kit suppressed, inheritance + equipment + intrinsic survive", () => {
+  it("under a form: kit suppressed, intrinsic replaced, inheritance + equipment survive (UNN-600)", () => {
     const formed = applyForm(pc, {
       attributes: { base: { strength: 9, magic: 0, agility: 0, luck: 0 } },
     })
-    // kit reads `formed` (active nulled ⇒ no arch-* / arch-`shared`); inheritance reads
-    // the original (warrior intact ⇒ inh-passive survives); equipment + intrinsic carry
-    // through. `shared` now comes from equipment only — still once.
+    // kit reads `formed` (active nulled ⇒ no arch-* / arch-`shared`); intrinsic reads
+    // `formed` too — this form authors no skills, so the body has none (absent means
+    // absent). Inheritance reads the original (warrior intact ⇒ inh-passive survives);
+    // equipment carries through. `shared` now comes from equipment only — still once.
     expect(collectSkills(deps, formed, pc).map((s) => s.key)).toEqual([
-      "intrinsic-passive",
       "inh-passive",
       "equip-passive",
       "shared",
