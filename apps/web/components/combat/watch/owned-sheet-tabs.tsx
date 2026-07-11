@@ -9,8 +9,8 @@ import {
 } from "@workspace/ui/components/tabs"
 
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
+import type { LoadedCharacter } from "@/domain/character/load"
 import { EntityWriteProvider } from "@/hooks/use-entity-write"
-import type { LoadedCharacter } from "@/lib/character/load"
 
 /**
  * One character the watch viewer owns, as the column mounts it: a stable tab

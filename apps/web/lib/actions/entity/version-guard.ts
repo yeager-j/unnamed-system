@@ -3,10 +3,10 @@ import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { EntityWritePatch } from "@/domain/entity/commit/writers"
 import { db } from "@/lib/db/client"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
-import type { EntityWritePatch } from "@/lib/entity/commit/writers"
 import { publishCharacterPing } from "@/lib/realtime/publish"
 
 /**

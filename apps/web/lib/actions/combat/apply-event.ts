@@ -20,6 +20,7 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db, type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
@@ -36,7 +37,6 @@ import {
 } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
 import { saveMapInstanceState } from "@/lib/db/writes/map-instance"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 import {
   publishEncounterInstancePing,
   publishEncounterPing,

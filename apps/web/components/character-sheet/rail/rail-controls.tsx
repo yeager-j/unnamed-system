@@ -10,8 +10,8 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import type { RailView } from "@/domain/character/view/rail-view"
 import { useEntityWrite } from "@/hooks/use-entity-write"
-import type { RailView } from "@/lib/character/view/rail-view"
 
 import { SectionLabel } from "../section-label"
 import { AdjustPoolControl } from "./adjust-pool-control"

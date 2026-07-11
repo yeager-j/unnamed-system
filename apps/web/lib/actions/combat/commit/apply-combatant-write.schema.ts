@@ -2,10 +2,10 @@ import { z } from "zod/v4"
 
 import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.schema"
 
+import { combatEntityWriteSchema } from "@/domain/entity/commit/write.schema"
 import type { EntityWriteError } from "@/lib/actions/entity/entity-row-store"
 import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
-import { combatEntityWriteSchema } from "@/lib/entity/commit/write.schema"
 
 /**
  * Input schema for {@link applyCombatantWriteAction} (UNN-520; UNN-567) — the

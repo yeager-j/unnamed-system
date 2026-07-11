@@ -6,12 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
+import { resolveEntity } from "@/domain/game-engine-v2"
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
-import type { CharacterProfile, LoadedCharacter } from "@/lib/character/load"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
-import { resolveEntity } from "@/lib/game-engine-v2"
 
 import {
   EntityWriteProvider,

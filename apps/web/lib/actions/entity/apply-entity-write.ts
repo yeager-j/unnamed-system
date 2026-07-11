@@ -4,7 +4,7 @@ import { forbidden } from "next/navigation"
 
 import { type Result } from "@workspace/game-v2/kernel/result"
 
-import { hiddenArchetypeKeysFor } from "@/lib/archetypes/restricted"
+import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
 import { auth } from "@/lib/auth"
 
 import {

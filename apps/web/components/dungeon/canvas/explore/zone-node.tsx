@@ -15,7 +15,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { useDungeonCanvas } from "@/components/dungeon/canvas/explore/context"
 import { DungeonTokenChip } from "@/components/dungeon/canvas/explore/token-chip"
 import { ZoneCardFrame } from "@/components/dungeon/canvas/zone-card-frame"
-import { type Pool } from "@/lib/combat/view/pool"
+import { type Pool } from "@/domain/combat/view/pool"
 
 export type DungeonZoneToken = {
   characterId: string

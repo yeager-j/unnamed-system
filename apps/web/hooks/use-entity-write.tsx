@@ -15,16 +15,19 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import type { Result } from "@workspace/game-v2/kernel/result"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 
+import type { CharacterProfile, LoadedCharacter } from "@/domain/character/load"
+import { mergeComponentPatch } from "@/domain/entity/commit/merge-patch"
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
+import {
+  applyEntityWrite,
+  ENTITY_WRITERS,
+} from "@/domain/entity/commit/writers"
+import { resolveEntity } from "@/domain/game-engine-v2"
 import { applyEntityWriteAction } from "@/lib/actions/entity/apply-entity-write"
 import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-write.schema"
 import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
-import type { CharacterProfile, LoadedCharacter } from "@/lib/character/load"
 import type { VersionClass } from "@/lib/db/version-classes"
-import { mergeComponentPatch } from "@/lib/entity/commit/merge-patch"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite, ENTITY_WRITERS } from "@/lib/entity/commit/writers"
-import { resolveEntity } from "@/lib/game-engine-v2"
 
 import {
   forwardPingedVersions,

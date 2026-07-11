@@ -5,7 +5,7 @@ import { CaretDoubleDownIcon } from "@phosphor-icons/react/dist/ssr"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 
 import { CombatantRailRow } from "@/components/combat/rail/row"
-import type { RailRow, RosterView } from "@/lib/combat/view/roster-view"
+import type { RailRow, RosterView } from "@/domain/combat/view/roster-view"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**

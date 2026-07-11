@@ -70,10 +70,10 @@ If you can't answer those questions, don't write the hack. A hack should _only_ 
 
 - When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/my-feature`.
 - Reuse existing `Result` utility where appropriate.
-- Avoid prop-drilling. A character surface reads the loaded `{ profile, entity, resolved }` triple from its route provider (`lib/character/load.ts`; see `lib/character/CLAUDE.md`) and writes through `useEntityWrite`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
+- Avoid prop-drilling. A character surface reads the loaded `{ profile, entity, resolved }` triple from its route provider (`domain/character/load.ts`; see `domain/character/CLAUDE.md`) and writes through `useEntityWrite`. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
 - Avoid creating `switch` statements if there's a strong possibility that the number of cases will be high. Consider patterns such as a Registry, like the Mechanics Registry in `packages/game-v2/src/mechanics`.
 - **Display labels live in `apps/web/lib/ui/labels.ts`.** Any `Record<X, string>` map that turns a domain key into a human-readable string (damage types, attributes, lineages, ranges, etc.) goes there — don't redefine inline, even for a one-off consumer.
-- **Per-tab data shaping lives next to the data, not in the component.** Catalog-dependent shaping may live in `packages/game-v2/src/<domain>/`, but its interface is named for game content; when a surface needs selection, partitioning, or merging, that shaping lives in `apps/web/lib/<domain>/view/` and the component calls one view builder. A plain engine read needs no builder — import it from `@/lib/game-engine-v2` directly (a zero-decision pass-through is vestigial indirection, not a seam).
+- **Per-tab data shaping lives next to the data, not in the component.** Catalog-dependent shaping may live in `packages/game-v2/src/<domain>/`, but its interface is named for game content; when a surface needs selection, partitioning, or merging, that shaping lives in `apps/web/domain/<domain>/view/` and the component calls one view builder. A plain engine read needs no builder — import it from `@/domain/game-engine-v2` directly (a zero-decision pass-through is vestigial indirection, not a seam).
 - Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
 - **Owner-mode writes that touch one of several fields on a shared column: use per-field Server Actions, not "client builds the full object."** When multiple controls (toggles, segmented selects) all write to one jsonb column, do not have each control compose the full post-state from `useOptimistic`'s value in a closure and POST that — back-to-back clicks read a stale outer-scope value, the second write silently overwrites the first, the optimistic UI lies, and the test catches it before you do. Instead, expose one action per field (`setBattleConditionAxisAction(axis, state)`, `setBattleConditionFlagAction(flag, value)`), let the server read the row and merge. UNN-226's Charged/Concentrating bug is the cautionary tale; `apps/web/lib/actions/combat-state.ts` is the worked example.
 
@@ -146,13 +146,15 @@ apps/web/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
 │   └── fixtures/              E2E test-data factory (UNN-343). factory.ts mints ephemeral characters/campaigns/encounters with unique-per-run ids + a CleanupTracker (afterAll cleanup); each write spec's <thing>-target.ts wraps it as createXTarget(tracker) returning helpers bound to the new id. encounter-target.ts is the kept seeded combat showcase (campaigns A/B + encounters) for encounter-shell/join. See e2e/CLAUDE.md "Write-spec discipline".
+├── domain/                   ← the app's model of the game (UNN-606). Top-level peer of app/ + components/; along with lib/ it is the tier that may import @workspace/game*. view/ACL builders live beside their domain here.
+│   ├── entity/               Neutral (client+server) durable-entity write vocabulary (UNN-551): commit/ holds the serializable entityWriteSchema descriptor + the ENTITY_WRITERS pure predictors (absorbed combat's COMPONENT_WRITERS) shared by the entity write door (lib/actions/entity/) and combat's console optimistic container.
+│   ├── game-v2/              entity-row-to-bag.ts is the assemble seam (entity row → runtime Entity, the successor to rawInputsToEntity).
+│   ├── archetypes/           Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
+│   ├── combat/               Neutral (client+server) v2 combat vocabulary: the storage-blind write descriptor + Writers live in domain/entity/commit/ (entityWriteSchema/ENTITY_WRITERS — combat is a consumer, no parallel vocabulary); console-optimistic.ts is the console's optimistic container (consumed via hooks/use-combatant-write — UNN-535); view/ holds the pure view builders the combat kit + watch render (console/roster/detail/zone-overview/watch-layout); snapshot-version.ts is the composite snapshot-version fold (encounter × instance × durable vitalsVersions) the watch's apply guard equality-compares (UNN-530).
+│   ├── character/            The v2 character read side (ADR §2.6; UNN-556/557): load.ts is the one load boundary (`loadCharacterByShortId` → { profile, entity, resolved }) the builder + sheet mount; view/ holds the pure per-surface builders (rail-view, affinity-strip, skill-sources). See character/CLAUDE.md.
+│   └── game-engine-v2.ts     The app's engine composition root — binds the game-v2 catalog once and re-exports the pre-bound functions app code calls (`resolveEntity`, `resolveSession`, the builder/sheet reads).
 └── lib/
     ├── actions/               Server Actions and validation schemas. See actions/CLAUDE.md for the owner-mode write pattern. actions/entity/ (UNN-551) is the durable-entity write door: applyEntityWriteAction + commitEntityWrite (auth+assemble+Writer+guarded commit) + bumpEntityVersionGuarded — the shared native Store combat's durable arm forwards to.
-    ├── entity/                Neutral (client+server) durable-entity write vocabulary (UNN-551): commit/ holds the serializable entityWriteSchema descriptor + the ENTITY_WRITERS pure predictors (absorbed combat's COMPONENT_WRITERS) shared by the entity write door (lib/actions/entity/) and combat's console optimistic container. game-v2/entity-row-to-bag.ts is the assemble seam (entity row → runtime Entity, the successor to rawInputsToEntity).
-    ├── archetypes/            Per-user Archetype visibility gating (restricted.ts): an env-var email allowlist (e.g. ELEMENTAL_THIEF_EMAILS) keeping a shipped-but-gated Archetype out of source control. isArchetypeAllowedFor() gates the unlock action; hiddenArchetypeKeysFor() feeds buildLineageAtlas to omit gated Archetypes from a non-allowlisted viewer's Atlas. Server-only.
-    ├── combat/                Neutral (client+server) v2 combat vocabulary: the storage-blind write descriptor + Writers now live in lib/entity/commit/ (entityWriteSchema/ENTITY_WRITERS — combat is a consumer, no parallel vocabulary); console-optimistic.ts is the console's optimistic container (consumed via hooks/use-combatant-write — UNN-535); view/ holds the pure view builders the combat kit + watch render (console/roster/detail/zone-overview/watch-layout); snapshot-version.ts is the composite snapshot-version fold (encounter × instance × durable vitalsVersions) the watch's apply guard equality-compares (UNN-530).
-    ├── character/             The v2 character read side (ADR §2.6; UNN-556/557): load.ts is the one load boundary (`loadCharacterByShortId` → { profile, entity, resolved }) the builder + sheet mount; view/ holds the pure per-surface builders (rail-view, affinity-strip, skill-sources). See character/CLAUDE.md.
-    ├── game-engine-v2.ts      The app's engine composition root — binds the game-v2 catalog once and re-exports the pre-bound functions app code calls (`resolveEntity`, `resolveSession`, the builder/sheet reads).
     ├── ui/                    Cross-cutting UI utilities (labels)
     ├── realtime/              Ably invalidation pings (UNN-370; docs/realtime/ADR.md): lazy REST publish from the write choke points + a generic subscribe hook; no-ops to polling without ABLY_API_KEY. See realtime/CLAUDE.md.
     ├── db/                    Persistence, grouped by role (see below)
@@ -172,7 +174,7 @@ laid out domain-first: a `kernel/` component substrate, one folder per domain,
 and a `catalog/` of authored content behind the `GameData` port. The model,
 core invariants, layout, dependency gradient, and `depcheck.mjs` gates live in
 **`packages/game-v2/CLAUDE.md`** (auto-loads when you work there). The app binds
-the catalog once in `apps/web/lib/game-engine-v2.ts`.
+the catalog once in `apps/web/domain/game-engine-v2.ts`.
 
 ## Commands
 
@@ -191,7 +193,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 ## Testing
 
 - **Unit (Vitest):** pure game mechanics in `packages/game-v2/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game-v2/CLAUDE.md`**.
-- **Laws (fast-check):** `**/__laws__/*.laws.test.ts` — property-based tests over `arbitraryEntity`, quantified where an example test can only sample (UNN-598). Totality + the depletion algebra live in `packages/game-v2`; the optimistic-isomorphism law (Writer patch + re-fold ≡ commit → reload → resolve, over all 13 write families) lives in `apps/web/lib/entity/commit/__laws__/`, because the Writers do. Writing arbitraries and reproducing a failing seed (`FC_SEED`) are documented in **`packages/game-v2/CLAUDE.md`**.
+- **Laws (fast-check):** `**/__laws__/*.laws.test.ts` — property-based tests over `arbitraryEntity`, quantified where an example test can only sample (UNN-598). Totality + the depletion algebra live in `packages/game-v2`; the optimistic-isomorphism law (Writer patch + re-fold ≡ commit → reload → resolve, over all 13 write families) lives in `apps/web/domain/entity/commit/__laws__/`, because the Writers do. Writing arbitraries and reproducing a failing seed (`FC_SEED`) are documented in **`packages/game-v2/CLAUDE.md`**.
 - **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database. The two-tier CI model (`e2e` runner suite vs. `@smoke` preview subset), `@smoke`-tagging discipline, and the write-path factory pattern live in **`apps/web/e2e/CLAUDE.md`**.
 
 ## Tech Stack
@@ -206,7 +208,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 - **Hosting**: Vercel + Neon + Vercel Blob
 - **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 
-Game data (Archetypes, Skills, Talents, Ailments, Enemies) is **hardcoded TypeScript** in the repo (`packages/game-v2/src/catalog/`) — not in the database. A shipped-but-gated Archetype (`elemental-thief`) sits in the catalog unconditionally and is hidden per-viewer via the Atlas's `hiddenArchetypeKeys` (an env-var email allowlist, `lib/archetypes/restricted.ts`), not a build flag.
+Game data (Archetypes, Skills, Talents, Ailments, Enemies) is **hardcoded TypeScript** in the repo (`packages/game-v2/src/catalog/`) — not in the database. A shipped-but-gated Archetype (`elemental-thief`) sits in the catalog unconditionally and is hidden per-viewer via the Atlas's `hiddenArchetypeKeys` (an env-var email allowlist, `domain/archetypes/restricted.ts`), not a build flag.
 
 ## Game Rules
 

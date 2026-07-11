@@ -31,7 +31,7 @@ concurrency token, and envelope:
 > **The `entity/` aggregate (UNN-551)** is the descriptor → Writer → Store pipeline
 > for durable component writes: `commitEntityWrite` (auth + assemble + pure Writer
 > + guarded column commit) and `bumpEntityVersionGuarded`. The neutral vocabulary
-> (schema, `ENTITY_WRITERS`) lives in `lib/entity/commit/`. It is the shared engine
+> (schema, `ENTITY_WRITERS`) lives in `domain/entity/commit/`. It is the shared engine
 > both the character surfaces (the entity door, `applyEntityWriteAction`) and
 > combat's durable arm (the encounter door forwards here) commit through — one
 > write architecture, two doors.
@@ -53,14 +53,14 @@ revalidate.
 
 **Durable character writes go through the entity door** (`lib/actions/entity/`,
 ADR §2.4). A character surface's provider dispatches a serializable
-component-write **descriptor** (`entityWriteSchema`, `lib/entity/commit/write.schema.ts`)
+component-write **descriptor** (`entityWriteSchema`, `domain/entity/commit/write.schema.ts`)
 to `applyEntityWriteAction`, which hands off to `commitEntityWrite` — the shared
 Store that owns auth, assembling the row into a runtime `Entity`, running the pure
 **Writer** (`ENTITY_WRITERS.applyOp`), and the guarded column commit
 (`bumpEntityVersionGuarded`). App-owned columns (name, portrait, pronouns, notes,
 builderStep, status) stay classic per-field actions (`lib/actions/entity/columns.ts`)
 composing the same guard; `finalize` spans both halves. The neutral descriptor +
-Writers are documented in **`lib/entity/commit/CLAUDE.md`**; combat's durable arm
+Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 
 **The other aggregates** (`encounter/`, campaign, map, dungeon) are classic
@@ -145,7 +145,7 @@ tables, UNN-562). The pure per-mechanic transition lives with its
 the engine tests exercise it; the widget
 (`components/character-sheet/mechanics/<kind>-widget.tsx`) dispatches through
 `useEntityWrite`. Adding a mechanic write is: pure transition (game-v2), a
-descriptor op + Writer case (`lib/entity/commit`), a widget.
+descriptor op + Writer case (`domain/entity/commit`), a widget.
 
 ## Client patterns
 
@@ -178,7 +178,7 @@ no drift. Revalidation then re-derives every dependent stat (attributes,
 affinities, weapon attack roll). Failures toast via Sonner; React reverts the
 optimistic state when the transition resolves. (Encounters use the sibling
 `useCombatantWrite` — same Writers, a different reconcile channel; see
-`lib/entity/commit/CLAUDE.md`.)
+`domain/entity/commit/CLAUDE.md`.)
 
 ## Failure modes the UI must handle
 

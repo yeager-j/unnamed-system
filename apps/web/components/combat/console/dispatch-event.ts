@@ -8,13 +8,13 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 
+import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
 import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"
 import type {
   AppliedCombatEvent,
   ApplyCombatEventError,
 } from "@/lib/actions/combat/apply-event.schema"
-import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
 
 /**
  * The `addParticipant` gesture as the console dispatches it: the wire setup

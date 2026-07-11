@@ -1,6 +1,6 @@
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { AffinityStripCell } from "@/lib/character/view/affinity-strip"
+import type { AffinityStripCell } from "@/domain/character/view/affinity-strip"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
 
 import { SectionLabel } from "../section-label"

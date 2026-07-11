@@ -10,8 +10,8 @@ import { ArchetypeResolvedSkills } from "@/components/archetype/archetype-resolv
 import { ArchetypeTalents } from "@/components/archetype/archetype-talents"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
-import { resolveCreationArchetypeSkills } from "@/lib/game-engine-v2"
+import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
+import { resolveCreationArchetypeSkills } from "@/domain/game-engine-v2"
 
 /**
  * The body of the Movement 1 Origin Archetype detail {@link ArchetypeDialog}

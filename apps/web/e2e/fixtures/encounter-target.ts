@@ -15,13 +15,13 @@ import {
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 
+import { instantiateEnemy, resolveEntity } from "@/domain/game-engine-v2"
+import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { makeSeedCharacter } from "@/lib/__fixtures__/seed-characters"
 import { encounters, entity, getDb } from "@/lib/db"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
-import { instantiateEnemy, resolveEntity } from "@/lib/game-engine-v2"
-import { loadEntityRow } from "@/lib/game-v2/entity-row-to-bag"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,

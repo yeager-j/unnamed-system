@@ -3,7 +3,7 @@
 The **CD19 Writer ∘ Store router** (UNN-520; UNN-551; engine-v2 combat ADR §2.9,
 characters ADR §2.4): every per-combatant *component* write (vitals, SP, Prisma,
 mechanic state) enters through `applyCombatantWriteAction` as a storage-blind
-serializable descriptor (`entityWriteSchema`, `lib/entity/commit/write.schema.ts`)
+serializable descriptor (`entityWriteSchema`, `domain/entity/commit/write.schema.ts`)
 and is routed to the participant's storage home. The generic event wire
 (`../apply-event.ts`) structurally cannot carry these writes (`ComponentWriteEvent`
 is excluded from `combatEventSchema`); this module is their only encounter door.
@@ -12,7 +12,7 @@ After UNN-551 this is the **encounter address adapter**, not a second write
 factory: it resolves `participantId → locator`, then a durable write forwards to
 the *same* shared `commitEntityWrite` (`lib/actions/entity/entity-row-store.ts`)
 the character surfaces use. Write logic — the Writers, the guard, the durable
-semantics — exists once, in `lib/entity/`; this door only supplies the address.
+semantics — exists once, in `domain/entity/`; this door only supplies the address.
 
 ## The one decision
 

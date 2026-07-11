@@ -19,7 +19,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react"
 
-import type { ElementKey } from "@/lib/combat/view/skill-card-view"
+import type { ElementKey } from "@/domain/combat/view/skill-card-view"
 
 /**
  * The Skill-card element system (design handoff "Element color system",

@@ -1,7 +1,7 @@
 "use client"
 
+import { resolveInventory } from "@/domain/game-engine-v2"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
-import { resolveInventory } from "@/lib/game-engine-v2"
 
 import { EquippedCard } from "./equipped-card"
 import { InventoryCard } from "./inventory-card"

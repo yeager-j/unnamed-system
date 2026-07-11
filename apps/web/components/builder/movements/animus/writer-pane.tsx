@@ -2,8 +2,8 @@
 
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 import { useAnimusDocument } from "./animus-context"
 import { DocumentEditor, type DocumentEditorMessages } from "./document-editor"

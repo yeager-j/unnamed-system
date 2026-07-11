@@ -14,7 +14,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import type { SkillCardView } from "@/lib/combat/view/skill-card-view"
+import type { SkillCardView } from "@/domain/combat/view/skill-card-view"
 
 import { RowBadgeSlot } from "./row-badge-slot"
 import { SkillBannerCard } from "./skill-banner-card"

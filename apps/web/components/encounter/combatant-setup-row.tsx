@@ -16,7 +16,7 @@ import {
 
 import { EngagementControl } from "@/components/combat/controls/engagement"
 import { SideToggle } from "@/components/combat/controls/side-toggle"
-import type { EngageableTarget } from "@/lib/combat/view/detail-view"
+import type { EngageableTarget } from "@/domain/combat/view/detail-view"
 
 /**
  * One row of the encounter-setup roster (UNN-301). Beyond the side toggle +

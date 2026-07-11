@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import type { ZoneEnchantmentBadge } from "@/lib/combat/view/zone-enchantment-badge"
+import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 
 /**
  * The Zone's Enchantment badge: name + the Forte as its dynamic marking

@@ -5,10 +5,10 @@ import { slugForStepIndex } from "@/components/builder/builder-steps"
 import { DraftInProgressDialog } from "@/components/c/draft-in-progress-dialog"
 import { CharacterSheet } from "@/components/character-sheet/sheet"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
+import { loadCharacterByShortId } from "@/domain/character/load"
+import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
+import { getArchetype } from "@/domain/game-engine-v2"
 import { getViewerRole } from "@/lib/auth/viewer-role"
-import { loadCharacterByShortId } from "@/lib/character/load"
-import { redactLoadedCharacterForViewer } from "@/lib/character/redact"
-import { getArchetype } from "@/lib/game-engine-v2"
 
 /**
  * The character sheet at `/c/{shortId}` (S2a — UNN-557): the v2 entity sheet,

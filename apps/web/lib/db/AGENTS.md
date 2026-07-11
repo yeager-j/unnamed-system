@@ -16,7 +16,7 @@ lib/db/
 ```
 
 **Durable character writes do not live here** — they go through the **entity
-door**: `lib/entity/commit` (the serializable write descriptor + `ENTITY_WRITERS`
+door**: `domain/entity/commit` (the serializable write descriptor + `ENTITY_WRITERS`
 pure predictors) dispatched through `lib/actions/entity/` (`commitEntityWrite` +
 `bumpEntityVersionGuarded`, version-guarded on the `entity` row's per-write-class
 columns). `lib/actions/CLAUDE.md` documents that pattern. The v1 per-concern

@@ -14,8 +14,8 @@ import {
 } from "@/components/dungeon/combat/watch"
 import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
+import type { LoadedCharacter } from "@/domain/character/load"
 import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
-import type { LoadedCharacter } from "@/lib/character/load"
 import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a

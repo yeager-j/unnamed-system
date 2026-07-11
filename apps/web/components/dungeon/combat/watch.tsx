@@ -13,11 +13,11 @@ import { CombatSheetColumn } from "@/components/combat/watch/combat-sheet-column
 import { useOwnedSheetRefresh } from "@/components/combat/watch/owned-sheet-refresh"
 import { PlayerTurnOrder } from "@/components/combat/watch/player-turn-order"
 import { WatchEnemiesRail } from "@/components/combat/watch/watch-enemies-rail"
+import { buildWatchView } from "@/domain/combat/view/watch-layout"
 import {
   useEncounterSnapshot,
   type WatchSnapshot,
 } from "@/hooks/use-encounter-snapshot"
-import { buildWatchView } from "@/lib/combat/view/watch-layout"
 import type {
   EncounterSnapshotResult,
   OwnedEncounterSheet,

@@ -18,6 +18,14 @@ import {
 } from "@/components/combat/console/dispatch-event"
 import { useCombatantWrite } from "@/components/combat/console/use-combatant-write"
 import { useCombatantLanes } from "@/components/combat/console/write-lanes"
+import {
+  reduceConsoleOptimistic,
+  type ConsoleOptimisticAction,
+} from "@/domain/combat/console-optimistic"
+import { buildConsoleView } from "@/domain/combat/view/console-view"
+import { buildRosterView } from "@/domain/combat/view/roster-view"
+import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"
+import { resolveSession } from "@/domain/game-engine-v2"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/hooks/fetch-instance-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
@@ -26,14 +34,6 @@ import { parseVersionPing } from "@/hooks/version-ping"
 import { endCombatAction } from "@/lib/actions/combat/end-combat"
 import { type EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
-import {
-  reduceConsoleOptimistic,
-  type ConsoleOptimisticAction,
-} from "@/lib/combat/console-optimistic"
-import { buildConsoleView } from "@/lib/combat/view/console-view"
-import { buildRosterView } from "@/lib/combat/view/roster-view"
-import { buildConsoleZoneLayout } from "@/lib/combat/view/zone-overview"
-import { resolveSession } from "@/lib/game-engine-v2"
 
 /**
  * The live DM console's owner-mode write surface, rewritten onto engine v2

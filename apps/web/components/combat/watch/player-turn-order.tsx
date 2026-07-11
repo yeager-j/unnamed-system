@@ -6,7 +6,7 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { WatchCombatant } from "@/lib/combat/view/watch-layout"
+import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -8,6 +8,11 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { ENGINE_IMPORT_ALLOWLIST } from "./depcheck-allowlist.mjs"
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url))
+// The presentation tiers, hard-gated against `@workspace/game*`. `domain/**` and
+// `lib/**` are the two engine-facing tiers and are intentionally un-gated (by
+// omission): the domain layer binds the catalog and re-exports engine reads;
+// plumbing may reach the engine directly. Presentation reads through domain view
+// builders instead.
 const GATED_ROOTS = ["app", "components", "hooks"]
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]
 

@@ -12,8 +12,8 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
+import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useEntityAutoSave } from "@/hooks/use-entity-write"
-import type { EntityWrite } from "@/lib/entity/commit/write.schema"
 
 /**
  * The title + Markdown body pair the Movement 3 writer renders for the

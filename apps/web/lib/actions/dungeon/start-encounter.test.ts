@@ -55,13 +55,13 @@ vi.mock("@/lib/db/writes/map-instance", () => ({
 vi.mock("@/lib/db/writes/guard-many", () => ({
   guardMany: async (body: (tx: unknown) => unknown) => body("tx"),
 }))
-vi.mock("@/lib/game-v2/entity-row-to-bag", () => ({
+vi.mock("@/domain/game-v2/entity-row-to-bag", () => ({
   loadEntityRow: (row: { id: string }): { ok: true; value: Entity } => ({
     ok: true,
     value: { id: row.id, components: { vitals: { base: 20, damage: 0 } } },
   }),
 }))
-vi.mock("@/lib/game-engine-v2", () => ({
+vi.mock("@/domain/game-engine-v2", () => ({
   // Faithful to createSessionFactory for entity sources: map setups → participants.
   createSession: (
     setups: Array<{

@@ -11,14 +11,14 @@ import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,
 } from "@/components/combat/console/dispatch-event"
+import {
+  reduceConsoleOptimistic,
+  type ConsoleOptimisticAction,
+} from "@/domain/combat/console-optimistic"
 import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/hooks/fetch-instance-version"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
-import {
-  reduceConsoleOptimistic,
-  type ConsoleOptimisticAction,
-} from "@/lib/combat/console-optimistic"
 
 /**
  * The encounter-**setup** owner-mode write surface (UNN-347), on engine v2

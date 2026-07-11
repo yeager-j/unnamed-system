@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { resolveEntity } from "@/lib/game-engine-v2"
+import { resolveEntity } from "@/domain/game-engine-v2"
 
 import {
   SEED_CHARACTERS,

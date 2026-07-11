@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react"
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
-import { ownedSheetRefreshKey } from "@/lib/combat/view/owned-sheet-refresh-key"
+import { ownedSheetRefreshKey } from "@/domain/combat/view/owned-sheet-refresh-key"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 /**

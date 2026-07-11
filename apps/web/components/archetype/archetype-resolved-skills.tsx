@@ -6,7 +6,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
+import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
 
 /**
  * Per-rank Skill list over the v2 engine's `ResolvedArchetypeSkill` — the

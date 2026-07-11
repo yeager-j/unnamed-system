@@ -1,6 +1,6 @@
 import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 
-import type { RailVictories } from "@/lib/character/view/rail-view"
+import type { RailVictories } from "@/domain/character/view/rail-view"
 
 /**
  * The rail's Victories bar (design handoff): a thin 7-segment gold gauge —

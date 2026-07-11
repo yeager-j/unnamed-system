@@ -4,7 +4,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { CombatantView } from "@/lib/combat/view/console-view"
+import type { CombatantView } from "@/domain/combat/view/console-view"
 
 export type ConsolePhase = "active" | "resolving" | "drafting"
 

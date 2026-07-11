@@ -13,8 +13,8 @@ import {
 import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { buildVirtuesCardView } from "@/domain/character/view/virtues-card"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-import { buildVirtuesCardView } from "@/lib/character/view/virtues-card"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 import { SheetCard } from "../sheet-card"

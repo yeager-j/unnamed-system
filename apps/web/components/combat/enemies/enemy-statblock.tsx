@@ -5,7 +5,7 @@ import { AffinityGrid } from "@/components/shared/affinity-grid"
 import { AttributeGrid } from "@/components/shared/attribute-grid"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
-import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
+import { type EnemyStatblockView } from "@/domain/combat/view/enemy-statblock-view"
 
 /**
  * The read-only body of an enemy's statblock: Attributes, Affinities, Talents,

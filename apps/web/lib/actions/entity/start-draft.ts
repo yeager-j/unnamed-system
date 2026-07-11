@@ -5,11 +5,11 @@ import { unauthorized } from "next/navigation"
 
 import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { draftEntityComponents } from "@/domain/entity/draft"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db/client"
 import { entity } from "@/lib/db/schema/entity"
 import { insertWithShortId } from "@/lib/db/short-id"
-import { draftEntityComponents } from "@/lib/entity/draft"
 
 /**
  * Mints a fresh builder draft as an `entity` row (UNN-556 — a draft is an

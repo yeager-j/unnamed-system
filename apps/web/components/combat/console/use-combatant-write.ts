@@ -7,12 +7,12 @@ import type { ComponentRegistry } from "@workspace/game-v2/kernel"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, type Result } from "@workspace/game-v2/kernel/result"
 
+import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
+import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
+import { applyEntityWrite } from "@/domain/entity/commit/writers"
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
-import type { ConsoleOptimisticAction } from "@/lib/combat/console-optimistic"
-import type { CombatEntityWrite } from "@/lib/entity/commit/write.schema"
-import { applyEntityWrite } from "@/lib/entity/commit/writers"
 
 import type { WriteLane } from "./write-lanes"
 
