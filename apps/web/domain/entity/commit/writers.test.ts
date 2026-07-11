@@ -132,6 +132,25 @@ describe("applyEntityWrite — pools", () => {
     )
     expect(result).toEqual({ ok: false, error: "capability-missing" })
   })
+
+  it("refuses a malformed amount at the op backstop (invalid-input, UNN-565)", () => {
+    // The wire schema (`poolsArm`) rejects these first; the writer is the
+    // client-shipped backstop when a caller bypasses it.
+    expect(
+      applyEntityWrite(components, {
+        component: "vitals",
+        op: "damage",
+        amount: 1.5,
+      })
+    ).toEqual({ ok: false, error: "invalid-input" })
+    expect(
+      applyEntityWrite(components, {
+        component: "skillPool",
+        op: "heal",
+        amount: NaN,
+      })
+    ).toEqual({ ok: false, error: "invalid-input" })
+  })
 })
 
 describe("applyEntityWrite — resources", () => {

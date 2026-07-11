@@ -1,3 +1,4 @@
+import { isNonNegativeInteger } from "@workspace/game-v2/kernel/amount"
 import type { ComponentRegistry } from "@workspace/game-v2/kernel/component-registry"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
@@ -55,15 +56,6 @@ export type RestError =
   | "insufficient-skill-dice"
   | "insufficient-hit-dice"
   | "invalid-input"
-
-/**
- * A player-entered spend or roll must be a non-negative integer (A8). `NaN` and
- * `Infinity` fail {@link Number.isInteger} too, so this one predicate rejects every
- * malformed amount before it can smear a fractional value into an integer pool.
- */
-function isNonNegativeInteger(amount: number): boolean {
-  return Number.isInteger(amount) && amount >= 0
-}
 
 /** Player-entered Partial Rest choices: Skill Dice to spend and the SP they roll. */
 export interface PartialRestInput {
@@ -135,12 +127,11 @@ export function applyPartialRest(
     return err("insufficient-skill-dice")
   }
 
+  const recovered = applyRecoverSP(components.skillPool, rolled)
+  if (!recovered.ok) return recovered
   return ok({
     vitals: { ...components.vitals, damage: 0 },
-    skillPool: {
-      ...components.skillPool,
-      ...applyRecoverSP(components.skillPool, rolled),
-    },
+    skillPool: { ...components.skillPool, ...recovered.value },
     resources: {
       ...components.resources,
       skillDiceUsed: components.resources.skillDiceUsed + skillDiceToSpend,
@@ -169,8 +160,10 @@ export function applyRespite(
     return err("insufficient-hit-dice")
   }
 
+  const healed = applyHeal(components.vitals, rolled)
+  if (!healed.ok) return healed
   return ok({
-    vitals: { ...components.vitals, ...applyHeal(components.vitals, rolled) },
+    vitals: { ...components.vitals, ...healed.value },
     resources: {
       ...components.resources,
       hitDiceUsed: components.resources.hitDiceUsed + hitDiceToSpend,

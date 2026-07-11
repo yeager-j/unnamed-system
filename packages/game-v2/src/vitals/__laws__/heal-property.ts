@@ -1,12 +1,13 @@
 import fc from "fast-check"
 
+import type { Result } from "@workspace/game-v2/kernel/result"
 import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
 
 /** The shape of `applyHeal` — the operation the clamp law is stated over. */
 export type HealOperation = (
   vitals: Vitals,
   amount: number
-) => Pick<Vitals, "damage">
+) => Result<Pick<Vitals, "damage">, "invalid-input">
 
 const arbitraryVitals = fc.record({
   base: fc.integer({ min: 1, max: 200 }),
@@ -32,7 +33,9 @@ export function healNeverLowersCurrentHP(
   heal: HealOperation
 ): fc.IProperty<[Vitals, number]> {
   return fc.property(arbitraryVitals, arbitraryAmount, (vitals, amount) => {
-    const healed = { ...vitals, ...heal(vitals, amount) }
+    const patch = heal(vitals, amount)
+    if (!patch.ok) return true // non-negative arbitrary — unreachable
+    const healed = { ...vitals, ...patch.value }
     return currentHP(healed) >= currentHP(vitals)
   })
 }

@@ -51,6 +51,16 @@ describe("reduceVitals — guards (R12.4)", () => {
       session
     )
   })
+
+  it("no-ops (same-ref) a malformed amount (the op's invalid-input backstop, UNN-565)", () => {
+    const session = sessionOf([hpParticipant(3)])
+    expect(reduceVitals(session, vit("damageParticipant", "hp", 1.5))).toBe(
+      session
+    )
+    expect(reduceVitals(session, vit("healParticipant", "hp", NaN))).toBe(
+      session
+    )
+  })
 })
 
 describe("reduceVitals — HP (signed depletion, CD6)", () => {

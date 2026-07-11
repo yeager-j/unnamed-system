@@ -2,10 +2,15 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Resources } from "@workspace/game-v2/resources/resources.schema"
 
 /**
- * The Prisma pool operation (D26), re-homed from v1's `adjust-pools.ts`. Unlike the
- * total HP/SP operations, this one is **partial** — the flask can be empty — so it
- * returns a {@link Result}. It returns the single changed field as a patch
- * (`Pick<Resources, "prismaUsed">`); the caller merges and re-resolves.
+ * The Prisma pool operation (D26), re-homed from v1's `adjust-pools.ts`. It is
+ * **partial** — the flask can be empty — so it returns a {@link Result}, and it
+ * returns the single changed field as a patch (`Pick<Resources, "prismaUsed">`);
+ * the caller merges and re-resolves.
+ *
+ * Unlike the vitals ops (UNN-565), this one takes **no untrusted amount** — its
+ * increment is a fixed `+1`, and `maxPrisma` is an engine-derived cap, not a
+ * wire-fed magnitude — so there is nothing to integer-guard: the only failure is
+ * the charges refusal below.
  */
 
 /** Use-Prisma failure: no charges remain (the flask is empty). */
