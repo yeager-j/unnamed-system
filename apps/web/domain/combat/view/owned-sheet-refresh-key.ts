@@ -1,3 +1,4 @@
+import { hitEvasionAttackRollEffects } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics"
 import type {
@@ -8,12 +9,15 @@ import type {
 /**
  * Everything the server baked into an owned combatant's sheet that the watch can
  * observe moving client-side, folded to one comparable key (UNN-566): the
- * combatant's zone-sourced Enchantment effects, and its durable pools.
+ * combatant's combat effects (zone-sourced Enchantment + Hit/Evasion Battle
+ * Condition — the two `participantResolveContext` folds into the sheet), and its
+ * durable pools.
  *
  * The own-sheet column renders **server-resolved** props while the snapshot
  * updates client-side, so this key answers one question each poll: *would
  * re-pulling those props produce a different sheet?* It changes when an
- * Enchantment is applied / raised / cleared / moved, when an owned combatant
+ * Enchantment is applied / raised / cleared / moved, when the DM shifts the
+ * combatant's Hit/Evasion (its Attack Rolls move ±), when an owned combatant
  * changes Zone, and when the DM damages or heals one. It holds still through
  * turn order, enemy vitals, and moves between un-Enchanted Zones. A spectator's
  * key (no owned sheets) is a constant.
@@ -40,20 +44,33 @@ export function ownedSheetRefreshKey(
         (candidate) => candidate.id === participantId
       )
       return combatant
-        ? [zoneEffectsOf(snapshot, combatant), poolsOf(combatant)]
+        ? [combatEffectsOf(snapshot, combatant), poolsOf(combatant)]
         : []
     })
   )
 }
 
-function zoneEffectsOf(
+/**
+ * The combat effects the server folds into this combatant's sheet, reconstructed
+ * from the redacted snapshot — the client mirror of the engine's
+ * `participantCombatEffects` (zone Enchantment + Hit/Evasion). Serializing the
+ * effect *output*, not the raw state, keeps the key tied to the same mappings the
+ * server resolves through, so it can't report "no change" while a resolved number
+ * moved.
+ */
+function combatEffectsOf(
   snapshot: Pick<SpatialEncounterSnapshot, "enchantment">,
   combatant: VisibleCombatant
 ) {
   const zoneId = combatant.components.position?.zoneId
-  return zoneId
+  const zoneEffects = zoneId
     ? zoneEnchantmentEffects(snapshot.enchantment ?? null, zoneId)
     : []
+  const hitEvasion = combatant.components.battleConditions?.hitEvasion
+  return [
+    ...zoneEffects,
+    ...hitEvasionAttackRollEffects(hitEvasion ?? "neutral"),
+  ]
 }
 
 /** The durable pools as the snapshot carries them — `null` when redaction
