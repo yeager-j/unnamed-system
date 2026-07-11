@@ -214,6 +214,116 @@ export function scanTierViolations(relPath, source) {
 }
 
 /**
+ * The domain-purity seam — functional core / imperative shell (UNN-610). A
+ * `domain/` file that is NOT a marked-impure `use-*` (client hook) or `load-*`
+ * (server loader) is the pure model/view core: it may import `@workspace/game*`
+ * and other domain, but must not RUNTIME-import the impure `lib` plumbing tier —
+ * with one carve-out, `lib/ui` (pure display data; dissolving in UNN-612, after
+ * which this exception goes away). The invariant this encodes: domain only READS
+ * (`load-`) and REACTS (`use-`); it never WRITES persistence — mutations live in
+ * `lib/actions`. When a new domain file needs `lib` at runtime the gate forces
+ * the choice: mark it `use-`/`load-`, or move the impurity out.
+ *
+ * `import type` is exempt (erased at build → no runtime coupling). "Runtime
+ * import" = a statement with ≥1 value specifier: a whole-statement `import type
+ * {…}` and an all-inline-type `import { type A } …` both elide (exempt), while
+ * `import { type A, b } …` counts (`b` is a value).
+ */
+
+/**
+ * Test / fixture / law files are the imperative shell around the pure core — a
+ * pure view builder's test may import `lib` freely.
+ * @param {string} relPath POSIX path relative to apps/web
+ * @returns {boolean}
+ */
+function isDomainTestFile(relPath) {
+  return (
+    /\.test\.tsx?$/.test(relPath) ||
+    relPath.includes("/__fixtures__/") ||
+    relPath.includes("/__laws__/")
+  )
+}
+
+/**
+ * Whether an import CLAUSE (the text between `import`/`export` and `from`) binds
+ * only types, so the statement elides at build and creates no runtime coupling.
+ * @param {string} clause
+ * @returns {boolean}
+ */
+export function importClauseIsTypeOnly(clause) {
+  const trimmed = clause.trim()
+  if (/^type\b/.test(trimmed)) return true // `import type …` / `export type …`
+  const brace = trimmed.match(/\{([^}]*)\}/)
+  if (!brace) return false // default / namespace / bare specifier → a value binding
+  const beforeBrace = trimmed
+    .slice(0, trimmed.indexOf("{"))
+    .replace(/,\s*$/, "")
+    .trim()
+  if (beforeBrace.length > 0) return false // a leading default/namespace value
+  const specs = (brace[1] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return specs.length > 0 && specs.every((s) => /^type\s/.test(s))
+}
+
+/**
+ * Every domain-purity violation in one file (see the seam doc above). Exported so
+ * the gate's tests exercise it over plain strings, no filesystem.
+ * @param {string} relPath POSIX path relative to apps/web
+ * @param {string} source
+ * @returns {{ file: string; line: number; specifier: string; kind: "purity"; rule: string }[]}
+ */
+export function scanDomainPurity(relPath, source) {
+  if (classifyTier(relPath) !== "domain" || isDomainTestFile(relPath)) return []
+  // Marked-impure names: a client hook (`use-*`) or a loader (`load-*`, or bare
+  // `load` where the folder supplies the noun — `character/load.ts`).
+  const name = (relPath.split("/").pop() ?? "").replace(
+    /\.(?:ts|tsx|js|jsx|mjs|cjs)$/,
+    ""
+  )
+  if (name.startsWith("use-") || name === "load" || name.startsWith("load-"))
+    return []
+
+  const scanned = blankComments(source)
+  /** @type {{ file: string; line: number; specifier: string; kind: "purity"; rule: string }[]} */
+  const violations = []
+  /**
+   * @param {string} specifier
+   * @param {number} index
+   */
+  const flag = (specifier, index) => {
+    const target = resolveSpecifier(relPath, specifier)
+    if (target && classifyTier(target) === "lib" && !target.startsWith("lib/ui/")) {
+      violations.push({
+        file: relPath,
+        line: lineAt(scanned, index),
+        specifier,
+        kind: "purity",
+        rule: "domain purity — a non-use-/load- domain file may not runtime-import lib (except lib/ui); use `import type`, or mark the file use-*/load-*",
+      })
+    }
+  }
+
+  const staticRe = /^[ \t]*(?:import|export)\b([^"';]*?)\bfrom\s*["']([^"']+)["']/gm
+  let m
+  while ((m = staticRe.exec(scanned)) !== null) {
+    if (importClauseIsTypeOnly(m[1] ?? "")) continue
+    if (m[2]) flag(m[2], m.index)
+  }
+  const sideEffectRe = /^[ \t]*import\s*["']([^"']+)["']/gm
+  while ((m = sideEffectRe.exec(scanned)) !== null) {
+    if (m[1]) flag(m[1], m.index)
+  }
+  const dynamicRe = /\b(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g
+  while ((m = dynamicRe.exec(scanned)) !== null) {
+    if (m[1]) flag(m[1], m.index)
+  }
+
+  return violations
+}
+
+/**
  * Returns every forbidden engine import in one source file.
  * @param {string} relPath POSIX path relative to apps/web
  * @param {string} source
@@ -292,16 +402,19 @@ function scanGatedRoots() {
  * gradient / feature-isolation violations. Unlike the engine gate this is
  * **zero-tolerance** — the UNN-610 move makes the tree green by construction, so
  * there is nothing to grandfather — and it must scan the data tiers too, or an
- * upward `lib → components` / `domain → app` edge would be invisible.
- * @returns {{ file: string; line: number; specifier: string; kind: "direction" | "isolation"; rule: string }[]}
+ * upward `lib → components` / `domain → app` edge would be invisible. Also runs
+ * the domain-purity check (zero-tolerance, `kind: "purity"`).
+ * @returns {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity"; rule: string }[]}
  */
 function scanTierRoots() {
-  /** @type {{ file: string; line: number; specifier: string; kind: "direction" | "isolation"; rule: string }[]} */
+  /** @type {{ file: string; line: number; specifier: string; kind: "direction" | "isolation" | "purity"; rule: string }[]} */
   const violations = []
   for (const root of TIER_ROOTS) {
     for (const file of collectSourceFiles(join(ROOT, root))) {
       const relPath = relative(ROOT, file).split("\\").join("/")
-      violations.push(...scanTierViolations(relPath, readFileSync(file, "utf8")))
+      const source = readFileSync(file, "utf8")
+      violations.push(...scanTierViolations(relPath, source))
+      violations.push(...scanDomainPurity(relPath, source))
     }
   }
   return violations
@@ -323,7 +436,9 @@ function run() {
   // reuses (dungeon ⇢ maps canvas, dungeon ⇢ character-sheet cards) are real
   // extraction refactors deferred to UNN-611, not this pure move.
   const tierViolations = scanTierRoots()
-  const directionViolations = tierViolations.filter((v) => v.kind === "direction")
+  const zeroToleranceViolations = tierViolations.filter(
+    (v) => v.kind === "direction" || v.kind === "purity"
+  )
   const isolationFiles = [
     ...new Set(
       tierViolations.filter((v) => v.kind === "isolation").map((v) => v.file)
@@ -336,7 +451,7 @@ function run() {
     result.staleEntries.length > 0 ||
     result.duplicateEntries.length > 0 ||
     !result.isSorted ||
-    directionViolations.length > 0 ||
+    zeroToleranceViolations.length > 0 ||
     isolation.newViolations.length > 0 ||
     isolation.staleEntries.length > 0 ||
     isolation.duplicateEntries.length > 0 ||
@@ -351,7 +466,7 @@ function run() {
   }
 
   console.error("✖ web dependency check failed:\n")
-  for (const violation of directionViolations) {
+  for (const violation of zeroToleranceViolations) {
     console.error(
       `  Tier violation: ${violation.file}:${violation.line}  ${violation.specifier}\n    └─ ${violation.rule}`
     )

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import {
   classifyTier,
+  importClauseIsTypeOnly,
   privateIsolationViolation,
   reconcileAllowlist,
   resolveSpecifier,
+  scanDomainPurity,
   scanSource,
   scanTierViolations,
   shouldGateFile,
@@ -189,5 +191,71 @@ describe("tier gate", () => {
     expect(
       scanTierViolations("app/characters/[shortId]/page.tsx", source)
     ).toEqual([])
+  })
+})
+
+describe("domain purity", () => {
+  const pureView = "domain/combat/view/roster-view.ts"
+
+  it("distinguishes type-only from runtime import clauses", () => {
+    expect(importClauseIsTypeOnly(" type { X } ")).toBe(true) // import type { X }
+    expect(importClauseIsTypeOnly(" { type X } ")).toBe(true) // all inline-type → elided
+    expect(importClauseIsTypeOnly(" { type X, y } ")).toBe(false) // y is a value
+    expect(importClauseIsTypeOnly(" { X } ")).toBe(false)
+    expect(importClauseIsTypeOnly(" Foo ")).toBe(false) // default value
+    expect(importClauseIsTypeOnly(" Foo, { type X } ")).toBe(false) // default value + inline type
+  })
+
+  it("flags a pure view file runtime-importing lib", () => {
+    const found = scanDomainPurity(
+      pureView,
+      `import { loadThing } from "@/lib/db/queries/thing"`
+    )
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ kind: "purity" })
+  })
+
+  it("exempts import type, the lib/ui carve-out, and inline-type-only", () => {
+    const source = [
+      `import type { Row } from "@/lib/db/schema/thing"`,
+      `import { LABELS } from "@/lib/ui/labels"`,
+      `import { type Only } from "@/lib/db/schema/other"`,
+    ].join("\n")
+    expect(scanDomainPurity(pureView, source)).toEqual([])
+  })
+
+  it("counts a mixed import with any value specifier", () => {
+    const found = scanDomainPurity(
+      pureView,
+      `import { type Row, loadThing } from "@/lib/db/queries/thing"`
+    )
+    expect(found).toHaveLength(1)
+  })
+
+  it("exempts marked-impure files (use-*, load-*, bare load) and non-domain files", () => {
+    const libImport = `import { x } from "@/lib/db/client"`
+    expect(
+      scanDomainPurity("domain/entity/use-entity-write.tsx", libImport)
+    ).toEqual([])
+    expect(
+      scanDomainPurity("domain/combat/load-encounter-for-dm.ts", libImport)
+    ).toEqual([])
+    expect(scanDomainPurity("domain/character/load.ts", libImport)).toEqual([])
+    expect(
+      scanDomainPurity("domain/combat/view/roster-view.test.ts", libImport)
+    ).toEqual([])
+    // not a domain file — the rule doesn't apply
+    expect(
+      scanDomainPurity("app/characters/[shortId]/page.tsx", libImport)
+    ).toEqual([])
+  })
+
+  it("flags a side-effect and a dynamic lib import from a pure file", () => {
+    expect(
+      scanDomainPurity(pureView, `import "@/lib/db/side-effect"`)
+    ).toHaveLength(1)
+    expect(
+      scanDomainPurity(pureView, `const m = import("@/lib/db/queries/thing")`)
+    ).toHaveLength(1)
   })
 })
