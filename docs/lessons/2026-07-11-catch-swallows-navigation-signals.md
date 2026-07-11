@@ -8,14 +8,22 @@ navigation signal is indistinguishable from a network drop.
 
 **Context:** UNN-379 (catch Server Action rejections + add route boundaries).
 Next implements `redirect`/`notFound`/`forbidden`/`unauthorized` by *throwing* a
-sentinel that the framework re-catches to navigate. The latent instance was
-`useDebouncedAutoSave` (`apps/web/domain/entity/use-debounced-auto-save.ts`):
-its hand-rolled catch toasted on all throws, so a `forbidden()` during a
-debounced owner save (session expired mid-edit) became "Couldn't save. Try
-again." — low severity (owner-only fields, rare) but a real correctness gap,
-and the same shape would cancel a `redirect()` outright.
+sentinel that the framework re-catches to navigate — so a `catch` that toasts
+every throw both cancels the navigation and shows an un-actionable toast.
 
-**Position:** the fix is one line, first in the catch:
+**Corollary the review surfaced — the rethrow only works in a *transition*
+context.** The signal has to reach a React transition / error boundary to
+matter, so `unstable_rethrow` belongs in the ~24 click-write paths (each in
+`startTransition`). A *detached* promise chain can't surface it: I first routed
+`useDebouncedAutoSave`'s background-save catch through `guardWrite` too, but that
+hook's queue-continuity net (`queueRef.current = queued.catch(() => {})`)
+immediately re-consumes the rethrown rejection, and there's no transition to act
+on it anyway — so the rethrow was inert. The background save now **deliberately**
+swallows to a toast (a hard-navigate to a 403 mid-typing would also lose the
+draft); the reverted catch documents why.
+
+**Position:** the fix is one line, first in the catch — but only where the call
+runs inside a React transition:
 
 ```ts
 } catch (error) {
@@ -24,14 +32,14 @@ and the same shape would cancel a `redirect()` outright.
 }
 ```
 
-Homed once in `lib/sync/guard-write-transition.ts` (`guardWrite`), then ~24
-click-write transitions + the debounced catch routed through it.
+Homed once in `lib/sync/guard-write-transition.ts` (`guardWrite`), used by the
+click-write transitions.
 
 **Principle:** "how do we treat a thrown Server Action rejection" is a
 distinction decided once, in one helper — including the `unstable_rethrow`
-subtlety (→ Code Style #9, Meyer's Single Choice Principle; sibling of
-[[2026-07-08-rule-with-two-homes]]). A hand-rolled catch that forgets it
-reintroduces the swallow.
+subtlety *and* its scope (transition vs. detached queue) (→ Code Style #9,
+Meyer's Single Choice Principle; sibling of [[2026-07-08-rule-with-two-homes]]).
+A hand-rolled catch that forgets it reintroduces the swallow.
 
 **Action:** `guardWrite` is now the sanctioned catch-around-an-action; a lint
 rule banning bare `try/catch` over a `*Action()` call would make it enforceable
