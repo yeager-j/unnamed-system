@@ -3,8 +3,8 @@
 import { type AtlasLineage } from "@workspace/game-v2/archetypes/atlas"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { LINEAGE_DISPLAY } from "@/lib/ui/labels"
-import { LINEAGE_ICONS } from "@/lib/ui/lineage-icons"
+import { LINEAGE_ICONS } from "@/components/shared/lineage-icons"
+import { LINEAGE_DISPLAY } from "@/domain/labels"
 
 /**
  * The Atlas's left rail: every Lineage with its unlocked-progress count, the

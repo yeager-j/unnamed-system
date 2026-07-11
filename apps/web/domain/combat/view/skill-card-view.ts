@@ -24,7 +24,7 @@ import {
   DAMAGE_TYPE_LABELS,
   rangeLabel,
   SKILL_KIND_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 /**
  * The app-owned view-model for the Banner Skill card + its row — every string the

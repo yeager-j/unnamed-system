@@ -15,7 +15,7 @@ import { SectionLabel } from "@/components/shared/section-label"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 /**
  * A **read-only** view of a combatant's session overlay — the player-watch peer

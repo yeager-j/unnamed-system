@@ -1,6 +1,6 @@
 import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
 
-import { ATTRIBUTE_SHORT_LABELS } from "@/lib/ui/labels"
+import { ATTRIBUTE_SHORT_LABELS } from "@/domain/labels"
 
 const ATTRIBUTE_ORDER = ["strength", "magic", "agility", "luck"] as const
 

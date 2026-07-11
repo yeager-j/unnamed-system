@@ -25,12 +25,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
+import { avatarSrc } from "@workspace/ui/lib/portrait"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
 import { DungeonSidebarHeader } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/sidebar-header"
 import type { DungeonRow } from "@/lib/db"
-import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
  * The DM run console's party panel (UNN-464 chrome pass) — the Play phase's

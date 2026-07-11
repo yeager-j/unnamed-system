@@ -10,12 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { initials } from "@workspace/ui/lib/initials"
+import { avatarSrc } from "@workspace/ui/lib/portrait"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
-import { initials } from "@/lib/ui/initials"
-import { avatarSrc } from "@/lib/ui/portrait"
 
 /**
  * The battlefield grid's own **prop contract** (UNN-535) — the minimal

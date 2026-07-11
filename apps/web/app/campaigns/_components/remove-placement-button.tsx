@@ -16,11 +16,11 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
-import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
 import {
   CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,
   CHARACTER_UNPLACE_CONSENT,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
+import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
 
 /**
  * The per-card "remove from campaign" control on the placement section (UNN-328).

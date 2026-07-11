@@ -29,15 +29,15 @@ import { useDungeonEnemyQueue } from "@/app/campaigns/[campaignShortId]/dungeon/
 import { SideToggle } from "@/components/combat/controls/side-toggle"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
-import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
-import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
-import { dungeonConsolePath } from "@/lib/paths"
 import {
   COMBAT_ADVANTAGE_COMPACT_LABELS,
   COMBAT_ADVANTAGE_SETUP_HINTS,
   COMBAT_AMBUSH_HEADING,
   COMBAT_FIRST_SIDE_HEADING,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
+import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
+import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
+import { dungeonConsolePath } from "@/lib/paths"
 
 const ADVANTAGE_ORDER: readonly CombatAdvantage[] = [
   "players",

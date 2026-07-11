@@ -6,7 +6,7 @@ import {
 } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 
-import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
+import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/domain/labels"
 
 /**
  * The single Affinity chip used by both the compact summary row and the

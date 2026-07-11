@@ -16,13 +16,13 @@ import { DungeonPartySidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[
 import { useDungeonConsole } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/zone-sheet"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
+import { DUNGEON_REMINDER_COPY } from "@/domain/labels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 import { dungeonSetupPath } from "@/lib/paths"
 import { parseCharacterPing } from "@/lib/sync/character-version-sync"
 import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
-import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 // React Flow measures the DOM, so the canvas renders client-only against a
 // mounted container (the template editor lazy-loads MapCanvas the same way).

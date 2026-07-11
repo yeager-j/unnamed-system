@@ -12,7 +12,7 @@ export type IdentityTraitField = Extract<
 /**
  * Per-kind copy for the five Step-4 Identity sections. Pulled into its own
  * map so the section component stays a thin shell — each label/blurb/
- * placeholder is in one place, mirroring how `lib/ui/labels.ts` centralizes
+ * placeholder is in one place, mirroring how `domain/labels.ts` centralizes
  * domain → display strings. Order here is the order rendered in the
  * builder step.
  */

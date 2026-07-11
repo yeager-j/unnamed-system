@@ -43,7 +43,7 @@ import {
   endOfTurnApplyLabel,
   frenzyDecrementReminder,
   savingThrowPrompt,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 const DURATIONS_KEY = "durations"
 const FLAGS_KEY = "flags"

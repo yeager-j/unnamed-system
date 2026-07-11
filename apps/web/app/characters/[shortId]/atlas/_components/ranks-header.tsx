@@ -3,7 +3,7 @@ import { ArrowFatLineUpIcon, PathIcon } from "@phosphor-icons/react"
 import { type PathChoice } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 
-import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
+import { PATH_CHOICE_LABELS } from "@/domain/labels"
 
 /**
  * The Atlas's in-page Saved-Ranks strip: how many Archetype Ranks the player

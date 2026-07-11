@@ -37,7 +37,7 @@ import { adjacentZones } from "@/domain/combat/view/zone-graph"
 import {
   COMBATANT_DOWN_LABELS,
   COMBATANT_EDIT_SCOPE_NOTES,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 /**
  * The per-combatant **drawer model** — a composition of one view per drawer

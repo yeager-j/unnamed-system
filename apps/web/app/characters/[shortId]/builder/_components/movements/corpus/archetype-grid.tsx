@@ -12,7 +12,7 @@ import {
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 import { creationArchetypes } from "@/domain/game-engine-v2"
-import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
+import { PATH_CHOICE_LABELS } from "@/domain/labels"
 
 import { ArchetypeCard } from "./archetype-card"
 import { ArchetypeDialog } from "./archetype-dialog"

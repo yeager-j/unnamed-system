@@ -12,17 +12,17 @@ import {
   CardMedia,
   CardTitle,
 } from "@workspace/ui/components/card"
+import { initials } from "@workspace/ui/lib/initials"
+import { avatarSrc } from "@workspace/ui/lib/portrait"
 
 import {
   BUILDER_STEPS,
   slugForStepIndex,
 } from "@/domain/character/builder-steps"
 import { getArchetype } from "@/domain/game-engine-v2"
+import { LINEAGE_LABELS } from "@/domain/labels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import { characterBuilderPath, characterPath } from "@/lib/paths"
-import { initials } from "@/lib/ui/initials"
-import { LINEAGE_LABELS } from "@/lib/ui/labels"
-import { avatarSrc } from "@/lib/ui/portrait"
 
 import { CharacterCardActions } from "./character-card-actions"
 
