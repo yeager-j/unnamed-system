@@ -38,6 +38,7 @@ import {
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
 import { dungeonConsolePath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 const ADVANTAGE_ORDER: readonly CombatAdvantage[] = [
   "players",
@@ -119,26 +120,31 @@ export function DungeonEncounterStaging({
   }
 
   function begin() {
-    startTransition(async () => {
-      const result = await startDungeonEncounterAction({
-        dungeonId,
-        expectedInstanceVersion,
-        name: dungeonName.trim() || "Encounter",
-        advantage,
-        firstSide: resolveFirstSide(advantage, neutralFirstSide),
-        partyCharacterIds,
-        enemies: staged,
-      })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await startDungeonEncounterAction({
+            dungeonId,
+            expectedInstanceVersion,
+            name: dungeonName.trim() || "Encounter",
+            advantage,
+            firstSide: resolveFirstSide(advantage, neutralFirstSide),
+            partyCharacterIds,
+            enemies: staged,
+          })
 
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
+          if (!result.ok) {
+            toast.error(dungeonErrorMessage(result.error))
+            return
+          }
 
-      queue.clear()
-      router.push(backHref)
-      router.refresh()
-    })
+          queue.clear()
+          router.push(backHref)
+          router.refresh()
+        },
+        () => toast.error("Couldn't start the encounter. Try again.")
+      )
+    )
   }
 
   return (

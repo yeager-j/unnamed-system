@@ -32,6 +32,7 @@ import {
 } from "@/domain/labels"
 import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
 import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Add character to campaign" on the placement section (UNN-328). An inline
@@ -65,22 +66,27 @@ export function AddCharacterDialog({
   function onAdd() {
     if (!selected) return
     const character = selected
-    startTransition(async () => {
-      const result = await setEntityCampaignAction({
-        entityId: character.id,
-        campaignId,
-      })
-      if (result.ok) {
-        onOpenChange(false)
-        toast.success(`${character.name} added to ${campaignName}.`)
-        return
-      }
-      if (result.error === "live-encounter-lock") {
-        toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
-        return
-      }
-      toast.error("Couldn't add the character. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await setEntityCampaignAction({
+            entityId: character.id,
+            campaignId,
+          })
+          if (result.ok) {
+            onOpenChange(false)
+            toast.success(`${character.name} added to ${campaignName}.`)
+            return
+          }
+          if (result.error === "live-encounter-lock") {
+            toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
+            return
+          }
+          toast.error("Couldn't add the character. Try again.")
+        },
+        () => toast.error("Couldn't add the character. Try again.")
+      )
+    )
   }
 
   return (

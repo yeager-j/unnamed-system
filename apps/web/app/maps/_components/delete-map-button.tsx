@@ -18,6 +18,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { deleteMapAction } from "@/lib/actions/delete-map"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Delete map" control on the editor (UNN-460). A simple confirm — Map deletion
@@ -37,16 +38,21 @@ export function DeleteMapButton({
   const [isPending, startTransition] = useTransition()
 
   function onDelete() {
-    startTransition(async () => {
-      const result = await deleteMapAction({ mapId })
-      if (result.ok) {
-        setOpen(false)
-        toast.success(`${mapName} deleted.`)
-        router.push("/maps")
-        return
-      }
-      toast.error("Couldn't delete the map. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await deleteMapAction({ mapId })
+          if (result.ok) {
+            setOpen(false)
+            toast.success(`${mapName} deleted.`)
+            router.push("/maps")
+            return
+          }
+          toast.error("Couldn't delete the map. Try again.")
+        },
+        () => toast.error("Couldn't delete the map. Try again.")
+      )
+    )
   }
 
   return (

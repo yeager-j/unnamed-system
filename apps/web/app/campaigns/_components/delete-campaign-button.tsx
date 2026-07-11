@@ -21,6 +21,7 @@ import { Label } from "@workspace/ui/components/label"
 
 import { CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR } from "@/domain/labels"
 import { deleteCampaignAction } from "@/lib/actions/delete-campaign"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Delete campaign" control on the DM manage page (UNN-330). Type-the-name
@@ -50,24 +51,29 @@ export function DeleteCampaignButton({
   }
 
   function onDelete() {
-    startTransition(async () => {
-      const result = await deleteCampaignAction({
-        campaignId,
-        confirmationName: typed,
-      })
-      if (result.ok) {
-        onOpenChange(false)
-        toast.success(`${campaignName} deleted.`)
-        router.push("/campaigns")
-        return
-      }
-      if (result.error === "live-encounter-exists") {
-        onOpenChange(false)
-        toast.error(CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR)
-        return
-      }
-      toast.error("Couldn't delete the campaign. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await deleteCampaignAction({
+            campaignId,
+            confirmationName: typed,
+          })
+          if (result.ok) {
+            onOpenChange(false)
+            toast.success(`${campaignName} deleted.`)
+            router.push("/campaigns")
+            return
+          }
+          if (result.error === "live-encounter-exists") {
+            onOpenChange(false)
+            toast.error(CAMPAIGN_DELETE_LIVE_ENCOUNTER_ERROR)
+            return
+          }
+          toast.error("Couldn't delete the campaign. Try again.")
+        },
+        () => toast.error("Couldn't delete the campaign. Try again.")
+      )
+    )
   }
 
   return (

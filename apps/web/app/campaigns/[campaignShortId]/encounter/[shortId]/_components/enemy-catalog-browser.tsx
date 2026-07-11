@@ -19,6 +19,7 @@ import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { encounterConsolePath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The catalog browse-and-add surface (UNN-346), committing onto engine v2
@@ -62,27 +63,32 @@ export function EnemyCatalogBrowser({
   }
 
   function commit() {
-    startTransition(async () => {
-      const saved = await addCatalogEnemiesAction({
-        encounterId,
-        expectedVersion,
-        enemies: queue.queue.map((entry) => ({
-          enemyKey: entry.enemyKey,
-          count: entry.count,
-        })),
-      })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const saved = await addCatalogEnemiesAction({
+            encounterId,
+            expectedVersion,
+            enemies: queue.queue.map((entry) => ({
+              enemyKey: entry.enemyKey,
+              count: entry.count,
+            })),
+          })
 
-      if (!saved.ok) {
-        toast.error(combatErrorMessage(saved.error))
-        return
-      }
+          if (!saved.ok) {
+            toast.error(combatErrorMessage(saved.error))
+            return
+          }
 
-      queue.clear()
-      toast.success(
-        `Added ${queue.totalCount} ${queue.totalCount === 1 ? "enemy" : "enemies"} to the encounter.`
+          queue.clear()
+          toast.success(
+            `Added ${queue.totalCount} ${queue.totalCount === 1 ? "enemy" : "enemies"} to the encounter.`
+          )
+          router.push(backHref)
+        },
+        () => toast.error("Couldn't add the enemies. Try again.")
       )
-      router.push(backHref)
-    })
+    )
   }
 
   return (

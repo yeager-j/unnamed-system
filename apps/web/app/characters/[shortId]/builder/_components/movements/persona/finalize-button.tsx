@@ -16,6 +16,7 @@ import {
 import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
 import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
 import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * Movement 4's commit button (ADR-002 §"Movement 4 — The Person"). Flips the
@@ -43,22 +44,27 @@ export function FinalizeButton({
 
   function onClick() {
     if (!canFinalize) return
-    startTransition(async () => {
-      const result = await finalizeEntityAction({
-        entityId: identityToken.entityId,
-        expectedVersion: identityToken.read(),
-      })
-      if (result.ok) {
-        toast.success("Character finalized.")
-        router.push("/")
-        return
-      }
-      surfaceError(result.error)
-      // Re-run the server render so a stale draft (e.g. another tab cleared
-      // a field between our render and click) picks up the latest gate
-      // failures.
-      router.refresh()
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await finalizeEntityAction({
+            entityId: identityToken.entityId,
+            expectedVersion: identityToken.read(),
+          })
+          if (result.ok) {
+            toast.success("Character finalized.")
+            router.push("/")
+            return
+          }
+          surfaceError(result.error)
+          // Re-run the server render so a stale draft (e.g. another tab cleared
+          // a field between our render and click) picks up the latest gate
+          // failures.
+          router.refresh()
+        },
+        () => toast.error("Couldn't finalize your character — try again.")
+      )
+    )
   }
 
   const button = (

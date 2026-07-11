@@ -22,6 +22,7 @@ import {
 import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
 import { characterBuilderPath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The shared chrome for every wizard movement (ADR-002 §5.2). A
@@ -205,20 +206,25 @@ function ContinueLink({
 
   function onClick() {
     if (!canAdvance) return
-    startTransition(async () => {
-      const result = await setEntityBuilderStepAction({
-        entityId: identityToken.entityId,
-        step: nextIndex,
-        expectedVersion: identityToken.read(),
-      })
-      if (result.ok) {
-        identityToken.bump(result.value.version)
-      } else if (result.error !== "stale") {
-        toast.error("Couldn't advance. Try again.")
-        return
-      }
-      router.push(characterBuilderPath(shortId, step.slug))
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await setEntityBuilderStepAction({
+            entityId: identityToken.entityId,
+            step: nextIndex,
+            expectedVersion: identityToken.read(),
+          })
+          if (result.ok) {
+            identityToken.bump(result.value.version)
+          } else if (result.error !== "stale") {
+            toast.error("Couldn't advance. Try again.")
+            return
+          }
+          router.push(characterBuilderPath(shortId, step.slug))
+        },
+        () => toast.error("Couldn't advance. Try again.")
+      )
+    )
   }
 
   const button = (

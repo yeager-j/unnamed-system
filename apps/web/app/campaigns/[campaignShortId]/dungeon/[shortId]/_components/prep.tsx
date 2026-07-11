@@ -21,6 +21,7 @@ import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /** A starting Zone the prep view offers, from the source Map template. */
 export interface PrepZone {
@@ -54,22 +55,27 @@ export function DungeonPrep({
   const [placements, setPlacements] = useState<Record<string, string>>({})
 
   function start() {
-    startTransition(async () => {
-      const list = Object.entries(placements)
-        .filter(([, zoneId]) => zoneId !== "")
-        .map(([characterId, zoneId]) => ({ characterId, zoneId }))
-      const result = await startDelveAction({
-        dungeonId: dungeon.id,
-        expectedVersion: dungeon.version,
-        expectedInstanceVersion: instance.version,
-        placements: list,
-      })
-      if (!result.ok) {
-        toast.error(dungeonErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const list = Object.entries(placements)
+            .filter(([, zoneId]) => zoneId !== "")
+            .map(([characterId, zoneId]) => ({ characterId, zoneId }))
+          const result = await startDelveAction({
+            dungeonId: dungeon.id,
+            expectedVersion: dungeon.version,
+            expectedInstanceVersion: instance.version,
+            placements: list,
+          })
+          if (!result.ok) {
+            toast.error(dungeonErrorMessage(result.error))
+            return
+          }
+          router.refresh()
+        },
+        () => toast.error("Couldn't start the delve. Try again.")
+      )
+    )
   }
 
   return (

@@ -28,6 +28,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { createMapAction } from "@/lib/actions/create-map"
 import { createDungeonAction } from "@/lib/actions/dungeon/create"
 import { dungeonConsolePath } from "@/lib/paths"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 type PickableMap = { shortId: string; name: string }
 
@@ -68,39 +69,57 @@ export function CreateDungeonButton({
     const trimmed = newMapName.trim()
     if (!trimmed) return
 
-    startCreateMap(async () => {
-      const result = await createMapAction({ name: trimmed })
-      if (!result.ok) {
-        toast.error("Couldn't create the map. Check the name and try again.")
-        return
-      }
-      setLocalMaps((prev) => [
-        { shortId: result.value.shortId, name: trimmed },
-        ...prev,
-      ])
-      setSelectedMapShortId(result.value.shortId)
-      setNewMapName("")
-      setNewMapMode(false)
-    })
+    startCreateMap(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await createMapAction({ name: trimmed })
+          if (!result.ok) {
+            toast.error(
+              "Couldn't create the map. Check the name and try again."
+            )
+            return
+          }
+          setLocalMaps((prev) => [
+            { shortId: result.value.shortId, name: trimmed },
+            ...prev,
+          ])
+          setSelectedMapShortId(result.value.shortId)
+          setNewMapName("")
+          setNewMapMode(false)
+        },
+        () =>
+          toast.error("Couldn't create the map. Check the name and try again.")
+      )
+    )
   }
 
   function onCreateDungeon() {
     const trimmed = name.trim()
     if (!trimmed || !selectedMapShortId) return
 
-    startTransition(async () => {
-      const result = await createDungeonAction({
-        campaignId,
-        mapShortId: selectedMapShortId,
-        name: trimmed,
-      })
-      if (!result.ok) {
-        toast.error("Couldn't create the dungeon. Check the details and retry.")
-        return
-      }
-      setOpen(false)
-      router.push(dungeonConsolePath(campaignShortId, result.value.shortId))
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await createDungeonAction({
+            campaignId,
+            mapShortId: selectedMapShortId,
+            name: trimmed,
+          })
+          if (!result.ok) {
+            toast.error(
+              "Couldn't create the dungeon. Check the details and retry."
+            )
+            return
+          }
+          setOpen(false)
+          router.push(dungeonConsolePath(campaignShortId, result.value.shortId))
+        },
+        () =>
+          toast.error(
+            "Couldn't create the dungeon. Check the details and retry."
+          )
+      )
+    )
   }
 
   return (

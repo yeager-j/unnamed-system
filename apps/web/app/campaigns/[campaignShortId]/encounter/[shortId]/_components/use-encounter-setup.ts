@@ -18,6 +18,7 @@ import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
 import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
 import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 /**
@@ -58,20 +59,25 @@ export function useEncounterSetup(data: EncounterForDM) {
   })
 
   function dispatch(event: ConsoleDispatchEvent) {
-    startTransition(async () => {
-      const result = await dispatchCombatEvent({
-        event,
-        encounterId: data.encounter.id,
-        applyOptimistic,
-        encounterWrite,
-        instanceWrite,
-      })
-      if (!result.ok) {
-        toast.error(combatErrorMessage(result.error))
-        return
-      }
-      router.refresh()
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await dispatchCombatEvent({
+            event,
+            encounterId: data.encounter.id,
+            applyOptimistic,
+            encounterWrite,
+            instanceWrite,
+          })
+          if (!result.ok) {
+            toast.error(combatErrorMessage(result.error))
+            return
+          }
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
+      )
+    )
   }
 
   return { state, isPending, dispatch }

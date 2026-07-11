@@ -21,6 +21,7 @@ import {
   CHARACTER_UNPLACE_CONSENT,
 } from "@/domain/labels"
 import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * The per-card "remove from campaign" control on the placement section (UNN-328).
@@ -39,22 +40,27 @@ export function RemovePlacementButton({
   const [isPending, startTransition] = useTransition()
 
   function onConfirm() {
-    startTransition(async () => {
-      const result = await setEntityCampaignAction({
-        entityId: characterId,
-        campaignId: null,
-      })
-      setOpen(false)
-      if (result.ok) {
-        toast.success(`${characterName} removed from the campaign.`)
-        return
-      }
-      if (result.error === "live-encounter-lock") {
-        toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
-        return
-      }
-      toast.error("Couldn't remove the character. Try again.")
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await setEntityCampaignAction({
+            entityId: characterId,
+            campaignId: null,
+          })
+          setOpen(false)
+          if (result.ok) {
+            toast.success(`${characterName} removed from the campaign.`)
+            return
+          }
+          if (result.error === "live-encounter-lock") {
+            toast.error(CHARACTER_PLACEMENT_LIVE_LOCK_ERROR)
+            return
+          }
+          toast.error("Couldn't remove the character. Try again.")
+        },
+        () => toast.error("Couldn't remove the character. Try again.")
+      )
+    )
   }
 
   return (

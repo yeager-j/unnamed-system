@@ -19,6 +19,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
  * "Create map" CTA on My Maps (UNN-460). Opens a dialog for the name, creates the
@@ -35,15 +36,23 @@ export function CreateMapButton() {
   function onSubmit(formData: FormData) {
     const name = String(formData.get("name") ?? "")
 
-    startTransition(async () => {
-      const result = await createMapAction({ name })
-      if (!result.ok) {
-        toast.error("Couldn't create the map. Check the name and try again.")
-        return
-      }
-      setOpen(false)
-      router.push(`/maps/${result.value.shortId}`)
-    })
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const result = await createMapAction({ name })
+          if (!result.ok) {
+            toast.error(
+              "Couldn't create the map. Check the name and try again."
+            )
+            return
+          }
+          setOpen(false)
+          router.push(`/maps/${result.value.shortId}`)
+        },
+        () =>
+          toast.error("Couldn't create the map. Check the name and try again.")
+      )
+    )
   }
 
   return (

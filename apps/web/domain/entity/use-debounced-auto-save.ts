@@ -174,20 +174,25 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
           toast.error("Couldn't save. Try again.")
         }
       } catch (error) {
-        // `save` threw (network drop, server crash, auth interrupt) or our
-        // own error branch threw. Roll back, surface a generic toast, and
-        // let the queue keep flowing. Throws aren't routed through `onError`
-        // because that's typed `TError` — expected failures should return
-        // `Result.err`, not throw.
+        // A debounced save runs in this detached queue, NOT a React transition,
+        // so — unlike the click paths, which route through `guardWrite` to
+        // rethrow Next navigation signals (redirect/forbidden/…) for the
+        // transition/error-boundary to act on (UNN-379) — a rethrown signal
+        // here has nowhere to surface, and the queue-continuity net below must
+        // consume the rejection to keep saving. So the background save
+        // deliberately swallows every throw (network drop, server crash, auth
+        // interrupt) to a toast; a hard-navigate to a 403 mid-typing would also
+        // lose the draft. Throws aren't routed through `onError` because that's
+        // typed `TError` — expected failures return `Result.err`, not throw.
         console.error("[useDebouncedAutoSave] save threw", error)
         setLocalValue(lastSavedRef.current)
         toast.error("Couldn't save. Try again.")
       }
     })
-    // Safety net: even if the inner try/catch itself somehow rejects (a
-    // throw from `setLocalValue` or `toast`, an unhandled error in
-    // microtask scheduling), keep the queue resolved so the next save —
-    // including the unmount flush — still dispatches.
+    // Safety net: even if the inner try/catch itself somehow rejects (a throw
+    // from `setLocalValue` or `toast`, an unhandled error in microtask
+    // scheduling), keep the queue resolved so the next save — including the
+    // unmount flush — still dispatches.
     queueRef.current = queued.catch(() => {})
     return queued
   }

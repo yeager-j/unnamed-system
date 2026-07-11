@@ -32,6 +32,7 @@ import {
   forwardPingedVersions,
   parseCharacterPing,
 } from "@/lib/sync/character-version-sync"
+import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 import { useMonotonicVersionRef } from "@/lib/sync/use-monotonic-version-ref"
 import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
 import {
@@ -294,25 +295,30 @@ export function useEntityWrite() {
   function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
     const durableClass = ENTITY_WRITERS[write.component].durableClass
 
-    startTransition(async () => {
-      applyLocal(write)
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          applyLocal(write)
 
-      const result = await enqueue(durableClass, (expectedVersion) =>
-        applyEntityWriteAction({ entityId, expectedVersion, write })
+          const result = await enqueue(durableClass, (expectedVersion) =>
+            applyEntityWriteAction({ entityId, expectedVersion, write })
+          )
+          if (result.ok) {
+            opts?.onSuccess?.(result.value)
+            return
+          }
+          if (opts?.onError?.(result.error)) return
+          toast.error(
+            result.error === "stale"
+              ? (opts?.messages?.stale ??
+                  "This character changed elsewhere — refreshing.")
+              : (opts?.messages?.error ?? "Couldn't save. Try again.")
+          )
+          if (result.error === "stale") router.refresh()
+        },
+        () => toast.error(opts?.messages?.error ?? "Couldn't save. Try again.")
       )
-      if (result.ok) {
-        opts?.onSuccess?.(result.value)
-        return
-      }
-      if (opts?.onError?.(result.error)) return
-      toast.error(
-        result.error === "stale"
-          ? (opts?.messages?.stale ??
-              "This character changed elsewhere — refreshing.")
-          : (opts?.messages?.error ?? "Couldn't save. Try again.")
-      )
-      if (result.error === "stale") router.refresh()
-    })
+    )
   }
 
   return { pending, dispatch }
