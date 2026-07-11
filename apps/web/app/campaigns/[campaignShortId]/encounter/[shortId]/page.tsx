@@ -1,13 +1,12 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
-import { CombatConsole } from "@/components/encounter/combat-console"
-import { EncounterSetup } from "@/components/encounter/encounter-setup"
-import { EncounterEndedStub } from "@/components/encounter/ended-stub"
+import { CombatConsole } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/combat-console"
+import { EncounterSetup } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/encounter-setup"
+import { EncounterEndedStub } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/ended-stub"
+import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
-
-import { getEncounterForDM } from "./encounter-access"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string; shortId: string }>
@@ -31,7 +30,7 @@ export async function generateMetadata({
  * (UNN-535). The **status fork**: a `draft` encounter renders the setup shell,
  * a `live` one the combat console, an `ended` one the read-only stub. The
  * loader hands both client shells the same serializable {@link
- * import("./encounter-access").EncounterForDM}; the live branch additionally
+ * import("@/domain/combat/load-encounter-for-dm").EncounterForDM}; the live branch additionally
  * hydrates the per-durable-participant drawer detail (party-scaled Skill
  * cards + character-row display fields). v1's initiative-stat hydration for
  * the draft branch is gone — v2's `compareInitiative` reads the resolved

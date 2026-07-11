@@ -11,7 +11,7 @@ import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 

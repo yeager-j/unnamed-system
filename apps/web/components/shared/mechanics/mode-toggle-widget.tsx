@@ -4,7 +4,7 @@ import { getMechanic } from "@workspace/game-v2/mechanics"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 import { WidgetHeader } from "./widget-chrome"
 

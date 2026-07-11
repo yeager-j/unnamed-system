@@ -4,8 +4,8 @@ import { cache } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
-import type { DungeonWatchCombatData } from "@/components/dungeon/combat/watch"
-import { DungeonWatch } from "@/components/dungeon/watch"
+import type { DungeonWatchCombatData } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/watch"
+import { DungeonWatch } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/watch"
 import { loadCharactersByIds } from "@/domain/character/load"
 import { auth } from "@/lib/auth"
 import {

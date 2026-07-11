@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { BUILDER_STEPS } from "@/components/builder/builder-steps"
+import { BUILDER_STEPS } from "@/domain/character/builder-steps"
 import type { EntityGuardError } from "@/lib/actions/entity/version-guard"
 import type { PortraitUploadError } from "@/lib/storage/portrait-upload"
 

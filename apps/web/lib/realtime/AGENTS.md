@@ -8,4 +8,4 @@ Ably invalidation pings (UNN-370; design in `docs/realtime/ADR.md`).
 
 Subscribe tokens: `app/api/realtime/token` (subscribe-only, single channel).
 
-Client side: `hooks/use-realtime-channel.ts` is the generic subscribe hook (modular ably SDK, token-route auth, inert when unavailable); the character surfaces wire it through `hooks/character-version-sync.ts` — the v2 `EntityWriteProvider` (sheet + builder, UNN-569) and the v1 `CharacterProvider` (atlas) each mount a `character`-channel listener behind a forward-only version-compare, which also covers cross-tab convergence (the UNN-203 BroadcastChannel transport is retired).
+Client side: `lib/sync/use-realtime-channel.ts` is the generic subscribe hook (modular ably SDK, token-route auth, inert when unavailable); the character surfaces wire it through `lib/sync/character-version-sync.ts` — the v2 `EntityWriteProvider` (sheet + builder, UNN-569) and the v1 `CharacterProvider` (atlas) each mount a `character`-channel listener behind a forward-only version-compare, which also covers cross-tab convergence (the UNN-203 BroadcastChannel transport is retired).

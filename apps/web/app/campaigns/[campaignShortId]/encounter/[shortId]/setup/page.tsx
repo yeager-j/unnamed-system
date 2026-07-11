@@ -1,10 +1,9 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { EnemyCatalogBrowser } from "@/components/encounter/enemy-catalog-browser"
+import { EnemyCatalogBrowser } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/enemy-catalog-browser"
+import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { encounterConsolePath } from "@/lib/paths"
-
-import { getEncounterForDM } from "../encounter-access"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string; shortId: string }>

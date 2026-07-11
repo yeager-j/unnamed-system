@@ -21,7 +21,7 @@ import type { MapInstanceState, MapZone } from "@workspace/game-v2/spatial"
 import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
-import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import {
   combatantAvatar,

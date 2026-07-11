@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 
-import { slugForStepIndex } from "@/components/builder/builder-steps"
+import { slugForStepIndex } from "@/domain/character/builder-steps"
 import { loadCharacterByShortId } from "@/domain/character/load"
 import { characterBuilderPath } from "@/lib/paths"
 

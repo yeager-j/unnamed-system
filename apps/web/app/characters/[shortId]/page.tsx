@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { slugForStepIndex } from "@/components/builder/builder-steps"
-import { DraftInProgressDialog } from "@/components/character-sheet/draft-in-progress-dialog"
-import { CharacterSheet } from "@/components/character-sheet/sheet"
+import { DraftInProgressDialog } from "@/app/characters/[shortId]/_components/draft-in-progress-dialog"
+import { CharacterSheet } from "@/app/characters/[shortId]/_components/sheet"
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
+import { slugForStepIndex } from "@/domain/character/builder-steps"
 import { loadCharacterByShortId } from "@/domain/character/load"
 import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { getArchetype } from "@/domain/game-engine-v2"

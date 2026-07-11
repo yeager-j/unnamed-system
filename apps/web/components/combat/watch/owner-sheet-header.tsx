@@ -5,7 +5,7 @@ import { useState } from "react"
 import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
 import { VitalsBlock } from "@/components/shared/vitals-block"
 import { buildRailView } from "@/domain/character/view/rail-view"
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 /**
  * The own-sheet column's masthead, shared by both watches (UNN-566): identity,

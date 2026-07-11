@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 
-import { CreateMapButton } from "@/components/maps/create-map-button"
-import { MapCard } from "@/components/maps/map-card"
-import { SignedOutLanding } from "@/components/my-characters/signed-out-landing"
+import { SignedOutLanding } from "@/app/_components/signed-out-landing"
+import { CreateMapButton } from "@/app/maps/_components/create-map-button"
+import { MapCard } from "@/app/maps/_components/map-card"
 import { auth } from "@/lib/auth"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 

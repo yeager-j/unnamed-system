@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { EncounterWatch } from "@/components/encounter/encounter-watch"
+import { EncounterWatch } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/encounter-watch"
 import { auth } from "@/lib/auth"
 import {
   getEncounterSnapshot,

@@ -9,7 +9,7 @@ import {
 import { SegmentMeter } from "@workspace/ui/components/segment-meter"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 import { WidgetHeader, WidgetStepper } from "./widget-chrome"
 

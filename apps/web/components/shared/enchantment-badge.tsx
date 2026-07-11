@@ -15,7 +15,7 @@ import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment
  * current Forte grants — only the reached lines, each prefixed with the Forte
  * marking that grants it. The marking is decoration for screen readers; the
  * sr-only text speaks the Forte as a number. Shared by the encounter
- * {@link import("@/components/encounter/zone-layout").ZoneLayout} and the dungeon combat zone card so
+ * {@link import("@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/zone-layout").ZoneLayout} and the dungeon combat zone card so
  * both surfaces read the active Enchantment identically.
  */
 export function EnchantmentBadge({

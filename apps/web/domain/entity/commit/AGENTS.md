@@ -59,7 +59,7 @@ the pc-ping refetch. That **container** split stays deliberate (the reconcile
 channels genuinely differ); converge only if one channel wins.
 
 The **stale-policy** split ended with UNN-567/568: both doors now run the same
-`hooks/write-queue.ts` protocol core — serialized per-token spine + one-shot
+`lib/sync/write-queue.ts` protocol core — serialized per-token spine + one-shot
 stale-retry through `getEntityClassVersionAction` — so a cross-writer stale on
 the one genuinely multi-writer row (player on sheet + DM on console) self-heals
 from either side. A stale that survives the retry is a real conflict: the

@@ -7,7 +7,10 @@ import {
   buildSkillCardViews,
   type SkillCardCost,
 } from "@/domain/combat/view/skill-card-view"
-import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 
 /**
  * The Skill-card grid and its **cast** affordance — every source (archetype

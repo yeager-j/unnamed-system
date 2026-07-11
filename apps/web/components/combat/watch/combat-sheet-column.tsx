@@ -8,7 +8,7 @@ import { AffinityStrip } from "@/components/shared/affinity-strip"
 import { MechanicWidget } from "@/components/shared/mechanics/mechanic-widget"
 import { SkillCastSection } from "@/components/shared/skill-cast-section"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 
 import { OwnedSheetTabs, type OwnedSheet } from "./owned-sheet-tabs"

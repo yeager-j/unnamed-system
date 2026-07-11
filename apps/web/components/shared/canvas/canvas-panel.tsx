@@ -9,7 +9,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 /**
  * The floating control panel shell used by the canvas surfaces — currently the Map
- * editor's settings panel ({@link import("@/components/maps/map-settings-panel").MapSettingsPanel}).
+ * editor's settings panel ({@link import("@/app/maps/_components/map-settings-panel").MapSettingsPanel}).
  * Standardizes the card (width, square corners, border, shadow) and the header row
  * — a back-arrow link, the heading title, and a trailing `actions` slot (the
  * editor's collapse caret) — so floating panels can't drift in size. Body

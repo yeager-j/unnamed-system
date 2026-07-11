@@ -1,7 +1,7 @@
 "use client"
 
-import type { PingedVersions } from "@/hooks/character-version-sync"
 import { VERSION_CLASSES, type VersionClass } from "@/lib/db/version-classes"
+import type { PingedVersions } from "@/lib/sync/character-version-sync"
 
 /**
  * The DM console's refresh decision for one PC combatant's character ping

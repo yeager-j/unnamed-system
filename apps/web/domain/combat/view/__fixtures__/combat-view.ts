@@ -8,7 +8,7 @@ import type {
   MapZone,
 } from "@workspace/game-v2/spatial"
 
-import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 
 /**
  * Literal constructors for the view-builder tests — the smallest valid spatial
