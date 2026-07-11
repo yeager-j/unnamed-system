@@ -9,7 +9,7 @@ import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import {
   loadEntityRowByShortId,
-  loadEntityRowsByIds,
+  loadLiveEntityRowsByIds,
 } from "@/lib/db/queries/load-entity"
 import type { EntityRow, EntityStatus } from "@/lib/db/schema/entity"
 import type { VersionClass } from "@/lib/db/version-classes"
@@ -121,11 +121,16 @@ export const loadCharacterByShortId = cache(
  * stable across polls. A row that fails the load seam is **omitted**: one
  * corrupt character must not take down a whole watch page, and the caller's
  * surface is a column that simply lists one fewer sheet.
+ *
+ * **Live-only (R1 — UNN-571):** the ids are dungeon Instance occupancy, not a
+ * pinned encounter locator, so this reads through {@link loadLiveEntityRowsByIds}
+ * — a soft-deleted token drops off the own-sheet column instead of rendering as
+ * history.
  */
 export async function loadCharactersByIds(
   entityIds: readonly string[]
 ): Promise<LoadedCharacter[]> {
-  const rows = await loadEntityRowsByIds(entityIds)
+  const rows = await loadLiveEntityRowsByIds(entityIds)
   const rowById = new Map(rows.map((row) => [row.id, row]))
 
   return entityIds.flatMap((entityId) => {

@@ -8,7 +8,7 @@ import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
-import { loadEntityRowById } from "@/lib/db/queries/load-entity"
+import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 
@@ -129,7 +129,7 @@ export async function loadOwnedDungeonCharacterIds(
 
   const owned = await Promise.all(
     tokenCharacterIds.map(async (characterId) => {
-      const row = await loadEntityRowById(characterId)
+      const row = await loadLiveEntityRowById(characterId)
       return row?.ownerId === viewerId ? characterId : null
     })
   )

@@ -17,7 +17,7 @@ const requireCampaignDM = vi.fn()
 const loadDungeonRowById = vi.fn()
 const loadLiveEncounterIdForCampaign = vi.fn()
 const loadMapInstanceById = vi.fn()
-const loadEntityRowById = vi.fn()
+const loadLiveEntityRowById = vi.fn()
 const createEncounter = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
@@ -39,7 +39,7 @@ vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
 }))
 vi.mock("@/lib/db/queries/load-entity", () => ({
-  loadEntityRowById: (id: string) => loadEntityRowById(id),
+  loadLiveEntityRowById: (id: string) => loadLiveEntityRowById(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({
   createEncounter: (input: unknown, tx: unknown) => createEncounter(input, tx),
@@ -141,7 +141,7 @@ beforeEach(() => {
     state: makeInstanceState(),
     version: 7,
   })
-  loadEntityRowById.mockReset().mockResolvedValue({ id: PC_ID })
+  loadLiveEntityRowById.mockReset().mockResolvedValue({ id: PC_ID })
   createEncounter
     .mockReset()
     .mockResolvedValue({ id: "new-enc", shortId: "new-short" })

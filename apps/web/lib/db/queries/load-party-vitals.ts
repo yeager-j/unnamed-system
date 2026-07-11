@@ -1,6 +1,6 @@
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
-import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
+import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 
 /** A party token's current + max pools, the shape the dungeon roster + fog
  *  snapshot draw each health/skill bar from. */
@@ -16,13 +16,17 @@ interface TokenVitals {
  * once, and returns a map keyed by id; a row that fails the load seam is a
  * data-integrity fault and is skipped (a caller that draws a token for it falls
  * back to a zero pool). Order-independent — callers key by id.
+ *
+ * **Live-only (R1 — UNN-571):** the ids are dungeon Instance occupancy, so this
+ * reads through {@link loadLiveEntityRowsByIds} — a soft-deleted token draws no
+ * vitals bar rather than lingering on the delve roster.
  */
 export async function loadPartyVitalsByIds(
   ids: readonly string[]
 ): Promise<Map<string, TokenVitals>> {
   if (ids.length === 0) return new Map()
 
-  const rows = await loadEntityRowsByIds(ids)
+  const rows = await loadLiveEntityRowsByIds(ids)
   const vitalsById = new Map<string, TokenVitals>()
 
   for (const row of rows) {

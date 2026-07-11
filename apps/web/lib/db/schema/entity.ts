@@ -61,14 +61,15 @@ export const entity = pgTable("entity", {
   notes: text("notes"),
   /**
    * Soft-delete tombstone (R1 — UNN-571). `NULL ⇔ live`; a non-null timestamp
-   * means the delete flow retired the row. **Discovery/identity reads**
-   * (character list, campaign roster, by-`shortId` load) add a `deletedAt IS
-   * NULL` conjunct so a tombstoned entity vanishes from every surface and its
-   * public URL 404s. **Pinned-reference reads** (by entity id from a stored
-   * encounter session/locator, the live-encounter lock, the auth gates) stay
-   * `deletedAt`-blind: the live-encounter lock already blocks deleting a durable
-   * combatant, so a live encounter never references a tombstone, and resolving a
-   * pinned id against the persisted row — rather than dropping it to a
+   * means the delete flow retired the row. Reads split three ways on *why* the
+   * caller holds the id (see the module note in `queries/load-entity.ts`):
+   * **discovery/identity** (character list, campaign roster, by-`shortId` load)
+   * and **live occupancy/setup** (dungeon-occupancy roster reads, combat-setup
+   * adds) both filter `deletedAt IS NULL` — a tombstone leaves every surface and
+   * can't be wired into a new fight; **pinned persisted-locator hydration** (by
+   * id from a stored encounter session, the live-encounter lock, the auth gates)
+   * stays `deletedAt`-blind, because the lock keeps tombstones out of live fights
+   * and resolving the persisted row — rather than dropping it to a
    * `missing-durable` dangling reference — is what lets history survive its
    * subjects (D4). See `lib/actions/entity/delete.ts` for the flip.
    */

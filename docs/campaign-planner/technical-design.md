@@ -563,27 +563,38 @@ campaign's names into another.
 - **R1 — Entity soft-delete.** `deletedAt` on `entity`; delete flow flips from
   `DELETE` to `SET deletedAt = now()` (`lib/actions/entity/delete.ts`).
   **Landed (UNN-571).** The naive "~7 read sites gain a `deletedAt IS NULL`
-  conjunct" resolved into a **two-class split**, because the combat-adjacent
-  sites needed the semantics decision, not a WHERE clause:
-  - **Discovery / identity reads filter `deletedAt IS NULL`** — a tombstone
-    vanishes from every surface and its public URL 404s: the three
-    `character-list` queries, `load-campaign`'s roster read, and
-    `load-entity`'s `loadEntityRowByShortId` (which also covers
-    `load-character`, since `loadCharacterByShortId` composes it).
-  - **Pinned-reference reads stay `deletedAt`-blind** — they resolve an id
-    already pinned by a stored encounter session/locator or an auth gate:
+  conjunct" resolved into a **three-way split**, keyed to *why* a caller holds
+  the id (not id-vs-shortId), because the combat-adjacent sites needed the
+  semantics decision, not a WHERE clause:
+  - **Discovery / identity reads filter** — a tombstone vanishes from every
+    surface and its public URL 404s: the three `character-list` queries,
+    `load-campaign`'s roster read, and `load-entity`'s `loadEntityRowByShortId`
+    (which also covers `load-character`, since `loadCharacterByShortId`
+    composes it).
+  - **Live occupancy / setup reads filter** (`loadLiveEntityRowById` /
+    `loadLiveEntityRowsByIds`) — the id comes from *current* dungeon-Instance
+    occupancy or a client-supplied combat setup, so a tombstone must read as
+    absent: the delve's own-sheet column (`loadCharactersByIds`), its
+    token-vitals bars (`loadPartyVitalsByIds`), its owned-token highlight
+    (`loadOwnedDungeonCharacterIds`), and the two combat-setup adds
+    (`applyAddParticipant`, `startDungeonEncounterAction`). Soft-delete never
+    clears occupancy, so without this a deleted PC lingers on a delve surface or
+    gets wired into a *new* fight (the Codex review on PR #331 caught this).
+  - **Pinned persisted-locator reads stay `deletedAt`-blind** — they resolve an
+    id already committed into a stored encounter session blob:
     `load-entity`'s by-id reads (`loadEntityRowById` / `loadEntityRowsByIds`),
     `encounter-lock`, `load-combat-console-data-v2`, the snapshot fold
-    (`loadDurableEntities`), the auth gates, and `versions` (which inherits
-    the gate). **The live-encounter lock is the guard, unchanged:** a durable
-    combatant can't be tombstoned mid-fight, so a live encounter never
-    references one. Filtering the by-id reads would instead turn a soft-deleted
-    reference into a `missing-durable` dangling ref → `participant-load-failed`
-    → a 404'd in-progress fight. Resolving the persisted row by pinned id is
-    also what lets history survive its subjects (D4).
+    (`loadDurableEntities`), the owned-combatant watch read
+    (`load-encounter-snapshot-v2`), the auth gates, and `versions` (which
+    inherits the gate). **The live-encounter lock is the guard, unchanged:** a
+    durable combatant can't be tombstoned mid-fight, so a live encounter never
+    references one. Filtering these would instead turn a soft-deleted reference
+    into a `missing-durable` dangling ref → `participant-load-failed` → a 404'd
+    in-progress fight. Resolving the persisted row by pinned id is also what
+    lets history survive its subjects (D4).
 
   NPC-as-combatant (phase 2+) makes this real by adding components to the same
-  entity row — no new mint, so the same lock + by-id-blind reads carry over.
+  entity row — no new mint, so the same lock + pinned-blind reads carry over.
   Prerequisite for phase 2. Valuable independent of this feature.
 - **R2 — Interim `kind: 'npc'` + PC-query filters.** Widen `EntityKind`;
   add the `kind` filter to **all three** `character-list.ts` queries and any

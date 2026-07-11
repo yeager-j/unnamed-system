@@ -20,7 +20,7 @@ import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadDungeonRowById } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
-import { loadEntityRowById } from "@/lib/db/queries/load-entity"
+import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import { createEncounter } from "@/lib/db/writes/encounter"
 import { guardMany } from "@/lib/db/writes/guard-many"
@@ -93,7 +93,9 @@ export async function startDungeonEncounterAction(
   // re-placement needed). A party PC with no `entity` row can't fight (the S0
   // degraded window — only entity-row PCs are combat-capable).
   for (const characterId of partyCharacterIds) {
-    const row = await loadEntityRowById(characterId)
+    // Live-only (R1 — UNN-571): a soft-deleted party PC can't be hydrated into a
+    // fresh delve fight from a stale setup — it reads as `character-not-found`.
+    const row = await loadLiveEntityRowById(characterId)
     if (row === null) return err("character-not-found")
     const loaded = loadEntityRow(row)
     if (!loaded.ok) return err("character-not-found")
