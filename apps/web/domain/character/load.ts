@@ -8,10 +8,11 @@ import type { Entity, ResolvedEntity } from "@workspace/game-v2/kernel/entity"
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import {
-  loadEntityRowByShortId,
-  loadLiveEntityRowsByIds,
-} from "@/lib/db/queries/load-entity"
-import type { EntityRow, EntityStatus } from "@/lib/db/schema/entity"
+  loadLivePlayerCharactersByIds,
+  loadPlayerCharacterByShortId,
+  type LoadedPlayerCharacter,
+} from "@/lib/db/queries/load-player-character"
+import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 import type { VersionClass } from "@/lib/db/version-classes"
 
 /**
@@ -28,7 +29,7 @@ export interface CharacterProfile {
   shortId: string
   ownerId: string
   campaignId: string | null
-  status: EntityStatus
+  status: PlayerCharacterStatus
   builderStep: number
   name: string
   portraitUrl: string | null
@@ -50,47 +51,53 @@ export interface LoadedCharacter {
   resolved: ResolvedEntity
 }
 
-/** The app-owned columns, projected. Exported for the loaders that already hold
- *  a dissolved runtime entity (the watch's owned combatants) and need only the
- *  profile half of the triple. */
-export function toCharacterProfile(row: EntityRow): CharacterProfile {
+/** The app-owned columns, projected off a loaded player character (R3 — UNN-573):
+ *  its own lifecycle facts plus its `entity` substrate. Exported for the loaders
+ *  that already hold a dissolved runtime entity (the watch's owned combatants) and
+ *  need only the profile half of the triple. */
+export function toCharacterProfile(
+  pc: LoadedPlayerCharacter
+): CharacterProfile {
   return {
-    id: row.id,
-    shortId: row.shortId,
-    ownerId: row.ownerId,
-    campaignId: row.campaignId,
-    status: row.status,
-    builderStep: row.builderStep,
-    name: row.name,
-    portraitUrl: row.portraitUrl,
-    pronouns: row.pronouns,
-    notes: row.notes,
+    id: pc.entity.id,
+    shortId: pc.entity.shortId,
+    ownerId: pc.userId,
+    campaignId: pc.campaignId,
+    status: pc.status,
+    builderStep: pc.builderStep,
+    name: pc.entity.name,
+    portraitUrl: pc.entity.portraitUrl,
+    pronouns: pc.entity.pronouns,
+    notes: pc.entity.notes,
     versions: {
-      identity: row.identityVersion,
-      vitals: row.vitalsVersion,
-      inventory: row.inventoryVersion,
-      progression: row.progressionVersion,
+      identity: pc.entity.identityVersion,
+      vitals: pc.entity.vitalsVersion,
+      inventory: pc.entity.inventoryVersion,
+      progression: pc.entity.progressionVersion,
     },
   }
 }
 
 /**
- * Assembles one `entity` row into the loaded triple, or `null` when the row
- * fails the load seam — a stored component that no longer parses is a
- * data-integrity bug, logged with its per-component issues. Resolves
- * partyless and zone-blind: an off-encounter resolve is pure over the entity.
+ * Assembles one loaded player character into the read triple, or `null` when the
+ * substrate fails the load seam — a stored component that no longer parses is a
+ * data-integrity bug, logged with its per-component issues. Resolves partyless
+ * and zone-blind: an off-encounter resolve is pure over the entity.
  */
-function entityRowToLoadedCharacter(row: EntityRow): LoadedCharacter | null {
-  const loaded = loadEntityRow(row)
+function entityRowToLoadedCharacter(
+  pc: LoadedPlayerCharacter
+): LoadedCharacter | null {
+  const loaded = loadEntityRow(pc.entity)
   if (!loaded.ok) {
-    console.error(`[character/load] entity ${row.id} failed the load seam`, {
-      issues: loaded.error,
-    })
+    console.error(
+      `[character/load] entity ${pc.entity.id} failed the load seam`,
+      { issues: loaded.error }
+    )
     return null
   }
 
   return {
-    profile: toCharacterProfile(row),
+    profile: toCharacterProfile(pc),
     entity: loaded.value,
     resolved: resolveEntity(loaded.value),
   }
@@ -105,10 +112,10 @@ function entityRowToLoadedCharacter(row: EntityRow): LoadedCharacter | null {
  */
 export const loadCharacterByShortId = cache(
   async (shortId: string): Promise<LoadedCharacter | null> => {
-    const row = await loadEntityRowByShortId(shortId)
-    if (!row) return null
+    const pc = await loadPlayerCharacterByShortId(shortId)
+    if (!pc) return null
 
-    const loaded = entityRowToLoadedCharacter(row)
+    const loaded = entityRowToLoadedCharacter(pc)
     if (!loaded) notFound()
     return loaded
   }
@@ -123,20 +130,20 @@ export const loadCharacterByShortId = cache(
  * surface is a column that simply lists one fewer sheet.
  *
  * **Live-only (R1 — UNN-571):** the ids are dungeon Instance occupancy, not a
- * pinned encounter locator, so this reads through {@link loadLiveEntityRowsByIds}
+ * pinned encounter locator, so this reads through {@link loadLivePlayerCharactersByIds}
  * — a soft-deleted token drops off the own-sheet column instead of rendering as
  * history.
  */
 export async function loadCharactersByIds(
   entityIds: readonly string[]
 ): Promise<LoadedCharacter[]> {
-  const rows = await loadLiveEntityRowsByIds(entityIds)
-  const rowById = new Map(rows.map((row) => [row.id, row]))
+  const pcs = await loadLivePlayerCharactersByIds(entityIds)
+  const pcById = new Map(pcs.map((pc) => [pc.entity.id, pc]))
 
   return entityIds.flatMap((entityId) => {
-    const row = rowById.get(entityId)
-    if (!row) return []
-    const loaded = entityRowToLoadedCharacter(row)
+    const pc = pcById.get(entityId)
+    if (!pc) return []
+    const loaded = entityRowToLoadedCharacter(pc)
     return loaded ? [loaded] : []
   })
 }

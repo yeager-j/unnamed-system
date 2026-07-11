@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
-import { entity } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -61,9 +61,9 @@ test.afterAll(async () => {
   // Unplace the warrior in case a cascade test failed before removing it
   // (deleting its campaign below would also FK-null it, but be explicit).
   await getDb()
-    .update(entity)
+    .update(playerCharacter)
     .set({ campaignId: null })
-    .where(eq(entity.id, SEED_WARRIOR_ID))
+    .where(eq(playerCharacter.entityId, SEED_WARRIOR_ID))
   for (const shortId of createdCampaignShortIds) {
     await getDb().delete(campaigns).where(eq(campaigns.shortId, shortId))
   }
@@ -153,11 +153,11 @@ test("removing a player unplaces their characters", async ({ page }) => {
     .insert(campaignUsers)
     .values({ campaignId, userId: SEED_USER_ID })
     .onConflictDoNothing()
-  // The roster + placement surfaces read `entity.campaignId` (UNN-556).
+  // The roster + placement surfaces read `playerCharacter.campaignId` (R3 — UNN-573).
   await getDb()
-    .update(entity)
+    .update(playerCharacter)
     .set({ campaignId })
-    .where(eq(entity.id, SEED_WARRIOR_ID))
+    .where(eq(playerCharacter.entityId, SEED_WARRIOR_ID))
 
   await page.goto(`/campaigns/${shortId}`)
   // The roster shows the member with their placed character.
@@ -187,9 +187,9 @@ test("removing a player unplaces their characters", async ({ page }) => {
   expect(members).toHaveLength(0)
 
   const [warrior] = await getDb()
-    .select({ campaignId: entity.campaignId })
-    .from(entity)
-    .where(eq(entity.id, SEED_WARRIOR_ID))
+    .select({ campaignId: playerCharacter.campaignId })
+    .from(playerCharacter)
+    .where(eq(playerCharacter.entityId, SEED_WARRIOR_ID))
   expect(warrior!.campaignId).toBeNull()
 })
 

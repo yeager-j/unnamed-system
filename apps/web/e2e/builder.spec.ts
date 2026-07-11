@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
-import { entity, getDb } from "@/lib/db"
+import { entity, getDb, playerCharacter } from "@/lib/db"
 
 import { STORAGE_STATE } from "./auth.setup"
 
@@ -28,9 +28,22 @@ const DEV_USER_ID = "dev-user-claude"
 test.describe.configure({ mode: "serial" })
 
 async function clearDevUserDrafts(): Promise<void> {
-  await getDb()
-    .delete(entity)
-    .where(and(eq(entity.ownerId, DEV_USER_ID), eq(entity.status, "draft")))
+  const db = getDb()
+  // Owner + draft status live on the PC subtype now (R3 — UNN-573); find the
+  // drafts there, then drop subtype-before-substrate (the subtype FK has no cascade).
+  const drafts = await db
+    .select({ entityId: playerCharacter.entityId })
+    .from(playerCharacter)
+    .where(
+      and(
+        eq(playerCharacter.userId, DEV_USER_ID),
+        eq(playerCharacter.status, "draft")
+      )
+    )
+  const ids = drafts.map((d) => d.entityId)
+  if (ids.length === 0) return
+  await db.delete(playerCharacter).where(inArray(playerCharacter.entityId, ids))
+  await db.delete(entity).where(inArray(entity.id, ids))
 }
 
 function shortIdFromBuilderUrl(url: string): string {
@@ -41,13 +54,20 @@ function shortIdFromBuilderUrl(url: string): string {
 }
 
 async function readEntityRow(shortId: string) {
+  // Join the PC subtype so `builderStep` / `status` (moved off `entity` in R3 —
+  // UNN-573) read alongside the substrate's component columns.
   const [row] = await getDb()
-    .select()
+    .select({ entity, pc: playerCharacter })
     .from(entity)
+    .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))
     .where(eq(entity.shortId, shortId))
     .limit(1)
   if (!row) throw new Error(`no entity row for shortId=${shortId}`)
-  return row
+  return {
+    ...row.entity,
+    builderStep: row.pc.builderStep,
+    status: row.pc.status,
+  }
 }
 
 /**
@@ -634,7 +654,11 @@ test.describe("movement 4 — persona", () => {
     expect(row.skillPool).toEqual({ base: 0, spSpent: 0 })
 
     // Cleanup: finalized rows aren't drafts, so the suite's draft sweep
-    // won't collect this one.
+    // won't collect this one. Drop the PC subtype before the substrate row it
+    // points at (its FK has no cascade — R3, UNN-573).
+    await getDb()
+      .delete(playerCharacter)
+      .where(eq(playerCharacter.entityId, row.id))
     await getDb().delete(entity).where(eq(entity.shortId, shortId))
   })
 })

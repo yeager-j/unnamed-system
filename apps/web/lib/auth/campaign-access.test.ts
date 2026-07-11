@@ -1,22 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+import type { LoadedPlayerCharacter } from "@/lib/db/queries/load-player-character"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { EntityRow } from "@/lib/db/schema/entity"
+import type { PlayerCharacterRow } from "@/lib/db/schema/player-character"
 
 import { requireOwnerOrCampaignDMForEntity } from "./campaign-access"
 
-// The gate touches three seams: the session (`auth` from ./index), the entity
-// loader, and the campaign loader. Stub all three so this stays a pure unit test
-// with no next-auth / DB chain. `forbidden()` normally throws a Next
-// redirect-class error; stub it to throw a sentinel so rejections are
-// assertable.
+// The gate touches three seams: the session (`auth` from ./index), the PC loader
+// (entity ⋈ subtype), and the campaign loader. Stub all three so this stays a pure
+// unit test with no next-auth / DB chain. `forbidden()` normally throws a Next
+// redirect-class error; stub it to throw a sentinel so rejections are assertable.
 const auth = vi.fn()
-const loadEntityRowById = vi.fn()
+const loadPlayerCharacterById = vi.fn()
 const loadCampaignRowById = vi.fn()
 
 vi.mock("./index", () => ({ auth: () => auth() }))
-vi.mock("@/lib/db/queries/load-entity", () => ({
-  loadEntityRowById: (id: string) => loadEntityRowById(id),
+vi.mock("@/lib/db/queries/load-player-character", () => ({
+  loadPlayerCharacterById: (id: string) => loadPlayerCharacterById(id),
 }))
 vi.mock("@/lib/db/queries/load-campaign", () => ({
   loadCampaignRowById: (id: string) => loadCampaignRowById(id),
@@ -33,13 +34,16 @@ const OTHER_ID = "user-other"
 const ENTITY_ID = "entity-1"
 const CAMPAIGN_ID = "campaign-1"
 
-function makeEntity(overrides: Partial<EntityRow>): EntityRow {
+/** A loaded player character (its subtype row carrying the `entity` substrate), as
+ *  the gate reads it. Only `userId`/`campaignId` drive authorization. */
+function makePc(subtype: Partial<PlayerCharacterRow>): LoadedPlayerCharacter {
   return {
-    id: ENTITY_ID,
-    ownerId: OWNER_ID,
+    entityId: ENTITY_ID,
+    userId: OWNER_ID,
     campaignId: null,
-    ...overrides,
-  } as EntityRow
+    ...subtype,
+    entity: { id: ENTITY_ID } as EntityRow,
+  } as LoadedPlayerCharacter
 }
 
 function makeCampaign(overrides: Partial<CampaignRow>): CampaignRow {
@@ -57,30 +61,26 @@ function signedInAs(userId: string) {
 describe("requireOwnerOrCampaignDMForEntity", () => {
   beforeEach(() => {
     auth.mockReset()
-    loadEntityRowById.mockReset()
+    loadPlayerCharacterById.mockReset()
     loadCampaignRowById.mockReset()
   })
 
-  it("allows the owner and returns the row without a campaign query", async () => {
+  it("allows the owner and returns the pair without a campaign query", async () => {
     signedInAs(OWNER_ID)
-    const entity = makeEntity({ ownerId: OWNER_ID, campaignId: CAMPAIGN_ID })
-    loadEntityRowById.mockResolvedValue(entity)
+    const pc = makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    loadPlayerCharacterById.mockResolvedValue(pc)
 
-    await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).resolves.toBe(
-      entity
-    )
+    await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).resolves.toBe(pc)
     expect(loadCampaignRowById).not.toHaveBeenCalled()
   })
 
   it("allows the campaign DM of a non-owner's character", async () => {
     signedInAs(DM_ID)
-    const entity = makeEntity({ ownerId: OWNER_ID, campaignId: CAMPAIGN_ID })
-    loadEntityRowById.mockResolvedValue(entity)
+    const pc = makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    loadPlayerCharacterById.mockResolvedValue(pc)
     loadCampaignRowById.mockResolvedValue(makeCampaign({ dmUserId: DM_ID }))
 
-    await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).resolves.toBe(
-      entity
-    )
+    await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).resolves.toBe(pc)
     expect(loadCampaignRowById).toHaveBeenCalledWith(CAMPAIGN_ID)
   })
 
@@ -90,12 +90,12 @@ describe("requireOwnerOrCampaignDMForEntity", () => {
     await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).rejects.toThrow(
       "forbidden"
     )
-    expect(loadEntityRowById).not.toHaveBeenCalled()
+    expect(loadPlayerCharacterById).not.toHaveBeenCalled()
   })
 
-  it("forbids a missing entity", async () => {
+  it("forbids a missing PC subtype", async () => {
     signedInAs(OWNER_ID)
-    loadEntityRowById.mockResolvedValue(null)
+    loadPlayerCharacterById.mockResolvedValue(null)
 
     await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).rejects.toThrow(
       "forbidden"
@@ -104,8 +104,8 @@ describe("requireOwnerOrCampaignDMForEntity", () => {
 
   it("forbids a non-owner whose character has no campaign (no campaign query)", async () => {
     signedInAs(OTHER_ID)
-    loadEntityRowById.mockResolvedValue(
-      makeEntity({ ownerId: OWNER_ID, campaignId: null })
+    loadPlayerCharacterById.mockResolvedValue(
+      makePc({ userId: OWNER_ID, campaignId: null })
     )
 
     await expect(requireOwnerOrCampaignDMForEntity(ENTITY_ID)).rejects.toThrow(
@@ -116,8 +116,8 @@ describe("requireOwnerOrCampaignDMForEntity", () => {
 
   it("forbids a signed-in user who is not the campaign's DM", async () => {
     signedInAs(OTHER_ID)
-    loadEntityRowById.mockResolvedValue(
-      makeEntity({ ownerId: OWNER_ID, campaignId: CAMPAIGN_ID })
+    loadPlayerCharacterById.mockResolvedValue(
+      makePc({ userId: OWNER_ID, campaignId: CAMPAIGN_ID })
     )
     loadCampaignRowById.mockResolvedValue(makeCampaign({ dmUserId: DM_ID }))
 

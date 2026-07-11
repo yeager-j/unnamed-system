@@ -1,24 +1,28 @@
 import { forbidden } from "next/navigation"
 
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
-import { loadEntityRowById } from "@/lib/db/queries/load-entity"
+import {
+  loadPlayerCharacterById,
+  type LoadedPlayerCharacter,
+} from "@/lib/db/queries/load-player-character"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
-import type { EntityRow } from "@/lib/db/schema/entity"
 
 import { auth } from "./index"
 
 /**
  * The owner-or-campaign-DM check, shared by the character and entity gates: the
- * row's owner, or the DM of the campaign it is placed into, may write it. Two
- * queries max — the campaign is loaded only on a non-owner viewer of a placed row.
+ * PC's owner (`userId`), or the DM of the campaign it is placed into
+ * (`campaignId → campaign.dmUserId`), may write it. Two queries max — the campaign
+ * is loaded only on a non-owner viewer of a placed PC. Reads the lifecycle facts
+ * off the player-character subtype (R3 — UNN-573).
  */
 async function isOwnerOrCampaignDM(
   viewerId: string,
-  placement: { ownerId: string; campaignId: string | null }
+  pc: { userId: string; campaignId: string | null }
 ): Promise<boolean> {
-  if (placement.ownerId === viewerId) return true
-  if (placement.campaignId) {
-    const campaign = await loadCampaignRowById(placement.campaignId)
+  if (pc.userId === viewerId) return true
+  if (pc.campaignId) {
+    const campaign = await loadCampaignRowById(pc.campaignId)
     if (campaign && campaign.dmUserId === viewerId) return true
   }
   return false
@@ -61,40 +65,44 @@ export async function requireCampaignDM(
  * race (player heals while DM damages) is HP/SP-only and reconciled by the
  * `vitalsVersion` guard, so no extra locking is needed here.
  *
- * Loads the entity row first; on an owner match it returns immediately — no
- * campaign query. Otherwise, if the character is placed (`campaignId` non-null),
- * it loads the campaign and compares `dmUserId`. Trips `forbidden()` (HTTP 403)
- * on any failure. Returns the loaded {@link EntityRow} so the Store assembles
- * from it without re-querying. Two queries max, no joins.
+ * Loads the player character (its subtype row carrying the `entity` substrate)
+ * first; on an owner match it returns immediately — no campaign query. Otherwise,
+ * if the PC is placed (`campaignId` non-null), it loads the campaign and compares
+ * `dmUserId`. Trips `forbidden()` (HTTP 403) on any failure — including an entity
+ * with no PC subtype. Returns the loaded {@link LoadedPlayerCharacter} so the Store
+ * assembles from `pc.entity` and reads lifecycle facts off `pc` without
+ * re-querying. Two queries max.
  */
 export async function requireOwnerOrCampaignDMForEntity(
   entityId: string
-): Promise<EntityRow> {
+): Promise<LoadedPlayerCharacter> {
   const session = await auth()
   const viewerId = session?.user?.id
   if (!viewerId) forbidden()
 
-  const row = await loadEntityRowById(entityId)
-  if (!row) forbidden()
-  if (await isOwnerOrCampaignDM(viewerId, row)) return row
+  const pc = await loadPlayerCharacterById(entityId)
+  if (!pc) forbidden()
+  if (await isOwnerOrCampaignDM(viewerId, pc)) return pc
 
   forbidden()
 }
 
 /**
- * The entity-row twin of `requireOwner` (`viewer-role.ts`) — the strict-owner
- * gate for the column actions and lifecycle writes (name, portrait, builder
- * step, finalize, delete, placement), where v1 never granted the DM. Loads and
- * returns the {@link EntityRow}; trips `forbidden()` on missing session,
- * missing row, or a non-owner viewer.
+ * The strict-owner twin of `requireOwner` (`viewer-role.ts`) — the gate for the
+ * column actions and lifecycle writes (name, portrait, builder step, finalize,
+ * delete, placement), where v1 never granted the DM. Loads and returns the
+ * {@link LoadedPlayerCharacter}; trips `forbidden()` on missing session, missing
+ * PC subtype, or a non-owner viewer.
  */
-export async function requireEntityOwner(entityId: string): Promise<EntityRow> {
+export async function requireEntityOwner(
+  entityId: string
+): Promise<LoadedPlayerCharacter> {
   const session = await auth()
   const viewerId = session?.user?.id
   if (!viewerId) forbidden()
 
-  const row = await loadEntityRowById(entityId)
-  if (!row || row.ownerId !== viewerId) forbidden()
+  const pc = await loadPlayerCharacterById(entityId)
+  if (!pc || pc.userId !== viewerId) forbidden()
 
-  return row
+  return pc
 }

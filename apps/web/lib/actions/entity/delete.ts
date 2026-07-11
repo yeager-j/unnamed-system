@@ -22,7 +22,7 @@ import {
  * a tombstone in UNN-571/R1). Same confirmation contract: named rows require the
  * typed name to match; unnamed drafts accept a missing/empty confirmation.
  * Refuses with `live-encounter-lock` when the entity is a combatant in its
- * campaign's live encounter (UNN-330 — the lock query reads `entity`); that gate
+ * campaign's live encounter (UNN-330 — the lock query reads the PC subtype); that gate
  * is what lets the combat-adjacent reads resolve pinned ids `deletedAt`-blind
  * (see `schema/entity.ts`), since a durable combatant can never become a
  * tombstone while its fight is live.
@@ -42,7 +42,7 @@ export async function deleteEntityAction(
   const parsed = DeleteEntitySchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
 
   const typed = parsed.data.confirmationName?.trim() ?? ""
   const rowName = row.name.trim()

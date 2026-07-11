@@ -1,10 +1,14 @@
 "use server"
 
+import { eq } from "drizzle-orm"
+
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import type { EntityColumnPatch } from "@/lib/actions/entity/version-guard"
 import { requireEntityOwner } from "@/lib/auth/campaign-access"
+import { db } from "@/lib/db/client"
 import type { EntityRow } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 import { uploadPortrait } from "@/lib/storage/portrait-upload"
 
 import {
@@ -14,6 +18,7 @@ import {
   UpdateEntityPronounsSchema,
   type EntityColumnActionError,
   type RemoveEntityPortraitInput,
+  type SetEntityBuilderStepError,
   type SetEntityBuilderStepInput,
   type UpdateEntityNameInput,
   type UpdateEntityPronounsInput,
@@ -24,11 +29,13 @@ import { bumpEntityVersionGuarded } from "./version-guard"
 
 /**
  * The app-column write species (ADR §2.4): per-field Server Actions over the
- * entity row's app-owned columns — name, pronouns, portrait, builder step. The
- * other species (engine-component state) rides the descriptor router
- * (`apply-entity-write.ts`); the distinction is the D35 column/component
- * storage projection surfacing at the write layer, decided once here. All four
- * gate on the strict owner and bump the **identity** class.
+ * entity row's substrate content columns — name, pronouns, portrait. The other
+ * species (engine-component state) rides the descriptor router
+ * (`apply-entity-write.ts`); the distinction is the D35 column/component storage
+ * projection surfacing at the write layer, decided once here. These three gate on
+ * the strict owner and bump the **identity** class. Builder step is the odd one
+ * out — it lives on the `playerCharacter` door and writes unguarded (see
+ * {@link setEntityBuilderStepAction}).
  */
 
 interface EntityColumnCommit {
@@ -60,7 +67,7 @@ export async function updateEntityNameAction(
   const parsed = UpdateEntityNameSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
   return commitColumnPatch(row, parsed.data.expectedVersion, {
     name: parsed.data.name,
   })
@@ -72,22 +79,37 @@ export async function updateEntityPronounsAction(
   const parsed = UpdateEntityPronounsSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
   return commitColumnPatch(row, parsed.data.expectedVersion, {
     pronouns: parsed.data.pronouns.trim() || null,
   })
 }
 
+/**
+ * Advances (or rewinds) the builder step — an **unguarded** write to the PC
+ * subtype (R3 — UNN-573): `builderStep` lives on `playerCharacter`, not the
+ * version-tokened `entity` row, so this is a plain LWW update with no
+ * `expectedVersion` and no version bump. Single-author builder navigation; keeping
+ * it off the identity class means a step advance can't falsely stale an in-flight
+ * name autosave.
+ */
 export async function setEntityBuilderStepAction(
   input: SetEntityBuilderStepInput
-): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
+): Promise<Result<void, SetEntityBuilderStepError>> {
   const parsed = SetEntityBuilderStepSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
-  return commitColumnPatch(row, parsed.data.expectedVersion, {
-    builderStep: parsed.data.step,
-  })
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
+
+  const updated = await db
+    .update(playerCharacter)
+    .set({ builderStep: parsed.data.step })
+    .where(eq(playerCharacter.entityId, row.id))
+    .returning({ id: playerCharacter.entityId })
+  if (updated.length === 0) return err("entity-not-found")
+
+  revalidateEntity(row)
+  return ok(undefined)
 }
 
 export async function removeEntityPortraitAction(
@@ -96,7 +118,7 @@ export async function removeEntityPortraitAction(
   const parsed = RemoveEntityPortraitSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
   return commitColumnPatch(row, parsed.data.expectedVersion, {
     portraitUrl: null,
   })
@@ -130,7 +152,7 @@ export async function uploadEntityPortraitAction(
     return err("invalid-input")
   }
 
-  const row = await requireEntityOwner(entityId)
+  const { entity: row } = await requireEntityOwner(entityId)
 
   const uploaded = await uploadPortrait(file)
   if (!uploaded.ok) return uploaded

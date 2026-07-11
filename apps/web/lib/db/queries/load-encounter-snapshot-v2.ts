@@ -26,6 +26,7 @@ import {
   type LoadedEncounterForSnapshot,
 } from "@/lib/db/queries/load-encounter-v2"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
+import { loadPlayerCharacterRowsByIds } from "@/lib/db/queries/load-player-character"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
@@ -231,12 +232,16 @@ export async function loadOwnedEncounterSheets(
   const compositionBySide = derivePartyCompositionBySide(
     resolveSession(session.session, instance.state)
   )
-  const rows = await loadEntityRowsByIds(owned.map((pc) => pc.entityId))
+  const ownedIds = owned.map((o) => o.entityId)
+  const rows = await loadEntityRowsByIds(ownedIds)
   const rowById = new Map(rows.map((entityRow) => [entityRow.id, entityRow]))
+  const subtypeRows = await loadPlayerCharacterRowsByIds(ownedIds)
+  const subtypeById = new Map(subtypeRows.map((pc) => [pc.entityId, pc]))
 
   return owned.flatMap(({ participant, entityId }) => {
     const entityRow = rowById.get(entityId)
-    if (!entityRow) return []
+    const subtypeRow = subtypeById.get(entityId)
+    if (!entityRow || !subtypeRow) return []
 
     const resolveContext = participantResolveContext(
       spatialReads,
@@ -248,7 +253,7 @@ export async function loadOwnedEncounterSheets(
       {
         participantId: participant.id,
         character: {
-          profile: toCharacterProfile(entityRow),
+          profile: toCharacterProfile({ ...subtypeRow, entity: entityRow }),
           entity: participant.entity,
           resolved: resolveEntity(participant.entity, resolveContext),
         },

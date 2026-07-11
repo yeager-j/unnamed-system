@@ -212,11 +212,8 @@ function ContinueLink({
           const result = await setEntityBuilderStepAction({
             entityId: identityToken.entityId,
             step: nextIndex,
-            expectedVersion: identityToken.read(),
           })
-          if (result.ok) {
-            identityToken.bump(result.value.version)
-          } else if (result.error !== "stale") {
+          if (!result.ok) {
             toast.error("Couldn't advance. Try again.")
             return
           }

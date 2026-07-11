@@ -31,12 +31,12 @@ export async function getEntityClassVersionAction(
   if (!parsed.success) return err("invalid-input")
 
   const { entityId, versionClass } = parsed.data
-  const row =
+  const pc =
     versionClass === "vitals"
       ? await requireOwnerOrCampaignDMForEntity(entityId)
       : await requireEntityOwner(entityId)
 
-  return ok({ version: classVersionOf(row, versionClass) })
+  return ok({ version: classVersionOf(pc.entity, versionClass) })
 }
 
 function classVersionOf(row: EntityRow, versionClass: VersionClass): number {

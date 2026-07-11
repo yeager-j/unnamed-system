@@ -27,6 +27,7 @@ import {
   getDb,
   mapInstances,
   maps,
+  playerCharacter,
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
@@ -154,15 +155,18 @@ export async function createTestCampaign(
 }
 
 /** Sets (or clears, with `null`) a character's campaign placement on its
- *  `entity` row (UNN-551), so the durable write path's
- *  `requireOwnerOrCampaignDMForEntity` and the encounter-lock (which read
- *  `entity.campaignId`) admit the placed combatant. */
+ *  `playerCharacter` door (placement moved off `entity` in R3 — UNN-573), so the
+ *  durable write path's `requireOwnerOrCampaignDMForEntity` and the encounter-lock
+ *  (which read `playerCharacter.campaignId`) admit the placed combatant. */
 export async function placeCharacter(
   characterId: string,
   campaignId: string | null
 ): Promise<void> {
   const db = getDb()
-  await db.update(entity).set({ campaignId }).where(eq(entity.id, characterId))
+  await db
+    .update(playerCharacter)
+    .set({ campaignId })
+    .where(eq(playerCharacter.entityId, characterId))
 }
 
 export interface TestMap {
@@ -391,6 +395,11 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
       .where(inArray(mapInstances.id, tracker.mapInstanceIds))
   }
   if (tracker.characterIds.length > 0) {
+    // The PC subtype FK to `entity` has no cascade (R3 — UNN-573), so drop the
+    // subtype row before the substrate row it points at.
+    await db
+      .delete(playerCharacter)
+      .where(inArray(playerCharacter.entityId, tracker.characterIds))
     await db.delete(entity).where(inArray(entity.id, tracker.characterIds))
   }
   if (tracker.campaignIds.length > 0) {

@@ -11,7 +11,7 @@ import {
   requireEntityOwner,
   requireOwnerOrCampaignDMForEntity,
 } from "@/lib/auth/campaign-access"
-import type { EntityStatus } from "@/lib/db/schema/entity"
+import type { PlayerCharacterStatus } from "@/lib/db/schema/player-character"
 
 import {
   bumpEntityVersionGuarded,
@@ -49,7 +49,7 @@ export type EntityWriteError =
 export interface EntityCommit {
   version: number
   shortId: string
-  status: EntityStatus
+  status: PlayerCharacterStatus
 }
 
 export async function commitEntityWrite(
@@ -58,12 +58,12 @@ export async function commitEntityWrite(
   expectedVersion: number
 ): Promise<Result<EntityCommit, EntityWriteError>> {
   const { durableClass } = ENTITY_WRITERS[write.component]
-  const row =
+  const pc =
     durableClass === "vitals"
       ? await requireOwnerOrCampaignDMForEntity(entityId)
       : await requireEntityOwner(entityId)
 
-  const loaded = loadEntityRow(row)
+  const loaded = loadEntityRow(pc.entity)
   if (!loaded.ok) return err("entity-load-failed")
 
   const predicted = applyEntityWrite(loaded.value.components, write)
@@ -79,7 +79,7 @@ export async function commitEntityWrite(
 
   return ok({
     version: bumped.value.version,
-    shortId: row.shortId,
-    status: row.status,
+    shortId: pc.entity.shortId,
+    status: pc.status,
   })
 }

@@ -23,9 +23,13 @@ const ROW = {
   progressionVersion: 44,
 } as EntityRow
 
+// The gates return the loaded player character (R3 — UNN-573); versions reads only
+// the entity substrate's tokens off `pc.entity`.
+const LOADED = { entity: ROW } as unknown
+
 beforeEach(() => {
-  requireEntityOwner.mockReset().mockResolvedValue(ROW)
-  requireOwnerOrCampaignDMForEntity.mockReset().mockResolvedValue(ROW)
+  requireEntityOwner.mockReset().mockResolvedValue(LOADED)
+  requireOwnerOrCampaignDMForEntity.mockReset().mockResolvedValue(LOADED)
 })
 
 describe("getEntityClassVersionAction — the gate is a fact of the class", () => {

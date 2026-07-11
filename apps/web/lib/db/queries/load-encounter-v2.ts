@@ -12,6 +12,7 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
 import { db } from "@/lib/db/client"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
+import { loadPlayerCharacterRowsByIds } from "@/lib/db/queries/load-player-character"
 import {
   encounters,
   type EncounterRow,
@@ -148,7 +149,6 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
 
   const entities = new Map<string, StoredEntity>()
   const versions = new Map<string, number>()
-  const owners = new Map<string, string>()
   for (const row of await loadEntityRowsByIds(entityIds)) {
     const loaded = loadEntityRow(row)
     if (!loaded.ok) continue
@@ -157,7 +157,13 @@ async function loadDurableEntities(stored: StoredSession): Promise<{
       components: loaded.value.components,
     })
     versions.set(row.id, row.vitalsVersion)
-    owners.set(row.id, row.ownerId)
+  }
+
+  // Ownership moved to the PC subtype (R3 — UNN-573); durable combatants are PCs,
+  // so their `userId` is the owner the snapshot authorizes the own-sheet column on.
+  const owners = new Map<string, string>()
+  for (const pc of await loadPlayerCharacterRowsByIds(entityIds)) {
+    owners.set(pc.entityId, pc.userId)
   }
 
   return { entities, versions, owners }

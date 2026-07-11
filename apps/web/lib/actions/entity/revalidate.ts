@@ -2,7 +2,6 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 
-import type { EntityStatus } from "@/lib/db/schema/entity"
 import { characterPath } from "@/lib/paths"
 
 /**
@@ -14,10 +13,7 @@ import { characterPath } from "@/lib/paths"
  * the builder wizard (draft) under `/characters/{shortId}`, so one call keeps
  * the draft's gate props and the finalized provider's base frame current.
  */
-export function revalidateEntity(row: {
-  shortId: string
-  status: EntityStatus
-}): void {
+export function revalidateEntity(row: { shortId: string }): void {
   revalidatePath("/")
   revalidatePath(characterPath(row.shortId), "layout")
 }

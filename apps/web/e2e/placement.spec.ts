@@ -7,7 +7,7 @@ import {
 } from "@/domain/labels"
 import { getDb } from "@/lib/db"
 import { encounters } from "@/lib/db/schema/encounter"
-import { entity } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -52,9 +52,9 @@ test.beforeAll(async () => {
 
 async function readPlacement(): Promise<string | null> {
   const [row] = await getDb()
-    .select({ campaignId: entity.campaignId })
-    .from(entity)
-    .where(eq(entity.id, char.id))
+    .select({ campaignId: playerCharacter.campaignId })
+    .from(playerCharacter)
+    .where(eq(playerCharacter.entityId, char.id))
   return row!.campaignId
 }
 

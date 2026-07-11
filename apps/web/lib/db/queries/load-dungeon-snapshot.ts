@@ -8,8 +8,8 @@ import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
-import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
+import { loadLivePlayerCharactersByIds } from "@/lib/db/queries/load-player-character"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 
 /** The placed party as the snapshot projector reads it: display identity plus the
@@ -111,9 +111,9 @@ export async function getDungeonSnapshot(
  * for a spectator, a signed-out viewer, or a member with no placed character here.
  *
  * Privacy: the candidates are the Instance's occupancy keys (the PC tokens present),
- * and ownership is decided on the cheap character *row* — only `ownerId` is read,
- * never another player's full sheet. The redacted snapshot remains the only token
- * data a non-owner receives; this just tells the viewer which tokens are *theirs*.
+ * and ownership is decided on the cheap PC *subtype* — only `userId` is read, never
+ * another player's full sheet. The redacted snapshot remains the only token data a
+ * non-owner receives; this just tells the viewer which tokens are *theirs*.
  */
 export async function loadOwnedDungeonCharacterIds(
   shortId: string,
@@ -127,12 +127,8 @@ export async function loadOwnedDungeonCharacterIds(
 
   const tokenCharacterIds = Object.keys(instance.state.occupancy)
 
-  const owned = await Promise.all(
-    tokenCharacterIds.map(async (characterId) => {
-      const row = await loadLiveEntityRowById(characterId)
-      return row?.ownerId === viewerId ? characterId : null
-    })
-  )
-
-  return owned.filter((id) => id !== null)
+  // Live join (R3 — UNN-573): a tombstoned token drops off the highlight (live
+  // occupancy read), and ownership reads off the subtype's `userId`.
+  const live = await loadLivePlayerCharactersByIds(tokenCharacterIds)
+  return live.filter((pc) => pc.userId === viewerId).map((pc) => pc.entity.id)
 }

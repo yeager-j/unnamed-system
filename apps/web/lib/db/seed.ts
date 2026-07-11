@@ -47,8 +47,16 @@ if (!process.env.DATABASE_URL) {
   if (existsSync(envPath)) process.loadEnvFile(envPath)
 }
 
-const { db, users, entity, campaigns, encounters, mapInstances, dungeons } =
-  await import("./index")
+const {
+  db,
+  users,
+  entity,
+  playerCharacter,
+  campaigns,
+  encounters,
+  mapInstances,
+  dungeons,
+} = await import("./index")
 
 /**
  * Single-purpose "other user" so the E2E `signed-in-non-owner` case has a
@@ -307,15 +315,24 @@ async function seed(): Promise<void> {
   // get random `shortId`s the per-character upserts below can't reach, so
   // they'd accumulate forever otherwise. Seed characters are always
   // finalized, so scoping by `status='draft'` keeps the showcase roster
-  // intact.
-  await db
-    .delete(entity)
+  // intact. Owner + status live on the PC subtype now (R3 — UNN-573); find the
+  // drafts there, then drop subtype-before-substrate (the subtype FK has no cascade).
+  const staleDrafts = await db
+    .select({ entityId: playerCharacter.entityId })
+    .from(playerCharacter)
     .where(
       and(
-        inArray(entity.ownerId, [SEED_USER.id, DEV_USER.id]),
-        eq(entity.status, "draft")
+        inArray(playerCharacter.userId, [SEED_USER.id, DEV_USER.id]),
+        eq(playerCharacter.status, "draft")
       )
     )
+  const staleDraftIds = staleDrafts.map((d) => d.entityId)
+  if (staleDraftIds.length > 0) {
+    await db
+      .delete(playerCharacter)
+      .where(inArray(playerCharacter.entityId, staleDraftIds))
+    await db.delete(entity).where(inArray(entity.id, staleDraftIds))
+  }
 
   for (const character of SEED_CHARACTERS) {
     const ownerId = SEED_USER_OWNED.has(character.slug)
