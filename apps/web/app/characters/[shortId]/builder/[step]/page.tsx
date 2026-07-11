@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation"
 
-import { BuilderShell } from "@/components/builder/builder-shell"
-import { AnimusStep } from "@/components/builder/movements/animus"
-import { CorpusStep } from "@/components/builder/movements/corpus"
-import { OrtusStep } from "@/components/builder/movements/ortus"
-import { PersonaStep } from "@/components/builder/movements/persona"
+import { BuilderShell } from "@/app/characters/[shortId]/builder/_components/builder-shell"
+import { AnimusStep } from "@/app/characters/[shortId]/builder/_components/movements/animus"
+import { CorpusStep } from "@/app/characters/[shortId]/builder/_components/movements/corpus"
+import { OrtusStep } from "@/app/characters/[shortId]/builder/_components/movements/ortus"
+import { PersonaStep } from "@/app/characters/[shortId]/builder/_components/movements/persona"
 import {
   findStepGateFailures,
   nextGateForStep,

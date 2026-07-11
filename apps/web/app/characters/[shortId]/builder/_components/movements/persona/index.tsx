@@ -34,7 +34,10 @@ export function PersonaStep({
         <PronounsField />
       </div>
 
-      <FinalizeButton canFinalize={canFinalize} disabledReason={disabledReason} />
+      <FinalizeButton
+        canFinalize={canFinalize}
+        disabledReason={disabledReason}
+      />
     </div>
   )
 }

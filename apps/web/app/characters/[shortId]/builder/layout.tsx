@@ -1,7 +1,7 @@
 import { forbidden, notFound, redirect } from "next/navigation"
 import { type ReactNode } from "react"
 
-import { BuilderProviderShell } from "@/components/builder/builder-provider-shell"
+import { BuilderProviderShell } from "@/app/characters/[shortId]/builder/_components/builder-provider-shell"
 import { loadCharacterByShortId } from "@/domain/character/load"
 import { auth } from "@/lib/auth"
 

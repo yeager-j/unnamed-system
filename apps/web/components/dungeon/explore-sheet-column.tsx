@@ -1,8 +1,8 @@
 "use client"
 
-import { IdentityCard } from "@/components/character-sheet/explore/identity-card"
-import { TalentsCard } from "@/components/character-sheet/explore/talents-card"
-import { VirtuesCard } from "@/components/character-sheet/explore/virtues-card"
+import { IdentityCard } from "@/app/characters/[shortId]/_components/explore/identity-card"
+import { TalentsCard } from "@/app/characters/[shortId]/_components/explore/talents-card"
+import { VirtuesCard } from "@/app/characters/[shortId]/_components/explore/virtues-card"
 import {
   OwnedSheetTabs,
   type OwnedSheet,
@@ -16,7 +16,7 @@ import type { LoadedCharacter } from "@/domain/character/load"
  * Explore surface's cards (Virtues, Talents, Identity) — so a player spends a
  * Spark, ranks up a Virtue, or checks a Talent while the DM runs the delve.
  *
- * The {@link import("@/components/character-sheet/explore/explore-tab").ExploreTab}
+ * The {@link import("@/app/characters/[shortId]/_components/explore/explore-tab").ExploreTab}
  * root is deliberately **not** reused: its side-by-side card grid keys off the
  * *viewport* breakpoint, so in a narrow rail it lays two tracks that overflow.
  * The column stacks the same cards instead.

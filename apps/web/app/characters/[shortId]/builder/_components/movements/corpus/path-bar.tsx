@@ -8,13 +8,12 @@ import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { Sparkle } from "@/components/shared/celestial"
 import {
   useEntityWrite,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
-
-import { Sparkle } from "../../../shared/celestial"
 
 function formatDie(die: { hitDie: number; skillDie: number }): string {
   return `d${die.hitDie} / d${die.skillDie}`

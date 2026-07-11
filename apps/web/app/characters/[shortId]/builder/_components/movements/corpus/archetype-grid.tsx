@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { sortArchetypesByPath } from "@workspace/game-v2/archetypes/display"
 
+import { Sparkle } from "@/components/shared/celestial"
 import {
   useEntityWrite,
   useLoadedCharacter,
@@ -13,7 +14,6 @@ import {
 import { creationArchetypes } from "@/domain/game-engine-v2"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
-import { Sparkle } from "../../../shared/celestial"
 import { ArchetypeCard } from "./archetype-card"
 import { ArchetypeDialog } from "./archetype-dialog"
 

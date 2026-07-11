@@ -6,7 +6,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   IDENTITY_TRAIT_MESSAGES,
   type IdentityTraitField,
-} from "@/components/builder/movements/animus/identity-trait-messages"
+} from "@/app/characters/[shortId]/builder/_components/movements/animus/identity-trait-messages"
 import { Prose } from "@/components/shared/prose"
 import { SectionLabel } from "@/components/shared/section-label"
 import { useViewerRole } from "@/components/shell/viewer-role"

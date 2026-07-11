@@ -11,14 +11,13 @@ import { getMechanic } from "@workspace/game-v2/mechanics"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { formatModifier } from "@/components/archetype/format"
+import { Sparkle } from "@/components/shared/celestial"
 import {
   AFFINITY_DAMAGE_TYPE_LABELS,
   AFFINITY_LABELS,
   ATTRIBUTE_LABELS,
   LINEAGE_LABELS,
 } from "@/lib/ui/labels"
-
-import { Sparkle } from "../../../shared/celestial"
 
 /**
  * The compact face of an Origin Archetype in the Movement 1 grid (UNN-215 /
