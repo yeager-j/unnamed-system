@@ -1,5 +1,5 @@
 import { defineEnemy } from "@workspace/game-v2/catalog/enemies/define-enemy"
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
 export const dao = defineEnemy({
@@ -28,9 +28,17 @@ export const dao = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d10 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d10 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "11-19",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: [],
+          },
+          {
+            band: "20+",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },

@@ -1,5 +1,5 @@
-import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
+import { loadEntity } from "@workspace/game-v2/kernel/load-seam"
 import type {
   AttributeScores,
   PartialAffinityChart,

@@ -1,4 +1,4 @@
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 export const criticalStrike = {
@@ -15,9 +15,13 @@ export const criticalStrike = {
   attackRoll: {
     attribute: "st",
     tiers: [
-      { band: "1-10", formula: F["1d4 + St"], sideEffects: [] },
-      { band: "11-15", formula: F["1d8 + St"], sideEffects: [] },
-      { band: "16+", formula: F["1d8 + St"], sideEffects: ["critical"] },
+      { band: "1-10", formula: [dice(1, 4), attr("st")], sideEffects: [] },
+      { band: "11-15", formula: [dice(1, 8), attr("st")], sideEffects: [] },
+      {
+        band: "16+",
+        formula: [dice(1, 8), attr("st")],
+        sideEffects: ["critical"],
+      },
     ],
   },
   effect:

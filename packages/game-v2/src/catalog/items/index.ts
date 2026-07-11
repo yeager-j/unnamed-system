@@ -15,8 +15,8 @@ import {
  * content behind the `getItem`/`getEquippableItem` ports. One file per item under
  * a slot/category folder with a `Record`-keyed barrel, mirroring v1's
  * `data/items/` layout for a reviewable 1:1 diff; the only reshape is the weapon
- * intrinsic-attack tier `formula`, which references the shared `F` conversion
- * table (`catalog/skills/formulas.ts`) instead of authoring a free-form string.
+ * intrinsic-attack tier `formula`, authored as structured {@link DamageFormula}
+ * terms instead of a free-form string.
  *
  * Each item is **validated at load** with {@link itemSchema} and indexed by its
  * unique `key`; the load also asserts the barrel key matches the item's own `key`
