@@ -82,7 +82,7 @@ test(
     expect(before.current).toBe(before.max)
 
     await page.getByRole("button", { name: "Adjust HP" }).click()
-    await page.getByLabel("Adjust HP amount").fill("5")
+    await page.getByLabel("Amount").fill("5")
     await page.getByRole("button", { name: "Damage" }).click()
 
     // The optimistic re-fold moves the readout before the round-trip lands.
@@ -110,7 +110,7 @@ test("a respite over-spend refuses inline; a valid respite heals", async ({
   // not the @smoke round-trip test ran (the CI full suite excludes @smoke).
   const fresh = await readPool(page, "HP")
   await page.getByRole("button", { name: "Adjust HP" }).click()
-  await page.getByLabel("Adjust HP amount").fill("6")
+  await page.getByLabel("Amount").fill("6")
   await page.getByRole("button", { name: "Damage" }).click()
   await expect(poolValue(page, "HP")).toHaveText(
     `${fresh.current - 6} / ${fresh.max}`
