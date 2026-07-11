@@ -13,7 +13,7 @@ import {
   isCampaignMember,
   loadCampaignRowById,
 } from "@/lib/db/queries/load-campaign"
-import { entity } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 
 import {
   SetEntityCampaignSchema,
@@ -22,12 +22,12 @@ import {
 } from "./set-campaign.schema"
 
 /**
- * Places, moves, or unplaces an entity into/out of a campaign by setting
- * `entity.campaignId` (UNN-556, repointing UNN-328's v1 placement) — the owner
- * action that consents to the DM's in-combat vitals writes. This is the column
- * the entity auth gate (`requireOwnerOrCampaignDMForEntity`) and the
- * encounter-lock queries already read, so placement and write access can no
- * longer disagree.
+ * Places, moves, or unplaces a player character into/out of a campaign by setting
+ * `playerCharacter.campaignId` (UNN-556; the placement column moved to the PC door
+ * in R3 — UNN-573) — the owner action that consents to the DM's in-combat vitals
+ * writes. This is the column the entity auth gate
+ * (`requireOwnerOrCampaignDMForEntity`) and the encounter-lock queries already
+ * read off the subtype, so placement and write access can no longer disagree.
  *
  * Two gates (v1 parity):
  *  - `requireEntityOwner` — only the owner may set placement; the DM has no
@@ -48,29 +48,31 @@ export async function setEntityCampaignAction(
   const parsed = SetEntityCampaignSchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
-  const row = await requireEntityOwner(parsed.data.entityId)
+  const pc = await requireEntityOwner(parsed.data.entityId)
   const { campaignId } = parsed.data
 
   if (campaignId !== null) {
     const target = await loadCampaignRowById(campaignId)
     if (!target) forbidden()
     const ownerIsInCampaign =
-      target.dmUserId === row.ownerId ||
-      (await isCampaignMember(campaignId, row.ownerId))
+      target.dmUserId === pc.userId ||
+      (await isCampaignMember(campaignId, pc.userId))
     if (!ownerIsInCampaign) forbidden()
   }
 
-  const leavingCampaign =
-    row.campaignId !== null && row.campaignId !== campaignId
-  if (leavingCampaign && (await isCharacterLiveEncounterCombatant(row.id))) {
+  const leavingCampaign = pc.campaignId !== null && pc.campaignId !== campaignId
+  if (
+    leavingCampaign &&
+    (await isCharacterLiveEncounterCombatant(pc.entity.id))
+  ) {
     return err("live-encounter-lock")
   }
 
   const updated = await db
-    .update(entity)
+    .update(playerCharacter)
     .set({ campaignId })
-    .where(eq(entity.id, row.id))
-    .returning({ id: entity.id })
+    .where(eq(playerCharacter.entityId, pc.entity.id))
+    .returning({ id: playerCharacter.entityId })
 
   if (updated.length === 0) return err("entity-not-found")
 

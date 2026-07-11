@@ -2,7 +2,11 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
-import { entity, type EntityStatus } from "@/lib/db/schema/entity"
+import { entity } from "@/lib/db/schema/entity"
+import {
+  playerCharacter,
+  type PlayerCharacterStatus,
+} from "@/lib/db/schema/player-character"
 
 /**
  * Summary view of a character for the My Characters home page: just the
@@ -22,12 +26,14 @@ export interface CharacterSummary {
   level: number
   portraitUrl: string | null
   activeArchetypeKey: string | null
-  status: EntityStatus
+  status: PlayerCharacterStatus
   builderStep: number
 }
 
-/** The one `entity` → {@link CharacterSummary} column set — shared with the
- *  campaign roster read (`load-campaign.ts`) so the projections can't drift. */
+/** The one `entity ⋈ playerCharacter` → {@link CharacterSummary} column set —
+ *  shared with the campaign roster read (`load-campaign.ts`) so the projections
+ *  can't drift. `status`/`builderStep` project out of the PC subtype (R3 —
+ *  UNN-573), so every consumer of this projection must join `playerCharacter`. */
 export const characterSummaryProjection = {
   id: entity.id,
   shortId: entity.shortId,
@@ -35,8 +41,8 @@ export const characterSummaryProjection = {
   level: sql<number>`coalesce((${entity.level}->>'value')::int, 1)`,
   portraitUrl: entity.portraitUrl,
   activeArchetypeKey: sql<string | null>`${entity.archetypes}->>'active'`,
-  status: entity.status,
-  builderStep: entity.builderStep,
+  status: playerCharacter.status,
+  builderStep: playerCharacter.builderStep,
 }
 
 /**
@@ -50,7 +56,8 @@ export async function loadOwnedCharacterSummaries(
   return db
     .select(characterSummaryProjection)
     .from(entity)
-    .where(and(eq(entity.ownerId, ownerId), isNull(entity.deletedAt)))
+    .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))
+    .where(and(eq(playerCharacter.userId, ownerId), isNull(entity.deletedAt)))
     .orderBy(asc(entity.name))
 }
 
@@ -67,10 +74,11 @@ export async function loadPlacedCharactersForCampaign(
   return db
     .select(characterSummaryProjection)
     .from(entity)
+    .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))
     .where(
       and(
-        eq(entity.campaignId, campaignId),
-        eq(entity.status, "finalized"),
+        eq(playerCharacter.campaignId, campaignId),
+        eq(playerCharacter.status, "finalized"),
         isNull(entity.deletedAt)
       )
     )
@@ -101,15 +109,16 @@ export async function loadOwnedFinalizedCharactersWithPlacement(
   return db
     .select({
       ...characterSummaryProjection,
-      campaignId: entity.campaignId,
+      campaignId: playerCharacter.campaignId,
       placedCampaignName: campaigns.name,
     })
     .from(entity)
-    .leftJoin(campaigns, eq(entity.campaignId, campaigns.id))
+    .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))
+    .leftJoin(campaigns, eq(playerCharacter.campaignId, campaigns.id))
     .where(
       and(
-        eq(entity.ownerId, ownerId),
-        eq(entity.status, "finalized"),
+        eq(playerCharacter.userId, ownerId),
+        eq(playerCharacter.status, "finalized"),
         isNull(entity.deletedAt)
       )
     )

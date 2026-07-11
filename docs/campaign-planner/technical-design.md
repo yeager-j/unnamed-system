@@ -26,8 +26,8 @@ never a second stored fact:
 | Day-end readiness | beats' + claims' `resolvedAt` + entries | all story/dungeon slots resolved ∧ per-character entries present (always against the *current* roster — roster drift is accepted, not compensated); "accept empty" fills gaps with Idle entries, so the cue completes honestly |
 | Horizon | slot rows | `max(day)` |
 | Update kind (world/downtime) | `slotId` nullability | derived |
-| NPC stub badge | door traits + `narrative` component | `arcana`, `lineageKey`, and `narrative` all absent |
-| Entity kind (pc/npc) | which door table points at it | derived (post-extraction; see §6 riders) |
+| NPC stub badge | subtype traits + `narrative` component | `arcana`, `lineageKey`, and `narrative` all absent |
+| Entity kind (pc/npc) | which subtype table points at it | derived (R3 landed — UNN-573) |
 
 The cost is concentrated selector complexity — one pure, DB-free module
 (`lib/planner/`) with unit tests — bought back everywhere as zero
@@ -89,21 +89,24 @@ downtime entries and beat schedules, and "+ Add slot" is one insert. A slot's
   requires `slot.day = currentDay`, which also neutralizes stale tabs left
   open after an un-advance.
 
-### D2 — Entity substrate + per-kind door tables (the load-bearing decision)
+### D2 — Entity supertype + per-kind subtype tables (the load-bearing decision)
 
-The `entity` table is the **substrate**: components + name/portrait + version
-tokens. Kind-specific lifecycle and authorization metadata live in **per-kind
-door tables**:
+Textbook **table-per-subtype** (class-table inheritance). The `entity` table is the
+**supertype/substrate**: components + name/portrait + version tokens. Kind-specific
+lifecycle and authorization metadata live in **per-kind subtype tables**, one row
+per entity, keyed by the shared id — and *which* subtype table points at an entity
+is what makes it that kind (the term "door" from the original draft was retired in
+R3 — UNN-573 — because it collided with the *write*-seam "door", `lib/actions/entity/`):
 
-- **`campaignNpc`** (this feature): `id` **= entity id** (the shared-id
+- **`campaignNpc`** (this feature): `entityId` **= entity id** (the shared-id
   convention from S0; the two-table dual-*insert* in one transaction exists
   today in seed/delete paths — this is its first production write),
   `campaignId` (FK, cascade), `arcana?`, `lineageKey?` (typed off the
   kernel's `Lineage` — the stable 12-key union in
   `packages/game-v2/src/kernel/vocab/lineage.ts`), `bondTier`,
   `bondTierChangedAt?`.
-- **`player_character`** (endorsed end-state, separate ticket — R3 in §6):
-  `userId`, `entityId`, `status`, `builderStep`, `campaignId` (placement).
+- **`playerCharacter`** (**landed — R3, UNN-573**): `entityId` PK,
+  `userId`, `status`, `builderStep`, `campaignId` (placement).
 
 Consequences:
 
@@ -112,23 +115,42 @@ Consequences:
   ancestry/background/backstory/personality/hopes/dreams/fears/secrets +
   knives/chains — is a superset of the PRD's NPC shape); same editor
   primitives as PCs.
-- **Traits stay on the door, not in components.** Arcana is a narrative label,
+- **Traits stay on the subtype, not in components.** Arcana is a narrative label,
   the bond is party↔NPC campaign state, and the Atlas gate is a hot indexed
   query over `(campaignId, lineageKey, bondTier)` — the engine never reads
   any of it, so the ComponentRegistry and its conformance test are untouched.
   If the statblock cutover later wants Lineage engine-side, lift it at that
   boundary.
-- **`entity.kind` evaporates at the R3 extraction** (every consumer arrives
-  through a door or an explicit participant kind). Until then it's the interim
-  guard: it gains `'npc'` and PC-facing queries filter on it (R2), else the
-  DM's My Characters would list their own NPCs.
-- **"Exactly one door per entity"** is an app invariant (dual-mint in one
-  transaction), not a constraint — accepted as discipline. `campaignNpc.id`
-  does carry a **plain FK to `entity.id`** (no cascade) — free integrity.
-- **NPC-as-combatant** (PRD FR-17) later means adding components to the *same*
-  entity row. No second mint, no sync.
-- Interim wart, cleaned by R3: NPC entities carry `ownerId` = DM and
-  `status: 'finalized'` because the columns are non-null today.
+- **`entity.kind` evaporated at R3** (dropped, not moved — it had zero runtime
+  readers; every consumer now arrives through a subtype table or an explicit
+  participant kind). The interim R2 guard (`kind='npc'` + PC-query filters) was
+  therefore **never needed** and UNN-572 was canceled.
+- **"Exactly one subtype per entity"** is an app invariant (dual-mint in one
+  transaction), not a constraint — accepted as discipline. Each subtype's
+  `entityId` carries a **plain FK to `entity.id`** (no cascade) — free integrity;
+  cleanup is subtype-before-substrate.
+- **The read shape carries containment:** a loaded PC is `PlayerCharacterRow &
+  { entity }` — the PC is the self, the entity substrate is a part it *has* at
+  `.entity`, not a peer. The auth gates return that shape. The NPC parallel is
+  `CampaignNpcRow & { entity }` — the same containment, a different subtype.
+- **The subtype resolves "who may write this entity" (decide-a-distinction-once).**
+  `playerCharacter` carries `userId`; `campaignNpc` carries **no owner** — an NPC is
+  the campaign's, authorized by the DM alone via `campaignId → campaign.dmUserId`.
+  So the two subtypes answer the write-authorization question differently: a PC by
+  *owner or campaign DM*, an NPC by *campaign DM only*. `isOwnerOrCampaignDM` already
+  resolves the DM half off `campaignId`; the PC's `userId` match is the owner half an
+  NPC subtype simply lacks.
+- **NPC-as-combatant** (PRD FR-17) reuses the *same* entity substrate — a combatant
+  NPC gains vitals/combat components on its existing entity row (no second mint, no
+  sync). The one seam it forces: `requireOwnerOrCampaignDMForEntity` (the durable
+  vitals gate the combat door re-checks inside `commitEntityWrite`) resolves the
+  entity's **subtype**, not `playerCharacter` specifically. Today it loads the PC
+  subtype (`loadPlayerCharacterById`), so an NPC entity would 404; NPC-combatant
+  lands the general "load whichever subtype points at this entity, apply its
+  who-may-write policy" resolve. The combat action already gates on
+  `requireCampaignDM`, so the DM-only NPC case is covered end-to-end. (The `status`
+  the durable commit returns is PC-lifecycle only — combat keys on `vitalsVersion`,
+  so it is simply unused for NPCs.)
 
 ### D3 — One update stream; a downtime activity *is* an update row
 
@@ -168,11 +190,11 @@ nothing moved.
 Participant refs are the two-column soft ref `(participantKind, participantId)`
 — per the PRD's extensibility decision (new kind = new value, never a schema
 change), so no DB FKs; `kind ∈ article | npc | character`, where `character`
-and `npc` ids are entity ids (npc via the shared-id door).
+and `npc` ids are entity ids (npc via the shared-id subtype).
 
 - **Articles & NPCs: tombstone.** Soft-delete; the delete confirm shows
   reference counts. History survives its subjects — timelines keep rendering
-  the name, muted. Deleting an NPC also **clears the door's `arcana` and
+  the name, muted. Deleting an NPC also **clears the subtype's `arcana` and
   `lineageKey`** (the Lineage returns to the deck — see D8 uniqueness).
 - **Relations touching a tombstone: hard-deleted, both directions.** Relations
   are present-tense authored structure, not history.
@@ -261,7 +283,7 @@ through the participant resolver (renames propagate, tombstones mute).
   "Referenced in N beats" on entity pages without making beats participants.
 
 **Quick-mint inside the editor is not autosave:** the popover awaits the
-discrete mint action (entity + door in one transaction), then inserts the
+discrete mint action (entity + subtype in one transaction), then inserts the
 node; the surrounding prose autosaves as usual. Two flows composing.
 
 ### D8 — Bond, story tier, and the Atlas seam
@@ -322,7 +344,7 @@ slots: `campaignSlotDungeon` — `slotId` (unique: one dungeon per slot),
 downtime, matching beat-deletion behavior), `resolvedAt?`. Many slots per
 dungeon is free (a delve claiming both slots; re-entering on Day 20). A
 generic `slotClaim(kind, refId)` was rejected: a polymorphic ref can't FK,
-and per-kind claim tables are the same pattern as the per-kind door tables —
+and per-kind claim tables are the same pattern as the per-kind subtype tables —
 concrete tables, derived kind. Encounters wanting slots later = a second
 small table.
 
@@ -551,12 +573,12 @@ campaign's names into another.
 | Delete / unschedule beat | row delete / schedule clear | confirm when scheduled; **blocked while scheduled to a past slot** (it is history's structure) |
 | Mark beat resolved / reopen | `resolvedAt` | LWW |
 | Bond confirm / manual set; story-tier advance | `tier`, `tierChangedAt` | CAS |
-| Quick-mint NPC / Article (linker or surfaces) | article row, or entity + door dual-mint (one tx) | tx |
-| Assign Arcana / Lineage | door columns | Lineage partial unique; Arcana advisory warning |
+| Quick-mint NPC / Article (linker or surfaces) | article row, or entity + subtype dual-mint (one tx) | tx |
+| Assign Arcana / Lineage | subtype columns | Lineage partial unique; Arcana advisory warning |
 | Delete NPC / Article | set `deletedAt` (entity for NPCs) + clear arcana/lineage + hard-delete touching relations | tx; confirm shows ref counts |
 | Relations add/remove; "also add reverse" | edge rows | LWW |
 | Prose/title autosave (+ mention re-extract for beats) | body columns + `campaignBeatMention` sync | LWW, no revalidate |
-| Delete campaign (existing) | now also soft-deletes the campaign's NPC entities (doors cascade; substrate rows must not orphan) | tx |
+| Delete campaign (existing) | now also soft-deletes the campaign's NPC entities (subtypes cascade; substrate rows must not orphan) | tx |
 
 ## 6. Riders (standalone tickets, not planner milestones)
 
@@ -599,9 +621,22 @@ campaign's names into another.
 - **R2 — Interim `kind: 'npc'` + PC-query filters.** Widen `EntityKind`;
   add the `kind` filter to **all three** `character-list.ts` queries and any
   placement/roster read. Lands with phase 2.
-- **R3 — `player_character` extraction.** `ownerId`/`status`/`builderStep`/
-  `campaignId`/`kind` leave `entity`; auth hops re-plumb. Endorsed end-state,
-  **not** a planner dependency; schedule freely around S2b–d.
+- **R3 — `playerCharacter` subtype extraction. Landed (UNN-573).** `ownerId`
+  (→`userId`)/`status`/`builderStep`/`campaignId` moved to the new `playerCharacter`
+  subtype table (`schema/player-character.ts`); `kind` was **dropped** (an entity's
+  kind is now *which subtype table points at it* — `playerCharacter` today,
+  `campaignNpc` later). The auth gates load the PC (subtype ⋈ substrate) and return
+  the containment shape `PlayerCharacterRow & { entity }`
+  (`requireOwnerOrCampaignDMForEntity`/`requireEntityOwner`); every PC-scoped read
+  (`character-list`, `load-campaign` roster, `load.ts`, encounter-lock,
+  `load-encounter-v2` owners) joins the subtype; `builderStep`/`status` left the
+  identity version guard and write unguarded through the subtype (`builderStep` a
+  plain update, `status` finalize's follow-on flip). The **one-subtype invariant**
+  ("exactly one subtype per entity") is app discipline: the supertype+subtype pair
+  mints in one transaction at every write site (cleanup is subtype-before-substrate,
+  the FK has no cascade). `conformance.test.ts` pins that `entity` carries none of
+  the moved columns. This retired the interim R2 (UNN-572, canceled) — no
+  `kind='pc'` filters were ever needed.
 - **(Adjacent, pre-existing) UNN-483 — autosave-core consolidation.** The
   planner consumes its LWW core (D10); land it by phase 3 if still open.
 

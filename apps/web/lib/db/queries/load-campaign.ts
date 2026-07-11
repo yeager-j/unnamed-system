@@ -7,6 +7,7 @@ import {
   type CampaignRow,
 } from "@/lib/db/schema/campaign"
 import { entity } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 import { users } from "@/lib/db/schema/user"
 
 import {
@@ -121,9 +122,12 @@ export async function loadCampaignRoster(
     .orderBy(asc(users.name))
 
   const characterRows = await db
-    .select({ ownerId: entity.ownerId, ...characterSummaryProjection })
+    .select({ ownerId: playerCharacter.userId, ...characterSummaryProjection })
     .from(entity)
-    .where(and(eq(entity.campaignId, campaignId), isNull(entity.deletedAt)))
+    .innerJoin(playerCharacter, eq(playerCharacter.entityId, entity.id))
+    .where(
+      and(eq(playerCharacter.campaignId, campaignId), isNull(entity.deletedAt))
+    )
     .orderBy(asc(entity.name))
 
   const charactersByOwner = new Map<string, CharacterSummary[]>()

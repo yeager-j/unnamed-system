@@ -10,6 +10,7 @@ import {
 } from "@/domain/game-v2/entity-row-to-bag"
 
 import { entity, type EntityRow } from "./schema/entity"
+import { playerCharacter } from "./schema/player-character"
 
 /**
  * The `entity` table is the **component-column projection** of the durable
@@ -53,6 +54,37 @@ describe("entity table ⇔ durable component registry", () => {
       [K in DurableComponentColumn]: ComponentRegistry[K] | null
     }
     expectTypeOf<ComponentColumns>().toEqualTypeOf<Expected>()
+  })
+
+  it("carries no PC-lifecycle metadata columns — they moved to the playerCharacter subtype (R3 — UNN-573)", () => {
+    const columns = new Set(Object.keys(getTableColumns(entity)))
+    for (const moved of [
+      "ownerId",
+      "campaignId",
+      "kind",
+      "status",
+      "builderStep",
+    ]) {
+      expect(
+        columns.has(moved),
+        `'${moved}' moved to the playerCharacter door; entity is pure substrate`
+      ).toBe(false)
+    }
+  })
+
+  it("the playerCharacter subtype owns exactly the PC-lifecycle columns (+ its keys/timestamps)", () => {
+    const columns = new Set(Object.keys(getTableColumns(playerCharacter)))
+    expect(columns).toEqual(
+      new Set([
+        "entityId",
+        "userId",
+        "campaignId",
+        "status",
+        "builderStep",
+        "createdAt",
+        "updatedAt",
+      ])
+    )
   })
 
   it("validates component-column payloads under the engine's load schemas", () => {

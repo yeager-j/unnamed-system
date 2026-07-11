@@ -2,7 +2,6 @@ import "server-only"
 
 import { revalidatePath } from "next/cache"
 
-import type { EntityStatus } from "@/lib/db/schema/entity"
 import { characterPath } from "@/lib/paths"
 
 /**
@@ -17,9 +16,6 @@ import { characterPath } from "@/lib/paths"
  * builder under `/characters/{shortId}/builder`), so a draft's server-rendered
  * gate props (name, pronouns, portraitUrl, builderStep) stay current too.
  */
-export function revalidateCharacter(character: {
-  shortId: string
-  status: EntityStatus
-}): void {
+export function revalidateCharacter(character: { shortId: string }): void {
   revalidatePath(characterPath(character.shortId), "layout")
 }

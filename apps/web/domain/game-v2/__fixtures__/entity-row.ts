@@ -24,8 +24,10 @@ import type { EntityRow } from "@/lib/db/schema/entity"
  *    Modeling the write as a shallow copy would launder away exactly the class of
  *    divergence the isomorphism law exists to catch.
  *
- * Metadata columns (`shortId`, `ownerId`, the version tokens, …) are inert — the
- * loader never reads them — so they carry fixed values.
+ * Metadata columns (`shortId`, the version tokens, …) are inert — the loader
+ * never reads them — so they carry fixed values. The PC-lifecycle columns
+ * (owner/placement/status/builderStep/kind) left `entity` for the
+ * `playerCharacter` door (R3 — UNN-573), so they no longer appear here.
  */
 type ComponentColumnKey = Exclude<keyof ComponentRegistry, LiftedComponentKey>
 
@@ -67,11 +69,6 @@ function componentColumns(components: Entity["components"]): ComponentColumns {
 
 const INERT_METADATA = {
   shortId: "law-short-id",
-  ownerId: "law-owner",
-  campaignId: null,
-  kind: "pc",
-  status: "draft",
-  builderStep: 0,
   pronouns: null,
   notes: null,
   deletedAt: null,

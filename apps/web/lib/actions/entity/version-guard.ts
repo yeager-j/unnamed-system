@@ -32,14 +32,14 @@ export type EntityGuardError = "entity-not-found" | "stale"
 /**
  * The app-owned column half of a guarded write (ADR §2.4: "app-column writes
  * stay classic per-field Server Actions ... both compose
- * `bumpEntityVersionGuarded`"). `campaignId` is deliberately excluded —
- * placement is unguarded (v1 parity) — as are the keys/tokens themselves.
+ * `bumpEntityVersionGuarded`"). Only the substrate content columns are guarded
+ * here; the PC-lifecycle columns moved to the `playerCharacter` subtype (R3 —
+ * UNN-573) and write unguarded through it — `builderStep` as a plain subtype
+ * update, `status` as finalize's follow-on flip, `campaignId` as placement (v1
+ * parity).
  */
 export type EntityColumnPatch = Partial<
-  Pick<
-    EntityRow,
-    "name" | "portraitUrl" | "pronouns" | "notes" | "builderStep" | "status"
-  >
+  Pick<EntityRow, "name" | "portraitUrl" | "pronouns" | "notes">
 >
 
 /**

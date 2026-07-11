@@ -26,7 +26,15 @@ export type UpdateEntityPronounsInput = z.input<
   typeof UpdateEntityPronounsSchema
 >
 
-export const SetEntityBuilderStepSchema = entityMutationBase.extend({
+/**
+ * Builder step is **unguarded** (R3 — UNN-573): it lives on the `playerCharacter`
+ * subtype, not the version-tokened `entity` row, so its wire carries only the
+ * target and the step — no `expectedVersion`. Single-author builder navigation;
+ * moving it off the identity class also stops it falsely staling an in-flight name
+ * autosave.
+ */
+export const SetEntityBuilderStepSchema = z.object({
+  entityId: z.string().min(1),
   step: z
     .number()
     .int()
@@ -36,6 +44,7 @@ export const SetEntityBuilderStepSchema = entityMutationBase.extend({
 export type SetEntityBuilderStepInput = z.input<
   typeof SetEntityBuilderStepSchema
 >
+export type SetEntityBuilderStepError = "invalid-input" | "entity-not-found"
 
 export const RemoveEntityPortraitSchema = entityMutationBase
 export type RemoveEntityPortraitInput = z.input<

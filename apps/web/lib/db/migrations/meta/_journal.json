@@ -218,6 +218,13 @@
       "when": 1783799234490,
       "tag": "0030_unn_571_entity_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783809421147,
+      "tag": "0031_unn_573_player_character_door",
+      "breakpoints": true
     }
   ]
 }

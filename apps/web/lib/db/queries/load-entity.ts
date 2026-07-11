@@ -29,9 +29,10 @@ import { entity, type EntityRow } from "@/lib/db/schema/entity"
  *    dangling ref, 404ing a whole in-progress fight — the opposite of "history
  *    survives its subjects" (D4). The live-encounter lock keeps tombstones out of
  *    live fights, so blindness here is safe by construction. The auth gates
- *    ({@link import("@/lib/auth/campaign-access")}) also read blind: they
- *    authorize by ownership, and the discovery filter already denies every
- *    surface a write path to a tombstone.
+ *    ({@link import("@/lib/auth/campaign-access")}) read blind for the same
+ *    reason, now through the PC-subtype join (`loadPlayerCharacterById`, R3 —
+ *    UNN-573): they authorize by ownership, and the discovery filter already
+ *    denies every surface a write path to a tombstone.
  */
 
 /**

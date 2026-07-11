@@ -42,6 +42,12 @@ function row(overrides: Record<string, unknown>) {
   }
 }
 
+/** The loaded player character the auth gates now return (R3 — UNN-573): the
+ *  subtype row (here just `status`) carrying its `entity` substrate. */
+function loaded(overrides: Record<string, unknown>) {
+  return { status: "finalized" as const, entity: row(overrides) }
+}
+
 beforeEach(() => {
   requireOwnerOrCampaignDMForEntity.mockReset()
   requireEntityOwner.mockReset()
@@ -51,7 +57,7 @@ beforeEach(() => {
 describe("commitEntityWrite — native durable component writes", () => {
   it("commits a vitals damage patch on the vitals class, keyed to the entity", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: 20, damage: 0 } })
+      loaded({ vitals: { base: 20, damage: 0 } })
     )
 
     const result = await commitEntityWrite(
@@ -60,7 +66,9 @@ describe("commitEntityWrite — native durable component writes", () => {
       3
     )
 
-    expect(result).toEqual(ok({ version: 8, shortId: "s1" }))
+    expect(result).toEqual(
+      ok({ version: 8, shortId: "s1", status: "finalized" })
+    )
     expect(bumpEntityVersionGuarded).toHaveBeenCalledWith("e1", "vitals", 3, {
       vitals: { base: 20, damage: 7 },
     })
@@ -68,7 +76,7 @@ describe("commitEntityWrite — native durable component writes", () => {
 
   it("over-max HP works on a durable row (heal preserves negative depletion — no v1 clamp)", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: 20, damage: -3 } })
+      loaded({ vitals: { base: 20, damage: -3 } })
     )
 
     await commitEntityWrite(
@@ -86,7 +94,7 @@ describe("commitEntityWrite — native durable component writes", () => {
 
   it("setMax is a real write on a durable row now (no `unsupported-durable-write`)", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: 20, damage: 4 } })
+      loaded({ vitals: { base: 20, damage: 4 } })
     )
 
     const result = await commitEntityWrite(
@@ -103,7 +111,7 @@ describe("commitEntityWrite — native durable component writes", () => {
 
   it("refuses a write against an absent component before the guard", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: 20, damage: 0 } })
+      loaded({ vitals: { base: 20, damage: 0 } })
     )
 
     const result = await commitEntityWrite(
@@ -118,7 +126,7 @@ describe("commitEntityWrite — native durable component writes", () => {
 
   it("gates a vitals-class write owner-or-campaign-DM, never the strict-owner gate", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: 20, damage: 0 } })
+      loaded({ vitals: { base: 20, damage: 0 } })
     )
 
     await commitEntityWrite(
@@ -132,7 +140,7 @@ describe("commitEntityWrite — native durable component writes", () => {
   })
 
   it("gates a non-vitals-class write strict-owner — a campaign DM cannot rewrite creation/identity state", async () => {
-    requireEntityOwner.mockResolvedValue(row({}))
+    requireEntityOwner.mockResolvedValue(loaded({}))
 
     const result = await commitEntityWrite(
       "e1",
@@ -152,7 +160,7 @@ describe("commitEntityWrite — native durable component writes", () => {
 
   it("errs `entity-load-failed` when the stored components are malformed", async () => {
     requireOwnerOrCampaignDMForEntity.mockResolvedValue(
-      row({ vitals: { base: "not-a-number" } })
+      loaded({ vitals: { base: "not-a-number" } })
     )
 
     const result = await commitEntityWrite(

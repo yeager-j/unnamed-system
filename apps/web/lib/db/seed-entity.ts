@@ -2,21 +2,23 @@ import {
   seedCharacterToEntity,
   type SeedCharacter,
 } from "../__fixtures__/seed-characters"
-import { entity, getDb } from "./index"
+import { entity, getDb, playerCharacter } from "./index"
 
 /**
- * Mints a seed {@link SeedCharacter} as a v2 `entity` row, **sharing the
- * deterministic seed id** (the S0 shared-id convention) so an encounter's
- * durable locator (`entityId === characterId`) resolves it and the combat
- * console, snapshot fold, and encounter-lock all key off the same id.
+ * Mints a seed {@link SeedCharacter} as a v2 `entity` row **plus its
+ * `playerCharacter` subtype row** (R3 — UNN-573), **sharing the deterministic seed
+ * id** (the S0 shared-id convention) so an encounter's durable locator
+ * (`entityId === characterId`) resolves it and the combat console, snapshot fold,
+ * and encounter-lock all key off the same id. The substrate row carries the
+ * component bag; the subtype carries owner / placement / finalized status.
  *
  * The component bag comes straight off the native {@link seedCharacterToEntity}
  * projection (UNN-562 — no v1 `characters` row and no v1→v2 projection shim);
  * `name` / `portraitUrl` are stored as the entity's metadata columns rather than
  * the lifted `identity` / `presentation` components.
  *
- * Idempotent: the entity row is upserted, so a re-seed neither duplicates it nor
- * disturbs its id/shortId.
+ * Idempotent: both rows are upserted in one transaction, so a re-seed neither
+ * duplicates them nor disturbs the shared id/shortId.
  */
 export async function insertSeedEntity(
   character: SeedCharacter,
@@ -29,11 +31,6 @@ export async function insertSeedEntity(
   const row = {
     id,
     shortId: character.shortId,
-    ownerId,
-    campaignId,
-    kind: "pc" as const,
-    status: "finalized" as const,
-    builderStep: 0,
     name: character.name,
     portraitUrl: null,
     pronouns: character.pronouns,
@@ -57,10 +54,24 @@ export async function insertSeedEntity(
     narrative: components.narrative,
   }
 
-  await db
-    .insert(entity)
-    .values(row)
-    .onConflictDoUpdate({ target: entity.id, set: row })
+  const pc = {
+    entityId: id,
+    userId: ownerId,
+    campaignId,
+    status: "finalized" as const,
+    builderStep: 0,
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(entity)
+      .values(row)
+      .onConflictDoUpdate({ target: entity.id, set: row })
+    await tx
+      .insert(playerCharacter)
+      .values(pc)
+      .onConflictDoUpdate({ target: playerCharacter.entityId, set: pc })
+  })
 
   return id
 }

@@ -7,8 +7,8 @@ import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { encounters } from "@/lib/db/schema/encounter"
-import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 import { insertWithShortId } from "@/lib/db/short-id"
 
 /**
@@ -66,10 +66,10 @@ type RemoveCampaignMemberError = "live-encounter-lock"
 
 /**
  * Removes `userId` from `campaignId`'s roster and **unplaces their characters**
- * (`entity.campaignId → null`, UNN-556) in one transaction — the shared
- * kick/leave cascade (UNN-329 + UNN-330). The `set null` FK only fires when the
- * *campaign* is deleted, not when a `campaignUsers` row is, so the unplacing is
- * an explicit `UPDATE` here.
+ * (`playerCharacter.campaignId → null`; the placement column moved to the PC door
+ * in R3 — UNN-573) in one transaction — the shared kick/leave cascade (UNN-329 +
+ * UNN-330). The `set null` FK only fires when the *campaign* is deleted, not when
+ * a `campaignUsers` row is, so the unplacing is an explicit `UPDATE` here.
  *
  * Refuses with `live-encounter-lock` when the player owns a character that is a
  * combatant in the campaign's live encounter (UNN-330): removing them would
@@ -95,9 +95,14 @@ export async function removeCampaignMember(
       )
 
     await tx
-      .update(entity)
+      .update(playerCharacter)
       .set({ campaignId: null })
-      .where(and(eq(entity.campaignId, campaignId), eq(entity.ownerId, userId)))
+      .where(
+        and(
+          eq(playerCharacter.campaignId, campaignId),
+          eq(playerCharacter.userId, userId)
+        )
+      )
   })
 
   return ok(undefined)
@@ -110,8 +115,8 @@ type DeleteCampaignError = "live-encounter-exists"
  * `live` encounter is running — the DM must end it first. Otherwise a
  * `DELETE FROM campaign`: Postgres cascade-deletes the `encounters` and
  * `campaignUsers` rows (`onDelete: "cascade"` FKs) and nulls every placed
- * `entity.campaignId` (`onDelete: "set null"` FK), so the characters survive
- * unplaced — no explicit UPDATE needed.
+ * `playerCharacter.campaignId` (`onDelete: "set null"` FK), so the characters
+ * survive unplaced — no explicit UPDATE needed.
  *
  * The encounters' Map Instances are **app-cleaned** here (UNN-459): the
  * `encounters.mapInstanceId → mapInstances` FK is `onDelete: "restrict"` (it
