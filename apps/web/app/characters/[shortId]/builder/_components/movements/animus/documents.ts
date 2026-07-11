@@ -4,7 +4,7 @@ import {
   IDENTITY_TRAIT_MESSAGES,
   IDENTITY_TRAIT_ORDER,
   type IdentityTraitField,
-} from "./identity-trait-messages"
+} from "@/domain/character/identity-trait-messages"
 
 /**
  * The Movement 3 writer's left rail is a flat list of "documents" grouped

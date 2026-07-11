@@ -3,13 +3,13 @@
 import type { Narrative } from "@workspace/game-v2/narrative"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 
-import {
-  IDENTITY_TRAIT_MESSAGES,
-  type IdentityTraitField,
-} from "@/app/characters/[shortId]/builder/_components/movements/animus/identity-trait-messages"
 import { Prose } from "@/components/shared/prose"
 import { SectionLabel } from "@/components/shared/section-label"
 import { useViewerRole } from "@/components/shell/viewer-role"
+import {
+  IDENTITY_TRAIT_MESSAGES,
+  type IdentityTraitField,
+} from "@/domain/character/identity-trait-messages"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { SheetCard } from "../sheet-card"

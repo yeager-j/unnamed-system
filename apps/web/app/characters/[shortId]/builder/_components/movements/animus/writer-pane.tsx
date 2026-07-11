@@ -2,6 +2,7 @@
 
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
+import type { IdentityTraitField } from "@/domain/character/identity-trait-messages"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
@@ -14,7 +15,6 @@ import {
   type DocumentRef,
   type ResolvedDocument,
 } from "./documents"
-import type { IdentityTraitField } from "./identity-trait-messages"
 
 /**
  * The right-hand pane of the Movement 3 writer. Reads the active document

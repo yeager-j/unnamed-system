@@ -13,7 +13,6 @@ import { CombatSpinePanel } from "@/app/campaigns/[campaignShortId]/dungeon/[sho
 import { CombatTurnBar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/turn-bar"
 import { DungeonCombatSidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
-import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   useCombatConsole,
   type EndCombatPerformer,
@@ -21,6 +20,7 @@ import {
 import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
+import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"

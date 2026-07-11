@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest"
 
-import { reconcileAllowlist, scanSource, shouldGateFile } from "./depcheck.mjs"
+import {
+  classifyTier,
+  privateIsolationViolation,
+  reconcileAllowlist,
+  resolveSpecifier,
+  scanSource,
+  scanTierViolations,
+  shouldGateFile,
+  tierDirectionViolation,
+} from "./depcheck.mjs"
 
 const GAME = "@workspace/game-v2"
 
@@ -45,11 +54,17 @@ describe("web dependency check", () => {
   })
 
   it("exempts only co-located route access loaders", () => {
-    expect(shouldGateFile("app/combat/[shortId]/encounter-access.ts")).toBe(
-      false
-    )
-    expect(shouldGateFile("app/combat/[shortId]/page.tsx")).toBe(true)
-    expect(shouldGateFile("components/encounter-access.ts")).toBe(true)
+    expect(
+      shouldGateFile(
+        "app/campaigns/[campaignShortId]/dungeon/[shortId]/dungeon-access.ts"
+      )
+    ).toBe(false)
+    expect(
+      shouldGateFile(
+        "app/campaigns/[campaignShortId]/dungeon/[shortId]/page.tsx"
+      )
+    ).toBe(true)
+    expect(shouldGateFile("components/dungeon-access.ts")).toBe(true)
   })
 
   it("reports new and stale allowlist entries", () => {
@@ -74,5 +89,105 @@ describe("web dependency check", () => {
       duplicateEntries: ["hooks/b.ts"],
       isSorted: false,
     })
+  })
+})
+
+describe("tier gate", () => {
+  it("classifies the four tiers and treats everything else as ungated", () => {
+    expect(classifyTier("app/characters/[shortId]/page.tsx")).toBe("app")
+    expect(classifyTier("components/shared/prose.tsx")).toBe("components")
+    expect(classifyTier("domain/combat/participant-meta.ts")).toBe("domain")
+    expect(classifyTier("lib/sync/write-queue.ts")).toBe("lib")
+    expect(classifyTier("e2e/join.spec.ts")).toBeNull()
+    expect(classifyTier("vitest.config.ts")).toBeNull()
+  })
+
+  it("resolves alias + relative specifiers and ignores external packages", () => {
+    expect(
+      resolveSpecifier("components/shared/x.tsx", "@/domain/combat/y")
+    ).toBe("domain/combat/y")
+    expect(resolveSpecifier("lib/sync/a/b.ts", "../c/d")).toBe("lib/sync/c/d")
+    expect(
+      resolveSpecifier("app/page.tsx", "@workspace/game-v2/resolve")
+    ).toBeNull()
+    expect(resolveSpecifier("app/page.tsx", "react")).toBeNull()
+  })
+
+  it("flags upward imports and allows same-tier / downward ones", () => {
+    // kit → app (upward): forbidden
+    expect(
+      tierDirectionViolation(
+        "components/combat/x.tsx",
+        "app/characters/[shortId]/_components/y"
+      )
+    ).toBe(true)
+    // lib → domain: peers, allowed
+    expect(tierDirectionViolation("lib/actions/x.ts", "domain/combat/y")).toBe(
+      false
+    )
+    // domain → lib: peers, allowed
+    expect(tierDirectionViolation("domain/combat/x.ts", "lib/db/y")).toBe(false)
+    // domain → components (upward into presentation): forbidden
+    expect(
+      tierDirectionViolation("domain/combat/x.ts", "components/shared/y")
+    ).toBe(true)
+    // app → components (downward): allowed
+    expect(tierDirectionViolation("app/page.tsx", "components/shared/y")).toBe(
+      false
+    )
+  })
+
+  it("enforces the private-folder ancestry rule", () => {
+    const dungeonComponent =
+      "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/body.tsx"
+    // a sibling feature reaching into dungeon's _components: forbidden
+    expect(
+      privateIsolationViolation(
+        "app/campaigns/[campaignShortId]/encounter/[shortId]/_components/x.tsx",
+        dungeonComponent
+      )
+    ).toBe(true)
+    // a shared parent's _components: allowed for a descendant feature
+    expect(
+      privateIsolationViolation(
+        "app/campaigns/[campaignShortId]/dungeon/[shortId]/page.tsx",
+        "app/campaigns/_components/campaign-card.tsx"
+      )
+    ).toBe(false)
+    // within the same private folder: allowed
+    expect(
+      privateIsolationViolation(
+        "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/watch.tsx",
+        dungeonComponent
+      )
+    ).toBe(false)
+  })
+
+  it("catches a deliberate cross-feature import (scanTierViolations)", () => {
+    const source = `import { X } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/body"`
+    const found = scanTierViolations(
+      "app/campaigns/[campaignShortId]/encounter/[shortId]/_components/y.tsx",
+      source
+    )
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ kind: "isolation" })
+  })
+
+  it("catches a deliberate upward tier import (scanTierViolations)", () => {
+    const source = `import { X } from "@/app/characters/[shortId]/page"`
+    const found = scanTierViolations("lib/sync/x.ts", source)
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ kind: "direction" })
+  })
+
+  it("stays silent on legal downward + peer imports", () => {
+    const source = [
+      `import { a } from "@/domain/combat/view/roster-view"`,
+      `import { b } from "@/lib/db/client"`,
+      `import { c } from "@/components/shared/prose"`,
+    ].join("\n")
+    expect(
+      scanTierViolations("app/characters/[shortId]/page.tsx", source)
+    ).toEqual([])
   })
 })

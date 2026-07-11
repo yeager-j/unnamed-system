@@ -11,7 +11,6 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { type Result } from "@workspace/game-v2/kernel/result"
 
-import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,
@@ -22,6 +21,7 @@ import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
+import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { buildConsoleView } from "@/domain/combat/view/console-view"
 import { buildRosterView } from "@/domain/combat/view/roster-view"
 import { buildConsoleZoneLayout } from "@/domain/combat/view/zone-overview"

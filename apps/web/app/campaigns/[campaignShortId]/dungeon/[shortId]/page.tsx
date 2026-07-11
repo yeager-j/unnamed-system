@@ -10,8 +10,8 @@ import {
   DungeonRunConsole,
   type DungeonRunMode,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/run-console"
-import { getEncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
+import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
 import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"

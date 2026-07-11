@@ -9,7 +9,7 @@ import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dunge
 import { DungeonCombatBody } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/body"
 import { DungeonExploreBody } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/body"
 import { DungeonConsoleShell } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
-import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"

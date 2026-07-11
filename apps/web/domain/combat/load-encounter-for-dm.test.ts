@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
 
-import { getEncounterForDM } from "./encounter-access"
+import { getEncounterForDM } from "./load-encounter-for-dm"
 
 // Stub the seams `getEncounterForDM` resolves: the session, the dissolved
 // encounter, its campaign (resolved by the URL's `campaignShortId`), and its Map
