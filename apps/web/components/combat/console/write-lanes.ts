@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { type Result } from "@workspace/game-v2/kernel/result"
 
-import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
 import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-combatant-write"
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"

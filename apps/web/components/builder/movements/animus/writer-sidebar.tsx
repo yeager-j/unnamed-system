@@ -14,12 +14,12 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
+import { BUILDER_STEPS, indexOfStep } from "@/domain/character/builder-steps"
 import {
   useEntityWrite,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
 
-import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"
 import {
   buildDocumentGroups,

@@ -14,11 +14,14 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
+import {
+  BUILDER_STEPS,
+  indexOfStep,
+  type MovementSlug,
+} from "@/domain/character/builder-steps"
 import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
 import { characterBuilderPath } from "@/lib/paths"
-
-import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
 
 /**
  * The shared chrome for every wizard movement (ADR-002 §5.2). A

@@ -1,19 +1,19 @@
 import { notFound } from "next/navigation"
 
 import { BuilderShell } from "@/components/builder/builder-shell"
-import {
-  findStepGateFailures,
-  nextGateForStep,
-  type StepGateInput,
-} from "@/components/builder/builder-step-gates"
-import {
-  indexOfStep,
-  type MovementSlug,
-} from "@/components/builder/builder-steps"
 import { AnimusStep } from "@/components/builder/movements/animus"
 import { CorpusStep } from "@/components/builder/movements/corpus"
 import { OrtusStep } from "@/components/builder/movements/ortus"
 import { PersonaStep } from "@/components/builder/movements/persona"
+import {
+  findStepGateFailures,
+  nextGateForStep,
+  type StepGateInput,
+} from "@/domain/character/builder-step-gates"
+import {
+  indexOfStep,
+  type MovementSlug,
+} from "@/domain/character/builder-steps"
 import { loadCharacterByShortId } from "@/domain/character/load"
 
 /**

@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { FIRST_STEP_SLUG } from "@/components/builder/builder-steps"
+import { FIRST_STEP_SLUG } from "@/domain/character/builder-steps"
 import { startEntityDraftAction } from "@/lib/actions/entity/start-draft"
 import { characterBuilderPath } from "@/lib/paths"
 

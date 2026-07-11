@@ -16,7 +16,7 @@ import {
 import {
   BUILDER_STEPS,
   slugForStepIndex,
-} from "@/components/builder/builder-steps"
+} from "@/domain/character/builder-steps"
 import { getArchetype } from "@/domain/game-engine-v2"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import { characterBuilderPath, characterPath } from "@/lib/paths"

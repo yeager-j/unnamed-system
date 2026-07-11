@@ -5,6 +5,7 @@ import type { Session, StoredEntityLocator } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
+import type { ParticipantMeta } from "@/domain/combat/participant-meta"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db/client"
 import { loadCampaignByShortId } from "@/lib/db/queries/load-campaign"
@@ -12,23 +13,6 @@ import { loadEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
-
-/**
- * One participant's storage home + the durable tokens the console's write
- * accounting needs (UNN-535): a durable participant carries its character row
- * id, the `vitalsVersion` the write-router's durable arm guards on, and the
- * character `shortId` keying its realtime channel — app-transport data the
- * engine view deliberately omits. The one place the storage distinction is
- * projected for the client; downstream code receives it resolved.
- */
-export type ParticipantMeta =
-  | { storage: "inline" }
-  | {
-      storage: "durable"
-      characterId: string
-      vitalsVersion: number
-      characterShortId: string
-    }
 
 /**
  * The DM console's spatially-complete view of an encounter on v2: the row

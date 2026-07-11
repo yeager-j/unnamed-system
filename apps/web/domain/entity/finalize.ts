@@ -7,7 +7,7 @@ import { initialStateFor } from "@workspace/game-v2/mechanics"
 import {
   findStepGateFailures,
   type GatedStepSlug,
-} from "@/components/builder/builder-step-gates"
+} from "@/domain/character/builder-step-gates"
 import type { EntityRowPatch } from "@/lib/actions/entity/version-guard"
 
 /**
