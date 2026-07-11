@@ -9,12 +9,12 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
+import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
+import { SectionLabel } from "@/components/shared/section-label"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import type { RailView } from "@/domain/character/view/rail-view"
 import { useEntityWrite } from "@/hooks/use-entity-write"
 
-import { SectionLabel } from "../section-label"
-import { AdjustPoolControl } from "./adjust-pool-control"
 import { RestDialog } from "./rest-dialog"
 
 type ControlKey = "hp" | "sp" | "victories"

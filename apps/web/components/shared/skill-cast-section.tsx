@@ -1,5 +1,6 @@
 "use client"
 
+import { SectionLabel } from "@/components/shared/section-label"
 import { SkillBannerCard } from "@/components/shared/skill-banner-card"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import {
@@ -7,8 +8,6 @@ import {
   type SkillCardCost,
 } from "@/domain/combat/view/skill-card-view"
 import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
-
-import { SectionLabel } from "../section-label"
 
 /**
  * The Skill-card grid and its **cast** affordance — every source (archetype

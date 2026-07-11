@@ -1,9 +1,8 @@
 "use client"
 
+import { AffinityStrip } from "@/components/shared/affinity-strip"
+import { SkillCastSection } from "@/components/shared/skill-cast-section"
 import type { AffinityStripCell } from "@/domain/character/view/affinity-strip"
-
-import { AffinityStrip } from "./affinity-strip"
-import { SkillCastSection } from "./skill-cast-section"
 
 /**
  * The Combat tab (S2a): the affinity strip over the Skill-card grid. The strip

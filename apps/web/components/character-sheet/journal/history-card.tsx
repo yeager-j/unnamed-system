@@ -1,9 +1,9 @@
 "use client"
 
 import { Prose } from "@/components/shared/prose"
+import { SectionLabel } from "@/components/shared/section-label"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 
-import { SectionLabel } from "../section-label"
 import { SheetCard } from "../sheet-card"
 
 /**

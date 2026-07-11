@@ -8,10 +8,10 @@ import {
   type IdentityTraitField,
 } from "@/components/builder/movements/animus/identity-trait-messages"
 import { Prose } from "@/components/shared/prose"
+import { SectionLabel } from "@/components/shared/section-label"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 
-import { SectionLabel } from "../section-label"
 import { SheetCard } from "../sheet-card"
 
 /**
