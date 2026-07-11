@@ -7,6 +7,7 @@ import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import { zoneEnchantmentEffects } from "@workspace/game-v2/mechanics/zone-enchantment"
 import type { ResolveContext } from "@workspace/game-v2/resolve/resolve"
 
+import { hitEvasionAttackRollEffects } from "./battle-condition-effects"
 import type { EncounterInstanceComponents } from "./instance"
 import type { OverlayComponents } from "./overlay"
 import type { Participant, Session } from "./session"
@@ -66,8 +67,29 @@ export function participantZoneEffects(
 }
 
 /**
- * The **full encounter context** one participant's sheet resolves with: its zone's
- * Enchantment effects and its side's {@link PartyComposition} (the `perPartyLineage`
+ * Every combat-context effect a participant resolves with: its zone's Enchantment
+ * ({@link participantZoneEffects}) plus its Hit/Evasion Battle Condition's Attack-Roll
+ * modifier ({@link hitEvasionAttackRollEffects}). The single place the two context
+ * builders below source `ResolveContext.effects` from, so the sheet loaders and the
+ * whole-session fold can never carry a different set — the same drift the file's other
+ * doc comments guard against.
+ */
+export function participantCombatEffects(
+  spatial: SpatialReads,
+  participant: Participant
+): CombatantEffect[] {
+  return [
+    ...participantZoneEffects(spatial, participant.id),
+    ...hitEvasionAttackRollEffects(
+      participant.overlay.battleConditions.hitEvasion
+    ),
+  ]
+}
+
+/**
+ * The **full encounter context** one participant's sheet resolves with: its combat
+ * effects ({@link participantCombatEffects} — zone Enchantment + Hit/Evasion) and its
+ * side's {@link PartyComposition} (the `perPartyLineage`
  * Attack-Roll scalers). Every surface that shows a combatant's *sheet* numbers — the
  * DM's drawer and the watching player's own-sheet column — must resolve through this,
  * or the same Skill reads two different values to the two of them. It's one function
@@ -83,18 +105,18 @@ export function participantResolveContext(
   participant: Participant
 ): ResolveContext {
   return {
-    effects: participantZoneEffects(spatial, participant.id),
+    effects: participantCombatEffects(spatial, participant),
     partyComposition: compositionBySide[participant.overlay.allegiance.side],
   }
 }
 
 /**
- * Resolves a participant's entity with its **zone-enchantment effects** piped into
- * `ResolveContext.effects` (CD15) — the one combat → spatial read into resolution.
- * `resolveEntity` partitions the effects: Toccata's Attack-Roll bonus surfaces in
- * the `pendingEffects` read-unit (display-only per the locked parity scope, never
- * auto-applied). This is the **only** engine-modeled combat → spatial read; resolve
- * itself never touches spatial state.
+ * Resolves a participant's entity with its **combat effects** ({@link
+ * participantCombatEffects} — zone-enchantment + Hit/Evasion) piped into
+ * `ResolveContext.effects`. `resolveEntity` partitions them: Toccata's and Hit/Evasion's
+ * Attack-Roll bonuses surface in the `pendingEffects` read-unit, folded at use time by
+ * `resolveAttackRoll`. The zone read (CD15) remains the **only** engine-modeled combat →
+ * spatial read; resolve itself never touches spatial state.
  */
 export function resolveParticipant(
   resolveEntity: ResolveEntity,
@@ -102,7 +124,7 @@ export function resolveParticipant(
   participant: Participant
 ): ResolvedEntity {
   return resolveEntity(participant.entity, {
-    effects: participantZoneEffects(spatial, participant.id),
+    effects: participantCombatEffects(spatial, participant),
   })
 }
 

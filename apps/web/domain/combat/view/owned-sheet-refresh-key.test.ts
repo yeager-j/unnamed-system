@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import type { BattleConditionState } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   SnapshotEnchantment,
@@ -11,16 +12,21 @@ import { ownedSheetRefreshKey } from "@/domain/combat/view/owned-sheet-refresh-k
 /**
  * The refresh trigger fires exactly when this key changes, so the cases pin the
  * boundary: anything the server baked into an owned sheet — enchantment
- * lifecycle, the combatant's zone, its own pools — changes it; churn that leaves
- * the sheet identical (turn order, enemy vitals, Enchantments in other Zones)
- * does not. Zone and pools read off the combatant's redacted components.
+ * lifecycle, the combatant's zone, its Hit/Evasion, its own pools — changes it;
+ * churn that leaves the sheet identical (turn order, enemy vitals, Enchantments
+ * in other Zones, a non-sheet Battle Condition) does not. Zone, conditions, and
+ * pools read off the combatant's redacted components.
  */
 
 function combatant(
   id: string,
   zoneId: string,
   currentHP = 10,
-  side: "players" | "enemies" = "players"
+  side: "players" | "enemies" = "players",
+  conditions?: {
+    hitEvasion?: BattleConditionState
+    attack?: BattleConditionState
+  }
 ): VisibleCombatant {
   return {
     id: asParticipantId(id),
@@ -28,6 +34,17 @@ function combatant(
       allegiance: { side },
       position: { zoneId },
       vitals: { maxHP: 10, currentHP },
+      ...(conditions
+        ? {
+            battleConditions: {
+              attack: conditions.attack ?? "neutral",
+              defense: "neutral",
+              hitEvasion: conditions.hitEvasion ?? "neutral",
+              charged: false,
+              concentrating: false,
+            },
+          }
+        : {}),
     },
   }
 }
@@ -96,6 +113,37 @@ describe("ownedSheetRefreshKey", () => {
       OWNED
     )
     expect(hurt).not.toBe(full)
+  })
+
+  // The DM shifting the owned combatant's Hit/Evasion moves its Attack Rolls
+  // (±) in the server-resolved sheet; the badge updates from the poll, so the
+  // sheet beside it must re-pull too (UNN-491; Codex, PR #328).
+  it("changes when the owned combatant's Hit/Evasion shifts", () => {
+    const neutral = ownedSheetRefreshKey(
+      watchState(null, [combatant("c1", "z1")]),
+      OWNED
+    )
+    const increased = ownedSheetRefreshKey(
+      watchState(null, [
+        combatant("c1", "z1", 10, "players", { hitEvasion: "increased" }),
+      ]),
+      OWNED
+    )
+    expect(increased).not.toBe(neutral)
+  })
+
+  it("is stable when a Battle Condition that doesn't touch the sheet shifts (Attack)", () => {
+    const before = ownedSheetRefreshKey(
+      watchState(null, [combatant("c1", "z1")]),
+      OWNED
+    )
+    const after = ownedSheetRefreshKey(
+      watchState(null, [
+        combatant("c1", "z1", 10, "players", { attack: "increased" }),
+      ]),
+      OWNED
+    )
+    expect(after).toBe(before)
   })
 
   it("is stable across unrelated churn — an Enchantment landing in another Zone", () => {

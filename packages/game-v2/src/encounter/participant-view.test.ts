@@ -14,8 +14,9 @@ import {
   resolveParticipant,
   resolveSession,
 } from "./participant-view"
-import { makeParticipant } from "./session"
+import { makeParticipant, type Participant } from "./session"
 import type { SpatialReads } from "./spatial-reads"
+import type { BattleConditionState } from "./vocab"
 
 const resolve = createResolve({ getArchetype: () => undefined })
 
@@ -31,6 +32,39 @@ const TOCCATA_FF = { type: "attackRoll", amount: 2, source: "Toccata" }
 const requiemAtZ1: SpatialReads = {
   zoneOf: (id) => (id === "p1" ? "z1" : undefined),
   activeEnchantment: () => ({ zoneId: "z1", type: "requiem", forte: 2 }),
+}
+
+/** A mapless board — no zones, no enchantment — so only non-spatial effects fold in. */
+const MAPLESS: SpatialReads = {
+  zoneOf: () => undefined,
+  activeEnchantment: () => null,
+}
+
+const HIT_EVASION_INCREASED = {
+  type: "attackRoll",
+  amount: 3,
+  source: "Hit/Evasion (Increased)",
+}
+const HIT_EVASION_DECREASED = {
+  type: "attackRoll",
+  amount: -7,
+  source: "Hit/Evasion (Decreased)",
+}
+
+/** A player `p1`/`e1` whose Hit/Evasion axis is set to `state`, everything else default. */
+const playerWithHitEvasion = (state: BattleConditionState): Participant => {
+  const base = makeParticipant(
+    { id: "e1", components: {} },
+    asParticipantId("p1"),
+    { side: "players" }
+  )
+  return {
+    ...base,
+    overlay: {
+      ...base.overlay,
+      battleConditions: { ...base.overlay.battleConditions, hitEvasion: state },
+    },
+  }
 }
 
 describe("participantZoneEffects — the SpatialReads → enchantment projection (CD15)", () => {
@@ -146,6 +180,63 @@ describe("resolveParticipant — un-defers Toccata into pendingEffects (display-
       resolveParticipant(resolve, toccataAtZ1, unplaced).components
         .pendingEffects
     ).toBeUndefined()
+  })
+})
+
+describe("Hit/Evasion Battle Condition folds into the Attack Roll (UNN-491)", () => {
+  const COMPOSITION = { players: {}, enemies: {} }
+
+  it("resolveParticipant surfaces Increased Hit/Evasion as a +3 pendingEffect (mapless)", () => {
+    const resolved = resolveParticipant(
+      resolve,
+      MAPLESS,
+      playerWithHitEvasion("increased")
+    )
+    expect(resolved.components.pendingEffects).toEqual({
+      attackRoll: [HIT_EVASION_INCREASED],
+      damage: [],
+    })
+  })
+
+  it("resolveParticipant surfaces Decreased Hit/Evasion as a −7 pendingEffect", () => {
+    const resolved = resolveParticipant(
+      resolve,
+      MAPLESS,
+      playerWithHitEvasion("decreased")
+    )
+    expect(resolved.components.pendingEffects).toEqual({
+      attackRoll: [HIT_EVASION_DECREASED],
+      damage: [],
+    })
+  })
+
+  it("Neutral Hit/Evasion folds in nothing", () => {
+    expect(
+      resolveParticipant(resolve, MAPLESS, playerWithHitEvasion("neutral"))
+        .components.pendingEffects
+    ).toBeUndefined()
+  })
+
+  it("participantResolveContext carries the same Hit/Evasion effect — the two paths can't drift", () => {
+    expect(
+      participantResolveContext(
+        MAPLESS,
+        COMPOSITION,
+        playerWithHitEvasion("increased")
+      ).effects
+    ).toEqual([HIT_EVASION_INCREASED])
+  })
+
+  it("composes with a zone Enchantment — both the Toccata bonus and the Hit/Evasion penalty apply", () => {
+    const resolved = resolveParticipant(
+      resolve,
+      toccataAtZ1,
+      playerWithHitEvasion("decreased")
+    )
+    expect(resolved.components.pendingEffects?.attackRoll).toEqual([
+      TOCCATA_FF,
+      HIT_EVASION_DECREASED,
+    ])
   })
 })
 

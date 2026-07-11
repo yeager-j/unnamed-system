@@ -23,6 +23,7 @@
 export * from "./vocab"
 export * from "./ailments"
 export * from "./overlay"
+export * from "./battle-condition-effects"
 export * from "./instance"
 export * from "./session"
 export * from "./session-factory"
