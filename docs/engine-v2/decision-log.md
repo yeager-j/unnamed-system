@@ -1204,6 +1204,39 @@ collection (kit ∪ inheritance ∪ equipment ∪ intrinsic — D19), so the cas
 two sources folds once. No shipped catalog Skill carries `effects` on a castable Skill today,
 so behavior is unchanged now; the gate removal is the forward-correct model.
 
+### D47 — Capacity is the self; the form-swap merge is a declared per-component policy table · **Settled** · _amends the D9/D38 framing_ · _UNN-600_
+
+The ratified forms doctrine (2026-07-11 design session): **"a form is a body; you
+bring your mind, your wounds, and your capacity."** A form changes what you can
+*do* (attributes, affinities, skills, natural attack, portrait); the self keeps
+what you *are* — including the HP/SP bars. Two amendments to the original framing:
+
+1. **Forms never carry `vitals`/`skillPool`, and `path` survives a swap.** D9's
+   original "the form is a full-health body; you bring your wounds" grafted
+   `damage`/`spSpent` onto the form's maxima. That model had a death cliff (50
+   damage on a 100-max body → shift into a 40-max scout form → instantly Fallen)
+   and a sponge (big forms are free HP). Under D47 maxima always derive from the
+   entity's own `Level` + `Path`; a heartier form authors a `+hp` attribute effect
+   through its mechanic's `effects()` (`BONUS_TARGET_KEYS` spans hp/sp) — a delta
+   on your bar, never a replacement. The depletion graft and the `path` drop are
+   deleted; D9's *depletion* invariant (store `damage`, derive current) is
+   unchanged and now trivially form-independent.
+2. **The merge policy is a table, not emergent code.** `applyForm` is a generic
+   fold of `FORM_SWAP_POLICY` (`resolve/form-swap-policy.ts`), one declared
+   verdict per registry component — `keep` (the self's; 13 rows), `override`
+   (form's when present: `attributes`/`affinities`/`presentation`), `replace`
+   (form's or absent: `skills` — a skill-less Nyx aspect does **not** silently
+   inherit the base entity's list), `detach` (`archetypes`: roster/Mastery
+   survive, `active` nulls). The D13 rule of thumb ("anything that must survive a
+   form swap is its own component") is now enforced: a new registry component
+   fails the build until it takes a row. Laws (UNN-598 harness) pin survival per
+   policy, depletion round-trip, and id stability, with a last-write-wins negative
+   control. Forms also never carry `mechanics` — the form is *produced by* a
+   mechanic, so a form that rewrote `mechanics` would feed back into the selection
+   that chose it; a two-phase boss gaining a phase-2 behavior is one composite
+   mechanic branching on its own state, or a phase-transition *write* inserting
+   state into the `states` map.
+
 ## Validation outcome (D24)
 
 ### D24 — Design validated against the inventory; gaps scoped into 3 tiers · **Settled**

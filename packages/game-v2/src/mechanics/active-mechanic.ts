@@ -31,7 +31,7 @@ function orderActiveMechanics(active: ActiveMechanic[]): ActiveMechanic[] {
 /**
  * The **≤ 1 active form-swap mechanic** invariant, enforced instead of assumed
  * (UNN-599). Form application is a last-write-wins merge of a full component bag
- * ({@link import("../resolve/resolve").applyForm}); two simultaneous form swaps
+ * ({@link import("../resolve/form-swap-policy").applyForm}); two simultaneous form swaps
  * have no meaningful combined semantics, so this is a hard error rather than an
  * order-dependent result. Vacuously satisfied today — no registered mechanic
  * declares `activeForm` — and true by construction for a PC (≤ 1 active mechanic);

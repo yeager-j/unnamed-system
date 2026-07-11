@@ -89,9 +89,10 @@ function pathMaxSP(pathChoice: PathChoice, level: number): number {
 /**
  * Effective **max HP** (D37): the entity's `Vitals.base` + the path/level layer
  * (only when it carries **both** `Level` and `Path` — i.e. a PC) + the HP bonus
- * pool. A PC's `base` is 0, so its maxHP is the path formula + bonuses; an enemy —
- * or a shapechanged entity (`applyForm` drops `Path`) — carries an authored `base`
- * and no path layer, but still gets the bonuses. The fold is uniform either way.
+ * pool. A PC's `base` is 0, so its maxHP is the path formula + bonuses — in any
+ * form, since capacity is the self's (D47: a form swap keeps `Vitals` and `Path`);
+ * an enemy carries an authored `base` and no path layer, but still gets the
+ * bonuses. The fold is uniform either way.
  *
  * Kept deliberately separate from {@link computeMaxSP} (no shared abstraction):
  * HP and SP share a shape today but are free to diverge.

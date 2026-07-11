@@ -15,7 +15,8 @@ import {
   makeFlatEntity,
   makeTestGameData,
 } from "@workspace/game-v2/resolve/__fixtures__/derive"
-import { applyForm, createResolve } from "@workspace/game-v2/resolve/resolve"
+import { applyForm } from "@workspace/game-v2/resolve/form-swap-policy"
+import { createResolve } from "@workspace/game-v2/resolve/resolve"
 import { createResolveEntity } from "@workspace/game-v2/resolve/resolve-entity"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
@@ -407,7 +408,7 @@ describe("createResolve — depletion-finalize (D9/D10)", () => {
   })
 })
 
-describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18)", () => {
+describe("the form layer — applyForm is a pure fold of the swap-policy table (D8/UNN-600)", () => {
   const data = makeTestGameData({
     warden: makeArchetype({
       attributes: { strength: 4, magic: 1, agility: 0, luck: 2 },
@@ -417,12 +418,10 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
   })
   const resolve = createResolve(data)
 
-  // A form is just another entity's components — a full-health creature.
+  // A form is just another entity's components — capabilities, not capacity.
   const bear: Entity["components"] = {
     attributes: { base: { strength: 3, magic: 3, agility: 3, luck: 3 } },
     affinities: { base: { fire: "weak" } },
-    vitals: { base: 120, damage: 0 },
-    skillPool: { base: 40, spSpent: 0 },
   }
 
   it("replaces the active Archetype's statline but keeps Mastery (roster survives)", () => {
@@ -464,52 +463,45 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
     expect(kept.components.affinities?.fire).toBe("drain")
   })
 
-  it("form-swap continuity: damage/spSpent carry over; current reconciles against the new max (D9)", () => {
+  it("capacity is the self: a form changes the statline, never the bar (UNN-600)", () => {
     // balanced L1: natural maxHP 20 / maxSP 50. damage 10 ⇒ 10/20; spSpent 12 ⇒ 38/50.
     const entity = makeDerivedEntity({ damage: 10, spSpent: 12 })
-    expect(resolve(entity).components.vitals).toEqual({
-      maxHP: 20,
-      currentHP: 10,
-    })
-    expect(resolve(entity).components.skillPool).toEqual({
-      maxSP: 50,
-      currentSP: 38,
-    })
+    const before = resolve(entity)
 
-    // In bear form the maxima move under the same authored damage/spSpent.
-    const resolved = resolve(applyForm(entity, bear))
-    expect(resolved.components.vitals).toEqual({ maxHP: 120, currentHP: 110 }) // 120 − 10
-    expect(resolved.components.skillPool).toEqual({ maxSP: 40, currentSP: 28 }) // 40 − 12
+    const after = resolve(applyForm(entity, bear))
+    expect(after.components.vitals).toEqual(before.components.vitals)
+    expect(after.components.skillPool).toEqual(before.components.skillPool)
   })
 
-  it("keeps Level (Insta-Kill + dice) but drops Path so the form's HP is absolute", () => {
+  it("keeps Level AND Path — the capacity formula stays live in any body (UNN-600)", () => {
     const entity = makeDerivedEntity({ level: 5, pathChoice: "health-focused" })
     const formed = applyForm(entity, bear)
 
-    // Level rides through (you're still your true level in form); Path detaches.
     expect(formed.components.level).toEqual({ value: 5, victories: 0 })
-    expect(formed.components.path).toBeUndefined()
+    expect(formed.components.path).toEqual({ choice: "health-focused" })
 
     const resolved = resolve(formed)
-    // maxHP is the bear's absolute 120 — no path layer added on top.
-    expect(resolved.components.vitals?.maxHP).toBe(120)
+    // maxHP is the entity's own path-derived value — the form doesn't touch it.
+    expect(resolved.components.vitals?.maxHP).toBe(
+      resolve(entity).components.vitals?.maxHP
+    )
     // Dice still resolve from the surviving Level + Resources.
     expect(resolved.components.resources?.maxHitDice).toBe(6)
   })
 
-  it("a form whose maxHP drops below the constant damage Falls the entity (no special case)", () => {
-    const entity = makeDerivedEntity({ damage: 25 })
-    // 20 − 25 floors to 0
+  it("a wounded entity survives shifting into a small form — no death cliff (UNN-600)", () => {
+    // 15 damage on the natural 20-max bar ⇒ 5/20. Under the retired graft model, a
+    // 5-max form would have floored currentHP to 0 the moment you shifted.
+    const entity = makeDerivedEntity({ damage: 15 })
     const tiny = resolve(
-      applyForm(entity, { ...bear, vitals: { base: 20, damage: 0 } })
+      applyForm(entity, { ...bear, vitals: { base: 5, damage: 0 } })
     )
-    expect(tiny.components.vitals).toEqual({ maxHP: 20, currentHP: 0 })
-    expect(isFallen(tiny.components.vitals!)).toBe(true)
+    expect(tiny.components.vitals).toEqual({ maxHP: 20, currentHP: 5 })
+    expect(isFallen(tiny.components.vitals!)).toBe(false)
   })
 
-  it("a form may omit SP — a no-SP creature resolves no SkillPool (the boss case)", () => {
-    // An SP-less entity in an SP-less form: skillPool is simply absent, no flattened
-    // `{ hp, sp }` forcing it to exist.
+  it("an SP-less entity resolves no SkillPool in any form (the boss case)", () => {
+    // keep-of-absent is absent: the form can neither shrink, grow, nor grant pools.
     const golemEntity: Entity = {
       id: "golem",
       components: {
@@ -519,12 +511,13 @@ describe("the form layer — applyForm is a pure Entity → Entity merge (D8/D18
       },
     }
     const golemForm: Entity["components"] = {
-      attributes: { base: { strength: 8, magic: 0, agility: 0, luck: 0 } },
-      vitals: { base: 250, damage: 0 },
+      attributes: { base: { strength: 7, magic: 0, agility: 0, luck: 0 } },
+      skillPool: { base: 40, spSpent: 0 },
     }
     const resolved = resolve(applyForm(golemEntity, golemForm))
-    expect(resolved.components.vitals).toEqual({ maxHP: 250, currentHP: 250 })
+    expect(resolved.components.vitals).toEqual({ maxHP: 200, currentHP: 200 })
     expect(resolved.components.skillPool).toBeUndefined()
+    expect(resolved.components.attributes?.strength).toBe(7)
   })
 })
 

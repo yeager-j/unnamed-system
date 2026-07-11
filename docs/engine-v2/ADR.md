@@ -29,7 +29,7 @@ The v1 engine is pure and dependency-injected, but its participant types are
    leaks (_"catalog enemies have no SP"_).
 
 Three near-term requirements have no clean home in v1: a **Shapechanger** Lineage
-(forms that change attributes/affinities/skills/maxHP), **enemy Mechanics**
+(forms that change attributes/affinities/skills), **enemy Mechanics**
 (Nyx-style Arcana swaps), and the **Merchant/Usury** mechanic (an enemy whose
 current HP may exceed its maximum). All three are blocked by the nominal model.
 
@@ -117,10 +117,11 @@ correcting D34): a `source: derived | flat` tag was redundant with component
 presence (D35) _and_ forked the fold so a `flat` enemy was immune to effects.
 PCs and enemies differ only by which components they carry; maxHP lives on `Vitals`,
 maxSP on `SkillPool` (presence is the capability — no optional `maxSP?`), and Skills
-is its own component, not a "stat." A form swap **overrides** these per-capability
-components — and it does so as a pure `Entity → Entity` merge run _before_ `resolve`
-(`applyForm`, D38): a form _is_ another entity's components, so there is no form
-struct and `resolve` keeps no form branch.
+is its own component, not a "stat." A form swap remaps these per-capability
+components under **one declared per-component policy table** (`FORM_SWAP_POLICY`,
+D47) — a pure `Entity → Entity` fold run _before_ `resolve` (`applyForm`, D38): a
+form _is_ another entity's components, so there is no form struct and `resolve`
+keeps no form branch.
 
 **Column vs component is a storage projection, not a runtime concept** (D35). At
 runtime the entity _is_ its components; `id` is the only top-level field. The rule:
@@ -135,7 +136,9 @@ runtime the entity _is_ its components; `id` is the only top-level field. The ru
 So `resolve` reads `entity.components.level.value`, never a top-level
 `entity.level`; the column is just the queryable storage form (D11 projection).
 Rule of thumb (D13): _anything that must survive a form swap is its own component —
-never an overridden capability._
+never an overridden capability._ Since D47 the rule is **enforced, not remembered**:
+every registry component declares its swap verdict in `FORM_SWAP_POLICY`
+(`resolve/form-swap-policy.ts`), and a new component fails the build until it does.
 
 **Passive skills are not a component** — they're a resolved output of
 archetype ∪ equipment ∪ inheritance (D19).
@@ -169,9 +172,11 @@ target authored components then re-resolve. Layers:
    not a `source` tag. This is what collapses the two `statblockFrom*` functions into
    one uniform path — no `StatProfile` aggregate, no per-capability `source`.
 2. **Active form / Arcana** — _not an in-fold layer but a pre-`resolve` transform_
-   (D38): when a form-swap Mechanic is active, `applyForm` merges the form's
-   components onto the entity (depletion grafted back, `archetypes.active` detached,
-   `Path` dropped / `Level` kept), and `resolve` then folds the merged entity. A form
+   (D38): when a form-swap Mechanic is active, `applyForm` folds the form's bag
+   onto the entity under the per-component `FORM_SWAP_POLICY` table (D47:
+   `attributes`/`affinities`/`presentation` override, `skills` replaces — absent
+   means absent — `archetypes` detaches its `active`, and everything else,
+   capacity included, is kept). `resolve` then folds the merged entity. A form
    _is_ another entity's components — no form struct, no form branch in `resolve`.
 3. **Inheritance** — inherited skills (slots read from `Archetypes`, D36) pass
    through a form **fully** (D19).
@@ -180,8 +185,8 @@ target authored components then re-resolve. Layers:
 5. **Mechanic deltas** — `effects()` contributions.
 6. **Combat overlay** — ailments/battle conditions; temporary, applied last.
 
-Transforms are **override** (a later layer replaces a field — a form's affinity/skill/
-maxHP swap) or **delta** (additive — buffs). Concretely (D38): **override = `applyForm`**
+Transforms are **override** (a later layer replaces a field — a form's
+affinity/skill swap) or **delta** (additive — buffs). Concretely (D38): **override = `applyForm`**
 (the pre-`resolve` entity merge); **delta = effects** (the bonus-pool + affinity-candidate
 channels) — so a buff is an effect, not a form. Whether a specific buff stacks/caps is an
 **effect-data rule**, not engine logic, keeping resolution deterministic (D18). One
@@ -198,9 +203,9 @@ are the _same_ code path — both an `applyForm` merge feeding one uniform `reso
 Store **depletion**, derive current. `currentHP = max(0, maxHP − damage)`; `damage`
 is a **signed** integer.
 
-- Because `maxHP` is resolved (and form-mutable), a form swap moves the ceiling
-  under a form-independent `damage` invariant — **no HP-reconciliation policy
-  needed** (D9). "Fallen" is `damage ≥ maxHP`.
+- `damage` is form-independent, and since D47 so is the ceiling: capacity is the
+  self (a form never carries `vitals`), so a form swap needs **no HP-reconciliation
+  policy at all** (D9/D47). "Fallen" is `damage ≥ maxHP`.
 - **Signed** `damage` makes **over-max HP** (Merchant/Usury's loaned HP) simply
   negative damage — no temp-HP buffer, no max inflation; `maxHP` stays honest for
   `%`-of-max and threshold rules (D10).

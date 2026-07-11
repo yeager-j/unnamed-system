@@ -2,7 +2,7 @@
  * The **resolved** vitals read-units `resolve` emits (D30) — derived values only,
  * never the authored `damage`/`spSpent` (F3). `resolve` folds the maxima through
  * every layer, then derives `currentHP`/`currentSP` against the *final* maxima and
- * the authored depletion (the two-phase fold — D9 form-swap continuity).
+ * the authored depletion (the two-phase fold — D9 depletion continuity).
  */
 
 /**

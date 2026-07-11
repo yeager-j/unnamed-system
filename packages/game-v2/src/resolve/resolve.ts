@@ -74,8 +74,9 @@ function isDamageEffect(effect: CombatantEffect): effect is DamageEffect {
  * attributes/affinities; `Level` + `Path` → the path/level HP/SP formula) → the delta
  * effects (mastery/manual/zone now; equipment/mechanic with their PRs), then derives
  * the depletion **current** against the final maxima. There is **no form concept
- * here** — a form-swap is a prior `Entity → Entity` transform ({@link applyForm}),
- * so a natural entity and a shapechanged one flow through this *same* path.
+ * here** — a form-swap is a prior `Entity → Entity` transform
+ * ({@link import("./form-swap-policy").applyForm}), so a natural entity and a
+ * shapechanged one flow through this *same* path.
  */
 export function createResolve(deps: Pick<GameData, "getArchetype">) {
   return function resolve(
@@ -235,43 +236,4 @@ export function createResolve(deps: Pick<GameData, "getArchetype">) {
 
     return { id: entity.id, components }
   }
-}
-
-/**
- * The **form layer** (D8 layer 2) as a literal merge of two entities' components —
- * the swapped form (Shapechanger's bear, Nyx's Arcana) is itself just an entity's
- * component bag (`Entity["components"]`), authored at full health like any creature.
- * There is **no bespoke form struct**: a form carries exactly the capability
- * components it has, so a creature with no SP simply omits `skillPool` (no flattened
- * `{ hp, sp }` forcing pools to exist). PR4 sources the form from the active
- * form-swap Mechanic's catalog definition; PR3 fixture-tests the merge.
- *
- * The merge overlays the form's components onto the entity's, then reconciles the
- * parts a component bundles with different lifecycles:
- * - **Depletion rides the entity, not the form.** A form's `vitals`/`skillPool`
- *   carry a `base` (the new max) at full health; the entity's `damage`/`spSpent` are
- *   grafted back on, so spends carry across forms and `currentHP`/`currentSP`
- *   reconcile against the new max with no policy (D9) — "the form is a full-health
- *   body; you bring your wounds."
- * - **`archetypes.active` detaches** (the form replaces the active Archetype's
- *   statline) while `roster` survives (so Mastery still applies).
- * - **`path` is dropped** (the form's `base` *is* the absolute max — no path layer to
- *   double-count) while **`level` is kept** (you're still your true level in form —
- *   Insta-Kill immunity and your dice both read it).
- */
-export function applyForm(entity: Entity, form: Entity["components"]): Entity {
-  const damage = entity.components.vitals?.damage ?? 0
-  const spSpent = entity.components.skillPool?.spSpent ?? 0
-
-  const components: Entity["components"] = { ...entity.components, ...form }
-  delete components.path
-  if (components.vitals) components.vitals = { ...components.vitals, damage }
-  if (components.skillPool) {
-    components.skillPool = { ...components.skillPool, spSpent }
-  }
-  if (components.archetypes) {
-    components.archetypes = { ...components.archetypes, active: null }
-  }
-
-  return { id: entity.id, components }
 }

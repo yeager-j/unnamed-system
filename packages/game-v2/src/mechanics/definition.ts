@@ -70,8 +70,9 @@ export interface MechanicDefinition<TState, TTransition = unknown> {
 
   /**
    * The active form's component bag, or `null` when this mechanic is not currently
-   * shapechanged. A form **is** another entity's components — a full-health
-   * creature — so `resolveEntity` feeds the result straight to `applyForm` (D38).
+   * shapechanged. A form **is** another entity's components — capabilities, not
+   * capacity (D47: `vitals`/`skillPool` are the self's; a form never authors
+   * them) — so `resolveEntity` feeds the result straight to `applyForm` (D38).
    * No deps: a form-swap mechanic owns its forms; PR4 freezes only this seam, not
    * where real forms ultimately live. Omit for every non-form-swap mechanic (all 9
    * MVP mechanics omit it).

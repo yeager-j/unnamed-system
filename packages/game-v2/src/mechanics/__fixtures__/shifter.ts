@@ -10,12 +10,14 @@ import { perfection } from "@workspace/game-v2/mechanics/warrior/perfection"
  * overrides `activeForm`.
  */
 
-/** A full-health bear form (D38: a form *is* another entity's components). */
+/**
+ * A doctrine-shaped bear form (D38: a form *is* another entity's components) —
+ * capabilities, not capacity (UNN-600): a body carries its statline and kit;
+ * `vitals`/`skillPool` are the self's and a form never authors them.
+ */
 export const bearForm: Entity["components"] = {
   attributes: { base: { strength: 6, magic: -2, agility: 3, luck: 0 } },
   affinities: { base: { fire: "weak" } },
-  vitals: { base: 120, damage: 0 },
-  skillPool: { base: 40, spSpent: 0 },
 }
 
 /**
