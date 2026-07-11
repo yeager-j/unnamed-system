@@ -2,9 +2,8 @@
 
 import { Prose } from "@/components/shared/prose"
 import { SectionLabel } from "@/components/shared/section-label"
+import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
-
-import { SheetCard } from "../sheet-card"
 
 /**
  * The History card (rulebook 1.4): the two setting-defined slots — Ancestry

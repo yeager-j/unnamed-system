@@ -3,6 +3,7 @@
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import type { EncounterSnapshotResult } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import { fetchJsonSnapshot } from "@/lib/sync/fetch-json-snapshot"
 import {
   useSnapshotSubscription,
   type SnapshotFetcher,
@@ -24,13 +25,10 @@ async function fetchSnapshot(
   shortId: string,
   signal?: AbortSignal
 ): Promise<WatchSnapshot> {
-  const response = await fetch(`/api/encounter/${shortId}/snapshot`, {
-    cache: "no-store",
-    signal,
-  })
-  if (!response.ok)
-    throw new Error(`snapshot request failed: ${response.status}`)
-  const result = (await response.json()) as EncounterSnapshotResult
+  const result = await fetchJsonSnapshot<EncounterSnapshotResult>(
+    `/api/encounter/${shortId}/snapshot`,
+    signal
+  )
   return { ...result.snapshot, compositeVersion: result.compositeVersion }
 }
 

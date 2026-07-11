@@ -20,8 +20,8 @@ import {
 } from "@/domain/entity/use-entity-write"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
-import { SheetCard } from "../sheet-card"
 import { RankUpDialog } from "./rank-up-dialog"
+import { SheetCard } from "./sheet-card"
 
 /**
  * The Virtues card (design frame `10b`): four rank rows over the Spark loop's

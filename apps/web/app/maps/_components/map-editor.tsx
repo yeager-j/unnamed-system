@@ -22,7 +22,10 @@ import { MapSettingsPanel } from "./map-settings-panel"
  * live zone/connection counts.
  */
 const MapCanvas = dynamic(
-  () => import("./canvas/map-canvas").then((module) => module.MapCanvas),
+  () =>
+    import("@/components/shared/canvas/map-canvas").then(
+      (module) => module.MapCanvas
+    ),
   {
     ssr: false,
     loading: () => (

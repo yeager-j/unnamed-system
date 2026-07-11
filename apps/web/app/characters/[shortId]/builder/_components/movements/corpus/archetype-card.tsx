@@ -1,15 +1,11 @@
 "use client"
 
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
-import {
-  AFFINITY_DAMAGE_TYPES,
-  ATTRIBUTE_KEYS,
-  type Affinity,
-  type AffinityDamageType,
-} from "@workspace/game-v2/kernel/vocab"
+import { ATTRIBUTE_KEYS } from "@workspace/game-v2/kernel/vocab"
 import { getMechanic } from "@workspace/game-v2/mechanics"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { listNonNeutralAffinities } from "@/components/archetype/affinities"
 import { formatModifier } from "@/components/archetype/format"
 import { Sparkle } from "@/components/shared/celestial"
 import {
@@ -43,7 +39,7 @@ export function ArchetypeCard({
   onOpen: () => void
 }) {
   const mechanic = archetype.mechanic ? getMechanic(archetype.mechanic) : null
-  const highlights = listAffinityHighlights(archetype)
+  const highlights = listNonNeutralAffinities(archetype)
 
   return (
     <button
@@ -108,20 +104,4 @@ export function ArchetypeCard({
       ) : null}
     </button>
   )
-}
-
-/**
- * Every non-Neutral affinity entry on an Archetype's chart, in canonical
- * `AFFINITY_DAMAGE_TYPES` order. The compact card surfaces all of them so
- * a Healer's Strike weak / Light resist / Dark weak read at a glance without
- * the player having to expand the card. Stable order across renders.
- */
-function listAffinityHighlights(
-  archetype: Archetype
-): { type: AffinityDamageType; affinity: Affinity }[] {
-  return AFFINITY_DAMAGE_TYPES.flatMap((type) => {
-    const affinity = archetype.affinities[type]
-    if (!affinity || affinity === "neutral") return []
-    return [{ type, affinity }]
-  })
 }

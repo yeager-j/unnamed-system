@@ -2,10 +2,10 @@
 
 import type { ResolvedInventory } from "@workspace/game-v2/items"
 
+import { SheetCard } from "@/components/shared/sheet-cards/sheet-card"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import { buildInventoryRows } from "@/domain/character/view/inventory-table"
 
-import { SheetCard } from "../sheet-card"
 import { AddItemDialog } from "./add-item-dialog"
 import { InventoryTable } from "./inventory-table"
 import { Wallet } from "./wallet"

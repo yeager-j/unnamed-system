@@ -1,8 +1,8 @@
 "use client"
 
-import { IdentityCard } from "./identity-card"
-import { TalentsCard } from "./talents-card"
-import { VirtuesCard } from "./virtues-card"
+import { IdentityCard } from "@/components/shared/sheet-cards/identity-card"
+import { TalentsCard } from "@/components/shared/sheet-cards/talents-card"
+import { VirtuesCard } from "@/components/shared/sheet-cards/virtues-card"
 
 /**
  * The Explore tab (S2b — UNN-558): the character's out-of-combat capability

@@ -2,6 +2,8 @@
 
 import { getEncounterInstanceVersionAction } from "@/lib/actions/encounter/instance-version"
 
+import { makeVersionRefetcher } from "./make-version-refetcher"
+
 /**
  * Adapts {@link getEncounterInstanceVersionAction} into the `refetchVersion`
  * shape {@link import("./use-queued-write").useQueuedWrite} expects — the
@@ -9,9 +11,6 @@ import { getEncounterInstanceVersionAction } from "@/lib/actions/encounter/insta
  * so both of the console's write queues get the identical one-shot stale-retry
  * wiring (UNN-535).
  */
-export async function fetchInstanceVersion(
-  shortId: string
-): Promise<number | null> {
-  const result = await getEncounterInstanceVersionAction({ shortId })
-  return result.ok ? result.value.version : null
-}
+export const fetchInstanceVersion = makeVersionRefetcher(
+  getEncounterInstanceVersionAction
+)

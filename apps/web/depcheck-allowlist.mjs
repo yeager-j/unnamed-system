@@ -1,22 +1,15 @@
 /**
- * Pre-existing **cross-feature** imports the private-folder isolation rule flags
- * (UNN-610), grandfathered by file. Each is a genuine shared-code reuse whose fix
- * is a cascading extraction to a kit — a real refactor tracked in **UNN-611**, not
- * this pure move:
+ * Cross-feature imports the private-folder isolation rule flags (UNN-610),
+ * grandfathered by file pending extraction to a kit. **Now empty** — UNN-611
+ * promoted both grandfathered reuses into `components/shared/` (the maps canvas
+ * subsystem → `components/shared/canvas`, the sheet explore cards →
+ * `components/shared/sheet-cards`), so the dungeon feature composes them
+ * down-tier and no cross-feature import remains.
  *
- *   - `dungeon/.../canvas/edit-canvas.tsx` lazy-loads the whole **maps** canvas
- *     subsystem (`@/app/maps/_components/canvas/map-canvas`).
- *   - `dungeon/.../explore-sheet-column.tsx` renders **character-sheet** explore
- *     cards (identity/talents/virtues), which drag in `SheetCard` + `rank-up-dialog`.
- *
- * The list can only shrink: when UNN-611 extracts the shared code, drop the entry
- * in the same change (the check rejects stale entries), and any *new* cross-feature
- * import fails the gate outright.
+ * The list can only shrink: a *new* cross-feature import fails the gate outright,
+ * and the fix is the same — move the shared code down a tier, don't re-add here.
  */
-export const ISOLATION_ALLOWLIST = [
-  "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/edit-canvas.tsx",
-  "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore-sheet-column.tsx",
-]
+export const ISOLATION_ALLOWLIST = []
 
 /**
  * Existing engine-import violations inside the gated app perimeter (`app/` +
@@ -61,9 +54,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/campaigns/[campaignShortId]/encounter/[shortId]/_components/zones-panel.tsx",
   "app/characters/[shortId]/_components/archetypes/archetypes-tab.tsx",
   "app/characters/[shortId]/_components/archetypes/inheritance-slots.tsx",
-  "app/characters/[shortId]/_components/explore/identity-card.tsx",
-  "app/characters/[shortId]/_components/explore/rank-up-dialog.tsx",
-  "app/characters/[shortId]/_components/explore/virtues-card.tsx",
   "app/characters/[shortId]/_components/inventory/add-item-dialog.tsx",
   "app/characters/[shortId]/_components/inventory/equipped-card.tsx",
   "app/characters/[shortId]/_components/inventory/inventory-card.tsx",
@@ -86,14 +76,9 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/characters/[shortId]/builder/_components/movements/corpus/path-bar.tsx",
   "app/characters/[shortId]/builder/_components/movements/ortus/talents-picker.tsx",
   "app/characters/[shortId]/builder/_components/movements/ortus/virtues-control.tsx",
-  "app/maps/_components/canvas/connection-edge.tsx",
-  "app/maps/_components/canvas/geometry-to-flow.test.ts",
-  "app/maps/_components/canvas/geometry-to-flow.ts",
-  "app/maps/_components/canvas/map-canvas-context.tsx",
-  "app/maps/_components/canvas/map-canvas.tsx",
-  "app/maps/_components/canvas/zone-details-sheet.tsx",
   "app/maps/_components/map-editor.tsx",
   "app/maps/_hooks/use-map-autosave.ts",
+  "components/archetype/affinities.ts",
   "components/archetype/archetype-affinities-chart.tsx",
   "components/archetype/archetype-affinity-chips.tsx",
   "components/archetype/archetype-attributes-grid.tsx",
@@ -132,6 +117,12 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "components/combat/watch/owned-sheet-refresh.ts",
   "components/combat/watch/owned-sheet-tabs.tsx",
   "components/combat/watch/watch-enemies-rail.tsx",
+  "components/shared/canvas/connection-edge.tsx",
+  "components/shared/canvas/geometry-to-flow.test.ts",
+  "components/shared/canvas/geometry-to-flow.ts",
+  "components/shared/canvas/map-canvas-context.tsx",
+  "components/shared/canvas/map-canvas.tsx",
+  "components/shared/canvas/zone-details-sheet.tsx",
   "components/shared/mechanics/display-only-widget.tsx",
   "components/shared/mechanics/frenzy-widget.tsx",
   "components/shared/mechanics/mechanic-widget.tsx",
@@ -139,4 +130,7 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "components/shared/mechanics/perfection-widget.tsx",
   "components/shared/mechanics/stains-widget.tsx",
   "components/shared/mechanics/valor-widget.tsx",
+  "components/shared/sheet-cards/identity-card.tsx",
+  "components/shared/sheet-cards/rank-up-dialog.tsx",
+  "components/shared/sheet-cards/virtues-card.tsx",
 ]

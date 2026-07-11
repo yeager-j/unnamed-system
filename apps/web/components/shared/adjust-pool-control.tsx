@@ -1,9 +1,6 @@
 "use client"
 
-import { useState } from "react"
-
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
 import {
   Popover,
   PopoverContent,
@@ -12,10 +9,15 @@ import {
 
 import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
+import { AdjustPoolForm } from "./adjust-pool-controls"
+
 /**
  * A pool-adjust popover: number input + the two signed buttons. Each click is
  * one `damage`/`heal` descriptor — the server merges against its own row, so
- * back-to-back clicks sum (UNN-226 is structural now).
+ * back-to-back clicks sum (UNN-226 is structural now). Composes the shared
+ * {@link AdjustPoolForm}; it adds only the controlled-open coordination (the
+ * caller keeps one popover open at a time), the entity-write dispatch, and the
+ * `pending` gate on the buttons.
  *
  * Rendered by the sheet's rail controls and by the watch view's own-sheet
  * column (UNN-566), which is why it isn't inlined in either.
@@ -36,17 +38,6 @@ export function AdjustPoolControl({
   onOpenChange: (open: boolean) => void
 }) {
   const { dispatch, pending } = useEntityWrite()
-  const [amount, setAmount] = useState("")
-
-  const parsed = Number.parseInt(amount, 10)
-  const valid = Number.isInteger(parsed) && parsed > 0
-
-  const apply = (op: "damage" | "heal") => {
-    if (!valid) return
-    dispatch({ component, op, amount: parsed })
-    setAmount("")
-    onOpenChange(false)
-  }
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -62,35 +53,17 @@ export function AdjustPoolControl({
         {label}
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-56 flex-col gap-2 p-3">
-        <Input
-          type="number"
-          min={1}
-          inputMode="numeric"
-          placeholder="Amount"
-          aria-label={`${label} amount`}
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") apply("heal")
-          }}
+        <AdjustPoolForm
+          inputId={`${label}-amount`}
+          decrementLabel={negativeLabel}
+          incrementLabel={positiveLabel}
+          disabled={pending}
+          onDecrement={(amount) =>
+            dispatch({ component, op: "damage", amount })
+          }
+          onIncrement={(amount) => dispatch({ component, op: "heal", amount })}
+          onAfterSubmit={() => onOpenChange(false)}
         />
-        <div className="grid grid-cols-2 gap-1.5">
-          <Button
-            size="sm"
-            disabled={pending || !valid}
-            onClick={() => apply("heal")}
-          >
-            {positiveLabel}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            disabled={pending || !valid}
-            onClick={() => apply("damage")}
-          >
-            {negativeLabel}
-          </Button>
-        </div>
       </PopoverContent>
     </Popover>
   )

@@ -12,9 +12,10 @@ runs on `npm run depcheck` and enforces three things:
   forbids a data-tier file reaching up into `components`/`app`. Zero-tolerance.
 - **Feature isolation.** A Next private `_`-folder (`_components`/`_hooks`) is importable only
   from within the directory that contains it, so one feature subtree can't reach into another's
-  internals. Code two features share moves DOWN a tier (kit/domain/lib). Two pre-existing
-  cross-feature reuses are grandfathered in `ISOLATION_ALLOWLIST` pending extraction (UNN-611);
-  a *new* cross-feature import fails the gate.
+  internals. Code two features share moves DOWN a tier (kit/domain/lib). `ISOLATION_ALLOWLIST`
+  is now empty — UNN-611 extracted the two grandfathered reuses into `components/shared/`
+  (the maps canvas → `shared/canvas`, the sheet explore cards → `shared/sheet-cards`); a *new*
+  cross-feature import fails the gate outright, and the fix is the same move-down, not a re-add.
 - **Domain purity** (functional core / imperative shell). Within `domain/`, only the
   **marked-impure** files may runtime-import `lib`: a client hook (`use-*`) or a loader
   (`load-*`, or the bare `load` when the folder names the aggregate — `character/load.ts`).

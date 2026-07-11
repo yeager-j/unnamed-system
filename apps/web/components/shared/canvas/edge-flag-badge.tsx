@@ -16,7 +16,7 @@ import { Badge } from "@workspace/ui/components/badge"
  * haven't reached yet (it auto-surfaces as a silhouette on reveal — only the
  * dungeon console distinguishes this), and a lock glyph + "Locked" when locked.
  * Each flag is a {@link Badge}. Shared by the Map editor's
- * {@link import("@/app/maps/_components/canvas/connection-edge").ConnectionEdge} (which
+ * {@link import("@/components/shared/canvas/connection-edge").ConnectionEdge} (which
  * only sets `hidden`/`locked`) and the dungeon console's
  * {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/connection-edge").DungeonConnectionEdge}
  * so the DM's two views of the same flags can't drift. Place it inside an

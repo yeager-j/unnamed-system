@@ -1,13 +1,13 @@
 "use client"
 
-import { IdentityCard } from "@/app/characters/[shortId]/_components/explore/identity-card"
-import { TalentsCard } from "@/app/characters/[shortId]/_components/explore/talents-card"
-import { VirtuesCard } from "@/app/characters/[shortId]/_components/explore/virtues-card"
 import {
   OwnedSheetTabs,
   type OwnedSheet,
 } from "@/components/combat/watch/owned-sheet-tabs"
 import { OwnerSheetHeader } from "@/components/combat/watch/owner-sheet-header"
+import { IdentityCard } from "@/components/shared/sheet-cards/identity-card"
+import { TalentsCard } from "@/components/shared/sheet-cards/talents-card"
+import { VirtuesCard } from "@/components/shared/sheet-cards/virtues-card"
 import type { LoadedCharacter } from "@/domain/character/load"
 
 /**
