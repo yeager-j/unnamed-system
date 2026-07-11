@@ -1,4 +1,4 @@
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 export const bladeOfIce = {
@@ -14,11 +14,11 @@ export const bladeOfIce = {
   attackRoll: {
     attribute: "st",
     tiers: [
-      { band: "1-10", formula: F["1d6 + St"], sideEffects: [] },
-      { band: "11-19", formula: F["1d10 + St"], sideEffects: [] },
+      { band: "1-10", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+      { band: "11-19", formula: [dice(1, 10), attr("st")], sideEffects: [] },
       {
         band: "20+",
-        formula: F["1d10 + St"],
+        formula: [dice(1, 10), attr("st")],
         sideEffects: ["freeze", "critical"],
       },
     ],

@@ -1,5 +1,5 @@
 import { defineEnemy } from "@workspace/game-v2/catalog/enemies/define-enemy"
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice, flat } from "@workspace/game-v2/combat/formula"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
 export const goblin = defineEnemy({
@@ -23,9 +23,13 @@ export const goblin = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -42,9 +46,13 @@ export const goblin = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("ag")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -73,9 +81,13 @@ export const goblinWarrior = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -92,9 +104,13 @@ export const goblinWarrior = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("ag")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -124,9 +140,13 @@ export const goblinLeader = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -143,9 +163,13 @@ export const goblinLeader = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("ag")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -174,9 +198,13 @@ export const bandit = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -193,9 +221,13 @@ export const bandit = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("ag")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -225,9 +257,13 @@ export const banditCaptain = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -244,9 +280,17 @@ export const banditCaptain = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d10 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d10 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "11-19",
+            formula: [dice(1, 10), attr("ag")],
+            sideEffects: [],
+          },
+          {
+            band: "20+",
+            formula: [dice(1, 10), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -275,9 +319,13 @@ export const bugbear = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d4 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d8 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d8 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 4), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 8), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 8), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -294,9 +342,13 @@ export const bugbear = defineEnemy({
       attackRoll: {
         attribute: "ag",
         tiers: [
-          { band: "1-10", formula: F["1 + Ag"], sideEffects: [] },
-          { band: "11-19", formula: F["1d6 + Ag"], sideEffects: [] },
-          { band: "20+", formula: F["1d6 + Ag"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [flat(1), attr("ag")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 6), attr("ag")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },

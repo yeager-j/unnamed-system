@@ -1,4 +1,4 @@
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 export const cruelAttack = {
@@ -15,9 +15,13 @@ export const cruelAttack = {
   attackRoll: {
     attribute: "ag",
     tiers: [
-      { band: "1-10", formula: F["1d6 + Ag"], sideEffects: [] },
-      { band: "11-19", formula: F["1d10 + Ag"], sideEffects: [] },
-      { band: "20+", formula: F["1d10 + Ag"], sideEffects: ["critical"] },
+      { band: "1-10", formula: [dice(1, 6), attr("ag")], sideEffects: [] },
+      { band: "11-19", formula: [dice(1, 10), attr("ag")], sideEffects: [] },
+      {
+        band: "20+",
+        formula: [dice(1, 10), attr("ag")],
+        sideEffects: ["critical"],
+      },
     ],
   },
   effect:

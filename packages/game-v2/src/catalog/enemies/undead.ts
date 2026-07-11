@@ -1,5 +1,5 @@
 import { defineEnemy } from "@workspace/game-v2/catalog/enemies/define-enemy"
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Entity } from "@workspace/game-v2/kernel/entity"
 
 export const shadow = defineEnemy({
@@ -44,9 +44,13 @@ export const zombie = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d4 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d8 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d8 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 4), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 8), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 8), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -78,9 +82,13 @@ export const mummy = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d4 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d8 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d8 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 4), attr("st")], sideEffects: [] },
+          { band: "11-19", formula: [dice(1, 8), attr("st")], sideEffects: [] },
+          {
+            band: "20+",
+            formula: [dice(1, 8), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -115,9 +123,17 @@ export const canopicGolem = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d10 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d10 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "11-19",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: [],
+          },
+          {
+            band: "20+",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -134,9 +150,17 @@ export const canopicGolem = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d6 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d10 + St"], sideEffects: [] },
-          { band: "20+", formula: F["1d10 + St"], sideEffects: ["critical"] },
+          { band: "1-10", formula: [dice(1, 6), attr("st")], sideEffects: [] },
+          {
+            band: "11-19",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: [],
+          },
+          {
+            band: "20+",
+            formula: [dice(1, 10), attr("st")],
+            sideEffects: ["critical"],
+          },
         ],
       },
     },
@@ -172,11 +196,15 @@ export const valinSarnaster = defineEnemy({
       attackRoll: {
         attribute: "st",
         tiers: [
-          { band: "1-10", formula: F["1d8 + St"], sideEffects: [] },
-          { band: "11-19", formula: F["1d12 + St"], sideEffects: [] },
+          { band: "1-10", formula: [dice(1, 8), attr("st")], sideEffects: [] },
+          {
+            band: "11-19",
+            formula: [dice(1, 12), attr("st")],
+            sideEffects: [],
+          },
           {
             band: "20+",
-            formula: F["1d12 + St"],
+            formula: [dice(1, 12), attr("st")],
             sideEffects: ["critical", "despair"],
           },
         ],

@@ -1,4 +1,4 @@
-import { F } from "@workspace/game-v2/catalog/skills/formulas"
+import { attr, dice } from "@workspace/game-v2/combat/formula"
 import type { Skill } from "@workspace/game-v2/skills/skill.schema"
 
 export const shieldArts = {
@@ -15,11 +15,15 @@ export const shieldArts = {
   attackRoll: {
     attribute: "st",
     tiers: [
-      { band: "1-10", formula: F["1d4 + St"], sideEffects: [] },
-      { band: "11-19", formula: F["1d8 + St"], sideEffects: ["sukunda"] },
+      { band: "1-10", formula: [dice(1, 4), attr("st")], sideEffects: [] },
+      {
+        band: "11-19",
+        formula: [dice(1, 8), attr("st")],
+        sideEffects: ["sukunda"],
+      },
       {
         band: "20+",
-        formula: F["1d8 + St"],
+        formula: [dice(1, 8), attr("st")],
         sideEffects: ["sukunda", "critical"],
       },
     ],
