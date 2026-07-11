@@ -1,7 +1,7 @@
-import { type SkillKind } from "@workspace/game-v2/kernel/vocab"
 import { Badge } from "@workspace/ui/components/badge"
 
 import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
+import type { SkillKind } from "@/lib/ui/vocab"
 
 /**
  * Outline badge that names a Skill's kind ("Healing", "Support", "Passive",

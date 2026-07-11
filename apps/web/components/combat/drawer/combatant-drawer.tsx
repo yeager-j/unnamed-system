@@ -39,6 +39,7 @@ import type {
   CombatantDetail,
   CombatantStats,
 } from "@/lib/combat/view/detail-view"
+import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
 
 /** Every event the drawer's editable sections can emit — overlay edits plus
  *  the spatial position/engagement events. The console's dispatch (a superset
@@ -209,8 +210,10 @@ function SkillsSection({ stats }: { stats: CombatantStats }) {
         {stats.skills.map((resolved) => (
           <ResolvedSkillRow
             key={resolved.skill.key}
-            resolved={resolved}
-            attributes={stats.attributes ?? ZERO_ATTRIBUTES}
+            view={buildSkillCardView(
+              resolved,
+              stats.attributes ?? ZERO_ATTRIBUTES
+            )}
             showCost={stats.hasSkillPool}
           />
         ))}

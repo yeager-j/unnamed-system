@@ -15,6 +15,7 @@ import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 
 import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
 import { combatantAvatar, type CombatantAvatar } from "@/lib/combat/view/avatar"
+import type { Pool } from "@/lib/combat/view/pool"
 import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
 
 /**
@@ -28,12 +29,6 @@ import { COMBATANT_DOWN_LABELS } from "@/lib/ui/labels"
  * variant and the Fallen/Dead `downLabel`, never a mechanics branch — no
  * `isPc` boolean survives for the rail to re-branch on.
  */
-
-/** A current/max pool, the shape both vitals bars render. */
-export interface Pool {
-  current: number
-  max: number
-}
 
 /** One participant as a rail row. `hp`/`sp` are `null` when the entity
  *  resolves no such read-unit. */

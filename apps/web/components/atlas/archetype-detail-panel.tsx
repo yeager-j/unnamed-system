@@ -34,6 +34,7 @@ import { formatMasteryDescription } from "@/components/archetype/format"
 import { DetailSection } from "@/components/shared/detail-section"
 import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { buildSkillCardView } from "@/lib/combat/view/skill-card-view"
 import {
   getArchetype,
   resolveCreationArchetypeSkills,
@@ -178,7 +179,9 @@ function PanelBody({
         {synthesis ? (
           <DetailSection title="Synthesis Skill">
             <ItemGroup className="gap-0">
-              <ResolvedSkillRow resolved={synthesis} attributes={attributes} />
+              <ResolvedSkillRow
+                view={buildSkillCardView(synthesis, attributes)}
+              />
             </ItemGroup>
           </DetailSection>
         ) : null}

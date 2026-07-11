@@ -1,4 +1,4 @@
-import { type SkillKind } from "@workspace/game-v2/kernel/vocab"
+import type { SkillKind } from "@/lib/ui/vocab"
 
 import { DamageTypeBadge, type SkillRowDamageType } from "./damage-type-badge"
 import { SkillKindBadge } from "./skill-kind-badge"

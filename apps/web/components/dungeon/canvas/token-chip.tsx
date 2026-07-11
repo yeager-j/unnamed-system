@@ -12,7 +12,7 @@ import {
   type TokenSide,
 } from "@/components/dungeon/canvas/token-styles"
 import { VitalBar } from "@/components/shared/vital-bar"
-import { type Pool } from "@/lib/combat/view/roster-view"
+import { type Pool } from "@/lib/combat/view/pool"
 
 /**
  * The shared token chip on the dungeon canvas — a side-tinted square glyph + name,

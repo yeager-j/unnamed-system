@@ -1,4 +1,3 @@
-import { getTalent } from "@workspace/game-v2/talents"
 import { Badge } from "@workspace/ui/components/badge"
 import { ItemGroup } from "@workspace/ui/components/item"
 
@@ -20,8 +19,7 @@ import { type EnemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
  * Sections with nothing to show are omitted.
  */
 export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
-  const { attributes, affinities, talentKeys, resolvedSkills, hasSkillPool } =
-    view
+  const { attributes, affinities, talentNames, skills, hasSkillPool } = view
   return (
     <>
       {attributes ? (
@@ -38,13 +36,13 @@ export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
         )}
       </DetailSection>
 
-      {talentKeys !== null ? (
+      {talentNames !== null ? (
         <DetailSection title="Talents">
-          {talentKeys.length > 0 ? (
+          {talentNames.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              {talentKeys.map((key) => (
-                <Badge key={key} variant="outline">
-                  {getTalent(key)?.name ?? key}
+              {talentNames.map((name) => (
+                <Badge key={name} variant="outline">
+                  {name}
                 </Badge>
               ))}
             </div>
@@ -54,14 +52,13 @@ export function EnemyStatblock({ view }: { view: EnemyStatblockView }) {
         </DetailSection>
       ) : null}
 
-      {resolvedSkills.length > 0 && attributes ? (
+      {skills.length > 0 ? (
         <DetailSection title="Skills">
           <ItemGroup className="gap-0">
-            {resolvedSkills.map((resolved) => (
+            {skills.map((skill) => (
               <ResolvedSkillRow
-                key={resolved.skill.key}
-                resolved={resolved}
-                attributes={attributes}
+                key={skill.key}
+                view={skill}
                 showCost={hasSkillPool}
               />
             ))}

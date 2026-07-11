@@ -3,19 +3,13 @@
 import { useState, type ReactNode } from "react"
 
 import {
-  getEnemy,
-  getEnemyFamily,
-  type EnemyFamily,
-} from "@workspace/game-v2/catalog/enemies"
-import {
   buildEnemyCatalogRows,
   enemyFamilyCounts,
   filterEnemyCatalogRows,
   groupEnemyRowsByLevel,
-} from "@workspace/game-v2/catalog/enemies/catalog-rows"
-
-import { enemyStatblockView } from "@/lib/combat/view/enemy-statblock-view"
-import { resolveEntity } from "@/lib/game-engine-v2"
+  selectedEnemyStatblock,
+  type EnemyFamily,
+} from "@/lib/combat/view/enemy-catalog-view"
 
 import { EnemyCatalogList } from "./enemy-catalog-list"
 import { EnemyStatblockCard } from "./enemy-statblock-card"
@@ -52,15 +46,7 @@ export function EnemyCatalogPanel({
   const groups = groupEnemyRowsByLevel(filtered)
   const familyCounts = enemyFamilyCounts(rows)
 
-  const selectedEntity = selectedKey ? getEnemy(selectedKey) : undefined
-  const selectedView =
-    selectedEntity && selectedKey
-      ? enemyStatblockView(
-          selectedEntity,
-          resolveEntity(selectedEntity),
-          getEnemyFamily(selectedKey) ?? null
-        )
-      : null
+  const selectedView = selectedKey ? selectedEnemyStatblock(selectedKey) : null
 
   return (
     <div className="grid min-h-0 grid-cols-1 lg:flex-1 lg:grid-cols-[18rem_1fr_20rem]">

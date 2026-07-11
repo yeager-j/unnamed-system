@@ -1,8 +1,8 @@
-import { type ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { COST_KIND_LABELS } from "@/lib/ui/labels"
+import type { ResolvedSkillCost } from "@/lib/ui/vocab"
 
 interface SkillCostBadgeProps {
   cost: ResolvedSkillCost | null
