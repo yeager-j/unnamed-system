@@ -22,7 +22,7 @@ type CombatantOverlay = Partial<ParticipantViewComponents>
 
 /**
  * The encounter watch's **own-sheet column** (UNN-566): the signed-in viewer's
- * combatant(s) here, built from the *same* v2 sheet components `/c/{shortId}`
+ * combatant(s) here, built from the *same* v2 sheet components `/characters/{shortId}`
  * renders — so a player takes damage, spends SP, and drives their Archetype
  * mechanic without leaving the battlefield.
  *

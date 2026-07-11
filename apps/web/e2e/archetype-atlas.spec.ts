@@ -26,7 +26,7 @@ import { cleanup, createTracker } from "./fixtures/factory"
 const tracker = createTracker()
 let target: Awaited<ReturnType<typeof createAtlasTarget>>
 
-const atlasUrl = () => `${target.url}/archetypes/atlas`
+const atlasUrl = () => `${target.url}/atlas`
 
 test.describe.configure({ mode: "serial" })
 
@@ -178,7 +178,7 @@ test.describe("Lineage Atlas public read-only view", () => {
     await page.goto(atlasUrl())
 
     // No redirect — the Atlas renders the map for everyone (UNN-276).
-    await expect(page).toHaveURL(/\/archetypes\/atlas$/)
+    await expect(page).toHaveURL(/\/atlas$/)
     await expect(
       page.getByRole("navigation", { name: "Lineages" })
     ).toBeVisible()

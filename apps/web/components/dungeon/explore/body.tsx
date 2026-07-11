@@ -21,6 +21,7 @@ import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { dungeonSetupPath } from "@/lib/paths"
 import { DUNGEON_REMINDER_COPY } from "@/lib/ui/labels"
 
 // React Flow measures the DOM, so the canvas renders client-only against a
@@ -161,7 +162,7 @@ export function DungeonExploreBody({
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
               onStartEncounter: () =>
-                router.push(`/dungeon/${dungeon.shortId}/encounter`),
+                router.push(dungeonSetupPath(campaignShortId, dungeon.shortId)),
               mode,
               onModeChange: setMode,
               disabled: isPending,

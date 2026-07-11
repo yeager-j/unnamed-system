@@ -111,7 +111,7 @@ test.describe("delete character — happy path", () => {
     expect(surviving).toHaveLength(0)
 
     // Public URL is 404 immediately.
-    const response = await page.goto(`/c/${target.shortId}`)
+    const response = await page.goto(target.url)
     expect(response?.status()).toBe(404)
     await expect(
       page.getByRole("heading", { name: "Character not found" })

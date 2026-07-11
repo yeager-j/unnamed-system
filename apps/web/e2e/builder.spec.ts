@@ -16,7 +16,7 @@ import { STORAGE_STATE } from "./auth.setup"
  * - A fresh draft lands on `/corpus`.
  * - The chapter header renders the Roman + serif title for each movement.
  * - The Continue link advances the row's `builderStep` cursor AND navigates.
- * - `/builder/{shortId}` (no movement segment) redirects to the cursor.
+ * - `/characters/{shortId}/builder` (no movement segment) redirects to the cursor.
  * - Per-movement writes land on their component columns (path, archetypes at
  *   the Origin auto-rank, virtues ranks, narrative fields + Knife entries).
  * - Finalize seeds the starting weapon, flips `status`, writes NO pool
@@ -34,8 +34,9 @@ async function clearDevUserDrafts(): Promise<void> {
 }
 
 function shortIdFromBuilderUrl(url: string): string {
-  const match = url.match(/\/builder\/([a-z0-9]+)\//)
-  if (!match) throw new Error(`expected a /builder/{shortId}/ URL, got ${url}`)
+  const match = url.match(/\/characters\/([a-z0-9]+)\/builder\//)
+  if (!match)
+    throw new Error(`expected a /characters/{shortId}/builder/ URL, got ${url}`)
   return match[1]!
 }
 
@@ -142,7 +143,7 @@ test.describe("builder shell", () => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
 
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     // The draft IS an entity row from step one, minted with the component
@@ -164,17 +165,17 @@ test.describe("builder shell", () => {
     await chooseWarriorOrigin(page)
 
     await page.getByRole("button", { name: "Continue to Ortus" }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/ortus`)
+    await expect(page).toHaveURL(`/characters/${shortId}/builder/ortus`)
     await expect(
       page.getByRole("heading", { level: 1, name: "Ortus" })
     ).toBeVisible()
     expect((await readEntityRow(shortId)).builderStep).toBe(1)
 
-    await page.goto(`/builder/${shortId}`)
-    await expect(page).toHaveURL(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder`)
+    await expect(page).toHaveURL(`/characters/${shortId}/builder/ortus`)
 
     await page.getByRole("link", { name: "Movement 1 — Corpus" }).click()
-    await expect(page).toHaveURL(`/builder/${shortId}/corpus`)
+    await expect(page).toHaveURL(`/characters/${shortId}/builder/corpus`)
   })
 
   test("Movement 4 (Persona) has a named back-link and no Continue", async ({
@@ -183,7 +184,7 @@ test.describe("builder shell", () => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
 
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     await chooseWarriorOrigin(page)
@@ -193,7 +194,7 @@ test.describe("builder shell", () => {
     await page.getByRole("button", { name: "Continue to Animus" }).click()
     await page.getByRole("button", { name: "Continue to Persona" }).click()
 
-    await expect(page).toHaveURL(`/builder/${shortId}/persona`)
+    await expect(page).toHaveURL(`/characters/${shortId}/builder/persona`)
     await expect(
       page.getByRole("heading", { level: 1, name: "Persona" })
     ).toBeVisible()
@@ -222,7 +223,7 @@ test.describe("movement 1 — corpus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     const firstCard = page.locator("[data-archetype]").first()
@@ -255,7 +256,7 @@ test.describe("movement 1 — corpus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
 
     await expect(
       page.getByRole("button", { name: "Continue to Ortus" })
@@ -273,7 +274,7 @@ test.describe("movement 1 — corpus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     await chooseWarriorOrigin(page)
@@ -297,7 +298,7 @@ test.describe("movement 1 — corpus", () => {
   test("compact card surfaces every non-neutral affinity", async ({ page }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
 
     // Healer has three: Strike weak, Light resist, Dark weak. Regression
     // guard for the original "pick one Resist + one Weak" bug.
@@ -312,7 +313,7 @@ test.describe("movement 1 — corpus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
 
     const mageCta = page.getByRole("button", { name: "Choose Mage as Origin" })
     const healerCta = page.getByRole("button", {
@@ -350,10 +351,10 @@ test.describe("movement 2 — ortus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    await page.goto(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder/ortus`)
 
     const continueButton = page.getByRole("button", {
       name: "Continue to Animus",
@@ -391,10 +392,10 @@ test.describe("movement 2 — ortus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    await page.goto(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder/ortus`)
 
     // Set Expression to +2 → +2 buttons on every other row should disable.
     await page
@@ -423,10 +424,10 @@ test.describe("movement 2 — ortus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    await page.goto(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder/ortus`)
 
     const ancestry = page.getByLabel("Ancestry")
     const background = page.getByLabel("Background")
@@ -465,10 +466,10 @@ test.describe("movement 3 — animus", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    await page.goto(`/builder/${shortId}/animus`)
+    await page.goto(`/characters/${shortId}/builder/animus`)
 
     await page.getByRole("button", { name: "Add Knife" }).click()
 
@@ -533,10 +534,10 @@ test.describe("movement 4 — persona", () => {
   test("auto-focus lands on the name field on page load", async ({ page }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
-    await page.goto(`/builder/${shortId}/persona`)
+    await page.goto(`/characters/${shortId}/builder/persona`)
 
     const nameInput = page.getByRole("textbox", { name: "Character name" })
     await expect(nameInput).toBeFocused()
@@ -547,11 +548,11 @@ test.describe("movement 4 — persona", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     // Skip Movement 1 to confirm Finalize honors the cross-movement gate.
-    await page.goto(`/builder/${shortId}/persona`)
+    await page.goto(`/characters/${shortId}/builder/persona`)
 
     const finalizeButton = page.getByRole("button", {
       name: "Finalize character",
@@ -571,14 +572,14 @@ test.describe("movement 4 — persona", () => {
     // Backtrack to Corpus + Ortus to satisfy the corpus + ortus gates, then
     // return to Persona — the name persisted server-side, so re-rendering
     // /persona shows it pre-filled and all three gates pass.
-    await page.goto(`/builder/${shortId}/corpus`)
+    await page.goto(`/characters/${shortId}/builder/corpus`)
     await chooseWarriorOrigin(page)
     await expectOriginPersisted(shortId)
 
-    await page.goto(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder/ortus`)
     await setValidVirtueAllocation(page, shortId)
 
-    await page.goto(`/builder/${shortId}/persona`)
+    await page.goto(`/characters/${shortId}/builder/persona`)
     await expect(finalizeButton).toBeEnabled()
   })
 
@@ -587,16 +588,16 @@ test.describe("movement 4 — persona", () => {
   }) => {
     await page.goto("/")
     await page.getByRole("button", { name: "Create new character" }).click()
-    await expect(page).toHaveURL(/\/builder\/[a-z0-9]+\/corpus$/)
+    await expect(page).toHaveURL(/\/characters\/[a-z0-9]+\/builder\/corpus$/)
     const shortId = shortIdFromBuilderUrl(page.url())
 
     await chooseWarriorOrigin(page)
     await expectOriginPersisted(shortId)
 
-    await page.goto(`/builder/${shortId}/ortus`)
+    await page.goto(`/characters/${shortId}/builder/ortus`)
     await setValidVirtueAllocation(page, shortId)
 
-    await page.goto(`/builder/${shortId}/persona`)
+    await page.goto(`/characters/${shortId}/builder/persona`)
 
     const nameInput = page.getByRole("textbox", { name: "Character name" })
     await nameInput.fill("Garron Vey")

@@ -308,3 +308,29 @@ describe("getEncounterSnapshot — envelope + composite version (UNN-530 AC)", (
     )
   })
 })
+
+describe("getEncounterSnapshot — campaign pairing (UNN-608)", () => {
+  it("404s when the watch URL's campaign does not own the encounter", async () => {
+    // The campaign row's shortId is "camp1"; a watch URL naming a different
+    // campaign must not resolve this globally-unique encounter shortId.
+    signedInAs(null)
+
+    expect(await getEncounterSnapshot(SHORT_ID, "wrong-camp")).toEqual(
+      err("encounter-not-found")
+    )
+  })
+
+  it("resolves when the watch URL's campaign matches", async () => {
+    signedInAs(DM_ID)
+
+    const result = await getEncounterSnapshot(SHORT_ID, "camp1")
+    expect(result.ok).toBe(true)
+  })
+
+  it("skips the pairing check for the flat poll API (no campaign passed)", async () => {
+    signedInAs(null)
+
+    const result = await getEncounterSnapshot(SHORT_ID)
+    expect(result.ok).toBe(true)
+  })
+})

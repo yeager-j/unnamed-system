@@ -27,7 +27,7 @@ export interface OwnedSheet {
  * The watch views' own-sheet column shell (UNN-566): each owned character is
  * mounted in **owner mode** under its own {@link EntityWriteProvider}, so the
  * sheet components the column composes write through `useEntityWrite`
- * descriptors exactly as they do on `/c/{shortId}` — no watch-specific write
+ * descriptors exactly as they do on `/characters/{shortId}` — no watch-specific write
  * path exists.
  *
  * A viewer can have more than one character in an encounter or a delve, so the

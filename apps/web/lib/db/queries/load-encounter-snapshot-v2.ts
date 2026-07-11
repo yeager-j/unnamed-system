@@ -73,9 +73,10 @@ type GetEncounterSnapshotError =
  * the projector, which combat moves also write.
  */
 export async function getEncounterSnapshot(
-  shortId: string
+  shortId: string,
+  campaignShortId?: string
 ): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
-  return projectSnapshotCore(shortId, false)
+  return projectSnapshotCore(shortId, false, campaignShortId)
 }
 
 /**
@@ -85,9 +86,10 @@ export async function getEncounterSnapshot(
  * players see the combat battlefield exactly as far as they've explored.
  */
 export async function getDungeonCombatSnapshot(
-  shortId: string
+  shortId: string,
+  campaignShortId?: string
 ): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
-  return projectSnapshotCore(shortId, true)
+  return projectSnapshotCore(shortId, true, campaignShortId)
 }
 
 /**
@@ -119,14 +121,24 @@ interface SnapshotInputs extends LoadedEncounterForSnapshot {
   instance: MapInstanceRow
 }
 
-/** The shared load → derive-viewer → resolve → project → version-fold core, with
- *  the one `fog` clamp decided by each entry point. */
+/** The shared load → pairing-check → derive-viewer → resolve → project →
+ *  version-fold core, with the one `fog` clamp decided by each entry point. The
+ *  encounter's shortId is globally unique, so the optional `campaignShortId`
+ *  pairing check (`campaign.shortId === campaignShortId`) is what stops the watch
+ *  URL of one campaign from resolving another campaign's encounter; a mismatch
+ *  collapses to the `encounter-not-found` 404. Pairing is enforced only when a
+ *  campaign frames the read (the nested watch page passes it); the flat poll API
+ *  (`/api/encounter/[shortId]/…`) is keyed on the unique shortId and omits it. */
 async function projectSnapshotCore(
   shortId: string,
-  fog: boolean
+  fog: boolean,
+  campaignShortId?: string
 ): Promise<Result<EncounterSnapshotResult, GetEncounterSnapshotError>> {
   const inputs = await loadSnapshotInputs(shortId)
   if (!inputs.ok) return inputs
+  if (campaignShortId && inputs.value.campaign.shortId !== campaignShortId) {
+    return err("encounter-not-found")
+  }
   const {
     row,
     loaded: session,

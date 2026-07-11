@@ -22,7 +22,7 @@ import type { LoadedCharacter } from "@/domain/character/load"
  * The column stacks the same cards instead.
  *
  * No encounter means no resolve context: these sheets resolve partyless and
- * zone-blind, exactly as `/c/{shortId}` does. The combat column
+ * zone-blind, exactly as `/characters/{shortId}` does. The combat column
  * ({@link import("@/components/combat/watch/combat-sheet-column").CombatSheetColumn})
  * is the fight-phase peer; the watch page forks between them.
  */

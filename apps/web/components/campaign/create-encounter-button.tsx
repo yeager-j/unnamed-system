@@ -20,15 +20,22 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import { Textarea } from "@workspace/ui/components/textarea"
 
 import { createEncounterAction } from "@/lib/actions/encounter/create"
+import { encounterConsolePath } from "@/lib/paths"
 
 /**
  * "New encounter" CTA on the campaign manage page (UNN-329). Opens a dialog for
  * the encounter name (+ optional notes), creates a `draft` encounter in the
- * campaign, and routes to its setup shell (`/combat/{shortId}`) — the same
+ * campaign, and routes to its console (`/campaigns/{c}/encounter/{e}`) — the same
  * action-then-redirect shape the thin `/campaigns` entry used (UNN-335), now with
  * a name/notes form instead of a hardcoded name.
  */
-export function CreateEncounterButton({ campaignId }: { campaignId: string }) {
+export function CreateEncounterButton({
+  campaignId,
+  campaignShortId,
+}: {
+  campaignId: string
+  campaignShortId: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -50,7 +57,7 @@ export function CreateEncounterButton({ campaignId }: { campaignId: string }) {
         return
       }
       setOpen(false)
-      router.push(`/combat/${result.value.shortId}`)
+      router.push(encounterConsolePath(campaignShortId, result.value.shortId))
     })
   }
 

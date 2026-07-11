@@ -20,7 +20,7 @@ import {
 
 /**
  * Creates a fresh `draft` dungeon inside a campaign and returns its public
- * `shortId` so the client can redirect to the console (`/dungeon/{shortId}`,
+ * `shortId` so the client can redirect to the console (`/campaigns/{c}/dungeon/{d}`,
  * UNN-462) — mirroring how {@link import("../encounter/create").createEncounterAction}
  * hands back a `shortId`.
  *

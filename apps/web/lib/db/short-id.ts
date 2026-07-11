@@ -2,7 +2,7 @@ import { customAlphabet } from "nanoid"
 
 /**
  * URL-safe 8-character `shortId`s for public, shareable routes — the character
- * sheet (`/c/{shortId}`) and the encounter player view. The alphabet drops
+ * sheet (`/characters/{shortId}`) and the encounter player view. The alphabet drops
  * visually ambiguous characters (`0/O`, `1/I/l`) so a player reading the URL
  * out loud doesn't transcribe it wrong, and is restricted to a single case so
  * case-insensitive copy/paste doesn't 404.

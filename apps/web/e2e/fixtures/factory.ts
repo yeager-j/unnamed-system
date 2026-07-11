@@ -30,6 +30,12 @@ import {
 } from "@/lib/db"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertSeedEntity } from "@/lib/db/seed-entity"
+import {
+  characterPath,
+  dungeonConsolePath,
+  dungeonWatchPath,
+  encounterConsolePath,
+} from "@/lib/paths"
 
 /**
  * Ephemeral E2E test-data factory (UNN-343). Write-path specs mint exactly the
@@ -78,7 +84,7 @@ export interface TestCharacter {
   /** Unique-per-run slug — the stable seed for the entity's deterministic id. */
   slug: string
   shortId: string
-  /** `/c/${shortId}` — a `page.goto(...)` target. */
+  /** `/characters/${shortId}` — a `page.goto(...)` target. */
   url: string
   /** Suffixed display name; unique so a "find card by name" on `/` is exact. */
   name: string
@@ -112,7 +118,7 @@ export async function createTestCharacter(
     id,
     slug,
     shortId: character.shortId,
-    url: `/c/${character.shortId}`,
+    url: characterPath(character.shortId),
     name: character.name,
   }
 }
@@ -257,6 +263,8 @@ export async function createLiveEncounter(
   tracker: CleanupTracker,
   opts: {
     campaignId: string
+    /** The campaign's public shortId — the `/campaigns/{c}/…` URL segment. */
+    campaignShortId: string
     combatantCharacterIds?: string[]
     status?: EncounterStatus
     session?: StoredSession
@@ -286,7 +294,12 @@ export async function createLiveEncounter(
     version: 0,
   })
   tracker.encounterIds.push(id)
-  return { id, shortId: id, url: `/combat/${id}`, mapInstanceId }
+  return {
+    id,
+    shortId: id,
+    url: encounterConsolePath(opts.campaignShortId, id),
+    mapInstanceId,
+  }
 }
 
 export interface TestDungeon {
@@ -308,6 +321,8 @@ export async function createActiveDungeon(
   tracker: CleanupTracker,
   opts: {
     campaignId: string
+    /** The campaign's public shortId — the `/campaigns/{c}/…` URL segment. */
+    campaignShortId: string
     mapInstanceState: MapInstanceState
     name?: string
   }
@@ -339,8 +354,8 @@ export async function createActiveDungeon(
   return {
     id,
     shortId: id,
-    url: `/dungeon/${id}`,
-    watchUrl: `/c/dungeon/${id}`,
+    url: dungeonConsolePath(opts.campaignShortId, id),
+    watchUrl: dungeonWatchPath(opts.campaignShortId, id),
     mapInstanceId,
   }
 }

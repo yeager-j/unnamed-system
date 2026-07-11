@@ -7,7 +7,7 @@ import { err } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   useCombatConsole,
   type EndCombatPerformer,
@@ -27,6 +27,7 @@ import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
+import { dungeonWatchPath } from "@/lib/paths"
 import { COMBAT_DRAFT_HEADINGS } from "@/lib/ui/labels"
 
 /**
@@ -163,7 +164,7 @@ export function DungeonCombatBody({
             },
             onSelectCombatant: selectCombatant,
             onCombatEvent: dispatch,
-            playerViewHref: `/c/dungeon/${dungeon.shortId}`,
+            playerViewHref: dungeonWatchPath(campaignShortId, dungeon.shortId),
             onEndEncounter: endEncounter,
             turnCounter: dungeon.state.turnCounter,
             fallenPcNames,

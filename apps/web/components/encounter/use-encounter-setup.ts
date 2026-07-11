@@ -6,7 +6,7 @@ import { toast } from "sonner"
 
 import type { EncounterState } from "@workspace/game-v2/encounter"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,

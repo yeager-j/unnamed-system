@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok } from "@workspace/game-v2/kernel/result"
 
-import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-combatant-write"

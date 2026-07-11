@@ -52,7 +52,7 @@ test("the watch re-phases explore → combat → explore with no reload", async 
   context,
 }) => {
   const watchPage = await context.newPage()
-  await watchPage.goto(`/c/dungeon/${target.dungeon.shortId}`)
+  await watchPage.goto(target.dungeon.watchUrl)
 
   // Exploration baseline: the fog board (a React Flow canvas) shows the
   // revealed Entry zone with the PC's token standing in it.

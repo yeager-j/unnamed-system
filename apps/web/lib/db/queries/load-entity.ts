@@ -22,8 +22,8 @@ export async function loadEntityRowById(
   return row ?? null
 }
 
-/** One entity row by its public `shortId` (the `/builder/{shortId}` and
- *  `/c/{shortId}` route key), or `null` when it doesn't exist. */
+/** One entity row by its public `shortId` (the `/characters/{shortId}/builder` and
+ *  `/characters/{shortId}` route key), or `null` when it doesn't exist. */
 export async function loadEntityRowByShortId(
   shortId: string
 ): Promise<EntityRow | null> {

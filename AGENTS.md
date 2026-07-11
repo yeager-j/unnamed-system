@@ -128,20 +128,20 @@ Inside `apps/web/`:
 
 ```
 apps/web/
-├── app/                       Next routes. app/dungeon/[shortId]/ is the DM dungeon console (UNN-462, M2): a thin status-aware route stub gated by its co-located dungeon-access.ts `getDungeonForDM` loader (DM-only, 404-collapsing ≅ getEncounterForDM); the React Flow run console (turn loop, token placement/movement, reveal) lands in UNN-463/464; its encounter/ sub-route is the pre-combat bestiary staging surface (UNN-541), gated by the same loader
+├── app/                       Next routes, grouped feature-first (UNN-608): characters at app/characters/[shortId]/ (sheet + builder/[step]/ + atlas/), and encounters/dungeons nested under their campaign at app/campaigns/[campaignShortId]/{encounter,dungeon}/[shortId]/. The dungeon DM console (app/campaigns/[campaignShortId]/dungeon/[shortId]/, UNN-462) is a thin status-aware route stub gated by its co-located dungeon-access.ts `getDungeonForDM` loader (DM-only, 404-collapsing + campaign-pairing ≅ getEncounterForDM); its setup/ sub-route is the pre-combat bestiary staging surface (UNN-541), watch/ the signed-out player view. lib/paths.ts is the single source of URL truth (a nested path can't be built without its campaign shortId); old /c, /combat, /dungeon, /builder addresses were retired (no redirect stubs)
 ├── components/
 │   ├── builder/               Character builder chrome + per-movement bodies under movements/{corpus,ortus,animus,persona}/
 │   ├── shell/                 App chrome (site header, auth, theme)
 │   ├── character-sheet/       The v2 entity sheet (S2a — UNN-557, Showtime! redesign): sheet.tsx mounts EntityWriteProvider over the loaded triple; rail/ (identity + lineage-grouped archetype switcher, vitals, victories, controls incl. rest-dialog, prisma, exhaustion), combat/ (the Combat tab), archetypes/ (S2d — UNN-560: active-Archetype detail + inheritance-slot editor over the archetypes/display family; the switcher stays on the rail), tab-dock + the ⌘K command-palette. The widgets both the sheet and the combat watch render — the per-mechanic widgets (mechanics/), affinity strip, skill-cast section, vitals + adjust-pool controls, section-label, ResolvedSkill banner card, element-tokens — are shared primitives (components/shared/; the sheet-widget set was promoted out of character-sheet/ in UNN-609 so the combat kit no longer imports feature internals).
-│   ├── atlas/                 Lineage Atlas growth surface (UNN-239; route app/c/[shortId]/archetypes/atlas/) — still v1-backed (useCharacter + archetype-ranks) until S3 re-points it; renders only for dual-minted seed rows meanwhile
+│   ├── atlas/                 Lineage Atlas growth surface (UNN-239; route app/characters/[shortId]/atlas/) — still v1-backed (useCharacter + archetype-ranks) until S3 re-points it; renders only for dual-minted seed rows meanwhile
 │   ├── archetype/             Archetype rendering kit shared by sheet + builder (does not reach into either)
 │   ├── shared/                Cross-feature primitives: DetailSection, ResolvedSkillRow + its popover subsystem (skill-banner-card), Prose, plus the shared sheet-widget set the sheet + combat watch both render (SectionLabel, VitalsBlock, AdjustPoolControl, AffinityStrip, SkillCastSection, and mechanics/ — promoted from character-sheet/ in UNN-609). shared/canvas/ holds the route-agnostic React Flow primitives the Map editor + dungeon run console share (UNN-464): floating-edge.ts (pure border-intersection geometry) + use-floating-edge-path.ts (the bezier-path hook). Note: floating edges still require the custom node to render at least one source + one target Handle — React Flow won't create an edge for a handle-less node; the floating math only overrides where it attaches.
 │   ├── editor/                Markdown editor primitives shared by sheet + builder
 │   ├── combat/                **Shared combat UI kit** (UNN-492): route-agnostic combat components rendered by both the mapless encounter and the dungeon combat canvas. See combat/CLAUDE.md.
-│   ├── encounter/             **Mapless-encounter feature** (UNN-492): DM console (app/combat/[shortId]/) + player watch (app/c/encounter/[shortId]/). See encounter/CLAUDE.md.
+│   ├── encounter/             **Mapless-encounter feature** (UNN-492): DM console (app/campaigns/[campaignShortId]/encounter/[shortId]/) + player watch (its watch/ sub-route). See encounter/CLAUDE.md.
 │   ├── campaign/              Campaign surfaces (UNN-329): My Campaigns + manage page (invite link, roster, encounters, live banner), character placement (UNN-328), lifecycle controls (UNN-330). Rendered by app/campaigns/. See campaign/CLAUDE.md.
 │   ├── maps/                  My Maps surfaces (UNN-460): the My Maps list cards + create dialog, the delete-map confirm, and the Map editor shell (map-editor.tsx — an autosaving name field via hooks/use-map-name-autosave.ts over a placeholder canvas region). The React Flow node-graph canvas drops into that placeholder in UNN-461. Rendered by app/maps/ + app/maps/[shortId]/
-│   ├── dungeon/               **Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration). DM console at app/dungeon/[shortId]/, watch at app/c/dungeon/[shortId]/. See dungeon/CLAUDE.md.
+│   ├── dungeon/               **Dungeon run console + player watch** (UNN-463/464/467; spatial M2 exploration). DM console at app/campaigns/[campaignShortId]/dungeon/[shortId]/, watch at its watch/ sub-route. See dungeon/CLAUDE.md.
 │   └── my-characters/
 ├── hooks/                     Providers + non-UI hooks (useCharacter, etc.)
 ├── e2e/                       Playwright specs
@@ -204,7 +204,7 @@ Run app-specific commands from the package directory (e.g., `cd apps/web && npm 
 - **Database**: Neon Postgres via Drizzle ORM; migrations via `drizzle-kit`
 - **Storage**: Vercel Blob for portrait uploads
 - **Validation**: Zod + react-hook-form; same Zod schemas validate Server Action inputs
-- **Short IDs**: nanoid (8-char URL-safe) for public character URLs `/c/{shortId}`
+- **Short IDs**: nanoid (8-char URL-safe) for public character URLs `/characters/{shortId}`
 - **Hosting**: Vercel + Neon + Vercel Blob
 - **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
 

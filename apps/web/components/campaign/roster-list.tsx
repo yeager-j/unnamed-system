@@ -7,6 +7,7 @@ import {
 } from "@workspace/ui/components/avatar"
 
 import type { RosterMember } from "@/lib/db/queries/load-campaign"
+import { characterPath } from "@/lib/paths"
 import { initials } from "@/lib/ui/initials"
 
 import { RemovePlayerButton } from "./remove-player-button"
@@ -59,7 +60,7 @@ export function RosterList({
                     {characters.map((character) => (
                       <Link
                         key={character.id}
-                        href={`/c/${character.shortId}`}
+                        href={characterPath(character.shortId)}
                         className="border px-2 py-0.5 text-sm transition-colors hover:bg-muted"
                       >
                         {character.name}{" "}

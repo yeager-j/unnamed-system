@@ -31,6 +31,7 @@ import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import { useDungeonEnemyQueue } from "@/hooks/use-dungeon-enemy-queue"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
+import { dungeonConsolePath } from "@/lib/paths"
 import {
   COMBAT_ADVANTAGE_COMPACT_LABELS,
   COMBAT_ADVANTAGE_SETUP_HINTS,
@@ -67,6 +68,7 @@ function enemyName(enemyKey: string): string {
 export function DungeonEncounterStaging({
   dungeonId,
   shortId,
+  campaignShortId,
   dungeonName,
   expectedInstanceVersion,
   partyCharacterIds,
@@ -74,6 +76,7 @@ export function DungeonEncounterStaging({
 }: {
   dungeonId: string
   shortId: string
+  campaignShortId: string
   dungeonName: string
   expectedInstanceVersion: number
   partyCharacterIds: string[]
@@ -93,7 +96,7 @@ export function DungeonEncounterStaging({
   const staged = queue.queue.filter((entry) => zoneNameById.has(entry.zoneId))
   const stagedCount = staged.reduce((sum, entry) => sum + entry.count, 0)
 
-  const backHref = `/dungeon/${shortId}`
+  const backHref = dungeonConsolePath(campaignShortId, shortId)
 
   /** The list's `+` can't disable itself — the panel is queue-blind by design — so
    *  an add onto a full group says why it did nothing rather than no-opping. */

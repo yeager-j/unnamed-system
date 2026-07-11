@@ -93,6 +93,7 @@ test("leaving is blocked while a character is a live combatant", async ({
   await placeCharacter(char.id, campaign.id)
   await createLiveEncounter(tracker, {
     campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
     combatantCharacterIds: [char.id],
   })
 
@@ -135,7 +136,10 @@ test("campaign deletion is blocked while a live encounter exists", async ({
   page,
 }) => {
   const campaign = await createTestCampaign(tracker, { dmUserId: DEV_ID })
-  await createLiveEncounter(tracker, { campaignId: campaign.id })
+  await createLiveEncounter(tracker, {
+    campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
+  })
 
   await page.goto(`/campaigns/${campaign.shortId}`)
   await page.getByRole("button", { name: "Delete campaign" }).click()
@@ -158,6 +162,7 @@ test("a live-combatant character cannot be deleted", async ({ page }) => {
   await placeCharacter(char.id, campaign.id)
   await createLiveEncounter(tracker, {
     campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
     combatantCharacterIds: [char.id],
   })
 

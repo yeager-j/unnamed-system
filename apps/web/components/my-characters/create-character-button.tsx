@@ -10,6 +10,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { FIRST_STEP_SLUG } from "@/components/builder/builder-steps"
 import { startEntityDraftAction } from "@/lib/actions/entity/start-draft"
+import { characterBuilderPath } from "@/lib/paths"
 
 /**
  * The "Create new character" CTA. Each click spins up a brand-new draft
@@ -30,7 +31,7 @@ export function CreateCharacterButton({ className }: { className?: string }) {
         toast.error("Couldn't start a new character. Try again.")
         return
       }
-      router.push(`/builder/${result.value.shortId}/${FIRST_STEP_SLUG}`)
+      router.push(characterBuilderPath(result.value.shortId, FIRST_STEP_SLUG))
     })
   }
 

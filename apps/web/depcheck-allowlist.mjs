@@ -6,7 +6,7 @@
  * shrink unless a new violation is introduced (which the check also rejects).
  */
 export const ENGINE_IMPORT_ALLOWLIST = [
-  "app/c/dungeon/[shortId]/page.tsx",
+  "app/campaigns/[campaignShortId]/dungeon/[shortId]/watch/page.tsx",
   "components/archetype/archetype-affinities-chart.tsx",
   "components/archetype/archetype-affinity-chips.tsx",
   "components/archetype/archetype-attributes-grid.tsx",

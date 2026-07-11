@@ -19,7 +19,7 @@ import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import { StartCombatDialog } from "@/components/combat/dialogs/start-combat"
 import { ImportPcsPanel } from "@/components/combat/setup/import-pcs-panel"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
@@ -27,6 +27,7 @@ import { buildSetupRows } from "@/domain/combat/view/setup-view"
 import { adjacencyMap } from "@/domain/combat/view/zone-graph"
 import { resolveSession } from "@/domain/game-engine-v2"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
+import { encounterSetupPath } from "@/lib/paths"
 
 import { CombatantSetupRow } from "./combatant-setup-row"
 import { useEncounterSetup } from "./use-encounter-setup"
@@ -129,7 +130,7 @@ export function EncounterSetup({
   }
 
   function browseCatalog() {
-    router.push(`/combat/${data.encounter.shortId}/enemies`)
+    router.push(encounterSetupPath(campaignShortId, data.encounter.shortId))
   }
 
   function start(advantage: CombatAdvantage, firstSide: CombatSide) {

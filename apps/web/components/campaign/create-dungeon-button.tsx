@@ -27,14 +27,15 @@ import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
 import { createDungeonAction } from "@/lib/actions/dungeon/create"
+import { dungeonConsolePath } from "@/lib/paths"
 
 type PickableMap = { shortId: string; name: string }
 
 /**
  * "New dungeon" CTA on the campaign manage page (UNN-465). Opens a dialog for the
  * delve name + a **Map picker** over the DM's own Maps, creates a `draft` dungeon
- * (minting its Map Instance), and routes to the console (`/dungeon/{shortId}`) —
- * the action-then-redirect shape {@link import("./create-encounter-button").CreateEncounterButton}
+ * (minting its Map Instance), and routes to the console (`/campaigns/{c}/dungeon/{d}`)
+ * — the action-then-redirect shape {@link import("./create-encounter-button").CreateEncounterButton}
  * uses.
  *
  * The Map picker doubles as inline authoring: **New map** creates an empty Map
@@ -45,9 +46,11 @@ type PickableMap = { shortId: string; name: string }
  */
 export function CreateDungeonButton({
   campaignId,
+  campaignShortId,
   maps,
 }: {
   campaignId: string
+  campaignShortId: string
   maps: PickableMap[]
 }) {
   const router = useRouter()
@@ -96,7 +99,7 @@ export function CreateDungeonButton({
         return
       }
       setOpen(false)
-      router.push(`/dungeon/${result.value.shortId}`)
+      router.push(dungeonConsolePath(campaignShortId, result.value.shortId))
     })
   }
 

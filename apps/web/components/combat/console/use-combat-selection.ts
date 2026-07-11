@@ -6,7 +6,7 @@ import type { ResolvedSession, Session } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import type { ConsoleDispatchEvent } from "@/components/combat/console/dispatch-event"
 import { type ConsolePhase } from "@/components/combat/turn-order-strip"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"

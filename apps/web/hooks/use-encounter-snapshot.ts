@@ -38,7 +38,7 @@ async function fetchSnapshot(
 export type EncounterSnapshotState = SnapshotSubscriptionState<WatchSnapshot>
 
 /**
- * Subscribes the **player watch view** (`/c/encounter/{shortId}`) to the DM's
+ * Subscribes the **player watch view** (`/campaigns/{c}/encounter/{e}/watch`) to the DM's
  * live changes — realtime first, ~1.5s polling as the degraded fallback. A thin
  * binding of the shared {@link useSnapshotSubscription} to the `encounter`
  * channel: it carries the composite (encounter + Instance + durable vitals)

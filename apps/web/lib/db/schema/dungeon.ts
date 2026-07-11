@@ -13,8 +13,8 @@ import { mapInstances } from "./map-instance"
  * (turn counter, `actedCharacterIds`, DM-only reminder settings), mirroring how an
  * encounter stores its `session`. A single `version` token guards every write.
  *
- * `shortId` backs the DM console (`/dungeon/{shortId}`) and the player fog view
- * (`/c/dungeon/{shortId}`). {@link DungeonStatus} (`draft`/`active`/`done`) is
+ * `shortId` backs the DM console (`/campaigns/{c}/dungeon/{d}`) and the player fog view
+ * (`/campaigns/{c}/dungeon/{d}/watch`). {@link DungeonStatus} (`draft`/`active`/`done`) is
  * owned by the game domain (`@workspace/game-v2/spatial`).
  *
  * FK lifecycle (ADR, *FK lifecycle*):

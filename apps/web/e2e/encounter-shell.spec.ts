@@ -21,7 +21,7 @@ import {
 /**
  * E2E for the encounter setup shell + live console, on engine v2 (UNN-535 hard
  * cutover; originally UNN-335/298/300/302/344): the create action, the
- * `/combat/{shortId}` status fork, importing placed PCs, per-combatant side
+ * `/campaigns/{c}/encounter/{e}` status fork, importing placed PCs, per-combatant side
  * assignment, the single-live-encounter guard, the live console's turn-flow
  * spine, **and the UNN-535 ACs** — the full setup→catalog→combat loop with the
  * CD19 write-router (back-to-back inline damage sums, the UNN-226 regression;
@@ -65,7 +65,7 @@ test("create → import a placed PC → Start → live console", async ({ page }
   await page.getByLabel("Name").fill("Bridge ambush")
   await page.getByRole("button", { name: "Create encounter" }).click()
 
-  await expect(page).toHaveURL(/\/combat\/[^/]+$/)
+  await expect(page).toHaveURL(/\/encounter\/[^/]+$/)
   const start = page.getByRole("button", { name: "Start combat" })
   await expect(start).toBeDisabled()
 
@@ -115,7 +115,9 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
   // setup shell hydrates and be silently lost, so retry click → navigated.
   await expect(async () => {
     await page.getByRole("button", { name: "Browse catalog" }).click()
-    await expect(page).toHaveURL(/\/combat\/[^/]+\/enemies$/, { timeout: 2000 })
+    await expect(page).toHaveURL(/\/encounter\/[^/]+\/setup$/, {
+      timeout: 2000,
+    })
   }).toPass()
   await page
     .getByRole("textbox", { name: "Search the bestiary" })
@@ -128,7 +130,7 @@ test("full loop: catalog add → start → drafting → damage → end (UNN-535)
 
   // Back on setup the roster shows both combatants (the commit is a server
   // action + a route push — same extended window as the other transitions).
-  await expect(page).toHaveURL(new RegExp(`/combat/${draft.shortId}$`), {
+  await expect(page).toHaveURL(new RegExp(`/encounter/${draft.shortId}$`), {
     timeout: 15_000,
   })
   await expect(
@@ -518,7 +520,9 @@ test("ended encounter renders the read-only ended stub", async ({ page }) => {
 })
 
 test("404s for an unknown encounter", async ({ page }) => {
-  const response = await page.goto("/combat/does-not-exist")
+  const response = await page.goto(
+    `/campaigns/${encounterTarget.campaignA.shortId}/encounter/does-not-exist`
+  )
   expect(response?.status()).toBe(404)
 })
 
@@ -531,8 +535,8 @@ test("404s for an encounter in another DM's campaign", async ({ page }) => {
  * The watch's own-sheet column (UNN-566): the dev user owns Roan Vale, who
  * stands in Campaign B's live encounter, so the watch mounts their sheet in
  * owner mode. The write goes through the entity door — the same descriptor the
- * `/c/{shortId}` rail dispatches — so the assertion is the durable row, not
- * just the bar.
+ * `/characters/{shortId}` rail dispatches — so the assertion is the durable row,
+ * not just the bar.
  */
 test("the watch's own-sheet column adjusts the owner's HP durably (UNN-566)", async ({
   page,
@@ -540,7 +544,7 @@ test("the watch's own-sheet column adjusts the owner's HP durably (UNN-566)", as
   const pcId = encounterTarget.liveCombatPc.characterId
   const hpBefore = await getCharacterCurrentHP(pcId)
 
-  await page.goto(`/c/encounter/${encounterTarget.live.shortId}`)
+  await page.goto(`${encounterTarget.live.url}/watch`)
   const column = page.getByRole("complementary", { name: "Your characters" })
   await expect(
     column.getByRole("heading", { name: LIVE_COMBAT_PC_NAME })
@@ -564,7 +568,7 @@ test.describe("signed out", () => {
   // public, and the spectator relationship is the strictest redaction tier.
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  const WATCH_URL = `/c/encounter/${encounterTarget.live.shortId}`
+  const WATCH_URL = `${encounterTarget.live.url}/watch`
 
   test("the watch renders the live battlefield to a spectator (UNN-535)", async ({
     page,

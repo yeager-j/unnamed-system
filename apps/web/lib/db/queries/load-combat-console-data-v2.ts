@@ -10,7 +10,7 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
 import { db } from "@/lib/db/client"

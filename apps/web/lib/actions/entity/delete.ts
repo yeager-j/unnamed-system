@@ -9,6 +9,7 @@ import { requireEntityOwner } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
 import { isCharacterLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { entity } from "@/lib/db/schema/entity"
+import { characterPath } from "@/lib/paths"
 
 import {
   DeleteEntitySchema,
@@ -55,7 +56,7 @@ export async function deleteEntityAction(
   if (deleted.length === 0) return err("entity-not-found")
 
   revalidatePath("/")
-  revalidatePath(`/c/${row.shortId}`)
+  revalidatePath(characterPath(row.shortId))
 
   return ok(undefined)
 }

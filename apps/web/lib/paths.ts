@@ -1,0 +1,61 @@
+/**
+ * The app's URL vocabulary — the single source of truth for every internal
+ * address (UNN-608). Routes group by feature and ownership: characters are
+ * top-level (their `campaignId` is nullable), while encounters and dungeons
+ * nest under their campaign (both `campaignId`s are `NOT NULL` cascade FKs).
+ *
+ * The builders make the nesting structural: a nested path *cannot* be built
+ * without its campaign shortId, so a call site that lacks one is a type error,
+ * not a wrong URL discovered at runtime. Pure strings — importable from the app,
+ * components, Server Actions, and the e2e suite alike, so URLs are single-sourced
+ * across product and tests.
+ */
+
+export const characterPath = (shortId: string) => `/characters/${shortId}`
+
+export const characterBuilderPath = (shortId: string, step: string) =>
+  `/characters/${shortId}/builder/${step}`
+
+export const characterAtlasPath = (shortId: string) =>
+  `/characters/${shortId}/atlas`
+
+export const campaignPath = (shortId: string) => `/campaigns/${shortId}`
+
+export const encounterConsolePath = (
+  campaignShortId: string,
+  encounterShortId: string
+) => `/campaigns/${campaignShortId}/encounter/${encounterShortId}`
+
+export const encounterSetupPath = (
+  campaignShortId: string,
+  encounterShortId: string
+) => `${encounterConsolePath(campaignShortId, encounterShortId)}/setup`
+
+export const encounterWatchPath = (
+  campaignShortId: string,
+  encounterShortId: string
+) => `${encounterConsolePath(campaignShortId, encounterShortId)}/watch`
+
+export const dungeonConsolePath = (
+  campaignShortId: string,
+  dungeonShortId: string
+) => `/campaigns/${campaignShortId}/dungeon/${dungeonShortId}`
+
+export const dungeonSetupPath = (
+  campaignShortId: string,
+  dungeonShortId: string
+) => `${dungeonConsolePath(campaignShortId, dungeonShortId)}/setup`
+
+export const dungeonWatchPath = (
+  campaignShortId: string,
+  dungeonShortId: string
+) => `${dungeonConsolePath(campaignShortId, dungeonShortId)}/watch`
+
+/**
+ * Dynamic-route patterns for template-form `revalidatePath(pattern, "page")` —
+ * the encounter/dungeon write paths don't cheaply hold the campaign shortId, so
+ * they invalidate by route template rather than by concrete address.
+ */
+export const ENCOUNTER_ROUTE =
+  "/campaigns/[campaignShortId]/encounter/[shortId]"
+export const DUNGEON_ROUTE = "/campaigns/[campaignShortId]/dungeon/[shortId]"
