@@ -1,9 +1,9 @@
 import type { Metadata } from "next"
 
-import { CharacterCard } from "@/components/my-characters/character-card"
-import { CreateCharacterButton } from "@/components/my-characters/create-character-button"
-import { EmptyCharacters } from "@/components/my-characters/empty-state"
-import { SignedOutLanding } from "@/components/my-characters/signed-out-landing"
+import { CharacterCard } from "@/app/_components/character-card"
+import { CreateCharacterButton } from "@/app/_components/create-character-button"
+import { EmptyCharacters } from "@/app/_components/empty-state"
+import { SignedOutLanding } from "@/app/_components/signed-out-landing"
 import { auth } from "@/lib/auth"
 import { loadOwnedCharacterSummaries } from "@/lib/db/queries/character-list"
 

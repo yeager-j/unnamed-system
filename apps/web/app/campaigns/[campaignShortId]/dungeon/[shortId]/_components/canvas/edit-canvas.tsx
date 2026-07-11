@@ -24,7 +24,7 @@ import {
 // client-only — lazy-loaded the same way the play/combat DungeonCanvas is.
 const MapCanvas = dynamic(
   () =>
-    import("@/components/maps/canvas/map-canvas").then(
+    import("@/app/maps/_components/canvas/map-canvas").then(
       (module) => module.MapCanvas
     ),
   {

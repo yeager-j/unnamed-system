@@ -13,7 +13,7 @@ import type { DungeonConsoleMode } from "@/app/campaigns/[campaignShortId]/dunge
  * {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas").DungeonCanvas} — a context rather than props so
  * neither the turn loop nor the zone dispatchers thread through `DungeonCanvas` and
  * React Flow's render path to reach the nodes/panels (matching the editor's
- * {@link import("@/components/maps/canvas/map-canvas-context").MapCanvasProvider}).
+ * {@link import("@/app/maps/_components/canvas/map-canvas-context").MapCanvasProvider}).
  */
 export interface DungeonCanvasContextValue {
   /** Reveals a Zone to players. */

@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { MapEditor } from "@/components/maps/map-editor"
+import { MapEditor } from "@/app/maps/_components/map-editor"
 import { auth } from "@/lib/auth"
 import { loadMapByShortId } from "@/lib/db/queries/load-map"
 import type { MapRow } from "@/lib/db/schema/map"

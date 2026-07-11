@@ -1,6 +1,6 @@
 import { ItemGroup } from "@workspace/ui/components/item"
 
-import { CreateCharacterButton } from "@/components/my-characters/create-character-button"
+import { CreateCharacterButton } from "@/app/_components/create-character-button"
 import { loadOwnedFinalizedCharactersWithPlacement } from "@/lib/db/queries/character-list"
 
 import { AddCharacterDialog } from "./add-character-dialog"

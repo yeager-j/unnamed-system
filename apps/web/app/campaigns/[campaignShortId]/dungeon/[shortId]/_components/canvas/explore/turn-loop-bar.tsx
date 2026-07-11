@@ -35,7 +35,7 @@ import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluste
  * counter + Advance, Finish delve, and the canvas zoom cluster (zoom-out, a live
  * zoom-percentage readout that fits the view on click, zoom-in). It lives **inside**
  * React Flow so it can drive the viewport (matching the editor's
- * {@link import("@/components/maps/canvas/canvas-toolbar").CanvasToolbar}); its
+ * {@link import("@/app/maps/_components/canvas/canvas-toolbar").CanvasToolbar}); its
  * turn-loop state + dispatchers come from {@link useDungeonCanvas} (the run console
  * provides them), so nothing threads through `DungeonCanvas`.
  *
