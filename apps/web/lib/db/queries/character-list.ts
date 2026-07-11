@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import { campaigns } from "@/lib/db/schema/campaign"
@@ -50,7 +50,7 @@ export async function loadOwnedCharacterSummaries(
   return db
     .select(characterSummaryProjection)
     .from(entity)
-    .where(eq(entity.ownerId, ownerId))
+    .where(and(eq(entity.ownerId, ownerId), isNull(entity.deletedAt)))
     .orderBy(asc(entity.name))
 }
 
@@ -68,7 +68,11 @@ export async function loadPlacedCharactersForCampaign(
     .select(characterSummaryProjection)
     .from(entity)
     .where(
-      and(eq(entity.campaignId, campaignId), eq(entity.status, "finalized"))
+      and(
+        eq(entity.campaignId, campaignId),
+        eq(entity.status, "finalized"),
+        isNull(entity.deletedAt)
+      )
     )
     .orderBy(asc(entity.name))
 }
@@ -102,6 +106,12 @@ export async function loadOwnedFinalizedCharactersWithPlacement(
     })
     .from(entity)
     .leftJoin(campaigns, eq(entity.campaignId, campaigns.id))
-    .where(and(eq(entity.ownerId, ownerId), eq(entity.status, "finalized")))
+    .where(
+      and(
+        eq(entity.ownerId, ownerId),
+        eq(entity.status, "finalized"),
+        isNull(entity.deletedAt)
+      )
+    )
     .orderBy(asc(entity.name))
 }

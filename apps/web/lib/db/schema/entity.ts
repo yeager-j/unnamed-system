@@ -59,6 +59,20 @@ export const entity = pgTable("entity", {
   // App-owned content columns that are NOT rulebook constructs.
   pronouns: text("pronouns"),
   notes: text("notes"),
+  /**
+   * Soft-delete tombstone (R1 — UNN-571). `NULL ⇔ live`; a non-null timestamp
+   * means the delete flow retired the row. **Discovery/identity reads**
+   * (character list, campaign roster, by-`shortId` load) add a `deletedAt IS
+   * NULL` conjunct so a tombstoned entity vanishes from every surface and its
+   * public URL 404s. **Pinned-reference reads** (by entity id from a stored
+   * encounter session/locator, the live-encounter lock, the auth gates) stay
+   * `deletedAt`-blind: the live-encounter lock already blocks deleting a durable
+   * combatant, so a live encounter never references a tombstone, and resolving a
+   * pinned id against the persisted row — rather than dropping it to a
+   * `missing-durable` dangling reference — is what lets history survive its
+   * subjects (D4). See `lib/actions/entity/delete.ts` for the flip.
+   */
+  deletedAt: timestamp("deletedAt", { mode: "date" }),
 
   // ── One jsonb column per durable component (NULL ⇔ absent) ─────────────────
   // Typed off `ComponentRegistry` so a column's payload can't drift from the

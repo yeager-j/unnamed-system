@@ -16,6 +16,14 @@ import { entity } from "@/lib/db/schema/entity"
  * character in the live session" logic lives in one place. On v2 (UNN-535) the
  * v1 "PC combatant" is the **durable-locator participant** — the storage
  * lifecycle axis, not a kind tag.
+ *
+ * **Soft-delete (R1 — UNN-571): this lock stays `deletedAt`-blind and is itself
+ * the guard.** It runs *before* the delete flow tombstones the row, so the
+ * subject's `deletedAt` is null by construction; more to the point, this lock is
+ * what keeps a live encounter free of tombstones, which is why the combat-adjacent
+ * by-id hydration reads (`load-combat-console-data-v2`, the snapshot fold) can
+ * resolve pinned ids without a `deletedAt` filter. Filtering here would only
+ * weaken that guarantee.
  */
 
 /**

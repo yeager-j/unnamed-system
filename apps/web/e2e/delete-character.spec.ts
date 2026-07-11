@@ -10,8 +10,9 @@ import { cleanup, createTracker } from "./fixtures/factory"
 /**
  * UNN-181 — type-to-confirm deletion. Target is an ephemeral, factory-minted
  * character (`Wren Halloway`, owned by the dev user) that exists only for this
- * spec, so the happy-path test can hard-delete the row without flaking the
- * read-only specs.
+ * spec, so the happy-path test can retire the row without flaking the read-only
+ * specs. Since UNN-571/R1 "delete" is a soft-delete (`deletedAt` tombstone): the
+ * row persists but vanishes from every discovery surface and its URL 404s.
  *
  * Tests run in serial mode and depend on each other in a deliberate order: the
  * cancel and disabled-button tests run first while the row still exists; the
@@ -88,7 +89,7 @@ test.describe("delete character — guarded cases", () => {
 })
 
 test.describe("delete character — happy path", () => {
-  test("confirming removes the row, the roster card, and 404s the public URL", async ({
+  test("confirming tombstones the row, drops the roster card, and 404s the public URL", async ({
     page,
   }) => {
     await openDeleteDialog(page)
@@ -103,12 +104,14 @@ test.describe("delete character — happy path", () => {
     ).toHaveCount(0)
     await expect(page.getByRole("alertdialog")).toHaveCount(0)
 
-    // Persistence: row and dependent rows are gone (cascade).
-    const surviving = await getDb()
-      .select({ id: entity.id })
+    // Persistence (R1): the row survives as a tombstone — `deletedAt` set, no
+    // hard delete. Discovery reads filter it out; the row is still there.
+    const [row] = await getDb()
+      .select({ id: entity.id, deletedAt: entity.deletedAt })
       .from(entity)
       .where(eq(entity.id, target.id))
-    expect(surviving).toHaveLength(0)
+    expect(row?.id).toBe(target.id)
+    expect(row?.deletedAt).toBeInstanceOf(Date)
 
     // Public URL is 404 immediately.
     const response = await page.goto(target.url)
