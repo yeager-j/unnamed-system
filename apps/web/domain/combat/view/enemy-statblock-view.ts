@@ -9,7 +9,7 @@ import type {
   AttributeScores,
 } from "@workspace/game-v2/kernel/vocab"
 
-import { talentLabel } from "@/lib/ui/labels"
+import { talentLabel } from "@/domain/labels"
 
 import { buildSkillCardView, type SkillCardView } from "./skill-card-view"
 

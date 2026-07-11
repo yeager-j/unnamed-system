@@ -18,14 +18,14 @@ import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
-import { encounterWatchPath } from "@/lib/paths"
-import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
   COMBAT_DRAFT_SUBTITLE,
   COMBAT_TURN_SUBTITLES,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
+import { encounterWatchPath } from "@/lib/paths"
+import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 
 import { ZoneLayout } from "./zone-layout"
 

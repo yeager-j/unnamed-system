@@ -36,7 +36,7 @@ import {
   type InventoryRow,
 } from "@/domain/character/view/inventory-table"
 import { useEntityWrite } from "@/domain/entity/use-entity-write"
-import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/lib/ui/labels"
+import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/domain/labels"
 
 /**
  * The inventory Data Table (UNN-163 folded into S2c): TanStack table over the

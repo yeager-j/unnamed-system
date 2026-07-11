@@ -1,14 +1,14 @@
 import { type AtlasRecommendation } from "@workspace/game-v2/archetypes/atlas"
 import { type PathChoice } from "@workspace/game-v2/kernel/vocab"
 
+import { LINEAGE_ICONS } from "@/components/shared/lineage-icons"
+import { RECOMMENDATION_REASON_ICONS } from "@/components/shared/recommendation-reason-icons"
 import {
   LINEAGE_DISPLAY,
   PATH_CHOICE_LABELS,
   RECOMMENDATION_REASON_DISPLAY,
   TIER_LABELS,
-} from "@/lib/ui/labels"
-import { LINEAGE_ICONS } from "@/lib/ui/lineage-icons"
-import { RECOMMENDATION_REASON_ICONS } from "@/lib/ui/recommendation-reason-icons"
+} from "@/domain/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"
 

@@ -27,7 +27,7 @@ import { Label } from "@workspace/ui/components/label"
 
 import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { allItems } from "@/domain/game-engine-v2"
-import { ITEM_GROUP_LABELS } from "@/lib/ui/labels"
+import { ITEM_GROUP_LABELS } from "@/domain/labels"
 
 /**
  * The owner's Add item dialog (S2c — UNN-559): the whole catalog grouped by

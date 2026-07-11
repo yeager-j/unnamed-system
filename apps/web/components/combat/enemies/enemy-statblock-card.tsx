@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { EnemyStatblock } from "@/components/combat/enemies/enemy-statblock"
 import { DetailSection } from "@/components/shared/detail-section"
 import { type EnemyStatblockView } from "@/domain/combat/view/enemy-statblock-view"
-import { ENEMY_FAMILY_LABELS } from "@/lib/ui/labels"
+import { ENEMY_FAMILY_LABELS } from "@/domain/labels"
 
 /**
  * Standalone statblock for a catalog enemy in the browse surface (UNN-346): the

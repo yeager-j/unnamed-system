@@ -16,7 +16,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import { Toggle } from "@workspace/ui/components/toggle"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import { ACTION_ECONOMY_LABELS } from "@/lib/ui/labels"
+import { ACTION_ECONOMY_LABELS } from "@/domain/labels"
 
 /**
  * The drawer's **ACTIONS THIS TURN** section (UNN-310, on v2's consumption

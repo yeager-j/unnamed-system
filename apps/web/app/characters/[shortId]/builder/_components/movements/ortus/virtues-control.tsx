@@ -18,7 +18,7 @@ import {
   useEntityWrite,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/lib/ui/labels"
+import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/domain/labels"
 
 const RANKS = [0, 1, 2] as const
 

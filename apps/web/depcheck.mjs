@@ -217,9 +217,8 @@ export function scanTierViolations(relPath, source) {
  * The domain-purity seam — functional core / imperative shell (UNN-610). A
  * `domain/` file that is NOT a marked-impure `use-*` (client hook) or `load-*`
  * (server loader) is the pure model/view core: it may import `@workspace/game*`
- * and other domain, but must not RUNTIME-import the impure `lib` plumbing tier —
- * with one carve-out, `lib/ui` (pure display data; dissolving in UNN-612, after
- * which this exception goes away). The invariant this encodes: domain only READS
+ * and other domain, but must not RUNTIME-import the impure `lib` plumbing tier.
+ * The invariant this encodes: domain only READS
  * (`load-`) and REACTS (`use-`); it never WRITES persistence — mutations live in
  * `lib/actions`. When a new domain file needs `lib` at runtime the gate forces
  * the choice: mark it `use-`/`load-`, or move the impurity out.
@@ -294,13 +293,13 @@ export function scanDomainPurity(relPath, source) {
    */
   const flag = (specifier, index) => {
     const target = resolveSpecifier(relPath, specifier)
-    if (target && classifyTier(target) === "lib" && !target.startsWith("lib/ui/")) {
+    if (target && classifyTier(target) === "lib") {
       violations.push({
         file: relPath,
         line: lineAt(scanned, index),
         specifier,
         kind: "purity",
-        rule: "domain purity — a non-use-/load- domain file may not runtime-import lib (except lib/ui); use `import type`, or mark the file use-*/load-*",
+        rule: "domain purity — a non-use-/load- domain file may not runtime-import lib; use `import type`, or mark the file use-*/load-*",
       })
     }
   }

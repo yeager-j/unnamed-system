@@ -2,9 +2,9 @@ import Link from "next/link"
 
 import { Badge } from "@workspace/ui/components/badge"
 
+import { ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { EncounterSummary } from "@/lib/db/queries/load-encounter"
 import { encounterConsolePath } from "@/lib/paths"
-import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 /** Status → badge styling. `live` stands out; `draft`/`ended` are muted. */
 const STATUS_VARIANT = {

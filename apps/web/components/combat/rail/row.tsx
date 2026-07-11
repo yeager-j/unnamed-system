@@ -16,7 +16,7 @@ import { VitalBar } from "@/components/shared/vital-bar"
 import type { CombatantAvatar } from "@/domain/combat/view/avatar"
 import type { Pool } from "@/domain/combat/view/pool"
 import type { RailRow } from "@/domain/combat/view/roster-view"
-import { COUNTER_STATUS_LABELS } from "@/lib/ui/labels"
+import { COUNTER_STATUS_LABELS } from "@/domain/labels"
 
 /**
  * One combatant row in the rail (UNN-345). Token + name + HP (and SP for PCs)

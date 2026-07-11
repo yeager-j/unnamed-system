@@ -6,7 +6,7 @@ import {
   type ResolvedInventory,
 } from "@workspace/game-v2/items"
 
-import { SLOT_LABELS } from "@/lib/ui/labels"
+import { SLOT_LABELS } from "@/domain/labels"
 
 import { SheetCard } from "../sheet-card"
 

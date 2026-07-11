@@ -34,7 +34,7 @@ import {
   COMBAT_FIRST_SIDE_HEADING,
   COMBAT_FIRST_SIDE_TIE_HINT,
   COMBAT_SIDE_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 /** Display order for the advantage options (neutral in the middle as the
  *  default / common case). */

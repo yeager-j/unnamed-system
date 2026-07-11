@@ -12,7 +12,7 @@ import {
 
 import type { VirtuesCardView } from "@/domain/character/view/virtues-card"
 import { useEntityWrite } from "@/domain/entity/use-entity-write"
-import { VIRTUE_LABELS } from "@/lib/ui/labels"
+import { VIRTUE_LABELS } from "@/domain/labels"
 
 /**
  * The forced rank-up (rulebook 1.2): a full Spark log must convert into a

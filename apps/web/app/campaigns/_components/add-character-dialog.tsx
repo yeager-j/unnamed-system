@@ -25,13 +25,13 @@ import {
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
-import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
 import {
   CHARACTER_PLACEMENT_CONSENT,
   CHARACTER_PLACEMENT_LIVE_LOCK_ERROR,
   characterMoveConsent,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
+import { setEntityCampaignAction } from "@/lib/actions/entity/set-campaign"
+import type { OwnedPlacementCharacter } from "@/lib/db/queries/character-list"
 
 /**
  * "Add character to campaign" on the placement section (UNN-328). An inline

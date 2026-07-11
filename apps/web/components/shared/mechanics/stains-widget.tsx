@@ -18,7 +18,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { elementTone } from "@/components/shared/element-tokens"
 import { OwnerOnly, useViewerRole } from "@/components/shell/viewer-role"
 import { useEntityWrite } from "@/domain/entity/use-entity-write"
-import { DAMAGE_TYPE_LABELS } from "@/lib/ui/labels"
+import { DAMAGE_TYPE_LABELS } from "@/domain/labels"
 
 import { WidgetHeader } from "./widget-chrome"
 

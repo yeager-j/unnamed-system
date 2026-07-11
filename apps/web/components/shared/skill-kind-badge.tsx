@@ -1,7 +1,7 @@
 import { Badge } from "@workspace/ui/components/badge"
 
-import { SKILL_KIND_LABELS } from "@/lib/ui/labels"
-import type { SkillKind } from "@/lib/ui/vocab"
+import { SKILL_KIND_LABELS } from "@/domain/labels"
+import type { SkillKind } from "@/domain/vocab"
 
 /**
  * Outline badge that names a Skill's kind ("Healing", "Support", "Passive",

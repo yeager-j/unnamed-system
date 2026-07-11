@@ -18,7 +18,7 @@ import {
   useEntityWrite,
   useLoadedCharacter,
 } from "@/domain/entity/use-entity-write"
-import { VIRTUE_LABELS } from "@/lib/ui/labels"
+import { VIRTUE_LABELS } from "@/domain/labels"
 
 import { SheetCard } from "../sheet-card"
 import { RankUpDialog } from "./rank-up-dialog"

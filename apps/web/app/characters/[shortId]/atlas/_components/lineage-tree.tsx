@@ -5,6 +5,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react"
 import { type AtlasLineage } from "@workspace/game-v2/archetypes/atlas"
 import { Separator } from "@workspace/ui/components/separator"
 
+import { LINEAGE_ICONS } from "@/components/shared/lineage-icons"
 import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
 import {
   LINEAGE_DISPLAY,
@@ -12,8 +13,7 @@ import {
   TIER_LABELS,
   TIER_LEVEL_HINT_LABELS,
   TIER_ROMAN_LABELS,
-} from "@/lib/ui/labels"
-import { LINEAGE_ICONS } from "@/lib/ui/lineage-icons"
+} from "@/domain/labels"
 
 import { ArchetypeNodeCard } from "./archetype-node-card"
 

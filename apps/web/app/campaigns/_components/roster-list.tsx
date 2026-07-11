@@ -5,10 +5,10 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
+import { initials } from "@workspace/ui/lib/initials"
 
 import type { RosterMember } from "@/lib/db/queries/load-campaign"
 import { characterPath } from "@/lib/paths"
-import { initials } from "@/lib/ui/initials"
 
 import { RemovePlayerButton } from "./remove-player-button"
 

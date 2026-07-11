@@ -1,8 +1,8 @@
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { COST_KIND_LABELS } from "@/lib/ui/labels"
-import type { ResolvedSkillCost } from "@/lib/ui/vocab"
+import { COST_KIND_LABELS } from "@/domain/labels"
+import type { ResolvedSkillCost } from "@/domain/vocab"
 
 interface SkillCostBadgeProps {
   cost: ResolvedSkillCost | null

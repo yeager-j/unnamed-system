@@ -27,7 +27,7 @@ export type AttackAttribute = (typeof ATTACK_ATTRIBUTES)[number]
  * Display names for each {@link AttackAttribute}, used by the resolver as the
  * first source in an Attack Roll's labelled breakdown. `"st-or-ma"` keeps both
  * names so the breakdown stays honest about which is in play. Lives with the
- * vocab rather than in the UI label store (`apps/web/lib/ui/labels.ts`) because
+ * vocab rather than in the UI label store (`apps/web/domain/labels.ts`) because
  * the game **engine** — not a UI surface — is the only consumer: it is the
  * roll-breakdown *source label* the resolver emits as `sources[0]`.
  */

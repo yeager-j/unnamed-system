@@ -22,13 +22,13 @@ import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import { COMBAT_DRAFT_HEADINGS } from "@/domain/labels"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { dungeonWatchPath } from "@/lib/paths"
 import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
-import { COMBAT_DRAFT_HEADINGS } from "@/lib/ui/labels"
 
 /**
  * The run console's **combat phase** on engine v2 (UNN-536) — a morph of the same

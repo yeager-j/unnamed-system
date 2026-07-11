@@ -2,7 +2,7 @@ import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import { ATTRIBUTE_KEYS } from "@workspace/game-v2/kernel/vocab"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import { ATTRIBUTE_SHORT_LABELS } from "@/lib/ui/labels"
+import { ATTRIBUTE_SHORT_LABELS } from "@/domain/labels"
 
 import { formatModifier } from "./format"
 

@@ -12,9 +12,9 @@ import {
   type WatchSnapshot,
 } from "@/domain/combat/use-encounter-snapshot"
 import { buildWatchView } from "@/domain/combat/view/watch-layout"
+import { ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
-import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 import { ZoneLayout } from "./zone-layout"
 

@@ -17,8 +17,8 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
+import { CHARACTER_DELETE_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { deleteEntityAction } from "@/lib/actions/entity/delete"
-import { CHARACTER_DELETE_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 interface DeleteCharacterDialogProps {
   characterId: string

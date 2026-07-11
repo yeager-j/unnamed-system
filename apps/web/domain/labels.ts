@@ -226,7 +226,7 @@ export const TIER_LEVEL_HINT_LABELS: Record<ArchetypeTier, string> = {
 
 /**
  * Icon keys a Lineage can display. These are resolved to a Phosphor component
- * by `LINEAGE_ICONS` in [lib/ui/lineage-icons.ts](./lineage-icons.ts) — kept as
+ * by `LINEAGE_ICONS` in [components/shared/lineage-icons.ts](../components/shared/lineage-icons.ts) — kept as
  * plain strings here (not the component itself) so this widely-imported,
  * server-safe module never pulls in the icon library.
  */
@@ -279,7 +279,7 @@ export const LINEAGE_DISPLAY: Record<Lineage, LineageDisplay> = {
 /**
  * Icon keys a recommendation reason can display, resolved to a Phosphor
  * component by `RECOMMENDATION_REASON_ICONS` in
- * [lib/ui/recommendation-reason-icons.ts](./recommendation-reason-icons.ts) —
+ * [components/shared/recommendation-reason-icons.ts](../components/shared/recommendation-reason-icons.ts) —
  * kept as plain strings here for the same server-safe reason as
  * {@link LineageIconKey}.
  */

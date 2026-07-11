@@ -14,7 +14,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import type { EngageableTarget } from "@/domain/combat/view/detail-view"
-import { ENGAGEMENT_STATUS_LABELS } from "@/lib/ui/labels"
+import { ENGAGEMENT_STATUS_LABELS } from "@/domain/labels"
 
 /**
  * Sets one combatant's **initial engagement** during setup (UNN-301): Free, or

@@ -1,4 +1,4 @@
-import { FALLEN_RECOVER_REMINDER } from "@/lib/ui/labels"
+import { FALLEN_RECOVER_REMINDER } from "@/domain/labels"
 
 /**
  * The non-blocking "Fallen PCs recover to 1 HP" reminder shown in an end-combat

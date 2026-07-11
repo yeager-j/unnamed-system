@@ -39,7 +39,7 @@ import {
   getArchetype,
   resolveCreationArchetypeSkills,
 } from "@/domain/game-engine-v2"
-import { SUGGESTED_PATH_LABELS } from "@/lib/ui/labels"
+import { SUGGESTED_PATH_LABELS } from "@/domain/labels"
 
 import { ArchetypeActionButton } from "./archetype-action-button"
 

@@ -43,7 +43,7 @@ import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,
   BATTLE_CONDITION_LABELS,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
 
 const DOWNED_KEY: AilmentKey = "downed"
 

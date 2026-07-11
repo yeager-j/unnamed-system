@@ -1,7 +1,6 @@
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
-
-import { initials } from "@/lib/ui/initials"
-import { avatarSrc } from "@/lib/ui/portrait"
+import { initials } from "@workspace/ui/lib/initials"
+import { avatarSrc } from "@workspace/ui/lib/portrait"
 
 /**
  * A combatant's token art, resolved to a display variant: a PC renders a

@@ -22,7 +22,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { DetailSection } from "@/components/shared/detail-section"
-import { COUNTER_HINTS, COUNTER_LABELS } from "@/lib/ui/labels"
+import { COUNTER_HINTS, COUNTER_LABELS } from "@/domain/labels"
 
 /**
  * The drawer's **COUNTERS** section — named tallies (Lumina, …) the DM keeps on

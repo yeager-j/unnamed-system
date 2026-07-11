@@ -7,6 +7,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@workspace/ui/components/avatar"
+import { initials } from "@workspace/ui/lib/initials"
 
 import { CharacterPlacementSection } from "@/app/campaigns/_components/character-placement-section"
 import { CreateDungeonButton } from "@/app/campaigns/_components/create-dungeon-button"
@@ -37,7 +38,6 @@ import {
 } from "@/lib/db/queries/load-encounter"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
-import { initials } from "@/lib/ui/initials"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string }>

@@ -215,10 +215,9 @@ describe("domain purity", () => {
     expect(found[0]).toMatchObject({ kind: "purity" })
   })
 
-  it("exempts import type, the lib/ui carve-out, and inline-type-only", () => {
+  it("exempts import type and inline-type-only", () => {
     const source = [
       `import type { Row } from "@/lib/db/schema/thing"`,
-      `import { LABELS } from "@/lib/ui/labels"`,
       `import { type Only } from "@/lib/db/schema/other"`,
     ].join("\n")
     expect(scanDomainPurity(pureView, source)).toEqual([])

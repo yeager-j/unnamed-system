@@ -16,8 +16,8 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
+import { MEMBER_REMOVE_LIVE_LOCK_ERROR } from "@/domain/labels"
 import { removeCampaignMemberAction } from "@/lib/actions/remove-campaign-member"
-import { MEMBER_REMOVE_LIVE_LOCK_ERROR } from "@/lib/ui/labels"
 
 /**
  * Removes a player from the roster on the campaign manage page (UNN-329). Behind

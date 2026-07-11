@@ -9,7 +9,7 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 
-import { COMBAT_SIDE_LABELS } from "@/lib/ui/labels"
+import { COMBAT_SIDE_LABELS } from "@/domain/labels"
 
 /**
  * A compact Players/Enemies segmented control bound to one combatant's `side`

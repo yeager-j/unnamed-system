@@ -18,7 +18,7 @@ import type {
   SkillCardLadder,
   SkillCardView,
 } from "@/domain/combat/view/skill-card-view"
-import { COST_KIND_LABELS } from "@/lib/ui/labels"
+import { COST_KIND_LABELS } from "@/domain/labels"
 
 import { ELEMENT_GLYPHS, elementTone, type ElementTone } from "./element-tokens"
 

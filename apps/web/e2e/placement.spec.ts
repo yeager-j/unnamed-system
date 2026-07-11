@@ -1,13 +1,13 @@
 import { expect, test, type Page } from "@playwright/test"
 import { eq } from "drizzle-orm"
 
-import { getDb } from "@/lib/db"
-import { encounters } from "@/lib/db/schema/encounter"
-import { entity } from "@/lib/db/schema/entity"
 import {
   CHARACTER_PLACEMENT_CONSENT,
   CHARACTER_UNPLACE_CONSENT,
-} from "@/lib/ui/labels"
+} from "@/domain/labels"
+import { getDb } from "@/lib/db"
+import { encounters } from "@/lib/db/schema/encounter"
+import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {

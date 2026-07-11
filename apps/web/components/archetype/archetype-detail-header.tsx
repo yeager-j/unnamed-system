@@ -7,7 +7,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { OriginLineageIndicator } from "@/components/shared/origin-lineage-indicator"
-import { LINEAGE_LABELS, TIER_LABELS, TIER_ROMAN_LABELS } from "@/lib/ui/labels"
+import { LINEAGE_LABELS, TIER_LABELS, TIER_ROMAN_LABELS } from "@/domain/labels"
 
 /**
  * The shared detail header for an Archetype — name, then a

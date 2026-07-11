@@ -16,7 +16,7 @@ import { DungeonExploreSheetColumn } from "@/app/campaigns/[campaignShortId]/dun
 import { useDungeonSnapshot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_hooks/use-dungeon-snapshot"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { LoadedCharacter } from "@/domain/character/load"
-import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
+import { DUNGEON_STATUS_LABELS } from "@/domain/labels"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a
 // mounted container (the run console + template editor lazy-load their canvases
