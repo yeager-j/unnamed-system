@@ -1,4 +1,4 @@
-# `components/campaign` — campaign surfaces
+# campaign surfaces (`app/campaigns/_components`) — campaign surfaces
 
 Campaign surfaces (UNN-329), rendered by app/campaigns/ + app/campaigns/[shortId]/:
 

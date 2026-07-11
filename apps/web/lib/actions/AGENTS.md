@@ -1,5 +1,13 @@
 # Server Actions — the write pattern
 
+> **Actions are the write-side seam; they stay in `lib/actions/` (UNN-610).** The
+> feature-first reorg colocated every feature's components/hooks into its route
+> subtree, but Server Actions did **not** move: nearly all of them import the engine
+> (`Result`, engine types, spatial/encounter helpers), and the `app/` tier is
+> hard-gated against `@workspace/game*`. `lib` (ungated) is their principled home —
+> a route's client component imports the action across the `app → lib` boundary
+> (downward, legal).
+
 Every Server Action that mutates persisted state lives here. The shape is
 non-negotiable: same plumbing, every file — parse the wire, authorize, persist
 version-guarded, revalidate. Downstream tickets that need a write surface should
@@ -143,7 +151,7 @@ primitive anymore (the v1 `applyMechanicStateForCharacter` retired with the v1
 tables, UNN-562). The pure per-mechanic transition lives with its
 `MechanicDefinition` in `packages/game-v2/src/mechanics/<lineage>/<kind>.ts`, where
 the engine tests exercise it; the widget
-(`components/character-sheet/mechanics/<kind>-widget.tsx`) dispatches through
+(`components/shared/mechanics/<kind>-widget.tsx`) dispatches through
 `useEntityWrite`. Adding a mechanic write is: pure transition (game-v2), a
 descriptor op + Writer case (`domain/entity/commit`), a widget.
 
@@ -151,7 +159,7 @@ descriptor op + Writer case (`domain/entity/commit`), a widget.
 
 Character surfaces mount **`EntityWriteProvider`** (over the loaded
 `{ profile, entity, resolved }` triple) and write through **`useEntityWrite`**
-([`hooks/use-entity-write.tsx`](../../hooks/use-entity-write.tsx)). It predicts
+([`domain/entity/use-entity-write.tsx`](../../domain/entity/use-entity-write.tsx)). It predicts
 optimistically via the **same pure Writers** the server validates with
 (`ENTITY_WRITERS`) and re-folds `resolveEntity` client-side, so the optimistic
 frame is structurally identical to the persisted result — engine isomorphism, no
@@ -160,12 +168,12 @@ shapes recur:
 
 ### 1. Debounced auto-save on a free-text field
 
-`useDebouncedAutoSave` (`hooks/use-debounced-auto-save.ts`) owns the whole
+`useDebouncedAutoSave` (`domain/entity/use-debounced-auto-save.ts`) owns the whole
 lifecycle: draft state, debounce, the in-flight guard against the debounce + blur
 double-fire, `lastSavedRef` no-op skipping, Escape-to-revert, and the
 failure-rollback + Sonner toast. The component renders the input and forwards
 `onFocus`/`onBlur`. Example:
-`components/character-sheet/editable-character-name.tsx`. No success indicator —
+`app/characters/[shortId]/_components/editable-character-name.tsx`. No success indicator —
 the value staying in the input is the confirmation, so a routine-save channel that
 stays quiet means a real error reads as one.
 
