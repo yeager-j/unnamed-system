@@ -6,7 +6,7 @@ import { Input } from "@workspace/ui/components/input"
 import {
   useEntityColumnSave,
   useLoadedCharacter,
-} from "@/hooks/use-entity-write"
+} from "@/domain/entity/use-entity-write"
 import { updateEntityPronounsAction } from "@/lib/actions/entity/columns"
 
 const MAX_LENGTH = 64

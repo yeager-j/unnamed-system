@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
 
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * A pool-adjust popover: number input + the two signed buttons. Each click is

@@ -15,10 +15,10 @@ import {
   reduceConsoleOptimistic,
   type ConsoleOptimisticAction,
 } from "@/domain/combat/console-optimistic"
-import { fetchEncounterVersion } from "@/hooks/fetch-encounter-version"
-import { fetchInstanceVersion } from "@/hooks/fetch-instance-version"
-import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
+import { fetchEncounterVersion } from "@/lib/sync/fetch-encounter-version"
+import { fetchInstanceVersion } from "@/lib/sync/fetch-instance-version"
+import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 /**
  * The encounter-**setup** owner-mode write surface (UNN-347), on engine v2

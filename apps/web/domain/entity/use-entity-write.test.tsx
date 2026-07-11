@@ -36,7 +36,7 @@ const { capturedChannel } = vi.hoisted(() => ({
 vi.mock("@/lib/actions/entity/apply-entity-write", () => ({
   applyEntityWriteAction: vi.fn(),
 }))
-vi.mock("./use-realtime-channel", () => ({
+vi.mock("@/lib/sync/use-realtime-channel", () => ({
   useRealtimeChannel: (args: CapturedChannel) => {
     capturedChannel.current = args
   },

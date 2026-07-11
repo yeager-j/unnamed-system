@@ -14,8 +14,8 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { MapSaveStatus } from "@/app/maps/_hooks/use-map-autosave"
 import { CanvasPanel } from "@/components/shared/canvas/canvas-panel"
-import type { MapSaveStatus } from "@/hooks/use-map-autosave"
 
 import { DeleteMapButton } from "./delete-map-button"
 

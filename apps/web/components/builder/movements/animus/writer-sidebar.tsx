@@ -14,7 +14,10 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
-import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 
 import { BUILDER_STEPS, indexOfStep } from "../../builder-steps"
 import { useAnimusDocument } from "./animus-context"

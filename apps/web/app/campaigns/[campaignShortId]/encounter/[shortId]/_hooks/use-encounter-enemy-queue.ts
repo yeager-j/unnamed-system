@@ -6,11 +6,11 @@ import {
   setEntryCount,
   totalEnemyCount,
   type StagedEnemyEntry,
-} from "./staged-enemy-queue"
+} from "@/domain/combat/staged-enemy-queue"
 import {
   isStagedEnemyEntry,
   useStagedEnemyQueue,
-} from "./use-staged-enemy-queue"
+} from "@/domain/combat/use-staged-enemy-queue"
 
 /**
  * One staged catalog enemy and how many of it to add. The browse surface

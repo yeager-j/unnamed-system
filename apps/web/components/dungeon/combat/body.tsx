@@ -22,12 +22,12 @@ import { CombatTurnBar } from "@/components/dungeon/canvas/combat/turn-bar"
 import { DungeonCombatSidebar } from "@/components/dungeon/combat/sidebar"
 import { DungeonSidebarSlot } from "@/components/dungeon/shell/console-shell"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
-import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
 import type { EndDungeonCombatError } from "@/lib/actions/dungeon/end-combat.schema"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import { dungeonWatchPath } from "@/lib/paths"
+import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
 import { COMBAT_DRAFT_HEADINGS } from "@/lib/ui/labels"
 
 /**

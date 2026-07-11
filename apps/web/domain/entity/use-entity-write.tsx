@@ -28,23 +28,23 @@ import type { ApplyEntityWriteError } from "@/lib/actions/entity/apply-entity-wr
 import type { EntityCommit } from "@/lib/actions/entity/entity-row-store"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import type { VersionClass } from "@/lib/db/version-classes"
-
 import {
   forwardPingedVersions,
   parseCharacterPing,
-} from "./character-version-sync"
+} from "@/lib/sync/character-version-sync"
+import { useMonotonicVersionRef } from "@/lib/sync/use-monotonic-version-ref"
+import { useRealtimeChannel } from "@/lib/sync/use-realtime-channel"
+import {
+  createWriteQueue,
+  runVersionedWrite,
+  type WriteQueueTokenPort,
+} from "@/lib/sync/write-queue"
+
 import {
   useDebouncedAutoSave,
   type UseDebouncedAutoSaveArgs,
   type UseDebouncedAutoSaveReturn,
 } from "./use-debounced-auto-save"
-import { useMonotonicVersionRef } from "./use-monotonic-version-ref"
-import { useRealtimeChannel } from "./use-realtime-channel"
-import {
-  createWriteQueue,
-  runVersionedWrite,
-  type WriteQueueTokenPort,
-} from "./write-queue"
 
 /**
  * The character surfaces' write provider (ADR §2.4/CH18; UNN-556) — the

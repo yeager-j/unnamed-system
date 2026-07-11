@@ -15,11 +15,11 @@ import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import {
   buildLineageAtlas,
   getAtlasRecommendations,
 } from "@/domain/game-engine-v2"
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
 import { characterPath } from "@/lib/paths"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"

@@ -13,7 +13,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * The wallet (S2c — UNN-559): the gp readout plus the owner's coin-button

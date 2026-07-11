@@ -8,6 +8,7 @@ import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 import { Badge } from "@workspace/ui/components/badge"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { useDungeonSnapshot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_hooks/use-dungeon-snapshot"
 import {
   DungeonCombatWatchBody,
   type DungeonWatchCombatData,
@@ -15,7 +16,6 @@ import {
 import { DungeonExploreSheetColumn } from "@/components/dungeon/explore-sheet-column"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { LoadedCharacter } from "@/domain/character/load"
-import { useDungeonSnapshot } from "@/hooks/use-dungeon-snapshot"
 import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a

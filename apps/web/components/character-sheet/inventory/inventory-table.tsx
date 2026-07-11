@@ -35,7 +35,7 @@ import {
   type InventoryGroup,
   type InventoryRow,
 } from "@/domain/character/view/inventory-table"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { ITEM_CATEGORY_LABELS, ITEM_GROUP_LABELS } from "@/lib/ui/labels"
 
 /**

@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import type { RailExhaustion } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * The rail's Exhaustion tracker (D27; rulebook 2.5) — the one combat-adjacent

@@ -7,7 +7,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import type { RailPrisma } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 /**
  * The rail's Prisma flask (design handoff + rulebook 2.6): heal-per-charge,

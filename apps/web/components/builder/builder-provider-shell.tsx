@@ -10,7 +10,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 
 import type { LoadedCharacter } from "@/domain/character/load"
-import { EntityWriteProvider } from "@/hooks/use-entity-write"
+import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
 import { AnimusDocumentProvider } from "./movements/animus/animus-context"
 import { WriterSidebar } from "./movements/animus/writer-sidebar"

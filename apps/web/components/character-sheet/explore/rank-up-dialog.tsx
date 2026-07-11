@@ -11,7 +11,7 @@ import {
 } from "@workspace/ui/components/dialog"
 
 import type { VirtuesCardView } from "@/domain/character/view/virtues-card"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { VIRTUE_LABELS } from "@/lib/ui/labels"
 
 /**

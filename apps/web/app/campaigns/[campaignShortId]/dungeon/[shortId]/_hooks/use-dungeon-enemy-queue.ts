@@ -1,18 +1,17 @@
 "use client"
 
-import { MAX_STAGED_ENEMY_COUNT } from "@/lib/actions/dungeon/start-encounter.schema"
-
 import {
   addEntry,
   removeEntry,
   setEntryCount,
   totalEnemyCount,
   type StagedEnemyEntry,
-} from "./staged-enemy-queue"
+} from "@/domain/combat/staged-enemy-queue"
 import {
   isStagedEnemyEntry,
   useStagedEnemyQueue,
-} from "./use-staged-enemy-queue"
+} from "@/domain/combat/use-staged-enemy-queue"
+import { MAX_STAGED_ENEMY_COUNT } from "@/lib/actions/dungeon/start-encounter.schema"
 
 /**
  * One staged group in the delve's pre-combat queue (UNN-541): a catalog creature,

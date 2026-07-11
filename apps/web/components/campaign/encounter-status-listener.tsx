@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation"
 import { useEffect, useRef } from "react"
 
-import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
-import { parseVersionPing } from "@/hooks/version-ping"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
+import { RealtimeChannelListener } from "@/lib/sync/use-realtime-channel"
+import { parseVersionPing } from "@/lib/sync/version-ping"
 
 /**
  * Keeps the campaign page's live banner honest without a reload (UNN-373, ADR

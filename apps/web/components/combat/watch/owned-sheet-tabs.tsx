@@ -10,7 +10,7 @@ import {
 
 import { ViewerRoleProvider } from "@/components/shell/viewer-role"
 import type { LoadedCharacter } from "@/domain/character/load"
-import { EntityWriteProvider } from "@/hooks/use-entity-write"
+import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
 /**
  * One character the watch viewer owns, as the column mounts it: a stable tab

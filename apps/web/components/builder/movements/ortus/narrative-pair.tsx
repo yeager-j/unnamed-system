@@ -7,7 +7,10 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 
-import { useEntityAutoSave, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityAutoSave,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 
 /**
  * Movement 2's two short setting-defined slots — Ancestry and Background

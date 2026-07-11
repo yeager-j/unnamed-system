@@ -10,7 +10,7 @@ import {
 import { Prose } from "@/components/shared/prose"
 import { SectionLabel } from "@/components/shared/section-label"
 import { useViewerRole } from "@/components/shell/viewer-role"
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { SheetCard } from "../sheet-card"
 

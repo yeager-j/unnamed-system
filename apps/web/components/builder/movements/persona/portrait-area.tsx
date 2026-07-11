@@ -15,7 +15,7 @@ import { Spinner } from "@workspace/ui/components/spinner"
 import {
   useEntityIdentityToken,
   useLoadedCharacter,
-} from "@/hooks/use-entity-write"
+} from "@/domain/entity/use-entity-write"
 import {
   removeEntityPortraitAction,
   uploadEntityPortraitAction,

@@ -12,7 +12,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { useViewerRole } from "@/components/shell/viewer-role"
 import type { RailArchetype, RailView } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 
 /**

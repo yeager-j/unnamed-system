@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useEntityIdentityToken } from "@/hooks/use-entity-write"
+import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
 import { characterBuilderPath } from "@/lib/paths"
 

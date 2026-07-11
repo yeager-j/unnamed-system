@@ -2,7 +2,7 @@
 
 import type { ResolvedActiveMechanic } from "@workspace/game-v2/mechanics/resolved"
 
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { DisplayOnlyWidget } from "./display-only-widget"
 import { FrenzyWidget } from "./frenzy-widget"

@@ -3,12 +3,11 @@
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import type { EncounterSnapshotResult } from "@/lib/db/queries/load-encounter-snapshot-v2"
-
 import {
   useSnapshotSubscription,
   type SnapshotFetcher,
   type SnapshotSubscriptionState,
-} from "./use-snapshot-subscription"
+} from "@/lib/sync/use-snapshot-subscription"
 
 /**
  * The watch's subscription state: the redacted v2 spatial snapshot flattened

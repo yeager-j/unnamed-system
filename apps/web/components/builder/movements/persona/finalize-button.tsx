@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useEntityIdentityToken } from "@/hooks/use-entity-write"
+import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
 import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
 import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
 

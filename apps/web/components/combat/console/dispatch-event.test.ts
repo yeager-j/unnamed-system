@@ -7,8 +7,8 @@ import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema
 import { err, ok } from "@workspace/game-v2/kernel/result"
 
 import type { ConsoleOptimisticAction } from "@/domain/combat/console-optimistic"
-import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { applyCombatEventAction } from "@/lib/actions/combat/apply-event"
+import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 import { dispatchCombatEvent } from "./dispatch-event"
 

@@ -20,7 +20,7 @@ import {
 } from "@workspace/ui/components/toggle-group"
 
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 type RestVariant = "fullRest" | "partialRest" | "respite"
 

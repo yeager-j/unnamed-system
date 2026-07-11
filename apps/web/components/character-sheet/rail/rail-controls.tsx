@@ -13,7 +13,7 @@ import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
 import { SectionLabel } from "@/components/shared/section-label"
 import { OwnerOnly } from "@/components/shell/viewer-role"
 import type { RailView } from "@/domain/character/view/rail-view"
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 import { RestDialog } from "./rest-dialog"
 

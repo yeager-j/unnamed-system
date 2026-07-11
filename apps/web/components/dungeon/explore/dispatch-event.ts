@@ -8,12 +8,12 @@ import {
   type MapInstanceState,
 } from "@workspace/game-v2/spatial"
 
-import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"
 import {
   isDungeonEvent,
   type ApplyDungeonEventError,
 } from "@/lib/actions/dungeon/events.schema"
+import type { UseQueuedWriteReturn } from "@/lib/sync/use-queued-write"
 
 /** The Dungeon optimistic reducer the console's `useOptimistic` container runs —
  *  the turn-loop events only (`markActed`/`advanceTurn`); the same `reduceDungeon`

@@ -25,8 +25,8 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 import { allItems } from "@/domain/game-engine-v2"
-import { useEntityWrite } from "@/hooks/use-entity-write"
 import { ITEM_GROUP_LABELS } from "@/lib/ui/labels"
 
 /**

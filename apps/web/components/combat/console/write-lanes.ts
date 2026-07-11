@@ -7,14 +7,14 @@ import { type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
-import { parseCharacterPing } from "@/hooks/character-version-sync"
-import type { UseQueuedWriteReturn } from "@/hooks/use-queued-write"
-import { useMonotonicVersionMap } from "@/hooks/version-token-store"
-import { createWriteQueue, type WriteQueue } from "@/hooks/write-queue"
 import { applyCombatantWriteAction } from "@/lib/actions/combat/commit/apply-combatant-write"
 import type { ApplyCombatantWriteError } from "@/lib/actions/combat/commit/apply-combatant-write.schema"
 import type { CommittedWrite } from "@/lib/actions/combat/commit/stores"
 import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
+import { parseCharacterPing } from "@/lib/sync/character-version-sync"
+import type { UseQueuedWriteReturn } from "@/lib/sync/use-queued-write"
+import { useMonotonicVersionMap } from "@/lib/sync/version-token-store"
+import { createWriteQueue, type WriteQueue } from "@/lib/sync/write-queue"
 
 import { decidePcPing } from "./pc-ping"
 

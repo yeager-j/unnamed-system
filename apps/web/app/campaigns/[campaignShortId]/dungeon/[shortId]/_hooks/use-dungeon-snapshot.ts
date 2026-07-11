@@ -6,7 +6,7 @@ import {
   useSnapshotSubscription,
   type SnapshotFetcher,
   type SnapshotSubscriptionState,
-} from "./use-snapshot-subscription"
+} from "@/lib/sync/use-snapshot-subscription"
 
 async function fetchSnapshot(
   shortId: string,

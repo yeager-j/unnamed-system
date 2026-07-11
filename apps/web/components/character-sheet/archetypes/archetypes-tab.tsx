@@ -24,7 +24,7 @@ import { ResolvedSkillRow } from "@/components/shared/resolved-skill-row"
 import { affinityCells } from "@/domain/character/view/affinity-strip"
 import { buildArchetypesTabView } from "@/domain/character/view/archetypes-tab"
 import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
-import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 import { characterAtlasPath } from "@/lib/paths"
 
 import { AttributesBlock } from "../rail/attributes-block"

@@ -17,7 +17,7 @@ import {
 import { Button, ButtonProps } from "@workspace/ui/components/button"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 
-import { useEntityWrite } from "@/hooks/use-entity-write"
+import { useEntityWrite } from "@/domain/entity/use-entity-write"
 
 const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
 

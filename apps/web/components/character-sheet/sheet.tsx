@@ -8,7 +8,7 @@ import { buildRailView } from "@/domain/character/view/rail-view"
 import {
   EntityWriteProvider,
   useLoadedCharacter,
-} from "@/hooks/use-entity-write"
+} from "@/domain/entity/use-entity-write"
 
 import { ArchetypesTab } from "./archetypes/archetypes-tab"
 import { CombatTab } from "./combat/combat-tab"

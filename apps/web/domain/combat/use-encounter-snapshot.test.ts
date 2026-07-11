@@ -14,7 +14,7 @@ import {
 // callbacks fired) means realtime never reports available, so the poll-path
 // tests below exercise exactly the degraded mode.
 const useRealtimeChannelMock = vi.fn()
-vi.mock("./use-realtime-channel", () => ({
+vi.mock("@/lib/sync/use-realtime-channel", () => ({
   useRealtimeChannel: (args: unknown) => useRealtimeChannelMock(args),
 }))
 

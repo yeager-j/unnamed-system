@@ -8,7 +8,10 @@ import { getPathDice, getPathStats } from "@workspace/game-v2/vitals"
 import { RadioGroup } from "@workspace/ui/components/radio-group"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 import { PATH_CHOICE_LABELS } from "@/lib/ui/labels"
 
 import { Sparkle } from "../../../shared/celestial"

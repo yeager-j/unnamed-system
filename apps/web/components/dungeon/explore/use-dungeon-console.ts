@@ -14,13 +14,13 @@ import {
   reduceDungeonInstanceOptimistic,
   reduceDungeonOptimistic,
 } from "@/components/dungeon/explore/dispatch-event"
-import { useQueuedWrite } from "@/hooks/use-queued-write"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
 import { getDungeonVersionAction } from "@/lib/actions/dungeon/version"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
 import type { MapInstanceRow } from "@/lib/db/schema/map-instance"
+import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 /**
  * The live DM dungeon console's owner-mode write surface (UNN-464) — the

@@ -25,10 +25,10 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 
+import { useDungeonEnemyQueue } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_hooks/use-dungeon-enemy-queue"
 import { SideToggle } from "@/components/combat/controls/side-toggle"
 import { EnemyCatalogPanel } from "@/components/combat/enemies/enemy-catalog-panel"
 import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
-import { useDungeonEnemyQueue } from "@/hooks/use-dungeon-enemy-queue"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { startDungeonEncounterAction } from "@/lib/actions/dungeon/start-encounter"
 import { dungeonConsolePath } from "@/lib/paths"

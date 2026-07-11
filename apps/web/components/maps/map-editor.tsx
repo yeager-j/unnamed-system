@@ -6,7 +6,7 @@ import { useState } from "react"
 import type { MapGeometry } from "@workspace/game-v2/spatial"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import { useMapAutoSave } from "@/hooks/use-map-autosave"
+import { useMapAutoSave } from "@/app/maps/_hooks/use-map-autosave"
 import type { MapRow } from "@/lib/db/schema/map"
 
 import { MapSettingsPanel } from "./map-settings-panel"

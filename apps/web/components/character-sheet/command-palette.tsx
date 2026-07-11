@@ -14,7 +14,10 @@ import {
 
 import { useViewerRole } from "@/components/shell/viewer-role"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
-import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 
 import { SHEET_TABS, type SheetTabKey } from "./tab-dock"
 

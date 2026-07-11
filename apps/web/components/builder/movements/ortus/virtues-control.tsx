@@ -14,7 +14,10 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { ButtonGroup } from "@workspace/ui/components/button-group"
 
-import { useEntityWrite, useLoadedCharacter } from "@/hooks/use-entity-write"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 import { VIRTUE_LABELS, VIRTUE_RANK_LABELS } from "@/lib/ui/labels"
 
 const RANKS = [0, 1, 2] as const
