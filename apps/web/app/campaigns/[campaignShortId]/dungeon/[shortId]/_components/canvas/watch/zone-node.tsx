@@ -14,6 +14,7 @@ import { DungeonTokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[sho
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/exit-chip"
+import { TokenStatsPopover } from "@/components/combat/token-stats-popover"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import { groupTokensByEngagement } from "@/domain/combat/view/engagement-groups"
 import type { Pool } from "@/domain/combat/view/pool"
@@ -142,15 +143,19 @@ export function DungeonWatchZoneNode({
   )
 }
 
-/** A party token's {@link DungeonTokenChip}, self-highlighted when owned. */
+/** A party token's {@link DungeonTokenChip}, self-highlighted when owned.
+ *  Tapping it expands the read-only {@link TokenStatsPopover} — numeric HP/SP
+ *  only, since exploration carries no combat overlay (UNN-490). */
 function WatchTokenChip({ token }: { token: WatchZoneToken }) {
   return (
-    <DungeonTokenChip
-      name={token.name}
-      portraitUrl={token.portraitUrl}
-      hp={token.hp}
-      sp={token.sp}
-      owned={token.owned}
-    />
+    <TokenStatsPopover name={token.name} hp={token.hp} sp={token.sp}>
+      <DungeonTokenChip
+        name={token.name}
+        portraitUrl={token.portraitUrl}
+        hp={token.hp}
+        sp={token.sp}
+        owned={token.owned}
+      />
+    </TokenStatsPopover>
   )
 }

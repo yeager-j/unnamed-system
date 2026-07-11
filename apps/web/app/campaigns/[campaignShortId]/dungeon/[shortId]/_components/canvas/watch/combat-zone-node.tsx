@@ -14,6 +14,7 @@ import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[
 import { TokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/token-chip"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/exit-chip"
+import { TokenStatsPopover } from "@/components/combat/token-stats-popover"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import { groupTokensByEngagement } from "@/domain/combat/view/engagement-groups"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
@@ -134,23 +135,36 @@ export function DungeonWatchCombatZoneNode({
 
 /** A redacted combatant's chip: side tint (gold when owned), the acting ring +
  *  filled sword on the current actor, vital bars iff the pools survived
- *  redaction (a dropped key ⇒ no bar, never a `0/0` lie). */
+ *  redaction (a dropped key ⇒ no bar, never a `0/0` lie). Tapping it expands the
+ *  read-only {@link TokenStatsPopover} — numeric HP/SP + ailments + battle
+ *  conditions, all public-to-all overlay state (UNN-490). */
 function WatchCombatTokenChip({ token }: { token: WatchCombatToken }) {
   const { combatant, owned } = token
   return (
-    <TokenChip
-      side={combatant.side}
+    <TokenStatsPopover
       name={combatant.name}
-      portraitUrl={combatant.portraitUrl}
       hp={combatant.hp}
       sp={combatant.sp}
-      owned={owned}
-      acting={combatant.isCurrent}
-      trailing={
-        combatant.isCurrent ? (
-          <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
-        ) : null
-      }
-    />
+      conditions={{
+        ailments: combatant.ailments,
+        battleConditions: combatant.battleConditions,
+        conditionDurations: combatant.conditionDurations,
+      }}
+    >
+      <TokenChip
+        side={combatant.side}
+        name={combatant.name}
+        portraitUrl={combatant.portraitUrl}
+        hp={combatant.hp}
+        sp={combatant.sp}
+        owned={owned}
+        acting={combatant.isCurrent}
+        trailing={
+          combatant.isCurrent ? (
+            <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
+          ) : null
+        }
+      />
+    </TokenStatsPopover>
   )
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { DEFAULT_BATTLE_CONDITIONS } from "@workspace/game-v2/encounter"
 import { asParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type {
   SpatialEncounterSnapshot,
@@ -41,6 +42,14 @@ const snapshot: SpatialEncounterSnapshot = {
       vitals: { currentHP: 12, maxHP: 16 },
       skillPool: { currentSP: 3, maxSP: 5 },
       ailments: ["burn"],
+      battleConditions: {
+        attack: "increased",
+        defense: "neutral",
+        hitEvasion: "decreased",
+        charged: true,
+        concentrating: false,
+      },
+      conditionDurations: { attack: 2 },
       engagement: {
         status: "engaged",
         targetCombatantIds: [asParticipantId("gob-1")],
@@ -108,6 +117,25 @@ describe("buildWatchView", () => {
       ailments: ["burn"],
     })
     expect(gob).toMatchObject({ hp: null, sp: null, hasActed: true })
+  })
+
+  it("carries battle conditions + durations, defaulting when the wire omits them", () => {
+    const view = buildWatchView(snapshot)
+    const [hero, gob] = view.combatants
+
+    expect(hero).toMatchObject({
+      battleConditions: {
+        attack: "increased",
+        defense: "neutral",
+        hitEvasion: "decreased",
+        charged: true,
+        concentrating: false,
+      },
+      conditionDurations: { attack: 2 },
+    })
+    // gob-1 omits both on the wire → defensive defaults, never undefined.
+    expect(gob?.battleConditions).toEqual(DEFAULT_BATTLE_CONDITIONS)
+    expect(gob?.conditionDurations).toEqual({})
   })
 
   it("flags a zone engaged only when both sides stand in it", () => {

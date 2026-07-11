@@ -1,5 +1,6 @@
 import {
   appendOrdinals,
+  DEFAULT_BATTLE_CONDITIONS,
   type OverlayComponents,
 } from "@workspace/game-v2/encounter"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -42,6 +43,8 @@ export interface WatchCombatant {
   /** Present iff the `skillPool` component survived redaction. */
   sp: Pool | null
   ailments: OverlayComponents["ailments"]
+  battleConditions: OverlayComponents["battleConditions"]
+  conditionDurations: OverlayComponents["conditionDurations"]
   /** The public melee-lock (`engagement` is public-to-all) — the map watch
    *  clusters locked tokens with it via `groupTokensByEngagement`. */
   engagement?: Engagement
@@ -76,8 +79,9 @@ export interface WatchView {
 /**
  * Projects one redacted combatant; `name` is the caller's disambiguated label.
  * The wire type marks every component optional (redaction may drop any key);
- * `allegiance`/`turnState`/`ailments` are public-to-all overlay components, so
- * their fallbacks are defensive defaults for a malformed payload, not policy.
+ * `allegiance`/`turnState`/`ailments`/`battleConditions`/`conditionDurations`
+ * are public-to-all overlay components, so their fallbacks are defensive
+ * defaults for a malformed payload, not policy.
  */
 function watchCombatant(
   combatant: VisibleCombatant,
@@ -104,6 +108,8 @@ function watchCombatant(
         }
       : null,
     ailments: components.ailments ?? [],
+    battleConditions: components.battleConditions ?? DEFAULT_BATTLE_CONDITIONS,
+    conditionDurations: components.conditionDurations ?? {},
     ...(components.engagement ? { engagement: components.engagement } : {}),
   }
 }
