@@ -10,6 +10,10 @@ import {
   skillEffects,
 } from "@workspace/game-v2/resolve/collect-skills"
 import {
+  orderEffectPool,
+  stampEffects,
+} from "@workspace/game-v2/resolve/effect-pool"
+import {
   applyForm,
   createResolve,
   type ResolveContext,
@@ -42,10 +46,11 @@ export function applyActiveForm(
  *    each source routed for its form semantics. This one set is the single source of
  *    truth for phases 2 and 3 (v1's `activeSkillsFor` `Set`).
  * 2. **Resolve** — the stat fold, with the delta pool fed every effect contributor in
- *    C6 order: active mechanic → skill effects (every collected Skill's always-on
- *    `effects[]`) → equipment stat bonuses → context (zone enchantment, etc.). `resolve`
- *    folds attribute/affinity in and surfaces attack-roll/damage as `pendingEffects`;
- *    the combat resolver preserves the order in `sources[]` (a display contract).
+ *    C6 order (mechanic → skill → equipment → context). That order is **data** now
+ *    ({@link orderEffectPool}, UNN-599): each channel is stamped with its contributor
+ *    and sorted by one declared rank, not by array position here. `resolve` folds
+ *    attribute/affinity in and surfaces attack-roll/damage as `pendingEffects`; the
+ *    combat resolver preserves the order in `sources[]` (a display contract).
  * 3. **Hydrate** — {@link hydrateSkills} resolves the collected Skills against the now
  *    **finished** entity (cost vs maxHP, Attack Roll vs final attributes), attached as
  *    the `skills` read-unit. Emitted only when the entity fields ≥1 Skill.
@@ -80,16 +85,16 @@ export function createResolveEntity(
     const mechanicEffects = active.flatMap(
       (mechanic) => mechanic.definition.effects?.(mechanic.state) ?? []
     )
-    // C6 contributor order — the skill-effects slot MUST stay between mechanic and
-    // context (appending it to `context.effects` would invert C6). Equipment's direct
-    // affinity/attribute bonuses carry no Attack-Roll effects, so their position is
-    // immaterial to the `sources[]` order; they sit with the skill region.
-    const effects = [
-      ...mechanicEffects,
-      ...skillEffects(skills),
-      ...equipmentEffects(deps, formed),
-      ...(context.effects ?? []),
-    ]
+    // C6 contributor order is data now (UNN-599): each channel is stamped with its
+    // contributor and `orderEffectPool` sorts by the one declared rank, so these
+    // four spreads may be listed in any order without changing the `sources[]`
+    // readout. See `resolve/effect-pool.ts`.
+    const effects = orderEffectPool([
+      ...stampEffects("mechanic", mechanicEffects),
+      ...stampEffects("skill", skillEffects(skills)),
+      ...stampEffects("equipment", equipmentEffects(deps, formed)),
+      ...stampEffects("context", context.effects ?? []),
+    ])
 
     // Phase 2 — the stat fold over the finished effect pool. Forward the whole
     // context (only `effects` is overridden with the assembled pool), so any other
