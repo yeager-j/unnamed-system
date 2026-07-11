@@ -19,16 +19,26 @@ export interface SnapshotVersionInputs {
 }
 
 /**
- * Deterministic: durable entries are sorted by entity id, so two loads of the
- * same state fold identically regardless of Map insertion order. The shape
- * (`e{n}.i{n}.d{id}:{n},…`) is debuggable but **opaque to consumers** — compare
- * for equality, never parse.
+ * **Injective for arbitrary entity ids** (UNN-602, "total encoding"): the fold
+ * is the JSON of the canonical tuple `[encounter, instance, sortedDurables]`,
+ * so JSON string escaping — not any assumption about the id alphabet — keeps
+ * distinct states distinct. (The previous delimiter-joined shape was injective
+ * only because nanoid/UUID ids happen to exclude `,`/`:`/`.`.)
+ *
+ * Deterministic: durable entries are sorted by entity id — by code unit, not
+ * `localeCompare`, whose collation can tie distinct ids and leak Map insertion
+ * order into the fold — so two loads of the same state fold identically. Both
+ * laws are quantified in `__laws__/snapshot-version.laws.test.ts`. The string
+ * is **opaque to consumers** — compare for equality, never parse.
  */
 export function foldSnapshotVersion(inputs: SnapshotVersionInputs): string {
-  const durable = [...inputs.durableVersions.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([entityId, version]) => `${entityId}:${version}`)
-    .join(",")
+  const durable = [...inputs.durableVersions.entries()].sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0
+  )
 
-  return `e${inputs.encounterVersion}.i${inputs.instanceVersion}.d${durable}`
+  return JSON.stringify([
+    inputs.encounterVersion,
+    inputs.instanceVersion,
+    durable,
+  ])
 }
