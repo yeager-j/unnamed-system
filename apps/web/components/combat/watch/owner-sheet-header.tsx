@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 
-import { AdjustPoolControl } from "@/components/character-sheet/rail/adjust-pool-control"
-import { VitalsBlock } from "@/components/character-sheet/rail/vitals-block"
+import { AdjustPoolControl } from "@/components/shared/adjust-pool-control"
+import { VitalsBlock } from "@/components/shared/vitals-block"
 import { buildRailView } from "@/domain/character/view/rail-view"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 

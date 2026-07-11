@@ -10,8 +10,8 @@ import {
 } from "@workspace/game-v2/encounter"
 import { Badge } from "@workspace/ui/components/badge"
 
-import { SectionLabel } from "@/components/character-sheet/section-label"
 import { AxisStateDisplay } from "@/components/combat/conditions/controls"
+import { SectionLabel } from "@/components/shared/section-label"
 import {
   BATTLE_CONDITION_AXIS_LABELS,
   BATTLE_CONDITION_FLAG_LABELS,

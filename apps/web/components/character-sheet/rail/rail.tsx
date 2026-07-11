@@ -1,15 +1,15 @@
 "use client"
 
+import { MechanicWidget } from "@/components/shared/mechanics/mechanic-widget"
+import { VitalsBlock } from "@/components/shared/vitals-block"
 import type { RailView } from "@/domain/character/view/rail-view"
 
-import { MechanicWidget } from "../mechanics/mechanic-widget"
 import { AttributesBlock } from "./attributes-block"
 import { ExhaustionBlock } from "./exhaustion-block"
 import { IdentityBlock } from "./identity-block"
 import { PrismaBlock } from "./prisma-block"
 import { RailControls } from "./rail-controls"
 import { VictoriesBlock } from "./victories-block"
-import { VitalsBlock } from "./vitals-block"
 
 /**
  * The persistent left rail (design handoff "The Left Rail"): identity →

@@ -1,9 +1,8 @@
 import { cn } from "@workspace/ui/lib/utils"
 
+import { SectionLabel } from "@/components/shared/section-label"
 import type { AffinityStripCell } from "@/domain/character/view/affinity-strip"
 import { AFFINITY_DAMAGE_TYPE_LABELS, AFFINITY_LABELS } from "@/lib/ui/labels"
-
-import { SectionLabel } from "../section-label"
 
 /**
  * The affinity strip atop the Combat tab (design frame `10a`): one bordered

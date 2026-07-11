@@ -3,10 +3,10 @@
 import type { ParticipantViewComponents } from "@workspace/game-v2/encounter/participant-view"
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
-import { AffinityStrip } from "@/components/character-sheet/combat/affinity-strip"
-import { SkillCastSection } from "@/components/character-sheet/combat/skill-cast-section"
-import { MechanicWidget } from "@/components/character-sheet/mechanics/mechanic-widget"
 import { CombatStateDisplay } from "@/components/combat/conditions/state-display"
+import { AffinityStrip } from "@/components/shared/affinity-strip"
+import { MechanicWidget } from "@/components/shared/mechanics/mechanic-widget"
+import { SkillCastSection } from "@/components/shared/skill-cast-section"
 import { buildAffinityStrip } from "@/domain/character/view/affinity-strip"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
 import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
