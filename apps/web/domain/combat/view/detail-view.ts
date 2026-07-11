@@ -27,6 +27,10 @@ import {
   combatantAvatar,
   type CombatantAvatar,
 } from "@/domain/combat/view/avatar"
+import {
+  displayHome,
+  type DisplayHome,
+} from "@/domain/combat/view/display-home"
 import type { Pool } from "@/domain/combat/view/pool"
 import { hpPool, spPool } from "@/domain/combat/view/roster-view"
 import {
@@ -35,6 +39,7 @@ import {
 } from "@/domain/combat/view/vitals-affordances"
 import { adjacentZones } from "@/domain/combat/view/zone-graph"
 import {
+  COMBATANT_CLASS_FALLBACKS,
   COMBATANT_DOWN_LABELS,
   COMBATANT_EDIT_SCOPE_NOTES,
 } from "@/domain/labels"
@@ -46,12 +51,13 @@ import {
  * `hp`/`sp` are each `null` exactly when the entity resolves no such read-unit,
  * and the drawer renders a section iff its datum resolved.
  *
- * The loader's storage projection (`meta.storage`) **dies in this builder**:
- * every PC-vs-enemy display question — avatar variant, subtitle fallback, down
- * label, edit-scope note, the setMax affordance — is resolved here into a
- * value, so no `isPc` boolean survives for the UI to re-branch on (the F1
- * leak). The drawer receives display answers and one resolved Skills list,
- * never the storage tier or write tokens that produced them.
+ * The loader's storage projection (`meta.storage`) **dies at {@link
+ * displayHome}**: every PC-vs-enemy display question — avatar variant,
+ * subtitle fallback, down label, edit-scope note, the setMax affordance — is
+ * resolved here into a value by indexing a `{pc, enemy}`-keyed table, so no
+ * storage boolean survives for the UI to re-branch on (the F1 leak). The
+ * drawer receives display answers and one resolved Skills list, never the
+ * storage tier or write tokens that produced them.
  */
 
 export interface EngageableTarget {
@@ -139,7 +145,7 @@ export function combatantDetail(
 
   const nameById = participantDisplayNames(view)
   const name = nameById.get(participantId) ?? participantId
-  const isPc = meta?.storage === "durable"
+  const home = displayHome(meta)
 
   return {
     id: participantId,
@@ -147,14 +153,14 @@ export function combatantDetail(
       participant,
       participantView,
       name,
-      isPc,
+      home,
       sheetSlice
     ),
     overlay: participant.overlay,
     actionAvailability: actionAvailability(participant.overlay.turnState),
     position: combatantPosition(instanceState, participantId),
     engagement: engagementView(session, instanceState, participantId, nameById),
-    vitals: combatantVitals(participantView, isPc),
+    vitals: combatantVitals(participantView, home),
     stats: combatantStats(participantView, sheetSlice),
   }
 }
@@ -163,13 +169,13 @@ function combatantHeader(
   participant: Participant,
   participantView: ParticipantView,
   name: string,
-  isPc: boolean,
+  home: DisplayHome,
   sheetSlice: CombatantSheetSlice | undefined
 ): CombatantHeader {
   const level = participant.entity.components.level?.value
   const subtitle = [
     level !== undefined ? `Level ${level}` : null,
-    sheetSlice?.className ?? (isPc ? null : "Enemy"),
+    sheetSlice?.className ?? COMBATANT_CLASS_FALLBACKS[home],
     sheetSlice?.pronouns ?? null,
   ]
     .filter(Boolean)
@@ -179,21 +185,19 @@ function combatantHeader(
     name,
     subtitle,
     avatar: combatantAvatar({
-      isPc,
+      home,
       portraitUrl: participantView.components.presentation?.portraitUrl ?? null,
       name,
       id: participant.id,
       side: participant.overlay.allegiance.side,
     }),
-    persistenceNote: isPc
-      ? COMBATANT_EDIT_SCOPE_NOTES.pc(name)
-      : COMBATANT_EDIT_SCOPE_NOTES.enemy,
+    persistenceNote: COMBATANT_EDIT_SCOPE_NOTES[home](name),
   }
 }
 
 function combatantVitals(
   participantView: ParticipantView,
-  isPc: boolean
+  home: DisplayHome
 ): CombatantVitalsView {
   const vitals = participantView.components.vitals
   return {
@@ -201,10 +205,10 @@ function combatantVitals(
     sp: spPool(participantView),
     downLabel:
       vitals !== undefined && isFallen(vitals)
-        ? COMBATANT_DOWN_LABELS[isPc ? "pc" : "enemy"]
+        ? COMBATANT_DOWN_LABELS[home]
         : null,
     affordances: vitalsAffordances(
-      isPc,
+      home,
       resolvedGuard("resources")(participantView)
     ),
   }
