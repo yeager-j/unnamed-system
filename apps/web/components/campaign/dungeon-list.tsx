@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Badge } from "@workspace/ui/components/badge"
 
 import type { DungeonSummary } from "@/lib/db/queries/load-dungeon"
+import { dungeonConsolePath } from "@/lib/paths"
 import { DUNGEON_STATUS_LABELS } from "@/lib/ui/labels"
 
 /** Status → badge styling. `active` stands out; `draft`/`done` are muted. */
@@ -14,11 +15,17 @@ const STATUS_VARIANT = {
 
 /**
  * The campaign's dungeons on the manage page (UNN-465) — each linking to its DM
- * console (`/dungeon/{shortId}`, UNN-462) with a status badge. The create
+ * console (`/campaigns/{c}/dungeon/{d}`, UNN-462) with a status badge. The create
  * affordance is the sibling {@link import("./create-dungeon-button").CreateDungeonButton};
  * this is the list. Mirrors {@link import("./encounter-list").EncounterList}.
  */
-export function DungeonList({ dungeons }: { dungeons: DungeonSummary[] }) {
+export function DungeonList({
+  campaignShortId,
+  dungeons,
+}: {
+  campaignShortId: string
+  dungeons: DungeonSummary[]
+}) {
   if (dungeons.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -32,7 +39,7 @@ export function DungeonList({ dungeons }: { dungeons: DungeonSummary[] }) {
       {dungeons.map((dungeon) => (
         <li key={dungeon.id}>
           <Link
-            href={`/dungeon/${dungeon.shortId}`}
+            href={dungeonConsolePath(campaignShortId, dungeon.shortId)}
             className="flex items-center justify-between gap-3 border p-3 transition-colors hover:bg-muted/50"
           >
             <span className="truncate font-medium">{dungeon.name}</span>

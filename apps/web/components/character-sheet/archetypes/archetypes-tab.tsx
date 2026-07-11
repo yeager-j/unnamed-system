@@ -25,6 +25,7 @@ import { affinityCells } from "@/domain/character/view/affinity-strip"
 import { buildArchetypesTabView } from "@/domain/character/view/archetypes-tab"
 import { buildSkillCardView } from "@/domain/combat/view/skill-card-view"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { characterAtlasPath } from "@/lib/paths"
 
 import { AttributesBlock } from "../rail/attributes-block"
 import { SheetCard } from "../sheet-card"
@@ -55,7 +56,7 @@ export function ArchetypesTab() {
             size="sm"
             variant="outline"
             render={
-              <Link href={`/c/${profile.shortId}/archetypes/atlas`}>
+              <Link href={characterAtlasPath(profile.shortId)}>
                 Open Lineage Atlas
               </Link>
             }
@@ -137,7 +138,7 @@ function ActiveArchetypeCard({
           className="shrink-0"
           nativeButton={false}
           render={
-            <Link href={`/c/${shortId}/archetypes/atlas`}>
+            <Link href={characterAtlasPath(shortId)}>
               <MapTrifoldIcon weight="bold" />
               Lineage Atlas
             </Link>

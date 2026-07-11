@@ -13,7 +13,7 @@ import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { zoneOf } from "@workspace/game-v2/spatial/selectors"
 
-import type { ParticipantMeta } from "@/app/combat/[shortId]/encounter-access"
+import type { ParticipantMeta } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   combatantAvatar,
   type CombatantAvatar,

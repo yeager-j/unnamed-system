@@ -22,6 +22,7 @@ import { encounters, entity, getDb } from "@/lib/db"
 import { loadEntityRowById } from "@/lib/db/queries/load-entity"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
+import { encounterConsolePath } from "@/lib/paths"
 
 /**
  * Seed data for the encounter shell + join E2E (`e2e/encounter-shell.spec.ts`,
@@ -200,7 +201,7 @@ function storedParticipant(setup: SeedSetup, id: string): StoredParticipant {
 function seededEncounter(
   slug: string,
   status: EncounterStatus,
-  campaignId: string,
+  campaign: { id: string; shortId: string },
   roster: SeedSetup[],
   start?: { advantage: "players" | "enemies" | "neutral"; firstSide: "players" }
 ): SeededEncounter {
@@ -220,8 +221,8 @@ function seededEncounter(
     id: `seed-encounter-${slug}`,
     shortId: `encounter-${slug}`,
     status,
-    campaignId,
-    url: `/combat/encounter-${slug}`,
+    campaignId: campaign.id,
+    url: encounterConsolePath(campaign.shortId, `encounter-${slug}`),
     session,
     mapInstanceId: `seed-mi-encounter-${slug}`,
     mapInstanceState: emptyMapInstance(),
@@ -235,21 +236,21 @@ export const encounterTarget = {
   placedPc: { seed: placedPc, characterId: PLACED_PC_ID },
   liveCombatPc: { seed: liveCombatPc, characterId: LIVE_COMBAT_PC_ID },
   /** Campaign A, startable (A has no live encounter) — carries the placed PC. */
-  draft: seededEncounter("draft", "draft", campaignA.id, [pcSetup]),
+  draft: seededEncounter("draft", "draft", campaignA, [pcSetup]),
   /** Campaign A, read-only ended stub. */
-  ended: seededEncounter("ended", "ended", campaignA.id, []),
+  ended: seededEncounter("ended", "ended", campaignA, []),
   /** Campaign B's live encounter → the live combat console (UNN-344): a started
    *  session (neutral advantage, players first) with a PC + two enemies. */
-  live: seededEncounter("live", "live", campaignB.id, liveRoster, {
+  live: seededEncounter("live", "live", campaignB, liveRoster, {
     advantage: "neutral",
     firstSide: "players",
   }),
   /** Campaign B, draft — starting it is rejected by the single-live guard (B
    *  already has `live`). Seeded with one combatant so Start is clickable. */
-  blocked: seededEncounter("blocked", "draft", campaignB.id, [enemySetup]),
+  blocked: seededEncounter("blocked", "draft", campaignB, [enemySetup]),
   /** A `draft` in the foreign (seed-user) campaign — the dev user is not its DM,
    *  so the route must 404. */
-  foreign: seededEncounter("foreign", "draft", foreignCampaign.id, []),
+  foreign: seededEncounter("foreign", "draft", foreignCampaign, []),
 } as const
 
 /** Campaign A's manage page — where the New-encounter dialog lives (UNN-329). */

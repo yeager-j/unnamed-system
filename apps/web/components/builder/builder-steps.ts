@@ -17,7 +17,7 @@ export type RomanNumeral = "I" | "II" | "III" | "IV"
 export type MovementSlug = "corpus" | "ortus" | "animus" | "persona"
 
 export type BuilderStep = {
-  /** URL slug — the segment under `/builder/[shortId]/`. */
+  /** URL slug — the segment under `/characters/[shortId]/builder/`. */
   slug: MovementSlug
   /**
    * The Roman numeral rendered above the title in the chapter-header chrome.

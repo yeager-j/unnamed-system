@@ -18,6 +18,7 @@ import { EnemyQueueRail } from "@/components/combat/enemies/enemy-queue-rail"
 import { useEncounterEnemyQueue } from "@/hooks/use-encounter-enemy-queue"
 import { addCatalogEnemiesAction } from "@/lib/actions/combat/add-participants"
 import { combatErrorMessage } from "@/lib/actions/combat/error-message"
+import { encounterConsolePath } from "@/lib/paths"
 
 /**
  * The catalog browse-and-add surface (UNN-346), committing onto engine v2
@@ -35,6 +36,7 @@ function enemyName(enemyKey: string): string {
 export function EnemyCatalogBrowser({
   encounterId,
   shortId,
+  campaignShortId,
   encounterName,
   expectedVersion,
   committedPlayers,
@@ -42,6 +44,7 @@ export function EnemyCatalogBrowser({
 }: {
   encounterId: string
   shortId: string
+  campaignShortId: string
   encounterName: string
   expectedVersion: number
   committedPlayers: number
@@ -51,7 +54,7 @@ export function EnemyCatalogBrowser({
   const [isPending, startTransition] = useTransition()
   const queue = useEncounterEnemyQueue(encounterId)
 
-  const backHref = `/combat/${shortId}`
+  const backHref = encounterConsolePath(campaignShortId, shortId)
 
   function returnToSetup() {
     queue.clear()

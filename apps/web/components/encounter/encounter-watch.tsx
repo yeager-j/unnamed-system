@@ -19,7 +19,7 @@ import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 import { ZoneLayout } from "./zone-layout"
 
 /**
- * The **player watch view** at `/c/encounter/{shortId}` (UNN-322 → UNN-535 on
+ * The **player watch view** at `/campaigns/{c}/encounter/{e}/watch` (UNN-322 → UNN-535 on
  * v2). Seeds from the server-rendered snapshot + composite version and
  * subscribes to the DM's live changes via {@link useEncounterSnapshot}
  * (realtime, polling fallback — UNN-371); the composite version is what the

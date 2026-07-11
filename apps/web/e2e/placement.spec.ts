@@ -146,6 +146,7 @@ test("refuses to remove a character that is live in combat", async ({
   // A live encounter in this campaign with the character as a combatant.
   await createLiveEncounter(tracker, {
     campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
     combatantCharacterIds: [char.id],
   })
 

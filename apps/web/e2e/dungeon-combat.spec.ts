@@ -46,7 +46,7 @@ test("runs a delve's full combat phase: begin → end, atomic + PC in place", as
   // into the delve's first zone, then Begin.
   await page.getByRole("button", { name: "Start an encounter" }).click()
   await expect(page).toHaveURL(
-    new RegExp(`/dungeon/${target.dungeon.shortId}/encounter$`)
+    new RegExp(`/dungeon/${target.dungeon.shortId}/setup$`)
   )
 
   await page

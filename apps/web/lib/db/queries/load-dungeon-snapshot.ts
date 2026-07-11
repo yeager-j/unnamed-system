@@ -53,11 +53,17 @@ function buildRoster(
  * server-side — this loader never ships DM notes, undiscovered Zones, or unrevealed
  * connections to the client, and deleting the view can't re-expose them. Keyed by
  * `shortId`, never the internal dungeon id, so the public surface (page + poll API)
- * leaks no internal UUID. `mapInstanceId` is non-null (restrict FK), so a missing
- * Instance is a data-integrity fault and collapses to `null` (the surface 404s).
+ * leaks no internal UUID. shortIds are globally unique, so the optional
+ * `campaignShortId` **pairing check** (`campaign.shortId === campaignShortId`)
+ * stops one campaign's watch URL from resolving another's dungeon; a mismatch
+ * collapses to `null` (404). Pairing runs only when a campaign frames the read
+ * (the nested watch page passes it); the flat poll API (`/api/dungeon/[shortId]/…`)
+ * is keyed on the unique shortId and omits it. `mapInstanceId` is non-null (restrict
+ * FK), so a missing Instance is a data-integrity fault and collapses to `null` too.
  */
 export async function getDungeonSnapshot(
-  shortId: string
+  shortId: string,
+  campaignShortId?: string
 ): Promise<DungeonSnapshot | null> {
   const dungeon = await loadDungeonRowByShortId(shortId)
   if (!dungeon) return null
@@ -68,6 +74,8 @@ export async function getDungeonSnapshot(
     loadPlacedCharactersForCampaign(dungeon.campaignId),
     loadLiveEncounterForMapInstance(dungeon.mapInstanceId),
   ])
+  if (!campaign) return null
+  if (campaignShortId && campaign.shortId !== campaignShortId) return null
   if (!instance) return null
 
   // The party tokens show each other's HP/SP (UNN-489), so hydrate the placed
@@ -84,7 +92,7 @@ export async function getDungeonSnapshot(
     {
       name: dungeon.name,
       status: dungeon.status,
-      campaignShortId: campaign?.shortId ?? "",
+      campaignShortId: campaign.shortId,
       version: dungeon.version,
       instanceVersion: instance.version,
       ...(liveEncounter

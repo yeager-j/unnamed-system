@@ -11,7 +11,7 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { type Result } from "@workspace/game-v2/kernel/result"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import {
   dispatchCombatEvent,
   type ConsoleDispatchEvent,

@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Spinner } from "@workspace/ui/components/spinner"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import type { DungeonRosterEntry } from "@/components/dungeon/canvas/types"
 import { DungeonCombatBody } from "@/components/dungeon/combat/body"
 import { DungeonExploreBody } from "@/components/dungeon/explore/body"

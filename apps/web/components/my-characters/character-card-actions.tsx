@@ -30,7 +30,7 @@ interface CharacterCardActionsProps {
   displayName: string
   /**
    * Primary-button destination. Finalized characters point at the public
-   * sheet (`/c/{shortId}`); drafts point at the builder so the player
+   * sheet (`/characters/{shortId}`); drafts point at the builder so the player
    * resumes mid-flow.
    */
   href: string

@@ -105,6 +105,7 @@ export async function createMoveCombatantTarget(tracker: CleanupTracker) {
   })
   const encounter = await createLiveEncounter(tracker, {
     campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
     status: "live",
     session: buildSession(pc.id),
     mapInstanceState: buildInstanceState(),

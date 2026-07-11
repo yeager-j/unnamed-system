@@ -56,7 +56,7 @@ export interface DungeonCombatCanvasContextValue {
   /** Dispatch a spatial event against the shared Instance — the Bard Zone
    *  Enchantment menu's `applyEnchantment` / `clearEnchantment`. */
   onCombatEvent: (event: MapInstanceEvent) => void
-  /** The read-only player combat view for this delve (`/c/dungeon/{shortId}`). */
+  /** The read-only player combat view for this delve (`/campaigns/{c}/dungeon/{d}/watch`). */
   playerViewHref: string
   /** End the encounter (returns the console to exploration). */
   onEndEncounter: () => void

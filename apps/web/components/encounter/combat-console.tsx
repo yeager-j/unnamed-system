@@ -7,7 +7,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 
-import type { EncounterForDM } from "@/app/combat/[shortId]/encounter-access"
+import type { EncounterForDM } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/encounter-access"
 import { useCombatConsole } from "@/components/combat/console/use-combat-console"
 import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
@@ -19,6 +19,7 @@ import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
 import { RealtimeChannelListener } from "@/hooks/use-realtime-channel"
+import { encounterWatchPath } from "@/lib/paths"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -119,7 +120,7 @@ export function CombatConsole({
             nativeButton={false}
             render={
               <Link
-                href={`/c/encounter/${encounter.shortId}`}
+                href={encounterWatchPath(campaignShortId, encounter.shortId)}
                 target="_blank"
                 rel="noopener noreferrer"
               />

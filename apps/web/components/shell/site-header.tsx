@@ -8,7 +8,7 @@ import { SignInButton } from "./sign-in-button"
 
 /**
  * Persistent top-of-app chrome rendered above every route (including the
- * public character sheet at `/c/{shortId}`). Resolves the current session on
+ * public character sheet at `/characters/{shortId}`). Resolves the current session on
  * the server and renders either a Google sign-in CTA or the account menu.
  *
  * Stays slim and unintrusive so the sticky bar does not visually fight with

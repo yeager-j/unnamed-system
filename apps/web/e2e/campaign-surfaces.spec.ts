@@ -137,7 +137,7 @@ test("create an encounter from the manage page → DM console", async ({
     .getByRole("button", { name: "Create encounter" })
     .click()
 
-  await expect(page).toHaveURL(/\/combat\/[^/]+$/)
+  await expect(page).toHaveURL(/\/encounter\/[^/]+$/)
 })
 
 test("removing a player unplaces their characters", async ({ page }) => {
@@ -229,7 +229,7 @@ test("a non-member 404s on the manage URL", async ({ page }) => {
 })
 
 test("the player watch view renders a live encounter", async ({ page }) => {
-  await page.goto(`/c/encounter/${encounterTarget.live.shortId}`)
+  await page.goto(`${encounterTarget.live.url}/watch`)
 
   // Battlefield: the turn tracker + a combatant from the seeded live roster.
   // The owner's own-sheet column was removed with the old sheet tree (UNN-557);

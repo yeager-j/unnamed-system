@@ -19,6 +19,7 @@ import {
 } from "@/components/builder/builder-steps"
 import { getArchetype } from "@/domain/game-engine-v2"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
+import { characterBuilderPath, characterPath } from "@/lib/paths"
 import { initials } from "@/lib/ui/initials"
 import { LINEAGE_LABELS } from "@/lib/ui/labels"
 import { avatarSrc } from "@/lib/ui/portrait"
@@ -43,8 +44,11 @@ interface CharacterCardProps {
 export function CharacterCard({ character }: CharacterCardProps) {
   const isDraft = character.status === "draft"
   const href = isDraft
-    ? `/builder/${character.shortId}/${slugForStepIndex(character.builderStep)}`
-    : `/c/${character.shortId}`
+    ? characterBuilderPath(
+        character.shortId,
+        slugForStepIndex(character.builderStep)
+      )
+    : characterPath(character.shortId)
   const primaryLabel = isDraft ? "Resume" : "Open"
   const displayName = displayNameFor(character)
 

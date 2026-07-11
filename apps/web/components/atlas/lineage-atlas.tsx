@@ -20,6 +20,7 @@ import {
   getAtlasRecommendations,
 } from "@/domain/game-engine-v2"
 import { useLoadedCharacter } from "@/hooks/use-entity-write"
+import { characterPath } from "@/lib/paths"
 
 import { ArchetypeDetailPanel } from "./archetype-detail-panel"
 import { AtlasSidebar } from "./atlas-sidebar"
@@ -92,7 +93,7 @@ export function LineageAtlas({
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
       <div className="flex flex-col gap-1">
         <Link
-          href={`/c/${profile.shortId}`}
+          href={characterPath(profile.shortId)}
           className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon aria-hidden /> Back to sheet

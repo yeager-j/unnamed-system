@@ -76,6 +76,7 @@ export async function createDungeonCombatTarget(tracker: CleanupTracker) {
 
   const dungeon = await createActiveDungeon(tracker, {
     campaignId: campaign.id,
+    campaignShortId: campaign.shortId,
     mapInstanceState: buildInstanceState(pc.id),
     name: "E2E Sunken Vault",
   })

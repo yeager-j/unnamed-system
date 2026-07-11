@@ -15,7 +15,7 @@ export const metadata: Metadata = {
  * The My Characters home page (PRD §4, UNN-177). For signed-in viewers, a
  * card grid of every character whose `ownerId` matches their user id, with a
  * disabled Create CTA until the Character Builder ships. For signed-out
- * viewers, a sign-in panel — the public character sheet at `/c/{shortId}`
+ * viewers, a sign-in panel — the public character sheet at `/characters/{shortId}`
  * remains accessible without an account, this surface just gates the roster.
  */
 export default async function MyCharactersPage() {

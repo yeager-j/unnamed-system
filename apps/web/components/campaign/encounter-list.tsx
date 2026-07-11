@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Badge } from "@workspace/ui/components/badge"
 
 import type { EncounterSummary } from "@/lib/db/queries/load-encounter"
+import { encounterConsolePath } from "@/lib/paths"
 import { ENCOUNTER_STATUS_LABELS } from "@/lib/ui/labels"
 
 /** Status → badge styling. `live` stands out; `draft`/`ended` are muted. */
@@ -14,12 +15,14 @@ const STATUS_VARIANT = {
 
 /**
  * The campaign's encounters on the manage page (UNN-329) — each linking to its DM
- * console (`/combat/{shortId}`, UNN-335) with a status badge. The create
+ * console (`/campaigns/{c}/encounter/{e}`, UNN-335) with a status badge. The create
  * affordance is the sibling {@link CreateEncounterButton}; this is the list.
  */
 export function EncounterList({
+  campaignShortId,
   encounters,
 }: {
+  campaignShortId: string
   encounters: EncounterSummary[]
 }) {
   if (encounters.length === 0) {
@@ -35,7 +38,7 @@ export function EncounterList({
       {encounters.map((encounter) => (
         <li key={encounter.id}>
           <Link
-            href={`/combat/${encounter.shortId}`}
+            href={encounterConsolePath(campaignShortId, encounter.shortId)}
             className="flex items-center justify-between gap-3 border p-3 transition-colors hover:bg-muted/50"
           >
             <span className="truncate font-medium">{encounter.name}</span>

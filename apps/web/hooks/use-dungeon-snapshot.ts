@@ -24,7 +24,7 @@ async function fetchSnapshot(
 export type DungeonSnapshotState = SnapshotSubscriptionState<DungeonSnapshot>
 
 /**
- * Subscribes the **dungeon fog view** (`/c/dungeon/{shortId}`) to the DM's live
+ * Subscribes the **dungeon fog view** (`/campaigns/{c}/dungeon/{d}/watch`) to the DM's live
  * changes — realtime first, ~1.5s polling as the degraded fallback. A thin
  * binding of the shared {@link useSnapshotSubscription} to the `dungeon` channel
  * (UNN-468): a Zone reveal or token move bumps only the Map Instance, so the

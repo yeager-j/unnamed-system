@@ -9,26 +9,30 @@ import {
 } from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 
+import { dungeonConsolePath, dungeonWatchPath } from "@/lib/paths"
+
 /**
  * The "Exploration is live" banner on the campaign manage/overview page (UNN-465).
  * Surfaces the campaign's single active delve (UNN-465's one-active-delve rule)
  * with a link that depends on the viewer: the DM jumps to the run console
- * (`/dungeon/{shortId}`), a player to the signed-out-visible fog view
- * (`/c/dungeon/{shortId}`, UNN-466). Mirrors {@link import("./live-encounter-banner").LiveEncounterBanner}.
+ * (`/campaigns/{c}/dungeon/{d}`), a player to the signed-out-visible fog view
+ * (`/campaigns/{c}/dungeon/{d}/watch`, UNN-466). Mirrors {@link import("./live-encounter-banner").LiveEncounterBanner}.
  */
 export function LiveDelveBanner({
+  campaignShortId,
   dungeonName,
   dungeonShortId,
   audience,
 }: {
+  campaignShortId: string
   dungeonName: string
   dungeonShortId: string
   audience: "dm" | "player"
 }) {
   const href =
     audience === "dm"
-      ? `/dungeon/${dungeonShortId}`
-      : `/c/dungeon/${dungeonShortId}`
+      ? dungeonConsolePath(campaignShortId, dungeonShortId)
+      : dungeonWatchPath(campaignShortId, dungeonShortId)
   const cta = audience === "dm" ? "Open console" : "Join delve"
 
   return (

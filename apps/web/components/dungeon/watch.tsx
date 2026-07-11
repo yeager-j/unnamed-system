@@ -75,7 +75,7 @@ function usePhaseFlipRefresh(
 }
 
 /**
- * The signed-out-visible **dungeon player watch** at `/c/dungeon/{shortId}`
+ * The signed-out-visible **dungeon player watch** at `/campaigns/{c}/dungeon/{d}/watch`
  * (UNN-466; one surface for both phases since UNN-604). Seeds from the
  * server-rendered redacted `initialSnapshot` and subscribes via
  * {@link useDungeonSnapshot} (realtime + ~1.5s poll fallback).

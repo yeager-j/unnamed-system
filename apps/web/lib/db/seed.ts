@@ -16,6 +16,7 @@ import {
   encounterTarget,
   SEEDED_ENCOUNTERS,
 } from "../../e2e/fixtures/encounter-target"
+import { characterPath, dungeonConsolePath } from "../paths"
 import { insertSeedEntity } from "./seed-entity"
 
 /**
@@ -28,7 +29,7 @@ import { insertSeedEntity } from "./seed-entity"
  * Re-running is safe: every row has a deterministic id derived from a stable
  * slug, the owning user and characters are upserted, and each character's child
  * rows are deleted then re-inserted — so a second run neither duplicates rows
- * nor changes any public `/c/{shortId}` URL.
+ * nor changes any public `/characters/{shortId}` URL.
  *
  * The db client reads `DATABASE_URL` lazily on first query, so the repo-root
  * `.env.local` is loaded (when `DATABASE_URL` is not already in the
@@ -114,14 +115,14 @@ async function seedCharacter(
 ): Promise<void> {
   await insertSeedEntity(character, ownerId, null)
   console.log(
-    `  ✓ ${character.name} (/c/${character.shortId}) — L${character.level} ${character.activeArchetypeKey}`
+    `  ✓ ${character.name} (${characterPath(character.shortId)}) — L${character.level} ${character.activeArchetypeKey}`
   )
 }
 
 /**
  * Seeds the initiative-tracker prerequisites (UNN-335): a {@link DEV_USER}-owned
  * campaign, one PC placed into it (`characters.campaignId`), and one encounter
- * per lifecycle status (`draft` / `live` / `ended`) so the `/combat/{shortId}`
+ * per lifecycle status (`draft` / `live` / `ended`) so the `/campaigns/{c}/encounter/{e}`
  * route's status fork and the create → setup → Start flow are exercisable E2E.
  * The DM is `DEV_USER` — the user the Playwright auth fixture signs in as — so
  * `requireCampaignDM` admits the test's writes. All ids are deterministic and
@@ -194,7 +195,7 @@ async function seedEncounterFixtures(): Promise<void> {
 
 /**
  * Seeds one showcase dungeon (UNN-462) into the dev-DM Campaign A so the
- * `/dungeon/{shortId}` route's load + DM gate is verifiable. The dungeon owns a
+ * `/campaigns/{c}/dungeon/{d}` route's load + DM gate is verifiable. The dungeon owns a
  * freshly-minted (empty) Map Instance — the exploration runtime the canvas/turn
  * loop layer onto in UNN-463/464. All ids are deterministic and upserted, so a
  * re-seed resets the row in place without duplicating it. The DM is `DEV_USER`
@@ -285,7 +286,7 @@ async function seedDungeonFixtures(): Promise<void> {
     .values(dungeonRow)
     .onConflictDoUpdate({ target: dungeons.id, set: dungeonRow })
   console.log(
-    `  ✓ dungeon ${dungeonRow.status} (/dungeon/${dungeonRow.shortId})`
+    `  ✓ dungeon ${dungeonRow.status} (${dungeonConsolePath(encounterTarget.campaignA.shortId, dungeonRow.shortId)})`
   )
 }
 

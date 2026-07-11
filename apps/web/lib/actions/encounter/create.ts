@@ -17,7 +17,7 @@ import {
 
 /**
  * Creates a fresh `draft` encounter inside a campaign and returns its public
- * `shortId` so the client can redirect to the setup shell (`/combat/{shortId}`,
+ * `shortId` so the client can redirect to the setup shell (`/campaigns/{c}/encounter/{e}`,
  * UNN-335) — mirroring how `startCharacterDraftAction` hands back a `shortId`
  * for the builder. The roster starts empty: a v2 {@link createSession} mint
  * serialized through the fail-closed `saveSession` (an empty roster needs an

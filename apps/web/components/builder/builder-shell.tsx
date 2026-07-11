@@ -16,6 +16,7 @@ import {
 
 import { useEntityIdentityToken } from "@/hooks/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
+import { characterBuilderPath } from "@/lib/paths"
 
 import { BUILDER_STEPS, indexOfStep, type MovementSlug } from "./builder-steps"
 
@@ -173,7 +174,7 @@ function BackLink({
       size="lg"
       nativeButton={false}
       aria-label={`Back to ${step.label}`}
-      render={<Link href={`/builder/${shortId}/${step.slug}`} />}
+      render={<Link href={characterBuilderPath(shortId, step.slug)} />}
     >
       <ArrowLeftIcon weight="bold" className="size-3.5" />
       <span className="hidden sm:inline">{step.label}</span>
@@ -213,7 +214,7 @@ function ContinueLink({
         toast.error("Couldn't advance. Try again.")
         return
       }
-      router.push(`/builder/${shortId}/${step.slug}`)
+      router.push(characterBuilderPath(shortId, step.slug))
     })
   }
 
@@ -276,7 +277,7 @@ function ProgressDots({
           return (
             <li key={step.slug}>
               <Link
-                href={`/builder/${shortId}/${step.slug}`}
+                href={characterBuilderPath(shortId, step.slug)}
                 aria-label={label}
                 className="block size-2 rounded-full bg-muted-foreground/60 transition-colors hover:bg-foreground"
               />

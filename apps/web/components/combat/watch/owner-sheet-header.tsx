@@ -14,7 +14,7 @@ import { useLoadedCharacter } from "@/hooks/use-entity-write"
  *
  * Deliberately **not** the sheet's `SheetRail`: Rest, Level Up, and the
  * Archetype switcher are out-of-combat, out-of-delve actions and stay on
- * `/c/{shortId}`. The Archetype reads as a static pill here for the same
+ * `/characters/{shortId}`. The Archetype reads as a static pill here for the same
  * reason.
  */
 export function OwnerSheetHeader() {
