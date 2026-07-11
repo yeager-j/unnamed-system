@@ -167,14 +167,16 @@ export const ENTITY_WRITERS: WriterMap = {
       const vitals = components.vitals
       if (vitals === undefined) return err("capability-missing")
       switch (write.op) {
-        case "damage":
-          return ok({
-            vitals: { ...vitals, ...applyDamage(vitals, write.amount) },
-          })
-        case "heal":
-          return ok({
-            vitals: { ...vitals, ...applyHeal(vitals, write.amount) },
-          })
+        case "damage": {
+          const patch = applyDamage(vitals, write.amount)
+          if (!patch.ok) return patch
+          return ok({ vitals: { ...vitals, ...patch.value } })
+        }
+        case "heal": {
+          const patch = applyHeal(vitals, write.amount)
+          if (!patch.ok) return patch
+          return ok({ vitals: { ...vitals, ...patch.value } })
+        }
         case "setMax":
           return ok({ vitals: { ...vitals, base: write.amount } })
       }
@@ -187,20 +189,16 @@ export const ENTITY_WRITERS: WriterMap = {
       const skillPool = components.skillPool
       if (skillPool === undefined) return err("capability-missing")
       switch (write.op) {
-        case "damage":
-          return ok({
-            skillPool: {
-              ...skillPool,
-              ...applySpendSP(skillPool, write.amount),
-            },
-          })
-        case "heal":
-          return ok({
-            skillPool: {
-              ...skillPool,
-              ...applyRecoverSP(skillPool, write.amount),
-            },
-          })
+        case "damage": {
+          const patch = applySpendSP(skillPool, write.amount)
+          if (!patch.ok) return patch
+          return ok({ skillPool: { ...skillPool, ...patch.value } })
+        }
+        case "heal": {
+          const patch = applyRecoverSP(skillPool, write.amount)
+          if (!patch.ok) return patch
+          return ok({ skillPool: { ...skillPool, ...patch.value } })
+        }
         case "setMax":
           return ok({ skillPool: { ...skillPool, base: write.amount } })
       }

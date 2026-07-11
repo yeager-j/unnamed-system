@@ -2,6 +2,7 @@ import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
 import { record } from "@workspace/game-v2/__fixtures__/arbitraries/record"
+import type { Result } from "@workspace/game-v2/kernel/result"
 import { PRISMA_BASE_CHARGES } from "@workspace/game-v2/resources/derive"
 import { applyUsePrisma } from "@workspace/game-v2/resources/operations"
 import type { Resources } from "@workspace/game-v2/resources/resources.schema"
@@ -97,15 +98,30 @@ const arbitraryHealAmounts = fc.array(fc.integer({ min: 0, max: 120 }), {
 const currentHP = (vitals: Vitals) => Math.max(0, vitals.base - vitals.damage)
 const currentSP = (pool: SkillPool) => Math.max(0, pool.base - pool.spSpent)
 
+/**
+ * Unwrap an op's `Result` (UNN-565). Every amount these laws feed is a valid
+ * integer — the magnitude arbitraries are non-negative and `applyDamage` accepts
+ * any integer — so `invalid-input` is unreachable here; a throw surfaces it as a
+ * test failure if that ever stops being true.
+ */
+const value = <T>(patch: Result<T, "invalid-input">): T => {
+  if (!patch.ok)
+    throw new Error("unexpected invalid-input in the depletion laws")
+  return patch.value
+}
+
 const damageAll = (vitals: Vitals, amounts: readonly number[]): Vitals =>
   amounts.reduce(
-    (current, amount) => ({ ...current, ...applyDamage(current, amount) }),
+    (current, amount) => ({
+      ...current,
+      ...value(applyDamage(current, amount)),
+    }),
     vitals
   )
 
 const healAll = (vitals: Vitals, amounts: readonly number[]): Vitals =>
   amounts.reduce(
-    (current, amount) => ({ ...current, ...applyHeal(current, amount) }),
+    (current, amount) => ({ ...current, ...value(applyHeal(current, amount)) }),
     vitals
   )
 
@@ -119,7 +135,7 @@ describe("damage is a monoid action of (ℤ, +)", () => {
           const total = amounts.reduce((sum, amount) => sum + amount, 0)
           expect(damageAll(vitals, amounts)).toStrictEqual({
             ...vitals,
-            ...applyDamage(vitals, total),
+            ...value(applyDamage(vitals, total)),
           })
         }
       )
@@ -175,7 +191,7 @@ describe("heal clamps at full health and never overheals", () => {
         (vitals, a, b) => {
           expect(healAll(vitals, [a, b])).toStrictEqual({
             ...vitals,
-            ...applyHeal(vitals, a + b),
+            ...value(applyHeal(vitals, a + b)),
           })
         }
       )
@@ -229,7 +245,7 @@ describe("the skill pool mirrors HP", () => {
           const spent = amounts.reduce(
             (current, amount) => ({
               ...current,
-              ...applySpendSP(current, amount),
+              ...value(applySpendSP(current, amount)),
             }),
             pool
           )
@@ -246,7 +262,7 @@ describe("the skill pool mirrors HP", () => {
         arbitrarySkillPool,
         fc.integer({ min: 0, max: 120 }),
         (pool, amount) => {
-          const recovered = { ...pool, ...applyRecoverSP(pool, amount) }
+          const recovered = { ...pool, ...value(applyRecoverSP(pool, amount)) }
           expect(recovered.spSpent).toBeGreaterThanOrEqual(0)
           expect(currentSP(recovered)).toBeGreaterThanOrEqual(currentSP(pool))
           expect(currentSP(recovered)).toBeLessThanOrEqual(pool.base)
@@ -278,9 +294,11 @@ describe("the pools stay inside the domain their schemas admit", () => {
         const final = sequence.reduce(
           (current, amount) => ({
             ...current,
-            ...(amount >= 0
-              ? applyDamage(current, amount)
-              : applyHeal(current, -amount)),
+            ...value(
+              amount >= 0
+                ? applyDamage(current, amount)
+                : applyHeal(current, -amount)
+            ),
           }),
           vitals
         )
@@ -295,9 +313,11 @@ describe("the pools stay inside the domain their schemas admit", () => {
         const final = sequence.reduce(
           (current, amount) => ({
             ...current,
-            ...(amount >= 0
-              ? applySpendSP(current, amount)
-              : applyRecoverSP(current, -amount)),
+            ...value(
+              amount >= 0
+                ? applySpendSP(current, amount)
+                : applyRecoverSP(current, -amount)
+            ),
           }),
           pool
         )
@@ -308,13 +328,15 @@ describe("the pools stay inside the domain their schemas admit", () => {
 
   it("saturates rather than escaping the boundary", () => {
     expect(
-      applyDamage({ base: 100, damage: Number.MAX_SAFE_INTEGER }, 9_999).damage
+      value(applyDamage({ base: 100, damage: Number.MAX_SAFE_INTEGER }, 9_999))
+        .damage
     ).toBe(Number.MAX_SAFE_INTEGER)
     expect(
-      applyDamage({ base: 100, damage: Number.MIN_SAFE_INTEGER }, -9_999).damage
+      value(applyDamage({ base: 100, damage: Number.MIN_SAFE_INTEGER }, -9_999))
+        .damage
     ).toBe(Number.MIN_SAFE_INTEGER)
     expect(
-      applySpendSP({ base: 30, spSpent: Number.MAX_SAFE_INTEGER }, 9_999)
+      value(applySpendSP({ base: 30, spSpent: Number.MAX_SAFE_INTEGER }, 9_999))
         .spSpent
     ).toBe(Number.MAX_SAFE_INTEGER)
   })

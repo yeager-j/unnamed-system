@@ -20,12 +20,16 @@ import type { ComponentWriteEvent } from "../session-event"
  * 2. **capability-absence** → same-ref: a participant lacking the targeted pool
  *    component (a no-`skillPool` enemy receiving an `sp` write) no-ops by
  *    component presence — reproducing v1's "SP ignored" with zero `kind` check.
- * 3. apply through the **existing total operations** — `damageParticipant` →
+ * 3. apply through the **existing pool operations** — `damageParticipant` →
  *    {@link applyDamage} (signed, unclamped, over-max loan licensed) for HP /
  *    {@link applySpendSP} for SP; `healParticipant` → {@link applyHeal} (floors at
  *    0, no-ops over-max) / {@link applyRecoverSP}; `setParticipantMax` writes the
  *    component's `base` (effective max is **resolved**, so lowering base re-derives
- *    `currentHP` — no current-drags-max reconciliation, R12.2 eliminated).
+ *    `currentHP` — no current-drags-max reconciliation, R12.2 eliminated). Those ops
+ *    self-guard their amount and return a {@link Result} (UNN-565); an
+ *    `invalid-input` amount **no-ops** here (same-ref), the fourth same-ref case
+ *    alongside the two above — though the wire pre-validates `positive`, so it is an
+ *    unreachable-but-safe backstop.
  *
  * There is **no `vitalsHome` gate**: the router never dispatches a *durable*
  * vitals write as a session event (durable PC vitals go to the entity-row action),
@@ -54,12 +58,16 @@ export function reduceVitals(
       const vitals = components.vitals
       if (vitals === undefined) return
       switch (event.kind) {
-        case "damageParticipant":
-          vitals.damage = applyDamage(vitals, event.amount).damage
+        case "damageParticipant": {
+          const patch = applyDamage(vitals, event.amount)
+          if (patch.ok) vitals.damage = patch.value.damage
           return
-        case "healParticipant":
-          vitals.damage = applyHeal(vitals, event.amount).damage
+        }
+        case "healParticipant": {
+          const patch = applyHeal(vitals, event.amount)
+          if (patch.ok) vitals.damage = patch.value.damage
           return
+        }
         case "setParticipantMax":
           vitals.base = event.amount
           return
@@ -68,12 +76,16 @@ export function reduceVitals(
       const skillPool = components.skillPool
       if (skillPool === undefined) return
       switch (event.kind) {
-        case "damageParticipant":
-          skillPool.spSpent = applySpendSP(skillPool, event.amount).spSpent
+        case "damageParticipant": {
+          const patch = applySpendSP(skillPool, event.amount)
+          if (patch.ok) skillPool.spSpent = patch.value.spSpent
           return
-        case "healParticipant":
-          skillPool.spSpent = applyRecoverSP(skillPool, event.amount).spSpent
+        }
+        case "healParticipant": {
+          const patch = applyRecoverSP(skillPool, event.amount)
+          if (patch.ok) skillPool.spSpent = patch.value.spSpent
           return
+        }
         case "setParticipantMax":
           skillPool.base = event.amount
           return

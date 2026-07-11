@@ -1,6 +1,7 @@
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
 
+import { ok } from "@workspace/game-v2/kernel/result"
 import {
   healNeverLowersCurrentHP,
   type HealOperation,
@@ -21,9 +22,8 @@ import type { Vitals } from "@workspace/game-v2/vitals/vitals.schema"
  * someone already thought to write `applyHeal({ base: 100, damage: -15 }, 50)`.
  * `fc.check` reports rather than throws, so the failure is a value we can inspect.
  */
-const brokenHeal: HealOperation = (vitals: Vitals, amount: number) => ({
-  damage: Math.max(0, vitals.damage - amount),
-})
+const brokenHeal: HealOperation = (vitals: Vitals, amount: number) =>
+  ok({ damage: Math.max(0, vitals.damage - amount) })
 
 describe("healNeverLowersCurrentHP", () => {
   it("passes for the real clamp", () => {
