@@ -70,7 +70,7 @@ export function ParticipantLinker({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const ref = await mintRef(kind, campaignId, name)
+          const ref = await mintParticipantRef(kind, campaignId, name)
           if (ref === null) {
             toast.error(`Couldn't create ${name}. Try again.`)
             return
@@ -107,15 +107,7 @@ export function ParticipantLinker({
                     value={`${option.label} ${option.sublabel ?? ""}`}
                     onSelect={() => pick(option.ref)}
                   >
-                    <KindIcon iconKey={option.iconKey} />
-                    <span className="min-w-0 flex-1 truncate font-medium">
-                      {option.label}
-                    </span>
-                    {option.sublabel === null ? null : (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {option.sublabel}
-                      </span>
-                    )}
+                    <LinkerRowContent option={option} />
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -128,10 +120,7 @@ export function ParticipantLinker({
                   disabled={isPending}
                   onSelect={() => mint("npc")}
                 >
-                  <PlusIcon className="size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 truncate">
-                    Create &ldquo;{query.trim()}&rdquo; as NPC
-                  </span>
+                  <MintRowContent kind="npc" query={query.trim()} />
                 </CommandItem>
                 <CommandItem
                   forceMount
@@ -139,8 +128,7 @@ export function ParticipantLinker({
                   disabled={isPending}
                   onSelect={() => mint("article")}
                 >
-                  <PlusIcon className="size-4 shrink-0" aria-hidden />
-                  <span className="min-w-0 truncate">…as Article</span>
+                  <MintRowContent kind="article" query={query.trim()} />
                 </CommandItem>
               </CommandGroup>
             ) : null}
@@ -148,6 +136,49 @@ export function ParticipantLinker({
         </Command>
       </PopoverContent>
     </Popover>
+  )
+}
+
+/**
+ * A linker result row's content — icon, label, sublabel — shared by the
+ * anchored popover's `CommandItem`s and the editor suggestion popover's
+ * listbox rows (UNN-576): one row visual, two keyboard chromes.
+ */
+export function LinkerRowContent({ option }: { option: LinkerOption }) {
+  return (
+    <>
+      <KindIcon iconKey={option.iconKey} />
+      <span className="min-w-0 flex-1 truncate font-medium">
+        {option.label}
+      </span>
+      {option.sublabel === null ? null : (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {option.sublabel}
+        </span>
+      )}
+    </>
+  )
+}
+
+/** A quick-mint row's content ("Create '⟨query⟩' as NPC" / "…as Article"), shared like {@link LinkerRowContent}. */
+export function MintRowContent({
+  kind,
+  query,
+}: {
+  kind: "npc" | "article"
+  query: string
+}) {
+  return (
+    <>
+      <PlusIcon className="size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">
+        {kind === "npc" ? (
+          <>Create &ldquo;{query}&rdquo; as NPC</>
+        ) : (
+          "…as Article"
+        )}
+      </span>
+    </>
   )
 }
 
@@ -165,7 +196,12 @@ export function KindIcon({ iconKey }: { iconKey: LinkerIconKey }) {
   )
 }
 
-async function mintRef(
+/**
+ * Runs a quick-mint and shapes the result into a {@link ParticipantRef} —
+ * shared by this popover's mint rows and the editor suggestion popover's
+ * (UNN-576). Returns null on failure so callers own their error copy.
+ */
+export async function mintParticipantRef(
   kind: "npc" | "article",
   campaignId: string,
   name: string

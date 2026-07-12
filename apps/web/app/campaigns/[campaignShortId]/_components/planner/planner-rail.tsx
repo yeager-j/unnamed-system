@@ -5,6 +5,7 @@ import {
   ClockCounterClockwiseIcon,
   GearSixIcon,
   MaskHappyIcon,
+  NotebookIcon,
   PlayCircleIcon,
   ScrollIcon,
 } from "@phosphor-icons/react/dist/ssr"
@@ -26,6 +27,7 @@ import {
   campaignCalendarPath,
   campaignChroniclePath,
   campaignManagePath,
+  campaignNotesPath,
   campaignNpcsPath,
   campaignPath,
 } from "@/lib/paths"
@@ -34,12 +36,11 @@ const emptySubscribe = () => () => {}
 
 /**
  * The planner's icon rail (handoff "Navigation frame"): a standalone 56px
- * column — campaign-level nav (Day Runner, NPCs, Articles, Calendar,
- * Chronicle) with Manage Campaign's gear pinned at the bottom. Deliberately
- * **not** a shadcn `Sidebar`: it never collapses, never sheets, and pages own
- * their actual sidebars (the Day Runner's roster), so the rail is a plain
- * composite the handoff itself styles custom. Session Notes joins when its
- * phase lands rather than shipping as a dead button.
+ * column — campaign-level nav (Day Runner, Session Notes, NPCs, Articles,
+ * Calendar, Chronicle) with Manage Campaign's gear pinned at the bottom.
+ * Deliberately **not** a shadcn `Sidebar`: it never collapses, never sheets,
+ * and pages own their actual sidebars (the Day Runner's roster, the Notes
+ * tree), so the rail is a plain composite the handoff itself styles custom.
  */
 export function PlannerRail({ campaignShortId }: { campaignShortId: string }) {
   const pathname = usePathname()
@@ -62,6 +63,12 @@ export function PlannerRail({ campaignShortId }: { campaignShortId: string }) {
       href: rootPath,
       icon: PlayCircleIcon,
       active: pathname === rootPath,
+    },
+    {
+      label: "Session Notes",
+      href: campaignNotesPath(campaignShortId),
+      icon: NotebookIcon,
+      active: pathname.startsWith(campaignNotesPath(campaignShortId)),
     },
     {
       label: "NPCs",

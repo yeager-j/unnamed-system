@@ -86,12 +86,12 @@ export function FirstRunChecklist({ campaignId }: { campaignId: string }) {
             <ChecklistStep
               step={2}
               title="Add your first beats"
-              description="Prep the scenes you plan to run in Session Notes — arriving in an upcoming phase."
+              description="Prep the scenes you plan to run in Session Notes — the notebook on the rail."
             />
             <ChecklistStep
               step={3}
               title="Mint the NPCs you already know"
-              description="The people and threats of your world, linkable everywhere — also on the way."
+              description="The people and threats of your world, linkable everywhere — the mask on the rail."
             />
           </ol>
         </div>
