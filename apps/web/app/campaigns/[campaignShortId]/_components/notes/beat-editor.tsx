@@ -1,7 +1,7 @@
 "use client"
 
 import { TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useMemo, useRef, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -80,9 +80,12 @@ export function BeatEditor({
   })
 
   // The editor instance is long-lived: extensions are created once, and the
-  // suggestion plugins read the current options/popover through these refs.
+  // suggestion plugins read the current options/popover through these refs
+  // (assigned in an effect — the markdown-field callback-ref pattern).
   const optionsRef = useRef<readonly LinkerOption[]>(linkerOptions)
-  optionsRef.current = linkerOptions
+  useEffect(() => {
+    optionsRef.current = linkerOptions
+  }, [linkerOptions])
   const suggestionHandle = useRef<ChipSuggestionHandle | null>(null)
   const extensions = useMemo(
     () => [
@@ -145,7 +148,7 @@ export function BeatEditor({
 
       <ChipSuggestionPopover
         campaignId={campaignId}
-        handle={suggestionHandle}
+        handleRef={suggestionHandle}
       />
     </div>
   )

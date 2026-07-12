@@ -46,10 +46,10 @@ type SuggestionRow =
  */
 export function ChipSuggestionPopover({
   campaignId,
-  handle,
+  handleRef,
 }: {
   campaignId: string
-  handle: React.RefObject<ChipSuggestionHandle | null>
+  handleRef: React.RefObject<ChipSuggestionHandle | null>
 }) {
   const [session, setSession] = useState<ActiveChipSuggestion | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -61,14 +61,14 @@ export function ChipSuggestionPopover({
 
   const rows: SuggestionRow[] = session ? rowsOf(session) : []
 
-  // The plugins call the handle from ProseMirror event code; refs keep the
-  // handlers reading this render's state without re-installing per keystroke.
-  const rowsRef = useRef(rows)
-  const sessionRef = useRef(session)
-  const activeIndexRef = useRef(activeIndex)
-  rowsRef.current = rows
-  sessionRef.current = session
-  activeIndexRef.current = activeIndex
+  // The plugins call the handle from ProseMirror event code; these refs are
+  // the handlers' view of the current session and are written only inside
+  // the handlers themselves (never during render) — including imperatively
+  // on arrow keys, so back-to-back key events inside one frame still read
+  // the post-arrow index.
+  const rowsRef = useRef<SuggestionRow[]>([])
+  const sessionRef = useRef<ActiveChipSuggestion | null>(null)
+  const activeIndexRef = useRef(0)
 
   function pick(row: SuggestionRow) {
     const current = sessionRef.current
@@ -96,7 +96,7 @@ export function ChipSuggestionPopover({
   }
 
   useEffect(() => {
-    handle.current = {
+    handleRef.current = {
       onOpen: (next) => {
         sessionRef.current = next
         rowsRef.current = rowsOf(next)
@@ -104,18 +104,22 @@ export function ChipSuggestionPopover({
         setSession(next)
         setActiveIndex(0)
       },
-      onClose: () => setSession(null),
+      onClose: () => {
+        sessionRef.current = null
+        rowsRef.current = []
+        setSession(null)
+      },
       onKeyDown: (event) => {
         const current = sessionRef.current
         if (!current) return false
         const count = rowsRef.current.length
         if (event.key === "Escape") {
+          sessionRef.current = null
+          rowsRef.current = []
           setSession(null)
           return true
         }
         if (count === 0) return false
-        // The ref advances imperatively (not just at render) so back-to-back
-        // key events inside one frame still read the post-arrow index.
         if (event.key === "ArrowDown") {
           activeIndexRef.current = (activeIndexRef.current + 1) % count
           setActiveIndex(activeIndexRef.current)
@@ -135,7 +139,7 @@ export function ChipSuggestionPopover({
       },
     }
     return () => {
-      handle.current = null
+      handleRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -180,7 +184,10 @@ export function ChipSuggestionPopover({
           key={rowKey(row)}
           role="option"
           aria-selected={index === activeIndex}
-          onMouseEnter={() => setActiveIndex(index)}
+          onMouseEnter={() => {
+            activeIndexRef.current = index
+            setActiveIndex(index)
+          }}
           onMouseDown={(event) => {
             // The editor must keep focus and its selection — a click must not
             // blur the contenteditable before the command runs.
