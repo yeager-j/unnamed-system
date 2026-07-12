@@ -16,8 +16,9 @@ import {
 } from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
-import { MarkdownField } from "@/components/editor/markdown-field"
+import { DocumentEditor } from "@/components/editor/document-editor"
 import { ParticipantChip } from "@/components/editor/participant-chip"
+import { useBeatAutoSave } from "@/domain/planner/use-beat-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
 import type { SchedulePickerDayView } from "@/domain/planner/view/schedule-picker"
 import { deleteBeatAction } from "@/lib/actions/campaign-notes/beat"
@@ -28,7 +29,6 @@ import {
 } from "./chip-suggestion"
 import { ChipSuggestionPopover } from "./chip-suggestion-popover"
 import { ScheduleControl, type ScheduleState } from "./schedule-control"
-import { useBeatAutoSave } from "./use-beat-autosave"
 
 const DELETE_ERROR_COPY: Record<string, string> = {
   "scheduled-to-past":
@@ -121,40 +121,27 @@ export function BeatEditor({
         </div>
       </div>
 
-      <input
-        value={fields.title.value}
-        onChange={(event) => {
-          fields.title.setValue(event.target.value)
-          onTitleChange(beat.id, event.target.value)
+      <DocumentEditor
+        documentId={beat.id}
+        title={{
+          ...fields.title,
+          setValue: (next) => {
+            fields.title.setValue(next)
+            onTitleChange(beat.id, next)
+          },
         }}
-        onFocus={() => fields.title.onFocusChange(true)}
-        onBlur={() => fields.title.onFocusChange(false)}
-        placeholder="Untitled beat"
-        aria-label="Beat title"
-        className="w-full bg-transparent font-display text-3xl text-foreground outline-none placeholder:text-muted-foreground/60"
+        subtitle={fields.tagline}
+        body={fields.body}
+        extensions={extensions}
+        messages={{
+          titlePlaceholder: "Untitled beat",
+          subtitleAriaLabel: "Beat tagline",
+          subtitlePlaceholder: "A one-line tagline — what this scene is about",
+          bodyAriaLabel: "Beat body",
+          bodyPlaceholder:
+            "The scene. Type @ or [[ to link an NPC, Article, or character.",
+        }}
       />
-      <input
-        value={fields.tagline.value}
-        onChange={(event) => fields.tagline.setValue(event.target.value)}
-        onFocus={() => fields.tagline.onFocusChange(true)}
-        onBlur={() => fields.tagline.onFocusChange(false)}
-        placeholder="A one-line tagline — what this scene is about"
-        aria-label="Beat tagline"
-        className="w-full bg-transparent text-base text-muted-foreground outline-none placeholder:text-muted-foreground/50"
-      />
-
-      <div className="border-t pt-3">
-        <MarkdownField
-          value={fields.body.value}
-          onChange={fields.body.setValue}
-          onFocus={() => fields.body.onFocusChange(true)}
-          onBlur={() => fields.body.onFocusChange(false)}
-          placeholder="The scene. Type @ or [[ to link an NPC, Article, or character."
-          ariaLabel="Beat body"
-          className="rounded-md border-transparent bg-transparent text-sm dark:bg-transparent"
-          extensions={extensions}
-        />
-      </div>
 
       <ChipSuggestionPopover
         campaignId={campaignId}
