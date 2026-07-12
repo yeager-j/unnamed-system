@@ -1,13 +1,6 @@
 "use client"
 
-import {
-  FlagBannerIcon,
-  HouseLineIcon,
-  MaskHappyIcon,
-  PlusIcon,
-  ScrollIcon,
-  UserIcon,
-} from "@phosphor-icons/react/dist/ssr"
+import { PlusIcon } from "@phosphor-icons/react/dist/ssr"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
@@ -26,22 +19,12 @@ import {
 } from "@workspace/ui/components/popover"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { LinkerIconKey, LinkerOption } from "@/domain/planner/view/linker"
 import { mintArticleAction } from "@/lib/actions/campaign-world/mint-article"
 import { mintNpcAction } from "@/lib/actions/campaign-world/mint-npc"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
-
-const KIND_ICONS: Record<
-  LinkerIconKey,
-  React.ComponentType<{ className?: string }>
-> = {
-  npc: MaskHappyIcon,
-  character: UserIcon,
-  article: ScrollIcon,
-  settlement: HouseLineIcon,
-  faction: FlagBannerIcon,
-}
 
 /**
  * The **participant linker** (UNN-575, handoff "entity linker"): an anchored
@@ -170,7 +153,7 @@ export function ParticipantLinker({
 
 /** Renders a linker row's leading kind glyph — NPCs in the primary indigo, the rest muted. */
 export function KindIcon({ iconKey }: { iconKey: LinkerIconKey }) {
-  const Icon = KIND_ICONS[iconKey]
+  const Icon = PARTICIPANT_KIND_ICONS[iconKey]
   return (
     <Icon
       aria-hidden
