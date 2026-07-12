@@ -4,7 +4,9 @@ import {
   CalendarBlankIcon,
   ClockCounterClockwiseIcon,
   GearSixIcon,
+  MaskHappyIcon,
   PlayCircleIcon,
+  ScrollIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -20,9 +22,11 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import { Sparkle } from "@/components/shared/celestial"
 import {
+  campaignArticlesPath,
   campaignCalendarPath,
   campaignChroniclePath,
   campaignManagePath,
+  campaignNpcsPath,
   campaignPath,
 } from "@/lib/paths"
 
@@ -30,12 +34,12 @@ const emptySubscribe = () => () => {}
 
 /**
  * The planner's icon rail (handoff "Navigation frame"): a standalone 56px
- * column — campaign-level nav (Day Runner, Calendar, Chronicle) with Manage
- * Campaign's gear pinned at the bottom. Deliberately **not** a shadcn
- * `Sidebar`: it never collapses, never sheets, and pages own their actual
- * sidebars (the Day Runner's roster), so the rail is a plain composite the
- * handoff itself styles custom. Session Notes, Articles, and NPCs join as
- * their phases land rather than shipping as dead buttons.
+ * column — campaign-level nav (Day Runner, NPCs, Articles, Calendar,
+ * Chronicle) with Manage Campaign's gear pinned at the bottom. Deliberately
+ * **not** a shadcn `Sidebar`: it never collapses, never sheets, and pages own
+ * their actual sidebars (the Day Runner's roster), so the rail is a plain
+ * composite the handoff itself styles custom. Session Notes joins when its
+ * phase lands rather than shipping as a dead button.
  */
 export function PlannerRail({ campaignShortId }: { campaignShortId: string }) {
   const pathname = usePathname()
@@ -58,6 +62,18 @@ export function PlannerRail({ campaignShortId }: { campaignShortId: string }) {
       href: rootPath,
       icon: PlayCircleIcon,
       active: pathname === rootPath,
+    },
+    {
+      label: "NPCs",
+      href: campaignNpcsPath(campaignShortId),
+      icon: MaskHappyIcon,
+      active: pathname.startsWith(campaignNpcsPath(campaignShortId)),
+    },
+    {
+      label: "Articles",
+      href: campaignArticlesPath(campaignShortId),
+      icon: ScrollIcon,
+      active: pathname.startsWith(campaignArticlesPath(campaignShortId)),
     },
     {
       label: "Calendar",

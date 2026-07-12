@@ -6,7 +6,9 @@ import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
 import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
+import { campaignNpc } from "@/lib/db/schema/campaign-world"
 import { encounters } from "@/lib/db/schema/encounter"
+import { entity } from "@/lib/db/schema/entity"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 import { insertWithShortId } from "@/lib/db/short-id"
@@ -118,6 +120,13 @@ type DeleteCampaignError = "live-encounter-exists"
  * `playerCharacter.campaignId` (`onDelete: "set null"` FK), so the characters
  * survive unplaced — no explicit UPDATE needed.
  *
+ * The campaign's **NPC entities are soft-deleted first** (UNN-575): the
+ * `campaignNpc` subtype rows cascade away with the campaign, which would
+ * strand their live `entity` substrate rows (the subtype FK to `entity` has
+ * no cascade — entities only tombstone), so we stamp `deletedAt` on them in
+ * the same transaction before the cascade erases the pointer. PC entities are
+ * untouched — their subtype survives unplaced.
+ *
  * The encounters' Map Instances are **app-cleaned** here (UNN-459): the
  * `encounters.mapInstanceId → mapInstances` FK is `onDelete: "restrict"` (it
  * guards the *referenced* side), so the campaign cascade drops the encounters but
@@ -138,6 +147,19 @@ export async function deleteCampaign(
       .select({ mapInstanceId: encounters.mapInstanceId })
       .from(encounters)
       .where(eq(encounters.campaignId, campaignId))
+
+    await tx
+      .update(entity)
+      .set({ deletedAt: new Date() })
+      .where(
+        inArray(
+          entity.id,
+          tx
+            .select({ id: campaignNpc.entityId })
+            .from(campaignNpc)
+            .where(eq(campaignNpc.campaignId, campaignId))
+        )
+      )
 
     await tx.delete(campaigns).where(eq(campaigns.id, campaignId))
 

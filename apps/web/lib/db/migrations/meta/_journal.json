@@ -232,6 +232,13 @@
       "when": 1783820476528,
       "tag": "0032_unn_574_campaign_clock",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783830992596,
+      "tag": "0033_unn_575_campaign_world",
+      "breakpoints": true
     }
   ]
 }

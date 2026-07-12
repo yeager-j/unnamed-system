@@ -241,11 +241,14 @@ test("a non-member 404s on the campaign root and every nested planner route", as
   await clearDevOverviewMembership()
   const root = await page.goto(`/campaigns/${overviewCampaign.shortId}`)
   expect(root?.status()).toBe(404)
-  // Nested planner routes are DM-only and 404-collapse identically (UNN-574).
-  const manage = await page.goto(
-    `/campaigns/${overviewCampaign.shortId}/manage`
-  )
-  expect(manage?.status()).toBe(404)
+  // Nested planner routes are DM-only and 404-collapse identically (UNN-574;
+  // the world list pages joined in UNN-575).
+  for (const segment of ["manage", "npcs", "articles"]) {
+    const nested = await page.goto(
+      `/campaigns/${overviewCampaign.shortId}/${segment}`
+    )
+    expect(nested?.status(), `/${segment} must 404 for a non-member`).toBe(404)
+  }
 })
 
 test("the player watch view renders a live encounter", async ({ page }) => {

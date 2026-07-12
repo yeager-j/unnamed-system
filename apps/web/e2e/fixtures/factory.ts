@@ -20,6 +20,7 @@ import {
   type SeedCharacter,
 } from "@/lib/__fixtures__/seed-characters"
 import {
+  campaignNpc,
   campaigns,
   dungeons,
   encounters,
@@ -403,6 +404,21 @@ export async function cleanup(tracker: CleanupTracker): Promise<void> {
     await db.delete(entity).where(inArray(entity.id, tracker.characterIds))
   }
   if (tracker.campaignIds.length > 0) {
+    // NPC entities share ids with their `campaignNpc` subtype rows (UNN-575).
+    // The campaign hard-delete below cascades the subtype rows away, which
+    // would orphan the entity substrate (the app only ever soft-deletes it) —
+    // sweep subtype-before-substrate first. Articles cascade with the campaign.
+    const npcRows = await db
+      .select({ entityId: campaignNpc.entityId })
+      .from(campaignNpc)
+      .where(inArray(campaignNpc.campaignId, tracker.campaignIds))
+    if (npcRows.length > 0) {
+      const npcEntityIds = npcRows.map((row) => row.entityId)
+      await db
+        .delete(campaignNpc)
+        .where(inArray(campaignNpc.entityId, npcEntityIds))
+      await db.delete(entity).where(inArray(entity.id, npcEntityIds))
+    }
     await db.delete(campaigns).where(inArray(campaigns.id, tracker.campaignIds))
   }
   if (tracker.mapIds.length > 0) {
