@@ -3,9 +3,11 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { ok } from "@workspace/game-v2/kernel/result"
 import type { MapGeometry } from "@workspace/game-v2/spatial"
 
 import { saveMapAction } from "@/lib/actions/save-map"
+import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 
 const NAME_DEBOUNCE_MS = 600
 const GEOMETRY_DEBOUNCE_MS = 600
@@ -21,21 +23,27 @@ export type MapSaveStatus = "saved" | "saving" | "error"
  * Debounced auto-save coordinator for the Map editor (UNN-460 name + UNN-461
  * geometry) — the no-Save-button editor. The Map's **name and geometry share one
  * `version` token** (`maps.version`), so they must round-trip it through **one**
- * `versionRef` and **one** serialized `saveQueueRef`: two independent refs would
- * false-`stale` each other when a name edit and a node drag land back-to-back. This
- * hook is that single owner. (UNN-483 tracks extracting the shared concurrency core
- * this still duplicates from the character autosave; keep it standalone here — Map
- * authoring is single-owner with no per-class version plumbing.)
+ * version ref and **one** serialized queue: two independent refs would
+ * false-`stale` each other when a name edit and a node drag land back-to-back.
  *
- * The name keeps its own draft `value` + revert-on-failure (the field's server
- * value is authoritative). **Geometry does not hard-revert on failure:** each save
- * persists the *whole* `geometry` blob, so a transient failure self-heals on the
- * next edit, and discarding a canvas of work on a blip is worse than keeping it —
- * a failure toasts (refresh-prompt on `"stale"`) and leaves the local edits in
- * place. Name and geometry debounce on **independent timers** (a keystroke must not
- * cancel a pending node-drag save) but serialize through the one queue, each
- * reading the freshly-bumped token inside the chain. Both flush on unmount so a
- * client-side nav mid-debounce doesn't drop the last edit.
+ * That serialized version-token queue is not hand-rolled here (UNN-483): both
+ * fields route their saves through one {@link useQueuedWrite} — the single-row
+ * façade over the shared `createWriteQueue` core (`lib/sync/write-queue.ts`). It
+ * owns the monotonic version ref (synced from `serverVersion`), the serialized
+ * spine, and the forward-only token bump. `refetchVersion` is **omitted** on
+ * purpose: the Map does *not* do the character autosave's silent
+ * refetch-and-retry — a `"stale"` just reverts/toasts (see `saveMapAction`).
+ *
+ * This hook keeps only the per-field lifecycle glue. The name keeps its own draft
+ * `value` + revert-on-failure (the field's server value is authoritative).
+ * **Geometry does not hard-revert on failure:** each save persists the *whole*
+ * `geometry` blob, so a transient failure self-heals on the next edit, and
+ * discarding a canvas of work on a blip is worse than keeping it — a failure
+ * toasts (refresh-prompt on `"stale"`) and leaves the local edits in place. Name
+ * and geometry debounce on **independent timers** (a keystroke must not cancel a
+ * pending node-drag save) but serialize through the one queue, each reading the
+ * freshly-bumped token inside the chain. Both flush on unmount so a client-side
+ * nav mid-debounce doesn't drop the last edit.
  */
 export function useMapAutoSave({
   mapId,
@@ -48,20 +56,15 @@ export function useMapAutoSave({
   serverGeometry: MapGeometry
   serverVersion: number
 }) {
+  const { enqueue } = useQueuedWrite({ serverVersion })
   const [value, setValue] = useState(serverName)
   const [status, setStatus] = useState<MapSaveStatus>("saved")
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
-  const versionRef = useRef(serverVersion)
   const lastSavedNameRef = useRef(serverName)
   const lastSavedGeometryRef = useRef(JSON.stringify(serverGeometry))
   const pendingGeometryRef = useRef<MapGeometry | null>(null)
   const nameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const geometryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
-
-  useEffect(() => {
-    versionRef.current = serverVersion
-  }, [serverVersion])
 
   function onSaveFailure(stale: boolean): void {
     toast.error(
@@ -71,66 +74,63 @@ export function useMapAutoSave({
     )
   }
 
-  function enqueueNameSave(next: string): Promise<void> {
+  function enqueueNameSave(next: string): void {
     const trimmed = next.trim()
 
-    saveQueueRef.current = saveQueueRef.current.then(async () => {
+    void enqueue(async (expectedVersion) => {
       if (trimmed.length === 0 || trimmed === lastSavedNameRef.current.trim())
-        return
+        return ok({ version: expectedVersion })
 
       setStatus("saving")
       const result = await saveMapAction({
         mapId,
-        expectedVersion: versionRef.current,
+        expectedVersion,
         patch: { field: "name", name: trimmed },
       })
       if (result.ok) {
-        versionRef.current = result.value.version
         lastSavedNameRef.current = trimmed
         setStatus("saved")
         setLastSavedAt(Date.now())
-        return
+        return result
       }
       setValue(lastSavedNameRef.current)
       setStatus("error")
       onSaveFailure(result.error === "stale")
+      return result
     })
-
-    return saveQueueRef.current
   }
 
-  function enqueueGeometrySave(geometry: MapGeometry): Promise<void> {
+  function enqueueGeometrySave(geometry: MapGeometry): void {
     pendingGeometryRef.current = null
 
-    saveQueueRef.current = saveQueueRef.current.then(async () => {
+    void enqueue(async (expectedVersion) => {
       const serialized = JSON.stringify(geometry)
-      if (serialized === lastSavedGeometryRef.current) return
+      if (serialized === lastSavedGeometryRef.current)
+        return ok({ version: expectedVersion })
 
       setStatus("saving")
       const result = await saveMapAction({
         mapId,
-        expectedVersion: versionRef.current,
+        expectedVersion,
         patch: { field: "geometry", geometry },
       })
       if (result.ok) {
-        versionRef.current = result.value.version
         lastSavedGeometryRef.current = serialized
         setStatus("saved")
         setLastSavedAt(Date.now())
-        return
+        return result
       }
       setStatus("error")
       onSaveFailure(result.error === "stale")
+      return result
     })
-
-    return saveQueueRef.current
   }
 
   function onChange(next: string): void {
     setValue(next)
     if (nameTimerRef.current) clearTimeout(nameTimerRef.current)
     nameTimerRef.current = setTimeout(
-      () => void enqueueNameSave(next),
+      () => enqueueNameSave(next),
       NAME_DEBOUNCE_MS
     )
   }
@@ -140,7 +140,7 @@ export function useMapAutoSave({
       clearTimeout(nameTimerRef.current)
       nameTimerRef.current = null
     }
-    void enqueueNameSave(value)
+    enqueueNameSave(value)
   }
 
   function revert(): void {
@@ -151,7 +151,7 @@ export function useMapAutoSave({
     pendingGeometryRef.current = geometry
     if (geometryTimerRef.current) clearTimeout(geometryTimerRef.current)
     geometryTimerRef.current = setTimeout(
-      () => void enqueueGeometrySave(geometry),
+      () => enqueueGeometrySave(geometry),
       GEOMETRY_DEBOUNCE_MS
     )
   }
@@ -159,11 +159,11 @@ export function useMapAutoSave({
   const flushOnUnmount = useEffectEvent(() => {
     if (nameTimerRef.current) {
       clearTimeout(nameTimerRef.current)
-      void enqueueNameSave(value)
+      enqueueNameSave(value)
     }
     if (geometryTimerRef.current && pendingGeometryRef.current) {
       clearTimeout(geometryTimerRef.current)
-      void enqueueGeometrySave(pendingGeometryRef.current)
+      enqueueGeometrySave(pendingGeometryRef.current)
     }
   })
 
