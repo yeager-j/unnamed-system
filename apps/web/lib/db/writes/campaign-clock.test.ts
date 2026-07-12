@@ -234,6 +234,62 @@ describe("endDay", () => {
     ])
   })
 
+  it("advance on a genuinely complete day writes only materialize + CAS", async () => {
+    queueTypicalDay({
+      beatResolvedAt: new Date("2026-07-11"),
+      claimResolvedAt: new Date("2026-07-11"),
+    })
+    // The open slot's one roster gap is filled — the day is truly done.
+    selectQueues.set(campaignUpdate, [
+      [
+        { slotId: "s-open", primaryId: "c1" },
+        { slotId: "s-open", primaryId: "c2" },
+      ],
+    ])
+
+    const result = await endDay({
+      campaignId: CAMPAIGN,
+      mode: "advance",
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(ok({ currentDay: 6, clockVersion: 8 }))
+    expect(recorded.map((entry) => [entry.op, entry.table])).toEqual([
+      ["insert", campaignSlot],
+      ["update", campaignClock],
+    ])
+  })
+
+  it("advance refuses an unresolved beat or claim as not-ready, writing nothing", async () => {
+    queueTypicalDay({ beatResolvedAt: null, claimResolvedAt: null })
+
+    const result = await endDay({
+      campaignId: CAMPAIGN,
+      mode: "advance",
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(err("not-ready"))
+    expect(recorded).toEqual([])
+  })
+
+  it("advance refuses a missing downtime entry as not-ready (the recount, not the client cue, decides)", async () => {
+    queueTypicalDay({
+      beatResolvedAt: new Date("2026-07-11"),
+      claimResolvedAt: new Date("2026-07-11"),
+    })
+    // queueTypicalDay leaves c2 without an entry on the open slot.
+
+    const result = await endDay({
+      campaignId: CAMPAIGN,
+      mode: "advance",
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(err("not-ready"))
+    expect(recorded).toEqual([])
+  })
+
   it("a stale version pre-check writes nothing", async () => {
     queue(campaignClock, CLOCK)
 

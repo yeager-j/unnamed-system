@@ -169,6 +169,30 @@ test("day-end warning: Resolve All resolves the claim and fills nothing extra", 
   expect(idles.filter((row) => row.category === "idle")).toHaveLength(0)
 })
 
+test("ready path: a complete day takes the plain confirm through the advance recount", async ({
+  page,
+}) => {
+  await page.goto(`/campaigns/${campaign.shortId}`)
+
+  // Fill both Day-2 downtime slots so the day is genuinely complete. (The
+  // active pill also renders a "Rename ⟨label⟩" icon button, so match pills
+  // by their "Slot N" kicker.)
+  for (const slot of ["Slot 1", "Slot 2"]) {
+    await page.getByRole("button", { name: new RegExp(slot) }).click()
+    await page
+      .getByRole("button", { name: `Mark ${character.name} idle` })
+      .click()
+    await expect(page.getByText("Downtime · 1 / 1 recorded")).toBeVisible()
+  }
+
+  // Ready ⇒ the plain confirm (not the warning); mode "advance" recounts
+  // server-side and advances.
+  await page.getByRole("button", { name: "End the day" }).click()
+  await expect(page.getByText("End Day 2 — advance to Day 3")).toBeVisible()
+  await page.getByRole("button", { name: "End the day" }).last().click()
+  await expect(page.getByText("Day 3", { exact: true }).first()).toBeVisible()
+})
+
 test("frozen past: yesterday's beat rejects deletion with a reason", async ({
   page,
 }) => {

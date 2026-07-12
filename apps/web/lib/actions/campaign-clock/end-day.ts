@@ -13,12 +13,16 @@ import {
 import { revalidateCampaignClock } from "./revalidate"
 
 /**
- * The day-end warning's proceed paths (UNN-577, PRD FR-5): **Resolve All**
- * or **Defer Unresolved**, then advance — one transaction (bulk beat/claim
- * treatment + Idle fill + materialize tomorrow + `clockVersion` CAS last).
- * A ready day skips this and takes the plain `advanceClockAction`; the
- * server recounts inside the transaction either way, so a stale client's
- * warning can't resolve or defer anything that no longer needs it.
+ * "End the day" (UNN-577, PRD FR-5): the ready path (**advance** — asserts
+ * completeness server-side and refuses `"not-ready"`, since readiness facts
+ * don't ride `clockVersion` and a stale tab's cue can lie) or the warning's
+ * proceed paths (**Resolve All** / **Defer Unresolved**), then advance —
+ * one transaction (bulk beat/claim treatment + Idle fill + materialize
+ * tomorrow + `clockVersion` CAS last). The server recounts inside the
+ * transaction in every mode, so a stale client can neither skip the warning
+ * nor resolve/defer anything that no longer needs it. Time-skips (the ⋯
+ * menu) stay on `advanceClockAction` — a multi-day skip is a deliberate
+ * gesture the warning never gated.
  */
 export async function endDayAction(
   input: EndDayInput

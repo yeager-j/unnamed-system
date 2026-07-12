@@ -153,14 +153,22 @@ export async function unAdvanceClock(input: {
   })
 }
 
-/** The day-end warning's two proceed paths (PRD FR-5). */
-export type EndDayMode = "resolve-all" | "defer-unresolved"
+/** "End the day"'s three paths: the ready advance + the warning's two proceed modes (PRD FR-5). */
+export type EndDayMode = "advance" | "resolve-all" | "defer-unresolved"
 
 /**
- * The day-end warning's bulk gesture (UNN-577, PRD FR-5): ends the current
- * day in **one transaction** — the §0 exception where stored beat/claim facts
- * are written in bulk, which is why un-advance is *scoped*, not compensating.
+ * "End the day" (UNN-577, PRD FR-5), one transaction for all three modes —
+ * the bulk modes are the §0 exception where stored beat/claim facts are
+ * written in bulk, which is why un-advance is *scoped*, not compensating.
  *
+ * - **advance** (the ready path): asserts the day is genuinely complete —
+ *   no unresolved beat/claim, no missing downtime entry — and refuses with
+ *   `"not-ready"` otherwise, writing nothing. The client's readiness cue is
+ *   advisory: beat resolve/reopen and activity edits don't bump
+ *   `clockVersion`, so a stale tab can render "ready" over loose ends; this
+ *   in-transaction recount is what actually decides, and a refusal sends the
+ *   DM back to the warning rather than silently resolving or deferring work
+ *   they never saw.
  * - **resolve-all** ("it all happened, I just didn't tick"): stamps
  *   `resolvedAt` on today's unresolved beats and dungeon claims.
  * - **defer-unresolved** ("we didn't get to those scenes"): floats unresolved
@@ -169,7 +177,7 @@ export type EndDayMode = "resolve-all" | "defer-unresolved"
  *   **deletes** unresolved claims (the delve didn't happen; the dungeon list
  *   keeps the dungeon).
  *
- * Both paths then **bulk-fill Idle** for every (downtime slot × placed
+ * The bulk modes then **bulk-fill Idle** for every (downtime slot × placed
  * character) missing an entry — with "downtime" evaluated *after* the mode
  * mutations, so slots a defer just freed are filled honestly too. The roster
  * read mirrors `loadPlacedCharactersForCampaign` (finalized + placed +
@@ -187,7 +195,7 @@ export async function endDay(input: {
   campaignId: string
   mode: EndDayMode
   expectedVersion: number
-}): Promise<Result<ClockWriteSuccess, ClockWriteError>> {
+}): Promise<Result<ClockWriteSuccess, ClockWriteError | "not-ready">> {
   return mapSlotRaceToStale(
     guardMany(async (tx) => {
       const clock = await loadClockRow(tx, input.campaignId)
@@ -235,7 +243,11 @@ export async function endDay(input: {
         .filter((claim) => claim.resolvedAt === null)
         .map((claim) => claim.slotId)
 
-      if (input.mode === "resolve-all") {
+      if (input.mode === "advance") {
+        if (unresolvedBeatIds.length > 0 || unresolvedClaimSlotIds.length > 0) {
+          return err("not-ready")
+        }
+      } else if (input.mode === "resolve-all") {
         const stamp = new Date()
         if (unresolvedBeatIds.length > 0) {
           await tx
@@ -269,25 +281,30 @@ export async function endDay(input: {
       }
 
       const keptBeats =
-        input.mode === "resolve-all"
-          ? beats
-          : beats.filter((beat) => beat.resolvedAt !== null)
+        input.mode === "defer-unresolved"
+          ? beats.filter((beat) => beat.resolvedAt !== null)
+          : beats
       const keptClaims =
-        input.mode === "resolve-all"
-          ? claims
-          : claims.filter((claim) => claim.resolvedAt !== null)
+        input.mode === "defer-unresolved"
+          ? claims.filter((claim) => claim.resolvedAt !== null)
+          : claims
       const occupied = new Set([
         ...keptBeats.map((beat) => beat.scheduledSlotId),
         ...keptClaims.map((claim) => claim.slotId),
       ])
       const downtimeSlotIds = slotIds.filter((id) => !occupied.has(id))
 
-      await fillIdleEntries(
+      const fills = await computeIdleFills(
         tx,
         input.campaignId,
         clock.currentDay,
         downtimeSlotIds
       )
+      if (input.mode === "advance") {
+        if (fills.length > 0) return err("not-ready")
+      } else if (fills.length > 0) {
+        await tx.insert(campaignUpdate).values(fills).onConflictDoNothing()
+      }
 
       const newDay = clock.currentDay + 1
       const window = daysInInterval(clock.currentDay, newDay)
@@ -306,17 +323,20 @@ export async function endDay(input: {
 }
 
 /**
- * The Idle bulk-fill (D9/FR-2): one empty-bodied `idle` entry per missing
- * (downtime slot × placed character) pair — explicit DM consent via the
- * day-end warning, recorded honestly so the readiness cue completes.
+ * The Idle bulk-fill rows (D9/FR-2): one empty-bodied `idle` entry per
+ * missing (downtime slot × placed character) pair. The bulk modes insert
+ * them (explicit DM consent via the day-end warning, recorded honestly so
+ * the readiness cue completes); the `advance` mode treats a non-empty result
+ * as `"not-ready"` — the same computation is the server-side readiness
+ * recount.
  */
-async function fillIdleEntries(
+async function computeIdleFills(
   tx: WriteExecutor,
   campaignId: string,
   day: number,
   downtimeSlotIds: readonly string[]
-): Promise<void> {
-  if (downtimeSlotIds.length === 0) return
+): Promise<(typeof campaignUpdate.$inferInsert)[]> {
+  if (downtimeSlotIds.length === 0) return []
 
   const roster = await tx
     .select({ characterId: playerCharacter.entityId })
@@ -329,7 +349,7 @@ async function fillIdleEntries(
         isNull(entity.deletedAt)
       )
     )
-  if (roster.length === 0) return
+  if (roster.length === 0) return []
 
   const existing = await tx
     .select({
@@ -342,7 +362,7 @@ async function fillIdleEntries(
     existing.map((row) => `${row.slotId}:${row.primaryId}`)
   )
 
-  const fills = downtimeSlotIds.flatMap((slotId) =>
+  return downtimeSlotIds.flatMap((slotId) =>
     roster
       .filter(({ characterId }) => !recorded.has(`${slotId}:${characterId}`))
       .map(({ characterId }) => ({
@@ -355,8 +375,6 @@ async function fillIdleEntries(
         slotId,
       }))
   )
-  if (fills.length === 0) return
-  await tx.insert(campaignUpdate).values(fills).onConflictDoNothing()
 }
 
 /**

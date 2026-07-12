@@ -21,6 +21,8 @@ const RUNNER_ERROR_COPY: Record<string, string> = {
   "dungeon-not-found": "That dungeon is gone — refresh the page.",
   "claim-not-found": "That delve claim is gone — refresh the page.",
   "scheduled-to-past": "That beat is part of a past day — history stays put.",
+  "not-ready":
+    "The day picked up loose ends since this loaded — check the warning and choose how to close them out.",
   "invalid-input": "Couldn't save — that input doesn't look right.",
 }
 

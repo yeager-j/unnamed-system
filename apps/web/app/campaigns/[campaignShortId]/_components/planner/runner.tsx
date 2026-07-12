@@ -147,7 +147,11 @@ export function Runner({
       const result = await write()
       if (!result.ok) {
         runnerErrorToast(result.error)
-        if (result.error === "stale") router.refresh()
+        // "not-ready" means this tab's readiness cue was stale — refresh so
+        // the recount re-renders and the next click gets the warning.
+        if (result.error === "stale" || result.error === "not-ready") {
+          router.refresh()
+        }
         return
       }
       after?.()
@@ -199,15 +203,6 @@ export function Runner({
           <EndDayButton
             currentDay={currentDay}
             readiness={readiness}
-            onAdvance={() =>
-              run(() =>
-                advanceClockAction({
-                  campaignId,
-                  days: 1,
-                  expectedVersion: clockVersion,
-                })
-              )
-            }
             onEndWith={(mode) =>
               run(() =>
                 endDayAction({
@@ -503,19 +498,18 @@ function LabelDialog({
 /**
  * "End the day" (FR-5): muted (`outline`) until {@link DayEndReadiness}
  * completes, then it brightens — the anti-forgetting cue. A ready day gets
- * the plain advance confirm; an unready one gets the **day-end warning**
- * (Cancel / Defer Unresolved / Resolve All — both proceed paths bulk-fill
- * Idle for missing characters, stated in the copy).
+ * the plain advance confirm (mode `"advance"` — the server recounts and
+ * refuses `"not-ready"` if this tab's cue went stale); an unready one gets
+ * the **day-end warning** (Cancel / Defer Unresolved / Resolve All — both
+ * proceed paths bulk-fill Idle for missing characters, stated in the copy).
  */
 function EndDayButton({
   currentDay,
   readiness,
-  onAdvance,
   onEndWith,
 }: {
   currentDay: number
   readiness: DayEndReadiness
-  onAdvance: () => void
   onEndWith: (mode: EndDayMode) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -533,7 +527,7 @@ function EndDayButton({
           <EndDayConfirm
             currentDay={currentDay}
             onOpenChange={setOpen}
-            onConfirm={onAdvance}
+            onConfirm={() => onEndWith("advance")}
           />
         ) : (
           <DayEndWarning
