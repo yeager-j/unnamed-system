@@ -21,6 +21,18 @@ export const characterAtlasPath = (shortId: string) =>
 
 export const campaignPath = (shortId: string) => `/campaigns/${shortId}`
 
+// Campaign Planner surfaces (UNN-574 D10): the campaign root is the Day Runner
+// for the DM (members keep their overview — the fork is per-viewer, not per-URL);
+// the nested planner routes are DM-only.
+export const campaignManagePath = (shortId: string) =>
+  `${campaignPath(shortId)}/manage`
+
+export const campaignCalendarPath = (shortId: string) =>
+  `${campaignPath(shortId)}/calendar`
+
+export const campaignChroniclePath = (shortId: string) =>
+  `${campaignPath(shortId)}/chronicle`
+
 export const encounterConsolePath = (
   campaignShortId: string,
   encounterShortId: string

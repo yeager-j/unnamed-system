@@ -117,7 +117,7 @@ test("a DM can delete a campaign — it's gone and characters are unplaced", asy
   const campaign = await createTestCampaign(tracker, { dmUserId: DEV_ID })
   await placeCharacter(char.id, campaign.id)
 
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
   await page.getByRole("button", { name: "Delete campaign" }).click()
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("textbox").fill(campaign.name)
@@ -142,7 +142,7 @@ test("campaign deletion is blocked while a live encounter exists", async ({
     campaignShortId: campaign.shortId,
   })
 
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
   await page.getByRole("button", { name: "Delete campaign" }).click()
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("textbox").fill(campaign.name)

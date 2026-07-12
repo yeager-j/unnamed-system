@@ -253,8 +253,9 @@ export const encounterTarget = {
   foreign: seededEncounter("foreign", "draft", foreignCampaign, []),
 } as const
 
-/** Campaign A's manage page — where the New-encounter dialog lives (UNN-329). */
-export const ENCOUNTER_CAMPAIGN_MANAGE_URL = `/campaigns/${campaignA.shortId}`
+/** Campaign A's manage page — where the New-encounter dialog lives (UNN-329;
+ *  relocated to the nested `manage/` route by the planner restructure, UNN-574). */
+export const ENCOUNTER_CAMPAIGN_MANAGE_URL = `/campaigns/${campaignA.shortId}/manage`
 
 /** Every seeded encounter, for the seed + reset loops. */
 export const SEEDED_ENCOUNTERS: SeededEncounter[] = [
