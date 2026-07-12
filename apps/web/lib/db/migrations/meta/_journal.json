@@ -225,6 +225,13 @@
       "when": 1783809421147,
       "tag": "0031_unn_573_player_character_door",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783820476528,
+      "tag": "0032_unn_574_campaign_clock",
+      "breakpoints": true
     }
   ]
 }

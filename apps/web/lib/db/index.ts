@@ -8,6 +8,7 @@
 export * from "./client"
 export * from "./schema/user"
 export * from "./schema/campaign"
+export * from "./schema/campaign-clock"
 export * from "./schema/entity"
 export * from "./schema/player-character"
 export * from "./schema/dungeon"
