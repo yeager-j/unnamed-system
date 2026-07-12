@@ -77,6 +77,7 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/characters/[shortId]/builder/_components/movements/ortus/talents-picker.tsx",
   "app/characters/[shortId]/builder/_components/movements/ortus/virtues-control.tsx",
   "app/maps/_components/map-editor.tsx",
+  "app/maps/_hooks/use-map-autosave.test.ts",
   "app/maps/_hooks/use-map-autosave.ts",
   "components/archetype/affinities.ts",
   "components/archetype/archetype-affinities-chart.tsx",
