@@ -137,8 +137,9 @@ export const campaignSeason = pgTable(
  * downtime. No dungeon-delete write exists yet; when one lands it must add a
  * frozen-past guard (claims on `day < currentDay` are history's structure,
  * matching {@link deleteBeat}'s block) rather than letting the cascade rewrite
- * past days. `slotId` RESTRICTs like `campaignUpdate.slotId` — a claimed slot
- * can't be deleted out from under its claim.
+ * past days — tracked as UNN-616. `slotId` RESTRICTs like
+ * `campaignUpdate.slotId` — a claimed slot can't be deleted out from under
+ * its claim.
  *
  * Mutual exclusion with beats (never both on one slot) is a write-boundary
  * check under a `FOR UPDATE` slot lock, not a constraint — each table's
