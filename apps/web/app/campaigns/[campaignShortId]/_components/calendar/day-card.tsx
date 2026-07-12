@@ -29,7 +29,11 @@ import type { SchedulableBeat } from "@/lib/db/queries/load-campaign-notes"
 import { SlotIcon } from "../planner/slot-icon"
 import { DatedLine } from "./dated-line"
 import { QuickCreate, type DatableArticle } from "./quick-create"
-import { SlotActions, type ClaimableDungeon } from "./slot-actions"
+import {
+  OccupiedSlotMenu,
+  SlotActions,
+  type ClaimableDungeon,
+} from "./slot-actions"
 import { useCalendarWrite } from "./use-calendar-write"
 
 /**
@@ -151,15 +155,29 @@ function SlotBox({
         {slot.label}
       </span>
       {slot.content.kind === "story" ? (
-        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-medium">
-          <ScrollIcon className="size-3.5 shrink-0 text-gold" />
-          <span className="truncate">{slot.content.beatTitle}</span>
-        </span>
+        <>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-medium">
+            <ScrollIcon className="size-3.5 shrink-0 text-gold" />
+            <span className="truncate">{slot.content.beatTitle}</span>
+          </span>
+          <OccupiedSlotMenu
+            campaignId={campaignId}
+            slotId={slot.id}
+            content={slot.content}
+          />
+        </>
       ) : slot.content.kind === "dungeon" ? (
-        <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-medium">
-          <CastleTurretIcon className="size-3.5 shrink-0 text-gold" />
-          <span className="truncate">{slot.content.dungeonName}</span>
-        </span>
+        <>
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-medium">
+            <CastleTurretIcon className="size-3.5 shrink-0 text-gold" />
+            <span className="truncate">{slot.content.dungeonName}</span>
+          </span>
+          <OccupiedSlotMenu
+            campaignId={campaignId}
+            slotId={slot.id}
+            content={slot.content}
+          />
+        </>
       ) : (
         <>
           <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">

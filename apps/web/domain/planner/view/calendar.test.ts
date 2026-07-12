@@ -245,7 +245,7 @@ describe("buildCalendarView — days", () => {
     })
 
     expect(view.days[0]!.slots.map((s) => s.content)).toEqual([
-      { kind: "story", beatTitle: "Untitled beat" },
+      { kind: "story", beatId: "b1", beatTitle: "Untitled beat" },
       { kind: "dungeon", dungeonName: "The Salt Mines" },
     ])
     expect(view.days[1]!.slots[0]!.content).toEqual({ kind: "open" })

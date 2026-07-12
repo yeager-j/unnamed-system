@@ -2,10 +2,12 @@
 
 import {
   CastleTurretIcon,
+  DotsThreeVerticalIcon,
   PlusIcon,
   ScrollIcon,
 } from "@phosphor-icons/react/dist/ssr"
 
+import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +18,15 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 
-import { claimDungeonSlotAction } from "@/lib/actions/campaign-clock/dungeon-claim"
-import { scheduleBeatAction } from "@/lib/actions/campaign-notes/schedule"
+import type { CalendarSlotContent } from "@/domain/planner/view/calendar"
+import {
+  claimDungeonSlotAction,
+  unclaimDungeonSlotAction,
+} from "@/lib/actions/campaign-clock/dungeon-claim"
+import {
+  clearBeatScheduleAction,
+  scheduleBeatAction,
+} from "@/lib/actions/campaign-notes/schedule"
 import type { SchedulableBeat } from "@/lib/db/queries/load-campaign-notes"
 
 import { useCalendarWrite } from "./use-calendar-write"
@@ -110,6 +119,87 @@ export function SlotActions({
             </DropdownMenuGroup>
           </>
         ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * An occupied slot's ⋮ menu — the remove half of the schedule/claim pair. A
+ * beat unschedules back to the prepped shelf (floating — it stays a click
+ * away) or to Not scheduled; a delve unclaims, reverting the slot to
+ * downtime (the dungeon stays in the library, D9). Recorded-downtime
+ * suppression isn't in play here: future slots can't hold entries, and
+ * today's set-aside confirm lives on the runner's pull-in menus.
+ */
+export function OccupiedSlotMenu({
+  campaignId,
+  slotId,
+  content,
+}: {
+  campaignId: string
+  slotId: string
+  content: Exclude<CalendarSlotContent, { kind: "open" }>
+}) {
+  const { run } = useCalendarWrite()
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0 text-muted-foreground"
+            aria-label={
+              content.kind === "story"
+                ? `Actions for ${content.beatTitle}`
+                : `Actions for the ${content.dungeonName} delve`
+            }
+          />
+        }
+      >
+        <DotsThreeVerticalIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {content.kind === "story" ? (
+          <>
+            <DropdownMenuItem
+              onClick={() =>
+                run(() =>
+                  clearBeatScheduleAction({
+                    campaignId,
+                    beatId: content.beatId,
+                    floating: true,
+                  })
+                )
+              }
+            >
+              Send back to the prepped shelf
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                run(() =>
+                  clearBeatScheduleAction({
+                    campaignId,
+                    beatId: content.beatId,
+                    floating: false,
+                  })
+                )
+              }
+            >
+              Unschedule
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem
+            onClick={() =>
+              run(() => unclaimDungeonSlotAction({ campaignId, slotId }))
+            }
+          >
+            Remove the delve — back to downtime
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -3,6 +3,7 @@ import { and, eq, isNotNull } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaignClock } from "@/lib/db/schema/campaign-clock"
+import { campaignBeat } from "@/lib/db/schema/campaign-notes"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
 import { campaignArticle } from "@/lib/db/schema/campaign-world"
 
@@ -62,6 +63,44 @@ test("start the clock; the calendar renders and add-days extends the horizon", a
 
   await page.getByRole("button", { name: "Add 7 days" }).click()
   await expect(page.getByText("Day 8", { exact: true })).toBeVisible()
+})
+
+test("schedule a beat onto a future slot and remove it again", async ({
+  page,
+}) => {
+  await page.goto(`/campaigns/${campaign.shortId}/notes`)
+  await page.getByRole("button", { name: "New beat" }).click()
+  await expect
+    .poll(
+      async () =>
+        (
+          await getDb()
+            .select({ id: campaignBeat.id })
+            .from(campaignBeat)
+            .where(eq(campaignBeat.campaignId, campaign.id))
+        ).length
+    )
+    .toBe(1)
+
+  await page.goto(`/campaigns/${campaign.shortId}/calendar`)
+  // The agenda's first open slot: schedule the fresh beat onto it.
+  await page.getByRole("button", { name: "Schedule a beat" }).first().click()
+  await page.getByRole("menuitem", { name: /Untitled beat/ }).click()
+  await expect
+    .poll(async () => (await readBeat()).scheduledSlotId)
+    .not.toBeNull()
+
+  // The occupied slot's ⋮ menu takes it off again (back to the shelf).
+  await page.getByRole("button", { name: "Actions for Untitled beat" }).click()
+  await page
+    .getByRole("menuitem", { name: "Send back to the prepped shelf" })
+    .click()
+  await expect
+    .poll(async () => {
+      const beat = await readBeat()
+      return { scheduledSlotId: beat.scheduledSlotId, floating: beat.floating }
+    })
+    .toEqual({ scheduledSlotId: null, floating: true })
 })
 
 test("quick-create a deadline and an event; the ribbon counts the deadline down", async ({
@@ -282,6 +321,16 @@ test("a time-skip carries the montage pass; blank-less skip is blocked until res
       },
     ])
 })
+
+/** The run's one beat row (minted by the schedule-and-remove test). */
+async function readBeat() {
+  const rows = await getDb()
+    .select()
+    .from(campaignBeat)
+    .where(eq(campaignBeat.campaignId, campaign.id))
+  expect(rows).toHaveLength(1)
+  return rows[0]!
+}
 
 /** The campaign's single live ⚑ marker (partial-unique: at most one), or null. */
 async function readMarker() {

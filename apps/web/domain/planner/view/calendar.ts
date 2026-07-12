@@ -52,7 +52,7 @@ export type CalendarDatedLine =
   | { kind: "event"; articleId: string; name: string }
 
 export type CalendarSlotContent =
-  | { kind: "story"; beatTitle: string }
+  | { kind: "story"; beatId: string; beatTitle: string }
   | { kind: "dungeon"; dungeonName: string }
   | { kind: "open" }
 
@@ -184,6 +184,7 @@ function buildDays(
         slot.occupiedByBeat !== null
           ? {
               kind: "story",
+              beatId: slot.occupiedByBeat.id,
               beatTitle:
                 slot.occupiedByBeat.title.trim() === ""
                   ? "Untitled beat"
