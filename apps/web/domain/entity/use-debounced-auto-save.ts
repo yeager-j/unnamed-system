@@ -111,6 +111,15 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   isEmpty?: (value: TValue) => boolean
   /** Used for `value === lastSaved` short-circuits. Default: `Object.is`. */
   isEqual?: (a: TValue, b: TValue) => boolean
+  /**
+   * Keep the draft in place when a save fails, instead of rolling it back to
+   * the last-saved value (the default). For long-form prose (a beat body —
+   * UNN-576, D10's "keep the buffer, retry quietly") a rollback discards a
+   * paragraph over a network blip; with this set, the draft survives, the
+   * toast still fires, and the next debounce/blur retries because
+   * `lastSavedRef` still holds the old value.
+   */
+  keepDraftOnError?: boolean
   /** Override the default Sonner toast. */
   onError?: (error: TError | "stale") => void
 }
@@ -138,6 +147,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   debounceMs = 500,
   isEmpty = () => false,
   isEqual = Object.is,
+  keepDraftOnError = false,
   onError,
 }: UseDebouncedAutoSaveArgs<
   TValue,
@@ -164,7 +174,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
           return
         }
 
-        setLocalValue(lastSavedRef.current)
+        if (!keepDraftOnError) setLocalValue(lastSavedRef.current)
 
         if (onError) {
           onError(result.error)
@@ -185,7 +195,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
         // lose the draft. Throws aren't routed through `onError` because that's
         // typed `TError` — expected failures return `Result.err`, not throw.
         console.error("[useDebouncedAutoSave] save threw", error)
-        setLocalValue(lastSavedRef.current)
+        if (!keepDraftOnError) setLocalValue(lastSavedRef.current)
         toast.error("Couldn't save. Try again.")
       }
     })

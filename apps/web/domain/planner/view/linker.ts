@@ -80,6 +80,23 @@ export function buildLinkerOptions(input: {
   return [...npcOptions, ...articleOptions, ...characterOptions]
 }
 
+/**
+ * The in-memory option filter the editor's chip-suggestion popover uses
+ * (UNN-576): case-insensitive substring match over label + sublabel — the
+ * same fields cmdk scores inside the anchored linker, minus the fuzz. Pure;
+ * an empty query returns everything (the popover caps display itself).
+ */
+export function filterLinkerOptions(
+  options: readonly LinkerOption[],
+  query: string
+): LinkerOption[] {
+  const needle = query.trim().toLowerCase()
+  if (needle === "") return [...options]
+  return options.filter((option) =>
+    `${option.label} ${option.sublabel ?? ""}`.toLowerCase().includes(needle)
+  )
+}
+
 /** "The Moon · Warlock" — whichever traits exist, joined; null for a stub. */
 export function npcTraitsLabel(npc: {
   arcana: string | null

@@ -1,5 +1,6 @@
 "use client"
 
+import type { AnyExtension } from "@tiptap/core"
 import { Placeholder } from "@tiptap/extension-placeholder"
 import Typography from "@tiptap/extension-typography"
 import { Markdown } from "@tiptap/markdown"
@@ -45,6 +46,7 @@ export function MarkdownField({
   ariaLabel,
   ariaLabelledBy,
   className,
+  extensions,
 }: {
   value: string
   onChange: (markdown: string) => void
@@ -59,6 +61,12 @@ export function MarkdownField({
    */
   ariaLabelledBy?: string
   className?: string
+  /**
+   * Extra Tiptap extensions appended to the base set (e.g. the participant
+   * chip node + its suggestion plugins). Must be render-stable — the editor
+   * is created once, so a new array identity per render recreates it.
+   */
+  extensions?: AnyExtension[]
 }) {
   // Stash the latest callbacks in refs so the Tiptap editor — which is a
   // long-lived JS object, not a React effect — always invokes the current
@@ -91,6 +99,7 @@ export function MarkdownField({
           "before:content-[attr(data-placeholder)] before:text-muted-foreground before:float-left before:pointer-events-none before:h-0",
       }),
       Typography,
+      ...(extensions ?? []),
     ],
     content: value,
     contentType: "markdown",

@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
+    "@floating-ui/dom": "^1.8.0",
     "@neondatabase/serverless": "^1.1.0",
     "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-table": "^8.21.3",
@@ -32,6 +33,7 @@
     "@tiptap/markdown": "3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "@tiptap/suggestion": "^3.23.6",
     "@vercel/blob": "^2.4.0",
     "@workspace/game-v2": "*",
     "@workspace/ui": "*",

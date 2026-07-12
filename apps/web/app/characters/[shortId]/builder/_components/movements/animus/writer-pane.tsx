@@ -7,7 +7,10 @@ import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { useAnimusDocument } from "./animus-context"
-import { DocumentEditor, type DocumentEditorMessages } from "./document-editor"
+import {
+  AnimusDocumentEditor,
+  type DocumentEditorMessages,
+} from "./document-editor"
 import {
   resolveDocumentContent,
   UNTITLED_CHAIN,
@@ -19,8 +22,8 @@ import {
 /**
  * The right-hand pane of the Movement 3 writer. Reads the active document
  * from {@link useAnimusDocument}, resolves it against the draft's narrative
- * component, and renders a {@link DocumentEditor} keyed on the resolved ref so
- * a doc swap unmounts the previous editor (no value bleed between docs).
+ * component, and renders an {@link AnimusDocumentEditor} keyed on the resolved
+ * ref so a doc swap unmounts the previous editor (no value bleed between docs).
  *
  * The `SidebarTrigger` at top-left is `md:hidden` — on desktop the sidebar
  * is permanently visible; on mobile this trigger toggles the built-in
@@ -58,12 +61,12 @@ function ActiveDocument({ resolved }: { resolved: ResolvedDocument }) {
 
   // Editable titles (Knives / Chains) carry their own persisted value; fixed
   // titles (Backstory / Identity Traits) display the canonical section label
-  // from the ref. `DocumentEditor` flips the input to read-only when
+  // from the ref. `AnimusDocumentEditor` flips the input to read-only when
   // `makeTitleWrite` is undefined, so the styling stays identical either way.
   const displayedTitle = title ?? ref.label
 
   return (
-    <DocumentEditor
+    <AnimusDocumentEditor
       documentId={documentKey(ref)}
       title={displayedTitle}
       body={body}

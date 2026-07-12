@@ -2,12 +2,14 @@
 
 import {
   CaretRightIcon,
+  CheckCircleIcon,
   ClockIcon,
   DotsThreeVerticalIcon,
   HourglassIcon,
   MoonIcon,
   PencilSimpleIcon,
   PlusIcon,
+  ScrollIcon,
   SunIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
@@ -39,17 +41,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { ResolvedParticipant } from "@/domain/planner/participant"
+import type { RosterGlanceView } from "@/domain/planner/view/glance"
+import type { LinkerOption } from "@/domain/planner/view/linker"
+import type { RosterRowView } from "@/domain/planner/view/roster"
+import type { RunnerSlotView } from "@/domain/planner/view/runner"
 import {
   advanceClockAction,
   unAdvanceClockAction,
@@ -59,11 +59,18 @@ import {
   renameSlotAction,
 } from "@/lib/actions/campaign-clock/slots"
 
-/** The runner's slice of a slot row — id + display facts, no storage extras. */
-export interface RunnerSlot {
-  id: string
-  ordinal: number
-  label: string
+import type { ComposerLastActivity } from "../composer/activity-composer"
+import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
+import { useRunnerSelection } from "./runner-selection"
+import { StoryBeatCard } from "./story-beat-card"
+
+/** Everything the downtime workspace renders, loaded once by the page. */
+export interface RunnerWorkspaceData {
+  roster: RosterRowView[]
+  glances: Record<string, RosterGlanceView>
+  activities: WorkspaceActivity[]
+  lastActivityByCharacter: Record<string, ComposerLastActivity>
+  linkerOptions: LinkerOption[]
 }
 
 const CLOCK_ERROR_COPY: Record<string, string> = {
@@ -96,29 +103,36 @@ function slotIconKey(label: string): keyof typeof SLOT_ICONS {
 }
 
 /**
- * The Day Runner's phase-1 body (handoff Screen 1): the "Run the day" header
- * with End-the-day + the un-advance/skip menu, and the slot rail. Every slot
- * is downtime in phase 1 — beats, claims, and the downtime workspace land in
- * phases 3–4, so the active slot renders an honest placeholder. Writes ride
- * `useTransition` (controls never disable on pending) and the RSC refresh
- * after `revalidatePath` supplies the new clock state — no local clock copy.
+ * The Day Runner's body (handoff Screen 1): the "Run the day" header with
+ * End-the-day + the un-advance/skip menu, the kind-aware slot rail, and the
+ * per-slot body — a read-only story-beat card (phase 3; Defer/Resolve are
+ * phase 4) or the downtime resolution workspace. Writes ride `useTransition`
+ * (controls never disable on pending) and the RSC refresh after
+ * `revalidatePath` supplies fresh state — no local copies.
  */
 export function Runner({
   campaignId,
+  campaignShortId,
   currentDay,
   clockVersion,
   seasonLabel,
   slots,
+  beatParticipants,
+  workspace,
 }: {
   campaignId: string
+  campaignShortId: string
   currentDay: number
   clockVersion: number
   seasonLabel: string | null
-  slots: RunnerSlot[]
+  slots: RunnerSlotView[]
+  /** Resolved chip participants per beat id (the story card's chips). */
+  beatParticipants: Record<string, ResolvedParticipant[]>
+  workspace: RunnerWorkspaceData
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [activeSlotId, setActiveSlotId] = useState<string | null>(null)
+  const { activeSlotId, setActiveSlot } = useRunnerSelection()
 
   const activeSlot =
     slots.find((slot) => slot.id === activeSlotId) ?? slots[0] ?? null
@@ -195,7 +209,7 @@ export function Runner({
               <SlotPill
                 slot={slot}
                 isActive={activeSlot?.id === slot.id}
-                onSelect={() => setActiveSlotId(slot.id)}
+                onSelect={() => setActiveSlot(slot.id)}
                 onRename={(label) =>
                   run(() =>
                     renameSlotAction({
@@ -224,23 +238,25 @@ export function Runner({
         </div>
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-6">
-        {activeSlot ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <SlotIcon label={activeSlot.label} />
-              </EmptyMedia>
-              <EmptyTitle>
-                {activeSlot.label} · Day {currentDay}
-              </EmptyTitle>
-              <EmptyDescription>
-                This slot is downtime. Recording what each character did — and
-                running story beats over it — arrives with Session Notes.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : null}
+      <div className="flex-1 overflow-y-auto p-6">
+        {activeSlot === null ? null : activeSlot.kind === "story" &&
+          activeSlot.beat !== null ? (
+          <StoryBeatCard
+            campaignShortId={campaignShortId}
+            beat={activeSlot.beat}
+            participants={beatParticipants[activeSlot.beat.id] ?? []}
+          />
+        ) : (
+          <DowntimeWorkspace
+            campaignId={campaignId}
+            slot={{ id: activeSlot.id, label: activeSlot.label }}
+            roster={workspace.roster}
+            glances={workspace.glances}
+            activities={workspace.activities}
+            lastActivityByCharacter={workspace.lastActivityByCharacter}
+            linkerOptions={workspace.linkerOptions}
+          />
+        )}
       </div>
       {/* isPending intentionally unused for disabling — controls never disable on pending. */}
       <span className="sr-only" aria-live="polite">
@@ -256,7 +272,7 @@ function SlotPill({
   onSelect,
   onRename,
 }: {
-  slot: RunnerSlot
+  slot: RunnerSlotView
   isActive: boolean
   onSelect: () => void
   onRename: (label: string) => void
@@ -277,14 +293,30 @@ function SlotPill({
         onClick={onSelect}
         className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-6 py-2.5 text-center"
       >
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        <span className="flex items-center gap-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           Slot {slot.ordinal + 1}
+          {slot.done ? (
+            <CheckCircleIcon
+              aria-label="Slot resolved"
+              weight="fill"
+              className="size-3.5 text-green-500"
+            />
+          ) : null}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 font-medium">
-          <SlotIcon label={slot.label} className="size-4 shrink-0 text-gold" />
+          {slot.kind === "story" ? (
+            <ScrollIcon className="size-4 shrink-0 text-gold" />
+          ) : (
+            <SlotIcon
+              label={slot.label}
+              className="size-4 shrink-0 text-gold"
+            />
+          )}
           <span className="truncate">{slot.label}</span>
         </span>
-        <span className="text-xs text-muted-foreground">Downtime</span>
+        <span className="max-w-full truncate text-xs text-muted-foreground">
+          {slot.meta}
+        </span>
       </button>
       {isActive ? (
         <Button

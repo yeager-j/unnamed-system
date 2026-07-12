@@ -27,6 +27,9 @@ export const campaignPath = (shortId: string) => `/campaigns/${shortId}`
 export const campaignManagePath = (shortId: string) =>
   `${campaignPath(shortId)}/manage`
 
+export const campaignNotesPath = (shortId: string) =>
+  `${campaignPath(shortId)}/notes`
+
 export const campaignCalendarPath = (shortId: string) =>
   `${campaignPath(shortId)}/calendar`
 

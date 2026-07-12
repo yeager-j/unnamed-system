@@ -30,6 +30,7 @@ import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
 import type { DungeonReminder } from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 
+import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
 import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
@@ -601,3 +602,27 @@ export const DUNGEON_REMINDER_COPY: Record<
  */
 export const talentLabel = (key: TalentKey | string): string =>
   getTalent(key)?.name ?? key
+
+/** Display labels for the downtime activity categories (UNN-576, PRD FR-2). */
+export const ACTIVITY_CATEGORY_LABELS: Record<UpdateCategory, string> = {
+  virtue: "Virtue",
+  talent: "Talent",
+  practical: "Practical",
+  collaborator: "Collaborator",
+  idle: "Idle",
+}
+
+/**
+ * The composer's one-line gloss per pickable category (handoff "activity-type"
+ * dropdown). Idle is absent by design — it records through the one-click mark
+ * on the character card, never the dropdown.
+ */
+export const ACTIVITY_CATEGORY_DESCRIPTIONS: Record<
+  Exclude<UpdateCategory, "idle">,
+  string
+> = {
+  virtue: "Earns Sparks toward a Virtue",
+  talent: "Practice toward a Talent",
+  practical: "Errands, crafting, coin",
+  collaborator: "Time with an NPC",
+}

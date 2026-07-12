@@ -239,6 +239,13 @@
       "when": 1783830992596,
       "tag": "0033_unn_575_campaign_world",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1783876680294,
+      "tag": "0034_unn_576_campaign_notes_updates",
+      "breakpoints": true
     }
   ]
 }
