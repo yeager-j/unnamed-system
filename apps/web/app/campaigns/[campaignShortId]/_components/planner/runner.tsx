@@ -2,6 +2,7 @@
 
 import {
   CaretRightIcon,
+  CastleTurretIcon,
   CheckCircleIcon,
   ClockIcon,
   DotsThreeVerticalIcon,
@@ -14,7 +15,6 @@ import {
 } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 import { Fragment, useState, useTransition } from "react"
-import { toast } from "sonner"
 
 import {
   AlertDialog,
@@ -45,6 +45,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { DayEndReadiness } from "@/domain/planner/day-end"
 import type { ResolvedParticipant } from "@/domain/planner/participant"
 import type { RosterGlanceView } from "@/domain/planner/view/glance"
 import type { LinkerOption } from "@/domain/planner/view/linker"
@@ -54,14 +55,20 @@ import {
   advanceClockAction,
   unAdvanceClockAction,
 } from "@/lib/actions/campaign-clock/advance"
+import { endDayAction } from "@/lib/actions/campaign-clock/end-day"
 import {
   addSlotAction,
   renameSlotAction,
 } from "@/lib/actions/campaign-clock/slots"
+import type { EndDayMode } from "@/lib/db/writes/campaign-clock"
 
 import type { ComposerLastActivity } from "../composer/activity-composer"
 import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
+import { DungeonSlotCard } from "./dungeon-slot-card"
+import { RunMenus, type RunnableDungeon, type ShelfBeat } from "./run-menus"
+import { runnerErrorToast } from "./runner-errors"
 import { useRunnerSelection } from "./runner-selection"
+import { SetAsideDisclosure, type SetAsideEntry } from "./set-aside-disclosure"
 import { StoryBeatCard } from "./story-beat-card"
 
 /** Everything the downtime workspace renders, loaded once by the page. */
@@ -71,21 +78,6 @@ export interface RunnerWorkspaceData {
   activities: WorkspaceActivity[]
   lastActivityByCharacter: Record<string, ComposerLastActivity>
   linkerOptions: LinkerOption[]
-}
-
-const CLOCK_ERROR_COPY: Record<string, string> = {
-  stale:
-    "The clock moved under you — probably another tab. Refresh to catch up.",
-  "clock-not-found": "The clock is gone — refresh the page.",
-  "at-floor": "Already at the earliest day the clock has seen.",
-  "frozen-day": "That day is in the past — history stays put.",
-  "day-not-materialized": "That day has no slots yet.",
-  "slot-not-found": "That slot no longer exists — refresh the page.",
-  "invalid-input": "Couldn't save — that input doesn't look right.",
-}
-
-function clockErrorToast(error: string) {
-  toast.error(CLOCK_ERROR_COPY[error] ?? "Couldn't update the clock.")
 }
 
 function SlotIcon({ label, className }: { label: string; className?: string }) {
@@ -104,11 +96,12 @@ function slotIconKey(label: string): keyof typeof SLOT_ICONS {
 
 /**
  * The Day Runner's body (handoff Screen 1): the "Run the day" header with
- * End-the-day + the un-advance/skip menu, the kind-aware slot rail, and the
- * per-slot body — a read-only story-beat card (phase 3; Defer/Resolve are
- * phase 4) or the downtime resolution workspace. Writes ride `useTransition`
- * (controls never disable on pending) and the RSC refresh after
- * `revalidatePath` supplies fresh state — no local copies.
+ * the pull-in menus (downtime slots only), End-the-day + the un-advance/skip
+ * menu, the kind-aware slot rail, and the per-slot body — the story-beat
+ * card, the dungeon claim card (each over the set-aside disclosure when the
+ * slot suppresses recorded entries), or the downtime resolution workspace.
+ * Writes ride `useTransition` (controls never disable on pending) and the
+ * RSC refresh after `revalidatePath` supplies fresh state — no local copies.
  */
 export function Runner({
   campaignId,
@@ -119,6 +112,9 @@ export function Runner({
   slots,
   beatParticipants,
   workspace,
+  readiness,
+  shelf,
+  dungeons,
 }: {
   campaignId: string
   campaignShortId: string
@@ -126,9 +122,15 @@ export function Runner({
   clockVersion: number
   seasonLabel: string | null
   slots: RunnerSlotView[]
-  /** Resolved chip participants per beat id (the story card's chips). */
+  /** Resolved chip participants per beat id (the story card's chips + body). */
   beatParticipants: Record<string, ResolvedParticipant[]>
   workspace: RunnerWorkspaceData
+  /** The day-end cue: brightens "End the day" and feeds the warning's copy. */
+  readiness: DayEndReadiness
+  /** The prepped shelf (floating beats) for the pull-in menu. */
+  shelf: ShelfBeat[]
+  /** The campaign's dungeons for the "Run a dungeon" menu. */
+  dungeons: RunnableDungeon[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -144,12 +146,31 @@ export function Runner({
     startTransition(async () => {
       const result = await write()
       if (!result.ok) {
-        clockErrorToast(result.error)
+        runnerErrorToast(result.error)
         if (result.error === "stale") router.refresh()
         return
       }
       after?.()
     })
+
+  /** Mark-resolved's auto-advance: step the rail to the slot after `slotId`. */
+  const advanceToSlotAfter = (slotId: string) => {
+    const index = slots.findIndex((slot) => slot.id === slotId)
+    const next = index === -1 ? undefined : slots[index + 1]
+    if (next) setActiveSlot(next.id)
+  }
+
+  const setAsideEntries = (slotId: string): SetAsideEntry[] => {
+    const nameById = new Map(workspace.roster.map((row) => [row.id, row.name]))
+    return workspace.activities
+      .filter((activity) => activity.slotId === slotId)
+      .map((activity) => ({
+        id: activity.id,
+        characterName: nameById.get(activity.characterId) ?? "Unknown",
+        category: activity.category,
+        body: activity.body,
+      }))
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -162,13 +183,36 @@ export function Runner({
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {activeSlot?.kind === "downtime" ? (
+            <RunMenus
+              campaignId={campaignId}
+              activeSlotId={activeSlot.id}
+              recordedSlotIds={[
+                ...new Set(
+                  workspace.activities.map((activity) => activity.slotId)
+                ),
+              ]}
+              shelf={shelf}
+              dungeons={dungeons}
+            />
+          ) : null}
           <EndDayButton
             currentDay={currentDay}
-            onConfirm={(days) =>
+            readiness={readiness}
+            onAdvance={() =>
               run(() =>
                 advanceClockAction({
                   campaignId,
-                  days,
+                  days: 1,
+                  expectedVersion: clockVersion,
+                })
+              )
+            }
+            onEndWith={(mode) =>
+              run(() =>
+                endDayAction({
+                  campaignId,
+                  mode,
                   expectedVersion: clockVersion,
                 })
               )
@@ -241,11 +285,27 @@ export function Runner({
       <div className="flex-1 overflow-y-auto p-6">
         {activeSlot === null ? null : activeSlot.kind === "story" &&
           activeSlot.beat !== null ? (
-          <StoryBeatCard
-            campaignShortId={campaignShortId}
-            beat={activeSlot.beat}
-            participants={beatParticipants[activeSlot.beat.id] ?? []}
-          />
+          <>
+            <StoryBeatCard
+              campaignId={campaignId}
+              campaignShortId={campaignShortId}
+              beat={activeSlot.beat}
+              participants={beatParticipants[activeSlot.beat.id] ?? []}
+              onResolved={() => advanceToSlotAfter(activeSlot.id)}
+            />
+            <SetAsideDisclosure entries={setAsideEntries(activeSlot.id)} />
+          </>
+        ) : activeSlot.kind === "dungeon" && activeSlot.dungeon !== null ? (
+          <>
+            <DungeonSlotCard
+              campaignId={campaignId}
+              campaignShortId={campaignShortId}
+              dungeon={activeSlot.dungeon}
+              slotId={activeSlot.id}
+              onResolved={() => advanceToSlotAfter(activeSlot.id)}
+            />
+            <SetAsideDisclosure entries={setAsideEntries(activeSlot.id)} />
+          </>
         ) : (
           <DowntimeWorkspace
             campaignId={campaignId}
@@ -306,6 +366,8 @@ function SlotPill({
         <span className="flex min-w-0 items-center gap-1.5 font-medium">
           {slot.kind === "story" ? (
             <ScrollIcon className="size-4 shrink-0 text-gold" />
+          ) : slot.kind === "dungeon" ? (
+            <CastleTurretIcon className="size-4 shrink-0 text-gold" />
           ) : (
             <SlotIcon
               label={slot.label}
@@ -438,26 +500,49 @@ function LabelDialog({
   )
 }
 
+/**
+ * "End the day" (FR-5): muted (`outline`) until {@link DayEndReadiness}
+ * completes, then it brightens — the anti-forgetting cue. A ready day gets
+ * the plain advance confirm; an unready one gets the **day-end warning**
+ * (Cancel / Defer Unresolved / Resolve All — both proceed paths bulk-fill
+ * Idle for missing characters, stated in the copy).
+ */
 function EndDayButton({
   currentDay,
-  onConfirm,
+  readiness,
+  onAdvance,
+  onEndWith,
 }: {
   currentDay: number
-  onConfirm: (days: number) => void
+  readiness: DayEndReadiness
+  onAdvance: () => void
+  onEndWith: (mode: EndDayMode) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)}>
+      <Button
+        variant={readiness.ready ? "default" : "outline"}
+        onClick={() => setOpen(true)}
+      >
         <HourglassIcon />
         End the day
       </Button>
       {open ? (
-        <EndDayConfirm
-          currentDay={currentDay}
-          onOpenChange={setOpen}
-          onConfirm={onConfirm}
-        />
+        readiness.ready ? (
+          <EndDayConfirm
+            currentDay={currentDay}
+            onOpenChange={setOpen}
+            onConfirm={onAdvance}
+          />
+        ) : (
+          <DayEndWarning
+            currentDay={currentDay}
+            readiness={readiness}
+            onOpenChange={setOpen}
+            onEndWith={onEndWith}
+          />
+        )
       ) : null}
     </>
   )
@@ -470,7 +555,7 @@ function EndDayConfirm({
 }: {
   currentDay: number
   onOpenChange: (open: boolean) => void
-  onConfirm: (days: number) => void
+  onConfirm: () => void
 }) {
   return (
     <AlertDialog open onOpenChange={onOpenChange}>
@@ -489,10 +574,99 @@ function EndDayConfirm({
           <AlertDialogAction
             onClick={() => {
               onOpenChange(false)
-              onConfirm(1)
+              onConfirm()
             }}
           >
             End the day
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/** Sentence fragments for the warning's loose-ends line. */
+function looseEndsLine(readiness: DayEndReadiness): string {
+  const parts: string[] = []
+  if (readiness.unresolvedStorySlots > 0) {
+    parts.push(
+      readiness.unresolvedStorySlots === 1
+        ? "a story beat is unresolved"
+        : `${readiness.unresolvedStorySlots} story beats are unresolved`
+    )
+  }
+  if (readiness.unresolvedDungeonSlots > 0) {
+    parts.push(
+      readiness.unresolvedDungeonSlots === 1
+        ? "a delve is unresolved"
+        : `${readiness.unresolvedDungeonSlots} delves are unresolved`
+    )
+  }
+  if (readiness.missingEntries > 0) {
+    parts.push(
+      readiness.missingEntries === 1
+        ? "a downtime entry is missing"
+        : `${readiness.missingEntries} downtime entries are missing`
+    )
+  }
+  return parts.join(", ")
+}
+
+/**
+ * The day-end warning (FR-5): the soft safety net over an unfinished day.
+ * **Resolve All** = "it all happened, I just didn't tick"; **Defer
+ * Unresolved** = "we didn't get to those scenes" (beats float to the shelf
+ * with a return ticket, delves unclaim — re-claim tomorrow). Both fill every
+ * missing downtime entry with a quiet Idle mark and advance. The app never
+ * auto-defers — this dialog is the only place either bulk action fires.
+ */
+function DayEndWarning({
+  currentDay,
+  readiness,
+  onOpenChange,
+  onEndWith,
+}: {
+  currentDay: number
+  readiness: DayEndReadiness
+  onOpenChange: (open: boolean) => void
+  onEndWith: (mode: EndDayMode) => void
+}) {
+  const hasUnresolved =
+    readiness.unresolvedStorySlots > 0 || readiness.unresolvedDungeonSlots > 0
+  const end = (mode: EndDayMode) => {
+    onOpenChange(false)
+    onEndWith(mode)
+  }
+  return (
+    <AlertDialog open onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            End Day {currentDay} with loose ends?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Right now {looseEndsLine(readiness)}.{" "}
+            {hasUnresolved ? (
+              <>
+                <strong>Resolve All</strong> marks the beats and delves
+                resolved; <strong>Defer Unresolved</strong> floats the beats to
+                your prepped shelf and unclaims the delves (the dungeons stay in
+                your library — claim them again tomorrow).{" "}
+              </>
+            ) : null}
+            Characters still missing an entry get a quiet Idle mark either way,
+            and the clock moves to Day {currentDay + 1}.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          {hasUnresolved ? (
+            <Button variant="outline" onClick={() => end("defer-unresolved")}>
+              Defer Unresolved
+            </Button>
+          ) : null}
+          <AlertDialogAction onClick={() => end("resolve-all")}>
+            Resolve All
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -589,8 +763,11 @@ function ClockMenu({
                 Go back to Day {currentDay - 1}?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Un-advance only moves the day counter back — anything you
-                recorded or resolved stays exactly as it is.
+                Un-advance only moves the day counter back — nothing else is
+                undone. Beats resolved or deferred when the day ended stay that
+                way (deferred ones wait on your prepped shelf), removed delve
+                claims stay removed, and any Idle marks the day-end fill wrote
+                remain as recorded entries you can edit or delete.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

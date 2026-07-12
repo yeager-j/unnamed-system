@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
+import type { SlotKind } from "@/domain/planner/slot-kind"
+
 /**
  * The Day Runner's shared selection (handoff Screen 1 interactions): the
  * active slot and the selected character live above the roster sidebar and
@@ -25,7 +27,7 @@ export function RunnerSelectionProvider({
   children,
 }: {
   /** Today's slots in rail order, each with its derived kind. */
-  slots: { id: string; kind: "story" | "downtime" }[]
+  slots: { id: string; kind: SlotKind }[]
   children: ReactNode
 }) {
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null)
@@ -46,9 +48,10 @@ export function RunnerSelectionProvider({
         selectCharacter: (characterId) => {
           setSelectedCharacterId(characterId)
           // The mock's roster interaction: picking a character while a story
-          // slot is active jumps to a downtime slot, where the card lives.
+          // or dungeon slot is active jumps to a downtime slot, where the
+          // character card lives.
           const active = slots.find((slot) => slot.id === effectiveSlotId)
-          if (active?.kind === "story" && firstDowntimeSlotId !== null) {
+          if (active?.kind !== "downtime" && firstDowntimeSlotId !== null) {
             setActiveSlotId(firstDowntimeSlotId)
           }
         },

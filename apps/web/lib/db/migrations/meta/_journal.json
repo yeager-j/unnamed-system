@@ -246,6 +246,13 @@
       "when": 1783876680294,
       "tag": "0034_unn_576_campaign_notes_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1783884608710,
+      "tag": "0035_unn_577_dungeon_slot_claims",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,11 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import { extractChipRefs } from "@/domain/planner/chip"
 import { isFrozenDay } from "@/domain/planner/clock"
 import { db, type WriteExecutor } from "@/lib/db/client"
-import { campaignClock, campaignSlot } from "@/lib/db/schema/campaign-clock"
+import {
+  campaignClock,
+  campaignSlot,
+  campaignSlotDungeon,
+} from "@/lib/db/schema/campaign-clock"
 import {
   campaignBeat,
   campaignBeatMention,
@@ -82,32 +86,47 @@ export async function deleteSession(input: {
 }
 
 /**
- * Creates a beat — empty title/tagline/body, unscheduled — in `sessionId` or
- * Unfiled. A supplied `sessionId` is validated against the gated campaign
- * (§5) so a beat can never be filed into a foreign campaign's session.
+ * Creates a beat — empty title/tagline/body — in `sessionId` or Unfiled, and
+ * optionally scheduled straight into `slotId` (the runner's "New story beat":
+ * mint + schedule in one transaction, through the same target-slot guard as
+ * {@link scheduleBeat}). A supplied `sessionId` is validated against the
+ * gated campaign (§5) so a beat can never be filed into a foreign campaign's
+ * session.
  */
 export async function createBeat(input: {
   campaignId: string
   sessionId?: string | null
-}): Promise<Result<{ id: string }, "session-not-found">> {
-  return guardMany(async (tx) => {
-    if (input.sessionId != null) {
-      const found = await sessionInCampaign(
-        tx,
-        input.campaignId,
-        input.sessionId
-      )
-      if (!found) return err("session-not-found")
-    }
-    const [row] = await tx
-      .insert(campaignBeat)
-      .values({
-        campaignId: input.campaignId,
-        sessionId: input.sessionId ?? null,
-      })
-      .returning({ id: campaignBeat.id })
-    return ok(row!)
-  })
+  slotId?: string
+}): Promise<Result<{ id: string }, "session-not-found" | ScheduleTargetError>> {
+  return mapScheduleRaceToOccupied(
+    guardMany(async (tx) => {
+      if (input.sessionId != null) {
+        const found = await sessionInCampaign(
+          tx,
+          input.campaignId,
+          input.sessionId
+        )
+        if (!found) return err("session-not-found")
+      }
+      if (input.slotId !== undefined) {
+        const target = await guardScheduleTarget(
+          tx,
+          input.campaignId,
+          input.slotId
+        )
+        if (!target.ok) return target
+      }
+      const [row] = await tx
+        .insert(campaignBeat)
+        .values({
+          campaignId: input.campaignId,
+          sessionId: input.sessionId ?? null,
+          scheduledSlotId: input.slotId ?? null,
+        })
+        .returning({ id: campaignBeat.id })
+      return ok(row!)
+    })
+  )
 }
 
 /** Moves a beat between sessions (null ⇒ Unfiled). Organizational only — never touches the schedule. */
@@ -170,18 +189,20 @@ export async function deleteBeat(input: {
   })
 }
 
-export type ScheduleBeatError =
-  | "beat-not-found"
+export type ScheduleTargetError =
   | "slot-not-found"
   | "clock-not-found"
   | "frozen-day"
   | "slot-occupied"
 
+export type ScheduleBeatError = "beat-not-found" | ScheduleTargetError
+
 /**
- * Schedules a beat into a concrete slot (clearing `floating`). Guards, in
- * order: the beat exists in the campaign; its **current** slot isn't frozen
- * (moving a beat out of history is as much a rewrite as into it); the target
- * slot exists in the campaign and isn't frozen. One-beat-per-slot is the
+ * Schedules a beat into a concrete slot (clearing `floating`; consuming any
+ * defer provenance — a re-scheduled beat no longer offers "return to").
+ * Guards, in order: the beat exists in the campaign; its **current** slot
+ * isn't frozen (moving a beat out of history is as much a rewrite as into it); the
+ * target slot passes {@link guardScheduleTarget}. One-beat-per-slot is the
  * partial unique — a concurrent double-schedule loses as `"slot-occupied"`.
  */
 export async function scheduleBeat(input: {
@@ -205,15 +226,20 @@ export async function scheduleBeat(input: {
         if (frozen.value) return err("frozen-day")
       }
 
-      const clock = await clockRow(tx, input.campaignId)
-      if (!clock) return err("clock-not-found")
-      const slot = await slotInCampaign(tx, input.campaignId, input.slotId)
-      if (!slot) return err("slot-not-found")
-      if (isFrozenDay(slot.day, clock.currentDay)) return err("frozen-day")
+      const target = await guardScheduleTarget(
+        tx,
+        input.campaignId,
+        input.slotId
+      )
+      if (!target.ok) return target
 
       await tx
         .update(campaignBeat)
-        .set({ scheduledSlotId: input.slotId, floating: false })
+        .set({
+          scheduledSlotId: input.slotId,
+          floating: false,
+          deferredFromSlotId: null,
+        })
         .where(eq(campaignBeat.id, input.beatId))
       return ok(undefined)
     })
@@ -221,9 +247,44 @@ export async function scheduleBeat(input: {
 }
 
 /**
+ * The shared target-slot guard for scheduling a beat (schedule + mint-into-
+ * slot): **locks the slot row** (`FOR UPDATE` — the mutual-exclusion lock the
+ * dungeon-claim side also takes, D6/D9), verifies it belongs to the campaign
+ * and isn't frozen, and rejects a slot already holding a dungeon claim.
+ */
+async function guardScheduleTarget(
+  tx: WriteExecutor,
+  campaignId: string,
+  slotId: string
+): Promise<Result<void, ScheduleTargetError>> {
+  const [slot] = await tx
+    .select({ day: campaignSlot.day })
+    .from(campaignSlot)
+    .where(
+      and(eq(campaignSlot.id, slotId), eq(campaignSlot.campaignId, campaignId))
+    )
+    .for("update")
+  if (!slot) return err("slot-not-found")
+
+  const clock = await clockRow(tx, campaignId)
+  if (!clock) return err("clock-not-found")
+  if (isFrozenDay(slot.day, clock.currentDay)) return err("frozen-day")
+
+  const [claim] = await tx
+    .select({ slotId: campaignSlotDungeon.slotId })
+    .from(campaignSlotDungeon)
+    .where(eq(campaignSlotDungeon.slotId, slotId))
+  if (claim) return err("slot-occupied")
+
+  return ok(undefined)
+}
+
+/**
  * Clears a beat's schedule — to **floating** ("run anytime") or **not
  * scheduled**. Unscheduling out of a frozen slot is rejected (D1); flipping
- * an already-unscheduled beat between floating/none needs no guard.
+ * an already-unscheduled beat between floating/none needs no guard. Any
+ * defer provenance is consumed — a deliberately re-parked beat shouldn't
+ * keep offering "return to Day N".
  */
 export async function clearBeatSchedule(input: {
   campaignId: string
@@ -246,10 +307,79 @@ export async function clearBeatSchedule(input: {
 
     await tx
       .update(campaignBeat)
-      .set({ scheduledSlotId: null, floating: input.floating })
+      .set({
+        scheduledSlotId: null,
+        floating: input.floating,
+        deferredFromSlotId: null,
+      })
       .where(eq(campaignBeat.id, input.beatId))
     return ok(undefined)
   })
+}
+
+/**
+ * Defers a scheduled beat to the floating shelf (D1/FR-5): unschedules it,
+ * floats it, records **provenance** (`deferredFromSlotId` — the shelf's
+ * one-click "return to Day N · ⟨slot⟩"), and clears `resolvedAt` — a
+ * deferred beat returns to prep, so the shelf never offers "pull in" on a
+ * resolved scene. Frozen-past guarded like every schedule flip; one UPDATE,
+ * so the `not_scheduled_and_floating` CHECK never sees an intermediate row.
+ */
+export async function deferBeat(input: {
+  campaignId: string
+  beatId: string
+}): Promise<
+  Result<
+    void,
+    "beat-not-found" | "not-scheduled" | "clock-not-found" | "frozen-day"
+  >
+> {
+  return guardMany(async (tx) => {
+    const beat = await beatInCampaign(tx, input.campaignId, input.beatId)
+    if (!beat) return err("beat-not-found")
+    if (beat.scheduledSlotId === null) return err("not-scheduled")
+
+    const frozen = await isScheduledSlotFrozen(
+      tx,
+      input.campaignId,
+      beat.scheduledSlotId
+    )
+    if (!frozen.ok) return frozen
+    if (frozen.value) return err("frozen-day")
+
+    await tx
+      .update(campaignBeat)
+      .set({
+        scheduledSlotId: null,
+        floating: true,
+        deferredFromSlotId: beat.scheduledSlotId,
+        resolvedAt: null,
+      })
+      .where(eq(campaignBeat.id, input.beatId))
+    return ok(undefined)
+  })
+}
+
+/**
+ * Mark resolved / Reopen (write map §5: `resolvedAt`, LWW — one write, the
+ * distinction riding the parameter).
+ */
+export async function setBeatResolved(input: {
+  campaignId: string
+  beatId: string
+  resolved: boolean
+}): Promise<Result<void, "beat-not-found">> {
+  const updated = await db
+    .update(campaignBeat)
+    .set({ resolvedAt: input.resolved ? new Date() : null })
+    .where(
+      and(
+        eq(campaignBeat.id, input.beatId),
+        eq(campaignBeat.campaignId, input.campaignId)
+      )
+    )
+    .returning({ id: campaignBeat.id })
+  return updated.length === 0 ? err("beat-not-found") : ok(undefined)
 }
 
 /** The beat content fields the prose autosave may patch. */

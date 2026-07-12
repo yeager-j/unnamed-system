@@ -1,5 +1,5 @@
 import { defaultSchema } from "hast-util-sanitize"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
 import rehypeSanitize from "rehype-sanitize"
 import remarkGfm from "remark-gfm"
 
@@ -32,10 +32,17 @@ export function Prose({
   children,
   className,
   invert = true,
+  components,
 }: {
   children: string
   className?: string
   invert?: boolean
+  /**
+   * Optional react-markdown element overrides — runs *after* sanitize, so a
+   * mapping can only narrow what the allowlist already passed (the campaign
+   * chip-prose renderer maps fragment links to participant pills).
+   */
+  components?: Components
 }) {
   return (
     <div
@@ -57,6 +64,7 @@ export function Prose({
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, defaultSchema]]}
         urlTransform={safeUrlTransform}
+        components={components}
       >
         {children}
       </ReactMarkdown>

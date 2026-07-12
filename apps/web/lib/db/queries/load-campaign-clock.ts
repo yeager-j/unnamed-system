@@ -1,14 +1,16 @@
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import {
   campaignClock,
   campaignSeason,
   campaignSlot,
+  campaignSlotDungeon,
   type CampaignClockRow,
   type CampaignSeasonRow,
   type CampaignSlotRow,
 } from "@/lib/db/schema/campaign-clock"
+import { dungeons } from "@/lib/db/schema/dungeon"
 
 /**
  * Reads for the campaign clock aggregate (UNN-574): the clock record, a day's
@@ -37,6 +39,33 @@ export async function loadSlotsForDay(
       and(eq(campaignSlot.campaignId, campaignId), eq(campaignSlot.day, day))
     )
     .orderBy(asc(campaignSlot.ordinal))
+}
+
+/** A slot's dungeon claim, its dungeon resolved to display facts (D9's runner card). */
+export interface LoadedClaim {
+  slotId: string
+  dungeonId: string
+  shortId: string
+  name: string
+  resolvedAt: Date | null
+}
+
+/** The runner's dungeon-slot lookup: claims on any of `slotIds`, dungeon joined. */
+export async function loadClaimsForSlots(
+  slotIds: readonly string[]
+): Promise<LoadedClaim[]> {
+  if (slotIds.length === 0) return []
+  return db
+    .select({
+      slotId: campaignSlotDungeon.slotId,
+      dungeonId: campaignSlotDungeon.dungeonId,
+      shortId: dungeons.shortId,
+      name: dungeons.name,
+      resolvedAt: campaignSlotDungeon.resolvedAt,
+    })
+    .from(campaignSlotDungeon)
+    .innerJoin(dungeons, eq(dungeons.id, campaignSlotDungeon.dungeonId))
+    .where(inArray(campaignSlotDungeon.slotId, [...slotIds]))
 }
 
 /** Every season marker, day-ascending — `seasonOf` scans them inherit-forward. */

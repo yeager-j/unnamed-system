@@ -2,15 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { err, ok } from "@workspace/game-v2/kernel/result"
 
-import { campaignClock, campaignSlot } from "@/lib/db/schema/campaign-clock"
+import {
+  campaignClock,
+  campaignSlot,
+  campaignSlotDungeon,
+} from "@/lib/db/schema/campaign-clock"
 import {
   campaignBeat,
   campaignBeatMention,
 } from "@/lib/db/schema/campaign-notes"
 import {
+  createBeat,
+  deferBeat,
   deleteBeat,
   saveBeatProse,
   scheduleBeat,
+  setBeatResolved,
 } from "@/lib/db/writes/campaign-notes"
 
 /**
@@ -33,6 +40,7 @@ type Recorded = {
 let recorded: Recorded[]
 let selectQueues: Map<unknown, unknown[][]>
 let updateError: Error | null
+let insertError: Error | null
 
 function nextRows(table: unknown): unknown[] {
   const queue = selectQueues.get(table)
@@ -44,15 +52,29 @@ function makeExecutor(): Record<string, unknown> {
   return {
     select: () => ({
       from: (table: unknown) => ({
-        where: () => Promise.resolve(nextRows(table)),
+        // The thenable-with-`.for` shape lets the same fake answer plain
+        // selects and the FOR UPDATE slot-lock reads.
+        where: () => {
+          const rows = nextRows(table)
+          return {
+            then: (resolve: (v: unknown) => void) => resolve(rows),
+            for: () => Promise.resolve(rows),
+          }
+        },
       }),
     }),
     insert: (table: unknown) => ({
       values: (payload: unknown) => {
         recorded.push({ op: "insert", table, payload })
         return {
-          returning: async () => [{ id: "new-id" }],
-          then: (resolve: (v: unknown) => void) => resolve(undefined),
+          returning: async () => {
+            if (insertError) throw insertError
+            return [{ id: "new-id" }]
+          },
+          then: (
+            resolve: (v: unknown) => void,
+            reject: (e: unknown) => void
+          ) => (insertError ? reject(insertError) : resolve(undefined)),
         }
       },
     }),
@@ -98,6 +120,7 @@ beforeEach(() => {
   recorded = []
   selectQueues = new Map()
   updateError = null
+  insertError = null
 })
 
 describe("scheduleBeat", () => {
@@ -117,9 +140,29 @@ describe("scheduleBeat", () => {
       {
         op: "update",
         table: campaignBeat,
-        payload: { scheduledSlotId: "s6", floating: false },
+        payload: {
+          scheduledSlotId: "s6",
+          floating: false,
+          deferredFromSlotId: null,
+        },
       },
     ])
+  })
+
+  it("rejects a slot holding a dungeon claim as slot-occupied", async () => {
+    queue(campaignBeat, [{ id: "b1", scheduledSlotId: null }])
+    queue(campaignSlot, [{ day: 6 }])
+    queue(campaignClock, [{ currentDay: 5 }])
+    queue(campaignSlotDungeon, [{ slotId: "s6" }])
+
+    const result = await scheduleBeat({
+      campaignId: CAMPAIGN,
+      beatId: "b1",
+      slotId: "s6",
+    })
+
+    expect(result).toEqual(err("slot-occupied"))
+    expect(recorded).toEqual([])
   })
 
   it("rejects a frozen target slot without writing", async () => {
@@ -197,6 +240,119 @@ describe("scheduleBeat", () => {
 
     expect(result).toEqual(err("slot-not-found"))
     expect(recorded).toEqual([])
+  })
+})
+
+describe("deferBeat", () => {
+  it("floats a scheduled beat with provenance and clears resolvedAt", async () => {
+    queue(campaignBeat, [{ id: "b1", scheduledSlotId: "s-today" }])
+    queue(campaignClock, [{ currentDay: 5 }])
+    queue(campaignSlot, [{ day: 5 }])
+
+    const result = await deferBeat({ campaignId: CAMPAIGN, beatId: "b1" })
+
+    expect(result).toEqual(ok(undefined))
+    expect(recorded).toEqual([
+      {
+        op: "update",
+        table: campaignBeat,
+        payload: {
+          scheduledSlotId: null,
+          floating: true,
+          deferredFromSlotId: "s-today",
+          resolvedAt: null,
+        },
+      },
+    ])
+  })
+
+  it("rejects an unscheduled beat", async () => {
+    queue(campaignBeat, [{ id: "b1", scheduledSlotId: null }])
+
+    const result = await deferBeat({ campaignId: CAMPAIGN, beatId: "b1" })
+
+    expect(result).toEqual(err("not-scheduled"))
+    expect(recorded).toEqual([])
+  })
+
+  it("rejects deferring out of a frozen slot (history keeps its shape)", async () => {
+    queue(campaignBeat, [{ id: "b1", scheduledSlotId: "s-past" }])
+    queue(campaignClock, [{ currentDay: 5 }])
+    queue(campaignSlot, [{ day: 3 }])
+
+    const result = await deferBeat({ campaignId: CAMPAIGN, beatId: "b1" })
+
+    expect(result).toEqual(err("frozen-day"))
+    expect(recorded).toEqual([])
+  })
+})
+
+describe("setBeatResolved", () => {
+  it("stamps and clears resolvedAt (LWW, one write per direction)", async () => {
+    const resolved = await setBeatResolved({
+      campaignId: CAMPAIGN,
+      beatId: "b1",
+      resolved: true,
+    })
+    const reopened = await setBeatResolved({
+      campaignId: CAMPAIGN,
+      beatId: "b1",
+      resolved: false,
+    })
+
+    expect(resolved).toEqual(ok(undefined))
+    expect(reopened).toEqual(ok(undefined))
+    expect(recorded).toHaveLength(2)
+    expect(
+      (recorded[0]!.payload as { resolvedAt: Date | null }).resolvedAt
+    ).toBeInstanceOf(Date)
+    expect(recorded[1]!.payload).toEqual({ resolvedAt: null })
+  })
+})
+
+describe("createBeat", () => {
+  it("mints straight into a slot through the schedule guard", async () => {
+    queue(campaignSlot, [{ day: 5 }])
+    queue(campaignClock, [{ currentDay: 5 }])
+
+    const result = await createBeat({ campaignId: CAMPAIGN, slotId: "s5" })
+
+    expect(result).toEqual(ok({ id: "new-id" }))
+    expect(recorded).toEqual([
+      {
+        op: "insert",
+        table: campaignBeat,
+        payload: {
+          campaignId: CAMPAIGN,
+          sessionId: null,
+          scheduledSlotId: "s5",
+        },
+      },
+    ])
+  })
+
+  it("rejects minting into a claimed slot without inserting", async () => {
+    queue(campaignSlot, [{ day: 5 }])
+    queue(campaignClock, [{ currentDay: 5 }])
+    queue(campaignSlotDungeon, [{ slotId: "s5" }])
+
+    const result = await createBeat({ campaignId: CAMPAIGN, slotId: "s5" })
+
+    expect(result).toEqual(err("slot-occupied"))
+    expect(recorded).toEqual([])
+  })
+
+  it("maps a concurrent double-schedule on the insert to slot-occupied", async () => {
+    queue(campaignSlot, [{ day: 5 }])
+    queue(campaignClock, [{ currentDay: 5 }])
+    insertError = Object.assign(new Error("duplicate key"), {
+      code: "23505",
+      constraint: "campaignBeat_scheduledSlot_unique",
+    })
+
+    const result = await createBeat({ campaignId: CAMPAIGN, slotId: "s5" })
+
+    expect(result).toEqual(err("slot-occupied"))
   })
 })
 

@@ -1,4 +1,4 @@
-import { and, eq, inArray, max, sql } from "drizzle-orm"
+import { and, eq, inArray, isNull, max, sql } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
@@ -13,9 +13,14 @@ import {
   campaignClock,
   campaignSeason,
   campaignSlot,
+  campaignSlotDungeon,
   type CampaignClockRow,
   type SlotTemplateEntry,
 } from "@/lib/db/schema/campaign-clock"
+import { campaignBeat } from "@/lib/db/schema/campaign-notes"
+import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
+import { entity } from "@/lib/db/schema/entity"
+import { playerCharacter } from "@/lib/db/schema/player-character"
 
 import { guardMany } from "./guard-many"
 
@@ -146,6 +151,212 @@ export async function unAdvanceClock(input: {
       currentDay: newDay,
     })
   })
+}
+
+/** The day-end warning's two proceed paths (PRD FR-5). */
+export type EndDayMode = "resolve-all" | "defer-unresolved"
+
+/**
+ * The day-end warning's bulk gesture (UNN-577, PRD FR-5): ends the current
+ * day in **one transaction** — the §0 exception where stored beat/claim facts
+ * are written in bulk, which is why un-advance is *scoped*, not compensating.
+ *
+ * - **resolve-all** ("it all happened, I just didn't tick"): stamps
+ *   `resolvedAt` on today's unresolved beats and dungeon claims.
+ * - **defer-unresolved** ("we didn't get to those scenes"): floats unresolved
+ *   beats with provenance (`deferredFromSlotId`, one statement so the
+ *   `not_scheduled_and_floating` CHECK never sees an intermediate row) and
+ *   **deletes** unresolved claims (the delve didn't happen; the dungeon list
+ *   keeps the dungeon).
+ *
+ * Both paths then **bulk-fill Idle** for every (downtime slot × placed
+ * character) missing an entry — with "downtime" evaluated *after* the mode
+ * mutations, so slots a defer just freed are filled honestly too. The roster
+ * read mirrors `loadPlacedCharactersForCampaign` (finalized + placed +
+ * `deletedAt IS NULL`) — the raw subtype would fill for tombstones. The fill
+ * inserts `ON CONFLICT DO NOTHING` against the `(slotId, primaryId)` partial
+ * unique: a concurrent `recordActivity` wins either way.
+ *
+ * Today's slot rows are locked `FOR UPDATE` up front — the same
+ * mutual-exclusion lock the claim/schedule writes take — so a claim or
+ * schedule can't slip onto a slot mid-gesture and get stranded on what is
+ * about to become a frozen day. Materialize-tomorrow + the `clockVersion`
+ * CAS run **last**: a stale loser rolls back every bulk mutation.
+ */
+export async function endDay(input: {
+  campaignId: string
+  mode: EndDayMode
+  expectedVersion: number
+}): Promise<Result<ClockWriteSuccess, ClockWriteError>> {
+  return mapSlotRaceToStale(
+    guardMany(async (tx) => {
+      const clock = await loadClockRow(tx, input.campaignId)
+      if (!clock) return err("clock-not-found")
+      if (clock.clockVersion !== input.expectedVersion) return err("stale")
+
+      const todaySlots = await tx
+        .select({ id: campaignSlot.id })
+        .from(campaignSlot)
+        .where(
+          and(
+            eq(campaignSlot.campaignId, input.campaignId),
+            eq(campaignSlot.day, clock.currentDay)
+          )
+        )
+        .for("update")
+      const slotIds = todaySlots.map((slot) => slot.id)
+
+      const beats =
+        slotIds.length === 0
+          ? []
+          : await tx
+              .select({
+                id: campaignBeat.id,
+                scheduledSlotId: campaignBeat.scheduledSlotId,
+                resolvedAt: campaignBeat.resolvedAt,
+              })
+              .from(campaignBeat)
+              .where(inArray(campaignBeat.scheduledSlotId, slotIds))
+      const claims =
+        slotIds.length === 0
+          ? []
+          : await tx
+              .select({
+                slotId: campaignSlotDungeon.slotId,
+                resolvedAt: campaignSlotDungeon.resolvedAt,
+              })
+              .from(campaignSlotDungeon)
+              .where(inArray(campaignSlotDungeon.slotId, slotIds))
+
+      const unresolvedBeatIds = beats
+        .filter((beat) => beat.resolvedAt === null)
+        .map((beat) => beat.id)
+      const unresolvedClaimSlotIds = claims
+        .filter((claim) => claim.resolvedAt === null)
+        .map((claim) => claim.slotId)
+
+      if (input.mode === "resolve-all") {
+        const stamp = new Date()
+        if (unresolvedBeatIds.length > 0) {
+          await tx
+            .update(campaignBeat)
+            .set({ resolvedAt: stamp })
+            .where(inArray(campaignBeat.id, unresolvedBeatIds))
+        }
+        if (unresolvedClaimSlotIds.length > 0) {
+          await tx
+            .update(campaignSlotDungeon)
+            .set({ resolvedAt: stamp })
+            .where(inArray(campaignSlotDungeon.slotId, unresolvedClaimSlotIds))
+        }
+      } else {
+        if (unresolvedBeatIds.length > 0) {
+          await tx
+            .update(campaignBeat)
+            .set({
+              scheduledSlotId: null,
+              floating: true,
+              deferredFromSlotId: sql`${campaignBeat.scheduledSlotId}`,
+              resolvedAt: null,
+            })
+            .where(inArray(campaignBeat.id, unresolvedBeatIds))
+        }
+        if (unresolvedClaimSlotIds.length > 0) {
+          await tx
+            .delete(campaignSlotDungeon)
+            .where(inArray(campaignSlotDungeon.slotId, unresolvedClaimSlotIds))
+        }
+      }
+
+      const keptBeats =
+        input.mode === "resolve-all"
+          ? beats
+          : beats.filter((beat) => beat.resolvedAt !== null)
+      const keptClaims =
+        input.mode === "resolve-all"
+          ? claims
+          : claims.filter((claim) => claim.resolvedAt !== null)
+      const occupied = new Set([
+        ...keptBeats.map((beat) => beat.scheduledSlotId),
+        ...keptClaims.map((claim) => claim.slotId),
+      ])
+      const downtimeSlotIds = slotIds.filter((id) => !occupied.has(id))
+
+      await fillIdleEntries(
+        tx,
+        input.campaignId,
+        clock.currentDay,
+        downtimeSlotIds
+      )
+
+      const newDay = clock.currentDay + 1
+      const window = daysInInterval(clock.currentDay, newDay)
+      const materialized = await daysWithSlots(tx, input.campaignId, window)
+      await insertSlotRows(
+        tx,
+        input.campaignId,
+        planSlotMaterialization(clock.slotTemplate, window, materialized)
+      )
+
+      return casClock(tx, input.campaignId, input.expectedVersion, {
+        currentDay: newDay,
+      })
+    })
+  )
+}
+
+/**
+ * The Idle bulk-fill (D9/FR-2): one empty-bodied `idle` entry per missing
+ * (downtime slot × placed character) pair — explicit DM consent via the
+ * day-end warning, recorded honestly so the readiness cue completes.
+ */
+async function fillIdleEntries(
+  tx: WriteExecutor,
+  campaignId: string,
+  day: number,
+  downtimeSlotIds: readonly string[]
+): Promise<void> {
+  if (downtimeSlotIds.length === 0) return
+
+  const roster = await tx
+    .select({ characterId: playerCharacter.entityId })
+    .from(playerCharacter)
+    .innerJoin(entity, eq(playerCharacter.entityId, entity.id))
+    .where(
+      and(
+        eq(playerCharacter.campaignId, campaignId),
+        eq(playerCharacter.status, "finalized"),
+        isNull(entity.deletedAt)
+      )
+    )
+  if (roster.length === 0) return
+
+  const existing = await tx
+    .select({
+      slotId: campaignUpdate.slotId,
+      primaryId: campaignUpdate.primaryId,
+    })
+    .from(campaignUpdate)
+    .where(inArray(campaignUpdate.slotId, [...downtimeSlotIds]))
+  const recorded = new Set(
+    existing.map((row) => `${row.slotId}:${row.primaryId}`)
+  )
+
+  const fills = downtimeSlotIds.flatMap((slotId) =>
+    roster
+      .filter(({ characterId }) => !recorded.has(`${slotId}:${characterId}`))
+      .map(({ characterId }) => ({
+        campaignId,
+        day,
+        primaryKind: "character" as const,
+        primaryId: characterId,
+        body: "",
+        category: "idle" as const,
+        slotId,
+      }))
+  )
+  if (fills.length === 0) return
+  await tx.insert(campaignUpdate).values(fills).onConflictDoNothing()
 }
 
 /**
