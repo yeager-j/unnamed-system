@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  CaretRightIcon,
   ClockIcon,
   DotsThreeVerticalIcon,
   HourglassIcon,
@@ -10,7 +11,7 @@ import {
   SunIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { Fragment, useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -47,8 +48,6 @@ import {
 } from "@workspace/ui/components/empty"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { Separator } from "@workspace/ui/components/separator"
-import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
@@ -141,11 +140,6 @@ export function Runner({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3 md:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator
-          orientation="vertical"
-          className="mr-1 data-vertical:h-4 data-vertical:self-auto"
-        />
         <div className="min-w-0">
           <h1 className="font-display text-xl text-foreground">Run the day</h1>
           <p className="text-sm text-muted-foreground">
@@ -189,37 +183,45 @@ export function Runner({
         </div>
       </header>
 
-      <div className="flex items-stretch gap-2 overflow-x-auto border-b bg-muted/20 px-4 py-3 md:px-6">
-        {slots.map((slot) => (
-          <SlotPill
-            key={slot.id}
-            slot={slot}
-            isActive={activeSlot?.id === slot.id}
-            onSelect={() => setActiveSlotId(slot.id)}
-            onRename={(label) =>
+      {/* w-max + mx-auto centers the pills (per the handoff) while narrow and
+          hands over to the horizontal scroll once the day outgrows the row. */}
+      <div className="overflow-x-auto border-b bg-muted/12">
+        <div className="mx-auto flex w-max items-stretch gap-2 px-4 py-3 md:px-6">
+          {slots.map((slot, index) => (
+            <Fragment key={slot.id}>
+              {index > 0 ? (
+                <CaretRightIcon className="size-4 shrink-0 self-center text-muted-foreground/50" />
+              ) : null}
+              <SlotPill
+                slot={slot}
+                isActive={activeSlot?.id === slot.id}
+                onSelect={() => setActiveSlotId(slot.id)}
+                onRename={(label) =>
+                  run(() =>
+                    renameSlotAction({
+                      campaignId,
+                      slotId: slot.id,
+                      label,
+                      expectedVersion: clockVersion,
+                    })
+                  )
+                }
+              />
+            </Fragment>
+          ))}
+          <AddSlotButton
+            onAdd={(label) =>
               run(() =>
-                renameSlotAction({
+                addSlotAction({
                   campaignId,
-                  slotId: slot.id,
+                  day: currentDay,
                   label,
                   expectedVersion: clockVersion,
                 })
               )
             }
           />
-        ))}
-        <AddSlotButton
-          onAdd={(label) =>
-            run(() =>
-              addSlotAction({
-                campaignId,
-                day: currentDay,
-                label,
-                expectedVersion: clockVersion,
-              })
-            )
-          }
-        />
+        </div>
       </div>
 
       <div className="flex flex-1 items-center justify-center p-6">
@@ -264,25 +266,22 @@ function SlotPill({
   return (
     <div
       className={cn(
-        "relative flex max-w-[340px] min-w-44 shrink-0 rounded-lg border bg-card text-left transition-colors",
+        "relative flex max-w-[340px] min-w-56 shrink-0 rounded-lg border bg-card transition-colors",
         isActive
-          ? "border-primary ring-1 ring-primary"
+          ? "border-primary bg-primary/5 ring-1 ring-primary"
           : "hover:border-muted-foreground/40"
       )}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-2.5"
+        className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-6 py-2.5 text-center"
       >
         <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           Slot {slot.ordinal + 1}
         </span>
-        <span className="flex items-center gap-1.5 font-medium">
-          <SlotIcon
-            label={slot.label}
-            className="size-4 text-muted-foreground"
-          />
+        <span className="flex min-w-0 items-center gap-1.5 font-medium">
+          <SlotIcon label={slot.label} className="size-4 shrink-0 text-gold" />
           <span className="truncate">{slot.label}</span>
         </span>
         <span className="text-xs text-muted-foreground">Downtime</span>
@@ -321,7 +320,7 @@ function AddSlotButton({ onAdd }: { onAdd: (label: string) => void }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Add a slot to this day"
-        className="flex w-12 shrink-0 items-center justify-center rounded-lg border border-dashed text-muted-foreground transition-colors hover:border-muted-foreground/60 hover:text-foreground"
+        className="flex size-12 shrink-0 items-center justify-center self-center rounded-lg border border-dashed text-muted-foreground transition-colors hover:border-muted-foreground/60 hover:text-foreground"
       >
         <PlusIcon className="size-4" />
       </button>

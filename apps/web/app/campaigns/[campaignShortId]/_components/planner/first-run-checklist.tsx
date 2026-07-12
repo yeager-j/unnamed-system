@@ -7,7 +7,6 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { Sparkle } from "@/components/shared/celestial"
@@ -46,9 +45,6 @@ export function FirstRunChecklist({ campaignId }: { campaignId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-2 px-4 py-3 md:px-6">
-        <SidebarTrigger className="-ml-1" />
-      </header>
       <div className="flex flex-1 items-start justify-center p-6 pt-12 md:pt-20">
         <div className="flex w-full max-w-md flex-col gap-8">
           <div className="flex flex-col items-center gap-3 text-center">

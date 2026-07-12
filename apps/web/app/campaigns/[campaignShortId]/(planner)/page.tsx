@@ -86,11 +86,13 @@ export default async function CampaignPage({ params }: PageProps) {
 
 /**
  * The DM's Day Runner: the one planner surface with its own sidebar — the
- * placed-characters roster, an inset-variant sidebar the page builds itself
- * (the sidebar-08 pattern; the layout only provides the rail). The `top-14` /
- * `left-14` offsets seat the fixed sidebar under the global header and beside
- * the rail. Body is the first-run checklist until the clock starts, then the
- * runner.
+ * placed-characters roster, built by the page itself (the layout only
+ * provides the rail). Pinned open by design: `collapsible="none"` renders it
+ * in flow (sticky under the global header) with no trigger, no ⌘B, and no
+ * mobile sheet — the planner is desktop-first; mobile comes later. The inset
+ * card look is applied to the content explicitly, since the stock styling
+ * only fires for the fixed `variant="inset"` sidebar. Body is the first-run
+ * checklist until the clock starts, then the runner.
  */
 async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   const [clock, roster] = await Promise.all([
@@ -106,10 +108,10 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   const seasonLabel = clock ? seasonOf(seasons, clock.currentDay) : null
 
   return (
-    <SidebarProvider className="min-h-0 flex-1">
+    <SidebarProvider className="min-h-0 flex-1 bg-sidebar">
       <Sidebar
-        variant="inset"
-        className="top-14 h-[calc(100svh-3.5rem)] data-[side=left]:left-14"
+        collapsible="none"
+        className="sticky top-14 h-[calc(100svh-3.5rem)] shrink-0"
       >
         <RosterPanel
           campaignName={campaign.name}
@@ -121,7 +123,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
           roster={buildRosterView(roster)}
         />
       </Sidebar>
-      <SidebarInset className="min-w-0">
+      <SidebarInset className="m-2 ml-0 min-w-0 rounded-xl shadow-sm">
         {clock ? (
           <Runner
             campaignId={campaign.id}

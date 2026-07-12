@@ -39,10 +39,10 @@ export function RosterPanel({
 }) {
   return (
     <>
-      <SidebarHeader className="gap-2 border-b p-4">
+      <SidebarHeader className="gap-2 p-4">
         {dayLine ? (
           <div className="flex items-center gap-1.5 self-start rounded-full border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-            <MoonStarsIcon className="size-3.5" />
+            <MoonStarsIcon className="size-3.5 text-gold" />
             {dayLine}
           </div>
         ) : null}
