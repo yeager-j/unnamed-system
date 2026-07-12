@@ -13,10 +13,16 @@ import { MemberOverview } from "@/app/campaigns/[campaignShortId]/_components/me
 import type { WorkspaceActivity } from "@/app/campaigns/[campaignShortId]/_components/planner/downtime-workspace"
 import { FirstRunChecklist } from "@/app/campaigns/[campaignShortId]/_components/planner/first-run-checklist"
 import { RosterPanel } from "@/app/campaigns/[campaignShortId]/_components/planner/roster-panel"
+import type {
+  RunnableDungeon,
+  ShelfBeat,
+} from "@/app/campaigns/[campaignShortId]/_components/planner/run-menus"
 import { Runner } from "@/app/campaigns/[campaignShortId]/_components/planner/runner"
 import { RunnerSelectionProvider } from "@/app/campaigns/[campaignShortId]/_components/planner/runner-selection"
 import { extractChipRefs } from "@/domain/planner/chip"
-import { dayProgress } from "@/domain/planner/day-progress"
+import { isFrozenDay } from "@/domain/planner/clock"
+import { dayEndReadiness } from "@/domain/planner/day-end"
+import { dayProgress, type DaySlotFacts } from "@/domain/planner/day-progress"
 import {
   foldResolvedParticipants,
   type ParticipantRef,
@@ -33,10 +39,14 @@ import {
   loadCampaignByShortId,
 } from "@/lib/db/queries/load-campaign"
 import {
+  loadClaimsForSlots,
   loadSeasons,
   loadSlotsForDay,
 } from "@/lib/db/queries/load-campaign-clock"
-import { loadBeatsForSlots } from "@/lib/db/queries/load-campaign-notes"
+import {
+  loadBeatsForSlots,
+  loadFloatingBeats,
+} from "@/lib/db/queries/load-campaign-notes"
 import {
   loadActivitiesForSlots,
   loadLastActivityPerCharacter,
@@ -46,6 +56,7 @@ import {
   loadCampaignArticles,
   loadCampaignNpcs,
 } from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
 import { loadRosterGlance } from "@/lib/db/queries/load-roster-glance"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
@@ -132,15 +143,27 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   const seasonLabel = clock ? seasonOf(seasons, clock.currentDay) : null
   const slotIds = slots.map((slot) => slot.id)
 
-  const [beats, activities, lastByCharacter, glances, npcs, articles] =
-    await Promise.all([
-      loadBeatsForSlots(slotIds),
-      loadActivitiesForSlots(campaign.id, slotIds),
-      loadLastActivityPerCharacter(campaign.id),
-      loadRosterGlance(placedCharacters.map((character) => character.id)),
-      loadCampaignNpcs(campaign.id),
-      loadCampaignArticles(campaign.id),
-    ])
+  const [
+    beats,
+    claims,
+    floatingBeats,
+    dungeons,
+    activities,
+    lastByCharacter,
+    glances,
+    npcs,
+    articles,
+  ] = await Promise.all([
+    loadBeatsForSlots(slotIds),
+    loadClaimsForSlots(slotIds),
+    loadFloatingBeats(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
+    loadActivitiesForSlots(campaign.id, slotIds),
+    loadLastActivityPerCharacter(campaign.id),
+    loadRosterGlance(placedCharacters.map((character) => character.id)),
+    loadCampaignNpcs(campaign.id),
+    loadCampaignArticles(campaign.id),
+  ])
 
   // One campaign-scoped lookup covers every chip/concern label on the page:
   // the story cards' beat chips and the recorded entries' concern chips.
@@ -166,12 +189,36 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
       .filter((beat) => beat.scheduledSlotId !== null)
       .map((beat) => [beat.scheduledSlotId!, beat])
   )
+  const claimsBySlot = new Map(claims.map((claim) => [claim.slotId, claim]))
   const slotViews = buildRunnerSlotViews({
     slots,
     beatsBySlot,
+    claimsBySlot,
     rosterSize: placedCharacters.length,
     recordedBySlot: countRecordedBySlot(activities),
   })
+
+  // The prepped shelf: the return affordance renders only while the origin
+  // slot is open (beat-free + claim-free) and its day not past (D1).
+  const shelf: ShelfBeat[] = floatingBeats.map((beat) => ({
+    id: beat.id,
+    title: beat.title,
+    returnTo:
+      clock !== null &&
+      beat.deferredFrom !== null &&
+      !beat.deferredFrom.occupied &&
+      !isFrozenDay(beat.deferredFrom.day, clock.currentDay)
+        ? {
+            slotId: beat.deferredFrom.slotId,
+            day: beat.deferredFrom.day,
+            label: beat.deferredFrom.label,
+          }
+        : null,
+  }))
+  const runnableDungeons: RunnableDungeon[] = dungeons.map((dungeon) => ({
+    id: dungeon.id,
+    name: dungeon.name,
+  }))
 
   const workspaceActivities: WorkspaceActivity[] = activities.map(
     (activity) => ({
@@ -211,19 +258,25 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     ])
   )
 
-  const progress = clock
-    ? dayProgress({
-        slotIds,
-        occupancy: { storyBeatSlotIds: new Set(beatsBySlot.keys()) },
-        resolvedBeatSlotIds: new Set(
-          [...beatsBySlot.entries()]
-            .filter(([, beat]) => beat.resolvedAt !== null)
-            .map(([slotId]) => slotId)
-        ),
-        rosterSize: placedCharacters.length,
-        recordedBySlot: countRecordedBySlot(activities),
-      })
-    : null
+  const dayFacts: DaySlotFacts = {
+    slotIds,
+    occupancy: {
+      storyBeatSlotIds: new Set(beatsBySlot.keys()),
+      dungeonClaimSlotIds: new Set(claimsBySlot.keys()),
+    },
+    resolvedSlotIds: new Set([
+      ...[...beatsBySlot.entries()]
+        .filter(([, beat]) => beat.resolvedAt !== null)
+        .map(([slotId]) => slotId),
+      ...claims
+        .filter((claim) => claim.resolvedAt !== null)
+        .map((claim) => claim.slotId),
+    ]),
+    rosterSize: placedCharacters.length,
+    recordedBySlot: countRecordedBySlot(activities),
+  }
+  const progress = clock ? dayProgress(dayFacts) : null
+  const readiness = dayEndReadiness(dayFacts)
 
   return (
     <RunnerSelectionProvider
@@ -272,6 +325,9 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                   characters: placedCharacters,
                 }),
               }}
+              readiness={readiness}
+              shelf={shelf}
+              dungeons={runnableDungeons}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

@@ -10,6 +10,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
+import { participantPillClass } from "@/components/shared/participant-pill"
 import {
   CHIP_TOKEN_SOURCE,
   sanitizeChipLabel,
@@ -126,14 +127,7 @@ function ChipPill({ node }: NodeViewProps) {
       as="span"
       data-participant-chip=""
       data-kind={kind}
-      className={cn(
-        // The handoff's `.elink` pill: NPCs in the primary indigo tint,
-        // articles/characters muted; not-prose opts out of prose margins.
-        "not-prose inline-flex max-w-60 items-center gap-1 rounded-full px-2 py-0.5 align-baseline text-[0.85em] font-medium",
-        kind === "npc"
-          ? "bg-primary/16 text-primary-text"
-          : "bg-muted/55 text-foreground"
-      )}
+      className={cn("not-prose", participantPillClass(kind))}
     >
       <Icon aria-hidden className="size-[1em] shrink-0" />
       <span className="truncate">{label || "Unknown"}</span>

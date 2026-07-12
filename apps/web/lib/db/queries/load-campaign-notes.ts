@@ -1,18 +1,24 @@
-import { and, asc, eq, gte, inArray } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 
 import { db } from "@/lib/db/client"
-import { campaignSlot } from "@/lib/db/schema/campaign-clock"
+import {
+  campaignSlot,
+  campaignSlotDungeon,
+} from "@/lib/db/schema/campaign-clock"
 import {
   campaignBeat,
   campaignSession,
   type CampaignBeatRow,
   type CampaignSessionRow,
 } from "@/lib/db/schema/campaign-notes"
+import { dungeons } from "@/lib/db/schema/dungeon"
 
 /**
- * Read side of Session Notes (UNN-576): the tree, single beats, the runner's
- * beats-by-slot lookup, and the schedule picker's upcoming-slot enumeration.
- * All campaign-scoped by WHERE (§5's read half).
+ * Read side of Session Notes (UNN-576/577): the tree, single beats, the
+ * runner's beats-by-slot lookup, the floating shelf, and the schedule
+ * picker's upcoming-slot enumeration. All campaign-scoped by WHERE (§5's
+ * read half).
  */
 
 /** A tree row: the beat's list facts + its schedule, slot resolved to display facts. */
@@ -112,6 +118,74 @@ export async function loadBeatsForSlots(
     .where(inArray(campaignBeat.scheduledSlotId, [...slotIds]))
 }
 
+/** One floating-shelf beat: title + defer provenance (D1's "return to Day N · ⟨slot⟩"). */
+export interface FloatingBeat {
+  id: string
+  title: string
+  /**
+   * Where a defer sent it from — day/label for the return affordance, plus
+   * whether that slot is meanwhile occupied again (a beat re-scheduled into
+   * it, or a dungeon claim). Null for beats floated from Session Notes.
+   */
+  deferredFrom: {
+    slotId: string
+    day: number
+    label: string
+    occupied: boolean
+  } | null
+}
+
+/**
+ * The runner's **prepped shelf** (FR-5): every floating beat, newest change
+ * first, each carrying its defer provenance so the menu can offer one-click
+ * "Return to Day N · ⟨slot⟩" (the page gates that on `occupied` and the
+ * frozen-past rule).
+ */
+export async function loadFloatingBeats(
+  campaignId: string
+): Promise<FloatingBeat[]> {
+  const originSlot = alias(campaignSlot, "originSlot")
+  const occupyingBeat = alias(campaignBeat, "occupyingBeat")
+  const rows = await db
+    .select({
+      id: campaignBeat.id,
+      title: campaignBeat.title,
+      originSlotId: originSlot.id,
+      originDay: originSlot.day,
+      originLabel: originSlot.label,
+      occupyingBeatId: occupyingBeat.id,
+      occupyingClaimSlotId: campaignSlotDungeon.slotId,
+    })
+    .from(campaignBeat)
+    .leftJoin(originSlot, eq(originSlot.id, campaignBeat.deferredFromSlotId))
+    .leftJoin(occupyingBeat, eq(occupyingBeat.scheduledSlotId, originSlot.id))
+    .leftJoin(
+      campaignSlotDungeon,
+      eq(campaignSlotDungeon.slotId, originSlot.id)
+    )
+    .where(
+      and(
+        eq(campaignBeat.campaignId, campaignId),
+        eq(campaignBeat.floating, true)
+      )
+    )
+    .orderBy(desc(campaignBeat.updatedAt))
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    deferredFrom:
+      row.originSlotId === null
+        ? null
+        : {
+            slotId: row.originSlotId,
+            day: row.originDay!,
+            label: row.originLabel!,
+            occupied:
+              row.occupyingBeatId !== null || row.occupyingClaimSlotId !== null,
+          },
+  }))
+}
+
 /** One schedule-picker slot: display facts + who already holds it. */
 export interface UpcomingSlot {
   id: string
@@ -119,6 +193,8 @@ export interface UpcomingSlot {
   ordinal: number
   label: string
   occupiedByBeat: { id: string; title: string } | null
+  /** The claiming dungeon's name, when a delve holds the slot (D9). */
+  occupiedByDungeon: { name: string } | null
 }
 
 /**
@@ -138,9 +214,15 @@ export async function loadUpcomingSlots(
       label: campaignSlot.label,
       beatId: campaignBeat.id,
       beatTitle: campaignBeat.title,
+      dungeonName: dungeons.name,
     })
     .from(campaignSlot)
     .leftJoin(campaignBeat, eq(campaignBeat.scheduledSlotId, campaignSlot.id))
+    .leftJoin(
+      campaignSlotDungeon,
+      eq(campaignSlotDungeon.slotId, campaignSlot.id)
+    )
+    .leftJoin(dungeons, eq(dungeons.id, campaignSlotDungeon.dungeonId))
     .where(
       and(
         eq(campaignSlot.campaignId, campaignId),
@@ -155,5 +237,7 @@ export async function loadUpcomingSlots(
     label: row.label,
     occupiedByBeat:
       row.beatId === null ? null : { id: row.beatId, title: row.beatTitle! },
+    occupiedByDungeon:
+      row.dungeonName === null ? null : { name: row.dungeonName },
   }))
 }

@@ -12,12 +12,13 @@ export interface SchedulePickerSlotInput {
   ordinal: number
   label: string
   occupiedByBeat: { id: string; title: string } | null
+  occupiedByDungeon: { name: string } | null
 }
 
 export interface SchedulePickerSlotView {
   id: string
   label: string
-  /** The occupying beat's display title, or null for an open slot. */
+  /** The occupying beat's title or claiming dungeon's name; null for an open slot. */
   occupiedBy: string | null
 }
 
@@ -45,11 +46,11 @@ export function buildSchedulePickerDays(
       id: slot.id,
       label: slot.label,
       occupiedBy:
-        slot.occupiedByBeat === null
-          ? null
-          : slot.occupiedByBeat.title.trim() === ""
+        slot.occupiedByBeat !== null
+          ? slot.occupiedByBeat.title.trim() === ""
             ? "Untitled beat"
-            : slot.occupiedByBeat.title,
+            : slot.occupiedByBeat.title
+          : (slot.occupiedByDungeon?.name ?? null),
     })
     days.set(slot.day, views)
   }

@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core"
 
 import { campaigns } from "./campaign"
+import { dungeons } from "./dungeon"
 
 /**
  * One entry of a campaign's default-slots template ({@link campaignClock.slotTemplate}):
@@ -125,6 +126,40 @@ export const campaignSeason = pgTable(
   ]
 )
 
+/**
+ * A **dungeon slot claim** (Campaign Planner phase 4 — UNN-577, tech-design
+ * D9): the mirror of how a scheduled beat claims a slot, as a concrete
+ * per-kind claim table — `slotId` PK is the one-dungeon-per-slot fact the
+ * slot-kind derivation reads. Many slots per dungeon is free (a delve that
+ * runs long claims the next slot with the same dungeon).
+ *
+ * `dungeonId` **cascades**: deleting the dungeon reverts its slots to
+ * downtime. No dungeon-delete write exists yet; when one lands it must add a
+ * frozen-past guard (claims on `day < currentDay` are history's structure,
+ * matching {@link deleteBeat}'s block) rather than letting the cascade rewrite
+ * past days — tracked as UNN-616. `slotId` RESTRICTs like
+ * `campaignUpdate.slotId` — a claimed slot can't be deleted out from under
+ * its claim.
+ *
+ * Mutual exclusion with beats (never both on one slot) is a write-boundary
+ * check under a `FOR UPDATE` slot lock, not a constraint — each table's
+ * unique guards its own side.
+ */
+export const campaignSlotDungeon = pgTable(
+  "campaignSlotDungeon",
+  {
+    slotId: text("slotId")
+      .primaryKey()
+      .references(() => campaignSlot.id, { onDelete: "restrict" }),
+    dungeonId: text("dungeonId")
+      .notNull()
+      .references(() => dungeons.id, { onDelete: "cascade" }),
+    resolvedAt: timestamp("resolvedAt", { mode: "date" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (claim) => [index("campaignSlotDungeon_dungeon_idx").on(claim.dungeonId)]
+)
+
 /** The persisted clock row shape (typed off the table). */
 export type CampaignClockRow = typeof campaignClock.$inferSelect
 
@@ -133,3 +168,6 @@ export type CampaignSlotRow = typeof campaignSlot.$inferSelect
 
 /** The persisted season row shape (typed off the table). */
 export type CampaignSeasonRow = typeof campaignSeason.$inferSelect
+
+/** The persisted dungeon slot claim shape (typed off the table). */
+export type CampaignSlotDungeonRow = typeof campaignSlotDungeon.$inferSelect
