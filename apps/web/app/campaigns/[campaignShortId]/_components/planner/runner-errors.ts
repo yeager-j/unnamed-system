@@ -1,10 +1,10 @@
 import { toast } from "sonner"
 
 /**
- * One error-copy map for every Day Runner write (clock, beats, claims,
- * day-end) — the runner's surfaces share a vocabulary, so a beat card and a
- * pull-in menu describing the same `"slot-occupied"` differently would read
- * as two different problems.
+ * One error-copy map for every planner write (clock, beats, claims, day-end,
+ * dated articles) — the runner and Calendar share a vocabulary, so a beat
+ * card and a day card describing the same `"slot-occupied"` differently
+ * would read as two different problems.
  */
 const RUNNER_ERROR_COPY: Record<string, string> = {
   stale:
@@ -23,6 +23,15 @@ const RUNNER_ERROR_COPY: Record<string, string> = {
   "scheduled-to-past": "That beat is part of a past day — history stays put.",
   "not-ready":
     "The day picked up loose ends since this loaded — check the warning and choose how to close them out.",
+  "deadline-due":
+    "A deadline is due and unresolved — resolve it on the Calendar before time moves on.",
+  "article-not-found": "That article is gone — refresh the page.",
+  "article-resolved":
+    "That deadline is already resolved — reopen it before changing its date.",
+  "not-a-deadline": "Only deadline articles can be resolved.",
+  "not-resolved": "That deadline isn't resolved — nothing to reopen.",
+  "montage-character-invalid":
+    "One of those characters isn't in this campaign anymore — refresh the page.",
   "invalid-input": "Couldn't save — that input doesn't look right.",
 }
 

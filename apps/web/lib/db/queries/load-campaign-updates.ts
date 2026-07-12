@@ -14,6 +14,37 @@ import {
  * cursor-paged read arrives with its surface (phase 7).
  */
 
+/** A live ⚑ marker: which article it resolves, from which update, stamped on which day (D5). */
+export interface ResolvedMarker {
+  articleId: string
+  updateId: string
+  day: number
+}
+
+/**
+ * Every live ⚑ marker in the campaign — "resolved" set membership for the
+ * deadline selectors plus the Reopen affordance's target. At most one per
+ * article (the partial unique).
+ */
+export async function loadResolvedMarkers(
+  campaignId: string
+): Promise<ResolvedMarker[]> {
+  const rows = await db
+    .select({
+      articleId: campaignUpdate.resolvesArticleId,
+      updateId: campaignUpdate.id,
+      day: campaignUpdate.day,
+    })
+    .from(campaignUpdate)
+    .where(
+      and(
+        eq(campaignUpdate.campaignId, campaignId),
+        isNotNull(campaignUpdate.resolvesArticleId)
+      )
+    )
+  return rows.map((row) => ({ ...row, articleId: row.articleId! }))
+}
+
 /** A recorded activity with its concerns folded in — the workspace's unit. */
 export interface LoadedActivity {
   id: string

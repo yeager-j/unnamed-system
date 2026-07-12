@@ -20,6 +20,7 @@ let inTx = false
 let npcInsertError: Error | null
 let npcUpdateRows: unknown[]
 let articleUpdateRows: unknown[]
+let selectQueues: Map<unknown, unknown[][]>
 
 const ENTITY_ID = "entity-1"
 const SHORT_ID = "shortid1"
@@ -32,8 +33,19 @@ function thenable(reject?: Error | null) {
   }
 }
 
+function nextRows(table: unknown): unknown[] {
+  const queue = selectQueues.get(table)
+  if (!queue || queue.length === 0) return []
+  return queue.shift()!
+}
+
 function makeExecutor() {
   return {
+    select: () => ({
+      from: (table: unknown) => ({
+        where: () => Promise.resolve(nextRows(table)),
+      }),
+    }),
     insert: (table: unknown) => ({
       values: (payload: unknown) => {
         calls.push({ op: "insert", table, payload, inTx })
@@ -84,8 +96,19 @@ vi.mock("@/lib/db/short-id", () => ({
 
 const schema = await import("@/lib/db/schema/campaign-world")
 const entitySchema = await import("@/lib/db/schema/entity")
-const { mintArticle, mintNpc, softDeleteArticle, softDeleteNpc } =
-  await import("./campaign-world")
+const updatesSchema = await import("@/lib/db/schema/campaign-updates")
+const {
+  clearArticleDate,
+  mintArticle,
+  mintNpc,
+  setArticleDate,
+  softDeleteArticle,
+  softDeleteNpc,
+} = await import("./campaign-world")
+
+function queue(table: unknown, ...responses: unknown[][]) {
+  selectQueues.set(table, [...(selectQueues.get(table) ?? []), ...responses])
+}
 
 beforeEach(() => {
   calls = []
@@ -93,6 +116,7 @@ beforeEach(() => {
   npcInsertError = null
   npcUpdateRows = [{ entityId: ENTITY_ID }]
   articleUpdateRows = [{ id: "article-1" }]
+  selectQueues = new Map()
 })
 
 describe("mintNpc", () => {
@@ -206,5 +230,87 @@ describe("softDeleteArticle", () => {
     })
 
     expect(result).toEqual(err("article-not-found"))
+  })
+})
+
+describe("setArticleDate / clearArticleDate", () => {
+  const LIVE_ARTICLE = [{ id: "article-1", deletedAt: null }]
+
+  it("sets the dated facet on a live, unresolved article", async () => {
+    queue(schema.campaignArticle, LIVE_ARTICLE)
+    queue(updatesSchema.campaignUpdate, [])
+
+    const result = await setArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 17,
+      kind: "deadline",
+    })
+
+    expect(result).toEqual(ok(undefined))
+    expect(calls).toEqual([
+      {
+        op: "update",
+        table: schema.campaignArticle,
+        payload: { datedDay: 17, datedKind: "deadline" },
+        inTx: true,
+      },
+    ])
+  })
+
+  it("clears both facet columns together (the set-together CHECK)", async () => {
+    queue(schema.campaignArticle, LIVE_ARTICLE)
+    queue(updatesSchema.campaignUpdate, [])
+
+    const result = await clearArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+    })
+
+    expect(result).toEqual(ok(undefined))
+    expect(calls[0]!.payload).toEqual({ datedDay: null, datedKind: null })
+  })
+
+  it("refuses a resolved article — unbind first (D5's re-dating guard)", async () => {
+    queue(schema.campaignArticle, LIVE_ARTICLE)
+    queue(updatesSchema.campaignUpdate, [[{ id: "marker-1" }]].flat())
+
+    const result = await setArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 20,
+      kind: "deadline",
+    })
+
+    expect(result).toEqual(err("article-resolved"))
+    expect(calls).toEqual([])
+  })
+
+  it("treats a tombstoned article as not found", async () => {
+    queue(schema.campaignArticle, [
+      { id: "article-1", deletedAt: new Date("2026-07-01") },
+    ])
+
+    const result = await setArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 17,
+      kind: "event",
+    })
+
+    expect(result).toEqual(err("article-not-found"))
+    expect(calls).toEqual([])
+  })
+
+  it("treats a zero-row match (cross-campaign or missing) as not found", async () => {
+    queue(schema.campaignArticle, [])
+
+    const result = await clearArticleDate({
+      campaignId: "camp-1",
+      articleId: "forged",
+    })
+
+    expect(result).toEqual(err("article-not-found"))
+    expect(calls).toEqual([])
   })
 })

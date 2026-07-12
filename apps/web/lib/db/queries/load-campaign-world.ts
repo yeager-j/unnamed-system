@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import {
@@ -54,4 +54,25 @@ export async function loadCampaignArticles(
       )
     )
     .orderBy(asc(campaignArticle.name))
+}
+
+/**
+ * The campaign's live **dated** Articles, `(datedDay, name)`-ordered — the
+ * Calendar's day lines + deadline ribbon and the runner's advance-gate
+ * pre-warn (D5). Rides the `(campaignId, datedKind, datedDay)` index.
+ */
+export async function loadDatedArticles(
+  campaignId: string
+): Promise<CampaignArticleRow[]> {
+  return db
+    .select()
+    .from(campaignArticle)
+    .where(
+      and(
+        eq(campaignArticle.campaignId, campaignId),
+        isNotNull(campaignArticle.datedKind),
+        isNull(campaignArticle.deletedAt)
+      )
+    )
+    .orderBy(asc(campaignArticle.datedDay), asc(campaignArticle.name))
 }

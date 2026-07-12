@@ -9,8 +9,13 @@ import {
 } from "@/lib/db/schema/campaign-clock"
 import { campaignBeat } from "@/lib/db/schema/campaign-notes"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
+import { campaignArticle } from "@/lib/db/schema/campaign-world"
 import { playerCharacter } from "@/lib/db/schema/player-character"
-import { endDay } from "@/lib/db/writes/campaign-clock"
+import {
+  advanceClock,
+  endDay,
+  unAdvanceClock,
+} from "@/lib/db/writes/campaign-clock"
 
 /**
  * Pins the `endDay` bulk gesture (UNN-577, PRD FR-5) with the house
@@ -300,6 +305,198 @@ describe("endDay", () => {
     })
 
     expect(result).toEqual(err("stale"))
+    expect(recorded).toEqual([])
+  })
+})
+
+describe("advanceClock — the deadline gate + montage pass", () => {
+  it("refuses deadline-due while an unresolved deadline sits at or before the landing day, writing nothing", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignArticle, [{ id: "a1" }]) // an unresolved deadline ≤ newDay
+    queue(campaignUpdate, []) // no ⚑ marker binds it
+
+    const result = await advanceClock({
+      campaignId: CAMPAIGN,
+      days: 3,
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(err("deadline-due"))
+    expect(recorded).toEqual([])
+  })
+
+  it("advances past a deadline once a marker resolves it", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignArticle, [{ id: "a1" }])
+    queue(campaignUpdate, [{ articleId: "a1" }]) // resolved
+    queue(campaignSlot, []) // daysWithSlots: nothing materialized yet
+
+    const result = await advanceClock({
+      campaignId: CAMPAIGN,
+      days: 1,
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(ok({ currentDay: 6, clockVersion: 8 }))
+    expect(recorded.map((entry) => [entry.op, entry.table])).toEqual([
+      ["insert", campaignSlot],
+      ["update", campaignClock],
+    ])
+  })
+
+  it("inserts montage entries unslotted on the landing day", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignArticle, []) // no deadlines
+    queue(campaignSlot, [])
+    queue(playerCharacter, [{ characterId: "c1" }, { characterId: "c2" }])
+
+    const result = await advanceClock({
+      campaignId: CAMPAIGN,
+      days: 5,
+      expectedVersion: 7,
+      montage: [
+        {
+          characterId: "c1",
+          body: "Walked the coast road.",
+          category: "practical",
+        },
+        {
+          characterId: "c2",
+          body: "Trained with Maren.",
+          category: "collaborator",
+        },
+      ],
+    })
+
+    expect(result).toEqual(ok({ currentDay: 6, clockVersion: 8 }))
+    const montageInsert = recorded.find(
+      (entry) => entry.op === "insert" && entry.table === campaignUpdate
+    )
+    expect(montageInsert!.payload).toEqual([
+      {
+        campaignId: CAMPAIGN,
+        day: 10,
+        primaryKind: "character",
+        primaryId: "c1",
+        body: "Walked the coast road.",
+        category: "practical",
+        slotId: null,
+      },
+      {
+        campaignId: CAMPAIGN,
+        day: 10,
+        primaryKind: "character",
+        primaryId: "c2",
+        body: "Trained with Maren.",
+        category: "collaborator",
+        slotId: null,
+      },
+    ])
+    // CAS stays last.
+    expect(recorded.at(-1)).toMatchObject({
+      op: "update",
+      table: campaignClock,
+    })
+  })
+
+  it("refuses a montage entry for a character outside the placed roster", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignArticle, [])
+    queue(campaignSlot, [])
+    queue(playerCharacter, [{ characterId: "c1" }])
+
+    const result = await advanceClock({
+      campaignId: CAMPAIGN,
+      days: 2,
+      expectedVersion: 7,
+      montage: [{ characterId: "c9", body: "x", category: "practical" }],
+    })
+
+    expect(result).toEqual(err("montage-character-invalid"))
+    expect(
+      recorded.some(
+        (entry) => entry.op === "insert" && entry.table === campaignUpdate
+      )
+    ).toBe(false)
+    expect(
+      recorded.some(
+        (entry) => entry.op === "update" && entry.table === campaignClock
+      )
+    ).toBe(false)
+  })
+
+  it("a plain advance with no dated articles never reads markers", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignArticle, [])
+    queue(campaignSlot, [])
+    // No campaignUpdate queue: hasBlockingDeadline must short-circuit.
+
+    const result = await advanceClock({
+      campaignId: CAMPAIGN,
+      days: 1,
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(ok({ currentDay: 6, clockVersion: 8 }))
+  })
+})
+
+describe("endDay — the deadline gate", () => {
+  it("refuses deadline-due before any bulk mutation, in every mode", async () => {
+    for (const mode of [
+      "advance",
+      "resolve-all",
+      "defer-unresolved",
+    ] as const) {
+      recorded = []
+      selectQueues = new Map()
+      queue(campaignClock, CLOCK)
+      queue(campaignArticle, [{ id: "a1" }])
+      queue(campaignUpdate, [])
+
+      const result = await endDay({
+        campaignId: CAMPAIGN,
+        mode,
+        expectedVersion: 7,
+      })
+
+      expect(result).toEqual(err("deadline-due"))
+      expect(recorded).toEqual([])
+    }
+  })
+})
+
+describe("unAdvanceClock — the ⚑ unbind", () => {
+  it("unbinds markers after the restored day, then CAS", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignSlot, [{ day: 4 }]) // day 4 is materialized
+
+    const result = await unAdvanceClock({
+      campaignId: CAMPAIGN,
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(ok({ currentDay: 6, clockVersion: 8 }))
+    expect(recorded).toEqual([
+      {
+        op: "update",
+        table: campaignUpdate,
+        payload: { resolvesArticleId: null },
+      },
+      expect.objectContaining({ op: "update", table: campaignClock }),
+    ])
+  })
+
+  it("at-floor writes nothing — no unbind on a refused un-advance", async () => {
+    queue(campaignClock, CLOCK)
+    queue(campaignSlot, []) // day 4 never materialized
+
+    const result = await unAdvanceClock({
+      campaignId: CAMPAIGN,
+      expectedVersion: 7,
+    })
+
+    expect(result).toEqual(err("at-floor"))
     expect(recorded).toEqual([])
   })
 })

@@ -7,9 +7,12 @@ import {
   campaignUpdate,
   campaignUpdateConcern,
 } from "@/lib/db/schema/campaign-updates"
+import { campaignArticle } from "@/lib/db/schema/campaign-world"
 import {
   deleteActivity,
   recordActivity,
+  reopenDeadline,
+  resolveDeadline,
 } from "@/lib/db/writes/campaign-updates"
 
 /**
@@ -30,6 +33,7 @@ let selectQueues: Map<unknown, unknown[][]>
 let conflictInsertsToSkip: number
 let insertError: Error | null
 let insertCounter: number
+let updateReturnRows: unknown[]
 
 function nextRows(table: unknown): unknown[] {
   const queue = selectQueues.get(table)
@@ -67,7 +71,10 @@ function makeExecutor(): Record<string, unknown> {
       set: (payload: unknown) => ({
         where: () => {
           recorded.push({ op: "update", table, payload })
-          return Promise.resolve(undefined)
+          return {
+            returning: async () => updateReturnRows,
+            then: (resolve: (v: unknown) => void) => resolve(undefined),
+          }
         },
       }),
     }),
@@ -100,6 +107,7 @@ beforeEach(() => {
   conflictInsertsToSkip = 0
   insertError = null
   insertCounter = 0
+  updateReturnRows = []
 })
 
 describe("recordActivity", () => {
@@ -229,5 +237,125 @@ describe("deleteActivity", () => {
     })
 
     expect(result).toEqual(err("update-not-found"))
+  })
+})
+
+describe("resolveDeadline", () => {
+  const DEADLINE_ARTICLE = [
+    { name: "Siege of Saltmere", datedKind: "deadline", deletedAt: null },
+  ]
+
+  it("inserts the ⚑ marker as a world update stamped on the current day", async () => {
+    queue(campaignClock, [{ currentDay: 14 }])
+    queue(campaignArticle, DEADLINE_ARTICLE)
+
+    const result = await resolveDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "a1",
+      body: "The party broke the siege at dawn.",
+    })
+
+    expect(result).toEqual(ok({ updateId: "insert-0" }))
+    expect(recorded).toEqual([
+      {
+        op: "insert",
+        table: campaignUpdate,
+        payload: {
+          campaignId: CAMPAIGN,
+          day: 14,
+          primaryKind: "article",
+          primaryId: "a1",
+          body: "The party broke the siege at dawn.",
+          slotId: null,
+          resolvesArticleId: "a1",
+        },
+      },
+    ])
+  })
+
+  it("defaults a blank body to the outcome-neutral resolution line", async () => {
+    queue(campaignClock, [{ currentDay: 14 }])
+    queue(campaignArticle, DEADLINE_ARTICLE)
+
+    await resolveDeadline({ campaignId: CAMPAIGN, articleId: "a1", body: "  " })
+
+    expect((recorded[0]!.payload as { body: string }).body).toBe(
+      "Resolved — Siege of Saltmere"
+    )
+  })
+
+  it("treats a lost double-resolve race as idempotent success (the partial unique)", async () => {
+    queue(campaignClock, [{ currentDay: 14 }])
+    queue(campaignArticle, DEADLINE_ARTICLE)
+    conflictInsertsToSkip = 1
+
+    const result = await resolveDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "a1",
+      body: "",
+    })
+
+    expect(result).toEqual(ok({ updateId: null }))
+  })
+
+  it("refuses an event or undated article", async () => {
+    queue(campaignClock, [{ currentDay: 14 }])
+    queue(campaignArticle, [
+      { name: "Tidewake Festival", datedKind: "event", deletedAt: null },
+    ])
+
+    const result = await resolveDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "a1",
+      body: "",
+    })
+
+    expect(result).toEqual(err("not-a-deadline"))
+    expect(recorded).toEqual([])
+  })
+
+  it("treats a tombstoned or cross-campaign article as not found", async () => {
+    queue(campaignClock, [{ currentDay: 14 }])
+    queue(campaignArticle, [])
+
+    const result = await resolveDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "forged",
+      body: "",
+    })
+
+    expect(result).toEqual(err("article-not-found"))
+    expect(recorded).toEqual([])
+  })
+})
+
+describe("reopenDeadline", () => {
+  it("unbinds the marker, keeping the prose row (unbind, never delete)", async () => {
+    updateReturnRows = [{ id: "u1" }]
+
+    const result = await reopenDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "a1",
+    })
+
+    expect(result).toEqual(ok(undefined))
+    expect(recorded).toEqual([
+      {
+        op: "update",
+        table: campaignUpdate,
+        payload: { resolvesArticleId: null },
+      },
+    ])
+  })
+
+  it("errs when no marker binds the article", async () => {
+    updateReturnRows = []
+
+    const result = await reopenDeadline({
+      campaignId: CAMPAIGN,
+      articleId: "a1",
+    })
+
+    expect(result).toEqual(err("not-resolved"))
   })
 })

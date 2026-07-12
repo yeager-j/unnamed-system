@@ -4,14 +4,11 @@ import {
   CaretRightIcon,
   CastleTurretIcon,
   CheckCircleIcon,
-  ClockIcon,
   DotsThreeVerticalIcon,
   HourglassIcon,
-  MoonIcon,
   PencilSimpleIcon,
   PlusIcon,
   ScrollIcon,
-  SunIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
 import { Fragment, useState, useTransition } from "react"
@@ -46,6 +43,10 @@ import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { DayEndReadiness } from "@/domain/planner/day-end"
+import {
+  blockingDeadlines,
+  type DatedDeadline,
+} from "@/domain/planner/deadline"
 import type { ResolvedParticipant } from "@/domain/planner/participant"
 import type { RosterGlanceView } from "@/domain/planner/view/glance"
 import type { LinkerOption } from "@/domain/planner/view/linker"
@@ -63,12 +64,15 @@ import {
 import type { EndDayMode } from "@/lib/db/writes/campaign-clock"
 
 import type { ComposerLastActivity } from "../composer/activity-composer"
+import { DeadlineGateDialog } from "./deadline-gate-dialog"
 import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
 import { DungeonSlotCard } from "./dungeon-slot-card"
 import { RunMenus, type RunnableDungeon, type ShelfBeat } from "./run-menus"
 import { runnerErrorToast } from "./runner-errors"
 import { useRunnerSelection } from "./runner-selection"
 import { SetAsideDisclosure, type SetAsideEntry } from "./set-aside-disclosure"
+import { SkipDialog, type SkipMontageEntry } from "./skip-dialog"
+import { SlotIcon } from "./slot-icon"
 import { StoryBeatCard } from "./story-beat-card"
 
 /** Everything the downtime workspace renders, loaded once by the page. */
@@ -78,20 +82,6 @@ export interface RunnerWorkspaceData {
   activities: WorkspaceActivity[]
   lastActivityByCharacter: Record<string, ComposerLastActivity>
   linkerOptions: LinkerOption[]
-}
-
-function SlotIcon({ label, className }: { label: string; className?: string }) {
-  const Icon = SLOT_ICONS[slotIconKey(label)]
-  return <Icon className={className} />
-}
-
-const SLOT_ICONS = { sun: SunIcon, moon: MoonIcon, clock: ClockIcon } as const
-
-/** Slot label → rail icon key: the handoff's sun/moon pair, a clock otherwise. */
-function slotIconKey(label: string): keyof typeof SLOT_ICONS {
-  if (/morning|dawn|day/i.test(label)) return "sun"
-  if (/evening|night|dusk/i.test(label)) return "moon"
-  return "clock"
 }
 
 /**
@@ -115,6 +105,7 @@ export function Runner({
   readiness,
   shelf,
   dungeons,
+  unresolvedDeadlines,
 }: {
   campaignId: string
   campaignShortId: string
@@ -131,6 +122,8 @@ export function Runner({
   shelf: ShelfBeat[]
   /** The campaign's dungeons for the "Run a dungeon" menu. */
   dungeons: RunnableDungeon[]
+  /** Unresolved dated deadlines — the advance gate's advisory pre-warn (D1/D5). */
+  unresolvedDeadlines: DatedDeadline[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -148,8 +141,13 @@ export function Runner({
       if (!result.ok) {
         runnerErrorToast(result.error)
         // "not-ready" means this tab's readiness cue was stale — refresh so
-        // the recount re-renders and the next click gets the warning.
-        if (result.error === "stale" || result.error === "not-ready") {
+        // the recount re-renders and the next click gets the warning; ditto
+        // "deadline-due", where the gate's pre-warn missed a fresh deadline.
+        if (
+          result.error === "stale" ||
+          result.error === "not-ready" ||
+          result.error === "deadline-due"
+        ) {
           router.refresh()
         }
         return
@@ -202,7 +200,13 @@ export function Runner({
           ) : null}
           <EndDayButton
             currentDay={currentDay}
+            campaignShortId={campaignShortId}
             readiness={readiness}
+            gateBlockers={blockingDeadlines(
+              unresolvedDeadlines,
+              currentDay + 1,
+              NO_RESOLVED
+            )}
             onEndWith={(mode) =>
               run(() =>
                 endDayAction({
@@ -215,12 +219,16 @@ export function Runner({
           />
           <ClockMenu
             currentDay={currentDay}
-            onSkip={(days) =>
+            campaignShortId={campaignShortId}
+            deadlines={unresolvedDeadlines}
+            roster={workspace.roster}
+            onSkip={(days, montage) =>
               run(() =>
                 advanceClockAction({
                   campaignId,
                   days,
                   expectedVersion: clockVersion,
+                  montage,
                 })
               )
             }
@@ -495,6 +503,9 @@ function LabelDialog({
   )
 }
 
+/** The empty resolved set: the runner's deadline list is pre-filtered to unresolved. */
+const NO_RESOLVED: ReadonlySet<string> = new Set()
+
 /**
  * "End the day" (FR-5): muted (`outline`) until {@link DayEndReadiness}
  * completes, then it brightens — the anti-forgetting cue. A ready day gets
@@ -502,28 +513,41 @@ function LabelDialog({
  * refuses `"not-ready"` if this tab's cue went stale); an unready one gets
  * the **day-end warning** (Cancel / Defer Unresolved / Resolve All — both
  * proceed paths bulk-fill Idle for missing characters, stated in the copy).
+ * The deadline **hard gate** stacks above both (FR-6): a blocked day opens
+ * the gate dialog instead, and neither confirm ever renders.
  */
 function EndDayButton({
   currentDay,
+  campaignShortId,
   readiness,
+  gateBlockers,
   onEndWith,
 }: {
   currentDay: number
+  campaignShortId: string
   readiness: DayEndReadiness
+  gateBlockers: DatedDeadline[]
   onEndWith: (mode: EndDayMode) => void
 }) {
   const [open, setOpen] = useState(false)
+  const blocked = gateBlockers.length > 0
   return (
     <>
       <Button
-        variant={readiness.ready ? "default" : "outline"}
+        variant={readiness.ready && !blocked ? "default" : "outline"}
         onClick={() => setOpen(true)}
       >
         <HourglassIcon />
         End the day
       </Button>
       {open ? (
-        readiness.ready ? (
+        blocked ? (
+          <DeadlineGateDialog
+            blockers={gateBlockers}
+            campaignShortId={campaignShortId}
+            onOpenChange={setOpen}
+          />
+        ) : readiness.ready ? (
           <EndDayConfirm
             currentDay={currentDay}
             onOpenChange={setOpen}
@@ -670,23 +694,21 @@ function DayEndWarning({
 
 function ClockMenu({
   currentDay,
+  campaignShortId,
+  deadlines,
+  roster,
   onSkip,
   onUnAdvance,
 }: {
   currentDay: number
-  onSkip: (days: number) => void
+  campaignShortId: string
+  deadlines: DatedDeadline[]
+  roster: RosterRowView[]
+  onSkip: (days: number, montage: SkipMontageEntry[]) => void
   onUnAdvance: () => void
 }) {
   const [unAdvanceOpen, setUnAdvanceOpen] = useState(false)
   const [skipOpen, setSkipOpen] = useState(false)
-  const [skipDays, setSkipDays] = useState("3")
-
-  const submitSkip = () => {
-    const days = Number.parseInt(skipDays, 10)
-    if (!Number.isInteger(days) || days < 1) return
-    onSkip(days)
-    setSkipOpen(false)
-  }
 
   return (
     <>
@@ -712,42 +734,14 @@ function ClockMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       {skipOpen ? (
-        <Dialog open onOpenChange={setSkipOpen}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle>Skip ahead</DialogTitle>
-              <DialogDescription>
-                Advances the clock several days at once and sets up slots for
-                every day skipped.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-2">
-              <Label htmlFor="skip-days">Days</Label>
-              <Input
-                id="skip-days"
-                type="number"
-                min={1}
-                max={365}
-                value={skipDays}
-                onChange={(event) => setSkipDays(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") submitSkip()
-                }}
-              />
-              {Number.parseInt(skipDays, 10) >= 1 ? (
-                <p className="text-sm text-muted-foreground">
-                  Lands on Day {currentDay + Number.parseInt(skipDays, 10)}.
-                </p>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSkipOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={submitSkip}>Skip ahead</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <SkipDialog
+          currentDay={currentDay}
+          deadlines={deadlines}
+          roster={roster}
+          campaignShortId={campaignShortId}
+          onOpenChange={setSkipOpen}
+          onSkip={onSkip}
+        />
       ) : null}
       {unAdvanceOpen ? (
         <AlertDialog open onOpenChange={setUnAdvanceOpen}>
@@ -757,11 +751,13 @@ function ClockMenu({
                 Go back to Day {currentDay - 1}?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Un-advance only moves the day counter back — nothing else is
-                undone. Beats resolved or deferred when the day ended stay that
-                way (deferred ones wait on your prepped shelf), removed delve
-                claims stay removed, and any Idle marks the day-end fill wrote
-                remain as recorded entries you can edit or delete.
+                Un-advance moves the day counter back and re-opens any deadline
+                resolved after Day {currentDay - 1} (the resolution note
+                survives as a regular update) — nothing else is undone. Beats
+                resolved or deferred when the day ended stay that way (deferred
+                ones wait on your prepped shelf), removed delve claims stay
+                removed, and any Idle marks the day-end fill wrote remain as
+                recorded entries you can edit or delete.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

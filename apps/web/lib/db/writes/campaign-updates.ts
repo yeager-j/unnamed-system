@@ -3,13 +3,14 @@ import { and, eq } from "drizzle-orm"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantRef } from "@/domain/planner/participant"
-import { type WriteExecutor } from "@/lib/db/client"
+import { db, type WriteExecutor } from "@/lib/db/client"
 import { campaignClock, campaignSlot } from "@/lib/db/schema/campaign-clock"
 import {
   campaignUpdate,
   campaignUpdateConcern,
   type UpdateCategory,
 } from "@/lib/db/schema/campaign-updates"
+import { campaignArticle } from "@/lib/db/schema/campaign-world"
 
 import { guardMany } from "./guard-many"
 
@@ -164,6 +165,103 @@ export async function deleteActivity(input: {
     await tx.delete(campaignUpdate).where(eq(campaignUpdate.id, input.updateId))
     return ok(undefined)
   })
+}
+
+export type ResolveDeadlineError =
+  | "clock-not-found"
+  | "article-not-found"
+  | "not-a-deadline"
+
+/**
+ * Resolves a deadline (D5): inserts the **⚑ marker** — a world update
+ * primaried on the dated article with `resolvesArticleId` bound. The marker
+ * *is* the resolution; no status is stored on the article. Stamped on the
+ * clock's `currentDay` (resolution is a present-tense act). The §5 boundary
+ * rule holds here: the target must be a live, campaign-scoped article whose
+ * `datedKind` is `deadline`.
+ *
+ * Double-resolve safety is the partial unique
+ * (`campaignUpdate_resolvesArticle_unique`): the insert rides
+ * `onConflictDoNothing`, and an empty return — someone else's marker already
+ * binds the article — is an **idempotent success** (`updateId: null`), not an
+ * error. A blank `body` defaults to `"Resolved — ⟨name⟩"` (the "empty body
+ * only for idle" app rule; resolution is outcome-neutral, so the default
+ * states the fact and nothing more). Calendar is the phase-5 entry point;
+ * the Article page (phase 6) and the Day-End alert (phase 7) mount the same
+ * action later.
+ */
+export async function resolveDeadline(input: {
+  campaignId: string
+  articleId: string
+  body: string
+}): Promise<Result<{ updateId: string | null }, ResolveDeadlineError>> {
+  return guardMany(async (tx) => {
+    const [clock] = await tx
+      .select({ currentDay: campaignClock.currentDay })
+      .from(campaignClock)
+      .where(eq(campaignClock.campaignId, input.campaignId))
+    if (!clock) return err("clock-not-found")
+
+    const [article] = await tx
+      .select({
+        name: campaignArticle.name,
+        datedKind: campaignArticle.datedKind,
+        deletedAt: campaignArticle.deletedAt,
+      })
+      .from(campaignArticle)
+      .where(
+        and(
+          eq(campaignArticle.id, input.articleId),
+          eq(campaignArticle.campaignId, input.campaignId)
+        )
+      )
+    if (!article || article.deletedAt !== null) return err("article-not-found")
+    if (article.datedKind !== "deadline") return err("not-a-deadline")
+
+    const body =
+      input.body.trim() === "" ? `Resolved — ${article.name}` : input.body
+
+    const [marker] = await tx
+      .insert(campaignUpdate)
+      .values({
+        campaignId: input.campaignId,
+        day: clock.currentDay,
+        primaryKind: "article",
+        primaryId: input.articleId,
+        body,
+        slotId: null,
+        resolvesArticleId: input.articleId,
+      })
+      .onConflictDoNothing()
+      .returning({ id: campaignUpdate.id })
+
+    return ok({ updateId: marker?.id ?? null })
+  })
+}
+
+export type ReopenDeadlineError = "not-resolved"
+
+/**
+ * Re-opens a resolved deadline by **unbinding** its ⚑ marker (D5: unbind,
+ * never delete — the prose survives as an ordinary world update). The anchor
+ * reads as unresolved again by derivation; an overdue one renders Due and
+ * blocks the next advance.
+ */
+export async function reopenDeadline(input: {
+  campaignId: string
+  articleId: string
+}): Promise<Result<void, ReopenDeadlineError>> {
+  const unbound = await db
+    .update(campaignUpdate)
+    .set({ resolvesArticleId: null })
+    .where(
+      and(
+        eq(campaignUpdate.campaignId, input.campaignId),
+        eq(campaignUpdate.resolvesArticleId, input.articleId)
+      )
+    )
+    .returning({ id: campaignUpdate.id })
+  return unbound.length === 0 ? err("not-resolved") : ok(undefined)
 }
 
 /**

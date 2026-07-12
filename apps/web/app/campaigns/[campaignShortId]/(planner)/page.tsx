@@ -50,11 +50,13 @@ import {
 import {
   loadActivitiesForSlots,
   loadLastActivityPerCharacter,
+  loadResolvedMarkers,
   type LoadedActivity,
 } from "@/lib/db/queries/load-campaign-updates"
 import {
   loadCampaignArticles,
   loadCampaignNpcs,
+  loadDatedArticles,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
@@ -153,6 +155,8 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     glances,
     npcs,
     articles,
+    datedArticles,
+    markers,
   ] = await Promise.all([
     loadBeatsForSlots(slotIds),
     loadClaimsForSlots(slotIds),
@@ -163,7 +167,24 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     loadRosterGlance(placedCharacters.map((character) => character.id)),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
+    loadDatedArticles(campaign.id),
+    loadResolvedMarkers(campaign.id),
   ])
+
+  // The advance gate's advisory pre-warn (D1/D5): the unresolved deadlines,
+  // handed to the runner so End-the-day and Skip can name their blockers
+  // before the server's in-transaction check refuses for real.
+  const resolvedArticleIds = new Set(markers.map((marker) => marker.articleId))
+  const unresolvedDeadlines = datedArticles
+    .filter(
+      (article) =>
+        article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
+    )
+    .map((article) => ({
+      id: article.id,
+      name: article.name,
+      datedDay: article.datedDay!,
+    }))
 
   // One campaign-scoped lookup covers every chip/concern label on the page:
   // the story cards' beat chips and the recorded entries' concern chips.
@@ -328,6 +349,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               readiness={readiness}
               shelf={shelf}
               dungeons={runnableDungeons}
+              unresolvedDeadlines={unresolvedDeadlines}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, isNull } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 
 import { db } from "@/lib/db/client"
@@ -184,6 +184,38 @@ export async function loadFloatingBeats(
               row.occupyingBeatId !== null || row.occupyingClaimSlotId !== null,
           },
   }))
+}
+
+/** A beat the Calendar's slot picker can schedule: unscheduled or floating. */
+export interface SchedulableBeat {
+  id: string
+  title: string
+  floating: boolean
+}
+
+/**
+ * The Calendar's beat-picker candidates (FR-8's "+ Schedule a beat"): every
+ * beat holding no slot — the floating shelf plus the never-scheduled —
+ * freshest first. (`scheduledSlotId IS NULL` covers both: the CHECK forbids
+ * scheduled-and-floating.)
+ */
+export async function loadSchedulableBeats(
+  campaignId: string
+): Promise<SchedulableBeat[]> {
+  return db
+    .select({
+      id: campaignBeat.id,
+      title: campaignBeat.title,
+      floating: campaignBeat.floating,
+    })
+    .from(campaignBeat)
+    .where(
+      and(
+        eq(campaignBeat.campaignId, campaignId),
+        isNull(campaignBeat.scheduledSlotId)
+      )
+    )
+    .orderBy(desc(campaignBeat.updatedAt))
 }
 
 /** One schedule-picker slot: display facts + who already holds it. */
