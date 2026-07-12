@@ -22,11 +22,10 @@ import { revalidateCampaignClock } from "./revalidate"
  * last, so a two-tab double-advance's loser gets `"stale"` and leaves no slot
  * rows behind.
  *
- * Two D1 riders land with later phases and slot into this action, not a new
- * one: the **advance gate** (block while any unresolved deadline ≤ newDay
- * exists — dated Articles, phase 5) and the time-skip **montage pass** (one
- * downtime update per character stamped on the landing day — the update
- * stream, phase 3).
+ * Both D1 riders live here (phase 5): the **advance gate** refuses
+ * `"deadline-due"` while any unresolved deadline with `datedDay ≤ newDay`
+ * exists, and a time-skip may carry the optional **montage pass** — one
+ * update per participating character, stamped on the landing day.
  */
 export async function advanceClockAction(
   input: AdvanceClockInput
@@ -45,7 +44,7 @@ export async function advanceClockAction(
 
 /**
  * Un-advance (D1): `currentDay -= 1`, strictly one day at a time and
- * **scoped** — it will unbind ⚑ markers when those exist (phase 7) and
+ * **scoped** — it unbinds ⚑ markers stamped after the restored day (D5) and
  * nothing else; the confirm dialog owns saying so. `"at-floor"` refuses both
  * day 1 and backing into a day the clock never materialized (a mid-flight
  * start's day 39).

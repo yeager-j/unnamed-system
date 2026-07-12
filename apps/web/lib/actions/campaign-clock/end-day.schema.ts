@@ -12,3 +12,4 @@ export type EndDayActionError =
   | "clock-not-found"
   | "stale"
   | "not-ready"
+  | "deadline-due"

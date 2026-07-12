@@ -1,10 +1,22 @@
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { Calendar } from "@/app/campaigns/[campaignShortId]/_components/calendar/calendar"
 import { PlannerStub } from "@/app/campaigns/[campaignShortId]/_components/planner/planner-stub"
-import { loadCampaignClock } from "@/lib/db/queries/load-campaign-clock"
+import { buildCalendarView } from "@/domain/planner/view/calendar"
+import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
+import {
+  loadSchedulableBeats,
+  loadUpcomingSlots,
+} from "@/lib/db/queries/load-campaign-notes"
+import { loadResolvedMarkers } from "@/lib/db/queries/load-campaign-updates"
+import {
+  loadCampaignArticles,
+  loadDatedArticles,
+} from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 
-import { getCampaignForDM } from "../planner-access"
+import { getCampaignClock, getCampaignForDM } from "../planner-access"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string }>
@@ -13,23 +25,64 @@ interface PageProps {
 export const metadata: Metadata = { title: "Calendar — Showtime!" }
 
 /**
- * The Calendar's phase-1 stub (UNN-574 D10): DM-only like every nested
- * planner route; points home to start the clock when it hasn't been, and
- * names what's coming when it has. The real agenda/ribbon surface is phase 5.
+ * The Calendar (UNN-578, PRD FR-8): the DM's upcoming-only agenda — the
+ * deadline ribbon, one day card per materialized day from today to the
+ * horizon, add-days. DM-only like every nested planner route; pre-clock it
+ * keeps the phase-1 stub pointing home to start the clock.
  */
 export default async function CalendarPage({ params }: PageProps) {
   const { campaignShortId } = await params
   const campaign = await getCampaignForDM(campaignShortId)
   if (!campaign) notFound()
 
-  const clock = await loadCampaignClock(campaign.id)
+  const clock = await getCampaignClock(campaign.id)
+  if (!clock) {
+    return (
+      <PlannerStub
+        surface="Calendar"
+        campaignShortId={campaign.shortId}
+        clockStarted={false}
+        comingCopy=""
+      />
+    )
+  }
+
+  const [slots, seasons, datedArticles, markers, articles, beats, dungeons] =
+    await Promise.all([
+      loadUpcomingSlots(campaign.id, clock.currentDay),
+      loadSeasons(campaign.id),
+      loadDatedArticles(campaign.id),
+      loadResolvedMarkers(campaign.id),
+      loadCampaignArticles(campaign.id),
+      loadSchedulableBeats(campaign.id),
+      loadDungeonsForCampaign(campaign.id),
+    ])
+
+  const view = buildCalendarView({
+    currentDay: clock.currentDay,
+    slots,
+    seasons,
+    datedArticles,
+    resolvedArticleIds: new Set(markers.map((marker) => marker.articleId)),
+  })
 
   return (
-    <PlannerStub
-      surface="Calendar"
-      campaignShortId={campaign.shortId}
-      clockStarted={clock !== null}
-      comingCopy="The agenda of upcoming days — scheduled beats, deadlines counting down, seasons — arrives in a later phase."
+    <Calendar
+      campaignId={campaign.id}
+      clockVersion={clock.clockVersion}
+      view={view}
+      articles={articles
+        .filter((article) => article.datedDay === null)
+        .map((article) => ({
+          id: article.id,
+          name: article.name,
+          type: article.type,
+        }))}
+      beats={beats}
+      dungeons={dungeons.map((dungeon) => ({
+        id: dungeon.id,
+        name: dungeon.name,
+      }))}
     />
   )
 }

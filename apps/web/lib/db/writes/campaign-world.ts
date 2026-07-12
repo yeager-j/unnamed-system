@@ -3,7 +3,12 @@ import { and, eq } from "drizzle-orm"
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
-import { campaignArticle, campaignNpc } from "@/lib/db/schema/campaign-world"
+import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
+import {
+  campaignArticle,
+  campaignNpc,
+  type ArticleDatedKind,
+} from "@/lib/db/schema/campaign-world"
 import { entity } from "@/lib/db/schema/entity"
 import { insertWithShortId } from "@/lib/db/short-id"
 
@@ -61,6 +66,65 @@ export async function mintArticle(input: {
     })
     .returning({ id: campaignArticle.id })
   return row!
+}
+
+export type ArticleDateError = "article-not-found" | "article-resolved"
+
+/**
+ * Sets (or re-dates) an article's dated facet (D5): `datedDay` + `datedKind`,
+ * CHECK-enforced set-together. A **resolved** article refuses (`unbind first`,
+ * D5's re-dating guard — else "resolved before it looms" becomes
+ * representable); the guard covers set, edit, *and* clear. The other
+ * direction of the marker⟷anchor bind — a ⚑-bound update cannot be re-dated —
+ * is structurally enforced today (no update-re-date write exists); when
+ * phase 7 adds re-dating (detach + set day), that write must refuse while
+ * `resolvesArticleId IS NOT NULL`.
+ */
+export async function setArticleDate(input: {
+  campaignId: string
+  articleId: string
+  day: number
+  kind: ArticleDatedKind
+}): Promise<Result<void, ArticleDateError>> {
+  return patchArticleDate(input, { datedDay: input.day, datedKind: input.kind })
+}
+
+/** Clears the dated facet (both columns — the CHECK requires set-together). Same resolved guard as {@link setArticleDate}. */
+export async function clearArticleDate(input: {
+  campaignId: string
+  articleId: string
+}): Promise<Result<void, ArticleDateError>> {
+  return patchArticleDate(input, { datedDay: null, datedKind: null })
+}
+
+async function patchArticleDate(
+  input: { campaignId: string; articleId: string },
+  patch: { datedDay: number | null; datedKind: ArticleDatedKind | null }
+): Promise<Result<void, ArticleDateError>> {
+  return db.transaction(async (tx) => {
+    const [article] = await tx
+      .select({ id: campaignArticle.id, deletedAt: campaignArticle.deletedAt })
+      .from(campaignArticle)
+      .where(
+        and(
+          eq(campaignArticle.id, input.articleId),
+          eq(campaignArticle.campaignId, input.campaignId)
+        )
+      )
+    if (!article || article.deletedAt !== null) return err("article-not-found")
+
+    const [marker] = await tx
+      .select({ id: campaignUpdate.id })
+      .from(campaignUpdate)
+      .where(eq(campaignUpdate.resolvesArticleId, input.articleId))
+    if (marker) return err("article-resolved")
+
+    await tx
+      .update(campaignArticle)
+      .set(patch)
+      .where(eq(campaignArticle.id, input.articleId))
+    return ok(undefined)
+  })
 }
 
 type SoftDeleteNpcError = "npc-not-found"

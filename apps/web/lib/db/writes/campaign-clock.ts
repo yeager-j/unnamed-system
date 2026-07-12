@@ -1,4 +1,14 @@
-import { and, eq, inArray, isNull, max, sql } from "drizzle-orm"
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  max,
+  sql,
+} from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
@@ -18,7 +28,11 @@ import {
   type SlotTemplateEntry,
 } from "@/lib/db/schema/campaign-clock"
 import { campaignBeat } from "@/lib/db/schema/campaign-notes"
-import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
+import {
+  campaignUpdate,
+  type UpdateCategory,
+} from "@/lib/db/schema/campaign-updates"
+import { campaignArticle } from "@/lib/db/schema/campaign-world"
 import { entity } from "@/lib/db/schema/entity"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 
@@ -87,6 +101,18 @@ export async function startClock(input: {
   })
 }
 
+/** A time-skip montage entry (D1): one free-text update per character, stamped on the landing day. */
+export interface MontageEntry {
+  characterId: string
+  body: string
+  category: UpdateCategory
+}
+
+export type AdvanceClockError =
+  | ClockWriteError
+  | "deadline-due"
+  | "montage-character-invalid"
+
 /**
  * Advances the clock by `days` (1 = plain advance, N = time-skip) — D1's
  * materialization rule in one transaction: every day in
@@ -94,15 +120,25 @@ export async function startClock(input: {
  * the CAS moves `currentDay` and bumps `clockVersion` **last**. The loser of a
  * double-advance rolls its slot inserts back and returns `"stale"`.
  *
- * The advance **gate** (block while any unresolved deadline ≤ newDay exists,
- * D1/D5) is stubbed until dated Articles land (phase 5); it slots in before
- * the materialization, inside this transaction.
+ * The advance **gate** (D1/D5) runs first: any unresolved deadline with
+ * `datedDay ≤ newDay` refuses the whole advance with `"deadline-due"` —
+ * deliberately **≤** (see {@link import("@/domain/planner/deadline").blockingDeadlines}),
+ * so the world never stands on an unresolved deadline's day and an
+ * overdue-unresolved one blocks the *next* advance.
+ *
+ * A time-skip may carry an optional **montage pass**: one update per
+ * participating character, inserted **unslotted** (a slotted row would
+ * collide with the landing day's `(slotId, primaryId)` unique and the
+ * `slot.day = currentDay` recording rule) and stamped on the landing day —
+ * a skip doesn't erase the downtime pillar. Every `characterId` is validated
+ * against the placed roster (§5 boundary rule).
  */
 export async function advanceClock(input: {
   campaignId: string
   days: number
   expectedVersion: number
-}): Promise<Result<ClockWriteSuccess, ClockWriteError>> {
+  montage?: readonly MontageEntry[]
+}): Promise<Result<ClockWriteSuccess, AdvanceClockError>> {
   return mapSlotRaceToStale(
     guardMany(async (tx) => {
       const clock = await loadClockRow(tx, input.campaignId)
@@ -110,6 +146,10 @@ export async function advanceClock(input: {
       if (clock.clockVersion !== input.expectedVersion) return err("stale")
 
       const newDay = clock.currentDay + input.days
+      if (await hasBlockingDeadline(tx, input.campaignId, newDay)) {
+        return err("deadline-due")
+      }
+
       const window = daysInInterval(clock.currentDay, newDay)
       const materialized = await daysWithSlots(tx, input.campaignId, window)
       await insertSlotRows(
@@ -117,6 +157,25 @@ export async function advanceClock(input: {
         input.campaignId,
         planSlotMaterialization(clock.slotTemplate, window, materialized)
       )
+
+      const montage = input.montage ?? []
+      if (montage.length > 0) {
+        const roster = await placedRosterIds(tx, input.campaignId)
+        if (montage.some((entry) => !roster.has(entry.characterId))) {
+          return err("montage-character-invalid")
+        }
+        await tx.insert(campaignUpdate).values(
+          montage.map((entry) => ({
+            campaignId: input.campaignId,
+            day: newDay,
+            primaryKind: "character" as const,
+            primaryId: entry.characterId,
+            body: entry.body,
+            category: entry.category,
+            slotId: null,
+          }))
+        )
+      }
 
       return casClock(tx, input.campaignId, input.expectedVersion, {
         currentDay: newDay,
@@ -127,11 +186,14 @@ export async function advanceClock(input: {
 
 /**
  * Un-advance: `currentDay -= 1`, strictly one day at a time and **scoped**
- * (D1) — phase 7 adds the ⚑-marker unbind here; it never reverses day-end
- * bulk beat mutations. `"at-floor"` covers both floors: day 1, and the
- * earliest materialized day (a mid-flight clock started at day 40 can't back
- * into day 39 — no slots were ever minted there, and you can never stand on a
- * day without slots).
+ * (D1) — it unbinds ⚑ markers stamped `day > newDay` (D5: unbind, never
+ * delete — the prose survives as an ordinary update; the boundary is
+ * strictly `>`, so a deadline resolved on its due day stays resolved: you
+ * restore the state that legally allowed the advance) and *nothing else* —
+ * it never reverses day-end bulk beat mutations. `"at-floor"` covers both
+ * floors: day 1, and the earliest materialized day (a mid-flight clock
+ * started at day 40 can't back into day 39 — no slots were ever minted
+ * there, and you can never stand on a day without slots).
  */
 export async function unAdvanceClock(input: {
   campaignId: string
@@ -147,6 +209,17 @@ export async function unAdvanceClock(input: {
     const materialized = await daysWithSlots(tx, input.campaignId, [newDay])
     if (!materialized.has(newDay)) return err("at-floor")
 
+    await tx
+      .update(campaignUpdate)
+      .set({ resolvesArticleId: null })
+      .where(
+        and(
+          eq(campaignUpdate.campaignId, input.campaignId),
+          isNotNull(campaignUpdate.resolvesArticleId),
+          gt(campaignUpdate.day, newDay)
+        )
+      )
+
     return casClock(tx, input.campaignId, input.expectedVersion, {
       currentDay: newDay,
     })
@@ -160,6 +233,11 @@ export type EndDayMode = "advance" | "resolve-all" | "defer-unresolved"
  * "End the day" (UNN-577, PRD FR-5), one transaction for all three modes —
  * the bulk modes are the §0 exception where stored beat/claim facts are
  * written in bulk, which is why un-advance is *scoped*, not compensating.
+ *
+ * The **deadline hard gate** (D1/D5) runs first and stacks above the soft
+ * warning: every mode refuses with `"deadline-due"` while an unresolved
+ * deadline with `datedDay ≤ currentDay + 1` exists — resolve it (Calendar in
+ * phase 5; the Day-End alert's Resolve arrives in phase 7), then end the day.
  *
  * - **advance** (the ready path): asserts the day is genuinely complete —
  *   no unresolved beat/claim, no missing downtime entry — and refuses with
@@ -195,12 +273,19 @@ export async function endDay(input: {
   campaignId: string
   mode: EndDayMode
   expectedVersion: number
-}): Promise<Result<ClockWriteSuccess, ClockWriteError | "not-ready">> {
+}): Promise<
+  Result<ClockWriteSuccess, ClockWriteError | "not-ready" | "deadline-due">
+> {
   return mapSlotRaceToStale(
     guardMany(async (tx) => {
       const clock = await loadClockRow(tx, input.campaignId)
       if (!clock) return err("clock-not-found")
       if (clock.clockVersion !== input.expectedVersion) return err("stale")
+      if (
+        await hasBlockingDeadline(tx, input.campaignId, clock.currentDay + 1)
+      ) {
+        return err("deadline-due")
+      }
 
       const todaySlots = await tx
         .select({ id: campaignSlot.id })
@@ -338,18 +423,8 @@ async function computeIdleFills(
 ): Promise<(typeof campaignUpdate.$inferInsert)[]> {
   if (downtimeSlotIds.length === 0) return []
 
-  const roster = await tx
-    .select({ characterId: playerCharacter.entityId })
-    .from(playerCharacter)
-    .innerJoin(entity, eq(playerCharacter.entityId, entity.id))
-    .where(
-      and(
-        eq(playerCharacter.campaignId, campaignId),
-        eq(playerCharacter.status, "finalized"),
-        isNull(entity.deletedAt)
-      )
-    )
-  if (roster.length === 0) return []
+  const roster = await placedRosterIds(tx, campaignId)
+  if (roster.size === 0) return []
 
   const existing = await tx
     .select({
@@ -363,9 +438,9 @@ async function computeIdleFills(
   )
 
   return downtimeSlotIds.flatMap((slotId) =>
-    roster
-      .filter(({ characterId }) => !recorded.has(`${slotId}:${characterId}`))
-      .map(({ characterId }) => ({
+    [...roster]
+      .filter((characterId) => !recorded.has(`${slotId}:${characterId}`))
+      .map((characterId) => ({
         campaignId,
         day,
         primaryKind: "character" as const,
@@ -375,6 +450,67 @@ async function computeIdleFills(
         slotId,
       }))
   )
+}
+
+/**
+ * The placed roster's entity ids (finalized + not tombstoned) — mirrors
+ * `loadPlacedCharactersForCampaign`; shared by the Idle bulk-fill and the
+ * montage pass's §5 boundary check.
+ */
+async function placedRosterIds(
+  tx: WriteExecutor,
+  campaignId: string
+): Promise<Set<string>> {
+  const roster = await tx
+    .select({ characterId: playerCharacter.entityId })
+    .from(playerCharacter)
+    .innerJoin(entity, eq(playerCharacter.entityId, entity.id))
+    .where(
+      and(
+        eq(playerCharacter.campaignId, campaignId),
+        eq(playerCharacter.status, "finalized"),
+        isNull(entity.deletedAt)
+      )
+    )
+  return new Set(roster.map((row) => row.characterId))
+}
+
+/**
+ * D1's advance gate predicate, evaluated in-transaction (authoritative — the
+ * runner's pre-warn is advisory): does any live `deadline` article with
+ * `datedDay ≤ newDay` lack a ⚑ marker? Deliberately **≤** — the world never
+ * stands on an unresolved deadline's day (see `domain/planner/deadline.ts`).
+ * The marker read compares counts, which the partial unique (at most one
+ * marker per article) makes exact.
+ */
+async function hasBlockingDeadline(
+  tx: WriteExecutor,
+  campaignId: string,
+  newDay: number
+): Promise<boolean> {
+  const deadlines = await tx
+    .select({ id: campaignArticle.id })
+    .from(campaignArticle)
+    .where(
+      and(
+        eq(campaignArticle.campaignId, campaignId),
+        eq(campaignArticle.datedKind, "deadline"),
+        isNull(campaignArticle.deletedAt),
+        lte(campaignArticle.datedDay, newDay)
+      )
+    )
+  if (deadlines.length === 0) return false
+
+  const markers = await tx
+    .select({ articleId: campaignUpdate.resolvesArticleId })
+    .from(campaignUpdate)
+    .where(
+      inArray(
+        campaignUpdate.resolvesArticleId,
+        deadlines.map((deadline) => deadline.id)
+      )
+    )
+  return markers.length < deadlines.length
 }
 
 /**
