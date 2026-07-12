@@ -2,6 +2,7 @@ import { and, eq, inArray, max, sql } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
+import { isFrozenDay } from "@/domain/planner/clock"
 import {
   daysInInterval,
   planSlotMaterialization,
@@ -206,7 +207,7 @@ export async function addSlot(input: {
       const clock = await loadClockRow(tx, input.campaignId)
       if (!clock) return err("clock-not-found")
       if (clock.clockVersion !== input.expectedVersion) return err("stale")
-      if (input.day < clock.currentDay) return err("frozen-day")
+      if (isFrozenDay(input.day, clock.currentDay)) return err("frozen-day")
 
       const [row] = await tx
         .select({ lastOrdinal: max(campaignSlot.ordinal) })
@@ -257,7 +258,7 @@ export async function renameSlot(input: {
         )
       )
     if (!slot) return err("slot-not-found")
-    if (slot.day < clock.currentDay) return err("frozen-day")
+    if (isFrozenDay(slot.day, clock.currentDay)) return err("frozen-day")
 
     await tx
       .update(campaignSlot)
