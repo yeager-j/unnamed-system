@@ -41,7 +41,14 @@ export interface CalendarRibbonView {
 }
 
 export type CalendarDatedLine =
-  | { kind: "deadline"; articleId: string; name: string; state: DeadlineState }
+  | {
+      kind: "deadline"
+      articleId: string
+      name: string
+      state: DeadlineState
+      /** The anchor's own `datedDay` — before the card's day for a carried overdue line. */
+      dueDay: number
+    }
   | { kind: "event"; articleId: string; name: string }
 
 export type CalendarSlotContent =
@@ -62,7 +69,12 @@ export interface CalendarDayView {
   seasonLabel: string | null
   /** A season marker sits exactly on this day — the clear affordance's anchor. */
   seasonStartsHere: boolean
-  /** Every article dated to this day (several are legal), deadlines first. */
+  /**
+   * Every article dated to this day (several are legal), deadlines first.
+   * Today's card also carries **unresolved overdue deadlines** (D5: overdue
+   * ≡ due) — their own day renders no card on the upcoming-only agenda, and
+   * a due deadline must keep its Resolve/re-date affordances reachable.
+   */
   dated: CalendarDatedLine[]
   slots: CalendarSlotView[]
 }
@@ -194,9 +206,23 @@ function buildDays(
       seasonLabel: seasonOf(seasons, day),
       seasonStartsHere: markerDays.has(day),
       dated: dated
-        .filter((article) => article.datedDay === day)
+        .filter((article) =>
+          article.datedDay === day
+            ? true
+            : // Carry unresolved overdue deadlines onto today (D5: overdue ≡
+              // due) — their own day has no card, and a due deadline must
+              // keep its Resolve/re-date affordances reachable.
+              day === currentDay &&
+              article.datedKind === "deadline" &&
+              article.datedDay < currentDay &&
+              !resolvedArticleIds.has(article.id)
+        )
         .sort((a, b) =>
-          a.datedKind === b.datedKind ? 0 : a.datedKind === "deadline" ? -1 : 1
+          a.datedKind === b.datedKind
+            ? a.datedDay - b.datedDay
+            : a.datedKind === "deadline"
+              ? -1
+              : 1
         )
         .map(
           (article): CalendarDatedLine =>
@@ -210,6 +236,7 @@ function buildDays(
                     currentDay,
                     resolvedArticleIds
                   ),
+                  dueDay: article.datedDay,
                 }
               : { kind: "event", articleId: article.id, name: article.name }
         ),

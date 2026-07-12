@@ -61,6 +61,9 @@ export function DatedLine({
 
   const isDeadline = line.kind === "deadline"
   const resolved = isDeadline && line.state === "resolved"
+  // A carried overdue line (D5: overdue ≡ due) sits on today's card but is
+  // anchored to an earlier day — say so.
+  const overdue = isDeadline && !resolved && line.dueDay < day
 
   return (
     <div className="group flex w-full min-w-0 items-center gap-1.5">
@@ -87,6 +90,11 @@ export function DatedLine({
       >
         {line.name}
       </span>
+      {overdue ? (
+        <span className="shrink-0 font-mono text-[10px] text-destructive/70 tabular-nums">
+          due Day {line.dueDay}
+        </span>
+      ) : null}
       {isDeadline && !resolved ? (
         <Button
           variant="outline"
@@ -167,7 +175,7 @@ export function DatedLine({
         <ChangeDateDialog
           name={line.name}
           kind={line.kind}
-          initialDay={day}
+          initialDay={line.kind === "deadline" ? line.dueDay : day}
           onOpenChange={setDateOpen}
           onSubmit={(newDay) =>
             run(() =>

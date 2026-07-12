@@ -189,13 +189,46 @@ describe("buildCalendarView — days", () => {
     })
 
     expect(view.days[0]!.dated).toEqual([
-      { kind: "deadline", articleId: "due", name: "Due Today", state: "due" },
+      {
+        kind: "deadline",
+        articleId: "due",
+        name: "Due Today",
+        state: "due",
+        dueDay: 14,
+      },
     ])
     expect(view.days[1]!.dated).toEqual([
       expect.objectContaining({ articleId: "resolved", state: "resolved" }),
       expect.objectContaining({ articleId: "looming", state: "looming" }),
       { kind: "event", articleId: "festival", name: "Tidewake Festival" },
     ])
+  })
+
+  it("carries an unresolved overdue deadline onto today's card, annotated with its own day", () => {
+    const view = buildCalendarView({
+      currentDay: 14,
+      slots: [slot("s1", 14, 0), slot("s2", 15, 0)],
+      seasons: [],
+      datedArticles: [
+        deadline("past-open", "Slipped Away", 12),
+        deadline("past-done", "Old Business", 11),
+        event("past-fair", "Last Week's Fair", 13),
+      ],
+      resolvedArticleIds: new Set(["past-done"]),
+    })
+
+    // Only the unresolved overdue deadline carries; resolved deadlines and
+    // past events are history (the Chronicle's, not the Calendar's).
+    expect(view.days[0]!.dated).toEqual([
+      {
+        kind: "deadline",
+        articleId: "past-open",
+        name: "Slipped Away",
+        state: "due",
+        dueDay: 12,
+      },
+    ])
+    expect(view.days[1]!.dated).toEqual([])
   })
 
   it("forks slot content on occupancy with the untitled-beat fallback", () => {
