@@ -93,7 +93,7 @@ test.afterAll(async () => {
 })
 
 test("adds an unplaced character, stating the consent", async ({ page }) => {
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
 
   const dialog = await pickInAddDialog(page)
   await expect(dialog.getByText(CHARACTER_PLACEMENT_CONSENT)).toBeVisible()
@@ -107,7 +107,7 @@ test("removes a placed character, stating the reverse consent", async ({
   page,
 }) => {
   await placeCharacter(char.id, campaign.id)
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
 
   await charCard(page)
     .getByRole("button", { name: `Remove ${char.name} from campaign` })
@@ -123,7 +123,7 @@ test("removes a placed character, stating the reverse consent", async ({
 test("moves a character placed in another campaign", async ({ page }) => {
   // Pre-place in the other campaign, then move it here.
   await placeCharacter(char.id, otherCampaign.id)
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
 
   const dialog = await pickInAddDialog(page)
   // The dialog surfaces the single-campaign move confirmation — naming the prior
@@ -150,7 +150,7 @@ test("refuses to remove a character that is live in combat", async ({
     combatantCharacterIds: [char.id],
   })
 
-  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page.goto(`/campaigns/${campaign.shortId}/manage`)
   await charCard(page)
     .getByRole("button", { name: `Remove ${char.name} from campaign` })
     .click()

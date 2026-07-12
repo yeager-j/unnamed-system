@@ -15,7 +15,9 @@ import { cleanup, createTestCampaign, createTracker } from "./fixtures/factory"
 /**
  * E2E for the campaign surfaces (UNN-329): My Campaigns, the DM manage page
  * (create campaign, invite link copy/regenerate, roster, create encounter), the
- * member overview, and the public watch-route shell.
+ * member overview, and the public watch-route shell. Since UNN-574 the campaign
+ * root is the DM's Day Runner and the manage surface lives at
+ * `/campaigns/{shortId}/manage`; members keep the root overview.
  *
  * Signed in as the dev DM (storage-state). **Serial** because several tests
  * mutate shared rows. Mutating tests work against a **freshly created** campaign
@@ -80,7 +82,7 @@ test("My Campaigns lists the campaigns the viewer runs", async ({ page }) => {
   await expect(running.getByText(encounterTarget.campaignB.name)).toBeVisible()
 })
 
-test("create a campaign → manage page → regenerate the invite link", async ({
+test("create a campaign → Day Runner home → regenerate the invite link from Manage", async ({
   page,
 }) => {
   await page.goto("/campaigns")
@@ -89,14 +91,25 @@ test("create a campaign → manage page → regenerate the invite link", async (
   await createDialog.getByLabel("Name").fill("E2E Surfaces Campaign")
   await createDialog.getByRole("button", { name: "Create campaign" }).click()
 
-  // Lands on the manage page for the new campaign.
+  // Lands on the campaign home — the Day Runner's first-run checklist
+  // (UNN-574): the clock hasn't started, and the roster panel names the
+  // campaign.
   await expect(page).toHaveURL(/\/campaigns\/[^/]+$/)
   await expect(
-    page.getByRole("heading", { name: "E2E Surfaces Campaign" })
+    page.getByRole("heading", { name: "Set the stage" })
+  ).toBeVisible()
+  await expect(
+    page.getByText("E2E Surfaces Campaign", { exact: true })
   ).toBeVisible()
 
   const shortId = page.url().split("/").pop()!
   createdCampaignShortIds.push(shortId)
+
+  // The manage surface relocated behind the rail gear (D10).
+  await page.goto(`/campaigns/${shortId}/manage`)
+  await expect(
+    page.getByRole("heading", { name: "Manage E2E Surfaces Campaign" })
+  ).toBeVisible()
 
   const [before] = await getDb()
     .select({ joinToken: campaigns.joinToken })
@@ -124,7 +137,7 @@ test("create an encounter from the manage page → DM console", async ({
   page,
 }) => {
   const shortId = createdCampaignShortIds[0]!
-  await page.goto(`/campaigns/${shortId}`)
+  await page.goto(`/campaigns/${shortId}/manage`)
 
   await expect(
     page.getByText("No encounters yet", { exact: false })
@@ -159,7 +172,7 @@ test("removing a player unplaces their characters", async ({ page }) => {
     .set({ campaignId })
     .where(eq(playerCharacter.entityId, SEED_WARRIOR_ID))
 
-  await page.goto(`/campaigns/${shortId}`)
+  await page.goto(`/campaigns/${shortId}/manage`)
   // The roster shows the member with their placed character.
   await expect(page.getByText("Persona System Seed")).toBeVisible()
   await expect(page.getByText("Brann Holt")).toBeVisible()
@@ -222,10 +235,17 @@ test("a member sees a read-only overview and the campaign shows under Playing in
   await clearDevOverviewMembership()
 })
 
-test("a non-member 404s on the manage URL", async ({ page }) => {
+test("a non-member 404s on the campaign root and every nested planner route", async ({
+  page,
+}) => {
   await clearDevOverviewMembership()
-  const response = await page.goto(`/campaigns/${overviewCampaign.shortId}`)
-  expect(response?.status()).toBe(404)
+  const root = await page.goto(`/campaigns/${overviewCampaign.shortId}`)
+  expect(root?.status()).toBe(404)
+  // Nested planner routes are DM-only and 404-collapse identically (UNN-574).
+  const manage = await page.goto(
+    `/campaigns/${overviewCampaign.shortId}/manage`
+  )
+  expect(manage?.status()).toBe(404)
 })
 
 test("the player watch view renders a live encounter", async ({ page }) => {

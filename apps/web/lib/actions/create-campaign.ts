@@ -15,8 +15,9 @@ import {
 
 /**
  * Creates a campaign owned by the signed-in caller (the DM) and returns its
- * public `shortId` so the client can redirect to the manage page
- * (`/campaigns/{shortId}`) — mirroring `startCharacterDraftAction`. A fresh
+ * public `shortId` so the client can redirect to the campaign home
+ * (`/campaigns/{shortId}` — the Day Runner since UNN-574; Manage sits behind
+ * the rail gear) — mirroring `startCharacterDraftAction`. A fresh
  * `joinToken` is minted by the column default. The only auth gate is "must be
  * signed in"; anyone can run their own campaign.
  */
