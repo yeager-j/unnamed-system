@@ -15,10 +15,10 @@ import { Runner } from "@/app/campaigns/[campaignShortId]/_components/planner/ru
 import { seasonOf } from "@/domain/planner/season"
 import { buildRosterView } from "@/domain/planner/view/roster"
 import { auth } from "@/lib/auth"
+import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import {
   isCampaignMember,
   loadCampaignByShortId,
-  loadCampaignRoster,
 } from "@/lib/db/queries/load-campaign"
 import {
   loadSeasons,
@@ -95,9 +95,9 @@ export default async function CampaignPage({ params }: PageProps) {
  * checklist until the clock starts, then the runner.
  */
 async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
-  const [clock, roster] = await Promise.all([
+  const [clock, placedCharacters] = await Promise.all([
     getCampaignClock(campaign.id),
-    loadCampaignRoster(campaign.id),
+    loadPlacedCharactersForCampaign(campaign.id),
   ])
   const [slots, seasons] = clock
     ? await Promise.all([
@@ -120,7 +120,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
               : null
           }
-          roster={buildRosterView(roster)}
+          roster={buildRosterView(placedCharacters)}
         />
       </Sidebar>
       <SidebarInset className="m-2 ml-0 min-w-0 rounded-xl shadow-sm">

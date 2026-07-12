@@ -6,6 +6,7 @@ import { ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { rotateJoinToken } from "@/lib/db/writes/campaign"
+import { campaignPath } from "@/lib/paths"
 
 import {
   RotateJoinTokenSchema,
@@ -28,7 +29,10 @@ export async function rotateJoinTokenAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
   const joinToken = await rotateJoinToken(campaign.id)
 
-  revalidatePath(`/campaigns/${campaign.shortId}`)
+  // Layout scope: the invite-link card relocated to /manage (UNN-574), and the
+  // card renders the token from server props — a page-scoped revalidate of the
+  // root would leave the revoked link on screen there.
+  revalidatePath(campaignPath(campaign.shortId), "layout")
 
   return ok({ joinToken })
 }

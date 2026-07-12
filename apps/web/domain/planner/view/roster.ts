@@ -1,6 +1,6 @@
 import { archetypeDisplayName } from "@workspace/game-v2/catalog/archetypes"
 
-import type { RosterMember } from "@/lib/db/queries/load-campaign"
+import type { CharacterSummary } from "@/lib/db/queries/character-list"
 
 /** One row of the Day Runner's placed-characters sidebar. */
 export interface RosterRowView {
@@ -12,15 +12,18 @@ export interface RosterRowView {
 }
 
 /**
- * Flattens the campaign roster (members ⋈ their placed characters) into the
- * Day Runner sidebar's rows — placed characters only, name-ordered, each with
- * the "Level 4 · Warrior" line the handoff shows (a draft still in the builder
- * reads "Draft" instead). The engine-vocab lookup stays here in the data tier;
- * the component just renders rows (UNN-610 tier rule).
+ * Shapes the campaign's placed characters (`loadPlacedCharactersForCampaign`)
+ * into the Day Runner sidebar's rows — each with the "Level 4 · Warrior" line
+ * the handoff shows. Deliberately fed by the placed-characters query, not the
+ * member roster: the member grouping drops characters whose owner isn't a
+ * `campaignUsers` row, and the DM's own placed PC is exactly that case (the
+ * Codex review on PR #335 caught it). The engine-vocab lookup stays here in
+ * the data tier; the component just renders rows (UNN-610 tier rule).
  */
-export function buildRosterView(roster: RosterMember[]): RosterRowView[] {
-  return roster
-    .flatMap((member) => member.characters)
+export function buildRosterView(
+  characters: CharacterSummary[]
+): RosterRowView[] {
+  return characters
     .map((character) => ({
       id: character.id,
       shortId: character.shortId,
