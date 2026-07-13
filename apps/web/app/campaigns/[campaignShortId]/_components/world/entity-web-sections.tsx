@@ -4,10 +4,8 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { LinkerOption } from "@/domain/planner/view/linker"
-import type {
-  EntityTimelineDayView,
-  RelationRowView,
-} from "@/domain/planner/view/world-detail"
+import type { TimelineDayView } from "@/domain/planner/view/timeline"
+import type { RelationRowView } from "@/domain/planner/view/world-detail"
 
 import {
   ActivityComposer,
@@ -39,7 +37,7 @@ export function EntityWebSections({
   self: ParticipantRef
   selfLabel: string
   relations: RelationRowView[]
-  timeline: EntityTimelineDayView[]
+  timeline: TimelineDayView[]
   beatMentions: number
   /** Null before "Start the clock" — hides the composer. */
   currentDay: number | null
@@ -82,6 +80,7 @@ export function EntityWebSections({
         ) : null}
         <EntityTimeline
           campaignId={campaignId}
+          campaignShortId={campaignShortId}
           days={timeline}
           linkerOptions={linkerOptions}
           editTarget={worldTarget}

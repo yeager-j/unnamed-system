@@ -28,7 +28,7 @@ export async function authorWorldUpdateAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
   const refs = await validateParticipantRefs(campaign.id, [
-    parsed.data.primary,
+    ...(parsed.data.primary === null ? [] : [parsed.data.primary]),
     ...parsed.data.concerns,
   ])
   if (!refs.ok) return err("invalid-ref")

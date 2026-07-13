@@ -58,6 +58,19 @@ export function parseChipToken(token: string): ParticipantRef | null {
  * markdown body — the mention-index feed (`campaignBeatMention` is re-derived
  * from this on every body autosave; D7).
  */
+/**
+ * Flattens chip tokens to their captured labels — plain-text prose for
+ * excerpt surfaces (the Day-End deadline alert) where a raw `[[…]]` token
+ * would read as noise. Labels may be stale (the id is authoritative), which
+ * an excerpt tolerates.
+ */
+export function stripChipTokens(markdown: string): string {
+  return markdown.replaceAll(
+    new RegExp(CHIP_TOKEN_SOURCE, "g"),
+    (_match, _kind, _id, label: string) => label
+  )
+}
+
 export function extractChipRefs(
   markdown: string
 ): Pick<ParticipantRef, "kind" | "id">[] {

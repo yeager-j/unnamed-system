@@ -15,10 +15,8 @@ import { ParticipantChip } from "@/components/editor/participant-chip"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import { useArticleAutoSave } from "@/domain/planner/use-article-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
-import type {
-  EntityTimelineDayView,
-  RelationRowView,
-} from "@/domain/planner/view/world-detail"
+import type { TimelineDayView } from "@/domain/planner/view/timeline"
+import type { RelationRowView } from "@/domain/planner/view/world-detail"
 import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 import { campaignArticlesPath } from "@/lib/paths"
 
@@ -66,7 +64,7 @@ export function ArticlePage({
   typeOptions: string[]
   linkerOptions: LinkerOption[]
   relations: RelationRowView[]
-  timeline: EntityTimelineDayView[]
+  timeline: TimelineDayView[]
   beatMentions: number
   currentDay: number | null
 }) {

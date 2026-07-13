@@ -1,11 +1,9 @@
 /**
- * Entity-page shaping (phase 6 — UNN-579): the per-entity timeline (updates
- * where this entity is primary or concerned, PRD FR-10) and the delete
+ * Entity-page shaping (phase 6 — UNN-579): the relations list and the delete
  * confirm's ref-count copy. Pure; the reads live in
- * `lib/db/queries/load-campaign-updates.ts` / `load-world-web.ts`.
+ * `lib/db/queries/load-world-web.ts`. (The per-entity timeline shaping moved
+ * to `timeline.ts` when phase 7 shared it with the Chronicle and Day-End.)
  */
-
-import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
 
 import {
   foldResolvedParticipants,
@@ -13,83 +11,6 @@ import {
   type ParticipantRef,
   type ResolvedParticipant,
 } from "../participant"
-
-/** The timeline's slice of an update row, concerns folded in by the query. */
-export interface EntityTimelineUpdateInput {
-  id: string
-  day: number
-  body: string
-  category: UpdateCategory | null
-  /** The update's primary ref; null means "the world". */
-  primary: ParticipantRef | null
-  concerns: readonly ParticipantRef[]
-  /** True for slot-less rows — world updates may be edited/deleted from here. */
-  isWorld: boolean
-}
-
-/** One rendered timeline entry. */
-export interface EntityTimelineEntryView {
-  id: string
-  body: string
-  category: UpdateCategory | null
-  /** True when the page's entity is the update's primary (vs merely concerned). */
-  isPrimary: boolean
-  /** True for slot-less rows — the timeline offers edit/delete on these. */
-  isWorld: boolean
-  /** Every participant except the page's entity, resolved (tombstones muted). */
-  others: ResolvedParticipant[]
-  /** The row's actual concerns (self included), resolved — the edit seed. */
-  concerns: ResolvedParticipant[]
-}
-
-/** Entries grouped under their day heading, input (query) order preserved. */
-export interface EntityTimelineDayView {
-  day: number
-  entries: EntityTimelineEntryView[]
-}
-
-/**
- * Shapes the primary-or-concerned update rows into day-grouped timeline
- * entries: the page's own entity is elided from each entry's participant
- * strip (the page is the context), everyone else resolves through the
- * campaign-scoped hits (D4 — tombstoned names render muted, misses fall back
- * to captured labels, the page never breaks).
- */
-export function buildEntityTimelineView(
-  updates: readonly EntityTimelineUpdateInput[],
-  self: ParticipantRef,
-  hits: ParticipantHitsByKind
-): EntityTimelineDayView[] {
-  const days: EntityTimelineDayView[] = []
-  for (const update of updates) {
-    const isPrimary =
-      update.primary !== null &&
-      update.primary.kind === self.kind &&
-      update.primary.id === self.id
-    const otherRefs = [
-      ...(update.primary === null || isPrimary ? [] : [update.primary]),
-      ...update.concerns.filter(
-        (ref) => !(ref.kind === self.kind && ref.id === self.id)
-      ),
-    ]
-    const entry: EntityTimelineEntryView = {
-      id: update.id,
-      body: update.body,
-      category: update.category,
-      isPrimary,
-      isWorld: update.isWorld,
-      others: foldResolvedParticipants(otherRefs, hits),
-      concerns: foldResolvedParticipants(update.concerns, hits),
-    }
-    const group = days.at(-1)
-    if (group !== undefined && group.day === update.day) {
-      group.entries.push(entry)
-    } else {
-      days.push({ day: update.day, entries: [entry] })
-    }
-  }
-  return days
-}
 
 /** One rendered outgoing relation edge. */
 export interface RelationRowView {

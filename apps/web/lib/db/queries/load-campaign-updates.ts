@@ -1,10 +1,22 @@
-import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm"
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm"
 
 import type {
   ParticipantKind,
   ParticipantRef,
 } from "@/domain/planner/participant"
-import type { EntityTimelineUpdateInput } from "@/domain/planner/view/world-detail"
+import type { TimelineUpdateInput } from "@/domain/planner/view/timeline"
 import { db } from "@/lib/db/client"
 import {
   campaignUpdate,
@@ -14,8 +26,8 @@ import {
 
 /**
  * Read side of the update stream (UNN-576): the Day Runner's recorded
- * activities. Campaign-scoped by WHERE (§5's read half); the Chronicle's
- * cursor-paged read arrives with its surface (phase 7).
+ * activities, the per-entity timelines, and the Chronicle's cursor-paged
+ * feed (phase 7). Campaign-scoped by WHERE (§5's read half).
  */
 
 /** A live ⚑ marker: which article it resolves, from which update, stamped on which day (D5). */
@@ -160,7 +172,7 @@ export async function loadLastActivityPerCharacter(
 export async function loadUpdatesForParticipant(
   campaignId: string,
   ref: Pick<ParticipantRef, "kind" | "id">
-): Promise<EntityTimelineUpdateInput[]> {
+): Promise<TimelineUpdateInput[]> {
   const concernedIds = db
     .select({ updateId: campaignUpdateConcern.updateId })
     .from(campaignUpdateConcern)
@@ -179,6 +191,7 @@ export async function loadUpdatesForParticipant(
       primaryKind: campaignUpdate.primaryKind,
       primaryId: campaignUpdate.primaryId,
       slotId: campaignUpdate.slotId,
+      resolvesArticleId: campaignUpdate.resolvesArticleId,
     })
     .from(campaignUpdate)
     .where(
@@ -209,6 +222,234 @@ export async function loadUpdatesForParticipant(
         : { kind: row.primaryKind, id: row.primaryId! },
     concerns: concernsByUpdate.get(row.id) ?? [],
     isWorld: row.slotId === null,
+    resolvesArticleId: row.resolvesArticleId,
+  }))
+}
+
+/** The Chronicle's filter set — AND-ed onto the cursor scan (order unchanged). */
+export interface ChronicleFilters {
+  /** Primary-or-concerned, the same union as {@link loadUpdatesForParticipant}. */
+  participant: Pick<ParticipantRef, "kind" | "id"> | null
+  category: UpdateCategory | null
+  /** Default false — mirrors `isShownByDefaultInChronicle` (pinned both ways). */
+  showIdle: boolean
+}
+
+/** One Chronicle row: the timeline input plus the cursor's tiebreak column. */
+export interface ChronicleUpdateRow extends TimelineUpdateInput {
+  authoredAt: Date
+}
+
+/** One keyset page, newest-first; `nextCursor` null when history is exhausted. */
+export interface ChroniclePage {
+  updates: ChronicleUpdateRow[]
+  nextCursor: string | null
+}
+
+const CHRONICLE_PAGE_SIZE = 50
+const CHRONICLE_PAGE_SIZE_CAP = 100
+
+/**
+ * The Chronicle's cursor-paged read (phase 7, FR-13) — the codebase's first
+ * **keyset** query: ordered `(day, authoredAt, id) DESC` riding
+ * `campaignUpdate_chronicle_cursor_idx`, with `id` breaking the timestamp
+ * ties bulk inserts create (end-day Idle fill, montage). The cursor is an
+ * opaque token of the page's last row; filters AND onto the scan without
+ * changing its order, so pages stay full under any filter. `startDay` is the
+ * Day-End "jump into the Chronicle at day N" bound — first page only, since
+ * a cursor already implies it.
+ */
+export async function loadChroniclePage(
+  campaignId: string,
+  input: {
+    cursor: string | null
+    startDay: number | null
+    filters: ChronicleFilters
+    pageSize?: number
+  }
+): Promise<ChroniclePage> {
+  const pageSize = Math.min(
+    input.pageSize ?? CHRONICLE_PAGE_SIZE,
+    CHRONICLE_PAGE_SIZE_CAP
+  )
+  const cursor =
+    input.cursor === null ? null : decodeChronicleCursor(input.cursor)
+
+  const predicates: (SQL | undefined)[] = [
+    eq(campaignUpdate.campaignId, campaignId),
+  ]
+  if (cursor !== null) {
+    predicates.push(
+      sql`(${campaignUpdate.day}, ${campaignUpdate.authoredAt}, ${campaignUpdate.id}) < (${cursor.day}, ${cursor.authoredAt}, ${cursor.id})`
+    )
+  } else if (input.startDay !== null) {
+    predicates.push(lte(campaignUpdate.day, input.startDay))
+  }
+  if (!input.filters.showIdle) {
+    // The SQL half of `isShownByDefaultInChronicle` — filtered here, not
+    // client-side, so pages stay full (both halves pinned by tests).
+    predicates.push(
+      or(isNull(campaignUpdate.category), ne(campaignUpdate.category, "idle"))
+    )
+  }
+  if (input.filters.category !== null) {
+    predicates.push(eq(campaignUpdate.category, input.filters.category))
+  }
+  if (input.filters.participant !== null) {
+    const ref = input.filters.participant
+    const concernedIds = db
+      .select({ updateId: campaignUpdateConcern.updateId })
+      .from(campaignUpdateConcern)
+      .where(
+        and(
+          eq(campaignUpdateConcern.participantKind, ref.kind),
+          eq(campaignUpdateConcern.participantId, ref.id)
+        )
+      )
+    predicates.push(
+      or(
+        and(
+          eq(campaignUpdate.primaryKind, ref.kind),
+          eq(campaignUpdate.primaryId, ref.id)
+        ),
+        inArray(campaignUpdate.id, concernedIds)
+      )
+    )
+  }
+
+  const rows = await db
+    .select({
+      id: campaignUpdate.id,
+      day: campaignUpdate.day,
+      body: campaignUpdate.body,
+      category: campaignUpdate.category,
+      primaryKind: campaignUpdate.primaryKind,
+      primaryId: campaignUpdate.primaryId,
+      slotId: campaignUpdate.slotId,
+      resolvesArticleId: campaignUpdate.resolvesArticleId,
+      authoredAt: campaignUpdate.authoredAt,
+    })
+    .from(campaignUpdate)
+    .where(and(...predicates))
+    .orderBy(
+      desc(campaignUpdate.day),
+      desc(campaignUpdate.authoredAt),
+      desc(campaignUpdate.id)
+    )
+    .limit(pageSize + 1)
+
+  const page = rows.slice(0, pageSize)
+  const last = page.at(-1)
+  const concernsByUpdate = await loadConcerns(page.map((row) => row.id))
+  return {
+    updates: page.map((row) => ({
+      id: row.id,
+      day: row.day,
+      body: row.body,
+      category: row.category,
+      primary:
+        row.primaryKind === null
+          ? null
+          : { kind: row.primaryKind, id: row.primaryId! },
+      concerns: concernsByUpdate.get(row.id) ?? [],
+      isWorld: row.slotId === null,
+      resolvesArticleId: row.resolvesArticleId,
+      authoredAt: row.authoredAt,
+    })),
+    nextCursor:
+      rows.length > pageSize && last !== undefined
+        ? encodeChronicleCursor(last)
+        : null,
+  }
+}
+
+/**
+ * Encodes a page's last row as the opaque next-page token: base64url JSON of
+ * the three cursor columns. Opaque on purpose — the client stores and
+ * returns it, never reads it.
+ */
+export function encodeChronicleCursor(row: {
+  day: number
+  authoredAt: Date
+  id: string
+}): string {
+  return Buffer.from(
+    JSON.stringify({ d: row.day, a: row.authoredAt.toISOString(), i: row.id })
+  ).toString("base64url")
+}
+
+/** Decodes a cursor token; garbage (tampered or truncated) returns null. */
+export function decodeChronicleCursor(
+  token: string
+): { day: number; authoredAt: Date; id: string } | null {
+  try {
+    const parsed: unknown = JSON.parse(
+      Buffer.from(token, "base64url").toString("utf8")
+    )
+    if (typeof parsed !== "object" || parsed === null) return null
+    const { d, a, i } = parsed as { d?: unknown; a?: unknown; i?: unknown }
+    if (typeof d !== "number" || typeof a !== "string" || typeof i !== "string")
+      return null
+    const authoredAt = new Date(a)
+    if (Number.isNaN(authoredAt.getTime())) return null
+    return { day: d, authoredAt, id: i }
+  } catch {
+    return null
+  }
+}
+
+/** A world update authored on a given day — Day-End's "logged today" slice. */
+export interface LoadedWorldUpdate {
+  id: string
+  body: string
+  category: UpdateCategory | null
+  primary: Pick<ParticipantRef, "kind" | "id"> | null
+  resolvesArticleId: string | null
+  authoredAt: Date
+  concerns: { kind: ParticipantKind; id: string }[]
+}
+
+/**
+ * Every slot-less update stamped on `day` — Day-End Capture's world half of
+ * the "Logged today" feed and its "M world updates logged" glance count.
+ * Rides the chronicle cursor index.
+ */
+export async function loadWorldUpdatesForDay(
+  campaignId: string,
+  day: number
+): Promise<LoadedWorldUpdate[]> {
+  const rows = await db
+    .select({
+      id: campaignUpdate.id,
+      body: campaignUpdate.body,
+      category: campaignUpdate.category,
+      primaryKind: campaignUpdate.primaryKind,
+      primaryId: campaignUpdate.primaryId,
+      resolvesArticleId: campaignUpdate.resolvesArticleId,
+      authoredAt: campaignUpdate.authoredAt,
+    })
+    .from(campaignUpdate)
+    .where(
+      and(
+        eq(campaignUpdate.campaignId, campaignId),
+        eq(campaignUpdate.day, day),
+        isNull(campaignUpdate.slotId)
+      )
+    )
+    .orderBy(campaignUpdate.authoredAt)
+
+  const concernsByUpdate = await loadConcerns(rows.map((row) => row.id))
+  return rows.map((row) => ({
+    id: row.id,
+    body: row.body,
+    category: row.category,
+    primary:
+      row.primaryKind === null
+        ? null
+        : { kind: row.primaryKind, id: row.primaryId! },
+    resolvesArticleId: row.resolvesArticleId,
+    authoredAt: row.authoredAt,
+    concerns: concernsByUpdate.get(row.id) ?? [],
   }))
 }
 

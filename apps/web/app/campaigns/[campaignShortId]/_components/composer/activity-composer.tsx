@@ -2,8 +2,11 @@
 
 import {
   ArrowCounterClockwiseIcon,
+  CaretDownIcon,
   CheckIcon,
+  GlobeHemisphereWestIcon,
   HammerIcon,
+  MaskHappyIcon,
   MedalIcon,
   PlusIcon,
   SparkleIcon,
@@ -83,6 +86,13 @@ export interface ComposerEditTarget {
   /** Null only on world updates — a slotted activity always carries one. */
   category: UpdateCategory | null
   concerns: ParticipantRef[]
+  /**
+   * True when the edited row is a slotted activity reached from a world
+   * mount (the shared timeline on Day-End / the Chronicle): category stays
+   * required there even though the mounting target is `world` (the
+   * slotted-⇒-categorized CHECK). Slot mounts don't need it.
+   */
+  slotted?: boolean
 }
 
 /** The composer's repeat-last seed: the character's previous entry. */
@@ -96,8 +106,10 @@ export interface ComposerLastActivity {
  * What a new entry writes — the one distinction the composer carries (D3's
  * "one update stream" made visible): a **slot** target records a downtime
  * activity (category required; copy/repeat affordances) and a **world**
- * target authors a slot-less update primaried on an entity page's subject
- * (category optional, stamped on `currentDay`).
+ * target authors a slot-less update primaried on an entity page's subject —
+ * or on no one (`primary: null` = "the world") — stamped on `currentDay`.
+ * `primaryOptions` makes the primary **pickable** (Day-End, the Chronicle);
+ * without it the mount's primary is fixed (entity pages).
  */
 export type ComposerTarget =
   | {
@@ -112,10 +124,22 @@ export type ComposerTarget =
     }
   | {
       kind: "world"
-      primary: Pick<ParticipantRef, "kind" | "id">
+      primary: Pick<ParticipantRef, "kind" | "id"> | null
+      /** "The world" when primary is null. */
       primaryLabel: string
       currentDay: number
+      /** When set, renders the primary selector over these options. */
+      primaryOptions?: LinkerOption[]
     }
+
+/** Pre-fill for the composer (Day-End's pre-suggests) — seed only, never a write. */
+export interface ComposerSeed {
+  body?: string
+  category?: UpdateCategory | null
+  concerns?: ParticipantRef[]
+  /** `null` seeds "the world"; omit to keep the target's own primary. */
+  primary?: ParticipantRef | null
+}
 
 /**
  * The **update composer** (handoff "the core primitive"; D10 mounts it in
@@ -130,6 +154,8 @@ export function ActivityComposer({
   target,
   linkerOptions,
   edit,
+  initial,
+  placeholder: placeholderProp,
   onDone,
 }: {
   campaignId: string
@@ -137,21 +163,31 @@ export function ActivityComposer({
   linkerOptions: LinkerOption[]
   /** When set, the composer edits this entry instead of recording a new one. */
   edit?: ComposerEditTarget
+  /** Pre-fill (Day-End's pre-suggests). Re-seed by remounting (`key`). */
+  initial?: ComposerSeed
+  /** Overrides the target's default textarea placeholder. */
+  placeholder?: string
   /** Called after a successful record/edit (and on edit-cancel). */
   onDone?: () => void
 }) {
   const lastActivity = target.kind === "slot" ? target.lastActivity : null
-  const [body, setBody] = useState(edit?.body ?? "")
+  const [body, setBody] = useState(edit?.body ?? initial?.body ?? "")
   const [category, setCategory] = useState<UpdateCategory | null>(
-    edit?.category ?? lastActivity?.category ?? null
+    edit?.category ?? initial?.category ?? lastActivity?.category ?? null
   )
   const [concerns, setConcerns] = useState<ParticipantRef[]>(
-    edit?.concerns ?? []
+    edit?.concerns ?? initial?.concerns ?? []
+  )
+  const [primary, setPrimary] = useState<PickedPrimary>(() =>
+    initialPrimary(target, initial)
   )
   const [copyIds, setCopyIds] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
 
-  const categoryRequired = target.kind === "slot"
+  const categoryRequired =
+    edit !== undefined
+      ? (edit.slotted ?? target.kind === "slot")
+      : target.kind === "slot"
   const canSubmit =
     body.trim() !== "" && (!categoryRequired || category !== null)
 
@@ -201,7 +237,7 @@ export function ActivityComposer({
           } else {
             const result = await authorWorldUpdateAction({
               campaignId,
-              primary: target.primary,
+              primary: primary === null ? null : primary.ref,
               category,
               ...content,
             })
@@ -216,6 +252,7 @@ export function ActivityComposer({
           setBody("")
           setConcerns([])
           setCategory(null)
+          setPrimary(initialPrimary(target, undefined))
           setCopyIds(new Set())
           onDone?.()
         },
@@ -231,18 +268,22 @@ export function ActivityComposer({
     setConcerns(lastActivity.concerns)
   }
 
+  const primaryLabel = primary === null ? "The world" : primary.label
   const contextLabel =
     target.kind === "slot"
       ? target.slotLabel
-      : `Day ${target.currentDay} · ${target.primaryLabel}`
+      : edit?.slotted
+        ? "Downtime entry"
+        : `Day ${target.currentDay} · ${primaryLabel}`
   const placeholder =
-    target.kind === "slot"
+    placeholderProp ??
+    (target.kind === "slot"
       ? `What did ${target.characterName} do?`
-      : "What just happened, while it's fresh…"
+      : "What just happened, while it's fresh…")
   const bodyAriaLabel =
     target.kind === "slot"
       ? `${target.characterName}'s activity`
-      : `Update about ${target.primaryLabel}`
+      : `Update about ${primaryLabel}`
 
   const addConcern = (ref: ParticipantRef) =>
     setConcerns((current) =>
@@ -338,6 +379,36 @@ export function ActivityComposer({
             onPick={setCategory}
             clearable={!categoryRequired}
           />
+          {!edit &&
+          target.kind === "world" &&
+          target.primaryOptions !== undefined ? (
+            <ParticipantLinker
+              campaignId={campaignId}
+              options={target.primaryOptions}
+              onPick={(ref) =>
+                setPrimary({
+                  ref: { kind: ref.kind, id: ref.id },
+                  label: ref.label ?? "",
+                })
+              }
+              onPickWorld={() => setPrimary(null)}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label="Primary — who is this about?"
+                >
+                  {primary === null ? (
+                    <GlobeHemisphereWestIcon className="size-4" />
+                  ) : (
+                    <MaskHappyIcon className="size-4 text-primary-text" />
+                  )}
+                  <span className="max-w-40 truncate">{primaryLabel}</span>
+                  <CaretDownIcon className="size-3 text-muted-foreground" />
+                </Button>
+              }
+            />
+          ) : null}
           <Button
             size="icon"
             aria-label={edit ? "Save changes" : "Record activity"}
@@ -350,6 +421,30 @@ export function ActivityComposer({
       </div>
     </div>
   )
+}
+
+/** The composer's live primary: a ref + display label, or null = "the world". */
+type PickedPrimary = {
+  ref: Pick<ParticipantRef, "kind" | "id">
+  label: string
+} | null
+
+function initialPrimary(
+  target: ComposerTarget,
+  initial: ComposerSeed | undefined
+): PickedPrimary {
+  if (target.kind !== "world") return null
+  if (initial?.primary !== undefined) {
+    return initial.primary === null
+      ? null
+      : {
+          ref: { kind: initial.primary.kind, id: initial.primary.id },
+          label: initial.primary.label ?? "",
+        }
+  }
+  return target.primary === null
+    ? null
+    : { ref: target.primary, label: target.primaryLabel }
 }
 
 function CategoryPicker({

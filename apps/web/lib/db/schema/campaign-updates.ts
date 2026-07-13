@@ -11,27 +11,18 @@ import {
 } from "drizzle-orm/pg-core"
 
 import type { ParticipantKind } from "@/domain/planner/participant"
+import type { UpdateCategory } from "@/domain/planner/update-category"
 
 import { campaigns } from "./campaign"
 import { campaignSlot } from "./campaign-clock"
 import { campaignArticle } from "./campaign-world"
 
-/**
- * The activity/update categories (PRD FR-2): categorization only — the tag
- * colors the Chronicle; only `collaborator` ever has a mechanical echo (the
- * bond, D8). `idle` is the one-click "did nothing substantial" mark (empty
- * body legal, muted and filtered out of the Chronicle by default).
- */
-export const UPDATE_CATEGORIES = [
-  "virtue",
-  "talent",
-  "practical",
-  "collaborator",
-  "idle",
-] as const
-
-/** One of {@link UPDATE_CATEGORIES}. */
-export type UpdateCategory = (typeof UPDATE_CATEGORIES)[number]
+// The category vocabulary homes in domain (the `ParticipantKind` precedent);
+// re-exported here so schema stays the one import for row-adjacent types.
+export {
+  UPDATE_CATEGORIES,
+  type UpdateCategory,
+} from "@/domain/planner/update-category"
 
 /**
  * The **single update stream** (Campaign Planner phase 3 — UNN-576,
