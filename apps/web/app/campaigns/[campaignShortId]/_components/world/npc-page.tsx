@@ -55,19 +55,14 @@ export interface NpcPageWeb {
 type NpcPane = "overview" | NarrativeTextField
 
 /**
- * The NPC page (UNN-579 work items 2+3): a persistent header (name autosave
- * + Stub badge) over the **document rail** — the builder's animus experience
- * (one field at a time in a full-height editor), mirrored here because
- * feature isolation forbids importing it. The Overview pane carries the
- * trait pickers, relations, mention count, composer, and timeline;
- * Origins/Identity panes edit one `narrative` field each, per-field LWW
- * (D10 — deliberately not the entity door; see `saveNpcNarrativeField`).
- *
- * The rail is a **plain two-column layout**, not a nested `SidebarProvider`
- * — nesting one inside the world shell's provider desyncs Base UI's
- * hydration ids across the whole page subtree (verified against the Article
- * page, which shares everything but the nesting), and the rail needs none
- * of the sidebar machinery anyway (no collapse, no mobile sheet).
+ * The NPC page (UNN-579 work items 2+3): one pane at a time — Overview
+ * (trait pickers, relations, mention count, composer, timeline) or a single
+ * `narrative` document in a full-height editor (the builder's animus
+ * experience, mirrored because feature isolation forbids importing it). The
+ * document rail itself lives in the **world shell's sidebar**
+ * (`WorldDocRail` — the master-detail drill-down), and both sides agree on
+ * the open pane through `?doc=`. Narrative saves are per-field LWW (D10 —
+ * deliberately not the entity door; see `saveNpcNarrativeField`).
  *
  * Narrative fields take **no chip extensions**: the component is shared with
  * PCs and renders through the sheet's plain `Prose` pipeline, where a chip

@@ -56,9 +56,13 @@ export function DeleteEntityConfirm({
     loadRefCountsAction({
       campaignId,
       ref: { kind: target.kind, id: target.id },
-    }).then((result) => {
-      if (!cancelled && result.ok) setCounts(result.value)
     })
+      .then((result) => {
+        if (!cancelled && result.ok) setCounts(result.value)
+      })
+      // A detached chain can't surface framework signals (the guardWrite
+      // corollary) — a failed count read just leaves "Counting references…".
+      .catch(() => {})
     return () => {
       cancelled = true
     }
