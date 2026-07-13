@@ -92,7 +92,11 @@ One PR; all six surfaces flip together; TipTap leaves the repo.
    without the unfocused-refresh behavior preserved.**
 2. Swap `MarkdownField` internals to the vendored editor behind the unchanged
    prop seam; retype `extensions` to CM6 `Extension[]`; keep placeholder,
-   aria wiring, focus-ring styling parity. `DocumentEditor` untouched.
+   aria wiring, focus-ring styling parity. **`DocumentEditor` companion pass**
+   (design §5.1): retype its `AnyExtension` import to CM6 `Extension[]` and
+   swap the `[&_.ProseMirror]:px-0`/`py-0` selectors to the CM6 DOM
+   (`.cm-content`/`.cm-line`); same selector swap in
+   `create-campaign-button.tsx`. Autosave pipelines untouched.
 3. Re-point chip surfaces (beat-editor, article-page) from
    `createChipSuggestionExtensions` + `<ChipSuggestionPopover>` to
    `participant-links` extensions; delete the popover mounts.
@@ -101,7 +105,9 @@ One PR; all six surfaces flip together; TipTap leaves the repo.
    `@tiptap/*` deps from `apps/web/package.json`.
 5. Update e2e: `planner-notes.spec.ts` chip flow (selectors →
    `.cm-atomic-wiki-link[data-wiki-link-target]`), builder animus flow;
-   grep-zero check for `@tiptap`.
+   grep-zero check for `@tiptap` **and for `ProseMirror`** (a stale
+   `[&_.ProseMirror]` selector fails silently as lost padding, not a type
+   error).
 6. Theming pass: map editor CSS variables to brand tokens (dark-first);
    verify the six surfaces visually (borderless document look preserved,
    live preview renders headings/lists/tables).

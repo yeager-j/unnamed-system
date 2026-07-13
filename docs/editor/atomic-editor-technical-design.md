@@ -122,8 +122,15 @@ Mechanics:
 The controlled-component contract (`value`, `onChange`, `onFocus/onBlur`,
 `placeholder`, aria wiring, `className`, `extensions`) survives; only the
 internals swap. `extensions` is retyped from TipTap `AnyExtension[]` to CM6
-`Extension[]`. `DocumentEditor` and every autosave pipeline
-(`useDebouncedAutoSave`, entity door, planner LWW) are untouched.
+`Extension[]`. Every autosave pipeline (`useDebouncedAutoSave`, entity door,
+planner LWW) is untouched. `DocumentEditor` is **not** untouched — it needs a
+mechanical companion pass, not a redesign: it imports `AnyExtension` from
+`@tiptap/core` (retypes to CM6 `Extension[]`), and its
+`[&_.ProseMirror]:px-0` styling targets TipTap's DOM (moves to the CM6
+equivalents, `.cm-content`/`.cm-line`). `create-campaign-button.tsx` carries
+one more `ProseMirror` selector. **Grep-zero for `ProseMirror` joins grep-zero
+for `@tiptap` in the P2 deletion gate** — a stale selector fails silently as
+lost padding, not a type error.
 
 Two integration facts need runtime confirmation (**⚠ spike**, both in P2):
 
