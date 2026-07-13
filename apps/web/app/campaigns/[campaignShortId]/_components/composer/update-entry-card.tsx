@@ -20,15 +20,23 @@ export interface EntryCardPill {
 /**
  * A recorded update's **card** — one presentational shape for every surface
  * that shows a `campaignUpdate` row (the downtime workspace's recorded
- * entry, the entity pages' timelines, phase 7's Chronicle): a context badge,
- * the prose, the concern pills, and optional edit/delete affordances the
- * owning surface wires to the shared actions.
+ * entry, the shared timeline's entries — entity pages, Day-End Capture, the
+ * Chronicle): a context badge, the prose, the concern pills, and optional
+ * edit/delete affordances the owning surface wires to the shared actions.
+ * `chrome="bare"` drops the border for the timeline's gutter rows; `chip`
+ * leads with the primary-participant pill, `flag` renders the ⚑ marker
+ * badge, and `menu` mounts the surface's overflow (re-date / bind).
  */
 export function UpdateEntryCard({
   badgeLabel,
   body,
   isIdle = false,
   pills,
+  pillsLabel,
+  chip,
+  flag,
+  menu,
+  chrome = "card",
   onEdit,
   onDelete,
 }: {
@@ -37,21 +45,33 @@ export function UpdateEntryCard({
   /** Idle entries render the "did nothing substantial" fallback muted. */
   isIdle?: boolean
   pills: EntryCardPill[]
+  /** Optional kicker before the pill strip (the handoff's "CONCERNS"). */
+  pillsLabel?: string
+  /** The primary-participant chip, rendered ahead of the badge. */
+  chip?: React.ReactNode
+  /** The ⚑ marker badge, rendered after the context badge. */
+  flag?: React.ReactNode
+  /** Surface-owned overflow menu, rendered after edit/delete. */
+  menu?: React.ReactNode
+  /** `card` = bordered (workspace); `bare` = the timeline's gutter row. */
+  chrome?: "card" | "bare"
   onEdit?: () => void
   onDelete?: () => void
 }) {
   return (
-    <div className="rounded-lg border p-4">
+    <div className={cn(chrome === "card" && "rounded-lg border p-4")}>
       <div className="flex items-center gap-2">
+        {chip}
         <Badge variant="outline" className="text-xs">
           {badgeLabel}
         </Badge>
-        {onEdit || onDelete ? (
+        {flag}
+        {onEdit || onDelete || menu ? (
           <div className="ml-auto flex items-center gap-0.5">
             {onEdit ? (
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size={chrome === "bare" ? "icon-xs" : "icon-sm"}
                 aria-label="Edit entry"
                 className="text-muted-foreground"
                 onClick={onEdit}
@@ -62,7 +82,7 @@ export function UpdateEntryCard({
             {onDelete ? (
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size={chrome === "bare" ? "icon-xs" : "icon-sm"}
                 aria-label="Delete entry"
                 className="text-muted-foreground"
                 onClick={onDelete}
@@ -70,12 +90,13 @@ export function UpdateEntryCard({
                 <TrashIcon />
               </Button>
             ) : null}
+            {menu}
           </div>
         ) : null}
       </div>
       <p
         className={cn(
-          "mt-2 text-sm whitespace-pre-wrap",
+          "mt-2 text-[15px] leading-relaxed whitespace-pre-wrap",
           isIdle && body.trim() === ""
             ? "text-muted-foreground italic"
             : "text-foreground"
@@ -84,7 +105,12 @@ export function UpdateEntryCard({
         {body.trim() === "" && isIdle ? "Did nothing substantial." : body}
       </p>
       {pills.length > 0 ? (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {pillsLabel ? (
+            <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+              {pillsLabel}
+            </span>
+          ) : null}
           {pills.map((pill) => (
             <ParticipantPill
               key={`${pill.kind}:${pill.id}`}

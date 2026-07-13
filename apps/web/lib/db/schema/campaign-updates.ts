@@ -11,27 +11,18 @@ import {
 } from "drizzle-orm/pg-core"
 
 import type { ParticipantKind } from "@/domain/planner/participant"
+import type { UpdateCategory } from "@/domain/planner/update-category"
 
 import { campaigns } from "./campaign"
 import { campaignSlot } from "./campaign-clock"
 import { campaignArticle } from "./campaign-world"
 
-/**
- * The activity/update categories (PRD FR-2): categorization only — the tag
- * colors the Chronicle; only `collaborator` ever has a mechanical echo (the
- * bond, D8). `idle` is the one-click "did nothing substantial" mark (empty
- * body legal, muted and filtered out of the Chronicle by default).
- */
-export const UPDATE_CATEGORIES = [
-  "virtue",
-  "talent",
-  "practical",
-  "collaborator",
-  "idle",
-] as const
-
-/** One of {@link UPDATE_CATEGORIES}. */
-export type UpdateCategory = (typeof UPDATE_CATEGORIES)[number]
+// The category vocabulary homes in domain (the `ParticipantKind` precedent);
+// re-exported here so schema stays the one import for row-adjacent types.
+export {
+  UPDATE_CATEGORIES,
+  type UpdateCategory,
+} from "@/domain/planner/update-category"
 
 /**
  * The **single update stream** (Campaign Planner phase 3 — UNN-576,
@@ -86,10 +77,17 @@ export const campaignUpdate = pgTable(
       () => campaignArticle.id,
       { onDelete: "restrict" }
     ),
-    authoredAt: timestamp("authoredAt", { mode: "date" })
+    /**
+     * Millisecond precision on purpose (UNN-580): `authoredAt` is a
+     * Chronicle-cursor column, and a JS `Date` only carries milliseconds —
+     * a µs-precision column would truncate on read and let a keyset page
+     * boundary skip rows between the truncated and stored value. Precision
+     * 3 makes the DB↔JS round-trip exact by construction.
+     */
+    authoredAt: timestamp("authoredAt", { mode: "date", precision: 3 })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp("updatedAt", { mode: "date" })
+    updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),

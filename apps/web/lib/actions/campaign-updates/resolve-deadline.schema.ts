@@ -1,5 +1,7 @@
 import { z } from "zod/v4"
 
+import type { BindDeadlineMarkerError } from "@/lib/db/writes/campaign-updates"
+
 /**
  * Input schemas for {@link import("./resolve-deadline").resolveDeadlineAction}
  * and {@link import("./resolve-deadline").reopenDeadlineAction} (D5). The
@@ -29,3 +31,15 @@ export const ReopenDeadlineSchema = z.object({
 export type ReopenDeadlineInput = z.input<typeof ReopenDeadlineSchema>
 
 export type ReopenDeadlineActionError = "invalid-input" | "not-resolved"
+
+export const BindDeadlineMarkerSchema = z.object({
+  campaignId: z.string(),
+  articleId: z.string(),
+  updateId: z.string(),
+})
+
+export type BindDeadlineMarkerInput = z.input<typeof BindDeadlineMarkerSchema>
+
+export type BindDeadlineMarkerActionError =
+  | "invalid-input"
+  | BindDeadlineMarkerError

@@ -149,17 +149,22 @@ test("the hard gate blocks ending the day into the due day; resolving on the Cal
   await page.goto(`/campaigns/${campaign.shortId}`)
 
   // Day 1 → 2 passes (the deadline sits at Day 3; the Day-2 event never
-  // gates); the empty day takes the warning's Resolve All path.
+  // gates). End the day opens the capture ritual (UNN-580); the finisher
+  // fires the flow, and the empty day takes the warning's Resolve All path.
   await page.getByRole("button", { name: "End the day" }).click()
+  await page.getByRole("button", { name: /advance to Day 2/ }).click()
   await page.getByRole("button", { name: "Resolve All" }).click()
   await expect(page.getByText("Day 2", { exact: true }).first()).toBeVisible()
 
-  // Day 2 → 3 would stand on the unresolved deadline's day: the gate fires.
+  // Day 2 → 3 would stand on the unresolved deadline's day: the gate fires
+  // from the finisher. (The capture view also names the deadline in its
+  // alert and pre-suggest chip, so scope the check to the gate dialog.)
   await page.getByRole("button", { name: "End the day" }).click()
+  await page.getByRole("button", { name: /advance to Day 3/ }).click()
   await expect(
     page.getByText("Time can't move past an unresolved deadline")
   ).toBeVisible()
-  await expect(page.getByText(DEADLINE)).toBeVisible()
+  await expect(page.getByRole("alertdialog").getByText(DEADLINE)).toBeVisible()
   await page.getByRole("button", { name: "Not yet" }).click()
   const [clock] = await getDb()
     .select({ currentDay: campaignClock.currentDay })
@@ -184,6 +189,7 @@ test("the hard gate blocks ending the day into the due day; resolving on the Cal
   // Resolved ⇒ the gate opens and the day ends.
   await page.goto(`/campaigns/${campaign.shortId}`)
   await page.getByRole("button", { name: "End the day" }).click()
+  await page.getByRole("button", { name: /advance to Day 3/ }).click()
   await page.getByRole("button", { name: "Resolve All" }).click()
   await expect(page.getByText("Day 3", { exact: true }).first()).toBeVisible()
 })
@@ -201,11 +207,11 @@ test("un-advance keeps a marker from the restored day; reopen unbinds but keeps 
   await expect(page.getByText("Day 2", { exact: true }).first()).toBeVisible()
   expect((await readMarker())?.day).toBe(2)
 
-  // Walk back onto Day 3 (Day 2 was Idle-filled earlier, so the ready-path
-  // confirm renders) and reopen from the Calendar: the marker unbinds, the
-  // prose survives as an ordinary update.
+  // Walk back onto Day 3 (Day 2 was Idle-filled earlier, so the finisher
+  // advances directly) and reopen from the Calendar: the marker unbinds,
+  // the prose survives as an ordinary update.
   await page.getByRole("button", { name: "End the day" }).click()
-  await page.getByRole("button", { name: "End the day" }).last().click()
+  await page.getByRole("button", { name: /advance to Day 3/ }).click()
   await expect(page.getByText("Day 3", { exact: true }).first()).toBeVisible()
 
   await page.goto(`/campaigns/${campaign.shortId}/calendar`)
@@ -231,6 +237,7 @@ test("un-advance keeps a marker from the restored day; reopen unbinds but keeps 
   // Overdue-unresolved renders Due and blocks the NEXT advance (D5).
   await page.goto(`/campaigns/${campaign.shortId}`)
   await page.getByRole("button", { name: "End the day" }).click()
+  await page.getByRole("button", { name: /advance to Day 4/ }).click()
   await expect(
     page.getByText("Time can't move past an unresolved deadline")
   ).toBeVisible()

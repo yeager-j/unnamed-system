@@ -13,16 +13,6 @@ import {
 import { useRouter } from "next/navigation"
 import { Fragment, useState, useTransition } from "react"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
@@ -61,10 +51,9 @@ import {
   addSlotAction,
   renameSlotAction,
 } from "@/lib/actions/campaign-clock/slots"
-import type { EndDayMode } from "@/lib/db/writes/campaign-clock"
 
 import type { ComposerLastActivity } from "../composer/activity-composer"
-import { DeadlineGateDialog } from "./deadline-gate-dialog"
+import { DayEndCapture, type DayEndData } from "./day-end-capture"
 import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
 import { DungeonSlotCard } from "./dungeon-slot-card"
 import { RunMenus, type RunnableDungeon, type ShelfBeat } from "./run-menus"
@@ -74,6 +63,7 @@ import { SetAsideDisclosure, type SetAsideEntry } from "./set-aside-disclosure"
 import { SkipDialog, type SkipMontageEntry } from "./skip-dialog"
 import { SlotIcon } from "./slot-icon"
 import { StoryBeatCard } from "./story-beat-card"
+import { UnAdvanceConfirm, type UnAdvanceUnbind } from "./un-advance-confirm"
 
 /** Everything the downtime workspace renders, loaded once by the page. */
 export interface RunnerWorkspaceData {
@@ -106,6 +96,8 @@ export function Runner({
   shelf,
   dungeons,
   unresolvedDeadlines,
+  dayEnd,
+  unAdvanceUnbinds,
 }: {
   campaignId: string
   campaignShortId: string
@@ -124,10 +116,14 @@ export function Runner({
   dungeons: RunnableDungeon[]
   /** Unresolved dated deadlines — the advance gate's advisory pre-warn (D1/D5). */
   unresolvedDeadlines: DatedDeadline[]
+  /** The Day-End Capture ritual's feed, pre-suggests, alerts, and counts. */
+  dayEnd: DayEndData
+  /** The current day's ⚑ markers, named — the un-advance confirm's list. */
+  unAdvanceUnbinds: UnAdvanceUnbind[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const { activeSlotId, setActiveSlot } = useRunnerSelection()
+  const { activeSlotId, setActiveSlot, mode, setMode } = useRunnerSelection()
 
   const activeSlot =
     slots.find((slot) => slot.id === activeSlotId) ?? slots[0] ?? null
@@ -174,6 +170,37 @@ export function Runner({
       }))
   }
 
+  if (mode === "day-end") {
+    return (
+      <DayEndCapture
+        campaignId={campaignId}
+        campaignShortId={campaignShortId}
+        currentDay={currentDay}
+        seasonLabel={seasonLabel}
+        readiness={readiness}
+        gateBlockers={blockingDeadlines(
+          unresolvedDeadlines,
+          currentDay + 1,
+          NO_RESOLVED
+        )}
+        linkerOptions={workspace.linkerOptions}
+        data={dayEnd}
+        onEndWith={(endMode) =>
+          run(
+            () =>
+              endDayAction({
+                campaignId,
+                mode: endMode,
+                expectedVersion: clockVersion,
+              }),
+            () => setMode("run")
+          )
+        }
+        onBack={() => setMode("run")}
+      />
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3 md:px-6">
@@ -198,29 +225,27 @@ export function Runner({
               dungeons={dungeons}
             />
           ) : null}
-          <EndDayButton
-            currentDay={currentDay}
-            campaignShortId={campaignShortId}
-            readiness={readiness}
-            gateBlockers={blockingDeadlines(
-              unresolvedDeadlines,
-              currentDay + 1,
-              NO_RESOLVED
-            )}
-            onEndWith={(mode) =>
-              run(() =>
-                endDayAction({
-                  campaignId,
-                  mode,
-                  expectedVersion: clockVersion,
-                })
-              )
+          <Button
+            variant={
+              readiness.ready &&
+              blockingDeadlines(
+                unresolvedDeadlines,
+                currentDay + 1,
+                NO_RESOLVED
+              ).length === 0
+                ? "default"
+                : "outline"
             }
-          />
+            onClick={() => setMode("day-end")}
+          >
+            <HourglassIcon />
+            End the day
+          </Button>
           <ClockMenu
             currentDay={currentDay}
             campaignShortId={campaignShortId}
             deadlines={unresolvedDeadlines}
+            unAdvanceUnbinds={unAdvanceUnbinds}
             roster={workspace.roster}
             onSkip={(days, montage) =>
               run(() =>
@@ -506,196 +531,11 @@ function LabelDialog({
 /** The empty resolved set: the runner's deadline list is pre-filtered to unresolved. */
 const NO_RESOLVED: ReadonlySet<string> = new Set()
 
-/**
- * "End the day" (FR-5): muted (`outline`) until {@link DayEndReadiness}
- * completes, then it brightens — the anti-forgetting cue. A ready day gets
- * the plain advance confirm (mode `"advance"` — the server recounts and
- * refuses `"not-ready"` if this tab's cue went stale); an unready one gets
- * the **day-end warning** (Cancel / Defer Unresolved / Resolve All — both
- * proceed paths bulk-fill Idle for missing characters, stated in the copy).
- * The deadline **hard gate** stacks above both (FR-6): a blocked day opens
- * the gate dialog instead, and neither confirm ever renders.
- */
-function EndDayButton({
-  currentDay,
-  campaignShortId,
-  readiness,
-  gateBlockers,
-  onEndWith,
-}: {
-  currentDay: number
-  campaignShortId: string
-  readiness: DayEndReadiness
-  gateBlockers: DatedDeadline[]
-  onEndWith: (mode: EndDayMode) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const blocked = gateBlockers.length > 0
-  return (
-    <>
-      <Button
-        variant={readiness.ready && !blocked ? "default" : "outline"}
-        onClick={() => setOpen(true)}
-      >
-        <HourglassIcon />
-        End the day
-      </Button>
-      {open ? (
-        blocked ? (
-          <DeadlineGateDialog
-            blockers={gateBlockers}
-            campaignShortId={campaignShortId}
-            onOpenChange={setOpen}
-          />
-        ) : readiness.ready ? (
-          <EndDayConfirm
-            currentDay={currentDay}
-            onOpenChange={setOpen}
-            onConfirm={() => onEndWith("advance")}
-          />
-        ) : (
-          <DayEndWarning
-            currentDay={currentDay}
-            readiness={readiness}
-            onOpenChange={setOpen}
-            onEndWith={onEndWith}
-          />
-        )
-      ) : null}
-    </>
-  )
-}
-
-function EndDayConfirm({
-  currentDay,
-  onOpenChange,
-  onConfirm,
-}: {
-  currentDay: number
-  onOpenChange: (open: boolean) => void
-  onConfirm: () => void
-}) {
-  return (
-    <AlertDialog open onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            End Day {currentDay} — advance to Day {currentDay + 1}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Moves the clock forward and sets up tomorrow&apos;s slots. You can
-            go back one day from the ⋯ menu if you jump the gun.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Not yet</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => {
-              onOpenChange(false)
-              onConfirm()
-            }}
-          >
-            End the day
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-
-/** Sentence fragments for the warning's loose-ends line. */
-function looseEndsLine(readiness: DayEndReadiness): string {
-  const parts: string[] = []
-  if (readiness.unresolvedStorySlots > 0) {
-    parts.push(
-      readiness.unresolvedStorySlots === 1
-        ? "a story beat is unresolved"
-        : `${readiness.unresolvedStorySlots} story beats are unresolved`
-    )
-  }
-  if (readiness.unresolvedDungeonSlots > 0) {
-    parts.push(
-      readiness.unresolvedDungeonSlots === 1
-        ? "a delve is unresolved"
-        : `${readiness.unresolvedDungeonSlots} delves are unresolved`
-    )
-  }
-  if (readiness.missingEntries > 0) {
-    parts.push(
-      readiness.missingEntries === 1
-        ? "a downtime entry is missing"
-        : `${readiness.missingEntries} downtime entries are missing`
-    )
-  }
-  return parts.join(", ")
-}
-
-/**
- * The day-end warning (FR-5): the soft safety net over an unfinished day.
- * **Resolve All** = "it all happened, I just didn't tick"; **Defer
- * Unresolved** = "we didn't get to those scenes" (beats float to the shelf
- * with a return ticket, delves unclaim — re-claim tomorrow). Both fill every
- * missing downtime entry with a quiet Idle mark and advance. The app never
- * auto-defers — this dialog is the only place either bulk action fires.
- */
-function DayEndWarning({
-  currentDay,
-  readiness,
-  onOpenChange,
-  onEndWith,
-}: {
-  currentDay: number
-  readiness: DayEndReadiness
-  onOpenChange: (open: boolean) => void
-  onEndWith: (mode: EndDayMode) => void
-}) {
-  const hasUnresolved =
-    readiness.unresolvedStorySlots > 0 || readiness.unresolvedDungeonSlots > 0
-  const end = (mode: EndDayMode) => {
-    onOpenChange(false)
-    onEndWith(mode)
-  }
-  return (
-    <AlertDialog open onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            End Day {currentDay} with loose ends?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            Right now {looseEndsLine(readiness)}.{" "}
-            {hasUnresolved ? (
-              <>
-                <strong>Resolve All</strong> marks the beats and delves
-                resolved; <strong>Defer Unresolved</strong> floats the beats to
-                your prepped shelf and unclaims the delves (the dungeons stay in
-                your library — claim them again tomorrow).{" "}
-              </>
-            ) : null}
-            Characters still missing an entry get a quiet Idle mark either way,
-            and the clock moves to Day {currentDay + 1}.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          {hasUnresolved ? (
-            <Button variant="outline" onClick={() => end("defer-unresolved")}>
-              Defer Unresolved
-            </Button>
-          ) : null}
-          <AlertDialogAction onClick={() => end("resolve-all")}>
-            Resolve All
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  )
-}
-
 function ClockMenu({
   currentDay,
   campaignShortId,
   deadlines,
+  unAdvanceUnbinds,
   roster,
   onSkip,
   onUnAdvance,
@@ -703,6 +543,7 @@ function ClockMenu({
   currentDay: number
   campaignShortId: string
   deadlines: DatedDeadline[]
+  unAdvanceUnbinds: UnAdvanceUnbind[]
   roster: RosterRowView[]
   onSkip: (days: number, montage: SkipMontageEntry[]) => void
   onUnAdvance: () => void
@@ -744,35 +585,12 @@ function ClockMenu({
         />
       ) : null}
       {unAdvanceOpen ? (
-        <AlertDialog open onOpenChange={setUnAdvanceOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                Go back to Day {currentDay - 1}?
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Un-advance moves the day counter back and re-opens any deadline
-                resolved after Day {currentDay - 1} (the resolution note
-                survives as a regular update) — nothing else is undone. Beats
-                resolved or deferred when the day ended stay that way (deferred
-                ones wait on your prepped shelf), removed delve claims stay
-                removed, and any Idle marks the day-end fill wrote remain as
-                recorded entries you can edit or delete.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setUnAdvanceOpen(false)
-                  onUnAdvance()
-                }}
-              >
-                Go back
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <UnAdvanceConfirm
+          currentDay={currentDay}
+          unbinds={unAdvanceUnbinds}
+          onOpenChange={setUnAdvanceOpen}
+          onConfirm={onUnAdvance}
+        />
       ) : null}
     </>
   )

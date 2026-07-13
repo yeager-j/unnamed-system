@@ -5,11 +5,9 @@ import { NpcPage } from "@/app/campaigns/[campaignShortId]/_components/world/npc
 import { isStubNpc } from "@/domain/planner/npc"
 import { npcNarrativeTexts } from "@/domain/planner/npc-documents"
 import { buildLinkerOptions } from "@/domain/planner/view/linker"
+import { buildTimelineDayViews } from "@/domain/planner/view/timeline"
 import { arcanaHolders, lineageHolders } from "@/domain/planner/view/world"
-import {
-  buildEntityTimelineView,
-  buildRelationListView,
-} from "@/domain/planner/view/world-detail"
+import { buildRelationListView } from "@/domain/planner/view/world-detail"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadUpdatesForParticipant } from "@/lib/db/queries/load-campaign-updates"
 import {
@@ -71,6 +69,9 @@ export default async function NpcDetailPage({ params }: PageProps) {
     ...updates.flatMap((u) => [
       ...(u.primary ? [u.primary] : []),
       ...u.concerns,
+      ...(u.resolvesArticleId
+        ? [{ kind: "article" as const, id: u.resolvesArticleId }]
+        : []),
     ]),
   ]
   const hits = await loadParticipantHits(campaign.id, refs)
@@ -102,7 +103,7 @@ export default async function NpcDetailPage({ params }: PageProps) {
       linkerOptions={buildLinkerOptions({ npcs, articles, characters })}
       web={{
         relations: buildRelationListView(relations, hits),
-        timeline: buildEntityTimelineView(updates, self, hits),
+        timeline: buildTimelineDayViews(updates, hits, { elide: self }),
         beatMentions: counts.beatMentions,
         currentDay: clock?.currentDay ?? null,
       }}

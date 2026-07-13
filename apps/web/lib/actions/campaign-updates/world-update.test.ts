@@ -65,6 +65,26 @@ describe("authorWorldUpdateAction", () => {
     expect(revalidatePath).toHaveBeenCalled()
   })
 
+  it('accepts a null primary ("the world") and validates only the concerns', async () => {
+    const concerns = [{ kind: "article", id: "art-1" } as const]
+    const result = await authorWorldUpdateAction({
+      campaignId: "client-supplied",
+      primary: null,
+      body: "The party delved the Drowned Stair.",
+      category: null,
+      concerns,
+    })
+
+    expect(result).toEqual(ok({ updateId: "u1" }))
+    expect(validateParticipantRefs).toHaveBeenCalledWith(
+      GATED_CAMPAIGN_ID,
+      concerns
+    )
+    expect(authorWorldUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ primary: null })
+    )
+  })
+
   it("refuses an invalid ref before writing", async () => {
     validateParticipantRefs.mockResolvedValue(err("invalid-ref"))
 

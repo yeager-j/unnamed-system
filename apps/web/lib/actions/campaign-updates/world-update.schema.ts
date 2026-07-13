@@ -10,13 +10,15 @@ const participantRefSchema = z.object({
 
 /**
  * Input schema for {@link import("./world-update").authorWorldUpdateAction}
- * (UNN-579): a slot-less update primaried on the mounting page's entity.
- * Body is required — "empty body only for idle" is the app rule, and a world
- * update is never idle.
+ * (UNN-579): a slot-less update primaried on the mounting page's entity — or
+ * on **no one** (`primary: null` = "the world", D3; Day-End's delve
+ * pre-suggest and ambient events use it — UNN-580). Body is required —
+ * "empty body only for idle" is the app rule, and a world update is never
+ * idle.
  */
 export const AuthorWorldUpdateSchema = z.object({
   campaignId: z.string(),
-  primary: participantRefSchema,
+  primary: participantRefSchema.nullable(),
   body: z.string().trim().min(1).max(10_000),
   category: z.enum(UPDATE_CATEGORIES).nullable(),
   concerns: z.array(participantRefSchema).max(20),

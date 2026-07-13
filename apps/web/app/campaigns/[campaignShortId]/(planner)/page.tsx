@@ -10,6 +10,7 @@ import {
 
 import type { ComposerLastActivity } from "@/app/campaigns/[campaignShortId]/_components/composer/activity-composer"
 import { MemberOverview } from "@/app/campaigns/[campaignShortId]/_components/member-overview"
+import { HiddenInMode } from "@/app/campaigns/[campaignShortId]/_components/planner/capture-mode-gate"
 import type { WorkspaceActivity } from "@/app/campaigns/[campaignShortId]/_components/planner/downtime-workspace"
 import { FirstRunChecklist } from "@/app/campaigns/[campaignShortId]/_components/planner/first-run-checklist"
 import { RosterPanel } from "@/app/campaigns/[campaignShortId]/_components/planner/roster-panel"
@@ -19,7 +20,8 @@ import type {
 } from "@/app/campaigns/[campaignShortId]/_components/planner/run-menus"
 import { Runner } from "@/app/campaigns/[campaignShortId]/_components/planner/runner"
 import { RunnerSelectionProvider } from "@/app/campaigns/[campaignShortId]/_components/planner/runner-selection"
-import { extractChipRefs } from "@/domain/planner/chip"
+import type { UnAdvanceUnbind } from "@/app/campaigns/[campaignShortId]/_components/planner/un-advance-confirm"
+import { extractChipRefs, stripChipTokens } from "@/domain/planner/chip"
 import { isFrozenDay } from "@/domain/planner/clock"
 import { dayEndReadiness } from "@/domain/planner/day-end"
 import { dayProgress, type DaySlotFacts } from "@/domain/planner/day-progress"
@@ -29,9 +31,17 @@ import {
   type ResolvedParticipant,
 } from "@/domain/planner/participant"
 import { seasonOf } from "@/domain/planner/season"
+import {
+  buildDayEndPreSuggests,
+  type DayEndDeadlineAlert,
+} from "@/domain/planner/view/day-end"
 import { buildLinkerOptions } from "@/domain/planner/view/linker"
 import { buildRosterView } from "@/domain/planner/view/roster"
 import { buildRunnerSlotViews } from "@/domain/planner/view/runner"
+import {
+  buildTimelineDayViews,
+  type TimelineUpdateInput,
+} from "@/domain/planner/view/timeline"
 import { auth } from "@/lib/auth"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import {
@@ -51,6 +61,7 @@ import {
   loadActivitiesForSlots,
   loadLastActivityPerCharacter,
   loadResolvedMarkers,
+  loadWorldUpdatesForDay,
   type LoadedActivity,
 } from "@/lib/db/queries/load-campaign-updates"
 import {
@@ -157,6 +168,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     articles,
     datedArticles,
     markers,
+    worldToday,
   ] = await Promise.all([
     loadBeatsForSlots(slotIds),
     loadClaimsForSlots(slotIds),
@@ -169,25 +181,28 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     loadCampaignArticles(campaign.id),
     loadDatedArticles(campaign.id),
     loadResolvedMarkers(campaign.id),
+    clock
+      ? loadWorldUpdatesForDay(campaign.id, clock.currentDay)
+      : Promise.resolve([]),
   ])
 
   // The advance gate's advisory pre-warn (D1/D5): the unresolved deadlines,
   // handed to the runner so End-the-day and Skip can name their blockers
   // before the server's in-transaction check refuses for real.
   const resolvedArticleIds = new Set(markers.map((marker) => marker.articleId))
-  const unresolvedDeadlines = datedArticles
-    .filter(
-      (article) =>
-        article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
-    )
-    .map((article) => ({
-      id: article.id,
-      name: article.name,
-      datedDay: article.datedDay!,
-    }))
+  const unresolvedDatedArticles = datedArticles.filter(
+    (article) =>
+      article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
+  )
+  const unresolvedDeadlines = unresolvedDatedArticles.map((article) => ({
+    id: article.id,
+    name: article.name,
+    datedDay: article.datedDay!,
+  }))
 
   // One campaign-scoped lookup covers every chip/concern label on the page:
-  // the story cards' beat chips and the recorded entries' concern chips.
+  // the story cards' beat chips, the recorded entries' concern chips, and
+  // the Day-End feed's primaries, concerns, and ⚑ anchors.
   const beatChipRefs = new Map(
     beats.map((beat) => [beat.id, extractChipRefs(beat.body)])
   )
@@ -195,6 +210,19 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     ...[...beatChipRefs.values()].flat(),
     ...activities.flatMap((activity) => activity.concerns),
     ...[...lastByCharacter.values()].flatMap((activity) => activity.concerns),
+    ...activities.map(
+      (activity): ParticipantRef => ({
+        kind: "character",
+        id: activity.characterId,
+      })
+    ),
+    ...worldToday.flatMap((update): ParticipantRef[] => [
+      ...(update.primary ? [update.primary] : []),
+      ...update.concerns,
+      ...(update.resolvesArticleId
+        ? [{ kind: "article" as const, id: update.resolvesArticleId }]
+        : []),
+    ]),
   ]
   const hits = await loadParticipantHits(campaign.id, allRefs)
   const resolve = (refs: readonly ParticipantRef[]): ResolvedParticipant[] =>
@@ -299,27 +327,113 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   const progress = clock ? dayProgress(dayFacts) : null
   const readiness = dayEndReadiness(dayFacts)
 
+  // Day-End Capture (UNN-580): today's feed interleaves the slotted
+  // activities with the day's world updates in authored order — one day
+  // group through the shared timeline shaping.
+  const loggedTodayInputs: (TimelineUpdateInput & { authoredAt: Date })[] =
+    clock === null
+      ? []
+      : [
+          ...activities.map((activity) => ({
+            id: activity.id,
+            day: clock.currentDay,
+            body: activity.body,
+            category: activity.category,
+            primary: {
+              kind: "character" as const,
+              id: activity.characterId,
+            },
+            concerns: activity.concerns,
+            isWorld: false,
+            resolvesArticleId: null,
+            authoredAt: activity.authoredAt,
+          })),
+          ...worldToday.map((update) => ({
+            id: update.id,
+            day: clock.currentDay,
+            body: update.body,
+            category: update.category,
+            primary: update.primary,
+            concerns: update.concerns,
+            isWorld: true,
+            resolvesArticleId: update.resolvesArticleId,
+            authoredAt: update.authoredAt,
+          })),
+        ].sort((a, b) => a.authoredAt.getTime() - b.authoredAt.getTime())
+
+  const preSuggests = buildDayEndPreSuggests({
+    resolvedBeats: beats
+      .filter((beat) => beat.resolvedAt !== null)
+      .map((beat) => ({
+        id: beat.id,
+        title: beat.title,
+        tagline: beat.tagline,
+        chips: resolve(beatChipRefs.get(beat.id) ?? []),
+      })),
+    resolvedDelves: claims
+      .filter((claim) => claim.resolvedAt !== null)
+      .map((claim) => ({ slotId: claim.slotId, dungeonName: claim.name })),
+    liveDeadlines: unresolvedDeadlines.map((deadline) => ({
+      articleId: deadline.id,
+      name: deadline.name,
+    })),
+  })
+
+  const deadlineAlerts: DayEndDeadlineAlert[] =
+    clock === null
+      ? []
+      : unresolvedDatedArticles.map((article) => {
+          const excerpt = stripChipTokens(article.body).trim()
+          return {
+            articleId: article.id,
+            name: article.name,
+            state:
+              article.datedDay! <= clock.currentDay
+                ? ("due" as const)
+                : ("looming" as const),
+            daysLeft: article.datedDay! - clock.currentDay,
+            excerpt: excerpt === "" ? null : excerpt.slice(0, 180),
+          }
+        })
+
+  // The un-advance confirm's enumeration (advisory; the server's scoped
+  // unbind stays authoritative): the current day's ⚑ markers, named.
+  const articleNameById = new Map(
+    articles.map((article) => [article.id, article.name])
+  )
+  const unAdvanceUnbinds: UnAdvanceUnbind[] =
+    clock === null
+      ? []
+      : markers
+          .filter((marker) => marker.day === clock.currentDay)
+          .map((marker) => ({
+            articleId: marker.articleId,
+            name: articleNameById.get(marker.articleId) ?? "a deleted deadline",
+          }))
+
   return (
     <RunnerSelectionProvider
       slots={slotViews.map(({ id, kind }) => ({ id, kind }))}
     >
       <SidebarProvider className="min-h-0 flex-1 bg-sidebar">
-        <Sidebar
-          collapsible="none"
-          className="sticky top-14 h-[calc(100svh-3.5rem)] shrink-0"
-        >
-          <RosterPanel
-            campaignName={campaign.name}
-            dayLine={
-              clock
-                ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
-                : null
-            }
-            roster={buildRosterView(placedCharacters)}
-            pipsByCharacter={pipsByCharacter}
-            progress={progress}
-          />
-        </Sidebar>
+        <HiddenInMode mode="day-end">
+          <Sidebar
+            collapsible="none"
+            className="sticky top-14 h-[calc(100svh-3.5rem)] shrink-0"
+          >
+            <RosterPanel
+              campaignName={campaign.name}
+              dayLine={
+                clock
+                  ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
+                  : null
+              }
+              roster={buildRosterView(placedCharacters)}
+              pipsByCharacter={pipsByCharacter}
+              progress={progress}
+            />
+          </Sidebar>
+        </HiddenInMode>
         <SidebarInset className="m-2 ml-0 min-w-0 rounded-xl shadow-sm">
           {clock ? (
             <Runner
@@ -350,6 +464,16 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               shelf={shelf}
               dungeons={runnableDungeons}
               unresolvedDeadlines={unresolvedDeadlines}
+              dayEnd={{
+                glance: {
+                  downtimeCount: activities.length,
+                  worldCount: worldToday.length,
+                },
+                loggedToday: buildTimelineDayViews(loggedTodayInputs, hits),
+                preSuggests,
+                alerts: deadlineAlerts,
+              }}
+              unAdvanceUnbinds={unAdvanceUnbinds}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

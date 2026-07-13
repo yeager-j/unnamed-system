@@ -1,6 +1,9 @@
 "use client"
 
-import { PlusIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  GlobeHemisphereWestIcon,
+  PlusIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 
@@ -43,12 +46,15 @@ export function ParticipantLinker({
   options,
   trigger,
   onPick,
+  onPickWorld,
 }: {
   campaignId: string
   options: LinkerOption[]
   /** The anchor control, e.g. a "New NPC" button or the composer's ghost "+". */
   trigger: React.ReactElement
   onPick?: (ref: ParticipantRef) => void
+  /** When set, a pinned "The world" row offers the no-primary choice (D3). */
+  onPickWorld?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -99,6 +105,29 @@ export function ParticipantLinker({
             {canMint ? null : (
               <CommandEmpty>Nothing in the world web yet.</CommandEmpty>
             )}
+            {onPickWorld !== undefined ? (
+              <CommandGroup forceMount>
+                <CommandItem
+                  forceMount
+                  value="__the-world"
+                  onSelect={() => {
+                    onOpenChange(false)
+                    onPickWorld()
+                  }}
+                >
+                  <GlobeHemisphereWestIcon
+                    aria-hidden
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    The world
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    No primary
+                  </span>
+                </CommandItem>
+              </CommandGroup>
+            ) : null}
             {options.length > 0 ? (
               <CommandGroup heading="From the world web">
                 {options.map((option) => (

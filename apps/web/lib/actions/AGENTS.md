@@ -14,6 +14,13 @@ version-guarded, revalidate. Downstream tickets that need a write surface should
 add to `lib/actions/` rather than inventing a new path (API route, ad-hoc server
 function, etc.). If a use case doesn't fit, raise it.
 
+> **Read-only actions are the sanctioned exception** (UNN-580, user-approved):
+> a client that pages beyond its RSC-rendered first slice fetches through a
+> read action with the same parse → gate shape and **no revalidate** —
+> `campaign-updates/chronicle.ts` (`loadChroniclePageAction`) is the
+> precedent. One transport style, one gate; don't mint route handlers for
+> paged reads.
+
 ## Directory layout — group by aggregate
 
 Actions are grouped into a folder per **aggregate** (the persisted entity they

@@ -113,8 +113,8 @@ export type EditActivityError =
  * (D3: nothing moves, nothing syncs). Body/category LWW; concerns replaced
  * wholesale. Slotted rows keep the current-day guard (the slot's day is the
  * row's day) and their **category** (the slotted-⇒-categorized CHECK; a null
- * is only legal on world updates — UNN-579); re-dating is out of scope here —
- * it is defined as *detaching* (write map), a Chronicle-side affordance.
+ * is only legal on world updates — UNN-579); re-dating lives in
+ * {@link redateUpdate} — it is defined as *detaching*, a history edit.
  */
 export async function editActivity(input: {
   campaignId: string
@@ -148,7 +148,12 @@ export async function editActivity(input: {
   })
 }
 
-/** Deletes a recorded activity (concerns cascade). Same current-day guard as {@link editActivity}. */
+/**
+ * Deletes a recorded activity (concerns cascade). Same current-day guard as
+ * {@link editActivity}. Deliberately **no ⚑ guard**: resolution is derived
+ * from marker existence (D5), so deleting a marker IS re-opening its
+ * deadline — the tautology the design wants, not an oversight.
+ */
 export async function deleteActivity(input: {
   campaignId: string
   updateId: string
@@ -174,12 +179,13 @@ export async function deleteActivity(input: {
  * Authors a **world update** (§5's "Author world update"; phase 6 mounts it
  * on entity pages, phase 7 adds Day-End and the Chronicle): a slot-less
  * update row stamped on the clock's `currentDay` — mid-session capture is a
- * present-tense act (D10) — primaried on the mounting page's entity, with an
- * optional category (FR-13's filter needs it) and concern fan-out.
+ * present-tense act (D10) — primaried on the mounting page's entity or on
+ * **nothing** (`primary: null` = "the world", D3), with an optional category
+ * (FR-13's filter needs it) and concern fan-out.
  */
 export async function authorWorldUpdate(input: {
   campaignId: string
-  primary: Pick<ParticipantRef, "kind" | "id">
+  primary: Pick<ParticipantRef, "kind" | "id"> | null
   body: string
   category: UpdateCategory | null
   concerns: readonly Pick<ParticipantRef, "kind" | "id">[]
@@ -196,8 +202,8 @@ export async function authorWorldUpdate(input: {
       .values({
         campaignId: input.campaignId,
         day: clock.currentDay,
-        primaryKind: input.primary.kind,
-        primaryId: input.primary.id,
+        primaryKind: input.primary?.kind ?? null,
+        primaryId: input.primary?.id ?? null,
         body: input.body,
         category: input.category,
         slotId: null,
@@ -306,6 +312,119 @@ export async function reopenDeadline(input: {
   return unbound.length === 0 ? err("not-resolved") : ok(undefined)
 }
 
+export type RedateUpdateError =
+  | "update-not-found"
+  | "update-resolves-deadline"
+  | "clock-not-found"
+  | "future-day"
+
+/**
+ * Re-dates an update — a deliberate history edit (FR-12), so no current-day
+ * guard; only the future is off-limits (every write stamps ≤ `currentDay`,
+ * and the Chronicle is the past). Re-dating a slotted row **detaches** it
+ * (D3: `slotId` cleared, category and primary kept — a slot's day is a fact,
+ * not an opinion), making it an ordinary world update on the new day.
+ *
+ * The one refusal with teeth: **a ⚑ marker cannot be re-dated**
+ * (`update-resolves-deadline` — unbind first). This is the marker⟷anchor
+ * bind's update-side half (D5): a marker that escaped un-advance's
+ * `day > N` boundary would strand a "resolved" deadline. The anchor-side
+ * half is `patchArticleDate`'s `"article-resolved"` refusal
+ * (`lib/db/writes/campaign-world.ts`).
+ */
+export async function redateUpdate(input: {
+  campaignId: string
+  updateId: string
+  day: number
+}): Promise<Result<void, RedateUpdateError>> {
+  return guardMany(async (tx) => {
+    const row = await updateInCampaign(tx, input.campaignId, input.updateId)
+    if (!row) return err("update-not-found")
+    if (row.resolvesArticleId !== null) return err("update-resolves-deadline")
+
+    const [clock] = await tx
+      .select({ currentDay: campaignClock.currentDay })
+      .from(campaignClock)
+      .where(eq(campaignClock.campaignId, input.campaignId))
+    if (!clock) return err("clock-not-found")
+    if (input.day > clock.currentDay) return err("future-day")
+
+    await tx
+      .update(campaignUpdate)
+      .set({ day: input.day, slotId: null })
+      .where(eq(campaignUpdate.id, input.updateId))
+    return ok(undefined)
+  })
+}
+
+export type BindDeadlineMarkerError =
+  | "update-not-found"
+  | "update-is-slotted"
+  | "update-already-marker"
+  | "article-not-found"
+  | "not-a-deadline"
+  | "already-resolved"
+
+/**
+ * Binds an **existing** world update to a deadline as its ⚑ marker — the
+ * "↳ Resolves a deadline" control (FR-12). A separate write from
+ * {@link resolveDeadline} on purpose: that one is an idempotent *insert*
+ * whose conflicts are swallowed; this one *mutates* a row the DM points at,
+ * so every conflict is reported. Re-binding the same pair is the one
+ * idempotent carve-out (double-click stance). Slotted rows refuse
+ * (`marker_is_world` — re-date/detach first); a second marker on the article
+ * refuses (`already-resolved`, the partial unique's rule), with the
+ * concurrent double-bind mapped from its 23505.
+ */
+export async function bindDeadlineMarker(input: {
+  campaignId: string
+  articleId: string
+  updateId: string
+}): Promise<Result<void, BindDeadlineMarkerError>> {
+  return mapBindRaceToAlreadyResolved(
+    guardMany(async (tx) => {
+      const row = await updateInCampaign(tx, input.campaignId, input.updateId)
+      if (!row) return err("update-not-found")
+      if (row.resolvesArticleId === input.articleId) return ok(undefined)
+      if (row.resolvesArticleId !== null) return err("update-already-marker")
+      if (row.slotId !== null) return err("update-is-slotted")
+
+      const [article] = await tx
+        .select({
+          datedKind: campaignArticle.datedKind,
+          deletedAt: campaignArticle.deletedAt,
+        })
+        .from(campaignArticle)
+        .where(
+          and(
+            eq(campaignArticle.id, input.articleId),
+            eq(campaignArticle.campaignId, input.campaignId)
+          )
+        )
+      if (!article || article.deletedAt !== null)
+        return err("article-not-found")
+      if (article.datedKind !== "deadline") return err("not-a-deadline")
+
+      const [marker] = await tx
+        .select({ id: campaignUpdate.id })
+        .from(campaignUpdate)
+        .where(
+          and(
+            eq(campaignUpdate.campaignId, input.campaignId),
+            eq(campaignUpdate.resolvesArticleId, input.articleId)
+          )
+        )
+      if (marker) return err("already-resolved")
+
+      await tx
+        .update(campaignUpdate)
+        .set({ resolvesArticleId: input.articleId })
+        .where(eq(campaignUpdate.id, input.updateId))
+      return ok(undefined)
+    })
+  )
+}
+
 /**
  * Resolves the slot (campaign-scoped) and asserts it sits on the clock's
  * current day — the recording guard. Returns the slot's `day`, the value the
@@ -339,9 +458,16 @@ async function updateInCampaign(
   executor: WriteExecutor,
   campaignId: string,
   updateId: string
-): Promise<{ id: string; slotId: string | null } | undefined> {
+): Promise<
+  | { id: string; slotId: string | null; resolvesArticleId: string | null }
+  | undefined
+> {
   const [row] = await executor
-    .select({ id: campaignUpdate.id, slotId: campaignUpdate.slotId })
+    .select({
+      id: campaignUpdate.id,
+      slotId: campaignUpdate.slotId,
+      resolvesArticleId: campaignUpdate.resolvesArticleId,
+    })
     .from(campaignUpdate)
     .where(
       and(
@@ -388,4 +514,28 @@ function isSlotPrimaryUniqueViolation(error: unknown): boolean {
   if (typeof error !== "object" || error === null) return false
   const { code, constraint } = error as { code?: string; constraint?: string }
   return code === "23505" && constraint === "campaignUpdate_slot_primary_unique"
+}
+
+/**
+ * Maps the `resolvesArticleId` partial unique's violation to
+ * `"already-resolved"` — the concurrent double-bind the in-transaction
+ * pre-check can't see (the {@link mapRecordRaceToAlreadyRecorded} pattern).
+ */
+async function mapBindRaceToAlreadyResolved<T, E>(
+  write: Promise<Result<T, E | "already-resolved">>
+): Promise<Result<T, E | "already-resolved">> {
+  try {
+    return await write
+  } catch (error) {
+    if (isResolvesArticleUniqueViolation(error)) return err("already-resolved")
+    throw error
+  }
+}
+
+function isResolvesArticleUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const { code, constraint } = error as { code?: string; constraint?: string }
+  return (
+    code === "23505" && constraint === "campaignUpdate_resolvesArticle_unique"
+  )
 }

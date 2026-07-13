@@ -18,10 +18,8 @@ import {
   useNpcNarrativeAutoSave,
 } from "@/domain/planner/use-npc-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
-import type {
-  EntityTimelineDayView,
-  RelationRowView,
-} from "@/domain/planner/view/world-detail"
+import type { TimelineDayView } from "@/domain/planner/view/timeline"
+import type { RelationRowView } from "@/domain/planner/view/world-detail"
 import type { Lineage, NarrativeTextField } from "@/domain/vocab"
 import { campaignNpcsPath } from "@/lib/paths"
 
@@ -47,7 +45,7 @@ export interface NpcPageNpc {
 /** What the Overview pane renders besides the pickers. */
 export interface NpcPageWeb {
   relations: RelationRowView[]
-  timeline: EntityTimelineDayView[]
+  timeline: TimelineDayView[]
   beatMentions: number
   currentDay: number | null
 }
