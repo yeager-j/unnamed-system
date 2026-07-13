@@ -7,7 +7,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..")
 loadEnvConfig(repoRoot, process.env.NODE_ENV !== "production", console, true)
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@workspace/ui"],
+  transpilePackages: ["@workspace/ui", "@workspace/editor"],
   /**
    * Auto-memoizes components and hook return values via
    * `babel-plugin-react-compiler`. Removes the need for hand-rolled
