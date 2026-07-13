@@ -42,8 +42,13 @@ export const EditActivitySchema = z
     campaignId: z.string(),
     updateId: z.string(),
     ...activityContent,
+    /** Nullable for world updates (category optional there — UNN-579); the
+     *  write refuses a null on a slotted row (`category-required`). */
+    category: categorySchema.nullable(),
   })
-  .refine(bodyMatchesCategory, { message: "empty body requires idle" })
+  .refine((input) => input.body.trim() !== "" || input.category === "idle", {
+    message: "empty body requires idle",
+  })
 export type EditActivityInput = z.input<typeof EditActivitySchema>
 
 export const DeleteActivitySchema = z.object({
@@ -60,3 +65,4 @@ export type ActivityActionError =
   | "not-current-day"
   | "already-recorded"
   | "update-not-found"
+  | "category-required"

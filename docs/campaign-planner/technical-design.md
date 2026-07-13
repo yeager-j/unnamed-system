@@ -421,6 +421,50 @@ small table.
   (start the clock → add your first beats → mint the NPCs you already know);
   pre-clock Calendar/Chronicle point home.
 
+### D11 — Folder trees for world entities (adjacency list; Unfiled stays derived)
+
+Articles and NPCs are organized in **freeform nested folder trees**
+(Obsidian-like), one forest per surface — they are separate things on separate
+screens, so an Article folder never holds an NPC. This amends phase 6, which
+originally specced flat lists; the `type` tag survives as an **orthogonal**
+scheme (the tree is navigation, `type` is a filter chip — two schemes, not two
+competing taxonomies).
+
+- **Representation: adjacency list.** One `campaignFolder` table — a folder is
+  a folder; *which tree* is a `kind` parameter (`article | npc`), not a reason
+  to fork the table (§0) — with a nullable `parentId` self-FK. The alternatives
+  (materialized path/ltree, closure table, nested sets) buy fast subtree
+  *reads* at the cost of expensive *moves*, which is backwards for a
+  reorganize-freely UI and moot at campaign scale: the read is always the
+  **whole forest** (one `WHERE campaignId AND kind` query) assembled by a pure
+  `domain/planner` tree builder. A move is a single-row `parentId` update.
+- **Kind agreement is a DB fact:** `UNIQUE (id, kind)` lets the self-FK be the
+  composite `(parentId, kind) → (id, kind)`, making a cross-kind parent
+  unrepresentable. Item membership (`folderId` must point at a same-kind,
+  same-campaign folder) is action-validated per the §5 boundary rule.
+- **Unfiled stays derived** (the `campaignBeat.sessionId` precedent): items
+  carry a nullable `folderId`, `ON DELETE SET NULL`; never a magic row.
+- **Cycles:** the self-FK doesn't forbid them. The move action rejects a new
+  parent that is a descendant of the moved folder (ancestor walk — cheap at
+  this scale); the tree builder treats any node whose ancestry never reaches a
+  root as Unfiled, so a slipped cycle degrades visibly instead of vanishing
+  content.
+- **Delete = cascade folders, float contents:** the self-FK's
+  `ON DELETE CASCADE` removes a subtree's folders in one statement while each
+  folder's SET-NULL contents float to Unfiled. Folders **hard-delete** —
+  purely organizational, nothing historical references one (unlike Articles'
+  tombstones). Confirm shows contained counts.
+- **Ordering is alphabetical** — no position column. Manual ordering
+  (fractional index) is an add-later that touches no existing rows.
+- **v1 UI:** recursive disclosure rows; "Move to…" context-menu picker rather
+  than drag-and-drop (DnD layers on later without schema change);
+  expand/collapse state client-local.
+- **Session Notes parity is a follow-up (UNN-617):** `campaignSession` stays
+  flat for now; the follow-up absorbs sessions into this table
+  (`kind = 'session'` — sessions are documented as purely organizational) and
+  repoints `campaignBeat.sessionId` → `folderId`. `campaignFolder` is designed
+  to absorb that without change.
+
 ## 2. UX deltas from the design handoff
 
 Accepted in the validation pass; the handoff mocks remain authoritative for
@@ -446,6 +490,10 @@ visuals, these amend behavior:
   menu (D9): pick from the campaign's dungeons, claim the slot, extend by
   claiming the next slot if the party runs long. A one-click **Idle** mark
   sits on each character's card for quiet evenings.
+- **The Articles + NPCs rails are folder trees, not flat lists** (D11):
+  Obsidian-like nesting, alphabetical, "Move to…" context menu in v1 (no
+  drag-and-drop), expand state client-local. The type filter remains, as a
+  chip over whatever the tree shows.
 - The handoff README's "the app silently adjudicates… 5 practice activities →
   a Talent" line is **stale** (pre-dates the rewards-removal decision); the
   PRD carries the erratum.
@@ -461,7 +509,7 @@ campaignClock         campaignId PK/FK · currentDay int (≥1) · slotTemplate 
 campaignSlot          id · campaignId · day int (immutable) · ordinal int · label
                       · UNIQUE (campaignId, day, ordinal) · INDEX (campaignId, day)
 campaignSeason        campaignId · day · label · UNIQUE (campaignId, day)
-campaignSession       id · campaignId · name · timestamps          (flat; no nesting)
+campaignSession       id · campaignId · name · timestamps          (flat; folder-tree parity → UNN-617, D11)
 campaignBeat          id · campaignId · sessionId FK→session ON DELETE SET NULL (null ⇒ virtual "Unfiled")
                       · title · tagline · body (markdown) · scheduledSlotId FK→slot ON DELETE SET NULL
                       · floating bool · deferredFromSlotId? FK→slot ON DELETE SET NULL
@@ -475,11 +523,20 @@ campaignBeatMention   beatId FK cascade · participantKind · participantId
                       · PK (beatId, participantKind, participantId)
                       · INDEX (participantKind, participantId)
                       (derived from body chips on autosave; rebuildable)
-campaignArticle       id · campaignId · name · type (label-only text) · body (markdown)
+campaignFolder        id · campaignId · kind article|npc · parentId? · name · timestamps
+                      · UNIQUE (id, kind)                                  (composite-FK target)
+                      · FK (parentId, kind) → (id, kind) ON DELETE CASCADE (cross-kind parent
+                        unrepresentable; deleting a folder cascades its subtree's folders)
+                      · INDEX (campaignId, kind)
+                      (D11: one forest per surface; hard-deletes — organizational, like sessions;
+                       cycle guard is the move action's ancestor walk, builder degrades to Unfiled)
+campaignArticle       id · campaignId · folderId? FK→campaignFolder ON DELETE SET NULL (null ⇒ Unfiled)
+                      · name · type (label-only text) · body (markdown)
                       · datedDay? int · datedKind? event|deadline · deletedAt? · timestamps
                       · CHECK (datedDay IS NULL) = (datedKind IS NULL)
                       · INDEX (campaignId, datedKind, datedDay)
 campaignNpc           id (= entity id; FK→entity, no cascade) · campaignId · arcana? · lineageKey?
+                      · folderId? FK→campaignFolder ON DELETE SET NULL (null ⇒ Unfiled)
                       · bondTier int 0..4 · bondTierChangedAt? · timestamps
                       · UNIQUE (campaignId, lineageKey) WHERE lineageKey IS NOT NULL
                       (Arcana: advisory only — picker warning, no constraint)
@@ -534,7 +591,9 @@ downtime), `dayProgress`, `deadlineState`,
 (inherit-forward scan), `bondProgress`/`bondEligibility` (one-per-PC-per-day
 cap), `dayEndReadiness`, `availabilityFold` (origin + bond lanes →
 `narrativeGate` map; storyTier 0 pre-clock), `isSetAside`, `isStub`,
-`isFrozenDay`. Plus per-surface view builders (`view/runner.ts`,
+`isFrozenDay`, and the D11 folder-forest builder (rows → alphabetical tree +
+derived Unfiled; unrooted/cyclic nodes degrade to Unfiled) with its
+`isDescendant` cycle guard. Plus per-surface view builders (`view/runner.ts`,
 `view/calendar.ts`, `view/chronicle.ts`, …) per the `domain/character/view`
 precedent, the chip-token grammar module (serialize/parse/extract — also
 feeds the `campaignBeatMention` maintenance), and the campaign-scoped
@@ -581,6 +640,10 @@ campaign's names into another.
 | Quick-mint NPC / Article (linker or surfaces) | article row, or entity + subtype dual-mint (one tx) | tx |
 | Assign Arcana / Lineage | subtype columns | Lineage partial unique; Arcana advisory warning |
 | Delete NPC / Article | set `deletedAt` (entity for NPCs) + clear arcana/lineage + hard-delete touching relations | tx; confirm shows ref counts |
+| Folder create / rename | folder row | parent must match campaign + kind (composite FK carries kind) |
+| Folder move | `parentId` update | reject a parent that is a descendant of the moved folder (D11) |
+| Folder delete | delete row (self-FK cascades subtree; contents float to Unfiled via SET NULL) | confirm shows contained counts |
+| Move Article / NPC to folder | `folderId` update | folder must match campaign + kind |
 | Relations add/remove; "also add reverse" | edge rows | LWW |
 | Prose/title autosave (+ mention re-extract for beats) | body columns + `campaignBeatMention` sync | LWW, no revalidate |
 | Delete campaign (existing) | now also soft-deletes the campaign's NPC entities (subtypes cascade; substrate rows must not orphan) | tx |
@@ -672,9 +735,11 @@ the world substrate is pulled forward).
    set-aside disclosure, defer provenance
 5. **Calendar + dated Articles** — facet, ribbon (clamped), agenda,
    day-picker scheduling, add-days, seasons, events
-6. **Entity pages + relations + full authoring** — pickers (Lineage enforced,
-   Arcana advisory), stub badge, the directed web, "Referenced in N beats",
-   entity-page composer mount
+6. **Entity pages + relations + full authoring** — folder trees for the
+   Articles/NPCs rails (D11: `campaignFolder` + `folderId` columns, tree
+   builder, folder CRUD/move actions), pickers (Lineage enforced, Arcana
+   advisory), stub badge, the directed web, "Referenced in N beats",
+   entity-page composer mount. Session Notes parity follows as UNN-617
 7. **Day-End Capture + Chronicle + per-entity timelines** — pre-suggests,
    ⚑ resolution, un-advance UX, Chronicle composer mount
 8. **Bond + story tier + Atlas gating** — **behind S3** (atlas re-point to

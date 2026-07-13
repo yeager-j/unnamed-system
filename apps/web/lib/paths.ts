@@ -39,8 +39,14 @@ export const campaignChroniclePath = (shortId: string) =>
 export const campaignNpcsPath = (shortId: string) =>
   `${campaignPath(shortId)}/npcs`
 
+export const campaignNpcPath = (shortId: string, entityId: string) =>
+  `${campaignNpcsPath(shortId)}/${entityId}`
+
 export const campaignArticlesPath = (shortId: string) =>
   `${campaignPath(shortId)}/articles`
+
+export const campaignArticlePath = (shortId: string, articleId: string) =>
+  `${campaignArticlesPath(shortId)}/${articleId}`
 
 export const encounterConsolePath = (
   campaignShortId: string,

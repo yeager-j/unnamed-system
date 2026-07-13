@@ -1,6 +1,10 @@
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm"
+import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm"
 
-import type { ParticipantKind } from "@/domain/planner/participant"
+import type {
+  ParticipantKind,
+  ParticipantRef,
+} from "@/domain/planner/participant"
+import type { EntityTimelineUpdateInput } from "@/domain/planner/view/world-detail"
 import { db } from "@/lib/db/client"
 import {
   campaignUpdate,
@@ -143,6 +147,69 @@ export async function loadLastActivityPerCharacter(
       },
     ])
   )
+}
+
+/**
+ * The per-entity timeline read (phase 6, PRD FR-10): every update where the
+ * ref is **primary or concerned** — the union the two indexes were built for
+ * (§3) — ordered `(day, authoredAt)`, concerns folded in for the participant
+ * strip. Capped to the **newest** 200 (fetched descending so the cap trims
+ * history, not the present, then re-sorted chronological for display); real
+ * pagination is the Chronicle's (phase 7).
+ */
+export async function loadUpdatesForParticipant(
+  campaignId: string,
+  ref: Pick<ParticipantRef, "kind" | "id">
+): Promise<EntityTimelineUpdateInput[]> {
+  const concernedIds = db
+    .select({ updateId: campaignUpdateConcern.updateId })
+    .from(campaignUpdateConcern)
+    .where(
+      and(
+        eq(campaignUpdateConcern.participantKind, ref.kind),
+        eq(campaignUpdateConcern.participantId, ref.id)
+      )
+    )
+  const rows = await db
+    .select({
+      id: campaignUpdate.id,
+      day: campaignUpdate.day,
+      body: campaignUpdate.body,
+      category: campaignUpdate.category,
+      primaryKind: campaignUpdate.primaryKind,
+      primaryId: campaignUpdate.primaryId,
+      slotId: campaignUpdate.slotId,
+    })
+    .from(campaignUpdate)
+    .where(
+      and(
+        eq(campaignUpdate.campaignId, campaignId),
+        or(
+          and(
+            eq(campaignUpdate.primaryKind, ref.kind),
+            eq(campaignUpdate.primaryId, ref.id)
+          ),
+          inArray(campaignUpdate.id, concernedIds)
+        )
+      )
+    )
+    .orderBy(desc(campaignUpdate.day), desc(campaignUpdate.authoredAt))
+    .limit(200)
+  rows.reverse()
+
+  const concernsByUpdate = await loadConcerns(rows.map((row) => row.id))
+  return rows.map((row) => ({
+    id: row.id,
+    day: row.day,
+    body: row.body,
+    category: row.category,
+    primary:
+      row.primaryKind === null
+        ? null
+        : { kind: row.primaryKind, id: row.primaryId! },
+    concerns: concernsByUpdate.get(row.id) ?? [],
+    isWorld: row.slotId === null,
+  }))
 }
 
 async function loadConcerns(

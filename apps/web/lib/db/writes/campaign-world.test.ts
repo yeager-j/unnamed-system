@@ -8,9 +8,9 @@ import { err, ok } from "@workspace/game-v2/kernel/result"
 // transaction behavior that matters is: the callback runs, and a throw inside
 // it rolls back + propagates — `rolledBack` records the throw.
 type RecordedCall = {
-  op: "insert" | "update"
+  op: "insert" | "update" | "delete"
   table: unknown
-  payload: unknown
+  payload?: unknown
   inTx: boolean
 }
 
@@ -44,6 +44,9 @@ function makeExecutor() {
     select: () => ({
       from: (table: unknown) => ({
         where: () => Promise.resolve(nextRows(table)),
+        innerJoin: () => ({
+          where: () => Promise.resolve(nextRows(table)),
+        }),
       }),
     }),
     insert: (table: unknown) => ({
@@ -69,6 +72,12 @@ function makeExecutor() {
           }
         },
       }),
+    }),
+    delete: (table: unknown) => ({
+      where: () => {
+        calls.push({ op: "delete", table, inTx })
+        return thenable(null)
+      },
     }),
     transaction: async (run: (tx: unknown) => Promise<unknown>) => {
       inTx = true
@@ -102,6 +111,7 @@ const {
   mintArticle,
   mintNpc,
   setArticleDate,
+  setNpcLineage,
   softDeleteArticle,
   softDeleteNpc,
 } = await import("./campaign-world")
@@ -180,7 +190,7 @@ describe("softDeleteNpc", () => {
     })
 
     expect(result).toEqual(ok(undefined))
-    expect(calls).toHaveLength(2)
+    expect(calls).toHaveLength(3)
     expect(calls[0]).toMatchObject({
       op: "update",
       table: schema.campaignNpc,
@@ -192,6 +202,12 @@ describe("softDeleteNpc", () => {
     expect(
       (calls[1]!.payload as { deletedAt: unknown }).deletedAt
     ).toBeInstanceOf(Date)
+    // Touching relations hard-delete in the same transaction (D4 — UNN-579).
+    expect(calls[2]).toMatchObject({
+      op: "delete",
+      table: schema.campaignRelation,
+      inTx: true,
+    })
   })
 
   it("errs on a zero-row subtype match and never touches the entity (write boundary)", async () => {
@@ -208,6 +224,22 @@ describe("softDeleteNpc", () => {
   })
 })
 
+describe("setNpcLineage", () => {
+  it("refuses a tombstoned NPC — a stale page must not lock a Lineage onto a hidden row", async () => {
+    // liveNpcInCampaign's subtype⋈entity read: row exists but is tombstoned.
+    queue(schema.campaignNpc, [{ entityId: ENTITY_ID, deletedAt: new Date() }])
+
+    const result = await setNpcLineage({
+      campaignId: "camp-1",
+      entityId: ENTITY_ID,
+      lineageKey: "warlock",
+    })
+
+    expect(result).toEqual(err("npc-not-found"))
+    expect(calls).toHaveLength(0)
+  })
+})
+
 describe("softDeleteArticle", () => {
   it("tombstones a scoped article", async () => {
     const result = await softDeleteArticle({
@@ -219,6 +251,12 @@ describe("softDeleteArticle", () => {
     expect(
       (calls[0]!.payload as { deletedAt: unknown }).deletedAt
     ).toBeInstanceOf(Date)
+    // Touching relations hard-delete in the same transaction (D4 — UNN-579).
+    expect(calls[1]).toMatchObject({
+      op: "delete",
+      table: schema.campaignRelation,
+      inTx: true,
+    })
   })
 
   it("errs on a zero-row match (missing or cross-campaign id)", async () => {

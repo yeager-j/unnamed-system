@@ -13,10 +13,13 @@ export type {
   AttributeKey,
   AttributeScores,
   DamageType,
+  Lineage,
   SkillKind,
 } from "@workspace/game-v2/kernel/vocab"
 export {
   AFFINITY_DAMAGE_TYPES,
   ATTRIBUTE_KEYS,
+  LINEAGES,
 } from "@workspace/game-v2/kernel/vocab"
+export type { NarrativeTextField } from "@workspace/game-v2/narrative"
 export type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"

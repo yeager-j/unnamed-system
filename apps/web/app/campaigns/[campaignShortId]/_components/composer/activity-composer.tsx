@@ -41,6 +41,7 @@ import {
   editActivityAction,
   recordActivityAction,
 } from "@/lib/actions/campaign-updates/activity"
+import { authorWorldUpdateAction } from "@/lib/actions/campaign-updates/world-update"
 import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
@@ -79,7 +80,8 @@ const CATEGORY_ICONS: Record<
 export interface ComposerEditTarget {
   updateId: string
   body: string
-  category: UpdateCategory
+  /** Null only on world updates — a slotted activity always carries one. */
+  category: UpdateCategory | null
   concerns: ParticipantRef[]
 }
 
@@ -91,39 +93,54 @@ export interface ComposerLastActivity {
 }
 
 /**
- * The **activity composer** (handoff "the core primitive"; D10 mounts it in
- * four places across the phases — the downtime workspace is the first):
- * prose, a category, and linked concerns, recorded as one `campaignUpdate`
- * row. Carries §2's copy affordances: category pre-fill from the character's
- * previous entry, "repeat last activity", and "copy to other characters"
- * (one row each, D3). Editing reuses the same surface over the same row.
+ * What a new entry writes — the one distinction the composer carries (D3's
+ * "one update stream" made visible): a **slot** target records a downtime
+ * activity (category required; copy/repeat affordances) and a **world**
+ * target authors a slot-less update primaried on an entity page's subject
+ * (category optional, stamped on `currentDay`).
+ */
+export type ComposerTarget =
+  | {
+      kind: "slot"
+      slotId: string
+      slotLabel: string
+      characterId: string
+      characterName: string
+      /** Roster minus this character — the copy-to-others targets. */
+      otherCharacters: { id: string; name: string }[]
+      lastActivity: ComposerLastActivity | null
+    }
+  | {
+      kind: "world"
+      primary: Pick<ParticipantRef, "kind" | "id">
+      primaryLabel: string
+      currentDay: number
+    }
+
+/**
+ * The **update composer** (handoff "the core primitive"; D10 mounts it in
+ * four places across the phases): prose, a category, and linked concerns,
+ * recorded as one `campaignUpdate` row. The slot target carries §2's copy
+ * affordances (category pre-fill, "repeat last activity", "copy to other
+ * characters" — one row each, D3); the world target is the entity-page /
+ * Chronicle mount. Editing reuses the same surface over the same row.
  */
 export function ActivityComposer({
   campaignId,
-  slotId,
-  slotLabel,
-  characterId,
-  characterName,
+  target,
   linkerOptions,
-  otherCharacters,
-  lastActivity,
   edit,
   onDone,
 }: {
   campaignId: string
-  slotId: string
-  slotLabel: string
-  characterId: string
-  characterName: string
+  target: ComposerTarget
   linkerOptions: LinkerOption[]
-  /** Roster minus this character — the copy-to-others targets. */
-  otherCharacters: { id: string; name: string }[]
-  lastActivity: ComposerLastActivity | null
   /** When set, the composer edits this entry instead of recording a new one. */
   edit?: ComposerEditTarget
   /** Called after a successful record/edit (and on edit-cancel). */
   onDone?: () => void
 }) {
+  const lastActivity = target.kind === "slot" ? target.lastActivity : null
   const [body, setBody] = useState(edit?.body ?? "")
   const [category, setCategory] = useState<UpdateCategory | null>(
     edit?.category ?? lastActivity?.category ?? null
@@ -134,7 +151,9 @@ export function ActivityComposer({
   const [copyIds, setCopyIds] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
 
-  const canSubmit = body.trim() !== "" && category !== null
+  const categoryRequired = target.kind === "slot"
+  const canSubmit =
+    body.trim() !== "" && (!categoryRequired || category !== null)
 
   const submit = () => {
     if (!canSubmit) return
@@ -143,13 +162,13 @@ export function ActivityComposer({
         async () => {
           const content = {
             body: body.trim(),
-            category: category!,
             concerns: concerns.map(({ kind, id }) => ({ kind, id })),
           }
           if (edit) {
             const result = await editActivityAction({
               campaignId,
               updateId: edit.updateId,
+              category,
               ...content,
             })
             if (!result.ok) {
@@ -158,12 +177,13 @@ export function ActivityComposer({
               )
               return
             }
-          } else {
+          } else if (target.kind === "slot") {
             const result = await recordActivityAction({
               campaignId,
-              slotId,
-              characterId,
+              slotId: target.slotId,
+              characterId: target.characterId,
               alsoCharacterIds: [...copyIds],
+              category: category!,
               ...content,
             })
             if (!result.ok) {
@@ -177,6 +197,20 @@ export function ActivityComposer({
               toast.info(
                 `Skipped ${result.value.skippedCharacterIds.length} — already recorded.`
               )
+            }
+          } else {
+            const result = await authorWorldUpdateAction({
+              campaignId,
+              primary: target.primary,
+              category,
+              ...content,
+            })
+            if (!result.ok) {
+              toast.error(
+                ACTIVITY_ERROR_COPY[result.error] ??
+                  "Couldn't record. Try again."
+              )
+              return
             }
           }
           setBody("")
@@ -197,6 +231,19 @@ export function ActivityComposer({
     setConcerns(lastActivity.concerns)
   }
 
+  const contextLabel =
+    target.kind === "slot"
+      ? target.slotLabel
+      : `Day ${target.currentDay} · ${target.primaryLabel}`
+  const placeholder =
+    target.kind === "slot"
+      ? `What did ${target.characterName} do?`
+      : "What just happened, while it's fresh…"
+  const bodyAriaLabel =
+    target.kind === "slot"
+      ? `${target.characterName}'s activity`
+      : `Update about ${target.primaryLabel}`
+
   const addConcern = (ref: ParticipantRef) =>
     setConcerns((current) =>
       current.some((c) => c.kind === ref.kind && c.id === ref.id)
@@ -208,7 +255,7 @@ export function ActivityComposer({
     <div className="rounded-lg border bg-input/30 transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50">
       <div className="flex items-center justify-between px-3 pt-2">
         <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-          {edit ? `Editing · ${slotLabel}` : slotLabel}
+          {edit ? `Editing · ${contextLabel}` : contextLabel}
         </span>
         {!edit && lastActivity ? (
           <Button
@@ -225,8 +272,8 @@ export function ActivityComposer({
       <Textarea
         value={body}
         onChange={(event) => setBody(event.target.value)}
-        placeholder={`What did ${characterName} do?`}
-        aria-label={`${characterName}'s activity`}
+        placeholder={placeholder}
+        aria-label={bodyAriaLabel}
         className="min-h-21 resize-none rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
       />
       <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
@@ -277,14 +324,20 @@ export function ActivityComposer({
           )
         })}
         <div className="ml-auto flex items-center gap-1.5">
-          {!edit && otherCharacters.length > 0 ? (
+          {!edit &&
+          target.kind === "slot" &&
+          target.otherCharacters.length > 0 ? (
             <CopyToOthers
-              otherCharacters={otherCharacters}
+              otherCharacters={target.otherCharacters}
               copyIds={copyIds}
               onChange={setCopyIds}
             />
           ) : null}
-          <CategoryPicker category={category} onPick={setCategory} />
+          <CategoryPicker
+            category={category}
+            onPick={setCategory}
+            clearable={!categoryRequired}
+          />
           <Button
             size="icon"
             aria-label={edit ? "Save changes" : "Record activity"}
@@ -302,9 +355,12 @@ export function ActivityComposer({
 function CategoryPicker({
   category,
   onPick,
+  clearable = false,
 }: {
   category: UpdateCategory | null
-  onPick: (category: UpdateCategory) => void
+  onPick: (category: UpdateCategory | null) => void
+  /** World updates carry an optional category; activities require one. */
+  clearable?: boolean
 }) {
   return (
     <DropdownMenu>
@@ -318,7 +374,9 @@ function CategoryPicker({
       >
         <TagIcon className="size-4" />
         {category === null
-          ? "Activity type"
+          ? clearable
+            ? "Category"
+            : "Activity type"
           : ACTIVITY_CATEGORY_LABELS[category]}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" className="min-w-72">
@@ -339,6 +397,12 @@ function CategoryPicker({
             </DropdownMenuItem>
           )
         })}
+        {clearable && category !== null ? (
+          <DropdownMenuItem onClick={() => onPick(null)}>
+            <XIcon className="size-4" />
+            No category
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )

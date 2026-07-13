@@ -155,6 +155,32 @@ export async function createTestCampaign(
   }
 }
 
+export interface TestNpc {
+  entityId: string
+  name: string
+}
+
+/**
+ * Mints an NPC (UNN-579): the shared-id dual-mint — an `entity` substrate row
+ * plus its `campaignNpc` subtype. No tracker field of its own: `cleanup`
+ * already sweeps NPC entities subtype-before-substrate for every tracked
+ * campaign, so minting into a tracked campaign is enough.
+ */
+export async function createTestNpc(
+  campaignId: string,
+  opts: { name?: string } = {}
+): Promise<TestNpc> {
+  const suffix = uniqueSuffix()
+  const name = `${opts.name ?? "E2E NPC"} ${suffix}`
+  const db = getDb()
+  const [row] = await db
+    .insert(entity)
+    .values({ shortId: `e2e-npc-${suffix}`, name })
+    .returning({ id: entity.id })
+  await db.insert(campaignNpc).values({ entityId: row!.id, campaignId })
+  return { entityId: row!.id, name }
+}
+
 /** Sets (or clears, with `null`) a character's campaign placement on its
  *  `playerCharacter` door (placement moved off `entity` in R3 — UNN-573), so the
  *  durable write path's `requireOwnerOrCampaignDMForEntity` and the encounter-lock

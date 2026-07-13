@@ -3,9 +3,7 @@
 import {
   ArrowUpRightIcon,
   MoonIcon,
-  PencilSimpleIcon,
   SparkleIcon,
-  TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 import { useState, useTransition } from "react"
@@ -21,7 +19,6 @@ import { Button } from "@workspace/ui/components/button"
 import { initials } from "@workspace/ui/lib/initials"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import { ACTIVITY_CATEGORY_LABELS } from "@/domain/labels"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { RosterGlanceView } from "@/domain/planner/view/glance"
@@ -38,6 +35,7 @@ import {
   ActivityComposer,
   type ComposerLastActivity,
 } from "../composer/activity-composer"
+import { UpdateEntryCard } from "../composer/update-entry-card"
 import { useRunnerSelection } from "./runner-selection"
 
 /** A recorded entry, serialized for the workspace (concern labels pre-resolved). */
@@ -137,15 +135,18 @@ export function DowntimeWorkspace({
           <>
             <ActivityComposer
               campaignId={campaignId}
-              slotId={slot.id}
-              slotLabel={slot.label}
-              characterId={character.id}
-              characterName={character.name}
+              target={{
+                kind: "slot",
+                slotId: slot.id,
+                slotLabel: slot.label,
+                characterId: character.id,
+                characterName: character.name,
+                otherCharacters: roster
+                  .filter((row) => row.id !== character.id)
+                  .map((row) => ({ id: row.id, name: row.name })),
+                lastActivity: lastActivityByCharacter[character.id] ?? null,
+              }}
               linkerOptions={linkerOptions}
-              otherCharacters={roster
-                .filter((row) => row.id !== character.id)
-                .map((row) => ({ id: row.id, name: row.name }))}
-              lastActivity={lastActivityByCharacter[character.id] ?? null}
             />
             <IdleMark
               campaignId={campaignId}
@@ -236,13 +237,16 @@ function RecordedEntry({
     return (
       <ActivityComposer
         campaignId={campaignId}
-        slotId={entry.slotId}
-        slotLabel={slotLabel}
-        characterId={entry.characterId}
-        characterName=""
+        target={{
+          kind: "slot",
+          slotId: entry.slotId,
+          slotLabel,
+          characterId: entry.characterId,
+          characterName: "",
+          otherCharacters: [],
+          lastActivity: null,
+        }}
         linkerOptions={linkerOptions}
-        otherCharacters={[]}
-        lastActivity={null}
         edit={{
           updateId: entry.id,
           body: entry.body,
@@ -263,72 +267,23 @@ function RecordedEntry({
       if (!result.ok) toast.error("Couldn't delete the entry. Try again.")
     })
 
-  const isIdle = entry.category === "idle"
-
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="text-xs">
-          {slotLabel}
-          {entry.category
-            ? ` · ${ACTIVITY_CATEGORY_LABELS[entry.category]}`
-            : null}
-        </Badge>
-        <div className="ml-auto flex items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Edit entry"
-            className="text-muted-foreground"
-            onClick={() => setEditing(true)}
-          >
-            <PencilSimpleIcon />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Delete entry"
-            className="text-muted-foreground"
-            onClick={remove}
-          >
-            <TrashIcon />
-          </Button>
-        </div>
-      </div>
-      <p
-        className={cn(
-          "mt-2 text-sm",
-          isIdle && entry.body.trim() === ""
-            ? "text-muted-foreground italic"
-            : "text-foreground"
-        )}
-      >
-        {entry.body.trim() === "" && isIdle
-          ? "Did nothing substantial."
-          : entry.body}
-      </p>
-      {entry.concerns.length > 0 ? (
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {entry.concerns.map((concern) => {
-            const Icon = PARTICIPANT_KIND_ICONS[concern.kind]
-            return (
-              <span
-                key={`${concern.kind}:${concern.id}`}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                  concern.kind === "npc"
-                    ? "bg-primary/16 text-primary-text"
-                    : "bg-muted/55 text-foreground"
-                )}
-              >
-                <Icon aria-hidden className="size-3 shrink-0" />
-                {concern.label}
-              </span>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
+    <UpdateEntryCard
+      badgeLabel={
+        entry.category
+          ? `${slotLabel} · ${ACTIVITY_CATEGORY_LABELS[entry.category]}`
+          : slotLabel
+      }
+      body={entry.body}
+      isIdle={entry.category === "idle"}
+      pills={entry.concerns.map((concern) => ({
+        kind: concern.kind,
+        id: concern.id,
+        label: concern.label,
+      }))}
+      onEdit={() => setEditing(true)}
+      onDelete={remove}
+    />
   )
 }
 

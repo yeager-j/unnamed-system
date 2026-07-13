@@ -106,25 +106,28 @@ export type EditActivityError =
   | "update-not-found"
   | "clock-not-found"
   | "not-current-day"
+  | "category-required"
 
 /**
- * Edits a recorded activity in place — the same row the Chronicle will show
+ * Edits a recorded update in place — the same row the Chronicle will show
  * (D3: nothing moves, nothing syncs). Body/category LWW; concerns replaced
  * wholesale. Slotted rows keep the current-day guard (the slot's day is the
- * row's day); re-dating is out of scope here — it is defined as *detaching*
- * (write map), a Chronicle-side affordance.
+ * row's day) and their **category** (the slotted-⇒-categorized CHECK; a null
+ * is only legal on world updates — UNN-579); re-dating is out of scope here —
+ * it is defined as *detaching* (write map), a Chronicle-side affordance.
  */
 export async function editActivity(input: {
   campaignId: string
   updateId: string
   body: string
-  category: UpdateCategory
+  category: UpdateCategory | null
   concerns: readonly Pick<ParticipantRef, "kind" | "id">[]
 }): Promise<Result<void, EditActivityError>> {
   return guardMany(async (tx) => {
     const row = await updateInCampaign(tx, input.campaignId, input.updateId)
     if (!row) return err("update-not-found")
     if (row.slotId !== null) {
+      if (input.category === null) return err("category-required")
       const day = await currentDaySlot(tx, input.campaignId, row.slotId)
       if (!day.ok) {
         return err(
@@ -164,6 +167,45 @@ export async function deleteActivity(input: {
 
     await tx.delete(campaignUpdate).where(eq(campaignUpdate.id, input.updateId))
     return ok(undefined)
+  })
+}
+
+/**
+ * Authors a **world update** (§5's "Author world update"; phase 6 mounts it
+ * on entity pages, phase 7 adds Day-End and the Chronicle): a slot-less
+ * update row stamped on the clock's `currentDay` — mid-session capture is a
+ * present-tense act (D10) — primaried on the mounting page's entity, with an
+ * optional category (FR-13's filter needs it) and concern fan-out.
+ */
+export async function authorWorldUpdate(input: {
+  campaignId: string
+  primary: Pick<ParticipantRef, "kind" | "id">
+  body: string
+  category: UpdateCategory | null
+  concerns: readonly Pick<ParticipantRef, "kind" | "id">[]
+}): Promise<Result<{ updateId: string }, "clock-not-found">> {
+  return guardMany(async (tx) => {
+    const [clock] = await tx
+      .select({ currentDay: campaignClock.currentDay })
+      .from(campaignClock)
+      .where(eq(campaignClock.campaignId, input.campaignId))
+    if (!clock) return err("clock-not-found")
+
+    const [row] = await tx
+      .insert(campaignUpdate)
+      .values({
+        campaignId: input.campaignId,
+        day: clock.currentDay,
+        primaryKind: input.primary.kind,
+        primaryId: input.primary.id,
+        body: input.body,
+        category: input.category,
+        slotId: null,
+      })
+      .returning({ id: campaignUpdate.id })
+    await insertConcerns(tx, row!.id, input.concerns)
+
+    return ok({ updateId: row!.id })
   })
 }
 
