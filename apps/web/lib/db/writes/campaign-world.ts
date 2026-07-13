@@ -1,4 +1,4 @@
-import { and, eq, or } from "drizzle-orm"
+import { and, eq, or, sql } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { Lineage } from "@workspace/game-v2/kernel/vocab"
@@ -278,6 +278,44 @@ export async function setNpcArcana(input: {
       .set({ arcana: input.arcana })
       .where(eq(campaignNpc.entityId, input.entityId))
     return ok(undefined)
+  })
+}
+
+export type CasNpcBondTierError = NpcWriteError | "stale"
+
+/**
+ * Compare-and-set an NPC's party-wide bond tier (D8). The `bondTier =
+ * expectedTier` guard makes a double-confirm from two surfaces converge on
+ * one advance — the second write matches zero rows and reports `stale`.
+ * Every path through here (confirm, manual set, regress) stamps
+ * `bondTierChangedAt`, restarting the derived progress clock: activities
+ * older than the new timestamp never count again (D8's documented regress
+ * cost). The stamp is **DB `now()`**, not app time — the progress window
+ * compares it against `campaignUpdate.authoredAt` (DB-generated), and app/DB
+ * clock skew would otherwise let a just-recorded activity land behind the
+ * cutoff. A tombstone refuses, as with every NPC trait write.
+ */
+export async function casNpcBondTier(input: {
+  campaignId: string
+  entityId: string
+  expectedTier: number
+  tier: number
+}): Promise<Result<void, CasNpcBondTierError>> {
+  return db.transaction(async (tx) => {
+    const npc = await liveNpcInCampaign(tx, input.campaignId, input.entityId)
+    if (!npc) return err("npc-not-found")
+    const updated = await tx
+      .update(campaignNpc)
+      .set({ bondTier: input.tier, bondTierChangedAt: sql`now()` })
+      .where(
+        and(
+          eq(campaignNpc.entityId, input.entityId),
+          eq(campaignNpc.campaignId, input.campaignId),
+          eq(campaignNpc.bondTier, input.expectedTier)
+        )
+      )
+      .returning({ entityId: campaignNpc.entityId })
+    return updated.length === 0 ? err("stale") : ok(undefined)
   })
 }
 

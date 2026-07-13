@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { NpcPage } from "@/app/campaigns/[campaignShortId]/_components/world/npc-page"
+import { bondEligibility } from "@/domain/planner/bond"
 import { isStubNpc } from "@/domain/planner/npc"
 import { npcNarrativeTexts } from "@/domain/planner/npc-documents"
 import { buildLinkerOptions } from "@/domain/planner/view/linker"
@@ -9,7 +10,10 @@ import { buildTimelineDayViews } from "@/domain/planner/view/timeline"
 import { arcanaHolders, lineageHolders } from "@/domain/planner/view/world"
 import { buildRelationListView } from "@/domain/planner/view/world-detail"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadUpdatesForParticipant } from "@/lib/db/queries/load-campaign-updates"
+import {
+  loadBondActivityTuples,
+  loadUpdatesForParticipant,
+} from "@/lib/db/queries/load-campaign-updates"
 import {
   loadCampaignArticles,
   loadCampaignNpc,
@@ -53,6 +57,7 @@ export default async function NpcDetailPage({ params }: PageProps) {
     relations,
     updates,
     counts,
+    bondTuples,
   ] = await Promise.all([
     getCampaignClock(campaign.id),
     loadWorldFolders(campaign.id, "npc"),
@@ -62,7 +67,11 @@ export default async function NpcDetailPage({ params }: PageProps) {
     loadRelationsFrom(campaign.id, self),
     loadUpdatesForParticipant(campaign.id, self),
     loadParticipantRefCounts(campaign.id, self),
+    npc.lineageKey === null
+      ? Promise.resolve([])
+      : loadBondActivityTuples(campaign.id, [npc.entityId]),
   ])
+  const [bond] = bondEligibility([npc], bondTuples)
 
   const refs = [
     ...relations.map((r) => ({ kind: r.targetKind, id: r.targetId })),
@@ -89,6 +98,7 @@ export default async function NpcDetailPage({ params }: PageProps) {
         arcana: npc.arcana,
         lineageKey: npc.lineageKey,
         bondTier: npc.bondTier,
+        bondProgress: bond?.progress ?? null,
         narrative,
         folderName:
           folders.find((folder) => folder.id === npc.folderId)?.name ?? null,

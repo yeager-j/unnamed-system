@@ -36,6 +36,11 @@ import {
   type ComposerLastActivity,
 } from "../composer/activity-composer"
 import { UpdateEntryCard } from "../composer/update-entry-card"
+import {
+  BondConfirmCard,
+  BondProgressHint,
+  type BondProgressEntry,
+} from "./bond-confirm"
 import { useRunnerSelection } from "./runner-selection"
 
 /** A recorded entry, serialized for the workspace (concern labels pre-resolved). */
@@ -63,6 +68,7 @@ export function DowntimeWorkspace({
   activities,
   lastActivityByCharacter,
   linkerOptions,
+  bondProgress,
 }: {
   campaignId: string
   slot: { id: string; label: string }
@@ -71,8 +77,13 @@ export function DowntimeWorkspace({
   activities: WorkspaceActivity[]
   lastActivityByCharacter: Record<string, ComposerLastActivity>
   linkerOptions: LinkerOption[]
+  /** Per-NPC bond progress — the inline confirm + counted hint (UNN-581, D8). */
+  bondProgress: BondProgressEntry[]
 }) {
   const { selectedCharacterId } = useRunnerSelection()
+  const [notYetNpcIds, setNotYetNpcIds] = useState<ReadonlySet<string>>(
+    new Set()
+  )
   const character =
     roster.find((row) => row.id === selectedCharacterId) ?? roster[0] ?? null
 
@@ -91,6 +102,15 @@ export function DowntimeWorkspace({
       (activity) =>
         activity.characterId === character.id && activity.slotId === slot.id
     ) ?? null
+
+  const entryBonds =
+    entry?.category === "collaborator"
+      ? bondProgress.filter((bond) =>
+          entry.concerns.some(
+            (concern) => concern.kind === "npc" && concern.id === bond.npcId
+          )
+        )
+      : []
 
   return (
     <div className="mx-auto w-full max-w-2xl rounded-[calc(var(--radius)+4px)] border bg-card">
@@ -125,12 +145,32 @@ export function DowntimeWorkspace({
 
       <div className="flex flex-col gap-4 p-5">
         {entry ? (
-          <RecordedEntry
-            campaignId={campaignId}
-            slotLabel={slot.label}
-            entry={entry}
-            linkerOptions={linkerOptions}
-          />
+          <>
+            <RecordedEntry
+              campaignId={campaignId}
+              slotLabel={slot.label}
+              entry={entry}
+              linkerOptions={linkerOptions}
+            />
+            {entryBonds.map((bond) =>
+              bond.eligible ? (
+                notYetNpcIds.has(bond.npcId) ? null : (
+                  <BondConfirmCard
+                    key={bond.npcId}
+                    campaignId={campaignId}
+                    confirm={bond}
+                    onNotYet={() =>
+                      setNotYetNpcIds(
+                        (current) => new Set([...current, bond.npcId])
+                      )
+                    }
+                  />
+                )
+              ) : (
+                <BondProgressHint key={bond.npcId} entry={bond} />
+              )
+            )}
+          </>
         ) : (
           <>
             <ActivityComposer

@@ -64,6 +64,7 @@ const campaignRow = (dmUserId: string, id = "campaign-1"): CampaignRow =>
     dmUserId,
     name: "Campaign",
     description: null,
+    lineageGating: false,
     createdAt: FIXED_DATE,
     updatedAt: FIXED_DATE,
   }) satisfies CampaignRow

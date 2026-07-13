@@ -307,10 +307,13 @@ node; the surrounding prose autosaves as usual. Two flows composing.
   ("don't let it stop you if you have a brilliant idea"), so the picker shows
   a *"held by Maren"* warning and allows it. Deleting an NPC clears both
   columns (the Lineage returns to the deck).
-- **Story tier** (`storyTier` on the clock record, CAS writes; **treated as
-  0 when the clock hasn't been started**): the party's shared arc, advanced
-  by the DM; resolving a deadline **pre-suggests** an advance at Day-End
-  (nudge, never auto).
+- **Story tier** (`storyTier` on the clock record, CAS writes; **1–4**,
+  mapping 1:1 onto the four Archetype tiers; **treated as 1 (Initiate) when
+  the clock hasn't been started** — unlike a bond, it has no 0/locked state,
+  because a character's Origin Lineage is always open at Initiate; corrected
+  from 0..4 during UNN-581): the party's shared arc, advanced by the DM;
+  resolving a deadline **pre-suggests** an advance at Day-End (nudge, never
+  auto).
 - **Availability is a union of lanes** — no collision rule exists:
   - *Origin lane:* your own Origin Lineage opens at `max(1, storyTier)` —
     Initiate is always reachable; higher tiers ride the campaign's arc.
@@ -505,7 +508,9 @@ house camelCase-singular convention — `mapInstance`, `characterKnife`):
 
 ```
 campaignClock         campaignId PK/FK · currentDay int (≥1) · slotTemplate jsonb [{label}] (min 1)
-                      · storyTier int 0..4 · clockVersion int · timestamps
+                      · storyTier int 1..4 · storyTierChangedAt? (DB now();
+                        Day-End nudges only for ⚑ markers authored after it)
+                      · clockVersion int · timestamps
 campaignSlot          id · campaignId · day int (immutable) · ordinal int · label
                       · UNIQUE (campaignId, day, ordinal) · INDEX (campaignId, day)
 campaignSeason        campaignId · day · label · UNIQUE (campaignId, day)
@@ -590,7 +595,7 @@ downtime), `dayProgress`, `deadlineState`,
 `advanceGate` (any unresolved deadline ≤ newDay), `seasonOf(day)`
 (inherit-forward scan), `bondProgress`/`bondEligibility` (one-per-PC-per-day
 cap), `dayEndReadiness`, `availabilityFold` (origin + bond lanes →
-`narrativeGate` map; storyTier 0 pre-clock), `isSetAside`, `isStub`,
+`narrativeGate` map; storyTier 1 pre-clock), `isSetAside`, `isStub`,
 `isFrozenDay`, and the D11 folder-forest builder (rows → alphabetical tree +
 derived Unfiled; unrooted/cyclic nodes degrade to Unfiled) with its
 `isDescendant` cycle guard. Plus per-surface view builders (`view/runner.ts`,

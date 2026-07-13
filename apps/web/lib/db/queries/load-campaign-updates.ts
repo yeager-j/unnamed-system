@@ -12,6 +12,7 @@ import {
   type SQL,
 } from "drizzle-orm"
 
+import type { BondActivityTuple } from "@/domain/planner/bond"
 import type {
   ParticipantKind,
   ParticipantRef,
@@ -23,6 +24,7 @@ import {
   campaignUpdateConcern,
   type UpdateCategory,
 } from "@/lib/db/schema/campaign-updates"
+import { campaignNpc } from "@/lib/db/schema/campaign-world"
 
 /**
  * Read side of the update stream (UNN-576): the Day Runner's recorded
@@ -30,11 +32,15 @@ import {
  * feed (phase 7). Campaign-scoped by WHERE (§5's read half).
  */
 
-/** A live ⚑ marker: which article it resolves, from which update, stamped on which day (D5). */
+/** A live ⚑ marker: which article it resolves, from which update, stamped on
+ *  which day (D5). `authoredAt` is what the Day-End story-tier pre-suggest
+ *  compares against `storyTierChangedAt` — only a marker newer than the last
+ *  tier change nudges. */
 export interface ResolvedMarker {
   articleId: string
   updateId: string
   day: number
+  authoredAt: Date
 }
 
 /**
@@ -50,6 +56,7 @@ export async function loadResolvedMarkers(
       articleId: campaignUpdate.resolvesArticleId,
       updateId: campaignUpdate.id,
       day: campaignUpdate.day,
+      authoredAt: campaignUpdate.authoredAt,
     })
     .from(campaignUpdate)
     .where(
@@ -451,6 +458,51 @@ export async function loadWorldUpdatesForDay(
     authoredAt: row.authoredAt,
     concerns: concernsByUpdate.get(row.id) ?? [],
   }))
+}
+
+/**
+ * The bond-progress read (D8): every Collaborator-category update concerning
+ * one of the gate NPCs, authored after that NPC's `bondTierChangedAt` (a null
+ * timestamp means "never changed" — the whole history counts, bounded by the
+ * campaign's collaborator updates on the concern index). Slotted activities
+ * always carry a character primary (write-boundary rule), which is the PC the
+ * one-per-PC-per-day cap keys on — the cap itself lives in
+ * {@link import("@/domain/planner/bond").bondEligibility}, not here.
+ */
+export async function loadBondActivityTuples(
+  campaignId: string,
+  npcIds: readonly string[]
+): Promise<BondActivityTuple[]> {
+  if (npcIds.length === 0) return []
+  return db
+    .select({
+      npcId: campaignUpdateConcern.participantId,
+      pcId: campaignUpdate.primaryId,
+      day: campaignUpdate.day,
+    })
+    .from(campaignUpdateConcern)
+    .innerJoin(
+      campaignUpdate,
+      eq(campaignUpdate.id, campaignUpdateConcern.updateId)
+    )
+    .innerJoin(
+      campaignNpc,
+      eq(campaignNpc.entityId, campaignUpdateConcern.participantId)
+    )
+    .where(
+      and(
+        eq(campaignUpdateConcern.participantKind, "npc"),
+        inArray(campaignUpdateConcern.participantId, [...npcIds]),
+        eq(campaignUpdate.campaignId, campaignId),
+        eq(campaignNpc.campaignId, campaignId),
+        eq(campaignUpdate.category, "collaborator"),
+        eq(campaignUpdate.primaryKind, "character"),
+        sql`${campaignUpdate.authoredAt} > COALESCE(${campaignNpc.bondTierChangedAt}, to_timestamp(0))`
+      )
+    )
+    .then((rows) =>
+      rows.map((row) => ({ npcId: row.npcId, pcId: row.pcId!, day: row.day }))
+    )
 }
 
 async function loadConcerns(

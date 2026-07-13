@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { NUMERIC_TIER_LABELS } from "@/domain/labels"
 import type { DayEndReadiness } from "@/domain/planner/day-end"
 import type { DatedDeadline } from "@/domain/planner/deadline"
 import {
@@ -37,6 +38,7 @@ import {
   type ComposerTarget,
 } from "../composer/activity-composer"
 import { UpdateTimeline } from "../timeline/update-timeline"
+import { BondConfirmCard, type BondConfirmEntry } from "./bond-confirm"
 import { DayEndWarning } from "./day-end-dialogs"
 import { DeadlineGateDialog } from "./deadline-gate-dialog"
 
@@ -47,6 +49,9 @@ export interface DayEndData {
   loggedToday: TimelineDayView[]
   preSuggests: DayEndPreSuggest[]
   alerts: DayEndDeadlineAlert[]
+  /** The story-tier pre-suggest (UNN-581, D8): set when a deadline resolved
+   *  today and the arc isn't at Paragon — a nudge, never an auto-advance. */
+  storyTierNudge: { current: number; next: number } | null
 }
 
 /**
@@ -67,7 +72,9 @@ export function DayEndCapture({
   gateBlockers,
   linkerOptions,
   data,
+  bondConfirms,
   onEndWith,
+  onAdvanceStoryTier,
   onBack,
 }: {
   campaignId: string
@@ -78,13 +85,20 @@ export function DayEndCapture({
   gateBlockers: DatedDeadline[]
   linkerOptions: LinkerOption[]
   data: DayEndData
+  /** NPCs whose bond can deepen — the feed's entry-footer confirms (UNN-581, D8). */
+  bondConfirms: BondConfirmEntry[]
   onEndWith: (mode: EndDayMode) => void
+  onAdvanceStoryTier: (tier: number) => void
   onBack: () => void
 }) {
   const [activeSuggestId, setActiveSuggestId] = useState<string | null>(null)
   const [dismissedIds, setDismissedIds] = useState<ReadonlySet<string>>(
     new Set()
   )
+  const [notYetNpcIds, setNotYetNpcIds] = useState<ReadonlySet<string>>(
+    new Set()
+  )
+  const [tierNudgeDismissed, setTierNudgeDismissed] = useState(false)
   const [warningOpen, setWarningOpen] = useState(false)
   const [gateOpen, setGateOpen] = useState(false)
   const composerRef = useRef<HTMLDivElement>(null)
@@ -103,6 +117,31 @@ export function DayEndCapture({
   const dismiss = (id: string) => {
     setDismissedIds((current) => new Set([...current, id]))
     if (activeSuggestId === id) setActiveSuggestId(null)
+  }
+
+  // The reserved bond-confirm slot (UNN-581, D8): each eligible NPC's confirm
+  // rides the *latest* Collaborator entry concerning it, so several counted
+  // activities never stack duplicate confirms.
+  const confirmsByEntryId = new Map<string, BondConfirmEntry[]>()
+  const newestFirst = data.loggedToday
+    .flatMap((day) => day.entries)
+    .slice()
+    .reverse()
+  for (const confirm of bondConfirms) {
+    if (notYetNpcIds.has(confirm.npcId)) continue
+    const host = newestFirst.find(
+      (entry) =>
+        entry.category === "collaborator" &&
+        entry.concerns.some(
+          (concern) =>
+            concern.ref.kind === "npc" && concern.ref.id === confirm.npcId
+        )
+    )
+    if (!host) continue
+    confirmsByEntryId.set(host.id, [
+      ...(confirmsByEntryId.get(host.id) ?? []),
+      confirm,
+    ])
   }
 
   const worldTarget: ComposerTarget = {
@@ -163,6 +202,17 @@ export function DayEndCapture({
             }
           />
         ))}
+
+        {data.storyTierNudge !== null && !tierNudgeDismissed ? (
+          <StoryTierNudge
+            nudge={data.storyTierNudge}
+            onAdvance={(tier) => {
+              onAdvanceStoryTier(tier)
+              setTierNudgeDismissed(true)
+            }}
+            onDismiss={() => setTierNudgeDismissed(true)}
+          />
+        ) : null}
 
         {suggests.length > 0 ? (
           <div className="flex flex-col gap-2">
@@ -232,6 +282,22 @@ export function DayEndCapture({
             policy={{
               editTarget: () => worldTarget,
               canDelete: () => true,
+            }}
+            entryFooter={(entry) => {
+              const confirms = confirmsByEntryId.get(entry.id)
+              if (!confirms) return null
+              return confirms.map((confirm) => (
+                <BondConfirmCard
+                  key={confirm.npcId}
+                  campaignId={campaignId}
+                  confirm={confirm}
+                  onNotYet={() =>
+                    setNotYetNpcIds(
+                      (current) => new Set([...current, confirm.npcId])
+                    )
+                  }
+                />
+              ))
             }}
             emptyMessage="Nothing logged yet — the day's activities and world updates gather here."
           />
@@ -319,6 +385,53 @@ function SuggestChip({
         <XIcon className="size-3" />
       </button>
     </span>
+  )
+}
+
+/**
+ * The story-tier pre-suggest banner (UNN-581, D8): a deadline resolved today,
+ * so the arc may have moved — a nudge with an explicit advance, never an
+ * auto-write. [Not now] is client-only dismiss state.
+ */
+function StoryTierNudge({
+  nudge,
+  onAdvance,
+  onDismiss,
+}: {
+  nudge: { current: number; next: number }
+  onAdvance: (tier: number) => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="flex items-center gap-4 rounded-lg border p-4">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gold/10">
+        <StarFourIcon weight="fill" className="size-5 text-gold" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          The story moved
+        </p>
+        <p className="text-sm">
+          A deadline resolved today — advance the story to{" "}
+          <span className="font-medium">
+            {NUMERIC_TIER_LABELS[nudge.next]} ({nudge.next})
+          </span>
+          ?
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onAdvance(nudge.next)}
+        >
+          Advance
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDismiss}>
+          Not now
+        </Button>
+      </div>
+    </div>
   )
 }
 

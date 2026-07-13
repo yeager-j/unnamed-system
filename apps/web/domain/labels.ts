@@ -204,6 +204,19 @@ export const TIER_LABELS: Record<ArchetypeTier, string> = {
   paragon: "Paragon",
 }
 
+/**
+ * Bond/story tier labels by numeric tier (UNN-581, D8) — tiers 1–4 are 1:1
+ * with the four Archetype tiers ({@link TIER_LABELS}); 0 is a bond that
+ * hasn't opened its Lineage yet.
+ */
+export const NUMERIC_TIER_LABELS: Record<number, string> = {
+  0: "No bond",
+  1: "Initiate",
+  2: "Adept",
+  3: "Elite",
+  4: "Paragon",
+}
+
 /** Roman-numeral tier ordinals, as the Lineage Atlas column headers show them. */
 export const TIER_ROMAN_LABELS: Record<ArchetypeTier, string> = {
   initiate: "I",

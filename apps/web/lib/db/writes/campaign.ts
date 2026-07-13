@@ -49,6 +49,22 @@ export async function createCampaign(input: {
 }
 
 /**
+ * Flips the campaign's Lineage-gating opt-in (UNN-581, D8): on, the Lineage
+ * Atlas of every placed character gates on story tier + NPC bonds; off (the
+ * default), every Lineage is open as today. LWW — a single-DM boolean, no
+ * version token (the `campaigns` row carries none).
+ */
+export async function setLineageGating(input: {
+  campaignId: string
+  enabled: boolean
+}): Promise<void> {
+  await db
+    .update(campaigns)
+    .set({ lineageGating: input.enabled })
+    .where(eq(campaigns.id, input.campaignId))
+}
+
+/**
  * Rotates a campaign's `joinToken` so the previous `/join/{token}` link stops
  * working immediately (the "stranger with the link" mitigation — ADR Decision 9
  * edge cases). A plain `UPDATE` minting a fresh token from the same source as the

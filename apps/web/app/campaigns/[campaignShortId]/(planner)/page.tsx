@@ -10,6 +10,7 @@ import {
 
 import type { ComposerLastActivity } from "@/app/campaigns/[campaignShortId]/_components/composer/activity-composer"
 import { MemberOverview } from "@/app/campaigns/[campaignShortId]/_components/member-overview"
+import type { BondProgressEntry } from "@/app/campaigns/[campaignShortId]/_components/planner/bond-confirm"
 import { HiddenInMode } from "@/app/campaigns/[campaignShortId]/_components/planner/capture-mode-gate"
 import type { WorkspaceActivity } from "@/app/campaigns/[campaignShortId]/_components/planner/downtime-workspace"
 import { FirstRunChecklist } from "@/app/campaigns/[campaignShortId]/_components/planner/first-run-checklist"
@@ -21,6 +22,7 @@ import type {
 import { Runner } from "@/app/campaigns/[campaignShortId]/_components/planner/runner"
 import { RunnerSelectionProvider } from "@/app/campaigns/[campaignShortId]/_components/planner/runner-selection"
 import type { UnAdvanceUnbind } from "@/app/campaigns/[campaignShortId]/_components/planner/un-advance-confirm"
+import { bondEligibility } from "@/domain/planner/bond"
 import { extractChipRefs, stripChipTokens } from "@/domain/planner/chip"
 import { isFrozenDay } from "@/domain/planner/clock"
 import { dayEndReadiness } from "@/domain/planner/day-end"
@@ -59,6 +61,7 @@ import {
 } from "@/lib/db/queries/load-campaign-notes"
 import {
   loadActivitiesForSlots,
+  loadBondActivityTuples,
   loadLastActivityPerCharacter,
   loadResolvedMarkers,
   loadWorldUpdatesForDay,
@@ -185,6 +188,27 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
       ? loadWorldUpdatesForDay(campaign.id, clock.currentDay)
       : Promise.resolve([]),
   ])
+
+  // The bond progress (UNN-581, D8): derived — distinct PC-days of
+  // Collaborator activity concerning each Lineage-holding NPC since its tier
+  // last changed. The full per-NPC state goes down so the workspace can show
+  // "counted, n/3" below the threshold and the confirm at it. Independent of
+  // the Atlas-gating toggle: the bond is narrative state.
+  const gateNpcs = npcs.filter((npc) => npc.lineageKey !== null)
+  const bondTuples = await loadBondActivityTuples(
+    campaign.id,
+    gateNpcs.map((npc) => npc.entityId)
+  )
+  const npcNameById = new Map(
+    gateNpcs.map((npc) => [npc.entityId, npc.entity.name])
+  )
+  const bondProgress: BondProgressEntry[] = bondEligibility(
+    gateNpcs,
+    bondTuples
+  ).map((eligibility) => ({
+    ...eligibility,
+    name: npcNameById.get(eligibility.npcId) ?? "an NPC",
+  }))
 
   // The advance gate's advisory pre-warn (D1/D5): the unresolved deadlines,
   // handed to the runner so End-the-day and Skip can name their blockers
@@ -441,6 +465,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               campaignShortId={campaign.shortId}
               currentDay={clock.currentDay}
               clockVersion={clock.clockVersion}
+              storyTier={clock.storyTier}
               seasonLabel={seasonLabel}
               slots={slotViews}
               beatParticipants={Object.fromEntries(
@@ -472,8 +497,25 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                 loggedToday: buildTimelineDayViews(loggedTodayInputs, hits),
                 preSuggests,
                 alerts: deadlineAlerts,
+                // Only a marker newer than the last tier change nudges — an
+                // accepted advance stamps storyTierChangedAt, so one resolved
+                // deadline can't walk the tier ladder.
+                storyTierNudge:
+                  clock.storyTier < 4 &&
+                  markers.some(
+                    (marker) =>
+                      marker.day === clock.currentDay &&
+                      marker.authoredAt >
+                        (clock.storyTierChangedAt ?? new Date(0))
+                  )
+                    ? {
+                        current: clock.storyTier,
+                        next: clock.storyTier + 1,
+                      }
+                    : null,
               }}
               unAdvanceUnbinds={unAdvanceUnbinds}
+              bondProgress={bondProgress}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

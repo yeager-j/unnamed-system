@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest"
 
 import type { Archetype } from "@workspace/game-v2/archetypes/archetype"
 import {
+  archetypeTierLevel,
   atlasNodeState,
   buildLineageAtlas,
   filterAtlasLineagesToUnlocked,
   isAtlasNodeUnlocked,
+  isNarrativelyLocked,
   unmetPrerequisites,
   type AtlasNode,
 } from "@workspace/game-v2/archetypes/atlas"
@@ -209,6 +211,102 @@ describe("buildLineageAtlas (A1–A9)", () => {
 
   it("passes savedRanks through", () => {
     expect(build(resolved({ savedArchetypeRanks: 4 })).savedRanks).toBe(4)
+  })
+})
+
+describe("narrativeGate (D8 — narrative-locked, origin floor, union lanes)", () => {
+  const build = buildLineageAtlas({ allArchetypes })
+
+  function statesByKey(view: ReturnType<typeof build>): Map<string, string> {
+    return new Map(
+      view.lineages
+        .flatMap((l) => l.columns)
+        .flatMap((c) => c.nodes)
+        .map((n) => [n.archetype.key, n.state.kind])
+    )
+  }
+
+  it("archetypeTierLevel maps the four tiers to 1..4", () => {
+    expect(
+      (["initiate", "adept", "elite", "paragon"] as const).map(
+        archetypeTierLevel
+      )
+    ).toEqual([1, 2, 3, 4])
+  })
+
+  it("isNarrativelyLocked: undefined gate locks nothing", () => {
+    expect(isNarrativelyLocked(warlord, undefined, null)).toBe(false)
+  })
+
+  it("isNarrativelyLocked: absent entry is fully locked unless origin (Initiate floor)", () => {
+    const gate = new Map()
+    expect(isNarrativelyLocked(warrior, gate, null)).toBe(true)
+    expect(isNarrativelyLocked(warrior, gate, "warrior")).toBe(false)
+    expect(isNarrativelyLocked(warlord, gate, "warrior")).toBe(true)
+  })
+
+  it("undefined gate leaves the view byte-identical", () => {
+    const seed = resolved({
+      origin: "warrior",
+      roster: [{ key: "warrior", rank: 3 }],
+    })
+    expect(build(seed, {})).toStrictEqual(build(seed))
+  })
+
+  it("empty gate: origin keeps its Initiate tier, everything else narrative-locks", () => {
+    const view = build(resolved({ origin: "warrior" }), {
+      narrativeGate: new Map(),
+    })
+    const states = statesByKey(view)
+    expect(states.get("warrior")).toBe("unlockable")
+    expect(states.get("warlord")).toBe("narrative-locked")
+    expect(states.get("battlemage")).toBe("narrative-locked")
+    expect(states.get("mage")).toBe("narrative-locked")
+  })
+
+  it("origin lane opens tiers up to the gate value; above stays locked", () => {
+    const view = build(resolved({ origin: "warrior" }), {
+      narrativeGate: new Map([["warrior", 2]]),
+    })
+    const states = statesByKey(view)
+    expect(states.get("warrior")).toBe("unlockable")
+    expect(states.get("warlord")).toBe("locked")
+    expect(states.get("battlemage")).toBe("locked")
+  })
+
+  it("bond lane has no floor for a non-origin Lineage", () => {
+    const view = build(resolved({ origin: "warrior" }), {
+      narrativeGate: new Map([["mage", 1]]),
+    })
+    expect(statesByKey(view).get("mage")).toBe("unlockable")
+    const withoutBond = build(resolved({ origin: "warrior" }), {
+      narrativeGate: new Map(),
+    })
+    expect(statesByKey(withoutBond).get("mage")).toBe("narrative-locked")
+  })
+
+  it("owned/mastered win over the gate (regress never re-locks holdings)", () => {
+    const view = build(
+      resolved({
+        roster: [
+          { key: "warrior", rank: 5 },
+          { key: "warlord", rank: 2 },
+        ],
+      }),
+      { narrativeGate: new Map() }
+    )
+    const states = statesByKey(view)
+    expect(states.get("warrior")).toBe("mastered")
+    expect(states.get("warlord")).toBe("owned")
+    expect(view.lineages[0]!.progress).toEqual({ owned: 2, total: 3 })
+  })
+
+  it("narrative-locked replaces prereq-locked (no unmetPrerequisites payload)", () => {
+    const view = build(resolved(undefined), { narrativeGate: new Map() })
+    const warlordNode = view.lineages[0]!.columns.flatMap((c) => c.nodes).find(
+      (n) => n.archetype.key === "warlord"
+    )!
+    expect(warlordNode.state).toEqual({ kind: "narrative-locked" })
   })
 })
 
