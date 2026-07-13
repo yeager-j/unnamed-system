@@ -71,7 +71,7 @@ export function UpdateEntryCard({
             {onEdit ? (
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size={chrome === "bare" ? "icon-xs" : "icon-sm"}
                 aria-label="Edit entry"
                 className="text-muted-foreground"
                 onClick={onEdit}
@@ -82,7 +82,7 @@ export function UpdateEntryCard({
             {onDelete ? (
               <Button
                 variant="ghost"
-                size="icon-sm"
+                size={chrome === "bare" ? "icon-xs" : "icon-sm"}
                 aria-label="Delete entry"
                 className="text-muted-foreground"
                 onClick={onDelete}
@@ -96,7 +96,7 @@ export function UpdateEntryCard({
       </div>
       <p
         className={cn(
-          "mt-2 text-sm whitespace-pre-wrap",
+          "mt-2 text-[15px] leading-relaxed whitespace-pre-wrap",
           isIdle && body.trim() === ""
             ? "text-muted-foreground italic"
             : "text-foreground"

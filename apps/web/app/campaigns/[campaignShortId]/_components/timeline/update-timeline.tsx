@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { ParticipantPill } from "@/components/shared/participant-pill"
 import { ACTIVITY_CATEGORY_LABELS } from "@/domain/labels"
 import type { UpdateCategory } from "@/domain/planner/update-category"
 import type { LinkerOption } from "@/domain/planner/view/linker"
@@ -164,29 +165,34 @@ function TimelineRow({
 
   const editTarget = policy.editTarget(entry)
 
+  // The h-6 box centers the dot/flag on the entry's first row — the chip,
+  // badge, and icon-xs actions are all 24px tall — so the glyph sits on the
+  // label's midline instead of floating above it.
   const gutter = (
-    <div aria-hidden className="flex flex-col items-center pt-1.5">
-      {entry.resolves !== null ? (
-        <FlagIcon weight="fill" className="size-3.5 shrink-0 text-primary" />
-      ) : (
-        <span
-          className={cn(
-            "size-2 shrink-0 rounded-full",
-            entry.isWorld && entry.category === null
-              ? "bg-primary"
-              : entry.category !== null
-                ? CATEGORY_DOT_CLASSES[entry.category]
-                : "bg-muted-foreground"
-          )}
-        />
-      )}
-      <span className="mt-1.5 w-px flex-1 bg-border" />
+    <div aria-hidden className="flex flex-col items-center">
+      <span className="flex h-6 shrink-0 items-center">
+        {entry.resolves !== null ? (
+          <FlagIcon weight="fill" className="size-3.5 shrink-0 text-primary" />
+        ) : (
+          <span
+            className={cn(
+              "size-2 shrink-0 rounded-full",
+              entry.isWorld && entry.category === null
+                ? "bg-primary"
+                : entry.category !== null
+                  ? CATEGORY_DOT_CLASSES[entry.category]
+                  : "bg-muted-foreground"
+            )}
+          />
+        )}
+      </span>
+      <span className="mt-1 w-px flex-1 bg-border" />
     </div>
   )
 
   if (editing && editTarget !== null) {
     return (
-      <li className="flex gap-3 py-2">
+      <li className="flex gap-3.5 py-3">
         {gutter}
         <div className="min-w-0 flex-1">
           <ActivityComposer
@@ -247,7 +253,7 @@ function TimelineRow({
     (entry.isWorld && (entry.resolves !== null || bindableDeadlines.length > 0))
 
   return (
-    <li className="flex gap-3 py-2">
+    <li className="flex gap-3.5 border-b border-border/40 py-3 last:border-b-0">
       {gutter}
       <div className="min-w-0 flex-1">
         <UpdateEntryCard
@@ -261,14 +267,12 @@ function TimelineRow({
           }
           chip={
             showPrimaryChip && entry.primary !== null ? (
-              <span
-                className={cn(
-                  "inline-flex max-w-60 items-center text-xs font-semibold",
-                  entry.primary.tombstoned && "opacity-50"
-                )}
-              >
-                {entry.primary.label}
-              </span>
+              <ParticipantPill
+                kind={entry.primary.ref.kind}
+                label={entry.primary.label}
+                tombstoned={entry.primary.tombstoned}
+                className="max-w-60 text-sm font-semibold"
+              />
             ) : undefined
           }
           flag={

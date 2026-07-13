@@ -120,7 +120,7 @@ export function TimelineEntryMenu({
           render={
             <Button
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               aria-label="More actions"
               className="text-muted-foreground"
             />
@@ -162,12 +162,14 @@ export function TimelineEntryMenu({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {showRedate ? (
+      {/* Mount-on-open: an SSR'd *closed* Base UI dialog still consumes an
+          id slot and desyncs every downstream useId — and this one renders
+          per timeline row (docs/lessons/2026-07-11-ssr-closed-overlay-desyncs-ids.md). */}
+      {showRedate && redateOpen ? (
         <RedateDialog
           campaignId={campaignId}
           entry={entry}
           currentDay={currentDay}
-          open={redateOpen}
           onOpenChange={setRedateOpen}
           onMutated={onMutated}
         />
@@ -180,14 +182,12 @@ function RedateDialog({
   campaignId,
   entry,
   currentDay,
-  open,
   onOpenChange,
   onMutated,
 }: {
   campaignId: string
   entry: TimelineEntryView
   currentDay: number
-  open: boolean
   onOpenChange: (open: boolean) => void
   onMutated?: () => void
 }) {
@@ -215,7 +215,7 @@ function RedateDialog({
     })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Re-date this update</DialogTitle>
