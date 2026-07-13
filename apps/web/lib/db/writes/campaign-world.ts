@@ -260,23 +260,25 @@ export async function saveNpcNarrativeField(input: {
   })
 }
 
-/** Sets (or clears) an NPC's Arcana — advisory only, no constraint (D8). */
+/**
+ * Sets (or clears) an NPC's Arcana — advisory only, no constraint (D8). A
+ * tombstone refuses (the subtype row outlives the entity, so a stale page
+ * could otherwise write traits onto a deleted NPC).
+ */
 export async function setNpcArcana(input: {
   campaignId: string
   entityId: string
   arcana: string | null
 }): Promise<Result<void, NpcWriteError>> {
-  const updated = await db
-    .update(campaignNpc)
-    .set({ arcana: input.arcana })
-    .where(
-      and(
-        eq(campaignNpc.entityId, input.entityId),
-        eq(campaignNpc.campaignId, input.campaignId)
-      )
-    )
-    .returning({ entityId: campaignNpc.entityId })
-  return updated.length === 0 ? err("npc-not-found") : ok(undefined)
+  return db.transaction(async (tx) => {
+    const npc = await liveNpcInCampaign(tx, input.campaignId, input.entityId)
+    if (!npc) return err("npc-not-found")
+    await tx
+      .update(campaignNpc)
+      .set({ arcana: input.arcana })
+      .where(eq(campaignNpc.entityId, input.entityId))
+    return ok(undefined)
+  })
 }
 
 export type SetNpcLineageError = NpcWriteError | "lineage-taken"
@@ -285,7 +287,10 @@ export type SetNpcLineageError = NpcWriteError | "lineage-taken"
  * Sets (or clears) an NPC's Lineage — the hard-unique Atlas-gate lane (D8).
  * The pre-check turns the common case into a domain error the picker can
  * phrase ("held by ⟨name⟩"); the partial unique index remains the backstop
- * for the race the read can't see, mapped to the same error.
+ * for the race the read can't see, mapped to the same error. A tombstone
+ * refuses — the partial unique still counts a tombstone's row, so a stale
+ * page assigning here would lock the Lineage invisibly (holders are built
+ * from live NPCs only).
  */
 export async function setNpcLineage(input: {
   campaignId: string
@@ -294,6 +299,8 @@ export async function setNpcLineage(input: {
 }): Promise<Result<void, SetNpcLineageError>> {
   return mapLineageRaceToTaken(
     db.transaction(async (tx) => {
+      const npc = await liveNpcInCampaign(tx, input.campaignId, input.entityId)
+      if (!npc) return err("npc-not-found")
       if (input.lineageKey !== null) {
         const [holder] = await tx
           .select({ entityId: campaignNpc.entityId })

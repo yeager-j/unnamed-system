@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, or } from "drizzle-orm"
+import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm"
 
 import type {
   ParticipantKind,
@@ -153,8 +153,9 @@ export async function loadLastActivityPerCharacter(
  * The per-entity timeline read (phase 6, PRD FR-10): every update where the
  * ref is **primary or concerned** — the union the two indexes were built for
  * (§3) — ordered `(day, authoredAt)`, concerns folded in for the participant
- * strip. Capped: real pagination is the Chronicle's (phase 7); an entity page
- * showing the latest 200 touches is proportionate.
+ * strip. Capped to the **newest** 200 (fetched descending so the cap trims
+ * history, not the present, then re-sorted chronological for display); real
+ * pagination is the Chronicle's (phase 7).
  */
 export async function loadUpdatesForParticipant(
   campaignId: string,
@@ -192,8 +193,9 @@ export async function loadUpdatesForParticipant(
         )
       )
     )
-    .orderBy(asc(campaignUpdate.day), asc(campaignUpdate.authoredAt))
+    .orderBy(desc(campaignUpdate.day), desc(campaignUpdate.authoredAt))
     .limit(200)
+  rows.reverse()
 
   const concernsByUpdate = await loadConcerns(rows.map((row) => row.id))
   return rows.map((row) => ({

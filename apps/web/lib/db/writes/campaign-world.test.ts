@@ -44,6 +44,9 @@ function makeExecutor() {
     select: () => ({
       from: (table: unknown) => ({
         where: () => Promise.resolve(nextRows(table)),
+        innerJoin: () => ({
+          where: () => Promise.resolve(nextRows(table)),
+        }),
       }),
     }),
     insert: (table: unknown) => ({
@@ -108,6 +111,7 @@ const {
   mintArticle,
   mintNpc,
   setArticleDate,
+  setNpcLineage,
   softDeleteArticle,
   softDeleteNpc,
 } = await import("./campaign-world")
@@ -217,6 +221,22 @@ describe("softDeleteNpc", () => {
     expect(result).toEqual(err("npc-not-found"))
     expect(calls).toHaveLength(1)
     expect(calls[0]!.table).toBe(schema.campaignNpc)
+  })
+})
+
+describe("setNpcLineage", () => {
+  it("refuses a tombstoned NPC — a stale page must not lock a Lineage onto a hidden row", async () => {
+    // liveNpcInCampaign's subtype⋈entity read: row exists but is tombstoned.
+    queue(schema.campaignNpc, [{ entityId: ENTITY_ID, deletedAt: new Date() }])
+
+    const result = await setNpcLineage({
+      campaignId: "camp-1",
+      entityId: ENTITY_ID,
+      lineageKey: "warlock",
+    })
+
+    expect(result).toEqual(err("npc-not-found"))
+    expect(calls).toHaveLength(0)
   })
 })
 

@@ -194,6 +194,9 @@ export function WorldTree({
   }
 
   const moveTargets = flattenForest(forest)
+  // The delete confirm must count the REAL subtree, not the filtered view —
+  // a search/type filter prunes `visible`, but the cascade deletes everything.
+  const unfilteredFolder = (id: string) => findFolderById(forest, id)
   const isEmpty = forest.roots.length === 0 && forest.unfiled.length === 0
   const nothingMatches =
     !isEmpty && visible.roots.length === 0 && visible.unfiled.length === 0
@@ -206,6 +209,7 @@ export function WorldTree({
     itemPath,
     activePath: pathname,
     moveTargets,
+    unfilteredFolder,
     onRenameFolder: (folderId, name) =>
       run(() => renameFolderAction({ campaignId, folderId, name })),
     onDeleteFolder: (folderId) =>
@@ -364,6 +368,8 @@ interface TreeContext {
   itemPath: (id: string) => string
   activePath: string
   moveTargets: MoveTargetRow[]
+  /** The folder's node in the UNFILTERED forest — the delete confirm's honest count. */
+  unfilteredFolder: (id: string) => WorldTreeFolderView | null
   onRenameFolder: (folderId: string, name: string) => void
   onDeleteFolder: (folderId: string) => void
   onMoveFolder: (folderId: string, parentId: string | null) => void
@@ -475,7 +481,7 @@ function FolderRows({
       ) : null}
       {deleteOpen ? (
         <DeleteFolderDialog
-          folder={folder}
+          folder={ctx.unfilteredFolder(folder.id) ?? folder}
           onOpenChange={setDeleteOpen}
           onDelete={() => ctx.onDeleteFolder(folder.id)}
         />
@@ -644,6 +650,25 @@ function flattenForest(forest: WorldForestView): MoveTargetRow[] {
   }
   for (const root of forest.roots) walk(root, 0)
   return rows
+}
+
+function findFolderById(
+  forest: WorldForestView,
+  id: string
+): WorldTreeFolderView | null {
+  const walk = (folder: WorldTreeFolderView): WorldTreeFolderView | null => {
+    if (folder.id === id) return folder
+    for (const child of folder.folders) {
+      const found = walk(child)
+      if (found !== null) return found
+    }
+    return null
+  }
+  for (const root of forest.roots) {
+    const found = walk(root)
+    if (found !== null) return found
+  }
+  return null
 }
 
 function subtreeIds(folder: WorldTreeFolderView): Set<string> {
