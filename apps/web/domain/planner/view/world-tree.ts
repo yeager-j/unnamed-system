@@ -116,16 +116,19 @@ export function isDescendant(
 
 /**
  * Prunes items by predicate and drops folders left recursively empty — the
- * search box and the type/stub filter chips. Callers pass an always-true
- * predicate (or skip the call) for the untouched tree.
+ * search box and the type/stub filter chips. A folder matching `keepFolder`
+ * keeps its whole subtree untouched (the notes-tree search semantic: a
+ * matching folder name shows everything inside).
  */
 export function filterWorldForest(
   forest: WorldForestView,
-  keep: (item: WorldTreeItem) => boolean
+  keep: (item: WorldTreeItem) => boolean,
+  keepFolder: (folder: WorldTreeFolderView) => boolean = () => false
 ): WorldForestView {
   const filterFolder = (
     folder: WorldTreeFolderView
   ): WorldTreeFolderView | null => {
+    if (keepFolder(folder)) return folder
     const folders = folder.folders
       .map(filterFolder)
       .filter((f): f is WorldTreeFolderView => f !== null)

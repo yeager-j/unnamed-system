@@ -143,6 +143,18 @@ describe("filterWorldForest", () => {
     expect(filtered.roots).toEqual([])
     expect(filtered.unfiled).toEqual([])
   })
+
+  it("keeps a matching folder's whole subtree untouched", () => {
+    const filtered = filterWorldForest(
+      forest,
+      () => false,
+      (f) => f.id === "child"
+    )
+    expect(filtered.roots).toHaveLength(1)
+    expect(filtered.roots[0]!.folders[0]!.items.map((i) => i.id)).toEqual([
+      "keep",
+    ])
+  })
 })
 
 describe("countFolderContents", () => {
