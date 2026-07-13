@@ -126,6 +126,8 @@ export function WorldTree({
   dayLine,
   forest,
   typeOptions,
+  collapsed,
+  onCollapsedChange,
 }: {
   kind: WorldFolderKind
   campaignId: string
@@ -134,6 +136,9 @@ export function WorldTree({
   dayLine: string | null
   forest: WorldForestView
   typeOptions: string[]
+  /** Expand/collapse lives in the shell so it survives the doc-rail swap. */
+  collapsed: Set<string | null>
+  onCollapsedChange: (next: Set<string | null>) => void
 }) {
   const copy = COPY[kind]
   const router = useRouter()
@@ -144,7 +149,6 @@ export function WorldTree({
   const [hideStubs, setHideStubs] = useState(false)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [mintOpen, setMintOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState<Set<string | null>>(new Set())
 
   const itemPath = (id: string) =>
     kind === "article"
@@ -166,13 +170,12 @@ export function WorldTree({
       if (ref) router.push(itemPath(ref.id))
     })
 
-  const toggle = (folderId: string | null) =>
-    setCollapsed((previous) => {
-      const next = new Set(previous)
-      if (next.has(folderId)) next.delete(folderId)
-      else next.add(folderId)
-      return next
-    })
+  const toggle = (folderId: string | null) => {
+    const next = new Set(collapsed)
+    if (next.has(folderId)) next.delete(folderId)
+    else next.add(folderId)
+    onCollapsedChange(next)
+  }
 
   const needle = query.trim().toLowerCase()
   let visible = forest
@@ -540,13 +543,15 @@ function ItemRow({
           render={<Link href={href} />}
           className="flex-1"
         >
-          <KindIcon iconKey={item.iconKey} />
+          <span
+            className={cn("shrink-0", item.isStub && "opacity-40")}
+            title={
+              item.isStub ? "Stub — a name and nothing else yet" : undefined
+            }
+          >
+            <KindIcon iconKey={item.iconKey} />
+          </span>
           <span className="flex-1 truncate">{item.name}</span>
-          {item.isStub ? (
-            <Badge variant="outline" className="shrink-0 text-[10px]">
-              Stub
-            </Badge>
-          ) : null}
         </SidebarMenuButton>
         <DropdownMenu>
           <DropdownMenuTrigger

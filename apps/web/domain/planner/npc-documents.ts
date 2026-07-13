@@ -38,6 +38,31 @@ export function npcNarrativeTexts(
   ) as Record<NarrativeTextField, string>
 }
 
+/** Resolves the `?doc=` param to a pane — anything unrecognized is Overview. */
+export function npcPaneFromParam(
+  param: string | null
+): NarrativeTextField | "overview" {
+  return NARRATIVE_TEXT_FIELDS.includes(param as NarrativeTextField)
+    ? (param as NarrativeTextField)
+    : "overview"
+}
+
+/**
+ * Per-field emptiness for the doc rail's muted rows — the NPCs layout builds
+ * this for every live NPC so the rail (which the layout-owned sidebar
+ * renders on detail routes) knows which documents hold prose.
+ */
+export function npcDocEmptiness(
+  narrative: Narrative | null
+): Record<NarrativeTextField, boolean> {
+  return Object.fromEntries(
+    NARRATIVE_TEXT_FIELDS.map((field) => [
+      field,
+      (narrative?.[field] ?? "").trim() === "",
+    ])
+  ) as Record<NarrativeTextField, boolean>
+}
+
 export const NPC_DOCUMENT_MESSAGES: Record<
   NarrativeTextField,
   NpcDocumentMessages

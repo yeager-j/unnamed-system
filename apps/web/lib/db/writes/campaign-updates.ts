@@ -106,25 +106,28 @@ export type EditActivityError =
   | "update-not-found"
   | "clock-not-found"
   | "not-current-day"
+  | "category-required"
 
 /**
- * Edits a recorded activity in place — the same row the Chronicle will show
+ * Edits a recorded update in place — the same row the Chronicle will show
  * (D3: nothing moves, nothing syncs). Body/category LWW; concerns replaced
  * wholesale. Slotted rows keep the current-day guard (the slot's day is the
- * row's day); re-dating is out of scope here — it is defined as *detaching*
- * (write map), a Chronicle-side affordance.
+ * row's day) and their **category** (the slotted-⇒-categorized CHECK; a null
+ * is only legal on world updates — UNN-579); re-dating is out of scope here —
+ * it is defined as *detaching* (write map), a Chronicle-side affordance.
  */
 export async function editActivity(input: {
   campaignId: string
   updateId: string
   body: string
-  category: UpdateCategory
+  category: UpdateCategory | null
   concerns: readonly Pick<ParticipantRef, "kind" | "id">[]
 }): Promise<Result<void, EditActivityError>> {
   return guardMany(async (tx) => {
     const row = await updateInCampaign(tx, input.campaignId, input.updateId)
     if (!row) return err("update-not-found")
     if (row.slotId !== null) {
+      if (input.category === null) return err("category-required")
       const day = await currentDaySlot(tx, input.campaignId, row.slotId)
       if (!day.ok) {
         return err(

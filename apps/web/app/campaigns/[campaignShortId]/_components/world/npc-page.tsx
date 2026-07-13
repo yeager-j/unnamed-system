@@ -1,18 +1,16 @@
 "use client"
 
-import { TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useRouter } from "next/navigation"
+import { MaskHappyIcon, TrashIcon } from "@phosphor-icons/react/dist/ssr"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useRef, useState } from "react"
 
-import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { cn } from "@workspace/ui/lib/utils"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
 import {
-  NPC_DOCUMENT_GROUPS,
   NPC_DOCUMENT_MESSAGES,
+  npcPaneFromParam,
 } from "@/domain/planner/npc-documents"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import {
@@ -96,7 +94,8 @@ export function NpcPage({
 }) {
   const router = useRouter()
   const mirrorName = useWorldNameMirror()
-  const [pane, setPane] = useState<NpcPane>("overview")
+  const searchParams = useSearchParams()
+  const pane: NpcPane = npcPaneFromParam(searchParams.get("doc"))
   const [deleteOpen, setDeleteOpen] = useState(false)
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
 
@@ -113,16 +112,19 @@ export function NpcPage({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b px-6 py-3 text-sm text-muted-foreground">
+        {npc.isStub ? (
+          <span
+            className="shrink-0 opacity-40"
+            title="Stub — a name and nothing else yet"
+          >
+            <MaskHappyIcon className="size-4" />
+          </span>
+        ) : null}
         <span className="min-w-0 truncate">
           {npc.folderName ?? "Unfiled"}
           <span className="mx-1.5">›</span>
           {displayName}
         </span>
-        {npc.isStub ? (
-          <Badge variant="outline" className="shrink-0">
-            Stub
-          </Badge>
-        ) : null}
         <Button
           variant="ghost"
           size="icon-sm"
@@ -134,96 +136,66 @@ export function NpcPage({
         </Button>
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        <nav
-          aria-label="NPC documents"
-          className="flex w-44 shrink-0 flex-col gap-4 overflow-y-auto border-r p-3"
-        >
-          <PaneButton
-            label="Overview"
-            isActive={pane === "overview"}
-            onClick={() => setPane("overview")}
-          />
-          {NPC_DOCUMENT_GROUPS.map((group) => (
-            <div key={group.label} className="flex flex-col gap-0.5">
-              <div className="px-2 pb-1 text-xs font-medium text-muted-foreground uppercase">
-                {group.label}
-              </div>
-              {group.fields.map((field) => (
-                <PaneButton
-                  key={field}
-                  label={NPC_DOCUMENT_MESSAGES[field].label}
-                  isActive={pane === field}
-                  muted={npc.narrative[field].trim() === "" && pane !== field}
-                  onClick={() => setPane(field)}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-          {pane === "overview" ? (
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6">
-              <Input
-                type="text"
-                autoComplete="off"
-                aria-label="NPC name"
-                placeholder="Unnamed NPC"
-                value={name.value}
-                onChange={(event) => {
-                  name.setValue(event.target.value)
-                  mirrorName(npc.entityId, event.target.value)
-                }}
-                onFocus={() => name.onFocusChange(true)}
-                onBlur={() => name.onFocusChange(false)}
-                className="h-auto rounded-none border-0 bg-transparent px-0 font-display text-2xl font-semibold text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
-              />
-              <div className="flex flex-wrap items-center gap-1.5">
-                <ArcanaPicker
-                  campaignId={campaignId}
-                  entityId={npc.entityId}
-                  value={npc.arcana}
-                  holders={new Map(Object.entries(arcanaHolders))}
-                />
-                <LineagePicker
-                  campaignId={campaignId}
-                  entityId={npc.entityId}
-                  value={npc.lineageKey}
-                  holders={
-                    new Map(
-                      Object.entries(lineageHolders) as [Lineage, string][]
-                    )
-                  }
-                />
-                {npc.bondTier > 0 ? (
-                  <span className="rounded-full border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-                    Bond {npc.bondTier}
-                  </span>
-                ) : null}
-              </div>
-              <EntityWebSections
-                campaignId={campaignId}
-                campaignShortId={campaignShortId}
-                self={self}
-                selfLabel={displayName}
-                relations={web.relations}
-                timeline={web.timeline}
-                beatMentions={web.beatMentions}
-                currentDay={web.currentDay}
-                linkerOptions={linkerOptions}
-              />
-            </div>
-          ) : (
-            <NpcFieldPane
-              key={pane}
-              campaignId={campaignId}
-              entityId={npc.entityId}
-              field={pane}
-              serverValue={npc.narrative[pane]}
-              saveQueueRef={saveQueueRef}
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+        {pane === "overview" ? (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-6">
+            <Input
+              type="text"
+              autoComplete="off"
+              aria-label="NPC name"
+              placeholder="Unnamed NPC"
+              value={name.value}
+              onChange={(event) => {
+                name.setValue(event.target.value)
+                mirrorName(npc.entityId, event.target.value)
+              }}
+              onFocus={() => name.onFocusChange(true)}
+              onBlur={() => name.onFocusChange(false)}
+              className="h-auto rounded-none border-0 bg-transparent px-0 font-display text-2xl font-semibold text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
             />
-          )}
-        </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ArcanaPicker
+                campaignId={campaignId}
+                entityId={npc.entityId}
+                value={npc.arcana}
+                holders={new Map(Object.entries(arcanaHolders))}
+              />
+              <LineagePicker
+                campaignId={campaignId}
+                entityId={npc.entityId}
+                value={npc.lineageKey}
+                holders={
+                  new Map(Object.entries(lineageHolders) as [Lineage, string][])
+                }
+              />
+              {npc.bondTier > 0 ? (
+                <span className="rounded-full border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
+                  Bond {npc.bondTier}
+                </span>
+              ) : null}
+            </div>
+            <EntityWebSections
+              campaignId={campaignId}
+              campaignShortId={campaignShortId}
+              self={self}
+              selfLabel={displayName}
+              relations={web.relations}
+              timeline={web.timeline}
+              beatMentions={web.beatMentions}
+              currentDay={web.currentDay}
+              linkerOptions={linkerOptions}
+            />
+          </div>
+        ) : (
+          <NpcFieldPane
+            key={pane}
+            campaignId={campaignId}
+            entityId={npc.entityId}
+            field={pane}
+            serverValue={npc.narrative[pane]}
+            saveQueueRef={saveQueueRef}
+          />
+        )}
       </div>
 
       {deleteOpen ? (
@@ -235,33 +207,6 @@ export function NpcPage({
         />
       ) : null}
     </div>
-  )
-}
-
-/** One document-rail row — hand-styled to read like a sidebar menu button. */
-function PaneButton({
-  label,
-  isActive,
-  muted = false,
-  onClick,
-}: {
-  label: string
-  isActive: boolean
-  muted?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/50",
-        isActive && "bg-muted font-medium",
-        muted && "text-muted-foreground/60"
-      )}
-    >
-      {label}
-    </button>
   )
 }
 

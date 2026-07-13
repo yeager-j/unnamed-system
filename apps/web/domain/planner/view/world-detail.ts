@@ -23,6 +23,8 @@ export interface EntityTimelineUpdateInput {
   /** The update's primary ref; null means "the world". */
   primary: ParticipantRef | null
   concerns: readonly ParticipantRef[]
+  /** True for slot-less rows — world updates may be edited/deleted from here. */
+  isWorld: boolean
 }
 
 /** One rendered timeline entry. */
@@ -32,8 +34,12 @@ export interface EntityTimelineEntryView {
   category: UpdateCategory | null
   /** True when the page's entity is the update's primary (vs merely concerned). */
   isPrimary: boolean
+  /** True for slot-less rows — the timeline offers edit/delete on these. */
+  isWorld: boolean
   /** Every participant except the page's entity, resolved (tombstones muted). */
   others: ResolvedParticipant[]
+  /** The row's actual concerns (self included), resolved — the edit seed. */
+  concerns: ResolvedParticipant[]
 }
 
 /** Entries grouped under their day heading, input (query) order preserved. */
@@ -71,7 +77,9 @@ export function buildEntityTimelineView(
       body: update.body,
       category: update.category,
       isPrimary,
+      isWorld: update.isWorld,
       others: foldResolvedParticipants(otherRefs, hits),
+      concerns: foldResolvedParticipants(update.concerns, hits),
     }
     const group = days.at(-1)
     if (group !== undefined && group.day === update.day) {

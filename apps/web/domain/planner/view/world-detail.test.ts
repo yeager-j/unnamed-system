@@ -29,6 +29,7 @@ function update(
     category: null,
     primary: SELF,
     concerns: [],
+    isWorld: true,
     ...overrides,
   }
 }

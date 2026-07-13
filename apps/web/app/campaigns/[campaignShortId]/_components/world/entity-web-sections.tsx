@@ -9,7 +9,10 @@ import type {
   RelationRowView,
 } from "@/domain/planner/view/world-detail"
 
-import { WorldUpdateComposer } from "../composer/world-update-composer"
+import {
+  ActivityComposer,
+  type ComposerTarget,
+} from "../composer/activity-composer"
 import { EntityTimeline } from "./entity-timeline"
 import { RelationsSection } from "./relations-section"
 
@@ -42,6 +45,16 @@ export function EntityWebSections({
   currentDay: number | null
   linkerOptions: LinkerOption[]
 }) {
+  const worldTarget: ComposerTarget | null =
+    currentDay === null
+      ? null
+      : {
+          kind: "world",
+          primary: { kind: self.kind, id: self.id },
+          primaryLabel: selfLabel,
+          currentDay,
+        }
+
   return (
     <div className="flex flex-col gap-5">
       <Separator />
@@ -60,16 +73,19 @@ export function EntityWebSections({
       <Separator />
       <div className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">Timeline</h2>
-        {currentDay !== null ? (
-          <WorldUpdateComposer
+        {worldTarget !== null ? (
+          <ActivityComposer
             campaignId={campaignId}
-            primary={self}
-            primaryLabel={selfLabel}
-            currentDay={currentDay}
+            target={worldTarget}
             linkerOptions={linkerOptions}
           />
         ) : null}
-        <EntityTimeline days={timeline} />
+        <EntityTimeline
+          campaignId={campaignId}
+          days={timeline}
+          linkerOptions={linkerOptions}
+          editTarget={worldTarget}
+        />
       </div>
     </div>
   )

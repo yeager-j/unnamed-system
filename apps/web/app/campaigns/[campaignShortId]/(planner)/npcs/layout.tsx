@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { WorldShell } from "@/app/campaigns/[campaignShortId]/_components/world/world-shell"
+import { npcDocEmptiness } from "@/domain/planner/npc-documents"
 import { seasonOf } from "@/domain/planner/season"
 import { buildNpcTreeItems } from "@/domain/planner/view/world"
 import { buildWorldForest } from "@/domain/planner/view/world-tree"
@@ -48,6 +49,12 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
       }
       forest={buildWorldForest(folders, buildNpcTreeItems(npcs))}
       typeOptions={[]}
+      npcDocs={Object.fromEntries(
+        npcs.map((npc) => [
+          npc.entityId,
+          npcDocEmptiness(npc.entity.narrative ?? null),
+        ])
+      )}
     >
       {children}
     </WorldShell>

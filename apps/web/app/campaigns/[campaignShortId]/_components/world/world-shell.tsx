@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { createContext, useContext, useMemo, useState } from "react"
 
 import {
@@ -12,8 +13,11 @@ import type {
   WorldForestView,
   WorldTreeItem,
 } from "@/domain/planner/view/world-tree"
+import type { NarrativeTextField } from "@/domain/vocab"
 import type { WorldFolderKind } from "@/lib/db/schema/campaign-world"
+import { campaignNpcPath } from "@/lib/paths"
 
+import { WorldDocRail } from "./world-doc-rail"
 import { WorldTree } from "./world-tree"
 
 /**
@@ -41,7 +45,14 @@ export function useWorldNameMirror(): (id: string, name: string) => void {
  * The Articles/NPCs surface shell (UNN-579, D11): the layout-owned folder
  * tree in a sticky sidebar, the routed page (index empty state or a detail
  * editor) in the inset — the Session Notes experience, one segment up so the
- * tree survives detail navigation with its expand/collapse state intact.
+ * tree survives detail navigation with its expand/collapse state intact
+ * (lifted here for exactly that reason).
+ *
+ * **Master-detail drill-down on NPC pages:** an open NPC swaps the sidebar's
+ * content to that NPC's document rail (`WorldDocRail` — back row, Overview +
+ * narrative documents) so the page never stacks a third column. The swap is
+ * pathname-derived, SSR-consistent, and the doc selection rides `?doc=` so
+ * the layout-owned rail and the page-owned editor agree through the URL.
  */
 export function WorldShell({
   kind,
@@ -51,6 +62,7 @@ export function WorldShell({
   dayLine,
   forest,
   typeOptions,
+  npcDocs,
   children,
 }: {
   kind: WorldFolderKind
@@ -61,9 +73,13 @@ export function WorldShell({
   forest: WorldForestView
   /** Article surfaces: the campaign's distinct type tags (filter chips). */
   typeOptions: string[]
+  /** NPC surfaces: per-entity doc emptiness, keyed entityId → field (the rail's muted rows). */
+  npcDocs?: Record<string, Record<NarrativeTextField, boolean>>
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
   const [names, setNames] = useState<Record<string, string>>({})
+  const [collapsed, setCollapsed] = useState<Set<string | null>>(new Set())
   const mirror = useMemo(
     () => ({
       names,
@@ -80,6 +96,14 @@ export function WorldShell({
     [forest, names]
   )
 
+  const openNpc =
+    kind === "npc" && npcDocs !== undefined
+      ? findItem(
+          mirrored,
+          (item) => campaignNpcPath(campaignShortId, item.id) === pathname
+        )
+      : null
+
   return (
     <WorldNameMirrorContext.Provider value={mirror}>
       <SidebarProvider className="min-h-0 flex-1 bg-sidebar">
@@ -87,21 +111,53 @@ export function WorldShell({
           collapsible="none"
           className="sticky top-14 h-[calc(100svh-3.5rem)] shrink-0"
         >
-          <WorldTree
-            kind={kind}
-            campaignId={campaignId}
-            campaignShortId={campaignShortId}
-            campaignName={campaignName}
-            dayLine={dayLine}
-            forest={mirrored}
-            typeOptions={typeOptions}
-          />
+          {openNpc !== null && npcDocs?.[openNpc.id] !== undefined ? (
+            <WorldDocRail
+              campaignShortId={campaignShortId}
+              entityId={openNpc.id}
+              name={openNpc.name}
+              emptiness={npcDocs[openNpc.id]!}
+            />
+          ) : (
+            <WorldTree
+              kind={kind}
+              campaignId={campaignId}
+              campaignShortId={campaignShortId}
+              campaignName={campaignName}
+              dayLine={dayLine}
+              forest={mirrored}
+              typeOptions={typeOptions}
+              collapsed={collapsed}
+              onCollapsedChange={setCollapsed}
+            />
+          )}
         </Sidebar>
         <SidebarInset className="m-2 ml-0 min-w-0 rounded-xl shadow-sm">
           {children}
         </SidebarInset>
       </SidebarProvider>
     </WorldNameMirrorContext.Provider>
+  )
+}
+
+function findItem(
+  forest: WorldForestView,
+  match: (item: WorldTreeItem) => boolean
+): WorldTreeItem | null {
+  const fromFolder = (
+    folder: WorldForestView["roots"][number]
+  ): WorldTreeItem | null =>
+    folder.items.find(match) ??
+    folder.folders.reduce<WorldTreeItem | null>(
+      (found, child) => found ?? fromFolder(child),
+      null
+    )
+  return (
+    forest.unfiled.find(match) ??
+    forest.roots.reduce<WorldTreeItem | null>(
+      (found, root) => found ?? fromFolder(root),
+      null
+    )
   )
 }
 

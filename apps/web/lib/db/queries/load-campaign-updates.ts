@@ -177,6 +177,7 @@ export async function loadUpdatesForParticipant(
       category: campaignUpdate.category,
       primaryKind: campaignUpdate.primaryKind,
       primaryId: campaignUpdate.primaryId,
+      slotId: campaignUpdate.slotId,
     })
     .from(campaignUpdate)
     .where(
@@ -205,6 +206,7 @@ export async function loadUpdatesForParticipant(
         ? null
         : { kind: row.primaryKind, id: row.primaryId! },
     concerns: concernsByUpdate.get(row.id) ?? [],
+    isWorld: row.slotId === null,
   }))
 }
 
