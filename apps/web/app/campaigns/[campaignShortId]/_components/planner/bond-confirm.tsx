@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 
 import { NUMERIC_TIER_LABELS } from "@/domain/labels"
+import { BOND_THRESHOLD, MAX_BOND_TIER } from "@/domain/planner/bond"
 import { setNpcBondTierAction } from "@/lib/actions/campaign-world/bond"
 
 /** One NPC whose bond has enough Collaborator activity to deepen — the page
@@ -18,6 +19,14 @@ export interface BondConfirmEntry {
   name: string
   currentTier: number
   nextTier: number
+}
+
+/** A Lineage-holding NPC's full bond-progress state — {@link BondConfirmEntry}
+ *  plus the derived count, so surfaces can show "counted, 2/3" before the
+ *  threshold and the confirm at it. */
+export interface BondProgressEntry extends BondConfirmEntry {
+  progress: number
+  eligible: boolean
 }
 
 /**
@@ -82,5 +91,35 @@ export function BondConfirmCard({
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * The below-threshold sibling of {@link BondConfirmCard}: a quiet progress
+ * line under a Collaborator activity, so the DM can tell "not eligible yet"
+ * from "not counting at all". Shows the derived distinct-PC-days count
+ * against the flat threshold (clamped for display — a backlog past the
+ * threshold still reads n/n); a maxed bond states it instead of a count.
+ * Deliberately not "this entry counted": an entry authored before the tier
+ * last changed no longer does (D8's regress cost), and the running count is
+ * the honest signal either way.
+ */
+export function BondProgressHint({ entry }: { entry: BondProgressEntry }) {
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <HandHeartIcon aria-hidden className="size-3.5 shrink-0" />
+      {entry.currentTier >= MAX_BOND_TIER ? (
+        <>
+          Bond with {entry.name} — {NUMERIC_TIER_LABELS[entry.currentTier]} (
+          {entry.currentTier}), fully deepened.
+        </>
+      ) : (
+        <>
+          Bond with {entry.name} — {Math.min(entry.progress, BOND_THRESHOLD)}/
+          {BOND_THRESHOLD} toward {NUMERIC_TIER_LABELS[entry.nextTier]} (
+          {entry.nextTier}).
+        </>
+      )}
+    </p>
   )
 }

@@ -10,7 +10,7 @@ import {
 
 import type { ComposerLastActivity } from "@/app/campaigns/[campaignShortId]/_components/composer/activity-composer"
 import { MemberOverview } from "@/app/campaigns/[campaignShortId]/_components/member-overview"
-import type { BondConfirmEntry } from "@/app/campaigns/[campaignShortId]/_components/planner/bond-confirm"
+import type { BondProgressEntry } from "@/app/campaigns/[campaignShortId]/_components/planner/bond-confirm"
 import { HiddenInMode } from "@/app/campaigns/[campaignShortId]/_components/planner/capture-mode-gate"
 import type { WorkspaceActivity } from "@/app/campaigns/[campaignShortId]/_components/planner/downtime-workspace"
 import { FirstRunChecklist } from "@/app/campaigns/[campaignShortId]/_components/planner/first-run-checklist"
@@ -189,10 +189,11 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
       : Promise.resolve([]),
   ])
 
-  // The bond confirms (UNN-581, D8): derived progress — distinct PC-days of
+  // The bond progress (UNN-581, D8): derived — distinct PC-days of
   // Collaborator activity concerning each Lineage-holding NPC since its tier
-  // last changed — folded to the eligible set both confirm surfaces render.
-  // Independent of the Atlas-gating toggle: the bond is narrative state.
+  // last changed. The full per-NPC state goes down so the workspace can show
+  // "counted, n/3" below the threshold and the confirm at it. Independent of
+  // the Atlas-gating toggle: the bond is narrative state.
   const gateNpcs = npcs.filter((npc) => npc.lineageKey !== null)
   const bondTuples = await loadBondActivityTuples(
     campaign.id,
@@ -201,14 +202,13 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   const npcNameById = new Map(
     gateNpcs.map((npc) => [npc.entityId, npc.entity.name])
   )
-  const bondConfirms: BondConfirmEntry[] = bondEligibility(gateNpcs, bondTuples)
-    .filter((eligibility) => eligibility.eligible)
-    .map((eligibility) => ({
-      npcId: eligibility.npcId,
-      name: npcNameById.get(eligibility.npcId) ?? "an NPC",
-      currentTier: eligibility.currentTier,
-      nextTier: eligibility.nextTier,
-    }))
+  const bondProgress: BondProgressEntry[] = bondEligibility(
+    gateNpcs,
+    bondTuples
+  ).map((eligibility) => ({
+    ...eligibility,
+    name: npcNameById.get(eligibility.npcId) ?? "an NPC",
+  }))
 
   // The advance gate's advisory pre-warn (D1/D5): the unresolved deadlines,
   // handed to the runner so End-the-day and Skip can name their blockers
@@ -507,7 +507,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                     : null,
               }}
               unAdvanceUnbinds={unAdvanceUnbinds}
-              bondConfirms={bondConfirms}
+              bondProgress={bondProgress}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

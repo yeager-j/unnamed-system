@@ -54,7 +54,7 @@ import {
 import { setStoryTierAction } from "@/lib/actions/campaign-clock/story-tier"
 
 import type { ComposerLastActivity } from "../composer/activity-composer"
-import type { BondConfirmEntry } from "./bond-confirm"
+import type { BondProgressEntry } from "./bond-confirm"
 import { DayEndCapture, type DayEndData } from "./day-end-capture"
 import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
 import { DungeonSlotCard } from "./dungeon-slot-card"
@@ -102,7 +102,7 @@ export function Runner({
   unresolvedDeadlines,
   dayEnd,
   unAdvanceUnbinds,
-  bondConfirms,
+  bondProgress,
 }: {
   campaignId: string
   campaignShortId: string
@@ -127,8 +127,8 @@ export function Runner({
   dayEnd: DayEndData
   /** The current day's ⚑ markers, named — the un-advance confirm's list. */
   unAdvanceUnbinds: UnAdvanceUnbind[]
-  /** NPCs whose bond can deepen — both confirm surfaces' data (UNN-581, D8). */
-  bondConfirms: BondConfirmEntry[]
+  /** Per-NPC bond progress — the confirm surfaces + counted hints (UNN-581, D8). */
+  bondProgress: BondProgressEntry[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -194,7 +194,7 @@ export function Runner({
         )}
         linkerOptions={workspace.linkerOptions}
         data={dayEnd}
-        bondConfirms={bondConfirms}
+        bondConfirms={bondProgress.filter((entry) => entry.eligible)}
         onEndWith={(endMode) =>
           run(
             () =>
@@ -374,7 +374,7 @@ export function Runner({
             activities={workspace.activities}
             lastActivityByCharacter={workspace.lastActivityByCharacter}
             linkerOptions={workspace.linkerOptions}
-            bondConfirms={bondConfirms}
+            bondProgress={bondProgress}
           />
         )}
       </div>

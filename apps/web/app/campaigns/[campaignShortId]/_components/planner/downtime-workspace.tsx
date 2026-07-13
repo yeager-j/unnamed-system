@@ -36,7 +36,11 @@ import {
   type ComposerLastActivity,
 } from "../composer/activity-composer"
 import { UpdateEntryCard } from "../composer/update-entry-card"
-import { BondConfirmCard, type BondConfirmEntry } from "./bond-confirm"
+import {
+  BondConfirmCard,
+  BondProgressHint,
+  type BondProgressEntry,
+} from "./bond-confirm"
 import { useRunnerSelection } from "./runner-selection"
 
 /** A recorded entry, serialized for the workspace (concern labels pre-resolved). */
@@ -64,7 +68,7 @@ export function DowntimeWorkspace({
   activities,
   lastActivityByCharacter,
   linkerOptions,
-  bondConfirms,
+  bondProgress,
 }: {
   campaignId: string
   slot: { id: string; label: string }
@@ -73,8 +77,8 @@ export function DowntimeWorkspace({
   activities: WorkspaceActivity[]
   lastActivityByCharacter: Record<string, ComposerLastActivity>
   linkerOptions: LinkerOption[]
-  /** NPCs whose bond can deepen — the inline confirm's data (UNN-581, D8). */
-  bondConfirms: BondConfirmEntry[]
+  /** Per-NPC bond progress — the inline confirm + counted hint (UNN-581, D8). */
+  bondProgress: BondProgressEntry[]
 }) {
   const { selectedCharacterId } = useRunnerSelection()
   const [notYetNpcIds, setNotYetNpcIds] = useState<ReadonlySet<string>>(
@@ -99,15 +103,12 @@ export function DowntimeWorkspace({
         activity.characterId === character.id && activity.slotId === slot.id
     ) ?? null
 
-  const entryConfirms =
+  const entryBonds =
     entry?.category === "collaborator"
-      ? bondConfirms.filter(
-          (confirm) =>
-            !notYetNpcIds.has(confirm.npcId) &&
-            entry.concerns.some(
-              (concern) =>
-                concern.kind === "npc" && concern.id === confirm.npcId
-            )
+      ? bondProgress.filter((bond) =>
+          entry.concerns.some(
+            (concern) => concern.kind === "npc" && concern.id === bond.npcId
+          )
         )
       : []
 
@@ -151,18 +152,24 @@ export function DowntimeWorkspace({
               entry={entry}
               linkerOptions={linkerOptions}
             />
-            {entryConfirms.map((confirm) => (
-              <BondConfirmCard
-                key={confirm.npcId}
-                campaignId={campaignId}
-                confirm={confirm}
-                onNotYet={() =>
-                  setNotYetNpcIds(
-                    (current) => new Set([...current, confirm.npcId])
-                  )
-                }
-              />
-            ))}
+            {entryBonds.map((bond) =>
+              bond.eligible ? (
+                notYetNpcIds.has(bond.npcId) ? null : (
+                  <BondConfirmCard
+                    key={bond.npcId}
+                    campaignId={campaignId}
+                    confirm={bond}
+                    onNotYet={() =>
+                      setNotYetNpcIds(
+                        (current) => new Set([...current, bond.npcId])
+                      )
+                    }
+                  />
+                )
+              ) : (
+                <BondProgressHint key={bond.npcId} entry={bond} />
+              )
+            )}
           </>
         ) : (
           <>

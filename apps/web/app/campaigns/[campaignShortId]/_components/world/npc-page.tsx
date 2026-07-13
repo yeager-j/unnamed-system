@@ -8,6 +8,8 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
+import { NUMERIC_TIER_LABELS } from "@/domain/labels"
+import { BOND_THRESHOLD, MAX_BOND_TIER } from "@/domain/planner/bond"
 import {
   NPC_DOCUMENT_MESSAGES,
   npcPaneFromParam,
@@ -37,6 +39,9 @@ export interface NpcPageNpc {
   arcana: string | null
   lineageKey: Lineage | null
   bondTier: number
+  /** Derived distinct-PC-days toward the next tier (UNN-581, D8); null while
+   *  the NPC holds no Lineage (bond machinery inactive). */
+  bondProgress: number | null
   /** The eight text fields, nulls flattened to "" for the editors. */
   narrative: Record<NarrativeTextField, string>
   folderName: string | null
@@ -163,12 +168,21 @@ export function NpcPage({
                 }
               />
               {npc.lineageKey !== null ? (
-                <BondTierPicker
-                  campaignId={campaignId}
-                  entityId={npc.entityId}
-                  npcName={displayName}
-                  tier={npc.bondTier}
-                />
+                <>
+                  <BondTierPicker
+                    campaignId={campaignId}
+                    entityId={npc.entityId}
+                    npcName={displayName}
+                    tier={npc.bondTier}
+                  />
+                  {npc.bondProgress !== null && npc.bondTier < MAX_BOND_TIER ? (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {Math.min(npc.bondProgress, BOND_THRESHOLD)}/
+                      {BOND_THRESHOLD} toward{" "}
+                      {NUMERIC_TIER_LABELS[npc.bondTier + 1]}
+                    </span>
+                  ) : null}
+                </>
               ) : null}
             </div>
             <EntityWebSections
