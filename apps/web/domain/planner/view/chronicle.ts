@@ -46,29 +46,43 @@ export function buildChronicleDayViews(
 /**
  * Appends an older page's day groups onto the loaded feed, merging the day a
  * page boundary split: the older page's slice of that day holds its
- * **earlier** entries (the scan is descending), so it prepends. Pure, so the
- * boundary rule is unit-tested instead of living ad-hoc in the component.
+ * **earlier** entries (the scan is descending), so it prepends. Entries the
+ * feed already holds are dropped from the older page — after a mutation the
+ * RSC-rendered first page re-anchors on its own (its boundary can't be
+ * re-chained the way the client slices can), so a row that slid across that
+ * seam would otherwise render twice. Pure, so both rules are unit-tested
+ * instead of living ad-hoc in the component.
  */
 export function mergeChroniclePages(
   loaded: readonly TimelineDayView[],
   older: readonly TimelineDayView[]
 ): TimelineDayView[] {
+  const seen = new Set(
+    loaded.flatMap((day) => day.entries.map((entry) => entry.id))
+  )
+  const fresh = older
+    .map((day) => ({
+      ...day,
+      entries: day.entries.filter((entry) => !seen.has(entry.id)),
+    }))
+    .filter((day) => day.entries.length > 0)
+
   const lastLoaded = loaded.at(-1)
-  const firstOlder = older[0]
+  const firstFresh = fresh[0]
   if (
     lastLoaded === undefined ||
-    firstOlder === undefined ||
-    lastLoaded.day !== firstOlder.day
+    firstFresh === undefined ||
+    lastLoaded.day !== firstFresh.day
   ) {
-    return [...loaded, ...older]
+    return [...loaded, ...fresh]
   }
   return [
     ...loaded.slice(0, -1),
     {
       ...lastLoaded,
-      entries: [...firstOlder.entries, ...lastLoaded.entries],
+      entries: [...firstFresh.entries, ...lastLoaded.entries],
     },
-    ...older.slice(1),
+    ...fresh.slice(1),
   ]
 }
 

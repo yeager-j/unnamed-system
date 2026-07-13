@@ -108,6 +108,26 @@ describe("mergeChroniclePages", () => {
     const older = [group(3, "x")]
     expect(mergeChroniclePages([], older)).toEqual(older)
   })
+
+  it("drops entries the feed already holds (a row that slid across the RSC seam)", () => {
+    const merged = mergeChroniclePages(
+      [group(14, "a", "slid")],
+      [group(14, "slid", "b"), group(12, "c")]
+    )
+    expect(merged.map((d) => d.entries.map((e) => e.id))).toEqual([
+      ["b", "a", "slid"],
+      ["c"],
+    ])
+  })
+
+  it("drops a day group the dedupe emptied entirely", () => {
+    const merged = mergeChroniclePages(
+      [group(14, "a"), group(12, "x")],
+      [group(12, "x"), group(11, "y")]
+    )
+    expect(merged.map((d) => d.day)).toEqual([14, 12, 11])
+    expect(merged[1]!.entries.map((e) => e.id)).toEqual(["x"])
+  })
 })
 
 describe("parseChronicleParams", () => {

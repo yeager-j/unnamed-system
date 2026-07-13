@@ -73,27 +73,29 @@ export function ChronicleFeed({
     })
   }
 
+  // Sequential on purpose: a mutation shifts every later page's window, so
+  // each slice must re-anchor on the *refreshed* previous page's nextCursor.
+  // Replaying the saved cursors in parallel keeps stale boundaries and
+  // duplicates whichever row slid across one.
   const replaySlices = () => {
-    const cursors = slices.map((slice) => slice.cursor)
-    if (cursors.length === 0) return
+    const count = slices.length
+    const first = slices[0]?.cursor
+    if (count === 0 || first === undefined) return
     startTransition(async () => {
-      const results = await Promise.all(
-        cursors.map((cursor) =>
-          loadChroniclePageAction({ campaignId, cursor, filters })
-        )
-      )
-      if (results.some((result) => !result.ok)) return
-      setSlices(
-        cursors.map((cursor, index) => {
-          const result = results[index]!
-          return {
-            cursor,
-            days: result.ok ? result.value.days : [],
-          }
+      const replayed: { cursor: string; days: TimelineDayView[] }[] = []
+      let cursor: string | null = first
+      while (replayed.length < count && cursor !== null) {
+        const result = await loadChroniclePageAction({
+          campaignId,
+          cursor,
+          filters,
         })
-      )
-      const last = results.at(-1)
-      if (last?.ok) setNextCursor(last.value.nextCursor)
+        if (!result.ok) return
+        replayed.push({ cursor, days: result.value.days })
+        cursor = result.value.nextCursor
+      }
+      setSlices(replayed)
+      setNextCursor(cursor)
     })
   }
 

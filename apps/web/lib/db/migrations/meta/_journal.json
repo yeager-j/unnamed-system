@@ -260,6 +260,13 @@
       "when": 1783900248754,
       "tag": "0036_unn_579_world_folders_relations",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1783914030505,
+      "tag": "0037_unn_580_chronicle_cursor_ms_precision",
+      "breakpoints": true
     }
   ]
 }

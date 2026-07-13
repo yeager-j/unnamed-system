@@ -77,10 +77,17 @@ export const campaignUpdate = pgTable(
       () => campaignArticle.id,
       { onDelete: "restrict" }
     ),
-    authoredAt: timestamp("authoredAt", { mode: "date" })
+    /**
+     * Millisecond precision on purpose (UNN-580): `authoredAt` is a
+     * Chronicle-cursor column, and a JS `Date` only carries milliseconds —
+     * a µs-precision column would truncate on read and let a keyset page
+     * boundary skip rows between the truncated and stored value. Precision
+     * 3 makes the DB↔JS round-trip exact by construction.
+     */
+    authoredAt: timestamp("authoredAt", { mode: "date", precision: 3 })
       .notNull()
       .defaultNow(),
-    updatedAt: timestamp("updatedAt", { mode: "date" })
+    updatedAt: timestamp("updatedAt", { mode: "date", precision: 3 })
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
