@@ -1,10 +1,23 @@
 # Notion-style Editor — Technical Design
 
-> **Status:** Proposed · **Owner:** Jackson · **Produced:** 2026-07-13 ·
+> **Status:** ❌ **Rejected** (2026-07-13) · **Owner:** Jackson · **Produced:** 2026-07-13 ·
 > **Revised:** 2026-07-13 (critical-review pass: registry-verified drag-handle
 > version story §4, shared-extension-factory prerequisite §8, `useEditorState`
 > + lifted `mode` in the bubble sketches §9, gutter ownership §10.1, code-block
 > `allow` guard §6, touch scoping R8)
+>
+> **Rejection note.** Superseded the same day by the **Atomic editor direction**
+> (`atomic-editor-technical-design.md`, this folder): an Obsidian-style CM6
+> live-preview editor, vendored shadcn-style into `packages/editor`. The
+> deciding asymmetries: markdown-purity by construction (the §8 round-trip risk
+> class and the `@tiptap/markdown` beta pin vanish rather than being gated),
+> tables/task-lists/images on day one (deferred indefinitely here), our chip
+> token being byte-identical to its wiki-link syntax, and the desired hover
+> previews + `![[…]]` embeds being wiki-link-native features that this design's
+> mention model retrofits awkwardly. Drag handles — the one affordance CM6
+> cannot host — were judged the weakest of the three for prose-shaped planner
+> content. This document remains the record of the TipTap-chrome design and its
+> verified API research; none of it is planned for implementation.
 >
 > A path to layering three Notion-style affordances — a **slash-command menu**,
 > block **drag handles**, and a **floating selection (bubble) menu** — onto the
