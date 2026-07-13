@@ -508,7 +508,9 @@ house camelCase-singular convention — `mapInstance`, `characterKnife`):
 
 ```
 campaignClock         campaignId PK/FK · currentDay int (≥1) · slotTemplate jsonb [{label}] (min 1)
-                      · storyTier int 1..4 · clockVersion int · timestamps
+                      · storyTier int 1..4 · storyTierChangedAt? (DB now();
+                        Day-End nudges only for ⚑ markers authored after it)
+                      · clockVersion int · timestamps
 campaignSlot          id · campaignId · day int (immutable) · ordinal int · label
                       · UNIQUE (campaignId, day, ordinal) · INDEX (campaignId, day)
 campaignSeason        campaignId · day · label · UNIQUE (campaignId, day)

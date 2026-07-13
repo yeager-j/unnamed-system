@@ -35,6 +35,10 @@ export type SlotTemplateEntry = { label: string }
  * `storyTier` is the party's shared narrative arc (D8), DM-advanced, ranging
  * 1–4 (the four Archetype tiers — a character's Origin Lineage is always open
  * at Initiate); readers treat it as 1 when the clock hasn't been started.
+ * `storyTierChangedAt` (DB-clock, set by every story-tier write; null = never
+ * changed) is what keeps the Day-End pre-suggest honest: only a ⚑ marker
+ * authored *after* it nudges, so one resolved deadline can't walk the tier
+ * ladder — the story-tier mirror of `campaignNpc.bondTierChangedAt`.
  *
  * `clockVersion` is the optimistic-concurrency token every **clock-structural**
  * write (advance / un-advance / time-skip / add-days / per-day slot edits /
@@ -51,6 +55,7 @@ export const campaignClock = pgTable(
     currentDay: integer("currentDay").notNull(),
     slotTemplate: jsonb("slotTemplate").$type<SlotTemplateEntry[]>().notNull(),
     storyTier: integer("storyTier").notNull().default(1),
+    storyTierChangedAt: timestamp("storyTierChangedAt", { mode: "date" }),
     clockVersion: integer("clockVersion").notNull().default(0),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" })

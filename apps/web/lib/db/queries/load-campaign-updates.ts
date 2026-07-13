@@ -32,11 +32,15 @@ import { campaignNpc } from "@/lib/db/schema/campaign-world"
  * feed (phase 7). Campaign-scoped by WHERE (§5's read half).
  */
 
-/** A live ⚑ marker: which article it resolves, from which update, stamped on which day (D5). */
+/** A live ⚑ marker: which article it resolves, from which update, stamped on
+ *  which day (D5). `authoredAt` is what the Day-End story-tier pre-suggest
+ *  compares against `storyTierChangedAt` — only a marker newer than the last
+ *  tier change nudges. */
 export interface ResolvedMarker {
   articleId: string
   updateId: string
   day: number
+  authoredAt: Date
 }
 
 /**
@@ -52,6 +56,7 @@ export async function loadResolvedMarkers(
       articleId: campaignUpdate.resolvesArticleId,
       updateId: campaignUpdate.id,
       day: campaignUpdate.day,
+      authoredAt: campaignUpdate.authoredAt,
     })
     .from(campaignUpdate)
     .where(

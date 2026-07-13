@@ -1,0 +1,1 @@
+ALTER TABLE "campaignClock" ADD COLUMN "storyTierChangedAt" timestamp;

@@ -497,9 +497,17 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                 loggedToday: buildTimelineDayViews(loggedTodayInputs, hits),
                 preSuggests,
                 alerts: deadlineAlerts,
+                // Only a marker newer than the last tier change nudges — an
+                // accepted advance stamps storyTierChangedAt, so one resolved
+                // deadline can't walk the tier ladder.
                 storyTierNudge:
-                  markers.some((marker) => marker.day === clock.currentDay) &&
-                  clock.storyTier < 4
+                  clock.storyTier < 4 &&
+                  markers.some(
+                    (marker) =>
+                      marker.day === clock.currentDay &&
+                      marker.authoredAt >
+                        (clock.storyTierChangedAt ?? new Date(0))
+                  )
                     ? {
                         current: clock.storyTier,
                         next: clock.storyTier + 1,

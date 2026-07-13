@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { err, ok } from "@workspace/game-v2/kernel/result"
@@ -257,9 +258,11 @@ describe("casNpcBondTier", () => {
     const update = calls[0]!
     expect(update).toMatchObject({ op: "update", table: schema.campaignNpc })
     expect(update.payload).toMatchObject({ bondTier: 2 })
+    // DB now(), not app time: the cutoff is compared against DB-generated
+    // authoredAt stamps, so both must come from the same clock.
     expect(
       (update.payload as { bondTierChangedAt: unknown }).bondTierChangedAt
-    ).toBeInstanceOf(Date)
+    ).toEqual(sql`now()`)
   })
 
   it("reports stale on a zero-row CAS miss (double-confirm cannot jump two tiers)", async () => {
