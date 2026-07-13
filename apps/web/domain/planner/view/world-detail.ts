@@ -83,6 +83,36 @@ export function buildEntityTimelineView(
   return days
 }
 
+/** One rendered outgoing relation edge. */
+export interface RelationRowView {
+  id: string
+  label: string | null
+  target: ResolvedParticipant
+}
+
+/** The relations section's slice of an edge row. */
+export interface RelationRowInput {
+  id: string
+  label: string | null
+  targetKind: ParticipantRef["kind"]
+  targetId: string
+}
+
+/** Shapes an entity's outgoing edges, targets resolved (tombstones can't linger — deletes purge edges — but the fold degrades gracefully anyway). */
+export function buildRelationListView(
+  relations: readonly RelationRowInput[],
+  hits: ParticipantHitsByKind
+): RelationRowView[] {
+  return relations.map((relation) => ({
+    id: relation.id,
+    label: relation.label,
+    target: foldResolvedParticipants(
+      [{ kind: relation.targetKind, id: relation.targetId }],
+      hits
+    )[0]!,
+  }))
+}
+
 /** What still points at an entity — the delete confirm's inputs. */
 export interface ParticipantRefCounts {
   relations: number

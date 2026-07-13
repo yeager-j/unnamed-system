@@ -69,6 +69,20 @@ export function arcanaHolders(
   return holders
 }
 
+/**
+ * The type picker's curated starters (§4: "a hardcoded curated list ∪ the
+ * campaign's existing distinct values"). Free text always wins — these seed
+ * an empty campaign's picker, nothing more.
+ */
+export const ARTICLE_TYPE_SUGGESTIONS: readonly string[] = [
+  "Settlement",
+  "Faction",
+  "Place",
+  "Threat",
+  "Lore",
+  "Item",
+]
+
 /** The campaign's distinct article types, sorted — the tree's filter chips. */
 export function articleTypeOptions(
   articles: readonly CampaignArticleRow[]
