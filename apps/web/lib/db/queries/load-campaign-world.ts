@@ -3,9 +3,12 @@ import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import {
   campaignArticle,
+  campaignFolder,
   campaignNpc,
   type CampaignArticleRow,
+  type CampaignFolderRow,
   type CampaignNpcRow,
+  type WorldFolderKind,
 } from "@/lib/db/schema/campaign-world"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 
@@ -54,6 +57,59 @@ export async function loadCampaignArticles(
       )
     )
     .orderBy(asc(campaignArticle.name))
+}
+
+/** One live NPC by entity id — the NPC page load. Tombstone reads as absent (404). */
+export async function loadCampaignNpc(
+  campaignId: string,
+  entityId: string
+): Promise<LoadedCampaignNpc | undefined> {
+  const [row] = await db
+    .select({ entity, npc: campaignNpc })
+    .from(entity)
+    .innerJoin(campaignNpc, eq(campaignNpc.entityId, entity.id))
+    .where(
+      and(
+        eq(campaignNpc.entityId, entityId),
+        eq(campaignNpc.campaignId, campaignId),
+        isNull(entity.deletedAt)
+      )
+    )
+  return row === undefined ? undefined : { ...row.npc, entity: row.entity }
+}
+
+/** One live Article by id — the Article page load. Tombstone reads as absent (404). */
+export async function loadCampaignArticle(
+  campaignId: string,
+  articleId: string
+): Promise<CampaignArticleRow | undefined> {
+  const [row] = await db
+    .select()
+    .from(campaignArticle)
+    .where(
+      and(
+        eq(campaignArticle.id, articleId),
+        eq(campaignArticle.campaignId, campaignId),
+        isNull(campaignArticle.deletedAt)
+      )
+    )
+  return row
+}
+
+/** One kind's folder rows — the D11 forest builder's input (it sorts itself). */
+export async function loadWorldFolders(
+  campaignId: string,
+  kind: WorldFolderKind
+): Promise<CampaignFolderRow[]> {
+  return db
+    .select()
+    .from(campaignFolder)
+    .where(
+      and(
+        eq(campaignFolder.campaignId, campaignId),
+        eq(campaignFolder.kind, kind)
+      )
+    )
 }
 
 /**
