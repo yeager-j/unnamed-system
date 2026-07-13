@@ -36,6 +36,7 @@ import {
   type ComposerLastActivity,
 } from "../composer/activity-composer"
 import { UpdateEntryCard } from "../composer/update-entry-card"
+import { BondConfirmCard, type BondConfirmEntry } from "./bond-confirm"
 import { useRunnerSelection } from "./runner-selection"
 
 /** A recorded entry, serialized for the workspace (concern labels pre-resolved). */
@@ -63,6 +64,7 @@ export function DowntimeWorkspace({
   activities,
   lastActivityByCharacter,
   linkerOptions,
+  bondConfirms,
 }: {
   campaignId: string
   slot: { id: string; label: string }
@@ -71,8 +73,13 @@ export function DowntimeWorkspace({
   activities: WorkspaceActivity[]
   lastActivityByCharacter: Record<string, ComposerLastActivity>
   linkerOptions: LinkerOption[]
+  /** NPCs whose bond can deepen — the inline confirm's data (UNN-581, D8). */
+  bondConfirms: BondConfirmEntry[]
 }) {
   const { selectedCharacterId } = useRunnerSelection()
+  const [notYetNpcIds, setNotYetNpcIds] = useState<ReadonlySet<string>>(
+    new Set()
+  )
   const character =
     roster.find((row) => row.id === selectedCharacterId) ?? roster[0] ?? null
 
@@ -91,6 +98,18 @@ export function DowntimeWorkspace({
       (activity) =>
         activity.characterId === character.id && activity.slotId === slot.id
     ) ?? null
+
+  const entryConfirms =
+    entry?.category === "collaborator"
+      ? bondConfirms.filter(
+          (confirm) =>
+            !notYetNpcIds.has(confirm.npcId) &&
+            entry.concerns.some(
+              (concern) =>
+                concern.kind === "npc" && concern.id === confirm.npcId
+            )
+        )
+      : []
 
   return (
     <div className="mx-auto w-full max-w-2xl rounded-[calc(var(--radius)+4px)] border bg-card">
@@ -125,12 +144,26 @@ export function DowntimeWorkspace({
 
       <div className="flex flex-col gap-4 p-5">
         {entry ? (
-          <RecordedEntry
-            campaignId={campaignId}
-            slotLabel={slot.label}
-            entry={entry}
-            linkerOptions={linkerOptions}
-          />
+          <>
+            <RecordedEntry
+              campaignId={campaignId}
+              slotLabel={slot.label}
+              entry={entry}
+              linkerOptions={linkerOptions}
+            />
+            {entryConfirms.map((confirm) => (
+              <BondConfirmCard
+                key={confirm.npcId}
+                campaignId={campaignId}
+                confirm={confirm}
+                onNotYet={() =>
+                  setNotYetNpcIds(
+                    (current) => new Set([...current, confirm.npcId])
+                  )
+                }
+              />
+            ))}
+          </>
         ) : (
           <>
             <ActivityComposer

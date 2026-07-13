@@ -105,7 +105,7 @@ function PanelBody({
   onClose: () => void
 }) {
   const { archetype, state } = node
-  const locked = state.kind === "locked"
+  const locked = state.kind === "locked" || state.kind === "narrative-locked"
   const ownedRank =
     state.kind === "owned" || state.kind === "mastered" ? state.rank : 0
   const { ranks, synthesis } = resolveCreationArchetypeSkills(
@@ -135,7 +135,8 @@ function PanelBody({
                 variant="outline"
                 className="shrink-0 gap-1 text-muted-foreground"
               >
-                <LockSimpleIcon weight="bold" /> Locked
+                <LockSimpleIcon weight="bold" />
+                {state.kind === "narrative-locked" ? "Story-locked" : "Locked"}
               </Badge>
             ) : null
           }
@@ -143,7 +144,17 @@ function PanelBody({
       </ResponsiveDialogHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4">
-        <PrerequisitesSection node={node} />
+        {state.kind === "narrative-locked" ? (
+          <DetailSection title="Story-locked">
+            <p className="text-sm text-muted-foreground">
+              This tier isn&apos;t part of your campaign&apos;s story yet —
+              deepen a Collaborator&apos;s bond or wait for the story to
+              advance.
+            </p>
+          </DetailSection>
+        ) : (
+          <PrerequisitesSection node={node} />
+        )}
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <ArchetypeAttributesGrid archetype={archetype} />

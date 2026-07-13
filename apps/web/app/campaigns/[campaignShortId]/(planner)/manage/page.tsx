@@ -14,6 +14,7 @@ import { LiveEncounterBanner } from "@/app/campaigns/_components/live-encounter-
 import { RosterList } from "@/app/campaigns/_components/roster-list"
 import { activeEncounters } from "@/app/campaigns/[campaignShortId]/_components/active-encounters"
 import { DayStructureCard } from "@/app/campaigns/[campaignShortId]/_components/planner/day-structure-card"
+import { LineageGatingCard } from "@/app/campaigns/[campaignShortId]/_components/planner/lineage-gating-card"
 import { loadCampaignRoster } from "@/lib/db/queries/load-campaign"
 import { loadCampaignClock } from "@/lib/db/queries/load-campaign-clock"
 import {
@@ -121,6 +122,11 @@ export default async function ManageCampaignPage({ params }: PageProps) {
               }
             : null
         }
+      />
+
+      <LineageGatingCard
+        campaignId={campaign.id}
+        lineageGating={campaign.lineageGating}
       />
 
       <section className="flex flex-col gap-3">

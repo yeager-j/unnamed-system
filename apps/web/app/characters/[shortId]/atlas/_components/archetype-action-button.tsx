@@ -26,10 +26,12 @@ const NO_RANKS_REASON = "No Saved Archetype Ranks to spend."
  * flow shared by the detail panel and the recommendation slots. Its label and
  * behavior follow the node's {@link AtlasNodeState}:
  *
- * - `unlockable` → "Unlock"
- * - `owned`      → "Rank up"
- * - `mastered`   → "Mastered" (inert)
- * - `locked`     → "Prerequisites not met" (inert)
+ * - `unlockable`       → "Unlock"
+ * - `owned`            → "Rank up"
+ * - `mastered`         → "Mastered" (inert)
+ * - `locked`           → "Prerequisites not met" (inert)
+ * - `narrative-locked` → "Story-locked" (inert; the campaign's narrative gate,
+ *   re-checked server-side at the entity write door)
  *
  * An actionable button still disables when no Saved Rank is available; the
  * {@link TooltipButton} surfaces the reason on hover/focus. Both cases dispatch
@@ -63,6 +65,14 @@ export function ArchetypeActionButton({
     return (
       <Button variant="outline" {...props} disabled>
         Prerequisites not met
+      </Button>
+    )
+  }
+
+  if (state.kind === "narrative-locked") {
+    return (
+      <Button variant="outline" {...props} disabled>
+        Story-locked
       </Button>
     )
   }

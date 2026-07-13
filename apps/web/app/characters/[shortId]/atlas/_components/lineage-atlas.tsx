@@ -9,7 +9,7 @@ import {
   type AtlasLineage,
   type AtlasNode,
 } from "@workspace/game-v2/archetypes/atlas"
-import type { AttributeScores } from "@workspace/game-v2/kernel/vocab"
+import type { AttributeScores, Lineage } from "@workspace/game-v2/kernel/vocab"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { Switch } from "@workspace/ui/components/switch"
@@ -52,14 +52,23 @@ import { RecommendationSlots } from "./recommendation-slots"
  * `hiddenArchetypeKeys` are the per-user-gated Archetypes the current viewer may
  * not see; the page resolves them server-side (it owns viewer identity) and
  * passes them here so {@link buildLineageAtlas} drops them from the tree.
+ *
+ * `narrativeGate` is the campaign's Lineage gate (UNN-581, D8), resolved
+ * server-side by `loadNarrativeGate` and serialized as entries (a Map can't
+ * cross the RSC boundary); absent = gating off = all-open.
  */
 export function LineageAtlas({
   hiddenArchetypeKeys,
+  narrativeGate,
 }: {
   hiddenArchetypeKeys?: readonly string[]
+  narrativeGate?: readonly (readonly [Lineage, number])[]
 }) {
   const { profile, entity, resolved } = useLoadedCharacter()
-  const view = buildLineageAtlas(resolved, { hiddenArchetypeKeys })
+  const view = buildLineageAtlas(resolved, {
+    hiddenArchetypeKeys,
+    narrativeGate: narrativeGate ? new Map(narrativeGate) : undefined,
+  })
   const pathChoice = entity.components.path?.choice ?? "balanced"
   const level = entity.components.level?.value ?? 1
   const attributes: AttributeScores = resolved.components.attributes ?? {

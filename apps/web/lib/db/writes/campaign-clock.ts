@@ -656,6 +656,28 @@ export async function setSlotTemplate(input: {
 }
 
 /**
+ * Sets the campaign's story tier (D8) — the party's shared narrative arc,
+ * 1–4, DM-advanced (a deadline resolution pre-suggests it at Day-End; never
+ * auto). Rides the clock's CAS like every clock-structural write, so a
+ * double-confirm from the runner header and the Day-End nudge converges on
+ * one advance.
+ */
+export async function setStoryTier(input: {
+  campaignId: string
+  storyTier: number
+  expectedVersion: number
+}): Promise<Result<ClockWriteSuccess, ClockWriteError>> {
+  return guardMany(async (tx) => {
+    const clock = await loadClockRow(tx, input.campaignId)
+    if (!clock) return err("clock-not-found")
+
+    return casClock(tx, input.campaignId, input.expectedVersion, {
+      storyTier: input.storyTier,
+    })
+  })
+}
+
+/**
  * Sets (or relabels) the season starting on `day` — a sparse inherit-forward
  * marker keyed `(campaignId, day)`. Last-write-wins per D6: single-author
  * flavor text, no version token.

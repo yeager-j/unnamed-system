@@ -29,10 +29,16 @@ import { MAX_LEVEL } from "@workspace/game-v2/progression/leveling"
  * folded into node state — a separate axis the UI layers on.
  */
 
-/** One Archetype's state on the Atlas. */
+/**
+ * One Archetype's state on the Atlas. `narrative-locked` is the campaign's
+ * narrative gate (D8): the tier sits above what the story has opened. It
+ * carries no reason payload — *why* a Lineage opened (story tier vs an NPC
+ * bond) never crosses the engine boundary; the UI renders generic copy.
+ */
 export type AtlasNodeState =
   | { kind: "unlockable" }
   | { kind: "locked"; unmetPrerequisites: ArchetypePrerequisite[] }
+  | { kind: "narrative-locked" }
   | { kind: "owned"; rank: number }
   | { kind: "mastered"; rank: number }
 
@@ -108,16 +114,51 @@ export function atlasNodeState(
     : { kind: "unlockable" }
 }
 
+/** An {@link ArchetypeTier} as a 1-based level (initiate = 1 … paragon = 4) —
+ *  the number a narrative gate's open-tier values compare against. */
+export function archetypeTierLevel(tier: ArchetypeTier): number {
+  return ARCHETYPE_TIERS.indexOf(tier) + 1
+}
+
+/**
+ * Whether the campaign's narrative gate locks this Archetype (D8). The gate
+ * maps Lineage → highest open tier (1–4); an absent entry is 0 (fully locked).
+ * The character's Origin Lineage gets the **Initiate floor** — `max(1, gate)`
+ * — so your innate gift's first tier is always reachable. `undefined` gate =
+ * gating off = nothing locked.
+ *
+ * The single source of the gate comparison: `buildLineageAtlas` calls it to
+ * stamp `narrative-locked`, and the app's entity write door calls it to refuse
+ * a tampered `spendArchetypeRank` — the two can't drift.
+ */
+export function isNarrativelyLocked(
+  archetype: Pick<Archetype, "tier" | "lineage">,
+  narrativeGate: ReadonlyMap<Lineage, number> | undefined,
+  originLineage: Lineage | null
+): boolean {
+  if (narrativeGate === undefined) return false
+  const openTier = narrativeGate.get(archetype.lineage) ?? 0
+  const floored =
+    archetype.lineage === originLineage ? Math.max(1, openTier) : openTier
+  return archetypeTierLevel(archetype.tier) > floored
+}
+
 /**
  * Shapes the full {@link LineageAtlasView}: every Lineage's tier columns, each
  * Archetype's Atlas state, and the parent links. Walks the **whole** catalog via the
  * `allArchetypes` port. `hiddenArchetypeKeys` drops the named Archetypes **before any
  * shaping** (the app's per-viewer gate); the engine is a pure key filter (A4).
+ * `narrativeGate` (D8) re-states an unowned node as `narrative-locked` when its tier
+ * sits above the Lineage's open tier — owned/mastered nodes are untouched (acquisition
+ * is permanent; a bond regress never re-locks what a character already holds).
  */
 export function buildLineageAtlas(deps: Pick<GameData, "allArchetypes">) {
   return (
     resolved: ResolvedEntity,
-    options: { hiddenArchetypeKeys?: readonly string[] } = {}
+    options: {
+      hiddenArchetypeKeys?: readonly string[]
+      narrativeGate?: ReadonlyMap<Lineage, number>
+    } = {}
   ): LineageAtlasView => {
     const archetypes = resolved.components.archetypes
     const hidden = new Set(options.hiddenArchetypeKeys ?? [])
@@ -154,9 +195,17 @@ export function buildLineageAtlas(deps: Pick<GameData, "allArchetypes">) {
 
       const nodes: AtlasNode[] = lineageArchetypes.map((archetype) => {
         const ownedRank = ownedRankByKey.get(archetype.key)
+        const state = atlasNodeState(
+          archetype,
+          ownedRank ?? null,
+          ownedRankByKey
+        )
+        const narrativelyLocked =
+          (state.kind === "unlockable" || state.kind === "locked") &&
+          isNarrativelyLocked(archetype, options.narrativeGate, originLineage)
         return {
           archetype,
-          state: atlasNodeState(archetype, ownedRank ?? null, ownedRankByKey),
+          state: narrativelyLocked ? { kind: "narrative-locked" } : state,
           ownedKey: ownedRank !== undefined ? archetype.key : null,
           parentKeys: archetype.prerequisites.map((p) => p.archetype),
         }

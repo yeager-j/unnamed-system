@@ -281,6 +281,41 @@ export async function setNpcArcana(input: {
   })
 }
 
+export type CasNpcBondTierError = NpcWriteError | "stale"
+
+/**
+ * Compare-and-set an NPC's party-wide bond tier (D8). The `bondTier =
+ * expectedTier` guard makes a double-confirm from two surfaces converge on
+ * one advance — the second write matches zero rows and reports `stale`.
+ * Every path through here (confirm, manual set, regress) stamps
+ * `bondTierChangedAt`, restarting the derived progress clock: activities
+ * older than the new timestamp never count again (D8's documented regress
+ * cost). A tombstone refuses, as with every NPC trait write.
+ */
+export async function casNpcBondTier(input: {
+  campaignId: string
+  entityId: string
+  expectedTier: number
+  tier: number
+}): Promise<Result<void, CasNpcBondTierError>> {
+  return db.transaction(async (tx) => {
+    const npc = await liveNpcInCampaign(tx, input.campaignId, input.entityId)
+    if (!npc) return err("npc-not-found")
+    const updated = await tx
+      .update(campaignNpc)
+      .set({ bondTier: input.tier, bondTierChangedAt: new Date() })
+      .where(
+        and(
+          eq(campaignNpc.entityId, input.entityId),
+          eq(campaignNpc.campaignId, input.campaignId),
+          eq(campaignNpc.bondTier, input.expectedTier)
+        )
+      )
+      .returning({ entityId: campaignNpc.entityId })
+    return updated.length === 0 ? err("stale") : ok(undefined)
+  })
+}
+
 export type SetNpcLineageError = NpcWriteError | "lineage-taken"
 
 /**

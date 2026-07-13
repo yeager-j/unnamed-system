@@ -51,8 +51,10 @@ import {
   addSlotAction,
   renameSlotAction,
 } from "@/lib/actions/campaign-clock/slots"
+import { setStoryTierAction } from "@/lib/actions/campaign-clock/story-tier"
 
 import type { ComposerLastActivity } from "../composer/activity-composer"
+import type { BondConfirmEntry } from "./bond-confirm"
 import { DayEndCapture, type DayEndData } from "./day-end-capture"
 import { DowntimeWorkspace, type WorkspaceActivity } from "./downtime-workspace"
 import { DungeonSlotCard } from "./dungeon-slot-card"
@@ -63,6 +65,7 @@ import { SetAsideDisclosure, type SetAsideEntry } from "./set-aside-disclosure"
 import { SkipDialog, type SkipMontageEntry } from "./skip-dialog"
 import { SlotIcon } from "./slot-icon"
 import { StoryBeatCard } from "./story-beat-card"
+import { StoryTierControl } from "./story-tier-control"
 import { UnAdvanceConfirm, type UnAdvanceUnbind } from "./un-advance-confirm"
 
 /** Everything the downtime workspace renders, loaded once by the page. */
@@ -88,6 +91,7 @@ export function Runner({
   campaignShortId,
   currentDay,
   clockVersion,
+  storyTier,
   seasonLabel,
   slots,
   beatParticipants,
@@ -98,11 +102,14 @@ export function Runner({
   unresolvedDeadlines,
   dayEnd,
   unAdvanceUnbinds,
+  bondConfirms,
 }: {
   campaignId: string
   campaignShortId: string
   currentDay: number
   clockVersion: number
+  /** The party's shared arc, 1–4 (UNN-581, D8). */
+  storyTier: number
   seasonLabel: string | null
   slots: RunnerSlotView[]
   /** Resolved chip participants per beat id (the story card's chips + body). */
@@ -120,6 +127,8 @@ export function Runner({
   dayEnd: DayEndData
   /** The current day's ⚑ markers, named — the un-advance confirm's list. */
   unAdvanceUnbinds: UnAdvanceUnbind[]
+  /** NPCs whose bond can deepen — both confirm surfaces' data (UNN-581, D8). */
+  bondConfirms: BondConfirmEntry[]
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -185,6 +194,7 @@ export function Runner({
         )}
         linkerOptions={workspace.linkerOptions}
         data={dayEnd}
+        bondConfirms={bondConfirms}
         onEndWith={(endMode) =>
           run(
             () =>
@@ -194,6 +204,15 @@ export function Runner({
                 expectedVersion: clockVersion,
               }),
             () => setMode("run")
+          )
+        }
+        onAdvanceStoryTier={(tier) =>
+          run(() =>
+            setStoryTierAction({
+              campaignId,
+              storyTier: tier,
+              expectedVersion: clockVersion,
+            })
           )
         }
         onBack={() => setMode("run")}
@@ -212,6 +231,18 @@ export function Runner({
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <StoryTierControl
+            storyTier={storyTier}
+            onSet={(tier) =>
+              run(() =>
+                setStoryTierAction({
+                  campaignId,
+                  storyTier: tier,
+                  expectedVersion: clockVersion,
+                })
+              )
+            }
+          />
           {activeSlot?.kind === "downtime" ? (
             <RunMenus
               campaignId={campaignId}
@@ -343,6 +374,7 @@ export function Runner({
             activities={workspace.activities}
             lastActivityByCharacter={workspace.lastActivityByCharacter}
             linkerOptions={workspace.linkerOptions}
+            bondConfirms={bondConfirms}
           />
         )}
       </div>

@@ -1,4 +1,5 @@
 import { LockSimpleIcon } from "@phosphor-icons/react"
+import type { ReactElement } from "react"
 
 import { MASTERY_RANK } from "@workspace/game-v2/archetypes/archetype"
 import { type AtlasNode } from "@workspace/game-v2/archetypes/atlas"
@@ -17,8 +18,10 @@ import {
   TIER_ROMAN_LABELS,
 } from "@/domain/labels"
 
-/** The state pill in a node card's footer. */
-function StateBadge({ state }: { state: AtlasNode["state"] }) {
+/** The state pill in a node card's footer. The explicit return type keeps the
+ *  switch exhaustive — a new {@link AtlasNode.state} arm fails typecheck here
+ *  instead of silently rendering nothing. */
+function StateBadge({ state }: { state: AtlasNode["state"] }): ReactElement {
   switch (state.kind) {
     case "unlockable":
       return <Badge variant="outline">Unlockable</Badge>
@@ -26,6 +29,12 @@ function StateBadge({ state }: { state: AtlasNode["state"] }) {
       return (
         <Badge variant="outline" className="gap-1 text-muted-foreground">
           <LockSimpleIcon weight="bold" /> Locked
+        </Badge>
+      )
+    case "narrative-locked":
+      return (
+        <Badge variant="outline" className="gap-1 text-muted-foreground">
+          <LockSimpleIcon weight="bold" /> Story-locked
         </Badge>
       )
     case "owned":
@@ -63,7 +72,7 @@ export function ArchetypeNodeCard({
   const { archetype, state } = node
   const display = LINEAGE_DISPLAY[node.archetype.lineage]
   const Icon = LINEAGE_ICONS[display.icon]
-  const muted = state.kind === "locked"
+  const muted = state.kind === "locked" || state.kind === "narrative-locked"
 
   return (
     <button

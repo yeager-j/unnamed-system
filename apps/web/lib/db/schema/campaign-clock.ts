@@ -32,8 +32,9 @@ export type SlotTemplateEntry = { label: string }
  * slots). It applies **forward-only**: editing it (Manage Campaign → "Day
  * structure") affects only days materialized afterward.
  *
- * `storyTier` is the party's shared narrative arc (D8), DM-advanced, treated as
- * 0 by readers when the clock hasn't been started.
+ * `storyTier` is the party's shared narrative arc (D8), DM-advanced, ranging
+ * 1–4 (the four Archetype tiers — a character's Origin Lineage is always open
+ * at Initiate); readers treat it as 1 when the clock hasn't been started.
  *
  * `clockVersion` is the optimistic-concurrency token every **clock-structural**
  * write (advance / un-advance / time-skip / add-days / per-day slot edits /
@@ -49,7 +50,7 @@ export const campaignClock = pgTable(
       .references(() => campaigns.id, { onDelete: "cascade" }),
     currentDay: integer("currentDay").notNull(),
     slotTemplate: jsonb("slotTemplate").$type<SlotTemplateEntry[]>().notNull(),
-    storyTier: integer("storyTier").notNull().default(0),
+    storyTier: integer("storyTier").notNull().default(1),
     clockVersion: integer("clockVersion").notNull().default(0),
     createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { mode: "date" })
@@ -61,7 +62,7 @@ export const campaignClock = pgTable(
     check("campaignClock_currentDay_min", sql`${clock.currentDay} >= 1`),
     check(
       "campaignClock_storyTier_range",
-      sql`${clock.storyTier} BETWEEN 0 AND 4`
+      sql`${clock.storyTier} BETWEEN 1 AND 4`
     ),
     check(
       "campaignClock_slotTemplate_min_one",

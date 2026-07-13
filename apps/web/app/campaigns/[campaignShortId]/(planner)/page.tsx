@@ -10,6 +10,7 @@ import {
 
 import type { ComposerLastActivity } from "@/app/campaigns/[campaignShortId]/_components/composer/activity-composer"
 import { MemberOverview } from "@/app/campaigns/[campaignShortId]/_components/member-overview"
+import type { BondConfirmEntry } from "@/app/campaigns/[campaignShortId]/_components/planner/bond-confirm"
 import { HiddenInMode } from "@/app/campaigns/[campaignShortId]/_components/planner/capture-mode-gate"
 import type { WorkspaceActivity } from "@/app/campaigns/[campaignShortId]/_components/planner/downtime-workspace"
 import { FirstRunChecklist } from "@/app/campaigns/[campaignShortId]/_components/planner/first-run-checklist"
@@ -21,6 +22,7 @@ import type {
 import { Runner } from "@/app/campaigns/[campaignShortId]/_components/planner/runner"
 import { RunnerSelectionProvider } from "@/app/campaigns/[campaignShortId]/_components/planner/runner-selection"
 import type { UnAdvanceUnbind } from "@/app/campaigns/[campaignShortId]/_components/planner/un-advance-confirm"
+import { bondEligibility } from "@/domain/planner/bond"
 import { extractChipRefs, stripChipTokens } from "@/domain/planner/chip"
 import { isFrozenDay } from "@/domain/planner/clock"
 import { dayEndReadiness } from "@/domain/planner/day-end"
@@ -59,6 +61,7 @@ import {
 } from "@/lib/db/queries/load-campaign-notes"
 import {
   loadActivitiesForSlots,
+  loadBondActivityTuples,
   loadLastActivityPerCharacter,
   loadResolvedMarkers,
   loadWorldUpdatesForDay,
@@ -185,6 +188,27 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
       ? loadWorldUpdatesForDay(campaign.id, clock.currentDay)
       : Promise.resolve([]),
   ])
+
+  // The bond confirms (UNN-581, D8): derived progress — distinct PC-days of
+  // Collaborator activity concerning each Lineage-holding NPC since its tier
+  // last changed — folded to the eligible set both confirm surfaces render.
+  // Independent of the Atlas-gating toggle: the bond is narrative state.
+  const gateNpcs = npcs.filter((npc) => npc.lineageKey !== null)
+  const bondTuples = await loadBondActivityTuples(
+    campaign.id,
+    gateNpcs.map((npc) => npc.entityId)
+  )
+  const npcNameById = new Map(
+    gateNpcs.map((npc) => [npc.entityId, npc.entity.name])
+  )
+  const bondConfirms: BondConfirmEntry[] = bondEligibility(gateNpcs, bondTuples)
+    .filter((eligibility) => eligibility.eligible)
+    .map((eligibility) => ({
+      npcId: eligibility.npcId,
+      name: npcNameById.get(eligibility.npcId) ?? "an NPC",
+      currentTier: eligibility.currentTier,
+      nextTier: eligibility.nextTier,
+    }))
 
   // The advance gate's advisory pre-warn (D1/D5): the unresolved deadlines,
   // handed to the runner so End-the-day and Skip can name their blockers
@@ -441,6 +465,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               campaignShortId={campaign.shortId}
               currentDay={clock.currentDay}
               clockVersion={clock.clockVersion}
+              storyTier={clock.storyTier}
               seasonLabel={seasonLabel}
               slots={slotViews}
               beatParticipants={Object.fromEntries(
@@ -472,8 +497,17 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                 loggedToday: buildTimelineDayViews(loggedTodayInputs, hits),
                 preSuggests,
                 alerts: deadlineAlerts,
+                storyTierNudge:
+                  markers.some((marker) => marker.day === clock.currentDay) &&
+                  clock.storyTier < 4
+                    ? {
+                        current: clock.storyTier,
+                        next: clock.storyTier + 1,
+                      }
+                    : null,
               }}
               unAdvanceUnbinds={unAdvanceUnbinds}
+              bondConfirms={bondConfirms}
             />
           ) : (
             <FirstRunChecklist campaignId={campaign.id} />

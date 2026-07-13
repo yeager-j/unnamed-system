@@ -2,10 +2,14 @@
 
 import { forbidden } from "next/navigation"
 
+import { isNarrativelyLocked } from "@workspace/game-v2/archetypes/atlas"
 import { type Result } from "@workspace/game-v2/kernel/result"
 
 import { hiddenArchetypeKeysFor } from "@/domain/archetypes/restricted"
+import { getArchetype } from "@/domain/game-engine-v2"
+import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
 import { auth } from "@/lib/auth"
+import { loadPlayerCharacterById } from "@/lib/db/queries/load-player-character"
 
 import {
   ApplyEntityWriteSchema,
@@ -48,6 +52,10 @@ export async function applyEntityWriteAction(
     ) {
       forbidden()
     }
+    await refuseNarrativelyLockedUnlock(
+      parsed.data.entityId,
+      write.archetypeKey
+    )
   }
 
   const result = await commitEntityWrite(
@@ -59,4 +67,40 @@ export async function applyEntityWriteAction(
   if (result.ok) revalidateEntity(result.value)
 
   return result
+}
+
+/**
+ * The narrative gate's write-side arm (UNN-581, D8 — the same two-consumer
+ * pattern as the restricted-Archetype gate above): a placed character in a
+ * gating-enabled campaign may not unlock an Archetype whose tier the story
+ * hasn't opened. Resolves the gate through the same `loadNarrativeGate` +
+ * `isNarrativelyLocked` the Atlas renders from, so what displays locked and
+ * what refuses to unlock can't drift. Ranking up an **owned** Archetype stays
+ * legal — acquisition is permanent; a bond regress never re-locks holdings.
+ * The common paths (not placed / gating off) short-circuit after two reads.
+ */
+async function refuseNarrativelyLockedUnlock(
+  entityId: string,
+  archetypeKey: string
+): Promise<void> {
+  const character = await loadPlayerCharacterById(entityId)
+  if (!character?.campaignId) return
+
+  const archetypes = character.entity.archetypes
+  const owned = archetypes?.roster.some((entry) => entry.key === archetypeKey)
+  if (owned) return
+
+  const gate = await loadNarrativeGate({
+    campaignId: character.campaignId,
+    originArchetypeKey: archetypes?.origin ?? null,
+  })
+  if (gate === undefined) return
+
+  const target = getArchetype(archetypeKey)
+  if (!target) return
+
+  const originLineage = archetypes?.origin
+    ? (getArchetype(archetypes.origin)?.lineage ?? null)
+    : null
+  if (isNarrativelyLocked(target, gate, originLineage)) forbidden()
 }

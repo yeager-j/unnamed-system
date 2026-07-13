@@ -267,6 +267,13 @@
       "when": 1783914030505,
       "tag": "0037_unn_580_chronicle_cursor_ms_precision",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1783916235094,
+      "tag": "0038_unn_581_lineage_gating",
+      "breakpoints": true
     }
   ]
 }

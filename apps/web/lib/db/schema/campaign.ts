@@ -1,4 +1,10 @@
-import { pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core"
 
 import { users } from "./user"
 
@@ -28,6 +34,7 @@ export const campaigns = pgTable("campaign", {
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
+  lineageGating: boolean("lineageGating").notNull().default(false),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" })
     .notNull()

@@ -107,6 +107,7 @@ const schema = await import("@/lib/db/schema/campaign-world")
 const entitySchema = await import("@/lib/db/schema/entity")
 const updatesSchema = await import("@/lib/db/schema/campaign-updates")
 const {
+  casNpcBondTier,
   clearArticleDate,
   mintArticle,
   mintNpc,
@@ -233,6 +234,56 @@ describe("setNpcLineage", () => {
       campaignId: "camp-1",
       entityId: ENTITY_ID,
       lineageKey: "warlock",
+    })
+
+    expect(result).toEqual(err("npc-not-found"))
+    expect(calls).toHaveLength(0)
+  })
+})
+
+describe("casNpcBondTier", () => {
+  it("sets the tier and stamps bondTierChangedAt in one guarded update", async () => {
+    queue(schema.campaignNpc, [{ entityId: ENTITY_ID, deletedAt: null }])
+
+    const result = await casNpcBondTier({
+      campaignId: "camp-1",
+      entityId: ENTITY_ID,
+      expectedTier: 1,
+      tier: 2,
+    })
+
+    expect(result).toEqual(ok(undefined))
+    expect(calls).toHaveLength(1)
+    const update = calls[0]!
+    expect(update).toMatchObject({ op: "update", table: schema.campaignNpc })
+    expect(update.payload).toMatchObject({ bondTier: 2 })
+    expect(
+      (update.payload as { bondTierChangedAt: unknown }).bondTierChangedAt
+    ).toBeInstanceOf(Date)
+  })
+
+  it("reports stale on a zero-row CAS miss (double-confirm cannot jump two tiers)", async () => {
+    queue(schema.campaignNpc, [{ entityId: ENTITY_ID, deletedAt: null }])
+    npcUpdateRows = []
+
+    const result = await casNpcBondTier({
+      campaignId: "camp-1",
+      entityId: ENTITY_ID,
+      expectedTier: 1,
+      tier: 2,
+    })
+
+    expect(result).toEqual(err("stale"))
+  })
+
+  it("refuses a tombstoned NPC before writing", async () => {
+    queue(schema.campaignNpc, [{ entityId: ENTITY_ID, deletedAt: new Date() }])
+
+    const result = await casNpcBondTier({
+      campaignId: "camp-1",
+      entityId: ENTITY_ID,
+      expectedTier: 0,
+      tier: 1,
     })
 
     expect(result).toEqual(err("npc-not-found"))

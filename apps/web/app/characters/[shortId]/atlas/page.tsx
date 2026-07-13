@@ -8,6 +8,7 @@ import { slugForStepIndex } from "@/domain/character/builder-steps"
 import { loadCharacterByShortId } from "@/domain/character/load"
 import { redactLoadedCharacterForViewer } from "@/domain/character/redact"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
+import { loadNarrativeGate } from "@/domain/planner/load-narrative-gate"
 import { auth } from "@/lib/auth"
 import { getViewerRole } from "@/lib/auth/viewer-role"
 import { characterBuilderPath, characterPath } from "@/lib/paths"
@@ -59,13 +60,20 @@ export default async function LineageAtlasPage({ params }: PageProps) {
 
   const session = await auth()
   const hiddenArchetypeKeys = hiddenArchetypeKeysFor(session?.user?.email)
+  const narrativeGate = await loadNarrativeGate({
+    campaignId: loaded.profile.campaignId,
+    originArchetypeKey: loaded.entity.components.archetypes?.origin ?? null,
+  })
 
   return (
     <ViewerRoleProvider role={role}>
       <EntityWriteProvider
         loaded={redactLoadedCharacterForViewer(loaded, role)}
       >
-        <LineageAtlas hiddenArchetypeKeys={hiddenArchetypeKeys} />
+        <LineageAtlas
+          hiddenArchetypeKeys={hiddenArchetypeKeys}
+          narrativeGate={narrativeGate ? [...narrativeGate] : undefined}
+        />
       </EntityWriteProvider>
     </ViewerRoleProvider>
   )

@@ -24,6 +24,7 @@ import type { Lineage, NarrativeTextField } from "@/domain/vocab"
 import { campaignNpcsPath } from "@/lib/paths"
 
 import { ArcanaPicker } from "./arcana-picker"
+import { BondTierPicker } from "./bond-tier-picker"
 import { DeleteEntityConfirm } from "./delete-entity-confirm"
 import { EntityWebSections } from "./entity-web-sections"
 import { LineagePicker } from "./lineage-picker"
@@ -161,10 +162,13 @@ export function NpcPage({
                   new Map(Object.entries(lineageHolders) as [Lineage, string][])
                 }
               />
-              {npc.bondTier > 0 ? (
-                <span className="rounded-full border px-2.5 py-0.5 font-mono text-xs text-muted-foreground">
-                  Bond {npc.bondTier}
-                </span>
+              {npc.lineageKey !== null ? (
+                <BondTierPicker
+                  campaignId={campaignId}
+                  entityId={npc.entityId}
+                  npcName={displayName}
+                  tier={npc.bondTier}
+                />
               ) : null}
             </div>
             <EntityWebSections
