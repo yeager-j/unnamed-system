@@ -5,3 +5,6 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 .pnpm-store/
+
+# Vendored pristine mirror of atomic-editor — never reformat (see packages/editor/UPSTREAM.md)
+packages/editor/src/

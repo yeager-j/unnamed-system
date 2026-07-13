@@ -104,6 +104,7 @@ Turborepo monorepo with npm workspaces:
 apps/web/          Next.js 16 app (App Router, RSC, Server Actions)
 packages/game-v2/  The game engine + data (@workspace/game-v2) — the v1 packages/game was retired in UNN-594. Domain-first layout (kernel/ substrate + one folder per domain/PR + catalog/ authored content), depcheck.mjs-gated (ports-not-catalog + one-way spatial seam). Design in docs/engine-v2/. UNN-563 (S5) renames it @workspace/game-v2 → @workspace/game
 packages/ui/       Shared component library (shadcn/ui, Tailwind CSS 4)
+packages/editor/   Vendored pristine mirror of atomic-editor (@workspace/editor) — CM6 Obsidian-style live-preview markdown editor (UNN-619). Never edit src/; extend from apps/web against its exports. CM6/Lezer are peers (apps/web owns versions). Policy + sync ritual in packages/editor/UPSTREAM.md + CLAUDE.md
 packages/eslint-config/
 packages/typescript-config/
 docs/               Long-form feature specs (PRD/ADR/technical design), one folder

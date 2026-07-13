@@ -1,0 +1,70 @@
+/*
+ * Themes the vendored `@workspace/editor` (atomic-editor) to our shadcn/Tailwind
+ * palette. Lives app-side per the editor technical design §4 — a mapping from
+ * the editor's CSS variables to our design tokens, never an edit to the vendored
+ * CSS. The tokens themselves are defined in `@workspace/ui/globals.css`; this
+ * file only binds the editor's namespaced `--atomic-editor-*` variables to them.
+ *
+ * The app is dark-only (our `:root` is already the dark palette), so only the
+ * dark defaults are remapped — no `data-theme="light"` variant. The vendored
+ * `--atomic-editor-hl-*` code-token colors are intentionally left at their
+ * Palenight defaults: a purpose-built syntax palette reads better for fenced
+ * code than our brand tokens would.
+ */
+
+:root {
+  /* Typography — inherit the app's Hanken Grotesk / mono stacks. */
+  --atomic-editor-font: var(--font-sans);
+  --atomic-editor-font-mono: var(--font-mono);
+
+  /* Text hierarchy. */
+  --atomic-editor-fg: var(--foreground);
+  --atomic-editor-fg-muted: var(--muted-foreground);
+  --atomic-editor-fg-faint: color-mix(
+    in oklch,
+    var(--muted-foreground) 65%,
+    var(--background)
+  );
+
+  /* Surfaces — ascending elevation: bg < panel < surface. */
+  --atomic-editor-bg: var(--background);
+  --atomic-editor-bg-panel: var(--card);
+  --atomic-editor-bg-surface: var(--secondary);
+  --atomic-editor-border: var(--border);
+  --atomic-editor-code-bg: var(--muted);
+
+  /* Accent — the app's indigo primary. */
+  --atomic-editor-accent: var(--primary);
+  --atomic-editor-accent-bright: var(--primary-text);
+  --atomic-editor-accent-soft: color-mix(
+    in oklch,
+    var(--primary) 28%,
+    transparent
+  );
+
+  /* Links. */
+  --atomic-editor-link: var(--primary-text);
+  --atomic-editor-link-hover: color-mix(
+    in oklch,
+    var(--primary-text) 78%,
+    white
+  );
+
+  /* Selection + find-panel highlights — accent-tinted. */
+  --atomic-editor-selection-bg: color-mix(
+    in oklch,
+    var(--primary) 30%,
+    transparent
+  );
+  --atomic-editor-search-bg: color-mix(
+    in oklch,
+    var(--primary) 28%,
+    transparent
+  );
+  --atomic-editor-search-bg-active: color-mix(
+    in oklch,
+    var(--primary) 60%,
+    transparent
+  );
+}
+
