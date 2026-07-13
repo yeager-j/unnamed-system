@@ -146,8 +146,11 @@ test("day-end warning: Resolve All resolves the claim and fills nothing extra", 
 }) => {
   await page.goto(`/campaigns/${campaign.shortId}`)
 
-  // Morning story resolved + Evening claim unresolved ⇒ warning, not confirm.
+  // End the day opens the capture ritual (UNN-580); the gilded finisher
+  // fires the flow. Morning story resolved + Evening claim unresolved ⇒
+  // the loose-ends warning, not a direct advance.
   await page.getByRole("button", { name: "End the day" }).click()
+  await page.getByRole("button", { name: /advance to Day 2/ }).click()
   await expect(page.getByText("End Day 1 with loose ends?")).toBeVisible()
   await page.getByRole("button", { name: "Resolve All" }).click()
 
@@ -169,27 +172,33 @@ test("day-end warning: Resolve All resolves the claim and fills nothing extra", 
   expect(idles.filter((row) => row.category === "idle")).toHaveLength(0)
 })
 
-test("ready path: a complete day takes the plain confirm through the advance recount", async ({
+test("ready path: a complete day advances straight from the capture finisher", async ({
   page,
 }) => {
   await page.goto(`/campaigns/${campaign.shortId}`)
 
   // Fill both Day-2 downtime slots so the day is genuinely complete. (The
   // active pill also renders a "Rename ⟨label⟩" icon button, so match pills
-  // by their "Slot N" kicker.)
+  // by their "Slot N" kicker.) Wait on EACH slot's own pill meta — a bare
+  // getByText matches the previous slot's already-recorded pill and lets
+  // "End the day" race the second revalidation, handing the capture
+  // finisher a stale not-ready readiness.
   for (const slot of ["Slot 1", "Slot 2"]) {
     await page.getByRole("button", { name: new RegExp(slot) }).click()
     await page
       .getByRole("button", { name: `Mark ${character.name} idle` })
       .click()
-    await expect(page.getByText("Downtime · 1 / 1 recorded")).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: new RegExp(slot) })
+    ).toContainText("1 / 1 recorded")
   }
 
-  // Ready ⇒ the plain confirm (not the warning); mode "advance" recounts
-  // server-side and advances.
+  // Ready ⇒ the capture view IS the confirm (UNN-580): the finisher fires
+  // mode "advance" directly — no dialog — and the server recounts.
   await page.getByRole("button", { name: "End the day" }).click()
-  await expect(page.getByText("End Day 2 — advance to Day 3")).toBeVisible()
-  await page.getByRole("button", { name: "End the day" }).last().click()
+  await page
+    .getByRole("button", { name: "End Day 2 — advance to Day 3" })
+    .click()
   await expect(page.getByText("Day 3", { exact: true }).first()).toBeVisible()
 })
 
