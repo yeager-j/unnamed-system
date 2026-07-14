@@ -55,7 +55,9 @@ export function useBeatAutoSave({
   const saveField =
     (field: "title" | "tagline" | "body") =>
     async (
-      value: string
+      value: string,
+      _expectedVersion: number,
+      options: { flush: boolean }
     ): Promise<
       Result<{ value: string; version: number }, SaveBeatProseError>
     > => {
@@ -63,6 +65,7 @@ export function useBeatAutoSave({
         campaignId,
         beatId,
         [field]: value,
+        revalidate: options.flush,
       })
       return result.ok ? ok({ value, version: 0 }) : result
     }
@@ -80,6 +83,7 @@ export function useBeatAutoSave({
       dispatchWrite: lwwDispatch,
       save: saveField("title"),
       debounceMs: BEAT_DEBOUNCE_MS,
+      revalidateOnFlush: true,
     }),
     tagline: useDebouncedAutoSave({
       serverValue: serverTagline,
@@ -87,6 +91,7 @@ export function useBeatAutoSave({
       dispatchWrite: lwwDispatch,
       save: saveField("tagline"),
       debounceMs: BEAT_DEBOUNCE_MS,
+      revalidateOnFlush: true,
     }),
     body: useDebouncedAutoSave({
       serverValue: serverBody,
@@ -95,6 +100,7 @@ export function useBeatAutoSave({
       save: saveField("body"),
       debounceMs: BEAT_DEBOUNCE_MS,
       keepDraftOnError: true,
+      revalidateOnFlush: true,
     }),
   }
 }

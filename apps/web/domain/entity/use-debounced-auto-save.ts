@@ -99,10 +99,16 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
       expectedVersion: number
     ) => Promise<Result<{ value: TValue; version: number }, TError>>
   ) => Promise<Result<{ value: TValue; version: number }, TError | "stale">>
-  /** Persists `value`, conditioned on `expectedVersion`. */
+  /**
+   * Persists `value`, conditioned on `expectedVersion`. `options.flush` is
+   * true when this is a **terminal** save (blur / unmount) that a
+   * {@link UseDebouncedAutoSaveArgs.revalidateOnFlush} consumer wants to
+   * revalidate on — mid-edit debounce ticks pass `false`.
+   */
   save: (
     value: TValue,
-    expectedVersion: number
+    expectedVersion: number,
+    options: { flush: boolean }
   ) => Promise<Result<{ value: TValue; version: number }, TError>>
   /** Defaults to 500ms — the Notion-feel sweet spot. */
   debounceMs?: number
@@ -120,6 +126,20 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
    * `lastSavedRef` still holds the old value.
    */
   keepDraftOnError?: boolean
+  /**
+   * When true, a **flush** (blur or unmount) that follows any edit this session
+   * forces one save through to the server — even if the debounce already
+   * persisted the same value — with `options.flush = true`, so the `save`
+   * callback can revalidate the route cache. This is the coalescing point for
+   * consumers whose write pipeline **doesn't** revalidate per debounce tick
+   * (the planner's LWW prose, D10): back-navigation would otherwise restore a
+   * stale RSC payload. The debounce ticks never revalidate, so the route
+   * re-renders once on leaving the field, not once per keystroke. Default
+   * `false` — the entity door already revalidates every save, so the sheet /
+   * builder don't need it. Safe only because the CM6 editor seeds once and
+   * ignores `serverValue` after mount, so a revalidation can't trample a draft.
+   */
+  revalidateOnFlush?: boolean
   /** Override the default Sonner toast. */
   onError?: (error: TError | "stale") => void
 }
@@ -148,6 +168,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   isEmpty = () => false,
   isEqual = Object.is,
   keepDraftOnError = false,
+  revalidateOnFlush = false,
   onError,
 }: UseDebouncedAutoSaveArgs<
   TValue,
@@ -157,20 +178,28 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const focusedRef = useRef(false)
   const lastSavedRef = useRef(serverValue)
+  // Tracks whether the field has been edited since the route was last known
+  // fresh (mount, or the last revalidating flush) — the gate for the
+  // `revalidateOnFlush` coalescing so an unedited focus/blur doesn't revalidate.
+  const dirtyRef = useRef(false)
   const ownSaveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const queueRef = saveQueueRef ?? ownSaveQueueRef
 
-  function performSave(next: TValue): Promise<void> {
+  function performSave(next: TValue, flush: boolean): Promise<void> {
     const queued = queueRef.current.then(async () => {
-      if (isEqual(next, lastSavedRef.current)) return
+      // Debounce ticks skip a redundant write; a revalidating flush still
+      // reaches the server (even at the same value) so its `save` can
+      // revalidate the route cache.
+      if (isEqual(next, lastSavedRef.current) && !flush) return
 
       try {
         const result = await dispatchWrite((expectedVersion) =>
-          save(next, expectedVersion)
+          save(next, expectedVersion, { flush })
         )
 
         if (result.ok) {
           lastSavedRef.current = result.value.value
+          if (flush) dirtyRef.current = false
           return
         }
 
@@ -209,11 +238,12 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
 
   function setValue(next: TValue): void {
     setLocalValue(next)
+    dirtyRef.current = true
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null
       if (isEmpty(next)) return
-      void performSave(next)
+      void performSave(next, false)
     }, debounceMs)
   }
 
@@ -228,7 +258,7 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       }
       return
     }
-    void performSave(value)
+    void performSave(value, revalidateOnFlush && dirtyRef.current)
   }
 
   function revert(): void {
@@ -254,6 +284,8 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
     if (!focusedRef.current) {
       setLocalValue(serverValue)
       lastSavedRef.current = serverValue
+      // The route just re-rendered with a fresh value — the cache is current.
+      dirtyRef.current = false
     }
   })
   const flushOnUnmount = useEffectEvent(() => {
@@ -261,8 +293,11 @@ export function useDebouncedAutoSave<TValue, TError extends string>({
       clearTimeout(debounceRef.current)
       debounceRef.current = null
     }
-    if (!isEqual(value, lastSavedRef.current) && !isEmpty(value)) {
-      void performSave(value)
+    const flush = revalidateOnFlush && dirtyRef.current
+    // A dirty flush must run even when the debounce already persisted the value,
+    // so its `save` revalidates the route before this surface unmounts.
+    if ((!isEqual(value, lastSavedRef.current) || flush) && !isEmpty(value)) {
+      void performSave(value, flush)
     }
   })
 

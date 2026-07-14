@@ -12,6 +12,8 @@ export const SaveBeatProseSchema = z
     title: z.string().max(300).optional(),
     tagline: z.string().max(1_000).optional(),
     body: z.string().max(100_000).optional(),
+    /** Set on the terminal (blur/unmount) save so the notes route is revalidated — see the action. */
+    revalidate: z.boolean().optional(),
   })
   .refine(
     (input) =>

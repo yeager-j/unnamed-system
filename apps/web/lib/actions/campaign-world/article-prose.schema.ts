@@ -10,6 +10,8 @@ export const SaveArticleProseSchema = z.object({
   articleId: z.string(),
   name: z.string().max(200).optional(),
   body: z.string().max(100_000).optional(),
+  /** Set on the terminal (blur/unmount) save so the world route is revalidated — see the action. */
+  revalidate: z.boolean().optional(),
 })
 
 export type SaveArticleProseInput = z.input<typeof SaveArticleProseSchema>
