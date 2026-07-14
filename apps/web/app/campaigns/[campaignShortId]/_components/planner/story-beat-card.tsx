@@ -36,7 +36,7 @@ import {
   deferBeatAction,
   setBeatResolvedAction,
 } from "@/lib/actions/campaign-notes/beat"
-import { campaignNotesPath } from "@/lib/paths"
+import { campaignBeatPath } from "@/lib/paths"
 
 import { runnerErrorToast } from "./runner-errors"
 
@@ -122,11 +122,7 @@ export function StoryBeatCard({
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t pt-4">
         <Button
           variant="outline"
-          render={
-            <Link
-              href={`${campaignNotesPath(campaignShortId)}?beat=${beat.id}`}
-            />
-          }
+          render={<Link href={campaignBeatPath(campaignShortId, beat.id)} />}
           nativeButton={false}
         >
           <NotebookIcon />

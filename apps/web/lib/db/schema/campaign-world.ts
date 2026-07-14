@@ -1,13 +1,11 @@
 import { sql } from "drizzle-orm"
 import {
   check,
-  foreignKey,
   index,
   integer,
   pgTable,
   text,
   timestamp,
-  unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
 
@@ -16,6 +14,7 @@ import type { Lineage } from "@workspace/game-v2/kernel/vocab"
 import type { ParticipantKind } from "@/domain/planner/participant"
 
 import { campaigns } from "./campaign"
+import { campaignFolder } from "./campaign-folder"
 import { entity } from "./entity"
 
 /**
@@ -23,59 +22,6 @@ import { entity } from "./entity"
  * calendar, or a `deadline` that counts down and gates the clock's advance.
  */
 export type ArticleDatedKind = "event" | "deadline"
-
-/** Which forest a folder belongs to (D11): one tree per surface, never mixed. */
-export type WorldFolderKind = "article" | "npc"
-
-/**
- * A **world folder** (Campaign Planner phase 6 — UNN-579, tech-design D11): one
- * node in the freeform folder tree that organizes a campaign's Articles or NPCs,
- * as an **adjacency list** — `parentId IS NULL` is a root; a move is a
- * single-row `parentId` update.
- *
- * **Kind agreement is a DB fact:** the `(id, kind)` unique lets the self-FK be
- * the composite `(parentId, kind) → (id, kind)`, so a cross-kind parent is
- * unrepresentable. Item membership (`folderId` on the article/NPC rows) is a
- * plain FK; its kind/campaign agreement is action-validated (§5 boundary rule).
- *
- * The self-FK **cascades**: deleting a folder deletes its subtree's folders in
- * one statement while each folder's contents float to the derived Unfiled via
- * their own SET-NULL FKs. Folders **hard-delete** — purely organizational,
- * nothing historical references one (unlike articles' tombstones). Cycles are
- * not representable-proof: the move action's ancestor walk rejects them, and
- * the tree builder degrades any unrooted node's contents to Unfiled.
- */
-export const campaignFolder = pgTable(
-  "campaignFolder",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    campaignId: text("campaignId")
-      .notNull()
-      .references(() => campaigns.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<WorldFolderKind>().notNull(),
-    parentId: text("parentId"),
-    name: text("name").notNull(),
-    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-    updatedAt: timestamp("updatedAt", { mode: "date" })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
-  },
-  (folder) => [
-    unique("campaignFolder_id_kind_unique").on(folder.id, folder.kind),
-    foreignKey({
-      name: "campaignFolder_parent_fk",
-      columns: [folder.parentId, folder.kind],
-      foreignColumns: [folder.id, folder.kind],
-    }).onDelete("cascade"),
-    index("campaignFolder_campaign_kind_idx").on(
-      folder.campaignId,
-      folder.kind
-    ),
-  ]
-)
 
 /**
  * A **relation** (phase 6, tech-design §3): one directed, free-form-labeled
@@ -231,9 +177,6 @@ export const campaignNpc = pgTable(
       .where(sql`${npc.lineageKey} IS NOT NULL`),
   ]
 )
-
-/** The persisted world-folder row shape (typed off the table). */
-export type CampaignFolderRow = typeof campaignFolder.$inferSelect
 
 /** The persisted relation row shape (typed off the table). */
 export type CampaignRelationRow = typeof campaignRelation.$inferSelect

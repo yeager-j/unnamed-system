@@ -2,18 +2,23 @@ import type { ParticipantRef } from "@/domain/planner/participant"
 import { mintArticleAction } from "@/lib/actions/campaign-world/mint-article"
 import { mintNpcAction } from "@/lib/actions/campaign-world/mint-npc"
 
-/** Runs a world-web quick mint and returns the participant ref editors insert. */
+/**
+ * Runs a world-web quick mint and returns the participant ref editors insert.
+ * `folderId` files the fresh row straight into a tree folder (null ⇒ Unfiled)
+ * — the rails' "New … here"; the editors' inline mints pass nothing.
+ */
 export async function mintParticipantRef(
   kind: "npc" | "article",
   campaignId: string,
-  name: string
+  name: string,
+  folderId: string | null = null
 ): Promise<ParticipantRef | null> {
   if (kind === "npc") {
-    const result = await mintNpcAction({ campaignId, name })
+    const result = await mintNpcAction({ campaignId, name, folderId })
     if (!result.ok) return null
     return { kind: "npc", id: result.value.entityId, label: name }
   }
-  const result = await mintArticleAction({ campaignId, name })
+  const result = await mintArticleAction({ campaignId, name, folderId })
   if (!result.ok) return null
   return { kind: "article", id: result.value.id, label: name }
 }

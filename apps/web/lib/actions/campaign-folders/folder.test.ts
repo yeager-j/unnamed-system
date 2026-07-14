@@ -56,11 +56,28 @@ describe("createFolderAction", () => {
     expect(revalidatePath).toHaveBeenCalled()
   })
 
+  it("creates a session folder — the notes rail rides the same action (UNN-617)", async () => {
+    const result = await createFolderAction({
+      campaignId: "client-supplied",
+      kind: "session",
+      name: "Session 4",
+      parentId: null,
+    })
+
+    expect(result).toEqual(ok({ id: "folder-1" }))
+    expect(createFolder).toHaveBeenCalledWith({
+      campaignId: GATED_CAMPAIGN_ID,
+      kind: "session",
+      name: "Session 4",
+      parentId: null,
+    })
+  })
+
   it("rejects an unknown kind at the wire", async () => {
     const result = await createFolderAction({
       campaignId: "c",
       // @ts-expect-error — the wire is untrusted
-      kind: "session",
+      kind: "dungeon",
       name: "Places",
       parentId: null,
     })

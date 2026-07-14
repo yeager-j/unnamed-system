@@ -8,9 +8,7 @@ import {
 } from "@/lib/db/schema/campaign-clock"
 import {
   campaignBeat,
-  campaignSession,
   type CampaignBeatRow,
-  type CampaignSessionRow,
 } from "@/lib/db/schema/campaign-notes"
 import { dungeons } from "@/lib/db/schema/dungeon"
 
@@ -24,54 +22,44 @@ import { dungeons } from "@/lib/db/schema/dungeon"
 /** A tree row: the beat's list facts + its schedule, slot resolved to display facts. */
 export interface NotesTreeBeat {
   id: string
-  sessionId: string | null
+  folderId: string | null
   title: string
   floating: boolean
-  resolvedAt: Date | null
   scheduledSlot: { id: string; day: number; label: string } | null
 }
 
-/** The Session Notes tree read: every session + every beat's list facts. */
-export async function loadNotesTree(campaignId: string): Promise<{
-  sessions: CampaignSessionRow[]
-  beats: NotesTreeBeat[]
-}> {
-  const [sessions, beats] = await Promise.all([
-    db
-      .select()
-      .from(campaignSession)
-      .where(eq(campaignSession.campaignId, campaignId))
-      .orderBy(asc(campaignSession.createdAt)),
-    db
-      .select({
-        id: campaignBeat.id,
-        sessionId: campaignBeat.sessionId,
-        title: campaignBeat.title,
-        floating: campaignBeat.floating,
-        resolvedAt: campaignBeat.resolvedAt,
-        slotId: campaignSlot.id,
-        slotDay: campaignSlot.day,
-        slotLabel: campaignSlot.label,
-      })
-      .from(campaignBeat)
-      .leftJoin(campaignSlot, eq(campaignSlot.id, campaignBeat.scheduledSlotId))
-      .where(eq(campaignBeat.campaignId, campaignId))
-      .orderBy(asc(campaignBeat.createdAt)),
-  ])
-  return {
-    sessions,
-    beats: beats.map((row) => ({
-      id: row.id,
-      sessionId: row.sessionId,
-      title: row.title,
-      floating: row.floating,
-      resolvedAt: row.resolvedAt,
-      scheduledSlot:
-        row.slotId === null
-          ? null
-          : { id: row.slotId, day: row.slotDay!, label: row.slotLabel! },
-    })),
-  }
+/**
+ * The Session Notes tree's item read (UNN-617): every beat's list facts. Its
+ * folders come from the shared `loadCampaignFolders(campaignId, "session")`,
+ * like the Articles and NPCs rails.
+ */
+export async function loadBeatsForTree(
+  campaignId: string
+): Promise<NotesTreeBeat[]> {
+  const rows = await db
+    .select({
+      id: campaignBeat.id,
+      folderId: campaignBeat.folderId,
+      title: campaignBeat.title,
+      floating: campaignBeat.floating,
+      slotId: campaignSlot.id,
+      slotDay: campaignSlot.day,
+      slotLabel: campaignSlot.label,
+    })
+    .from(campaignBeat)
+    .leftJoin(campaignSlot, eq(campaignSlot.id, campaignBeat.scheduledSlotId))
+    .where(eq(campaignBeat.campaignId, campaignId))
+    .orderBy(asc(campaignBeat.createdAt))
+  return rows.map((row) => ({
+    id: row.id,
+    folderId: row.folderId,
+    title: row.title,
+    floating: row.floating,
+    scheduledSlot:
+      row.slotId === null
+        ? null
+        : { id: row.slotId, day: row.slotDay!, label: row.slotLabel! },
+  }))
 }
 
 /** A full beat for the editor, its schedule slot resolved to display facts. */

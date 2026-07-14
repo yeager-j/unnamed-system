@@ -1,6 +1,6 @@
 "use server"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { mintNpc } from "@/lib/db/writes/campaign-world"
@@ -30,7 +30,8 @@ export async function mintNpcAction(
   const minted = await mintNpc({
     campaignId: campaign.id,
     name: parsed.data.name,
+    folderId: parsed.data.folderId ?? null,
   })
-  revalidateCampaignWorld(campaign)
-  return ok(minted)
+  if (minted.ok) revalidateCampaignWorld(campaign)
+  return minted
 }

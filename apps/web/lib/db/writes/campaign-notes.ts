@@ -13,15 +13,17 @@ import {
 import {
   campaignBeat,
   campaignBeatMention,
-  campaignSession,
   type CampaignBeatRow,
 } from "@/lib/db/schema/campaign-notes"
 
+import { guardTargetFolder } from "./campaign-folders"
 import { guardMany } from "./guard-many"
 
 /**
- * Persistence for **Session Notes** (UNN-576, tech-design D6/D10): sessions,
- * beats, and the derived mention index. Auth-free like every write wrapper —
+ * Persistence for **Session Notes** (UNN-576, tech-design D6/D10): beats and
+ * the derived mention index. Their folders are `kind = 'session'` rows of the
+ * shared tree (UNN-617 — `writes/campaign-folders.ts`), so nothing session-
+ * shaped lives here. Auth-free like every write wrapper —
  * `requireCampaignDM` lives at the Server Action boundary
  * (`lib/actions/campaign-notes/`), and every write scopes its target by
  * `(id, campaignId)` — the write-boundary rule (§5).
@@ -34,80 +36,28 @@ import { guardMany } from "./guard-many"
  * `"slot-occupied"` (D6's race guard).
  */
 
-/** Creates a session folder. */
-export async function createSession(input: {
-  campaignId: string
-  name: string
-}): Promise<{ id: string }> {
-  const [row] = await db
-    .insert(campaignSession)
-    .values(input)
-    .returning({ id: campaignSession.id })
-  return row!
-}
-
-/** Renames a session. LWW. */
-export async function renameSession(input: {
-  campaignId: string
-  sessionId: string
-  name: string
-}): Promise<Result<void, "session-not-found">> {
-  const renamed = await db
-    .update(campaignSession)
-    .set({ name: input.name })
-    .where(
-      and(
-        eq(campaignSession.id, input.sessionId),
-        eq(campaignSession.campaignId, input.campaignId)
-      )
-    )
-    .returning({ id: campaignSession.id })
-  return renamed.length === 0 ? err("session-not-found") : ok(undefined)
-}
-
 /**
- * Deletes a session. Its beats float to the virtual **Unfiled** folder via
- * the `sessionId` FK's SET NULL — no compensating write, no magic row.
- */
-export async function deleteSession(input: {
-  campaignId: string
-  sessionId: string
-}): Promise<Result<void, "session-not-found">> {
-  const deleted = await db
-    .delete(campaignSession)
-    .where(
-      and(
-        eq(campaignSession.id, input.sessionId),
-        eq(campaignSession.campaignId, input.campaignId)
-      )
-    )
-    .returning({ id: campaignSession.id })
-  return deleted.length === 0 ? err("session-not-found") : ok(undefined)
-}
-
-/**
- * Creates a beat — empty title/tagline/body — in `sessionId` or Unfiled, and
- * optionally scheduled straight into `slotId` (the runner's "New story beat":
- * mint + schedule in one transaction, through the same target-slot guard as
- * {@link scheduleBeat}). A supplied `sessionId` is validated against the
- * gated campaign (§5) so a beat can never be filed into a foreign campaign's
- * session.
+ * Creates a beat — titled or blank, empty tagline/body — in `folderId` or
+ * Unfiled, and optionally scheduled straight into `slotId` (the runner's "New
+ * story beat": mint + schedule in one transaction, through the same
+ * target-slot guard as {@link scheduleBeat}). A supplied `folderId` passes the
+ * shared same-campaign/same-kind folder guard (§5), so a beat can never be
+ * filed into a foreign campaign's session — or an NPC folder.
  */
 export async function createBeat(input: {
   campaignId: string
-  sessionId?: string | null
+  folderId?: string | null
+  title?: string
   slotId?: string
-}): Promise<Result<{ id: string }, "session-not-found" | ScheduleTargetError>> {
+}): Promise<Result<{ id: string }, "folder-not-found" | ScheduleTargetError>> {
   return mapScheduleRaceToOccupied(
     guardMany(async (tx) => {
-      if (input.sessionId != null) {
-        const found = await sessionInCampaign(
-          tx,
-          input.campaignId,
-          input.sessionId
-        )
-        if (!found) return err("session-not-found")
-      }
+      const folder = await guardTargetFolder(
+        tx,
+        { campaignId: input.campaignId, folderId: input.folderId ?? null },
+        "session"
+      )
+      if (!folder.ok) return folder
       if (input.slotId !== undefined) {
         const target = await guardScheduleTarget(
           tx,
@@ -120,43 +70,14 @@ export async function createBeat(input: {
         .insert(campaignBeat)
         .values({
           campaignId: input.campaignId,
-          sessionId: input.sessionId ?? null,
+          folderId: input.folderId ?? null,
+          title: input.title ?? "",
           scheduledSlotId: input.slotId ?? null,
         })
         .returning({ id: campaignBeat.id })
       return ok(row!)
     })
   )
-}
-
-/** Moves a beat between sessions (null ⇒ Unfiled). Organizational only — never touches the schedule. */
-export async function moveBeatToSession(input: {
-  campaignId: string
-  beatId: string
-  sessionId: string | null
-}): Promise<Result<void, "beat-not-found" | "session-not-found">> {
-  return guardMany(async (tx) => {
-    if (input.sessionId != null) {
-      const found = await sessionInCampaign(
-        tx,
-        input.campaignId,
-        input.sessionId
-      )
-      if (!found) return err("session-not-found")
-    }
-    const moved = await tx
-      .update(campaignBeat)
-      .set({ sessionId: input.sessionId })
-      .where(
-        and(
-          eq(campaignBeat.id, input.beatId),
-          eq(campaignBeat.campaignId, input.campaignId)
-        )
-      )
-      .returning({ id: campaignBeat.id })
-    if (moved.length === 0) return err("beat-not-found")
-    return ok(undefined)
-  })
 }
 
 /**
@@ -435,23 +356,6 @@ export async function saveBeatProse(input: {
     }
     return ok(undefined)
   })
-}
-
-async function sessionInCampaign(
-  executor: WriteExecutor,
-  campaignId: string,
-  sessionId: string
-): Promise<boolean> {
-  const [row] = await executor
-    .select({ id: campaignSession.id })
-    .from(campaignSession)
-    .where(
-      and(
-        eq(campaignSession.id, sessionId),
-        eq(campaignSession.campaignId, campaignId)
-      )
-    )
-  return row !== undefined
 }
 
 async function beatInCampaign(

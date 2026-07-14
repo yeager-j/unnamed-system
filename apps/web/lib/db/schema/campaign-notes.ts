@@ -14,34 +14,17 @@ import type { ParticipantKind } from "@/domain/planner/participant"
 
 import { campaigns } from "./campaign"
 import { campaignSlot } from "./campaign-clock"
-
-/**
- * A **session** (Campaign Planner phase 3 — UNN-576, PRD FR-4): an
- * organizational folder in Session Notes. Flat — no nesting — and purely
- * organizational: a session never couples to the clock. Beats with no session
- * (`campaignBeat.sessionId IS NULL`) live in the virtual **Unfiled** folder,
- * which is derived, never a magic row; deleting a session floats its beats
- * there via the FK's SET NULL.
- */
-export const campaignSession = pgTable("campaignSession", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  campaignId: text("campaignId")
-    .notNull()
-    .references(() => campaigns.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
-  updatedAt: timestamp("updatedAt", { mode: "date" })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+import { campaignFolder } from "./campaign-folder"
 
 /**
  * A **story beat** (phase 3, PRD FR-4): one prep note — title + tagline +
  * markdown body with inline participant chip tokens (D7). Prep-side, not a
  * participant: nothing references a beat except its own mention index.
+ *
+ * A beat files into a `kind = 'session'` folder (`folderId` — UNN-617, D11),
+ * the same freeform nested tree the Articles and NPCs rails use; a beat with
+ * no folder lives in the derived **Unfiled** bucket, and deleting a session
+ * folder floats its beats there via the FK's SET NULL.
  *
  * The **schedule** is one fact across two columns: `scheduledSlotId` (a
  * concrete slot), `floating` ("run anytime"), or neither ("not scheduled") —
@@ -62,7 +45,8 @@ export const campaignBeat = pgTable(
     campaignId: text("campaignId")
       .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
-    sessionId: text("sessionId").references(() => campaignSession.id, {
+    /** D11: tree membership; null ⇒ the derived Unfiled (never a magic row). */
+    folderId: text("folderId").references(() => campaignFolder.id, {
       onDelete: "set null",
     }),
     title: text("title").notNull().default(""),
@@ -92,9 +76,9 @@ export const campaignBeat = pgTable(
     uniqueIndex("campaignBeat_scheduledSlot_unique")
       .on(beat.scheduledSlotId)
       .where(sql`${beat.scheduledSlotId} IS NOT NULL`),
-    index("campaignBeat_campaign_session_idx").on(
+    index("campaignBeat_campaign_folder_idx").on(
       beat.campaignId,
-      beat.sessionId
+      beat.folderId
     ),
   ]
 )
@@ -124,9 +108,6 @@ export const campaignBeatMention = pgTable(
     ),
   ]
 )
-
-/** The persisted session row shape (typed off the table). */
-export type CampaignSessionRow = typeof campaignSession.$inferSelect
 
 /** The persisted beat row shape (typed off the table). */
 export type CampaignBeatRow = typeof campaignBeat.$inferSelect

@@ -34,7 +34,7 @@ beforeEach(() => {
     id: GATED_CAMPAIGN_ID,
     shortId: "camp1234",
   } as CampaignRow)
-  mintNpc.mockResolvedValue({ entityId: "entity-1", shortId: "npc12345" })
+  mintNpc.mockResolvedValue(ok({ entityId: "entity-1", shortId: "npc12345" }))
 })
 
 describe("mintNpcAction", () => {
@@ -49,6 +49,7 @@ describe("mintNpcAction", () => {
     expect(mintNpc).toHaveBeenCalledWith({
       campaignId: GATED_CAMPAIGN_ID,
       name: "Maren the Hollow",
+      folderId: null,
     })
     expect(revalidatePath).toHaveBeenCalled()
   })

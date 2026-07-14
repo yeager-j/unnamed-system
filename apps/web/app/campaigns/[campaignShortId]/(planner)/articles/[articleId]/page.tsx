@@ -10,12 +10,12 @@ import {
 } from "@/domain/planner/view/world"
 import { buildRelationListView } from "@/domain/planner/view/world-detail"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
+import { loadCampaignFolders } from "@/lib/db/queries/load-campaign-folders"
 import { loadUpdatesForParticipant } from "@/lib/db/queries/load-campaign-updates"
 import {
   loadCampaignArticle,
   loadCampaignArticles,
   loadCampaignNpcs,
-  loadWorldFolders,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
@@ -60,7 +60,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     counts,
   ] = await Promise.all([
     getCampaignClock(campaign.id),
-    loadWorldFolders(campaign.id, "article"),
+    loadCampaignFolders(campaign.id, "article"),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),

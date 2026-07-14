@@ -23,6 +23,8 @@ import {
 import { entity } from "@/lib/db/schema/entity"
 import { insertWithShortId } from "@/lib/db/short-id"
 
+import { guardTargetFolder } from "./campaign-folders"
+
 /**
  * Persistence for the campaign **world substrate** (UNN-575): NPCs and
  * Articles. Auth-free like the other write wrappers — `requireCampaignDM`
@@ -40,13 +42,24 @@ import { insertWithShortId } from "@/lib/db/short-id"
  * production sibling of the PC mint in `lib/actions/entity/start-draft.ts`.
  * No components on mint: a quick-minted NPC is a **stub** (name only), and
  * the absent `narrative` component is one leg of `isStubNpc`.
+ *
+ * `folderId` files it straight into a tree folder (null ⇒ Unfiled — D11),
+ * behind the shared same-campaign/same-kind guard.
  */
 export async function mintNpc(input: {
   campaignId: string
   name: string
-}): Promise<{ entityId: string; shortId: string }> {
+  folderId?: string | null
+}): Promise<Result<{ entityId: string; shortId: string }, "folder-not-found">> {
   return insertWithShortId(async (candidate) => {
     return db.transaction(async (tx) => {
+      const folder = await guardTargetFolder(
+        tx,
+        { campaignId: input.campaignId, folderId: input.folderId ?? null },
+        "npc"
+      )
+      if (!folder.ok) return folder
+
       const [inserted] = await tx
         .insert(entity)
         .values({ shortId: candidate, name: input.name })
@@ -55,28 +68,40 @@ export async function mintNpc(input: {
       await tx.insert(campaignNpc).values({
         entityId: inserted!.id,
         campaignId: input.campaignId,
+        folderId: input.folderId ?? null,
       })
 
-      return { entityId: inserted!.id, shortId: candidate }
+      return ok({ entityId: inserted!.id, shortId: candidate })
     })
   })
 }
 
-/** Mints an Article (a plain row — Articles are not entities). */
+/** Mints an Article (a plain row — Articles are not entities), optionally into a folder. */
 export async function mintArticle(input: {
   campaignId: string
   name: string
   type?: string | null
-}): Promise<{ id: string }> {
-  const [row] = await db
-    .insert(campaignArticle)
-    .values({
-      campaignId: input.campaignId,
-      name: input.name,
-      type: input.type ?? null,
-    })
-    .returning({ id: campaignArticle.id })
-  return row!
+  folderId?: string | null
+}): Promise<Result<{ id: string }, "folder-not-found">> {
+  return db.transaction(async (tx) => {
+    const folder = await guardTargetFolder(
+      tx,
+      { campaignId: input.campaignId, folderId: input.folderId ?? null },
+      "article"
+    )
+    if (!folder.ok) return folder
+
+    const [row] = await tx
+      .insert(campaignArticle)
+      .values({
+        campaignId: input.campaignId,
+        name: input.name,
+        type: input.type ?? null,
+        folderId: input.folderId ?? null,
+      })
+      .returning({ id: campaignArticle.id })
+    return ok(row!)
+  })
 }
 
 export type ArticleDateError = "article-not-found" | "article-resolved"

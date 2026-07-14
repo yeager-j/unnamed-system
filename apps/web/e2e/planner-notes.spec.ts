@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
+import { campaignFolder } from "@/lib/db/schema/campaign-folder"
 import {
   campaignBeat,
   campaignBeatMention,
@@ -44,7 +45,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  // Campaign delete cascades sessions/beats/updates/slots/clock (verified:
+  // Campaign delete cascades folders/beats/updates/slots/clock (verified:
   // the update rows' own cascade clears the slotId RESTRICT before slots go).
   await cleanup(tracker)
 })
@@ -60,21 +61,21 @@ test("first run: start the clock from the checklist", async ({ page }) => {
   await expect(page.getByText("Downtime · 0 / 1 recorded")).toHaveCount(2)
 })
 
-test("notes: create a beat, autosave the title, quick-mint a chip via @", async ({
+test("notes: mint a named beat, autosave the title, quick-mint a chip via @", async ({
   page,
 }) => {
   await page.goto(`/campaigns/${campaign.shortId}/notes`)
 
+  // The header ＋ opens the name dialog (folder-aware mint, UNN-617); a name
+  // mints the beat and routes to its page.
   await page.getByRole("button", { name: "New beat" }).click()
-  await expect(page).toHaveURL(/\/notes\?beat=/)
+  await page.getByLabel("Name").fill("The Queen's Offer")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect(page).toHaveURL(/\/notes\/[^/?]+$/)
 
-  const title = page.getByPlaceholder("Untitled beat")
-  await title.fill("The Queen's Offer")
-  await title.blur()
-  // The tree row mirrors the title instantly (no revalidate), then autosave
-  // lands it (~800 ms LWW write).
+  // The tree row carries the minted name, and the title landed on the row.
   await expect(
-    page.getByRole("button", { name: /The Queen's Offer/ })
+    page.getByRole("link", { name: /The Queen's Offer/ })
   ).toBeVisible()
   await expect
     .poll(async () => (await readBeat()).title, { timeout: 5000 })
@@ -117,8 +118,10 @@ test("notes: slash command inserts a heading that persists as markdown", async (
 }) => {
   await page.goto(`/campaigns/${campaign.shortId}/notes`)
   await page.getByRole("button", { name: "New beat" }).click()
-  await expect(page).toHaveURL(/\/notes\?beat=/)
-  const beatId = new URL(page.url()).searchParams.get("beat")!
+  await page.getByLabel("Name").fill("Court intrigue")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect(page).toHaveURL(/\/notes\/[^/?]+$/)
+  const beatId = new URL(page.url()).pathname.split("/").pop()!
 
   // `/` on the empty first line opens the block menu — the same controlled
   // shadcn bridge that renders the chip completions; picking "Heading 2"
@@ -142,7 +145,7 @@ test("notes: schedule the beat into a slot; occupied slots disable", async ({
   page,
 }) => {
   const beat = await readBeat()
-  await page.goto(`/campaigns/${campaign.shortId}/notes?beat=${beat.id}`)
+  await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
 
   await page.getByRole("button", { name: "Not scheduled" }).click()
   await page.getByRole("menuitem", { name: "Day 1" }).hover()
@@ -154,6 +157,9 @@ test("notes: schedule the beat into a slot; occupied slots disable", async ({
 
   // A second beat sees the slot occupied — disabled and attributed.
   await page.getByRole("button", { name: "New beat" }).click()
+  await page.getByLabel("Name").fill("A rival's whisper")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect(page).toHaveURL(/\/notes\/[^/?]+$/)
   await page.getByRole("button", { name: "Not scheduled" }).click()
   await page.getByRole("menuitem", { name: "Day 1" }).hover()
   const occupied = page.getByRole("menuitem", { name: /Morning/ })
@@ -252,7 +258,7 @@ test("previews: hovering a renamed NPC's chip shows its current name", async ({
   // Editor: the same card under a CodeMirror pill — and clicking one still
   // navigates, so nothing the card shows is hover-only.
   const beat = await readBeat()
-  await page.goto(`/campaigns/${campaign.shortId}/notes?beat=${beat.id}`)
+  await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
   const chip = page.locator(
     '.cm-atomic-wiki-link[data-wiki-link-target^="npc:"]'
   )
@@ -263,6 +269,96 @@ test("previews: hovering a renamed NPC's chip shows its current name", async ({
   await expect(page).toHaveURL(new RegExp(`/npcs/${npcId}$`))
 })
 
+test("session notes ride the shared tree: nest, move a beat, cycle-guard, delete-floats", async ({
+  page,
+}) => {
+  await page.goto(`/campaigns/${campaign.shortId}/notes`)
+
+  // A session folder from the rail header, and a nested one via its ⋯ menu.
+  await page.getByRole("button", { name: "New folder" }).click()
+  await page.getByLabel("Name").fill("Act One")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect
+    .poll(async () => (await readSessionFolders()).map((f) => f.name))
+    .toContain("Act One")
+
+  await page.getByRole("button", { name: "Act One actions" }).click()
+  await page.getByRole("menuitem", { name: "New folder inside" }).click()
+  await page.getByLabel("Name").fill("Scene Two")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect
+    .poll(async () => {
+      const folders = await readSessionFolders()
+      const act = folders.find((f) => f.name === "Act One")
+      const scene = folders.find((f) => f.name === "Scene Two")
+      return act !== undefined && scene?.parentId === act.id
+    })
+    .toBe(true)
+
+  // Mint a beat straight into the nested folder via its ⋯ "New beat here".
+  await page.getByRole("button", { name: "Scene Two actions" }).click()
+  await page.getByRole("menuitem", { name: "New beat here" }).click()
+  await page.getByLabel("Name").fill("The reveal")
+  await page.getByRole("button", { name: "Create" }).click()
+  await expect(page).toHaveURL(/\/notes\/[^/?]+$/)
+  const beatId = new URL(page.url()).pathname.split("/").pop()!
+  await expect
+    .poll(async () => {
+      const folders = await readSessionFolders()
+      const scene = folders.find((f) => f.name === "Scene Two")
+      return (await readBeatById(beatId)).folderId === scene?.id
+    })
+    .toBe(true)
+
+  // The cycle guard: Act One's own subtree is disabled in its Move-to menu.
+  await page.goto(`/campaigns/${campaign.shortId}/notes`)
+  await page.getByRole("button", { name: "Act One actions" }).click()
+  await page.getByRole("menuitem", { name: "Move to…" }).hover()
+  await expect(page.getByRole("menuitem", { name: "Scene Two" })).toBeDisabled()
+  await page.keyboard.press("Escape")
+
+  // Deleting Act One cascades Scene Two and floats the beat to Unfiled.
+  await page.reload()
+  await page.getByRole("button", { name: "Act One actions" }).click()
+  await page.getByRole("menuitem", { name: "Delete folder…" }).click()
+  await page.getByRole("button", { name: "Delete folder" }).click()
+  await expect.poll(async () => (await readSessionFolders()).length).toBe(0)
+  await expect
+    .poll(async () => (await readBeatById(beatId)).folderId)
+    .toBe(null)
+})
+
+test("deleting the open beat from the tree redirects off its now-gone URL", async ({
+  page,
+}) => {
+  // "The reveal" from the prior test is now floating in Unfiled; open it, then
+  // delete it from its own tree row's ⋯ menu — the fix sends the viewer back
+  // to the notes index instead of stranding them on the beat's 404.
+  const beat = await readBeatByTitle("The reveal")
+  await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
+
+  await page.getByRole("button", { name: "The reveal actions" }).click()
+  await page.getByRole("menuitem", { name: "Delete…" }).click()
+  await page.getByRole("button", { name: "Delete beat" }).click()
+
+  await expect(page).toHaveURL(
+    new RegExp(`/campaigns/${campaign.shortId}/notes$`)
+  )
+})
+
+/** The campaign's session folders (kind = 'session'). */
+async function readSessionFolders() {
+  return getDb()
+    .select()
+    .from(campaignFolder)
+    .where(
+      and(
+        eq(campaignFolder.campaignId, campaign.id),
+        eq(campaignFolder.kind, "session")
+      )
+    )
+}
+
 /** The run's first beat row (this spec creates the campaign, so it's ours). */
 async function readBeat() {
   const rows = await getDb()
@@ -272,6 +368,20 @@ async function readBeat() {
     .orderBy(campaignBeat.createdAt)
   expect(rows.length).toBeGreaterThan(0)
   return rows[0]!
+}
+
+async function readBeatByTitle(title: string) {
+  const [row] = await getDb()
+    .select()
+    .from(campaignBeat)
+    .where(
+      and(
+        eq(campaignBeat.campaignId, campaign.id),
+        eq(campaignBeat.title, title)
+      )
+    )
+  expect(row).toBeDefined()
+  return row!
 }
 
 async function readBeatById(id: string) {

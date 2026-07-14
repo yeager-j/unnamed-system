@@ -1,6 +1,6 @@
 "use server"
 
-import { ok, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { mintArticle } from "@/lib/db/writes/campaign-world"
@@ -14,8 +14,9 @@ import { revalidateCampaignWorld } from "./revalidate"
 
 /**
  * Quick-mints an Article into the gated campaign (UNN-575) — a plain row;
- * Articles are not entities. The write receives the gated campaign's own id
- * (§5's boundary rule).
+ * Articles are not entities — optionally straight into a tree folder
+ * (UNN-617). The write receives the gated campaign's own id (§5's boundary
+ * rule) and validates the folder against it.
  */
 export async function mintArticleAction(
   input: MintArticleInput
@@ -29,7 +30,8 @@ export async function mintArticleAction(
     campaignId: campaign.id,
     name: parsed.data.name,
     type: parsed.data.type ?? null,
+    folderId: parsed.data.folderId ?? null,
   })
-  revalidateCampaignWorld(campaign)
-  return ok(minted)
+  if (minted.ok) revalidateCampaignWorld(campaign)
+  return minted
 }

@@ -426,16 +426,17 @@ small table.
 
 ### D11 — Folder trees for world entities (adjacency list; Unfiled stays derived)
 
-Articles and NPCs are organized in **freeform nested folder trees**
-(Obsidian-like), one forest per surface — they are separate things on separate
-screens, so an Article folder never holds an NPC. This amends phase 6, which
-originally specced flat lists; the `type` tag survives as an **orthogonal**
-scheme (the tree is navigation, `type` is a filter chip — two schemes, not two
-competing taxonomies).
+Articles, NPCs, and Session Notes are organized in **freeform nested folder
+trees** (Obsidian-like), one forest per surface — they are separate things on
+separate screens, so an Article folder never holds an NPC or a beat. This
+amends phase 6, which originally specced flat lists; the `type` tag survives as
+an **orthogonal** scheme (the tree is navigation, `type` is a filter chip — two
+schemes, not two competing taxonomies).
 
 - **Representation: adjacency list.** One `campaignFolder` table — a folder is
-  a folder; *which tree* is a `kind` parameter (`article | npc`), not a reason
-  to fork the table (§0) — with a nullable `parentId` self-FK. The alternatives
+  a folder; *which tree* is a `kind` parameter (`article | npc | session`), not
+  a reason to fork the table (§0) — with a nullable `parentId` self-FK. The
+  alternatives
   (materialized path/ltree, closure table, nested sets) buy fast subtree
   *reads* at the cost of expensive *moves*, which is backwards for a
   reorganize-freely UI and moot at campaign scale: the read is always the
@@ -445,8 +446,8 @@ competing taxonomies).
   composite `(parentId, kind) → (id, kind)`, making a cross-kind parent
   unrepresentable. Item membership (`folderId` must point at a same-kind,
   same-campaign folder) is action-validated per the §5 boundary rule.
-- **Unfiled stays derived** (the `campaignBeat.sessionId` precedent): items
-  carry a nullable `folderId`, `ON DELETE SET NULL`; never a magic row.
+- **Unfiled stays derived:** items carry a nullable `folderId`,
+  `ON DELETE SET NULL`; never a magic row.
 - **Cycles:** the self-FK doesn't forbid them. The move action rejects a new
   parent that is a descendant of the moved folder (ancestor walk — cheap at
   this scale); the tree builder treats any node whose ancestry never reaches a
@@ -461,12 +462,17 @@ competing taxonomies).
   (fractional index) is an add-later that touches no existing rows.
 - **v1 UI:** recursive disclosure rows; "Move to…" context-menu picker rather
   than drag-and-drop (DnD layers on later without schema change);
-  expand/collapse state client-local.
-- **Session Notes parity is a follow-up (UNN-617):** `campaignSession` stays
-  flat for now; the follow-up absorbs sessions into this table
-  (`kind = 'session'` — sessions are documented as purely organizational) and
-  repoints `campaignBeat.sessionId` → `folderId`. `campaignFolder` is designed
-  to absorb that without change.
+  expand/collapse state client-local. One shared tree component
+  (`_components/folder-tree/`) + one pure builder
+  (`domain/planner/view/folder-tree.ts`) serve all three surfaces — no
+  per-surface fork.
+- **Session Notes rides the same tree (UNN-617):** a session *is* a
+  `kind = 'session'` folder — sessions were always documented as purely
+  organizational, which is what a folder is — so the flat `campaignSession`
+  table dissolved into `campaignFolder` and `campaignBeat.folderId` files beats
+  like every other tree item (migration `0040`, ids preserved so each beat kept
+  its folder). Beats get a real detail route (`/notes/{beatId}`) so the tree is
+  layout-owned like the Articles/NPCs rails.
 
 ## 2. UX deltas from the design handoff
 
@@ -514,8 +520,8 @@ campaignClock         campaignId PK/FK · currentDay int (≥1) · slotTemplate 
 campaignSlot          id · campaignId · day int (immutable) · ordinal int · label
                       · UNIQUE (campaignId, day, ordinal) · INDEX (campaignId, day)
 campaignSeason        campaignId · day · label · UNIQUE (campaignId, day)
-campaignSession       id · campaignId · name · timestamps          (flat; folder-tree parity → UNN-617, D11)
-campaignBeat          id · campaignId · sessionId FK→session ON DELETE SET NULL (null ⇒ virtual "Unfiled")
+campaignBeat          id · campaignId · folderId FK→campaignFolder (kind 'session') ON DELETE SET NULL
+                      (null ⇒ virtual "Unfiled"; UNN-617 dissolved the flat campaignSession into the tree)
                       · title · tagline · body (markdown) · scheduledSlotId FK→slot ON DELETE SET NULL
                       · floating bool · deferredFromSlotId? FK→slot ON DELETE SET NULL
                       · resolvedAt? · timestamps
@@ -528,13 +534,14 @@ campaignBeatMention   beatId FK cascade · participantKind · participantId
                       · PK (beatId, participantKind, participantId)
                       · INDEX (participantKind, participantId)
                       (derived from body chips on autosave; rebuildable)
-campaignFolder        id · campaignId · kind article|npc · parentId? · name · timestamps
+campaignFolder        id · campaignId · kind article|npc|session · parentId? · name · timestamps
                       · UNIQUE (id, kind)                                  (composite-FK target)
                       · FK (parentId, kind) → (id, kind) ON DELETE CASCADE (cross-kind parent
                         unrepresentable; deleting a folder cascades its subtree's folders)
                       · INDEX (campaignId, kind)
-                      (D11: one forest per surface; hard-deletes — organizational, like sessions;
-                       cycle guard is the move action's ancestor walk, builder degrades to Unfiled)
+                      (D11: one forest per surface — Articles/NPCs/Session Notes; hard-deletes —
+                       organizational; cycle guard is the move action's ancestor walk, builder
+                       degrades to Unfiled)
 campaignArticle       id · campaignId · folderId? FK→campaignFolder ON DELETE SET NULL (null ⇒ Unfiled)
                       · name · type (label-only text) · body (markdown)
                       · datedDay? int · datedKind? event|deadline · deletedAt? · timestamps

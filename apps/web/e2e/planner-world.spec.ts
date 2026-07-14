@@ -3,16 +3,13 @@ import { and, eq, isNull } from "drizzle-orm"
 
 import { getDb } from "@/lib/db"
 import { campaignClock } from "@/lib/db/schema/campaign-clock"
+import { campaignFolder } from "@/lib/db/schema/campaign-folder"
 import {
   campaignBeat,
   campaignBeatMention,
 } from "@/lib/db/schema/campaign-notes"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
-import {
-  campaignFolder,
-  campaignNpc,
-  campaignRelation,
-} from "@/lib/db/schema/campaign-world"
+import { campaignNpc, campaignRelation } from "@/lib/db/schema/campaign-world"
 import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"

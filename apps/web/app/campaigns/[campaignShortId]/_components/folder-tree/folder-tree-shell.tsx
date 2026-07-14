@@ -10,43 +10,42 @@ import {
 } from "@workspace/ui/components/sidebar"
 
 import type {
-  WorldForestView,
-  WorldTreeItem,
-} from "@/domain/planner/view/world-tree"
+  FolderForestView,
+  FolderTreeItem,
+} from "@/domain/planner/view/folder-tree"
 import type { NarrativeTextField } from "@/domain/vocab"
-import type { WorldFolderKind } from "@/lib/db/schema/campaign-world"
+import type { CampaignFolderKind } from "@/lib/db/schema/campaign-folder"
 import { campaignNpcPath } from "@/lib/paths"
 
-import { WorldDocRail } from "./world-doc-rail"
-import { WorldTree } from "./world-tree"
+import { WorldDocRail } from "../world/world-doc-rail"
+import { FolderTree } from "./folder-tree"
 
 /**
- * The world rails' name mirror (UNN-579): a detail page's title autosave
- * never revalidates (D10), so the page pushes each keystroke's name here and
- * the layout-owned tree row reflects it instantly. Layout revalidation (any
+ * The rails' name mirror (UNN-579): a detail page's title autosave never
+ * revalidates (D10), so the page pushes each keystroke's name here and the
+ * layout-owned tree row reflects it instantly. Layout revalidation (any
  * structural write) resets the base and the override becomes a no-op.
  *
- * Notes' shell solved this with a callback prop, but here the tree (layout)
- * and the editor (page) sit across a segment boundary with no prop path —
- * context is the seam.
+ * The tree (layout) and the editor (page) sit across a segment boundary with
+ * no prop path — context is the seam.
  */
-const WorldNameMirrorContext = createContext<{
+const FolderTreeNameMirrorContext = createContext<{
   names: Record<string, string>
   setName: (id: string, name: string) => void
 } | null>(null)
 
 /** The detail pages' half of the mirror; a no-op setter outside the shell. */
-export function useWorldNameMirror(): (id: string, name: string) => void {
-  const mirror = useContext(WorldNameMirrorContext)
+export function useFolderTreeNameMirror(): (id: string, name: string) => void {
+  const mirror = useContext(FolderTreeNameMirrorContext)
   return mirror?.setName ?? (() => {})
 }
 
 /**
- * The Articles/NPCs surface shell (UNN-579, D11): the layout-owned folder
- * tree in a sticky sidebar, the routed page (index empty state or a detail
- * editor) in the inset — the Session Notes experience, one segment up so the
- * tree survives detail navigation with its expand/collapse state intact
- * (lifted here for exactly that reason).
+ * The Articles / NPCs / Session Notes shell (UNN-579, D11; sessions folded in
+ * by UNN-617): the layout-owned folder tree in a sticky sidebar, the routed
+ * page (index empty state or a detail editor) in the inset — one segment up
+ * from the detail routes so the tree survives navigation with its
+ * expand/collapse state intact (lifted here for exactly that reason).
  *
  * **Master-detail drill-down on NPC pages:** an open NPC swaps the sidebar's
  * content to that NPC's document rail (`WorldDocRail` — back row, Overview +
@@ -54,7 +53,7 @@ export function useWorldNameMirror(): (id: string, name: string) => void {
  * pathname-derived, SSR-consistent, and the doc selection rides `?doc=` so
  * the layout-owned rail and the page-owned editor agree through the URL.
  */
-export function WorldShell({
+export function FolderTreeShell({
   kind,
   campaignId,
   campaignShortId,
@@ -65,12 +64,12 @@ export function WorldShell({
   npcDocs,
   children,
 }: {
-  kind: WorldFolderKind
+  kind: CampaignFolderKind
   campaignId: string
   campaignShortId: string
   campaignName: string
   dayLine: string | null
-  forest: WorldForestView
+  forest: FolderForestView
   /** Article surfaces: the campaign's distinct type tags (filter chips). */
   typeOptions: string[]
   /** NPC surfaces: per-entity doc emptiness, keyed entityId → field (the rail's muted rows). */
@@ -91,7 +90,7 @@ export function WorldShell({
     [names]
   )
 
-  const mirrored: WorldForestView = useMemo(
+  const mirrored: FolderForestView = useMemo(
     () => applyNameMirror(forest, names),
     [forest, names]
   )
@@ -105,7 +104,7 @@ export function WorldShell({
       : null
 
   return (
-    <WorldNameMirrorContext.Provider value={mirror}>
+    <FolderTreeNameMirrorContext.Provider value={mirror}>
       <SidebarProvider className="min-h-0 flex-1 bg-sidebar">
         <Sidebar
           collapsible="none"
@@ -119,7 +118,7 @@ export function WorldShell({
               emptiness={npcDocs[openNpc.id]!}
             />
           ) : (
-            <WorldTree
+            <FolderTree
               kind={kind}
               campaignId={campaignId}
               campaignShortId={campaignShortId}
@@ -136,25 +135,25 @@ export function WorldShell({
           {children}
         </SidebarInset>
       </SidebarProvider>
-    </WorldNameMirrorContext.Provider>
+    </FolderTreeNameMirrorContext.Provider>
   )
 }
 
 function findItem(
-  forest: WorldForestView,
-  match: (item: WorldTreeItem) => boolean
-): WorldTreeItem | null {
+  forest: FolderForestView,
+  match: (item: FolderTreeItem) => boolean
+): FolderTreeItem | null {
   const fromFolder = (
-    folder: WorldForestView["roots"][number]
-  ): WorldTreeItem | null =>
+    folder: FolderForestView["roots"][number]
+  ): FolderTreeItem | null =>
     folder.items.find(match) ??
-    folder.folders.reduce<WorldTreeItem | null>(
+    folder.folders.reduce<FolderTreeItem | null>(
       (found, child) => found ?? fromFolder(child),
       null
     )
   return (
     forest.unfiled.find(match) ??
-    forest.roots.reduce<WorldTreeItem | null>(
+    forest.roots.reduce<FolderTreeItem | null>(
       (found, root) => found ?? fromFolder(root),
       null
     )
@@ -162,17 +161,17 @@ function findItem(
 }
 
 function applyNameMirror(
-  forest: WorldForestView,
+  forest: FolderForestView,
   names: Record<string, string>
-): WorldForestView {
+): FolderForestView {
   if (Object.keys(names).length === 0) return forest
-  const mirrorItems = (items: WorldTreeItem[]): WorldTreeItem[] =>
+  const mirrorItems = (items: FolderTreeItem[]): FolderTreeItem[] =>
     items.map((item) =>
       names[item.id] === undefined ? item : { ...item, name: names[item.id]! }
     )
   const mirrorFolder = (
-    folder: WorldForestView["roots"][number]
-  ): WorldForestView["roots"][number] => ({
+    folder: FolderForestView["roots"][number]
+  ): FolderForestView["roots"][number] => ({
     ...folder,
     folders: folder.folders.map(mirrorFolder),
     items: mirrorItems(folder.items),

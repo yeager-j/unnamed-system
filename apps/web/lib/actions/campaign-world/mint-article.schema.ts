@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { worldNameSchema } from "./mint-npc.schema"
+import { displayNameSchema } from "../display-name.schema"
 
 /**
  * Input schema for {@link import("./mint-article").mintArticleAction}
@@ -9,10 +9,12 @@ import { worldNameSchema } from "./mint-npc.schema"
  */
 export const MintArticleSchema = z.object({
   campaignId: z.string(),
-  name: worldNameSchema,
+  name: displayNameSchema,
   type: z.string().trim().min(1).max(100).optional(),
+  /** The tree folder it lands in; null/absent ⇒ Unfiled (D11). */
+  folderId: z.string().nullish(),
 })
 
 export type MintArticleInput = z.input<typeof MintArticleSchema>
 
-export type MintArticleError = "invalid-input"
+export type MintArticleError = "invalid-input" | "folder-not-found"

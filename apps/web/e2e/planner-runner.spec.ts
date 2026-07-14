@@ -206,7 +206,7 @@ test("frozen past: yesterday's beat rejects deletion with a reason", async ({
   page,
 }) => {
   const beat = await readBeat()
-  await page.goto(`/campaigns/${campaign.shortId}/notes?beat=${beat.id}`)
+  await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
 
   await page.getByRole("button", { name: "Delete beat" }).click()
   await page.getByRole("button", { name: "Delete beat" }).last().click()

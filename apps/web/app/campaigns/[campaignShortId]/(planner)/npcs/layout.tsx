@@ -1,15 +1,13 @@
 import { notFound } from "next/navigation"
 
-import { WorldShell } from "@/app/campaigns/[campaignShortId]/_components/world/world-shell"
+import { FolderTreeShell } from "@/app/campaigns/[campaignShortId]/_components/folder-tree/folder-tree-shell"
 import { npcDocEmptiness } from "@/domain/planner/npc-documents"
 import { seasonOf } from "@/domain/planner/season"
+import { buildFolderForest } from "@/domain/planner/view/folder-tree"
 import { buildNpcTreeItems } from "@/domain/planner/view/world"
-import { buildWorldForest } from "@/domain/planner/view/world-tree"
 import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
-import {
-  loadCampaignNpcs,
-  loadWorldFolders,
-} from "@/lib/db/queries/load-campaign-world"
+import { loadCampaignFolders } from "@/lib/db/queries/load-campaign-folders"
+import { loadCampaignNpcs } from "@/lib/db/queries/load-campaign-world"
 
 import { getCampaignClock, getCampaignForDM } from "../planner-access"
 
@@ -30,14 +28,14 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
 
   const [clock, folders, npcs] = await Promise.all([
     getCampaignClock(campaign.id),
-    loadWorldFolders(campaign.id, "npc"),
+    loadCampaignFolders(campaign.id, "npc"),
     loadCampaignNpcs(campaign.id),
   ])
   const seasons = clock ? await loadSeasons(campaign.id) : []
   const seasonLabel = clock ? seasonOf(seasons, clock.currentDay) : null
 
   return (
-    <WorldShell
+    <FolderTreeShell
       kind="npc"
       campaignId={campaign.id}
       campaignShortId={campaign.shortId}
@@ -47,7 +45,7 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
           ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
           : null
       }
-      forest={buildWorldForest(folders, buildNpcTreeItems(npcs))}
+      forest={buildFolderForest(folders, buildNpcTreeItems(npcs))}
       typeOptions={[]}
       npcDocs={Object.fromEntries(
         npcs.map((npc) => [
@@ -57,6 +55,6 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
       )}
     >
       {children}
-    </WorldShell>
+    </FolderTreeShell>
   )
 }

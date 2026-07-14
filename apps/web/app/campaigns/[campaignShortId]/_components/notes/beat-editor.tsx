@@ -2,27 +2,19 @@
 
 import { TrashIcon } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useEffect, useMemo, useState } from "react"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
 import { Button } from "@workspace/ui/components/button"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
 import { useBeatAutoSave } from "@/domain/planner/use-beat-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
+import { UNTITLED_BEAT_LABEL } from "@/domain/planner/view/notes"
 import type { SchedulePickerDayView } from "@/domain/planner/view/schedule-picker"
-import { deleteBeatAction } from "@/lib/actions/campaign-notes/beat"
+import { campaignNotesPath } from "@/lib/paths"
 
+import { useFolderTreeNameMirror } from "../folder-tree/folder-tree-shell"
+import { DeleteBeatConfirm } from "./delete-beat-confirm"
 import {
   createParticipantLinkExtensions,
   createParticipantLinkWorld,
@@ -30,19 +22,13 @@ import {
 } from "./participant-links"
 import { ScheduleControl, type ScheduleState } from "./schedule-control"
 
-const DELETE_ERROR_COPY: Record<string, string> = {
-  "scheduled-to-past":
-    "This beat ran on a past day — history keeps its structure. Unscheduling or deleting it isn't allowed.",
-  "beat-not-found": "This beat is gone — refresh the page.",
-}
-
 /** The editor's slice of a loaded beat (serialized server → client). */
 export interface BeatEditorBeat {
   id: string
   title: string
   tagline: string
   body: string
-  sessionName: string | null
+  folderName: string | null
   schedule: ScheduleState
 }
 
@@ -51,7 +37,8 @@ export interface BeatEditorBeat {
  * tagline, the schedule control, and the chip-capable markdown body. All
  * three text fields autosave through {@link useBeatAutoSave} (~800 ms, flush
  * on blur, one queue per beat — no revalidation, D10); the body's `@`/`[[`
- * triggers summon the participant chip completions (D7).
+ * triggers summon the participant chip completions (D7). Title keystrokes
+ * ride the layout-owned name mirror so the tree row keeps up without one.
  */
 export function BeatEditor({
   campaignId,
@@ -60,8 +47,6 @@ export function BeatEditor({
   linkerOptions,
   scheduleDays,
   clockStarted,
-  onTitleChange,
-  onDeleted,
 }: {
   campaignId: string
   campaignShortId: string
@@ -69,11 +54,9 @@ export function BeatEditor({
   linkerOptions: LinkerOption[]
   scheduleDays: SchedulePickerDayView[]
   clockStarted: boolean
-  /** Mirrors title keystrokes up so the tree row updates without a revalidate. */
-  onTitleChange: (beatId: string, title: string) => void
-  onDeleted: () => void
 }) {
   const router = useRouter()
+  const mirrorName = useFolderTreeNameMirror()
   const fields = useBeatAutoSave({
     campaignId,
     beatId: beat.id,
@@ -107,7 +90,7 @@ export function BeatEditor({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span className="min-w-0 truncate">
-          {beat.sessionName ?? "Unfiled"}
+          {beat.folderName ?? "Unfiled"}
           <span className="mx-1.5">›</span>
           {fields.title.value.trim() === ""
             ? "Untitled beat"
@@ -124,7 +107,7 @@ export function BeatEditor({
           <DeleteBeatButton
             campaignId={campaignId}
             beatId={beat.id}
-            onDeleted={onDeleted}
+            onDeleted={() => router.replace(campaignNotesPath(campaignShortId))}
           />
         </div>
       </div>
@@ -135,7 +118,7 @@ export function BeatEditor({
           ...fields.title,
           setValue: (next) => {
             fields.title.setValue(next)
-            onTitleChange(beat.id, next)
+            mirrorName(beat.id, next.trim() === "" ? UNTITLED_BEAT_LABEL : next)
           },
         }}
         subtitle={fields.tagline}
@@ -164,17 +147,6 @@ function DeleteBeatButton({
   onDeleted: () => void
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [, startTransition] = useTransition()
-
-  const remove = () =>
-    startTransition(async () => {
-      const result = await deleteBeatAction({ campaignId, beatId })
-      if (!result.ok) {
-        toast.error(DELETE_ERROR_COPY[result.error] ?? "Couldn't delete.")
-        return
-      }
-      onDeleted()
-    })
 
   return (
     <>
@@ -188,28 +160,12 @@ function DeleteBeatButton({
         <TrashIcon />
       </Button>
       {confirmOpen ? (
-        <AlertDialog open onOpenChange={setConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this beat?</AlertDialogTitle>
-              <AlertDialogDescription>
-                The note and its prose are gone for good. Beats that already ran
-                on a past day can&apos;t be deleted.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setConfirmOpen(false)
-                  remove()
-                }}
-              >
-                Delete beat
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <DeleteBeatConfirm
+          campaignId={campaignId}
+          beatId={beatId}
+          onOpenChange={setConfirmOpen}
+          onDeleted={onDeleted}
+        />
       ) : null}
     </>
   )

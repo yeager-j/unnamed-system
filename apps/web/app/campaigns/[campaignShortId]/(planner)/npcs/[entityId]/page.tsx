@@ -10,6 +10,7 @@ import { buildTimelineDayViews } from "@/domain/planner/view/timeline"
 import { arcanaHolders, lineageHolders } from "@/domain/planner/view/world"
 import { buildRelationListView } from "@/domain/planner/view/world-detail"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
+import { loadCampaignFolders } from "@/lib/db/queries/load-campaign-folders"
 import {
   loadBondActivityTuples,
   loadUpdatesForParticipant,
@@ -18,7 +19,6 @@ import {
   loadCampaignArticles,
   loadCampaignNpc,
   loadCampaignNpcs,
-  loadWorldFolders,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
@@ -64,7 +64,7 @@ export default async function NpcDetailPage({ params }: PageProps) {
     bondTuples,
   ] = await Promise.all([
     getCampaignClock(campaign.id),
-    loadWorldFolders(campaign.id, "npc"),
+    loadCampaignFolders(campaign.id, "npc"),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),

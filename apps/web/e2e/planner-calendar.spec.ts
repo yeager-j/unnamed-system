@@ -69,7 +69,10 @@ test("schedule a beat onto a future slot and remove it again", async ({
   page,
 }) => {
   await page.goto(`/campaigns/${campaign.shortId}/notes`)
+  // The tree ＋ mints through the name dialog (folder-aware, UNN-617).
   await page.getByRole("button", { name: "New beat" }).click()
+  await page.getByLabel("Name").fill("Ambush at the ford")
+  await page.getByRole("button", { name: "Create" }).click()
   await expect
     .poll(
       async () =>
@@ -85,13 +88,15 @@ test("schedule a beat onto a future slot and remove it again", async ({
   await page.goto(`/campaigns/${campaign.shortId}/calendar`)
   // The agenda's first open slot: schedule the fresh beat onto it.
   await page.getByRole("button", { name: "Schedule a beat" }).first().click()
-  await page.getByRole("menuitem", { name: /Untitled beat/ }).click()
+  await page.getByRole("menuitem", { name: /Ambush at the ford/ }).click()
   await expect
     .poll(async () => (await readBeat()).scheduledSlotId)
     .not.toBeNull()
 
   // The occupied slot's ⋮ menu takes it off again (back to the shelf).
-  await page.getByRole("button", { name: "Actions for Untitled beat" }).click()
+  await page
+    .getByRole("button", { name: "Actions for Ambush at the ford" })
+    .click()
   await page
     .getByRole("menuitem", { name: "Send back to the prepped shelf" })
     .click()

@@ -324,7 +324,8 @@ describe("createBeat", () => {
         table: campaignBeat,
         payload: {
           campaignId: CAMPAIGN,
-          sessionId: null,
+          folderId: null,
+          title: "",
           scheduledSlotId: "s5",
         },
       },
