@@ -22,6 +22,12 @@ export interface LinkerOption {
   /** The right-aligned muted line: "The Moon · Warlock", an article's type, "Level 4 · Warrior". Null for stubs. */
   sublabel: string | null
   iconKey: LinkerIconKey
+  /**
+   * A character's URL short id, carried alongside the `character:` ref (whose
+   * id is the durable entity id, not the slug) so a character chip can open the
+   * sheet. Only set for character rows; NPCs/articles route by ref id.
+   */
+  characterShortId?: string
 }
 
 const ARTICLE_TYPE_ICONS: Record<string, LinkerIconKey> = {
@@ -75,16 +81,17 @@ export function buildLinkerOptions(input: {
           ? "Draft"
           : `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`,
       iconKey: "character",
+      characterShortId: character.shortId,
     })
   )
   return [...npcOptions, ...articleOptions, ...characterOptions]
 }
 
 /**
- * The in-memory option filter the editor's chip-suggestion popover uses
+ * The in-memory option filter the editor's participant-link completions use
  * (UNN-576): case-insensitive substring match over label + sublabel — the
  * same fields cmdk scores inside the anchored linker, minus the fuzz. Pure;
- * an empty query returns everything (the popover caps display itself).
+ * an empty query returns everything (the completion source caps display itself).
  */
 export function filterLinkerOptions(
   options: readonly LinkerOption[],

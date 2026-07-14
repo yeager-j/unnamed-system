@@ -41,7 +41,9 @@ export function useArticleAutoSave({
   const saveField =
     (field: "name" | "body") =>
     async (
-      value: string
+      value: string,
+      _expectedVersion: number,
+      options: { flush: boolean }
     ): Promise<
       Result<{ value: string; version: number }, SaveArticleProseError>
     > => {
@@ -49,6 +51,7 @@ export function useArticleAutoSave({
         campaignId,
         articleId,
         [field]: value,
+        revalidate: options.flush,
       })
       return result.ok ? ok({ value, version: 0 }) : result
     }
@@ -68,6 +71,7 @@ export function useArticleAutoSave({
       dispatchWrite: lwwDispatch,
       save: saveField("name"),
       debounceMs: WORLD_PROSE_DEBOUNCE_MS,
+      revalidateOnFlush: true,
     }),
     body: useDebouncedAutoSave({
       serverValue: serverBody,
@@ -76,6 +80,7 @@ export function useArticleAutoSave({
       save: saveField("body"),
       debounceMs: WORLD_PROSE_DEBOUNCE_MS,
       keepDraftOnError: true,
+      revalidateOnFlush: true,
     }),
   }
 }

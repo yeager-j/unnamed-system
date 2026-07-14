@@ -15,13 +15,16 @@ import {
   type SaveNpcNameInput,
   type SaveNpcNarrativeInput,
 } from "./npc-prose.schema"
+import { revalidateCampaignWorld } from "./revalidate"
 
 /**
  * The NPC prose autosave lane (D10): name + one narrative field per write,
- * LWW, **no revalidation** (the article-prose reasoning). Not the entity
- * door — the DM authorizes through `requireCampaignDM` here, while the
- * door's identity-class gate stays the PC owner's (see
- * `saveNpcNarrativeField`'s doc).
+ * LWW. Mid-edit debounce ticks **don't revalidate**; the **terminal
+ * blur/unmount save sets `revalidate`** so the world route cache refreshes once
+ * on leaving the field — otherwise a browser Back restores the stale pre-edit
+ * RSC payload (UNN-621). Not the entity door — the DM authorizes through
+ * `requireCampaignDM` here, while the door's identity-class gate stays the PC
+ * owner's (see `saveNpcNarrativeField`'s doc).
  */
 export async function saveNpcNameAction(
   input: SaveNpcNameInput
@@ -31,7 +34,10 @@ export async function saveNpcNameAction(
 
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
-  return saveNpcName({ ...parsed.data, campaignId: campaign.id })
+  const { revalidate, ...write } = parsed.data
+  const result = await saveNpcName({ ...write, campaignId: campaign.id })
+  if (result.ok && revalidate) revalidateCampaignWorld(campaign)
+  return result
 }
 
 export async function saveNpcNarrativeAction(
@@ -42,5 +48,11 @@ export async function saveNpcNarrativeAction(
 
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
-  return saveNpcNarrativeField({ ...parsed.data, campaignId: campaign.id })
+  const { revalidate, ...write } = parsed.data
+  const result = await saveNpcNarrativeField({
+    ...write,
+    campaignId: campaign.id,
+  })
+  if (result.ok && revalidate) revalidateCampaignWorld(campaign)
+  return result
 }

@@ -132,6 +132,7 @@ export function NotesShell({
           <BeatEditor
             key={selectedBeat.id}
             campaignId={campaignId}
+            campaignShortId={campaignShortId}
             beat={selectedBeat}
             linkerOptions={linkerOptions}
             scheduleDays={scheduleDays}

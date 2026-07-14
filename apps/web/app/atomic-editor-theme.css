@@ -17,6 +17,8 @@
   --atomic-editor-font: var(--font-sans);
   --atomic-editor-font-mono: var(--font-mono);
 
+  --atomic-editor-measure: 85ch;
+
   /* Text hierarchy. */
   --atomic-editor-fg: var(--foreground);
   --atomic-editor-fg-muted: var(--muted-foreground);
@@ -71,6 +73,24 @@
   --participant-icon-npc: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M217 34.8a15.94 15.94 0 0 0-14.82-1.71C188.15 38.55 159.82 47.71 128 47.71S67.84 38.55 53.79 33.09A16 16 0 0 0 32 48v55.77c0 35.84 9.65 69.65 27.18 95.18 18.16 26.46 42.6 41 68.82 41s50.66-14.57 68.82-41C214.35 173.44 224 139.63 224 103.79V48a16 16 0 0 0-7-13.2Zm-9 69c0 32.64-8.66 63.23-24.37 86.13C168.54 211.9 148.79 224 128 224s-40.54-12.1-55.63-34.08C56.66 167 48 136.43 48 103.79V48c15.11 5.87 45.58 15.71 80 15.71S192.9 53.87 208 48v55.81Zm-18 18.87A8 8 0 1 1 178 133.33c-2.68-3-8.85-5.33-14-5.33s-11.36 2.34-14 5.33A8 8 0 1 1 138 122.66c5.71-6.38 16.14-10.66 26-10.66s20.25 4.28 26 10.66ZM92 128c-5.19 0-11.36 2.34-14 5.33A8 8 0 1 1 66 122.66C71.75 116.28 82.18 112 92 112s20.25 4.28 26 10.66A8 8 0 1 1 106 133.33C103.36 130.34 97.19 128 92 128Zm76.45 45.19a52.9 52.9 0 0 1-80.9 0A8 8 0 1 1 99.72 162.8a36.89 36.89 0 0 0 56.56 0 8 8 0 0 1 12.17 10.39Z'/%3E%3C/svg%3E");
   --participant-icon-article: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M96 104a8 8 0 0 1 8-8h64a8 8 0 0 1 0 16h-64a8 8 0 0 1-8-8Zm8 40h64a8 8 0 0 0 0-16h-64a8 8 0 0 0 0 16Zm128 48a32 32 0 0 1-32 32H88a32 32 0 0 1-32-32V64a16 16 0 0 0-32 0c0 5.74 4.83 9.62 4.88 9.66A8 8 0 0 1 24 88a7.89 7.89 0 0 1-4.79-1.61C18.05 85.54 8 77.61 8 64a32 32 0 0 1 32-32h136a32 32 0 0 1 32 32v104h8a8 8 0 0 1 4.8 1.6C222 170.46 232 178.39 232 192ZM96.26 173.48A8.07 8.07 0 0 1 104 168h88V64a16 16 0 0 0-16-16H67.69A31.71 31.71 0 0 1 72 64v128a16 16 0 0 0 32 0c0-5.74-4.83-9.62-4.88-9.66a7.82 7.82 0 0 1-2.86-8.86ZM216 192a12.58 12.58 0 0 0-3.23-8h-94a26.92 26.92 0 0 1 1.21 8 31.82 31.82 0 0 1-4.29 16H200a16 16 0 0 0 16-16Z'/%3E%3C/svg%3E");
   --participant-icon-character: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath d='M230.92 212c-15.23-26.33-38.7-45.21-66.09-54.16a72 72 0 1 0-73.66 0C63.78 166.78 40.31 185.66 25.08 212a8 8 0 1 0 13.85 8c18.84-32.56 52.14-52 89.07-52s70.23 19.44 89.07 52a8 8 0 1 0 13.85-8ZM72 96a56 56 0 1 1 56 56 56.06 56.06 0 0 1-56-56Z'/%3E%3C/svg%3E");
+}
+
+/*
+ * The vendored theme pads `.cm-content` with `padding-bottom: 40vh` — a
+ * full-height *reader* affordance (room to scroll the last line up). Every
+ * MarkdownField is an editing surface embedded in app layout, not a reader, so
+ * the reader padding inflates short fields into giant boxes. Neutralize it; the
+ * MarkdownField wrapper supplies its own field padding via `.cm-content`
+ * utilities. Higher specificity than the CM6 theme's `.cm-content` rule.
+ */
+.atomic-cm-editor .cm-scroller > .cm-content {
+  padding-bottom: 0;
+  margin-inline: unset;
+}
+
+/* Empty-field placeholder (CM6 `placeholder()` extension). */
+.atomic-cm-editor .cm-placeholder {
+  color: var(--muted-foreground);
 }
 
 .cm-atomic-wiki-link.cm-participant-link {

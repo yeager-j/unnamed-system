@@ -78,6 +78,27 @@ export interface ParticipantLinkExtensionsConfig {
   debounceMs?: number
 }
 
+/**
+ * Derives a world snapshot from the linker's live option rows. The options are
+ * the live world web, so every derived target resolves (`tombstoned: false`); a
+ * chip token whose ref has since been deleted simply isn't found and renders
+ * "missing". A character row carries its URL short id through so its chip opens
+ * the sheet (the `character:` ref id is the durable entity id, not the slug).
+ */
+export function participantWorldSnapshot(
+  options: readonly LinkerOption[]
+): ParticipantLinkWorldSnapshot {
+  return {
+    options,
+    targets: options.map((option) => ({
+      ref: option.ref,
+      label: option.label,
+      tombstoned: false,
+      characterShortId: option.characterShortId,
+    })),
+  }
+}
+
 export function createParticipantLinkWorld(
   initial: ParticipantLinkWorldSnapshot
 ): ParticipantLinkWorld {

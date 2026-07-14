@@ -43,15 +43,17 @@ export function useNpcNameAutoSave({
     serverValue: serverName,
     saveQueueRef,
     dispatchWrite: lwwDispatch,
-    save: async (value) => {
+    save: async (value, _expectedVersion, options) => {
       const result = await saveNpcNameAction({
         campaignId,
         entityId,
         name: value,
+        revalidate: options.flush,
       })
       return result.ok ? ok({ value, version: 0 }) : result
     },
     debounceMs: WORLD_PROSE_DEBOUNCE_MS,
+    revalidateOnFlush: true,
   })
 }
 
@@ -73,17 +75,19 @@ export function useNpcNarrativeAutoSave({
     serverValue,
     saveQueueRef,
     dispatchWrite: lwwDispatch,
-    save: async (value) => {
+    save: async (value, _expectedVersion, options) => {
       const result = await saveNpcNarrativeAction({
         campaignId,
         entityId,
         field,
         value,
+        revalidate: options.flush,
       })
       return result.ok ? ok({ value, version: 0 }) : result
     },
     debounceMs: WORLD_PROSE_DEBOUNCE_MS,
     keepDraftOnError: true,
+    revalidateOnFlush: true,
   })
 }
 

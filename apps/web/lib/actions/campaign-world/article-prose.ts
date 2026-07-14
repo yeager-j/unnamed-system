@@ -19,11 +19,12 @@ import {
 import { revalidateCampaignWorld } from "./revalidate"
 
 /**
- * The Article prose autosave (D10): name/body, LWW, and **deliberately no
- * revalidation** — the editor is client-owned while mounted (RSC seeds once);
- * a revalidate per ~800 ms debounce tick would re-render the page under the
- * typist. The tree row keeps up through the shell's name mirror; everything
- * else catches up on the next structural write's revalidation.
+ * The Article prose autosave (D10): name/body, LWW. Mid-edit debounce ticks
+ * **don't revalidate** (a revalidate per ~800 ms would re-render the page under
+ * the typist); the **terminal blur/unmount save sets `revalidate`** so the
+ * world route cache refreshes once on leaving the field — otherwise a browser
+ * Back restores the stale pre-edit RSC payload (UNN-621). Safe because the CM6
+ * editor seeds once and ignores `serverValue` after mount.
  */
 export async function saveArticleProseAction(
   input: SaveArticleProseInput
@@ -33,7 +34,7 @@ export async function saveArticleProseAction(
 
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
-  return saveArticleProse({
+  const result = await saveArticleProse({
     campaignId: campaign.id,
     articleId: parsed.data.articleId,
     patch: {
@@ -41,6 +42,8 @@ export async function saveArticleProseAction(
       ...(parsed.data.body !== undefined && { body: parsed.data.body }),
     },
   })
+  if (result.ok && parsed.data.revalidate) revalidateCampaignWorld(campaign)
+  return result
 }
 
 /** Sets or clears the Article's label-only type tag. Structural — revalidates. */

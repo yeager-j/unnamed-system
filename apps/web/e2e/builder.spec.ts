@@ -516,8 +516,8 @@ test.describe("movement 3 — animus", () => {
 
     // The debounced description save must not clobber the just-saved title
     // (the per-entry `setListEntry` op merges server-side). The body is a
-    // ProseMirror contenteditable (no textbox role).
-    const body = page.locator(".ProseMirror")
+    // CodeMirror contenteditable (no textbox role).
+    const body = page.locator(".cm-content")
     await body.click()
     await body.fill("I promised I would come back to her.")
     await page.getByRole("button", { name: "Add Chain" }).click()

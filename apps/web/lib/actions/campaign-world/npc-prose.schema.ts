@@ -12,6 +12,8 @@ export const SaveNpcNameSchema = z.object({
   campaignId: z.string(),
   entityId: z.string(),
   name: z.string().max(200),
+  /** Set on the terminal (blur/unmount) save so the world route is revalidated — see the action. */
+  revalidate: z.boolean().optional(),
 })
 
 export const SaveNpcNarrativeSchema = z.object({
@@ -19,6 +21,8 @@ export const SaveNpcNarrativeSchema = z.object({
   entityId: z.string(),
   field: z.enum(NARRATIVE_TEXT_FIELDS),
   value: z.string().max(8000),
+  /** Set on the terminal (blur/unmount) save so the world route is revalidated — see the action. */
+  revalidate: z.boolean().optional(),
 })
 
 export type SaveNpcNameInput = z.input<typeof SaveNpcNameSchema>
