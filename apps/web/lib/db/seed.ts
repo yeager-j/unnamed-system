@@ -18,6 +18,7 @@ import {
 } from "../../e2e/fixtures/encounter-target"
 import { characterPath, dungeonConsolePath } from "../paths"
 import { insertSeedEntity } from "./seed-entity"
+import { seedLongCampaign } from "./seed-long-campaign"
 
 /**
  * Idempotent database seed. Persists the {@link SEED_CHARACTERS} roster so the
@@ -345,9 +346,11 @@ async function seed(): Promise<void> {
 
   await seedEncounterFixtures()
   await seedDungeonFixtures()
+  await seedLongCampaign(DEV_USER.id)
 
   console.log(
-    `Done. Seeded ${SEED_CHARACTERS.length + 1} showcase characters, 3 campaigns + ${SEEDED_ENCOUNTERS.length} encounters + 1 dungeon, and 1 dev user. ` +
+    `Done. Seeded ${SEED_CHARACTERS.length + 1} showcase characters, 3 campaigns + ${SEEDED_ENCOUNTERS.length} encounters + 1 dungeon, ` +
+      "1 long-history planner campaign, and 1 dev user. " +
       "Write-path E2E rows are minted per-run by e2e/fixtures/factory.ts."
   )
 }
