@@ -328,6 +328,24 @@ test("session notes ride the shared tree: nest, move a beat, cycle-guard, delete
     .toBe(null)
 })
 
+test("deleting the open beat from the tree redirects off its now-gone URL", async ({
+  page,
+}) => {
+  // "The reveal" from the prior test is now floating in Unfiled; open it, then
+  // delete it from its own tree row's ⋯ menu — the fix sends the viewer back
+  // to the notes index instead of stranding them on the beat's 404.
+  const beat = await readBeatByTitle("The reveal")
+  await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
+
+  await page.getByRole("button", { name: "The reveal actions" }).click()
+  await page.getByRole("menuitem", { name: "Delete…" }).click()
+  await page.getByRole("button", { name: "Delete beat" }).click()
+
+  await expect(page).toHaveURL(
+    new RegExp(`/campaigns/${campaign.shortId}/notes$`)
+  )
+})
+
 /** The campaign's session folders (kind = 'session'). */
 async function readSessionFolders() {
   return getDb()
@@ -350,6 +368,20 @@ async function readBeat() {
     .orderBy(campaignBeat.createdAt)
   expect(rows.length).toBeGreaterThan(0)
   return rows[0]!
+}
+
+async function readBeatByTitle(title: string) {
+  const [row] = await getDb()
+    .select()
+    .from(campaignBeat)
+    .where(
+      and(
+        eq(campaignBeat.campaignId, campaign.id),
+        eq(campaignBeat.title, title)
+      )
+    )
+  expect(row).toBeDefined()
+  return row!
 }
 
 async function readBeatById(id: string) {

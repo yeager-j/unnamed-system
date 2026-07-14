@@ -58,8 +58,11 @@ import {
 import type { CampaignFolderKind } from "@/lib/db/schema/campaign-folder"
 import {
   campaignArticlePath,
+  campaignArticlesPath,
   campaignBeatPath,
+  campaignNotesPath,
   campaignNpcPath,
+  campaignNpcsPath,
 } from "@/lib/paths"
 
 import { DeleteBeatConfirm } from "../notes/delete-beat-confirm"
@@ -174,6 +177,20 @@ export function FolderTree({
     return campaignBeatPath(campaignShortId, id)
   }
 
+  const surfacePath =
+    kind === "article"
+      ? campaignArticlesPath(campaignShortId)
+      : kind === "npc"
+        ? campaignNpcsPath(campaignShortId)
+        : campaignNotesPath(campaignShortId)
+
+  // Deleting the item currently open in the inset would strand the viewer on
+  // its now-404 URL (the loader 404s once the row is gone); send them back to
+  // the surface index. Deleting any other row leaves the open item alone.
+  const navigateAfterDelete = (href: string) => {
+    if (pathname === href) router.replace(surfacePath)
+  }
+
   const run = (
     write: () => Promise<{ ok: true } | { ok: false; error: string }>,
     errorMessage = "Couldn't save. Try again."
@@ -231,6 +248,7 @@ export function FolderTree({
     toggle,
     itemPath,
     activePath: pathname,
+    navigateAfterDelete,
     moveTargets,
     unfilteredFolder,
     newItemLabel: copy.newItem,
@@ -410,6 +428,8 @@ interface TreeContext {
   toggle: (folderId: string | null) => void
   itemPath: (id: string) => string
   activePath: string
+  /** Redirect to the surface index if the just-deleted item is the open one. */
+  navigateAfterDelete: (href: string) => void
   moveTargets: MoveTargetRow[]
   /** The folder's node in the UNFILTERED forest — the delete confirm's honest count. */
   unfilteredFolder: (id: string) => FolderTreeFolderView | null
@@ -671,12 +691,14 @@ function ItemRow({
             campaignId={ctx.campaignId}
             beatId={item.id}
             onOpenChange={setDeleteOpen}
+            onDeleted={() => ctx.navigateAfterDelete(href)}
           />
         ) : (
           <DeleteEntityConfirm
             campaignId={ctx.campaignId}
             target={{ kind: ctx.kind, id: item.id, name: item.name }}
             onOpenChange={setDeleteOpen}
+            onDeleted={() => ctx.navigateAfterDelete(href)}
           />
         )
       ) : null}
