@@ -14,7 +14,6 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { LinkerOption } from "@/domain/planner/view/linker"
 
-import { participantLinkCompletionMenu } from "./participant-link-completion-menu"
 import {
   createParticipantLinkExtensions,
   createParticipantLinkWorld,
@@ -86,7 +85,6 @@ function mount(
       campaignId: string,
       name: string
     ) => Promise<ParticipantLinkTarget["ref"] | null>
-    completionMenu?: boolean
   }
 ) {
   const world =
@@ -114,7 +112,6 @@ function mount(
           mint,
           debounceMs: 0,
         }),
-        ...(input?.completionMenu ? [participantLinkCompletionMenu()] : []),
       ],
     }),
   })
@@ -359,28 +356,31 @@ describe("participant completions", () => {
     )
   })
 
-  it("renders native sections, kind icons, details, and mint rows", async () => {
+  it("renders shadcn sections, details, and mint rows", async () => {
     const { view } = mount("@Mar")
 
     await completionsOf(view)
     await vi.waitFor(() => {
-      expect(document.querySelector(".cm-tooltip-autocomplete")).not.toBeNull()
+      expect(
+        document.querySelector("[data-participant-completion-menu]")
+      ).not.toBeNull()
     })
 
+    expect(document.querySelector('[data-slot="command"]')).not.toBeNull()
+    expect(
+      document.querySelectorAll('[data-slot="command-group"]')
+    ).toHaveLength(2)
+    expect(document.querySelector('[data-slot="command-input"]')).toBeNull()
     expect(document.body.textContent).toContain("From the world web")
     expect(document.body.textContent).toContain("The Moon · Warlock")
     expect(document.body.textContent).toContain("Create “Mar” as NPC")
     expect(document.body.textContent).toContain("Create “Mar” as Article")
-    expect(
-      document.querySelector<HTMLElement>(".cm-participant-completion-icon")
-        ?.dataset.iconKey
-    ).toBe("npc")
   })
 })
 
 describe("controlled participant completion menu", () => {
   it("renders shadcn groups without a focus-owning command input", async () => {
-    const { view } = mount("@Mar", { completionMenu: true })
+    const { view } = mount("@Mar")
 
     await completionsOf(view)
     await vi.waitFor(() => {
@@ -395,7 +395,7 @@ describe("controlled participant completion menu", () => {
   })
 
   it("mirrors CodeMirror selection into the controlled row", async () => {
-    const { view } = mount("@Mar", { completionMenu: true })
+    const { view } = mount("@Mar")
 
     await completionsOf(view)
     view.dispatch({ effects: setSelectedCompletion(1) })
@@ -410,7 +410,7 @@ describe("controlled participant completion menu", () => {
   })
 
   it("applies pointer selection without moving focus from the editor", async () => {
-    const { view } = mount("@Mar", { completionMenu: true })
+    const { view } = mount("@Mar")
 
     await completionsOf(view)
     view.focus()
@@ -437,7 +437,7 @@ describe("controlled participant completion menu", () => {
   })
 
   it("unmounts and removes its React root with the editor", async () => {
-    const { view } = mount("@Mar", { completionMenu: true })
+    const { view } = mount("@Mar")
 
     await completionsOf(view)
     await vi.waitFor(() => {

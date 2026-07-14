@@ -9,7 +9,12 @@ import {
   type Completion,
 } from "@codemirror/autocomplete"
 import type { Extension } from "@codemirror/state"
-import { ViewPlugin, type EditorView, type ViewUpdate } from "@codemirror/view"
+import {
+  ViewPlugin,
+  type EditorView,
+  type Rect,
+  type ViewUpdate,
+} from "@codemirror/view"
 import {
   autoUpdate,
   computePosition,
@@ -103,7 +108,7 @@ function ParticipantCompletionMenu({
   view: EditorView
   completions: readonly Completion[]
   selectedIndex: number
-  anchor: () => DOMRect | null
+  anchor: () => Rect | null
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
@@ -122,7 +127,7 @@ function ParticipantCompletionMenu({
     const panel = panelRef.current
     if (panel === null) return
     const virtual = {
-      getBoundingClientRect: () => anchor() ?? new DOMRect(),
+      getBoundingClientRect: () => floatingRectOf(anchor()),
     }
     const update = () => {
       void computePosition(virtual, panel, {
@@ -234,4 +239,14 @@ function inferPresentation(
 
 function completionValue(index: number): string {
   return `participant-completion-${index}`
+}
+
+function floatingRectOf(rect: Rect | null): DOMRect {
+  if (rect === null) return new DOMRect()
+  return new DOMRect(
+    rect.left,
+    rect.top,
+    rect.right - rect.left,
+    rect.bottom - rect.top
+  )
 }
