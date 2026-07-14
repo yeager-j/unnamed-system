@@ -68,6 +68,8 @@ class ParticipantHoverBridge {
   private openTimer: number | null = null
   /** Bumped on every open/close so a late fetch for a stale pill can't render. */
   private generation = 0
+  /** A preview can still be in flight when the editor goes; nothing may render into a dead root. */
+  private destroyed = false
 
   constructor(
     private readonly view: EditorView,
@@ -87,6 +89,7 @@ class ParticipantHoverBridge {
 
   destroy(): void {
     this.clearTimer()
+    this.destroyed = true
     this.view.dom.removeEventListener("mouseover", this.onMouseOver)
     this.view.dom.removeEventListener("mouseout", this.onMouseOut)
     queueMicrotask(() => {
@@ -157,6 +160,7 @@ class ParticipantHoverBridge {
   }
 
   private render(): void {
+    if (this.destroyed) return
     const hovered = this.hovered
     this.root.render(
       hovered === null ? null : (

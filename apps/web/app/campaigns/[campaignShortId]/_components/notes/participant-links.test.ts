@@ -785,6 +785,28 @@ describe("participant hover previews", () => {
     expect(document.querySelector("[data-participant-preview-card]")).toBeNull()
   })
 
+  it("drops a preview that lands after the editor is gone", async () => {
+    let settle: (preview: ParticipantPreview) => void = () => {}
+    const { host, view } = mount("[[npc:n1|Stored Maren]] after", {
+      preview: () =>
+        new Promise<ParticipantPreview>((resolve) => {
+          settle = resolve
+        }),
+    })
+
+    hover(pillOf(host))
+    await previewCard()
+
+    view.destroy()
+    views.splice(views.indexOf(view), 1)
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+
+    // The root is unmounted; rendering the arriving payload into it would throw.
+    settle(NPC_PREVIEW)
+    await new Promise((resolve) => window.setTimeout(resolve, 20))
+    expect(document.querySelector("[data-participant-preview-card]")).toBeNull()
+  })
+
   it("unmounts its React root with the editor", async () => {
     const { host, view } = mount("[[npc:n1|Stored Maren]] after")
     hover(pillOf(host))
