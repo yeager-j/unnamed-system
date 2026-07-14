@@ -46,8 +46,9 @@ class ResizeObserverStub {
 }
 
 vi.stubGlobal("ResizeObserver", ResizeObserverStub)
+const scrollIntoViewMock = vi.fn()
 Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-  value: () => {},
+  value: scrollIntoViewMock,
 })
 Object.defineProperties(Range.prototype, {
   getBoundingClientRect: {
@@ -519,6 +520,33 @@ describe("controlled participant completion menu", () => {
           .querySelector('[data-participant-completion-index="1"]')
           ?.getAttribute("data-selected")
       ).toBe("true")
+    })
+  })
+
+  it("scrolls the newly selected row into the list's viewport", async () => {
+    const { view } = mount("@Mar")
+
+    await completionsOf(view)
+    // Let the Command finish mounting (cmdk scrolls once at mount) so the
+    // cleared spy can only be re-satisfied by a selection-driven scroll.
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector("[data-participant-completion-menu]")
+      ).not.toBeNull()
+    })
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    scrollIntoViewMock.mockClear()
+
+    view.dispatch({ effects: setSelectedCompletion(2) })
+
+    // cmdk schedules its scroll only for selection it moves itself; the
+    // controlled `value` path just stores, so the mirrored row scrolls.
+    await vi.waitFor(() => {
+      const scrolledRows = scrollIntoViewMock.mock.contexts.map(
+        (element) =>
+          (element as HTMLElement).dataset?.participantCompletionIndex
+      )
+      expect(scrolledRows).toContain("2")
     })
   })
 

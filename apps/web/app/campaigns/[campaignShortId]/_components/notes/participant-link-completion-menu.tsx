@@ -22,7 +22,7 @@ import {
   offset,
   shift,
 } from "@floating-ui/dom"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import {
@@ -142,7 +142,12 @@ function ParticipantCompletionMenu({
               heading={group.name ?? undefined}
             >
               {group.rows.map((row) => (
-                <CompletionMenuRow key={row.index} view={view} {...row} />
+                <CompletionMenuRow
+                  key={row.index}
+                  view={view}
+                  selected={row.index === selectedIndex}
+                  {...row}
+                />
               ))}
             </CommandGroup>
           ))}
@@ -157,13 +162,33 @@ function CompletionMenuRow({
   completion,
   index,
   presentation,
+  selected,
 }: {
   view: EditorView
   completion: Completion
   index: number
   presentation: CompletionPresentation | null
+  selected: boolean
 }) {
   const Icon = presentation?.icon
+  const itemRef = useRef<HTMLDivElement | null>(null)
+
+  // cmdk schedules its scroll-into-view only for selection it moves itself
+  // (its own key handling; plus once at mount). This menu's selection arrives
+  // from outside through the controlled `value`, a path cmdk merely stores —
+  // so the mirrored row must scroll itself into the CommandList's viewport.
+  // Like cmdk's scroller, the first row of a group brings its heading along.
+  useEffect(() => {
+    const item = itemRef.current
+    if (!selected || item === null) return
+    if (item.parentElement?.firstChild === item) {
+      item
+        .closest('[data-slot="command-group"]')
+        ?.querySelector("[cmdk-group-heading]")
+        ?.scrollIntoView({ block: "nearest" })
+    }
+    item.scrollIntoView({ block: "nearest" })
+  }, [selected])
 
   function select() {
     view.dispatch({ effects: setSelectedCompletion(index) })
@@ -171,6 +196,7 @@ function CompletionMenuRow({
 
   return (
     <CommandItem
+      ref={itemRef}
       forceMount
       value={completionValue(index)}
       data-participant-completion-index={index}
