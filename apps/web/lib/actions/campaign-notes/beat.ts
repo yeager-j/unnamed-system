@@ -7,7 +7,6 @@ import {
   createBeat,
   deferBeat,
   deleteBeat,
-  moveBeatToSession,
   setBeatResolved,
 } from "@/lib/db/writes/campaign-notes"
 
@@ -15,24 +14,23 @@ import {
   CreateBeatSchema,
   DeferBeatSchema,
   DeleteBeatSchema,
-  MoveBeatSchema,
   SetBeatResolvedSchema,
   type BeatActionError,
   type CreateBeatInput,
   type DeferBeatInput,
   type DeleteBeatInput,
-  type MoveBeatInput,
   type SetBeatResolvedInput,
 } from "./beat.schema"
 import { revalidateCampaignNotes } from "./revalidate"
 
 /**
  * Beat lifecycle writes (UNN-576/577, PRD FR-4/FR-5): create into a session
- * (or Unfiled) — optionally straight into a slot (the runner's "New story
- * beat") — refile, delete, defer to the floating shelf, and Mark resolved /
+ * folder (or Unfiled) — optionally straight into a slot (the runner's "New
+ * story beat") — delete, defer to the floating shelf, and Mark resolved /
  * Reopen. Deleting is **blocked while the beat is scheduled to a past slot**
  * — history keeps its structure (D1); content edits are the prose autosave's
- * job (`prose.ts`), schedule flips are `schedule.ts`.
+ * job (`prose.ts`), schedule flips are `schedule.ts`, and re-filing is the
+ * shared tree's `campaign-folders/move-item.ts` (UNN-617).
  */
 
 export async function createBeatAction(
@@ -44,7 +42,8 @@ export async function createBeatAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
   const created = await createBeat({
     campaignId: campaign.id,
-    sessionId: parsed.data.sessionId ?? null,
+    folderId: parsed.data.folderId ?? null,
+    title: parsed.data.title,
     slotId: parsed.data.slotId,
   })
   if (created.ok) revalidateCampaignNotes(campaign)
@@ -82,22 +81,6 @@ export async function setBeatResolvedAction(
   })
   if (set.ok) revalidateCampaignNotes(campaign)
   return set
-}
-
-export async function moveBeatToSessionAction(
-  input: MoveBeatInput
-): Promise<Result<void, BeatActionError>> {
-  const parsed = MoveBeatSchema.safeParse(input)
-  if (!parsed.success) return { ok: false, error: "invalid-input" }
-
-  const campaign = await requireCampaignDM(parsed.data.campaignId)
-  const moved = await moveBeatToSession({
-    campaignId: campaign.id,
-    beatId: parsed.data.beatId,
-    sessionId: parsed.data.sessionId,
-  })
-  if (moved.ok) revalidateCampaignNotes(campaign)
-  return moved
 }
 
 export async function deleteBeatAction(

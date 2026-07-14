@@ -135,7 +135,7 @@ describe("mintNpc", () => {
   it("dual-mints the entity substrate and the subtype in one transaction, sharing the id", async () => {
     const minted = await mintNpc({ campaignId: "camp-1", name: "Maren" })
 
-    expect(minted).toEqual({ entityId: ENTITY_ID, shortId: SHORT_ID })
+    expect(minted).toEqual(ok({ entityId: ENTITY_ID, shortId: SHORT_ID }))
     expect(calls).toEqual([
       {
         op: "insert",
@@ -146,7 +146,7 @@ describe("mintNpc", () => {
       {
         op: "insert",
         table: schema.campaignNpc,
-        payload: { entityId: ENTITY_ID, campaignId: "camp-1" },
+        payload: { entityId: ENTITY_ID, campaignId: "camp-1", folderId: null },
         inTx: true,
       },
     ])
@@ -175,11 +175,16 @@ describe("mintArticle", () => {
   it("inserts a plain article row with a null default type", async () => {
     const minted = await mintArticle({ campaignId: "camp-1", name: "Saltmere" })
 
-    expect(minted).toMatchObject({ id: ENTITY_ID })
+    expect(minted).toMatchObject({ ok: true, value: { id: ENTITY_ID } })
     expect(calls[0]).toMatchObject({
       op: "insert",
       table: schema.campaignArticle,
-      payload: { campaignId: "camp-1", name: "Saltmere", type: null },
+      payload: {
+        campaignId: "camp-1",
+        name: "Saltmere",
+        type: null,
+        folderId: null,
+      },
     })
   })
 })

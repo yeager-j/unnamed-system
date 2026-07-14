@@ -30,6 +30,9 @@ export const campaignManagePath = (shortId: string) =>
 export const campaignNotesPath = (shortId: string) =>
   `${campaignPath(shortId)}/notes`
 
+export const campaignBeatPath = (shortId: string, beatId: string) =>
+  `${campaignNotesPath(shortId)}/${beatId}`
+
 export const campaignCalendarPath = (shortId: string) =>
   `${campaignPath(shortId)}/calendar`
 

@@ -26,8 +26,8 @@ import { Label } from "@workspace/ui/components/label"
 
 import {
   countFolderContents,
-  type WorldTreeFolderView,
-} from "@/domain/planner/view/world-tree"
+  type FolderTreeFolderView,
+} from "@/domain/planner/view/folder-tree"
 
 /**
  * One text-input dialog for folder and entity names, mounted only while open
@@ -100,7 +100,7 @@ export function DeleteFolderDialog({
   onOpenChange,
   onDelete,
 }: {
-  folder: WorldTreeFolderView
+  folder: FolderTreeFolderView
   onOpenChange: (open: boolean) => void
   onDelete: () => void
 }) {

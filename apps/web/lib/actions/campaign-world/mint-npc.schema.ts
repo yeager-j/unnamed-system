@@ -1,7 +1,6 @@
 import { z } from "zod/v4"
 
-/** A world thing's display name — non-empty, sanely bounded. */
-export const worldNameSchema = z.string().trim().min(1).max(200)
+import { displayNameSchema } from "../display-name.schema"
 
 /**
  * Input schema for {@link import("./mint-npc").mintNpcAction} (UNN-575): the
@@ -10,9 +9,11 @@ export const worldNameSchema = z.string().trim().min(1).max(200)
  */
 export const MintNpcSchema = z.object({
   campaignId: z.string(),
-  name: worldNameSchema,
+  name: displayNameSchema,
+  /** The tree folder it lands in; null/absent ⇒ Unfiled (D11). */
+  folderId: z.string().nullish(),
 })
 
 export type MintNpcInput = z.input<typeof MintNpcSchema>
 
-export type MintNpcError = "invalid-input"
+export type MintNpcError = "invalid-input" | "folder-not-found"

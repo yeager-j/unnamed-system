@@ -2,19 +2,20 @@ import { and, eq } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
-import { isDescendant } from "@/domain/planner/view/world-tree"
+import { isDescendant } from "@/domain/planner/view/folder-tree"
 import { db, type WriteExecutor } from "@/lib/db/client"
 import {
-  campaignArticle,
   campaignFolder,
-  campaignNpc,
-  type WorldFolderKind,
-} from "@/lib/db/schema/campaign-world"
+  type CampaignFolderKind,
+} from "@/lib/db/schema/campaign-folder"
+import { campaignBeat } from "@/lib/db/schema/campaign-notes"
+import { campaignArticle, campaignNpc } from "@/lib/db/schema/campaign-world"
 
 /**
- * Persistence for the **world folder trees** (UNN-579, tech-design D11).
- * Auth-free like every write wrapper — `requireCampaignDM` lives at the
- * Server Action boundary — and every target scopes by `(id, campaignId)`
+ * Persistence for the **campaign folder trees** (UNN-579, tech-design D11;
+ * Session Notes folded in by UNN-617 — a session *is* a `kind = 'session'`
+ * folder). Auth-free like every write wrapper — `requireCampaignDM` lives at
+ * the Server Action boundary — and every target scopes by `(id, campaignId)`
  * (§5).
  *
  * Structure carries the guards here, not content: a parent must be a
@@ -31,7 +32,7 @@ export type FolderWriteError = "folder-not-found"
 /** Creates a folder, at the root (`parentId` null) or under a validated parent. */
 export async function createFolder(input: {
   campaignId: string
-  kind: WorldFolderKind
+  kind: CampaignFolderKind
   name: string
   parentId: string | null
 }): Promise<Result<{ id: string }, FolderWriteError>> {
@@ -189,11 +190,39 @@ export async function moveNpcToFolder(input: {
   })
 }
 
-/** The §5 boundary check for item membership: same campaign, same kind. */
-async function guardTargetFolder(
+/** Moves a beat between session folders (null ⇒ Unfiled). Organizational only — never touches the schedule. */
+export async function moveBeatToFolder(input: {
+  campaignId: string
+  beatId: string
+  folderId: string | null
+}): Promise<Result<void, MoveItemError>> {
+  return db.transaction(async (tx) => {
+    const target = await guardTargetFolder(tx, input, "session")
+    if (!target.ok) return target
+    const moved = await tx
+      .update(campaignBeat)
+      .set({ folderId: input.folderId })
+      .where(
+        and(
+          eq(campaignBeat.id, input.beatId),
+          eq(campaignBeat.campaignId, input.campaignId)
+        )
+      )
+      .returning({ id: campaignBeat.id })
+    return moved.length === 0 ? err("item-not-found") : ok(undefined)
+  })
+}
+
+/**
+ * The §5 boundary check for item membership: same campaign, same kind. Shared
+ * with `writes/campaign-notes.ts` (beat mint) and `writes/campaign-world.ts`
+ * (article/NPC mint) so every path that files an item into a folder asks the
+ * same question.
+ */
+export async function guardTargetFolder(
   tx: WriteExecutor,
   input: { campaignId: string; folderId: string | null },
-  kind: WorldFolderKind
+  kind: CampaignFolderKind
 ): Promise<Result<void, "folder-not-found">> {
   if (input.folderId === null) return ok(undefined)
   const folder = await folderInCampaign(tx, input.campaignId, input.folderId)
@@ -205,7 +234,7 @@ async function folderInCampaign(
   tx: WriteExecutor,
   campaignId: string,
   folderId: string
-): Promise<{ kind: WorldFolderKind } | undefined> {
+): Promise<{ kind: CampaignFolderKind } | undefined> {
   const [row] = await tx
     .select({ kind: campaignFolder.kind })
     .from(campaignFolder)

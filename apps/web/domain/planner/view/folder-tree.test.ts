@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  buildWorldForest,
+  buildFolderForest,
   countFolderContents,
-  filterWorldForest,
+  filterFolderForest,
   isDescendant,
-  type WorldFolderInput,
-  type WorldTreeItem,
-} from "./world-tree"
+  type FolderTreeFolderInput,
+  type FolderTreeItem,
+} from "./folder-tree"
 
 function folder(
   id: string,
   parentId: string | null,
   name = `Folder ${id}`
-): WorldFolderInput {
+): FolderTreeFolderInput {
   return { id, parentId, name }
 }
 
@@ -21,14 +21,14 @@ function item(
   id: string,
   folderId: string | null,
   name = `Item ${id}`,
-  overrides: Partial<WorldTreeItem> = {}
-): WorldTreeItem {
+  overrides: Partial<FolderTreeItem> = {}
+): FolderTreeItem {
   return { id, folderId, name, iconKey: "article", ...overrides }
 }
 
-describe("buildWorldForest", () => {
+describe("buildFolderForest", () => {
   it("nests folders recursively and files items under their folders", () => {
-    const forest = buildWorldForest(
+    const forest = buildFolderForest(
       [folder("root", null), folder("child", "root"), folder("grand", "child")],
       [item("a", "grand"), item("b", "root"), item("c", null)]
     )
@@ -41,7 +41,7 @@ describe("buildWorldForest", () => {
   })
 
   it("sorts folders and items alphabetically at every level, case-insensitive", () => {
-    const forest = buildWorldForest(
+    const forest = buildFolderForest(
       [
         folder("f1", null, "zebra"),
         folder("f2", null, "Apple"),
@@ -62,13 +62,13 @@ describe("buildWorldForest", () => {
   })
 
   it("renders empty folders but keeps Unfiled purely derived", () => {
-    const forest = buildWorldForest([folder("empty", null)], [])
+    const forest = buildFolderForest([folder("empty", null)], [])
     expect(forest.roots).toHaveLength(1)
     expect(forest.unfiled).toEqual([])
   })
 
   it("degrades a cycle's folders and their items to Unfiled instead of vanishing them", () => {
-    const forest = buildWorldForest(
+    const forest = buildFolderForest(
       [folder("a", "b"), folder("b", "a"), folder("ok", null)],
       [item("trapped", "a"), item("fine", "ok")]
     )
@@ -77,12 +77,12 @@ describe("buildWorldForest", () => {
   })
 
   it("degrades items pointing at a missing folder to Unfiled", () => {
-    const forest = buildWorldForest([], [item("orphan", "gone")])
+    const forest = buildFolderForest([], [item("orphan", "gone")])
     expect(forest.unfiled.map((i) => i.id)).toEqual(["orphan"])
   })
 
   it("degrades the subtree hanging off a missing parent", () => {
-    const forest = buildWorldForest(
+    const forest = buildFolderForest(
       [folder("dangling", "gone"), folder("leaf", "dangling")],
       [item("x", "leaf")]
     )
@@ -118,8 +118,8 @@ describe("isDescendant", () => {
   })
 })
 
-describe("filterWorldForest", () => {
-  const forest = buildWorldForest(
+describe("filterFolderForest", () => {
+  const forest = buildFolderForest(
     [folder("root", null), folder("child", "root")],
     [
       item("keep", "child", "Keep me"),
@@ -129,7 +129,9 @@ describe("filterWorldForest", () => {
   )
 
   it("prunes items and drops recursively-empty folders", () => {
-    const filtered = filterWorldForest(forest, (i) => i.name.startsWith("Keep"))
+    const filtered = filterFolderForest(forest, (i) =>
+      i.name.startsWith("Keep")
+    )
     expect(filtered.roots).toHaveLength(1)
     expect(filtered.roots[0]!.items).toEqual([])
     expect(filtered.roots[0]!.folders[0]!.items.map((i) => i.id)).toEqual([
@@ -139,13 +141,13 @@ describe("filterWorldForest", () => {
   })
 
   it("drops everything when nothing matches", () => {
-    const filtered = filterWorldForest(forest, () => false)
+    const filtered = filterFolderForest(forest, () => false)
     expect(filtered.roots).toEqual([])
     expect(filtered.unfiled).toEqual([])
   })
 
   it("keeps a matching folder's whole subtree untouched", () => {
-    const filtered = filterWorldForest(
+    const filtered = filterFolderForest(
       forest,
       () => false,
       (f) => f.id === "child"
@@ -159,7 +161,7 @@ describe("filterWorldForest", () => {
 
 describe("countFolderContents", () => {
   it("totals descendant folders and items, excluding the folder itself", () => {
-    const forest = buildWorldForest(
+    const forest = buildFolderForest(
       [folder("root", null), folder("child", "root"), folder("grand", "child")],
       [item("a", "root"), item("b", "child"), item("c", "grand")]
     )

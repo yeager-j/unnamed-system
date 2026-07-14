@@ -22,13 +22,14 @@ import {
   type MoveFolderInput,
   type RenameFolderInput,
 } from "./folder.schema"
-import { revalidateCampaignWorld } from "./revalidate"
+import { revalidateCampaignFolders } from "./revalidate"
 
 /**
- * The folder tree's structural writes (UNN-579, tech-design D11). All gate on
- * `requireCampaignDM`; parent/kind agreement and the cycle guard live in the
- * write wrappers (`lib/db/writes/campaign-folders.ts`). Structural, so every
- * success revalidates the campaign layout.
+ * The folder trees' structural writes (UNN-579, tech-design D11) — one set of
+ * actions for all three forests (Articles, NPCs, Session Notes; UNN-617). All
+ * gate on `requireCampaignDM`; parent/kind agreement and the cycle guard live
+ * in the write wrappers (`lib/db/writes/campaign-folders.ts`). Structural, so
+ * every success revalidates the campaign layout.
  */
 
 export async function createFolderAction(
@@ -40,7 +41,7 @@ export async function createFolderAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
   const result = await createFolder({ ...parsed.data, campaignId: campaign.id })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }
 
@@ -53,7 +54,7 @@ export async function renameFolderAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
   const result = await renameFolder({ ...parsed.data, campaignId: campaign.id })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }
 
@@ -66,7 +67,7 @@ export async function moveFolderAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
   const result = await moveFolder({ ...parsed.data, campaignId: campaign.id })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }
 
@@ -79,6 +80,6 @@ export async function deleteFolderAction(
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
   const result = await deleteFolder({ ...parsed.data, campaignId: campaign.id })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }

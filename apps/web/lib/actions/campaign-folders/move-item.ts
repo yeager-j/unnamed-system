@@ -5,22 +5,26 @@ import { type Result } from "@workspace/game-v2/kernel/result"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import {
   moveArticleToFolder,
+  moveBeatToFolder,
   moveNpcToFolder,
 } from "@/lib/db/writes/campaign-folders"
 
 import {
   MoveArticleToFolderSchema,
+  MoveBeatToFolderSchema,
   MoveNpcToFolderSchema,
   type MoveArticleToFolderInput,
+  type MoveBeatToFolderInput,
   type MoveItemActionError,
   type MoveNpcToFolderInput,
 } from "./move-item.schema"
-import { revalidateCampaignWorld } from "./revalidate"
+import { revalidateCampaignFolders } from "./revalidate"
 
 /**
- * "Move to…" for tree items (UNN-579, D11): re-files an Article or NPC into a
- * folder (null ⇒ Unfiled). The write wrapper enforces the §5 boundary — the
- * target folder must be same-campaign, same-kind.
+ * "Move to…" for tree items (UNN-579, D11; beats UNN-617): re-files an
+ * Article, NPC, or story beat into a folder (null ⇒ Unfiled). The write
+ * wrapper enforces the §5 boundary — the target folder must be same-campaign,
+ * same-kind.
  */
 
 export async function moveArticleToFolderAction(
@@ -35,7 +39,7 @@ export async function moveArticleToFolderAction(
     ...parsed.data,
     campaignId: campaign.id,
   })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }
 
@@ -51,6 +55,22 @@ export async function moveNpcToFolderAction(
     ...parsed.data,
     campaignId: campaign.id,
   })
-  if (result.ok) revalidateCampaignWorld(campaign)
+  if (result.ok) revalidateCampaignFolders(campaign)
+  return result
+}
+
+export async function moveBeatToFolderAction(
+  input: MoveBeatToFolderInput
+): Promise<Result<void, MoveItemActionError>> {
+  const parsed = MoveBeatToFolderSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: "invalid-input" }
+
+  const campaign = await requireCampaignDM(parsed.data.campaignId)
+
+  const result = await moveBeatToFolder({
+    ...parsed.data,
+    campaignId: campaign.id,
+  })
+  if (result.ok) revalidateCampaignFolders(campaign)
   return result
 }

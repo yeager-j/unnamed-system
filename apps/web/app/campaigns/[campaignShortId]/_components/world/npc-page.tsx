@@ -25,12 +25,12 @@ import type { RelationRowView } from "@/domain/planner/view/world-detail"
 import type { Lineage, NarrativeTextField } from "@/domain/vocab"
 import { campaignNpcsPath } from "@/lib/paths"
 
+import { useFolderTreeNameMirror } from "../folder-tree/folder-tree-shell"
 import { ArcanaPicker } from "./arcana-picker"
 import { BondTierPicker } from "./bond-tier-picker"
 import { DeleteEntityConfirm } from "./delete-entity-confirm"
 import { EntityWebSections } from "./entity-web-sections"
 import { LineagePicker } from "./lineage-picker"
-import { useWorldNameMirror } from "./world-shell"
 
 /** The page's serialized slice of a loaded NPC. */
 export interface NpcPageNpc {
@@ -92,7 +92,7 @@ export function NpcPage({
   web: NpcPageWeb
 }) {
   const router = useRouter()
-  const mirrorName = useWorldNameMirror()
+  const mirrorName = useFolderTreeNameMirror()
   const searchParams = useSearchParams()
   const pane: NpcPane = npcPaneFromParam(searchParams.get("doc"))
   const [deleteOpen, setDeleteOpen] = useState(false)

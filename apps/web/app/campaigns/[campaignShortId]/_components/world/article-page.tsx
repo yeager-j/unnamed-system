@@ -19,6 +19,7 @@ import type { RelationRowView } from "@/domain/planner/view/world-detail"
 import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 import { campaignArticlesPath } from "@/lib/paths"
 
+import { useFolderTreeNameMirror } from "../folder-tree/folder-tree-shell"
 import {
   createParticipantLinkExtensions,
   createParticipantLinkWorld,
@@ -27,7 +28,6 @@ import {
 import { ArticleTypePicker } from "./article-type-picker"
 import { DeleteEntityConfirm } from "./delete-entity-confirm"
 import { EntityWebSections } from "./entity-web-sections"
-import { useWorldNameMirror } from "./world-shell"
 
 /** The page's serialized slice of a loaded article. */
 export interface ArticlePageArticle {
@@ -68,7 +68,7 @@ export function ArticlePage({
   currentDay: number | null
 }) {
   const router = useRouter()
-  const mirrorName = useWorldNameMirror()
+  const mirrorName = useFolderTreeNameMirror()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const fields = useArticleAutoSave({
     campaignId,

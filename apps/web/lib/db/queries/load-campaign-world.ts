@@ -3,12 +3,9 @@ import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import {
   campaignArticle,
-  campaignFolder,
   campaignNpc,
   type CampaignArticleRow,
-  type CampaignFolderRow,
   type CampaignNpcRow,
-  type WorldFolderKind,
 } from "@/lib/db/schema/campaign-world"
 import { entity, type EntityRow } from "@/lib/db/schema/entity"
 
@@ -94,22 +91,6 @@ export async function loadCampaignArticle(
       )
     )
   return row
-}
-
-/** One kind's folder rows — the D11 forest builder's input (it sorts itself). */
-export async function loadWorldFolders(
-  campaignId: string,
-  kind: WorldFolderKind
-): Promise<CampaignFolderRow[]> {
-  return db
-    .select()
-    .from(campaignFolder)
-    .where(
-      and(
-        eq(campaignFolder.campaignId, campaignId),
-        eq(campaignFolder.kind, kind)
-      )
-    )
 }
 
 /**

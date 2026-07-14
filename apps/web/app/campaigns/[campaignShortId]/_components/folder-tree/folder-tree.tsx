@@ -4,6 +4,7 @@ import {
   CaretDownIcon,
   CaretRightIcon,
   DotsThreeIcon,
+  FileTextIcon,
   FolderIcon,
   FolderPlusIcon,
   MoonStarsIcon,
@@ -38,34 +39,38 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import {
-  filterWorldForest,
-  type WorldForestView,
-  type WorldTreeFolderView,
-  type WorldTreeItem,
-} from "@/domain/planner/view/world-tree"
+  filterFolderForest,
+  type FolderForestView,
+  type FolderTreeFolderView,
+  type FolderTreeItem,
+} from "@/domain/planner/view/folder-tree"
 import {
   createFolderAction,
   deleteFolderAction,
   moveFolderAction,
   renameFolderAction,
-} from "@/lib/actions/campaign-world/folder"
+} from "@/lib/actions/campaign-folders/folder"
 import {
   moveArticleToFolderAction,
+  moveBeatToFolderAction,
   moveNpcToFolderAction,
-} from "@/lib/actions/campaign-world/move-item"
-import type { WorldFolderKind } from "@/lib/db/schema/campaign-world"
-import { campaignArticlePath, campaignNpcPath } from "@/lib/paths"
-
+} from "@/lib/actions/campaign-folders/move-item"
+import type { CampaignFolderKind } from "@/lib/db/schema/campaign-folder"
 import {
-  DeleteEntityConfirm,
-  type DeleteEntityTarget,
-} from "./delete-entity-confirm"
-import { mintParticipantRef } from "./mint-participant-ref"
-import { KindIcon } from "./participant-linker"
-import { DeleteFolderDialog, NameDialog } from "./world-tree-dialogs"
+  campaignArticlePath,
+  campaignBeatPath,
+  campaignNpcPath,
+} from "@/lib/paths"
+
+import { DeleteBeatConfirm } from "../notes/delete-beat-confirm"
+import { ScheduleGlyph } from "../notes/schedule-control"
+import { DeleteEntityConfirm } from "../world/delete-entity-confirm"
+import { KindIcon } from "../world/participant-linker"
+import { DeleteFolderDialog, NameDialog } from "./folder-tree-dialogs"
+import { mintTreeItem } from "./mint-tree-item"
 
 const COPY: Record<
-  WorldFolderKind,
+  CampaignFolderKind,
   {
     surface: string
     newItem: string
@@ -101,6 +106,18 @@ const COPY: Record<
       "A name mints a stub; Arcana, Lineage, and prose deepen it.",
     mintPlaceholder: "Maren of the Fens",
   },
+  session: {
+    surface: "Session Notes",
+    newItem: "New beat",
+    searchPlaceholder: "Search beats…",
+    searchAria: "Search beats",
+    emptyHint:
+      "Prep lives here — one beat per scene. Folders are sessions; nest them however the table runs.",
+    mintTitle: "New beat",
+    mintDescription:
+      "A name mints the note; the scene and its slot come after.",
+    mintPlaceholder: "The Queen's offer",
+  },
 }
 
 /** One flattened Move-to target row. */
@@ -111,15 +128,15 @@ interface MoveTargetRow {
 }
 
 /**
- * The Articles/NPCs folder tree (UNN-579, D11): recursive disclosure rows,
- * items as links to their detail routes (active = pathname), a folder ⋯ menu
- * (rename / move / new subfolder / delete) and an item ⋯ menu (move /
- * delete). "Move to…" is a dropdown sub-menu over the flattened forest —
- * rows inside the moved folder's own subtree disabled, the same
- * `isDescendant` fact the server enforces. Expand/collapse and the filters
- * are client-local.
+ * The shared folder tree (UNN-579, D11 — Articles and NPCs; Session Notes
+ * folded in by UNN-617): recursive disclosure rows, items as links to their
+ * detail routes (active = pathname), a folder ⋯ menu (new item inside /
+ * rename / new subfolder / move / delete) and an item ⋯ menu (move / delete).
+ * "Move to…" is a dropdown sub-menu over the flattened forest — rows inside
+ * the moved folder's own subtree disabled, the same `isDescendant` fact the
+ * server enforces. Expand/collapse and the filters are client-local.
  */
-export function WorldTree({
+export function FolderTree({
   kind,
   campaignId,
   campaignShortId,
@@ -130,12 +147,12 @@ export function WorldTree({
   collapsed,
   onCollapsedChange,
 }: {
-  kind: WorldFolderKind
+  kind: CampaignFolderKind
   campaignId: string
   campaignShortId: string
   campaignName: string
   dayLine: string | null
-  forest: WorldForestView
+  forest: FolderForestView
   typeOptions: string[]
   /** Expand/collapse lives in the shell so it survives the doc-rail swap. */
   collapsed: Set<string | null>
@@ -151,10 +168,11 @@ export function WorldTree({
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [mintOpen, setMintOpen] = useState(false)
 
-  const itemPath = (id: string) =>
-    kind === "article"
-      ? campaignArticlePath(campaignShortId, id)
-      : campaignNpcPath(campaignShortId, id)
+  const itemPath = (id: string) => {
+    if (kind === "article") return campaignArticlePath(campaignShortId, id)
+    if (kind === "npc") return campaignNpcPath(campaignShortId, id)
+    return campaignBeatPath(campaignShortId, id)
+  }
 
   const run = (
     write: () => Promise<{ ok: true } | { ok: false; error: string }>,
@@ -165,10 +183,14 @@ export function WorldTree({
       if (!result.ok) toast.error(errorMessage)
     })
 
-  const mint = (name: string) =>
+  const mint = (name: string, folderId: string | null) =>
     startTransition(async () => {
-      const ref = await mintParticipantRef(kind, campaignId, name)
-      if (ref) router.push(itemPath(ref.id))
+      const id = await mintTreeItem(kind, campaignId, name, folderId)
+      if (id === null) {
+        toast.error("Couldn't create it. Try again.")
+        return
+      }
+      router.push(itemPath(id))
     })
 
   const toggle = (folderId: string | null) => {
@@ -181,17 +203,17 @@ export function WorldTree({
   const needle = query.trim().toLowerCase()
   let visible = forest
   if (needle !== "") {
-    visible = filterWorldForest(
+    visible = filterFolderForest(
       visible,
       (item) => item.name.toLowerCase().includes(needle),
       (folder) => folder.name.toLowerCase().includes(needle)
     )
   }
   if (kind === "article" && typeFilter !== null) {
-    visible = filterWorldForest(visible, (item) => item.type === typeFilter)
+    visible = filterFolderForest(visible, (item) => item.type === typeFilter)
   }
   if (kind === "npc" && hideStubs) {
-    visible = filterWorldForest(visible, (item) => item.isStub !== true)
+    visible = filterFolderForest(visible, (item) => item.isStub !== true)
   }
 
   const moveTargets = flattenForest(forest)
@@ -211,6 +233,13 @@ export function WorldTree({
     activePath: pathname,
     moveTargets,
     unfilteredFolder,
+    newItemLabel: copy.newItem,
+    mintCopy: {
+      title: copy.mintTitle,
+      description: copy.mintDescription,
+      placeholder: copy.mintPlaceholder,
+    },
+    onMintItem: mint,
     onRenameFolder: (folderId, name) =>
       run(() => renameFolderAction({ campaignId, folderId, name })),
     onDeleteFolder: (folderId) =>
@@ -224,14 +253,7 @@ export function WorldTree({
       run(() => createFolderAction({ campaignId, kind, name, parentId })),
     onMoveItem: (itemId, folderId) =>
       run(
-        () =>
-          kind === "article"
-            ? moveArticleToFolderAction({
-                campaignId,
-                articleId: itemId,
-                folderId,
-              })
-            : moveNpcToFolderAction({ campaignId, entityId: itemId, folderId }),
+        () => moveItem(kind, campaignId, itemId, folderId),
         "Couldn't move it. Try again."
       ),
   }
@@ -353,16 +375,36 @@ export function WorldTree({
           initialValue=""
           placeholder={copy.mintPlaceholder}
           onOpenChange={setMintOpen}
-          onSubmit={mint}
+          onSubmit={(name) => mint(name, null)}
         />
       ) : null}
     </>
   )
 }
 
+/** Re-files an item into a folder — the one place the item kinds fork. */
+function moveItem(
+  kind: CampaignFolderKind,
+  campaignId: string,
+  itemId: string,
+  folderId: string | null
+) {
+  if (kind === "article") {
+    return moveArticleToFolderAction({
+      campaignId,
+      articleId: itemId,
+      folderId,
+    })
+  }
+  if (kind === "npc") {
+    return moveNpcToFolderAction({ campaignId, entityId: itemId, folderId })
+  }
+  return moveBeatToFolderAction({ campaignId, beatId: itemId, folderId })
+}
+
 /** The callbacks and lookups every row shares — one bag, not eight props. */
 interface TreeContext {
-  kind: WorldFolderKind
+  kind: CampaignFolderKind
   campaignId: string
   collapsed: Set<string | null>
   toggle: (folderId: string | null) => void
@@ -370,7 +412,11 @@ interface TreeContext {
   activePath: string
   moveTargets: MoveTargetRow[]
   /** The folder's node in the UNFILTERED forest — the delete confirm's honest count. */
-  unfilteredFolder: (id: string) => WorldTreeFolderView | null
+  unfilteredFolder: (id: string) => FolderTreeFolderView | null
+  /** "New article" / "New NPC" / "New beat" — the folder menu's mint row. */
+  newItemLabel: string
+  mintCopy: { title: string; description: string; placeholder: string }
+  onMintItem: (name: string, folderId: string | null) => void
   onRenameFolder: (folderId: string, name: string) => void
   onDeleteFolder: (folderId: string) => void
   onMoveFolder: (folderId: string, parentId: string | null) => void
@@ -383,13 +429,14 @@ function FolderRows({
   depth,
   ctx,
 }: {
-  folder: WorldTreeFolderView
+  folder: FolderTreeFolderView
   depth: number
   ctx: TreeContext
 }) {
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [subfolderOpen, setSubfolderOpen] = useState(false)
+  const [mintOpen, setMintOpen] = useState(false)
   const isCollapsed = ctx.collapsed.has(folder.id)
   const ownSubtree = subtreeIds(folder)
 
@@ -423,6 +470,9 @@ function FolderRows({
               <DotsThreeIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => setMintOpen(true)}>
+                {ctx.newItemLabel} here
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRenameOpen(true)}>
                 Rename
               </DropdownMenuItem>
@@ -460,6 +510,17 @@ function FolderRows({
           ))}
         </>
       )}
+      {mintOpen ? (
+        <NameDialog
+          title={`${ctx.mintCopy.title} in ${folder.name}`}
+          description={ctx.mintCopy.description}
+          confirmLabel="Create"
+          initialValue=""
+          placeholder={ctx.mintCopy.placeholder}
+          onOpenChange={setMintOpen}
+          onSubmit={(name) => ctx.onMintItem(name, folder.id)}
+        />
+      ) : null}
       {renameOpen ? (
         <NameDialog
           title="Rename folder"
@@ -496,7 +557,7 @@ function UnfiledRows({
   items,
   ctx,
 }: {
-  items: WorldTreeItem[]
+  items: FolderTreeItem[]
   ctx: TreeContext
 }) {
   const isCollapsed = ctx.collapsed.has(null)
@@ -530,17 +591,12 @@ function ItemRow({
   depth,
   ctx,
 }: {
-  item: WorldTreeItem
+  item: FolderTreeItem
   depth: number
   ctx: TreeContext
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const href = ctx.itemPath(item.id)
-  const target: DeleteEntityTarget = {
-    kind: ctx.kind,
-    id: item.id,
-    name: item.name,
-  }
 
   return (
     <SidebarMenuItem style={indent(depth)}>
@@ -556,9 +612,27 @@ function ItemRow({
               item.isStub ? "Stub — a name and nothing else yet" : undefined
             }
           >
-            <KindIcon iconKey={item.iconKey} />
+            <ItemIcon item={item} />
           </span>
-          <span className="flex-1 truncate">{item.name}</span>
+          <span
+            className={cn(
+              "flex-1 truncate",
+              item.isUntitled && "text-muted-foreground"
+            )}
+          >
+            {item.name}
+          </span>
+          {item.schedule !== undefined && item.schedule.icon !== "none" ? (
+            <span title={item.schedule.label ?? undefined}>
+              <ScheduleGlyph
+                kind={item.schedule.icon}
+                className={cn(
+                  "size-3.5",
+                  item.schedule.icon === "scheduled" && "text-primary-text"
+                )}
+              />
+            </span>
+          ) : null}
         </SidebarMenuButton>
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -592,14 +666,30 @@ function ItemRow({
         </DropdownMenu>
       </div>
       {deleteOpen ? (
-        <DeleteEntityConfirm
-          campaignId={ctx.campaignId}
-          target={target}
-          onOpenChange={setDeleteOpen}
-        />
+        ctx.kind === "session" ? (
+          <DeleteBeatConfirm
+            campaignId={ctx.campaignId}
+            beatId={item.id}
+            onOpenChange={setDeleteOpen}
+          />
+        ) : (
+          <DeleteEntityConfirm
+            campaignId={ctx.campaignId}
+            target={{ kind: ctx.kind, id: item.id, name: item.name }}
+            onOpenChange={setDeleteOpen}
+          />
+        )
       ) : null}
     </SidebarMenuItem>
   )
+}
+
+/** A beat leads with its note page; a participant leads with its kind glyph. */
+function ItemIcon({ item }: { item: FolderTreeItem }) {
+  if (item.iconKey === "beat") {
+    return <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+  }
+  return <KindIcon iconKey={item.iconKey} />
 }
 
 /**
@@ -643,9 +733,9 @@ function MoveToSubmenu({
   )
 }
 
-function flattenForest(forest: WorldForestView): MoveTargetRow[] {
+function flattenForest(forest: FolderForestView): MoveTargetRow[] {
   const rows: MoveTargetRow[] = []
-  const walk = (folder: WorldTreeFolderView, depth: number) => {
+  const walk = (folder: FolderTreeFolderView, depth: number) => {
     rows.push({ id: folder.id, name: folder.name, depth })
     for (const child of folder.folders) walk(child, depth + 1)
   }
@@ -654,10 +744,10 @@ function flattenForest(forest: WorldForestView): MoveTargetRow[] {
 }
 
 function findFolderById(
-  forest: WorldForestView,
+  forest: FolderForestView,
   id: string
-): WorldTreeFolderView | null {
-  const walk = (folder: WorldTreeFolderView): WorldTreeFolderView | null => {
+): FolderTreeFolderView | null {
+  const walk = (folder: FolderTreeFolderView): FolderTreeFolderView | null => {
     if (folder.id === id) return folder
     for (const child of folder.folders) {
       const found = walk(child)
@@ -672,9 +762,9 @@ function findFolderById(
   return null
 }
 
-function subtreeIds(folder: WorldTreeFolderView): Set<string> {
+function subtreeIds(folder: FolderTreeFolderView): Set<string> {
   const ids = new Set<string>()
-  const walk = (node: WorldTreeFolderView) => {
+  const walk = (node: FolderTreeFolderView) => {
     ids.add(node.id)
     for (const child of node.folders) walk(child)
   }

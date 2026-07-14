@@ -281,6 +281,13 @@
       "when": 1783919737832,
       "tag": "0039_unn_581_story_tier_changed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784068571395,
+      "tag": "0040_unn_617_session_folders",
+      "breakpoints": true
     }
   ]
 }

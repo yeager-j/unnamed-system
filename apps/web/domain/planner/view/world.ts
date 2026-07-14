@@ -4,13 +4,13 @@ import type { LoadedCampaignNpc } from "@/lib/db/queries/load-campaign-world"
 import type { CampaignArticleRow } from "@/lib/db/schema/campaign-world"
 
 import { isStubNpc } from "../npc"
+import type { FolderTreeItem } from "./folder-tree"
 import { articleIconKey } from "./linker"
-import type { WorldTreeItem } from "./world-tree"
 
-/** Shapes live NPCs into the D11 tree's item leaves (`buildWorldForest` input). */
+/** Shapes live NPCs into the D11 tree's item leaves (`buildFolderForest` input). */
 export function buildNpcTreeItems(
   npcs: readonly LoadedCampaignNpc[]
-): WorldTreeItem[] {
+): FolderTreeItem[] {
   return npcs.map((npc) => ({
     id: npc.entityId,
     folderId: npc.folderId,
@@ -24,10 +24,10 @@ export function buildNpcTreeItems(
   }))
 }
 
-/** Shapes live Articles into the D11 tree's item leaves (`buildWorldForest` input). */
+/** Shapes live Articles into the D11 tree's item leaves (`buildFolderForest` input). */
 export function buildArticleTreeItems(
   articles: readonly CampaignArticleRow[]
-): WorldTreeItem[] {
+): FolderTreeItem[] {
   return articles.map((article) => ({
     id: article.id,
     folderId: article.folderId,

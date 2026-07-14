@@ -1,21 +1,21 @@
 import { z } from "zod/v4"
 
-import { worldNameSchema } from "./mint-npc.schema"
+import { displayNameSchema } from "../display-name.schema"
 
-const folderKindSchema = z.enum(["article", "npc"])
+const folderKindSchema = z.enum(["article", "npc", "session"])
 
-/** Input schemas for the folder CRUD actions (UNN-579, D11). */
+/** Input schemas for the folder CRUD actions (UNN-579, D11; sessions UNN-617). */
 export const CreateFolderSchema = z.object({
   campaignId: z.string(),
   kind: folderKindSchema,
-  name: worldNameSchema,
+  name: displayNameSchema,
   parentId: z.string().nullable(),
 })
 
 export const RenameFolderSchema = z.object({
   campaignId: z.string(),
   folderId: z.string(),
-  name: worldNameSchema,
+  name: displayNameSchema,
 })
 
 export const MoveFolderSchema = z.object({

@@ -1,19 +1,17 @@
 import { z } from "zod/v4"
 
+import { displayNameSchema } from "../display-name.schema"
+
 export const CreateBeatSchema = z.object({
   campaignId: z.string(),
-  sessionId: z.string().nullish(),
+  /** The session folder it lands in; null/absent ⇒ Unfiled (D11). */
+  folderId: z.string().nullish(),
+  /** The quick-mint's typed name; absent ⇒ an untitled beat (the runner's mint). */
+  title: displayNameSchema.optional(),
   /** Mint straight into a slot (the runner's "New story beat"). */
   slotId: z.string().optional(),
 })
 export type CreateBeatInput = z.input<typeof CreateBeatSchema>
-
-export const MoveBeatSchema = z.object({
-  campaignId: z.string(),
-  beatId: z.string(),
-  sessionId: z.string().nullable(),
-})
-export type MoveBeatInput = z.input<typeof MoveBeatSchema>
 
 export const DeleteBeatSchema = z.object({
   campaignId: z.string(),
@@ -37,7 +35,7 @@ export type SetBeatResolvedInput = z.input<typeof SetBeatResolvedSchema>
 export type BeatActionError =
   | "invalid-input"
   | "beat-not-found"
-  | "session-not-found"
+  | "folder-not-found"
   | "clock-not-found"
   | "scheduled-to-past"
   | "not-scheduled"
