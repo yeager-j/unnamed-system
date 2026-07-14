@@ -7,6 +7,7 @@ import {
   campaignBeatMention,
 } from "@/lib/db/schema/campaign-notes"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
+import { entity } from "@/lib/db/schema/entity"
 
 import { STORAGE_STATE } from "./auth.setup"
 import { ENCOUNTER_DM_USER_ID } from "./fixtures/encounter-target"
@@ -193,6 +194,49 @@ test("runner: record an activity with a category; pips and progress fill", async
   expect(updates[0]!.slotId).not.toBeNull()
 })
 
+test("previews: hovering a renamed NPC's chip shows its current name", async ({
+  page,
+}) => {
+  const [mention] = await readMentions()
+  const npcId = mention!.participantId
+
+  // Rename the quick-minted NPC on its own page (per-field LWW autosave).
+  await page.goto(`/campaigns/${campaign.shortId}/npcs/${npcId}`)
+  const npcName = page.getByRole("textbox", { name: "NPC name" })
+  await npcName.fill("Odessa Vane")
+  await npcName.blur()
+  await expect
+    .poll(async () => readNpcName(npcId), { timeout: 5000 })
+    .toBe("Odessa Vane")
+
+  // Display path: the runner's beat card. The stored token still says
+  // "Odessa" — the pill resolves live, and so must its card.
+  await page.goto(`/campaigns/${campaign.shortId}`)
+  await page
+    .getByRole("button", { name: /Morning/ })
+    .first()
+    .click()
+  const card = page.locator("[data-participant-preview-card]")
+  await page
+    .locator('[data-participant-preview-trigger^="npc:"]')
+    .first()
+    .hover()
+  await expect(card).toContainText("Odessa Vane")
+
+  // Editor: the same card under a CodeMirror pill — and clicking one still
+  // navigates, so nothing the card shows is hover-only.
+  const beat = await readBeat()
+  await page.goto(`/campaigns/${campaign.shortId}/notes?beat=${beat.id}`)
+  const chip = page.locator(
+    '.cm-atomic-wiki-link[data-wiki-link-target^="npc:"]'
+  )
+  await chip.hover()
+  await expect(card).toContainText("Odessa Vane")
+
+  await chip.click()
+  await expect(page).toHaveURL(new RegExp(`/npcs/${npcId}$`))
+})
+
 /** The run's first beat row (this spec creates the campaign, so it's ours). */
 async function readBeat() {
   const rows = await getDb()
@@ -210,4 +254,12 @@ async function readMentions() {
     .select()
     .from(campaignBeatMention)
     .where(eq(campaignBeatMention.beatId, beat.id))
+}
+
+async function readNpcName(entityId: string) {
+  const [row] = await getDb()
+    .select({ name: entity.name })
+    .from(entity)
+    .where(eq(entity.id, entityId))
+  return row?.name ?? null
 }

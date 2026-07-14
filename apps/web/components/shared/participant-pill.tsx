@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react"
+
 import { cn } from "@workspace/ui/lib/utils"
 
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
@@ -28,15 +30,18 @@ export function ParticipantPill({
   label,
   tombstoned = false,
   className,
+  ...rest
 }: {
   kind: ParticipantKind
   label: string
   tombstoned?: boolean
-  className?: string
-}) {
+} & ComponentProps<"span">) {
   const Icon = PARTICIPANT_KIND_ICONS[kind] ?? PARTICIPANT_KIND_ICONS.article
   return (
-    <span className={cn(participantPillClass(kind, tombstoned), className)}>
+    <span
+      className={cn(participantPillClass(kind, tombstoned), className)}
+      {...rest}
+    >
       <Icon aria-hidden className="size-[1em] shrink-0" />
       <span className="truncate">{label || "Unknown"}</span>
     </span>

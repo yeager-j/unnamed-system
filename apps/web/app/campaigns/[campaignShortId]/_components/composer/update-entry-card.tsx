@@ -6,7 +6,7 @@ import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ParticipantPill } from "@/components/shared/participant-pill"
+import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
 import type { ParticipantKind } from "@/domain/planner/participant"
 
 /** One pill on the card's concern strip. */
@@ -112,9 +112,10 @@ export function UpdateEntryCard({
             </span>
           ) : null}
           {pills.map((pill) => (
-            <ParticipantPill
+            <ParticipantPreviewPill
               key={`${pill.kind}:${pill.id}`}
               kind={pill.kind}
+              id={pill.id}
               label={pill.label}
               tombstoned={pill.tombstoned ?? false}
               className="text-xs"

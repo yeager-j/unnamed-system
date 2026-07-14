@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import { PlannerRail } from "@/app/campaigns/[campaignShortId]/_components/planner/planner-rail"
+import { ParticipantPreviewProvider } from "@/components/shared/participant-preview"
 
 import { getCampaignForDM } from "./planner-access"
 
@@ -13,6 +14,9 @@ import { getCampaignForDM } from "./planner-access"
  * makes the member/stranger call itself (member overview vs 404), and the
  * nested pages 404 on their own `getCampaignForDM` — so the fork is decided
  * once and the rail never flashes for a non-DM.
+ *
+ * It is also where the campaign enters scope for chip-pill hover previews
+ * (UNN-622) — inside the DM branch, matching the DM gate on the preview read.
  */
 export default async function PlannerLayout({
   params,
@@ -26,9 +30,11 @@ export default async function PlannerLayout({
   if (!campaign) return children
 
   return (
-    <div className="flex min-h-[calc(100svh-3.5rem)]">
-      <PlannerRail campaignShortId={campaign.shortId} />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-    </div>
+    <ParticipantPreviewProvider campaignId={campaign.id}>
+      <div className="flex min-h-[calc(100svh-3.5rem)]">
+        <PlannerRail campaignShortId={campaign.shortId} />
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      </div>
+    </ParticipantPreviewProvider>
   )
 }

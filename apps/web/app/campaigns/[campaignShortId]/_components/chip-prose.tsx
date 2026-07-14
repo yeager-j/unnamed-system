@@ -1,6 +1,6 @@
 import { type Components } from "react-markdown"
 
-import { ParticipantPill } from "@/components/shared/participant-pill"
+import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
 import { Prose } from "@/components/shared/prose"
 import { CHIP_TOKEN_SOURCE } from "@/domain/planner/chip"
 import type {
@@ -51,11 +51,14 @@ export function ChipProse({
       }
       const key = href.slice(CHIP_HREF_PREFIX.length)
       const resolved = byRef.get(key)
-      const kind = key.slice(0, key.indexOf(":")) as ParticipantKind
+      const separator = key.indexOf(":")
+      const kind = key.slice(0, separator) as ParticipantKind
+      const id = key.slice(separator + 1)
       const captured = typeof linkChildren === "string" ? linkChildren : ""
       return (
-        <ParticipantPill
+        <ParticipantPreviewPill
           kind={kind}
+          id={id}
           label={resolved?.label ?? captured}
           tombstoned={resolved?.tombstoned ?? false}
           className="not-prose"

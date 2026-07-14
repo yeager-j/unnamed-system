@@ -15,6 +15,8 @@ import { wikiLinks, type WikiLinkResolvedTarget } from "@workspace/editor"
 
 import { serializeChipToken } from "@/domain/planner/chip"
 import type { ParticipantRef } from "@/domain/planner/participant"
+import type { ParticipantPreview } from "@/domain/planner/participant-preview"
+import { fetchParticipantPreview } from "@/domain/planner/use-participant-preview"
 import {
   filterLinkerOptions,
   type LinkerOption,
@@ -35,6 +37,7 @@ import {
   participantLinkDecorations,
   participantTargetOf,
 } from "./participant-link-decorations"
+import { participantLinkHoverPreview } from "./participant-link-hover"
 
 const MAX_SUGGESTIONS = 8
 const WORLD_SECTION: CompletionSection = {
@@ -76,6 +79,9 @@ export interface ParticipantLinkExtensionsConfig {
     name: string
   ) => Promise<ParticipantRef | null>
   debounceMs?: number
+  /** Injectable hover-preview loader (UNN-622) — the scratch harness fakes it, as it fakes `mint`. */
+  preview?: (ref: ParticipantRef) => Promise<ParticipantPreview | null>
+  hoverDelayMs?: number
 }
 
 /**
@@ -141,6 +147,14 @@ export function createParticipantLinkExtensions(
       openOnClick: true,
     }),
     participantLinkDecorations(config.world),
+    participantLinkHoverPreview({
+      world: config.world,
+      loadPreview: (ref) =>
+        config.preview
+          ? config.preview(ref)
+          : fetchParticipantPreview(config.campaignId, ref),
+      hoverDelayMs: config.hoverDelayMs,
+    }),
     autocompletion({
       activateOnTyping: true,
       icons: false,

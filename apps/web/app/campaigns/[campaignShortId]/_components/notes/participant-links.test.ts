@@ -12,6 +12,8 @@ import { EditorView } from "@codemirror/view"
 import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { ParticipantRef } from "@/domain/planner/participant"
+import type { ParticipantPreview } from "@/domain/planner/participant-preview"
 import type { LinkerOption } from "@/domain/planner/view/linker"
 
 import {
@@ -26,6 +28,15 @@ vi.mock("sonner", () => ({
     error: vi.fn(),
     success: vi.fn(),
   },
+}))
+
+// Every mount injects its own `preview`, so the real read action is never
+// reached — but its module pulls the auth stack in, which jsdom has no use for.
+vi.mock("@/lib/actions/campaign-world/participant-preview", () => ({
+  getParticipantPreviewAction: vi.fn(async () => ({
+    ok: false,
+    error: "not-found",
+  })),
 }))
 
 class ResizeObserverStub {
@@ -60,10 +71,22 @@ const NPC_TARGET: ParticipantLinkTarget = {
   tombstoned: false,
 }
 
+const NPC_PREVIEW: ParticipantPreview = {
+  ref: { kind: "npc", id: "n1" },
+  name: "Maren",
+  tombstoned: false,
+  portraitUrl: null,
+  sublabel: "The Moon · Warlock",
+  summary: null,
+}
+
 const views: EditorView[] = []
 
-afterEach(() => {
+afterEach(async () => {
   for (const view of views.splice(0)) view.destroy()
+  // Both React bridges unmount on a microtask; clearing the body first would
+  // pull the portals out from under them.
+  await new Promise<void>((resolve) => queueMicrotask(resolve))
   document.body.replaceChildren()
   vi.clearAllMocks()
 })
@@ -86,6 +109,7 @@ function mount(
       campaignId: string,
       name: string
     ) => Promise<ParticipantLinkTarget["ref"] | null>
+    preview?: (ref: ParticipantRef) => Promise<ParticipantPreview | null>
   }
 ) {
   const world =
@@ -96,6 +120,7 @@ function mount(
     })
   const navigate = input?.navigate ?? vi.fn()
   const mint = input?.mint ?? vi.fn(async () => null)
+  const preview = input?.preview ?? vi.fn(async () => NPC_PREVIEW)
   const host = document.createElement("div")
   document.body.append(host)
   const view = new EditorView({
@@ -111,13 +136,41 @@ function mount(
           world,
           navigate,
           mint,
+          preview,
           debounceMs: 0,
+          hoverDelayMs: 0,
         }),
       ],
     }),
   })
   views.push(view)
-  return { host, view, world, navigate, mint }
+  return { host, view, world, navigate, mint, preview }
+}
+
+function hover(pill: HTMLElement) {
+  pill.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }))
+}
+
+function unhover(pill: HTMLElement) {
+  pill.dispatchEvent(
+    new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body })
+  )
+}
+
+function pillOf(host: HTMLElement): HTMLElement {
+  const pill = host.querySelector<HTMLElement>(".cm-participant-link")
+  expect(pill).not.toBeNull()
+  return pill!
+}
+
+async function previewCard(): Promise<HTMLElement> {
+  return vi.waitFor(() => {
+    const card = document.querySelector<HTMLElement>(
+      "[data-participant-preview-card]"
+    )
+    expect(card).not.toBeNull()
+    return card!
+  })
 }
 
 async function completionsOf(view: EditorView) {
@@ -642,5 +695,110 @@ describe("participantWorldSnapshot", () => {
   it("leaves characterShortId undefined for non-character rows", () => {
     const [target] = participantWorldSnapshot([npcOption]).targets
     expect(target?.characterShortId).toBeUndefined()
+  })
+})
+
+describe("participant hover previews", () => {
+  it("previews the hovered pill with its live label and fetched traits", async () => {
+    const { host, preview } = mount("[[npc:n1|Stored Maren]] after")
+
+    hover(pillOf(host))
+
+    const card = await previewCard()
+    expect(card.textContent).toContain("Maren")
+    expect(card.textContent).toContain("The Moon · Warlock")
+    expect(preview).toHaveBeenCalledWith({ kind: "npc", id: "n1" })
+  })
+
+  it("previews a tombstoned subject the live world no longer carries", async () => {
+    const { host } = mount("[[npc:n1|Stored Maren]] after", {
+      world: createWorld([], []),
+      preview: async () => ({
+        ref: { kind: "npc", id: "n1" },
+        name: "Maren",
+        tombstoned: true,
+        portraitUrl: null,
+        sublabel: "The Moon · Warlock",
+        summary: null,
+      }),
+    })
+
+    expect(pillOf(host).dataset.participantStatus).toBe("missing")
+
+    hover(pillOf(host))
+
+    const card = await previewCard()
+    expect(card.textContent).toContain("Maren")
+    expect(card.textContent).toContain("Deleted")
+  })
+
+  it("says so when the subject resolves to nothing", async () => {
+    const { host } = mount("[[npc:n1|Stored Maren]] after", {
+      preview: async () => null,
+    })
+
+    hover(pillOf(host))
+
+    expect((await previewCard()).textContent).toContain(
+      "No longer in this campaign"
+    )
+  })
+
+  it("fetches nothing for a pointer that leaves before the card opens", async () => {
+    const { host, preview } = mount("[[npc:n1|Stored Maren]] after")
+    const pill = pillOf(host)
+
+    hover(pill)
+    unhover(pill)
+
+    await new Promise((resolve) => window.setTimeout(resolve, 20))
+    expect(preview).not.toHaveBeenCalled()
+    expect(document.querySelector("[data-participant-preview-card]")).toBeNull()
+  })
+
+  it("dismisses the card on the next keystroke, and a late payload cannot revive it", async () => {
+    let settle: (preview: ParticipantPreview) => void = () => {}
+    const { host, view } = mount("[[npc:n1|Stored Maren]] after", {
+      preview: () =>
+        new Promise<ParticipantPreview>((resolve) => {
+          settle = resolve
+        }),
+    })
+
+    hover(pillOf(host))
+    await previewCard()
+
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: " typed" },
+    })
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector("[data-participant-preview-card]")
+      ).toBeNull()
+    })
+
+    settle(NPC_PREVIEW)
+    await new Promise((resolve) => window.setTimeout(resolve, 20))
+    expect(view.state.doc.toString()).toBe(
+      "[[npc:n1|Stored Maren]] after typed"
+    )
+    expect(document.querySelector("[data-participant-preview-card]")).toBeNull()
+  })
+
+  it("unmounts its React root with the editor", async () => {
+    const { host, view } = mount("[[npc:n1|Stored Maren]] after")
+    hover(pillOf(host))
+    await previewCard()
+    const previewRoot = document.querySelector(
+      "[data-participant-preview-root]"
+    )
+    expect(previewRoot).not.toBeNull()
+
+    view.destroy()
+    views.splice(views.indexOf(view), 1)
+
+    expect(previewRoot?.isConnected).toBe(true)
+    await new Promise<void>((resolve) => queueMicrotask(() => resolve()))
+    expect(previewRoot?.isConnected).toBe(false)
   })
 })

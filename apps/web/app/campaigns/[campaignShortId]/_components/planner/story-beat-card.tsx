@@ -29,7 +29,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ChipProse } from "@/app/campaigns/[campaignShortId]/_components/chip-prose"
-import { ParticipantPill } from "@/components/shared/participant-pill"
+import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
 import type { ResolvedParticipant } from "@/domain/planner/participant"
 import type { RunnerBeatView } from "@/domain/planner/view/runner"
 import {
@@ -108,9 +108,10 @@ export function StoryBeatCard({
       {participants.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {participants.map((participant) => (
-            <ParticipantPill
+            <ParticipantPreviewPill
               key={`${participant.ref.kind}:${participant.ref.id}`}
               kind={participant.ref.kind}
+              id={participant.ref.id}
               label={participant.label}
               tombstoned={participant.tombstoned}
               className="text-xs"

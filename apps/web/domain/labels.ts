@@ -30,6 +30,7 @@ import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
 import type { DungeonReminder } from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 
+import type { ParticipantKind } from "@/domain/planner/participant"
 import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
 import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
@@ -615,6 +616,13 @@ export const DUNGEON_REMINDER_COPY: Record<
  */
 export const talentLabel = (key: TalentKey | string): string =>
   getTalent(key)?.name ?? key
+
+/** What a participant ref points at — the hover card's fallback for a traitless subject. */
+export const PARTICIPANT_KIND_LABELS: Record<ParticipantKind, string> = {
+  npc: "NPC",
+  article: "Article",
+  character: "Character",
+}
 
 /** Display labels for the downtime activity categories (UNN-576, PRD FR-2). */
 export const ACTIVITY_CATEGORY_LABELS: Record<UpdateCategory, string> = {
