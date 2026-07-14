@@ -8,6 +8,8 @@ import {
 
 import { SignInButton } from "@/components/shell/sign-in-button"
 
+import { DevSignInButton } from "./dev-sign-in-button"
+
 /**
  * The signed-out home view. Per UNN-177, the minimum bar is "doesn't error
  * and offers a path forward" — a marketing landing is out of scope. Reuses
@@ -24,7 +26,10 @@ export function SignedOutLanding() {
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <SignInButton />
+        <div className="flex flex-wrap justify-center gap-2">
+          <SignInButton />
+          <DevSignInButton />
+        </div>
       </EmptyContent>
     </Empty>
   )

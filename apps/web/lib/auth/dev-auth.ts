@@ -1,11 +1,13 @@
+import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 
-import { getDb, users } from "@/lib/db"
+import { getDb, sessions, users } from "@/lib/db"
 
 /**
- * Shared guard chain for the dev-only auth routes (`/api/dev/sign-in`,
- * `/api/dev/sign-out`). Both routes fail closed on the same three guards:
+ * Shared guard chain for the dev-only auth entry points: the home-panel
+ * Server Action plus `/api/dev/sign-in` and `/api/dev/sign-out`. Every entry
+ * point fails closed on the same three guards:
  *
  *  1. `NODE_ENV === "production"` → 404
  *  2. `DEV_AUTH_EMAIL` unset → 404
@@ -54,6 +56,100 @@ function rejectWithLog(
   return NOT_FOUND()
 }
 
+type DevAuthBoundary =
+  | { ok: true; expectedEmail: string }
+  | { ok: false; guard?: string; detail?: string }
+
+function validateDevAuthBoundary(hostHeader: string | null): DevAuthBoundary {
+  if (process.env.NODE_ENV === "production") return { ok: false }
+
+  const expectedEmail = process.env.DEV_AUTH_EMAIL
+  if (!expectedEmail) {
+    return {
+      ok: false,
+      guard: "DEV_AUTH_EMAIL not set",
+      detail: "check .env.local in the repo root",
+    }
+  }
+
+  if (!isLocalhostHost(hostHeader)) {
+    return {
+      ok: false,
+      guard: "host is not localhost",
+      detail: `got ${hostHeader ?? "null"}`,
+    }
+  }
+
+  return { ok: true, expectedEmail }
+}
+
+/** Whether the local-only dev sign-in control is safe to render. */
+export function isDevAuthAvailable(hostHeader: string | null): boolean {
+  return validateDevAuthBoundary(hostHeader).ok
+}
+
+/** Resolve the configured dev user after enforcing the local-only boundary. */
+export async function resolveDevAuthUser(
+  hostHeader: string | null,
+  route: "sign-in" | "sign-out"
+): Promise<string | null> {
+  const boundary = validateDevAuthBoundary(hostHeader)
+  if (!boundary.ok) {
+    if (boundary.guard) {
+      rejectWithLog(route, boundary.guard, boundary.detail)
+    }
+    return null
+  }
+
+  const db = getDb()
+  const [user] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, boundary.expectedEmail))
+    .limit(1)
+
+  if (!user) {
+    rejectWithLog(
+      route,
+      "user row missing",
+      `no user with email ${boundary.expectedEmail}; run 'npm run db:seed'`
+    )
+    return null
+  }
+
+  return user.id
+}
+
+/** Insert a normal Auth.js database session and return its browser cookie. */
+export async function issueDevSession(userId: string): Promise<{
+  name: typeof SESSION_COOKIE_NAME
+  value: string
+  options: {
+    httpOnly: true
+    sameSite: "lax"
+    path: "/"
+    secure: false
+    expires: Date
+  }
+}> {
+  const sessionToken = randomUUID()
+  const expires = new Date(Date.now() + SESSION_TTL_MS)
+
+  await getDb().insert(sessions).values({ sessionToken, userId, expires })
+
+  return {
+    name: SESSION_COOKIE_NAME,
+    value: sessionToken,
+    options: {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure: false,
+      expires,
+    },
+  }
+}
+
 /**
  * Runs the guard chain and resolves the dev user's id. On success the caller
  * can act on the request; on failure they `return` the NextResponse unchanged
@@ -65,53 +161,10 @@ export async function validateDevAuthRequest(
 ): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
 > {
-  if (process.env.NODE_ENV === "production") {
-    return { ok: false, response: NOT_FOUND() }
-  }
+  const userId = await resolveDevAuthUser(request.headers.get("host"), route)
+  if (!userId) return { ok: false, response: NOT_FOUND() }
 
-  const expectedEmail = process.env.DEV_AUTH_EMAIL
-  if (!expectedEmail) {
-    return {
-      ok: false,
-      response: rejectWithLog(
-        route,
-        "DEV_AUTH_EMAIL not set",
-        "check .env.local in the repo root"
-      ),
-    }
-  }
-
-  const hostHeader = request.headers.get("host")
-  if (!isLocalhostHost(hostHeader)) {
-    return {
-      ok: false,
-      response: rejectWithLog(
-        route,
-        "host is not localhost",
-        `got ${hostHeader ?? "null"}`
-      ),
-    }
-  }
-
-  const db = getDb()
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, expectedEmail))
-    .limit(1)
-
-  if (!user) {
-    return {
-      ok: false,
-      response: rejectWithLog(
-        route,
-        "user row missing",
-        `no user with email ${expectedEmail}; run 'npm run db:seed'`
-      ),
-    }
-  }
-
-  return { ok: true, userId: user.id }
+  return { ok: true, userId }
 }
 
 /**

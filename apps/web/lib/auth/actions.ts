@@ -1,6 +1,29 @@
 "use server"
 
+import { cookies, headers } from "next/headers"
+import { notFound, redirect } from "next/navigation"
+
 import { signIn, signOut } from "@/lib/auth"
+import { issueDevSession, resolveDevAuthUser } from "@/lib/auth/dev-auth"
+
+/**
+ * Signs the local browser in as `DEV_AUTH_EMAIL` without an OAuth round-trip.
+ * The shared dev-auth boundary still rejects production and non-local hosts.
+ */
+export async function devSignInAction(): Promise<void> {
+  const requestHeaders = await headers()
+  const userId = await resolveDevAuthUser(requestHeaders.get("host"), "sign-in")
+  if (!userId) notFound()
+
+  const sessionCookie = await issueDevSession(userId)
+  const cookieStore = await cookies()
+  cookieStore.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.options
+  )
+  redirect("/")
+}
 
 /**
  * Initiates the Google OAuth flow and redirects back to the home page on
