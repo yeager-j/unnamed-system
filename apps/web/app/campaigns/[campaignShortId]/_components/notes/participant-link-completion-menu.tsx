@@ -78,8 +78,10 @@ class ParticipantCompletionMenuBridge {
   }
 
   destroy(): void {
-    this.root.unmount()
-    this.container.remove()
+    queueMicrotask(() => {
+      this.root.unmount()
+      this.container.remove()
+    })
   }
 
   private render(): void {

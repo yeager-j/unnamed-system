@@ -379,6 +379,21 @@ describe("participant completions", () => {
 })
 
 describe("controlled participant completion menu", () => {
+  it("defers nested React-root cleanup until the parent lifecycle yields", async () => {
+    const { view } = mount("@Mar")
+    const completionRoot = document.querySelector(
+      "[data-participant-completion-root]"
+    )
+    expect(completionRoot).not.toBeNull()
+
+    view.destroy()
+    views.splice(views.indexOf(view), 1)
+
+    expect(completionRoot?.isConnected).toBe(true)
+    await new Promise<void>((resolve) => queueMicrotask(() => resolve()))
+    expect(completionRoot?.isConnected).toBe(false)
+  })
+
   it("renders shadcn groups without a focus-owning command input", async () => {
     const { view } = mount("@Mar")
 

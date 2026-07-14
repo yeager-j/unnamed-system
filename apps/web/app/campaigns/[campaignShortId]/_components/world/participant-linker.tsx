@@ -25,9 +25,9 @@ import { cn } from "@workspace/ui/lib/utils"
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { LinkerIconKey, LinkerOption } from "@/domain/planner/view/linker"
-import { mintArticleAction } from "@/lib/actions/campaign-world/mint-article"
-import { mintNpcAction } from "@/lib/actions/campaign-world/mint-npc"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
+
+import { mintParticipantRef } from "./mint-participant-ref"
 
 /**
  * The **participant linker** (UNN-575, handoff "entity linker"): an anchored
@@ -223,24 +223,4 @@ export function KindIcon({ iconKey }: { iconKey: LinkerIconKey }) {
       )}
     />
   )
-}
-
-/**
- * Runs a quick-mint and shapes the result into a {@link ParticipantRef} —
- * shared by this popover's mint rows and the editor suggestion popover's
- * (UNN-576). Returns null on failure so callers own their error copy.
- */
-export async function mintParticipantRef(
-  kind: "npc" | "article",
-  campaignId: string,
-  name: string
-): Promise<ParticipantRef | null> {
-  if (kind === "npc") {
-    const result = await mintNpcAction({ campaignId, name })
-    if (!result.ok) return null
-    return { kind: "npc", id: result.value.entityId, label: name }
-  }
-  const result = await mintArticleAction({ campaignId, name })
-  if (!result.ok) return null
-  return { kind: "article", id: result.value.id, label: name }
 }
