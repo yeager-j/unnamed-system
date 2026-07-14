@@ -168,11 +168,13 @@ to *config + one completion source*:
   their pills without their completion instance.
 - **Triggers**: `[[` and `@` are two sources gating themselves via
   `context.matchBefore` (their `completionSource` is the ~25-line template:
-  match → debounce → `context.aborted` checks → `validFor`). Both insert the
-  same `[[kind:id|label]]` text via a function `apply` — including the **mint
-  rows** ("Create NPC / Create Article"), whose `apply` runs the server action,
-  then dispatches the insert (the same captured-range async pattern as today's
-  popover).
+  match → debounce → `context.aborted` checks → current-world filter). The
+  result deliberately omits `validFor`: match semantics and mint-row labels
+  depend on the complete current query, so every keystroke must rerun the
+  source. Both insert the same `[[kind:id|label]]` text via a function `apply`
+  — including the **mint rows** ("Create NPC / Create Article"), whose `apply`
+  runs the server action, then dispatches only if the captured document is
+  still current.
 - **Row rendering**: CM6 remains the sole completion controller, but its
   visual tooltip is replaced by a controlled React view. A view plugin reads
   only CM6's public completion state (`currentCompletions`,

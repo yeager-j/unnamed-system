@@ -95,6 +95,7 @@ class ParticipantCompletionMenuBridge {
           completions={completions}
           selectedIndex={selectedCompletionIndex(this.view.state) ?? 0}
           anchor={this.anchor}
+          anchorPosition={this.view.state.selection.main.head}
         />
       ) : null
     )
@@ -106,11 +107,13 @@ function ParticipantCompletionMenu({
   completions,
   selectedIndex,
   anchor,
+  anchorPosition,
 }: {
   view: EditorView
   completions: readonly Completion[]
   selectedIndex: number
   anchor: () => Rect | null
+  anchorPosition: number
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
@@ -119,8 +122,7 @@ function ParticipantCompletionMenu({
   const rows = completions.map((completion, index) => ({
     completion,
     index,
-    presentation:
-      completionPresentations.get(completion) ?? inferPresentation(completion),
+    presentation: presentationFor(completion),
   }))
   const optionRows = rows.filter((row) => row.presentation.kind === "option")
   const mintRows = rows.filter((row) => row.presentation.kind === "mint")
@@ -140,7 +142,7 @@ function ParticipantCompletionMenu({
     }
     update()
     return autoUpdate(virtual, panel, update)
-  }, [anchor])
+  }, [anchor, anchorPosition])
 
   return (
     <div
@@ -232,11 +234,14 @@ function CompletionMenuRow({
   )
 }
 
-function inferPresentation(
+function presentationFor(
   completion: Completion
 ): ParticipantCompletionPresentation {
-  const kind = completion.label.startsWith("Create “") ? "mint" : "option"
-  return { kind, iconKey: kind === "mint" ? "article" : "character" }
+  const presentation = completionPresentations.get(completion)
+  if (presentation === undefined) {
+    throw new Error(`Missing presentation for completion: ${completion.label}`)
+  }
+  return presentation
 }
 
 function completionValue(index: number): string {

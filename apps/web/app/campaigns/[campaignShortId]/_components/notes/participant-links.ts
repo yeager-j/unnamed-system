@@ -168,7 +168,6 @@ function participantCompletionSource(
       from: match.triggerFrom + trigger.length,
       to: context.pos,
       options,
-      validFor: trigger === "@" ? /^[^@\n]*$/ : /^[^\]\n|]*$/,
     }
   }
 }
@@ -178,7 +177,7 @@ function matchParticipantTrigger(
   trigger: CompletionTrigger
 ): { triggerFrom: number; text: string } | null {
   const match = context.matchBefore(
-    trigger === "@" ? /@[^\n]*$/ : /\[\[[^\]\n|]*$/
+    trigger === "@" ? /@[^@\n]*$/ : /\[\[[^[\]\n|]*$/
   )
   if (match === null) return null
   if (trigger === "@" && match.from > 0) {
@@ -268,8 +267,7 @@ async function applyMintedParticipant(
   name: string,
   config: ParticipantLinkExtensionsConfig
 ) {
-  const range = replacementRange(view, from, to, trigger)
-  const captured = view.state.doc.sliceString(range.from, range.to)
+  const capturedDocument = view.state.doc
   view.dispatch({ annotations: pickedCompletion.of(completion) })
 
   const mint = config.mint ?? mintParticipantRef
@@ -278,10 +276,7 @@ async function applyMintedParticipant(
     toast.error(mintFailureMessage(name))
     return
   }
-  if (
-    !view.dom.isConnected ||
-    view.state.doc.sliceString(range.from, range.to) !== captured
-  ) {
+  if (!view.dom.isConnected || view.state.doc !== capturedDocument) {
     return
   }
 

@@ -69,10 +69,12 @@ Additive; built and unit-tested before any surface uses it.
    - One `autocompletion({ override: [...] })` owning all sources:
      `[[`-source and `@`-source (both modeled on upstream's
      `completionSource`: `matchBefore` → debounce → `context.aborted` →
-     `validFor`), inserting `[[kind:id|label]]` via function `apply` with
-     label sanitization from `domain/planner/chip`.
+     current-world filter on every keystroke; no `validFor`, because mint-row
+     labels and filter semantics depend on the full query), inserting
+     `[[kind:id|label]]` via function `apply` with label sanitization from
+     `domain/planner/chip`.
    - **Mint rows** as completions with a custom async `apply` (server action
-     → dispatch insert; captured-range pattern from the old popover).
+     → dispatch insert only while the captured document remains current).
    - A controlled shadcn completion view (`Command` / `CommandList` /
      `CommandGroup` / `CommandItem`, deliberately no `CommandInput`) mirrors
      CM6's public completion state at the caret. CM6 retains the one keyboard,

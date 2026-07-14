@@ -7,7 +7,7 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete"
 import { markdown } from "@codemirror/lang-markdown"
-import { EditorState } from "@codemirror/state"
+import { EditorState, Transaction } from "@codemirror/state"
 import { EditorView } from "@codemirror/view"
 import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -290,6 +290,50 @@ describe("participant completions", () => {
     }
   )
 
+  it.each([
+    [
+      "Contact bob@example.com then @Mar",
+      "Contact bob@example.com then [[npc:n1|Maren]] ",
+    ],
+    [
+      "Earlier [[unfinished then [[Mar",
+      "Earlier [[unfinished then [[npc:n1|Maren]] ",
+    ],
+  ])("uses the nearest participant trigger in %s", async (doc, expected) => {
+    const { view } = mount(doc)
+
+    await chooseCompletion(view, "Maren")
+
+    expect(view.state.doc.toString()).toBe(expected)
+  })
+
+  it("recomputes mint rows as the query changes", async () => {
+    const { view } = mount("@Ma")
+
+    const initial = await completionsOf(view)
+    expect(
+      initial.some((completion) => completion.label === "Create “Ma” as NPC")
+    ).toBe(true)
+
+    const insertAt = view.state.doc.length
+    view.dispatch({
+      changes: { from: insertAt, insert: "ren" },
+      selection: { anchor: insertAt + 3 },
+      annotations: Transaction.userEvent.of("input.type"),
+    })
+
+    await vi.waitFor(() => {
+      expect(
+        currentCompletions(view.state).map((completion) => completion.label)
+      ).toContain("Create “Maren” as NPC")
+    })
+    expect(
+      currentCompletions(view.state).some(
+        (completion) => completion.label === "Create “Ma” as NPC"
+      )
+    ).toBe(false)
+  })
+
   it("sanitizes labels and consumes an existing bracket closer", async () => {
     const hostile = {
       ...NPC_OPTION,
@@ -511,6 +555,27 @@ describe("mint completions", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0))
 
     expect(view.state.doc.toString()).toBe("!@New Friend")
+  })
+
+  it("does not mint a partial name when the query grows at its boundary", async () => {
+    let resolveMint!: (ref: ParticipantLinkTarget["ref"] | null) => void
+    const mint = vi.fn(
+      () =>
+        new Promise<ParticipantLinkTarget["ref"] | null>((resolve) => {
+          resolveMint = resolve
+        })
+    )
+    const { view } = mount("@New F", { mint })
+
+    await chooseCompletion(view, "Create “New F” as NPC")
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "riend" },
+      selection: { anchor: view.state.doc.length + "riend".length },
+    })
+    resolveMint({ kind: "npc", id: "new-npc", label: "New F" })
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+
+    expect(view.state.doc.toString()).toBe("@New Friend")
   })
 
   it("leaves the trigger untouched when minting fails", async () => {
