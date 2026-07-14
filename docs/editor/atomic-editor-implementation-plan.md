@@ -62,24 +62,32 @@ Additive; built and unit-tested before any surface uses it.
    - `wikiLinks({ resolve, onOpen, openOnClick })` — **no `suggest`**
      (design §5.2: a second `autocompletion()` **throws**; comment the
      invariant at the call site).
+   - App-side replacement decorations for aliased participant tokens, backed
+     by a stable subscribed `ParticipantLinkWorld` snapshot. v0.6.2 skips
+     `resolve` for aliases and exposes no cache invalidation; the app layer
+     supplies live rename/tombstone behavior without editing the vendor.
    - One `autocompletion({ override: [...] })` owning all sources:
      `[[`-source and `@`-source (both modeled on upstream's
      `completionSource`: `matchBefore` → debounce → `context.aborted` →
      `validFor`), inserting `[[kind:id|label]]` via function `apply` with
      label sanitization from `domain/planner/chip`.
    - **Mint rows** as completions with a custom async `apply` (server action
-     → dispatch insert; captured-range pattern from the old popover) and
-     `addToOptions` DOM rendering. If the rows resist DOM-helper form,
-     fall back to the React-listbox path (design §5.2) — decide here.
+     → dispatch insert; captured-range pattern from the old popover).
+   - A controlled shadcn completion view (`Command` / `CommandList` /
+     `CommandGroup` / `CommandItem`, deliberately no `CommandInput`) mirrors
+     CM6's public completion state at the caret. CM6 retains the one keyboard,
+     selection, filtering, apply, and accessible native-tooltip owner; the
+     native tooltip is visually hidden. Pointer selection prevents editor blur.
 2. Kind-styled pills: app-side CSS on
    `.cm-atomic-wiki-link[data-wiki-link-target^="npc:"]` etc. (colors +
    icon masks), mapped to our theme variables.
 3. Unit tests: editor creation with **all sources registered** (guards the
    A5 crash class); serialization/sanitization per kind; mint `apply`
-   dispatch shape; `@` and `[[` trigger gating.
+   dispatch shape; `@` and `[[` trigger gating; controlled-menu sections,
+   selection synchronization, focus preservation, pointer apply, and cleanup.
 
-→ **verify:** unit suite green; a scratch story (dev route or test harness)
-shows suggest → pick → pill → resolve live.
+→ **verify:** unit suite green; `/dev/editor` redirects to the feature-local
+scratch harness and shows suggest → pick → pill → resolve live.
 
 ## P2 — `MarkdownField` cutover (the hard flip)
 
@@ -162,4 +170,4 @@ editor + display; degrades to `![[…|label]]` text everywhere else.
 | External-value sync behavior preserved (A3) | P2 spike | P2 merge |
 | Client-only mount (A4) | P2 spike | P2 merge |
 | planner-notes chip e2e | P2 | P2 merge |
-| Mint-row rendering decision (A6) | P1 | — (either path sanctioned) |
+| Controlled shadcn completion view (A6) | P1 | P1 merge |
