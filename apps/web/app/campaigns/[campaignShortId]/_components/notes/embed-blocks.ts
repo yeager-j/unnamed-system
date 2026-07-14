@@ -150,7 +150,12 @@ function buildEmbedDecorations(
     const tokenFrom = line.from + line.text.indexOf(trimmed)
     if (isPositionInsideCode(state, tokenFrom)) continue
 
-    if (!selectionTouches(state, line.from, line.to)) {
+    // Reveal is keyed to the TOKEN, not the line (Codex review on PR #351):
+    // with a line-keyed reveal, a caret in the leading indentation disabled
+    // this replace while the chip pill still claimed the inner `[[…]]`,
+    // showing `!` + pill instead of either state. Token-keyed reveal matches
+    // the chip convention — caret outside the token sees the rendered form.
+    if (!selectionTouches(state, tokenFrom, tokenFrom + trimmed.length)) {
       ranges.push(
         Decoration.replace({}).range(tokenFrom, tokenFrom + trimmed.length)
       )

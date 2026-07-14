@@ -248,6 +248,12 @@ describe("participant link decorations", () => {
     expect(code.host.textContent).toContain("[[npc:n1|Maren]]")
   })
 
+  it("reveals an embed token's inner chip from the leading bang (PR #351 review)", () => {
+    const doc = "go ![[npc:n1|Maren]] now"
+    const atBang = mount(doc, { selection: doc.indexOf("!") })
+    expect(atBang.host.querySelector(".cm-participant-link")).toBeNull()
+  })
+
   it("unsubscribes from the world when the editor is destroyed", () => {
     const unsubscribe = vi.fn()
     const world = createWorld()

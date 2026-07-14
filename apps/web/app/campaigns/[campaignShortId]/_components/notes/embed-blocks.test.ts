@@ -90,6 +90,20 @@ describe("embedBlocks (UNN-624)", () => {
     expect(host.querySelector(".cm-embed-card")).not.toBeNull()
   })
 
+  it("keeps the token hidden when the caret sits in the line's indentation", () => {
+    const indented = "before\n\n  ![[encounter:e1|Stored Ambush]]\n\nafter"
+    const { host } = mount(indented, {
+      selection: indented.indexOf("  !") + 1,
+    })
+    expect(host.textContent).not.toContain("![[")
+    expect(host.querySelector(".cm-embed-card")).not.toBeNull()
+  })
+
+  it("reveals from the leading bang (the token, not the line, keys the reveal)", () => {
+    const { host } = mount(EMBED_DOC, { selection: EMBED_DOC.indexOf("![[") })
+    expect(host.textContent).toContain("![[encounter:e1|Stored Ambush]]")
+  })
+
   it("navigates to the target console on click", async () => {
     const navigate = vi.fn()
     const { host } = mount(EMBED_DOC, { navigate })

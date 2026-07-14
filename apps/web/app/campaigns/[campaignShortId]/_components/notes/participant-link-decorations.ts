@@ -108,10 +108,13 @@ function buildParticipantDecorations(
     const token = match[0]
     const from = match.index
     const to = from + token.length
+    // An embed token (`![[…]]`) reveals as one unit: a caret on the bang must
+    // uncover the inner chip too, or the "raw" state shows `!` + pill.
+    const revealFrom = source[from - 1] === "!" ? from - 1 : from
     const ref = parseChipToken(token)
     if (
       ref === null ||
-      selectionTouches(state, from, to) ||
+      selectionTouches(state, revealFrom, to) ||
       isPositionInsideCode(state, from)
     ) {
       continue
