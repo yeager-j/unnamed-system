@@ -18,6 +18,8 @@ import {
   loadCampaignArticles,
   loadCampaignNpcs,
 } from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
+import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
 
 import { getCampaignClock, getCampaignForDM } from "../planner-access"
 
@@ -44,18 +46,27 @@ export default async function NotesPage({ params, searchParams }: PageProps) {
   const campaign = await getCampaignForDM(campaignShortId)
   if (!campaign) notFound()
 
-  const [clock, tree, npcs, articles, characters, selected] = await Promise.all(
-    [
-      getCampaignClock(campaign.id),
-      loadNotesTree(campaign.id),
-      loadCampaignNpcs(campaign.id),
-      loadCampaignArticles(campaign.id),
-      loadPlacedCharactersForCampaign(campaign.id),
-      beatParam === undefined
-        ? Promise.resolve(null)
-        : loadBeat(campaign.id, beatParam),
-    ]
-  )
+  const [
+    clock,
+    tree,
+    npcs,
+    articles,
+    characters,
+    encounters,
+    dungeons,
+    selected,
+  ] = await Promise.all([
+    getCampaignClock(campaign.id),
+    loadNotesTree(campaign.id),
+    loadCampaignNpcs(campaign.id),
+    loadCampaignArticles(campaign.id),
+    loadPlacedCharactersForCampaign(campaign.id),
+    loadEncountersForCampaign(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
+    beatParam === undefined
+      ? Promise.resolve(null)
+      : loadBeat(campaign.id, beatParam),
+  ])
   const [upcomingSlots, seasons] = clock
     ? await Promise.all([
         loadUpcomingSlots(campaign.id, clock.currentDay),
@@ -77,7 +88,13 @@ export default async function NotesPage({ params, searchParams }: PageProps) {
       sessions={tree.sessions.map(({ id, name }) => ({ id, name }))}
       beats={tree.beats}
       selectedBeat={selected ? editorBeatOf(selected, tree) : null}
-      linkerOptions={buildLinkerOptions({ npcs, articles, characters })}
+      linkerOptions={buildLinkerOptions({
+        npcs,
+        articles,
+        characters,
+        encounters,
+        dungeons,
+      })}
       scheduleDays={buildSchedulePickerDays(upcomingSlots)}
       clockStarted={clock !== null}
     />

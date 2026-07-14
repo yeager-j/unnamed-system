@@ -17,6 +17,8 @@ import {
   loadCampaignNpcs,
   loadWorldFolders,
 } from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
+import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
 import {
   loadParticipantRefCounts,
@@ -51,6 +53,8 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     npcs,
     articles,
     characters,
+    encounters,
+    dungeons,
     relations,
     updates,
     counts,
@@ -60,6 +64,8 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),
+    loadEncountersForCampaign(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
     loadRelationsFrom(campaign.id, self),
     loadUpdatesForParticipant(campaign.id, self),
     loadParticipantRefCounts(campaign.id, self),
@@ -97,7 +103,13 @@ export default async function ArticleDetailPage({ params }: PageProps) {
           null,
       }}
       typeOptions={typeOptions}
-      linkerOptions={buildLinkerOptions({ npcs, articles, characters })}
+      linkerOptions={buildLinkerOptions({
+        npcs,
+        articles,
+        characters,
+        encounters,
+        dungeons,
+      })}
       relations={buildRelationListView(relations, hits)}
       timeline={buildTimelineDayViews(updates, hits, { elide: self })}
       beatMentions={counts.beatMentions}

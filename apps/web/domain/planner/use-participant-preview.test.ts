@@ -32,6 +32,9 @@ function previewOf(ref: ParticipantRef, name: string): ParticipantPreview {
     portraitUrl: null,
     sublabel: null,
     summary: null,
+    detail: null,
+    shortId: null,
+    enemies: null,
   }
 }
 

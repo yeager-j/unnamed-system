@@ -30,7 +30,10 @@ export default async function PlannerLayout({
   if (!campaign) return children
 
   return (
-    <ParticipantPreviewProvider campaignId={campaign.id}>
+    <ParticipantPreviewProvider
+      campaignId={campaign.id}
+      campaignShortId={campaign.shortId}
+    >
       <div className="flex min-h-[calc(100svh-3.5rem)]">
         <PlannerRail campaignShortId={campaign.shortId} />
         <div className="flex min-w-0 flex-1 flex-col">{children}</div>

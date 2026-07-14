@@ -79,6 +79,9 @@ const NPC_PREVIEW: ParticipantPreview = {
   portraitUrl: null,
   sublabel: "The Moon · Warlock",
   summary: null,
+  detail: null,
+  shortId: null,
+  enemies: null,
 }
 
 const views: EditorView[] = []
@@ -245,6 +248,12 @@ describe("participant link decorations", () => {
     expect(code.host.textContent).toContain("[[npc:n1|Maren]]")
   })
 
+  it("reveals an embed token's inner chip from the leading bang (PR #351 review)", () => {
+    const doc = "go ![[npc:n1|Maren]] now"
+    const atBang = mount(doc, { selection: doc.indexOf("!") })
+    expect(atBang.host.querySelector(".cm-participant-link")).toBeNull()
+  })
+
   it("unsubscribes from the world when the editor is destroyed", () => {
     const unsubscribe = vi.fn()
     const world = createWorld()
@@ -269,7 +278,7 @@ describe("participant link decorations", () => {
       ref: { kind: "character", id: "c1", label: "Vell" },
       label: "Vell",
       tombstoned: false,
-      characterShortId: "vell1234",
+      shortId: "vell1234",
     }
     const world = createWorld([], [NPC_TARGET, article, character])
     const navigate = vi.fn()
@@ -334,7 +343,7 @@ describe("participant completions", () => {
           ref: OPTIONS[2]!.ref,
           label: OPTIONS[2]!.label,
           tombstoned: false,
-          characterShortId: "vell1234",
+          shortId: "vell1234",
         },
       ])
       const { view } = mount(doc, { world })
@@ -731,7 +740,7 @@ describe("participantWorldSnapshot", () => {
     label: "Iris",
     sublabel: "Level 4 · Warrior",
     iconKey: "character",
-    characterShortId: "iris1234",
+    shortId: "iris1234",
   }
 
   it("carries a character's short id onto its target so the chip can open the sheet", () => {
@@ -742,14 +751,14 @@ describe("participantWorldSnapshot", () => {
         ref: characterOption.ref,
         label: "Iris",
         tombstoned: false,
-        characterShortId: "iris1234",
+        shortId: "iris1234",
       },
     ])
   })
 
-  it("leaves characterShortId undefined for non-character rows", () => {
+  it("leaves shortId undefined for rows whose ref id is the URL id", () => {
     const [target] = participantWorldSnapshot([npcOption]).targets
-    expect(target?.characterShortId).toBeUndefined()
+    expect(target?.shortId).toBeUndefined()
   })
 })
 
@@ -775,6 +784,9 @@ describe("participant hover previews", () => {
         portraitUrl: null,
         sublabel: "The Moon · Warlock",
         summary: null,
+        detail: null,
+        shortId: null,
+        enemies: null,
       }),
     })
 

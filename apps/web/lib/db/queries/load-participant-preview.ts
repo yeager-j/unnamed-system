@@ -1,7 +1,10 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
+import { DUNGEON_STATUS_LABELS, ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import {
+  encounterDurableEnemyIds,
+  encounterEnemyLabels,
   previewSummary,
   type ParticipantPreview,
 } from "@/domain/planner/participant-preview"
@@ -12,6 +15,8 @@ import {
 import { db } from "@/lib/db/client"
 import { characterSummaryProjection } from "@/lib/db/queries/character-list"
 import { campaignArticle, campaignNpc } from "@/lib/db/schema/campaign-world"
+import { dungeons } from "@/lib/db/schema/dungeon"
+import { encounters } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 
@@ -37,6 +42,91 @@ export async function loadParticipantPreview(
       return loadArticlePreview(campaignId, ref)
     case "character":
       return loadCharacterPreview(campaignId, ref)
+    case "encounter":
+      return loadEncounterPreview(campaignId, ref)
+    case "dungeon":
+      return loadDungeonPreview(campaignId, ref)
+  }
+}
+
+/**
+ * Encounters hard-delete, so `tombstoned` is always false — a deleted
+ * encounter is a miss (`null`), and the caller's captured label carries it.
+ */
+async function loadEncounterPreview(
+  campaignId: string,
+  ref: ParticipantRef
+): Promise<ParticipantPreview | null> {
+  const [row] = await db
+    .select({
+      name: encounters.name,
+      shortId: encounters.shortId,
+      status: encounters.status,
+      session: encounters.session,
+    })
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.id, ref.id))
+    )
+  if (row === undefined) return null
+  const count = row.session.participants.length
+  return {
+    ref,
+    name: row.name,
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: ENCOUNTER_STATUS_LABELS[row.status],
+    summary: null,
+    detail: `${count} ${count === 1 ? "participant" : "participants"}`,
+    shortId: row.shortId,
+    enemies: encounterEnemyLabels(
+      row.session,
+      await loadDurableNames(encounterDurableEnemyIds(row.session))
+    ),
+  }
+}
+
+/**
+ * Names for a session's durable enemy refs (UNN-624 enemy chips) — the one
+ * batch read the inline-heavy common case skips entirely (catalog enemies
+ * materialize to inline at mint, so durable enemies are rare).
+ */
+async function loadDurableNames(
+  ids: readonly string[]
+): Promise<ReadonlyMap<string, string>> {
+  if (ids.length === 0) return new Map()
+  const rows = await db
+    .select({ id: entity.id, name: entity.name })
+    .from(entity)
+    .where(inArray(entity.id, [...ids]))
+  return new Map(rows.map((row) => [row.id, row.name]))
+}
+
+/** Dungeons hard-delete too — see {@link loadEncounterPreview}. */
+async function loadDungeonPreview(
+  campaignId: string,
+  ref: ParticipantRef
+): Promise<ParticipantPreview | null> {
+  const [row] = await db
+    .select({
+      name: dungeons.name,
+      shortId: dungeons.shortId,
+      status: dungeons.status,
+      state: dungeons.state,
+    })
+    .from(dungeons)
+    .where(and(eq(dungeons.campaignId, campaignId), eq(dungeons.id, ref.id)))
+  if (row === undefined) return null
+  return {
+    ref,
+    name: row.name,
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: DUNGEON_STATUS_LABELS[row.status],
+    summary: null,
+    detail: `Turn ${row.state.turnCounter}`,
+    shortId: row.shortId,
+    enemies: null,
   }
 }
 
@@ -69,6 +159,9 @@ async function loadNpcPreview(
     sublabel: npcTraitsLabel(row),
     // NPCs have no summary field yet — its ticket fills this in.
     summary: null,
+    detail: null,
+    shortId: null,
+    enemies: null,
   }
 }
 
@@ -98,6 +191,9 @@ async function loadArticlePreview(
     portraitUrl: null,
     sublabel: row.type,
     summary: previewSummary(row.body),
+    detail: null,
+    shortId: null,
+    enemies: null,
   }
 }
 
@@ -123,5 +219,8 @@ async function loadCharacterPreview(
     portraitUrl: row.portraitUrl,
     sublabel: characterTraitsLabel(row),
     summary: null,
+    detail: null,
+    shortId: row.shortId,
+    enemies: null,
   }
 }

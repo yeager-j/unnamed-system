@@ -1,8 +1,10 @@
 import {
+  CastleTurretIcon,
   FlagBannerIcon,
   HouseLineIcon,
   MaskHappyIcon,
   ScrollIcon,
+  SwordIcon,
   UserIcon,
   type Icon,
 } from "@phosphor-icons/react"
@@ -22,4 +24,6 @@ export const PARTICIPANT_KIND_ICONS: Record<LinkerIconKey, Icon> = {
   article: ScrollIcon,
   settlement: HouseLineIcon,
   faction: FlagBannerIcon,
+  encounter: SwordIcon,
+  dungeon: CastleTurretIcon,
 }

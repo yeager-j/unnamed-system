@@ -121,6 +121,18 @@ export function RelationsSection({
   )
 }
 
+/**
+ * Which kinds a world-web relation may point at (UNN-624): the narrative world
+ * things. Combat surfaces (encounter/dungeon) are linkable in prose but are
+ * events, not relation subjects — and their routes need a shortId that
+ * relation rows don't carry. One constant gates the picker and the row href.
+ */
+const RELATION_TARGET_KINDS: ReadonlySet<ParticipantRef["kind"]> = new Set([
+  "npc",
+  "article",
+  "character",
+])
+
 function RelationTarget({
   campaignShortId,
   target,
@@ -136,7 +148,10 @@ function RelationTarget({
       tombstoned={target.tombstoned}
     />
   )
-  if (target.ref.kind === "character" || target.tombstoned || target.missing) {
+  const routable =
+    RELATION_TARGET_KINDS.has(target.ref.kind) &&
+    target.ref.kind !== "character"
+  if (!routable || target.tombstoned || target.missing) {
     return pill
   }
   const href =
@@ -163,6 +178,7 @@ function AddRelationPopover({
 
   const options = linkerOptions.filter(
     (option) =>
+      RELATION_TARGET_KINDS.has(option.ref.kind) &&
       !(option.ref.kind === source.kind && option.ref.id === source.id)
   )
 

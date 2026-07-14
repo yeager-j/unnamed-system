@@ -28,6 +28,9 @@ const MAREN: ParticipantPreview = {
   portraitUrl: null,
   sublabel: "The Moon · Warlock",
   summary: null,
+  detail: null,
+  shortId: null,
+  enemies: null,
 }
 
 beforeEach(() => {
@@ -68,7 +71,7 @@ describe("getParticipantPreviewAction", () => {
   it("rejects an unknown participant kind before it reaches the gate", async () => {
     const result = await getParticipantPreviewAction({
       campaignId: "campaign-1",
-      ref: { kind: "encounter" as "npc", id: "e1" },
+      ref: { kind: "spell" as "npc", id: "s1" },
     })
 
     expect(result).toEqual({ ok: false, error: "invalid-input" })

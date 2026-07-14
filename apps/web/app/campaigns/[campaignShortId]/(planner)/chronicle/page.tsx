@@ -30,6 +30,8 @@ import {
   loadCampaignNpcs,
   loadDatedArticles,
 } from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
+import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
 import { campaignChroniclePath } from "@/lib/paths"
 
@@ -79,16 +81,27 @@ export default async function ChroniclePage({
   const chronicleParams = parseChronicleParams(await searchParams)
   const { filters, startDay } = chronicleParams
 
-  const [page, seasons, npcs, articles, datedArticles, markers, characters] =
-    await Promise.all([
-      loadChroniclePage(campaign.id, { cursor: null, startDay, filters }),
-      loadSeasons(campaign.id),
-      loadCampaignNpcs(campaign.id),
-      loadCampaignArticles(campaign.id),
-      loadDatedArticles(campaign.id),
-      loadResolvedMarkers(campaign.id),
-      loadPlacedCharactersForCampaign(campaign.id),
-    ])
+  const [
+    page,
+    seasons,
+    npcs,
+    articles,
+    datedArticles,
+    markers,
+    characters,
+    encounters,
+    dungeons,
+  ] = await Promise.all([
+    loadChroniclePage(campaign.id, { cursor: null, startDay, filters }),
+    loadSeasons(campaign.id),
+    loadCampaignNpcs(campaign.id),
+    loadCampaignArticles(campaign.id),
+    loadDatedArticles(campaign.id),
+    loadResolvedMarkers(campaign.id),
+    loadPlacedCharactersForCampaign(campaign.id),
+    loadEncountersForCampaign(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
+  ])
 
   const refs: ParticipantRef[] = [
     ...page.updates.flatMap((update): ParticipantRef[] => [
@@ -116,7 +129,13 @@ export default async function ChroniclePage({
     )
     .map((article) => ({ articleId: article.id, name: article.name }))
 
-  const linkerOptions = buildLinkerOptions({ npcs, articles, characters })
+  const linkerOptions = buildLinkerOptions({
+    npcs,
+    articles,
+    characters,
+    encounters,
+    dungeons,
+  })
   const composerTarget: ComposerTarget = {
     kind: "world",
     primary: null,

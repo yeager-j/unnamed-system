@@ -4,6 +4,7 @@ import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.sch
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { CombatantChip, SideDot } from "@/components/combat/combatant-chip"
 import type { CombatantView } from "@/domain/combat/view/console-view"
 
 export type ConsolePhase = "active" | "resolving" | "drafting"
@@ -78,29 +79,26 @@ export function TurnOrderStrip({
 
         if (isBoxed(row)) {
           return (
-            <span
+            <CombatantChip
               key={row.id}
-              data-side={row.side}
+              side={row.side}
+              label={row.name}
               data-testid="turn-strip-current"
-              className="inline-flex items-center gap-1.5 rounded-md border-2 border-foreground px-2 py-1 text-xs font-medium"
-            >
-              <SideDot side={row.side} />
-              {row.name}
-            </span>
+              className="border-2 border-foreground font-medium"
+            />
           )
         }
 
         // Acted or Fallen → a struck, greyed chip.
         if (isStruck(row)) {
           return (
-            <span
+            <CombatantChip
               key={row.id}
-              data-side={row.side}
-              className="inline-flex items-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-xs text-muted-foreground/70 line-through"
-            >
-              <SideDot side={row.side} muted />
-              {row.name}
-            </span>
+              side={row.side}
+              label={row.name}
+              muted
+              className="text-muted-foreground/70 line-through"
+            />
           )
         }
 
@@ -127,26 +125,5 @@ export function TurnOrderStrip({
         </Button>
       ) : null}
     </div>
-  )
-}
-
-/** A small side-colored square mirroring the design's combatant glyphs: players
- *  read as primary, enemies as destructive. */
-function SideDot({
-  side,
-  muted = false,
-}: {
-  side: CombatantView["side"]
-  muted?: boolean
-}) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "size-2.5 shrink-0 rounded-[2px]",
-        side === "players" ? "bg-primary" : "bg-destructive",
-        muted && "opacity-50"
-      )}
-    />
   )
 }

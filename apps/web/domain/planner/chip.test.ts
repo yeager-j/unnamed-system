@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest"
 import {
   extractChipRefs,
   parseChipToken,
+  parseEmbedToken,
   sanitizeChipLabel,
   serializeChipToken,
+  serializeEmbedToken,
+  stripChipTokens,
 } from "./chip"
 
 describe("sanitizeChipLabel", () => {
@@ -52,7 +55,20 @@ describe("parseChipToken", () => {
   })
 
   it("rejects an unknown kind", () => {
-    expect(parseChipToken("[[dungeon:d1|The Vault]]")).toBeNull()
+    expect(parseChipToken("[[spell:s1|Fireball]]")).toBeNull()
+  })
+
+  it("parses encounter and dungeon kinds (UNN-624 flipped the plain-text pin)", () => {
+    expect(parseChipToken("[[dungeon:d1|The Vault]]")).toEqual({
+      kind: "dungeon",
+      id: "d1",
+      label: "The Vault",
+    })
+    expect(parseChipToken("[[encounter:e1|Goblin Ambush]]")).toEqual({
+      kind: "encounter",
+      id: "e1",
+      label: "Goblin Ambush",
+    })
   })
 
   it("rejects a missing label separator", () => {
@@ -94,11 +110,45 @@ describe("extractChipRefs", () => {
 
   it("ignores malformed tokens and unknown kinds", () => {
     const body =
-      "a bare [[ opener, [[dungeon:d1|nope]], [[npc:n1]] and [[npc:n2|ok]]"
+      "a bare [[ opener, [[spell:s1|nope]], [[npc:n1]] and [[npc:n2|ok]]"
     expect(extractChipRefs(body)).toEqual([{ kind: "npc", id: "n2" }])
+  })
+
+  it("extracts the inner ref of an embed token (mention-index backlinks)", () => {
+    expect(extractChipRefs("![[encounter:e1|Goblin Ambush]]")).toEqual([
+      { kind: "encounter", id: "e1" },
+    ])
   })
 
   it("returns empty for chip-free prose", () => {
     expect(extractChipRefs("Just [markdown](https://a.dev) and [[")).toEqual([])
+  })
+})
+
+describe("embed tokens", () => {
+  it("round-trips serialize → parse", () => {
+    const ref = { kind: "encounter" as const, id: "e1", label: "Goblin Ambush" }
+    expect(serializeEmbedToken(ref)).toBe("![[encounter:e1|Goblin Ambush]]")
+    expect(parseEmbedToken(serializeEmbedToken(ref))).toEqual(ref)
+  })
+
+  it("rejects a bare chip token (no bang) and junk around the bang", () => {
+    expect(parseEmbedToken("[[encounter:e1|X]]")).toBeNull()
+    expect(parseEmbedToken("!x[[encounter:e1|X]]")).toBeNull()
+    expect(parseEmbedToken("a![[encounter:e1|X]]")).toBeNull()
+  })
+})
+
+describe("stripChipTokens", () => {
+  it("flattens chip tokens to their labels", () => {
+    expect(stripChipTokens("Meet [[npc:n1|Maren]] at dusk")).toBe(
+      "Meet Maren at dusk"
+    )
+  })
+
+  it("consumes the embed bang instead of leaving `!Label`", () => {
+    expect(stripChipTokens("Run ![[encounter:e1|Goblin Ambush]] tonight")).toBe(
+      "Run Goblin Ambush tonight"
+    )
   })
 })
