@@ -151,9 +151,13 @@ The chip system shrinks from *node + tokenizer + suggestion plugin + popover*
 to *config + one completion source*:
 
 - **Decorations/resolution/click**: their `wikiLinks({ resolve, onOpen,
-  openOnClick })` — **configured without `suggest`**. `resolve` maps
-  `kind:id` targets through the world web (current name + tombstone status);
-  `onOpen` navigates via `lib/paths`.
+  openOnClick })` — **configured without `suggest`** — retains click guarding,
+  raw-source editing, and bare-link behavior. v0.6.2 renders an aliased link
+  directly from its stored label and never calls `resolve`; its resolver cache
+  also has no invalidation hook. A first-party replacement-decoration extension
+  therefore owns participant-token visuals, reading current names + tombstone
+  status from a stable `ParticipantLinkWorld` store and subscribing to snapshot
+  replacements. `onOpen` navigates live targets via `lib/paths`.
 - **Completions**: **exactly one first-party
   `autocompletion({ override: [participantSource, atSource, slashSource…] })`**
   call owns every source. This is a hard constraint, not a style choice:
@@ -164,17 +168,23 @@ to *config + one completion source*:
   their pills without their completion instance.
 - **Triggers**: `[[` and `@` are two sources gating themselves via
   `context.matchBefore` (their `completionSource` is the ~25-line template:
-  match → debounce → `context.aborted` checks → `validFor`). Both insert the
-  same `[[kind:id|label]]` text via a function `apply` — including the **mint
-  rows** ("Create NPC / Create Article"), whose `apply` runs the server action,
-  then dispatches the insert (the same captured-range async pattern as today's
-  popover).
-- **Row rendering**: CM6's `addToOptions` injects custom DOM per row and
-  `Completion.section` gives grouped headings natively — but `render` returns
-  a **DOM `Node`, not React**. Default: small `createElement` helpers for the
-  simple rows; fall back to driving our existing React listbox from a custom
-  CM6 plugin (today's popover architecture, re-fed) only if the mint rows
-  resist DOM-helper form. Decide in P1 by building the default first.
+  match → debounce → `context.aborted` checks → current-world filter). The
+  result deliberately omits `validFor`: match semantics and mint-row labels
+  depend on the complete current query, so every keystroke must rerun the
+  source. Both insert the same `[[kind:id|label]]` text via a function `apply`
+  — including the **mint rows** ("Create NPC / Create Article"), whose `apply`
+  runs the server action, then dispatches only if the captured document is
+  still current.
+- **Row rendering**: CM6 remains the sole completion controller, but its
+  visual tooltip is replaced by a controlled React view. A view plugin reads
+  only CM6's public completion state (`currentCompletions`,
+  `selectedCompletionIndex`) and renders `packages/ui`'s `Command`,
+  `CommandList`, `CommandGroup`, and `CommandItem` at the caret. There is no
+  `CommandInput`: typing, Arrow keys, Enter/Tab, and Escape stay owned by the
+  editor. The `Command` is display-only (`shouldFilter={false}`); hover mirrors
+  selection into CM6, while pointer-down prevents blur before accepting the
+  completion. The native tooltip stays mounted as a visually-hidden
+  accessibility/controller surface, avoiding a second selection model.
 - **Label sanitization** stays in `domain/planner/chip` and applies at
   `serializeSuggestion`.
 - **In-editor pill styling by kind**: the vendored widget renders
@@ -191,6 +201,7 @@ to *config + one completion source*:
 | Vendored editor | `packages/editor` | Vendor seam (§4). |
 | `MarkdownField` host + slash source | `apps/web/components/editor/` | Cross-feature kit, feature-agnostic. |
 | `participant-links.ts` (chips: resolve/suggest/mint/@) | `apps/web/app/campaigns/[campaignShortId]/_components/notes/` (successor to `chip-suggestion.ts`) | Domain-entangled (world web, mint actions), single-feature today — same home as its predecessor. |
+| Controlled participant completion menu + CM6 view bridge | Beside `participant-links.ts` | React/shadcn rendering stays separate from completion matching and apply logic; the bridge mounts and destroys one React root per editor. |
 | Preview loaders (`getParticipantPreview`) | `lib/actions` / feature `*-access.ts` per write/read pattern | Standard seam. |
 
 ---
@@ -267,9 +278,10 @@ underneath.
 | A3 | External-value sync has no obvious upstream affordance | **⚠ spike** (§5.1); handle-dispatch / keyed remount / thin first-party host; upstream PR if none fit. Gate: the cutover PR cannot merge without the unfocused-refresh contract passing its existing behavior. |
 | A4 | Next.js App Router mount unverified | **⚠ spike** (§5.1), trivial pattern expected (`ssr: false`). |
 | A5 | Two `autocompletion()` instances crash at editor creation | Designed out (§5.2): suggest-less `wikiLinks` + one first-party owner. A comment in `participant-links.ts` states the invariant; the P1 unit test asserts editor creation with all sources active. |
-| A6 | Mint rows fight CM6's DOM-node row rendering | Two sanctioned paths (§5.2); decided in P1 by building, not speculating. |
+| A6 | Mint rows fight CM6's DOM-node row rendering | The visual tooltip is a controlled shadcn `Command` without an input; CM6 remains the only keyboard and selection owner (§5.2). |
 | A7 | E2E churn (selectors move from `[data-participant-chip]` to `.cm-atomic-wiki-link[data-wiki-link-target]`) | Mechanical; `planner-notes.spec.ts` chip flow is the behavior gate, updated in the cutover PR. |
 | A8 | In-editor pill fidelity below `ParticipantPill` | Accepted for v1 (CSS attribute-selector styling); revisit only if it grates. |
+| A9 | v0.6.2 aliases bypass `resolve` and cached bare-link resolutions cannot be invalidated | Participant tokens use the app-side replacement-decoration + subscribed world store; `wikiLinks` remains suggest-less and supplies click/edit semantics. |
 
 ---
 
@@ -288,6 +300,7 @@ underneath.
 | `hoverTooltip` with configurable hover time exists in `@codemirror/view` | `@codemirror/view` `src/tooltip.ts` |
 | Pill widgets render `span.cm-atomic-wiki-link` with `dataset.wikiLinkTarget` | atomic-editor `src/wiki-links.ts` `WikiLinkWidget.toDOM()` |
 | Pipe alias `[[target\|label]]` supported; suggestions/resolution debounced + cached (600-entry cap) | atomic-editor `src/wiki-links.ts` |
+| Aliased links render their stored label without calling `resolve`; the resolver cache exposes no invalidation API | atomic-editor v0.6.2 `src/wiki-links.ts` |
 | Repo created 2026-04-22; v0.6.2 published 2026-07-11; MIT; CM6 as peers | GitHub API + npm registry |
 
 ---
@@ -300,9 +313,10 @@ underneath.
 | Acquisition | Vendor into `packages/editor` (shadcn model) | npm dependency (pinned) | Bus-factor-1 + pre-1.0 churn + supply-chain surface on the core writing surface; every update needs review either way; vendoring makes review-at-import the model. The shadcn precondition holds (engine is upstream-of-upstream). |
 | Vendored-tree policy | Pristine mirror, extend from outside | Fork-and-modify | First inside edit ends cheap syncing during upstream's steepest improvement phase. Verified feasible via public exports. |
 | Completion ownership | One first-party `autocompletion()` owning all sources; suggest-less `wikiLinks` | `wikiLinks({suggest})` + a second `autocompletion()` | The second form **throws at editor creation** (`combineConfig` conflict on `override`, §9). |
-| Chip completions UI | CM6 autocomplete UI + DOM row helpers (default) | Re-fed React listbox (fallback) | Grouping + keyboard + a11y free; fallback stays sanctioned if mint rows resist DOM form (§5.2, decided in P1). |
+| Chip completions UI | Controlled shadcn `Command` view, no `CommandInput`; native CM6 controller/ARIA retained visually hidden | Visible native CM6 tooltip; DOM-only row helpers; focus-owning command palette | Gives the app its own participant-menu design without duplicating filtering, keyboard handling, selection, or focus ownership (§5.2). |
 | CM6 dependency home | Peers in `packages/editor`, versions owned by `apps/web` | Direct deps in the package | Single-instance discipline; first-party extensions import CM6 directly. |
 | Pill kind-styling | CSS attribute selectors + icon masks | Forking the widget for React pills | Pristine mirror; display path keeps the rich pill. |
+| Live aliased labels | App-side replacement decoration over `wikiLinks` | Stored aliases or editing the vendored resolver | Preserves fallback-bearing markdown and pristine vendoring while allowing explicit world-snapshot invalidation. |
 
 ---
 

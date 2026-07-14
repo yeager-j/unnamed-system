@@ -60,7 +60,8 @@ import {
   DeleteEntityConfirm,
   type DeleteEntityTarget,
 } from "./delete-entity-confirm"
-import { KindIcon, mintParticipantRef } from "./participant-linker"
+import { mintParticipantRef } from "./mint-participant-ref"
+import { KindIcon } from "./participant-linker"
 import { DeleteFolderDialog, NameDialog } from "./world-tree-dialogs"
 
 const COPY: Record<

@@ -13,9 +13,9 @@ import { toast } from "sonner"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { mintParticipantRef } from "@/app/campaigns/[campaignShortId]/_components/world/mint-participant-ref"
 import {
   LinkerRowContent,
-  mintParticipantRef,
   MintRowContent,
 } from "@/app/campaigns/[campaignShortId]/_components/world/participant-linker"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
