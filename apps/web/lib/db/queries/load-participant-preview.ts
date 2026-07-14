@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm"
 
+import { DUNGEON_STATUS_LABELS, ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import {
   previewSummary,
@@ -12,6 +13,8 @@ import {
 import { db } from "@/lib/db/client"
 import { characterSummaryProjection } from "@/lib/db/queries/character-list"
 import { campaignArticle, campaignNpc } from "@/lib/db/schema/campaign-world"
+import { dungeons } from "@/lib/db/schema/dungeon"
+import { encounters } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 
@@ -37,6 +40,70 @@ export async function loadParticipantPreview(
       return loadArticlePreview(campaignId, ref)
     case "character":
       return loadCharacterPreview(campaignId, ref)
+    case "encounter":
+      return loadEncounterPreview(campaignId, ref)
+    case "dungeon":
+      return loadDungeonPreview(campaignId, ref)
+  }
+}
+
+/**
+ * Encounters hard-delete, so `tombstoned` is always false — a deleted
+ * encounter is a miss (`null`), and the caller's captured label carries it.
+ */
+async function loadEncounterPreview(
+  campaignId: string,
+  ref: ParticipantRef
+): Promise<ParticipantPreview | null> {
+  const [row] = await db
+    .select({
+      name: encounters.name,
+      shortId: encounters.shortId,
+      status: encounters.status,
+      session: encounters.session,
+    })
+    .from(encounters)
+    .where(
+      and(eq(encounters.campaignId, campaignId), eq(encounters.id, ref.id))
+    )
+  if (row === undefined) return null
+  const count = row.session.participants.length
+  return {
+    ref,
+    name: row.name,
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: ENCOUNTER_STATUS_LABELS[row.status],
+    summary: null,
+    detail: `${count} ${count === 1 ? "participant" : "participants"}`,
+    shortId: row.shortId,
+  }
+}
+
+/** Dungeons hard-delete too — see {@link loadEncounterPreview}. */
+async function loadDungeonPreview(
+  campaignId: string,
+  ref: ParticipantRef
+): Promise<ParticipantPreview | null> {
+  const [row] = await db
+    .select({
+      name: dungeons.name,
+      shortId: dungeons.shortId,
+      status: dungeons.status,
+      state: dungeons.state,
+    })
+    .from(dungeons)
+    .where(and(eq(dungeons.campaignId, campaignId), eq(dungeons.id, ref.id)))
+  if (row === undefined) return null
+  return {
+    ref,
+    name: row.name,
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: DUNGEON_STATUS_LABELS[row.status],
+    summary: null,
+    detail: `Turn ${row.state.turnCounter}`,
+    shortId: row.shortId,
   }
 }
 
@@ -69,6 +136,8 @@ async function loadNpcPreview(
     sublabel: npcTraitsLabel(row),
     // NPCs have no summary field yet — its ticket fills this in.
     summary: null,
+    detail: null,
+    shortId: null,
   }
 }
 
@@ -98,6 +167,8 @@ async function loadArticlePreview(
     portraitUrl: null,
     sublabel: row.type,
     summary: previewSummary(row.body),
+    detail: null,
+    shortId: null,
   }
 }
 
@@ -123,5 +194,7 @@ async function loadCharacterPreview(
     portraitUrl: row.portraitUrl,
     sublabel: characterTraitsLabel(row),
     summary: null,
+    detail: null,
+    shortId: row.shortId,
   }
 }

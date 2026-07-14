@@ -3,17 +3,25 @@ import { archetypeDisplayName } from "@workspace/game-v2/catalog/archetypes"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { LoadedCampaignNpc } from "@/lib/db/queries/load-campaign-world"
 import type { CampaignArticleRow } from "@/lib/db/schema/campaign-world"
+import type { DungeonStatus } from "@/lib/db/schema/dungeon"
+import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
-import { LINEAGE_LABELS } from "../../labels"
+import {
+  DUNGEON_STATUS_LABELS,
+  ENCOUNTER_STATUS_LABELS,
+  LINEAGE_LABELS,
+} from "../../labels"
 import type { ParticipantRef } from "../participant"
 
-/** Which glyph a linker row leads with — NPC mask, character user, or an article's type icon. */
+/** Which glyph a linker row leads with — NPC mask, character user, an article's type icon, or a combat surface's kind icon. */
 export type LinkerIconKey =
   | "npc"
   | "character"
   | "article"
   | "settlement"
   | "faction"
+  | "encounter"
+  | "dungeon"
 
 /** One searchable row of the participant linker's "From the world web" list. */
 export interface LinkerOption {
@@ -23,11 +31,19 @@ export interface LinkerOption {
   sublabel: string | null
   iconKey: LinkerIconKey
   /**
-   * A character's URL short id, carried alongside the `character:` ref (whose
-   * id is the durable entity id, not the slug) so a character chip can open the
-   * sheet. Only set for character rows; NPCs/articles route by ref id.
+   * The URL short id, carried alongside refs whose durable id is not the URL
+   * slug (characters route by sheet shortId; encounters/dungeons by console
+   * shortId). Unset for kinds whose ref id is the URL id (NPCs, articles).
    */
-  characterShortId?: string
+  shortId?: string
+}
+
+/** The list-row shape the encounter/dungeon linker inputs share: `(id, shortId, name, status)`. */
+export interface CombatSurfaceSummary<Status extends string> {
+  id: string
+  shortId: string
+  name: string
+  status: Status
 }
 
 const ARTICLE_TYPE_ICONS: Record<string, LinkerIconKey> = {
@@ -46,15 +62,18 @@ const ARTICLE_TYPE_ICONS: Record<string, LinkerIconKey> = {
 /**
  * Shapes the campaign's live world things into the linker's option rows
  * (UNN-575, handoff "entity linker"): NPCs first, then Articles, then placed
- * characters, each with its kind icon and subtitle. Engine-vocab lookups
- * (Lineage labels, Archetype names) stay here in the data tier — the
- * component just renders rows (UNN-610 tier rule). Any input list may be
- * empty; phase-2 mounts pass no characters.
+ * characters, then encounters and dungeons (UNN-624 full participant kinds),
+ * each with its kind icon and subtitle. Engine-vocab lookups (Lineage labels,
+ * Archetype names) stay here in the data tier — the component just renders
+ * rows (UNN-610 tier rule). Any input list may be empty; phase-2 mounts pass
+ * no characters.
  */
 export function buildLinkerOptions(input: {
   npcs: readonly LoadedCampaignNpc[]
   articles: readonly CampaignArticleRow[]
   characters?: readonly CharacterSummary[]
+  encounters?: readonly CombatSurfaceSummary<EncounterStatus>[]
+  dungeons?: readonly CombatSurfaceSummary<DungeonStatus>[]
 }): LinkerOption[] {
   const npcOptions = input.npcs.map(
     (npc): LinkerOption => ({
@@ -78,10 +97,34 @@ export function buildLinkerOptions(input: {
       label: character.name,
       sublabel: characterTraitsLabel(character),
       iconKey: "character",
-      characterShortId: character.shortId,
+      shortId: character.shortId,
     })
   )
-  return [...npcOptions, ...articleOptions, ...characterOptions]
+  const encounterOptions = (input.encounters ?? []).map(
+    (encounter): LinkerOption => ({
+      ref: { kind: "encounter", id: encounter.id, label: encounter.name },
+      label: encounter.name,
+      sublabel: ENCOUNTER_STATUS_LABELS[encounter.status],
+      iconKey: "encounter",
+      shortId: encounter.shortId,
+    })
+  )
+  const dungeonOptions = (input.dungeons ?? []).map(
+    (dungeon): LinkerOption => ({
+      ref: { kind: "dungeon", id: dungeon.id, label: dungeon.name },
+      label: dungeon.name,
+      sublabel: DUNGEON_STATUS_LABELS[dungeon.status],
+      iconKey: "dungeon",
+      shortId: dungeon.shortId,
+    })
+  )
+  return [
+    ...npcOptions,
+    ...articleOptions,
+    ...characterOptions,
+    ...encounterOptions,
+    ...dungeonOptions,
+  ]
 }
 
 /**

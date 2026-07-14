@@ -6,9 +6,19 @@
  * campaign-scoped resolver (`domain/planner/load-participants.ts`) and the
  * write-boundary validation (`lib/db/queries/load-participants.ts`).
  */
-export const PARTICIPANT_KINDS = ["article", "npc", "character"] as const
+export const PARTICIPANT_KINDS = [
+  "article",
+  "npc",
+  "character",
+  "encounter",
+  "dungeon",
+] as const
 
-/** What a participant ref points at. `character` and `npc` ids are entity ids. */
+/**
+ * What a participant ref points at. `character` and `npc` ids are entity ids;
+ * `encounter` and `dungeon` ids are their table UUIDs (the URL shortId travels
+ * separately as the shared `shortId` field on linker/preview shapes).
+ */
 export type ParticipantKind = (typeof PARTICIPANT_KINDS)[number]
 
 /**
@@ -55,6 +65,10 @@ export function fallbackParticipantLabel(kind: ParticipantKind): string {
       return "Unknown NPC"
     case "character":
       return "Unknown character"
+    case "encounter":
+      return "Unknown encounter"
+    case "dungeon":
+      return "Unknown dungeon"
   }
 }
 

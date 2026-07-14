@@ -622,6 +622,8 @@ export const PARTICIPANT_KIND_LABELS: Record<ParticipantKind, string> = {
   npc: "NPC",
   article: "Article",
   character: "Character",
+  encounter: "Encounter",
+  dungeon: "Dungeon",
 }
 
 /** Display labels for the downtime activity categories (UNN-576, PRD FR-2). */

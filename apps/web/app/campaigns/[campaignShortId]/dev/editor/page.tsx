@@ -71,7 +71,7 @@ const INITIAL_WORLD: ParticipantLinkWorldSnapshot = {
       ref: { kind: "character", id: "c1", label: "Vell" },
       label: "Vell",
       tombstoned: false,
-      characterShortId: "vell1234",
+      shortId: "vell1234",
     },
   ],
 }
@@ -90,6 +90,8 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     portraitUrl: null,
     sublabel: "The Moon · Warlock",
     summary: null,
+    detail: null,
+    shortId: null,
   },
   "article:a1": {
     ref: { kind: "article", id: "a1" },
@@ -100,6 +102,8 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     summary: previewSummary(
       "A tidal town built on the bones of a drowned cathedral. The tide-wardens keep the bells dry; everyone else keeps their debts wet, and the harbour master answers to nobody the crown has heard of."
     ),
+    detail: null,
+    shortId: null,
   },
   "character:c1": {
     ref: { kind: "character", id: "c1" },
@@ -108,6 +112,8 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     portraitUrl: null,
     sublabel: "Level 4 · Warrior",
     summary: null,
+    detail: null,
+    shortId: null,
   },
   "npc:n9": {
     ref: { kind: "npc", id: "n9" },
@@ -116,6 +122,8 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     portraitUrl: null,
     sublabel: "The Hanged Man · Human",
     summary: null,
+    detail: null,
+    shortId: null,
   },
 }
 

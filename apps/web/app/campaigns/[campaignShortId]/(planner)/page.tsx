@@ -73,6 +73,7 @@ import {
   loadDatedArticles,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
+import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
 import { loadRosterGlance } from "@/lib/db/queries/load-roster-glance"
 import type { CampaignRow } from "@/lib/db/schema/campaign"
@@ -164,6 +165,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     claims,
     floatingBeats,
     dungeons,
+    encounters,
     activities,
     lastByCharacter,
     glances,
@@ -177,6 +179,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     loadClaimsForSlots(slotIds),
     loadFloatingBeats(campaign.id),
     loadDungeonsForCampaign(campaign.id),
+    loadEncountersForCampaign(campaign.id),
     loadActivitiesForSlots(campaign.id, slotIds),
     loadLastActivityPerCharacter(campaign.id),
     loadRosterGlance(placedCharacters.map((character) => character.id)),
@@ -483,6 +486,8 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                   npcs,
                   articles,
                   characters: placedCharacters,
+                  encounters,
+                  dungeons,
                 }),
               }}
               readiness={readiness}

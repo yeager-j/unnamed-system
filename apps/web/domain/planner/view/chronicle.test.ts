@@ -15,6 +15,8 @@ const HITS: ParticipantHitsByKind = {
   npc: new Map([["npc-1", { name: "Maren", deletedAt: null }]]),
   article: new Map(),
   character: new Map(),
+  encounter: new Map(),
+  dungeon: new Map(),
 }
 
 function row(

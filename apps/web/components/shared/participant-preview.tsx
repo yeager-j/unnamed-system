@@ -16,7 +16,14 @@ import { useParticipantPreview } from "@/domain/planner/use-participant-preview"
 /** How long a pointer must rest on a pill before its card opens — and therefore fetches. */
 const HOVER_DELAY_MS = 300
 
-const CampaignContext = createContext<string | null>(null)
+/** The campaign a preview-bearing surface fetches for and routes within. */
+export interface ParticipantPreviewScope {
+  campaignId: string
+  /** The campaign's URL segment — embed cards compose their click-through from it (UNN-624). */
+  campaignShortId: string
+}
+
+const CampaignContext = createContext<ParticipantPreviewScope | null>(null)
 
 /**
  * Puts the hovering campaign in scope for every pill under it (UNN-622). The
@@ -26,16 +33,19 @@ const CampaignContext = createContext<string | null>(null)
  */
 export function ParticipantPreviewProvider({
   campaignId,
+  campaignShortId,
   children,
-}: {
-  campaignId: string
-  children: ReactNode
-}) {
+}: ParticipantPreviewScope & { children: ReactNode }) {
   return (
-    <CampaignContext.Provider value={campaignId}>
+    <CampaignContext.Provider value={{ campaignId, campaignShortId }}>
       {children}
     </CampaignContext.Provider>
   )
+}
+
+/** The enclosing preview scope, or `null` outside the planner's DM branch (UNN-624 embed cards read this). */
+export function useParticipantPreviewScope(): ParticipantPreviewScope | null {
+  return useContext(CampaignContext)
 }
 
 /**
@@ -61,8 +71,8 @@ export function ParticipantPreviewPill({
   tombstoned?: boolean
   className?: string
 }) {
-  const campaignId = useContext(CampaignContext)
-  if (campaignId === null) {
+  const scope = useContext(CampaignContext)
+  if (scope === null) {
     return (
       <ParticipantPill
         kind={kind}
@@ -74,7 +84,7 @@ export function ParticipantPreviewPill({
   }
   return (
     <PreviewingPill
-      campaignId={campaignId}
+      campaignId={scope.campaignId}
       kind={kind}
       id={id}
       label={label}

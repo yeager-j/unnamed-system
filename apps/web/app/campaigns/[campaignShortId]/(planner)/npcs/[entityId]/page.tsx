@@ -20,6 +20,8 @@ import {
   loadCampaignNpcs,
   loadWorldFolders,
 } from "@/lib/db/queries/load-campaign-world"
+import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
+import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
 import { loadParticipantHits } from "@/lib/db/queries/load-participants"
 import {
   loadParticipantRefCounts,
@@ -54,6 +56,8 @@ export default async function NpcDetailPage({ params }: PageProps) {
     npcs,
     articles,
     characters,
+    encounters,
+    dungeons,
     relations,
     updates,
     counts,
@@ -64,6 +68,8 @@ export default async function NpcDetailPage({ params }: PageProps) {
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),
+    loadEncountersForCampaign(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
     loadRelationsFrom(campaign.id, self),
     loadUpdatesForParticipant(campaign.id, self),
     loadParticipantRefCounts(campaign.id, self),
@@ -110,7 +116,13 @@ export default async function NpcDetailPage({ params }: PageProps) {
       }}
       lineageHolders={Object.fromEntries(lineageHolders(others))}
       arcanaHolders={Object.fromEntries(arcanaHolders(others))}
-      linkerOptions={buildLinkerOptions({ npcs, articles, characters })}
+      linkerOptions={buildLinkerOptions({
+        npcs,
+        articles,
+        characters,
+        encounters,
+        dungeons,
+      })}
       web={{
         relations: buildRelationListView(relations, hits),
         timeline: buildTimelineDayViews(updates, hits, { elide: self }),

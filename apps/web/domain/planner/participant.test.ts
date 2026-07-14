@@ -8,13 +8,18 @@ import {
 
 function hitsByKind(
   hits: Partial<
-    Record<"article" | "npc" | "character", [string, ParticipantHit][]>
+    Record<
+      "article" | "npc" | "character" | "encounter" | "dungeon",
+      [string, ParticipantHit][]
+    >
   >
 ): ParticipantHitsByKind {
   return {
     article: new Map(hits.article ?? []),
     npc: new Map(hits.npc ?? []),
     character: new Map(hits.character ?? []),
+    encounter: new Map(hits.encounter ?? []),
+    dungeon: new Map(hits.dungeon ?? []),
   }
 }
 

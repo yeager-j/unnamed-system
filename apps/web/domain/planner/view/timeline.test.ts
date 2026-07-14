@@ -15,6 +15,8 @@ const HITS: ParticipantHitsByKind = {
     ["art-2", { name: "Rise of the Demon Lord", deletedAt: null }],
   ]),
   character: new Map(),
+  encounter: new Map(),
+  dungeon: new Map(),
 }
 
 function update(

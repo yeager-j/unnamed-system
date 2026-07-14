@@ -19,9 +19,16 @@ const SUMMARY_LIMIT = 140
  * resolves as tombstoned.
  *
  * `sublabel` is the linker's traits line ("The Moon · Warlock", an article's
- * type, "Level 4 · Warrior"); `summary` is the opening of the subject's prose.
- * Articles have prose to open with (their body); NPCs have no summary field
- * yet, so theirs stays null until the ticket that adds one fills it in here.
+ * type, "Level 4 · Warrior", an encounter's status); `summary` is the opening
+ * of the subject's prose. Articles have prose to open with (their body); NPCs
+ * have no summary field yet, so theirs stays null until the ticket that adds
+ * one fills it in here.
+ *
+ * `detail` is the embed card's second line (UNN-624) — "5 participants" for an
+ * encounter, "Turn 3" for a dungeon; null for the kinds whose cards don't have
+ * one. `shortId` is the URL slug for kinds whose durable ref id is not the URL
+ * id (characters, encounters, dungeons) — the card's click-through composes
+ * its href from it; null where the ref id already routes.
  */
 export interface ParticipantPreview {
   ref: ParticipantRef
@@ -30,6 +37,8 @@ export interface ParticipantPreview {
   portraitUrl: string | null
   sublabel: string | null
   summary: string | null
+  detail: string | null
+  shortId: string | null
 }
 
 /**

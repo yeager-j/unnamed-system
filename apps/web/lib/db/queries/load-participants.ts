@@ -10,6 +10,8 @@ import type {
 } from "@/domain/planner/participant"
 import { db } from "@/lib/db/client"
 import { campaignArticle, campaignNpc } from "@/lib/db/schema/campaign-world"
+import { dungeons } from "@/lib/db/schema/dungeon"
+import { encounters } from "@/lib/db/schema/encounter"
 import { entity } from "@/lib/db/schema/entity"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 
@@ -33,12 +35,21 @@ export async function loadParticipantHits(
   const idsOf = (kind: ParticipantKind) => [
     ...new Set(refs.filter((ref) => ref.kind === kind).map((ref) => ref.id)),
   ]
-  const [articles, npcs, characters] = await Promise.all([
-    loadArticleHits(campaignId, idsOf("article")),
-    loadNpcHits(campaignId, idsOf("npc")),
-    loadCharacterHits(campaignId, idsOf("character")),
-  ])
-  return { article: articles, npc: npcs, character: characters }
+  const [articles, npcs, characters, encounterHits, dungeonHits] =
+    await Promise.all([
+      loadArticleHits(campaignId, idsOf("article")),
+      loadNpcHits(campaignId, idsOf("npc")),
+      loadCharacterHits(campaignId, idsOf("character")),
+      loadEncounterHits(campaignId, idsOf("encounter")),
+      loadDungeonHits(campaignId, idsOf("dungeon")),
+    ])
+  return {
+    article: articles,
+    npc: npcs,
+    character: characters,
+    encounter: encounterHits,
+    dungeon: dungeonHits,
+  }
 }
 
 /**
@@ -123,6 +134,46 @@ async function loadCharacterHits(
       )
     )
   return new Map(rows.map((row) => [row.id, hitOf(row)]))
+}
+
+/**
+ * Encounters hard-delete (no `deletedAt` column), so a hit is always live —
+ * a deleted encounter is a lookup miss, never a tombstone (UNN-624).
+ */
+async function loadEncounterHits(
+  campaignId: string,
+  ids: readonly string[]
+): Promise<ReadonlyMap<string, ParticipantHit>> {
+  if (ids.length === 0) return new Map()
+  const rows = await db
+    .select({ id: encounters.id, name: encounters.name })
+    .from(encounters)
+    .where(
+      and(
+        eq(encounters.campaignId, campaignId),
+        inArray(encounters.id, [...ids])
+      )
+    )
+  return new Map(
+    rows.map((row) => [row.id, { name: row.name, deletedAt: null }])
+  )
+}
+
+/** Dungeons hard-delete too — see {@link loadEncounterHits}. */
+async function loadDungeonHits(
+  campaignId: string,
+  ids: readonly string[]
+): Promise<ReadonlyMap<string, ParticipantHit>> {
+  if (ids.length === 0) return new Map()
+  const rows = await db
+    .select({ id: dungeons.id, name: dungeons.name })
+    .from(dungeons)
+    .where(
+      and(eq(dungeons.campaignId, campaignId), inArray(dungeons.id, [...ids]))
+    )
+  return new Map(
+    rows.map((row) => [row.id, { name: row.name, deletedAt: null }])
+  )
 }
 
 function hitOf(row: { name: string; deletedAt: Date | null }): ParticipantHit {

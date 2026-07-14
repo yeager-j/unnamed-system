@@ -34,9 +34,12 @@ import {
   campaignArticlePath,
   campaignNpcPath,
   characterPath,
+  dungeonConsolePath,
+  encounterConsolePath,
 } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
+import { embedBlocks } from "./embed-blocks"
 import { participantLinkCompletionMenu } from "./participant-link-completion-menu"
 import {
   participantLinkDecorations,
@@ -57,8 +60,8 @@ export interface ParticipantLinkTarget {
   ref: ParticipantRef
   label: string
   tombstoned: boolean
-  /** Character URLs use a short id while the durable participant ref uses an entity id. */
-  characterShortId?: string
+  /** The URL short id, for kinds whose durable ref id is not the URL slug (characters, encounters, dungeons). */
+  shortId?: string
 }
 
 export interface ParticipantLinkWorldSnapshot {
@@ -105,7 +108,7 @@ export function participantWorldSnapshot(
       ref: option.ref,
       label: option.label,
       tombstoned: false,
-      characterShortId: option.characterShortId,
+      shortId: option.shortId,
     })),
   }
 }
@@ -145,6 +148,10 @@ export function createParticipantLinkExtensions(
     participantCompletionSource("[[", config),
     slashCommandSource({ extraItems: [linkParticipantCompletion()] }),
   ]
+  const loadPreview = (ref: ParticipantRef) =>
+    config.preview
+      ? config.preview(ref)
+      : fetchParticipantPreview(config.campaignId, ref)
 
   return [
     wikiLinks({
@@ -155,11 +162,13 @@ export function createParticipantLinkExtensions(
     participantLinkDecorations(config.world),
     participantLinkHoverPreview({
       world: config.world,
-      loadPreview: (ref) =>
-        config.preview
-          ? config.preview(ref)
-          : fetchParticipantPreview(config.campaignId, ref),
+      loadPreview,
       hoverDelayMs: config.hoverDelayMs,
+    }),
+    embedBlocks({
+      campaignShortId: config.campaignShortId,
+      navigate: config.navigate,
+      loadPreview,
     }),
     autocompletion({
       activateOnTyping: true,
@@ -446,8 +455,14 @@ function participantHref(
     case "npc":
       return campaignNpcPath(campaignShortId, target.ref.id)
     case "character":
-      return target.characterShortId
-        ? characterPath(target.characterShortId)
+      return target.shortId ? characterPath(target.shortId) : null
+    case "encounter":
+      return target.shortId
+        ? encounterConsolePath(campaignShortId, target.shortId)
+        : null
+    case "dungeon":
+      return target.shortId
+        ? dungeonConsolePath(campaignShortId, target.shortId)
         : null
   }
 }
