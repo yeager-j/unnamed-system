@@ -179,7 +179,7 @@ test("a narrative document autosaves one field into the entity's jsonb", async (
   await page.goto(
     `/campaigns/${campaign.shortId}/npcs/${subject.entityId}?doc=fears`
   )
-  const editor = page.locator(".ProseMirror")
+  const editor = page.locator(".cm-content")
   await editor.click()
   await page.keyboard.type("Deep water. Her brother fell through the ice.")
 

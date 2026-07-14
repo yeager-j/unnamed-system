@@ -1,6 +1,6 @@
 "use client"
 
-import type { AnyExtension } from "@tiptap/core"
+import type { Extension } from "@codemirror/state"
 
 import {
   Field,
@@ -79,8 +79,8 @@ export function DocumentEditor({
   /** The optional second header line (a beat's tagline). */
   subtitle?: DocumentFieldState
   body: DocumentFieldState
-  /** Extra Tiptap extensions for the body (chips + suggestions). Must be render-stable. */
-  extensions?: AnyExtension[]
+  /** Extra CodeMirror extensions for the body (chips + suggestions). Must be render-stable. */
+  extensions?: readonly Extension[]
   messages: DocumentEditorMessages
 }) {
   const titleInputId = `document-title-${documentId}`
@@ -143,7 +143,7 @@ export function DocumentEditor({
             onFocus={() => body.onFocusChange(true)}
             onBlur={() => body.onFocusChange(false)}
             extensions={extensions}
-            className="h-full rounded-none border-0 bg-transparent text-base focus-within:border-0 focus-within:ring-0 dark:bg-transparent [&_.ProseMirror]:px-0 [&_.ProseMirror]:py-0"
+            className="h-full rounded-none border-0 bg-transparent text-base focus-within:border-0 focus-within:ring-0 dark:bg-transparent [&_.cm-content]:px-0 [&_.cm-content]:py-0 [&_.cm-editor]:pb-[40vh]"
           />
         </div>
       </Field>

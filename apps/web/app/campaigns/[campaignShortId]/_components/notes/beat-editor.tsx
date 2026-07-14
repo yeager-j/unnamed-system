@@ -1,7 +1,8 @@
 "use client"
 
 import { TrashIcon } from "@phosphor-icons/react/dist/ssr"
-import { useEffect, useMemo, useRef, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 
 import {
@@ -17,17 +18,16 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
-import { ParticipantChip } from "@/components/editor/participant-chip"
 import { useBeatAutoSave } from "@/domain/planner/use-beat-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
 import type { SchedulePickerDayView } from "@/domain/planner/view/schedule-picker"
 import { deleteBeatAction } from "@/lib/actions/campaign-notes/beat"
 
 import {
-  createChipSuggestionExtensions,
-  type ChipSuggestionHandle,
-} from "./chip-suggestion"
-import { ChipSuggestionPopover } from "./chip-suggestion-popover"
+  createParticipantLinkExtensions,
+  createParticipantLinkWorld,
+  participantWorldSnapshot,
+} from "./participant-links"
 import { ScheduleControl, type ScheduleState } from "./schedule-control"
 
 const DELETE_ERROR_COPY: Record<string, string> = {
@@ -51,10 +51,11 @@ export interface BeatEditorBeat {
  * tagline, the schedule control, and the chip-capable markdown body. All
  * three text fields autosave through {@link useBeatAutoSave} (~800 ms, flush
  * on blur, one queue per beat — no revalidation, D10); the body's `@`/`[[`
- * triggers summon the chip suggestion popover (D7).
+ * triggers summon the participant chip completions (D7).
  */
 export function BeatEditor({
   campaignId,
+  campaignShortId,
   beat,
   linkerOptions,
   scheduleDays,
@@ -63,6 +64,7 @@ export function BeatEditor({
   onDeleted,
 }: {
   campaignId: string
+  campaignShortId: string
   beat: BeatEditorBeat
   linkerOptions: LinkerOption[]
   scheduleDays: SchedulePickerDayView[]
@@ -71,6 +73,7 @@ export function BeatEditor({
   onTitleChange: (beatId: string, title: string) => void
   onDeleted: () => void
 }) {
+  const router = useRouter()
   const fields = useBeatAutoSave({
     campaignId,
     beatId: beat.id,
@@ -79,23 +82,25 @@ export function BeatEditor({
     serverBody: beat.body,
   })
 
-  // The editor instance is long-lived: extensions are created once, and the
-  // suggestion plugins read the current options/popover through these refs
-  // (assigned in an effect — the markdown-field callback-ref pattern).
-  const optionsRef = useRef<readonly LinkerOption[]>(linkerOptions)
-  useEffect(() => {
-    optionsRef.current = linkerOptions
-  }, [linkerOptions])
-  const suggestionHandle = useRef<ChipSuggestionHandle | null>(null)
-  const extensions = useMemo(
-    () => [
-      ParticipantChip,
-      ...createChipSuggestionExtensions({
-        options: optionsRef,
-        handle: suggestionHandle,
-      }),
-    ],
+  // The editor instance is long-lived: the chip layer is created once against
+  // a stable world store, and fresh linker options flow in through the store's
+  // `replace` rather than a remount.
+  const world = useMemo(
+    () => createParticipantLinkWorld(participantWorldSnapshot(linkerOptions)),
     []
+  )
+  useEffect(() => {
+    world.replace(participantWorldSnapshot(linkerOptions))
+  }, [linkerOptions, world])
+  const extensions = useMemo(
+    () =>
+      createParticipantLinkExtensions({
+        campaignId,
+        campaignShortId,
+        world,
+        navigate: router.push,
+      }),
+    [campaignId, campaignShortId, world, router]
   )
 
   return (
@@ -144,11 +149,6 @@ export function BeatEditor({
           bodyPlaceholder:
             "The scene. Type @ or [[ to link an NPC, Article, or character.",
         }}
-      />
-
-      <ChipSuggestionPopover
-        campaignId={campaignId}
-        handleRef={suggestionHandle}
       />
     </div>
   )

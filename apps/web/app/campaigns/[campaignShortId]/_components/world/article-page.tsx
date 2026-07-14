@@ -6,12 +6,11 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@workspace/ui/components/button"
 
 import { DocumentEditor } from "@/components/editor/document-editor"
-import { ParticipantChip } from "@/components/editor/participant-chip"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import { useArticleAutoSave } from "@/domain/planner/use-article-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
@@ -21,10 +20,10 @@ import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 import { campaignArticlesPath } from "@/lib/paths"
 
 import {
-  createChipSuggestionExtensions,
-  type ChipSuggestionHandle,
-} from "../notes/chip-suggestion"
-import { ChipSuggestionPopover } from "../notes/chip-suggestion-popover"
+  createParticipantLinkExtensions,
+  createParticipantLinkWorld,
+  participantWorldSnapshot,
+} from "../notes/participant-links"
 import { ArticleTypePicker } from "./article-type-picker"
 import { DeleteEntityConfirm } from "./delete-entity-confirm"
 import { EntityWebSections } from "./entity-web-sections"
@@ -78,20 +77,22 @@ export function ArticlePage({
     serverBody: article.body,
   })
 
-  const optionsRef = useRef<readonly LinkerOption[]>(linkerOptions)
-  useEffect(() => {
-    optionsRef.current = linkerOptions
-  }, [linkerOptions])
-  const suggestionHandle = useRef<ChipSuggestionHandle | null>(null)
-  const extensions = useMemo(
-    () => [
-      ParticipantChip,
-      ...createChipSuggestionExtensions({
-        options: optionsRef,
-        handle: suggestionHandle,
-      }),
-    ],
+  const world = useMemo(
+    () => createParticipantLinkWorld(participantWorldSnapshot(linkerOptions)),
     []
+  )
+  useEffect(() => {
+    world.replace(participantWorldSnapshot(linkerOptions))
+  }, [linkerOptions, world])
+  const extensions = useMemo(
+    () =>
+      createParticipantLinkExtensions({
+        campaignId,
+        campaignShortId,
+        world,
+        navigate: router.push,
+      }),
+    [campaignId, campaignShortId, world, router]
   )
 
   const self: ParticipantRef = { kind: "article", id: article.id }
@@ -152,11 +153,6 @@ export function ArticlePage({
           bodyPlaceholder:
             "The page. Type @ or [[ to link an NPC, Article, or character.",
         }}
-      />
-
-      <ChipSuggestionPopover
-        campaignId={campaignId}
-        handleRef={suggestionHandle}
       />
 
       <EntityWebSections

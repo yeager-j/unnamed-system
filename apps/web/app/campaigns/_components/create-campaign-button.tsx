@@ -112,7 +112,7 @@ export function CreateCampaignButton() {
                   value={description}
                   onChange={setDescription}
                   placeholder="A short pitch for your players."
-                  className="[&_.ProseMirror]:min-h-24"
+                  className="[&_.cm-editor]:min-h-24"
                 />
               </Field>
             </div>

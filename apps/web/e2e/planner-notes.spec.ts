@@ -79,19 +79,20 @@ test("notes: create a beat, autosave the title, quick-mint a chip via @", async 
     .poll(async () => (await readBeat()).title, { timeout: 5000 })
     .toBe("The Queen's Offer")
 
-  // Type prose with an `@` trigger; the suggestion popover offers the
-  // quick-mint rows (D7 — no kind-picker); Enter mints an NPC and inserts
-  // the chip.
-  const body = page.locator(".ProseMirror")
+  // Type prose with an `@` trigger; the completion menu offers the quick-mint
+  // rows (D7 — no kind-picker); picking one mints an NPC and inserts the chip.
+  // The React menu mirrors CodeMirror's completion state and is aria-hidden
+  // (the native completion owns a11y), so it's matched by content, not role,
+  // and clicked to accept deterministically (keyboard accept settles async).
+  const body = page.locator(".cm-content")
   await body.click()
   await page.keyboard.type("Ask @Odessa")
-  await expect(page.getByRole("listbox")).toBeVisible()
-  await expect(
-    page.getByRole("option", { name: /Create “Odessa” as NPC/ })
-  ).toBeVisible()
-  await page.keyboard.press("Enter")
+  const menu = page.locator("[data-participant-completion-menu]")
+  await menu.getByText(/Create “Odessa” as NPC/).click()
 
-  const chip = page.locator("[data-participant-chip][data-kind='npc']")
+  const chip = page.locator(
+    '.cm-atomic-wiki-link[data-wiki-link-target^="npc:"]'
+  )
   await expect(chip).toHaveText(/Odessa/)
 
   // The body autosave persists the `[[npc:id|label]]` token and re-derives
@@ -106,7 +107,7 @@ test("notes: create a beat, autosave the title, quick-mint a chip via @", async 
   // Reload: the stored markdown round-trips back into a chip pill.
   await page.reload()
   await expect(
-    page.locator("[data-participant-chip][data-kind='npc']")
+    page.locator('.cm-atomic-wiki-link[data-wiki-link-target^="npc:"]')
   ).toHaveText(/Odessa/)
 })
 

@@ -81,10 +81,10 @@ export function buildLinkerOptions(input: {
 }
 
 /**
- * The in-memory option filter the editor's chip-suggestion popover uses
+ * The in-memory option filter the editor's participant-link completions use
  * (UNN-576): case-insensitive substring match over label + sublabel — the
  * same fields cmdk scores inside the anchored linker, minus the fuzz. Pure;
- * an empty query returns everything (the popover caps display itself).
+ * an empty query returns everything (the completion source caps display itself).
  */
 export function filterLinkerOptions(
   options: readonly LinkerOption[],

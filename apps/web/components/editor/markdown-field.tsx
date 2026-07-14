@@ -1,41 +1,48 @@
 "use client"
 
-import type { AnyExtension } from "@tiptap/core"
-import { Placeholder } from "@tiptap/extension-placeholder"
-import Typography from "@tiptap/extension-typography"
-import { Markdown } from "@tiptap/markdown"
-import { EditorContent, useEditor } from "@tiptap/react"
-import { StarterKit } from "@tiptap/starter-kit"
-import { useEffect, useRef } from "react"
+import type { Extension } from "@codemirror/state"
+import { placeholder as cmPlaceholder, EditorView } from "@codemirror/view"
+import dynamic from "next/dynamic"
+import { useEffect, useId, useMemo, useRef } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { emphasisKeymap } from "./emphasis-keymap"
+
+// The vendored editor has no SSR story (it builds a live `EditorView` against
+// the DOM at mount), so it loads client-only — the CM6 equivalent of Tiptap's
+// `immediatelyRender: false`. The accompanying stylesheet is imported once,
+// globally, in `app/layout.tsx`.
+const AtomicCodeMirrorEditor = dynamic(
+  () =>
+    import("@workspace/editor").then((module) => module.AtomicCodeMirrorEditor),
+  { ssr: false }
+)
+
 /**
- * Tiptap-backed Markdown editor (ADR-001). Reads and writes plain CommonMark,
- * so it round-trips with the `react-markdown` renderer on the public sheet
- * without any glue.
+ * CodeMirror 6-backed Markdown editor (the "Obsidian editor"). Reads and writes
+ * plain CommonMark — the editor's document *is* the markdown, so it round-trips
+ * with the `react-markdown` renderer on the public sheet by construction (there
+ * is no serializer to drift).
  *
- * Deliberately chrome-free: no toolbar, no bubble menu, no slash menu — the
- * "Obsidian editor" experience. The player formats with Markdown shortcuts
- * (`# `, `- `, `**bold**`, `[text](url)`, `---`, …) and keyboard shortcuts
- * (`Cmd/Ctrl+B` / `Cmd/Ctrl+I` / `Cmd/Ctrl+E` / `Cmd/Ctrl+Shift+8` / …) that
- * Tiptap's StarterKit ships by default. An Insert menubar for tables /
- * images / a link dialog is a follow-up.
+ * Obsidian-style live preview: headings render sized, emphasis/links resolve,
+ * tables and task lists render in place, and markdown syntax hides off the
+ * active line. The player formats with Markdown shortcuts and the keyboard
+ * shortcuts CodeMirror ships.
  *
- * **Controlled component.** This file owns the editor instance and the prose
- * surface; persistence (debounce, optimistic concurrency, cross-tab sync) is
- * the caller's problem. Wrap with {@link useDebouncedAutoSave} the same way
- * `EditableName` wraps a plain `<Input>`.
+ * **Controlled component.** This file owns the editor instance; persistence
+ * (debounce, optimistic concurrency) is the caller's problem. Wrap with
+ * {@link useDebouncedAutoSave} the same way `EditableName` wraps a plain
+ * `<Input>`.
  *
- * **External-value sync.** When the parent passes a new `value` (server
- * refresh, cross-tab broadcast, prop-driven revert), the field updates the
- * editor *only* if the player isn't focused and the new value actually
- * differs from what's already rendered. The focused guard avoids trampling
- * a mid-keystroke draft; the differs guard avoids an infinite update loop
- * (our own `onUpdate` already fed this value back up via `onChange`).
- *
- * Tiptap requires `immediatelyRender: false` under the App Router to avoid
- * the SSR/CSR hydration mismatch its docs document.
+ * **Single-author, seed-once.** `value` seeds the document at mount and nothing
+ * pushes it back in afterward: the editor is the sole author of its buffer for
+ * its lifetime. Every markdown field today has exactly one live author, so
+ * there is no external update to reconcile — the autosave pipeline writes out,
+ * never in. A document swap remounts the field (the consumer keys it), which
+ * re-seeds from the new `value`. If concurrent authoring is ever needed, the
+ * write path's version tokens are where reconciliation belongs — not a
+ * value-diffing effect that would race in-flight edits.
  */
 export function MarkdownField({
   value,
@@ -62,99 +69,74 @@ export function MarkdownField({
   ariaLabelledBy?: string
   className?: string
   /**
-   * Extra Tiptap extensions appended to the base set (e.g. the participant
-   * chip node + its suggestion plugins). Must be render-stable — the editor
-   * is created once, so a new array identity per render recreates it.
+   * Extra CodeMirror extensions appended to the base set (e.g. the participant
+   * chip layer). Captured once at mount, so must be render-stable — pass a
+   * `useMemo`'d array.
    */
-  extensions?: AnyExtension[]
+  extensions?: readonly Extension[]
 }) {
-  // Stash the latest callbacks in refs so the Tiptap editor — which is a
-  // long-lived JS object, not a React effect — always invokes the current
-  // version without us having to re-create the editor on every render.
-  // Assigning the refs in an effect keeps render pure.
-  const onChangeRef = useRef(onChange)
+  // Stash focus/blur in refs so the mount-captured DOM handlers always invoke
+  // the current callback without re-creating the editor. Assigning in an effect
+  // keeps render pure (the markdown-field callback-ref pattern).
   const onFocusRef = useRef(onFocus)
   const onBlurRef = useRef(onBlur)
   useEffect(() => {
-    onChangeRef.current = onChange
     onFocusRef.current = onFocus
     onBlurRef.current = onBlur
-  }, [onChange, onFocus, onBlur])
+  }, [onFocus, onBlur])
 
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4] },
-        link: {
-          openOnClick: false,
-          autolink: true,
-          linkOnPaste: true,
-          HTMLAttributes: { rel: "noopener noreferrer nofollow" },
-        },
-      }),
-      Markdown,
-      Placeholder.configure({
-        placeholder: placeholder ?? "",
-        emptyEditorClass:
-          "before:content-[attr(data-placeholder)] before:text-muted-foreground before:float-left before:pointer-events-none before:h-0",
-      }),
-      Typography,
-      ...(extensions ?? []),
-    ],
-    content: value,
-    contentType: "markdown",
-    immediatelyRender: false,
-    editorProps: {
-      attributes: {
+  // A stable identity so the editor mounts once for this field's lifetime: the
+  // vendored editor keys its view on `documentId`, reading `markdownSource`
+  // only at mount. With a stable id, later `value` changes never remount (they
+  // originate from the editor itself); a document swap remounts the whole field
+  // via the consumer's `key`, minting a fresh id that re-seeds from `value`.
+  const editorId = useId()
+
+  const baseExtensions = useMemo(() => {
+    const base: Extension[] = [
+      emphasisKeymap,
+      EditorView.contentAttributes.of({
         "aria-label": ariaLabel,
         "aria-multiline": "true",
         ...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {}),
-        // Mirror the shadcn Textarea's content-area metrics (`min-h-16`,
-        // `px-2.5 py-2`, `outline-none`) so a player switching between an
-        // Input, a Textarea, and a MarkdownField sees a consistent surface.
-        // Prose styling layers the rich-text typography on top of the same
-        // base box.
-        class:
-          "prose prose-sm prose-invert max-w-none min-h-16 px-2.5 py-2 outline-none h-full min-h-64",
-      },
-    },
-    onUpdate({ editor }) {
-      onChangeRef.current(editor.getMarkdown())
-    },
-    onFocus() {
-      onFocusRef.current?.()
-    },
-    onBlur() {
-      onBlurRef.current?.()
-    },
-  })
-
-  useEffect(() => {
-    if (!editor) return
-    if (editor.isFocused) return
-    if (editor.getMarkdown() === value) return
-    editor.commands.setContent(value, {
-      emitUpdate: false,
-      contentType: "markdown",
-    })
-  }, [editor, value])
+      }),
+      // The vendored component has no focus/blur props; drive the caller's
+      // focus/blur (which gate autosave flush) off the content DOM's events.
+      EditorView.domEventHandlers({
+        focus: () => {
+          onFocusRef.current?.()
+        },
+        blur: () => {
+          onBlurRef.current?.()
+        },
+      }),
+    ]
+    if (placeholder) base.push(cmPlaceholder(placeholder))
+    return [...base, ...(extensions ?? [])]
+  }, [ariaLabel, ariaLabelledBy, placeholder, extensions])
 
   return (
-    <EditorContent
-      editor={editor}
+    <div
       className={cn(
         // Outer wrapper mirrors the shadcn Textarea's surface — same border,
-        // bg, focus ring, and dark-mode inversion — so the MarkdownField
-        // reads as a richer Textarea rather than a different control.
-        // contentEditable doesn't trigger `:focus-visible` the same way as
-        // an `<input>`/`<textarea>`, so the ring rides on `focus-within`
-        // (any caret/selection inside the prose surface counts).
-        "w-full rounded-none border border-input bg-transparent text-xs transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-        // Placeholder copy (from the Tiptap Placeholder extension) is shown
-        // via the `is-editor-empty` class on the first paragraph; its
-        // styling lives on the extension's `emptyEditorClass` above.
+        // bg, focus ring, and dark-mode inversion. contentEditable doesn't
+        // trigger `:focus-visible` the way an `<input>` does, so the ring rides
+        // on `focus-within`.
+        "w-full rounded-md border border-input bg-transparent text-sm transition-colors focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive/20 dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        // Base content metrics (mirrors the old editor's `px-2.5 py-2` box +
+        // min height). `DocumentEditor` zeroes the padding for its borderless
+        // look; `create-campaign` shrinks the min height — both via
+        // `tailwind-merge` on the same `.cm-content` variant.
+        "[&_.cm-content]:min-h-64 [&_.cm-content]:px-2.5 [&_.cm-content]:py-2",
         className
       )}
-    />
+    >
+      <AtomicCodeMirrorEditor
+        documentId={editorId}
+        markdownSource={value}
+        onMarkdownChange={onChange}
+        extensions={baseExtensions}
+      />
+    </div>
   )
 }
