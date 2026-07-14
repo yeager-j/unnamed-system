@@ -92,6 +92,7 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     summary: null,
     detail: null,
     shortId: null,
+    enemies: null,
   },
   "article:a1": {
     ref: { kind: "article", id: "a1" },
@@ -104,6 +105,7 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     ),
     detail: null,
     shortId: null,
+    enemies: null,
   },
   "character:c1": {
     ref: { kind: "character", id: "c1" },
@@ -114,6 +116,7 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     summary: null,
     detail: null,
     shortId: null,
+    enemies: null,
   },
   "npc:n9": {
     ref: { kind: "npc", id: "n9" },
@@ -124,6 +127,7 @@ const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
     summary: null,
     detail: null,
     shortId: null,
+    enemies: null,
   },
 }
 

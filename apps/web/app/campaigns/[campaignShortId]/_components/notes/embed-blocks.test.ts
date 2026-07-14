@@ -18,6 +18,7 @@ const ENCOUNTER_PREVIEW: ParticipantPreview = {
   summary: null,
   detail: "3 participants",
   shortId: "enc12345",
+  enemies: null,
 }
 
 const EMBED_DOC = "before\n\n![[encounter:e1|Stored Ambush]]\n\nafter"

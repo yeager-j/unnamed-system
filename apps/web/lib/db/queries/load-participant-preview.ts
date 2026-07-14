@@ -1,8 +1,10 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import { DUNGEON_STATUS_LABELS, ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import {
+  encounterDurableEnemyIds,
+  encounterEnemyLabels,
   previewSummary,
   type ParticipantPreview,
 } from "@/domain/planner/participant-preview"
@@ -77,7 +79,27 @@ async function loadEncounterPreview(
     summary: null,
     detail: `${count} ${count === 1 ? "participant" : "participants"}`,
     shortId: row.shortId,
+    enemies: encounterEnemyLabels(
+      row.session,
+      await loadDurableNames(encounterDurableEnemyIds(row.session))
+    ),
   }
+}
+
+/**
+ * Names for a session's durable enemy refs (UNN-624 enemy chips) — the one
+ * batch read the inline-heavy common case skips entirely (catalog enemies
+ * materialize to inline at mint, so durable enemies are rare).
+ */
+async function loadDurableNames(
+  ids: readonly string[]
+): Promise<ReadonlyMap<string, string>> {
+  if (ids.length === 0) return new Map()
+  const rows = await db
+    .select({ id: entity.id, name: entity.name })
+    .from(entity)
+    .where(inArray(entity.id, [...ids]))
+  return new Map(rows.map((row) => [row.id, row.name]))
 }
 
 /** Dungeons hard-delete too — see {@link loadEncounterPreview}. */
@@ -104,6 +126,7 @@ async function loadDungeonPreview(
     summary: null,
     detail: `Turn ${row.state.turnCounter}`,
     shortId: row.shortId,
+    enemies: null,
   }
 }
 
@@ -138,6 +161,7 @@ async function loadNpcPreview(
     summary: null,
     detail: null,
     shortId: null,
+    enemies: null,
   }
 }
 
@@ -169,6 +193,7 @@ async function loadArticlePreview(
     summary: previewSummary(row.body),
     detail: null,
     shortId: null,
+    enemies: null,
   }
 }
 
@@ -196,5 +221,6 @@ async function loadCharacterPreview(
     summary: null,
     detail: null,
     shortId: row.shortId,
+    enemies: null,
   }
 }

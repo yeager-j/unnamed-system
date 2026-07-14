@@ -4,6 +4,7 @@ import Link from "next/link"
 
 import { cn } from "@workspace/ui/lib/utils"
 
+import { CombatantChip } from "@/components/combat/combatant-chip"
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import { useParticipantPreviewScope } from "@/components/shared/participant-preview"
 import type { ParticipantKind } from "@/domain/planner/participant"
@@ -63,6 +64,7 @@ function LoadedEmbedCard({
       meta={metaOf(state)}
       href={href}
       missing={state.status === "missing"}
+      enemies={preview?.enemies ?? null}
     />
   )
 }
@@ -88,12 +90,15 @@ function EmbedCardFrame({
   meta,
   href,
   missing = false,
+  enemies = null,
 }: {
   kind: ParticipantKind
   name: string
   meta: string | null
   href: string | null
   missing?: boolean
+  /** Enemy-side combatant names, one chip each — the encounter card's "who you'll fight" row. */
+  enemies?: string[] | null
 }) {
   const Icon = PARTICIPANT_KIND_ICONS[kind]
   const body = (
@@ -105,6 +110,18 @@ function EmbedCardFrame({
         </span>
         {meta === null ? null : (
           <span className="block text-sm text-muted-foreground">{meta}</span>
+        )}
+        {enemies === null || enemies.length === 0 ? null : (
+          <span className="mt-1.5 flex flex-wrap gap-1">
+            {enemies.map((enemy, index) => (
+              <CombatantChip
+                key={`${enemy}-${index}`}
+                side="enemies"
+                label={enemy}
+                className="border-border bg-destructive/10"
+              />
+            ))}
+          </span>
         )}
       </span>
     </>

@@ -47,6 +47,19 @@ display card both read the existing cached `fetchParticipantPreview` client
 loader — the same pipeline the UNN-622 hover cards use, so hover cards for
 inline encounter chips arrive free. No parallel embed loader, no second cache.
 
+**Enemy chips (display card only).** The encounter payload also carries
+`enemies: string[] | null` — the enemy-side combatant names, folded pure from
+the stored session (`encounterEnemyLabels`): inline participants carry their
+name in the blob (catalog enemies materialize to inline at mint, so the common
+case costs zero extra reads); the rare durable enemy resolves through one
+batch entity-name read. The display `EmbedCard` renders one `CombatantChip`
+per name — the same chip the turn-order strip uses, extracted to
+`components/combat/combatant-chip.tsx`. The **editor** card deliberately does
+not render them (it's glanceable scaffolding you click through; the display
+card is where you read the fight) — enemy chips in the editor ride the
+deferred React-portal upgrade, which would let both surfaces share the React
+chip outright.
+
 ## Editor: the `embedBlocks` extension
 
 App-side (`notes/_components/embed-blocks.ts`), modeled on the vendored

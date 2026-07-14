@@ -1,3 +1,11 @@
+import { z } from "zod/v4"
+
+import {
+  allegianceSchema,
+  type StoredSession,
+} from "@workspace/game-v2/encounter"
+import { identitySchema } from "@workspace/game-v2/kernel/identity.schema"
+
 import { stripChipTokens } from "./chip"
 import type { ParticipantRef } from "./participant"
 
@@ -29,6 +37,11 @@ const SUMMARY_LIMIT = 140
  * one. `shortId` is the URL slug for kinds whose durable ref id is not the URL
  * id (characters, encounters, dungeons) — the card's click-through composes
  * its href from it; null where the ref id already routes.
+ *
+ * `enemies` is the encounter card's roster line — the enemy-side combatant
+ * names, one chip each (duplicates kept: two goblins are two chips, like the
+ * turn-order strip). Null for every other kind. As stale as the rest of the
+ * cached payload, which a preview tolerates.
  */
 export interface ParticipantPreview {
   ref: ParticipantRef
@@ -39,6 +52,54 @@ export interface ParticipantPreview {
   summary: string | null
   detail: string | null
   shortId: string | null
+  enemies: string[] | null
+}
+
+const enemyOverlaySchema = z.object({ allegiance: allegianceSchema })
+const inlineIdentitySchema = z.object({ identity: identitySchema })
+
+function isEnemy(participant: StoredSession["participants"][number]): boolean {
+  const overlay = enemyOverlaySchema.safeParse(participant.overlay)
+  return overlay.success && overlay.data.allegiance.side === "enemies"
+}
+
+/**
+ * The entity ids of a stored session's **durable** enemy-side participants —
+ * the refs whose names live on the entity row, not in the blob. The preview
+ * loader resolves these in one batch and feeds the result back to
+ * {@link encounterEnemyLabels}.
+ */
+export function encounterDurableEnemyIds(session: StoredSession): string[] {
+  return session.participants
+    .filter(isEnemy)
+    .flatMap((participant) =>
+      participant.locator.storage === "durable"
+        ? [participant.locator.entityId]
+        : []
+    )
+}
+
+/**
+ * The enemy-side combatant labels of a stored session, in roster order (UNN-624
+ * embed card). Inline participants carry their name in the blob
+ * (`components.identity.name` — catalog enemies materialize to inline at mint);
+ * durable ones read from `durableNames`. Malformed overlays are skipped and
+ * missing names fall back rather than break — a preview is an enhancement.
+ */
+export function encounterEnemyLabels(
+  session: StoredSession,
+  durableNames: ReadonlyMap<string, string>
+): string[] {
+  return session.participants.filter(isEnemy).map((participant) => {
+    if (participant.locator.storage === "durable") {
+      return durableNames.get(participant.locator.entityId) ?? "Unknown enemy"
+    }
+    const components = inlineIdentitySchema.safeParse(
+      participant.locator.entity.components
+    )
+    const name = components.success ? components.data.identity.name.trim() : ""
+    return name === "" ? "Unnamed enemy" : name
+  })
 }
 
 /**

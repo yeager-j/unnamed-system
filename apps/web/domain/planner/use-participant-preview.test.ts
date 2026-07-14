@@ -34,6 +34,7 @@ function previewOf(ref: ParticipantRef, name: string): ParticipantPreview {
     summary: null,
     detail: null,
     shortId: null,
+    enemies: null,
   }
 }
 

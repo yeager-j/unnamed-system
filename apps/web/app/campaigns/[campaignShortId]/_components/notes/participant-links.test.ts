@@ -81,6 +81,7 @@ const NPC_PREVIEW: ParticipantPreview = {
   summary: null,
   detail: null,
   shortId: null,
+  enemies: null,
 }
 
 const views: EditorView[] = []
@@ -779,6 +780,7 @@ describe("participant hover previews", () => {
         summary: null,
         detail: null,
         shortId: null,
+        enemies: null,
       }),
     })
 

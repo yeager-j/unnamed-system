@@ -30,6 +30,7 @@ const MAREN: ParticipantPreview = {
   summary: null,
   detail: null,
   shortId: null,
+  enemies: null,
 }
 
 beforeEach(() => {
