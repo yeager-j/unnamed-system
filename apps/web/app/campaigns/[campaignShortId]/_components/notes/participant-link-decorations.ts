@@ -16,7 +16,12 @@ import {
 import type { SyntaxNode } from "@lezer/common"
 
 import { CHIP_TOKEN_SOURCE, parseChipToken } from "@/domain/planner/chip"
-import { fallbackParticipantLabel } from "@/domain/planner/participant"
+import {
+  fallbackParticipantLabel,
+  PARTICIPANT_KINDS,
+  type ParticipantKind,
+  type ParticipantRef,
+} from "@/domain/planner/participant"
 
 import type { ParticipantLinkWorld } from "./participant-links"
 
@@ -158,4 +163,16 @@ export function isPositionInsideCode(
 
 export function participantTargetOf(ref: { kind: string; id: string }): string {
   return `${ref.kind}:${ref.id}`
+}
+
+/** The inverse of {@link participantTargetOf} — a pill's `data-wiki-link-target` back to a ref. */
+export function parseParticipantTarget(target: string): ParticipantRef | null {
+  const separator = target.indexOf(":")
+  if (separator <= 0) return null
+  const kind = target.slice(0, separator)
+  const id = target.slice(separator + 1)
+  if (id === "") return null
+  return PARTICIPANT_KINDS.some((candidate) => candidate === kind)
+    ? { kind: kind as ParticipantKind, id }
+    : null
 }

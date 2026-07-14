@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { ParticipantPill } from "@/components/shared/participant-pill"
+import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
 import { ACTIVITY_CATEGORY_LABELS } from "@/domain/labels"
 import type { UpdateCategory } from "@/domain/planner/update-category"
 import type { LinkerOption } from "@/domain/planner/view/linker"
@@ -267,8 +267,9 @@ function TimelineRow({
           }
           chip={
             showPrimaryChip && entry.primary !== null ? (
-              <ParticipantPill
+              <ParticipantPreviewPill
                 kind={entry.primary.ref.kind}
+                id={entry.primary.ref.id}
                 label={entry.primary.label}
                 tombstoned={entry.primary.tombstoned}
                 className="max-w-60 text-sm font-semibold"

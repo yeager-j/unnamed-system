@@ -76,10 +76,7 @@ export function buildLinkerOptions(input: {
     (character): LinkerOption => ({
       ref: { kind: "character", id: character.id, label: character.name },
       label: character.name,
-      sublabel:
-        character.status === "draft"
-          ? "Draft"
-          : `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`,
+      sublabel: characterTraitsLabel(character),
       iconKey: "character",
       characterShortId: character.shortId,
     })
@@ -102,6 +99,16 @@ export function filterLinkerOptions(
   return options.filter((option) =>
     `${option.label} ${option.sublabel ?? ""}`.toLowerCase().includes(needle)
   )
+}
+
+/** "Level 4 · Warrior" — a placed character's traits line; drafts say so. */
+export function characterTraitsLabel(character: {
+  status: CharacterSummary["status"]
+  level: number
+  activeArchetypeKey: string | null
+}): string {
+  if (character.status === "draft") return "Draft"
+  return `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`
 }
 
 /** "The Moon · Warlock" — whichever traits exist, joined; null for a stub. */

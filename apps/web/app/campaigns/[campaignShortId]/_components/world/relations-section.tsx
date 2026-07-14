@@ -24,6 +24,7 @@ import {
 } from "@workspace/ui/components/popover"
 
 import { ParticipantPill } from "@/components/shared/participant-pill"
+import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { LinkerOption } from "@/domain/planner/view/linker"
 import type { RelationRowView } from "@/domain/planner/view/world-detail"
@@ -128,8 +129,9 @@ function RelationTarget({
   target: RelationRowView["target"]
 }) {
   const pill = (
-    <ParticipantPill
+    <ParticipantPreviewPill
       kind={target.ref.kind}
+      id={target.ref.id}
       label={target.label}
       tombstoned={target.tombstoned}
     />

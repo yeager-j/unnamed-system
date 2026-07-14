@@ -12,6 +12,10 @@ import {
 } from "@/app/campaigns/[campaignShortId]/_components/notes/participant-links"
 import { Prose } from "@/components/shared/prose"
 import type { ParticipantRef } from "@/domain/planner/participant"
+import {
+  previewSummary,
+  type ParticipantPreview,
+} from "@/domain/planner/participant-preview"
 
 import "@workspace/editor/styles.css"
 
@@ -23,9 +27,11 @@ const AtomicCodeMirrorEditor = dynamic(
 
 const INITIAL_MARKDOWN = `# The Saltmere affair
 
-[[npc:n1|Maren]] carries the warning to [[article:a1|Saltmere]].
+[[npc:n1|Maren]] carries the warning to [[article:a1|Saltmere]], where
+[[npc:n9|Ander]] died a season ago.
 
-Type **@** or **[[** below to link someone else from the world web.
+Type **@** or **[[** below to link someone else from the world web, or rest the
+pointer on a pill to preview it.
 
 `
 
@@ -70,7 +76,50 @@ const INITIAL_WORLD: ParticipantLinkWorldSnapshot = {
   ],
 }
 
-/** Interactive P1 scratch surface; campaign editors stay on TipTap until P2. */
+/**
+ * Fake preview payloads (UNN-622): the harness has no campaign, so it injects
+ * the loader the way it already injects `mint`. Ander is the interesting row —
+ * he is absent from the live world (his pill renders "missing") yet previews as
+ * a tombstone, exactly like a deleted NPC still named in a real body.
+ */
+const SCRATCH_PREVIEWS: Record<string, ParticipantPreview> = {
+  "npc:n1": {
+    ref: { kind: "npc", id: "n1" },
+    name: "Maren",
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: "The Moon · Warlock",
+    summary: null,
+  },
+  "article:a1": {
+    ref: { kind: "article", id: "a1" },
+    name: "Saltmere",
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: "Settlement",
+    summary: previewSummary(
+      "A tidal town built on the bones of a drowned cathedral. The tide-wardens keep the bells dry; everyone else keeps their debts wet, and the harbour master answers to nobody the crown has heard of."
+    ),
+  },
+  "character:c1": {
+    ref: { kind: "character", id: "c1" },
+    name: "Vell",
+    tombstoned: false,
+    portraitUrl: null,
+    sublabel: "Level 4 · Warrior",
+    summary: null,
+  },
+  "npc:n9": {
+    ref: { kind: "npc", id: "n9" },
+    name: "Ander Quill",
+    tombstoned: true,
+    portraitUrl: null,
+    sublabel: "The Hanged Man · Human",
+    summary: null,
+  },
+}
+
+/** Interactive scratch surface for the participant-link layer (P1 chips, P3 hover previews). */
 export default function ParticipantLinksHarnessPage() {
   const [markdown, setMarkdown] = useState(INITIAL_MARKDOWN)
   const [marenName, setMarenName] = useState("Maren")
@@ -89,6 +138,7 @@ export default function ParticipantLinksHarnessPage() {
         id: `scratch-${kind}-${++mintSequence}`,
         label: name,
       }),
+      preview: async (ref) => SCRATCH_PREVIEWS[`${ref.kind}:${ref.id}`] ?? null,
     })
   }, [world])
 
