@@ -22,8 +22,7 @@ import {
   offset,
   shift,
 } from "@floating-ui/dom"
-import { PlusIcon } from "@phosphor-icons/react/dist/ssr"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import {
@@ -34,26 +33,10 @@ import {
 } from "@workspace/ui/components/command"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
-import type { LinkerIconKey } from "@/domain/planner/view/linker"
-
-export interface ParticipantCompletionPresentation {
-  iconKey: LinkerIconKey
-  kind: "option" | "mint"
-}
-
-const completionPresentations = new WeakMap<
-  Completion,
-  ParticipantCompletionPresentation
->()
-
-/** Associates app-owned visuals with a CodeMirror-owned completion row. */
-export function registerParticipantCompletion(
-  completion: Completion,
-  presentation: ParticipantCompletionPresentation
-): void {
-  completionPresentations.set(completion, presentation)
-}
+import {
+  completionPresentationOf,
+  type CompletionPresentation,
+} from "@/components/editor/completion-presentation"
 
 /** Mirrors CodeMirror's public completion state into a caret-anchored React view. */
 export function participantLinkCompletionMenu(): Extension {
@@ -119,13 +102,7 @@ function ParticipantCompletionMenu({
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null
   )
-  const rows = completions.map((completion, index) => ({
-    completion,
-    index,
-    presentation: presentationFor(completion),
-  }))
-  const optionRows = rows.filter((row) => row.presentation.kind === "option")
-  const mintRows = rows.filter((row) => row.presentation.kind === "mint")
+  const groups = groupRowsBySection(completions)
 
   useLayoutEffect(() => {
     const panel = panelRef.current
@@ -159,20 +136,21 @@ function ParticipantCompletionMenu({
     >
       <Command shouldFilter={false} value={completionValue(selectedIndex)}>
         <CommandList>
-          {optionRows.length > 0 ? (
-            <CommandGroup heading="From the world web">
-              {optionRows.map((row) => (
-                <CompletionMenuRow key={row.index} view={view} {...row} />
+          {groups.map((group) => (
+            <CommandGroup
+              key={`${group.rows[0]!.index}-${group.name ?? ""}`}
+              heading={group.name ?? undefined}
+            >
+              {group.rows.map((row) => (
+                <CompletionMenuRow
+                  key={row.index}
+                  view={view}
+                  selected={row.index === selectedIndex}
+                  {...row}
+                />
               ))}
             </CommandGroup>
-          ) : null}
-          {mintRows.length > 0 ? (
-            <CommandGroup heading="Create">
-              {mintRows.map((row) => (
-                <CompletionMenuRow key={row.index} view={view} {...row} />
-              ))}
-            </CommandGroup>
-          ) : null}
+          ))}
         </CommandList>
       </Command>
     </div>
@@ -184,16 +162,33 @@ function CompletionMenuRow({
   completion,
   index,
   presentation,
+  selected,
 }: {
   view: EditorView
   completion: Completion
   index: number
-  presentation: ParticipantCompletionPresentation
+  presentation: CompletionPresentation | null
+  selected: boolean
 }) {
-  const Icon =
-    presentation.kind === "mint"
-      ? PlusIcon
-      : PARTICIPANT_KIND_ICONS[presentation.iconKey]
+  const Icon = presentation?.icon
+  const itemRef = useRef<HTMLDivElement | null>(null)
+
+  // cmdk schedules its scroll-into-view only for selection it moves itself
+  // (its own key handling; plus once at mount). This menu's selection arrives
+  // from outside through the controlled `value`, a path cmdk merely stores —
+  // so the mirrored row must scroll itself into the CommandList's viewport.
+  // Like cmdk's scroller, the first row of a group brings its heading along.
+  useEffect(() => {
+    const item = itemRef.current
+    if (!selected || item === null) return
+    if (item.parentElement?.firstChild === item) {
+      item
+        .closest('[data-slot="command-group"]')
+        ?.querySelector("[cmdk-group-heading]")
+        ?.scrollIntoView({ block: "nearest" })
+    }
+    item.scrollIntoView({ block: "nearest" })
+  }, [selected])
 
   function select() {
     view.dispatch({ effects: setSelectedCompletion(index) })
@@ -201,6 +196,7 @@ function CompletionMenuRow({
 
   return (
     <CommandItem
+      ref={itemRef}
       forceMount
       value={completionValue(index)}
       data-participant-completion-index={index}
@@ -214,14 +210,16 @@ function CompletionMenuRow({
         })
       }}
     >
-      <Icon
-        aria-hidden
-        className={cn(
-          presentation.kind === "option" && presentation.iconKey === "npc"
-            ? "text-primary-text"
-            : "text-muted-foreground"
-        )}
-      />
+      {Icon ? (
+        <Icon
+          aria-hidden
+          className={cn(
+            presentation?.emphasized
+              ? "text-primary-text"
+              : "text-muted-foreground"
+          )}
+        />
+      ) : null}
       <span className="min-w-0 flex-1 truncate font-medium">
         {completion.label}
       </span>
@@ -234,14 +232,44 @@ function CompletionMenuRow({
   )
 }
 
-function presentationFor(
-  completion: Completion
-): ParticipantCompletionPresentation {
-  const presentation = completionPresentations.get(completion)
-  if (presentation === undefined) {
-    throw new Error(`Missing presentation for completion: ${completion.label}`)
+interface CompletionMenuGroup {
+  name: string | null
+  rows: {
+    completion: Completion
+    index: number
+    presentation: CompletionPresentation | null
+  }[]
+}
+
+/**
+ * Groups rows by their CM6 section, mirroring how the native tooltip renders:
+ * `sortOptions` already places same-section options contiguously, so a single
+ * pass that breaks on section-name change preserves both the grouping and the
+ * `currentCompletions` indices the selection mirroring depends on.
+ */
+function groupRowsBySection(
+  completions: readonly Completion[]
+): CompletionMenuGroup[] {
+  const groups: CompletionMenuGroup[] = []
+  for (const [index, completion] of completions.entries()) {
+    const name = sectionNameOf(completion)
+    const row = {
+      completion,
+      index,
+      presentation: completionPresentationOf(completion),
+    }
+    const current = groups[groups.length - 1]
+    if (current && current.name === name) current.rows.push(row)
+    else groups.push({ name, rows: [row] })
   }
-  return presentation
+  return groups
+}
+
+function sectionNameOf(completion: Completion): string | null {
+  if (completion.section === undefined) return null
+  return typeof completion.section === "string"
+    ? completion.section
+    : completion.section.name
 }
 
 function completionValue(index: number): string {

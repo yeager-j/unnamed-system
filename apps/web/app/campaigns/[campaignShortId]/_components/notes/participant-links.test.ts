@@ -46,8 +46,9 @@ class ResizeObserverStub {
 }
 
 vi.stubGlobal("ResizeObserver", ResizeObserverStub)
+const scrollIntoViewMock = vi.fn()
 Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
-  value: () => {},
+  value: scrollIntoViewMock,
 })
 Object.defineProperties(Range.prototype, {
   getBoundingClientRect: {
@@ -522,6 +523,33 @@ describe("controlled participant completion menu", () => {
     })
   })
 
+  it("scrolls the newly selected row into the list's viewport", async () => {
+    const { view } = mount("@Mar")
+
+    await completionsOf(view)
+    // Let the Command finish mounting (cmdk scrolls once at mount) so the
+    // cleared spy can only be re-satisfied by a selection-driven scroll.
+    await vi.waitFor(() => {
+      expect(
+        document.querySelector("[data-participant-completion-menu]")
+      ).not.toBeNull()
+    })
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    scrollIntoViewMock.mockClear()
+
+    view.dispatch({ effects: setSelectedCompletion(2) })
+
+    // cmdk schedules its scroll only for selection it moves itself; the
+    // controlled `value` path just stores, so the mirrored row scrolls.
+    await vi.waitFor(() => {
+      const scrolledRows = scrollIntoViewMock.mock.contexts.map(
+        (element) =>
+          (element as HTMLElement).dataset?.participantCompletionIndex
+      )
+      expect(scrolledRows).toContain("2")
+    })
+  })
+
   it("applies pointer selection without moving focus from the editor", async () => {
     const { view } = mount("@Mar")
 
@@ -566,6 +594,33 @@ describe("controlled participant completion menu", () => {
       expect(
         document.querySelector("[data-participant-completion-menu]")
       ).toBeNull()
+    })
+  })
+})
+
+describe("slash commands under the participant owner", () => {
+  it("surfaces the block items and the participant handoff at a line start", async () => {
+    const { view } = mount("/")
+
+    const labels = (await completionsOf(view)).map(
+      (completion) => completion.label
+    )
+
+    expect(labels).toContain("Heading 2")
+    expect(labels).toContain("Link a participant")
+  })
+
+  it("hands off to the chip flow: /link becomes @ and reopens the world list", async () => {
+    const { view } = mount("/link")
+
+    await chooseCompletion(view, "Link a participant")
+
+    expect(view.state.doc.toString()).toBe("@")
+    expect(view.state.selection.main.head).toBe(1)
+    await vi.waitFor(() => {
+      expect(
+        currentCompletions(view.state).map((completion) => completion.label)
+      ).toContain("Maren")
     })
   })
 })
