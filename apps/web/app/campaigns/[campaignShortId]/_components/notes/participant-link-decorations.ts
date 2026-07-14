@@ -1,4 +1,3 @@
-import { syntaxTree } from "@codemirror/language"
 import {
   RangeSetBuilder,
   StateEffect,
@@ -13,8 +12,8 @@ import {
   WidgetType,
   type DecorationSet,
 } from "@codemirror/view"
-import type { SyntaxNode } from "@lezer/common"
 
+import { isPositionInsideCode } from "@/components/editor/markdown-code-context"
 import { CHIP_TOKEN_SOURCE, parseChipToken } from "@/domain/planner/chip"
 import {
   fallbackParticipantLabel,
@@ -25,7 +24,6 @@ import {
 
 import type { ParticipantLinkWorld } from "./participant-links"
 
-const CODE_NODE_NAMES = new Set(["InlineCode", "FencedCode", "CodeBlock"])
 const participantWorldChanged = StateEffect.define<void>()
 
 type ParticipantLinkStatus = "resolved" | "tombstoned" | "missing"
@@ -147,18 +145,6 @@ function selectionTouches(state: EditorState, from: number, to: number) {
   return state.selection.ranges.some(
     (range) => range.from <= to && range.to >= from
   )
-}
-
-export function isPositionInsideCode(
-  state: EditorState,
-  position: number
-): boolean {
-  let node: SyntaxNode | null = syntaxTree(state).resolveInner(position, 1)
-  while (node !== null) {
-    if (CODE_NODE_NAMES.has(node.name)) return true
-    node = node.parent
-  }
-  return false
 }
 
 export function participantTargetOf(ref: { kind: string; id: string }): string {

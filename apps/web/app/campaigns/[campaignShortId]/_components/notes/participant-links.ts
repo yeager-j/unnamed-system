@@ -1,6 +1,7 @@
 import {
   autocompletion,
   pickedCompletion,
+  startCompletion,
   type Completion,
   type CompletionContext,
   type CompletionSection,
@@ -8,11 +9,19 @@ import {
 } from "@codemirror/autocomplete"
 import type { Extension } from "@codemirror/state"
 import type { EditorView } from "@codemirror/view"
+import { AtIcon, PlusIcon } from "@phosphor-icons/react"
 import { startTransition } from "react"
 import { toast } from "sonner"
 
 import { wikiLinks, type WikiLinkResolvedTarget } from "@workspace/editor"
 
+import { registerCompletionPresentation } from "@/components/editor/completion-presentation"
+import { isPositionInsideCode } from "@/components/editor/markdown-code-context"
+import {
+  SLASH_INLINE_SECTION,
+  slashCommandSource,
+} from "@/components/editor/slash-commands"
+import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import { serializeChipToken } from "@/domain/planner/chip"
 import type { ParticipantRef } from "@/domain/planner/participant"
 import type { ParticipantPreview } from "@/domain/planner/participant-preview"
@@ -28,12 +37,8 @@ import {
 } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
+import { participantLinkCompletionMenu } from "./participant-link-completion-menu"
 import {
-  participantLinkCompletionMenu,
-  registerParticipantCompletion,
-} from "./participant-link-completion-menu"
-import {
-  isPositionInsideCode,
   participantLinkDecorations,
   participantTargetOf,
 } from "./participant-link-decorations"
@@ -138,6 +143,7 @@ export function createParticipantLinkExtensions(
   const sources: CompletionSource[] = [
     participantCompletionSource("@", config),
     participantCompletionSource("[[", config),
+    slashCommandSource({ extraItems: [linkParticipantCompletion()] }),
   ]
 
   return [
@@ -234,10 +240,32 @@ function participantCompletion(
       applyParticipantRef(view, selected, from, to, trigger, option.ref)
     },
   }
-  registerParticipantCompletion(completion, {
-    iconKey: option.iconKey,
-    kind: "option",
+  registerCompletionPresentation(completion, {
+    icon: PARTICIPANT_KIND_ICONS[option.iconKey],
+    emphasized: option.iconKey === "npc",
   })
+  return completion
+}
+
+/**
+ * The slash menu's bridge into the chip flow: replaces the typed `/query`
+ * with `@` and immediately reopens completions, landing the player in the
+ * participant source's world-web list.
+ */
+function linkParticipantCompletion(): Completion {
+  const completion: Completion = {
+    label: "Link a participant",
+    section: SLASH_INLINE_SECTION,
+    apply: (view, selected, from, to) => {
+      view.dispatch({
+        changes: { from, to, insert: "@" },
+        selection: { anchor: from + 1 },
+        annotations: pickedCompletion.of(selected),
+      })
+      startCompletion(view)
+    },
+  }
+  registerCompletionPresentation(completion, { icon: AtIcon })
   return completion
 }
 
@@ -271,7 +299,7 @@ function mintCompletion(
       )
     },
   }
-  registerParticipantCompletion(completion, { iconKey: kind, kind: "mint" })
+  registerCompletionPresentation(completion, { icon: PlusIcon })
   return completion
 }
 

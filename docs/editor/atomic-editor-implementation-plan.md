@@ -142,7 +142,7 @@ Two half-independent halves; display-path half can even precede P2.
 → **verify:** e2e hover → card shows current name for a renamed NPC; keyboard
 users unaffected; touch unaffected (navigation still works).
 
-## P4 — Slash commands (nice-to-have)
+## P4 — Slash commands (nice-to-have) — ✅ delivered (UNN-623)
 
 One more source in the P1 `override` array: `/` trigger,
 `Completion.section` groups, markdown-text inserts (no round-trip gate

@@ -112,6 +112,32 @@ test("notes: create a beat, autosave the title, quick-mint a chip via @", async 
   ).toHaveText(/Odessa/)
 })
 
+test("notes: slash command inserts a heading that persists as markdown", async ({
+  page,
+}) => {
+  await page.goto(`/campaigns/${campaign.shortId}/notes`)
+  await page.getByRole("button", { name: "New beat" }).click()
+  await expect(page).toHaveURL(/\/notes\?beat=/)
+  const beatId = new URL(page.url()).searchParams.get("beat")!
+
+  // `/` on the empty first line opens the block menu — the same controlled
+  // shadcn bridge that renders the chip completions; picking "Heading 2"
+  // replaces the typed trigger with `## `.
+  const body = page.locator(".cm-content")
+  await body.click()
+  await page.keyboard.type("/head")
+  const menu = page.locator("[data-participant-completion-menu]")
+  await expect(menu.getByText("Basic blocks")).toBeVisible()
+  await menu.getByText("Heading 2", { exact: true }).click()
+  await page.keyboard.type("The Queen's Court")
+
+  // The body autosave persists plain CommonMark — the heading line survives
+  // as `## ` text, not markup.
+  await expect
+    .poll(async () => (await readBeatById(beatId)).body, { timeout: 5000 })
+    .toContain("## The Queen's Court")
+})
+
 test("notes: schedule the beat into a slot; occupied slots disable", async ({
   page,
 }) => {
@@ -246,6 +272,15 @@ async function readBeat() {
     .orderBy(campaignBeat.createdAt)
   expect(rows.length).toBeGreaterThan(0)
   return rows[0]!
+}
+
+async function readBeatById(id: string) {
+  const [row] = await getDb()
+    .select()
+    .from(campaignBeat)
+    .where(eq(campaignBeat.id, id))
+  expect(row).toBeDefined()
+  return row!
 }
 
 async function readMentions() {

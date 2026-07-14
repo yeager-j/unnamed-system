@@ -570,6 +570,33 @@ describe("controlled participant completion menu", () => {
   })
 })
 
+describe("slash commands under the participant owner", () => {
+  it("surfaces the block items and the participant handoff at a line start", async () => {
+    const { view } = mount("/")
+
+    const labels = (await completionsOf(view)).map(
+      (completion) => completion.label
+    )
+
+    expect(labels).toContain("Heading 2")
+    expect(labels).toContain("Link a participant")
+  })
+
+  it("hands off to the chip flow: /link becomes @ and reopens the world list", async () => {
+    const { view } = mount("/link")
+
+    await chooseCompletion(view, "Link a participant")
+
+    expect(view.state.doc.toString()).toBe("@")
+    expect(view.state.selection.main.head).toBe(1)
+    await vi.waitFor(() => {
+      expect(
+        currentCompletions(view.state).map((completion) => completion.label)
+      ).toContain("Maren")
+    })
+  })
+})
+
 describe("mint completions", () => {
   it("inserts the minted ref and makes it immediately resolvable", async () => {
     let resolveMint!: (ref: ParticipantLinkTarget["ref"] | null) => void
