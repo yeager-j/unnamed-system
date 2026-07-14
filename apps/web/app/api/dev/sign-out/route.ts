@@ -23,7 +23,11 @@ import { getDb, sessions } from "@/lib/db"
  * own sessions) and clears the `authjs.session-token` cookie. Idempotent —
  * calling it without an active session still returns 200.
  *
- * @example Sign out from the Preview MCP browser
+ * @example Sign out from the built-in browser
+ *
+ *   Open the account menu and click "Sign out".
+ *
+ * @example Sign out from a browser client that can execute page scripts
  *
  *   await fetch("/api/dev/sign-out", { method: "POST" })
  *   // Subsequent requests in this browser context are now signed out.

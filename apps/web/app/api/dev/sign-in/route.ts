@@ -1,13 +1,10 @@
-import { randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 
 import {
+  issueDevSession,
   respondNotFound,
-  SESSION_COOKIE_NAME,
-  SESSION_TTL_MS,
   validateDevAuthRequest,
 } from "@/lib/auth/dev-auth"
-import { getDb, sessions } from "@/lib/db"
 
 /**
  * Dev-only sign-in helper. Lets an ad-hoc automation client (Claude in an
@@ -34,7 +31,11 @@ import { getDb, sessions } from "@/lib/db"
  * Vercel preview (where this route is 404-locked by the production guard)
  * with no additional secret material.
  *
- * @example Sign in from the Preview MCP browser (cookie lands automatically)
+ * @example Sign in from the built-in browser
+ *
+ *   Open `/` and click "Dev sign in" in the signed-out home panel.
+ *
+ * @example Sign in from a browser client that can execute page scripts
  *
  *   await fetch("/api/dev/sign-in", { method: "POST" })
  *   // Subsequent requests in this browser context are now authenticated.
@@ -62,26 +63,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   const validated = await validateDevAuthRequest(request, "sign-in")
   if (!validated.ok) return validated.response
 
-  const sessionToken = randomUUID()
-  const expires = new Date(Date.now() + SESSION_TTL_MS)
-
-  await getDb().insert(sessions).values({
-    sessionToken,
-    userId: validated.userId,
-    expires,
-  })
+  const sessionCookie = await issueDevSession(validated.userId)
 
   const response = NextResponse.json({
     ok: true,
-    sessionToken,
-    cookieName: SESSION_COOKIE_NAME,
+    sessionToken: sessionCookie.value,
+    cookieName: sessionCookie.name,
   })
-  response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: false,
-    expires,
-  })
+  response.cookies.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.options
+  )
   return response
 }
