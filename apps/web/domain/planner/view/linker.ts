@@ -22,6 +22,12 @@ export interface LinkerOption {
   /** The right-aligned muted line: "The Moon · Warlock", an article's type, "Level 4 · Warrior". Null for stubs. */
   sublabel: string | null
   iconKey: LinkerIconKey
+  /**
+   * A character's URL short id, carried alongside the `character:` ref (whose
+   * id is the durable entity id, not the slug) so a character chip can open the
+   * sheet. Only set for character rows; NPCs/articles route by ref id.
+   */
+  characterShortId?: string
 }
 
 const ARTICLE_TYPE_ICONS: Record<string, LinkerIconKey> = {
@@ -75,6 +81,7 @@ export function buildLinkerOptions(input: {
           ? "Draft"
           : `Level ${character.level} · ${archetypeDisplayName(character.activeArchetypeKey)}`,
       iconKey: "character",
+      characterShortId: character.shortId,
     })
   )
   return [...npcOptions, ...articleOptions, ...characterOptions]

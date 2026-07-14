@@ -17,6 +17,7 @@ import type { LinkerOption } from "@/domain/planner/view/linker"
 import {
   createParticipantLinkExtensions,
   createParticipantLinkWorld,
+  participantWorldSnapshot,
   type ParticipantLinkTarget,
 } from "./participant-links"
 
@@ -607,5 +608,39 @@ describe("mint completions", () => {
     })
 
     expect(view.state.doc.toString()).toBe("@New Friend")
+  })
+})
+
+describe("participantWorldSnapshot", () => {
+  const npcOption: LinkerOption = {
+    ref: { kind: "npc", id: "n1", label: "Maren" },
+    label: "Maren",
+    sublabel: null,
+    iconKey: "npc",
+  }
+  const characterOption: LinkerOption = {
+    ref: { kind: "character", id: "entity-abc", label: "Iris" },
+    label: "Iris",
+    sublabel: "Level 4 · Warrior",
+    iconKey: "character",
+    characterShortId: "iris1234",
+  }
+
+  it("carries a character's short id onto its target so the chip can open the sheet", () => {
+    const { targets } = participantWorldSnapshot([characterOption])
+    // The ref id is the durable entity id; navigation needs the URL short id.
+    expect(targets).toEqual([
+      {
+        ref: characterOption.ref,
+        label: "Iris",
+        tombstoned: false,
+        characterShortId: "iris1234",
+      },
+    ])
+  })
+
+  it("leaves characterShortId undefined for non-character rows", () => {
+    const [target] = participantWorldSnapshot([npcOption]).targets
+    expect(target?.characterShortId).toBeUndefined()
   })
 })
