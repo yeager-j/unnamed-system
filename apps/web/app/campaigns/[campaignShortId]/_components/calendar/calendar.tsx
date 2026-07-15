@@ -40,7 +40,9 @@ export function Calendar({
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="border-b px-4 py-5 md:px-7">
         <div className="mx-auto flex w-full max-w-[1120px] flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-3xl tracking-tight">Calendar</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">
+            Calendar
+          </h1>
           <span className="inline-flex h-[30px] items-center gap-2 rounded-full border bg-card px-3.5 font-mono text-xs text-muted-foreground tabular-nums">
             <span className="size-2 rounded-full bg-primary" />
             Now · Day {view.currentDay}

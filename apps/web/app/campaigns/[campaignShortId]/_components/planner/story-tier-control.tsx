@@ -1,6 +1,6 @@
 "use client"
 
-import { CaretDownIcon, StarFourIcon } from "@phosphor-icons/react/dist/ssr"
+import { CaretDownIcon } from "@phosphor-icons/react/dist/ssr"
 
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 
+import { Sparkle } from "@/components/shared/celestial"
 import { NUMERIC_TIER_LABELS } from "@/domain/labels"
 
 const STORY_TIERS = [1, 2, 3, 4] as const
@@ -32,8 +33,8 @@ export function StoryTierControl({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
-        <StarFourIcon weight="fill" className="size-3.5 text-gold" />
+      <DropdownMenuTrigger render={<Button variant="outline" />}>
+        <Sparkle className="size-3.5 text-gold" />
         Story · {NUMERIC_TIER_LABELS[storyTier]}
         <CaretDownIcon className="size-3.5 text-muted-foreground" />
       </DropdownMenuTrigger>

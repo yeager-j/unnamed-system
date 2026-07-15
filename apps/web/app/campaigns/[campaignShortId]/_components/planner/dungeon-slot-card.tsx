@@ -77,7 +77,7 @@ export function DungeonSlotCard({
           </Badge>
         ) : null}
       </div>
-      <h2 className="mt-2 flex items-center gap-2 font-display text-2xl text-foreground">
+      <h2 className="mt-2 flex items-center gap-2 font-display text-2xl font-bold text-foreground">
         <CastleTurretIcon className="size-6 shrink-0 text-gold" />
         {dungeon.name}
       </h2>

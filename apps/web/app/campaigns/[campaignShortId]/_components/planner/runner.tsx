@@ -224,7 +224,9 @@ export function Runner({
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3 md:px-6">
         <div className="min-w-0">
-          <h1 className="font-display text-xl text-foreground">Run the day</h1>
+          <h1 className="font-display text-xl font-bold text-foreground">
+            Run the day
+          </h1>
           <p className="text-sm text-muted-foreground">
             Day {currentDay}
             {seasonLabel ? ` · ${seasonLabel}` : null}
@@ -599,10 +601,10 @@ function ClockMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setSkipOpen(true)}>
-            Skip ahead several days…
+            Skip ahead
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setUnAdvanceOpen(true)}>
-            Go back to Day {currentDay - 1}
+            Rewind
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

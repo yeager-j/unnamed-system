@@ -7,6 +7,7 @@ import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { ParticipantPreviewPill } from "@/components/shared/participant-preview"
+import { Prose } from "@/components/shared/prose"
 import type { ParticipantKind } from "@/domain/planner/participant"
 
 /** One pill on the card's concern strip. */
@@ -94,16 +95,13 @@ export function UpdateEntryCard({
           </div>
         ) : null}
       </div>
-      <p
-        className={cn(
-          "mt-2 text-[15px] leading-relaxed whitespace-pre-wrap",
-          isIdle && body.trim() === ""
-            ? "text-muted-foreground italic"
-            : "text-foreground"
-        )}
-      >
-        {body.trim() === "" && isIdle ? "Did nothing substantial." : body}
-      </p>
+      {body.trim() === "" && isIdle ? (
+        <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground italic">
+          Did nothing substantial.
+        </p>
+      ) : (
+        <Prose className="mt-2">{body}</Prose>
+      )}
       {pills.length > 0 ? (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {pillsLabel ? (

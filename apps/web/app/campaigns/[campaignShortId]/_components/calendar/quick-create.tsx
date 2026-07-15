@@ -1,9 +1,9 @@
 "use client"
 
 import {
+  CalendarIcon,
   FlagBannerIcon,
   PlusIcon,
-  StarFourIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
@@ -74,9 +74,9 @@ export function QuickCreate({
           >
             <PlusIcon className="size-3" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent className="w-48" align="start">
             <DropdownMenuItem onClick={() => setKind("event")}>
-              <StarFourIcon className="text-gold" /> Add an event…
+              <CalendarIcon className="text-gold" /> Add an event…
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setKind("deadline")}>
               <FlagBannerIcon className="text-destructive" /> Add a deadline…

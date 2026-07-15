@@ -58,7 +58,7 @@ export function WorldDocRail({
           <CaretLeftIcon className="size-3.5 shrink-0" />
           All NPCs
         </SidebarMenuButton>
-        <div className="truncate px-2 font-display text-lg leading-tight text-foreground">
+        <div className="truncate px-2 font-display text-lg leading-tight font-bold text-foreground">
           {name}
         </div>
       </SidebarHeader>

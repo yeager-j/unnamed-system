@@ -150,7 +150,9 @@ export default async function ChroniclePage({
       <div className="flex w-full max-w-[720px] min-w-0 flex-col gap-5">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b pb-4">
           <div>
-            <h1 className="font-display text-3xl text-foreground">Chronicle</h1>
+            <h1 className="font-display text-3xl font-bold text-foreground">
+              Chronicle
+            </h1>
             <p className="text-sm text-muted-foreground">
               The world&apos;s past, day by day
             </p>

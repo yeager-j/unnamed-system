@@ -84,9 +84,9 @@ export function StoryBeatCard({
     })
 
   return (
-    <div className="mx-auto w-full max-w-2xl rounded-[calc(var(--radius)+4px)] border bg-card p-6">
+    <div className="mx-auto w-full max-w-3xl rounded-[calc(var(--radius)+4px)] border bg-card p-6">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
           Story beat
         </span>
         {beat.resolved ? (
@@ -96,7 +96,7 @@ export function StoryBeatCard({
           </Badge>
         ) : null}
       </div>
-      <h2 className="mt-2 font-display text-2xl text-foreground">
+      <h2 className="mt-2 font-display text-3xl font-bold text-foreground">
         {beat.title}
       </h2>
       {beat.tagline.trim() === "" ? null : (
@@ -179,8 +179,8 @@ export function StoryBeatCard({
 }
 
 /**
- * The inline read-only body (§2's UX delta), collapsible and open by default
- * — this card is the at-table reading surface. Chips render as pills with
+ * The inline read-only body (§2's UX delta), collapsed by default behind a
+ * "Show notes" toggle to keep the runner scannable. Chips render as pills with
  * resolver-current names via {@link ChipProse}.
  */
 function BeatNotes({
@@ -190,7 +190,7 @@ function BeatNotes({
   body: string
   participants: ResolvedParticipant[]
 }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
       <CollapsibleTrigger
@@ -208,10 +208,7 @@ function BeatNotes({
         {open ? "Hide notes" : "Show notes"}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ChipProse
-          participants={participants}
-          className="mt-1 rounded-lg border bg-muted/12 px-4 py-3"
-        >
+        <ChipProse participants={participants} className="mt-1">
           {body}
         </ChipProse>
       </CollapsibleContent>

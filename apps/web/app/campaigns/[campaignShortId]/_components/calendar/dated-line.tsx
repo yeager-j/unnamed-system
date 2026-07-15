@@ -1,9 +1,9 @@
 "use client"
 
 import {
+  CalendarIcon,
   DotsThreeVerticalIcon,
   FlagBannerIcon,
-  StarFourIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import { useState } from "react"
 
@@ -76,7 +76,7 @@ export function DatedLine({
           )}
         />
       ) : (
-        <StarFourIcon weight="fill" className="size-3.5 shrink-0 text-gold" />
+        <CalendarIcon className="size-3.5 shrink-0 text-gold" />
       )}
       <span
         className={cn(
@@ -138,7 +138,7 @@ export function DatedLine({
           ) : (
             <>
               <DropdownMenuItem onClick={() => setDateOpen(true)}>
-                Change the day…
+                Change Day
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -150,7 +150,7 @@ export function DatedLine({
                   )
                 }
               >
-                Remove from the calendar
+                Remove
               </DropdownMenuItem>
             </>
           )}

@@ -180,7 +180,7 @@ export default function ParticipantLinksHarnessPage() {
         </p>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-display text-4xl leading-none text-foreground">
+            <h1 className="font-display text-4xl leading-none font-bold text-foreground">
               Participant links
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
@@ -215,11 +215,15 @@ export default function ParticipantLinksHarnessPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-lg border border-border bg-card p-5">
-          <h2 className="mb-3 font-display text-xl">Read-only rendering</h2>
+          <h2 className="mb-3 font-display text-xl font-bold">
+            Read-only rendering
+          </h2>
           <Prose>{markdown}</Prose>
         </section>
         <section className="rounded-lg border border-border bg-card p-5">
-          <h2 className="mb-3 font-display text-xl">Harness signals</h2>
+          <h2 className="mb-3 font-display text-xl font-bold">
+            Harness signals
+          </h2>
           <dl className="grid gap-3 text-sm">
             <div>
               <dt className="text-xs text-muted-foreground">Live world name</dt>

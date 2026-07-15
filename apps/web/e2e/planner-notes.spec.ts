@@ -147,9 +147,10 @@ test("notes: schedule the beat into a slot; occupied slots disable", async ({
   const beat = await readBeat()
   await page.goto(`/campaigns/${campaign.shortId}/notes/${beat.id}`)
 
+  // The pill opens a searchable combobox (UNN-615): slots are `option`s grouped
+  // by day, no submenu hover — pick Morning directly.
   await page.getByRole("button", { name: "Not scheduled" }).click()
-  await page.getByRole("menuitem", { name: "Day 1" }).hover()
-  await page.getByRole("menuitem", { name: "Morning" }).click()
+  await page.getByRole("option", { name: "Morning" }).click()
 
   await expect(
     page.getByRole("button", { name: "Day 1 · Morning" })
@@ -161,8 +162,7 @@ test("notes: schedule the beat into a slot; occupied slots disable", async ({
   await page.getByRole("button", { name: "Create" }).click()
   await expect(page).toHaveURL(/\/notes\/[^/?]+$/)
   await page.getByRole("button", { name: "Not scheduled" }).click()
-  await page.getByRole("menuitem", { name: "Day 1" }).hover()
-  const occupied = page.getByRole("menuitem", { name: /Morning/ })
+  const occupied = page.getByRole("option", { name: /Morning/ })
   await expect(occupied).toHaveText(/The Queen's Offer/)
   await expect(occupied).toHaveAttribute("aria-disabled", "true")
   await page.keyboard.press("Escape")

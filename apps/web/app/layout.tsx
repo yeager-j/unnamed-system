@@ -61,7 +61,12 @@ export default function RootLayout({
               <SiteHeader />
             </HeaderGate>
             {children}
-            <Toaster richColors closeButton position="bottom-right" />
+            <Toaster
+              theme="dark"
+              richColors
+              closeButton
+              position="bottom-right"
+            />
           </TooltipProvider>
         </ThemeProvider>
       </body>

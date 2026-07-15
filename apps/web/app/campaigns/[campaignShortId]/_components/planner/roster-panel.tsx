@@ -60,7 +60,7 @@ export function RosterPanel({
             {dayLine}
           </div>
         ) : null}
-        <div className="font-display text-lg leading-tight text-foreground">
+        <div className="font-display text-lg leading-tight font-bold text-foreground">
           {campaignName}
         </div>
       </SidebarHeader>

@@ -8,7 +8,6 @@ import {
   HourglassIcon,
   PencilSimpleLineIcon,
   ScrollIcon,
-  StarFourIcon,
   XIcon,
 } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
@@ -18,6 +17,7 @@ import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { Sparkle } from "@/components/shared/celestial"
 import { NUMERIC_TIER_LABELS } from "@/domain/labels"
 import type { DayEndReadiness } from "@/domain/planner/day-end"
 import type { DatedDeadline } from "@/domain/planner/deadline"
@@ -173,12 +173,8 @@ export function DayEndCapture({
         </div>
 
         <header className="flex flex-col items-center gap-2 text-center">
-          <StarFourIcon
-            weight="fill"
-            aria-hidden
-            className="size-7 text-gold"
-          />
-          <h1 className="font-display text-4xl whitespace-nowrap text-foreground">
+          <Sparkle className="size-8 text-gold" />
+          <h1 className="font-display text-4xl font-bold whitespace-nowrap text-foreground">
             Time Marches On
           </h1>
           <p className="text-muted-foreground">
@@ -216,8 +212,8 @@ export function DayEndCapture({
 
         {suggests.length > 0 ? (
           <div className="flex flex-col gap-2">
-            <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-              Suggested updates — click to draft, nothing writes itself
+            <span className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+              Suggested updates
             </span>
             <div className="flex flex-wrap gap-1.5">
               {suggests.map((suggest) => (
@@ -405,7 +401,7 @@ function StoryTierNudge({
   return (
     <div className="flex items-center gap-4 rounded-lg border p-4">
       <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-gold/10">
-        <StarFourIcon weight="fill" className="size-5 text-gold" />
+        <Sparkle className="size-5 text-gold" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
