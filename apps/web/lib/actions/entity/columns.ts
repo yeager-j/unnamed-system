@@ -15,12 +15,14 @@ import {
   RemoveEntityPortraitSchema,
   SetEntityBuilderStepSchema,
   UpdateEntityNameSchema,
+  UpdateEntityNotesSchema,
   UpdateEntityPronounsSchema,
   type EntityColumnActionError,
   type RemoveEntityPortraitInput,
   type SetEntityBuilderStepError,
   type SetEntityBuilderStepInput,
   type UpdateEntityNameInput,
+  type UpdateEntityNotesInput,
   type UpdateEntityPronounsInput,
   type UploadEntityPortraitError,
 } from "./columns.schema"
@@ -82,6 +84,24 @@ export async function updateEntityPronounsAction(
   const { entity: row } = await requireEntityOwner(parsed.data.entityId)
   return commitColumnPatch(row, parsed.data.expectedVersion, {
     pronouns: parsed.data.pronouns.trim() || null,
+  })
+}
+
+/**
+ * The free-form Notes column. Owner-gated like every other column action, but
+ * unlike name, an empty body is legitimate — a cleared note canonicalizes to
+ * `null` (mirroring the narrative prose fields' empty→null rule) rather than
+ * being rejected.
+ */
+export async function updateEntityNotesAction(
+  input: UpdateEntityNotesInput
+): Promise<Result<EntityColumnCommit, EntityColumnActionError>> {
+  const parsed = UpdateEntityNotesSchema.safeParse(input)
+  if (!parsed.success) return err("invalid-input")
+
+  const { entity: row } = await requireEntityOwner(parsed.data.entityId)
+  return commitColumnPatch(row, parsed.data.expectedVersion, {
+    notes: parsed.data.notes === "" ? null : parsed.data.notes,
   })
 }
 

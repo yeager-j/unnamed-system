@@ -7,7 +7,7 @@ import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useEntityAutoSave } from "@/domain/entity/use-entity-write"
 
 /**
- * The Movement 3 writer's document surface: the shared
+ * The Animus writer's narrative document surface: the shared
  * {@link DocumentEditor} shell bound to the **entity door** — two independent
  * {@link useEntityAutoSave} instances drive title and body. Both dispatch
  * identity-class narrative descriptors through the provider's shared token +
@@ -15,10 +15,11 @@ import { useEntityAutoSave } from "@/domain/entity/use-entity-write"
  * in-frame — no version race between them — and the server merges each write
  * per field/entry, so they can't clobber each other.
  *
- * Every document — editable (Knives / Chains) or fixed (Backstory /
+ * Every narrative document — editable (Knives / Chains) or fixed (Backstory /
  * Identity Traits) — renders the same shell. Fixed documents pass no
  * `makeTitleWrite`, which flips the title to `readOnly` so the styling and
- * rhythm stay identical across kinds.
+ * rhythm stay identical across kinds. (Notes renders a sibling editor bound to
+ * the column door — see `NotesDocumentEditor`.)
  */
 export interface DocumentEditorMessages {
   /** Aria label for the body editor. Should describe the document. */

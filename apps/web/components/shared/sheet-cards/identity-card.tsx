@@ -5,6 +5,10 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 
 import { Prose } from "@/components/shared/prose"
 import { SectionLabel } from "@/components/shared/section-label"
+import {
+  SectionEditLink,
+  useAnimusEditHref,
+} from "@/components/shared/sheet-cards/animus-edit"
 import { useViewerRole } from "@/components/shell/viewer-role"
 import {
   IDENTITY_TRAIT_MESSAGES,
@@ -14,6 +18,8 @@ import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
 
 import { SheetCard } from "./sheet-card"
 
+type EditHrefFor = (field: IdentityTraitField) => string | null
+
 /**
  * The Identity card (design frame `10b`; rulebook 1.5): the five Identity
  * Traits as read-only Markdown — Personality full-width, then Hopes / Dreams
@@ -21,12 +27,25 @@ import { SheetCard } from "./sheet-card"
  * redacted server-side (`lib/character/redact.ts` — the rulebook shares
  * Secrets with the DM in private), and a non-owner sees the block as
  * deliberately-covered Skeleton bars rather than an absent section, so the
- * redaction reads as intentional. Editing arrives with its own affordance in
- * a later ticket.
+ * redaction reads as intentional.
+ *
+ * `editable` opts the card into the owner's click-to-edit affordance (UNN-221):
+ * each trait heading becomes a link into the Animus writer. The sheet's Explore
+ * tab passes it; other hosts (the dungeon delve column) leave it off and the
+ * card stays purely read-only. Editing is never inline — the writer is the only
+ * edit surface.
  */
-export function IdentityCard() {
+export function IdentityCard({ editable = false }: { editable?: boolean }) {
   const { entity } = useLoadedCharacter()
   const narrative = entity.components.narrative
+  const editHref = useAnimusEditHref(editable)
+
+  const hrefFor: EditHrefFor = (field) =>
+    editHref({
+      kind: "identity",
+      id: field,
+      label: IDENTITY_TRAIT_MESSAGES[field].label,
+    })
 
   return (
     <SheetCard title="Identity">
@@ -34,21 +53,30 @@ export function IdentityCard() {
         <TraitBlock
           field="personality"
           narrative={narrative}
+          hrefFor={hrefFor}
           className="lg:col-span-2"
         />
-        <TraitBlock field="hopes" narrative={narrative} />
-        <TraitBlock field="dreams" narrative={narrative} />
-        <TraitBlock field="fears" narrative={narrative} />
-        <SecretsBlock narrative={narrative} />
+        <TraitBlock field="hopes" narrative={narrative} hrefFor={hrefFor} />
+        <TraitBlock field="dreams" narrative={narrative} hrefFor={hrefFor} />
+        <TraitBlock field="fears" narrative={narrative} hrefFor={hrefFor} />
+        <SecretsBlock narrative={narrative} hrefFor={hrefFor} />
       </div>
     </SheetCard>
   )
 }
 
-function SecretsBlock({ narrative }: { narrative: Narrative | undefined }) {
+function SecretsBlock({
+  narrative,
+  hrefFor,
+}: {
+  narrative: Narrative | undefined
+  hrefFor: EditHrefFor
+}) {
   const role = useViewerRole()
   if (role === "owner") {
-    return <TraitBlock field="secrets" narrative={narrative} />
+    return (
+      <TraitBlock field="secrets" narrative={narrative} hrefFor={hrefFor} />
+    )
   }
 
   return (
@@ -73,18 +101,28 @@ function SecretsBlock({ narrative }: { narrative: Narrative | undefined }) {
 function TraitBlock({
   field,
   narrative,
+  hrefFor,
   className,
 }: {
   field: IdentityTraitField
   narrative: Narrative | undefined
+  hrefFor: EditHrefFor
   className?: string
 }) {
   const value = narrative?.[field]
+  const label = IDENTITY_TRAIT_MESSAGES[field].label
+  const href = hrefFor(field)
 
   return (
     <div className={className}>
       <SectionLabel className="mb-1.5">
-        {IDENTITY_TRAIT_MESSAGES[field].label}
+        {href ? (
+          <SectionEditLink href={href} ariaLabel={`Edit ${label}`}>
+            {label}
+          </SectionEditLink>
+        ) : (
+          label
+        )}
       </SectionLabel>
       {value ? (
         <Prose>{value}</Prose>

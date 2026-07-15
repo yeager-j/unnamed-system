@@ -5,6 +5,8 @@ import { emptyNarrative, type Narrative } from "@workspace/game-v2/narrative"
 import {
   buildDocumentGroups,
   DEFAULT_DOCUMENT_REF,
+  documentRefToParam,
+  parseDocumentRef,
   refsEqual,
   resolveDocumentContent,
   type DocumentRef,
@@ -15,13 +17,30 @@ function narrative(overrides: Partial<Narrative> = {}): Narrative {
 }
 
 describe("buildDocumentGroups", () => {
-  it("returns the four groups in fixed Movement-3 order", () => {
+  it("returns the four narrative groups in fixed Movement-3 order", () => {
     const groups = buildDocumentGroups(narrative())
     expect(groups.map((g) => g.kind)).toEqual([
       "backstory",
       "knives",
       "chains",
       "identity",
+    ])
+  })
+
+  it("appends a single non-editable Notes group only when includeNotes is set", () => {
+    expect(
+      buildDocumentGroups(narrative(), { includeNotes: true }).map(
+        (g) => g.kind
+      )
+    ).toEqual(["backstory", "knives", "chains", "identity", "notes"])
+
+    const notes = buildDocumentGroups(narrative(), { includeNotes: true }).find(
+      (g) => g.kind === "notes"
+    )!
+    expect(notes.canAdd).toBe(false)
+    expect(notes.canRemove).toBe(false)
+    expect(notes.entries).toEqual([
+      { kind: "notes", id: "notes", label: "Notes" },
     ])
   })
 
@@ -118,6 +137,63 @@ describe("resolveDocumentContent", () => {
       ref,
       body: "- Free my sister",
       title: null,
+    })
+  })
+
+  it("returns null for Notes (body lives on the profile column, not narrative)", () => {
+    const ref: DocumentRef = { kind: "notes", id: "notes", label: "Notes" }
+    expect(resolveDocumentContent(ref, source)).toBeNull()
+  })
+})
+
+describe("documentRefToParam / parseDocumentRef round-trip", () => {
+  const source = narrative({
+    knives: [{ title: "Mira", description: "my sister" }],
+    chains: [{ title: "The court", description: null }],
+  })
+
+  const cases: DocumentRef[] = [
+    { kind: "backstory", id: "backstory", label: "Backstory" },
+    { kind: "knife", id: "0", label: "Mira" },
+    { kind: "chain", id: "0", label: "The court" },
+    { kind: "identity", id: "fears", label: "Fears" },
+    { kind: "notes", id: "notes", label: "Notes" },
+  ]
+
+  it.each(cases)("round-trips $kind through the ?doc= param", (ref) => {
+    const parsed = parseDocumentRef(documentRefToParam(ref), source, {
+      includeNotes: true,
+    })
+    expect(refsEqual(parsed, ref)).toBe(true)
+  })
+
+  it("falls back to Backstory for a missing param", () => {
+    expect(parseDocumentRef(undefined, source, { includeNotes: true })).toEqual(
+      DEFAULT_DOCUMENT_REF
+    )
+  })
+
+  it("falls back to Backstory for a Knife index past the end", () => {
+    expect(parseDocumentRef("knife:7", source)).toEqual(DEFAULT_DOCUMENT_REF)
+  })
+
+  it("falls back to Backstory for an unknown identity field", () => {
+    expect(parseDocumentRef("identity:vibes", source)).toEqual(
+      DEFAULT_DOCUMENT_REF
+    )
+  })
+
+  it("falls back to Backstory for Notes when the surface omits it", () => {
+    expect(parseDocumentRef("notes", source, { includeNotes: false })).toEqual(
+      DEFAULT_DOCUMENT_REF
+    )
+  })
+
+  it("rehydrates a Knife's label from the current narrative title", () => {
+    expect(parseDocumentRef("knife:0", source)).toEqual({
+      kind: "knife",
+      id: "0",
+      label: "Mira",
     })
   })
 })

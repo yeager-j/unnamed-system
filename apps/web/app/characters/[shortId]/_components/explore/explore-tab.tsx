@@ -7,9 +7,10 @@ import { VirtuesCard } from "@/components/shared/sheet-cards/virtues-card"
 /**
  * The Explore tab (S2b — UNN-558): the character's out-of-combat capability
  * surface — Virtues + the Spark loop, Talents, and the Identity Traits. Prose
- * is read-only (editing arrives with its own affordance in a later ticket);
- * the owner's writes here are the click-writes: Add Spark / Rank Up and
- * Add / Remove Talent.
+ * stays read-only here; the owner edits it in the Animus writer, reached by
+ * clicking a trait heading (UNN-221 — `IdentityCard editable`). The owner's
+ * other writes here are the click-writes: Add Spark / Rank Up and Add / Remove
+ * Talent.
  */
 export function ExploreTab() {
   return (
@@ -18,7 +19,7 @@ export function ExploreTab() {
         <VirtuesCard />
         <TalentsCard />
       </div>
-      <IdentityCard />
+      <IdentityCard editable />
     </div>
   )
 }

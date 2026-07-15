@@ -1,4 +1,4 @@
-import { WriterPane } from "./writer-pane"
+import { WriterPane } from "@/components/animus/writer-pane"
 
 /**
  * Movement 3 — Animus (UNN-211). Renders the writer view's main pane.

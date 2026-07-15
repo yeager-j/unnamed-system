@@ -9,11 +9,12 @@ import {
   SidebarProvider,
 } from "@workspace/ui/components/sidebar"
 
+import { AnimusDocumentProvider } from "@/components/animus/animus-context"
+import { WriterSidebar } from "@/components/animus/writer-sidebar"
 import type { LoadedCharacter } from "@/domain/character/load"
 import { EntityWriteProvider } from "@/domain/entity/use-entity-write"
 
-import { AnimusDocumentProvider } from "./movements/animus/animus-context"
-import { WriterSidebar } from "./movements/animus/writer-sidebar"
+import { BuilderAnimusSidebarHeader } from "./movements/animus/writer-sidebar-header"
 
 /**
  * Mounts the Movement 3 writer's left rail at the builder layout level so
@@ -58,7 +59,9 @@ export function BuilderProviderShell({
             variant="floating"
             className="top-14 h-[calc(100svh-3.5rem)]"
           >
-            {isAnimus ? <WriterSidebar /> : null}
+            {isAnimus ? (
+              <WriterSidebar header={<BuilderAnimusSidebarHeader />} />
+            ) : null}
           </Sidebar>
           <SidebarInset>{children}</SidebarInset>
         </SidebarProvider>

@@ -16,6 +16,14 @@ export const characterPath = (shortId: string) => `/characters/${shortId}`
 export const characterBuilderPath = (shortId: string, step: string) =>
   `/characters/${shortId}/builder/${step}`
 
+/**
+ * The Animus writer on the live sheet (UNN-221). Owner-only; `doc` is the
+ * `?doc=` deep link (`documentRefToParam` output — e.g. `knife:0`,
+ * `identity:fears`) that opens the writer straight to a section.
+ */
+export const characterAnimusPath = (shortId: string, doc?: string) =>
+  `/characters/${shortId}/animus${doc ? `?doc=${encodeURIComponent(doc)}` : ""}`
+
 export const characterAtlasPath = (shortId: string) =>
   `/characters/${shortId}/atlas`
 
