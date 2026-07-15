@@ -8,10 +8,11 @@ import {
 } from "@workspace/game-v2/spatial"
 
 /**
- * The **one optimistic container** the live DM dungeon console reduces — the
- * exploration peer of combat's {@link
+ * The **one optimistic container** the live DM dungeon **exploration** console
+ * reduces — the exploration peer of combat's {@link
  * import("@/domain/combat/console-optimistic").reduceConsoleOptimistic}
- * (UNN-597). A single `useOptimistic<DungeonConsoleState, DungeonConsoleAction>`
+ * (UNN-597; the dungeon *combat* phase reuses that combat one). A single
+ * `useOptimistic<DungeonConsoleState, DungeonConsoleAction>`
  * over `{ dungeon, instance }`, mirroring exactly what the server actions
  * persist. It collapses the two `useOptimistic` containers the console ran
  * before — the same two-container shape UNN-535 already retired on the combat

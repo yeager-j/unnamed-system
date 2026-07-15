@@ -14,7 +14,7 @@ import {
   reduceDungeonConsoleOptimistic,
   type DungeonConsoleAction,
   type DungeonConsoleState,
-} from "@/domain/combat/dungeon-console-optimistic"
+} from "@/domain/dungeon/console-optimistic"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"

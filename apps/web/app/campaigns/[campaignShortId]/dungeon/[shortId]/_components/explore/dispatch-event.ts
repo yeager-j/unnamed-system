@@ -4,7 +4,7 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 
-import type { DungeonConsoleAction } from "@/domain/combat/dungeon-console-optimistic"
+import type { DungeonConsoleAction } from "@/domain/dungeon/console-optimistic"
 import { applyDungeonEvent } from "@/lib/actions/dungeon/events"
 import {
   isDungeonEvent,
