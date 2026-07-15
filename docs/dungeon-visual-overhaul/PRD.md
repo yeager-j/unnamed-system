@@ -44,9 +44,9 @@ The visual vocabulary this PRD defines (thresholds, zoom tiers, reveal/occupancy
 - **No drawn connection lines at any zoom tier.** The one exception: the in-editor drag preview while creating a connection, which disappears when the connection lands. (A "constellation hairline" fallback is held in reserve — see *Resolved Questions* — but is not shipped until the void-only design fails at a real table.)
 - **No districts / visual grouping layer.** Procedural Dungeons' *pages* will partition space at that granularity and its *Region* object owns the adjacent naming; a third grouping concept now would collide with both.
 - **No mechanical meaning for zone size.** S/M/L/XL is visual vocabulary only; a Zone is one Zone for movement, range, and AOE regardless of footprint.
-- **No freeform tags.** The `light` enum covers the visual need; grammar tags belong to Procedural Dungeons' template schema.
+- **No freeform tags.** The `mood` enum covers the visual need; grammar tags belong to Procedural Dungeons' template schema.
 - **No mapless encounter console changes.**
-- **No schema restructure.** Three additive optional fields on `MapZone` (`size`, `motif`, `light`); existing maps load unchanged with defaults (M / none / `unlit`). No migrations.
+- **No schema restructure.** Three additive optional fields on `MapZone` (`size`, `motif`, `mood`); existing maps load unchanged with defaults (`M` / none / `dim`). No migrations.
 - **No motion.** Tier changes swap content instantly; per the brand guide, the working canvas is static, and animation stays reserved for rare celebratory beats.
 
 ## Users & Context
