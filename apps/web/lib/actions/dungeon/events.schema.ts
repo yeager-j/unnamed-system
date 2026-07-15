@@ -45,10 +45,13 @@ export function isDungeonEvent(
   return dungeonEventSchema.safeParse(event).success
 }
 
-/** The spatial path adds the Instance write errors and a `missing-instance-version`
- *  when the console omitted the Instance token a move/reveal needs. */
+/** The spatial path adds the Instance write errors, a `missing-instance-version`
+ *  when the console omitted the Instance token a move/reveal needs, and a
+ *  `character-not-in-campaign` when a `placeCombatant` names a character not
+ *  finalized-placed in this campaign (UNN-487). */
 export type ApplyDungeonEventError =
   | "invalid-input"
   | "missing-instance-version"
+  | "character-not-in-campaign"
   | DungeonWriteError
   | MapInstanceWriteError

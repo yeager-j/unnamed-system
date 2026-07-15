@@ -74,6 +74,7 @@ export function DungeonExploreBody({
     instanceState,
     isPending,
     dispatch,
+    placeToken,
     searchReveal,
     finishDelve,
     scheduleRefresh,
@@ -91,6 +92,15 @@ export function DungeonExploreBody({
 
   const moveToken = (characterId: string, toZoneId: string) =>
     dispatch({ kind: "moveCombatant", tokenKey: characterId, toZoneId })
+
+  // Campaign characters not yet on the board — the DM can bring them into the
+  // running delve (UNN-487) via useDungeonConsole's `placeToken` (place, then
+  // reveal-if-real gated on the placement succeeding). Derived from live
+  // occupancy, so a just-placed character drops out of the list on the next
+  // render.
+  const absentCharacters = placedCharacters.filter(
+    (character) => instanceState.occupancy[character.id] === undefined
+  )
 
   // React Compiler keeps this referentially stable across renders where `roster`
   // is unchanged, so the canvas's node-sync effect doesn't re-derive — no manual
@@ -133,11 +143,13 @@ export function DungeonExploreBody({
           dungeonState={dungeonState}
           dungeon={dungeon}
           campaignShortId={campaignShortId}
+          absentCharacters={absentCharacters}
           disabled={isPending}
           onMarkActed={(characterId) =>
             dispatch({ kind: "markActed", characterId })
           }
           onMoveToken={moveToken}
+          onPlaceToken={placeToken}
         />
       </DungeonSidebarSlot>
 

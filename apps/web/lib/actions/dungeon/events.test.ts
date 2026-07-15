@@ -17,6 +17,7 @@ const requireCampaignDM = vi.fn()
 const loadDungeonCampaignId = vi.fn()
 const loadDungeonRowById = vi.fn()
 const loadMapInstanceById = vi.fn()
+const loadPlacedCharactersForCampaign = vi.fn()
 const saveDungeonState = vi.fn()
 const saveMapInstanceState = vi.fn()
 const revalidateDungeon = vi.fn()
@@ -29,6 +30,10 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonCampaignId: (id: string) => loadDungeonCampaignId(id),
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
+}))
+vi.mock("@/lib/db/queries/character-list", () => ({
+  loadPlacedCharactersForCampaign: (id: string) =>
+    loadPlacedCharactersForCampaign(id),
 }))
 vi.mock("@/lib/db/queries/map-instance", () => ({
   loadMapInstanceById: (id: string) => loadMapInstanceById(id),
@@ -111,6 +116,7 @@ beforeEach(() => {
   loadDungeonCampaignId.mockResolvedValue(CAMPAIGN_ID)
   loadDungeonRowById.mockResolvedValue(dungeonRow())
   loadMapInstanceById.mockResolvedValue(instanceRow())
+  loadPlacedCharactersForCampaign.mockResolvedValue([{ id: "char-1" }])
   requireCampaignDM.mockResolvedValue({ id: CAMPAIGN_ID })
   saveDungeonState.mockResolvedValue(ok({ version: 1 }))
   saveMapInstanceState.mockResolvedValue(ok({ version: 5 }))
@@ -222,5 +228,37 @@ describe("applyDungeonEvent — routing", () => {
 
     expect(result).toEqual({ ok: false, error: "stale" })
     expect(revalidateDungeon).not.toHaveBeenCalled()
+  })
+})
+
+describe("applyDungeonEvent — placeCombatant identity gate (UNN-487)", () => {
+  it("mints a token for a character placed in this campaign", async () => {
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      expectedVersion: 0,
+      expectedInstanceVersion: 0,
+      event: { kind: "placeCombatant", tokenKey: "char-1", zoneId: "z1" },
+    })
+
+    expect(result).toEqual({ ok: true, value: { version: 5 } })
+    expect(loadPlacedCharactersForCampaign).toHaveBeenCalledWith(CAMPAIGN_ID)
+    const [, , savedState] = saveMapInstanceState.mock.calls[0]!
+    expect((savedState as MapInstanceState).occupancy["char-1"]).toEqual({
+      zoneId: "z1",
+      engagement: { status: "free" },
+    })
+  })
+
+  it("rejects a character not placed in this campaign, without writing", async () => {
+    const result = await applyDungeonEvent({
+      dungeonId: DUNGEON_ID,
+      expectedVersion: 0,
+      expectedInstanceVersion: 0,
+      event: { kind: "placeCombatant", tokenKey: "intruder", zoneId: "z1" },
+    })
+
+    expect(result).toEqual({ ok: false, error: "character-not-in-campaign" })
+    expect(saveMapInstanceState).not.toHaveBeenCalled()
+    expect(publishDungeonInstancePing).not.toHaveBeenCalled()
   })
 })

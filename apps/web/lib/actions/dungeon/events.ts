@@ -9,6 +9,7 @@ import {
 
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { db } from "@/lib/db/client"
+import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import {
   loadDungeonCampaignId,
   loadDungeonRowById,
@@ -84,7 +85,7 @@ export async function applyDungeonEvent(
     return ok({ version: saved.value.version })
   }
 
-  return applySpatialEvent(dungeon, expectedInstanceVersion, event)
+  return applySpatialEvent(dungeon, campaignId, expectedInstanceVersion, event)
 }
 
 const newId = () => crypto.randomUUID()
@@ -97,14 +98,29 @@ const newId = () => crypto.randomUUID()
  * instance-mirroring console advances). In exploration the DM free-drags, so this
  * is the only movement path; once a fight is live, occupancy is written through
  * the Encounter's model (M4), not here.
+ *
+ * `placeCombatant` is the one spatial event that **mints** a token rather than
+ * moving an existing one (UNN-487, the mid-delve joiner) — so it is the one that
+ * needs an identity gate: the tokenKey must be a character finalized-placed in
+ * this campaign, else a tampered call could stamp a phantom token onto the board.
+ * The other spatial events target existing tokens/zones and guide-not-block, so
+ * a stray key is a harmless reducer no-op and needs no check.
  */
 async function applySpatialEvent(
   dungeon: DungeonRow,
+  campaignId: string,
   expectedInstanceVersion: number | undefined,
   event: MapInstanceEvent
 ): Promise<Result<{ version: number }, ApplyDungeonEventError>> {
   if (expectedInstanceVersion === undefined) {
     return err("missing-instance-version")
+  }
+
+  if (event.kind === "placeCombatant") {
+    const placed = await loadPlacedCharactersForCampaign(campaignId)
+    if (!placed.some((character) => character.id === event.tokenKey)) {
+      return err("character-not-in-campaign")
+    }
   }
 
   const instance = await loadMapInstanceById(dungeon.mapInstanceId)
