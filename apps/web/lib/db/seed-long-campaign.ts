@@ -26,7 +26,7 @@ import { insertSeedEntity } from "./seed-entity"
  * Everything is **deterministic** — every `id` and `authoredAt` is derived
  * from `(day, sequence)`, never `crypto.randomUUID()`/`now()` — and
  * **idempotent**: the campaign, clock, and placed PCs upsert by stable id,
- * while the high-volume child rows (updates, slots, seasons, articles, NPCs)
+ * while the high-volume child rows (updates, slots, periods, articles, NPCs)
  * are cleared for this campaign and re-inserted, so a re-run neither
  * duplicates rows nor drifts a page boundary.
  */
@@ -246,6 +246,15 @@ const SEASONS = [
   { day: 95, label: "First Frost" },
 ] as const
 
+/** Months (UNN-629): the independent framing track — each reframes the day
+ *  number ("Duskember 21" for Day 120), running until the next month marker. */
+const MONTHS = [
+  { day: 1, label: "Firstmelt" },
+  { day: 34, label: "Bloomrise" },
+  { day: 67, label: "Highsun" },
+  { day: 100, label: "Duskember" },
+] as const
+
 /**
  * Montage days: a **same-`authoredAt`** burst of world updates. `day 100`'s
  * run is deliberately longer than one 50-row page, so — since the feed pages
@@ -313,7 +322,7 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
     campaignClock,
     campaignSlot,
     campaignSlotDungeon,
-    campaignSeason,
+    campaignPeriod,
     campaignArticle,
     campaignNpc,
     campaignUpdate,
@@ -343,8 +352,8 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
     .delete(campaignUpdate)
     .where(eq(campaignUpdate.campaignId, CAMPAIGN.id))
   await db
-    .delete(campaignSeason)
-    .where(eq(campaignSeason.campaignId, CAMPAIGN.id))
+    .delete(campaignPeriod)
+    .where(eq(campaignPeriod.campaignId, CAMPAIGN.id))
   // A dungeon a DM scheduled into a seeded slot during local play also
   // RESTRICT-refs it (`campaignSlotDungeon.slotId`) — clear those claims (the
   // slot reverts to downtime) before the slots, or the re-seed would abort.
@@ -438,13 +447,20 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
       datedKind: article.datedKind ?? null,
     }))
   )
-  await db.insert(campaignSeason).values(
-    SEASONS.map((season) => ({
+  await db.insert(campaignPeriod).values([
+    ...SEASONS.map((season) => ({
       campaignId: CAMPAIGN.id,
+      kind: "season" as const,
       day: season.day,
       label: season.label,
-    }))
-  )
+    })),
+    ...MONTHS.map((month) => ({
+      campaignId: CAMPAIGN.id,
+      kind: "month" as const,
+      day: month.day,
+      label: month.label,
+    })),
+  ])
 
   // ── Slots: the template materialized for every day 1..120 ──────────────────
   const slotRows = []

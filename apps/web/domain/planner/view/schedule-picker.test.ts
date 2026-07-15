@@ -20,7 +20,7 @@ function slot(
 }
 
 describe("buildSchedulePickerDays", () => {
-  it("groups slots by day preserving order", () => {
+  it("groups slots by day preserving order, labelling raw Day N without months", () => {
     const days = buildSchedulePickerDays([
       slot("s1", 15, 0),
       slot("s2", 15, 1),
@@ -32,6 +32,14 @@ describe("buildSchedulePickerDays", () => {
       "Morning",
       "Evening",
     ])
+  })
+
+  it("reframes the day heading under an active month", () => {
+    const days = buildSchedulePickerDays(
+      [slot("s1", 15, 0), slot("s2", 16, 0)],
+      [{ day: 13, label: "May" }]
+    )
+    expect(days.map((day) => day.label)).toEqual(["May 3", "May 4"])
   })
 
   it("carries occupancy and marks full days", () => {

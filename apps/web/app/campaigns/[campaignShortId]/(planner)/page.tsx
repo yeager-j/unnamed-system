@@ -32,7 +32,13 @@ import {
   type ParticipantRef,
   type ResolvedParticipant,
 } from "@/domain/planner/participant"
-import { seasonOf } from "@/domain/planner/season"
+import {
+  activePeriod,
+  groupPeriodsByKind,
+  monthDate,
+  periodOf,
+  resolveDayLabel,
+} from "@/domain/planner/period"
 import {
   buildDayEndPreSuggests,
   type DayEndDeadlineAlert,
@@ -52,7 +58,7 @@ import {
 } from "@/lib/db/queries/load-campaign"
 import {
   loadClaimsForSlots,
-  loadSeasons,
+  loadPeriods,
   loadSlotsForDay,
 } from "@/lib/db/queries/load-campaign-clock"
 import {
@@ -151,13 +157,16 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     getCampaignClock(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),
   ])
-  const [slots, seasons] = clock
+  const [slots, periods] = clock
     ? await Promise.all([
         loadSlotsForDay(campaign.id, clock.currentDay),
-        loadSeasons(campaign.id),
+        loadPeriods(campaign.id),
       ])
     : [[], []]
-  const seasonLabel = clock ? seasonOf(seasons, clock.currentDay) : null
+  const { season: seasons, month: months } = groupPeriodsByKind(periods)
+  const seasonLabel = clock ? periodOf(seasons, clock.currentDay) : null
+  const activeMonth = clock ? activePeriod(months, clock.currentDay) : null
+  const nowMonthDate = clock ? monthDate(clock.currentDay, activeMonth) : null
   const slotIds = slots.map((slot) => slot.id)
 
   const [
@@ -452,7 +461,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               campaignName={campaign.name}
               dayLine={
                 clock
-                  ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
+                  ? `${resolveDayLabel(clock.currentDay, activeMonth)}${seasonLabel ? ` · ${seasonLabel}` : ""}`
                   : null
               }
               roster={buildRosterView(placedCharacters)}
@@ -470,6 +479,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
               clockVersion={clock.clockVersion}
               storyTier={clock.storyTier}
               seasonLabel={seasonLabel}
+              monthDate={nowMonthDate}
               slots={slotViews}
               beatParticipants={Object.fromEntries(
                 [...beatChipRefs.entries()].map(([beatId, refs]) => [
@@ -499,7 +509,9 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
                   downtimeCount: activities.length,
                   worldCount: worldToday.length,
                 },
-                loggedToday: buildTimelineDayViews(loggedTodayInputs, hits),
+                loggedToday: buildTimelineDayViews(loggedTodayInputs, hits, {
+                  months,
+                }),
                 preSuggests,
                 alerts: deadlineAlerts,
                 // Only a marker newer than the last tier change nudges — an

@@ -3,11 +3,11 @@ import { and, asc, eq, inArray } from "drizzle-orm"
 import { db } from "@/lib/db/client"
 import {
   campaignClock,
-  campaignSeason,
+  campaignPeriod,
   campaignSlot,
   campaignSlotDungeon,
   type CampaignClockRow,
-  type CampaignSeasonRow,
+  type CampaignPeriodRow,
   type CampaignSlotRow,
 } from "@/lib/db/schema/campaign-clock"
 import { dungeons } from "@/lib/db/schema/dungeon"
@@ -68,13 +68,17 @@ export async function loadClaimsForSlots(
     .where(inArray(campaignSlotDungeon.slotId, [...slotIds]))
 }
 
-/** Every season marker, day-ascending — `seasonOf` scans them inherit-forward. */
-export async function loadSeasons(
+/**
+ * Every period marker (both kinds), day-ascending — the loaders partition by
+ * kind (`groupPeriodsByKind`) and hand each track to the view builders, which
+ * scan them inherit-forward (`activePeriod`/`periodOf`).
+ */
+export async function loadPeriods(
   campaignId: string
-): Promise<CampaignSeasonRow[]> {
+): Promise<CampaignPeriodRow[]> {
   return db
     .select()
-    .from(campaignSeason)
-    .where(eq(campaignSeason.campaignId, campaignId))
-    .orderBy(asc(campaignSeason.day))
+    .from(campaignPeriod)
+    .where(eq(campaignPeriod.campaignId, campaignId))
+    .orderBy(asc(campaignPeriod.day))
 }

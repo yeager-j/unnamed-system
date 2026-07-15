@@ -16,14 +16,16 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { PERIOD_KIND_LABEL } from "@/domain/labels"
+import type { PeriodKind } from "@/domain/planner/period"
 import type {
   CalendarDayView,
   CalendarSlotView,
 } from "@/domain/planner/view/calendar"
 import {
-  clearSeasonAction,
-  setSeasonAction,
-} from "@/lib/actions/campaign-clock/season"
+  clearPeriodAction,
+  setPeriodAction,
+} from "@/lib/actions/campaign-clock/period"
 import type { SchedulableBeat } from "@/lib/db/queries/load-campaign-notes"
 
 import { SlotIcon } from "../planner/slot-icon"
@@ -79,14 +81,33 @@ export function DayCard({
             Today
           </span>
         ) : null}
-        <div className="flex items-baseline gap-2">
-          <span className="font-display text-xl font-bold">Day {day.day}</span>
-          <SeasonControl
-            campaignId={campaignId}
-            day={day.day}
-            seasonLabel={day.seasonLabel}
-            startsHere={day.seasonStartsHere}
-          />
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex items-baseline gap-2">
+            <span className="font-display text-xl font-bold">
+              {day.monthDate ?? `Day ${day.day}`}
+            </span>
+            {day.monthDate !== null ? (
+              <span className="font-mono text-[11px] text-muted-foreground/60">
+                Day {day.day}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
+            <PeriodControl
+              campaignId={campaignId}
+              kind="season"
+              day={day.day}
+              label={day.seasonLabel}
+              startsHere={day.seasonStartsHere}
+            />
+            <PeriodControl
+              campaignId={campaignId}
+              kind="month"
+              day={day.day}
+              label={day.monthLabel}
+              startsHere={day.monthStartsHere}
+            />
+          </div>
         </div>
         {day.dated.map((line) => (
           <DatedLine
@@ -193,31 +214,45 @@ function SlotBox({
   )
 }
 
+/** Per-kind edit-dialog copy — a month is set with a placeholder like "May",
+ *  a season with a flavor name like "High Summer". */
+const PERIOD_PLACEHOLDER: Record<PeriodKind, string> = {
+  season: "High Summer",
+  month: "May",
+}
+
 /**
- * The season affordance (FR-8's inherit-forward label, the first UI to reach
- * phase 1's `setSeason`/`clearSeason` writes): the inherited label — or a
- * quiet "set season" — opens a dialog that writes a marker starting on
- * *this* day; a day holding the marker itself also offers Clear.
+ * The period affordance (FR-8's inherit-forward label, UNN-629's generalized
+ * `setPeriod`/`clearPeriod` writes): the inherited label — or a quiet "set
+ * {kind}" — opens a dialog that writes a marker of this `kind` starting on
+ * *this* day; a day holding the marker itself also offers Clear. Rendered once
+ * per kind on each day card (season + month), the copy pulled from
+ * {@link PERIOD_KIND_LABEL}.
  */
-function SeasonControl({
+function PeriodControl({
   campaignId,
+  kind,
   day,
-  seasonLabel,
+  label,
   startsHere,
 }: {
   campaignId: string
+  kind: PeriodKind
   day: number
-  seasonLabel: string | null
+  label: string | null
   startsHere: boolean
 }) {
   const { run } = useCalendarWrite()
   const [open, setOpen] = useState(false)
-  const [value, setValue] = useState(seasonLabel ?? "")
+  const [value, setValue] = useState(label ?? "")
+
+  const kindLabel = PERIOD_KIND_LABEL[kind]
+  const kindWord = kindLabel.toLowerCase()
 
   const submit = () => {
-    const label = value.trim()
-    if (label === "") return
-    run(() => setSeasonAction({ campaignId, day, label }))
+    const trimmed = value.trim()
+    if (trimmed === "") return
+    run(() => setPeriodAction({ campaignId, kind, day, label: trimmed }))
     setOpen(false)
   }
 
@@ -226,36 +261,38 @@ function SeasonControl({
       <button
         type="button"
         onClick={() => {
-          setValue(startsHere ? (seasonLabel ?? "") : "")
+          setValue(startsHere ? (label ?? "") : "")
           setOpen(true)
         }}
         className={cn(
           "font-mono text-[11px] transition-colors hover:text-gold",
-          seasonLabel ? "text-muted-foreground" : "text-muted-foreground/50"
+          label ? "text-muted-foreground" : "text-muted-foreground/50"
         )}
       >
-        {seasonLabel ?? "set season"}
+        {label ?? `set ${kindWord}`}
       </button>
       {open ? (
         <Dialog open onOpenChange={setOpen}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle>Season from Day {day}</DialogTitle>
+              <DialogTitle>
+                {kindLabel} from Day {day}
+              </DialogTitle>
               <DialogDescription>
                 A sparse marker — every day from Day {day} inherits it until the
-                next marker takes over.
+                next {kindWord} marker takes over.
                 {startsHere
-                  ? " This day holds a marker; clearing it lets the previous season run on."
+                  ? ` This day holds a marker; clearing it lets the previous ${kindWord} run on.`
                   : ""}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2">
-              <Label htmlFor="season-label">Season</Label>
+              <Label htmlFor={`${kind}-label`}>{kindLabel}</Label>
               <Input
-                id="season-label"
+                id={`${kind}-label`}
                 autoFocus
                 value={value}
-                placeholder="High Summer"
+                placeholder={PERIOD_PLACEHOLDER[kind]}
                 maxLength={60}
                 onChange={(event) => setValue(event.target.value)}
                 onKeyDown={(event) => {
@@ -269,7 +306,7 @@ function SeasonControl({
                   variant="ghost"
                   className="mr-auto text-destructive"
                   onClick={() => {
-                    run(() => clearSeasonAction({ campaignId, day }))
+                    run(() => clearPeriodAction({ campaignId, kind, day }))
                     setOpen(false)
                   }}
                 >

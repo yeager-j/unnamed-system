@@ -31,6 +31,7 @@ import type { DungeonReminder } from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 
 import type { ParticipantKind } from "@/domain/planner/participant"
+import type { PeriodKind } from "@/domain/planner/period"
 import type { UpdateCategory } from "@/lib/db/schema/campaign-updates"
 import type { DungeonStatus } from "@/lib/db/schema/dungeon"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
@@ -624,6 +625,12 @@ export const PARTICIPANT_KIND_LABELS: Record<ParticipantKind, string> = {
   character: "Character",
   encounter: "Encounter",
   dungeon: "Dungeon",
+}
+
+/** The two clock period kinds (UNN-629), as the day-card edit controls name them. */
+export const PERIOD_KIND_LABEL: Record<PeriodKind, string> = {
+  season: "Season",
+  month: "Month",
 }
 
 /** Display labels for the downtime activity categories (UNN-576, PRD FR-2). */

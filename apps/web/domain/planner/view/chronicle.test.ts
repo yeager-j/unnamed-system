@@ -60,11 +60,21 @@ describe("buildChronicleDayViews", () => {
         row("u1", 12, "2026-07-10T12:00:00Z"),
       ],
       HITS,
-      [{ day: 10, label: "Late Thaw" }]
+      { seasons: [{ day: 10, label: "Late Thaw" }], months: [] }
     )
     expect(days.map((d) => d.day)).toEqual([14, 12])
     expect(days[0]!.entries.map((e) => e.id)).toEqual(["u2", "u3"])
     expect(days[0]!.seasonLabel).toBe("Late Thaw")
+    expect(days[0]!.monthDate).toBeNull()
+  })
+
+  it("reframes each day group's date under an inherit-forward month", () => {
+    const days = buildChronicleDayViews(
+      [row("u1", 45, "2026-07-12T09:00:00Z")],
+      HITS,
+      { seasons: [], months: [{ day: 43, label: "May" }] }
+    )
+    expect(days[0]!.monthDate).toBe("May 3")
   })
 })
 
@@ -83,6 +93,7 @@ describe("mergeChroniclePages", () => {
   })
   const group = (day: number, ...ids: string[]): TimelineDayView => ({
     day,
+    monthDate: null,
     seasonLabel: null,
     entries: ids.map(entry),
   })

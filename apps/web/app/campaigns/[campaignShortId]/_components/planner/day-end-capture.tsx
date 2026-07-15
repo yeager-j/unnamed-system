@@ -68,6 +68,7 @@ export function DayEndCapture({
   campaignShortId,
   currentDay,
   seasonLabel,
+  monthDate,
   readiness,
   gateBlockers,
   linkerOptions,
@@ -81,6 +82,8 @@ export function DayEndCapture({
   campaignShortId: string
   currentDay: number
   seasonLabel: string | null
+  /** Today's in-month date ("May 3"); null before the first month marker (UNN-629). */
+  monthDate: string | null
   readiness: DayEndReadiness
   gateBlockers: DatedDeadline[]
   linkerOptions: LinkerOption[]
@@ -258,8 +261,13 @@ export function DayEndCapture({
             </h2>
             <div className="flex items-baseline gap-3">
               <span className="font-mono text-xs text-muted-foreground">
-                Day {currentDay}
+                {monthDate ?? `Day ${currentDay}`}
                 {seasonLabel ? ` · ${seasonLabel}` : null}
+                {monthDate !== null ? (
+                  <span className="ml-2 text-muted-foreground/60">
+                    Day {currentDay}
+                  </span>
+                ) : null}
               </span>
               <Link
                 href={`${campaignChroniclePath(campaignShortId)}?day=${currentDay}`}

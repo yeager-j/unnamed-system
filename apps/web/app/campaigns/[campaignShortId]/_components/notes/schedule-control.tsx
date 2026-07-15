@@ -142,7 +142,7 @@ export function ScheduleControl({
                       return (
                         <CommandItem
                           key={slot.id}
-                          value={`${day.label} ${slot.label}`}
+                          value={`${day.label} Day ${day.day} ${slot.label}`}
                           disabled={slot.occupiedBy !== null && !isCurrent}
                           onSelect={() => scheduleTo(slot.id)}
                         >

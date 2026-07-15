@@ -93,6 +93,7 @@ export function Runner({
   clockVersion,
   storyTier,
   seasonLabel,
+  monthDate,
   slots,
   beatParticipants,
   workspace,
@@ -111,6 +112,8 @@ export function Runner({
   /** The party's shared arc, 1–4 (UNN-581, D8). */
   storyTier: number
   seasonLabel: string | null
+  /** Today's in-month date ("May 3"); null before the first month marker (UNN-629). */
+  monthDate: string | null
   slots: RunnerSlotView[]
   /** Resolved chip participants per beat id (the story card's chips + body). */
   beatParticipants: Record<string, ResolvedParticipant[]>
@@ -186,6 +189,7 @@ export function Runner({
         campaignShortId={campaignShortId}
         currentDay={currentDay}
         seasonLabel={seasonLabel}
+        monthDate={monthDate}
         readiness={readiness}
         gateBlockers={blockingDeadlines(
           unresolvedDeadlines,
@@ -228,8 +232,13 @@ export function Runner({
             Run the day
           </h1>
           <p className="text-sm text-muted-foreground">
-            Day {currentDay}
+            {monthDate ?? `Day ${currentDay}`}
             {seasonLabel ? ` · ${seasonLabel}` : null}
+            {monthDate !== null ? (
+              <span className="ml-2 text-muted-foreground/60">
+                Day {currentDay}
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
