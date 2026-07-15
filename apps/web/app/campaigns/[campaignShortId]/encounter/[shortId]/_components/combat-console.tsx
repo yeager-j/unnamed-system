@@ -1,23 +1,35 @@
 "use client"
 
-import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
+import { EyeIcon, FlagIcon, UserPlusIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
+import { useState } from "react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
 
+import { useEncounterEnemyQueue } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_hooks/use-encounter-enemy-queue"
 import { useCombatConsole } from "@/components/combat/console/use-combat-console"
 import { useCombatSelection } from "@/components/combat/console/use-combat-selection"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { EndCombatDialog } from "@/components/combat/dialogs/end-combat"
 import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
+import { EnemyCatalogDialog } from "@/components/combat/enemies/enemy-catalog-dialog"
 import { CombatantRail } from "@/components/combat/rail/combatant-rail"
 import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
+import { buildReinforcements } from "@/domain/combat/reinforcements"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import { enemyDisplayName } from "@/domain/combat/view/enemy-catalog-view"
 import {
   COMBAT_ADVANTAGE_START_LABELS,
   COMBAT_DRAFT_HEADINGS,
@@ -56,6 +68,7 @@ export function CombatConsole({
     resolved,
     isPending,
     dispatch,
+    dispatchSequence,
     dispatchWrite,
     endEncounter,
     onPcPing,
@@ -92,6 +105,24 @@ export function CombatConsole({
     ? COMBAT_ADVANTAGE_START_LABELS[session.advantage]
     : null
 
+  const [addOpen, setAddOpen] = useState(false)
+  const queue = useEncounterEnemyQueue(encounter.id)
+  const [arrivalZoneId, setArrivalZoneId] = useState(
+    () => zoneLayout.zones[0]?.id
+  )
+
+  function addReinforcements() {
+    const zoneId = zoneLayout.hasZones ? arrivalZoneId : undefined
+    dispatchSequence(
+      buildReinforcements(queue.queue, zoneId).map((setup) => ({
+        kind: "addParticipant",
+        setup,
+      }))
+    )
+    queue.clear()
+    setAddOpen(false)
+  }
+
   return (
     <main className="flex w-full flex-1 flex-col gap-4 p-4 sm:p-6">
       {pcChannelIds.map(({ characterId, shortId }) => (
@@ -117,6 +148,15 @@ export function CombatConsole({
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setAddOpen(true)}
+            disabled={isPending}
+          >
+            <UserPlusIcon />
+            Add combatant
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             nativeButton={false}
             render={
               <Link
@@ -136,6 +176,62 @@ export function CombatConsole({
           />
         </div>
       </div>
+
+      <EnemyCatalogDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        items={queue.queue.map((entry) => ({
+          id: entry.enemyKey,
+          name: enemyDisplayName(entry.enemyKey),
+          count: entry.count,
+        }))}
+        totalCount={queue.totalCount}
+        isPending={isPending}
+        zonePicker={
+          zoneLayout.hasZones ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Arrive in</span>
+              <Select
+                value={arrivalZoneId}
+                onValueChange={(next) =>
+                  setArrivalZoneId(next ?? arrivalZoneId)
+                }
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="flex-1"
+                  aria-label="Arrival zone"
+                >
+                  <SelectValue>
+                    {(selected) =>
+                      selected
+                        ? (zoneLayout.zones.find(
+                            (zone) => zone.id === String(selected)
+                          )?.name ?? "Zone")
+                        : "Zone"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {zoneLayout.zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : undefined
+        }
+        onAdd={queue.add}
+        onIncrement={(key) => queue.add(key)}
+        onDecrement={(key) => {
+          const entry = queue.queue.find((item) => item.enemyKey === key)
+          queue.setCount(key, (entry?.count ?? 0) - 1)
+        }}
+        onRemove={queue.remove}
+        onCommit={addReinforcements}
+      />
 
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b pb-4">
         <div className="flex min-w-0 flex-col gap-2">

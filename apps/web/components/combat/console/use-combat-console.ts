@@ -140,31 +140,47 @@ export function useCombatConsole(
     onReconnect: () => router.refresh(),
   })
 
-  function dispatch(event: ConsoleDispatchEvent) {
+  /**
+   * Dispatches a run of events **serially** in one transition — each awaited to
+   * completion (including its `foldInstanceVersion` bump) before the next
+   * begins, then stopping on the first failure. Serial is load-bearing for a
+   * batch of **placed** `addParticipant`s (mid-combat reinforcements into a
+   * zone): each paired write bumps the Instance row, and the fold advancing
+   * `instanceWrite`'s token runs *after* the enqueue resolves — so firing them
+   * concurrently would let the second add read a stale `expectedInstanceVersion`
+   * and fail. Awaiting each dispatch orders the fold before the next read.
+   *
+   * No client `router.refresh()` per dispatch (UNN-482): the combat actions call
+   * `revalidateEncounter`, whose RSC payload rides this transition's action
+   * response and advances the `useOptimistic` base — a rapid burst accumulates
+   * and reconciles with zero client refreshes. PC HP (a cross-route read) stays
+   * live via the realtime PC-ping path.
+   */
+  function dispatchSequence(events: ConsoleDispatchEvent[]) {
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await dispatchCombatEvent({
-            event,
-            encounterId: encounter.id,
-            applyOptimistic,
-            encounterWrite,
-            instanceWrite,
-          })
-          if (!result.ok) {
-            toast.error(combatErrorMessage(result.error))
-            return
+          for (const event of events) {
+            const result = await dispatchCombatEvent({
+              event,
+              encounterId: encounter.id,
+              applyOptimistic,
+              encounterWrite,
+              instanceWrite,
+            })
+            if (!result.ok) {
+              toast.error(combatErrorMessage(result.error))
+              return
+            }
           }
-          // No client `router.refresh()` per dispatch (UNN-482): the combat
-          // actions call `revalidateEncounter`, whose RSC payload rides this
-          // transition's action response and advances the `useOptimistic` base
-          // — a rapid burst accumulates and reconciles with zero client
-          // refreshes. PC HP (a cross-route read) stays live via the realtime
-          // PC-ping path.
         },
         () => toast.error("Couldn't save. Try again.")
       )
     )
+  }
+
+  function dispatch(event: ConsoleDispatchEvent) {
+    dispatchSequence([event])
   }
 
   // The client half of the CD19 router (UNN-567): participantMeta resolved
@@ -254,6 +270,7 @@ export function useCombatConsole(
     resolved,
     isPending,
     dispatch,
+    dispatchSequence,
     dispatchWrite,
     endEncounter,
     onPcPing: lanes.onPcPing,
