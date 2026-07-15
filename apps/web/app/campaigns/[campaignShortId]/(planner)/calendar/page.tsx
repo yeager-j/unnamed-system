@@ -13,7 +13,8 @@ import {
 import { loadResolvedMarkers } from "@/lib/db/queries/load-campaign-updates"
 import {
   loadCampaignArticles,
-  loadDatedArticles,
+  loadDeadlineArticles,
+  loadEventPlacements,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 
@@ -48,16 +49,25 @@ export default async function CalendarPage({ params }: PageProps) {
     )
   }
 
-  const [slots, periods, datedArticles, markers, articles, beats, dungeons] =
-    await Promise.all([
-      loadUpcomingSlots(campaign.id, clock.currentDay),
-      loadPeriods(campaign.id),
-      loadDatedArticles(campaign.id),
-      loadResolvedMarkers(campaign.id),
-      loadCampaignArticles(campaign.id),
-      loadSchedulableBeats(campaign.id),
-      loadDungeonsForCampaign(campaign.id),
-    ])
+  const [
+    slots,
+    periods,
+    deadlineArticles,
+    events,
+    markers,
+    articles,
+    beats,
+    dungeons,
+  ] = await Promise.all([
+    loadUpcomingSlots(campaign.id, clock.currentDay),
+    loadPeriods(campaign.id),
+    loadDeadlineArticles(campaign.id),
+    loadEventPlacements(campaign.id),
+    loadResolvedMarkers(campaign.id),
+    loadCampaignArticles(campaign.id),
+    loadSchedulableBeats(campaign.id),
+    loadDungeonsForCampaign(campaign.id),
+  ])
 
   const { season: seasons, month: months } = groupPeriodsByKind(periods)
   const view = buildCalendarView({
@@ -65,7 +75,12 @@ export default async function CalendarPage({ params }: PageProps) {
     slots,
     seasons,
     months,
-    datedArticles,
+    deadlines: deadlineArticles.map((article) => ({
+      id: article.id,
+      name: article.name,
+      datedDay: article.datedDay!,
+    })),
+    events,
     resolvedArticleIds: new Set(markers.map((marker) => marker.articleId)),
   })
 

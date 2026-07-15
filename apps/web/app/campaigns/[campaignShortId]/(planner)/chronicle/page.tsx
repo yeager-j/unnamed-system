@@ -29,7 +29,7 @@ import {
 import {
   loadCampaignArticles,
   loadCampaignNpcs,
-  loadDatedArticles,
+  loadDeadlineArticles,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
@@ -87,7 +87,7 @@ export default async function ChroniclePage({
     periods,
     npcs,
     articles,
-    datedArticles,
+    deadlineArticles,
     markers,
     characters,
     encounters,
@@ -97,7 +97,7 @@ export default async function ChroniclePage({
     loadPeriods(campaign.id),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
-    loadDatedArticles(campaign.id),
+    loadDeadlineArticles(campaign.id),
     loadResolvedMarkers(campaign.id),
     loadPlacedCharactersForCampaign(campaign.id),
     loadEncountersForCampaign(campaign.id),
@@ -124,11 +124,8 @@ export default async function ChroniclePage({
       : foldResolvedParticipants([filters.participant], hits)[0]!.label
 
   const resolvedArticleIds = new Set(markers.map((marker) => marker.articleId))
-  const bindableDeadlines = datedArticles
-    .filter(
-      (article) =>
-        article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
-    )
+  const bindableDeadlines = deadlineArticles
+    .filter((article) => !resolvedArticleIds.has(article.id))
     .map((article) => ({ articleId: article.id, name: article.name }))
 
   const linkerOptions = buildLinkerOptions({

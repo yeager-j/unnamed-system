@@ -24,6 +24,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 
 import { setArticleDateAction } from "@/lib/actions/campaign-world/article-date"
+import { addEventPlacementAction } from "@/lib/actions/campaign-world/event-placement"
 import { mintArticleAction } from "@/lib/actions/campaign-world/mint-article"
 import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 
@@ -141,9 +142,16 @@ function QuickCreateDialog({
     )
     .slice(0, 6)
 
+  // A deadline is a singular reckoning (inline facet); an event is one of many
+  // placements (UNN-627). Same dialog, two write doors.
+  const place = (articleId: string) =>
+    kind === "deadline"
+      ? setArticleDateAction({ campaignId, articleId, day })
+      : addEventPlacementAction({ campaignId, articleId, day })
+
   const date = (articleId: string) =>
     run(
-      () => setArticleDateAction({ campaignId, articleId, day, kind }),
+      () => place(articleId),
       () => onOpenChange(false)
     )
 
@@ -152,12 +160,7 @@ function QuickCreateDialog({
       async () => {
         const minted = await mintArticleAction({ campaignId, name: trimmed })
         if (!minted.ok) return minted
-        return setArticleDateAction({
-          campaignId,
-          articleId: minted.value.id,
-          day,
-          kind,
-        })
+        return place(minted.value.id)
       },
       () => onOpenChange(false)
     )

@@ -14,12 +14,23 @@ import { activePeriod, monthDate, periodOf, type PeriodMarker } from "../period"
 /** The ribbon's tick window — the mock's 8-day grid; far deadlines clamp at its edge. */
 export const RIBBON_TICKS = 8
 
-/** The calendar's slice of a dated article (the loader's row shape suffices). */
-export interface CalendarDatedArticleInput {
+/** The calendar's slice of a deadline article (the inline dated facet). */
+export interface CalendarDeadlineInput {
   id: string
   name: string
-  datedDay: number | null
-  datedKind: "event" | "deadline" | null
+  datedDay: number
+}
+
+/**
+ * One event placement (UNN-627): an event Article fans across every day it is
+ * placed on, so the same `articleId` recurs at several `day`s, each its own
+ * `placementId` (the day-card ✕ targets exactly one).
+ */
+export interface CalendarEventInput {
+  placementId: string
+  articleId: string
+  name: string
+  day: number
 }
 
 export interface CalendarRibbonBar {
@@ -50,7 +61,7 @@ export type CalendarDatedLine =
       /** The anchor's own `datedDay` — before the card's day for a carried overdue line. */
       dueDay: number
     }
-  | { kind: "event"; articleId: string; name: string }
+  | { kind: "event"; placementId: string; articleId: string; name: string }
 
 export type CalendarSlotContent =
   | { kind: "story"; beatId: string; beatTitle: string }
@@ -117,14 +128,10 @@ export function buildCalendarView(input: {
   slots: readonly CalendarSlotInput[]
   seasons: readonly PeriodMarker[]
   months: readonly PeriodMarker[]
-  datedArticles: readonly CalendarDatedArticleInput[]
+  deadlines: readonly CalendarDeadlineInput[]
+  events: readonly CalendarEventInput[]
   resolvedArticleIds: ReadonlySet<string>
 }): CalendarView {
-  const dated = input.datedArticles.filter(
-    (article): article is CalendarDatedArticleInput & { datedDay: number } =>
-      article.datedDay !== null && article.datedKind !== null
-  )
-
   return {
     currentDay: input.currentDay,
     nowMonthDate: monthDate(
@@ -132,13 +139,18 @@ export function buildCalendarView(input: {
       activePeriod(input.months, input.currentDay)
     ),
     nowSeasonLabel: periodOf(input.seasons, input.currentDay),
-    ribbon: buildRibbon(input.currentDay, dated, input.resolvedArticleIds),
+    ribbon: buildRibbon(
+      input.currentDay,
+      input.deadlines,
+      input.resolvedArticleIds
+    ),
     days: buildDays(
       input.currentDay,
       input.slots,
       input.seasons,
       input.months,
-      dated,
+      input.deadlines,
+      input.events,
       input.resolvedArticleIds
     ),
   }
@@ -146,15 +158,12 @@ export function buildCalendarView(input: {
 
 function buildRibbon(
   currentDay: number,
-  dated: readonly (CalendarDatedArticleInput & { datedDay: number })[],
+  deadlines: readonly CalendarDeadlineInput[],
   resolvedArticleIds: ReadonlySet<string>
 ): CalendarRibbonView {
   const windowEnd = currentDay + RIBBON_TICKS - 1
-  const bars = dated
-    .filter(
-      (article) =>
-        article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
-    )
+  const bars = deadlines
+    .filter((article) => !resolvedArticleIds.has(article.id))
     .sort((a, b) => a.datedDay - b.datedDay)
     .map((article): CalendarRibbonBar => {
       const dueDay = article.datedDay
@@ -175,6 +184,56 @@ function buildRibbon(
   }
 }
 
+function deadlineLines(
+  day: number,
+  currentDay: number,
+  deadlines: readonly CalendarDeadlineInput[],
+  resolvedArticleIds: ReadonlySet<string>
+): CalendarDatedLine[] {
+  return deadlines
+    .filter((article) =>
+      article.datedDay === day
+        ? true
+        : // Carry unresolved overdue deadlines onto today (D5: overdue ≡ due) —
+          // their own day has no card, and a due deadline must keep its
+          // Resolve/re-date affordances reachable.
+          day === currentDay &&
+          article.datedDay < currentDay &&
+          !resolvedArticleIds.has(article.id)
+    )
+    .sort((a, b) => a.datedDay - b.datedDay)
+    .map(
+      (article): CalendarDatedLine => ({
+        kind: "deadline",
+        articleId: article.id,
+        name: article.name,
+        state: deadlineState(
+          { id: article.id, datedDay: article.datedDay },
+          currentDay,
+          resolvedArticleIds
+        ),
+        dueDay: article.datedDay,
+      })
+    )
+}
+
+function eventLines(
+  day: number,
+  events: readonly CalendarEventInput[]
+): CalendarDatedLine[] {
+  return events
+    .filter((event) => event.day === day)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (event): CalendarDatedLine => ({
+        kind: "event",
+        placementId: event.placementId,
+        articleId: event.articleId,
+        name: event.name,
+      })
+    )
+}
+
 function countdownLabel(
   currentDay: number,
   dueDay: number,
@@ -191,7 +250,8 @@ function buildDays(
   slots: readonly CalendarSlotInput[],
   seasons: readonly PeriodMarker[],
   months: readonly PeriodMarker[],
-  dated: readonly (CalendarDatedArticleInput & { datedDay: number })[],
+  deadlines: readonly CalendarDeadlineInput[],
+  events: readonly CalendarEventInput[],
   resolvedArticleIds: ReadonlySet<string>
 ): CalendarDayView[] {
   const slotsByDay = new Map<number, CalendarSlotView[]>()
@@ -233,41 +293,11 @@ function buildDays(
         monthLabel: activeMonth?.label ?? null,
         seasonStartsHere: seasonMarkerDays.has(day),
         monthStartsHere: monthMarkerDays.has(day),
-        dated: dated
-          .filter((article) =>
-            article.datedDay === day
-              ? true
-              : // Carry unresolved overdue deadlines onto today (D5: overdue ≡
-                // due) — their own day has no card, and a due deadline must
-                // keep its Resolve/re-date affordances reachable.
-                day === currentDay &&
-                article.datedKind === "deadline" &&
-                article.datedDay < currentDay &&
-                !resolvedArticleIds.has(article.id)
-          )
-          .sort((a, b) =>
-            a.datedKind === b.datedKind
-              ? a.datedDay - b.datedDay
-              : a.datedKind === "deadline"
-                ? -1
-                : 1
-          )
-          .map(
-            (article): CalendarDatedLine =>
-              article.datedKind === "deadline"
-                ? {
-                    kind: "deadline",
-                    articleId: article.id,
-                    name: article.name,
-                    state: deadlineState(
-                      { id: article.id, datedDay: article.datedDay },
-                      currentDay,
-                      resolvedArticleIds
-                    ),
-                    dueDay: article.datedDay,
-                  }
-                : { kind: "event", articleId: article.id, name: article.name }
-          ),
+        // Deadlines first, then events — deadlines by due day, events by name.
+        dated: [
+          ...deadlineLines(day, currentDay, deadlines, resolvedArticleIds),
+          ...eventLines(day, events),
+        ],
         slots: daySlots,
       }
     })

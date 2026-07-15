@@ -5,7 +5,10 @@ import { getDb } from "@/lib/db"
 import { campaignClock } from "@/lib/db/schema/campaign-clock"
 import { campaignBeat } from "@/lib/db/schema/campaign-notes"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
-import { campaignArticle } from "@/lib/db/schema/campaign-world"
+import {
+  campaignArticle,
+  campaignEventPlacement,
+} from "@/lib/db/schema/campaign-world"
 
 import { STORAGE_STATE } from "./auth.setup"
 import { ENCOUNTER_DM_USER_ID } from "./fixtures/encounter-target"
@@ -126,6 +129,8 @@ test("quick-create a deadline and an event; the ribbon counts the deadline down"
   await page.getByRole("button", { name: "Create “Tidewake Festival”" }).click()
   await expect(page.getByText("Tidewake Festival")).toBeVisible()
 
+  // The deadline is inline (deadline-only facet); the event lives as a
+  // placement, its article inline-undated (UNN-627).
   await expect
     .poll(async () => {
       const rows = await getDb()
@@ -140,11 +145,43 @@ test("quick-create a deadline and an event; the ribbon counts the deadline down"
     })
     .toEqual([
       { name: DEADLINE, datedDay: 3, datedKind: "deadline" },
-      { name: "Tidewake Festival", datedDay: 2, datedKind: "event" },
+      { name: "Tidewake Festival", datedDay: null, datedKind: null },
     ])
+  await expect.poll(() => readEventDays("Tidewake Festival")).toEqual([2])
   // The event stays off the ribbon: only the deadline's bar renders.
   const bars = await page.getByText(/d → Day \d/).count()
   expect(bars).toBe(1)
+})
+
+test("an event places on multiple days; removing one leaves the rest (UNN-627)", async ({
+  page,
+}) => {
+  // Reuse the Tidewake event (already on Day 2): place it on two more days —
+  // the same Article recurs, no second Article minted.
+  await page.goto(`/campaigns/${campaign.shortId}/calendar`)
+  for (const day of [5, 6]) {
+    await page
+      .getByRole("button", { name: `Add an event on Day ${day}` })
+      .click()
+    await page
+      .getByPlaceholder("Find an article or name something new")
+      .fill("Tidewake")
+    // Pick the existing Article (not "Create") — the picker no longer excludes
+    // a placed event.
+    await page
+      .getByRole("button", { name: "Tidewake Festival", exact: true })
+      .click()
+    await expect(page.getByText(`Add an event on Day ${day}`)).toHaveCount(0)
+  }
+  await expect.poll(() => readEventDays("Tidewake Festival")).toEqual([2, 5, 6])
+
+  // Remove one placement — the Article's other days survive.
+  await page
+    .getByRole("button", { name: "Actions for Tidewake Festival" })
+    .first()
+    .click()
+  await page.getByRole("menuitem", { name: "Remove from this day" }).click()
+  await expect.poll(() => readEventDays("Tidewake Festival")).toEqual([5, 6])
 })
 
 test("the hard gate blocks ending the day into the due day; resolving on the Calendar unblocks", async ({
@@ -341,6 +378,24 @@ async function readBeat() {
     .where(eq(campaignBeat.campaignId, campaign.id))
   expect(rows).toHaveLength(1)
   return rows[0]!
+}
+
+/** The days an event Article is placed on, ascending (UNN-627). */
+async function readEventDays(name: string): Promise<number[]> {
+  const rows = await getDb()
+    .select({ day: campaignEventPlacement.day })
+    .from(campaignEventPlacement)
+    .innerJoin(
+      campaignArticle,
+      eq(campaignArticle.id, campaignEventPlacement.articleId)
+    )
+    .where(
+      and(
+        eq(campaignEventPlacement.campaignId, campaign.id),
+        eq(campaignArticle.name, name)
+      )
+    )
+  return rows.map((row) => row.day).sort((a, b) => a - b)
 }
 
 /** The campaign's single live ⚑ marker (partial-unique: at most one), or null. */

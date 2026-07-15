@@ -16,9 +16,9 @@ import { db, type WriteExecutor } from "@/lib/db/client"
 import { campaignUpdate } from "@/lib/db/schema/campaign-updates"
 import {
   campaignArticle,
+  campaignEventPlacement,
   campaignNpc,
   campaignRelation,
-  type ArticleDatedKind,
 } from "@/lib/db/schema/campaign-world"
 import { entity } from "@/lib/db/schema/entity"
 import { insertWithShortId } from "@/lib/db/short-id"
@@ -107,25 +107,29 @@ export async function mintArticle(input: {
 export type ArticleDateError = "article-not-found" | "article-resolved"
 
 /**
- * Sets (or re-dates) an article's dated facet (D5): `datedDay` + `datedKind`,
- * CHECK-enforced set-together. A **resolved** article refuses (`unbind first`,
- * D5's re-dating guard — else "resolved before it looms" becomes
- * representable); the guard covers set, edit, *and* clear. The other
- * direction of the marker⟷anchor bind — a ⚑-bound update cannot be re-dated —
- * is structurally enforced today (no update-re-date write exists); when
- * phase 7 adds re-dating (detach + set day), that write must refuse while
+ * Sets (or re-dates) an article's **deadline** date (D5): `datedDay` +
+ * `datedKind = 'deadline'`, CHECK-enforced set-together. The inline dated facet
+ * is deadline-only (UNN-627) — events fan across days via
+ * {@link addEventPlacement} instead. A **resolved** article refuses (`unbind
+ * first`, D5's re-dating guard — else "resolved before it looms" becomes
+ * representable); the guard covers set, edit, *and* clear. The other direction
+ * of the marker⟷anchor bind — a ⚑-bound update cannot be re-dated — is
+ * structurally enforced today (no update-re-date write exists); when phase 7
+ * adds re-dating (detach + set day), that write must refuse while
  * `resolvesArticleId IS NOT NULL`.
  */
 export async function setArticleDate(input: {
   campaignId: string
   articleId: string
   day: number
-  kind: ArticleDatedKind
 }): Promise<Result<void, ArticleDateError>> {
-  return patchArticleDate(input, { datedDay: input.day, datedKind: input.kind })
+  return patchArticleDate(input, {
+    datedDay: input.day,
+    datedKind: "deadline",
+  })
 }
 
-/** Clears the dated facet (both columns — the CHECK requires set-together). Same resolved guard as {@link setArticleDate}. */
+/** Clears the deadline date (both columns — the CHECK requires set-together). Same resolved guard as {@link setArticleDate}. */
 export async function clearArticleDate(input: {
   campaignId: string
   articleId: string
@@ -135,7 +139,7 @@ export async function clearArticleDate(input: {
 
 async function patchArticleDate(
   input: { campaignId: string; articleId: string },
-  patch: { datedDay: number | null; datedKind: ArticleDatedKind | null }
+  patch: { datedDay: number | null; datedKind: "deadline" | null }
 ): Promise<Result<void, ArticleDateError>> {
   return db.transaction(async (tx) => {
     const [article] = await tx
@@ -161,6 +165,66 @@ async function patchArticleDate(
       .where(eq(campaignArticle.id, input.articleId))
     return ok(undefined)
   })
+}
+
+export type AddEventPlacementError = "article-not-found" | "placement-exists"
+
+/**
+ * Places an **event** Article onto a day (UNN-627) — one occurrence in the
+ * multi-placement set. Validates the Article belongs to the gated campaign and
+ * is live; the `(articleId, day)` partial unique forbids double-placing on one
+ * day, mapped to `placement-exists` for the picker (the
+ * {@link mapLineageRaceToTaken} pattern). No resolved guard — events carry no
+ * marker lifecycle, so placement is inert (D5).
+ */
+export async function addEventPlacement(input: {
+  campaignId: string
+  articleId: string
+  day: number
+}): Promise<Result<{ placementId: string }, AddEventPlacementError>> {
+  return mapPlacementRaceToExists(
+    db.transaction(async (tx) => {
+      const [article] = await tx
+        .select({ deletedAt: campaignArticle.deletedAt })
+        .from(campaignArticle)
+        .where(
+          and(
+            eq(campaignArticle.id, input.articleId),
+            eq(campaignArticle.campaignId, input.campaignId)
+          )
+        )
+      if (!article || article.deletedAt !== null) {
+        return err("article-not-found")
+      }
+
+      const [row] = await tx
+        .insert(campaignEventPlacement)
+        .values({
+          campaignId: input.campaignId,
+          articleId: input.articleId,
+          day: input.day,
+        })
+        .returning({ id: campaignEventPlacement.id })
+      return ok({ placementId: row!.id })
+    })
+  )
+}
+
+/** Removes one event placement, scoped by `(id, campaignId)` (§5). The other placements survive. */
+export async function removeEventPlacement(input: {
+  campaignId: string
+  placementId: string
+}): Promise<Result<void, "placement-not-found">> {
+  const deleted = await db
+    .delete(campaignEventPlacement)
+    .where(
+      and(
+        eq(campaignEventPlacement.id, input.placementId),
+        eq(campaignEventPlacement.campaignId, input.campaignId)
+      )
+    )
+    .returning({ id: campaignEventPlacement.id })
+  return deleted.length === 0 ? err("placement-not-found") : ok(undefined)
 }
 
 /** The article content fields the prose autosave may patch. */
@@ -603,5 +667,30 @@ function isLineageUniqueViolation(error: unknown): boolean {
   const { code, constraint } = error as { code?: string; constraint?: string }
   return (
     code === "23505" && constraint === "campaignNpc_campaign_lineage_unique"
+  )
+}
+
+/**
+ * Maps the `(articleId, day)` partial unique's violation to `"placement-exists"`
+ * — the concurrent double-place the caller's own path can't foresee (the
+ * {@link mapLineageRaceToTaken} pattern).
+ */
+async function mapPlacementRaceToExists<T, E>(
+  write: Promise<Result<T, E | "placement-exists">>
+): Promise<Result<T, E | "placement-exists">> {
+  try {
+    return await write
+  } catch (error) {
+    if (isPlacementUniqueViolation(error)) return err("placement-exists")
+    throw error
+  }
+}
+
+function isPlacementUniqueViolation(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false
+  const { code, constraint } = error as { code?: string; constraint?: string }
+  return (
+    code === "23505" &&
+    constraint === "campaignEventPlacement_article_day_unique"
   )
 }

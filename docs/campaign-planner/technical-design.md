@@ -212,9 +212,20 @@ and `npc` ids are entity ids (npc via the shared-id subtype).
 
 ### D5 — Deadline lifecycle: zero stored status
 
-The dated facet is two nullable columns on `campaignArticle` — `datedDay` +
-`datedKind ∈ event | deadline`, CHECK set-together. At-most-one-date falls out
-of them being columns.
+The inline dated facet is two nullable columns on `campaignArticle` — `datedDay`
++ `datedKind`, CHECK set-together — and is **deadline-only** (`datedKind =
+'deadline'`, CHECK-enforced; UNN-627). At-most-one-date falls out of them being
+columns, which is exactly right for a deadline: a singular reckoning with a
+per-occurrence resolved-marker lifecycle. **Events are multi-placement**
+(UNN-627): an event Article is a *set* of days, so its occurrences live in the
+`campaignEventPlacement` join (§3), never on these columns — a lunar full moon
+or a weekly sale fans across the calendar from one Article. Events are inert
+(no countdown, no gate, no ⚑ marker — `resolvesArticleId` may only point at a
+`deadline`), so multi-placement touches none of the lifecycle below; adding or
+removing a placement is a bare insert/delete. (A *recurrence rule* — "every N
+days" — is deliberately **not** stored: that is a calendar engine, which this
+design refuses; the deferred authoring convenience expands a rule into concrete
+placement rows, mirroring D1 slot materialization. See §8.)
 
 - **Resolved ⇔ a non-deleted update with `resolvesArticleId = article` exists.**
   The marker *is* the resolution; "delete/edit the ⚑ marker re-opens the
@@ -544,9 +555,17 @@ campaignFolder        id · campaignId · kind article|npc|session · parentId? 
                        degrades to Unfiled)
 campaignArticle       id · campaignId · folderId? FK→campaignFolder ON DELETE SET NULL (null ⇒ Unfiled)
                       · name · type (label-only text) · body (markdown)
-                      · datedDay? int · datedKind? event|deadline · deletedAt? · timestamps
+                      · datedDay? int · datedKind? deadline · deletedAt? · timestamps
                       · CHECK (datedDay IS NULL) = (datedKind IS NULL)
+                      · CHECK (datedKind IS NULL OR datedKind = 'deadline')  (deadline-only inline
+                        facet; events multi-place via campaignEventPlacement — UNN-627)
                       · INDEX (campaignId, datedKind, datedDay)
+campaignEventPlacement id · campaignId FK cascade · articleId FK→campaignArticle cascade · day int (≥1)
+                      · createdAt
+                      · UNIQUE (articleId, day)        (no double-placing one event on a day)
+                      · INDEX (campaignId, day)         (the calendar day-card lookup)
+                      (UNN-627: an event Article fans across every day it recurs on; a tombstoned
+                       Article's placements drop out of the loader's deletedAt-blind join, D4)
 campaignNpc           id (= entity id; FK→entity, no cascade) · campaignId · arcana? · lineageKey?
                       · folderId? FK→campaignFolder ON DELETE SET NULL (null ⇒ Unfiled)
                       · bondTier int 0..4 · bondTierChangedAt? · timestamps
@@ -638,7 +657,8 @@ campaign's names into another.
 | Add-days / slot add·rename / template edit | slot rows / template jsonb (min 1 slot) | clockVersion |
 | Delete slot | confirm → float its beat (with provenance) → delete | RESTRICTed by entries FK; frozen if past |
 | Set / clear season | `campaignSeason` upsert/delete | LWW |
-| Set / edit / clear article date | `datedDay`/`datedKind` | resolved article: unbind first (D5) |
+| Set / edit / clear article **deadline** date | `datedDay` + `datedKind='deadline'` | resolved article: unbind first (D5) |
+| Add / remove **event** placement (UNN-627) | insert/delete `campaignEventPlacement` row | article live + in campaign; `(articleId, day)` unique → `placement-exists`; no resolved guard (events are inert) |
 | Record / edit / delete activity | upsert update row (downtime facet + concerns; `day` derived from slot) | `slot.day = currentDay`; partial unique (slot, primary); LWW body |
 | Re-date a downtime update | **detach** (clear `slotId`, keep category) + set day | forbidden while ⚑-bound |
 | Author / edit / delete world update (Day-End, entity page, Chronicle) | update row (+ concerns; primary optional) | LWW; marker delete/edit re-opens anchor (derived) |
@@ -765,5 +785,10 @@ bodies/names (Postgres FTS, fast-follow — the corpus that grows unboundedly
 is exactly the one with no search); the player visibility/watch model (adds
 content version tokens + realtime channel at that boundary); P2 activity
 library; NPC statblock cutover (adds components to the same entity row);
-recurring events (an Article carries at most one date in v1); scene/social
-play mode (sibling PRD).
+**recurring-event authoring** (multi-placement shipped in UNN-627 — an event
+Article fans across many days; deferred is the *rule→placements* convenience,
+e.g. "repeat every N days through day M", which expands into concrete placement
+rows rather than storing a recurrence rule, mirroring D1 slot materialization —
+plus recurring *deadlines*, which would relocate the marker + advance-gate onto
+the placement and are a separate, larger change); scene/social play mode
+(sibling PRD).
