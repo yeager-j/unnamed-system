@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNull } from "drizzle-orm"
 
 import { dungeonStateSchema } from "@workspace/game-v2/spatial"
 
@@ -99,10 +99,16 @@ export interface DungeonSummary {
 }
 
 /**
- * Every dungeon in a campaign, newest first, as the lightweight
+ * Every **live** dungeon in a campaign, newest first, as the lightweight
  * {@link DungeonSummary} projection (no `state` jsonb). Backs the campaign page's
- * dungeons list (UNN-465); the single active one for the banner + the one-active
- * guard comes from {@link loadActiveDungeonForCampaign}.
+ * dungeons list + the runner's "Run a dungeon" picker (UNN-465); the single
+ * active one for the banner + the one-active guard comes from
+ * {@link loadActiveDungeonForCampaign}.
+ *
+ * A discovery/list read, so it filters `deletedAt IS NULL` — archived delves
+ * leave the roster and picker (the tombstone-family idiom, mirroring
+ * `load-campaign-world.ts`). History reads (`loadClaimsForSlots`, the participant
+ * resolver, by-`shortId` console load) stay `deletedAt`-blind by contrast.
  */
 export async function loadDungeonsForCampaign(
   campaignId: string
@@ -116,7 +122,7 @@ export async function loadDungeonsForCampaign(
       createdAt: dungeons.createdAt,
     })
     .from(dungeons)
-    .where(eq(dungeons.campaignId, campaignId))
+    .where(and(eq(dungeons.campaignId, campaignId), isNull(dungeons.deletedAt)))
     .orderBy(desc(dungeons.createdAt))
 }
 

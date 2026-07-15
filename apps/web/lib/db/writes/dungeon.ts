@@ -1,11 +1,19 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { DungeonState, DungeonStatus } from "@workspace/game-v2/spatial"
 
+import { isFrozenDay } from "@/domain/planner/clock"
 import { db, type WriteExecutor } from "@/lib/db/client"
+import {
+  campaignClock,
+  campaignSlot,
+  campaignSlotDungeon,
+} from "@/lib/db/schema/campaign-clock"
 import { dungeons } from "@/lib/db/schema/dungeon"
 import { insertWithShortId } from "@/lib/db/short-id"
+
+import { guardMany } from "./guard-many"
 
 /**
  * Persistence for a dungeon and its serialized {@link DungeonState} (Dungeon Map
@@ -92,6 +100,74 @@ export async function saveDungeonState(
   return bumpDungeonVersionGuarded(executor, dungeonId, expectedVersion, {
     state,
   })
+}
+
+export type ArchiveDungeonError = "dungeon-not-found" | "clock-not-found"
+
+/**
+ * Soft-deletes (archives) a dungeon: the `deletedAt` flip that retires it from
+ * the roster/picker while its row survives so frozen-history reads still resolve
+ * it (muted, via the `deletedAt`-blind participant/claim reads). Releases only
+ * its **present/future** claims to downtime; **frozen** claims (`day <
+ * currentDay`) stay pointing at the surviving row, so the slot-kind derivation
+ * over past days keeps reading "dungeon" and set-aside suppression holds. Always
+ * succeeds (no frozen-day rejection) — the tombstone is what makes deleting a
+ * played delve safe, matching {@link import("../../actions/entity/delete")}'s
+ * `SET deletedAt = now()` flip.
+ */
+export async function archiveDungeon(input: {
+  campaignId: string
+  dungeonId: string
+}): Promise<Result<void, ArchiveDungeonError>> {
+  return guardMany(async (tx) => {
+    const [dungeon] = await tx
+      .select({ id: dungeons.id })
+      .from(dungeons)
+      .where(
+        and(
+          eq(dungeons.id, input.dungeonId),
+          eq(dungeons.campaignId, input.campaignId)
+        )
+      )
+    if (!dungeon) return err("dungeon-not-found")
+
+    const claims = await tx
+      .select({ slotId: campaignSlotDungeon.slotId, day: campaignSlot.day })
+      .from(campaignSlotDungeon)
+      .innerJoin(campaignSlot, eq(campaignSlot.id, campaignSlotDungeon.slotId))
+      .where(eq(campaignSlotDungeon.dungeonId, input.dungeonId))
+
+    if (claims.length > 0) {
+      const clock = await clockRow(tx, input.campaignId)
+      if (!clock) return err("clock-not-found")
+
+      const releasable = claims
+        .filter((claim) => !isFrozenDay(claim.day, clock.currentDay))
+        .map((claim) => claim.slotId)
+      if (releasable.length > 0) {
+        await tx
+          .delete(campaignSlotDungeon)
+          .where(inArray(campaignSlotDungeon.slotId, releasable))
+      }
+    }
+
+    await tx
+      .update(dungeons)
+      .set({ deletedAt: new Date() })
+      .where(eq(dungeons.id, input.dungeonId))
+    return ok(undefined)
+  })
+}
+
+async function clockRow(
+  executor: WriteExecutor,
+  campaignId: string
+): Promise<{ currentDay: number } | undefined> {
+  const [row] = await executor
+    .select({ currentDay: campaignClock.currentDay })
+    .from(campaignClock)
+    .where(eq(campaignClock.campaignId, campaignId))
+  return row
 }
 
 /**
