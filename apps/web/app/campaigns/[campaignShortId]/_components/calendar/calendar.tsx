@@ -45,8 +45,15 @@ export function Calendar({
           </h1>
           <span className="inline-flex h-[30px] items-center gap-2 rounded-full border bg-card px-3.5 font-mono text-xs text-muted-foreground tabular-nums">
             <span className="size-2 rounded-full bg-primary" />
-            Now · Day {view.currentDay}
-            {view.nowSeasonLabel ? ` · ${view.nowSeasonLabel}` : null}
+            <span>
+              Now · {view.nowMonthDate ?? `Day ${view.currentDay}`}
+              {view.nowSeasonLabel ? ` · ${view.nowSeasonLabel}` : ""}
+            </span>
+            {view.nowMonthDate !== null ? (
+              <span className="text-muted-foreground/60">
+                Day {view.currentDay}
+              </span>
+            ) : null}
           </span>
         </div>
       </header>

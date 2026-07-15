@@ -19,10 +19,11 @@ import {
   planSlotMaterialization,
   type PlannedSlotRow,
 } from "@/domain/planner/materialize-slots"
+import type { PeriodKind } from "@/domain/planner/period"
 import { db, type WriteExecutor } from "@/lib/db/client"
 import {
   campaignClock,
-  campaignSeason,
+  campaignPeriod,
   campaignSlot,
   campaignSlotDungeon,
   type CampaignClockRow,
@@ -682,35 +683,42 @@ export async function setStoryTier(input: {
 }
 
 /**
- * Sets (or relabels) the season starting on `day` — a sparse inherit-forward
- * marker keyed `(campaignId, day)`. Last-write-wins per D6: single-author
- * flavor text, no version token.
+ * Sets (or relabels) the period of `kind` starting on `day` — a sparse
+ * inherit-forward marker keyed `(campaignId, kind, day)`. Last-write-wins per
+ * D6: single-author flavor text, no version token.
  */
-export async function setSeason(input: {
+export async function setPeriod(input: {
   campaignId: string
+  kind: PeriodKind
   day: number
   label: string
 }): Promise<void> {
   await db
-    .insert(campaignSeason)
+    .insert(campaignPeriod)
     .values(input)
     .onConflictDoUpdate({
-      target: [campaignSeason.campaignId, campaignSeason.day],
+      target: [
+        campaignPeriod.campaignId,
+        campaignPeriod.kind,
+        campaignPeriod.day,
+      ],
       set: { label: input.label },
     })
 }
 
-/** Clears the season marker on `day` (the days it covered inherit the previous marker). LWW. */
-export async function clearSeason(input: {
+/** Clears the `kind` marker on `day` (the days it covered inherit the previous marker). LWW. */
+export async function clearPeriod(input: {
   campaignId: string
+  kind: PeriodKind
   day: number
 }): Promise<void> {
   await db
-    .delete(campaignSeason)
+    .delete(campaignPeriod)
     .where(
       and(
-        eq(campaignSeason.campaignId, input.campaignId),
-        eq(campaignSeason.day, input.day)
+        eq(campaignPeriod.campaignId, input.campaignId),
+        eq(campaignPeriod.kind, input.kind),
+        eq(campaignPeriod.day, input.day)
       )
     )
 }

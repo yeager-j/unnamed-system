@@ -2,10 +2,15 @@ import { notFound } from "next/navigation"
 
 import { FolderTreeShell } from "@/app/campaigns/[campaignShortId]/_components/folder-tree/folder-tree-shell"
 import { npcDocEmptiness } from "@/domain/planner/npc-documents"
-import { seasonOf } from "@/domain/planner/season"
+import {
+  activePeriod,
+  groupPeriodsByKind,
+  periodOf,
+  resolveDayLabel,
+} from "@/domain/planner/period"
 import { buildFolderForest } from "@/domain/planner/view/folder-tree"
 import { buildNpcTreeItems } from "@/domain/planner/view/world"
-import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
+import { loadPeriods } from "@/lib/db/queries/load-campaign-clock"
 import { loadCampaignFolders } from "@/lib/db/queries/load-campaign-folders"
 import { loadCampaignNpcs } from "@/lib/db/queries/load-campaign-world"
 
@@ -31,8 +36,12 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
     loadCampaignFolders(campaign.id, "npc"),
     loadCampaignNpcs(campaign.id),
   ])
-  const seasons = clock ? await loadSeasons(campaign.id) : []
-  const seasonLabel = clock ? seasonOf(seasons, clock.currentDay) : null
+  const periods = clock ? await loadPeriods(campaign.id) : []
+  const { season: seasons, month: months } = groupPeriodsByKind(periods)
+  const seasonLabel = clock ? periodOf(seasons, clock.currentDay) : null
+  const dayLine = clock
+    ? `${resolveDayLabel(clock.currentDay, activePeriod(months, clock.currentDay))}${seasonLabel ? ` · ${seasonLabel}` : ""}`
+    : null
 
   return (
     <FolderTreeShell
@@ -40,11 +49,7 @@ export default async function NpcsLayout({ params, children }: LayoutProps) {
       campaignId={campaign.id}
       campaignShortId={campaign.shortId}
       campaignName={campaign.name}
-      dayLine={
-        clock
-          ? `Day ${clock.currentDay}${seasonLabel ? ` · ${seasonLabel}` : ""}`
-          : null
-      }
+      dayLine={dayLine}
       forest={buildFolderForest(folders, buildNpcTreeItems(npcs))}
       typeOptions={[]}
       npcDocs={Object.fromEntries(

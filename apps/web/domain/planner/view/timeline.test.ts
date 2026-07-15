@@ -119,5 +119,16 @@ describe("buildTimelineDayViews", () => {
       { seasons: [{ day: 5, label: "Late Thaw" }] }
     )
     expect(days.map((d) => d.seasonLabel)).toEqual([null, "Late Thaw"])
+    // No months supplied: the reframe stays off (raw Day N everywhere).
+    expect(days.map((d) => d.monthDate)).toEqual([null, null])
+  })
+
+  it("reframes each day group's date under an inherit-forward month", () => {
+    const days = buildTimelineDayViews(
+      [update("u1", 2), update("u2", 9)],
+      HITS,
+      { months: [{ day: 5, label: "May" }] }
+    )
+    expect(days.map((d) => d.monthDate)).toEqual([null, "May 5"])
   })
 })

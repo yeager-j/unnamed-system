@@ -5,9 +5,16 @@ import {
   BeatEditor,
   type BeatEditorBeat,
 } from "@/app/campaigns/[campaignShortId]/_components/notes/beat-editor"
+import {
+  activePeriod,
+  groupPeriodsByKind,
+  resolveDayLabel,
+  type PeriodMarker,
+} from "@/domain/planner/period"
 import { buildLinkerOptions } from "@/domain/planner/view/linker"
 import { buildSchedulePickerDays } from "@/domain/planner/view/schedule-picker"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
+import { loadPeriods } from "@/lib/db/queries/load-campaign-clock"
 import { loadCampaignFolders } from "@/lib/db/queries/load-campaign-folders"
 import {
   loadBeat,
@@ -53,9 +60,13 @@ export default async function BeatPage({ params }: PageProps) {
       loadEncountersForCampaign(campaign.id),
       loadDungeonsForCampaign(campaign.id),
     ])
-  const upcomingSlots = clock
-    ? await loadUpcomingSlots(campaign.id, clock.currentDay)
-    : []
+  const [upcomingSlots, periods] = clock
+    ? await Promise.all([
+        loadUpcomingSlots(campaign.id, clock.currentDay),
+        loadPeriods(campaign.id),
+      ])
+    : [[], []]
+  const { month: months } = groupPeriodsByKind(periods)
 
   const folderName =
     folders.find((folder) => folder.id === loaded.beat.folderId)?.name ?? null
@@ -65,7 +76,7 @@ export default async function BeatPage({ params }: PageProps) {
       key={loaded.beat.id}
       campaignId={campaign.id}
       campaignShortId={campaign.shortId}
-      beat={editorBeatOf(loaded, folderName)}
+      beat={editorBeatOf(loaded, folderName, months)}
       linkerOptions={buildLinkerOptions({
         npcs,
         articles,
@@ -73,7 +84,7 @@ export default async function BeatPage({ params }: PageProps) {
         encounters,
         dungeons,
       })}
-      scheduleDays={buildSchedulePickerDays(upcomingSlots)}
+      scheduleDays={buildSchedulePickerDays(upcomingSlots, months)}
       clockStarted={clock !== null}
     />
   )
@@ -81,7 +92,8 @@ export default async function BeatPage({ params }: PageProps) {
 
 function editorBeatOf(
   loaded: LoadedBeat,
-  folderName: string | null
+  folderName: string | null,
+  months: readonly PeriodMarker[]
 ): BeatEditorBeat {
   const { beat, scheduledSlot } = loaded
   return {
@@ -95,7 +107,10 @@ function editorBeatOf(
         ? {
             kind: "scheduled",
             slotId: scheduledSlot.id,
-            label: `Day ${scheduledSlot.day} · ${scheduledSlot.label}`,
+            label: `${resolveDayLabel(
+              scheduledSlot.day,
+              activePeriod(months, scheduledSlot.day)
+            )} · ${scheduledSlot.label}`,
           }
         : beat.floating
           ? { kind: "floating" }

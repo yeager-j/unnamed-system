@@ -3,8 +3,9 @@ import { notFound } from "next/navigation"
 
 import { Calendar } from "@/app/campaigns/[campaignShortId]/_components/calendar/calendar"
 import { PlannerStub } from "@/app/campaigns/[campaignShortId]/_components/planner/planner-stub"
+import { groupPeriodsByKind } from "@/domain/planner/period"
 import { buildCalendarView } from "@/domain/planner/view/calendar"
-import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
+import { loadPeriods } from "@/lib/db/queries/load-campaign-clock"
 import {
   loadSchedulableBeats,
   loadUpcomingSlots,
@@ -47,10 +48,10 @@ export default async function CalendarPage({ params }: PageProps) {
     )
   }
 
-  const [slots, seasons, datedArticles, markers, articles, beats, dungeons] =
+  const [slots, periods, datedArticles, markers, articles, beats, dungeons] =
     await Promise.all([
       loadUpcomingSlots(campaign.id, clock.currentDay),
-      loadSeasons(campaign.id),
+      loadPeriods(campaign.id),
       loadDatedArticles(campaign.id),
       loadResolvedMarkers(campaign.id),
       loadCampaignArticles(campaign.id),
@@ -58,10 +59,12 @@ export default async function CalendarPage({ params }: PageProps) {
       loadDungeonsForCampaign(campaign.id),
     ])
 
+  const { season: seasons, month: months } = groupPeriodsByKind(periods)
   const view = buildCalendarView({
     currentDay: clock.currentDay,
     slots,
     seasons,
+    months,
     datedArticles,
     resolvedArticleIds: new Set(markers.map((marker) => marker.articleId)),
   })

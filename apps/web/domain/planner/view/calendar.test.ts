@@ -39,6 +39,7 @@ describe("buildCalendarView — ribbon", () => {
       currentDay: 14,
       slots: TWO_DAYS,
       seasons: [],
+      months: [],
       datedArticles: [deadline("demon", "Rise of the Demon Lord", 17)],
       resolvedArticleIds: none,
     })
@@ -61,6 +62,7 @@ describe("buildCalendarView — ribbon", () => {
       currentDay: 14,
       slots: TWO_DAYS,
       seasons: [],
+      months: [],
       datedArticles: [
         deadline("edge", "Edge", 14 + RIBBON_TICKS - 1),
         deadline("far", "Far", 74),
@@ -82,6 +84,7 @@ describe("buildCalendarView — ribbon", () => {
       currentDay: 14,
       slots: TWO_DAYS,
       seasons: [],
+      months: [],
       datedArticles: [
         deadline("siege", "Siege of Saltmere", 18),
         deadline("demon", "Rise of the Demon Lord", 17),
@@ -100,6 +103,7 @@ describe("buildCalendarView — ribbon", () => {
       currentDay: 14,
       slots: TWO_DAYS,
       seasons: [],
+      months: [],
       datedArticles: [
         deadline("today", "Today", 14),
         deadline("past", "Past", 12),
@@ -126,6 +130,7 @@ describe("buildCalendarView — ribbon", () => {
       currentDay: 14,
       slots: TWO_DAYS,
       seasons: [],
+      months: [],
       datedArticles: [
         event("festival", "Tidewake Festival", 14),
         deadline("done", "Done", 16),
@@ -143,6 +148,7 @@ describe("buildCalendarView — days", () => {
       currentDay: 14,
       slots: [slot("old", 13, 0), slot("s2", 15, 0), slot("s1", 14, 0)],
       seasons: [],
+      months: [],
       datedArticles: [],
       resolvedArticleIds: none,
     })
@@ -160,6 +166,7 @@ describe("buildCalendarView — days", () => {
         { day: 5, label: "Late Thaw" },
         { day: 16, label: "High Summer" },
       ],
+      months: [],
       datedArticles: [],
       resolvedArticleIds: none,
     })
@@ -172,6 +179,36 @@ describe("buildCalendarView — days", () => {
       ["High Summer", true],
     ])
     expect(view.nowSeasonLabel).toBe("Late Thaw")
+    // No month markers: every day falls back to raw Day N.
+    expect(view.nowMonthDate).toBeNull()
+    expect(view.days.every((day) => day.monthDate === null)).toBe(true)
+  })
+
+  it("reframes the day number under an active month and marks its own control", () => {
+    const view = buildCalendarView({
+      currentDay: 14,
+      slots: [slot("s1", 14, 0), slot("s2", 15, 0), slot("s3", 16, 0)],
+      seasons: [],
+      months: [
+        { day: 12, label: "April" },
+        { day: 16, label: "May" },
+      ],
+      datedArticles: [],
+      resolvedArticleIds: none,
+    })
+
+    expect(
+      view.days.map((day) => [
+        day.monthDate,
+        day.monthLabel,
+        day.monthStartsHere,
+      ])
+    ).toEqual([
+      ["April 3", "April", false],
+      ["April 4", "April", false],
+      ["May 1", "May", true],
+    ])
+    expect(view.nowMonthDate).toBe("April 3")
   })
 
   it("carries every dated line on its day, deadlines before events, with lifecycle state", () => {
@@ -179,6 +216,7 @@ describe("buildCalendarView — days", () => {
       currentDay: 14,
       slots: [slot("s1", 14, 0), slot("s2", 16, 0)],
       seasons: [],
+      months: [],
       datedArticles: [
         event("festival", "Tidewake Festival", 16),
         deadline("due", "Due Today", 14),
@@ -209,6 +247,7 @@ describe("buildCalendarView — days", () => {
       currentDay: 14,
       slots: [slot("s1", 14, 0), slot("s2", 15, 0)],
       seasons: [],
+      months: [],
       datedArticles: [
         deadline("past-open", "Slipped Away", 12),
         deadline("past-done", "Old Business", 11),
@@ -240,6 +279,7 @@ describe("buildCalendarView — days", () => {
         slot("s3", 15, 0),
       ],
       seasons: [],
+      months: [],
       datedArticles: [],
       resolvedArticleIds: none,
     })

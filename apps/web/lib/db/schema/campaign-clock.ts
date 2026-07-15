@@ -11,6 +11,8 @@ import {
   unique,
 } from "drizzle-orm/pg-core"
 
+import type { PeriodKind } from "@/domain/planner/period"
+
 import { campaigns } from "./campaign"
 import { dungeons } from "./dungeon"
 
@@ -113,22 +115,33 @@ export const campaignSlot = pgTable(
 )
 
 /**
- * A sparse **season label** (D1, PRD FR-8): "Late Thaw" starting on a day and
- * inheriting forward until the next row — a flavor label, not a calendar
- * engine. `seasonOf(day)` in `domain/planner` does the inherit-forward scan.
+ * A sparse **period label** (D1, PRD FR-8, UNN-629): a `kind`-flavored label
+ * starting on a day and inheriting forward until the next row of its kind — a
+ * marker, not a calendar engine. `periodOf(day)` in `domain/planner` does the
+ * inherit-forward scan. Two kinds share this one table (PK `(campaignId, kind,
+ * day)`, so a day can start both): a **season** is pure flavor ("Late Thaw");
+ * a **month** ("May") additionally reframes the day number ("May 3" via
+ * `monthDate`). "Period" also dodges the ⚑ deadline-resolution *marker*
+ * vocabulary. The `kind` spine is open/closed — a new flavor kind is a data
+ * addition (widen the enum + CHECK), no shared-code change.
  */
-export const campaignSeason = pgTable(
-  "campaignSeason",
+export const campaignPeriod = pgTable(
+  "campaignPeriod",
   {
     campaignId: text("campaignId")
       .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<PeriodKind>().notNull(),
     day: integer("day").notNull(),
     label: text("label").notNull(),
   },
-  (season) => [
-    primaryKey({ columns: [season.campaignId, season.day] }),
-    check("campaignSeason_day_min", sql`${season.day} >= 1`),
+  (period) => [
+    primaryKey({ columns: [period.campaignId, period.kind, period.day] }),
+    check("campaignPeriod_day_min", sql`${period.day} >= 1`),
+    check(
+      "campaignPeriod_kind_valid",
+      sql`${period.kind} IN ('season', 'month')`
+    ),
   ]
 )
 
@@ -174,8 +187,8 @@ export type CampaignClockRow = typeof campaignClock.$inferSelect
 /** The persisted slot row shape (typed off the table). */
 export type CampaignSlotRow = typeof campaignSlot.$inferSelect
 
-/** The persisted season row shape (typed off the table). */
-export type CampaignSeasonRow = typeof campaignSeason.$inferSelect
+/** The persisted period row shape (typed off the table). */
+export type CampaignPeriodRow = typeof campaignPeriod.$inferSelect
 
 /** The persisted dungeon slot claim shape (typed off the table). */
 export type CampaignSlotDungeonRow = typeof campaignSlotDungeon.$inferSelect

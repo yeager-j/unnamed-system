@@ -14,13 +14,14 @@ import {
   foldResolvedParticipants,
   type ParticipantRef,
 } from "@/domain/planner/participant"
+import { groupPeriodsByKind } from "@/domain/planner/period"
 import {
   buildChronicleDayViews,
   parseChronicleParams,
 } from "@/domain/planner/view/chronicle"
 import { buildLinkerOptions } from "@/domain/planner/view/linker"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
+import { loadPeriods } from "@/lib/db/queries/load-campaign-clock"
 import {
   loadChroniclePage,
   loadResolvedMarkers,
@@ -83,7 +84,7 @@ export default async function ChroniclePage({
 
   const [
     page,
-    seasons,
+    periods,
     npcs,
     articles,
     datedArticles,
@@ -93,7 +94,7 @@ export default async function ChroniclePage({
     dungeons,
   ] = await Promise.all([
     loadChroniclePage(campaign.id, { cursor: null, startDay, filters }),
-    loadSeasons(campaign.id),
+    loadPeriods(campaign.id),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
     loadDatedArticles(campaign.id),
@@ -114,7 +115,8 @@ export default async function ChroniclePage({
     ...(filters.participant ? [filters.participant] : []),
   ]
   const hits = await loadParticipantHits(campaign.id, refs)
-  const days = buildChronicleDayViews(page.updates, hits, seasons)
+  const { season: seasons, month: months } = groupPeriodsByKind(periods)
+  const days = buildChronicleDayViews(page.updates, hits, { seasons, months })
 
   const participantLabel =
     filters.participant === null

@@ -1,13 +1,14 @@
 import { deadlineState, type DeadlineState } from "../deadline"
-import { seasonOf, type SeasonMarker } from "../season"
+import { activePeriod, monthDate, periodOf, type PeriodMarker } from "../period"
 
 /**
  * Calendar shaping (UNN-578, PRD FR-8, handoff Screen 4): the upcoming-only
  * agenda — a deadline ribbon spanning today→due with far deadlines clamped
  * at the window's edge, and one day card per materialized day from today to
- * the horizon (season inherit-forward, dated-article lines, slot occupancy).
- * Pure; the page loads slots/seasons/dated articles/markers and the
- * components render what's here.
+ * the horizon (season + month inherit-forward, the month reframing the day
+ * number to "May 3", dated-article lines, slot occupancy). Pure; the page
+ * loads slots/periods/dated articles/markers and the components render what's
+ * here.
  */
 
 /** The ribbon's tick window — the mock's 8-day grid; far deadlines clamp at its edge. */
@@ -65,10 +66,21 @@ export interface CalendarSlotView {
 export interface CalendarDayView {
   day: number
   isToday: boolean
-  /** Inherit-forward season label (`seasonOf`); null before the first marker. */
+  /**
+   * The in-month date ("May 3") when a month is active, else null — the card's
+   * primary heading (`monthDate ?? "Day {day}"`), with the raw `day` shown as a
+   * quiet secondary when this is non-null.
+   */
+  monthDate: string | null
+  /** Inherit-forward season label (`periodOf`); null before the first marker. */
   seasonLabel: string | null
-  /** A season marker sits exactly on this day — the clear affordance's anchor. */
+  /** Inherit-forward month label ("May"); null before the first month marker —
+   *  the month edit control's display text. */
+  monthLabel: string | null
+  /** A season marker sits exactly on this day — its clear affordance's anchor. */
   seasonStartsHere: boolean
+  /** A month marker sits exactly on this day — its clear affordance's anchor. */
+  monthStartsHere: boolean
   /**
    * Every article dated to this day (several are legal), deadlines first.
    * Today's card also carries **unresolved overdue deadlines** (D5: overdue
@@ -81,6 +93,8 @@ export interface CalendarDayView {
 
 export interface CalendarView {
   currentDay: number
+  /** The header now-pill's in-month date ("May 3"); null before the first month. */
+  nowMonthDate: string | null
   /** The header now-pill's season half. */
   nowSeasonLabel: string | null
   ribbon: CalendarRibbonView
@@ -101,7 +115,8 @@ export interface CalendarSlotInput {
 export function buildCalendarView(input: {
   currentDay: number
   slots: readonly CalendarSlotInput[]
-  seasons: readonly SeasonMarker[]
+  seasons: readonly PeriodMarker[]
+  months: readonly PeriodMarker[]
   datedArticles: readonly CalendarDatedArticleInput[]
   resolvedArticleIds: ReadonlySet<string>
 }): CalendarView {
@@ -112,12 +127,17 @@ export function buildCalendarView(input: {
 
   return {
     currentDay: input.currentDay,
-    nowSeasonLabel: seasonOf(input.seasons, input.currentDay),
+    nowMonthDate: monthDate(
+      input.currentDay,
+      activePeriod(input.months, input.currentDay)
+    ),
+    nowSeasonLabel: periodOf(input.seasons, input.currentDay),
     ribbon: buildRibbon(input.currentDay, dated, input.resolvedArticleIds),
     days: buildDays(
       input.currentDay,
       input.slots,
       input.seasons,
+      input.months,
       dated,
       input.resolvedArticleIds
     ),
@@ -169,7 +189,8 @@ function countdownLabel(
 function buildDays(
   currentDay: number,
   slots: readonly CalendarSlotInput[],
-  seasons: readonly SeasonMarker[],
+  seasons: readonly PeriodMarker[],
+  months: readonly PeriodMarker[],
   dated: readonly (CalendarDatedArticleInput & { datedDay: number })[],
   resolvedArticleIds: ReadonlySet<string>
 ): CalendarDayView[] {
@@ -197,50 +218,57 @@ function buildDays(
     slotsByDay.set(slot.day, views)
   }
 
-  const markerDays = new Set(seasons.map((season) => season.day))
+  const seasonMarkerDays = new Set(seasons.map((season) => season.day))
+  const monthMarkerDays = new Set(months.map((month) => month.day))
 
   return [...slotsByDay.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([day, daySlots]) => ({
-      day,
-      isToday: day === currentDay,
-      seasonLabel: seasonOf(seasons, day),
-      seasonStartsHere: markerDays.has(day),
-      dated: dated
-        .filter((article) =>
-          article.datedDay === day
-            ? true
-            : // Carry unresolved overdue deadlines onto today (D5: overdue ≡
-              // due) — their own day has no card, and a due deadline must
-              // keep its Resolve/re-date affordances reachable.
-              day === currentDay &&
-              article.datedKind === "deadline" &&
-              article.datedDay < currentDay &&
-              !resolvedArticleIds.has(article.id)
-        )
-        .sort((a, b) =>
-          a.datedKind === b.datedKind
-            ? a.datedDay - b.datedDay
-            : a.datedKind === "deadline"
-              ? -1
-              : 1
-        )
-        .map(
-          (article): CalendarDatedLine =>
-            article.datedKind === "deadline"
-              ? {
-                  kind: "deadline",
-                  articleId: article.id,
-                  name: article.name,
-                  state: deadlineState(
-                    { id: article.id, datedDay: article.datedDay },
-                    currentDay,
-                    resolvedArticleIds
-                  ),
-                  dueDay: article.datedDay,
-                }
-              : { kind: "event", articleId: article.id, name: article.name }
-        ),
-      slots: daySlots,
-    }))
+    .map(([day, daySlots]) => {
+      const activeMonth = activePeriod(months, day)
+      return {
+        day,
+        isToday: day === currentDay,
+        monthDate: monthDate(day, activeMonth),
+        seasonLabel: periodOf(seasons, day),
+        monthLabel: activeMonth?.label ?? null,
+        seasonStartsHere: seasonMarkerDays.has(day),
+        monthStartsHere: monthMarkerDays.has(day),
+        dated: dated
+          .filter((article) =>
+            article.datedDay === day
+              ? true
+              : // Carry unresolved overdue deadlines onto today (D5: overdue ≡
+                // due) — their own day has no card, and a due deadline must
+                // keep its Resolve/re-date affordances reachable.
+                day === currentDay &&
+                article.datedKind === "deadline" &&
+                article.datedDay < currentDay &&
+                !resolvedArticleIds.has(article.id)
+          )
+          .sort((a, b) =>
+            a.datedKind === b.datedKind
+              ? a.datedDay - b.datedDay
+              : a.datedKind === "deadline"
+                ? -1
+                : 1
+          )
+          .map(
+            (article): CalendarDatedLine =>
+              article.datedKind === "deadline"
+                ? {
+                    kind: "deadline",
+                    articleId: article.id,
+                    name: article.name,
+                    state: deadlineState(
+                      { id: article.id, datedDay: article.datedDay },
+                      currentDay,
+                      resolvedArticleIds
+                    ),
+                    dueDay: article.datedDay,
+                  }
+                : { kind: "event", articleId: article.id, name: article.name }
+          ),
+        slots: daySlots,
+      }
+    })
 }

@@ -104,8 +104,15 @@ export function UpdateTimeline({
         <li key={day.day} id={`day-${day.day}`} className="flex flex-col gap-1">
           {showDayHeaders ? (
             <div className="flex items-baseline justify-between border-b pb-1.5">
-              <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
-                Day {day.day}
+              <span className="flex items-baseline gap-2">
+                <span className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
+                  {day.monthDate ?? `Day ${day.day}`}
+                </span>
+                {day.monthDate !== null ? (
+                  <span className="font-mono text-[10px] text-muted-foreground/60">
+                    Day {day.day}
+                  </span>
+                ) : null}
               </span>
               {day.seasonLabel !== null ? (
                 <span className="font-mono text-xs text-muted-foreground">

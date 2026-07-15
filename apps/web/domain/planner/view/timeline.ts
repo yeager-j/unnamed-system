@@ -13,7 +13,7 @@ import {
   type ParticipantRef,
   type ResolvedParticipant,
 } from "../participant"
-import { seasonOf, type SeasonMarker } from "../season"
+import { activePeriod, monthDate, periodOf, type PeriodMarker } from "../period"
 
 /** The timeline's slice of an update row, concerns folded in by the query. */
 export interface TimelineUpdateInput {
@@ -53,6 +53,12 @@ export interface TimelineEntryView {
 /** Entries grouped under their day heading, input (query) order preserved. */
 export interface TimelineDayView {
   day: number
+  /**
+   * The in-month date ("May 3") when a month is active on this day, else null —
+   * the heading's primary (`monthDate ?? "Day {day}"`), the raw `day` kept as a
+   * quiet always-visible secondary (month names can repeat across a campaign).
+   */
+  monthDate: string | null
   /** The season in effect on this day; null when no seasons were supplied. */
   seasonLabel: string | null
   entries: TimelineEntryView[]
@@ -63,18 +69,20 @@ export interface TimelineDayView {
  * through the campaign-scoped hits (D4 — tombstoned names render muted,
  * misses fall back to captured labels, the page never breaks), ⚑ markers
  * resolve their anchor article's name the same way, and day groups pick up
- * their season label (inherit-forward, D1). `opts.elide` names the surface's
- * own entity (the entity pages) so it drops out of every participant strip.
+ * their season label and in-month date (both inherit-forward, D1/UNN-629).
+ * `opts.elide` names the surface's own entity (the entity pages) so it drops
+ * out of every participant strip.
  */
 export function buildTimelineDayViews(
   updates: readonly TimelineUpdateInput[],
   hits: ParticipantHitsByKind,
   opts: {
     elide?: Pick<ParticipantRef, "kind" | "id">
-    seasons?: readonly SeasonMarker[]
+    seasons?: readonly PeriodMarker[]
+    months?: readonly PeriodMarker[]
   } = {}
 ): TimelineDayView[] {
-  const { elide, seasons } = opts
+  const { elide, seasons, months } = opts
   const days: TimelineDayView[] = []
   for (const update of updates) {
     const isPrimary =
@@ -120,8 +128,12 @@ export function buildTimelineDayViews(
     } else {
       days.push({
         day: update.day,
+        monthDate:
+          months === undefined
+            ? null
+            : monthDate(update.day, activePeriod(months, update.day)),
         seasonLabel:
-          seasons === undefined ? null : seasonOf(seasons, update.day),
+          seasons === undefined ? null : periodOf(seasons, update.day),
         entries: [entry],
       })
     }

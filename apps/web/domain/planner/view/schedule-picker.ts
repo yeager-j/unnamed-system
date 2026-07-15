@@ -3,7 +3,11 @@
  * **day-picker → slot-picker** — a flat enumeration of every open slot
  * doesn't survive a 30-day horizon — so upcoming slots group by day, each
  * slot carrying its occupancy so the picker can disable and attribute it.
+ * Each day's `label` reads through the month reframe (UNN-629) — "May 3"
+ * under an active month, else raw "Day N".
  */
+
+import { activePeriod, resolveDayLabel, type PeriodMarker } from "../period"
 
 /** The picker's slice of an upcoming slot (the query's `UpcomingSlot` shape). */
 export interface SchedulePickerSlotInput {
@@ -24,7 +28,7 @@ export interface SchedulePickerSlotView {
 
 export interface SchedulePickerDayView {
   day: number
-  /** "Day 15" — the picker row; "Today" affordances are the component's call. */
+  /** "May 3" under an active month, else "Day 15" — the picker's day heading. */
   label: string
   /** True when every slot on the day is occupied (the day row still opens). */
   full: boolean
@@ -37,7 +41,8 @@ export interface SchedulePickerDayView {
  * names its holder.
  */
 export function buildSchedulePickerDays(
-  slots: readonly SchedulePickerSlotInput[]
+  slots: readonly SchedulePickerSlotInput[],
+  months: readonly PeriodMarker[] = []
 ): SchedulePickerDayView[] {
   const days = new Map<number, SchedulePickerSlotView[]>()
   for (const slot of slots) {
@@ -56,7 +61,7 @@ export function buildSchedulePickerDays(
   }
   return [...days.entries()].map(([day, dayViews]) => ({
     day,
-    label: `Day ${day}`,
+    label: resolveDayLabel(day, activePeriod(months, day)),
     full: dayViews.every((slot) => slot.occupiedBy !== null),
     slots: dayViews,
   }))

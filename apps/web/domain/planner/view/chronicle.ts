@@ -8,7 +8,7 @@ import {
   type ParticipantHitsByKind,
   type ParticipantRef,
 } from "../participant"
-import type { SeasonMarker } from "../season"
+import type { PeriodMarker } from "../period"
 import { UPDATE_CATEGORIES, type UpdateCategory } from "../update-category"
 import { buildTimelineDayViews, type TimelineDayView } from "./timeline"
 
@@ -36,9 +36,15 @@ export function isShownByDefaultInChronicle(update: {
 export function buildChronicleDayViews(
   updates: readonly ChronicleUpdateRow[],
   hits: ParticipantHitsByKind,
-  seasons: readonly SeasonMarker[]
+  periods: {
+    seasons: readonly PeriodMarker[]
+    months: readonly PeriodMarker[]
+  }
 ): TimelineDayView[] {
-  const days = buildTimelineDayViews(updates, hits, { seasons })
+  const days = buildTimelineDayViews(updates, hits, {
+    seasons: periods.seasons,
+    months: periods.months,
+  })
   for (const day of days) day.entries.reverse()
   return days
 }

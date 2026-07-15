@@ -3,10 +3,11 @@
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import type { ParticipantRef } from "@/domain/planner/participant"
+import { groupPeriodsByKind } from "@/domain/planner/period"
 import { buildChronicleDayViews } from "@/domain/planner/view/chronicle"
 import type { TimelineDayView } from "@/domain/planner/view/timeline"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
-import { loadSeasons } from "@/lib/db/queries/load-campaign-clock"
+import { loadPeriods } from "@/lib/db/queries/load-campaign-clock"
 import {
   decodeChronicleCursor,
   loadChroniclePage,
@@ -45,14 +46,15 @@ export async function loadChroniclePageAction(
 
   const campaign = await requireCampaignDM(parsed.data.campaignId)
 
-  const [page, seasons] = await Promise.all([
+  const [page, periods] = await Promise.all([
     loadChroniclePage(campaign.id, {
       cursor: parsed.data.cursor,
       startDay: null,
       filters: parsed.data.filters,
     }),
-    loadSeasons(campaign.id),
+    loadPeriods(campaign.id),
   ])
+  const { season: seasons, month: months } = groupPeriodsByKind(periods)
 
   const refs: ParticipantRef[] = page.updates.flatMap((update) => [
     ...(update.primary ? [update.primary] : []),
@@ -64,7 +66,7 @@ export async function loadChroniclePageAction(
   const hits = await loadParticipantHits(campaign.id, refs)
 
   return ok({
-    days: buildChronicleDayViews(page.updates, hits, seasons),
+    days: buildChronicleDayViews(page.updates, hits, { seasons, months }),
     nextCursor: page.nextCursor,
   })
 }
