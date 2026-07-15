@@ -93,13 +93,12 @@ test("schedule a beat onto a future slot and remove it again", async ({
     .poll(async () => (await readBeat()).scheduledSlotId)
     .not.toBeNull()
 
-  // The occupied slot's ⋮ menu takes it off again (back to the shelf).
+  // The occupied slot's ⋮ menu takes it off again (Make Floating — it stays a
+  // click away, floating).
   await page
     .getByRole("button", { name: "Actions for Ambush at the ford" })
     .click()
-  await page
-    .getByRole("menuitem", { name: "Send back to the prepped shelf" })
-    .click()
+  await page.getByRole("menuitem", { name: "Make Floating" }).click()
   await expect
     .poll(async () => {
       const beat = await readBeat()
@@ -207,7 +206,7 @@ test("un-advance keeps a marker from the restored day; reopen unbinds but keeps 
   // Un-advance 3 → 2: the marker was stamped ON Day 2, so it stays bound —
   // you restore the state that legally allowed the advance (D5).
   await page.getByRole("button", { name: "More clock actions" }).click()
-  await page.getByRole("menuitem", { name: "Go back to Day 2" }).click()
+  await page.getByRole("menuitem", { name: "Rewind" }).click()
   await page.getByRole("button", { name: "Go back" }).click()
   await expect(page.getByText("Day 2", { exact: true }).first()).toBeVisible()
   expect((await readMarker())?.day).toBe(2)
@@ -264,7 +263,7 @@ test("un-advance unbinds a marker stamped after the restored day", async ({
 
   await page.goto(`/campaigns/${campaign.shortId}`)
   await page.getByRole("button", { name: "More clock actions" }).click()
-  await page.getByRole("menuitem", { name: "Go back to Day 2" }).click()
+  await page.getByRole("menuitem", { name: "Rewind" }).click()
   await page.getByRole("button", { name: "Go back" }).click()
   await expect(page.getByText("Day 2", { exact: true }).first()).toBeVisible()
   await expect.poll(async () => await readMarker()).toBeNull()
