@@ -1,5 +1,5 @@
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { RailPool } from "@/domain/character/view/rail-view"
+import type { Pool } from "@/domain/pool"
 
 /**
  * The rail's HP/SP readout — display-only (design handoff: "No inline editing
@@ -7,13 +7,7 @@ import type { RailPool } from "@/domain/character/view/rail-view"
  * optimistic frame, so a damage dispatch moves both `current` and a derived
  * `max` in the same render.
  */
-export function VitalsBlock({
-  hp,
-  sp,
-}: {
-  hp: RailPool | null
-  sp: RailPool | null
-}) {
+export function VitalsBlock({ hp, sp }: { hp: Pool | null; sp: Pool | null }) {
   if (!hp && !sp) return null
 
   return (
@@ -31,7 +25,7 @@ function PoolRow({
 }: {
   label: string
   kind: "hp" | "sp"
-  pool: RailPool
+  pool: Pool
 }) {
   return (
     <div className="flex flex-col gap-1">

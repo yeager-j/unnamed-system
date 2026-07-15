@@ -11,11 +11,11 @@ import type {
   VisibleCombatant,
 } from "@workspace/game-v2/visibility"
 
-import type { Pool } from "@/domain/combat/view/pool"
 import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
 } from "@/domain/combat/view/zone-enchantment-badge"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The watch view's display shaping (UNN-535) — the pure per-render fold that
@@ -98,15 +98,8 @@ function watchCombatant(
     hasActed: (components.turnState?.turnsTakenThisRound ?? 0) > 0,
     zoneId: zoneId ? zoneId : null,
     portraitUrl: components.presentation?.portraitUrl ?? null,
-    hp: components.vitals
-      ? { current: components.vitals.currentHP, max: components.vitals.maxHP }
-      : null,
-    sp: components.skillPool
-      ? {
-          current: components.skillPool.currentSP,
-          max: components.skillPool.maxSP,
-        }
-      : null,
+    hp: hpPool(components.vitals),
+    sp: spPool(components.skillPool),
     ailments: components.ailments ?? [],
     battleConditions: components.battleConditions ?? DEFAULT_BATTLE_CONDITIONS,
     conditionDurations: components.conditionDurations ?? {},

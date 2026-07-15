@@ -3,7 +3,6 @@ import {
   fallenParticipantIds,
   participantDisplayNames,
   type Counters,
-  type ParticipantView,
   type ResolvedSession,
   type Session,
 } from "@workspace/game-v2/encounter"
@@ -19,8 +18,8 @@ import {
   type CombatantAvatar,
 } from "@/domain/combat/view/avatar"
 import { displayHome } from "@/domain/combat/view/display-home"
-import type { Pool } from "@/domain/combat/view/pool"
 import { COMBATANT_DOWN_LABELS } from "@/domain/labels"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The display projection the combatant **rail** renders — the v2 successor of
@@ -68,21 +67,6 @@ export interface RosterView {
   downedEnemyCount: number
 }
 
-/** The resolved HP pool, or `null` when the entity carries no Vitals —
- *  absence, not an empty `{0,0}` pool. */
-export function hpPool(participantView: ParticipantView): Pool | null {
-  const vitals = participantView.components.vitals
-  return vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null
-}
-
-/** The resolved SP pool, or `null` when the entity carries no SkillPool. */
-export function spPool(participantView: ParticipantView): Pool | null {
-  const skillPool = participantView.components.skillPool
-  return skillPool
-    ? { current: skillPool.currentSP, max: skillPool.maxSP }
-    : null
-}
-
 /** Builds the {@link RosterView} for one (optimistic) frame. */
 export function buildRosterView(
   session: Session,
@@ -120,8 +104,8 @@ export function buildRosterView(
         isFallen,
         isDowned: participant.overlay.ailments.includes("downed"),
         downLabel: isFallen ? COMBATANT_DOWN_LABELS[home] : null,
-        hp: hpPool(participantView),
-        sp: spPool(participantView),
+        hp: hpPool(participantView.components.vitals),
+        sp: spPool(participantView.components.skillPool),
         portraitUrl,
         engagement: participantView.components.engagement ?? {
           status: "free",

@@ -31,8 +31,6 @@ import {
   displayHome,
   type DisplayHome,
 } from "@/domain/combat/view/display-home"
-import type { Pool } from "@/domain/combat/view/pool"
-import { hpPool, spPool } from "@/domain/combat/view/roster-view"
 import {
   vitalsAffordances,
   type VitalsAffordances,
@@ -43,6 +41,7 @@ import {
   COMBATANT_DOWN_LABELS,
   COMBATANT_EDIT_SCOPE_NOTES,
 } from "@/domain/labels"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The per-combatant **drawer model** — a composition of one view per drawer
@@ -201,8 +200,8 @@ function combatantVitals(
 ): CombatantVitalsView {
   const vitals = participantView.components.vitals
   return {
-    hp: hpPool(participantView),
-    sp: spPool(participantView),
+    hp: hpPool(vitals),
+    sp: spPool(participantView.components.skillPool),
     downLabel:
       vitals !== undefined && isFallen(vitals)
         ? COMBATANT_DOWN_LABELS[home]

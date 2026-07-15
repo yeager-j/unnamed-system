@@ -11,7 +11,7 @@ import {
 
 import { CombatStateDisplay } from "@/components/combat/conditions/state-display"
 import { VitalBar } from "@/components/shared/vital-bar"
-import type { Pool } from "@/domain/combat/view/pool"
+import type { Pool } from "@/domain/pool"
 
 /**
  * A tap-to-expand read-only stats card for a map token (UNN-490): numeric HP/SP

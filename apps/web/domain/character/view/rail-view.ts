@@ -12,6 +12,7 @@ import { MAX_EXHAUSTION_LEVEL } from "@workspace/game-v2/resources/exhaustion.sc
 
 import type { CharacterProfile } from "@/domain/character/load"
 import { archetypesByLineage } from "@/domain/game-engine-v2"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The sheet's persistent **left rail** view model (UNN-557; design handoff
@@ -26,17 +27,12 @@ export interface RailView {
   portraitUrl: string | null
   level: number | null
   archetype: RailArchetype | null
-  hp: RailPool | null
-  sp: RailPool | null
+  hp: Pool | null
+  sp: Pool | null
   victories: RailVictories | null
   attributes: AttributeScores | null
   prisma: RailPrisma | null
   exhaustion: RailExhaustion | null
-}
-
-export interface RailPool {
-  current: number
-  max: number
 }
 
 /**
@@ -92,10 +88,8 @@ export function buildRailView(
     archetype: archetypes
       ? railArchetype(archetypes, archetypesByLineage(resolved))
       : null,
-    hp: vitals ? { current: vitals.currentHP, max: vitals.maxHP } : null,
-    sp: skillPool
-      ? { current: skillPool.currentSP, max: skillPool.maxSP }
-      : null,
+    hp: hpPool(vitals),
+    sp: spPool(skillPool),
     victories: level
       ? {
           banked: level.victories,

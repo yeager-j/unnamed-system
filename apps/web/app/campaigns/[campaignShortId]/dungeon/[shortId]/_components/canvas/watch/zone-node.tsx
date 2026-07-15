@@ -17,8 +17,8 @@ import { ExitChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_c
 import { TokenStatsPopover } from "@/components/combat/token-stats-popover"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import { groupTokensByEngagement } from "@/domain/combat/view/engagement-groups"
-import type { Pool } from "@/domain/combat/view/pool"
 import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
+import type { Pool } from "@/domain/pool"
 
 export type WatchZoneToken = {
   characterId: string

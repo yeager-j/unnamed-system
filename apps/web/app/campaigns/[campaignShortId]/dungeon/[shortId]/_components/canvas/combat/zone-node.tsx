@@ -14,8 +14,8 @@ import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[short
 import { ZoneCardFrame } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/zone-card-frame"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
-import type { Pool } from "@/domain/combat/view/pool"
 import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
+import type { Pool } from "@/domain/pool"
 
 import { useDungeonCombatCanvas } from "./context"
 
