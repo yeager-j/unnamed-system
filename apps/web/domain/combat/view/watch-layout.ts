@@ -6,16 +6,17 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
+import { adjacencyOf } from "@workspace/game-v2/spatial/selectors"
 import type {
   SpatialEncounterSnapshot,
   VisibleCombatant,
 } from "@workspace/game-v2/visibility"
 
-import type { Pool } from "@/domain/combat/view/pool"
 import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
 } from "@/domain/combat/view/zone-enchantment-badge"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The watch view's display shaping (UNN-535) — the pure per-render fold that
@@ -98,15 +99,8 @@ function watchCombatant(
     hasActed: (components.turnState?.turnsTakenThisRound ?? 0) > 0,
     zoneId: zoneId ? zoneId : null,
     portraitUrl: components.presentation?.portraitUrl ?? null,
-    hp: components.vitals
-      ? { current: components.vitals.currentHP, max: components.vitals.maxHP }
-      : null,
-    sp: components.skillPool
-      ? {
-          current: components.skillPool.currentSP,
-          max: components.skillPool.maxSP,
-        }
-      : null,
+    hp: hpPool(components.vitals),
+    sp: spPool(components.skillPool),
     ailments: components.ailments ?? [],
     battleConditions: components.battleConditions ?? DEFAULT_BATTLE_CONDITIONS,
     conditionDurations: components.conditionDurations ?? {},
@@ -114,29 +108,24 @@ function watchCombatant(
   }
 }
 
-/** Undirected adjacency names per zone, from the snapshot's full connections. */
+/** Undirected adjacency *names* per zone — the shared engine {@link adjacencyOf}
+ *  walk over the snapshot's redacted connections, its neighbor ids resolved to
+ *  display names (an unknown id is dropped). */
 function adjacencyNames(
   snapshot: SpatialEncounterSnapshot
 ): Map<string, string[]> {
   const nameById = new Map(snapshot.zones.map((zone) => [zone.id, zone.name]))
-  const byZone = new Map<string, string[]>()
-  for (const connection of snapshot.connections) {
-    const fromName = nameById.get(connection.fromZoneId)
-    const toName = nameById.get(connection.toZoneId)
-    if (toName !== undefined) {
-      byZone.set(connection.fromZoneId, [
-        ...(byZone.get(connection.fromZoneId) ?? []),
-        toName,
-      ])
-    }
-    if (fromName !== undefined) {
-      byZone.set(connection.toZoneId, [
-        ...(byZone.get(connection.toZoneId) ?? []),
-        fromName,
-      ])
-    }
-  }
-  return byZone
+  return new Map(
+    Object.entries(adjacencyOf(snapshot.connections)).map(
+      ([zoneId, neighborIds]) => [
+        zoneId,
+        neighborIds.flatMap((id) => {
+          const name = nameById.get(id)
+          return name !== undefined ? [name] : []
+        }),
+      ]
+    )
+  )
 }
 
 /**

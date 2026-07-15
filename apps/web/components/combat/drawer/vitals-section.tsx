@@ -10,8 +10,8 @@ import { AdjustPoolPopover } from "@/components/shared/adjust-pool-controls"
 import { DetailSection } from "@/components/shared/detail-section"
 import { VitalBar } from "@/components/shared/vital-bar"
 import type { CombatantVitalsView } from "@/domain/combat/view/detail-view"
-import type { Pool } from "@/domain/combat/view/pool"
 import type { CombatEntityWrite } from "@/domain/entity/commit/write.schema"
+import type { Pool } from "@/domain/pool"
 
 /**
  * The drawer's **VITALS** section, rewritten onto the CD19 write-router

@@ -126,13 +126,18 @@ folders (fold/depletion, mechanics, items, combat, and friends). `encounter/` an
 
 ## The dependency gradient
 
-`logic → schema → vocab`, `logic → ports`, **never** concrete `catalog/`. Two
+`logic → schema → vocab`, `logic → ports`, **never** concrete `catalog/`. Four
 load-bearing rules are hard-gated by `depcheck.mjs` (ESLint can't gate them —
 the shared config's `only-warn` plugin downgrades import bans to warnings):
 
 1. **Independence** — no `@workspace/game` imports anywhere (D32).
 2. **Ports, not catalog** — engine logic never value-imports `catalog/`; it takes
    its lookups injected through `kernel/ports`, bound once in `composition.ts`.
+3. **Spatial is one-way** — `spatial/**` must not import `encounter`/`combat`/
+   `visibility` (SD2); `encounter → spatial` is the legitimate direction, so the
+   gate keys off the *importing* file.
+4. **Resolve composes Archetypes** — `archetypes/**` must not import `resolve/**`
+   (the resolve tier may compose Archetype helpers, never the reverse).
 
 The **registry grows by editing one kernel file**: each domain PR adds its
 component as one line + a type-only import in `kernel/component-registry.ts` (and a

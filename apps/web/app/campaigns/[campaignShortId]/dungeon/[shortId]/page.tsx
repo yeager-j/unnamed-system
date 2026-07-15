@@ -13,8 +13,8 @@ import {
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
-import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
+import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { loadMapRowById } from "@/lib/db/queries/load-map"
 import { loadPartyVitalsByIds } from "@/lib/db/queries/load-party-vitals"
 
@@ -133,7 +133,7 @@ async function resolveRunMode(
   if (live) {
     const data = await getEncounterForDM(campaignShortId, live.shortId)
     if (data) {
-      const combatantSheetSliceById = await loadCombatConsoleDataV2(
+      const combatantSheetSliceById = await loadCombatConsoleData(
         data.session,
         data.instance.state,
         data.participantMeta

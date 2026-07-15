@@ -1,11 +1,12 @@
-import { and, eq, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
 
 import { db } from "@/lib/db/client"
 import { maps } from "@/lib/db/schema/map"
 import { insertWithShortId } from "@/lib/db/short-id"
+import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
 
 /**
  * Persistence for the `map` table — the user-owned dungeon templates (Dungeon Map
@@ -13,14 +14,9 @@ import { insertWithShortId } from "@/lib/db/short-id"
  * auth-free; the owner authorization (`requireMapOwner`) lives at the Server
  * Action boundary that calls it.
  *
- * A single `version` token guards every mutation, mirroring the encounter /
- * Instance writes ({@link import("./map-instance").saveMapInstanceState}): each
- * guarded write bumps `version` while conditioning on `(id, version ===
- * expectedVersion)`, and on zero affected rows disambiguates `"stale"` from
- * `"map-not-found"`. This is **not** folded into the character `version-guard`
- * primitive (that one is per-class and character-table-coupled); the only shared
- * trait is the conditioned-update shape. These run on the base `db` — Map
- * authoring is single-owner with no cross-row atomic gesture (no `guardMany`).
+ * A single `version` token guards every mutation through the shared
+ * {@link guardedVersionUpdate}. These run on the base `db` — Map authoring is
+ * single-owner with no cross-row atomic gesture (no `guardMany`).
  */
 
 type MapWriteError = "map-not-found" | "stale"
@@ -88,38 +84,17 @@ export async function deleteMap(mapId: string): Promise<void> {
   await db.delete(maps).where(eq(maps.id, mapId))
 }
 
-/**
- * Runs a guarded single-version bump: applies `patch` together with the
- * `version + 1` increment in one `SET`, conditioned on `(id, version ===
- * expectedVersion)`, and returns the bumped version. On zero affected rows it
- * disambiguates `"stale"` (row exists, token moved) from `"map-not-found"`
- * (row gone).
- */
+/** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpMapVersionGuarded(
   mapId: string,
   expectedVersion: number,
   patch: Partial<typeof maps.$inferInsert>
 ): Promise<Result<{ version: number }, MapWriteError>> {
-  const updated = await db
-    .update(maps)
-    .set({ ...patch, version: sql`${maps.version} + 1` })
-    .where(and(eq(maps.id, mapId), eq(maps.version, expectedVersion)))
-    .returning({ version: maps.version })
-
-  if (updated.length === 0) {
-    return (await mapExists(mapId)) ? err("stale") : err("map-not-found")
-  }
-
-  return ok({ version: updated[0]!.version })
-}
-
-/** Existence check for the zero-row disambiguation. */
-async function mapExists(mapId: string): Promise<boolean> {
-  const [row] = await db
-    .select({ id: maps.id })
-    .from(maps)
-    .where(eq(maps.id, mapId))
-    .limit(1)
-
-  return row !== undefined
+  return guardedVersionUpdate({
+    table: maps,
+    id: mapId,
+    expectedVersion,
+    patch,
+    notFound: "map-not-found",
+  })
 }

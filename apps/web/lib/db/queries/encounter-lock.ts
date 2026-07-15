@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
-import { loadLiveEncounterDurableEntityIds } from "@/lib/db/queries/load-encounter-v2"
+import { loadLiveEncounterDurableEntityIds } from "@/lib/db/queries/load-encounter-session"
 import { playerCharacter } from "@/lib/db/schema/player-character"
 
 /**
@@ -21,7 +21,7 @@ import { playerCharacter } from "@/lib/db/schema/player-character"
  * the guard.** It runs *before* the delete flow tombstones the row, so the
  * subject's `deletedAt` is null by construction; more to the point, this lock is
  * what keeps a live encounter free of tombstones, which is why the combat-adjacent
- * by-id hydration reads (`load-combat-console-data-v2`, the snapshot fold) can
+ * by-id hydration reads (`load-combat-console-data`, the snapshot fold) can
  * resolve pinned ids without a `deletedAt` filter. Filtering here would only
  * weaken that guarantee.
  */

@@ -24,7 +24,7 @@ import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
   loadEncounterForSnapshot,
   type LoadedEncounterForSnapshot,
-} from "@/lib/db/queries/load-encounter-v2"
+} from "@/lib/db/queries/load-encounter-session"
 import { loadEntityRowsByIds } from "@/lib/db/queries/load-entity"
 import { loadPlayerCharacterRowsByIds } from "@/lib/db/queries/load-player-character"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"

@@ -1,7 +1,7 @@
 "use client"
 
 import { TokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/token-chip"
-import { type Pool } from "@/domain/combat/view/pool"
+import { type Pool } from "@/domain/pool"
 
 /**
  * A party-member chip inside a Zone card — a PC's spatial presence on the dungeon

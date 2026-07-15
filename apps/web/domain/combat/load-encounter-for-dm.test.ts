@@ -21,7 +21,7 @@ vi.mock("@/lib/auth", () => ({
   auth: () => auth(),
 }))
 vi.mock("@/lib/db/client", () => ({ db: {} }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForSnapshot: (shortId: string) =>
     loadEncounterForSnapshot(shortId),
 }))

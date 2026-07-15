@@ -1,13 +1,13 @@
 import { and, desc, eq } from "drizzle-orm"
 
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { db } from "@/lib/db/client"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 
 /**
  * **Blob-free** reads for the `encounters` table (UNN-535): every function here
  * selects columns only, never the `session` jsonb — the parse-and-dissolve
- * reads live in `load-encounter-v2.ts` (the F6 boundary). Keeping this module
+ * reads live in `load-encounter-session.ts` (the F6 boundary). Keeping this module
  * blob-agnostic is what let the campaign surfaces and version plumbing survive
  * the v1→v2 cutover untouched.
  */
@@ -70,25 +70,6 @@ export async function loadEncounterCampaignId(
   return row?.campaignId ?? null
 }
 
-/**
- * Cheap existence check used by the guarded session writes to disambiguate a
- * zero-row `UPDATE` between `"encounter-not-found"` (the row is gone) and
- * `"stale"` (it exists but its `version` moved past the caller's token). Selects
- * only `id` so the read is index-only.
- */
-export async function encounterExists(
-  encounterId: string,
-  executor: WriteExecutor = db
-): Promise<boolean> {
-  const [row] = await executor
-    .select({ id: encounters.id })
-    .from(encounters)
-    .where(eq(encounters.id, encounterId))
-    .limit(1)
-
-  return row !== undefined
-}
-
 /** Summary row for the manage page's encounter list (UNN-329) — the columns the
  *  list renders, never the heavy `session` blob. */
 export interface EncounterSummary {
@@ -126,7 +107,7 @@ export async function loadEncountersForCampaign(
  * {@link EncounterSummary} projection (no `session` jsonb), or `null` if none
  * is live. Backs the campaign page's live-encounter banner (UNN-329), which
  * renders only the name + link; the single-live *guard* uses the even lighter
- * {@link import("./load-encounter-v2").loadLiveEncounterIdForCampaign}.
+ * {@link import("./load-encounter-session").loadLiveEncounterIdForCampaign}.
  */
 export async function loadLiveEncounterSummaryForCampaign(
   campaignId: string

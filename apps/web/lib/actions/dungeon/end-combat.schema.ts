@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterSessionError } from "@/lib/db/queries/load-encounter-session"
 import type { DungeonWriteError } from "@/lib/db/writes/dungeon"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 import type { MapInstanceWriteError } from "@/lib/db/writes/map-instance"
@@ -27,7 +27,7 @@ export type EndDungeonCombatError =
   | "encounter-not-live"
   | "encounter-not-on-dungeon"
   | "locator-missing"
-  | LoadEncounterV2Error
+  | LoadEncounterSessionError
   | EncounterWriteError
   | MapInstanceWriteError
   | DungeonWriteError

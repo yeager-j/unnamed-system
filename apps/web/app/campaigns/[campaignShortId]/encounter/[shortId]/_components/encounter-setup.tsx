@@ -16,6 +16,7 @@ import type {
   CombatSide,
 } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
+import { adjacencyMap } from "@workspace/game-v2/spatial/selectors"
 import { Button } from "@workspace/ui/components/button"
 import { Spinner } from "@workspace/ui/components/spinner"
 
@@ -24,7 +25,6 @@ import { ImportPcsPanel } from "@/components/combat/setup/import-pcs-panel"
 import { CampaignBackLink } from "@/components/shared/campaign-back-link"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { buildSetupRows } from "@/domain/combat/view/setup-view"
-import { adjacencyMap } from "@/domain/combat/view/zone-graph"
 import { resolveSession } from "@/domain/game-engine-v2"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import { encounterSetupPath } from "@/lib/paths"

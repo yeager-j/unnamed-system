@@ -1,12 +1,15 @@
 import { resolveEntity } from "@/domain/game-engine-v2"
 import { loadEntityRow } from "@/domain/game-v2/entity-row-to-bag"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 import { loadLiveEntityRowsByIds } from "@/lib/db/queries/load-entity"
 
 /** A party token's current + max pools, the shape the dungeon roster + fog
- *  snapshot draw each health/skill bar from. */
+ *  snapshot draw each health/skill bar from. Unlike the display surfaces, a
+ *  token always draws a bar, so absence zero-fills rather than resolving to
+ *  `null`. */
 interface TokenVitals {
-  hp: { current: number; max: number }
-  sp: { current: number; max: number }
+  hp: Pool
+  sp: Pool
 }
 
 /**
@@ -40,8 +43,8 @@ export async function loadPartyVitalsByIds(
     }
     const { vitals, skillPool } = resolveEntity(loaded.value).components
     vitalsById.set(row.id, {
-      hp: { current: vitals?.currentHP ?? 0, max: vitals?.maxHP ?? 0 },
-      sp: { current: skillPool?.currentSP ?? 0, max: skillPool?.maxSP ?? 0 },
+      hp: hpPool(vitals) ?? { current: 0, max: 0 },
+      sp: spPool(skillPool) ?? { current: 0, max: 0 },
     })
   }
 

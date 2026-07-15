@@ -27,7 +27,7 @@ import { entity } from "@/lib/db/schema/entity"
  * of a live fight, so there is nothing to filter, and dropping a pinned id would
  * blank a live combatant's drawer. See `schema/entity.ts` / `encounter-lock.ts`.
  */
-export async function loadCombatConsoleDataV2(
+export async function loadCombatConsoleData(
   session: Session,
   instance: MapInstanceState,
   participantMeta: Record<ParticipantId, ParticipantMeta>

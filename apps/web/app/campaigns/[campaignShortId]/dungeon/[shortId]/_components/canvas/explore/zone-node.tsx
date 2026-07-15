@@ -15,7 +15,7 @@ import { Separator } from "@workspace/ui/components/separator"
 import { useDungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/context"
 import { DungeonTokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/token-chip"
 import { ZoneCardFrame } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/zone-card-frame"
-import { type Pool } from "@/domain/combat/view/pool"
+import { type Pool } from "@/domain/pool"
 
 export type DungeonZoneToken = {
   characterId: string

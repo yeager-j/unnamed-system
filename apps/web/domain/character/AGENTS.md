@@ -16,9 +16,9 @@ when S2 lands, the pure per-surface view builders.
 - `view/` (S2a — UNN-557) — pure per-surface view builders over that triple,
   mirroring `domain/combat/view/`: `rail-view.ts` (the sheet's persistent rail —
   note Level/Victories read off the authored `entity`, no resolved read-unit
-  exists), `affinity-strip.ts` (11 cells, neutral-filled), `skill-sources.ts`
-  (per-skill provenance labels for the card's effect line). Skill cards
-  themselves render `ResolvedSkill` directly — no per-card view type. **There
+  exists), `affinity-strip.ts` (11 cells, neutral-filled), plus `archetypes-tab.ts`,
+  `inventory-table.ts`, and `virtues-card.ts`. Skill cards themselves render
+  `ResolvedSkill` directly — no per-card view type. **There
   is no shared flattener** — no `HydratedCharacter` successor. A shared view
   slice may exist only when two surfaces genuinely render the same one, and it
   is named for its content, never its storage (the F1 tripwire: a view type

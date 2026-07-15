@@ -2,7 +2,7 @@
 
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
-import type { EncounterSnapshotResult } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import type { EncounterSnapshotResult } from "@/lib/db/queries/load-encounter-snapshot"
 import { fetchJsonSnapshot } from "@/lib/sync/fetch-json-snapshot"
 import {
   useSnapshotSubscription,

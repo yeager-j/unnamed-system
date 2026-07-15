@@ -1,7 +1,7 @@
 import { type DungeonCombatZoneNode as DungeonCombatZoneNodeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/zone-node"
 import { type DungeonZoneNode as DungeonZoneNodeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node"
-import { type Pool } from "@/domain/combat/view/pool"
 import { type RosterView } from "@/domain/combat/view/roster-view"
+import { type Pool } from "@/domain/pool"
 
 /**
  * A party member as the DM run console's exploration board draws it — display data

@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterSessionError } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 
 import { encounterMutationBase } from "../encounter/encounter-mutation.schema"
@@ -31,5 +31,5 @@ export type AddCatalogEnemiesError =
   | "invalid-input"
   | "unknown-enemy"
   | "locator-missing"
-  | LoadEncounterV2Error
+  | LoadEncounterSessionError
   | EncounterWriteError

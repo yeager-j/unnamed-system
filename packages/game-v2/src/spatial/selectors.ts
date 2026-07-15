@@ -1,6 +1,7 @@
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ZoneEnchantment } from "@workspace/game-v2/mechanics/zone-enchantment.schema"
 
+import type { MapGeometry, MapZone } from "./geometry.schema"
 import type { MapInstanceState } from "./map-instance.schema"
 
 /**
@@ -54,4 +55,61 @@ export function engagementOf(
   tokenKey: string
 ): Engagement {
   return state.occupancy[tokenKey]?.engagement ?? { status: "free" }
+}
+
+/**
+ * The undirected neighbor-id map of a connection collection: every zone id that
+ * appears as an endpoint mapped to the ids on the far side of its connections.
+ * Connections are undirected — either endpoint counts as a neighbor. The shared
+ * primitive {@link adjacencyMap} (over full geometry), {@link adjacentZones}, and
+ * the redacted watch all build on: it names only the `{ fromZoneId, toZoneId }`
+ * pair, so a redacted snapshot's connection list feeds it as readily as authored
+ * geometry (SD2 — no `encounter`/`visibility` import).
+ *
+ * Edge multiplicity is **preserved**: two connections between the same pair list
+ * that neighbor twice. The map forms keep it (a doubled corridor is a fact about
+ * the geometry); `adjacentZones` dedups, because a zone *list* has no use for it.
+ */
+export function adjacencyOf(
+  connections: Iterable<{ fromZoneId: string; toZoneId: string }>
+): Record<string, string[]> {
+  const map: Record<string, string[]> = {}
+  const link = (from: string, to: string) => (map[from] ??= []).push(to)
+  for (const { fromZoneId, toZoneId } of connections) {
+    link(fromZoneId, toZoneId)
+    link(toZoneId, fromZoneId)
+  }
+  return map
+}
+
+/**
+ * Every zone's neighbor ids, keyed by zone id — zones with no borders map to
+ * `[]`. The full-geometry form of {@link adjacencyOf} (it seeds every authored
+ * zone, so an unconnected zone is present with an empty list). The app-side
+ * successor of v1's engine `adjacencyMap` (promoted here once a second consumer
+ * appeared — UNN-597).
+ */
+export function adjacencyMap(geometry: MapGeometry): Record<string, string[]> {
+  const map: Record<string, string[]> = Object.fromEntries(
+    Object.keys(geometry.zones).map((zoneId) => [zoneId, [] as string[]])
+  )
+  const walked = adjacencyOf(Object.values(geometry.connections))
+  for (const [zoneId, neighborIds] of Object.entries(walked)) {
+    map[zoneId]?.push(...neighborIds)
+  }
+  return map
+}
+
+/** The zones adjacent to `zoneId`, resolved to their {@link MapZone}s — built on
+ *  {@link adjacencyOf}, deduped (a doubled corridor resolves to one neighbor
+ *  zone), and dropping a neighbor whose zone no longer exists. */
+export function adjacentZones(
+  geometry: MapGeometry,
+  zoneId: string
+): MapZone[] {
+  const neighborIds = adjacencyOf(Object.values(geometry.connections))[zoneId]
+  return [...new Set(neighborIds)].flatMap((id) => {
+    const zone = geometry.zones[id]
+    return zone ? [zone] : []
+  })
 }

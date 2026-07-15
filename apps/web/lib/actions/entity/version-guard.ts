@@ -16,6 +16,12 @@ import { publishCharacterPing } from "@/lib/realtime/publish"
  * conditioning on `(id, <class>Version === expectedVersion)`, then disambiguates a
  * zero-row result.
  *
+ * The **per-class peer** of the single-`version` {@link
+ * import("@/lib/db/writes/guarded-update").guardedVersionUpdate} the other
+ * aggregates share: same conditioned-update shape, but this one picks the token
+ * column by write-class and returns the row's `shortId` for the realtime ping —
+ * a different cardinality, kept its own home (UNN-597).
+ *
  * The component-column projection (CH15) makes this structurally safe: the patch's
  * keys are 1:1 with `entity` component **columns**, so `SET`ing them touches only
  * the written components and cannot clobber a sibling class's column (where a

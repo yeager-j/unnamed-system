@@ -15,10 +15,10 @@ import { err, ok } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
-import type { LoadedEncounterForSnapshot } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForSnapshot } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
-import { getEncounterSnapshot } from "./load-encounter-snapshot-v2"
+import { getEncounterSnapshot } from "./load-encounter-snapshot"
 
 // The query composes four impure seams — the v2 snapshot loader, the campaign
 // row, the v2 Map-Instance row, and the session (via `deriveViewer`) — around
@@ -40,7 +40,7 @@ vi.mock("@/lib/db/queries/load-campaign", () => ({
   isCampaignMember: (campaignId: string, userId: string) =>
     isCampaignMember(campaignId, userId),
 }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForSnapshot: (shortId: string) =>
     loadEncounterForSnapshot(shortId),
 }))

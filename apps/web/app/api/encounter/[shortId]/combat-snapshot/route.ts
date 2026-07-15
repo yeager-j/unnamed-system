@@ -1,4 +1,4 @@
-import { getDungeonCombatSnapshot } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import { getDungeonCombatSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
 
 /**
  * Public **fogged** player-snapshot endpoint for a fight running on a delve

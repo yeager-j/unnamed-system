@@ -13,7 +13,7 @@ import {
 } from "@/domain/combat/use-encounter-snapshot"
 import { buildWatchView } from "@/domain/combat/view/watch-layout"
 import { ENCOUNTER_STATUS_LABELS } from "@/domain/labels"
-import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 import type { EncounterStatus } from "@/lib/db/schema/encounter"
 
 import { ZoneLayout } from "./zone-layout"

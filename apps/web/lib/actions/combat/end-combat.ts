@@ -7,7 +7,7 @@ import { pruneCombat } from "@workspace/game-v2/spatial"
 import { requireCampaignDM } from "@/lib/auth/campaign-access"
 import { type WriteExecutor } from "@/lib/db/client"
 import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
-import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import { loadEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import {
   saveEncounterSession,

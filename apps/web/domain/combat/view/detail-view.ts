@@ -18,7 +18,7 @@ import type {
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
 import type { MapInstanceState, MapZone } from "@workspace/game-v2/spatial"
-import { zoneOf } from "@workspace/game-v2/spatial/selectors"
+import { adjacentZones, zoneOf } from "@workspace/game-v2/spatial/selectors"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
@@ -31,18 +31,16 @@ import {
   displayHome,
   type DisplayHome,
 } from "@/domain/combat/view/display-home"
-import type { Pool } from "@/domain/combat/view/pool"
-import { hpPool, spPool } from "@/domain/combat/view/roster-view"
 import {
   vitalsAffordances,
   type VitalsAffordances,
 } from "@/domain/combat/view/vitals-affordances"
-import { adjacentZones } from "@/domain/combat/view/zone-graph"
 import {
   COMBATANT_CLASS_FALLBACKS,
   COMBATANT_DOWN_LABELS,
   COMBATANT_EDIT_SCOPE_NOTES,
 } from "@/domain/labels"
+import { hpPool, spPool, type Pool } from "@/domain/pool"
 
 /**
  * The per-combatant **drawer model** — a composition of one view per drawer
@@ -201,8 +199,8 @@ function combatantVitals(
 ): CombatantVitalsView {
   const vitals = participantView.components.vitals
   return {
-    hp: hpPool(participantView),
-    sp: spPool(participantView),
+    hp: hpPool(vitals),
+    sp: spPool(participantView.components.skillPool),
     downLabel:
       vitals !== undefined && isFallen(vitals)
         ? COMBATANT_DOWN_LABELS[home]

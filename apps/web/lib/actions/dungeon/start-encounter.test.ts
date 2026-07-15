@@ -31,7 +31,7 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-dungeon", () => ({
   loadDungeonRowById: (id: string) => loadDungeonRowById(id),
 }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadLiveEncounterIdForCampaign: (id: string) =>
     loadLiveEncounterIdForCampaign(id),
 }))
