@@ -7,7 +7,7 @@ import { mapInstances } from "@/lib/db/schema/map-instance"
 /**
  * **Blob-free** reads for the `encounters` table (UNN-535): every function here
  * selects columns only, never the `session` jsonb — the parse-and-dissolve
- * reads live in `load-encounter-v2.ts` (the F6 boundary). Keeping this module
+ * reads live in `load-encounter-session.ts` (the F6 boundary). Keeping this module
  * blob-agnostic is what let the campaign surfaces and version plumbing survive
  * the v1→v2 cutover untouched.
  */
@@ -126,7 +126,7 @@ export async function loadEncountersForCampaign(
  * {@link EncounterSummary} projection (no `session` jsonb), or `null` if none
  * is live. Backs the campaign page's live-encounter banner (UNN-329), which
  * renders only the name + link; the single-live *guard* uses the even lighter
- * {@link import("./load-encounter-v2").loadLiveEncounterIdForCampaign}.
+ * {@link import("./load-encounter-session").loadLiveEncounterIdForCampaign}.
  */
 export async function loadLiveEncounterSummaryForCampaign(
   campaignId: string

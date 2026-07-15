@@ -68,9 +68,8 @@ export async function createEncounter(
  * The core guarded write the impure shell calls after reducing an event:
  * replaces the whole `session` blob (the fail-closed `saveSession` serializer's
  * {@link StoredSession} output) and bumps `version`, conditioned on the
- * caller's `expectedVersion`. Returns the new version on success. Formerly the
- * `encounter-v2.ts` twin (`saveStoredEncounterSession`) — folded back here when
- * the hard cutover retired the v1 blob shape (UNN-535).
+ * caller's `expectedVersion`. Returns the new version on success. The hard
+ * cutover (UNN-535) retired the v1 blob shape and folded its writer back here.
  */
 export async function saveEncounterSession(
   encounterId: string,

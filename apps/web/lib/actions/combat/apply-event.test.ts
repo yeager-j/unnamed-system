@@ -14,7 +14,7 @@ import {
 import { err, ok } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
-import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { applyCombatEventAction } from "./apply-event"
@@ -44,7 +44,7 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterCampaignId: (id: string) => loadEncounterCampaignId(id),
 }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
   loadLiveEncounterIdForCampaign: (id: string) =>
     loadLiveEncounterIdForCampaign(id),

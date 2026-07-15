@@ -21,7 +21,7 @@ import { buildWatchView } from "@/domain/combat/view/watch-layout"
 import type {
   EncounterSnapshotResult,
   OwnedEncounterSheet,
-} from "@/lib/db/queries/load-encounter-snapshot-v2"
+} from "@/lib/db/queries/load-encounter-snapshot"
 
 // React Flow measures the DOM, so the fog canvas renders client-only against a
 // mounted container (the exploration watch + run console load theirs the same way).

@@ -14,7 +14,7 @@ import {
 } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err, ok } from "@workspace/game-v2/kernel/result"
 
-import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadedEncounterForWrite } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterRow } from "@/lib/db/schema/encounter"
 
 import { addCatalogEnemiesAction } from "./add-participants"
@@ -38,7 +38,7 @@ vi.mock("@/lib/auth/campaign-access", () => ({
 vi.mock("@/lib/db/queries/load-encounter", () => ({
   loadEncounterCampaignId: (id: string) => loadEncounterCampaignId(id),
 }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadEncounterForWrite: (id: string) => loadEncounterForWrite(id),
 }))
 vi.mock("@/lib/db/writes/encounter", () => ({

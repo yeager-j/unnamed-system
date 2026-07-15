@@ -4,7 +4,7 @@ import { participantIdSchema } from "@workspace/game-v2/kernel/participant-id.sc
 
 import { combatEntityWriteSchema } from "@/domain/entity/commit/write.schema"
 import type { EntityWriteError } from "@/lib/actions/entity/entity-row-store"
-import type { LoadEncounterV2Error } from "@/lib/db/queries/load-encounter-v2"
+import type { LoadEncounterSessionError } from "@/lib/db/queries/load-encounter-session"
 import type { EncounterWriteError } from "@/lib/db/writes/encounter"
 
 /**
@@ -52,5 +52,5 @@ export type ApplyCombatantWriteError =
   | "missing-character-version"
   | "locator-missing"
   | EntityWriteError
-  | LoadEncounterV2Error
+  | LoadEncounterSessionError
   | EncounterWriteError

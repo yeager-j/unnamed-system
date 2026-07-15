@@ -4,7 +4,7 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db } from "@/lib/db/client"
 import { memberHasLiveEncounterCombatant } from "@/lib/db/queries/encounter-lock"
-import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-v2"
+import { loadLiveEncounterIdForCampaign } from "@/lib/db/queries/load-encounter-session"
 import { campaigns, campaignUsers } from "@/lib/db/schema/campaign"
 import { campaignNpc } from "@/lib/db/schema/campaign-world"
 import { encounters } from "@/lib/db/schema/encounter"

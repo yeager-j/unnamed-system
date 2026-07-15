@@ -6,7 +6,7 @@ import { useEffect, useRef } from "react"
 import type { SpatialEncounterSnapshot } from "@workspace/game-v2/visibility"
 
 import { ownedSheetRefreshKey } from "@/domain/combat/view/owned-sheet-refresh-key"
-import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import type { OwnedEncounterSheet } from "@/lib/db/queries/load-encounter-snapshot"
 
 /**
  * Keeps the watch view's owned sheets in step with the battlefield: the sheets

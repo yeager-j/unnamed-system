@@ -1,4 +1,4 @@
-import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot-v2"
+import { getEncounterSnapshot } from "@/lib/db/queries/load-encounter-snapshot"
 
 /**
  * Public **player-snapshot** endpoint at `/api/encounter/{shortId}/snapshot`

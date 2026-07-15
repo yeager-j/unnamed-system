@@ -7,7 +7,7 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import {
   loadEncounterForWrite,
   type LoadedEncounterForWrite,
-} from "@/lib/db/queries/load-encounter-v2"
+} from "@/lib/db/queries/load-encounter-session"
 
 import {
   ApplyCombatantWriteSchema,

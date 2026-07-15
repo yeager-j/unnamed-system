@@ -15,7 +15,7 @@ import {
 import {
   getDungeonCombatSnapshot,
   loadOwnedEncounterSheets,
-} from "@/lib/db/queries/load-encounter-snapshot-v2"
+} from "@/lib/db/queries/load-encounter-snapshot"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string; shortId: string }>

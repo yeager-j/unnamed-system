@@ -50,7 +50,7 @@ export interface LoadedEncounterForSnapshot extends LoadedEncounterForWrite {
   durableOwners: Map<string, string>
 }
 
-export type LoadEncounterV2Error =
+export type LoadEncounterSessionError =
   | "encounter-not-found"
   | "invalid-session"
   | "participant-load-failed"
@@ -64,7 +64,7 @@ export type LoadEncounterV2Error =
  */
 export async function loadEncounterForWrite(
   encounterId: string
-): Promise<Result<LoadedEncounterForWrite, LoadEncounterV2Error>> {
+): Promise<Result<LoadedEncounterForWrite, LoadEncounterSessionError>> {
   const [rawRow] = await db
     .select()
     .from(encounters)
@@ -82,7 +82,7 @@ export async function loadEncounterForWrite(
  */
 export async function loadEncounterForSnapshot(
   shortId: string
-): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterV2Error>> {
+): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
   const [rawRow] = await db
     .select()
     .from(encounters)
@@ -95,7 +95,7 @@ export async function loadEncounterForSnapshot(
 /** The shared parse → hydrate → dissolve core both entry points run. */
 async function dissolveEncounterRow(
   rawRow: EncounterRow | undefined
-): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterV2Error>> {
+): Promise<Result<LoadedEncounterForSnapshot, LoadEncounterSessionError>> {
   if (!rawRow) return err("encounter-not-found")
 
   const parsed = storedSessionSchema.safeParse(rawRow.session)

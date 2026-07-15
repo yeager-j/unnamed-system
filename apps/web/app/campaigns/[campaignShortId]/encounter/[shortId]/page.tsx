@@ -6,7 +6,7 @@ import { EncounterSetup } from "@/app/campaigns/[campaignShortId]/encounter/[sho
 import { EncounterEndedStub } from "@/app/campaigns/[campaignShortId]/encounter/[shortId]/_components/ended-stub"
 import { getEncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadCombatConsoleDataV2 } from "@/lib/db/queries/load-combat-console-data-v2"
+import { loadCombatConsoleData } from "@/lib/db/queries/load-combat-console-data"
 
 interface PageProps {
   params: Promise<{ campaignShortId: string; shortId: string }>
@@ -56,7 +56,7 @@ export default async function CombatPage({ params }: PageProps) {
       )
     }
     case "live": {
-      const combatantSheetSliceById = await loadCombatConsoleDataV2(
+      const combatantSheetSliceById = await loadCombatConsoleData(
         result.session,
         result.instance.state,
         result.participantMeta

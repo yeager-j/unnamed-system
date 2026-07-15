@@ -34,7 +34,7 @@ vi.mock("@/lib/db/queries/character-list", () => ({
   loadPlacedCharactersForCampaign: (id: string) =>
     loadPlacedCharactersForCampaign(id),
 }))
-vi.mock("@/lib/db/queries/load-encounter-v2", () => ({
+vi.mock("@/lib/db/queries/load-encounter-session", () => ({
   loadLiveEncounterForMapInstance: (id: string) =>
     loadLiveEncounterForMapInstance(id),
 }))

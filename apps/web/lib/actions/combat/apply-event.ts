@@ -27,7 +27,7 @@ import { loadEncounterCampaignId } from "@/lib/db/queries/load-encounter"
 import {
   loadEncounterForWrite,
   loadLiveEncounterIdForCampaign,
-} from "@/lib/db/queries/load-encounter-v2"
+} from "@/lib/db/queries/load-encounter-session"
 import { loadLiveEntityRowById } from "@/lib/db/queries/load-entity"
 import { loadMapInstanceById } from "@/lib/db/queries/map-instance"
 import type { EncounterRow } from "@/lib/db/schema/encounter"

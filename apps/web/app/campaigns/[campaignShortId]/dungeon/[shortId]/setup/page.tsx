@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 
 import { DungeonEncounterStaging } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
-import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-v2"
+import { loadLiveEncounterForMapInstance } from "@/lib/db/queries/load-encounter-session"
 import { dungeonConsolePath } from "@/lib/paths"
 
 import { getDungeonForDM } from "../dungeon-access"
