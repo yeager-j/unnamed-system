@@ -312,6 +312,7 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
     campaigns,
     campaignClock,
     campaignSlot,
+    campaignSlotDungeon,
     campaignSeason,
     campaignArticle,
     campaignNpc,
@@ -344,6 +345,20 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
   await db
     .delete(campaignSeason)
     .where(eq(campaignSeason.campaignId, CAMPAIGN.id))
+  // A dungeon a DM scheduled into a seeded slot during local play also
+  // RESTRICT-refs it (`campaignSlotDungeon.slotId`) — clear those claims (the
+  // slot reverts to downtime) before the slots, or the re-seed would abort.
+  await db
+    .delete(campaignSlotDungeon)
+    .where(
+      inArray(
+        campaignSlotDungeon.slotId,
+        db
+          .select({ id: campaignSlot.id })
+          .from(campaignSlot)
+          .where(eq(campaignSlot.campaignId, CAMPAIGN.id))
+      )
+    )
   await db.delete(campaignSlot).where(eq(campaignSlot.campaignId, CAMPAIGN.id))
   await db
     .delete(campaignArticle)
