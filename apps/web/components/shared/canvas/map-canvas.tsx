@@ -54,6 +54,7 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import { overlappingZonePairs } from "@/domain/map/view/footprints"
 
 import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
@@ -63,7 +64,7 @@ import {
   type ConnectionEdge as FlowConnectionEdge,
   type ZoneNode as FlowZoneNode,
 } from "./geometry-to-flow"
-import { MapCanvasProvider } from "./map-canvas-context"
+import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
 import { ZoneDetailsSheet } from "./zone-details-sheet"
 import { ZoneNode } from "./zone-node"
@@ -286,6 +287,13 @@ function MapCanvasInner({
     )
   }
 
+  function handleSetZoneIdentity(zoneId: string, identity: ZoneIdentityPatch) {
+    patchZoneNodeData(
+      zoneId,
+      dispatchGeometry({ kind: "setZoneIdentity", zoneId, identity })
+    )
+  }
+
   function handleSetConnectionFlag(
     connectionId: string,
     flag: ConnectionFlag,
@@ -321,6 +329,7 @@ function MapCanvasInner({
       value={{
         interactivity,
         openZoneDetails: setDetailsZoneId,
+        setZoneIdentity: handleSetZoneIdentity,
         duplicateZone: handleDuplicateZone,
         deleteZone: setPendingDeleteZoneId,
         setConnectionFlag: handleSetConnectionFlag,
@@ -383,6 +392,7 @@ function MapCanvasInner({
             onClose={() => setDetailsZoneId(null)}
             onRename={handleRenameZone}
             onSetText={handleSetZoneText}
+            onSetIdentity={handleSetZoneIdentity}
           />
         )}
 
@@ -439,7 +449,10 @@ function EmptyState() {
 function WarningsBanner({ geometry }: { geometry: MapGeometry }) {
   const disconnected = disconnectedZoneIds(geometry).length
   const duplicates = duplicateZoneNames(geometry)
-  if (disconnected === 0 && duplicates.length === 0) return null
+  const overlaps = overlappingZonePairs(Object.values(geometry.zones)).length
+  if (disconnected === 0 && duplicates.length === 0 && overlaps === 0) {
+    return null
+  }
 
   return (
     <Panel position="top-right" className="w-full max-w-xs">
@@ -457,6 +470,13 @@ function WarningsBanner({ geometry }: { geometry: MapGeometry }) {
             )}
             {duplicates.length > 0 && (
               <li>Duplicate name: {duplicates.join(", ")}</li>
+            )}
+            {overlaps > 0 && (
+              <li>
+                {overlaps === 1
+                  ? "2 zones overlap"
+                  : `${overlaps} zone pairs overlap`}
+              </li>
             )}
           </ul>
         </AlertDescription>

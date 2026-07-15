@@ -7,6 +7,12 @@ import type {
   DungeonStatus,
 } from "@workspace/game-v2/spatial/dungeon.schema"
 import type {
+  MapZone,
+  MapZoneMood,
+  MapZoneMotif,
+  MapZoneSize,
+} from "@workspace/game-v2/spatial/geometry.schema"
+import type {
   MapInstanceState,
   RevealState,
 } from "@workspace/game-v2/spatial/map-instance.schema"
@@ -41,8 +47,34 @@ import type { TrustedViewer } from "./trusted-viewer"
  * combatants — there is no second enemy-redaction path here (single source, CD12).
  */
 
-/** The revealed-zone silhouette a player sees — name only, never `dmNotes`/`position`. */
-export interface SnapshotZone {
+/**
+ * The three cosmetic identity fields (UNN-630) as they cross the wire on a
+ * **revealed** Zone — player-visible authored character, exactly like `description`.
+ * Each is **absent when unset** (structural redaction, RED-4): never `null`.
+ */
+export interface SnapshotZoneIdentity {
+  size?: MapZoneSize
+  motif?: MapZoneMotif
+  mood?: MapZoneMood
+}
+
+/**
+ * The identity fields of a Zone as an object to spread, present fields only —
+ * absent stays absent on the wire. Shared by both zone projectors.
+ */
+function zoneIdentity(zone: MapZone): SnapshotZoneIdentity {
+  return {
+    ...(zone.size ? { size: zone.size } : {}),
+    ...(zone.motif ? { motif: zone.motif } : {}),
+    ...(zone.mood ? { mood: zone.mood } : {}),
+  }
+}
+
+/**
+ * The revealed-zone silhouette a player sees — name + cosmetic identity, never
+ * `dmNotes`/`position`.
+ */
+export interface SnapshotZone extends SnapshotZoneIdentity {
   id: string
   name: string
 }
@@ -127,7 +159,11 @@ function visibleZones(
   const shown = fog
     ? zones.filter((zone) => isZoneRevealed(mapInstance.reveal, zone.id))
     : zones
-  return shown.map((zone) => ({ id: zone.id, name: zone.name }))
+  return shown.map((zone) => ({
+    id: zone.id,
+    name: zone.name,
+    ...zoneIdentity(zone),
+  }))
 }
 
 /** The active enchantment, **withheld** when fog-gated and its Zone is unrevealed. */
@@ -279,9 +315,10 @@ export interface DungeonSnapshotToken {
   engagement: Engagement
 }
 
-/** A **revealed** Zone. Carries its player-facing `description` + canvas `position` —
- *  never the private `dmNotes`. */
-export interface DungeonSnapshotZone {
+/** A **revealed** Zone. Carries its player-facing `description` + cosmetic identity
+ *  (size/motif/mood, absent when unset) + canvas `position` — never the private
+ *  `dmNotes`. */
+export interface DungeonSnapshotZone extends SnapshotZoneIdentity {
   id: string
   name: string
   description: string
@@ -405,6 +442,7 @@ export function projectDungeonSnapshot(
         name: zone.name,
         description: zone.description,
         position: zone.position,
+        ...zoneIdentity(zone),
         tokens: tokensByZone[zone.id] ?? [],
         ...(enchantment ? { enchantment } : {}),
       }

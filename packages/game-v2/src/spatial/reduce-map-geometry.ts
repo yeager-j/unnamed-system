@@ -38,6 +38,7 @@ export function reduceMapGeometry(
     case "duplicateZone":
     case "renameZone":
     case "setZoneText":
+    case "setZoneIdentity":
     case "moveZone":
     case "deleteZone":
       return reduceZoneEvent(geometry, event)
@@ -65,6 +66,7 @@ function reduceZoneEvent(
         | "duplicateZone"
         | "renameZone"
         | "setZoneText"
+        | "setZoneIdentity"
         | "moveZone"
         | "deleteZone"
     }
@@ -107,6 +109,20 @@ function reduceZoneEvent(
         const zone = draft.zones[event.zoneId]
         if (zone === undefined) return
         Object.assign(zone, event.patch)
+        return
+      }
+
+      case "setZoneIdentity": {
+        const zone = draft.zones[event.zoneId]
+        if (zone === undefined) return
+        const { size, motif, mood } = event.identity
+        if (size !== undefined) zone.size = size
+        if (mood !== undefined) zone.mood = mood
+        // `motif: null` is the clear opcode — delete the key so a cleared Zone
+        // deep-equals a never-set one (the load-schema fixed-point law); an absent
+        // `motif` leaves the current value untouched.
+        if (motif === null) delete zone.motif
+        else if (motif !== undefined) zone.motif = motif
         return
       }
 

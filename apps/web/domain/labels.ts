@@ -27,7 +27,12 @@ import type {
 } from "@workspace/game-v2/kernel/vocab/combat"
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ResolvedSkillCost } from "@workspace/game-v2/skills/skill.schema"
-import type { DungeonReminder } from "@workspace/game-v2/spatial"
+import type {
+  DungeonReminder,
+  MapZoneMood,
+  MapZoneMotif,
+  MapZoneSize,
+} from "@workspace/game-v2/spatial"
 import { getTalent, type TalentKey } from "@workspace/game-v2/talents"
 
 import type { ParticipantKind } from "@/domain/planner/participant"
@@ -655,4 +660,33 @@ export const ACTIVITY_CATEGORY_DESCRIPTIONS: Record<
   talent: "Practice toward a Talent",
   practical: "Errands, crafting, coin",
   collaborator: "Time with an NPC",
+}
+
+/** Display labels for a Zone's authored footprint size (UNN-630). */
+export const ZONE_SIZE_LABELS: Record<MapZoneSize, string> = {
+  S: "Small",
+  M: "Medium",
+  L: "Large",
+  XL: "Huge",
+}
+
+/** Display labels for a Zone's authored motif glyph (UNN-630). */
+export const ZONE_MOTIF_LABELS: Record<MapZoneMotif, string> = {
+  water: "Water",
+  stair: "Stair",
+  bones: "Bones",
+  statue: "Statue",
+  altar: "Altar",
+  treasure: "Treasure",
+  crates: "Crates",
+  cell: "Cell",
+  mechanism: "Mechanism",
+  tomb: "Tomb",
+}
+
+/** Display labels for a Zone's authored lighting mood (UNN-630). */
+export const ZONE_MOOD_LABELS: Record<MapZoneMood, string> = {
+  warm: "Warm",
+  dim: "Dim",
+  cool: "Cool",
 }

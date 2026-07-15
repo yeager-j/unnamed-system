@@ -198,6 +198,112 @@ describe("setZoneText", () => {
   })
 })
 
+describe("setZoneIdentity", () => {
+  it("patches size and mood independently, leaving absent fields untouched", () => {
+    const base = withZones(["a", "A"])
+    const sized = reduceMapGeometry(base, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { size: "L" },
+    })
+    expect(sized.zones["a"]?.size).toBe("L")
+    expect(sized.zones["a"]).not.toHaveProperty("mood")
+
+    const mooded = reduceMapGeometry(sized, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { mood: "warm" },
+    })
+    expect(mooded.zones["a"]?.size).toBe("L")
+    expect(mooded.zones["a"]?.mood).toBe("warm")
+  })
+
+  it("sets and updates a motif", () => {
+    const base = withZones(["a", "A"])
+    const set = reduceMapGeometry(base, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { motif: "altar" },
+    })
+    expect(set.zones["a"]?.motif).toBe("altar")
+
+    const updated = reduceMapGeometry(set, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { motif: "tomb" },
+    })
+    expect(updated.zones["a"]?.motif).toBe("tomb")
+  })
+
+  it("clears a motif by deleting the key: set → clear deep-equals never-set", () => {
+    const neverSet = withZones(["a", "A"])
+    const set = reduceMapGeometry(neverSet, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { motif: "bones" },
+    })
+    const cleared = reduceMapGeometry(set, {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { motif: null },
+    })
+    expect(cleared.zones["a"]).not.toHaveProperty("motif")
+    expect(cleared.zones["a"]).toStrictEqual(neverSet.zones["a"])
+  })
+
+  it("no-ops an unknown id", () => {
+    const geometry = withZones(["a", "A"])
+    expect(
+      reduceMapGeometry(geometry, {
+        kind: "setZoneIdentity",
+        zoneId: "ghost",
+        identity: { size: "S" },
+      })
+    ).toBe(geometry)
+  })
+
+  it("produces geometry that still parses", () => {
+    const geometry = reduceMapGeometry(withZones(["a", "A"]), {
+      kind: "setZoneIdentity",
+      zoneId: "a",
+      identity: { size: "XL", motif: "water", mood: "cool" },
+    })
+    expect(() => mapGeometrySchema.parse(geometry)).not.toThrow()
+  })
+})
+
+describe("mapZoneSchema identity fields", () => {
+  it("leaves absent identity fields absent (load-schema fixed point)", () => {
+    const parsed = mapGeometrySchema.parse({
+      zones: { a: { id: "a", name: "A", position: { x: 0, y: 0 } } },
+    })
+    const zone = parsed.zones["a"]!
+    expect(zone).not.toHaveProperty("size")
+    expect(zone).not.toHaveProperty("motif")
+    expect(zone).not.toHaveProperty("mood")
+  })
+
+  it("preserves present identity fields through a parse round trip", () => {
+    const parsed = mapGeometrySchema.parse({
+      zones: {
+        a: {
+          id: "a",
+          name: "A",
+          position: { x: 0, y: 0 },
+          size: "L",
+          motif: "altar",
+          mood: "warm",
+        },
+      },
+    })
+    expect(parsed.zones["a"]).toMatchObject({
+      size: "L",
+      motif: "altar",
+      mood: "warm",
+    })
+  })
+})
+
 describe("moveZone", () => {
   it("updates the node position", () => {
     const geometry = withZones(["a", "A"])
