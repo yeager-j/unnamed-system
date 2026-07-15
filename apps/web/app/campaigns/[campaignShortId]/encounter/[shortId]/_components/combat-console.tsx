@@ -68,6 +68,7 @@ export function CombatConsole({
     resolved,
     isPending,
     dispatch,
+    dispatchSequence,
     dispatchWrite,
     endEncounter,
     onPcPing,
@@ -112,9 +113,12 @@ export function CombatConsole({
 
   function addReinforcements() {
     const zoneId = zoneLayout.hasZones ? arrivalZoneId : undefined
-    for (const setup of buildReinforcements(queue.queue, zoneId)) {
-      void dispatch({ kind: "addParticipant", setup })
-    }
+    dispatchSequence(
+      buildReinforcements(queue.queue, zoneId).map((setup) => ({
+        kind: "addParticipant",
+        setup,
+      }))
+    )
     queue.clear()
     setAddOpen(false)
   }
