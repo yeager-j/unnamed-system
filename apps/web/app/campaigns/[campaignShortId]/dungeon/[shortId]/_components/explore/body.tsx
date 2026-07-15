@@ -74,6 +74,7 @@ export function DungeonExploreBody({
     instanceState,
     isPending,
     dispatch,
+    placeToken,
     searchReveal,
     finishDelve,
     scheduleRefresh,
@@ -93,26 +94,13 @@ export function DungeonExploreBody({
     dispatch({ kind: "moveCombatant", tokenKey: characterId, toZoneId })
 
   // Campaign characters not yet on the board — the DM can bring them into the
-  // running delve (UNN-487). Derived from live occupancy, so a just-placed
-  // character drops out of the "Add to delve" list on the next render.
+  // running delve (UNN-487) via useDungeonConsole's `placeToken` (place, then
+  // reveal-if-real gated on the placement succeeding). Derived from live
+  // occupancy, so a just-placed character drops out of the list on the next
+  // render.
   const absentCharacters = placedCharacters.filter(
     (character) => instanceState.occupancy[character.id] === undefined
   )
-
-  // Placing a joining PC mints their token; unlike the shared reducer's
-  // deliberately silent enemy-staging placement, a PC join reveals its
-  // destination Zone (the move→reveal rule) when the Zone is real and unrevealed
-  // — the DM usually drops the joiner where the party already is, so the reveal
-  // is skipped in that common case rather than issuing a redundant write.
-  const placeToken = (characterId: string, zoneId: string) => {
-    dispatch({ kind: "placeCombatant", tokenKey: characterId, zoneId })
-    if (
-      instanceState.geometry.zones[zoneId] !== undefined &&
-      !instanceState.reveal.revealedZoneIds.includes(zoneId)
-    ) {
-      dispatch({ kind: "revealZone", zoneId })
-    }
-  }
 
   // React Compiler keeps this referentially stable across renders where `roster`
   // is unchanged, so the canvas's node-sync effect doesn't re-derive — no manual

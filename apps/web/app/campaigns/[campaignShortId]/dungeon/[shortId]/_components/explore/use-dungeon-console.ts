@@ -116,6 +116,59 @@ export function useDungeonConsole(
     )
   }
 
+  /**
+   * Bring a campaign character into the running delve (UNN-487): place their
+   * token, then — for a joining PC, unlike the reducer's silent enemy-staging
+   * placement — reveal the destination Zone. The reveal is a **second** spatial
+   * write, so it is gated on the placement succeeding: if `placeCombatant` is
+   * rejected (e.g. stale RSC data — the character was unplaced/deleted after the
+   * dialog rendered, so the server returns `character-not-in-campaign`), the
+   * reveal never fires and a hidden Zone can't leak to the watch with no PC
+   * behind it. A Zone that is already revealed (the common "drop the joiner where
+   * the party is" case) or non-existent skips the reveal, avoiding a redundant
+   * write.
+   */
+  function placeToken(characterId: string, zoneId: string) {
+    const needsReveal =
+      instanceState.geometry.zones[zoneId] !== undefined &&
+      !instanceState.reveal.revealedZoneIds.includes(zoneId)
+
+    startTransition(() =>
+      guardWriteTransition(
+        async () => {
+          const placed = await dispatchDungeonEvent({
+            event: { kind: "placeCombatant", tokenKey: characterId, zoneId },
+            dungeonId: dungeon.id,
+            applyDungeonOptimistic,
+            applyInstanceOptimistic,
+            dungeonWrite,
+            instanceWrite,
+          })
+          if (!placed.ok) {
+            toast.error(dungeonErrorMessage(placed.error))
+            return
+          }
+          if (needsReveal) {
+            const revealed = await dispatchDungeonEvent({
+              event: { kind: "revealZone", zoneId },
+              dungeonId: dungeon.id,
+              applyDungeonOptimistic,
+              applyInstanceOptimistic,
+              dungeonWrite,
+              instanceWrite,
+            })
+            // The placement already persisted; a failed reveal just leaves the
+            // Zone hidden (the DM can reveal it manually), so fall through to
+            // the refresh rather than returning without reconciling.
+            if (!revealed.ok) toast.error(dungeonErrorMessage(revealed.error))
+          }
+          router.refresh()
+        },
+        () => toast.error("Couldn't save. Try again.")
+      )
+    )
+  }
+
   function searchReveal(characterId: string, event: MapInstanceEvent) {
     startTransition(() =>
       guardWriteTransition(
@@ -179,6 +232,7 @@ export function useDungeonConsole(
     instanceState,
     isPending,
     dispatch,
+    placeToken,
     searchReveal,
     finishDelve,
     scheduleRefresh,
