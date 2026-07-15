@@ -9,7 +9,6 @@ import type {
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { tokensByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
-import { DungeonTokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/token-chip"
 import {
   DungeonModeToggle,
   type DungeonConsoleMode,
@@ -19,6 +18,7 @@ import {
   readViewport,
   writeViewport,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/viewport-store"
+import { partyOccupants } from "@/domain/dungeon/view/set-piece-view"
 
 // MapCanvas is a React Flow island that measures the DOM, so it renders
 // client-only — lazy-loaded the same way the play/combat DungeonCanvas is.
@@ -44,13 +44,13 @@ const MapCanvas = dynamic(
  * geometry edit out as a discrete {@link MapGeometryEvent} the explore body wraps
  * in an `editGeometry` Instance event (version-guarded like every other write).
  *
- * It draws each party member as a Zone overlay chip (so the DM sees occupancy while
- * editing) and marks occupied Zones as **locked** — their delete affordance is
- * disabled, since deleting an occupied Zone is blocked (the DM relocates the party
- * in Play mode first). The lock set covers **all** occupancy (matching the engine's
- * `editGeometry` block, which inspects every token), while the chips render only
- * roster members. Both track the live optimistic Instance — a realtime ping or
- * refresh updates them mid-session.
+ * It feeds the live party into each Zone's tiered card via `zoneOccupants` (so the
+ * DM sees occupancy at every zoom while editing) and marks occupied Zones as
+ * **locked** — their delete affordance is disabled, since deleting an occupied Zone
+ * is blocked (the DM relocates the party in Play mode first). The lock set covers
+ * **all** occupancy (matching the engine's `editGeometry` block, which inspects every
+ * token), while the occupant chips render only roster members. Both track the live
+ * optimistic Instance — a realtime ping or refresh updates them mid-session.
  *
  * It shares the dungeon's React Flow viewport store (keyed by `persistKey`) with the
  * Play board's {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas").DungeonCanvas}, so toggling Edit ⇄
@@ -97,19 +97,7 @@ export function DungeonEditCanvas({
       bottomBarLeading={
         <DungeonModeToggle mode={mode} onModeChange={onModeChange} />
       }
-      renderZoneOverlay={(zoneId) => {
-        const tokens = byZone[zoneId]
-        if (!tokens || tokens.length === 0) return null
-        return tokens.map((token) => (
-          <DungeonTokenChip
-            key={token.characterId}
-            name={token.name}
-            portraitUrl={token.portraitUrl}
-            hp={token.hp}
-            sp={token.sp}
-          />
-        ))
-      }}
+      zoneOccupants={(zoneId) => partyOccupants(byZone[zoneId] ?? [])}
     />
   )
 }

@@ -5,7 +5,12 @@ import type { MapZone } from "@workspace/game-v2/spatial"
 
 import type { RailRow } from "@/domain/combat/view/roster-view"
 
-import { combatZoneView, exploreZoneView } from "./set-piece-view"
+import {
+  combatZoneView,
+  editorZoneView,
+  exploreZoneView,
+  partyOccupants,
+} from "./set-piece-view"
 
 const zone = (over: Partial<MapZone> = {}): MapZone =>
   ({
@@ -65,6 +70,25 @@ describe("exploreZoneView — owned is 0..n from the array", () => {
     expect(
       exploreZoneView({ zone: zone(), revealed: false, tokens }).reveal
     ).toBe("unmapped")
+  })
+})
+
+describe("editorZoneView — reflects supplied occupancy across tiers", () => {
+  it("reads unoccupied with no occupants (a template)", () => {
+    const view = editorZoneView(zone())
+    expect(view.occupants).toEqual([])
+    expect(view.summary).toBe("")
+  })
+
+  it("carries edit-mode party occupants + a non-empty summary", () => {
+    const occupants = partyOccupants([
+      { characterId: "a", name: "A", portraitUrl: null },
+      { characterId: "b", name: "B", portraitUrl: null },
+    ])
+    const view = editorZoneView(zone(), occupants)
+    expect(view.occupants.map((o) => o.key)).toEqual(["a", "b"])
+    expect(view.occupants.every((o) => o.faction === "party")).toBe(true)
+    expect(view.summary).toBe("2 here")
   })
 })
 

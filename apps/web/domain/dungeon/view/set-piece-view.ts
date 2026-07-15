@@ -81,16 +81,20 @@ function engagementGroups<T extends { id: string; engagement?: Engagement }>(
 
 const withOwned = (owned: readonly string[]) => new Set(owned)
 
+/** A revealed party token on an explore/edit surface (the display subset of a
+ *  roster entry). */
+export type PartyTokenInput = {
+  characterId: string
+  name: string
+  portraitUrl: string | null
+  hp?: Pool
+  sp?: Pool
+}
+
 /** A revealed party token (explore surfaces) → occupant. Party faction, no
  *  acting mark; HP/SP bars from its pools. */
 function partyOccupant(
-  token: {
-    characterId: string
-    name: string
-    portraitUrl: string | null
-    hp?: Pool
-    sp?: Pool
-  },
+  token: PartyTokenInput,
   owned: Set<string>,
   engagementGroup?: number
 ): SetPieceOccupant {
@@ -136,15 +140,31 @@ function combatOccupant(
   }
 }
 
-/** The template editor's card — identity only; templates carry no occupancy. */
-export function editorZoneView(zone: MapZone): ZoneSetPieceView {
+/** Map party tokens to occupants (no acting mark, no engagement clustering) —
+ *  the edit-mode board feeds these into {@link editorZoneView} so occupancy reads
+ *  at every tier, not just as a Closeup overlay. */
+export function partyOccupants(
+  tokens: PartyTokenInput[],
+  ownedCharacterIds: readonly string[] = []
+): SetPieceOccupant[] {
+  const owned = withOwned(ownedCharacterIds)
+  return tokens.map((token) => partyOccupant(token, owned))
+}
+
+/** The map editor's card — identity plus any `occupants` the surface supplies
+ *  (empty for a template; the run console's Edit mode passes the live party so
+ *  the pips/summary/roster reflect occupancy across all tiers). */
+export function editorZoneView(
+  zone: MapZone,
+  occupants: SetPieceOccupant[] = []
+): ZoneSetPieceView {
   return {
     ...identity(zone),
     reveal: "revealed",
     party: false,
     hop: null,
-    occupants: [],
-    summary: "",
+    occupants,
+    summary: occupancySummary(occupants),
     hasDmNotes: zone.dmNotes.trim().length > 0,
   }
 }

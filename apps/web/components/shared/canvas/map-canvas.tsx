@@ -54,7 +54,8 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
-import { overlappingZonePairs } from "@/domain/map/view/footprints"
+import { footprintOf, overlappingZonePairs } from "@/domain/map/view/footprints"
+import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
@@ -75,6 +76,17 @@ const nodeTypes = { zone: ZoneNode }
 const edgeTypes = { connection: ConnectionEdge }
 
 /**
+ * The React Flow node's fixed footprint box from a Zone's authored `size` (§D2) —
+ * applied on every node mutation (add / duplicate / size change), not just the
+ * initial {@link geometryToFlow}, so a new or resized zone never collapses (the
+ * `size-full` card fills this box) or lags until a remount.
+ */
+function footprintFields(zone: MapZone) {
+  const { w, h } = footprintOf(zone.size)
+  return { width: w, height: h, style: { width: w, height: h } }
+}
+
+/**
  * The shared node-graph canvas (UNN-461) — React Flow behind a route-agnostic,
  * presentational contract: it takes a {@link MapGeometry}, emits the edited
  * geometry through `onGeometryChange`, and knows nothing about persistence or which
@@ -89,8 +101,9 @@ const edgeTypes = { connection: ConnectionEdge }
  *   actually changed the geometry (no-ops don't dispatch). UNN-486.
  *
  * The live-Instance host also passes `lockedZoneIds` (Zones an occupancy token
- * stands in — their delete affordance is disabled) and `renderZoneOverlay` (per-Zone
- * token chips so the DM sees occupancy while editing). The template passes neither.
+ * stands in — their delete affordance is disabled) and `zoneOccupants` (the party
+ * standing in each Zone, so the tiered card reads occupancy at every zoom while the
+ * DM edits). The template passes neither.
  *
  * `defaultViewport` + `onMoveEnd` let a host persist zoom/pan across mounts — the
  * dungeon console shares one store with its Play board so toggling Edit ⇄ Play
@@ -104,7 +117,7 @@ export function MapCanvas(props: {
   onGeometryEvent?: (event: MapGeometryEvent) => void
   interactivity?: "edit" | "readonly"
   lockedZoneIds?: ReadonlySet<string>
-  renderZoneOverlay?: (zoneId: string) => ReactNode
+  zoneOccupants?: (zoneId: string) => SetPieceOccupant[]
   defaultViewport?: Viewport
   onMoveEnd?: OnMove
   bottomBarLeading?: ReactNode
@@ -122,7 +135,7 @@ function MapCanvasInner({
   onGeometryEvent,
   interactivity = "edit",
   lockedZoneIds,
-  renderZoneOverlay,
+  zoneOccupants,
   defaultViewport,
   onMoveEnd,
   bottomBarLeading,
@@ -132,7 +145,7 @@ function MapCanvasInner({
   onGeometryEvent?: (event: MapGeometryEvent) => void
   interactivity?: "edit" | "readonly"
   lockedZoneIds?: ReadonlySet<string>
-  renderZoneOverlay?: (zoneId: string) => ReactNode
+  zoneOccupants?: (zoneId: string) => SetPieceOccupant[]
   defaultViewport?: Viewport
   onMoveEnd?: OnMove
   bottomBarLeading?: ReactNode
@@ -185,7 +198,13 @@ function MapCanvasInner({
     const next = dispatchGeometry({ kind: "addZone", id, position })
     const zone = next.zones[id]
     if (!zone) return
-    const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
+    const node: FlowZoneNode = {
+      id,
+      type: "zone",
+      position,
+      ...footprintFields(zone),
+      data: { zone },
+    }
     setNodes((current) => [...current, node])
   }
 
@@ -251,7 +270,13 @@ function MapCanvasInner({
     })
     const zone = next.zones[id]
     if (!zone) return
-    const node: FlowZoneNode = { id, type: "zone", position, data: { zone } }
+    const node: FlowZoneNode = {
+      id,
+      type: "zone",
+      position,
+      ...footprintFields(zone),
+      data: { zone },
+    }
     setNodes((current) => [...current, node])
   }
 
@@ -269,7 +294,9 @@ function MapCanvasInner({
     if (!zone) return
     setNodes((current) =>
       current.map((node) =>
-        node.id === zoneId ? { ...node, data: { zone } } : node
+        node.id === zoneId
+          ? { ...node, ...footprintFields(zone), data: { zone } }
+          : node
       )
     )
   }
@@ -339,7 +366,7 @@ function MapCanvasInner({
         setConnectionFlag: handleSetConnectionFlag,
         deleteConnection: handleDeleteConnection,
         lockedZoneIds,
-        renderZoneOverlay,
+        zoneOccupants,
       }}
     >
       <div className="relative size-full" data-tier={tier}>

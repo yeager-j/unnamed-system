@@ -20,6 +20,7 @@ import type { ZoneSize } from "@/domain/map/view/footprints"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
 import { useMapCanvas } from "./map-canvas-context"
+import { OccupantToken } from "./set-piece/occupant-chips"
 import { ZoneSetPiece } from "./set-piece/zone-set-piece"
 
 const SIZE_LADDER: ZoneSize[] = ["S", "M", "L", "XL"]
@@ -59,12 +60,13 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
     duplicateZone,
     deleteZone,
     lockedZoneIds,
-    renderZoneOverlay,
+    zoneOccupants,
   } = useMapCanvas()
   const editable = interactivity === "edit"
   const { zone } = data
   const locked = lockedZoneIds?.has(zone.id) ?? false
-  const overlay = renderZoneOverlay?.(zone.id)
+  const occupants = zoneOccupants?.(zone.id) ?? []
+  const view = editorZoneView(zone, occupants)
 
   const toolbar = (
     <NodeToolbar
@@ -150,13 +152,19 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
 
   return (
     <ZoneSetPiece
-      view={editorZoneView(zone)}
+      view={view}
       selected={selected}
       toolbar={toolbar}
       handles={handles}
       closeupRoster={
-        overlay ? (
-          <div className="flex flex-wrap gap-1">{overlay}</div>
+        occupants.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {occupants.map((occupant) => (
+              <li key={occupant.key}>
+                <OccupantToken occupant={occupant} />
+              </li>
+            ))}
+          </ul>
         ) : undefined
       }
     />
