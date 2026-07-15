@@ -29,6 +29,7 @@ import { avatarSrc } from "@workspace/ui/lib/portrait"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
+import { AddToDelveDialog } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/add-to-delve-dialog"
 import { DungeonSidebarHeader } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/sidebar-header"
 import type { DungeonRow } from "@/lib/db"
 
@@ -51,18 +52,22 @@ export function DungeonPartySidebar({
   dungeonState,
   dungeon,
   campaignShortId,
+  absentCharacters,
   disabled,
   onMarkActed,
   onMoveToken,
+  onPlaceToken,
 }: {
   roster: Record<string, DungeonRosterEntry>
   instanceState: MapInstanceState
   dungeonState: DungeonState
   dungeon: DungeonRow
   campaignShortId: string
+  absentCharacters: { id: string; name: string }[]
   disabled?: boolean
   onMarkActed: (characterId: string) => void
   onMoveToken: (characterId: string, toZoneId: string) => void
+  onPlaceToken: (characterId: string, zoneId: string) => void
 }) {
   // Filter to placed characters: post-combat the Instance can still carry enemy
   // tokens (keyed by combatant id, pruned for real in UNN-469), which aren't party
@@ -116,6 +121,19 @@ export function DungeonPartySidebar({
             ))}
           </SidebarMenu>
         </SidebarGroup>
+
+        {absentCharacters.length > 0 && (
+          <SidebarGroup>
+            <SidebarMenu>
+              <AddToDelveDialog
+                absentCharacters={absentCharacters}
+                zones={zones}
+                disabled={disabled}
+                onPlace={onPlaceToken}
+              />
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </>
   )

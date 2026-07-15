@@ -29,9 +29,11 @@ const clientNewId = () => crypto.randomUUID()
 const reduceMapInstance = createReduceMapInstance(clientNewId)
 
 /** The Instance optimistic reducer for the dungeon console — in Play mode every
- *  spatial edit is a `moveCombatant`/reveal {@link MapInstanceEvent} through the
- *  client-bound {@link reduceMapInstance} (no `addCombatant` cross-write here —
- *  that is combat's; a delve places tokens at start, not mid-turn). */
+ *  spatial edit is a `moveCombatant`/`placeCombatant`/reveal {@link MapInstanceEvent}
+ *  through the client-bound {@link reduceMapInstance}. `placeCombatant` mints a
+ *  token for a campaign character joining mid-delve (UNN-487) — the upsert the
+ *  "Add to delve" control dispatches — reusing the same single-row Instance write
+ *  as a move (no `addCombatant` cross-write; that stays combat's). */
 export function reduceDungeonInstanceOptimistic(
   current: MapInstanceState,
   event: MapInstanceEvent

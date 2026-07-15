@@ -19,6 +19,7 @@ export type DungeonActionError =
   | "campaign-already-has-live-encounter"
   | "encounter-has-unplaced-combatants"
   | "character-not-found"
+  | "character-not-in-campaign"
   | "unknown-enemy"
   | "locator-missing"
 
@@ -26,6 +27,8 @@ export function dungeonErrorMessage(error: DungeonActionError): string {
   switch (error) {
     case "character-not-found":
       return "A party member no longer exists. Reload and try again."
+    case "character-not-in-campaign":
+      return "That character isn't placed in this campaign. Reload and try again."
     case "unknown-enemy":
       return "One of the staged enemies isn't in the catalog anymore."
     case "locator-missing":
