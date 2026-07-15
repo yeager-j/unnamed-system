@@ -9,11 +9,12 @@ import {
   type MapInstanceEvent,
 } from "@workspace/game-v2/spatial"
 
+import { dispatchDungeonEvent } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dispatch-event"
 import {
-  dispatchDungeonEvent,
-  reduceDungeonInstanceOptimistic,
-  reduceDungeonOptimistic,
-} from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dispatch-event"
+  reduceDungeonConsoleOptimistic,
+  type DungeonConsoleAction,
+  type DungeonConsoleState,
+} from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/dungeon-console-optimistic"
 import { dungeonErrorMessage } from "@/lib/actions/dungeon/error-message"
 import { searchRevealAction } from "@/lib/actions/dungeon/search-reveal"
 import { setDungeonStatusAction } from "@/lib/actions/dungeon/status"
@@ -26,12 +27,14 @@ import { useQueuedWrite } from "@/lib/sync/use-queued-write"
 /**
  * The live DM dungeon console's owner-mode write surface (UNN-464) — the
  * exploration peer of `useCombatConsole`. It mirrors the server's reducers
- * optimistically across **two** containers (`dungeon` via `reduceDungeon`,
- * `instance` via {@link reduceMapInstance}) and **two** {@link useQueuedWrite}
- * version tokens (one per row), so the frame the DM sees matches what
- * `applyDungeonEvent` will persist; on success it `router.refresh()`es to
- * reconcile. {@link dispatchDungeonEvent} routes each event to the right
- * container + queue.
+ * optimistically into **one** container over `{ dungeon, instance }`
+ * ({@link reduceDungeonConsoleOptimistic}, UNN-597 — the same single-container
+ * shape UNN-535 gave the combat console) while keeping **two**
+ * {@link useQueuedWrite} version tokens (the two rows still version
+ * independently), so the frame the DM sees matches what `applyDungeonEvent`
+ * will persist; on success it `router.refresh()`es to reconcile.
+ * {@link dispatchDungeonEvent} routes each event to the right container arm +
+ * queue.
  *
  * Two gestures sit **outside** the optimistic dispatch path because they aren't
  * `reduceDungeon` events:
@@ -57,14 +60,15 @@ export function useDungeonConsole(
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const [dungeonState, applyDungeonOptimistic] = useOptimistic(
-    dungeon.state,
-    reduceDungeonOptimistic
+  const [state, applyOptimistic] = useOptimistic<
+    DungeonConsoleState,
+    DungeonConsoleAction
+  >(
+    { dungeon: dungeon.state, instance: instance.state },
+    reduceDungeonConsoleOptimistic
   )
-  const [instanceState, applyInstanceOptimistic] = useOptimistic(
-    instance.state,
-    reduceDungeonInstanceOptimistic
-  )
+  const dungeonState = state.dungeon
+  const instanceState = state.instance
 
   const dungeonWrite = useQueuedWrite({
     serverVersion: dungeon.version,
@@ -100,8 +104,7 @@ export function useDungeonConsole(
           const result = await dispatchDungeonEvent({
             event,
             dungeonId: dungeon.id,
-            applyDungeonOptimistic,
-            applyInstanceOptimistic,
+            applyOptimistic,
             dungeonWrite,
             instanceWrite,
           })
@@ -139,8 +142,7 @@ export function useDungeonConsole(
           const placed = await dispatchDungeonEvent({
             event: { kind: "placeCombatant", tokenKey: characterId, zoneId },
             dungeonId: dungeon.id,
-            applyDungeonOptimistic,
-            applyInstanceOptimistic,
+            applyOptimistic,
             dungeonWrite,
             instanceWrite,
           })
@@ -152,8 +154,7 @@ export function useDungeonConsole(
             const revealed = await dispatchDungeonEvent({
               event: { kind: "revealZone", zoneId },
               dungeonId: dungeon.id,
-              applyDungeonOptimistic,
-              applyInstanceOptimistic,
+              applyOptimistic,
               dungeonWrite,
               instanceWrite,
             })
@@ -173,8 +174,11 @@ export function useDungeonConsole(
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          applyDungeonOptimistic({ kind: "markActed", characterId })
-          applyInstanceOptimistic(event)
+          applyOptimistic({
+            kind: "dungeonEvent",
+            event: { kind: "markActed", characterId },
+          })
+          applyOptimistic({ kind: "instanceEvent", event })
           // This is a cross-write (marks the dungeon row + reveals on the
           // Instance), but `dungeonWrite`'s one-shot stale-retry only refetches
           // the *dungeon* version — `expectedInstanceVersion` rides the
