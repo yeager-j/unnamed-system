@@ -29,6 +29,11 @@ export type {
   EnemyCatalogRow,
 } from "@workspace/game-v2/catalog/enemies/catalog-rows"
 
+/** The catalog enemy's display name, or the key itself when it names none. */
+export function enemyDisplayName(key: string): string {
+  return getEnemy(key)?.components.identity?.name ?? key
+}
+
 /** Resolves a catalog enemy by key and projects it onto the statblock view the
  *  browse card renders, or `null` when the key names no catalog enemy. */
 export function selectedEnemyStatblock(key: string): EnemyStatblockView | null {
