@@ -27,6 +27,7 @@ export type AddEventPlacementActionError =
   | "invalid-input"
   | "article-not-found"
   | "placement-exists"
+  | "article-is-deadline"
 
 export type RemoveEventPlacementActionError =
   | "invalid-input"

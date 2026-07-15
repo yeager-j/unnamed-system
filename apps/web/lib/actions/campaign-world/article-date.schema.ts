@@ -27,3 +27,4 @@ export type ArticleDateActionError =
   | "invalid-input"
   | "article-not-found"
   | "article-resolved"
+  | "has-event-placements"

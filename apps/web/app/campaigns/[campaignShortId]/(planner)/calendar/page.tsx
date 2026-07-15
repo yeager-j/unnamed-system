@@ -84,17 +84,22 @@ export default async function CalendarPage({ params }: PageProps) {
     resolvedArticleIds: new Set(markers.map((marker) => marker.articleId)),
   })
 
+  const placedEventArticleIds = new Set(events.map((event) => event.articleId))
+
   return (
     <Calendar
       campaignId={campaign.id}
       clockVersion={clock.clockVersion}
       view={view}
       articles={articles
+        // Undated Articles only — deadlines carry an inline date; events are
+        // undated inline (their days live in placements, so they still appear).
         .filter((article) => article.datedDay === null)
         .map((article) => ({
           id: article.id,
           name: article.name,
           type: article.type,
+          placedAsEvent: placedEventArticleIds.has(article.id),
         }))}
       beats={beats}
       dungeons={dungeons.map((dungeon) => ({

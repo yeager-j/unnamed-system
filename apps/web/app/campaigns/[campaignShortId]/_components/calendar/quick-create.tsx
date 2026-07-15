@@ -35,6 +35,12 @@ export interface DatableArticle {
   id: string
   name: string
   type: string | null
+  /**
+   * Already placed as a recurring event (UNN-627). The event picker still
+   * offers it (place it on more days); the deadline picker excludes it — an
+   * Article is one dated kind, never both (the write door refuses either way).
+   */
+  placedAsEvent: boolean
 }
 
 /**
@@ -137,6 +143,8 @@ function QuickCreateDialog({
 
   const trimmed = query.trim()
   const matches = articles
+    // A deadline can't reuse an Article that already recurs as an event (UNN-627).
+    .filter((article) => kind === "event" || !article.placedAsEvent)
     .filter((article) =>
       article.name.toLowerCase().includes(trimmed.toLowerCase())
     )

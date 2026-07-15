@@ -104,7 +104,10 @@ export async function mintArticle(input: {
   })
 }
 
-export type ArticleDateError = "article-not-found" | "article-resolved"
+export type ArticleDateError =
+  | "article-not-found"
+  | "article-resolved"
+  | "has-event-placements"
 
 /**
  * Sets (or re-dates) an article's **deadline** date (D5): `datedDay` +
@@ -159,6 +162,17 @@ async function patchArticleDate(
       .where(eq(campaignUpdate.resolvesArticleId, input.articleId))
     if (marker) return err("article-resolved")
 
+    // An Article is one dated kind, never both — a deadline can't be laid over
+    // an Article that already recurs as an event (UNN-627). Only guards a *set*;
+    // clearing (`datedKind` null) is always fine.
+    if (patch.datedKind !== null) {
+      const [placement] = await tx
+        .select({ id: campaignEventPlacement.id })
+        .from(campaignEventPlacement)
+        .where(eq(campaignEventPlacement.articleId, input.articleId))
+      if (placement) return err("has-event-placements")
+    }
+
     await tx
       .update(campaignArticle)
       .set(patch)
@@ -167,15 +181,20 @@ async function patchArticleDate(
   })
 }
 
-export type AddEventPlacementError = "article-not-found" | "placement-exists"
+export type AddEventPlacementError =
+  | "article-not-found"
+  | "placement-exists"
+  | "article-is-deadline"
 
 /**
  * Places an **event** Article onto a day (UNN-627) — one occurrence in the
  * multi-placement set. Validates the Article belongs to the gated campaign and
  * is live; the `(articleId, day)` partial unique forbids double-placing on one
  * day, mapped to `placement-exists` for the picker (the
- * {@link mapLineageRaceToTaken} pattern). No resolved guard — events carry no
- * marker lifecycle, so placement is inert (D5).
+ * {@link mapLineageRaceToTaken} pattern). An Article is one dated kind, never
+ * both — a deadline Article refuses event placements (`article-is-deadline`),
+ * the mirror of {@link setArticleDate}'s `has-event-placements`. No resolved
+ * guard — events carry no marker lifecycle, so placement is inert (D5).
  */
 export async function addEventPlacement(input: {
   campaignId: string
@@ -185,7 +204,10 @@ export async function addEventPlacement(input: {
   return mapPlacementRaceToExists(
     db.transaction(async (tx) => {
       const [article] = await tx
-        .select({ deletedAt: campaignArticle.deletedAt })
+        .select({
+          deletedAt: campaignArticle.deletedAt,
+          datedKind: campaignArticle.datedKind,
+        })
         .from(campaignArticle)
         .where(
           and(
@@ -196,6 +218,7 @@ export async function addEventPlacement(input: {
       if (!article || article.deletedAt !== null) {
         return err("article-not-found")
       }
+      if (article.datedKind !== null) return err("article-is-deadline")
 
       const [row] = await tx
         .insert(campaignEventPlacement)

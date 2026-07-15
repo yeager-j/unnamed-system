@@ -28,6 +28,10 @@ const RUNNER_ERROR_COPY: Record<string, string> = {
   "article-not-found": "That article is gone — refresh the page.",
   "placement-exists": "That event is already on this day.",
   "placement-not-found": "That event placement is gone — refresh the page.",
+  "has-event-placements":
+    "That article already appears as an event — use a separate article for the deadline.",
+  "article-is-deadline":
+    "That article is a deadline — deadlines and events can't share an article.",
   "article-resolved":
     "That deadline is already resolved — reopen it before changing its date.",
   "not-a-deadline": "Only deadline articles can be resolved.",

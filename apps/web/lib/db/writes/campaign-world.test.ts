@@ -402,6 +402,21 @@ describe("setArticleDate / clearArticleDate", () => {
     expect(calls).toEqual([])
   })
 
+  it("refuses to deadline an article that already recurs as an event (one dated kind, never both)", async () => {
+    queue(schema.campaignArticle, LIVE_ARTICLE)
+    queue(updatesSchema.campaignUpdate, [])
+    queue(schema.campaignEventPlacement, [{ id: "placement-1" }])
+
+    const result = await setArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 20,
+    })
+
+    expect(result).toEqual(err("has-event-placements"))
+    expect(calls).toEqual([])
+  })
+
   it("treats a tombstoned article as not found", async () => {
     queue(schema.campaignArticle, [
       { id: "article-1", deletedAt: new Date("2026-07-01") },
@@ -431,8 +446,8 @@ describe("setArticleDate / clearArticleDate", () => {
 })
 
 describe("addEventPlacement / removeEventPlacement", () => {
-  it("places an event on a day for a live article", async () => {
-    queue(schema.campaignArticle, [{ deletedAt: null }])
+  it("places an event on a day for a live, non-deadline article", async () => {
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: null }])
 
     const result = await addEventPlacement({
       campaignId: "camp-1",
@@ -452,7 +467,9 @@ describe("addEventPlacement / removeEventPlacement", () => {
   })
 
   it("refuses to place on a tombstoned or missing article, inserting nothing", async () => {
-    queue(schema.campaignArticle, [{ deletedAt: new Date("2026-07-01") }])
+    queue(schema.campaignArticle, [
+      { deletedAt: new Date("2026-07-01"), datedKind: null },
+    ])
 
     const result = await addEventPlacement({
       campaignId: "camp-1",
@@ -464,8 +481,21 @@ describe("addEventPlacement / removeEventPlacement", () => {
     expect(calls).toEqual([])
   })
 
+  it("refuses to place an event on a deadline article (one dated kind, never both)", async () => {
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: "deadline" }])
+
+    const result = await addEventPlacement({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 42,
+    })
+
+    expect(result).toEqual(err("article-is-deadline"))
+    expect(calls).toEqual([])
+  })
+
   it("maps the (article, day) unique violation to placement-exists", async () => {
-    queue(schema.campaignArticle, [{ deletedAt: null }])
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: null }])
     placementInsertError = Object.assign(new Error("dup"), {
       code: "23505",
       constraint: "campaignEventPlacement_article_day_unique",
