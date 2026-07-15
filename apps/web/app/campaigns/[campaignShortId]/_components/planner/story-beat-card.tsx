@@ -179,8 +179,8 @@ export function StoryBeatCard({
 }
 
 /**
- * The inline read-only body (§2's UX delta), collapsible and open by default
- * — this card is the at-table reading surface. Chips render as pills with
+ * The inline read-only body (§2's UX delta), collapsed by default behind a
+ * "Show notes" toggle to keep the runner scannable. Chips render as pills with
  * resolver-current names via {@link ChipProse}.
  */
 function BeatNotes({
