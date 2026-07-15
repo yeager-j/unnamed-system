@@ -53,6 +53,7 @@ const dungeonRow = (shortId: string): DungeonRow =>
       },
     },
     version: 0,
+    deletedAt: null,
     createdAt: FIXED_DATE,
     updatedAt: FIXED_DATE,
   }) satisfies DungeonRow

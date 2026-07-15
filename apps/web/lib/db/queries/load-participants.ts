@@ -159,21 +159,28 @@ async function loadEncounterHits(
   )
 }
 
-/** Dungeons hard-delete too — see {@link loadEncounterHits}. */
+/**
+ * Dungeons **tombstone** (`deletedAt`, UNN-616) like NPCs/Articles, so this read
+ * stays `deletedAt`-blind and carries the real timestamp: an archived delve
+ * referenced in a note resolves to its name (rendered muted), and
+ * {@link validateParticipantRefs} rejects a *new* ref pointing at one.
+ */
 async function loadDungeonHits(
   campaignId: string,
   ids: readonly string[]
 ): Promise<ReadonlyMap<string, ParticipantHit>> {
   if (ids.length === 0) return new Map()
   const rows = await db
-    .select({ id: dungeons.id, name: dungeons.name })
+    .select({
+      id: dungeons.id,
+      name: dungeons.name,
+      deletedAt: dungeons.deletedAt,
+    })
     .from(dungeons)
     .where(
       and(eq(dungeons.campaignId, campaignId), inArray(dungeons.id, [...ids]))
     )
-  return new Map(
-    rows.map((row) => [row.id, { name: row.name, deletedAt: null }])
-  )
+  return new Map(rows.map((row) => [row.id, hitOf(row)]))
 }
 
 function hitOf(row: { name: string; deletedAt: Date | null }): ParticipantHit {

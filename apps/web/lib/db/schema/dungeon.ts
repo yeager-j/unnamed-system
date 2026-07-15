@@ -24,6 +24,12 @@ import { mapInstances } from "./map-instance"
  *   Instance, but deletion order is app-managed (delete the Instance with the
  *   dungeon) so a live Encounter sharing the Instance is never left stranded.
  *
+ * Dungeons **tombstone** (`deletedAt`, the soft-delete family — `entity` R1,
+ * `campaignArticle`/`campaignNpc` D4): history survives its subjects, so a
+ * frozen slot claim keeps resolving the delve's name (rendered muted) while the
+ * roster/picker surfaces drop it. The flip lives in `archiveDungeon`
+ * (`writes/dungeon.ts`).
+ *
  * Writes gate on the campaign DM (`requireCampaignDM(dungeon.campaignId)`); the
  * DM console loads through `getDungeonForDM` (≅ `getEncounterForDM`).
  */
@@ -42,6 +48,7 @@ export const dungeons = pgTable("dungeon", {
   status: text("status").$type<DungeonStatus>().notNull().default("draft"),
   state: jsonb("state").$type<DungeonState>().notNull(),
   version: integer("version").notNull().default(0),
+  deletedAt: timestamp("deletedAt", { mode: "date" }),
   createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { mode: "date" })
     .notNull()

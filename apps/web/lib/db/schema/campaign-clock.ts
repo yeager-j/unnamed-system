@@ -139,13 +139,15 @@ export const campaignSeason = pgTable(
  * slot-kind derivation reads. Many slots per dungeon is free (a delve that
  * runs long claims the next slot with the same dungeon).
  *
- * `dungeonId` **cascades**: deleting the dungeon reverts its slots to
- * downtime. No dungeon-delete write exists yet; when one lands it must add a
- * frozen-past guard (claims on `day < currentDay` are history's structure,
- * matching {@link deleteBeat}'s block) rather than letting the cascade rewrite
- * past days — tracked as UNN-616. `slotId` RESTRICTs like
- * `campaignUpdate.slotId` — a claimed slot can't be deleted out from under
- * its claim.
+ * `dungeonId` **cascades** (a backstop for campaign deletion), but the app
+ * **soft-deletes** dungeons rather than hard-deleting a played one:
+ * `archiveDungeon` (`writes/dungeon.ts`) flips `dungeon.deletedAt` (the
+ * tombstone family — UNN-616), releasing only **present/future** claims to
+ * downtime and leaving frozen claims (`day < currentDay`) pointing at the
+ * surviving row — so the slot-kind derivation over past days keeps reading
+ * "dungeon" and set-aside suppression holds (matching {@link deleteBeat}'s
+ * frozen-past block). `slotId` RESTRICTs like `campaignUpdate.slotId` — a
+ * claimed slot can't be deleted out from under its claim.
  *
  * Mutual exclusion with beats (never both on one slot) is a write-boundary
  * check under a `FOR UPDATE` slot lock, not a constraint — each table's
