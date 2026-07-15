@@ -132,6 +132,10 @@
     --typeset-flow: 1em;
   }
   .typeset-spacious {
+    & :where(h1, h2, h3, h4, h5, h6) {
+      font-weight: bold;
+    }
+
     --typeset-size: 1rem;
     --typeset-leading: 1.75;
     --typeset-flow: 1.5em;

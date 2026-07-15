@@ -101,7 +101,7 @@ export function ChipProse({
     },
   }
   return (
-    <Prose className={className} components={components}>
+    <Prose mode="spacious" className={className} components={components}>
       {chipTokensToLinks(embedTokensToImages(children))}
     </Prose>
   )
