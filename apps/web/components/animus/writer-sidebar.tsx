@@ -1,26 +1,19 @@
 "use client"
 
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import type { ReactNode } from "react"
 
 import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
-import { BUILDER_STEPS, indexOfStep } from "@/domain/character/builder-steps"
-import {
-  useEntityWrite,
-  useLoadedCharacter,
-} from "@/domain/entity/use-entity-write"
-
-import { useAnimusDocument } from "./animus-context"
 import {
   buildDocumentGroups,
   refsEqual,
@@ -28,35 +21,51 @@ import {
   UNTITLED_KNIFE,
   type DocumentGroup,
   type DocumentRef,
-} from "./documents"
+} from "@/domain/character/animus/documents"
+import {
+  useEntityWrite,
+  useLoadedCharacter,
+} from "@/domain/entity/use-entity-write"
 
-const ANIMUS_STEP = BUILDER_STEPS[indexOfStep("animus")!]!
+import { useAnimusDocument } from "./animus-context"
 
 /**
- * The Movement 3 writer's left rail. Renders four groups (Backstory /
- * Knives / Chains / Identity Traits) of selectable documents. Active row
- * is highlighted via `SidebarMenuButton`'s `isActive` prop; clicking sets
- * the selection in the `AnimusDocumentContext` so the pane (in the page
- * subtree) swaps.
+ * The Animus writer's left rail. Renders the narrative document groups
+ * (Backstory / Knives / Chains / Identity Traits, plus Notes on the sheet) as
+ * selectable rows. Active row is highlighted via `SidebarMenuButton`'s
+ * `isActive` prop; clicking sets the selection in the `AnimusDocumentContext`
+ * so the pane swaps.
+ *
+ * `header` is a slot so each host supplies its own chrome — the builder passes
+ * the Movement-3 chapter header, the sheet passes a "Back to sheet" control and
+ * a section title. `includeNotes` appends the sheet-only Notes row.
  *
  * Add (Knives/Chains only) dispatches a `narrative.addListEntry` descriptor;
  * the new entry's index is the current list length, so the selection can move
  * there optimistically — the row itself appears in the same frame via the
  * provider's optimistic narrative.
  *
- * Remove (Knives/Chains only) dispatches `narrative.removeListEntry`.
- * Entries are index-addressed (v2 stores ordered lists, no row ids), so a
- * removal shifts every later sibling down one: the selection follows —
- * reset to Backstory when the active entry itself was removed, decrement
- * when a preceding sibling was.
+ * Remove (Knives/Chains only) dispatches `narrative.removeListEntry`. Entries
+ * are index-addressed (v2 stores ordered lists, no row ids), so a removal
+ * shifts every later sibling down one: the selection follows — reset to
+ * Backstory when the active entry itself was removed, decrement when a
+ * preceding sibling was. There is no minimum — a list may drop to zero.
  */
-export function WriterSidebar() {
+export function WriterSidebar({
+  header,
+  includeNotes = false,
+}: {
+  header?: ReactNode
+  includeNotes?: boolean
+}) {
   const { entity } = useLoadedCharacter()
-  const groups = buildDocumentGroups(entity.components.narrative)
+  const groups = buildDocumentGroups(entity.components.narrative, {
+    includeNotes,
+  })
 
   return (
     <>
-      <WriterSidebarHeader />
+      {header}
       <SidebarContent>
         {groups.map((group) => (
           <SidebarSection key={group.kind} group={group} />
@@ -66,41 +75,15 @@ export function WriterSidebar() {
   )
 }
 
-/**
- * The chapter header (Roman numeral, "Animus", framing line) relocated
- * from `BuilderShell`'s top into the sidebar so the main pane is free for
- * the document. Sidebar-scale type (smaller than the centered chapter
- * heading on Movements 1/2/4) and left-aligned to read as the rail's
- * heading.
- */
-function WriterSidebarHeader() {
-  return (
-    <SidebarHeader className="gap-3 px-4 pt-6 pb-4">
-      <span
-        aria-hidden
-        className="font-mono text-xs text-sidebar-foreground/60 uppercase"
-      >
-        {ANIMUS_STEP.romanNumeral}
-      </span>
-      <h1 className="font-display text-3xl font-semibold text-sidebar-foreground">
-        {ANIMUS_STEP.label}
-      </h1>
-      {ANIMUS_STEP.framingLine ? (
-        <p className="font-heading text-sm text-sidebar-foreground/70 italic">
-          {ANIMUS_STEP.framingLine}
-        </p>
-      ) : null}
-    </SidebarHeader>
-  )
-}
-
 function SidebarSection({ group }: { group: DocumentGroup }) {
   const { activeRef, selectDocument, resetToDefault } = useAnimusDocument()
   const { entity } = useLoadedCharacter()
   const { pending, dispatch } = useEntityWrite()
 
   const showCount = group.kind === "knives" || group.kind === "chains"
-  const showHeading = group.kind !== "backstory"
+  // Single-row sections (Backstory, Notes) label themselves via the row; the
+  // repeating and multi-row sections carry a group heading.
+  const showHeading = group.kind !== "backstory" && group.kind !== "notes"
 
   function handleAdd() {
     const kind = group.kind
@@ -222,10 +205,9 @@ function SidebarSection({ group }: { group: DocumentGroup }) {
 }
 
 /**
- * Sidebar fallback label for an empty Knife/Chain title. Shares the
- * editor's title placeholder so a freshly-added row reads the same on
- * both surfaces; the muted styling on the sidebar row cues "this is
- * empty, please name it."
+ * Sidebar fallback label for an empty Knife/Chain title. Shares the editor's
+ * title placeholder so a freshly-added row reads the same on both surfaces; the
+ * muted styling on the sidebar row cues "this is empty, please name it."
  */
 function placeholderLabel(ref: DocumentRef): string {
   if (ref.kind === "knife") return UNTITLED_KNIFE

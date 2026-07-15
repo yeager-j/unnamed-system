@@ -27,6 +27,16 @@ export type UpdateEntityPronounsInput = z.input<
 >
 
 /**
+ * Notes is the free-form `notes` app column (table-facing, visible to every
+ * viewer). The 8000-char cap matches the narrative prose fields
+ * (`NARRATIVE_TEXT_MAX`) so both long-form surfaces share one bound.
+ */
+export const UpdateEntityNotesSchema = entityMutationBase.extend({
+  notes: z.string().max(8000),
+})
+export type UpdateEntityNotesInput = z.input<typeof UpdateEntityNotesSchema>
+
+/**
  * Builder step is **unguarded** (R3 — UNN-573): it lives on the `playerCharacter`
  * subtype, not the version-tokened `entity` row, so its wire carries only the
  * target and the step — no `expectedVersion`. Single-author builder navigation;

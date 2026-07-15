@@ -67,8 +67,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/characters/[shortId]/atlas/_components/lineage-tree.tsx",
   "app/characters/[shortId]/atlas/_components/ranks-header.tsx",
   "app/characters/[shortId]/atlas/_components/recommendation-slots.tsx",
-  "app/characters/[shortId]/builder/_components/movements/animus/documents.test.ts",
-  "app/characters/[shortId]/builder/_components/movements/animus/documents.ts",
   "app/characters/[shortId]/builder/_components/movements/corpus/archetype-card.tsx",
   "app/characters/[shortId]/builder/_components/movements/corpus/archetype-detail.tsx",
   "app/characters/[shortId]/builder/_components/movements/corpus/archetype-dialog.tsx",

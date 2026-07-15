@@ -2,6 +2,14 @@
 
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
+import {
+  resolveDocumentContent,
+  UNTITLED_CHAIN,
+  UNTITLED_KNIFE,
+  type DocumentRef,
+  type NarrativeDocumentRef,
+  type ResolvedDocument,
+} from "@/domain/character/animus/documents"
 import type { IdentityTraitField } from "@/domain/character/identity-trait-messages"
 import type { EntityWrite } from "@/domain/entity/commit/write.schema"
 import { useLoadedCharacter } from "@/domain/entity/use-entity-write"
@@ -11,32 +19,25 @@ import {
   AnimusDocumentEditor,
   type DocumentEditorMessages,
 } from "./document-editor"
-import {
-  resolveDocumentContent,
-  UNTITLED_CHAIN,
-  UNTITLED_KNIFE,
-  type DocumentRef,
-  type ResolvedDocument,
-} from "./documents"
+import { NotesDocumentEditor } from "./notes-document-editor"
 
 /**
- * The right-hand pane of the Movement 3 writer. Reads the active document
- * from {@link useAnimusDocument}, resolves it against the draft's narrative
- * component, and renders an {@link AnimusDocumentEditor} keyed on the resolved
- * ref so a doc swap unmounts the previous editor (no value bleed between docs).
+ * The right-hand pane of the Animus writer. Reads the active document from
+ * {@link useAnimusDocument} and renders the matching editor keyed on the
+ * resolved ref so a doc swap unmounts the previous editor (no value bleed
+ * between docs).
  *
- * The `SidebarTrigger` at top-left is `md:hidden` — on desktop the sidebar
- * is permanently visible; on mobile this trigger toggles the built-in
- * `<Sheet>` drawer.
+ * Notes is the one document whose body lives on the `profile.notes` column
+ * rather than the `narrative` component, so it forks to {@link NotesDocumentEditor}
+ * (bound to the column door) before the narrative resolve — the one place the
+ * storage difference surfaces.
+ *
+ * The `SidebarTrigger` at top-left is `md:hidden` — on desktop the sidebar is
+ * permanently visible; on mobile this trigger toggles the built-in `<Sheet>`
+ * drawer.
  */
 export function WriterPane() {
-  const { entity } = useLoadedCharacter()
   const { activeRef } = useAnimusDocument()
-
-  const resolved = resolveDocumentContent(
-    activeRef,
-    entity.components.narrative
-  )
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -44,15 +45,32 @@ export function WriterPane() {
         <SidebarTrigger aria-label="Open sections" />
       </div>
 
-      {resolved ? (
-        <ActiveDocument key={documentKey(resolved.ref)} resolved={resolved} />
-      ) : (
-        <p className="text-sm text-muted-foreground italic">
-          That entry is no longer available. Pick a section from the sidebar.
-        </p>
-      )}
+      <PaneBody activeRef={activeRef} />
     </div>
   )
+}
+
+function PaneBody({ activeRef }: { activeRef: DocumentRef }) {
+  const { entity } = useLoadedCharacter()
+
+  if (activeRef.kind === "notes") {
+    return <NotesDocumentEditor key="notes:notes" />
+  }
+
+  const resolved = resolveDocumentContent(
+    activeRef,
+    entity.components.narrative
+  )
+
+  if (!resolved) {
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        That entry is no longer available. Pick a section from the sidebar.
+      </p>
+    )
+  }
+
+  return <ActiveDocument key={documentKey(resolved.ref)} resolved={resolved} />
 }
 
 function ActiveDocument({ resolved }: { resolved: ResolvedDocument }) {
@@ -82,12 +100,13 @@ function documentKey(ref: DocumentRef): string {
 }
 
 /**
- * Wires the active document to its write descriptors — the one place a
- * document kind maps to the narrative ops it edits (`setField` for prose
+ * Wires the active narrative document to its write descriptors — the one place
+ * a document kind maps to the narrative ops it edits (`setField` for prose
  * fields, `setListEntry` for a Knife/Chain's title/description). The server
  * merges per field/entry, so two debounced saves can never clobber each other.
+ * (Notes is not routed here — it forks to the column door in {@link PaneBody}.)
  */
-function wireDescriptors(ref: DocumentRef): {
+function wireDescriptors(ref: NarrativeDocumentRef): {
   makeTitleWrite?: (title: string) => EntityWrite
   makeBodyWrite: (body: string) => EntityWrite
   messages: DocumentEditorMessages
