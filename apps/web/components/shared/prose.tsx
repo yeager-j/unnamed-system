@@ -20,23 +20,33 @@ const SAFE_URL_SCHEMES = /^(https?:|mailto:|\/|#)/
 const safeUrlTransform = (url: string): string =>
   SAFE_URL_SCHEMES.test(url) ? url : ""
 
+/** Typeset rhythm presets, keyed by {@link Prose}'s `mode`. */
+const TYPESET_MODE = {
+  compact: "typeset-compact",
+  normal: "typeset-normal",
+  spacious: "typeset-spacious",
+} as const
+
 /**
  * Shared Markdown renderer for free-text content on the public sheet. Wraps
  * `react-markdown` with `remark-gfm` (tables / strikethrough / autolinks / task
- * lists) and the Tailwind Typography `prose` defaults — sized to `prose-sm` so
- * the output matches the surrounding compact card typography, and `prose-invert`
- * for the dark-only theme. `max-w-none` is set because the parent card already
- * constrains width; the default `65ch` would clip inside narrow blocks.
+ * lists) and shadcn **Typeset** — a theme-token-aware styling system we own
+ * (`packages/ui/src/styles/typeset.css`). `mode` selects a reading-rhythm
+ * preset; the default `normal` matches the retired `prose-sm` sizing. Typeset
+ * follows its container's width and adopts the surrounding surface's color, so
+ * the same markup reads on dark cards and the inverse Tooltip surface alike —
+ * no `max-width` and no dark-mode invert flag needed.
  */
 export function Prose({
   children,
   className,
-  invert = true,
+  mode = "normal",
   components,
 }: {
   children: string
   className?: string
-  invert?: boolean
+  /** Reading-rhythm preset (default `normal`). */
+  mode?: keyof typeof TYPESET_MODE
   /**
    * Optional react-markdown element overrides — runs *after* sanitize, so a
    * mapping can only narrow what the allowlist already passed (the campaign
@@ -45,21 +55,7 @@ export function Prose({
   components?: Components
 }) {
   return (
-    <div
-      className={cn(
-        "prose prose-sm max-w-none",
-        // Strip Tailwind Typography's default backtick decorations around
-        // inline `<code>` elements (`code::before`/`code::after` set to "`")
-        // and replace them with a chip-style highlight — a `currentColor`-
-        // tinted background reads as proper inline code in light mode, dark
-        // mode, and the inverse-scheme Tooltip surface alike. The mono-font
-        // + weight Typography already applies completes the affordance.
-        "[&_:not(pre)>code]:before:content-none [&_:not(pre)>code]:after:content-none",
-        "[&_:not(pre)>code]:rounded-sm [&_:not(pre)>code]:bg-current/10 [&_:not(pre)>code]:px-1 [&_:not(pre)>code]:py-0.5",
-        invert ? "prose-invert" : "",
-        className
-      )}
-    >
+    <div className={cn("typeset", TYPESET_MODE[mode], className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, defaultSchema]]}

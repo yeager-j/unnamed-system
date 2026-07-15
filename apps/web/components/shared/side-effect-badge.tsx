@@ -41,7 +41,10 @@ export function SideEffectBadge({
       />
       {sideEffect.description ? (
         <TooltipContent side="top" className="max-w-sm">
-          <Prose className="prose-xs whitespace-normal" invert={false}>
+          <Prose
+            mode="compact"
+            className="whitespace-normal [--typeset-size:0.75rem]"
+          >
             {sideEffect.description}
           </Prose>
         </TooltipContent>

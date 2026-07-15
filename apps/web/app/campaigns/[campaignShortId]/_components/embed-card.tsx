@@ -127,7 +127,7 @@ function EmbedCardFrame({
     </>
   )
   const frameClass = cn(
-    "not-prose my-2 flex max-w-md items-center gap-3 rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 no-underline",
+    "not-typeset my-2 flex max-w-md items-center gap-3 rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 no-underline",
     missing && "border-dotted opacity-60"
   )
   if (href === null) {
