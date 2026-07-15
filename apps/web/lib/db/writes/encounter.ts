@@ -1,5 +1,5 @@
 import type { StoredSession } from "@workspace/game-v2/encounter"
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
@@ -99,25 +99,19 @@ export async function setEncounterStatus(
   })
 }
 
-/**
- * The shared single-version guard, with the generic `"not-found"` mapped to this
- * aggregate's `"encounter-not-found"`.
- */
+/** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpEncounterVersionGuarded(
   executor: WriteExecutor,
   encounterId: string,
   expectedVersion: number,
   patch: Partial<typeof encounters.$inferInsert>
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  const result = await guardedVersionUpdate({
+  return guardedVersionUpdate({
     table: encounters,
     id: encounterId,
     expectedVersion,
     patch,
+    notFound: "encounter-not-found",
     executor,
   })
-  if (!result.ok) {
-    return err(result.error === "not-found" ? "encounter-not-found" : "stale")
-  }
-  return result
 }

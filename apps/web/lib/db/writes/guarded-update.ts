@@ -19,8 +19,6 @@ import { db, type WriteExecutor } from "@/lib/db/client"
  * this single-token shape.
  */
 
-export type GuardedUpdateError = "not-found" | "stale"
-
 /** A table this guard can drive: keyed by `id`, versioned by a single `version`. */
 type VersionGuardedTable = PgTable & { id: PgColumn; version: PgColumn }
 
@@ -28,23 +26,28 @@ type VersionGuardedTable = PgTable & { id: PgColumn; version: PgColumn }
  * Applies `patch` together with the `version + 1` increment in one `SET`,
  * conditioned on `(id, version === expectedVersion)`, and returns the bumped
  * version. On zero affected rows it disambiguates `"stale"` (row exists, token
- * moved) from `"not-found"` (row gone) via an existence SELECT on the same
- * `executor`, so the check shares the caller's transaction snapshot.
+ * moved) from the caller's `notFound` string (row gone) via an existence SELECT
+ * on the same `executor`, so the check shares the caller's transaction snapshot.
  *
- * Callers map the generic `"not-found"` to their aggregate's own error string.
- * `executor` defaults to the base `db`; pass a transaction handle to compose
- * inside a {@link import("./guard-many").guardMany}.
+ * The aggregate's `notFound` error string is a **parameter** that flows through
+ * the return type — so each aggregate keeps its own error vocabulary at its
+ * boundary (#9) without a `"not-found" → "x-not-found"` remap the caller could
+ * forget, and a future third failure mode can't silently collapse to `"stale"`
+ * (#8). `executor` defaults to the base `db`; pass a transaction handle to
+ * compose inside a {@link import("./guard-many").guardMany}.
  */
 export async function guardedVersionUpdate<
   T extends VersionGuardedTable,
+  ENotFound extends string,
 >(params: {
   table: T
   id: string
   expectedVersion: number
   patch: PgUpdateSetSource<T>
+  notFound: ENotFound
   executor?: WriteExecutor
-}): Promise<Result<{ version: number }, GuardedUpdateError>> {
-  const { table, id, expectedVersion, patch, executor = db } = params
+}): Promise<Result<{ version: number }, ENotFound | "stale">> {
+  const { table, id, expectedVersion, patch, notFound, executor = db } = params
 
   const updated = await executor
     .update(table)
@@ -58,7 +61,7 @@ export async function guardedVersionUpdate<
       .from(table as PgTable)
       .where(eq(table.id, id))
       .limit(1)
-    return row ? err("stale") : err("not-found")
+    return row ? err("stale") : err(notFound)
   }
 
   return ok({ version: updated[0]!.version as number })

@@ -1,4 +1,4 @@
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import { type WriteExecutor } from "@/lib/db/client"
@@ -67,27 +67,19 @@ export async function saveMapInstanceState(
   )
 }
 
-/**
- * The shared single-version guard, with the generic `"not-found"` mapped to this
- * aggregate's `"map-instance-not-found"`.
- */
+/** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpMapInstanceVersionGuarded(
   executor: WriteExecutor,
   mapInstanceId: string,
   expectedVersion: number,
   patch: Partial<typeof mapInstances.$inferInsert>
 ): Promise<Result<{ version: number }, MapInstanceWriteError>> {
-  const result = await guardedVersionUpdate({
+  return guardedVersionUpdate({
     table: mapInstances,
     id: mapInstanceId,
     expectedVersion,
     patch,
+    notFound: "map-instance-not-found",
     executor,
   })
-  if (!result.ok) {
-    return err(
-      result.error === "not-found" ? "map-instance-not-found" : "stale"
-    )
-  }
-  return result
 }

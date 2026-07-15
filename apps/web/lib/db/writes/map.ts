@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 
-import { err, type Result } from "@workspace/game-v2/kernel/result"
+import { type Result } from "@workspace/game-v2/kernel/result"
 import { mapGeometrySchema, type MapGeometry } from "@workspace/game-v2/spatial"
 
 import { db } from "@/lib/db/client"
@@ -84,23 +84,17 @@ export async function deleteMap(mapId: string): Promise<void> {
   await db.delete(maps).where(eq(maps.id, mapId))
 }
 
-/**
- * The shared single-version guard, with the generic `"not-found"` mapped to this
- * aggregate's `"map-not-found"`.
- */
+/** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpMapVersionGuarded(
   mapId: string,
   expectedVersion: number,
   patch: Partial<typeof maps.$inferInsert>
 ): Promise<Result<{ version: number }, MapWriteError>> {
-  const result = await guardedVersionUpdate({
+  return guardedVersionUpdate({
     table: maps,
     id: mapId,
     expectedVersion,
     patch,
+    notFound: "map-not-found",
   })
-  if (!result.ok) {
-    return err(result.error === "not-found" ? "map-not-found" : "stale")
-  }
-  return result
 }

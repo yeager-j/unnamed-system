@@ -61,10 +61,14 @@ export function engagementOf(
  * The undirected neighbor-id map of a connection collection: every zone id that
  * appears as an endpoint mapped to the ids on the far side of its connections.
  * Connections are undirected — either endpoint counts as a neighbor. The shared
- * primitive both {@link adjacencyMap} (over full geometry) and the redacted watch
- * build on: it names only the `{ fromZoneId, toZoneId }` pair, so a redacted
- * snapshot's connection list feeds it as readily as authored geometry (SD2 — no
- * `encounter`/`visibility` import).
+ * primitive {@link adjacencyMap} (over full geometry), {@link adjacentZones}, and
+ * the redacted watch all build on: it names only the `{ fromZoneId, toZoneId }`
+ * pair, so a redacted snapshot's connection list feeds it as readily as authored
+ * geometry (SD2 — no `encounter`/`visibility` import).
+ *
+ * Edge multiplicity is **preserved**: two connections between the same pair list
+ * that neighbor twice. The map forms keep it (a doubled corridor is a fact about
+ * the geometry); `adjacentZones` dedups, because a zone *list* has no use for it.
  */
 export function adjacencyOf(
   connections: Iterable<{ fromZoneId: string; toZoneId: string }>
@@ -96,18 +100,15 @@ export function adjacencyMap(geometry: MapGeometry): Record<string, string[]> {
   return map
 }
 
-/** The zones adjacent to `zoneId`, resolved to their {@link MapZone}s (a
- *  neighbor whose zone no longer exists is dropped). */
+/** The zones adjacent to `zoneId`, resolved to their {@link MapZone}s — built on
+ *  {@link adjacencyOf}, deduped (a doubled corridor resolves to one neighbor
+ *  zone), and dropping a neighbor whose zone no longer exists. */
 export function adjacentZones(
   geometry: MapGeometry,
   zoneId: string
 ): MapZone[] {
-  const neighbors = new Set<string>()
-  for (const connection of Object.values(geometry.connections)) {
-    if (connection.fromZoneId === zoneId) neighbors.add(connection.toZoneId)
-    if (connection.toZoneId === zoneId) neighbors.add(connection.fromZoneId)
-  }
-  return [...neighbors].flatMap((id) => {
+  const neighborIds = adjacencyOf(Object.values(geometry.connections))[zoneId]
+  return [...new Set(neighborIds)].flatMap((id) => {
     const zone = geometry.zones[id]
     return zone ? [zone] : []
   })

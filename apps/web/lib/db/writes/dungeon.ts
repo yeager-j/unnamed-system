@@ -166,25 +166,19 @@ async function clockRow(
   return row
 }
 
-/**
- * The shared single-version guard, with the generic `"not-found"` mapped to this
- * aggregate's `"dungeon-not-found"`.
- */
+/** The shared single-version guard, bound to this aggregate's table + error. */
 async function bumpDungeonVersionGuarded(
   executor: WriteExecutor,
   dungeonId: string,
   expectedVersion: number,
   patch: Partial<typeof dungeons.$inferInsert>
 ): Promise<Result<{ version: number }, DungeonWriteError>> {
-  const result = await guardedVersionUpdate({
+  return guardedVersionUpdate({
     table: dungeons,
     id: dungeonId,
     expectedVersion,
     patch,
+    notFound: "dungeon-not-found",
     executor,
   })
-  if (!result.ok) {
-    return err(result.error === "not-found" ? "dungeon-not-found" : "stale")
-  }
-  return result
 }

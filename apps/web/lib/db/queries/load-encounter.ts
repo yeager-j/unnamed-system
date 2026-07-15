@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm"
 
-import { db, type WriteExecutor } from "@/lib/db/client"
+import { db } from "@/lib/db/client"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { mapInstances } from "@/lib/db/schema/map-instance"
 
@@ -68,25 +68,6 @@ export async function loadEncounterCampaignId(
     .limit(1)
 
   return row?.campaignId ?? null
-}
-
-/**
- * Cheap existence check used by the guarded session writes to disambiguate a
- * zero-row `UPDATE` between `"encounter-not-found"` (the row is gone) and
- * `"stale"` (it exists but its `version` moved past the caller's token). Selects
- * only `id` so the read is index-only.
- */
-export async function encounterExists(
-  encounterId: string,
-  executor: WriteExecutor = db
-): Promise<boolean> {
-  const [row] = await executor
-    .select({ id: encounters.id })
-    .from(encounters)
-    .where(eq(encounters.id, encounterId))
-    .limit(1)
-
-  return row !== undefined
 }
 
 /** Summary row for the manage page's encounter list (UNN-329) — the columns the

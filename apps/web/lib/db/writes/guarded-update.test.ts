@@ -45,6 +45,7 @@ describe("guardedVersionUpdate", () => {
       id: "m1",
       expectedVersion: 3,
       patch: { name: "renamed" },
+      notFound: "map-not-found",
     })
 
     expect(result).toEqual({ ok: true, value: { version: 5 } })
@@ -61,12 +62,13 @@ describe("guardedVersionUpdate", () => {
       id: "m1",
       expectedVersion: 99,
       patch: { name: "renamed" },
+      notFound: "map-not-found",
     })
 
     expect(result).toEqual({ ok: false, error: "stale" })
   })
 
-  it("returns `not-found` when the row is gone", async () => {
+  it("returns the caller's `notFound` string when the row is gone", async () => {
     returningRows.mockReturnValue([])
     selectRows.mockReturnValue([])
 
@@ -75,8 +77,9 @@ describe("guardedVersionUpdate", () => {
       id: "gone",
       expectedVersion: 1,
       patch: { name: "renamed" },
+      notFound: "map-not-found",
     })
 
-    expect(result).toEqual({ ok: false, error: "not-found" })
+    expect(result).toEqual({ ok: false, error: "map-not-found" })
   })
 })
