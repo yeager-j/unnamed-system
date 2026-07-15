@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 import type { DungeonState, DungeonStatus } from "@workspace/game-v2/spatial"
@@ -12,23 +12,19 @@ import {
 } from "@/lib/db/schema/campaign-clock"
 import { dungeons } from "@/lib/db/schema/dungeon"
 import { insertWithShortId } from "@/lib/db/short-id"
+import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
 
 import { guardMany } from "./guard-many"
 
 /**
  * Persistence for a dungeon and its serialized {@link DungeonState} (Dungeon Map
  * ADR — the exploration-time layer over a Map Instance). The campaign DM is the
- * sole writer, so a single `version` token guards every mutation: each guarded
- * write bumps `version` while conditioning on `(id, version === expectedVersion)`,
- * and on zero affected rows disambiguates `"stale"` from `"dungeon-not-found"`.
+ * sole writer, so a single `version` token guards every mutation through the
+ * shared {@link guardedVersionUpdate}.
  *
  * This is pure persistence — the DM authorization (`requireCampaignDM`) lives at
  * the Server Action boundary that calls these, exactly as the encounter writes
- * stay auth-free behind the gate. It mirrors {@link import("./encounter")} rather
- * than folding into the character `version-guard` primitive: that one is
- * per-class and character-table-coupled, whereas the dungeon has a single version
- * column — a simpler guard whose only shared trait is the conditioned-update
- * *shape*.
+ * stay auth-free behind the gate.
  */
 
 export type DungeonWriteError = "dungeon-not-found" | "stale"
@@ -171,12 +167,8 @@ async function clockRow(
 }
 
 /**
- * Runs a guarded single-version bump: applies `patch` together with the
- * `version + 1` increment in one `SET`, conditioned on `(id, version ===
- * expectedVersion)`, and returns the bumped version. On zero affected rows it
- * disambiguates `"stale"` (row exists, token moved) from `"dungeon-not-found"`
- * (row gone) via {@link dungeonExists}, run on the same executor so the check
- * shares the caller's transaction snapshot.
+ * The shared single-version guard, with the generic `"not-found"` mapped to this
+ * aggregate's `"dungeon-not-found"`.
  */
 async function bumpDungeonVersionGuarded(
   executor: WriteExecutor,
@@ -184,33 +176,15 @@ async function bumpDungeonVersionGuarded(
   expectedVersion: number,
   patch: Partial<typeof dungeons.$inferInsert>
 ): Promise<Result<{ version: number }, DungeonWriteError>> {
-  const updated = await executor
-    .update(dungeons)
-    .set({ ...patch, version: sql`${dungeons.version} + 1` })
-    .where(
-      and(eq(dungeons.id, dungeonId), eq(dungeons.version, expectedVersion))
-    )
-    .returning({ version: dungeons.version })
-
-  if (updated.length === 0) {
-    return (await dungeonExists(executor, dungeonId))
-      ? err("stale")
-      : err("dungeon-not-found")
+  const result = await guardedVersionUpdate({
+    table: dungeons,
+    id: dungeonId,
+    expectedVersion,
+    patch,
+    executor,
+  })
+  if (!result.ok) {
+    return err(result.error === "not-found" ? "dungeon-not-found" : "stale")
   }
-
-  return ok({ version: updated[0]!.version })
-}
-
-/** Existence check for the zero-row disambiguation, on the caller's executor. */
-async function dungeonExists(
-  executor: WriteExecutor,
-  dungeonId: string
-): Promise<boolean> {
-  const [row] = await executor
-    .select({ id: dungeons.id })
-    .from(dungeons)
-    .where(eq(dungeons.id, dungeonId))
-    .limit(1)
-
-  return row !== undefined
+  return result
 }

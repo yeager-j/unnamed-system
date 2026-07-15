@@ -1,23 +1,15 @@
-import { and, eq, sql } from "drizzle-orm"
-
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, type Result } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
 import { type WriteExecutor } from "@/lib/db/client"
 import { mapInstances } from "@/lib/db/schema/map-instance"
+import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
 
 /**
  * Persistence for a Map Instance and its serialized {@link MapInstanceState}
  * (Dungeon Map ADR — *Persistence & concurrency*). A single `version` token
- * guards every mutation, mirroring the encounter write
- * ({@link import("./encounter").saveEncounterSession}): each guarded write bumps
- * `version` while conditioning on `(id, version === expectedVersion)`, and on
- * zero affected rows disambiguates `"stale"` from `"map-instance-not-found"`.
- *
- * Like the encounter guard, this is **not** folded into the character
- * `version-guard` primitive (that one is per-class and character-table-coupled);
- * the only shared trait is the conditioned-update *shape*. Every write takes a
- * {@link WriteExecutor} so it can run standalone **or** inside a
+ * guards every mutation through the shared {@link guardedVersionUpdate}. Every
+ * write takes a {@link WriteExecutor} so it can run standalone **or** inside a
  * {@link import("./guard-many").guardMany} transaction that composes it with an
  * encounter/dungeon write (the few genuinely-atomic gestures — ADR *Atomicity*).
  *
@@ -76,12 +68,8 @@ export async function saveMapInstanceState(
 }
 
 /**
- * Runs a guarded single-version bump: applies `patch` together with the
- * `version + 1` increment in one `SET`, conditioned on `(id, version ===
- * expectedVersion)`, and returns the bumped version. On zero affected rows it
- * disambiguates `"stale"` (row exists, token moved) from
- * `"map-instance-not-found"` (row gone) via {@link mapInstanceExists}, run on the
- * same executor so the check shares the caller's transaction snapshot.
+ * The shared single-version guard, with the generic `"not-found"` mapped to this
+ * aggregate's `"map-instance-not-found"`.
  */
 async function bumpMapInstanceVersionGuarded(
   executor: WriteExecutor,
@@ -89,36 +77,17 @@ async function bumpMapInstanceVersionGuarded(
   expectedVersion: number,
   patch: Partial<typeof mapInstances.$inferInsert>
 ): Promise<Result<{ version: number }, MapInstanceWriteError>> {
-  const updated = await executor
-    .update(mapInstances)
-    .set({ ...patch, version: sql`${mapInstances.version} + 1` })
-    .where(
-      and(
-        eq(mapInstances.id, mapInstanceId),
-        eq(mapInstances.version, expectedVersion)
-      )
+  const result = await guardedVersionUpdate({
+    table: mapInstances,
+    id: mapInstanceId,
+    expectedVersion,
+    patch,
+    executor,
+  })
+  if (!result.ok) {
+    return err(
+      result.error === "not-found" ? "map-instance-not-found" : "stale"
     )
-    .returning({ version: mapInstances.version })
-
-  if (updated.length === 0) {
-    return (await mapInstanceExists(executor, mapInstanceId))
-      ? err("stale")
-      : err("map-instance-not-found")
   }
-
-  return ok({ version: updated[0]!.version })
-}
-
-/** Existence check for the zero-row disambiguation, on the caller's executor. */
-async function mapInstanceExists(
-  executor: WriteExecutor,
-  mapInstanceId: string
-): Promise<boolean> {
-  const [row] = await executor
-    .select({ id: mapInstances.id })
-    .from(mapInstances)
-    .where(eq(mapInstances.id, mapInstanceId))
-    .limit(1)
-
-  return row !== undefined
+  return result
 }

@@ -1,27 +1,20 @@
-import { and, eq, sql } from "drizzle-orm"
-
 import type { StoredSession } from "@workspace/game-v2/encounter"
-import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
+import { err, type Result } from "@workspace/game-v2/kernel/result"
 
 import { db, type WriteExecutor } from "@/lib/db/client"
-import { encounterExists } from "@/lib/db/queries/load-encounter"
 import { encounters, type EncounterStatus } from "@/lib/db/schema/encounter"
 import { insertWithShortId } from "@/lib/db/short-id"
+import { guardedVersionUpdate } from "@/lib/db/writes/guarded-update"
 
 /**
  * Persistence for an encounter and its serialized {@link StoredSession} — the
  * engine-v2 persisted contract (ADR Decision 3; UNN-535 hard cutover). The DM
- * is the sole writer, so a single `version` token
- * guards every mutation: each guarded write bumps `version` while conditioning
- * on `(id, version === expectedVersion)`, and on zero affected rows
- * disambiguates `"stale"` from `"encounter-not-found"`.
+ * is the sole writer, so a single `version` token guards every mutation through
+ * the shared {@link guardedVersionUpdate}.
  *
  * This is pure persistence — the DM authorization (`requireCampaignDM`) lives at
  * the Server Action boundary that calls these, exactly as the character writes
- * stay auth-free behind `requireOwner`. We deliberately do not fold this into
- * the character `version-guard` primitive: that one is per-class and
- * character-table-coupled, whereas the encounter has a single version column —
- * a simpler guard whose only shared trait is the conditioned-update *shape*.
+ * stay auth-free behind `requireOwner`.
  */
 
 export type EncounterWriteError = "encounter-not-found" | "stale"
@@ -108,11 +101,8 @@ export async function setEncounterStatus(
 }
 
 /**
- * Runs a guarded single-version bump: applies `patch` together with the
- * `version + 1` increment in one `SET`, conditioned on `(id, version ===
- * expectedVersion)`, and returns the bumped version. On zero affected rows it
- * disambiguates `"stale"` (row exists, token moved) from `"encounter-not-found"`
- * (row gone) via {@link encounterExists}.
+ * The shared single-version guard, with the generic `"not-found"` mapped to this
+ * aggregate's `"encounter-not-found"`.
  */
 async function bumpEncounterVersionGuarded(
   executor: WriteExecutor,
@@ -120,22 +110,15 @@ async function bumpEncounterVersionGuarded(
   expectedVersion: number,
   patch: Partial<typeof encounters.$inferInsert>
 ): Promise<Result<{ version: number }, EncounterWriteError>> {
-  const updated = await executor
-    .update(encounters)
-    .set({ ...patch, version: sql`${encounters.version} + 1` })
-    .where(
-      and(
-        eq(encounters.id, encounterId),
-        eq(encounters.version, expectedVersion)
-      )
-    )
-    .returning({ version: encounters.version })
-
-  if (updated.length === 0) {
-    return (await encounterExists(encounterId, executor))
-      ? err("stale")
-      : err("encounter-not-found")
+  const result = await guardedVersionUpdate({
+    table: encounters,
+    id: encounterId,
+    expectedVersion,
+    patch,
+    executor,
+  })
+  if (!result.ok) {
+    return err(result.error === "not-found" ? "encounter-not-found" : "stale")
   }
-
-  return ok({ version: updated[0]!.version })
+  return result
 }
