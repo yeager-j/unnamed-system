@@ -13,8 +13,10 @@ import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 
 import { useDungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/context"
-import { DungeonTokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/token-chip"
-import { ZoneCardFrame } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/zone-card-frame"
+import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
+import { OccupantToken } from "@/components/shared/canvas/set-piece/occupant-chips"
+import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
+import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { type Pool } from "@/domain/pool"
 
 export type DungeonZoneToken = {
@@ -34,12 +36,13 @@ export type DungeonZoneNode = Node<DungeonZoneData, "dungeonZone">
 
 /**
  * A Zone on the run console (UNN-464) — the play counterpart of the template
- * `ZoneNode`, built on the shared {@link ZoneCardFrame} so it matches the Setup
- * and combat boards: the Zone name, the occupant count, and the party tokens
- * rendered **inside** the card as side-tinted chips. Reveal state reads
- * **non-by-color** — an eye-slash glyph + a muted card when players can't see it
- * yet. Selecting it reveals a {@link NodeToolbar} whose actions (reveal/hide, Move
- * party here, open the Zone details sheet) dispatch through {@link useDungeonCanvas}.
+ * `ZoneNode`, now a thin wrapper over the shared {@link ZoneSetPiece} tiered card
+ * (Dungeon Visual Overhaul §D3). It builds the zone's view from the occupancy
+ * frame (party tokens; the DM console has no owned-gold) and hands the card its
+ * Closeup roster; reveal state rides the card's visible glyph + `aria-describedby`,
+ * never the name-only label. Selecting it reveals a {@link NodeToolbar} whose
+ * actions (reveal/hide, Move party here, open the Zone details sheet) dispatch
+ * through {@link useDungeonCanvas}.
  */
 export function DungeonZoneNode({
   data,
@@ -47,15 +50,14 @@ export function DungeonZoneNode({
 }: NodeProps<DungeonZoneNode>) {
   const { revealZone, hideZone, moveParty, openDetails } = useDungeonCanvas()
   const { zone, revealed, tokens } = data
+  const view = exploreZoneView({ zone, revealed, tokens })
 
   return (
-    <ZoneCardFrame
-      name={zone.name}
-      revealed={revealed}
-      count={tokens.length}
-      ariaLabel={`Zone: ${zone.name}${revealed ? "" : " (hidden from players)"}`}
+    <ZoneSetPiece
+      view={view}
       selected={selected}
-      className="cursor-pointer transition-shadow"
+      className="cursor-pointer"
+      handles={<FloatingEdgeHandles />}
       toolbar={
         <NodeToolbar
           isVisible={selected}
@@ -87,17 +89,17 @@ export function DungeonZoneNode({
           </Button>
         </NodeToolbar>
       }
-    >
-      {tokens.map((token) => (
-        <li key={token.characterId}>
-          <DungeonTokenChip
-            name={token.name}
-            portraitUrl={token.portraitUrl}
-            hp={token.hp}
-            sp={token.sp}
-          />
-        </li>
-      ))}
-    </ZoneCardFrame>
+      closeupRoster={
+        view.occupants.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {view.occupants.map((occupant) => (
+              <li key={occupant.key}>
+                <OccupantToken occupant={occupant} />
+              </li>
+            ))}
+          </ul>
+        ) : undefined
+      }
+    />
   )
 }

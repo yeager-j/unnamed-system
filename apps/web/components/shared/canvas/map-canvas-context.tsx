@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, type ReactNode } from "react"
+import { createContext, useContext } from "react"
 
 import type {
   ConnectionFlag,
@@ -8,6 +8,8 @@ import type {
   MapZoneMotif,
   MapZoneSize,
 } from "@workspace/game-v2/spatial"
+
+import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 /**
  * A partial patch of a Zone's cosmetic identity fields (UNN-630). An **absent** key
@@ -55,12 +57,13 @@ export interface MapCanvasContextValue {
    */
   lockedZoneIds?: ReadonlySet<string>
   /**
-   * Optional per-Zone overlay rendered inside the Zone card — the live-Instance
-   * host returns its party token chips so the DM can see occupancy while editing
-   * geometry (UNN-486). The canvas stays geometry-only: it renders whatever node
-   * the host returns without knowing what it is. Absent ⇒ no overlay.
+   * Optional per-Zone occupants — the live-Instance host (run console Edit mode)
+   * returns the party standing in each Zone so the tiered card reflects occupancy
+   * at every zoom (pips / summary / roster), not just the Closeup overlay (UNN-486).
+   * The canvas stays geometry-only otherwise; absent ⇒ every Zone reads empty (the
+   * Map-template editor).
    */
-  renderZoneOverlay?: (zoneId: string) => ReactNode
+  zoneOccupants?: (zoneId: string) => SetPieceOccupant[]
 }
 
 const MapCanvasContext = createContext<MapCanvasContextValue | null>(null)

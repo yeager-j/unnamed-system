@@ -5,7 +5,6 @@ import {
   type MapZone,
 } from "@workspace/game-v2/spatial"
 
-import { type DungeonCombatToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/zone-node"
 import { type DungeonConnectionEdge as DungeonConnectionEdgeType } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/connection-edge"
 import { type DungeonZoneToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node"
 import {
@@ -15,6 +14,7 @@ import {
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
 import type { RailRow, RosterView } from "@/domain/combat/view/roster-view"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
+import { footprintOf } from "@/domain/map/view/footprints"
 
 /** The party tokens standing in each Zone (play mode), keyed by Zone id. Tokens
  *  whose occupant isn't in the delve roster are dropped — during exploration the
@@ -58,17 +58,23 @@ function buildPlayNodes(
   roster: Record<string, DungeonRosterEntry>
 ): CanvasNode[] {
   const byZone = tokensByZone(instance, roster)
-  return Object.values(instance.geometry.zones).map((zone) => ({
-    id: zone.id,
-    type: "dungeonZone",
-    position: zone.position,
-    draggable: false,
-    data: {
-      zone,
-      revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-      tokens: byZone[zone.id] ?? [],
-    },
-  }))
+  return Object.values(instance.geometry.zones).map((zone) => {
+    const { w, h } = footprintOf(zone.size)
+    return {
+      id: zone.id,
+      type: "dungeonZone",
+      position: zone.position,
+      draggable: false,
+      width: w,
+      height: h,
+      style: { width: w, height: h },
+      data: {
+        zone,
+        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+        tokens: byZone[zone.id] ?? [],
+      },
+    }
+  })
 }
 
 /** The combat battlefield's nodes: each authored Zone with the combatants standing
@@ -88,28 +94,20 @@ function buildCombatNodes(
   }
 
   return Object.values(instance.geometry.zones).map((zone: MapZone) => {
-    const tokens: DungeonCombatToken[] = (rowsByZone[zone.id] ?? []).map(
-      (row) => ({
-        id: row.id,
-        name: row.name,
-        side: row.side,
-        portraitUrl: row.portraitUrl,
-        hp: row.hp,
-        sp: row.sp,
-        engaged: row.engagement.status === "engaged",
-      })
-    )
-    const sides = new Set(tokens.map((token) => token.side))
+    const rows = rowsByZone[zone.id] ?? []
+    const { w, h } = footprintOf(zone.size)
     return {
       id: zone.id,
       type: "dungeonCombatZone",
       position: zone.position,
       draggable: false,
+      width: w,
+      height: h,
+      style: { width: w, height: h },
       data: {
         zone,
         revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-        tokens,
-        engaged: sides.has("players") && sides.has("enemies"),
+        rows,
         enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
       },
     }

@@ -30,7 +30,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/edit-canvas.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/canvas.tsx",
-  "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/zone-node.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/body.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/encounter-staging.tsx",
   "app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar.tsx",

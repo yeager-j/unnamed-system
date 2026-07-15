@@ -1,0 +1,38 @@
+/**
+ * The tier crossfade (Dungeon Visual Overhaul §D3). All three layers stay mounted;
+ * only their visibility moves, driven purely by the `data-tier` the canvas wrapper
+ * stamps (a global ancestor). Opacity alone would leave hidden names + buttons in
+ * the accessibility tree and tab order, so each layer pairs it with a *delayed*
+ * `visibility` flip — the incoming layer becomes visible immediately and fades in;
+ * the outgoing layer fades out, then leaves the tree. No reflow, no remount.
+ */
+
+.layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0s linear 0.3s;
+}
+
+:global([data-tier="marquee"]) .marquee,
+:global([data-tier="stage"]) .stage,
+:global([data-tier="closeup"]) .closeup {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer,
+  :global([data-tier="marquee"]) .marquee,
+  :global([data-tier="stage"]) .stage,
+  :global([data-tier="closeup"]) .closeup {
+    transition-duration: 0s;
+    transition-delay: 0s;
+  }
+}

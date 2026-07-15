@@ -40,6 +40,7 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 
 const nodeTypes = {
   dungeonZone: DungeonZoneNode,
@@ -85,6 +86,7 @@ function DungeonCanvasInner({
   persistKey?: string
 }) {
   const { resolvedTheme } = useTheme()
+  const tier = useCanvasTier()
   // Restore the last zoom/pan for this dungeon (or fit the board on the first
   // visit); a phase switch remounts this canvas, so this is what keeps it steady.
   const storedViewport = persistKey ? readViewport(persistKey) : undefined
@@ -102,60 +104,64 @@ function DungeonCanvasInner({
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      nodesDraggable={false}
-      nodesConnectable={false}
-      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-      deleteKeyCode={null}
-      defaultViewport={storedViewport}
-      fitView={storedViewport === undefined}
-      fitViewOptions={{ padding: 0.2 }}
-      onMoveEnd={
-        persistKey
-          ? (_, viewport) => writeViewport(persistKey, viewport)
-          : undefined
-      }
-      proOptions={{ hideAttribution: true }}
-      panOnScroll
-      selectionOnDrag
-      panOnDrag={false}
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={CANVAS_GRID_SIZE}
-        size={CANVAS_DOT_SIZE}
-      />
-      {isEmpty && (
-        <CanvasEmptyNotice>
-          This dungeon has no map yet — author it on My Maps, then recreate the
-          delve.
-        </CanvasEmptyNotice>
-      )}
-      <Panel
-        position="top-left"
-        className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+    <div className="relative size-full" data-tier={tier}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+        deleteKeyCode={null}
+        defaultViewport={storedViewport}
+        fitView={storedViewport === undefined}
+        fitViewOptions={{ padding: 0.2 }}
+        onMoveEnd={
+          persistKey
+            ? (_, viewport) => writeViewport(persistKey, viewport)
+            : undefined
+        }
+        proOptions={{ hideAttribution: true }}
+        minZoom={0.2}
+        maxZoom={1.6}
+        // Wheel zooms across tiers (§D1); the console pans on left-drag.
+        zoomOnScroll
+        panOnDrag
       >
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 border border-border bg-card" />
-          Revealed to players
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
-          Hidden (secret)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-4 border border-dotted border-muted-foreground/60 opacity-60" />
-          Not yet revealed
-        </span>
-      </Panel>
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={CANVAS_GRID_SIZE}
+          size={CANVAS_DOT_SIZE}
+        />
+        {isEmpty && (
+          <CanvasEmptyNotice>
+            This dungeon has no map yet — author it on My Maps, then recreate
+            the delve.
+          </CanvasEmptyNotice>
+        )}
+        <Panel
+          position="top-left"
+          className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
+        >
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-4 border border-border bg-card" />
+            Revealed to players
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
+            Hidden (secret)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-4 border border-dotted border-muted-foreground/60 opacity-60" />
+            Not yet revealed
+          </span>
+        </Panel>
 
-      {bar ?? <TurnLoopBar />}
-    </ReactFlow>
+        {bar ?? <TurnLoopBar />}
+      </ReactFlow>
+    </div>
   )
 }
