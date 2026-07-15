@@ -105,6 +105,37 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
     expect(snap.zones).toEqual([{ id: "z1", name: "z1" }])
   })
 
+  it("passes a revealed zone's cosmetic identity through, absent stays absent", () => {
+    const instance = makeMapInstanceState({
+      geometry: makeGeometry([
+        makeZone("z1", { size: "XL", motif: "water", mood: "cool" }),
+        makeZone("z2"),
+      ]),
+      reveal: {
+        revealedZoneIds: ["z1", "z2"],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    })
+    const snap = projectSpatialEncounterSnapshot(
+      session,
+      view,
+      spectator(),
+      META,
+      instance,
+      7,
+      true
+    )
+    const byId = new Map(snap.zones.map((zone) => [zone.id, zone]))
+    expect(byId.get("z1")).toMatchObject({
+      size: "XL",
+      motif: "water",
+      mood: "cool",
+    })
+    // z2 authored no identity — the fields never appear on the wire.
+    expect(byId.get("z2")).toEqual({ id: "z2", name: "z2" })
+  })
+
   it("under fog: blanks zoneId for a combatant in an unrevealed zone (RED-9c)", () => {
     const snap = projectSpatialEncounterSnapshot(
       session,
@@ -242,7 +273,13 @@ describe("projectDungeonSnapshot — the exploration-only sibling", () => {
   const mapInstance = makeMapInstanceState({
     geometry: makeGeometry(
       [
-        makeZone("z1", { description: "A dank hall", dmNotes: "ambush" }),
+        makeZone("z1", {
+          description: "A dank hall",
+          dmNotes: "ambush",
+          size: "L",
+          motif: "altar",
+          mood: "warm",
+        }),
         makeZone("z2"),
       ],
       [makeConnection("c1", "z1", "z2")]
@@ -275,6 +312,7 @@ describe("projectDungeonSnapshot — the exploration-only sibling", () => {
     const zone = snap.zones[0]!
     expect(zone).not.toHaveProperty("dmNotes")
     expect(zone.description).toBe("A dank hall")
+    expect(zone).toMatchObject({ size: "L", motif: "altar", mood: "warm" })
     expect(zone.enchantment).toEqual({
       zoneId: "z1",
       type: "requiem",

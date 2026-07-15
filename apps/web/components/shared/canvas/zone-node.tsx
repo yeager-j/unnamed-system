@@ -1,6 +1,8 @@
 "use client"
 
 import {
+  CaretLeftIcon,
+  CaretRightIcon,
   CopyIcon,
   PencilSimpleIcon,
   TrashIcon,
@@ -13,8 +15,23 @@ import { Separator } from "@workspace/ui/components/separator"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { ZONE_SIZE_LABELS } from "@/domain/labels"
+import type { ZoneSize } from "@/domain/map/view/footprints"
+
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
 import { useMapCanvas } from "./map-canvas-context"
+
+const SIZE_LADDER: ZoneSize[] = ["S", "M", "L", "XL"]
+
+/** The next size up/down the ladder from `current` (unset ⇒ M), clamped at the ends. */
+function steppedSize(
+  current: ZoneSize | undefined,
+  direction: -1 | 1
+): ZoneSize {
+  const index = SIZE_LADDER.indexOf(current ?? "M")
+  const next = Math.min(Math.max(index + direction, 0), SIZE_LADDER.length - 1)
+  return SIZE_LADDER[next]!
+}
 
 /**
  * A Zone rendered as a React Flow node (UNN-461) — a small card showing the Zone's
@@ -37,6 +54,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
   const {
     interactivity,
     openZoneDetails,
+    setZoneIdentity,
     duplicateZone,
     deleteZone,
     lockedZoneIds,
@@ -62,6 +80,37 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
           <PencilSimpleIcon />
           Edit details
         </Button>
+        <Separator orientation="vertical" className="mx-0.5 h-5" />
+        <div className="flex items-center gap-0.5">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Shrink ${zone.name}`}
+            disabled={(zone.size ?? "M") === "S"}
+            onClick={() =>
+              setZoneIdentity(zone.id, { size: steppedSize(zone.size, -1) })
+            }
+          >
+            <CaretLeftIcon />
+          </Button>
+          <span
+            className="w-6 text-center text-xs font-medium tabular-nums"
+            aria-label={`Size ${ZONE_SIZE_LABELS[zone.size ?? "M"]}`}
+          >
+            {zone.size ?? "M"}
+          </span>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Grow ${zone.name}`}
+            disabled={(zone.size ?? "M") === "XL"}
+            onClick={() =>
+              setZoneIdentity(zone.id, { size: steppedSize(zone.size, 1) })
+            }
+          >
+            <CaretRightIcon />
+          </Button>
+        </div>
         <Separator orientation="vertical" className="mx-0.5 h-5" />
         <Button
           size="icon-sm"

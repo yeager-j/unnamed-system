@@ -1,6 +1,6 @@
 import { z } from "zod/v4"
 
-import { mapZoneSchema } from "./geometry.schema"
+import { MAP_ZONE_MOTIFS, mapZoneSchema } from "./geometry.schema"
 
 /**
  * The geometry-edit vocabulary — one edit the canvas dispatches over a
@@ -47,6 +47,19 @@ export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
     patch: z.object({
       description: z.string().optional(),
       dmNotes: z.string().optional(),
+    }),
+  }),
+  z.object({
+    kind: z.literal("setZoneIdentity"),
+    zoneId: z.string(),
+    // A partial patch of the three cosmetic identity fields. An **absent** field
+    // means "no change"; `motif: null` is the explicit **clear** opcode (the "None"
+    // picker) — the reducer deletes the key, so `null` is never persisted (the
+    // load-schema fixed-point law). `size`/`mood` are set-only.
+    identity: z.object({
+      size: z.enum(["S", "M", "L", "XL"]).optional(),
+      motif: z.enum(MAP_ZONE_MOTIFS).nullable().optional(),
+      mood: z.enum(["warm", "dim", "cool"]).optional(),
     }),
   }),
   z.object({

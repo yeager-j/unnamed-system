@@ -13,11 +13,43 @@ import { z } from "zod/v4"
  */
 
 /**
+ * The closed set of Zone **motif** glyphs (UNN-630) — a DM-authored visual leitmotif
+ * for a Zone, purely cosmetic (the engine never reads it; it drives an icon on the
+ * canvas card). A closed enum, not free text: extending it is an enum member + an
+ * icon in the renderer, a PR rather than an authoring surface.
+ */
+export const MAP_ZONE_MOTIFS = [
+  "water",
+  "stair",
+  "bones",
+  "statue",
+  "altar",
+  "treasure",
+  "crates",
+  "cell",
+  "mechanism",
+  "tomb",
+] as const
+
+/** A Zone's authored footprint size — one of four fixed world-rect tiers (UNN-630). */
+export type MapZoneSize = "S" | "M" | "L" | "XL"
+/** A Zone's authored motif glyph (UNN-630); one of {@link MAP_ZONE_MOTIFS}. */
+export type MapZoneMotif = (typeof MAP_ZONE_MOTIFS)[number]
+/** A Zone's authored lighting mood (UNN-630) — a background wash tint. */
+export type MapZoneMood = "warm" | "dim" | "cool"
+
+/**
  * One authored Zone — a ~30 ft "theater of the mind" region. Carries a stable `id`
  * (also its key in {@link MapGeometry.zones}, so a Zone is self-describing), a
  * DM-supplied display `name`, the player-facing `description` shown on reveal, the
  * private `dmNotes`, and the node `position` for the canvas layout. The Zone
  * *graph* (which zones connect) lives in {@link MapGeometry.connections}, not here.
+ *
+ * The three **identity** fields (`size`/`motif`/`mood`, UNN-630) are the DM's
+ * cosmetic authoring of a Zone's visual character. All **optional** — absent stays
+ * absent (the render side defaults `size ?? "M"`, no glyph, `mood ?? "dim"`), so
+ * existing jsonb blobs parse unchanged with no migration. The engine assigns them no
+ * mechanical meaning; they exist only to drive the canvas set-piece card.
  */
 export const mapZoneSchema = z.object({
   id: z.string(),
@@ -25,6 +57,9 @@ export const mapZoneSchema = z.object({
   description: z.string().default(""),
   dmNotes: z.string().default(""),
   position: z.object({ x: z.number(), y: z.number() }),
+  size: z.enum(["S", "M", "L", "XL"]).optional(),
+  motif: z.enum(MAP_ZONE_MOTIFS).optional(),
+  mood: z.enum(["warm", "dim", "cool"]).optional(),
 })
 export type MapZone = z.infer<typeof mapZoneSchema>
 

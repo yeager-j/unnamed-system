@@ -2,7 +2,23 @@
 
 import { createContext, useContext, type ReactNode } from "react"
 
-import type { ConnectionFlag } from "@workspace/game-v2/spatial"
+import type {
+  ConnectionFlag,
+  MapZoneMood,
+  MapZoneMotif,
+  MapZoneSize,
+} from "@workspace/game-v2/spatial"
+
+/**
+ * A partial patch of a Zone's cosmetic identity fields (UNN-630). An **absent** key
+ * means "leave it unchanged"; `motif: null` **clears** the motif. Mirrors the
+ * `setZoneIdentity` geometry event's `identity` shape.
+ */
+export interface ZoneIdentityPatch {
+  size?: MapZoneSize
+  motif?: MapZoneMotif | null
+  mood?: MapZoneMood
+}
 
 /**
  * The edit dispatchers the custom {@link import("./zone-node").ZoneNode} /
@@ -17,6 +33,8 @@ export interface MapCanvasContextValue {
   interactivity: "edit" | "readonly"
   /** Opens the Zone's details sheet (name / description / DM notes). */
   openZoneDetails: (zoneId: string) => void
+  /** Patches a Zone's cosmetic identity (size / motif / mood; `motif: null` clears). */
+  setZoneIdentity: (zoneId: string, identity: ZoneIdentityPatch) => void
   /** Clones a Zone (text only, no connections) offset from the original. */
   duplicateZone: (zoneId: string) => void
   /** Deletes a Zone (cascading its connections) after a confirm. */
