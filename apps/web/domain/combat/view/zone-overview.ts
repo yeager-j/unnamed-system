@@ -5,12 +5,12 @@ import {
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { adjacencyMap } from "@workspace/game-v2/spatial/selectors"
 
 import {
   zoneEnchantmentBadge,
   type ZoneEnchantmentBadge,
 } from "@/domain/combat/view/zone-enchantment-badge"
-import { adjacencyMap } from "@/domain/combat/view/zone-graph"
 
 /**
  * The mapless console's **battlefield layout** — the DM-side twin of the

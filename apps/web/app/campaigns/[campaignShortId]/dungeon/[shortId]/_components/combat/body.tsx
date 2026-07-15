@@ -5,6 +5,7 @@ import { useState } from "react"
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { err } from "@workspace/game-v2/kernel/result"
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { adjacentZones } from "@workspace/game-v2/spatial/selectors"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
 import { DungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas"
@@ -226,7 +227,8 @@ function toEndCombatError(error: EndDungeonCombatError): EndCombatError {
 }
 
 /** The zones the acting combatant may move into — its adjacent zones, or every
- *  other zone when the override is on. Empty while nobody is acting. */
+ *  other zone when the override is on. Empty while nobody is acting or unplaced
+ *  (adjacency is via the shared engine {@link adjacentZones} selector). */
 function movableZonesFor(
   instance: MapInstanceState,
   actingCombatantId: ParticipantId | null,
@@ -234,16 +236,11 @@ function movableZonesFor(
 ): string[] {
   if (actingCombatantId === null) return []
   const currentZoneId = instance.occupancy[actingCombatantId]?.zoneId
-  const allZoneIds = Object.keys(instance.geometry.zones)
   if (moveAnywhere) {
-    return allZoneIds.filter((zoneId) => zoneId !== currentZoneId)
+    return Object.keys(instance.geometry.zones).filter(
+      (zoneId) => zoneId !== currentZoneId
+    )
   }
-  const adjacent = new Set<string>()
-  for (const connection of Object.values(instance.geometry.connections)) {
-    if (connection.fromZoneId === currentZoneId)
-      adjacent.add(connection.toZoneId)
-    else if (connection.toZoneId === currentZoneId)
-      adjacent.add(connection.fromZoneId)
-  }
-  return [...adjacent]
+  if (currentZoneId === undefined) return []
+  return adjacentZones(instance.geometry, currentZoneId).map((zone) => zone.id)
 }

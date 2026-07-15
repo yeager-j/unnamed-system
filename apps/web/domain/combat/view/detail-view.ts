@@ -18,7 +18,7 @@ import type {
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ResolvedSkill } from "@workspace/game-v2/skills/resolved"
 import type { MapInstanceState, MapZone } from "@workspace/game-v2/spatial"
-import { zoneOf } from "@workspace/game-v2/spatial/selectors"
+import { adjacentZones, zoneOf } from "@workspace/game-v2/spatial/selectors"
 import { isFallen } from "@workspace/game-v2/vitals/operations"
 
 import type { ParticipantMeta } from "@/domain/combat/participant-meta"
@@ -35,7 +35,6 @@ import {
   vitalsAffordances,
   type VitalsAffordances,
 } from "@/domain/combat/view/vitals-affordances"
-import { adjacentZones } from "@/domain/combat/view/zone-graph"
 import {
   COMBATANT_CLASS_FALLBACKS,
   COMBATANT_DOWN_LABELS,
