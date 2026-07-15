@@ -71,7 +71,7 @@ export function ChipProse({
           id={id}
           label={resolved?.label ?? captured}
           tombstoned={resolved?.tombstoned ?? false}
-          className="not-prose"
+          className="not-typeset"
         />
       )
     },

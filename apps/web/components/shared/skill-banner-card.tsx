@@ -11,8 +11,8 @@ import {
 } from "@workspace/ui/components/tooltip"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { Prose } from "@/components/shared/prose"
 import { SideEffectBadge } from "@/components/shared/side-effect-badge"
-import { SkillText } from "@/components/shared/skill-text"
 import type {
   SkillCardCost,
   SkillCardLadder,
@@ -117,9 +117,9 @@ export function SkillBannerCard({
 
         {view.effect ? (
           <div className="text-xs">
-            <SkillText className="inline text-xs prose-p:inline [&_p]:inline">
+            <Prose mode="compact" className="inline text-xs [&_p]:inline">
               {view.effect}
-            </SkillText>
+            </Prose>
           </div>
         ) : null}
 

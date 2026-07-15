@@ -1,8 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-
-@plugin "@tailwindcss/typography";
+@import "./typeset.css";
 
 @custom-variant dark (&:is(.dark *));
 @source "../../../apps/**/*.{ts,tsx}";
@@ -100,6 +99,43 @@
   --hp: var(--color-emerald-600);
   --sp: var(--color-blue-600);
   --gold: oklch(0.82 0.13 85);
+}
+
+/* shadcn/typeset customizations. typeset.css is vendored verbatim from
+ * https://ui.shadcn.com/typeset.css; all local tuning lives here. `@layer
+ * components` (after the import) wins over the upstream `.typeset` rules while
+ * still letting Tailwind utilities override on top. */
+@layer components {
+  /* Adopt the surrounding surface's color instead of forcing --color-foreground,
+   * so one markup reads on dark cards AND the inverse tooltip surface alike —
+   * this is what retires the old `invert` prop / `prose-invert` dance. */
+  .typeset,
+  .typeset :where(h1, h2, h3, h4, h5, h6) {
+    color: inherit;
+  }
+
+  /* Inline code as a currentColor-tinted chip: matches the pre-migration look
+   * and reads on any surface (mirrors the old `bg-current/10`). */
+  .typeset :where(:not(pre) > code) {
+    background-color: color-mix(in oklab, currentColor 10%, transparent);
+  }
+
+  /* Reading-rhythm presets. `normal` matches the retired `prose-sm` sizing. */
+  .typeset-compact {
+    --typeset-size: 0.875rem;
+    --typeset-leading: 1.5;
+    --typeset-flow: 0.5em;
+  }
+  .typeset-normal {
+    --typeset-size: 0.875rem;
+    --typeset-leading: 1.65;
+    --typeset-flow: 1em;
+  }
+  .typeset-spacious {
+    --typeset-size: 1rem;
+    --typeset-leading: 1.75;
+    --typeset-flow: 1.5em;
+  }
 }
 
 @layer base {
