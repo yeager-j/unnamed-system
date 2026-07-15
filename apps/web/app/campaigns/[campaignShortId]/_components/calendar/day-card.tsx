@@ -80,9 +80,7 @@ export function DayCard({
           </span>
         ) : null}
         <div className="flex items-baseline gap-2">
-          <span className="font-display text-xl tracking-tight">
-            Day {day.day}
-          </span>
+          <span className="font-display text-xl font-bold">Day {day.day}</span>
           <SeasonControl
             campaignId={campaignId}
             day={day.day}

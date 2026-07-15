@@ -30,9 +30,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover"
-import { Textarea } from "@workspace/ui/components/textarea"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { MarkdownField } from "@/components/editor/markdown-field"
 import { PARTICIPANT_KIND_ICONS } from "@/components/shared/participant-kind-icons"
 import {
   ACTIVITY_CATEGORY_DESCRIPTIONS,
@@ -172,6 +172,9 @@ export function ActivityComposer({
 }) {
   const lastActivity = target.kind === "slot" ? target.lastActivity : null
   const [body, setBody] = useState(edit?.body ?? initial?.body ?? "")
+  // `MarkdownField` seeds its document once at mount; bumping this key remounts
+  // it so an in-place `setBody` (post-record reset, repeat-last) re-seeds.
+  const [seedNonce, setSeedNonce] = useState(0)
   const [category, setCategory] = useState<UpdateCategory | null>(
     edit?.category ?? initial?.category ?? lastActivity?.category ?? null
   )
@@ -250,6 +253,7 @@ export function ActivityComposer({
             }
           }
           setBody("")
+          setSeedNonce((n) => n + 1)
           setConcerns([])
           setCategory(null)
           setPrimary(initialPrimary(target, undefined))
@@ -264,6 +268,7 @@ export function ActivityComposer({
   const repeatLast = () => {
     if (!lastActivity) return
     setBody(lastActivity.body)
+    setSeedNonce((n) => n + 1)
     setCategory(lastActivity.category)
     setConcerns(lastActivity.concerns)
   }
@@ -310,12 +315,13 @@ export function ActivityComposer({
           </Button>
         ) : null}
       </div>
-      <Textarea
+      <MarkdownField
+        key={seedNonce}
         value={body}
-        onChange={(event) => setBody(event.target.value)}
+        onChange={setBody}
         placeholder={placeholder}
-        aria-label={bodyAriaLabel}
-        className="min-h-21 resize-none rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
+        ariaLabel={bodyAriaLabel}
+        className="rounded-none border-0 bg-transparent text-base shadow-none [--atomic-editor-body-size:0.875rem] focus-within:border-0 focus-within:ring-0 dark:bg-transparent [&_.cm-editor]:min-h-21 [&_.cm-editor]:px-2 [&_.cm-editor]:py-2"
       />
       <div className="flex flex-wrap items-center gap-1.5 px-2 pb-2">
         <ParticipantLinker
@@ -410,7 +416,7 @@ export function ActivityComposer({
             />
           ) : null}
           <Button
-            size="icon"
+            size="icon-sm"
             aria-label={edit ? "Save changes" : "Record activity"}
             disabled={!canSubmit && !isPending}
             onClick={submit}
@@ -461,10 +467,7 @@ function CategoryPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant={category === null ? "outline" : "secondary"}
-            size="sm"
-          />
+          <Button variant={category === null ? "outline" : "ghost"} size="sm" />
         }
       >
         <TagIcon className="size-4" />
@@ -474,7 +477,7 @@ function CategoryPicker({
             : "Activity type"
           : ACTIVITY_CATEGORY_LABELS[category]}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top" className="min-w-72">
+      <DropdownMenuContent align="end" className="min-w-72">
         <div className="px-2 py-1.5 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
           What is this activity?
         </div>
@@ -520,14 +523,13 @@ function CopyToOthers({
           <Button
             variant={copyIds.size > 0 ? "secondary" : "ghost"}
             size="sm"
-            className="text-xs"
           />
         }
       >
         <UsersThreeIcon className="size-4" />
         {copyIds.size > 0 ? `Copy to ${copyIds.size}` : "Copy to others"}
       </PopoverTrigger>
-      <PopoverContent align="end" side="top" className="w-60 p-2">
+      <PopoverContent align="end" className="w-60 p-2">
         <p className="px-1 pb-2 text-xs text-muted-foreground">
           Record this same entry for other characters too.
         </p>

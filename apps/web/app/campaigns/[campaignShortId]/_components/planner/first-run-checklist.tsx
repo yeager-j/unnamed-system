@@ -49,7 +49,7 @@ export function FirstRunChecklist({ campaignId }: { campaignId: string }) {
         <div className="flex w-full max-w-md flex-col gap-8">
           <div className="flex flex-col items-center gap-3 text-center">
             <Sparkle className="size-8 text-gold" />
-            <h1 className="font-display text-3xl text-foreground">
+            <h1 className="font-display text-3xl font-bold text-foreground">
               Set the stage
             </h1>
             <p className="text-sm text-balance text-muted-foreground">

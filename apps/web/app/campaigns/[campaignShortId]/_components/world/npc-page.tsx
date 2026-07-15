@@ -150,7 +150,7 @@ export function NpcPage({
               }}
               onFocus={() => name.onFocusChange(true)}
               onBlur={() => name.onFocusChange(false)}
-              className="h-auto rounded-none border-0 bg-transparent px-0 font-display text-2xl font-semibold text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
+              className="h-auto rounded-none border-0 bg-transparent px-0 font-display text-2xl font-bold font-semibold text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-0 focus-visible:ring-0 sm:text-3xl md:text-3xl dark:bg-transparent"
             />
             <div className="flex flex-wrap items-center gap-1.5">
               <ArcanaPicker

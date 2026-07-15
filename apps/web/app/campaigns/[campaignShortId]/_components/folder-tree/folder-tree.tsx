@@ -1,9 +1,7 @@
 "use client"
 
 import {
-  CaretDownIcon,
   CaretRightIcon,
-  DotsThreeIcon,
   FileTextIcon,
   FolderIcon,
   FolderPlusIcon,
@@ -18,14 +16,19 @@ import { toast } from "sonner"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@workspace/ui/components/collapsible"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@workspace/ui/components/context-menu"
 import { Input } from "@workspace/ui/components/input"
 import {
   SidebarContent,
@@ -35,6 +38,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@workspace/ui/components/sidebar"
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -133,11 +139,12 @@ interface MoveTargetRow {
 /**
  * The shared folder tree (UNN-579, D11 — Articles and NPCs; Session Notes
  * folded in by UNN-617): recursive disclosure rows, items as links to their
- * detail routes (active = pathname), a folder ⋯ menu (new item inside /
- * rename / new subfolder / move / delete) and an item ⋯ menu (move / delete).
- * "Move to…" is a dropdown sub-menu over the flattened forest — rows inside
- * the moved folder's own subtree disabled, the same `isDescendant` fact the
- * server enforces. Expand/collapse and the filters are client-local.
+ * detail routes (active = pathname). Right-clicking a row opens its context
+ * menu — a folder's (new item inside / rename / new subfolder / move / delete)
+ * or an item's (move / delete). "Move to…" is a sub-menu over the flattened
+ * forest — rows inside the moved folder's own subtree disabled, the same
+ * `isDescendant` fact the server enforces. Expand/collapse and the filters
+ * are client-local.
  */
 export function FolderTree({
   kind,
@@ -285,7 +292,7 @@ export function FolderTree({
             {dayLine}
           </div>
         ) : null}
-        <div className="font-display text-lg leading-tight text-foreground">
+        <div className="font-display text-lg leading-tight font-bold text-foreground">
           {campaignName}
         </div>
         <div className="flex items-center gap-1">
@@ -353,19 +360,14 @@ export function FolderTree({
                 Nothing matches{needle !== "" ? ` "${query.trim()}"` : ""}.
               </p>
             ) : (
-              <>
+              <SidebarMenu>
                 {visible.roots.map((folder) => (
-                  <FolderRows
-                    key={folder.id}
-                    folder={folder}
-                    depth={0}
-                    ctx={shared}
-                  />
+                  <FolderRows key={folder.id} folder={folder} ctx={shared} />
                 ))}
                 {visible.unfiled.length > 0 ? (
                   <UnfiledRows items={visible.unfiled} ctx={shared} />
                 ) : null}
-              </>
+              </SidebarMenu>
             )}
           </SidebarGroupContent>
         </SidebarGroup>
@@ -446,90 +448,71 @@ interface TreeContext {
 
 function FolderRows({
   folder,
-  depth,
   ctx,
 }: {
   folder: FolderTreeFolderView
-  depth: number
   ctx: TreeContext
 }) {
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [subfolderOpen, setSubfolderOpen] = useState(false)
   const [mintOpen, setMintOpen] = useState(false)
-  const isCollapsed = ctx.collapsed.has(folder.id)
+  const isOpen = !ctx.collapsed.has(folder.id)
   const ownSubtree = subtreeIds(folder)
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem style={indent(depth)}>
-        <div className="group/folder flex items-center">
-          <SidebarMenuButton
-            onClick={() => ctx.toggle(folder.id)}
-            className="flex-1 font-medium"
-          >
-            {isCollapsed ? (
-              <CaretRightIcon className="size-3.5 shrink-0" />
-            ) : (
-              <CaretDownIcon className="size-3.5 shrink-0" />
-            )}
-            <FolderIcon className="size-4 shrink-0" />
-            <span className="truncate">{folder.name}</span>
-          </SidebarMenuButton>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`${folder.name} actions`}
-                  className="text-muted-foreground opacity-0 group-hover/folder:opacity-100 data-popup-open:opacity-100"
-                />
-              }
+    <SidebarMenuItem>
+      <Collapsible open={isOpen} onOpenChange={() => ctx.toggle(folder.id)}>
+        <ContextMenu>
+          <ContextMenuTrigger render={<div />}>
+            <CollapsibleTrigger
+              render={<SidebarMenuButton className="font-medium" />}
             >
-              <DotsThreeIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => setMintOpen(true)}>
-                {ctx.newItemLabel} here
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRenameOpen(true)}>
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSubfolderOpen(true)}>
-                New folder inside
-              </DropdownMenuItem>
-              <MoveToSubmenu
-                targets={ctx.moveTargets}
-                rootLabel="Top level"
-                disabledIds={ownSubtree}
-                onPick={(parentId) => ctx.onMoveFolder(folder.id, parentId)}
+              <CaretRightIcon
+                className={cn(
+                  "size-3.5 shrink-0 transition-transform",
+                  isOpen && "rotate-90"
+                )}
               />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
-                Delete folder…
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </SidebarMenuItem>
-      {isCollapsed ? null : (
-        <>
-          {folder.folders.map((child) => (
-            <FolderRows
-              key={child.id}
-              folder={child}
-              depth={depth + 1}
-              ctx={ctx}
+              <FolderIcon className="size-4 shrink-0" />
+              <span className="truncate">{folder.name}</span>
+            </CollapsibleTrigger>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => setMintOpen(true)}>
+              {ctx.newItemLabel} here
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => setRenameOpen(true)}>
+              Rename
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => setSubfolderOpen(true)}>
+              New folder inside
+            </ContextMenuItem>
+            <MoveToSubmenu
+              targets={ctx.moveTargets}
+              rootLabel="Top level"
+              disabledIds={ownSubtree}
+              onPick={(parentId) => ctx.onMoveFolder(folder.id, parentId)}
             />
-          ))}
-          {folder.items.map((item) => (
-            <ItemRow key={item.id} item={item} depth={depth + 1} ctx={ctx} />
-          ))}
-        </>
-      )}
+            <ContextMenuItem
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete folder…
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {folder.folders.map((child) => (
+              <FolderRows key={child.id} folder={child} ctx={ctx} />
+            ))}
+            {folder.items.map((item) => (
+              <ItemRow key={item.id} item={item} ctx={ctx} />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
       {mintOpen ? (
         <NameDialog
           title={`${ctx.mintCopy.title} in ${folder.name}`}
@@ -568,7 +551,7 @@ function FolderRows({
           onDelete={() => ctx.onDeleteFolder(folder.id)}
         />
       ) : null}
-    </SidebarMenu>
+    </SidebarMenuItem>
   )
 }
 
@@ -580,111 +563,92 @@ function UnfiledRows({
   items: FolderTreeItem[]
   ctx: TreeContext
 }) {
-  const isCollapsed = ctx.collapsed.has(null)
+  const isOpen = !ctx.collapsed.has(null)
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => ctx.toggle(null)}
-          className="flex-1 font-medium"
+    <SidebarMenuItem>
+      <Collapsible open={isOpen} onOpenChange={() => ctx.toggle(null)}>
+        <CollapsibleTrigger
+          render={<SidebarMenuButton className="font-medium" />}
         >
-          {isCollapsed ? (
-            <CaretRightIcon className="size-3.5 shrink-0" />
-          ) : (
-            <CaretDownIcon className="size-3.5 shrink-0" />
-          )}
+          <CaretRightIcon
+            className={cn(
+              "size-3.5 shrink-0 transition-transform",
+              isOpen && "rotate-90"
+            )}
+          />
           <FolderIcon className="size-4 shrink-0" />
           <span className="truncate">Unfiled</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      {isCollapsed
-        ? null
-        : items.map((item) => (
-            <ItemRow key={item.id} item={item} depth={1} ctx={ctx} />
-          ))}
-    </SidebarMenu>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {items.map((item) => (
+              <ItemRow key={item.id} item={item} ctx={ctx} />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuItem>
   )
 }
 
-function ItemRow({
-  item,
-  depth,
-  ctx,
-}: {
-  item: FolderTreeItem
-  depth: number
-  ctx: TreeContext
-}) {
+function ItemRow({ item, ctx }: { item: FolderTreeItem; ctx: TreeContext }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const href = ctx.itemPath(item.id)
 
   return (
-    <SidebarMenuItem style={indent(depth)}>
-      <div className="group/item flex items-center">
-        <SidebarMenuButton
-          isActive={ctx.activePath === href}
-          render={<Link href={href} />}
-          className="flex-1"
-        >
-          <span
-            className={cn("shrink-0", item.isStub && "opacity-40")}
-            title={
-              item.isStub ? "Stub — a name and nothing else yet" : undefined
-            }
+    <SidebarMenuSubItem>
+      <ContextMenu>
+        <ContextMenuTrigger render={<div />}>
+          <SidebarMenuSubButton
+            isActive={ctx.activePath === href}
+            render={<Link href={href} />}
           >
-            <ItemIcon item={item} />
-          </span>
-          <span
-            className={cn(
-              "flex-1 truncate",
-              item.isUntitled && "text-muted-foreground"
-            )}
-          >
-            {item.name}
-          </span>
-          {item.schedule !== undefined && item.schedule.icon !== "none" ? (
-            <span title={item.schedule.label ?? undefined}>
-              <ScheduleGlyph
-                kind={item.schedule.icon}
-                className={cn(
-                  "size-3.5",
-                  item.schedule.icon === "scheduled" && "text-primary-text"
-                )}
-              />
-            </span>
-          ) : null}
-        </SidebarMenuButton>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`${item.name} actions`}
-                className="text-muted-foreground opacity-0 group-hover/item:opacity-100 data-popup-open:opacity-100"
-              />
-            }
-          >
-            <DotsThreeIcon />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <MoveToSubmenu
-              targets={ctx.moveTargets}
-              rootLabel="Unfiled"
-              disabledIds={
-                item.folderId === null ? new Set() : new Set([item.folderId])
+            <span
+              className={cn("shrink-0", item.isStub && "opacity-40")}
+              title={
+                item.isStub ? "Stub — a name and nothing else yet" : undefined
               }
-              onPick={(folderId) => ctx.onMoveItem(item.id, folderId)}
-            />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => setDeleteOpen(true)}
             >
-              Delete…
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+              <ItemIcon item={item} />
+            </span>
+            <span
+              className={cn(
+                "flex-1 truncate",
+                item.isUntitled && "text-muted-foreground"
+              )}
+            >
+              {item.name}
+            </span>
+            {item.schedule !== undefined && item.schedule.icon !== "none" ? (
+              <span title={item.schedule.label ?? undefined}>
+                <ScheduleGlyph
+                  kind={item.schedule.icon}
+                  className={cn(
+                    "size-3.5",
+                    item.schedule.icon === "scheduled" && "text-primary-text"
+                  )}
+                />
+              </span>
+            ) : null}
+          </SidebarMenuSubButton>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <MoveToSubmenu
+            targets={ctx.moveTargets}
+            rootLabel="Unfiled"
+            disabledIds={
+              item.folderId === null ? new Set() : new Set([item.folderId])
+            }
+            onPick={(folderId) => ctx.onMoveItem(item.id, folderId)}
+          />
+          <ContextMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            Delete…
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       {deleteOpen ? (
         ctx.kind === "session" ? (
           <DeleteBeatConfirm
@@ -702,7 +666,7 @@ function ItemRow({
           />
         )
       ) : null}
-    </SidebarMenuItem>
+    </SidebarMenuSubItem>
   )
 }
 
@@ -732,14 +696,14 @@ function MoveToSubmenu({
   onPick: (folderId: string | null) => void
 }) {
   return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>Move to…</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
-        <DropdownMenuItem onClick={() => onPick(null)}>
+    <ContextMenuSub>
+      <ContextMenuSubTrigger>Move to…</ContextMenuSubTrigger>
+      <ContextMenuSubContent className="max-h-72 overflow-y-auto">
+        <ContextMenuItem onClick={() => onPick(null)}>
           {rootLabel}
-        </DropdownMenuItem>
+        </ContextMenuItem>
         {targets.map((row) => (
-          <DropdownMenuItem
+          <ContextMenuItem
             key={row.id}
             disabled={disabledIds.has(row.id)}
             onClick={() => onPick(row.id)}
@@ -748,10 +712,10 @@ function MoveToSubmenu({
               <FolderIcon className="size-4 shrink-0" />
               <span className={cn("truncate")}>{row.name}</span>
             </span>
-          </DropdownMenuItem>
+          </ContextMenuItem>
         ))}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
+      </ContextMenuSubContent>
+    </ContextMenuSub>
   )
 }
 

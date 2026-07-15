@@ -124,7 +124,7 @@ export function DowntimeWorkspace({
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-display text-2xl text-foreground">
+          <h2 className="truncate font-display text-2xl font-bold text-foreground">
             {character.name}
           </h2>
           <p className="text-xs text-muted-foreground">{character.subtitle}</p>

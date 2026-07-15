@@ -10,6 +10,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
+import { Textarea } from "@workspace/ui/components/textarea"
 
 import { MarkdownField } from "@/components/editor/markdown-field"
 
@@ -110,16 +111,19 @@ export function DocumentEditor({
             <FieldLabel htmlFor={subtitleInputId} className="sr-only">
               {messages.subtitleAriaLabel ?? "Subtitle"}
             </FieldLabel>
-            <Input
+            <Textarea
               id={subtitleInputId}
-              type="text"
+              rows={1}
               autoComplete="off"
               placeholder={messages.subtitlePlaceholder ?? ""}
               value={subtitle.value}
               onChange={(event) => subtitle.setValue(event.target.value)}
               onFocus={() => subtitle.onFocusChange(true)}
               onBlur={() => subtitle.onFocusChange(false)}
-              className="h-auto rounded-none border-0 bg-transparent px-0 text-base text-muted-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:border-0 focus-visible:ring-0 md:text-base dark:bg-transparent"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.preventDefault()
+              }}
+              className="min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 text-base text-muted-foreground shadow-none placeholder:text-muted-foreground/50 focus-visible:border-0 focus-visible:ring-0 md:text-base dark:bg-transparent"
             />
           </>
         ) : null}

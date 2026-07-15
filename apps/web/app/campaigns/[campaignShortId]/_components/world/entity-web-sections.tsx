@@ -69,15 +69,17 @@ export function EntityWebSections({
           : `Referenced in ${beatMentions} beat${beatMentions === 1 ? "" : "s"}.`}
       </p>
       <Separator />
-      <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Timeline</h2>
-        {worldTarget !== null ? (
-          <ActivityComposer
-            campaignId={campaignId}
-            target={worldTarget}
-            linkerOptions={linkerOptions}
-          />
-        ) : null}
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold">Timeline</h2>
+          {worldTarget !== null ? (
+            <ActivityComposer
+              campaignId={campaignId}
+              target={worldTarget}
+              linkerOptions={linkerOptions}
+            />
+          ) : null}
+        </div>
         <EntityTimeline
           campaignId={campaignId}
           campaignShortId={campaignShortId}

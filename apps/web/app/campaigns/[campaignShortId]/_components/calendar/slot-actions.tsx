@@ -58,24 +58,15 @@ export function SlotActions({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="inline-flex h-[26px] shrink-0 items-center gap-1 rounded-md px-2.5 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:bg-primary/15 hover:text-primary-text"
-          />
-        }
-      >
+      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
         <PlusIcon className="size-3.5" />
         Schedule a beat
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent className="w-xs" align="end">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Story beats</DropdownMenuLabel>
           {beats.length === 0 ? (
-            <DropdownMenuItem disabled>
-              Nothing unscheduled in Session Notes
-            </DropdownMenuItem>
+            <DropdownMenuItem disabled>Nothing unscheduled</DropdownMenuItem>
           ) : (
             beats.map((beat) => (
               <DropdownMenuItem
@@ -175,7 +166,7 @@ export function OccupiedSlotMenu({
                 )
               }
             >
-              Send back to the prepped shelf
+              Make Floating
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() =>
