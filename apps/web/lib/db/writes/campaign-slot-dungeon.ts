@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 
 import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
@@ -41,7 +41,12 @@ export type ClaimDungeonSlotError =
   | "frozen-day"
   | "slot-occupied"
 
-/** Claims `slotId` for `dungeonId` — the slot's kind becomes dungeon. */
+/**
+ * Claims `slotId` for `dungeonId` — the slot's kind becomes dungeon. A claim is
+ * a **new reference**, so an archived (`deletedAt`) dungeon is rejected as
+ * `dungeon-not-found` (the tombstone-family rule — no new ref points at a
+ * tombstone; UNN-616).
+ */
 export async function claimDungeonSlot(input: {
   campaignId: string
   slotId: string
@@ -62,7 +67,8 @@ export async function claimDungeonSlot(input: {
         .where(
           and(
             eq(dungeons.id, input.dungeonId),
-            eq(dungeons.campaignId, input.campaignId)
+            eq(dungeons.campaignId, input.campaignId),
+            isNull(dungeons.deletedAt)
           )
         )
       if (!dungeon) return err("dungeon-not-found")

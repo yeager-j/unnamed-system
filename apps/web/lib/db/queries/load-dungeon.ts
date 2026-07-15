@@ -133,6 +133,10 @@ export async function loadDungeonsForCampaign(
  * `active` and rejects the transition when another delve in the same campaign
  * already holds the slot. App-side enforcement — there is no DB uniqueness
  * constraint for MVP, matching the encounters single-live guard.
+ *
+ * A **live-occupancy** read, so it filters `deletedAt IS NULL` (the tombstone-
+ * family rule — `entity`): an archived delve must not keep holding the
+ * one-active slot and blocking a fresh delve (UNN-616).
  */
 export async function loadActiveDungeonForCampaign(
   campaignId: string
@@ -141,7 +145,11 @@ export async function loadActiveDungeonForCampaign(
     .select()
     .from(dungeons)
     .where(
-      and(eq(dungeons.campaignId, campaignId), eq(dungeons.status, "active"))
+      and(
+        eq(dungeons.campaignId, campaignId),
+        eq(dungeons.status, "active"),
+        isNull(dungeons.deletedAt)
+      )
     )
     .limit(1)
 
