@@ -1,44 +1,35 @@
 "use client"
 
-import { ArrowRightIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon, SwordIcon } from "@phosphor-icons/react/dist/ssr"
 import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
-import type { CombatSide } from "@workspace/game-v2/kernel/vocab/combat"
 import type { MapZone } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { DungeonCombatTokenChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/token-chip"
+import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
-import { ZoneCardFrame } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/zone-card-frame"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
+import {
+  clustersOf,
+  OccupantToken,
+} from "@/components/shared/canvas/set-piece/occupant-chips"
+import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
+import type { RailRow } from "@/domain/combat/view/roster-view"
 import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
-import type { Pool } from "@/domain/pool"
+import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
+import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 import { useDungeonCombatCanvas } from "./context"
-
-/** One combatant on the combat board — the display subset of a `RailRow`.
- *  `portraitUrl` is the uploaded token art or `null` (the chip's glyph falls
- *  back to initials). */
-export interface DungeonCombatToken {
-  id: ParticipantId
-  name: string
-  side: CombatSide
-  portraitUrl: string | null
-  hp: Pool | null
-  sp: Pool | null
-  /** Locked in melee here (any survivor engagement) — draws the dimmed sword. */
-  engaged: boolean
-}
 
 export type DungeonCombatZoneData = {
   zone: MapZone
   revealed: boolean
-  tokens: DungeonCombatToken[]
-  /** Both sides stand here — the Zone reads **Engaged** (rulebook §3.5). */
-  engaged: boolean
+  /** The combatants standing here (the console `RosterView` rows), the raw
+   *  material for the zone view + its Closeup roster. */
+  rows: RailRow[]
   /** The Zone's active Bard Enchantment, when the Instance's singleton sits here. */
   enchantment?: ZoneEnchantmentBadge
 }
@@ -48,22 +39,18 @@ export type DungeonCombatZoneNode = Node<
 >
 
 /**
- * A Zone on the **combat** battlefield (UNN-536) — the combat peer of the
- * exploration {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/zone-node").DungeonZoneNode},
- * built on the shared {@link ZoneCardFrame} so the board reads identically across
- * phases. It renders the Zone's combatant tokens as side-tinted
- * {@link DungeonCombatTokenChip}s (the acting one ringed), rings the melee-locked
- * tokens in a dashed **Engaged** cluster, carries the Bard
- * {@link ZoneEnchantmentControl}, and — while a combatant is acting and this Zone
- * is a legal move target — surfaces a floating "Move {actor} here" action
- * (click-to-move; guided-but-overridable). Tapping a token opens the detail
- * drawer. All dispatchers come from {@link useDungeonCombatCanvas}.
+ * A Zone on the **combat** battlefield (UNN-536) — a thin wrapper over the shared
+ * {@link ZoneSetPiece} tiered card (Dungeon Visual Overhaul §D3). It builds the
+ * zone view from the console roster rows (disjoint melee clusters, the acting
+ * token ringed), carries the Bard {@link ZoneEnchantmentControl}, and — while a
+ * combatant is acting and this Zone is a legal move target — surfaces a floating
+ * "Move {actor} here" action. Tapping a token opens the detail drawer. All
+ * dispatchers come from {@link useDungeonCombatCanvas}.
  */
 export function DungeonCombatZoneNode({
   data,
 }: NodeProps<DungeonCombatZoneNode>) {
   const {
-    actingCombatantId,
     actingName,
     movableZoneIds,
     onMoveActing,
@@ -71,42 +58,44 @@ export function DungeonCombatZoneNode({
     onCombatEvent,
     disabled,
   } = useDungeonCombatCanvas()
-  const { zone, revealed, tokens, engaged, enchantment } = data
+  const { zone, revealed, rows, enchantment } = data
+  const view = combatZoneView({ zone, revealed, rows })
   const isMoveTarget = movableZoneIds.includes(zone.id)
   const showMove = isMoveTarget && actingName !== null
 
-  const engagedTokens = tokens.filter((token) => token.engaged)
-  const looseTokens = tokens.filter((token) => !token.engaged)
-
-  const tokenChip = (token: DungeonCombatToken) => (
+  const tokenButton = (occupant: SetPieceOccupant) => (
     <button
       type="button"
-      onClick={() => onSelectCombatant(token.id)}
-      aria-label={`${token.name} details`}
+      onClick={(event) => {
+        event.stopPropagation()
+        onSelectCombatant(occupant.key as ParticipantId)
+      }}
+      aria-label={`${occupant.name} details`}
       className="cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
     >
-      <DungeonCombatTokenChip
-        token={token}
-        acting={token.id === actingCombatantId}
+      <OccupantToken
+        occupant={occupant}
+        trailing={
+          occupant.acting ? (
+            <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
+          ) : null
+        }
       />
     </button>
   )
 
   return (
-    <ZoneCardFrame
-      name={zone.name}
-      revealed={revealed}
-      count={tokens.length}
-      ariaLabel={`Zone: ${zone.name}${engaged ? " (engaged)" : ""}`}
+    <ZoneSetPiece
+      view={view}
       className={cn(
-        "transition-shadow",
         isMoveTarget &&
           "ring-2 ring-primary/40 ring-offset-1 ring-offset-background"
       )}
+      handles={<FloatingEdgeHandles />}
       titleAccessory={
         enchantment ? <EnchantmentBadge enchantment={enchantment} /> : null
       }
-      action={
+      headerAction={
         <ZoneEnchantmentControl
           zoneId={zone.id}
           zoneName={zone.name}
@@ -133,25 +122,27 @@ export function DungeonCombatZoneNode({
           </NodeToolbar>
         ) : undefined
       }
-    >
-      {engagedTokens.length > 1 ? (
-        <li>
-          <EngagedCluster
-            label={`Engaged: ${engagedTokens
-              .map((token) => token.name)
-              .join(", ")}`}
-          >
-            {engagedTokens.map((token) => (
-              <div key={token.id}>{tokenChip(token)}</div>
-            ))}
-          </EngagedCluster>
-        </li>
-      ) : (
-        engagedTokens.map((token) => <li key={token.id}>{tokenChip(token)}</li>)
-      )}
-      {looseTokens.map((token) => (
-        <li key={token.id}>{tokenChip(token)}</li>
-      ))}
-    </ZoneCardFrame>
+      closeupRoster={
+        view.occupants.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {clustersOf(view.occupants).map((cluster) =>
+              cluster.length > 1 ? (
+                <li key={cluster.map((o) => o.key).join("|")}>
+                  <EngagedCluster
+                    label={`Engaged: ${cluster.map((o) => o.name).join(", ")}`}
+                  >
+                    {cluster.map((occupant) => (
+                      <div key={occupant.key}>{tokenButton(occupant)}</div>
+                    ))}
+                  </EngagedCluster>
+                </li>
+              ) : (
+                <li key={cluster[0]!.key}>{tokenButton(cluster[0]!)}</li>
+              )
+            )}
+          </ul>
+        ) : undefined
+      }
+    />
   )
 }

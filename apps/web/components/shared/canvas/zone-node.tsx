@@ -10,16 +10,17 @@ import {
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 
 import { Button } from "@workspace/ui/components/button"
-import { Card, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Separator } from "@workspace/ui/components/separator"
 import { TooltipButton } from "@workspace/ui/components/tooltip-button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { editorZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { ZONE_SIZE_LABELS } from "@/domain/labels"
 import type { ZoneSize } from "@/domain/map/view/footprints"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
 import { useMapCanvas } from "./map-canvas-context"
+import { ZoneSetPiece } from "./set-piece/zone-set-piece"
 
 const SIZE_LADDER: ZoneSize[] = ["S", "M", "L", "XL"]
 
@@ -65,102 +66,99 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
   const locked = lockedZoneIds?.has(zone.id) ?? false
   const overlay = renderZoneOverlay?.(zone.id)
 
-  return (
-    <>
-      <NodeToolbar
-        isVisible={editable && selected}
-        position={Position.Top}
-        className="flex items-center gap-1 rounded-lg border bg-popover p-1 shadow-md"
-      >
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => openZoneDetails(zone.id)}
-        >
-          <PencilSimpleIcon />
-          Edit details
-        </Button>
-        <Separator orientation="vertical" className="mx-0.5 h-5" />
-        <div className="flex items-center gap-0.5">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={`Shrink ${zone.name}`}
-            disabled={(zone.size ?? "M") === "S"}
-            onClick={() =>
-              setZoneIdentity(zone.id, { size: steppedSize(zone.size, -1) })
-            }
-          >
-            <CaretLeftIcon />
-          </Button>
-          <span
-            className="w-6 text-center text-xs font-medium tabular-nums"
-            aria-label={`Size ${ZONE_SIZE_LABELS[zone.size ?? "M"]}`}
-          >
-            {zone.size ?? "M"}
-          </span>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label={`Grow ${zone.name}`}
-            disabled={(zone.size ?? "M") === "XL"}
-            onClick={() =>
-              setZoneIdentity(zone.id, { size: steppedSize(zone.size, 1) })
-            }
-          >
-            <CaretRightIcon />
-          </Button>
-        </div>
-        <Separator orientation="vertical" className="mx-0.5 h-5" />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Duplicate ${zone.name}`}
-          onClick={() => duplicateZone(zone.id)}
-        >
-          <CopyIcon />
-        </Button>
-        <TooltipButton
-          size="icon-sm"
-          variant="ghost"
-          aria-label={`Delete ${zone.name}`}
-          disabled={locked}
-          disabledReason="Occupied — move the party out first"
-          onClick={() => deleteZone(zone.id)}
-        >
-          <TrashIcon />
-        </TooltipButton>
-      </NodeToolbar>
-
-      {editable &&
-        HANDLE_SIDES.map(({ id, position }) => (
-          <Handle
-            key={id}
-            id={id}
-            type="source"
-            position={position}
-            className={cn(
-              "!size-3 !rounded-full !border-2 !border-ring !bg-background transition-opacity",
-              selected ? "!opacity-100" : "!opacity-0"
-            )}
-          />
-        ))}
-
-      <Card
+  const toolbar = (
+    <NodeToolbar
+      isVisible={editable && selected}
+      position={Position.Top}
+      className="flex items-center gap-1 rounded-lg border bg-popover p-1 shadow-md"
+    >
+      <Button
         size="sm"
-        variant={selected ? "gilded" : "default"}
-        aria-label={`Zone: ${zone.name}`}
-        className="min-h-48 w-86 shadow-sm transition-shadow"
+        variant="ghost"
+        onClick={() => openZoneDetails(zone.id)}
       >
-        <CardHeader>
-          <CardTitle className="line-clamp-2 text-base break-words">
-            {zone.name}
-          </CardTitle>
-        </CardHeader>
-        {overlay ? (
-          <div className="flex flex-wrap gap-1 px-6">{overlay}</div>
-        ) : null}
-      </Card>
-    </>
+        <PencilSimpleIcon />
+        Edit details
+      </Button>
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+      <div className="flex items-center gap-0.5">
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Shrink ${zone.name}`}
+          disabled={(zone.size ?? "M") === "S"}
+          onClick={() =>
+            setZoneIdentity(zone.id, { size: steppedSize(zone.size, -1) })
+          }
+        >
+          <CaretLeftIcon />
+        </Button>
+        <span
+          className="w-6 text-center text-xs font-medium tabular-nums"
+          aria-label={`Size ${ZONE_SIZE_LABELS[zone.size ?? "M"]}`}
+        >
+          {zone.size ?? "M"}
+        </span>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Grow ${zone.name}`}
+          disabled={(zone.size ?? "M") === "XL"}
+          onClick={() =>
+            setZoneIdentity(zone.id, { size: steppedSize(zone.size, 1) })
+          }
+        >
+          <CaretRightIcon />
+        </Button>
+      </div>
+      <Separator orientation="vertical" className="mx-0.5 h-5" />
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`Duplicate ${zone.name}`}
+        onClick={() => duplicateZone(zone.id)}
+      >
+        <CopyIcon />
+      </Button>
+      <TooltipButton
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`Delete ${zone.name}`}
+        disabled={locked}
+        disabledReason="Occupied — move the party out first"
+        onClick={() => deleteZone(zone.id)}
+      >
+        <TrashIcon />
+      </TooltipButton>
+    </NodeToolbar>
+  )
+
+  const handles =
+    editable &&
+    HANDLE_SIDES.map(({ id, position }) => (
+      <Handle
+        key={id}
+        id={id}
+        type="source"
+        position={position}
+        className={cn(
+          "!size-3 !rounded-full !border-2 !border-ring !bg-background transition-opacity",
+          selected ? "!opacity-100" : "!opacity-0"
+        )}
+      />
+    ))
+
+  return (
+    <ZoneSetPiece
+      view={editorZoneView(zone)}
+      selected={selected}
+      toolbar={toolbar}
+      handles={handles}
+      closeupRoster={
+        overlay ? (
+          <div className="flex flex-wrap gap-1">{overlay}</div>
+        ) : undefined
+      }
+    />
   )
 }

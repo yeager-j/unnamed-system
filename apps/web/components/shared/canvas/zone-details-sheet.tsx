@@ -40,6 +40,7 @@ import {
 } from "@/domain/labels"
 
 import type { ZoneIdentityPatch } from "./map-canvas-context"
+import { MotifGlyph } from "./set-piece/motif-icons"
 
 const SIZES: MapZoneSize[] = ["S", "M", "L", "XL"]
 const MOODS: MapZoneMood[] = ["warm", "dim", "cool"]
@@ -232,6 +233,7 @@ function ZoneDetailsForm({
                   selected={motif === option}
                   onClick={() => pickMotif(option)}
                 >
+                  <MotifGlyph motif={option} className="size-5" />
                   {ZONE_MOTIF_LABELS[option]}
                 </MotifButton>
               ))}
@@ -266,7 +268,7 @@ function ZoneDetailsForm({
   )
 }
 
-/** One cell in the motif glyph grid — a labeled toggle; the vendored glyphs land in P1b. */
+/** One cell in the motif glyph grid — the vendored/Phosphor glyph over its label. */
 function MotifButton({
   selected,
   onClick,
@@ -282,7 +284,10 @@ function MotifButton({
       size="sm"
       variant={selected ? "secondary" : "outline"}
       aria-pressed={selected}
-      className={cn("justify-center", selected && "ring-1 ring-ring")}
+      className={cn(
+        "h-auto flex-col justify-center gap-1 py-2 text-[0.7rem]",
+        selected && "ring-1 ring-ring"
+      )}
       onClick={onClick}
     >
       {children}

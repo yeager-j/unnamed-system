@@ -23,7 +23,6 @@ import {
 import {
   DungeonWatchCombatZoneNode,
   type DungeonWatchCombatZoneNode as DungeonWatchCombatZoneNodeType,
-  type WatchCombatToken,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/combat-zone-node"
 import {
   DungeonWatchZoneNode,
@@ -35,8 +34,14 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
+import {
+  watchCombatZoneView,
+  watchExploreZoneView,
+} from "@/domain/dungeon/view/set-piece-view"
+import { footprintOf } from "@/domain/map/view/footprints"
 
 const nodeTypes = {
   fogZone: DungeonWatchZoneNode,
@@ -69,28 +74,29 @@ function exitsByZone(
 
 function buildExploreNodes(
   snapshot: DungeonSnapshot,
-  ownedCharacterIds: Set<string>
+  ownedCharacterIds: string[]
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
 
-  return snapshot.zones.map((zone) => ({
-    id: zone.id,
-    type: "fogZone" as const,
-    position: zone.position,
-    draggable: false,
-    data: {
-      name: zone.name,
-      description: zone.description,
-      tokens: zone.tokens.map((token) => ({
-        ...token,
-        owned: ownedCharacterIds.has(token.characterId),
-      })),
-      exits: exits[zone.id] ?? [],
-      // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
-      // (name, forte marking, rule lines) is display shaping, done consumer-side.
-      enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
-    },
-  }))
+  return snapshot.zones.map((zone) => {
+    const { w, h } = footprintOf(zone.size)
+    return {
+      id: zone.id,
+      type: "fogZone" as const,
+      position: zone.position,
+      draggable: false,
+      width: w,
+      height: h,
+      style: { width: w, height: h },
+      data: {
+        view: watchExploreZoneView({ zone, ownedCharacterIds }),
+        exits: exits[zone.id] ?? [],
+        // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
+        // (name, forte marking, rule lines) is display shaping, done consumer-side.
+        enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+      },
+    }
+  })
 }
 
 /**
@@ -105,31 +111,38 @@ function buildExploreNodes(
 function buildCombatNodes(
   snapshot: DungeonSnapshot,
   combatants: WatchCombatant[],
-  ownedCharacterIds: Set<string>
+  ownedCharacterIds: string[]
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
-  const tokensByZone: Record<string, WatchCombatToken[]> = {}
+  const byZone: Record<string, WatchCombatant[]> = {}
   for (const combatant of combatants) {
     if (combatant.zoneId === null) continue
-    ;(tokensByZone[combatant.zoneId] ??= []).push({
-      combatant,
-      owned: ownedCharacterIds.has(combatant.id),
-    })
+    ;(byZone[combatant.zoneId] ??= []).push(combatant)
   }
 
-  return snapshot.zones.map((zone) => ({
-    id: zone.id,
-    type: "fogCombatZone" as const,
-    position: zone.position,
-    draggable: false,
-    data: {
-      name: zone.name,
-      description: zone.description,
-      tokens: tokensByZone[zone.id] ?? [],
-      exits: exits[zone.id] ?? [],
-      enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
-    },
-  }))
+  return snapshot.zones.map((zone) => {
+    const zoneCombatants = byZone[zone.id] ?? []
+    const { w, h } = footprintOf(zone.size)
+    return {
+      id: zone.id,
+      type: "fogCombatZone" as const,
+      position: zone.position,
+      draggable: false,
+      width: w,
+      height: h,
+      style: { width: w, height: h },
+      data: {
+        view: watchCombatZoneView({
+          zone,
+          combatants: zoneCombatants,
+          ownedCharacterIds,
+        }),
+        combatants: zoneCombatants,
+        exits: exits[zone.id] ?? [],
+        enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+      },
+    }
+  })
 }
 
 /** Revealed connections (both endpoints discovered) as read-only floating edges,
@@ -185,6 +198,7 @@ function DungeonWatchCanvasInner({
   mode: DungeonWatchCanvasMode
 }) {
   const { resolvedTheme } = useTheme()
+  const tier = useCanvasTier()
   const [nodes, setNodes, onNodesChange] = useNodesState<WatchCanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
@@ -192,11 +206,10 @@ function DungeonWatchCanvasInner({
   // Re-derive the board from each poll's snapshot. A reveal snaps the new Zone in;
   // the viewport stays put (fitView is init-only).
   useEffect(() => {
-    const owned = new Set(ownedCharacterIds)
     setNodes(
       mode.kind === "combat"
-        ? buildCombatNodes(snapshot, mode.combatants, owned)
-        : buildExploreNodes(snapshot, owned)
+        ? buildCombatNodes(snapshot, mode.combatants, ownedCharacterIds)
+        : buildExploreNodes(snapshot, ownedCharacterIds)
     )
     setEdges(buildEdges(snapshot))
   }, [snapshot, ownedCharacterIds, mode, setNodes, setEdges])
@@ -204,35 +217,40 @@ function DungeonWatchCanvasInner({
   const isEmpty = snapshot.zones.length === 0
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-      deleteKeyCode={null}
-      fitView
-      fitViewOptions={{ padding: 0.2 }}
-      proOptions={{ hideAttribution: true }}
-      panOnScroll
-      panOnDrag
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={CANVAS_GRID_SIZE}
-        size={CANVAS_DOT_SIZE}
-      />
-      {isEmpty && (
-        <CanvasEmptyNotice>
-          The party hasn&apos;t explored anywhere yet.
-        </CanvasEmptyNotice>
-      )}
-      <Controls showInteractive={false} />
-    </ReactFlow>
+    <div className="relative size-full" data-tier={tier}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+        deleteKeyCode={null}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        proOptions={{ hideAttribution: true }}
+        minZoom={0.2}
+        maxZoom={1.6}
+        // Wheel zooms across tiers (§D1); players pan on left-drag.
+        zoomOnScroll
+        panOnDrag
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={CANVAS_GRID_SIZE}
+          size={CANVAS_DOT_SIZE}
+        />
+        {isEmpty && (
+          <CanvasEmptyNotice>
+            The party hasn&apos;t explored anywhere yet.
+          </CanvasEmptyNotice>
+        )}
+        <Controls showInteractive={false} />
+      </ReactFlow>
+    </div>
   )
 }

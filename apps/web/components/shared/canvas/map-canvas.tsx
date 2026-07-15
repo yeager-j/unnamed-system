@@ -66,6 +66,8 @@ import {
 } from "./geometry-to-flow"
 import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
+import { useCanvasTier } from "./use-canvas-tier"
+import { useCoarsePointer } from "./use-coarse-pointer"
 import { ZoneDetailsSheet } from "./zone-details-sheet"
 import { ZoneNode } from "./zone-node"
 
@@ -138,6 +140,8 @@ function MapCanvasInner({
   const editable = interactivity === "edit"
   const { resolvedTheme } = useTheme()
   const { screenToFlowPosition } = useReactFlow()
+  const tier = useCanvasTier()
+  const coarsePointer = useCoarsePointer()
 
   // Seed React Flow's interactive state once; the canvas owns it thereafter, with
   // `geometryRef` as the data source-of-truth the edit helpers transform.
@@ -338,7 +342,7 @@ function MapCanvasInner({
         renderZoneOverlay,
       }}
     >
-      <div className="relative size-full">
+      <div className="relative size-full" data-tier={tier}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -364,9 +368,17 @@ function MapCanvasInner({
           fitView={defaultViewport === undefined}
           fitViewOptions={{ padding: 0.2 }}
           onMoveEnd={onMoveEnd}
-          panOnScroll
-          selectionOnDrag
-          panOnDrag={false}
+          minZoom={0.2}
+          maxZoom={1.6}
+          zoomOnScroll
+          // Tier navigation is the core gesture — the wheel zooms across tiers
+          // (§D1). The editor keeps left-drag box selection and gains
+          // middle-drag / Space-drag panning; on coarse (touch) pointers, where
+          // box selection captures the primary touch and `panOnDrag={[1]}` has
+          // no equivalent, it flips to pan-first (tap to select, one-finger pan).
+          selectionOnDrag={!coarsePointer}
+          panOnDrag={coarsePointer ? true : [1]}
+          panActivationKeyCode="Space"
           className={cn(mode === "addZone" && "cursor-copy")}
         >
           <Background

@@ -6,6 +6,8 @@ import type {
   MapZone,
 } from "@workspace/game-v2/spatial"
 
+import { footprintOf } from "@/domain/map/view/footprints"
+
 /**
  * Adapts a domain {@link MapGeometry} into the `{ nodes, edges }` shape React Flow
  * renders (UNN-461). Pure and provenance-neutral — it knows nothing about *where*
@@ -29,12 +31,20 @@ export function geometryToFlow(geometry: MapGeometry): {
   nodes: ZoneNode[]
   edges: ConnectionEdge[]
 } {
-  const nodes: ZoneNode[] = Object.values(geometry.zones).map((zone) => ({
-    id: zone.id,
-    type: "zone",
-    position: zone.position,
-    data: { zone },
-  }))
+  const nodes: ZoneNode[] = Object.values(geometry.zones).map((zone) => {
+    const { w, h } = footprintOf(zone.size)
+    return {
+      id: zone.id,
+      type: "zone",
+      position: zone.position,
+      // The footprint fixes the node's box from `size` alone (§D2) — the card fills
+      // it, so its bounding box never reads zoom/selection/turn state (PRD AC 4).
+      width: w,
+      height: h,
+      style: { width: w, height: h },
+      data: { zone },
+    }
+  })
 
   const edges: ConnectionEdge[] = Object.values(geometry.connections).map(
     (connection) => ({
