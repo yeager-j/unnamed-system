@@ -16,7 +16,6 @@ import { useArticleAutoSave } from "@/domain/planner/use-article-autosave"
 import type { LinkerOption } from "@/domain/planner/view/linker"
 import type { TimelineDayView } from "@/domain/planner/view/timeline"
 import type { RelationRowView } from "@/domain/planner/view/world-detail"
-import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 import { campaignArticlesPath } from "@/lib/paths"
 
 import { useFolderTreeNameMirror } from "../folder-tree/folder-tree-shell"
@@ -35,8 +34,10 @@ export interface ArticlePageArticle {
   name: string
   body: string
   type: string | null
+  /** The inline deadline day (deadline-only, UNN-627); null for events/undated. */
   datedDay: number | null
-  datedKind: ArticleDatedKind | null
+  /** Every day this event recurs on (UNN-627); empty for deadlines/undated. */
+  eventDays: number[]
   folderName: string | null
 }
 
@@ -110,12 +111,15 @@ export function ArticlePage({
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {article.datedDay !== null ? (
             <span className="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-xs">
-              {article.datedKind === "deadline" ? (
-                <FlagIcon className="size-3.5 text-gold" />
-              ) : (
-                <CalendarBlankIcon className="size-3.5" />
-              )}
+              <FlagIcon className="size-3.5 text-gold" />
               Day {article.datedDay}
+            </span>
+          ) : article.eventDays.length > 0 ? (
+            <span className="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-xs text-gold">
+              <CalendarBlankIcon className="size-3.5" />
+              {article.eventDays.length === 1
+                ? `Day ${article.eventDays[0]}`
+                : `Days ${article.eventDays.join(", ")}`}
             </span>
           ) : null}
           <ArticleTypePicker

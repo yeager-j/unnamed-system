@@ -19,8 +19,10 @@ let calls: RecordedCall[]
 let rolledBack: boolean
 let inTx = false
 let npcInsertError: Error | null
+let placementInsertError: Error | null
 let npcUpdateRows: unknown[]
 let articleUpdateRows: unknown[]
+let placementDeleteRows: unknown[]
 let selectQueues: Map<unknown, unknown[][]>
 
 const ENTITY_ID = "entity-1"
@@ -28,7 +30,10 @@ const SHORT_ID = "shortid1"
 
 function thenable(reject?: Error | null) {
   return {
-    returning: async () => [{ id: ENTITY_ID, entityId: ENTITY_ID }],
+    returning: async () => {
+      if (reject) throw reject
+      return [{ id: ENTITY_ID, entityId: ENTITY_ID }]
+    },
     then: (resolve: (v: unknown) => void, rej: (e: unknown) => void) =>
       reject ? rej(reject) : resolve(undefined),
   }
@@ -53,8 +58,13 @@ function makeExecutor() {
     insert: (table: unknown) => ({
       values: (payload: unknown) => {
         calls.push({ op: "insert", table, payload, inTx })
-        const isSubtype = table === schema.campaignNpc
-        return thenable(isSubtype ? npcInsertError : null)
+        const error =
+          table === schema.campaignNpc
+            ? npcInsertError
+            : table === schema.campaignEventPlacement
+              ? placementInsertError
+              : null
+        return thenable(error)
       },
     }),
     update: (table: unknown) => ({
@@ -77,7 +87,14 @@ function makeExecutor() {
     delete: (table: unknown) => ({
       where: () => {
         calls.push({ op: "delete", table, inTx })
-        return thenable(null)
+        const rows =
+          table === schema.campaignEventPlacement
+            ? placementDeleteRows
+            : [{ id: ENTITY_ID }]
+        return {
+          returning: async () => rows,
+          then: (resolve: (v: unknown) => void) => resolve(undefined),
+        }
       },
     }),
     transaction: async (run: (tx: unknown) => Promise<unknown>) => {
@@ -108,10 +125,12 @@ const schema = await import("@/lib/db/schema/campaign-world")
 const entitySchema = await import("@/lib/db/schema/entity")
 const updatesSchema = await import("@/lib/db/schema/campaign-updates")
 const {
+  addEventPlacement,
   casNpcBondTier,
   clearArticleDate,
   mintArticle,
   mintNpc,
+  removeEventPlacement,
   setArticleDate,
   setNpcLineage,
   softDeleteArticle,
@@ -126,8 +145,10 @@ beforeEach(() => {
   calls = []
   rolledBack = false
   npcInsertError = null
+  placementInsertError = null
   npcUpdateRows = [{ entityId: ENTITY_ID }]
   articleUpdateRows = [{ id: "article-1" }]
+  placementDeleteRows = [{ id: "placement-1" }]
   selectQueues = new Map()
 })
 
@@ -341,7 +362,6 @@ describe("setArticleDate / clearArticleDate", () => {
       campaignId: "camp-1",
       articleId: "article-1",
       day: 17,
-      kind: "deadline",
     })
 
     expect(result).toEqual(ok(undefined))
@@ -376,10 +396,24 @@ describe("setArticleDate / clearArticleDate", () => {
       campaignId: "camp-1",
       articleId: "article-1",
       day: 20,
-      kind: "deadline",
     })
 
     expect(result).toEqual(err("article-resolved"))
+    expect(calls).toEqual([])
+  })
+
+  it("refuses to deadline an article that already recurs as an event (one dated kind, never both)", async () => {
+    queue(schema.campaignArticle, LIVE_ARTICLE)
+    queue(updatesSchema.campaignUpdate, [])
+    queue(schema.campaignEventPlacement, [{ id: "placement-1" }])
+
+    const result = await setArticleDate({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 20,
+    })
+
+    expect(result).toEqual(err("has-event-placements"))
     expect(calls).toEqual([])
   })
 
@@ -392,7 +426,6 @@ describe("setArticleDate / clearArticleDate", () => {
       campaignId: "camp-1",
       articleId: "article-1",
       day: 17,
-      kind: "event",
     })
 
     expect(result).toEqual(err("article-not-found"))
@@ -409,5 +442,94 @@ describe("setArticleDate / clearArticleDate", () => {
 
     expect(result).toEqual(err("article-not-found"))
     expect(calls).toEqual([])
+  })
+})
+
+describe("addEventPlacement / removeEventPlacement", () => {
+  it("places an event on a day for a live, non-deadline article", async () => {
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: null }])
+
+    const result = await addEventPlacement({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 42,
+    })
+
+    expect(result).toEqual(ok({ placementId: ENTITY_ID }))
+    expect(calls).toEqual([
+      {
+        op: "insert",
+        table: schema.campaignEventPlacement,
+        payload: { campaignId: "camp-1", articleId: "article-1", day: 42 },
+        inTx: true,
+      },
+    ])
+  })
+
+  it("refuses to place on a tombstoned or missing article, inserting nothing", async () => {
+    queue(schema.campaignArticle, [
+      { deletedAt: new Date("2026-07-01"), datedKind: null },
+    ])
+
+    const result = await addEventPlacement({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 42,
+    })
+
+    expect(result).toEqual(err("article-not-found"))
+    expect(calls).toEqual([])
+  })
+
+  it("refuses to place an event on a deadline article (one dated kind, never both)", async () => {
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: "deadline" }])
+
+    const result = await addEventPlacement({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 42,
+    })
+
+    expect(result).toEqual(err("article-is-deadline"))
+    expect(calls).toEqual([])
+  })
+
+  it("maps the (article, day) unique violation to placement-exists", async () => {
+    queue(schema.campaignArticle, [{ deletedAt: null, datedKind: null }])
+    placementInsertError = Object.assign(new Error("dup"), {
+      code: "23505",
+      constraint: "campaignEventPlacement_article_day_unique",
+    })
+
+    const result = await addEventPlacement({
+      campaignId: "camp-1",
+      articleId: "article-1",
+      day: 42,
+    })
+
+    expect(result).toEqual(err("placement-exists"))
+  })
+
+  it("removes one placement, leaving the article's other placements untouched", async () => {
+    const result = await removeEventPlacement({
+      campaignId: "camp-1",
+      placementId: "placement-1",
+    })
+
+    expect(result).toEqual(ok(undefined))
+    expect(calls).toEqual([
+      { op: "delete", table: schema.campaignEventPlacement, inTx: false },
+    ])
+  })
+
+  it("reports a zero-row delete (cross-campaign or missing) as not found", async () => {
+    placementDeleteRows = []
+
+    const result = await removeEventPlacement({
+      campaignId: "camp-1",
+      placementId: "forged",
+    })
+
+    expect(result).toEqual(err("placement-not-found"))
   })
 })

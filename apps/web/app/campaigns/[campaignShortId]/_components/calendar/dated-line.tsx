@@ -36,6 +36,7 @@ import {
   clearArticleDateAction,
   setArticleDateAction,
 } from "@/lib/actions/campaign-world/article-date"
+import { removeEventPlacementAction } from "@/lib/actions/campaign-world/event-placement"
 
 import { useCalendarWrite } from "./use-calendar-write"
 
@@ -122,7 +123,22 @@ export function DatedLine({
           <DotsThreeVerticalIcon />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {resolved ? (
+          {line.kind === "event" ? (
+            // An event is one of many placements (UNN-627): removing this one
+            // leaves the Article's other days; re-place via the day's "+ Event".
+            <DropdownMenuItem
+              onClick={() =>
+                run(() =>
+                  removeEventPlacementAction({
+                    campaignId,
+                    placementId: line.placementId,
+                  })
+                )
+              }
+            >
+              Remove from this day
+            </DropdownMenuItem>
+          ) : resolved ? (
             <DropdownMenuItem
               onClick={() =>
                 run(() =>
@@ -171,11 +187,10 @@ export function DatedLine({
           }
         />
       ) : null}
-      {dateOpen ? (
+      {dateOpen && line.kind === "deadline" ? (
         <ChangeDateDialog
           name={line.name}
-          kind={line.kind}
-          initialDay={line.kind === "deadline" ? line.dueDay : day}
+          initialDay={line.dueDay}
           onOpenChange={setDateOpen}
           onSubmit={(newDay) =>
             run(() =>
@@ -183,7 +198,6 @@ export function DatedLine({
                 campaignId,
                 articleId: line.articleId,
                 day: newDay,
-                kind: line.kind,
               })
             )
           }
@@ -251,13 +265,11 @@ function ResolveDialog({
 
 function ChangeDateDialog({
   name,
-  kind,
   initialDay,
   onOpenChange,
   onSubmit,
 }: {
   name: string
-  kind: "event" | "deadline"
   initialDay: number
   onOpenChange: (open: boolean) => void
   onSubmit: (day: number) => void
@@ -277,9 +289,7 @@ function ChangeDateDialog({
         <DialogHeader>
           <DialogTitle>Move “{name}”</DialogTitle>
           <DialogDescription>
-            {kind === "deadline"
-              ? "The countdown re-aims at the new day."
-              : "The event moves to the new day."}
+            The countdown re-aims at the new day.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2">

@@ -68,9 +68,14 @@ export const campaignRelation = pgTable(
  * (the picker offers a curated list ∪ the campaign's existing distinct values);
  * it never drives behavior.
  *
- * The **dated facet** (`datedDay` + `datedKind`, CHECK-enforced set-together —
- * D5) is minted here but unused until phase 5 (Calendar); deadline resolution
- * is derived from a ⚑ marker update, never stored on the article.
+ * The **inline dated facet** (`datedDay` + `datedKind`, CHECK-enforced
+ * set-together — D5) is **deadline-only** (UNN-627): a deadline is a singular
+ * reckoning, so its one day + its resolved-marker lifecycle live on the row.
+ * **Events are multi-placement** — an event Article fans across many days via
+ * the {@link campaignEventPlacement} join (a holiday, a lunar full moon, a
+ * weekly sale), so its occurrences never touch these columns. The CHECK
+ * `datedKind = 'deadline'` makes that a database fact. Deadline resolution is
+ * derived from a ⚑ marker update, never stored on the article.
  *
  * Articles **tombstone** (`deletedAt`, D4): history survives its subjects —
  * timelines keep rendering the name muted, while tombstones leave the linker
@@ -111,10 +116,58 @@ export const campaignArticle = pgTable(
       "campaignArticle_datedDay_min",
       sql`${article.datedDay} IS NULL OR ${article.datedDay} >= 1`
     ),
+    check(
+      "campaignArticle_inline_date_deadline_only",
+      sql`${article.datedKind} IS NULL OR ${article.datedKind} = 'deadline'`
+    ),
     index("campaignArticle_campaign_dated_idx").on(
       article.campaignId,
       article.datedKind,
       article.datedDay
+    ),
+  ]
+)
+
+/**
+ * An **event placement** (UNN-627): one occurrence of an event Article on a
+ * day. Multi-placement lives here rather than on the Article's inline facet
+ * because an event is a *set* of days (recurring/reusable — a holiday, a lunar
+ * full moon, a weekly sale) while a deadline is a *scalar* reckoning. The
+ * Calendar fans an event across every day it is placed on; removing one
+ * placement leaves the rest.
+ *
+ * `campaignId` is denormalized (an Article's campaign is immutable) so the
+ * day-card lookup rides the `(campaignId, day)` index join-free — the
+ * `campaignSlot` precedent. `UNIQUE (articleId, day)` forbids double-placing
+ * one event on a day. Articles **tombstone** (they never hard-delete), so the
+ * `articleId` cascade only fires on a hard campaign delete; a tombstoned
+ * Article's placements simply drop out of the loader's `deletedAt IS NULL`
+ * join (events are not history — vanishing is correct, D4).
+ */
+export const campaignEventPlacement = pgTable(
+  "campaignEventPlacement",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    campaignId: text("campaignId")
+      .notNull()
+      .references(() => campaigns.id, { onDelete: "cascade" }),
+    articleId: text("articleId")
+      .notNull()
+      .references(() => campaignArticle.id, { onDelete: "cascade" }),
+    day: integer("day").notNull(),
+    createdAt: timestamp("createdAt", { mode: "date" }).notNull().defaultNow(),
+  },
+  (placement) => [
+    check("campaignEventPlacement_day_min", sql`${placement.day} >= 1`),
+    uniqueIndex("campaignEventPlacement_article_day_unique").on(
+      placement.articleId,
+      placement.day
+    ),
+    index("campaignEventPlacement_campaign_day_idx").on(
+      placement.campaignId,
+      placement.day
     ),
   ]
 )
@@ -183,6 +236,10 @@ export type CampaignRelationRow = typeof campaignRelation.$inferSelect
 
 /** The persisted article row shape (typed off the table). */
 export type CampaignArticleRow = typeof campaignArticle.$inferSelect
+
+/** The persisted event-placement row shape (typed off the table). */
+export type CampaignEventPlacementRow =
+  typeof campaignEventPlacement.$inferSelect
 
 /** The persisted campaign-NPC subtype row shape (typed off the table). */
 export type CampaignNpcRow = typeof campaignNpc.$inferSelect

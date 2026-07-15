@@ -314,8 +314,10 @@ describe("resolveDeadline", () => {
 
   it("refuses an event or undated article", async () => {
     queue(campaignClock, [{ currentDay: 14 }])
+    // Events are inline-undated (UNN-627: they live in campaignEventPlacement),
+    // so a non-deadline article reads datedKind = null here.
     queue(campaignArticle, [
-      { name: "Tidewake Festival", datedKind: "event", deletedAt: null },
+      { name: "Tidewake Festival", datedKind: null, deletedAt: null },
     ])
 
     const result = await resolveDeadline({
@@ -484,9 +486,10 @@ describe("bindDeadlineMarker", () => {
     expect(result).toEqual(err("already-resolved"))
   })
 
-  it("refuses an event article", async () => {
+  it("refuses an event or undated article", async () => {
     queue(campaignUpdate, [{ id: "u1", slotId: null, resolvesArticleId: null }])
-    queue(campaignArticle, [{ datedKind: "event", deletedAt: null }])
+    // Events are inline-undated (UNN-627); a non-deadline reads datedKind = null.
+    queue(campaignArticle, [{ datedKind: null, deletedAt: null }])
 
     const result = await bindDeadlineMarker({
       campaignId: CAMPAIGN,

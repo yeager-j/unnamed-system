@@ -16,6 +16,7 @@ import {
   loadCampaignArticle,
   loadCampaignArticles,
   loadCampaignNpcs,
+  loadEventPlacementsForArticle,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
@@ -58,6 +59,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     relations,
     updates,
     counts,
+    eventPlacements,
   ] = await Promise.all([
     getCampaignClock(campaign.id),
     loadCampaignFolders(campaign.id, "article"),
@@ -69,6 +71,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
     loadRelationsFrom(campaign.id, self),
     loadUpdatesForParticipant(campaign.id, self),
     loadParticipantRefCounts(campaign.id, self),
+    loadEventPlacementsForArticle(campaign.id, article.id),
   ])
 
   const refs = [
@@ -97,7 +100,7 @@ export default async function ArticleDetailPage({ params }: PageProps) {
         body: article.body,
         type: article.type,
         datedDay: article.datedDay,
-        datedKind: article.datedKind,
+        eventDays: eventPlacements.map((placement) => placement.day),
         folderName:
           folders.find((folder) => folder.id === article.folderId)?.name ??
           null,

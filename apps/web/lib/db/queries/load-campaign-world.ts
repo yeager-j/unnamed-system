@@ -1,8 +1,9 @@
-import { and, asc, eq, isNotNull, isNull } from "drizzle-orm"
+import { and, asc, eq, isNull } from "drizzle-orm"
 
 import { db } from "@/lib/db/client"
 import {
   campaignArticle,
+  campaignEventPlacement,
   campaignNpc,
   type CampaignArticleRow,
   type CampaignNpcRow,
@@ -94,11 +95,13 @@ export async function loadCampaignArticle(
 }
 
 /**
- * The campaign's live **dated** Articles, `(datedDay, name)`-ordered — the
- * Calendar's day lines + deadline ribbon and the runner's advance-gate
- * pre-warn (D5). Rides the `(campaignId, datedKind, datedDay)` index.
+ * The campaign's live **deadline** Articles, `(datedDay, name)`-ordered — the
+ * Calendar's deadline ribbon + day lines and the runner's advance-gate pre-warn
+ * (D5). The inline dated facet is deadline-only (UNN-627), so this is every
+ * inline-dated Article; events fan across days via {@link loadEventPlacements}.
+ * Rides the `(campaignId, datedKind, datedDay)` index.
  */
-export async function loadDatedArticles(
+export async function loadDeadlineArticles(
   campaignId: string
 ): Promise<CampaignArticleRow[]> {
   return db
@@ -107,9 +110,72 @@ export async function loadDatedArticles(
     .where(
       and(
         eq(campaignArticle.campaignId, campaignId),
-        isNotNull(campaignArticle.datedKind),
+        eq(campaignArticle.datedKind, "deadline"),
         isNull(campaignArticle.deletedAt)
       )
     )
     .orderBy(asc(campaignArticle.datedDay), asc(campaignArticle.name))
+}
+
+/** One event's placement onto a day — the Calendar's per-day event lines. */
+export interface EventPlacement {
+  placementId: string
+  articleId: string
+  name: string
+  day: number
+}
+
+/**
+ * The campaign's live **event placements** (UNN-627), `(day, name)`-ordered —
+ * the Calendar fans an event Article across every day it is placed on. Joined
+ * to live Articles only (`deletedAt IS NULL`), so a tombstoned event's
+ * placements drop out for free (events are not history — D4). Rides the
+ * `(campaignId, day)` index.
+ */
+export async function loadEventPlacements(
+  campaignId: string
+): Promise<EventPlacement[]> {
+  const rows = await db
+    .select({
+      placementId: campaignEventPlacement.id,
+      articleId: campaignEventPlacement.articleId,
+      name: campaignArticle.name,
+      day: campaignEventPlacement.day,
+    })
+    .from(campaignEventPlacement)
+    .innerJoin(
+      campaignArticle,
+      eq(campaignArticle.id, campaignEventPlacement.articleId)
+    )
+    .where(
+      and(
+        eq(campaignEventPlacement.campaignId, campaignId),
+        isNull(campaignArticle.deletedAt)
+      )
+    )
+    .orderBy(asc(campaignEventPlacement.day), asc(campaignArticle.name))
+  return rows
+}
+
+/**
+ * One event Article's placement days, ascending (UNN-627) — the Article page's
+ * dated badge, which lists every day the event recurs on.
+ */
+export async function loadEventPlacementsForArticle(
+  campaignId: string,
+  articleId: string
+): Promise<{ placementId: string; day: number }[]> {
+  return db
+    .select({
+      placementId: campaignEventPlacement.id,
+      day: campaignEventPlacement.day,
+    })
+    .from(campaignEventPlacement)
+    .where(
+      and(
+        eq(campaignEventPlacement.campaignId, campaignId),
+        eq(campaignEventPlacement.articleId, articleId)
+      )
+    )
+    .orderBy(asc(campaignEventPlacement.day))
 }

@@ -157,8 +157,10 @@ interface ArticleSpec {
   key: string
   name: string
   type: string
-  datedKind?: "event" | "deadline"
+  /** Inline deadline day (deadline-only, UNN-627). */
   datedDay?: number
+  /** Event placement days (UNN-627: an event fans across every day it recurs on). */
+  eventDays?: number[]
 }
 
 const ARTICLES: ArticleSpec[] = [
@@ -172,36 +174,38 @@ const ARTICLES: ArticleSpec[] = [
     key: "midsummer-fair",
     name: "The Midsummer Fair",
     type: "Event",
-    datedKind: "event",
-    datedDay: 45,
+    eventDays: [45],
   },
   {
     key: "long-eclipse",
     name: "The Long Eclipse",
     type: "Event",
-    datedKind: "event",
-    datedDay: 100,
+    eventDays: [100],
+  },
+  // A recurring event (UNN-627): one Article, many placements across the horizon.
+  {
+    key: "full-moon",
+    name: "The Full Moon",
+    type: "Event",
+    eventDays: [14, 42, 70, 98, 126],
   },
   // Deadlines resolved on varied days (⚑ markers authored the day before).
   {
     key: "dl-tithe",
     name: "The Baron's Tithe",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 20,
   },
   {
     key: "dl-ultimatum",
     name: "The Envoy's Ultimatum",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 55,
   },
   {
     key: "dl-flood",
     name: "The Spring Flood",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 88,
   },
   // Overdue-unresolved: past its day, no ⚑ marker (renders as Due).
@@ -209,7 +213,6 @@ const ARTICLES: ArticleSpec[] = [
     key: "dl-siege",
     name: "The Siege of Vell",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 70,
   },
   // Due today (== currentDay), unresolved.
@@ -217,7 +220,6 @@ const ARTICLES: ArticleSpec[] = [
     key: "dl-judgment",
     name: "The Court's Judgment",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 120,
   },
   // Looming: still in the future.
@@ -225,7 +227,6 @@ const ARTICLES: ArticleSpec[] = [
     key: "dl-comet",
     name: "The Comet's Return",
     type: "Deadline",
-    datedKind: "deadline",
     datedDay: 130,
   },
 ]
@@ -324,6 +325,7 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
     campaignSlotDungeon,
     campaignPeriod,
     campaignArticle,
+    campaignEventPlacement,
     campaignNpc,
     campaignUpdate,
     campaignUpdateConcern,
@@ -443,10 +445,22 @@ export async function seedLongCampaign(devUserId: string): Promise<void> {
       campaignId: CAMPAIGN.id,
       name: article.name,
       type: article.type,
+      // The inline dated facet is deadline-only (UNN-627); events fan across
+      // days via campaignEventPlacement below.
       datedDay: article.datedDay ?? null,
-      datedKind: article.datedKind ?? null,
+      datedKind: article.datedDay != null ? ("deadline" as const) : null,
     }))
   )
+  const eventPlacements = ARTICLES.flatMap((article) =>
+    (article.eventDays ?? []).map((day) => ({
+      campaignId: CAMPAIGN.id,
+      articleId: articleId(article.key),
+      day,
+    }))
+  )
+  if (eventPlacements.length > 0) {
+    await db.insert(campaignEventPlacement).values(eventPlacements)
+  }
   await db.insert(campaignPeriod).values([
     ...SEASONS.map((season) => ({
       campaignId: CAMPAIGN.id,

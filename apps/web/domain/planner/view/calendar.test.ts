@@ -24,11 +24,12 @@ function slot(
 }
 
 function deadline(id: string, name: string, day: number) {
-  return { id, name, datedDay: day, datedKind: "deadline" as const }
+  return { id, name, datedDay: day }
 }
 
-function event(id: string, name: string, day: number) {
-  return { id, name, datedDay: day, datedKind: "event" as const }
+/** An event placement; the placementId defaults to `${articleId}@${day}`. */
+function placement(articleId: string, name: string, day: number) {
+  return { placementId: `${articleId}@${day}`, articleId, name, day }
 }
 
 const TWO_DAYS = [slot("s1", 14, 0), slot("s2", 14, 1), slot("s3", 15, 0)]
@@ -40,7 +41,8 @@ describe("buildCalendarView — ribbon", () => {
       slots: TWO_DAYS,
       seasons: [],
       months: [],
-      datedArticles: [deadline("demon", "Rise of the Demon Lord", 17)],
+      deadlines: [deadline("demon", "Rise of the Demon Lord", 17)],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -63,10 +65,11 @@ describe("buildCalendarView — ribbon", () => {
       slots: TWO_DAYS,
       seasons: [],
       months: [],
-      datedArticles: [
+      deadlines: [
         deadline("edge", "Edge", 14 + RIBBON_TICKS - 1),
         deadline("far", "Far", 74),
       ],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -85,10 +88,11 @@ describe("buildCalendarView — ribbon", () => {
       slots: TWO_DAYS,
       seasons: [],
       months: [],
-      datedArticles: [
+      deadlines: [
         deadline("siege", "Siege of Saltmere", 18),
         deadline("demon", "Rise of the Demon Lord", 17),
       ],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -104,10 +108,8 @@ describe("buildCalendarView — ribbon", () => {
       slots: TWO_DAYS,
       seasons: [],
       months: [],
-      datedArticles: [
-        deadline("today", "Today", 14),
-        deadline("past", "Past", 12),
-      ],
+      deadlines: [deadline("today", "Today", 14), deadline("past", "Past", 12)],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -131,10 +133,8 @@ describe("buildCalendarView — ribbon", () => {
       slots: TWO_DAYS,
       seasons: [],
       months: [],
-      datedArticles: [
-        event("festival", "Tidewake Festival", 14),
-        deadline("done", "Done", 16),
-      ],
+      deadlines: [deadline("done", "Done", 16)],
+      events: [placement("festival", "Tidewake Festival", 14)],
       resolvedArticleIds: new Set(["done"]),
     })
 
@@ -149,7 +149,8 @@ describe("buildCalendarView — days", () => {
       slots: [slot("old", 13, 0), slot("s2", 15, 0), slot("s1", 14, 0)],
       seasons: [],
       months: [],
-      datedArticles: [],
+      deadlines: [],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -167,7 +168,8 @@ describe("buildCalendarView — days", () => {
         { day: 16, label: "High Summer" },
       ],
       months: [],
-      datedArticles: [],
+      deadlines: [],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -193,7 +195,8 @@ describe("buildCalendarView — days", () => {
         { day: 12, label: "April" },
         { day: 16, label: "May" },
       ],
-      datedArticles: [],
+      deadlines: [],
+      events: [],
       resolvedArticleIds: none,
     })
 
@@ -217,12 +220,12 @@ describe("buildCalendarView — days", () => {
       slots: [slot("s1", 14, 0), slot("s2", 16, 0)],
       seasons: [],
       months: [],
-      datedArticles: [
-        event("festival", "Tidewake Festival", 16),
+      deadlines: [
         deadline("due", "Due Today", 14),
         deadline("resolved", "Handled", 16),
         deadline("looming", "Looming", 16),
       ],
+      events: [placement("festival", "Tidewake Festival", 16)],
       resolvedArticleIds: new Set(["resolved"]),
     })
 
@@ -238,7 +241,84 @@ describe("buildCalendarView — days", () => {
     expect(view.days[1]!.dated).toEqual([
       expect.objectContaining({ articleId: "resolved", state: "resolved" }),
       expect.objectContaining({ articleId: "looming", state: "looming" }),
-      { kind: "event", articleId: "festival", name: "Tidewake Festival" },
+      {
+        kind: "event",
+        placementId: "festival@16",
+        articleId: "festival",
+        name: "Tidewake Festival",
+      },
+    ])
+  })
+
+  it("fans one event Article across every day it is placed on, each its own placement", () => {
+    const view = buildCalendarView({
+      currentDay: 14,
+      slots: [slot("s1", 14, 0), slot("s2", 15, 0), slot("s3", 16, 0)],
+      seasons: [],
+      months: [],
+      deadlines: [],
+      // A lunar full moon placed on two of the three upcoming days.
+      events: [
+        placement("moon", "Full Moon", 14),
+        placement("moon", "Full Moon", 16),
+      ],
+      resolvedArticleIds: none,
+    })
+
+    expect(view.days[0]!.dated).toEqual([
+      {
+        kind: "event",
+        placementId: "moon@14",
+        articleId: "moon",
+        name: "Full Moon",
+      },
+    ])
+    expect(view.days[1]!.dated).toEqual([])
+    expect(view.days[2]!.dated).toEqual([
+      {
+        kind: "event",
+        placementId: "moon@16",
+        articleId: "moon",
+        name: "Full Moon",
+      },
+    ])
+  })
+
+  it("removing one placement leaves the Article's other placements intact", () => {
+    // Same "moon" Article, but only the Day-16 placement remains.
+    const view = buildCalendarView({
+      currentDay: 14,
+      slots: [slot("s1", 14, 0), slot("s3", 16, 0)],
+      seasons: [],
+      months: [],
+      deadlines: [],
+      events: [placement("moon", "Full Moon", 16)],
+      resolvedArticleIds: none,
+    })
+
+    expect(view.days[0]!.dated).toEqual([])
+    expect(view.days[1]!.dated).toEqual([
+      expect.objectContaining({ articleId: "moon", placementId: "moon@16" }),
+    ])
+  })
+
+  it("orders concurrent events on a day by name", () => {
+    const view = buildCalendarView({
+      currentDay: 14,
+      slots: [slot("s1", 14, 0)],
+      seasons: [],
+      months: [],
+      deadlines: [],
+      events: [
+        placement("b", "Zephyr Vigil", 14),
+        placement("a", "Ashfall", 14),
+      ],
+      resolvedArticleIds: none,
+    })
+
+    expect(view.days[0]!.dated.map((line) => line.name)).toEqual([
+      "Ashfall",
+      "Zephyr Vigil",
     ])
   })
 
@@ -248,16 +328,17 @@ describe("buildCalendarView — days", () => {
       slots: [slot("s1", 14, 0), slot("s2", 15, 0)],
       seasons: [],
       months: [],
-      datedArticles: [
+      deadlines: [
         deadline("past-open", "Slipped Away", 12),
         deadline("past-done", "Old Business", 11),
-        event("past-fair", "Last Week's Fair", 13),
       ],
+      // A past event placement is history (the Chronicle's, not the Calendar's).
+      events: [placement("fair", "Last Week's Fair", 13)],
       resolvedArticleIds: new Set(["past-done"]),
     })
 
     // Only the unresolved overdue deadline carries; resolved deadlines and
-    // past events are history (the Chronicle's, not the Calendar's).
+    // past events do not.
     expect(view.days[0]!.dated).toEqual([
       {
         kind: "deadline",
@@ -280,7 +361,8 @@ describe("buildCalendarView — days", () => {
       ],
       seasons: [],
       months: [],
-      datedArticles: [],
+      deadlines: [],
+      events: [],
       resolvedArticleIds: none,
     })
 

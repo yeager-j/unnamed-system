@@ -24,6 +24,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 
 import { setArticleDateAction } from "@/lib/actions/campaign-world/article-date"
+import { addEventPlacementAction } from "@/lib/actions/campaign-world/event-placement"
 import { mintArticleAction } from "@/lib/actions/campaign-world/mint-article"
 import type { ArticleDatedKind } from "@/lib/db/schema/campaign-world"
 
@@ -34,6 +35,12 @@ export interface DatableArticle {
   id: string
   name: string
   type: string | null
+  /**
+   * Already placed as a recurring event (UNN-627). The event picker still
+   * offers it (place it on more days); the deadline picker excludes it — an
+   * Article is one dated kind, never both (the write door refuses either way).
+   */
+  placedAsEvent: boolean
 }
 
 /**
@@ -136,14 +143,23 @@ function QuickCreateDialog({
 
   const trimmed = query.trim()
   const matches = articles
+    // A deadline can't reuse an Article that already recurs as an event (UNN-627).
+    .filter((article) => kind === "event" || !article.placedAsEvent)
     .filter((article) =>
       article.name.toLowerCase().includes(trimmed.toLowerCase())
     )
     .slice(0, 6)
 
+  // A deadline is a singular reckoning (inline facet); an event is one of many
+  // placements (UNN-627). Same dialog, two write doors.
+  const place = (articleId: string) =>
+    kind === "deadline"
+      ? setArticleDateAction({ campaignId, articleId, day })
+      : addEventPlacementAction({ campaignId, articleId, day })
+
   const date = (articleId: string) =>
     run(
-      () => setArticleDateAction({ campaignId, articleId, day, kind }),
+      () => place(articleId),
       () => onOpenChange(false)
     )
 
@@ -152,12 +168,7 @@ function QuickCreateDialog({
       async () => {
         const minted = await mintArticleAction({ campaignId, name: trimmed })
         if (!minted.ok) return minted
-        return setArticleDateAction({
-          campaignId,
-          articleId: minted.value.id,
-          day,
-          kind,
-        })
+        return place(minted.value.id)
       },
       () => onOpenChange(false)
     )

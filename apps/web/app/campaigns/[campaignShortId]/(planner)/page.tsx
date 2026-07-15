@@ -76,7 +76,7 @@ import {
 import {
   loadCampaignArticles,
   loadCampaignNpcs,
-  loadDatedArticles,
+  loadDeadlineArticles,
 } from "@/lib/db/queries/load-campaign-world"
 import { loadDungeonsForCampaign } from "@/lib/db/queries/load-dungeon"
 import { loadEncountersForCampaign } from "@/lib/db/queries/load-encounter"
@@ -180,7 +180,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     glances,
     npcs,
     articles,
-    datedArticles,
+    deadlineArticles,
     markers,
     worldToday,
   ] = await Promise.all([
@@ -194,7 +194,7 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
     loadRosterGlance(placedCharacters.map((character) => character.id)),
     loadCampaignNpcs(campaign.id),
     loadCampaignArticles(campaign.id),
-    loadDatedArticles(campaign.id),
+    loadDeadlineArticles(campaign.id),
     loadResolvedMarkers(campaign.id),
     clock
       ? loadWorldUpdatesForDay(campaign.id, clock.currentDay)
@@ -226,9 +226,8 @@ async function DayRunnerRoot({ campaign }: { campaign: CampaignRow }) {
   // handed to the runner so End-the-day and Skip can name their blockers
   // before the server's in-transaction check refuses for real.
   const resolvedArticleIds = new Set(markers.map((marker) => marker.articleId))
-  const unresolvedDatedArticles = datedArticles.filter(
-    (article) =>
-      article.datedKind === "deadline" && !resolvedArticleIds.has(article.id)
+  const unresolvedDatedArticles = deadlineArticles.filter(
+    (article) => !resolvedArticleIds.has(article.id)
   )
   const unresolvedDeadlines = unresolvedDatedArticles.map((article) => ({
     id: article.id,

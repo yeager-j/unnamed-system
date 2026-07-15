@@ -18,10 +18,11 @@ import {
 import { revalidateCampaignWorld } from "./revalidate"
 
 /**
- * Sets (or re-dates) an article's dated facet (D5, UNN-578): an inert calendar
- * `event` or a `deadline` that counts down and hard-gates the clock's advance.
- * A resolved article refuses with `"article-resolved"` — re-dating requires
- * re-opening first, so "resolved before it looms" is never representable.
+ * Sets (or re-dates) an article's **deadline** date (D5, UNN-578): a `deadline`
+ * that counts down and hard-gates the clock's advance. Events are multi-placed
+ * via `event-placement.ts` (UNN-627), not here. A resolved article refuses with
+ * `"article-resolved"` — re-dating requires re-opening first, so "resolved
+ * before it looms" is never representable.
  */
 export async function setArticleDateAction(
   input: SetArticleDateInput
