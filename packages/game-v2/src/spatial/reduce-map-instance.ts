@@ -7,6 +7,7 @@ import { engagedWith, setEngaged, unlink } from "./engagement-graph"
 import type { MapConnection, MapZone } from "./geometry.schema"
 import type { MapInstanceEvent } from "./map-instance-event"
 import type { MapInstanceState } from "./map-instance.schema"
+import { firstPageId } from "./pages"
 import { reduceMapGeometry } from "./reduce-map-geometry"
 
 /**
@@ -144,6 +145,10 @@ function reduceZoneGraphEvent(
           description: "",
           dmNotes: event.notes ?? "",
           position: { x: 0, y: 0 },
+          // The ad-hoc combat-setup surface is page-blind — a standalone
+          // encounter's Instance holds the single default page, so first-page
+          // is always the right home (UNN-586).
+          pageId: firstPageId(draft.geometry),
         }
         draft.geometry.zones[id] = zone
         return
@@ -236,6 +241,9 @@ function reduceMoveEvent(
     // Stryker disable next-line ConditionalExpression: equivalent — moving to the occupied Zone writes the same `zoneId` (an Immer no-op ⇒ same ref) and severs nothing (legal engagements are same-Zone), so the short-circuit is unobservable.
     if (token.zoneId === event.toZoneId) return
     token.zoneId = event.toZoneId
+    // After the same-Zone early return, so a no-op move keeps the no-op contract
+    // (same ref) instead of spuriously bumping the watch's follow hint (UNN-586).
+    draft.lastMovedTokenKey = event.tokenKey
 
     if (
       draft.geometry.zones[event.toZoneId] !== undefined &&
@@ -284,6 +292,7 @@ function reducePlaceEvent(
       zoneId: event.zoneId,
       engagement: { status: "free" },
     }
+    draft.lastMovedTokenKey = event.tokenKey
   })
 }
 
@@ -460,11 +469,24 @@ function reduceGeometryEditEvent(
     if (occupied) return state
   }
 
+  if (event.event.kind === "deletePage") {
+    // The page-cascade posture matches deleteZone's: a page is only deletable
+    // while no occupancy token stands in any of its Zones — the DM relocates
+    // the party first (UNN-586).
+    const { pageId } = event.event
+    const occupied = Object.values(state.occupancy).some(
+      (token) => state.geometry.zones[token.zoneId]?.pageId === pageId
+    )
+    if (occupied) return state
+  }
+
   const nextGeometry = reduceMapGeometry(state.geometry, event.event)
   if (nextGeometry === state.geometry) return state
 
   const removesGeometry =
-    event.event.kind === "deleteZone" || event.event.kind === "deleteConnection"
+    event.event.kind === "deleteZone" ||
+    event.event.kind === "deleteConnection" ||
+    event.event.kind === "deletePage"
 
   return produce(state, (draft) => {
     draft.geometry = nextGeometry

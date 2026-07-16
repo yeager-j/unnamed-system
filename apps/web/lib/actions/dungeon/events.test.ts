@@ -88,6 +88,7 @@ function instanceRow(): {
     mapId: null,
     state: {
       geometry: {
+        pages: { default: { id: "default", name: "Page 1" } },
         zones: {
           z1: {
             id: "z1",
@@ -95,6 +96,7 @@ function instanceRow(): {
             description: "",
             dmNotes: "",
             position: { x: 0, y: 0 },
+            pageId: "default",
           },
         },
         connections: {},
@@ -106,6 +108,7 @@ function instanceRow(): {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      lastMovedTokenKey: null,
     },
     version: 0,
   }

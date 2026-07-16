@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import { makeGeometry, makeZone } from "./__fixtures__/spatial"
+import { defaultPages } from "./geometry.schema"
 import { emptyMapInstance, mapInstanceFromGeometry } from "./instance-factory"
 
 describe("emptyMapInstance", () => {
   it("mints a blank instance with empty runtime", () => {
     expect(emptyMapInstance()).toEqual({
-      geometry: { zones: {}, connections: {} },
+      geometry: { pages: defaultPages(), zones: {}, connections: {} },
       occupancy: {},
       enchantment: null,
       reveal: {
@@ -14,6 +15,7 @@ describe("emptyMapInstance", () => {
         revealedConnectionIds: [],
         unlockedConnectionIds: [],
       },
+      lastMovedTokenKey: null,
     })
   })
 })

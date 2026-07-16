@@ -54,11 +54,14 @@ export type RevealState = z.infer<typeof revealStateSchema>
  * The Map-Instance's jsonb `state`. `geometry` is the snapshot of the Map's authored
  * geometry; `occupancy` maps a token key to its {@link MapToken}; `reveal` is the
  * runtime fog overlay; `enchantment` is the Bard's single active Zone Enchantment (a
- * nullable singleton — a second Enchant overwrites). Every field `.default()`s empty
- * so a freshly-minted Instance parses.
+ * nullable singleton — a second Enchant overwrites). `lastMovedTokenKey` is the
+ * token that most recently moved or was placed (UNN-586) — the watch's
+ * follow-the-party page hint (D3); an opaque dual-lifecycle key that may dangle
+ * after a combat prune, so readers resolve it defensively and never trust it raw.
+ * Every field `.default()`s empty so a freshly-minted Instance parses.
  */
 export const mapInstanceStateSchema = z.object({
-  geometry: mapGeometrySchema.default({ zones: {}, connections: {} }),
+  geometry: mapGeometrySchema.default(() => mapGeometrySchema.parse({})),
   occupancy: z.record(z.string(), mapTokenSchema).default({}),
   enchantment: zoneEnchantmentSchema.nullable().default(null),
   reveal: revealStateSchema.default({
@@ -66,5 +69,6 @@ export const mapInstanceStateSchema = z.object({
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   }),
+  lastMovedTokenKey: z.string().nullable().default(null),
 })
 export type MapInstanceState = z.infer<typeof mapInstanceStateSchema>

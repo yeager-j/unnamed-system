@@ -29,12 +29,14 @@ export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
     kind: z.literal("addZone"),
     id: z.string(),
     position: pointSchema,
+    pageId: z.string(),
   }),
   z.object({
     kind: z.literal("duplicateZone"),
     sourceId: z.string(),
     newId: z.string(),
     position: pointSchema,
+    pageId: z.string(),
   }),
   z.object({
     kind: z.literal("renameZone"),
@@ -81,6 +83,37 @@ export const mapGeometryEventSchema = z.discriminatedUnion("kind", [
     value: z.boolean(),
   }),
   z.object({ kind: z.literal("deleteConnection"), connectionId: z.string() }),
+  z.object({
+    kind: z.literal("addPage"),
+    id: z.string(),
+    // Absent/empty ⇒ the reducer derives "Page N" (lowest free).
+    name: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal("renamePage"),
+    pageId: z.string(),
+    name: z.string(),
+  }),
+  // Cascade: removes the page, every Zone on it, and every connection touching
+  // those Zones (severing cross-page links). No-op on the last remaining page.
+  z.object({ kind: z.literal("deletePage"), pageId: z.string() }),
+  z.object({
+    kind: z.literal("duplicatePage"),
+    sourcePageId: z.string(),
+    newPageId: z.string(),
+    // Caller-minted id maps (the same discipline as addZone — `editGeometry`
+    // replays deterministically client- and server-side, so the reducer must
+    // never mint): source Zone id → fresh copy id, and source connection id →
+    // fresh copy id for the page's **intra-page** connections. Cross-page
+    // connections are deliberately not copied.
+    zoneIdMap: z.record(z.string(), z.string()),
+    connectionIdMap: z.record(z.string(), z.string()),
+  }),
+  z.object({
+    kind: z.literal("moveZoneToPage"),
+    zoneId: z.string(),
+    pageId: z.string(),
+  }),
 ])
 
 export type MapGeometryEvent = z.infer<typeof mapGeometryEventSchema>

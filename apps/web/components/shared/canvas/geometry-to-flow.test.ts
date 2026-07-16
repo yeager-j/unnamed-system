@@ -22,6 +22,7 @@ describe("geometryToFlow", () => {
           description: "d",
           dmNotes: "n",
           position: { x: 5, y: 7 },
+          pageId: "default",
         },
       },
     })
@@ -45,6 +46,7 @@ describe("geometryToFlow", () => {
           description: "",
           dmNotes: "",
           position: { x: 0, y: 0 },
+          pageId: "default",
         },
         b: {
           id: "b",
@@ -52,6 +54,7 @@ describe("geometryToFlow", () => {
           description: "",
           dmNotes: "",
           position: { x: 1, y: 1 },
+          pageId: "default",
         },
       },
       connections: {

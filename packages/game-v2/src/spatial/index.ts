@@ -12,6 +12,7 @@
  */
 export * from "./geometry.schema"
 export * from "./geometry-warnings"
+export * from "./pages"
 export * from "./instance-factory"
 export * from "./map-instance.schema"
 export * from "./resolve-zone-exits"

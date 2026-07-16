@@ -27,6 +27,7 @@ import { useRef, useState, type MouseEvent, type ReactNode } from "react"
 import {
   disconnectedZoneIds,
   duplicateZoneNames,
+  firstPageId,
   reduceMapGeometry,
   type ConnectionFlag,
   type MapGeometry,
@@ -211,7 +212,12 @@ function MapCanvasInner({
   function addZoneAt(position: { x: number; y: number }) {
     if (!editable) return
     const id = crypto.randomUUID()
-    const next = dispatchGeometry({ kind: "addZone", id, position })
+    const next = dispatchGeometry({
+      kind: "addZone",
+      id,
+      position,
+      pageId: firstPageId(geometryRef.current),
+    })
     const zone = next.zones[id]
     if (!zone) return
     const node: FlowZoneNode = {
@@ -286,6 +292,8 @@ function MapCanvasInner({
       sourceId: zoneId,
       newId: id,
       position,
+      // The copy lands beside its source, so it belongs to the source's page.
+      pageId: source.pageId,
     })
     const zone = next.zones[id]
     if (!zone) return

@@ -47,6 +47,13 @@ export function reduceMapGeometry(
     case "setConnectionFlag":
     case "deleteConnection":
       return reduceConnectionEvent(geometry, event)
+
+    case "addPage":
+    case "renamePage":
+    case "deletePage":
+    case "duplicatePage":
+    case "moveZoneToPage":
+      return reducePageEvent(geometry, event)
   }
 }
 
@@ -75,24 +82,28 @@ function reduceZoneEvent(
   return produce(geometry, (draft) => {
     switch (event.kind) {
       case "addZone": {
+        if (geometry.pages[event.pageId] === undefined) return
         draft.zones[event.id] = {
           id: event.id,
           name: nextZoneName(geometry.zones),
           description: "",
           dmNotes: "",
           position: event.position,
+          pageId: event.pageId,
         }
         return
       }
 
       case "duplicateZone": {
         const source = geometry.zones[event.sourceId]
-        if (source === undefined) return
+        if (source === undefined || geometry.pages[event.pageId] === undefined)
+          return
         draft.zones[event.newId] = {
           ...source,
           id: event.newId,
           name: `${source.name} copy`,
           position: event.position,
+          pageId: event.pageId,
         }
         return
       }
@@ -204,6 +215,142 @@ function reduceConnectionEvent(
 }
 
 /**
+ * Page-slice edits (UNN-586) — add/rename/delete/duplicate a page, or move a Zone
+ * between pages. Invariants preserved: a geometry always keeps ≥ 1 page
+ * (`deletePage` no-ops on the last one), and `deletePage` cascades the page's
+ * Zones plus every connection touching them — cross-page links sever, exactly as
+ * `deleteZone` would one Zone at a time. `duplicatePage` deep-copies with
+ * **caller-minted** id maps (deterministic replay: the Instance re-reduces the
+ * same event server-side); a map entry naming an unknown source Zone or a taken
+ * new id is skipped rather than corrupting the copy.
+ */
+function reducePageEvent(
+  geometry: MapGeometry,
+  event: Extract<
+    MapGeometryEvent,
+    {
+      kind:
+        | "addPage"
+        | "renamePage"
+        | "deletePage"
+        | "duplicatePage"
+        | "moveZoneToPage"
+    }
+  >
+): MapGeometry {
+  return produce(geometry, (draft) => {
+    switch (event.kind) {
+      case "addPage": {
+        if (geometry.pages[event.id] !== undefined) return
+        const trimmed = event.name?.trim()
+        draft.pages[event.id] = {
+          id: event.id,
+          name:
+            trimmed && trimmed.length > 0
+              ? trimmed
+              : nextPageName(geometry.pages),
+        }
+        return
+      }
+
+      case "renamePage": {
+        const page = draft.pages[event.pageId]
+        const trimmed = event.name.trim()
+        if (page === undefined || trimmed.length === 0) return
+        page.name = trimmed
+        return
+      }
+
+      case "deletePage": {
+        if (geometry.pages[event.pageId] === undefined) return
+        if (Object.keys(geometry.pages).length <= 1) return
+        delete draft.pages[event.pageId]
+        const doomedZoneIds = new Set(
+          Object.values(geometry.zones)
+            .filter((zone) => zone.pageId === event.pageId)
+            .map((zone) => zone.id)
+        )
+        for (const zoneId of doomedZoneIds) delete draft.zones[zoneId]
+        for (const [connId, conn] of Object.entries(geometry.connections)) {
+          if (
+            doomedZoneIds.has(conn.fromZoneId) ||
+            doomedZoneIds.has(conn.toZoneId)
+          ) {
+            delete draft.connections[connId]
+          }
+        }
+        return
+      }
+
+      case "duplicatePage": {
+        const source = geometry.pages[event.sourcePageId]
+        if (source === undefined) return
+        if (geometry.pages[event.newPageId] !== undefined) return
+        draft.pages[event.newPageId] = {
+          ...source,
+          id: event.newPageId,
+          name: `${source.name} copy`,
+        }
+        for (const [sourceZoneId, newZoneId] of Object.entries(
+          event.zoneIdMap
+        )) {
+          const zone = geometry.zones[sourceZoneId]
+          if (
+            zone === undefined ||
+            zone.pageId !== event.sourcePageId ||
+            geometry.zones[newZoneId] !== undefined
+          ) {
+            continue
+          }
+          draft.zones[newZoneId] = {
+            ...zone,
+            id: newZoneId,
+            pageId: event.newPageId,
+          }
+        }
+        for (const [sourceConnId, newConnId] of Object.entries(
+          event.connectionIdMap
+        )) {
+          const conn = geometry.connections[sourceConnId]
+          if (
+            conn === undefined ||
+            geometry.connections[newConnId] !== undefined
+          )
+            continue
+          const newFrom = event.zoneIdMap[conn.fromZoneId]
+          const newTo = event.zoneIdMap[conn.toZoneId]
+          // Both endpoints must have been copied — an intra-page connection by
+          // construction; cross-page links are deliberately not duplicated.
+          if (newFrom === undefined || newTo === undefined) continue
+          if (
+            draft.zones[newFrom] === undefined ||
+            draft.zones[newTo] === undefined
+          ) {
+            continue
+          }
+          draft.connections[newConnId] = {
+            ...conn,
+            id: newConnId,
+            fromZoneId: newFrom,
+            toZoneId: newTo,
+          }
+        }
+        return
+      }
+
+      case "moveZoneToPage": {
+        const zone = draft.zones[event.zoneId]
+        if (zone === undefined) return
+        if (geometry.pages[event.pageId] === undefined) return
+        if (zone.pageId === event.pageId) return
+        zone.pageId = event.pageId
+        return
+      }
+    }
+  })
+}
+
+/**
  * The default name for a freshly-added Zone — the lowest `Zone N` (N ≥ 1) not
  * already in use, so adding several in a row reads naturally and doesn't trip the
  * duplicate-name warning immediately.
@@ -213,6 +360,15 @@ function nextZoneName(zones: MapGeometry["zones"]): string {
   let n = 1
   while (taken.has(`Zone ${n}`)) n += 1
   return `Zone ${n}`
+}
+
+/** The default name for a freshly-added page — the lowest free `Page N`, mirroring
+ *  {@link nextZoneName}. */
+function nextPageName(pages: MapGeometry["pages"]): string {
+  const taken = new Set(Object.values(pages).map((page) => page.name))
+  let n = 1
+  while (taken.has(`Page ${n}`)) n += 1
+  return `Page ${n}`
 }
 
 /** True when the two Zones are already joined (undirected) by some connection. */

@@ -36,7 +36,11 @@ const session: Session = {
 }
 
 const instance: MapInstanceState = {
-  geometry: { zones: {}, connections: {} },
+  geometry: {
+    pages: { default: { id: "default", name: "Page 1" } },
+    zones: {},
+    connections: {},
+  },
   occupancy: {},
   enchantment: null,
   reveal: {
@@ -44,6 +48,7 @@ const instance: MapInstanceState = {
     revealedConnectionIds: [],
     unlockedConnectionIds: [],
   },
+  lastMovedTokenKey: null,
 }
 
 const actor = (hasActed: boolean): CurrentActorView => ({

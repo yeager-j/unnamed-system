@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import { engaged, free, makeMapInstanceState } from "./__fixtures__/spatial"
-import type { MapConnection, MapGeometry, MapZone } from "./geometry.schema"
+import {
+  DEFAULT_PAGE_ID,
+  defaultPages,
+  type MapConnection,
+  type MapGeometry,
+  type MapZone,
+} from "./geometry.schema"
 import {
   activeEnchantment,
   adjacencyMap,
@@ -13,7 +19,14 @@ import {
 } from "./selectors"
 
 function zone(id: string, name = id): MapZone {
-  return { id, name, description: "", dmNotes: "", position: { x: 0, y: 0 } }
+  return {
+    id,
+    name,
+    description: "",
+    dmNotes: "",
+    position: { x: 0, y: 0 },
+    pageId: DEFAULT_PAGE_ID,
+  }
 }
 
 function connection(fromZoneId: string, toZoneId: string): MapConnection {
@@ -27,6 +40,7 @@ function connection(fromZoneId: string, toZoneId: string): MapConnection {
 }
 
 const geometry: MapGeometry = {
+  pages: defaultPages(),
   zones: {
     a: zone("a", "Hall"),
     b: zone("b", "Cave"),
@@ -106,7 +120,9 @@ describe("spatial selectors (the SpatialReads adapter source, SD8)", () => {
     })
 
     it("maps an empty geometry to an empty record", () => {
-      expect(adjacencyMap({ zones: {}, connections: {} })).toEqual({})
+      expect(
+        adjacencyMap({ pages: defaultPages(), zones: {}, connections: {} })
+      ).toEqual({})
     })
   })
 
@@ -125,6 +141,7 @@ describe("spatial selectors (the SpatialReads adapter source, SD8)", () => {
 
     it("drops a neighbor whose zone no longer exists", () => {
       const dangling: MapGeometry = {
+        pages: defaultPages(),
         zones: { a: zone("a") },
         connections: { "a-gone": connection("a", "gone") },
       }

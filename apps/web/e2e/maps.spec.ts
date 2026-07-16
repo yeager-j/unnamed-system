@@ -93,7 +93,12 @@ test("editing a Map leaves a referencing Instance unchanged (snapshot isolation)
 
   const geometry = mapGeometrySchema.parse({
     zones: {
-      z1: { id: "z1", name: "New Wing", position: { x: 5, y: 7 } },
+      z1: {
+        id: "z1",
+        name: "New Wing",
+        position: { x: 5, y: 7 },
+        pageId: "default",
+      },
     },
   })
   const result = await saveMapGeometry(map.id, geometry, 0)

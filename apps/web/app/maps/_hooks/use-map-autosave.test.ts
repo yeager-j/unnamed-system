@@ -49,8 +49,13 @@ async function flushMicrotasks(): Promise<void> {
   })
 }
 
-const GEOMETRY_A: MapGeometry = { zones: {}, connections: {} }
+const GEOMETRY_A: MapGeometry = {
+  pages: { default: { id: "default", name: "Page 1" } },
+  zones: {},
+  connections: {},
+}
 const GEOMETRY_B: MapGeometry = {
+  pages: { default: { id: "default", name: "Page 1" } },
   zones: {
     z1: {
       id: "z1",
@@ -58,6 +63,7 @@ const GEOMETRY_B: MapGeometry = {
       description: "",
       dmNotes: "",
       position: { x: 0, y: 0 },
+      pageId: "default",
     },
   },
   connections: {},
