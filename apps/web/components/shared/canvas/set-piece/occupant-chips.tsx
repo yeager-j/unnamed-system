@@ -11,11 +11,11 @@ import type {
 
 /**
  * The occupant presentation shared by the set-piece card's tiers (§D3): faction
- * **pips** at Marquee, avatar **chips** at Stage. Both read the one
- * {@link SetPieceOccupant} shape the domain builders produce; the interactive
- * Closeup token grid stays a per-surface slot in P1b (the kit absorbs it with the
- * roster inspector in P1c). Owned tokens (the viewer's own, 0..n) take the gold
- * treatment; the acting combatant a white ring — the two never conflate.
+ * **pips** at Marquee, avatar **chips** at Stage, the **condensed stack** when a
+ * Closeup crowd outgrows the footprint (§D7), and the full **token** at Closeup.
+ * All read the one {@link SetPieceOccupant} shape the domain builders produce.
+ * Owned tokens (the viewer's own, 0..n) take the gold treatment; the acting
+ * combatant a white ring — the two never conflate.
  *
  * These are presentation-only. The card layer is `pointer-events-none`; any
  * tap-to-open interaction is wired by the surface wrapper around the Closeup slot,
@@ -125,6 +125,55 @@ export function OccupantAvatars({
       ))}
       {overflow > 0 ? (
         <span className="text-xs font-medium text-muted-foreground tabular-nums">
+          +{overflow}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * The crowded-zone **condensed stack** (§D7): overlapping avatars (≤6) with a `+N`
+ * overflow, the Closeup card's degraded roster when the occupants outgrow the
+ * footprint's {@link import("@/domain/map/view/footprints").zoneTokenCapacity}. The
+ * card-colored ring makes the overlap read as a stack; the full roster lives in the
+ * inspector the always-visible "Open roster ▸" button opens. Presentation-only.
+ */
+export function CondensedAvatarStack({
+  occupants,
+}: {
+  occupants: SetPieceOccupant[]
+}) {
+  if (occupants.length === 0) return null
+  const shown = occupants.slice(0, OCCUPANT_CAP)
+  const overflow = occupants.length - shown.length
+  return (
+    <div className="flex items-center">
+      {shown.map((o, index) => (
+        <span
+          key={o.key}
+          title={o.name}
+          className={cn(
+            "flex size-7 items-center justify-center overflow-hidden rounded-full border-2 bg-card text-[0.6rem] font-semibold ring-1 ring-card",
+            index > 0 && "-ml-2",
+            ringClass(o)
+          )}
+          aria-hidden
+        >
+          {o.portraitUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={o.portraitUrl}
+              alt=""
+              className="size-full object-cover"
+            />
+          ) : (
+            o.initials || initialsOf(o.name)
+          )}
+        </span>
+      ))}
+      {overflow > 0 ? (
+        <span className="ml-1.5 text-xs font-medium text-muted-foreground tabular-nums">
           +{overflow}
         </span>
       ) : null}

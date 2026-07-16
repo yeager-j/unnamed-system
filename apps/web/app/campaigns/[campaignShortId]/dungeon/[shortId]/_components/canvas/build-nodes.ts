@@ -77,6 +77,22 @@ function buildPlayNodes(
   })
 }
 
+/** The combatants standing in each Zone (combat mode), keyed by Zone id — grouped
+ *  from the console {@link RosterView} by their live occupancy. Shared by the
+ *  battlefield node build and the roster inspector, which rebuilds one zone's view. */
+export function rowsByZone(
+  instance: MapInstanceState,
+  roster: RosterView
+): Record<string, RailRow[]> {
+  const byZone: Record<string, RailRow[]> = {}
+  for (const row of [...roster.players, ...roster.enemies]) {
+    const zoneId = instance.occupancy[row.id]?.zoneId
+    if (zoneId === undefined) continue
+    ;(byZone[zoneId] ??= []).push(row)
+  }
+  return byZone
+}
+
 /** The combat battlefield's nodes: each authored Zone with the combatants standing
  *  in it (grouped from the console {@link RosterView} by their occupancy zone), the
  *  both-sides-present **Engaged** flag, and the Zone's Bard Enchantment badge. The
@@ -86,15 +102,10 @@ function buildCombatNodes(
   instance: MapInstanceState,
   roster: RosterView
 ): CanvasNode[] {
-  const rowsByZone: Record<string, RailRow[]> = {}
-  for (const row of [...roster.players, ...roster.enemies]) {
-    const zoneId = instance.occupancy[row.id]?.zoneId
-    if (zoneId === undefined) continue
-    ;(rowsByZone[zoneId] ??= []).push(row)
-  }
+  const byZone = rowsByZone(instance, roster)
 
   return Object.values(instance.geometry.zones).map((zone: MapZone) => {
-    const rows = rowsByZone[zone.id] ?? []
+    const rows = byZone[zone.id] ?? []
     const { w, h } = footprintOf(zone.size)
     return {
       id: zone.id,

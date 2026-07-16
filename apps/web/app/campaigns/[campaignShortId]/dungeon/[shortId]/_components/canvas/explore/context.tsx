@@ -24,6 +24,9 @@ export interface DungeonCanvasContextValue {
   moveParty: (zoneId: string) => void
   /** Opens the Zone details sheet (description, DM notes, exits, reveal/unlock). */
   openDetails: (zoneId: string) => void
+  /** Docks the roster inspector on this Zone — the crowded card's "Open roster ▸"
+   *  made explicit (mutually exclusive with the details sheet). */
+  onInspect: (zoneId: string) => void
   /** The current dungeon-turn counter (the bar's read-out). */
   turnCounter: number
   /** Advances the dungeon turn. */

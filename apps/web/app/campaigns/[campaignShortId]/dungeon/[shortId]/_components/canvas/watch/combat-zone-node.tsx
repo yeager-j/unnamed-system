@@ -30,6 +30,9 @@ export type WatchCombatZoneData = {
   exits: WatchZoneExit[]
   /** The Zone's active Bard Enchantment badge, when one sits here. */
   enchantment?: ZoneEnchantmentBadge
+  /** Docks the watch roster inspector on this Zone (the crowded card's "Open
+   *  roster ▸"; §D7). Supplied by the canvas, which owns the watch `inspectId`. */
+  onOpenRoster: () => void
 }
 export type DungeonWatchCombatZoneNode = Node<
   WatchCombatZoneData,
@@ -49,7 +52,7 @@ export type DungeonWatchCombatZoneNode = Node<
 export function DungeonWatchCombatZoneNode({
   data,
 }: NodeProps<DungeonWatchCombatZoneNode>) {
-  const { view, combatants, exits, enchantment } = data
+  const { view, combatants, exits, enchantment, onOpenRoster } = data
   const byId = new Map(combatants.map((c) => [c.id as string, c]))
 
   const tokenChip = (occupant: SetPieceOccupant) => {
@@ -88,6 +91,7 @@ export function DungeonWatchCombatZoneNode({
   return (
     <ZoneSetPiece
       view={view}
+      onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
       titleAccessory={
         enchantment ? (

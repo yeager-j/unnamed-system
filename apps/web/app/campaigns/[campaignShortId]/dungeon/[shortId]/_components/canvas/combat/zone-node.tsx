@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightIcon, SwordIcon } from "@phosphor-icons/react/dist/ssr"
+import { ArrowRightIcon } from "@phosphor-icons/react/dist/ssr"
 import { NodeToolbar, Position, type Node, type NodeProps } from "@xyflow/react"
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
@@ -11,10 +11,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
-import {
-  clustersOf,
-  OccupantToken,
-} from "@/components/shared/canvas/set-piece/occupant-chips"
+import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { RailRow } from "@/domain/combat/view/roster-view"
@@ -23,6 +20,7 @@ import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
 import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 import { useDungeonCombatCanvas } from "./context"
+import { CombatRosterToken } from "./roster-token"
 
 export type DungeonCombatZoneData = {
   zone: MapZone
@@ -56,6 +54,7 @@ export function DungeonCombatZoneNode({
     onMoveActing,
     onSelectCombatant,
     onCombatEvent,
+    onInspect,
     disabled,
   } = useDungeonCombatCanvas()
   const { zone, revealed, rows, enchantment } = data
@@ -64,24 +63,10 @@ export function DungeonCombatZoneNode({
   const showMove = isMoveTarget && actingName !== null
 
   const tokenButton = (occupant: SetPieceOccupant) => (
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation()
-        onSelectCombatant(occupant.key as ParticipantId)
-      }}
-      aria-label={`${occupant.name} details`}
-      className="cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-    >
-      <OccupantToken
-        occupant={occupant}
-        trailing={
-          occupant.acting ? (
-            <SwordIcon weight="fill" className="size-3 shrink-0" aria-hidden />
-          ) : null
-        }
-      />
-    </button>
+    <CombatRosterToken
+      occupant={occupant}
+      onSelect={(key) => onSelectCombatant(key as ParticipantId)}
+    />
   )
 
   return (
@@ -91,6 +76,7 @@ export function DungeonCombatZoneNode({
         isMoveTarget &&
           "ring-2 ring-primary/40 ring-offset-1 ring-offset-background"
       )}
+      onOpenRoster={() => onInspect(zone.id)}
       handles={<FloatingEdgeHandles />}
       titleAccessory={
         enchantment ? <EnchantmentBadge enchantment={enchantment} /> : null

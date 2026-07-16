@@ -9,13 +9,16 @@ import { dungeonReminders } from "@workspace/game-v2/spatial"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { Spinner } from "@workspace/ui/components/spinner"
 
+import { tokensByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
 import { DungeonEditCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/edit-canvas"
 import { DungeonCanvasProvider } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/context"
+import { RosterInspector } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/roster-inspector"
 import type { DungeonRosterEntry } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
 import { DungeonPartySidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/party-sidebar"
 import { useDungeonConsole } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/zone-sheet"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
+import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { DUNGEON_REMINDER_COPY } from "@/domain/labels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
 import type { DungeonRow } from "@/lib/db/schema/dungeon"
@@ -83,6 +86,32 @@ export function DungeonExploreBody({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
   const selectedZone = selectedZoneId
     ? (instanceState.geometry.zones[selectedZoneId] ?? null)
+    : null
+
+  // The roster inspector's target — a distinct piece of state from the details
+  // sheet (`selectedZoneId`) and independent of the camera (§D7). The two panels
+  // share the right rail, so opening either closes the other.
+  const [inspectId, setInspectId] = useState<string | null>(null)
+  const tokensPerZone = tokensByZone(instanceState, roster)
+  const inspectZone = (zoneId: string | null) => {
+    setInspectId(zoneId)
+    if (zoneId !== null) setSelectedZoneId(null)
+  }
+  const openDetails = (zoneId: string) => {
+    setSelectedZoneId(zoneId)
+    setInspectId(null)
+  }
+  const inspectedZone = inspectId
+    ? (instanceState.geometry.zones[inspectId] ?? null)
+    : null
+  const inspectedView = inspectedZone
+    ? exploreZoneView({
+        zone: inspectedZone,
+        revealed: instanceState.reveal.revealedZoneIds.includes(
+          inspectedZone.id
+        ),
+        tokens: tokensPerZone[inspectedZone.id] ?? [],
+      })
     : null
 
   // Edit ⇄ Play is DM-local, ephemeral UI (never persisted), orthogonal to the
@@ -169,7 +198,8 @@ export function DungeonExploreBody({
                   }
                 }
               },
-              openDetails: setSelectedZoneId,
+              openDetails,
+              onInspect: inspectZone,
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
@@ -185,6 +215,18 @@ export function DungeonExploreBody({
                 instance={instanceState}
                 mode={canvasMode}
                 persistKey={dungeon.shortId}
+                onZoneClick={(zoneId) =>
+                  inspectZone(
+                    (tokensPerZone[zoneId]?.length ?? 0) > 0 ? zoneId : null
+                  )
+                }
+                onPaneClick={() => setInspectId(null)}
+                overlay={
+                  <RosterInspector
+                    view={inspectedView}
+                    onClose={() => setInspectId(null)}
+                  />
+                }
               />
             </div>
           </DungeonCanvasProvider>

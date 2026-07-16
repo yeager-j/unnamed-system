@@ -48,7 +48,8 @@ export function DungeonZoneNode({
   data,
   selected,
 }: NodeProps<DungeonZoneNode>) {
-  const { revealZone, hideZone, moveParty, openDetails } = useDungeonCanvas()
+  const { revealZone, hideZone, moveParty, openDetails, onInspect } =
+    useDungeonCanvas()
   const { zone, revealed, tokens } = data
   const view = exploreZoneView({ zone, revealed, tokens })
 
@@ -57,6 +58,7 @@ export function DungeonZoneNode({
       view={view}
       selected={selected}
       className="cursor-pointer"
+      onOpenRoster={() => onInspect(zone.id)}
       handles={<FloatingEdgeHandles />}
       toolbar={
         <NodeToolbar

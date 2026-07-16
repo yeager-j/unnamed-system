@@ -25,6 +25,9 @@ export type WatchZoneData = {
   exits: WatchZoneExit[]
   /** The Zone's active Bard Enchantment badge, when one sits here (UNN-489). */
   enchantment?: ZoneEnchantmentBadge
+  /** Docks the watch roster inspector on this Zone (the crowded card's "Open
+   *  roster ▸"; §D7). Supplied by the canvas, which owns the watch `inspectId`. */
+  onOpenRoster: () => void
 }
 export type DungeonWatchZoneNode = Node<WatchZoneData, "fogZone">
 
@@ -40,7 +43,7 @@ export type DungeonWatchZoneNode = Node<WatchZoneData, "fogZone">
 export function DungeonWatchZoneNode({
   data,
 }: NodeProps<DungeonWatchZoneNode>) {
-  const { view, exits, enchantment } = data
+  const { view, exits, enchantment, onOpenRoster } = data
 
   const tokenChip = (occupant: (typeof view.occupants)[number]) => (
     <TokenStatsPopover
@@ -55,6 +58,7 @@ export function DungeonWatchZoneNode({
   return (
     <ZoneSetPiece
       view={view}
+      onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
       titleAccessory={
         enchantment ? (

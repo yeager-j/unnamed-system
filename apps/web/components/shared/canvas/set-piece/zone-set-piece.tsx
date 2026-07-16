@@ -1,6 +1,10 @@
 "use client"
 
-import { EyeSlashIcon, NoteIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  CaretRightIcon,
+  EyeSlashIcon,
+  NoteIcon,
+} from "@phosphor-icons/react/dist/ssr"
 import { useId, type ReactNode } from "react"
 
 import { cn } from "@workspace/ui/lib/utils"
@@ -8,7 +12,12 @@ import { cn } from "@workspace/ui/lib/utils"
 import type { ZoneSetPieceView } from "@/domain/map/view/set-piece-view"
 
 import { MotifGlyph } from "./motif-icons"
-import { OccupantAvatars, OccupantPips } from "./occupant-chips"
+import {
+  CondensedAvatarStack,
+  OccupantAvatars,
+  OccupantPips,
+} from "./occupant-chips"
+import { closeupFitsInCard } from "./roster-capacity"
 import styles from "./zone-set-piece.module.css"
 
 /**
@@ -29,10 +38,12 @@ import styles from "./zone-set-piece.module.css"
  * glyphs/text (the eye-slash, the summary line, "Unoccupied") plus an always-present
  * `aria-describedby` state line — never the label, never color alone.
  *
- * P1b renders identity + tiers + occupant pips/avatars; the interactive Closeup
- * token grid is the `closeupRoster` slot each surface fills (the kit absorbs it
- * with the roster inspector in P1c). D6 color channels (mood wash, occupancy
- * gradient, gold keyline, dashed reveal border) land in P3.
+ * The interactive Closeup token grid is the `closeupRoster` slot each surface
+ * fills; the kit owns the crowded-zone decision (§D7): when the occupants outgrow
+ * the footprint's `zoneTokenCapacity` it degrades that slot to a condensed avatar
+ * stack + "Open roster ▸" (`onOpenRoster`), which docks the surface's roster
+ * inspector. D6 color channels (mood wash, occupancy gradient, gold keyline,
+ * dashed reveal border) land in P3.
  */
 export interface ZoneSetPieceProps {
   view: ZoneSetPieceView
@@ -46,8 +57,14 @@ export interface ZoneSetPieceProps {
   titleAccessory?: ReactNode
   /** Header action on the right (the DM combat Enchantment control). */
   headerAction?: ReactNode
-  /** The interactive Closeup token grid; the surface wrapper owns propagation. */
+  /** The interactive Closeup token grid; the surface wrapper owns propagation.
+   *  Rendered only while the occupants fit the footprint (§D7) — over cap the card
+   *  degrades to the condensed stack + "Open roster ▸" instead. */
   closeupRoster?: ReactNode
+  /** Opens this zone's roster inspector — wired on surfaces that have one (§D7).
+   *  Its presence is what lets the card degrade a crowded Closeup: absent (the
+   *  template editor) the card always renders full tokens. */
+  onOpenRoster?: () => void
   /** Extra Closeup content below the roster (the watch's known-exit silhouettes,
    *  a P1b holdover the P2 threshold notches replace). */
   closeupFooter?: ReactNode
@@ -66,6 +83,7 @@ export function ZoneSetPiece({
   titleAccessory,
   headerAction,
   closeupRoster,
+  onOpenRoster,
   closeupFooter,
   manifestSlot,
 }: ZoneSetPieceProps) {
@@ -73,6 +91,13 @@ export function ZoneSetPiece({
   const unmapped = view.reveal === "unmapped"
   const occupied = view.occupants.length > 0
   const dimContent = unmapped && "opacity-50"
+  // The roster is decoupled from the footprint (§D7): over capacity the Closeup
+  // degrades to the condensed stack + inspector, so a small room never clips a
+  // crowd. Only degrade where an inspector exists to send the DM to.
+  const crowded =
+    occupied &&
+    onOpenRoster !== undefined &&
+    !closeupFitsInCard(view.size, view.occupants)
 
   const revealGlyph = unmapped ? (
     <EyeSlashIcon
@@ -200,12 +225,29 @@ export function ZoneSetPiece({
           </p>
         ) : null}
         <div className="flex min-h-0 flex-1 flex-col gap-2">
-          {closeupRoster ??
+          {crowded ? (
+            <div className="flex flex-col items-start gap-2">
+              <CondensedAvatarStack occupants={view.occupants} />
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onOpenRoster?.()
+                }}
+                className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+              >
+                Open roster
+                <CaretRightIcon weight="bold" className="size-3" aria-hidden />
+              </button>
+            </div>
+          ) : (
+            (closeupRoster ??
             (occupied ? null : (
               <span className="text-sm text-muted-foreground italic">
                 {UNOCCUPIED}
               </span>
-            ))}
+            )))
+          )}
           {closeupFooter}
         </div>
         {manifestSlot}

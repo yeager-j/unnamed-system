@@ -10,9 +10,11 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
+  type Node,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useEffect, type ReactNode } from "react"
+import { useCallback, useEffect, type ReactNode } from "react"
 
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
 
@@ -40,6 +42,7 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 
 const nodeTypes = {
@@ -63,6 +66,13 @@ export function DungeonCanvas(props: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
   bar?: ReactNode
+  /** A React Flow overlay rendered inside the flow (the roster inspector Panel). */
+  overlay?: ReactNode
+  /** A zone was clicked — the canvas has already centered on it; the body decides
+   *  the inspector open/clear (occupied ? open : clear). */
+  onZoneClick?: (zoneId: string) => void
+  /** The empty pane was clicked — clears the inspector. */
+  onPaneClick?: () => void
   /** Persists zoom/pan across phase remounts, keyed by the dungeon's `shortId` —
    *  see {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/viewport-store").readViewport}. */
   persistKey?: string
@@ -78,15 +88,37 @@ function DungeonCanvasInner({
   instance,
   mode,
   bar,
+  overlay,
+  onZoneClick,
+  onPaneClick,
   persistKey,
 }: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
   bar?: ReactNode
+  overlay?: ReactNode
+  onZoneClick?: (zoneId: string) => void
+  onPaneClick?: () => void
   persistKey?: string
 }) {
   const { resolvedTheme } = useTheme()
   const tier = useCanvasTier()
+  const { setCenter, getZoom } = useReactFlow()
+  // Click-to-center (§D1): focus and detail stay orthogonal, so centering keeps
+  // the current zoom. Reduced motion collapses the ease. The body owns what the
+  // click *means* for the inspector; the canvas just frames the zone.
+  const onNodeClick = useCallback(
+    (_: unknown, node: Node) => {
+      const w = node.measured?.width ?? node.width ?? 0
+      const h = node.measured?.height ?? node.height ?? 0
+      setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+        zoom: getZoom(),
+        duration: prefersReducedMotion() ? 0 : 200,
+      })
+      onZoneClick?.(node.id)
+    },
+    [setCenter, getZoom, onZoneClick]
+  )
   // Restore the last zoom/pan for this dungeon (or fit the board on the first
   // visit); a phase switch remounts this canvas, so this is what keeps it steady.
   const storedViewport = persistKey ? readViewport(persistKey) : undefined
@@ -112,6 +144,8 @@ function DungeonCanvasInner({
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
         nodesDraggable={false}
         nodesConnectable={false}
         colorMode={resolvedTheme === "dark" ? "dark" : "light"}
@@ -160,6 +194,7 @@ function DungeonCanvasInner({
           </span>
         </Panel>
 
+        {overlay}
         {bar ?? <TurnLoopBar />}
       </ReactFlow>
     </div>
