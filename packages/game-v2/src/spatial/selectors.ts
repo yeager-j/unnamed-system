@@ -1,7 +1,7 @@
 import type { Engagement } from "@workspace/game-v2/kernel/vocab/engagement"
 import type { ZoneEnchantment } from "@workspace/game-v2/mechanics/zone-enchantment.schema"
 
-import type { MapGeometry, MapZone } from "./geometry.schema"
+import type { MapConnection, MapGeometry, MapZone } from "./geometry.schema"
 import type { MapInstanceState } from "./map-instance.schema"
 
 /**
@@ -98,6 +98,47 @@ export function adjacencyMap(geometry: MapGeometry): Record<string, string[]> {
     map[zoneId]?.push(...neighborIds)
   }
   return map
+}
+
+/**
+ * Hop distance from the **nearest** origin to every reachable zone — a multi-source
+ * breadth-first search over {@link adjacencyOf}'s undirected neighbor map. Origins
+ * seed distance 0; each layer adds one hop; a zone **absent from the result is
+ * unreachable** (the caller renders no range badge). Empty origins → `{}`.
+ *
+ * Traversability is the **caller's** policy: pass exactly the connections the surface
+ * counts (the range lens counts authored adjacency, so it passes them all — a hop
+ * rides adjacency, not whether Travel is currently blocked; §D5). Because it names
+ * only `{ fromZoneId, toZoneId }`, a redacted snapshot's connection list feeds it as
+ * readily as authored geometry, and the spatial one-way seam holds (SD2 — no
+ * `encounter`/`combat`/`visibility` import).
+ */
+export function hopDistances(
+  connections: Iterable<Pick<MapConnection, "fromZoneId" | "toZoneId">>,
+  originZoneIds: readonly string[]
+): Record<string, number> {
+  const neighbors = adjacencyOf(connections)
+  const distances: Record<string, number> = {}
+  let frontier: string[] = []
+  for (const origin of originZoneIds) {
+    if (distances[origin] === undefined) {
+      distances[origin] = 0
+      frontier.push(origin)
+    }
+  }
+  for (let hop = 1; frontier.length > 0; hop++) {
+    const next: string[] = []
+    for (const zoneId of frontier) {
+      for (const neighborId of neighbors[zoneId] ?? []) {
+        if (distances[neighborId] === undefined) {
+          distances[neighborId] = hop
+          next.push(neighborId)
+        }
+      }
+    }
+    frontier = next
+  }
+  return distances
 }
 
 /** The zones adjacent to `zoneId`, resolved to their {@link MapZone}s — built on

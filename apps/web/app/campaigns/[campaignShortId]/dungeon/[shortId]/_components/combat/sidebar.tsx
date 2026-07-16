@@ -2,10 +2,14 @@
 
 import type { ParticipantId } from "@workspace/game-v2/kernel/participant-id.schema"
 import { Badge } from "@workspace/ui/components/badge"
+import { Label } from "@workspace/ui/components/label"
 import { SidebarContent, SidebarGroup } from "@workspace/ui/components/sidebar"
+import { Switch } from "@workspace/ui/components/switch"
 
+import { useDungeonCombatCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/context"
 import { DungeonSidebarHeader } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/sidebar-header"
 import { CombatantRail } from "@/components/combat/rail/combatant-rail"
+import { TurnOrderStrip } from "@/components/combat/turn-order-strip"
 import type { RosterView } from "@/domain/combat/view/roster-view"
 
 /**
@@ -30,6 +34,19 @@ export function DungeonCombatSidebar({
   round: number
   onSelectCombatant: (participantId: ParticipantId) => void
 }) {
+  const {
+    phase,
+    draftHeading,
+    actingName,
+    turnRows,
+    roundComplete,
+    onDraft,
+    onAdvanceRound,
+    moveAnywhere,
+    onToggleMoveAnywhere,
+    disabled,
+  } = useDungeonCombatCanvas()
+
   return (
     <>
       <DungeonSidebarHeader
@@ -43,6 +60,37 @@ export function DungeonCombatSidebar({
       />
 
       <SidebarContent>
+        <SidebarGroup className="gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <h2 className="font-heading text-sm font-medium">
+              {phase === "drafting"
+                ? draftHeading
+                : phase === "resolving"
+                  ? "Resolving end-of-turn checks…"
+                  : `Now acting: ${actingName}`}
+            </h2>
+            {phase === "active" ? (
+              <Label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+                <Switch
+                  checked={moveAnywhere}
+                  onCheckedChange={onToggleMoveAnywhere}
+                  disabled={disabled}
+                />
+                Move anywhere
+              </Label>
+            ) : null}
+          </div>
+          <TurnOrderStrip
+            rows={turnRows}
+            phase={phase}
+            round={round}
+            roundComplete={roundComplete}
+            isPending={disabled}
+            onDraft={onDraft}
+            onAdvanceRound={onAdvanceRound}
+          />
+        </SidebarGroup>
+
         <SidebarGroup>
           <CombatantRail roster={roster} onSelect={onSelectCombatant} />
         </SidebarGroup>

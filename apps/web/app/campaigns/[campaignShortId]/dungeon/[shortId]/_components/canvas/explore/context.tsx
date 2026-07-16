@@ -3,6 +3,7 @@
 import { createContext, useContext } from "react"
 
 import type { DungeonConsoleMode } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/mode-toggle"
+import type { ZoneSetPieceHop } from "@/domain/map/view/set-piece-view"
 
 /**
  * The run-console state + dispatchers the canvas-internal chrome reads — the
@@ -27,6 +28,11 @@ export interface DungeonCanvasContextValue {
   /** Docks the roster inspector on this Zone — the crowded card's "Open roster ▸"
    *  made explicit (mutually exclusive with the details sheet). */
   onInspect: (zoneId: string) => void
+  /** The range-lens badge for a Zone (§D5), or `null` when it's unreachable from
+   *  the party's zones (the lens origin — selection never re-homes it). */
+  hopFor: (zoneId: string) => ZoneSetPieceHop | null
+  /** Whether the party occupies this Zone — the gold keyline channel (§D6). */
+  isParty: (zoneId: string) => boolean
   /** The current dungeon-turn counter (the bar's read-out). */
   turnCounter: number
   /** Advances the dungeon turn. */

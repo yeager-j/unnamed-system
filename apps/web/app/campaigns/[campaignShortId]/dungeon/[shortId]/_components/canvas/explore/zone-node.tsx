@@ -49,10 +49,23 @@ export function DungeonZoneNode({
   data,
   selected,
 }: NodeProps<DungeonZoneNode>) {
-  const { revealZone, hideZone, moveParty, openDetails, onInspect } =
-    useDungeonCanvas()
+  const {
+    revealZone,
+    hideZone,
+    moveParty,
+    openDetails,
+    onInspect,
+    hopFor,
+    isParty,
+  } = useDungeonCanvas()
   const { zone, revealed, tokens } = data
-  const view = exploreZoneView({ zone, revealed, tokens })
+  const view = exploreZoneView({
+    zone,
+    revealed,
+    tokens,
+    party: isParty(zone.id),
+    hop: hopFor(zone.id),
+  })
   const partnerHighlighted = useConnectionHighlight(zone.id)
 
   return (
@@ -67,6 +80,12 @@ export function DungeonZoneNode({
         <NodeToolbar
           isVisible={selected}
           position={Position.Top}
+          // The toolbar is a React child of the node, so a click on any of its
+          // buttons bubbles (through React Flow's portal) to `onNodeClick` — which
+          // for an occupied zone opens the inspector and clears the details-sheet
+          // selection, swallowing "Zone details". Stop it here so a toolbar click is
+          // never also a zone click (§D3; the card's "Open roster" does the same).
+          onClick={(event) => event.stopPropagation()}
           className="flex items-center gap-1 rounded-none border bg-popover p-1 shadow-md"
         >
           <Button

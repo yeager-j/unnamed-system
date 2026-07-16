@@ -89,7 +89,7 @@ export function RosterInspector({
   return (
     <Panel
       position="top-right"
-      className="flex max-h-[calc(100%-2rem)] w-96 flex-col gap-3 rounded-xl border bg-card p-3 shadow-md motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-4"
+      className="flex max-h-[calc(100%-2rem)] w-96 flex-col gap-3 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-4"
     >
       <div className="flex items-center gap-2">
         <MotifGlyph

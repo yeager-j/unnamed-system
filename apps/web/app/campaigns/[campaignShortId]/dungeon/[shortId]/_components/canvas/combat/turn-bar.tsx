@@ -3,7 +3,6 @@
 import { EyeIcon, FlagIcon } from "@phosphor-icons/react/dist/ssr"
 import Link from "next/link"
 
-import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 
@@ -17,14 +16,14 @@ import { useDungeonCombatCanvas } from "./context"
  * The combat-phase bottom **Panel** (UNN-536) — the combat peer of the
  * exploration {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/turn-loop-bar").TurnLoopBar}.
  * Pinned inside React Flow so it can drive the viewport, it holds the static combat
- * verbs: the Round badge, **End turn** (while a combatant is acting), **Player
+ * verbs: **End turn** (while a combatant is acting), **Player
  * view** (the read-only fog view), **End encounter**, and the shared zoom cluster.
- * Whose-turn drafting lives in the top {@link import("./spine-panel").CombatSpinePanel};
+ * Whose-turn drafting lives in the left {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar").DungeonCombatSidebar}
+ * (moved off the canvas so it stops overlapping the cartouche + roster inspector);
  * all state comes from {@link useDungeonCombatCanvas}.
  */
 export function CombatTurnBar() {
   const {
-    round,
     phase,
     onEndTurn,
     playerViewHref,
@@ -36,20 +35,7 @@ export function CombatTurnBar() {
 
   return (
     <CanvasBottomBar>
-      <Badge variant="outline" className="tabular-nums">
-        Round {round}
-      </Badge>
-
-      {phase === "active" ? (
-        <Button size="sm" onClick={onEndTurn} disabled={disabled}>
-          <FlagIcon weight="fill" />
-          End turn
-        </Button>
-      ) : phase === "resolving" ? (
-        <Button size="sm" variant="outline" disabled>
-          Resolving…
-        </Button>
-      ) : null}
+      <CanvasZoomCluster />
 
       <Separator orientation="vertical" className="mx-1" />
 
@@ -76,9 +62,20 @@ export function CombatTurnBar() {
         disabled={disabled}
       />
 
-      <Separator orientation="vertical" className="mx-1" />
-
-      <CanvasZoomCluster />
+      {phase === "active" ? (
+        <Button size="sm" onClick={onEndTurn} disabled={disabled}>
+          <FlagIcon weight="fill" />
+          End turn
+        </Button>
+      ) : phase === "resolving" ? (
+        <Button size="sm" variant="outline" disabled>
+          Resolving…
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" disabled>
+          Drafting…
+        </Button>
+      )}
     </CanvasBottomBar>
   )
 }

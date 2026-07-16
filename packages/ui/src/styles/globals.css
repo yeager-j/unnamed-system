@@ -101,6 +101,20 @@
   --sp: var(--color-blue-600);
   --gold: oklch(0.82 0.13 85);
   --void: oklch(0.07 0.006 285); /* offstage dark (≈#070709) — the notch fill / theater void (UNN-633 §D6) */
+
+  /* Zone mood washes (Dungeon Visual Overhaul §D6). One fact per channel: mood
+   * carries the room's *light* (hue) and NOTHING else — every wash shares a fixed
+   * luminance (L 0.62) and mixes into --card at a fixed 13%, so ONLY occupancy is
+   * ever allowed to move a card's brightness (a warm room can't out-shine an
+   * occupied one). The equal-luminance / equal-mix constraint is a CI gate
+   * (mood-wash.gate.test.ts) — adding a fourth hue is legal, moving brightness is
+   * a red build. */
+  --mood-wash-warm: oklch(0.62 0.08 75);
+  --mood-wash-dim: oklch(0.62 0.02 285);
+  --mood-wash-cool: oklch(0.62 0.08 262);
+  --mood-warm: color-mix(in oklab, var(--card), var(--mood-wash-warm) 13%);
+  --mood-dim: color-mix(in oklab, var(--card), var(--mood-wash-dim) 13%);
+  --mood-cool: color-mix(in oklab, var(--card), var(--mood-wash-cool) 13%);
 }
 
 /* shadcn/typeset customizations. typeset.css is vendored verbatim from

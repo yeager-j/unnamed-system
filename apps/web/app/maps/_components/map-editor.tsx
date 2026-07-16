@@ -56,6 +56,7 @@ export function MapEditor({ map }: { map: MapRow }) {
         <MapCanvas
           geometry={map.geometry}
           onGeometryChange={handleGeometryChange}
+          cartoucheTitle={name.value}
         />
       </div>
 

@@ -25,7 +25,7 @@ export function CanvasBottomBar({
       <TooltipProvider delay={300}>
         <div
           className={cn(
-            "flex items-center gap-1 rounded-xl border bg-popover p-3 shadow-lg",
+            "flex items-center gap-1 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur-xl",
             className
           )}
         >

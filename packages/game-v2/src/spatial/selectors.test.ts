@@ -8,6 +8,7 @@ import {
   adjacencyOf,
   adjacentZones,
   engagementOf,
+  hopDistances,
   zoneOf,
 } from "./selectors"
 
@@ -128,6 +129,50 @@ describe("spatial selectors (the SpatialReads adapter source, SD8)", () => {
         connections: { "a-gone": connection("a", "gone") },
       }
       expect(adjacentZones(dangling, "a")).toEqual([])
+    })
+  })
+
+  describe("hopDistances", () => {
+    it("counts hops along a chain from a single origin", () => {
+      // a - b - c ; d isolated
+      expect(hopDistances(Object.values(geometry.connections), ["a"])).toEqual({
+        a: 0,
+        b: 1,
+        c: 2,
+      })
+    })
+
+    it("omits unreachable zones (an isolated zone gets no entry)", () => {
+      const distances = hopDistances(Object.values(geometry.connections), ["a"])
+      expect(distances.d).toBeUndefined()
+    })
+
+    it("takes the nearest origin under multi-source search", () => {
+      // a - b - c: origins a & c both reach b at distance 1
+      expect(
+        hopDistances(Object.values(geometry.connections), ["a", "c"])
+      ).toEqual({ a: 0, b: 1, c: 0 })
+    })
+
+    it("finds the shortest path around a cycle, not the first walked", () => {
+      // diamond: a-b, a-c, b-d, c-d — d is 2 hops from a by either arm
+      const diamond: MapConnection[] = [
+        connection("a", "b"),
+        connection("a", "c"),
+        connection("b", "d"),
+        connection("c", "d"),
+      ]
+      expect(hopDistances(diamond, ["a"])).toEqual({ a: 0, b: 1, c: 1, d: 2 })
+    })
+
+    it("maps empty origins to an empty record", () => {
+      expect(hopDistances(Object.values(geometry.connections), [])).toEqual({})
+    })
+
+    it("dedupes repeated origins without inflating distance", () => {
+      expect(
+        hopDistances(Object.values(geometry.connections), ["a", "a"])
+      ).toEqual({ a: 0, b: 1, c: 2 })
     })
   })
 })

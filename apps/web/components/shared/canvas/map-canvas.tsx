@@ -57,6 +57,7 @@ import {
 import { footprintOf, overlappingZonePairs } from "@/domain/map/view/footprints"
 import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
+import { CanvasCartouche } from "./canvas-cartouche"
 import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
 import { FloatingConnectionLine } from "./floating-connection-line"
@@ -127,6 +128,9 @@ export function MapCanvas(props: {
   defaultViewport?: Viewport
   onMoveEnd?: OnMove
   bottomBarLeading?: ReactNode
+  /** The map/dungeon name — the top-center cartouche title (§D8). Absent ⇒ no
+   *  cartouche (a readonly embed). */
+  cartoucheTitle?: string
 }) {
   return (
     <ReactFlowProvider>
@@ -147,6 +151,7 @@ function MapCanvasInner({
   defaultViewport,
   onMoveEnd,
   bottomBarLeading,
+  cartoucheTitle,
 }: {
   geometry: MapGeometry
   onGeometryChange?: (geometry: MapGeometry) => void
@@ -157,6 +162,7 @@ function MapCanvasInner({
   defaultViewport?: Viewport
   onMoveEnd?: OnMove
   bottomBarLeading?: ReactNode
+  cartoucheTitle?: string
 }) {
   const editable = interactivity === "edit"
   const { resolvedTheme } = useTheme()
@@ -472,6 +478,14 @@ function MapCanvasInner({
             />
           )}
           <WarningsBanner geometry={geometry} />
+          {cartoucheTitle ? (
+            <CanvasCartouche
+              title={cartoucheTitle}
+              subtitle={`${Object.keys(geometry.zones).length} ${
+                Object.keys(geometry.zones).length === 1 ? "zone" : "zones"
+              }`}
+            />
+          ) : null}
         </ReactFlow>
 
         {isEmpty && editable && <EmptyState />}

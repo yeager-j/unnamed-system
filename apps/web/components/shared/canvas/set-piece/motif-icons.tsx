@@ -75,6 +75,22 @@ export const MOTIF_GLYPHS: Record<ZoneMotif, Glyph> = {
   tomb: TombGlyph,
 }
 
+/**
+ * The route glyph — two nodes joined by a dashed hop, vendored from the handoff's
+ * `mi-route` (§D5). Keyed to nothing: it's the range-lens badge's register, kept
+ * out of {@link MOTIF_GLYPHS} (typed to {@link ZoneMotif}) so a hop is never
+ * mistakable for a zone motif.
+ */
+export function RouteGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} {...strokeProps} aria-hidden>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="18" cy="18" r="2" />
+      <path d="M6 8v2a5 5 0 0 0 5 5h3" strokeDasharray="2.5 2.5" />
+    </svg>
+  )
+}
+
 /** The glyph for a motif, or `null` when a zone has none (name-only header). */
 export function MotifGlyph({
   motif,

@@ -13,6 +13,7 @@ import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import type {
   SetPieceFaction,
   SetPieceOccupant,
+  ZoneSetPieceHop,
   ZoneSetPieceView,
 } from "@/domain/map/view/set-piece-view"
 import type { Pool } from "@/domain/pool"
@@ -24,9 +25,15 @@ import type { Pool } from "@/domain/pool"
  * builder derives `owned` from the viewer's `ownedCharacterIds` **array** (0..n
  * gold) and `engagementGroup` from the shared {@link groupTokensByEngagement}
  * partition — **only for multi-member clusters** (the partition returns Free
- * combatants as singletons, and a singleton is not a melee). `party`/`hop` are
- * P3 channels (the range lens + gold keyline) — carried in the shape, left
- * unpopulated here.
+ * combatants as singletons, and a singleton is not a melee).
+ *
+ * `party` (the gold keyline) and `hop` (the range-lens badge) are the P3 channels
+ * (§D5/§D6). They're per-*board* facts — the party's zones, the hop map from the
+ * surface's lens origin — so the caller computes them once (`buildRangeLens` +
+ * occupancy ∩ roster) and passes the per-zone slice in; each builder just carries
+ * it onto the view. Explore/watch-explore spend the gold keyline; DM combat passes
+ * `party: false` (players are placed individually — the acting ring + HP bars carry
+ * identity, and the lens origin is the acting combatant's zone).
  */
 
 type IdentitySource = Pick<
@@ -169,7 +176,8 @@ export function editorZoneView(
   }
 }
 
-/** The DM run console's exploration card — party tokens, reveal-aware. */
+/** The DM run console's exploration card — party tokens, reveal-aware, with the
+ *  P3 gold keyline + range badge the console's lens supplies. */
 export function exploreZoneView(input: {
   zone: MapZone
   revealed: boolean
@@ -181,14 +189,16 @@ export function exploreZoneView(input: {
     sp?: Pool
   }[]
   ownedCharacterIds?: readonly string[]
+  party?: boolean
+  hop?: ZoneSetPieceHop | null
 }): ZoneSetPieceView {
   const owned = withOwned(input.ownedCharacterIds ?? [])
   const occupants = input.tokens.map((token) => partyOccupant(token, owned))
   return {
     ...identity(input.zone),
     reveal: input.revealed ? "revealed" : "unmapped",
-    party: false,
-    hop: null,
+    party: input.party ?? false,
+    hop: input.hop ?? null,
     occupants,
     summary: occupancySummary(occupants),
     hasDmNotes: input.zone.dmNotes.trim().length > 0,
@@ -202,6 +212,7 @@ export function combatZoneView(input: {
   revealed: boolean
   rows: RailRow[]
   ownedCharacterIds?: readonly string[]
+  hop?: ZoneSetPieceHop | null
 }): ZoneSetPieceView {
   const owned = withOwned(input.ownedCharacterIds ?? [])
   const groups = engagementGroups(input.rows)
@@ -223,8 +234,10 @@ export function combatZoneView(input: {
   return {
     ...identity(input.zone),
     reveal: input.revealed ? "revealed" : "unmapped",
+    // No party keyline in combat — players are placed individually; the acting ring
+    // + the acting-origin lens carry position (§D5, owner-confirmed).
     party: false,
-    hop: null,
+    hop: input.hop ?? null,
     occupants,
     summary: occupancySummary(occupants),
     hasDmNotes: input.zone.dmNotes.trim().length > 0,
@@ -236,6 +249,8 @@ export function combatZoneView(input: {
 export function watchExploreZoneView(input: {
   zone: DungeonSnapshotZone
   ownedCharacterIds?: readonly string[]
+  party?: boolean
+  hop?: ZoneSetPieceHop | null
 }): ZoneSetPieceView {
   const owned = withOwned(input.ownedCharacterIds ?? [])
   const groups = engagementGroups(
@@ -254,8 +269,8 @@ export function watchExploreZoneView(input: {
   return {
     ...identity(input.zone),
     reveal: "revealed",
-    party: false,
-    hop: null,
+    party: input.party ?? false,
+    hop: input.hop ?? null,
     occupants,
     summary: occupancySummary(occupants),
   }
@@ -267,6 +282,7 @@ export function watchCombatZoneView(input: {
   zone: DungeonSnapshotZone
   combatants: WatchCombatant[]
   ownedCharacterIds?: readonly string[]
+  hop?: ZoneSetPieceHop | null
 }): ZoneSetPieceView {
   const owned = withOwned(input.ownedCharacterIds ?? [])
   const groups = engagementGroups(input.combatants)
@@ -289,7 +305,7 @@ export function watchCombatZoneView(input: {
     ...identity(input.zone),
     reveal: "revealed",
     party: false,
-    hop: null,
+    hop: input.hop ?? null,
     occupants,
     summary: occupancySummary(occupants),
   }
