@@ -19,6 +19,7 @@ import { ZONE_SIZE_LABELS } from "@/domain/labels"
 import type { ZoneSize } from "@/domain/map/view/footprints"
 
 import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
+import { useConnectionHighlight } from "./hovered-connection-context"
 import { useMapCanvas } from "./map-canvas-context"
 import { OccupantToken } from "./set-piece/occupant-chips"
 import { ZoneSetPiece } from "./set-piece/zone-set-piece"
@@ -67,6 +68,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
   const locked = lockedZoneIds?.has(zone.id) ?? false
   const occupants = zoneOccupants?.(zone.id) ?? []
   const view = editorZoneView(zone, occupants)
+  const partnerHighlighted = useConnectionHighlight(zone.id)
 
   const toolbar = (
     <NodeToolbar
@@ -154,6 +156,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
     <ZoneSetPiece
       view={view}
       selected={selected}
+      partnerHighlighted={partnerHighlighted}
       toolbar={toolbar}
       handles={handles}
       closeupRoster={

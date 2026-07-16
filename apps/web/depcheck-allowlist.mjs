@@ -115,7 +115,6 @@ export const ENGINE_IMPORT_ALLOWLIST = [
   "components/combat/watch/owned-sheet-refresh.ts",
   "components/combat/watch/owned-sheet-tabs.tsx",
   "components/combat/watch/watch-enemies-rail.tsx",
-  "components/shared/canvas/connection-edge.tsx",
   "components/shared/canvas/geometry-to-flow.test.ts",
   "components/shared/canvas/geometry-to-flow.ts",
   "components/shared/canvas/map-canvas-context.tsx",

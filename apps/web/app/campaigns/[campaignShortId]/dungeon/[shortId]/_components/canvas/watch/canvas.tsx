@@ -33,10 +33,16 @@ import {
   type WatchZoneExit,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/zone-node"
 import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+import { connectionAriaLabel } from "@/components/shared/canvas/geometry-to-flow"
 import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import {
+  HoveredConnectionProvider,
+  useEdgeFocusPairing,
+  useHoveredConnection,
+} from "@/components/shared/canvas/hovered-connection-context"
 import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
@@ -66,13 +72,19 @@ export type DungeonWatchCanvasMode =
 
 type WatchCanvasNode = DungeonWatchZoneNodeType | DungeonWatchCombatZoneNodeType
 
-/** Known-exit silhouettes keyed by their revealed endpoint. */
+/** Known-exit stubs keyed by their revealed endpoint, carrying the loader-computed
+ *  rim placement so the lone notch lands where the revealed near-notch will (§D4). */
 function exitsByZone(
   snapshot: DungeonSnapshot
 ): Record<string, WatchZoneExit[]> {
   const byZone: Record<string, WatchZoneExit[]> = {}
   for (const exit of snapshot.exits) {
-    ;(byZone[exit.zoneId] ??= []).push({ id: exit.id, locked: exit.locked })
+    ;(byZone[exit.zoneId] ??= []).push({
+      id: exit.id,
+      locked: exit.locked,
+      side: exit.side,
+      offset: exit.offset,
+    })
   }
   return byZone
 }
@@ -154,17 +166,33 @@ function buildCombatNodes(
   })
 }
 
-/** Revealed connections (both endpoints discovered) as read-only floating edges,
+/** Revealed connections (both endpoints discovered) as read-only threshold edges,
  *  reusing the run console's edge — every player-visible edge is `revealed` fog. */
 function buildEdges(snapshot: DungeonSnapshot): DungeonConnectionEdgeType[] {
-  return snapshot.connections.map((connection) => ({
-    id: connection.id,
-    type: "dungeonConnection",
-    source: connection.fromZoneId,
-    target: connection.toZoneId,
-    selectable: false,
-    data: { fog: "revealed", locked: connection.locked },
-  }))
+  const nameOf = new Map(snapshot.zones.map((zone) => [zone.id, zone.name]))
+  return snapshot.connections.map((connection) => {
+    const fromName = nameOf.get(connection.fromZoneId) ?? ""
+    const toName = nameOf.get(connection.toZoneId) ?? ""
+    return {
+      id: connection.id,
+      type: "dungeonConnection" as const,
+      source: connection.fromZoneId,
+      target: connection.toZoneId,
+      selectable: false,
+      focusable: true,
+      // Player-side connections are always revealed (no secrets reach the watch).
+      ariaLabel: connectionAriaLabel(fromName, toName, {
+        hidden: false,
+        locked: connection.locked,
+      }),
+      data: {
+        fog: "revealed" as const,
+        locked: connection.locked,
+        fromName,
+        toName,
+      },
+    }
+  })
 }
 
 /**
@@ -192,7 +220,9 @@ export function DungeonWatchCanvas(props: {
 }) {
   return (
     <ReactFlowProvider>
-      <DungeonWatchCanvasInner {...props} />
+      <HoveredConnectionProvider>
+        <DungeonWatchCanvasInner {...props} />
+      </HoveredConnectionProvider>
     </ReactFlowProvider>
   )
 }
@@ -209,9 +239,11 @@ function DungeonWatchCanvasInner({
   const { resolvedTheme } = useTheme()
   const tier = useCanvasTier()
   const { setCenter, getZoom } = useReactFlow()
+  const { setHovered } = useHoveredConnection()
   const [nodes, setNodes, onNodesChange] = useNodesState<WatchCanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   // The roster inspector's target — owned here (the watch has no details sheet to
   // coordinate with), independent of the camera. `elementsSelectable={false}`
@@ -274,7 +306,7 @@ function DungeonWatchCanvasInner({
   const isEmpty = snapshot.zones.length === 0
 
   return (
-    <div className="relative size-full" data-tier={tier}>
+    <div className="relative size-full" data-tier={tier} {...edgeFocusPairing}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -283,6 +315,13 @@ function DungeonWatchCanvasInner({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onEdgeMouseEnter={(_, edge) =>
+          setHovered({
+            connectionId: edge.id,
+            zoneIds: [edge.source, edge.target],
+          })
+        }
+        onEdgeMouseLeave={() => setHovered(null)}
         onPaneClick={() => setInspectId(null)}
         nodesDraggable={false}
         nodesConnectable={false}

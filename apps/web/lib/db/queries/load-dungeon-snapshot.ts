@@ -4,6 +4,7 @@ import {
   type DungeonSnapshot,
 } from "@workspace/game-v2/visibility"
 
+import { dungeonExitAnchors } from "@/domain/map/view/exit-anchors"
 import { loadPlacedCharactersForCampaign } from "@/lib/db/queries/character-list"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import { loadDungeonRowByShortId } from "@/lib/db/queries/load-dungeon"
@@ -101,7 +102,8 @@ export async function getDungeonSnapshot(
     },
     instance.state,
     dungeon.state,
-    roster
+    roster,
+    dungeonExitAnchors(instance.state)
   )
 }
 

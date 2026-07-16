@@ -42,6 +42,11 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import {
+  HoveredConnectionProvider,
+  useEdgeFocusPairing,
+  useHoveredConnection,
+} from "@/components/shared/canvas/hovered-connection-context"
 import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 
@@ -79,7 +84,9 @@ export function DungeonCanvas(props: {
 }) {
   return (
     <ReactFlowProvider>
-      <DungeonCanvasInner {...props} />
+      <HoveredConnectionProvider>
+        <DungeonCanvasInner {...props} />
+      </HoveredConnectionProvider>
     </ReactFlowProvider>
   )
 }
@@ -104,6 +111,7 @@ function DungeonCanvasInner({
   const { resolvedTheme } = useTheme()
   const tier = useCanvasTier()
   const { setCenter, getZoom } = useReactFlow()
+  const { setHovered } = useHoveredConnection()
   // Click-to-center (§D1): focus and detail stay orthogonal, so centering keeps
   // the current zoom. Reduced motion collapses the ease. The body owns what the
   // click *means* for the inspector; the canvas just frames the zone.
@@ -125,6 +133,7 @@ function DungeonCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   // Re-derive the board from the (optimistic) Instance whenever it changes — a
   // move/reveal/turn snaps tokens + reveal badges to the new truth.
@@ -136,7 +145,7 @@ function DungeonCanvasInner({
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
-    <div className="relative size-full" data-tier={tier}>
+    <div className="relative size-full" data-tier={tier} {...edgeFocusPairing}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -145,6 +154,13 @@ function DungeonCanvasInner({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeClick={onNodeClick}
+        onEdgeMouseEnter={(_, edge) =>
+          setHovered({
+            connectionId: edge.id,
+            zoneIds: [edge.source, edge.target],
+          })
+        }
+        onEdgeMouseLeave={() => setHovered(null)}
         onPaneClick={onPaneClick}
         nodesDraggable={false}
         nodesConnectable={false}

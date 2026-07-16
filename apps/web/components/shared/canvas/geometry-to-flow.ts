@@ -22,10 +22,30 @@ import { footprintOf } from "@/domain/map/view/footprints"
  */
 
 export type ZoneNodeData = { zone: MapZone }
-export type ConnectionEdgeData = { connection: MapConnection }
+/** The connection plus its two endpoint zone names — the notches label the doorway
+ *  ("⇢ The Nave") and the edge's `aria-label` names both partners (§D4). */
+export type ConnectionEdgeData = {
+  connection: MapConnection
+  fromName: string
+  toName: string
+}
 
 export type ZoneNode = Node<ZoneNodeData, "zone">
 export type ConnectionEdge = Edge<ConnectionEdgeData, "connection">
+
+/** The threshold edge's accessible name — the focusable RF edge carries it. */
+export function connectionAriaLabel(
+  fromName: string,
+  toName: string,
+  connection: Pick<MapConnection, "hidden" | "locked">
+): string {
+  const flags = [
+    connection.hidden ? "hidden from players" : null,
+    connection.locked ? "locked" : null,
+  ].filter(Boolean)
+  const base = `Threshold between ${fromName} and ${toName}`
+  return flags.length > 0 ? `${base} — ${flags.join(", ")}` : base
+}
 
 export function geometryToFlow(geometry: MapGeometry): {
   nodes: ZoneNode[]
@@ -47,13 +67,18 @@ export function geometryToFlow(geometry: MapGeometry): {
   })
 
   const edges: ConnectionEdge[] = Object.values(geometry.connections).map(
-    (connection) => ({
-      id: connection.id,
-      type: "connection",
-      source: connection.fromZoneId,
-      target: connection.toZoneId,
-      data: { connection },
-    })
+    (connection) => {
+      const fromName = geometry.zones[connection.fromZoneId]?.name ?? ""
+      const toName = geometry.zones[connection.toZoneId]?.name ?? ""
+      return {
+        id: connection.id,
+        type: "connection",
+        source: connection.fromZoneId,
+        target: connection.toZoneId,
+        ariaLabel: connectionAriaLabel(fromName, toName, connection),
+        data: { connection, fromName, toName },
+      }
+    }
   )
 
   return { nodes, edges }

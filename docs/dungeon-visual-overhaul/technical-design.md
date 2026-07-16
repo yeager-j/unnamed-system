@@ -213,6 +213,8 @@ const clampAlongEdge = (v: number, edgeStart: number, edgeLen: number) =>
 
 When the two zones' facing ranges don't overlap, each notch clamps onto its own zone's nearest edge corner — the pair still faces its partner as directly as the geometry allows.
 
+**Axis choice corrects the handoff (UNN-633 build note).** The prototype picks the wall axis by center-to-center dominance (`|dx| >= |dy|`), which its always-overlapping fixture never stresses. In the freeform editor that is wrong: two zones that overlap on one axis and are separated on the other (a zone slightly up-and-right of another) must connect through their *shared band* — the wall facing the **gap** — not the wall the center vector happens to favor. So the shipped `thresholdAnchors` picks the axis on which the rects **don't** overlap (shared x-band → top/bottom notches; shared y-band → left/right), falling back to center dominance only when they overlap on both axes (a real collision) or neither (a pure diagonal). The partner-name tag likewise points at the *partner's notch* (2D dominant axis), not the wall normal, so it stays correct under the collision fallback.
+
 **Visual state is a decided-once mapping** from the existing model — border style carries secrecy/knowledge, the padlock glyph carries locked, composable because they're separate channels. The mapping function (`thresholdStateOf`) reads engine shapes (`MapConnection`, fog state), so it lives in **`domain/map/view/threshold-state.ts`**, not the kit; the kit receives the finished state string:
 
 | Derived state | From | Notch renders |

@@ -48,9 +48,16 @@ import styles from "./zone-set-piece.module.css"
 export interface ZoneSetPieceProps {
   view: ZoneSetPieceView
   selected?: boolean
+  /** True while a threshold touching this zone is hovered/focused/selected — lights
+   *  the partner card alongside both notches (§D4 pairing legibility). Neutral glow,
+   *  never gold; the `selected` gold ring wins when both apply. */
+  partnerHighlighted?: boolean
   className?: string
   /** React Flow connection handles (the floating-edge rim handles). */
   handles?: ReactNode
+  /** Rim thresholds rendered on the card's edge at every tier, outside the layers so
+   *  they're never clipped (the watch's lone known-exit stub notches, §D4). */
+  rim?: ReactNode
   /** A `NodeToolbar` — rendered outside the layers, so it's tier-independent. */
   toolbar?: ReactNode
   /** Header accessory after the name (the Enchantment badge). */
@@ -77,8 +84,10 @@ const UNOCCUPIED = "Unoccupied"
 export function ZoneSetPiece({
   view,
   selected,
+  partnerHighlighted,
   className,
   handles,
+  rim,
   toolbar,
   titleAccessory,
   headerAction,
@@ -123,12 +132,14 @@ export function ZoneSetPiece({
       aria-describedby={describedById}
       className={cn(
         "relative size-full border bg-card text-card-foreground shadow-sm transition-shadow",
+        partnerHighlighted && "ring-2 ring-muted-foreground/70",
         selected && "ring-2 ring-gold",
         className
       )}
     >
       {toolbar}
       {handles}
+      {rim}
 
       <span id={describedById} className="sr-only">
         {stateLine}

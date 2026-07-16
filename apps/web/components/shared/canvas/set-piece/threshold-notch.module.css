@@ -1,0 +1,25 @@
+/**
+ * The partner-name tag beside a rim notch (UNN-633, §D4). Tier-gated by the same
+ * `data-tier` ancestor the set-piece layers use: **Closeup** always, **Stage** only
+ * when the threshold is lit (hover/focus/selection), **Marquee** never. The notch
+ * itself is always visible (it is structure, not detail).
+ */
+
+.label {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+:global([data-tier="closeup"]) .label {
+  opacity: 1;
+}
+
+:global([data-tier="stage"]) .label.lit {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .label {
+    transition-duration: 0s;
+  }
+}

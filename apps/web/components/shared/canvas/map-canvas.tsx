@@ -61,10 +61,16 @@ import { CanvasToolbar } from "./canvas-toolbar"
 import { ConnectionEdge } from "./connection-edge"
 import { FloatingConnectionLine } from "./floating-connection-line"
 import {
+  connectionAriaLabel,
   geometryToFlow,
   type ConnectionEdge as FlowConnectionEdge,
   type ZoneNode as FlowZoneNode,
 } from "./geometry-to-flow"
+import {
+  HoveredConnectionProvider,
+  useEdgeFocusPairing,
+  useHoveredConnection,
+} from "./hovered-connection-context"
 import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
 import type { ToolMode } from "./tool-mode"
 import { useCanvasTier } from "./use-canvas-tier"
@@ -124,7 +130,9 @@ export function MapCanvas(props: {
 }) {
   return (
     <ReactFlowProvider>
-      <MapCanvasInner {...props} />
+      <HoveredConnectionProvider>
+        <MapCanvasInner {...props} />
+      </HoveredConnectionProvider>
     </ReactFlowProvider>
   )
 }
@@ -155,6 +163,7 @@ function MapCanvasInner({
   const { screenToFlowPosition } = useReactFlow()
   const tier = useCanvasTier()
   const coarsePointer = useCoarsePointer()
+  const { setHovered } = useHoveredConnection()
 
   // Seed React Flow's interactive state once; the canvas owns it thereafter, with
   // `geometryRef` as the data source-of-truth the edit helpers transform.
@@ -166,6 +175,7 @@ function MapCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowConnectionEdge>(
     initialFlow.edges
   )
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   const [geometry, setGeometry] = useState(initialGeometry)
   const [mode, setMode] = useState<ToolMode>("select")
@@ -243,12 +253,15 @@ function MapCanvasInner({
     })
     const created = next.connections[id]
     if (next === before || !created) return
+    const fromName = next.zones[connection.source]?.name ?? ""
+    const toName = next.zones[connection.target]?.name ?? ""
     const edge: FlowConnectionEdge = {
       id,
       type: "connection",
       source: connection.source,
       target: connection.target,
-      data: { connection: created },
+      ariaLabel: connectionAriaLabel(fromName, toName, created),
+      data: { connection: created, fromName, toName },
     }
     setEdges((current) => [...current, edge])
   }
@@ -302,9 +315,22 @@ function MapCanvasInner({
   }
 
   function handleRenameZone(zoneId: string, name: string) {
-    patchZoneNodeData(
-      zoneId,
-      dispatchGeometry({ kind: "renameZone", zoneId, name })
+    const next = dispatchGeometry({ kind: "renameZone", zoneId, name })
+    patchZoneNodeData(zoneId, next)
+    // A rename changes the name the touching thresholds label + announce.
+    setEdges((current) =>
+      current.map((edge) => {
+        if (edge.source !== zoneId && edge.target !== zoneId) return edge
+        const fromName = next.zones[edge.source]?.name ?? ""
+        const toName = next.zones[edge.target]?.name ?? ""
+        return {
+          ...edge,
+          ariaLabel: edge.data
+            ? connectionAriaLabel(fromName, toName, edge.data.connection)
+            : edge.ariaLabel,
+          data: edge.data ? { ...edge.data, fromName, toName } : edge.data,
+        }
+      })
     )
   }
 
@@ -340,7 +366,21 @@ function MapCanvasInner({
     if (!connection) return
     setEdges((current) =>
       current.map((edge) =>
-        edge.id === connectionId ? { ...edge, data: { connection } } : edge
+        edge.id === connectionId
+          ? {
+              ...edge,
+              ariaLabel: connectionAriaLabel(
+                edge.data?.fromName ?? "",
+                edge.data?.toName ?? "",
+                connection
+              ),
+              data: {
+                connection,
+                fromName: edge.data?.fromName ?? "",
+                toName: edge.data?.toName ?? "",
+              },
+            }
+          : edge
       )
     )
   }
@@ -369,7 +409,11 @@ function MapCanvasInner({
         zoneOccupants,
       }}
     >
-      <div className="relative size-full" data-tier={tier}>
+      <div
+        className="relative size-full"
+        data-tier={tier}
+        {...edgeFocusPairing}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -379,6 +423,13 @@ function MapCanvasInner({
           onEdgesChange={onEdgesChange}
           onConnect={handleConnect}
           onNodeDragStop={handleNodeDragStop}
+          onEdgeMouseEnter={(_, edge) =>
+            setHovered({
+              connectionId: edge.id,
+              zoneIds: [edge.source, edge.target],
+            })
+          }
+          onEdgeMouseLeave={() => setHovered(null)}
           onPaneClick={handlePaneClick}
           onDoubleClick={handlePaneDoubleClick}
           nodesDraggable={editable && mode !== "connect"}

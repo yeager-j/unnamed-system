@@ -19,6 +19,7 @@ import {
 } from "@/domain/character/load"
 import { foldSnapshotVersion } from "@/domain/combat/snapshot-version"
 import { resolveEntity, resolveSession } from "@/domain/game-engine-v2"
+import { dungeonExitAnchors } from "@/domain/map/view/exit-anchors"
 import { deriveViewer } from "@/lib/auth/derive-viewer"
 import { loadCampaignRowById } from "@/lib/db/queries/load-campaign"
 import {
@@ -164,7 +165,8 @@ async function projectSnapshotCore(
     },
     instance.state,
     instance.version,
-    fog
+    fog,
+    fog ? dungeonExitAnchors(instance.state) : {}
   )
 
   return ok({

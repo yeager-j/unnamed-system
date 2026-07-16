@@ -14,6 +14,7 @@ import { Separator } from "@workspace/ui/components/separator"
 
 import { useDungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/context"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
+import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { OccupantToken } from "@/components/shared/canvas/set-piece/occupant-chips"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
@@ -52,11 +53,13 @@ export function DungeonZoneNode({
     useDungeonCanvas()
   const { zone, revealed, tokens } = data
   const view = exploreZoneView({ zone, revealed, tokens })
+  const partnerHighlighted = useConnectionHighlight(zone.id)
 
   return (
     <ZoneSetPiece
       view={view}
       selected={selected}
+      partnerHighlighted={partnerHighlighted}
       className="cursor-pointer"
       onOpenRoster={() => onInspect(zone.id)}
       handles={<FloatingEdgeHandles />}
