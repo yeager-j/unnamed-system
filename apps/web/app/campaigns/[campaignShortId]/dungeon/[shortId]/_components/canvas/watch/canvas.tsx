@@ -26,6 +26,7 @@ import {
   DungeonWatchCombatZoneNode,
   type DungeonWatchCombatZoneNode as DungeonWatchCombatZoneNodeType,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/combat-zone-node"
+import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
 import {
   DungeonWatchZoneNode,
   type DungeonWatchZoneNode as DungeonWatchZoneNodeType,
@@ -45,6 +46,7 @@ import {
   watchExploreZoneView,
 } from "@/domain/dungeon/view/set-piece-view"
 import { footprintOf } from "@/domain/map/view/footprints"
+import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 const nodeTypes = {
   fogZone: DungeonWatchZoneNode,
@@ -220,6 +222,25 @@ function DungeonWatchCanvasInner({
       nodes.find((node) => node.id === inspectId)?.data.view) ||
     null
 
+  // The inspector renders the same watch token as the in-card roster, so a
+  // crowded zone keeps its HP/SP + condition popovers (§D7). In combat, resolve
+  // each occupant to its redacted combatant for the ailments/battle-conditions.
+  const combatantsById =
+    mode.kind === "combat"
+      ? new Map(
+          mode.combatants.map((combatant) => [
+            combatant.id as string,
+            combatant,
+          ])
+        )
+      : null
+  const renderInspectorToken = (occupant: SetPieceOccupant) => (
+    <WatchRosterToken
+      occupant={occupant}
+      combatant={combatantsById?.get(occupant.key)}
+    />
+  )
+
   const onNodeClick = useCallback(
     (_: unknown, node: WatchCanvasNode) => {
       const w = node.measured?.width ?? node.width ?? 0
@@ -290,6 +311,7 @@ function DungeonWatchCanvasInner({
         <RosterInspector
           view={inspectedView}
           onClose={() => setInspectId(null)}
+          renderToken={renderInspectorToken}
         />
         <Controls showInteractive={false} />
       </ReactFlow>
