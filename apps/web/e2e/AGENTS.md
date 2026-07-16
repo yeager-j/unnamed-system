@@ -133,3 +133,24 @@ factory instead.
 **Write-then-read still needs `expect.poll`** (see the section above): the
 factory removes contention, not the `networkidle`-vs-revalidation race, so
 assert persisted state by polling the DB helper, not a single read.
+
+## Run the full suite against the production build, not `next dev`
+
+`playwright.config.ts` picks `npm run start` when `CI` is set and `npm run dev`
+otherwise — so a local full-suite run is served by `next dev`, and that is not
+the configuration CI reproduces.
+
+The failure mode is indirect: a pre-existing base-ui `useId` hydration warning
+pops the Next **dev overlay**, whose `<nextjs-portal>` element sits above the
+page and **intercepts clicks**. Specs then fail on an unrelated assertion
+(UNN-621 hit this on `builder.spec:201`) with no hint that the overlay is the
+cause. Nothing is wrong with the spec or the app — only the server mode.
+
+Debugging a full-suite failure that CI doesn't show? Build and serve the
+production bundle the way CI does before believing the failure is real. The
+inner loop on `next dev` is still fine for a single spec.
+
+Related, when running locally against a DB fixture: export `DATABASE_URL` in the
+shell (`globalSetup`'s env loading does not reliably reach the workers), and run
+Playwright from `apps/web` — a repo-root cwd silently resolves no config, which
+means no `baseURL`.

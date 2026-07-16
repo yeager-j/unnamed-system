@@ -106,18 +106,35 @@ Load-bearing rules a new slice must preserve (ADR §-refs + D-numbers for the wh
 ## Layout (domain-first — D33)
 
 ```
-src/
-  kernel/          the component substrate everything builds on:
-                   Entity / Has / guard, the ComponentRegistry +
-                   ResolvedComponentRegistry, the load seam, the effects
-                   primitive, Result, the GameData port, and the re-declared vocab
-  attributes/ affinities/ vitals/ resources/ progression/ virtues/ archetypes/
-  skills/ talents/ items/ mechanics/ combat/ encounter/ visibility/ resolve/
-                   one folder per domain — and one folder per PR (the cohesion cut)
-  catalog/         authored content implementing the GameData port
-  composition.ts   binds catalog → engine (the createGameEngine equivalent)
-  __fixtures__/    cross-domain test doubles — arbitraries/ holds arbitraryEntity
-                   and the total per-component arbitrary map (see Laws, below)
+packages/game-v2/
+└── src/
+    ├── kernel/                  Component substrate: entity.ts, component.ts, component-registry.ts,
+    │                            ports.ts, result.ts, effects/identity/participant-id schemas, load-seam, vocab/
+    ├── catalog/                 Authored content behind the GameData port
+    │   ├── archetypes/          Per-Archetype definitions
+    │   ├── enemies/             Enemy definitions
+    │   ├── items/               weapon, armor, accessory, consumable
+    │   └── skills/               ailment, almighty, dark, elec, fire, heal, ice, light, mind,
+    │                             passive, pierce, slash, soul, special, strike, support, wind
+    ├── mechanics/               Per-Archetype unique mechanics: bard, berserker, healer, knight,
+    │                            mage, thief, warlock, warrior (+ __fixtures__/__integration__)
+    ├── affinities/              Damage-type affinity resolution
+    ├── archetypes/              Archetype domain logic (non-catalog)
+    ├── attributes/              Core attribute math
+    ├── combat/                  Combat resolution (+ __integration__)
+    ├── encounter/               Encounter state + reduce/ (+ __fixtures__/__integration__)
+    ├── items/                   Item domain logic (+ __fixtures__/__integration__)
+    ├── narrative/               Narrative/flavor text hooks
+    ├── progression/             Leveling/rank-up
+    ├── resolve/                 Roll/check resolution (+ __fixtures__/__integration__/__laws__)
+    ├── resources/               Resource pools (non-vitals)
+    ├── skills/                  Skill domain logic
+    ├── spatial/                 One-way spatial seam (+ __fixtures__)
+    ├── talents/                 Talent domain logic
+    ├── virtues/                 Virtue domain logic
+    ├── visibility/              Visibility rules (+ __fixtures__)
+    ├── vitals/                  HP/SP pools (+ __laws__)
+    └── composition.ts           Catalog + kernel binding entry point (composition.test.ts)
 ```
 
 PR1 (UNN-499) scaffolded `kernel/`; subsequent PRs have filled most domain

@@ -1,6 +1,6 @@
-# Showtime! Character Sheet App & Virtual Tabletop
+# Project Name
 
-A Next.js web app for creating and managing characters in the Persona System tabletop RPG. The game rules live in a **sibling Obsidian-vault repo** at `/Users/jackson/Developer/Showtime/rules`.
+Brief project description
 
 ## Engineering Principles
 
@@ -21,6 +21,9 @@ Apply a principle only where its assumptions hold; do not add machinery merely t
 8. **Promote normative comments to enforcement (Design by Contract).**
 9. **Decide a distinction once (Meyer's Single Choice Principle, Replace Conditionals with Polymorphism).**
 10. **Home state on the object whose lifetime matches it.**
+
+These are portable defaults. Project-specific instructions and observed evidence take precedence.
+Apply a principle only where its assumptions hold; do not add machinery merely to satisfy a slogan.
 
 ### How to read this document
 
@@ -164,9 +167,9 @@ Treat these as triggers to investigate, not automatic verdicts:
 - `kind` or `type` checked throughout core logic → is behavior open and capability-based, or is this
   a legitimate exhaustive operation over a closed set?
 - A view type named for storage → is presentation re-deciding a persistence concern?
-- Empty and absent conflated → does `null` mean “cannot” while `[]` means “can, but empty”?
+- Empty and absent conflated → does `null` mean "cannot" while `[]` means "can, but empty"?
 - A sort feeds equality, hashing, signing, or encoding → is its order total and environment-independent?
-- “It is type-only” excuses a dependency violation → what assumptions still cross the seam?
+- "It is type-only" excuses a dependency violation → what assumptions still cross the seam?
 - A wrapper only delegates → what decision, policy, stability, or observability does it provide?
 - A cleanup is locally tidier but conceptually awkward → which invariant did the old shape preserve?
 - A test or gate has always been green → has a negative control shown it detects the claimed failure?
@@ -189,74 +192,6 @@ Treat these as triggers to investigate, not automatic verdicts:
   gate, test, runtime assertion, monitoring, or prose. These cover different failures; they are not a
   universal ladder.
 
+## Project Guidelines
 
-## Project Instructions
-
-### General Guidance
-
-- When creating branches, refer to the Linear ticket's `gitBranchName`. If not working from a ticket, use the branch name `feature/<my-feature>`.
-- Reuse existing `Result` utility where appropriate.
-- Avoid prop-drilling. When you feel like you're prop drilling, stop and consider if a Context or another approach would be better.
-- Never put game logic in the UI layer. The UI should simply render what the game engine provides it.
-
-
-### Installation & Running the App
-
-This is a Turborepo project, so most commands are run from the root directory. To install dependencies, run `npm install`. To start the dev server, run `npm run dev` from the root directory.
-
-shadcn/ui primitives should be installed from the `packages/ui` directory, not the root. Similarly, when installing dependencies to the `apps/web` directory, run `npm install` from there (not the root).
-
-### Repo Structure
-
-```
-apps/web/                Next.js 16 app (App Router, RSC, Server Actions)
-packages/game-v2/        Game engine + data (@workspace/game-v2) — sole engine, v1 retired
-packages/ui/             Shared components (shadcn/ui on Base UI, Tailwind 4)
-packages/editor/         Vendored atomic-editor mirror (CM6 markdown editor) — never edit src/
-packages/eslint-config/  Shared ESLint config
-packages/typescript-config/  Shared tsconfig base
-docs/                    Long-form specs (one folder per feature), brand guide, lessons journal
-```
-
-
-### Commands
-
-```bash
-npm run dev        # Start all packages in watch mode (Turbopack)
-npm run build      # Production build
-npm run typecheck  # tsc --noEmit across all packages
-npm run lint       # ESLint across all packages
-npm run format     # Prettier across all packages
-npm run test       # Vitest across all packages
-npm run test:e2e   # Playwright across all packages
-```
-
-### Testing
-
-- **Unit (Vitest):** pure game mechanics in `packages/game-v2/src` — no DB, no network. (App/integration tests that need seed data live in `apps/web`, e.g. `apps/web/lib/__tests__/`.) Engine test-signal tooling (branch coverage + Stryker mutation) is documented in **`packages/game-v2/CLAUDE.md`**.
-- **Laws (fast-check):** `**/__laws__/*.laws.test.ts` — property-based tests over `arbitraryEntity`, quantified where an example test can only sample (UNN-598). Totality + the depletion algebra live in `packages/game-v2`; the optimistic-isomorphism law (Writer patch + re-fold ≡ commit → reload → resolve, over all 13 write families) lives in `apps/web/domain/entity/commit/__laws__/`, because the Writers do. Writing arbitraries and reproducing a failing seed (`FC_SEED`) are documented in **`packages/game-v2/CLAUDE.md`**.
-- **E2E (Playwright):** `apps/web/e2e`. DB-backed routes require a seeded database. The two-tier CI model (`e2e` runner suite vs. `@smoke` preview subset), `@smoke`-tagging discipline, and the write-path factory pattern live in **`apps/web/e2e/CLAUDE.md`**.
-
-### Tech Stack
-
-- **Framework**: Next.js 16, App Router, React Server Components, Server Actions
-- **UI**: Tailwind CSS v4, shadcn/ui, Phosphor Icons
-- **Auth**: Auth.js v5 (NextAuth) with Google OAuth only; Drizzle adapter
-- **Database**: Neon Postgres via Drizzle ORM; migrations via `drizzle-kit`
-- **Storage**: Vercel Blob for portrait uploads
-- **Validation**: Zod + react-hook-form; same Zod schemas validate Server Action inputs
-- **Short IDs**: nanoid (8-char URL-safe) for public character URLs `/characters/{shortId}`
-- **Hosting**: Vercel + Neon + Vercel Blob
-- **Testing**: Vitest (game mechanics unit tests), Playwright (E2E for builder + cast/heal/rest loop) — see the Testing section above
-
-Game data (Archetypes, Skills, Talents, Ailments, Enemies) is **hardcoded TypeScript** in the repo (`packages/game-v2/src/catalog/`) — not in the database. A shipped-but-gated Archetype (`elemental-thief`) sits in the catalog unconditionally and is hidden per-viewer via the Atlas's `hiddenArchetypeKeys` (an env-var email allowlist, `domain/archetypes/restricted.ts`), not a build flag.
-
-### Game Rules
-
-When you need to read about the rules of the game, first check the `CLAUDE.md` index file located in the Obsidian vault. If you need further clarification, read the full rule text.
-
-### Post-Ticket Tasks
-
-When the implementation lands, briefly consider what slowed you down — friction in the type system, repeated patterns the abstractions don't cover, missing primitives, awkward seams between layers — and surface them with the user. An empty list is a fine outcome; padded lists are worse than silence. The user decides whether to act, file a DX ticket, or skip. If the retrospective surfaced a principle that was uncovered or invoked, capture it via the `/lessons` skill (`docs/lessons/`). Before opening a PR, run `/recall` — the read half — to check the diff against the recorded lessons.
-
-As part of the retrospective, if you noticed anything that could be improved about the code near your changes that might have been out of scope for this ticket, surface it. Again, an empty list is a fine outcome; padded lists are worse than silence.
+Guidelines and instructions specific to this project
