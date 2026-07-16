@@ -44,6 +44,7 @@ import {
 } from "@/components/shared/canvas/grid"
 import {
   HoveredConnectionProvider,
+  useEdgeFocusPairing,
   useHoveredConnection,
 } from "@/components/shared/canvas/hovered-connection-context"
 import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
@@ -132,6 +133,7 @@ function DungeonCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   // Re-derive the board from the (optimistic) Instance whenever it changes — a
   // move/reveal/turn snaps tokens + reveal badges to the new truth.
@@ -143,7 +145,7 @@ function DungeonCanvasInner({
   const isEmpty = Object.keys(instance.geometry.zones).length === 0
 
   return (
-    <div className="relative size-full" data-tier={tier}>
+    <div className="relative size-full" data-tier={tier} {...edgeFocusPairing}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

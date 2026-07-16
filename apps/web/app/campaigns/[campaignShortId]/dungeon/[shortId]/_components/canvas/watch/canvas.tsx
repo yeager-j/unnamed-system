@@ -40,6 +40,7 @@ import {
 } from "@/components/shared/canvas/grid"
 import {
   HoveredConnectionProvider,
+  useEdgeFocusPairing,
   useHoveredConnection,
 } from "@/components/shared/canvas/hovered-connection-context"
 import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
@@ -242,6 +243,7 @@ function DungeonWatchCanvasInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<WatchCanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   // The roster inspector's target — owned here (the watch has no details sheet to
   // coordinate with), independent of the camera. `elementsSelectable={false}`
@@ -304,7 +306,7 @@ function DungeonWatchCanvasInner({
   const isEmpty = snapshot.zones.length === 0
 
   return (
-    <div className="relative size-full" data-tier={tier}>
+    <div className="relative size-full" data-tier={tier} {...edgeFocusPairing}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

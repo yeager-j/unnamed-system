@@ -68,6 +68,7 @@ import {
 } from "./geometry-to-flow"
 import {
   HoveredConnectionProvider,
+  useEdgeFocusPairing,
   useHoveredConnection,
 } from "./hovered-connection-context"
 import { MapCanvasProvider, type ZoneIdentityPatch } from "./map-canvas-context"
@@ -174,6 +175,7 @@ function MapCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowConnectionEdge>(
     initialFlow.edges
   )
+  const edgeFocusPairing = useEdgeFocusPairing(edges)
 
   const [geometry, setGeometry] = useState(initialGeometry)
   const [mode, setMode] = useState<ToolMode>("select")
@@ -407,7 +409,11 @@ function MapCanvasInner({
         zoneOccupants,
       }}
     >
-      <div className="relative size-full" data-tier={tier}>
+      <div
+        className="relative size-full"
+        data-tier={tier}
+        {...edgeFocusPairing}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}

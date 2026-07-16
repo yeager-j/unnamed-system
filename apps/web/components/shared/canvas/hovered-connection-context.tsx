@@ -5,6 +5,7 @@ import {
   useContext,
   useMemo,
   useState,
+  type FocusEvent,
   type ReactNode,
 } from "react"
 
@@ -70,4 +71,39 @@ export function useConnectionHighlight(zoneId: string): boolean {
 export function useNotchHighlight(connectionId: string): boolean {
   const { hovered } = useContext(HoveredConnectionContext)
   return hovered?.connectionId === connectionId
+}
+
+/**
+ * Focus/blur handlers for the canvas wrapper that light the pairing glow when a
+ * **keyboard** user tabs onto a threshold edge. React Flow exposes edge *mouse*
+ * events but no edge focus event, and the read-only console/watch edges are
+ * `selectable: false` so Enter can't select as a fallback — without this a
+ * keyboard user hears the edge announced but sees no pairing cue. React focus
+ * events bubble, so catching them on the wrapper covers every surface uniformly:
+ * focusing an edge lights its notches + partner cards, blurring clears.
+ */
+export function useEdgeFocusPairing(
+  edges: readonly { id: string; source: string; target: string }[]
+): {
+  onFocus: (event: FocusEvent) => void
+  onBlur: (event: FocusEvent) => void
+} {
+  const { setHovered } = useHoveredConnection()
+  return {
+    onFocus: (event) => {
+      const id = (event.target as HTMLElement)
+        .closest?.(".react-flow__edge")
+        ?.getAttribute("data-id")
+      if (!id) return
+      const edge = edges.find((e) => e.id === id)
+      if (edge) {
+        setHovered({ connectionId: id, zoneIds: [edge.source, edge.target] })
+      }
+    },
+    onBlur: (event) => {
+      if ((event.target as HTMLElement).closest?.(".react-flow__edge")) {
+        setHovered(null)
+      }
+    },
+  }
 }
