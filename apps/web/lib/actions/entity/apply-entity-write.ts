@@ -17,7 +17,7 @@ import {
   type ApplyEntityWriteInput,
 } from "./apply-entity-write.schema"
 import { commitEntityWrite, type EntityCommit } from "./entity-row-store"
-import { revalidateEntity } from "./revalidate"
+import { revalidateCharacterList, revalidateEntity } from "./revalidate"
 
 /**
  * The **entity door** Server Action (UNN-551; ADR §2.4) — a character surface's
@@ -64,7 +64,12 @@ export async function applyEntityWriteAction(
     parsed.data.expectedVersion
   )
 
-  if (result.ok) revalidateEntity(result.value)
+  if (result.ok) {
+    revalidateEntity(result.value)
+    if (write.component === "level" || write.component === "archetypes") {
+      revalidateCharacterList()
+    }
+  }
 
   return result
 }

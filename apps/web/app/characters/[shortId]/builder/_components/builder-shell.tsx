@@ -19,7 +19,7 @@ import {
   indexOfStep,
   type MovementSlug,
 } from "@/domain/character/builder-steps"
-import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
+import { useEntityIdentityQueue } from "@/domain/entity/use-entity-write"
 import { setEntityBuilderStepAction } from "@/lib/actions/entity/columns"
 import { characterBuilderPath } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
@@ -199,7 +199,7 @@ function ContinueLink({
   canAdvance: boolean
   disabledReason?: string
 }) {
-  const identityToken = useEntityIdentityToken()
+  const identityQueue = useEntityIdentityQueue()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canAdvance
@@ -209,10 +209,12 @@ function ContinueLink({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await setEntityBuilderStepAction({
-            entityId: identityToken.entityId,
-            step: nextIndex,
-          })
+          const result = await identityQueue.enqueueStep(() =>
+            setEntityBuilderStepAction({
+              entityId: identityQueue.entityId,
+              step: nextIndex,
+            })
+          )
           if (!result.ok) {
             toast.error("Couldn't advance. Try again.")
             return

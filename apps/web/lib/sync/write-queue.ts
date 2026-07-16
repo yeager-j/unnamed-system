@@ -40,9 +40,11 @@ export interface WriteChain {
 }
 
 export interface WriteQueue {
-  enqueue<TSuccess extends { version: number }, TError extends string>(
+  enqueue<TSuccess extends { version: number }, TError>(
     action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
   ): Promise<Result<TSuccess, TError>>
+  /** Serialize a step on this queue without reading or bumping its token. */
+  enqueueStep<T>(action: () => Promise<T>): Promise<T>
 }
 
 /**
@@ -55,7 +57,7 @@ export interface WriteQueue {
  */
 export async function runVersionedWrite<
   TSuccess extends { version: number },
-  TError extends string,
+  TError,
 >(
   token: WriteQueueTokenPort,
   refetchVersion: (() => Promise<number | null>) | undefined,
@@ -88,18 +90,21 @@ export function createWriteQueue(options: {
   const { token, refetchVersion } = options
   const chain = options.chain ?? { current: Promise.resolve() }
 
+  function enqueueStep<T>(action: () => Promise<T>): Promise<T> {
+    const run = chain.current.then(action)
+    // Keep the spine resolved even if a dispatch rejects, so the next
+    // enqueue still flows behind it rather than inheriting a rejected chain.
+    chain.current = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return run
+  }
+
   return {
     enqueue(action) {
-      const run = chain.current.then(() =>
-        runVersionedWrite(token, refetchVersion, action)
-      )
-      // Keep the spine resolved even if a dispatch rejects, so the next
-      // enqueue still flows behind it rather than inheriting a rejected chain.
-      chain.current = run.then(
-        () => undefined,
-        () => undefined
-      )
-      return run
+      return enqueueStep(() => runVersionedWrite(token, refetchVersion, action))
     },
+    enqueueStep,
   }
 }

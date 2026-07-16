@@ -25,9 +25,9 @@ import { type Result } from "@workspace/game-v2/kernel/result"
  * *and* the latest known per-write-class `version` (UNN-140) — the hook
  * does not let the consumer thread the token itself, because every place
  * I've seen consumers do that has eventually drifted from the prop. This is
- * the shared core; consumers go through the provider-bound wrappers
- * `useCharacterAutoSave` (sheet) / `useEntityAutoSave` (builder), which
- * resolve the *shared* per-write-class token + queue and supply the
+ * the shared core; entity surfaces go through the provider-bound
+ * `useEntityAutoSave` / `useEntityColumnSave` wrappers, which resolve the
+ * *shared* per-write-class token + queue and supply the
  * {@link UseDebouncedAutoSaveArgs.dispatchWrite} pipeline that reads and bumps
  * it — the same way the click-write wrappers own their dispatch. Because every
  * same-class field flows through that one token, a sibling field's successful
@@ -47,9 +47,8 @@ import { type Result } from "@workspace/game-v2/kernel/result"
  * Without a shared queue the hook still serializes its own writes via an
  * internal fallback queue.
  *
- * Stale handling is the wrapper's dispatch pipeline's business: both the v1
- * `dispatchCharacterWriteWithRetry` and the entity door's retrying dispatch
- * silently retry once on `"stale"` (UNN-203/UNN-568), so this hook's failure
+ * Stale handling is the wrapper's dispatch pipeline's business: the entity
+ * door silently retries once on `"stale"` (UNN-568), so this hook's failure
  * branch means a real conflict, not a sibling-component race.
  *
  * **Trimming + idempotence are the consumer's job inside `save`.** The
@@ -87,10 +86,8 @@ export interface UseDebouncedAutoSaveArgs<TValue, TError extends string> {
   saveQueueRef?: RefObject<Promise<void>>
   /**
    * The write pipeline `save` dispatches through — owned by the provider-bound
-   * wrapper, so the hook itself is storage-blind (UNN-556). The v1 sheet's
-   * `useCharacterAutoSave` supplies the silent-retry pipeline
-   * (`dispatchCharacterWriteWithRetry`); the builder's `useEntityAutoSave`
-   * supplies the entity door's plain guarded dispatch.
+   * wrapper, so the hook itself is storage-blind (UNN-556). The entity
+   * provider's wrappers supply the shared one-shot stale-retry protocol.
    * Contract: call `action` with the latest class token and update the shared
    * `versionRef` from a success before resolving.
    */

@@ -114,6 +114,23 @@ describe("createWriteQueue", () => {
     expect(refetchVersion).not.toHaveBeenCalled()
   })
 
+  it("runs only once on stale when the queue has no refetch arm", async () => {
+    const queue = createWriteQueue({ token: makeToken(1) })
+    const action = vi.fn(async () => err("stale") as WriteResult)
+
+    await expect(queue.enqueue(action)).resolves.toEqual(err("stale"))
+    expect(action).toHaveBeenCalledTimes(1)
+  })
+
+  it("accepts structured action errors", async () => {
+    const queue = createWriteQueue({ token: makeToken(1) })
+    const failure = { kind: "missing-requirement" as const, reason: "Name" }
+
+    await expect(queue.enqueue(async () => err(failure))).resolves.toEqual(
+      err(failure)
+    )
+  })
+
   it("never rolls the token back when the refetch races a fresher write", async () => {
     const token = makeToken(1)
     // The refetch answers 5, but by retry time a concurrent ping already
@@ -176,6 +193,34 @@ describe("createWriteQueue", () => {
     expect(calls[1]!.expectedVersion).toBe(2)
     calls[1]!.resolve(ok({ version: 3 }))
     await expect(save).resolves.toEqual(ok({ version: 3 }))
+  })
+
+  it("serializes unversioned steps on the same spine without changing the token", async () => {
+    const token = makeToken(1)
+    const queue = createWriteQueue({ token })
+    const { action, calls } = makeControlledAction()
+    const step = vi.fn(async () => "advanced")
+
+    const write = queue.enqueue(action)
+    const advanced = queue.enqueueStep(step)
+    await flush()
+
+    expect(step).not.toHaveBeenCalled()
+    calls[0]!.resolve(ok({ version: 2 }))
+    await write
+    await expect(advanced).resolves.toBe("advanced")
+    expect(token.read()).toBe(2)
+  })
+
+  it("continues to an unversioned step after a versioned refusal", async () => {
+    const queue = createWriteQueue({ token: makeToken(1) })
+
+    await expect(queue.enqueue(async () => err("stale"))).resolves.toEqual(
+      err("stale")
+    )
+    await expect(queue.enqueueStep(async () => "navigated")).resolves.toBe(
+      "navigated"
+    )
   })
 })
 

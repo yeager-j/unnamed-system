@@ -26,7 +26,7 @@ import {
   type UpdateEntityPronounsInput,
   type UploadEntityPortraitError,
 } from "./columns.schema"
-import { revalidateEntity } from "./revalidate"
+import { revalidateCharacterList, revalidateEntity } from "./revalidate"
 import { bumpEntityVersionGuarded } from "./version-guard"
 
 /**
@@ -70,9 +70,11 @@ export async function updateEntityNameAction(
   if (!parsed.success) return err("invalid-input")
 
   const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  return commitColumnPatch(row, parsed.data.expectedVersion, {
+  const result = await commitColumnPatch(row, parsed.data.expectedVersion, {
     name: parsed.data.name,
   })
+  if (result.ok) revalidateCharacterList()
+  return result
 }
 
 export async function updateEntityPronounsAction(
@@ -129,6 +131,7 @@ export async function setEntityBuilderStepAction(
   if (updated.length === 0) return err("entity-not-found")
 
   revalidateEntity(row)
+  revalidateCharacterList()
   return ok(undefined)
 }
 
@@ -139,9 +142,11 @@ export async function removeEntityPortraitAction(
   if (!parsed.success) return err("invalid-input")
 
   const { entity: row } = await requireEntityOwner(parsed.data.entityId)
-  return commitColumnPatch(row, parsed.data.expectedVersion, {
+  const result = await commitColumnPatch(row, parsed.data.expectedVersion, {
     portraitUrl: null,
   })
+  if (result.ok) revalidateCharacterList()
+  return result
 }
 
 /**
@@ -182,5 +187,6 @@ export async function uploadEntityPortraitAction(
   })
   if (!committed.ok) return committed
 
+  revalidateCharacterList()
   return ok({ version: committed.value.version, url: uploaded.value.url })
 }

@@ -99,13 +99,15 @@ interface LoadedFrame extends EntityFrame {
 
 /** A guarded dispatch on one class's token: `action` receives the expected
  *  version, a success's `version` folds back into the token. */
-type ClassWriteRun = <
-  TSuccess extends { version: number },
-  TError extends string,
->(
+type ClassWriteRun = <TSuccess extends { version: number }, TError>(
   versionClass: VersionClass,
   action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
 ) => Promise<Result<TSuccess, TError>>
+
+type ClassWriteStep = <T>(
+  versionClass: VersionClass,
+  action: () => Promise<T>
+) => Promise<T>
 
 interface EntityWriteApi {
   entityId: string
@@ -115,6 +117,10 @@ interface EntityWriteApi {
   /** Serialized dispatch on the class's spine + one-shot stale-retry — the
    *  click-write path. */
   enqueue: ClassWriteRun
+  /** Serialized dispatch with token accounting but no stale retry. */
+  enqueueOnce: ClassWriteRun
+  /** Serialized unversioned step for state outside the entity row. */
+  enqueueStep: ClassWriteStep
   /** One retrying protocol pass with NO enqueue — for callers already chained
    *  on the class spine (the debounced auto-save runs inside its own queued
    *  step; enqueueing from there would wait on itself). */
@@ -197,6 +203,18 @@ export function EntityWriteProvider({
       chain: queueRefs[versionClass],
     }).enqueue(action)
 
+  const enqueueOnce: ClassWriteRun = (versionClass, action) =>
+    createWriteQueue({
+      token: tokenFor(versionClass),
+      chain: queueRefs[versionClass],
+    }).enqueue(action)
+
+  const enqueueStep: ClassWriteStep = (versionClass, action) =>
+    createWriteQueue({
+      token: tokenFor(versionClass),
+      chain: queueRefs[versionClass],
+    }).enqueueStep(action)
+
   const runVersioned: ClassWriteRun = (versionClass, action) =>
     runVersionedWrite(tokenFor(versionClass), refetchFor(versionClass), action)
 
@@ -237,6 +255,8 @@ export function EntityWriteProvider({
     queueRefs,
     applyLocal,
     enqueue,
+    enqueueOnce,
+    enqueueStep,
     runVersioned,
   }
 
@@ -290,10 +310,21 @@ export interface EntityDispatchOptions {
  */
 export function useEntityWrite() {
   const { entityId, applyLocal, enqueue } = useWriteApi("useEntityWrite")
+  const { entity } = useLoadedCharacter()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   function dispatch(write: EntityWrite, opts?: EntityDispatchOptions) {
+    const predicted = applyEntityWrite(entity.components, write)
+    if (!predicted.ok) {
+      if (opts?.onError?.(predicted.error)) return
+      toast.error(
+        opts?.messages?.error ??
+          "That change can't apply to this character. Reload and try again."
+      )
+      return
+    }
+
     const durableClass = ENTITY_WRITERS[write.component].durableClass
 
     startTransition(() =>
@@ -427,18 +458,24 @@ export function useEntityColumnSave<TValue, TError extends string>(
 }
 
 /**
- * The identity token + entity id for the one-shot lifecycle actions that
- * bypass the queue by design (finalize's button, the builder-step footer) —
- * they read the freshest identity token and bump it on success.
+ * The identity-class queue for one-shot lifecycle and column actions. Callers
+ * never read or bump the token themselves: guarded actions enqueue through the
+ * retrying protocol, Blob upload uses the single-attempt arm, and subtype-only
+ * writes serialize as unversioned steps on the same spine.
  */
-export function useEntityIdentityToken() {
-  const { entityId, versionRefs } = useWriteApi("useEntityIdentityToken")
-  const versionRef = versionRefs.identity
+export function useEntityIdentityQueue() {
+  const { entityId, enqueue, enqueueOnce, enqueueStep } = useWriteApi(
+    "useEntityIdentityQueue"
+  )
   return {
     entityId,
-    read: () => versionRef.current,
-    bump: (version: number) => {
-      versionRef.current = version
-    },
+    enqueue: <TSuccess extends { version: number }, TError>(
+      action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
+    ) => enqueue("identity", action),
+    enqueueOnce: <TSuccess extends { version: number }, TError>(
+      action: (expectedVersion: number) => Promise<Result<TSuccess, TError>>
+    ) => enqueueOnce("identity", action),
+    enqueueStep: <T,>(action: () => Promise<T>) =>
+      enqueueStep("identity", action),
   }
 }

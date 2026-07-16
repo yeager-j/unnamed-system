@@ -621,12 +621,9 @@ test.describe("movement 4 — persona", () => {
 
     const nameInput = page.getByRole("textbox", { name: "Character name" })
     await nameInput.fill("Garron Vey")
-    // Blur to flush the debounced auto-save before the finalize click.
+    // Blur and click immediately: Finalize must queue behind the identity
+    // auto-save rather than racing it with the pre-blur version token.
     await nameInput.blur()
-    await expect
-      .poll(async () => (await readEntityRow(shortId)).name, { timeout: 5000 })
-      .toBe("Garron Vey")
-
     await page.getByRole("button", { name: "Finalize character" }).click()
 
     // Finalize lands on My Characters (the v2 sheet route arrives with S2a)

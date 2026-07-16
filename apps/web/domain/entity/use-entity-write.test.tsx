@@ -16,6 +16,7 @@ import { getEntityClassVersionAction } from "@/lib/actions/entity/versions"
 import {
   EntityWriteProvider,
   useEntityAutoSave,
+  useEntityIdentityQueue,
   useEntityWrite,
 } from "./use-entity-write"
 
@@ -103,6 +104,41 @@ beforeEach(() => {
 })
 
 describe("useEntityWrite — one-shot stale-retry (UNN-568)", () => {
+  it("short-circuits a local Writer refusal before any network request", async () => {
+    const missingSkillPool: EntityWrite = {
+      component: "skillPool",
+      op: "damage",
+      amount: 1,
+    }
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () => result.current.dispatch(missingSkillPool))
+
+    expect(writeAction).not.toHaveBeenCalled()
+    expect(versionAction).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(
+      "That change can't apply to this character. Reload and try again."
+    )
+  })
+
+  it("lets a refusal-specific handler suppress the default toast", async () => {
+    const onError = vi.fn(() => true)
+    const missingSkillPool: EntityWrite = {
+      component: "skillPool",
+      op: "damage",
+      amount: 1,
+    }
+
+    const { result } = renderHook(() => useEntityWrite(), { wrapper })
+    await act(async () =>
+      result.current.dispatch(missingSkillPool, { onError })
+    )
+
+    expect(onError).toHaveBeenCalledWith("capability-missing")
+    expect(writeAction).not.toHaveBeenCalled()
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
   it("silently retries a cross-writer stale with the refetched class token", async () => {
     writeAction
       .mockResolvedValueOnce(err("stale"))
@@ -286,6 +322,49 @@ describe("EntityWriteProvider — cross-writer reconcile channel (UNN-569)", () 
 })
 
 describe("useEntityAutoSave — the shared class spine (UNN-568)", () => {
+  it("serializes an identity lifecycle action behind a parked identity auto-save", async () => {
+    let releaseSave!: (value: Result<EntityCommit, never>) => void
+    writeAction.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseSave = resolve
+        })
+    )
+    const finalize = vi.fn(async (expectedVersion: number) =>
+      ok({ shortId: "abc123", version: expectedVersion + 1 })
+    )
+
+    const { result } = renderHook(
+      () => ({
+        autoSave: useEntityAutoSave({
+          serverValue: "old",
+          makeWrite: (value) => ({
+            component: "narrative",
+            op: "setField",
+            field: "ancestry",
+            value,
+          }),
+        }),
+        identity: useEntityIdentityQueue(),
+      }),
+      { wrapper }
+    )
+
+    await act(async () => result.current.autoSave.setValue("new"))
+    await act(async () => result.current.autoSave.flush())
+
+    let finalized!: ReturnType<typeof finalize>
+    act(() => {
+      finalized = result.current.identity.enqueue(finalize)
+    })
+    expect(finalize).not.toHaveBeenCalled()
+
+    await act(async () => releaseSave(commit(4)))
+    await act(async () => finalized)
+
+    expect(finalize).toHaveBeenCalledWith(4)
+  })
+
   it("a click write chains behind an in-flight debounced save on the same class and reads its bumped token", async () => {
     let releaseSave!: (value: Result<EntityCommit, never>) => void
     writeAction.mockImplementation((input) => {
