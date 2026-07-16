@@ -12,6 +12,7 @@ import {
   type DungeonCanvasMode,
   type DungeonRosterEntry,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
+import { connectionAriaLabel } from "@/components/shared/canvas/geometry-to-flow"
 import type { RailRow, RosterView } from "@/domain/combat/view/roster-view"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
 import { footprintOf } from "@/domain/map/view/footprints"
@@ -125,23 +126,37 @@ function buildCombatNodes(
   })
 }
 
-/** The Instance's connections as read-only fog-styled floating edges. */
+/** The Instance's connections as read-only rim-threshold floating edges. Not
+ *  selectable (the console selects zones, not connections) but focusable, so the
+ *  notches keep keyboard reach + pairing glow. */
 export function buildEdges(
   instance: MapInstanceState
 ): DungeonConnectionEdgeType[] {
-  return Object.values(instance.geometry.connections).map((connection) => ({
-    id: connection.id,
-    type: "dungeonConnection",
-    source: connection.fromZoneId,
-    target: connection.toZoneId,
-    selectable: false,
-    data: {
-      fog: connectionFogState(connection, instance.reveal),
-      locked: isConnectionLocked(connection, instance.reveal),
-      // The authored secret flag — distinct from the fog state, so the DM can
-      // tell a deliberately-hidden passage apart from one players just haven't
-      // discovered yet (which auto-surfaces as a silhouette on reveal).
-      hidden: connection.hidden,
-    },
-  }))
+  return Object.values(instance.geometry.connections).map((connection) => {
+    const fromName = instance.geometry.zones[connection.fromZoneId]?.name ?? ""
+    const toName = instance.geometry.zones[connection.toZoneId]?.name ?? ""
+    const locked = isConnectionLocked(connection, instance.reveal)
+    return {
+      id: connection.id,
+      type: "dungeonConnection",
+      source: connection.fromZoneId,
+      target: connection.toZoneId,
+      selectable: false,
+      focusable: true,
+      ariaLabel: connectionAriaLabel(fromName, toName, {
+        hidden: connection.hidden,
+        locked,
+      }),
+      data: {
+        fog: connectionFogState(connection, instance.reveal),
+        locked,
+        // The authored secret flag — distinct from the fog state, so the DM can
+        // tell a deliberately-hidden passage apart from one players just haven't
+        // discovered yet (which auto-surfaces as a silhouette on reveal).
+        hidden: connection.hidden,
+        fromName,
+        toName,
+      },
+    }
+  })
 }

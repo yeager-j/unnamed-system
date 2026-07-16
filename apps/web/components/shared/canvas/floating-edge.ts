@@ -9,10 +9,10 @@ import { Position } from "@xyflow/react"
  * avoiding the "loops around the node" artifact of fixed handles. Adapted from
  * React Flow's floating-edges example.
  *
- * Shared by the Map editor canvas ({@link import("../../maps/canvas/connection-edge").ConnectionEdge})
- * and the dungeon run console ({@link import("../../dungeon/canvas/dungeon-connection-edge").DungeonConnectionEdge})
- * — the same routing math for both surfaces (UNN-464). Pure and React-free; the
- * `useInternalNode` plumbing lives in {@link import("./use-floating-edge-path").useFloatingEdgePath}.
+ * Since the rim-threshold rewrite (UNN-633) the drawn edge path is gone; this
+ * geometry survives only under the editor's drag preview
+ * ({@link import("./floating-connection-line").FloatingConnectionLine}), which still
+ * needs a border-facing endpoint toward the cursor. Pure and React-free.
  */
 
 /** The minimal node shape {@link getEdgeParams} reads — satisfied by React Flow's

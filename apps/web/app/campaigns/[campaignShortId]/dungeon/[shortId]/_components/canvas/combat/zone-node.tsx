@@ -11,6 +11,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
+import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
@@ -59,6 +60,7 @@ export function DungeonCombatZoneNode({
   } = useDungeonCombatCanvas()
   const { zone, revealed, rows, enchantment } = data
   const view = combatZoneView({ zone, revealed, rows })
+  const partnerHighlighted = useConnectionHighlight(zone.id)
   const isMoveTarget = movableZoneIds.includes(zone.id)
   const showMove = isMoveTarget && actingName !== null
 
@@ -72,6 +74,7 @@ export function DungeonCombatZoneNode({
   return (
     <ZoneSetPiece
       view={view}
+      partnerHighlighted={partnerHighlighted}
       className={cn(
         isMoveTarget &&
           "ring-2 ring-primary/40 ring-offset-1 ring-offset-background"

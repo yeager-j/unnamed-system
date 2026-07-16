@@ -4,8 +4,8 @@ import { type Node, type NodeProps } from "@xyflow/react"
 
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
-import { ExitChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/exit-chip"
 import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
+import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
@@ -16,7 +16,7 @@ import type {
   ZoneSetPieceView,
 } from "@/domain/map/view/set-piece-view"
 
-import type { WatchZoneExit } from "./zone-node"
+import { WatchExitStubs, type WatchZoneExit } from "./zone-node"
 
 export type WatchCombatZoneData = {
   view: ZoneSetPieceView
@@ -46,9 +46,11 @@ export type DungeonWatchCombatZoneNode = Node<
  * (numeric HP/SP + ailments + battle conditions, all public overlay state).
  */
 export function DungeonWatchCombatZoneNode({
+  id,
   data,
 }: NodeProps<DungeonWatchCombatZoneNode>) {
   const { view, combatants, exits, enchantment, onOpenRoster } = data
+  const partnerHighlighted = useConnectionHighlight(id)
   const byId = new Map(combatants.map((c) => [c.id as string, c]))
 
   const tokenChip = (occupant: SetPieceOccupant) => (
@@ -58,8 +60,10 @@ export function DungeonWatchCombatZoneNode({
   return (
     <ZoneSetPiece
       view={view}
+      partnerHighlighted={partnerHighlighted}
       onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
+      rim={<WatchExitStubs exits={exits} size={view.size} />}
       titleAccessory={
         enchantment ? (
           <span className="pointer-events-auto">
@@ -85,17 +89,6 @@ export function DungeonWatchCombatZoneNode({
                 <li key={cluster[0]!.key}>{tokenChip(cluster[0]!)}</li>
               )
             )}
-          </ul>
-        ) : undefined
-      }
-      closeupFooter={
-        exits.length > 0 ? (
-          <ul className="flex flex-wrap gap-1.5">
-            {exits.map((exit) => (
-              <li key={exit.id}>
-                <ExitChip locked={exit.locked} />
-              </li>
-            ))}
           </ul>
         ) : undefined
       }

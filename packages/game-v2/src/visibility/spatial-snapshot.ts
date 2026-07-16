@@ -87,15 +87,39 @@ export interface SnapshotConnection {
   locked: boolean
 }
 
+/** Which wall of the revealed Zone a known exit opens through. */
+export type SnapshotExitSide = "n" | "s" | "e" | "w"
+
+/**
+ * The rim placement of a known exit on its revealed Zone — the wall + the along-wall
+ * coordinate normalized to the Zone's edge (0..1). A **deliberate, documented scalar
+ * leak** (§D4): it discloses *where on the wall* the doorway sits (the fiction demands
+ * a located doorway into darkness) but no partner id/name/geometry. Computed by the
+ * loader through the same threshold geometry the revealed renderer uses, then passed
+ * in — the engine stays footprint-blind (D2), so this shape carries the *values*, not
+ * the footprint math.
+ */
+export interface SnapshotExitAnchor {
+  side: SnapshotExitSide
+  offset: number
+}
+
+/** Loader-computed rim placements keyed by connection id (see {@link SnapshotExitAnchor}). */
+export type SnapshotExitAnchors = Record<string, SnapshotExitAnchor>
+
 /**
  * A **known-exit silhouette**: an exit out of a revealed Zone whose far endpoint is
- * still undiscovered. Exposes only the revealed endpoint (`zoneId`) and whether it's
- * locked — the far Zone's id is deliberately absent (stripped).
+ * still undiscovered. Exposes only the revealed endpoint (`zoneId`), whether it's
+ * locked, and its rim placement (`side`/`offset`, {@link SnapshotExitAnchor}) so the
+ * lone stub notch lands exactly where the revealed near-notch will — the far Zone's id
+ * is deliberately absent (stripped).
  */
 export interface SnapshotExit {
   id: string
   zoneId: string
   locked: boolean
+  side: SnapshotExitSide
+  offset: number
 }
 
 /** The active Zone Enchantment as a watcher sees it — only ever attached to a
@@ -192,7 +216,8 @@ function visibleEnchantment(
  */
 function projectConnections(
   mapInstance: MapInstanceState,
-  fog: boolean
+  fog: boolean,
+  exitAnchors: SnapshotExitAnchors
 ): { connections: SnapshotConnection[]; exits: SnapshotExit[] } {
   const connections: SnapshotConnection[] = []
   const exits: SnapshotExit[] = []
@@ -221,6 +246,7 @@ function projectConnections(
         locked,
       })
     } else {
+      const anchor = exitAnchors[connection.id] ?? { side: "n", offset: 0.5 }
       exits.push({
         id: connection.id,
         zoneId: revealedEndpoint(
@@ -229,6 +255,8 @@ function projectConnections(
           connection.toZoneId
         ),
         locked,
+        side: anchor.side,
+        offset: anchor.offset,
       })
     }
   }
@@ -260,7 +288,8 @@ export function projectSpatialEncounterSnapshot(
   meta: EncounterSnapshotMeta,
   mapInstance: MapInstanceState,
   instanceVersion: number,
-  fog: boolean
+  fog: boolean,
+  exitAnchors: SnapshotExitAnchors = {}
 ): SpatialEncounterSnapshot {
   const base = projectEncounterSnapshot(session, view, viewer, meta)
 
@@ -268,7 +297,11 @@ export function projectSpatialEncounterSnapshot(
     ? base.combatants.map((c) => clampCombatantZone(c, mapInstance.reveal))
     : base.combatants
 
-  const { connections, exits } = projectConnections(mapInstance, fog)
+  const { connections, exits } = projectConnections(
+    mapInstance,
+    fog,
+    exitAnchors
+  )
   const enchantment = visibleEnchantment(mapInstance, fog)
 
   return {
@@ -429,7 +462,8 @@ export function projectDungeonSnapshot(
   meta: DungeonSnapshotMeta,
   mapInstance: MapInstanceState,
   state: DungeonState,
-  roster: Record<string, DungeonRosterEntry>
+  roster: Record<string, DungeonRosterEntry>,
+  exitAnchors: SnapshotExitAnchors = {}
 ): DungeonSnapshot {
   const tokensByZone = tokensByRevealedZone(mapInstance, roster)
 
@@ -448,7 +482,11 @@ export function projectDungeonSnapshot(
       }
     })
 
-  const { connections, exits } = projectConnections(mapInstance, true)
+  const { connections, exits } = projectConnections(
+    mapInstance,
+    true,
+    exitAnchors
+  )
 
   return {
     status: meta.status,

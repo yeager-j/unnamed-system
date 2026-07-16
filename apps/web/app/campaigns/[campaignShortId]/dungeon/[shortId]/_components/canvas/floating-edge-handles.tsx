@@ -10,10 +10,10 @@ import { Handle, Position } from "@xyflow/react"
  *
  * They are deliberately zero-sized and `isConnectable={false}`: players/DMs don't
  * drag edges off them (that's the template editor's *visible* handles), but React
- * Flow **won't create an edge for a node with no handles at all** — the floating
- * router ({@link import("@/components/shared/canvas/use-floating-edge-path").useFloatingEdgePath})
- * only overrides *where* an edge attaches, not *whether* it can. So both a `source`
- * and a `target` handle have to exist even though neither is seen. Don't remove them.
+ * Flow **won't create an edge for a node with no handles at all** — the threshold
+ * anchor hook ({@link import("@/components/shared/canvas/use-threshold-anchors").useThresholdAnchors})
+ * only overrides *where* the notches sit, not *whether* an edge can exist. So both a
+ * `source` and a `target` handle have to exist even though neither is seen. Don't remove them.
  */
 export function FloatingEdgeHandles() {
   return (

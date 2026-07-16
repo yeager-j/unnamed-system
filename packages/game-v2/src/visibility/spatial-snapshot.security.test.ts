@@ -127,8 +127,37 @@ describe("RELEASE GATE — combat fog snapshot strips DM-only geography (SD10/RE
   })
 
   it("silhouettes the exit without the far zone id", () => {
-    expect(snap.exits).toEqual([{ id: "c1", zoneId: "z1", locked: false }])
+    expect(snap.exits).toEqual([
+      { id: "c1", zoneId: "z1", locked: false, side: "n", offset: 0.5 },
+    ])
     expect(snap.exits[0]).not.toHaveProperty("toZoneId")
+  })
+
+  it("serializes an exit with exactly {id, zoneId, locked, side, offset} — no more (AC 3)", () => {
+    const exitSnap = projectSpatialEncounterSnapshot(
+      session,
+      view,
+      spectator(),
+      META,
+      fogInstance,
+      1,
+      isFogActive(fogInstance.reveal),
+      { c1: { side: "e", offset: 0.3 } }
+    )
+    expect(exitSnap.exits[0]).toEqual({
+      id: "c1",
+      zoneId: "z1",
+      locked: false,
+      side: "e",
+      offset: 0.3,
+    })
+    expect(Object.keys(exitSnap.exits[0]!).sort()).toEqual([
+      "id",
+      "locked",
+      "offset",
+      "side",
+      "zoneId",
+    ])
   })
 })
 
@@ -177,7 +206,9 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
   })
 
   it("silhouettes the exit, far zone absent", () => {
-    expect(snap.exits).toEqual([{ id: "c1", zoneId: "z1", locked: false }])
+    expect(snap.exits).toEqual([
+      { id: "c1", zoneId: "z1", locked: false, side: "n", offset: 0.5 },
+    ])
     expect(snap.exits[0]).not.toHaveProperty("toZoneId")
   })
 })

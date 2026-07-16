@@ -62,7 +62,15 @@ beforeEach(() => {
   loadCampaignRowById.mockResolvedValue({ id: "campaign-1", shortId: "camp-1" })
   loadMapInstanceById.mockResolvedValue({
     id: "mi-1",
-    state: { occupancy: {} },
+    state: {
+      occupancy: {},
+      geometry: { zones: {}, connections: {} },
+      reveal: {
+        revealedZoneIds: [],
+        revealedConnectionIds: [],
+        unlockedConnectionIds: [],
+      },
+    },
     version: 0,
   })
   loadPlacedCharactersForCampaign.mockResolvedValue([])

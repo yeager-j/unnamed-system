@@ -175,7 +175,25 @@ describe("projectSpatialEncounterSnapshot — composes over the envelope (SD10)"
       isFogActive(delveInstance.reveal)
     )
     expect(snap.connections).toEqual([])
-    expect(snap.exits).toEqual([{ id: "c1", zoneId: "z1", locked: false }])
+    expect(snap.exits).toEqual([
+      { id: "c1", zoneId: "z1", locked: false, side: "n", offset: 0.5 },
+    ])
+  })
+
+  it("attaches the loader-computed {side, offset} to a known exit", () => {
+    const snap = projectSpatialEncounterSnapshot(
+      session,
+      view,
+      spectator(),
+      META,
+      delveInstance,
+      7,
+      isFogActive(delveInstance.reveal),
+      { c1: { side: "e", offset: 0.25 } }
+    )
+    expect(snap.exits).toEqual([
+      { id: "c1", zoneId: "z1", locked: false, side: "e", offset: 0.25 },
+    ])
   })
 
   it("standalone (no reveal): shows the full map and leaves zoneIds untouched", () => {
@@ -376,6 +394,8 @@ describe("projectDungeonSnapshot — the exploration-only sibling", () => {
       roster
     )
     expect(snap.connections).toEqual([])
-    expect(snap.exits).toEqual([{ id: "c1", zoneId: "z1", locked: false }])
+    expect(snap.exits).toEqual([
+      { id: "c1", zoneId: "z1", locked: false, side: "n", offset: 0.5 },
+    ])
   })
 })
