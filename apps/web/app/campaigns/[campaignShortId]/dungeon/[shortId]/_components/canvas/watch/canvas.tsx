@@ -10,9 +10,10 @@ import {
   ReactFlowProvider,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { type DungeonSnapshot } from "@workspace/game-v2/visibility"
 
@@ -20,10 +21,12 @@ import {
   DungeonConnectionEdge,
   type DungeonConnectionEdge as DungeonConnectionEdgeType,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/connection-edge"
+import { RosterInspector } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/roster-inspector"
 import {
   DungeonWatchCombatZoneNode,
   type DungeonWatchCombatZoneNode as DungeonWatchCombatZoneNodeType,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/combat-zone-node"
+import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
 import {
   DungeonWatchZoneNode,
   type DungeonWatchZoneNode as DungeonWatchZoneNodeType,
@@ -34,6 +37,7 @@ import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
 } from "@/components/shared/canvas/grid"
+import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
@@ -42,6 +46,7 @@ import {
   watchExploreZoneView,
 } from "@/domain/dungeon/view/set-piece-view"
 import { footprintOf } from "@/domain/map/view/footprints"
+import type { SetPieceOccupant } from "@/domain/map/view/set-piece-view"
 
 const nodeTypes = {
   fogZone: DungeonWatchZoneNode,
@@ -74,7 +79,8 @@ function exitsByZone(
 
 function buildExploreNodes(
   snapshot: DungeonSnapshot,
-  ownedCharacterIds: string[]
+  ownedCharacterIds: string[],
+  onInspect: (zoneId: string) => void
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
 
@@ -94,6 +100,7 @@ function buildExploreNodes(
         // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
         // (name, forte marking, rule lines) is display shaping, done consumer-side.
         enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+        onOpenRoster: () => onInspect(zone.id),
       },
     }
   })
@@ -111,7 +118,8 @@ function buildExploreNodes(
 function buildCombatNodes(
   snapshot: DungeonSnapshot,
   combatants: WatchCombatant[],
-  ownedCharacterIds: string[]
+  ownedCharacterIds: string[],
+  onInspect: (zoneId: string) => void
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
   const byZone: Record<string, WatchCombatant[]> = {}
@@ -140,6 +148,7 @@ function buildCombatNodes(
         combatants: zoneCombatants,
         exits: exits[zone.id] ?? [],
         enchantment: zoneEnchantmentBadge(zone.enchantment ?? null, zone.id),
+        onOpenRoster: () => onInspect(zone.id),
       },
     }
   })
@@ -199,17 +208,65 @@ function DungeonWatchCanvasInner({
 }) {
   const { resolvedTheme } = useTheme()
   const tier = useCanvasTier()
+  const { setCenter, getZoom } = useReactFlow()
   const [nodes, setNodes, onNodesChange] = useNodesState<WatchCanvasNode>([])
   const [edges, setEdges, onEdgesChange] =
     useEdgesState<DungeonConnectionEdgeType>([])
+
+  // The roster inspector's target — owned here (the watch has no details sheet to
+  // coordinate with), independent of the camera. `elementsSelectable={false}`
+  // keeps the click ring-less, but `onNodeClick` still fires for center + inspect.
+  const [inspectId, setInspectId] = useState<string | null>(null)
+  const inspectedView =
+    (inspectId !== null &&
+      nodes.find((node) => node.id === inspectId)?.data.view) ||
+    null
+
+  // The inspector renders the same watch token as the in-card roster, so a
+  // crowded zone keeps its HP/SP + condition popovers (§D7). In combat, resolve
+  // each occupant to its redacted combatant for the ailments/battle-conditions.
+  const combatantsById =
+    mode.kind === "combat"
+      ? new Map(
+          mode.combatants.map((combatant) => [
+            combatant.id as string,
+            combatant,
+          ])
+        )
+      : null
+  const renderInspectorToken = (occupant: SetPieceOccupant) => (
+    <WatchRosterToken
+      occupant={occupant}
+      combatant={combatantsById?.get(occupant.key)}
+    />
+  )
+
+  const onNodeClick = useCallback(
+    (_: unknown, node: WatchCanvasNode) => {
+      const w = node.measured?.width ?? node.width ?? 0
+      const h = node.measured?.height ?? node.height ?? 0
+      setCenter(node.position.x + w / 2, node.position.y + h / 2, {
+        zoom: getZoom(),
+        duration: prefersReducedMotion() ? 0 : 200,
+      })
+      const occupied = node.data.view.occupants.length > 0
+      setInspectId(occupied ? node.id : null)
+    },
+    [setCenter, getZoom]
+  )
 
   // Re-derive the board from each poll's snapshot. A reveal snaps the new Zone in;
   // the viewport stays put (fitView is init-only).
   useEffect(() => {
     setNodes(
       mode.kind === "combat"
-        ? buildCombatNodes(snapshot, mode.combatants, ownedCharacterIds)
-        : buildExploreNodes(snapshot, ownedCharacterIds)
+        ? buildCombatNodes(
+            snapshot,
+            mode.combatants,
+            ownedCharacterIds,
+            setInspectId
+          )
+        : buildExploreNodes(snapshot, ownedCharacterIds, setInspectId)
     )
     setEdges(buildEdges(snapshot))
   }, [snapshot, ownedCharacterIds, mode, setNodes, setEdges])
@@ -225,6 +282,8 @@ function DungeonWatchCanvasInner({
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeClick={onNodeClick}
+        onPaneClick={() => setInspectId(null)}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
@@ -249,6 +308,11 @@ function DungeonWatchCanvasInner({
             The party hasn&apos;t explored anywhere yet.
           </CanvasEmptyNotice>
         )}
+        <RosterInspector
+          view={inspectedView}
+          onClose={() => setInspectId(null)}
+          renderToken={renderInspectorToken}
+        />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>

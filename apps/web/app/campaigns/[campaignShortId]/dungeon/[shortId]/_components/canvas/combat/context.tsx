@@ -53,6 +53,8 @@ export interface DungeonCombatCanvasContextValue {
   onMoveActing: (toZoneId: string) => void
   /** Open the per-combatant detail drawer. */
   onSelectCombatant: (participantId: ParticipantId) => void
+  /** Docks the roster inspector on this Zone — the crowded card's "Open roster ▸". */
+  onInspect: (zoneId: string) => void
   /** Dispatch a spatial event against the shared Instance — the Bard Zone
    *  Enchantment menu's `applyEnchantment` / `clearEnchantment`. */
   onCombatEvent: (event: MapInstanceEvent) => void

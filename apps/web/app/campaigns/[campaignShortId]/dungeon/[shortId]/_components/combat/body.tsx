@@ -8,10 +8,13 @@ import type { MapInstanceState } from "@workspace/game-v2/spatial"
 import { adjacentZones } from "@workspace/game-v2/spatial/selectors"
 import { SidebarInset } from "@workspace/ui/components/sidebar"
 
+import { rowsByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
 import { DungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas"
 import { DungeonCombatCanvasProvider } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/context"
+import { CombatRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/roster-token"
 import { CombatSpinePanel } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/spine-panel"
 import { CombatTurnBar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/turn-bar"
+import { RosterInspector } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/roster-inspector"
 import { DungeonCombatSidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
 import {
@@ -23,6 +26,7 @@ import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { COMBAT_DRAFT_HEADINGS } from "@/domain/labels"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
 import { endDungeonCombatAction } from "@/lib/actions/dungeon/end-combat"
@@ -110,6 +114,23 @@ export function DungeonCombatBody({
 
   const [moveAnywhere, setMoveAnywhere] = useState(false)
 
+  // The roster inspector's target (§D7) — independent of the camera and of the
+  // acting mark. Combat has no details sheet, so it needs no exclusivity.
+  const [inspectId, setInspectId] = useState<string | null>(null)
+  const rowsPerZone = rowsByZone(instanceState, roster)
+  const inspectedZone = inspectId
+    ? (instanceState.geometry.zones[inspectId] ?? null)
+    : null
+  const inspectedView = inspectedZone
+    ? combatZoneView({
+        zone: inspectedZone,
+        revealed: instanceState.reveal.revealedZoneIds.includes(
+          inspectedZone.id
+        ),
+        rows: rowsPerZone[inspectedZone.id] ?? [],
+      })
+    : null
+
   const actingCombatantId =
     phase === "active" ? (currentActor?.id ?? null) : null
   const movableZoneIds = movableZonesFor(
@@ -164,6 +185,7 @@ export function DungeonCombatBody({
               })
             },
             onSelectCombatant: selectCombatant,
+            onInspect: setInspectId,
             onCombatEvent: dispatch,
             playerViewHref: dungeonWatchPath(campaignShortId, dungeon.shortId),
             onEndEncounter: endEncounter,
@@ -177,6 +199,24 @@ export function DungeonCombatBody({
               instance={instanceState}
               mode={{ kind: "combat", roster }}
               persistKey={dungeon.shortId}
+              onZoneClick={(zoneId) =>
+                setInspectId(
+                  (rowsPerZone[zoneId]?.length ?? 0) > 0 ? zoneId : null
+                )
+              }
+              onPaneClick={() => setInspectId(null)}
+              overlay={
+                <RosterInspector
+                  view={inspectedView}
+                  onClose={() => setInspectId(null)}
+                  renderToken={(occupant) => (
+                    <CombatRosterToken
+                      occupant={occupant}
+                      onSelect={(key) => selectCombatant(key as ParticipantId)}
+                    />
+                  )}
+                />
+              }
               bar={
                 <>
                   <CombatSpinePanel />

@@ -5,11 +5,8 @@ import { type Node, type NodeProps } from "@xyflow/react"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ExitChip } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/exit-chip"
-import { TokenStatsPopover } from "@/components/combat/token-stats-popover"
-import {
-  clustersOf,
-  OccupantToken,
-} from "@/components/shared/canvas/set-piece/occupant-chips"
+import { WatchRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/roster-token"
+import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { ZoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
@@ -25,6 +22,9 @@ export type WatchZoneData = {
   exits: WatchZoneExit[]
   /** The Zone's active Bard Enchantment badge, when one sits here (UNN-489). */
   enchantment?: ZoneEnchantmentBadge
+  /** Docks the watch roster inspector on this Zone (the crowded card's "Open
+   *  roster ▸"; §D7). Supplied by the canvas, which owns the watch `inspectId`. */
+  onOpenRoster: () => void
 }
 export type DungeonWatchZoneNode = Node<WatchZoneData, "fogZone">
 
@@ -40,21 +40,16 @@ export type DungeonWatchZoneNode = Node<WatchZoneData, "fogZone">
 export function DungeonWatchZoneNode({
   data,
 }: NodeProps<DungeonWatchZoneNode>) {
-  const { view, exits, enchantment } = data
+  const { view, exits, enchantment, onOpenRoster } = data
 
   const tokenChip = (occupant: (typeof view.occupants)[number]) => (
-    <TokenStatsPopover
-      name={occupant.name}
-      hp={occupant.hp ?? null}
-      sp={occupant.sp ?? null}
-    >
-      <OccupantToken occupant={occupant} />
-    </TokenStatsPopover>
+    <WatchRosterToken occupant={occupant} />
   )
 
   return (
     <ZoneSetPiece
       view={view}
+      onOpenRoster={onOpenRoster}
       handles={<FloatingEdgeHandles />}
       titleAccessory={
         enchantment ? (

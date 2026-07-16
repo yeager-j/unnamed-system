@@ -13,14 +13,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-/** Honors the OS reduce-motion setting by zeroing the viewport-animation
- *  duration; SSR-guarded so it's safe to read during render. */
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-}
+import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 
 /**
  * The zoom-out / fit-view / zoom-in cluster shared by every React Flow bar — the
