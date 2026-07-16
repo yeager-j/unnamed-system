@@ -11,6 +11,7 @@ import { cn } from "@workspace/ui/lib/utils"
 
 import type { ZoneSetPieceView } from "@/domain/map/view/set-piece-view"
 
+import { HopBadge } from "./hop-badge"
 import { MotifGlyph } from "./motif-icons"
 import {
   CondensedAvatarStack,
@@ -81,6 +82,13 @@ export interface ZoneSetPieceProps {
 
 const UNOCCUPIED = "Unoccupied"
 
+/** Mood → wash class (§D6 hue channel); absent mood ⇒ no class ⇒ plain `bg-card`. */
+const MOOD_CLASS = {
+  warm: styles.moodWarm,
+  dim: styles.moodDim,
+  cool: styles.moodCool,
+} as const
+
 export function ZoneSetPiece({
   view,
   selected,
@@ -100,6 +108,16 @@ export function ZoneSetPiece({
   const unmapped = view.reveal === "unmapped"
   const occupied = view.occupants.length > 0
   const dimContent = unmapped && "opacity-50"
+  // Gold is the party's own stake, rationed (§D6): the party keyline, or its stronger
+  // twin when the party zone is also selected. A non-party selection is a *white*
+  // ring — never gold (interaction #9). The partner-hover glow yields to any stake.
+  const stakeClass = view.party
+    ? selected
+      ? styles.partySelected
+      : styles.party
+    : selected
+      ? styles.selected
+      : undefined
   // The roster is decoupled from the footprint (§D7): over capacity the Closeup
   // degrades to the condensed stack + inspector, so a small room never clips a
   // crowd. Only degrade where an inspector exists to send the DM to.
@@ -131,9 +149,12 @@ export function ZoneSetPiece({
       aria-label={`Zone: ${view.name}`}
       aria-describedby={describedById}
       className={cn(
-        "relative size-full border bg-card text-card-foreground shadow-sm transition-shadow",
-        partnerHighlighted && "ring-2 ring-muted-foreground/70",
-        selected && "ring-2 ring-gold",
+        "relative size-full rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow",
+        view.mood && MOOD_CLASS[view.mood],
+        occupied && styles.occupied,
+        unmapped && styles.unmapped,
+        stakeClass,
+        partnerHighlighted && !stakeClass && "ring-2 ring-muted-foreground/70",
         className
       )}
     >
@@ -176,6 +197,7 @@ export function ZoneSetPiece({
             {view.name}
           </span>
           {dmNotesGlyph}
+          <HopBadge hop={view.hop} />
           {titleAccessory}
         </div>
         {view.description ? (
@@ -222,6 +244,7 @@ export function ZoneSetPiece({
             {view.name}
           </span>
           {dmNotesGlyph}
+          <HopBadge hop={view.hop} />
           {titleAccessory}
           {headerAction}
         </div>

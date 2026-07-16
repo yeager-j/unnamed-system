@@ -19,3 +19,20 @@ export function readViewport(key: string): Viewport | undefined {
 export function writeViewport(key: string, viewport: Viewport): void {
   viewportByDungeon.set(key, viewport)
 }
+
+/**
+ * Whether the DM console's overview minimap is shown (Dungeon Visual Overhaul §D8),
+ * keyed by the dungeon's `shortId` and defaulting **on**. Shares this module's
+ * session-scoped lifetime with {@link readViewport} — it survives phase remounts +
+ * `router.refresh`, resets on a full reload (there's no localStorage precedent for
+ * canvas chrome to match).
+ */
+const minimapVisibleByDungeon = new Map<string, boolean>()
+
+export function readMinimapVisible(key: string): boolean {
+  return minimapVisibleByDungeon.get(key) ?? true
+}
+
+export function writeMinimapVisible(key: string, visible: boolean): void {
+  minimapVisibleByDungeon.set(key, visible)
+}

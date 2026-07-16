@@ -60,6 +60,7 @@ const MapCanvas = dynamic(
 export function DungeonEditCanvas({
   instance,
   roster,
+  dungeonName,
   onGeometryEvent,
   mode,
   onModeChange,
@@ -67,6 +68,8 @@ export function DungeonEditCanvas({
 }: {
   instance: MapInstanceState
   roster: Record<string, DungeonRosterEntry>
+  /** The dungeon's name — the cartouche title while editing (§D8). */
+  dungeonName: string
   onGeometryEvent: (event: MapGeometryEvent) => void
   mode: DungeonConsoleMode
   onModeChange: (mode: DungeonConsoleMode) => void
@@ -86,6 +89,7 @@ export function DungeonEditCanvas({
     <MapCanvas
       geometry={instance.geometry}
       interactivity="edit"
+      cartoucheTitle={dungeonName}
       onGeometryEvent={onGeometryEvent}
       lockedZoneIds={lockedZoneIds}
       defaultViewport={persistKey ? readViewport(persistKey) : undefined}

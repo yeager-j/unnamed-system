@@ -5,7 +5,6 @@ import "@xyflow/react/dist/style.css"
 import {
   Background,
   BackgroundVariant,
-  Controls,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -32,7 +31,10 @@ import {
   type DungeonWatchZoneNode as DungeonWatchZoneNodeType,
   type WatchZoneExit,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/zone-node"
+import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
+import { CanvasCartouche } from "@/components/shared/canvas/canvas-cartouche"
 import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 import { connectionAriaLabel } from "@/components/shared/canvas/geometry-to-flow"
 import {
   CANVAS_DOT_SIZE,
@@ -47,6 +49,7 @@ import { prefersReducedMotion } from "@/components/shared/canvas/reduced-motion"
 import { useCanvasTier } from "@/components/shared/canvas/use-canvas-tier"
 import type { WatchCombatant } from "@/domain/combat/view/watch-layout"
 import { zoneEnchantmentBadge } from "@/domain/combat/view/zone-enchantment-badge"
+import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import {
   watchCombatZoneView,
   watchExploreZoneView,
@@ -95,6 +98,18 @@ function buildExploreNodes(
   onInspect: (zoneId: string) => void
 ): WatchCanvasNode[] {
   const exits = exitsByZone(snapshot)
+  // The always-on range lens (§D5), origin = the party's zone(s). No re-origin —
+  // the watch has no selection. The party's zones also carry the gold keyline (§D6).
+  const partyZoneIds = new Set(
+    snapshot.zones
+      .filter((zone) => zone.tokens.length > 0)
+      .map((zone) => zone.id)
+  )
+  const lensMap = buildRangeLens({
+    connections: snapshot.connections,
+    origins: [...partyZoneIds],
+    originLabel: "Party",
+  })
 
   return snapshot.zones.map((zone) => {
     const { w, h } = footprintOf(zone.size)
@@ -107,7 +122,12 @@ function buildExploreNodes(
       height: h,
       style: { width: w, height: h },
       data: {
-        view: watchExploreZoneView({ zone, ownedCharacterIds }),
+        view: watchExploreZoneView({
+          zone,
+          ownedCharacterIds,
+          party: partyZoneIds.has(zone.id),
+          hop: lensMap[zone.id] ?? null,
+        }),
         exits: exits[zone.id] ?? [],
         // The snapshot carries the raw Enchantment (zoneId/type/forte); the badge
         // (name, forte marking, rule lines) is display shaping, done consumer-side.
@@ -139,6 +159,22 @@ function buildCombatNodes(
     if (combatant.zoneId === null) continue
     ;(byZone[combatant.zoneId] ??= []).push(combatant)
   }
+  // The range lens (§D5), origin = the player-side combatants' zone(s). No party
+  // keyline in combat (players fight spread out); no re-origin.
+  const originZoneIds = [
+    ...new Set(
+      combatants
+        .filter(
+          (combatant) =>
+            combatant.side === "players" && combatant.zoneId !== null
+        )
+        .map((combatant) => combatant.zoneId as string)
+    ),
+  ]
+  const lensMap = buildRangeLens({
+    connections: snapshot.connections,
+    origins: originZoneIds,
+  })
 
   return snapshot.zones.map((zone) => {
     const zoneCombatants = byZone[zone.id] ?? []
@@ -156,6 +192,7 @@ function buildCombatNodes(
           zone,
           combatants: zoneCombatants,
           ownedCharacterIds,
+          hop: lensMap[zone.id] ?? null,
         }),
         combatants: zoneCombatants,
         exits: exits[zone.id] ?? [],
@@ -347,12 +384,18 @@ function DungeonWatchCanvasInner({
             The party hasn&apos;t explored anywhere yet.
           </CanvasEmptyNotice>
         )}
+        {!isEmpty && <CanvasCartouche title={snapshot.name} />}
         <RosterInspector
           view={inspectedView}
           onClose={() => setInspectId(null)}
           renderToken={renderInspectorToken}
         />
-        <Controls showInteractive={false} />
+        {/* The grown zoom cluster gives players the same tier vocabulary as the DM
+            (§D8) — it replaces RF's default <Controls>. The watch omits the zone
+            count on the cartouche (its payload holds only revealed zones). */}
+        <CanvasBottomBar>
+          <CanvasZoomCluster />
+        </CanvasBottomBar>
       </ReactFlow>
     </div>
   )

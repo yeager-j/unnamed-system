@@ -12,7 +12,6 @@ import { rowsByZone } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/
 import { DungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas"
 import { DungeonCombatCanvasProvider } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/context"
 import { CombatRosterToken } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/roster-token"
-import { CombatSpinePanel } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/spine-panel"
 import { CombatTurnBar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/combat/turn-bar"
 import { RosterInspector } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/roster-inspector"
 import { DungeonCombatSidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar"
@@ -26,6 +25,7 @@ import { EndOfTurnModal } from "@/components/combat/dialogs/end-of-turn-modal"
 import { CombatantDrawer } from "@/components/combat/drawer/combatant-drawer"
 import type { EncounterForDM } from "@/domain/combat/load-encounter-for-dm"
 import type { CombatantSheetSlice } from "@/domain/combat/sheet-slice"
+import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { combatZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { COMBAT_DRAFT_HEADINGS } from "@/domain/labels"
 import type { EndCombatError } from "@/lib/actions/combat/end-combat.schema"
@@ -139,6 +139,17 @@ export function DungeonCombatBody({
     moveAnywhere
   )
 
+  // The always-on range lens (§D5), origin = the acting combatant's zone — answers
+  // "who can the actor reach from here?" the moment their turn starts. No party
+  // keyline in combat (owner-confirmed); no re-origin.
+  const actingZoneId = actingCombatantId
+    ? (instanceState.occupancy[actingCombatantId]?.zoneId ?? null)
+    : null
+  const lensMap = buildRangeLens({
+    connections: Object.values(instanceState.geometry.connections),
+    origins: actingZoneId ? [actingZoneId] : [],
+  })
+
   return (
     <>
       {pcChannelIds.map(({ characterId, shortId }) => (
@@ -149,55 +160,57 @@ export function DungeonCombatBody({
           onPing={(data) => onPcPing(characterId, data)}
         />
       ))}
+      <DungeonCombatCanvasProvider
+        value={{
+          round: session.round,
+          phase,
+          draftHeading: COMBAT_DRAFT_HEADINGS[view.draftingSide],
+          actingName: currentActor?.name ?? null,
+          turnRows: view.rows,
+          roundComplete: view.roundComplete,
+          onDraft,
+          onAdvanceRound,
+          onEndTurn,
+          actingCombatantId,
+          movableZoneIds,
+          moveAnywhere,
+          onToggleMoveAnywhere: () => setMoveAnywhere((prev) => !prev),
+          onMoveActing: (toZoneId) => {
+            if (actingCombatantId === null) return
+            dispatch({
+              kind: "moveCombatant",
+              tokenKey: actingCombatantId,
+              toZoneId,
+            })
+          },
+          onSelectCombatant: selectCombatant,
+          onInspect: setInspectId,
+          hopFor: (zoneId) => lensMap[zoneId] ?? null,
+          onCombatEvent: dispatch,
+          playerViewHref: dungeonWatchPath(campaignShortId, dungeon.shortId),
+          onEndEncounter: endEncounter,
+          turnCounter: dungeon.state.turnCounter,
+          fallenPcNames,
+          disabled: isPending,
+        }}
+      >
+        <DungeonSidebarSlot>
+          <DungeonCombatSidebar
+            roster={roster}
+            dungeonName={dungeon.name}
+            campaignShortId={campaignShortId}
+            round={session.round}
+            onSelectCombatant={selectCombatant}
+          />
+        </DungeonSidebarSlot>
 
-      <DungeonSidebarSlot>
-        <DungeonCombatSidebar
-          roster={roster}
-          dungeonName={dungeon.name}
-          campaignShortId={campaignShortId}
-          round={session.round}
-          onSelectCombatant={selectCombatant}
-        />
-      </DungeonSidebarSlot>
-
-      <SidebarInset className="relative">
-        <DungeonCombatCanvasProvider
-          value={{
-            round: session.round,
-            phase,
-            draftHeading: COMBAT_DRAFT_HEADINGS[view.draftingSide],
-            actingName: currentActor?.name ?? null,
-            turnRows: view.rows,
-            roundComplete: view.roundComplete,
-            onDraft,
-            onAdvanceRound,
-            onEndTurn,
-            actingCombatantId,
-            movableZoneIds,
-            moveAnywhere,
-            onToggleMoveAnywhere: () => setMoveAnywhere((prev) => !prev),
-            onMoveActing: (toZoneId) => {
-              if (actingCombatantId === null) return
-              dispatch({
-                kind: "moveCombatant",
-                tokenKey: actingCombatantId,
-                toZoneId,
-              })
-            },
-            onSelectCombatant: selectCombatant,
-            onInspect: setInspectId,
-            onCombatEvent: dispatch,
-            playerViewHref: dungeonWatchPath(campaignShortId, dungeon.shortId),
-            onEndEncounter: endEncounter,
-            turnCounter: dungeon.state.turnCounter,
-            fallenPcNames,
-            disabled: isPending,
-          }}
-        >
+        <SidebarInset className="relative">
           <div className="absolute inset-0">
             <DungeonCanvas
               instance={instanceState}
               mode={{ kind: "combat", roster }}
+              dungeonName={dungeon.name}
+              turnCounter={dungeon.state.turnCounter}
               persistKey={dungeon.shortId}
               onZoneClick={(zoneId) =>
                 setInspectId(
@@ -217,24 +230,18 @@ export function DungeonCombatBody({
                   )}
                 />
               }
-              bar={
-                <>
-                  <CombatSpinePanel />
-                  <CombatTurnBar />
-                </>
-              }
+              bar={<CombatTurnBar />}
             />
           </div>
-        </DungeonCombatCanvasProvider>
-      </SidebarInset>
+        </SidebarInset>
 
-      <CombatantDrawer
-        detail={selectedDetail}
-        onClose={() => selectCombatant(null)}
-        onCombatEvent={dispatch}
-        dispatchWrite={dispatchWrite}
-      />
-
+        <CombatantDrawer
+          detail={selectedDetail}
+          onClose={() => selectCombatant(null)}
+          onCombatEvent={dispatch}
+          dispatchWrite={dispatchWrite}
+        />
+      </DungeonCombatCanvasProvider>
       {currentActor ? (
         <EndOfTurnModal
           actorId={currentActor.id}

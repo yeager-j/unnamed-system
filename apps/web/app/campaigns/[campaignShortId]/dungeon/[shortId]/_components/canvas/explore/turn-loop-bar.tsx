@@ -31,22 +31,20 @@ import { CanvasBottomBar } from "@/components/shared/canvas/canvas-bottom-bar"
 import { CanvasZoomCluster } from "@/components/shared/canvas/canvas-zoom-cluster"
 
 /**
- * The DM run console's bottom **Panel** (UNN-464 chrome pass) — the dungeon-turn
- * counter + Advance, Finish delve, and the canvas zoom cluster (zoom-out, a live
- * zoom-percentage readout that fits the view on click, zoom-in). It lives **inside**
- * React Flow so it can drive the viewport (matching the editor's
+ * The DM run console's bottom **Panel** (UNN-464 chrome pass) — the mode toggle,
+ * the canvas zoom cluster, Advance turn, Start encounter, and Finish delve. It lives
+ * **inside** React Flow so it can drive the viewport (matching the editor's
  * {@link import("@/components/shared/canvas/canvas-toolbar").CanvasToolbar}); its
  * turn-loop state + dispatchers come from {@link useDungeonCanvas} (the run console
  * provides them), so nothing threads through `DungeonCanvas`.
  *
- * The turn counter is the only turn signal players ever see (no turn queue in
- * exploration — PRD FR-6). The party (and the delve's back/name header) lives in
- * the left {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/party-sidebar").DungeonPartySidebar}; turn
+ * The turn *count* now reads off the top-center cartouche (the working bar keeps only
+ * the Advance action). The party (and the delve's back/name header) lives in the left
+ * {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/party-sidebar").DungeonPartySidebar}; turn
  * reminders surface as top-right toasts.
  */
 export function TurnLoopBar() {
   const {
-    turnCounter,
     advanceTurn,
     finishDelve,
     onStartEncounter,
@@ -63,30 +61,6 @@ export function TurnLoopBar() {
 
         <Separator orientation="vertical" className="mx-2" />
 
-        <span className="pl-1 whitespace-nowrap tabular-nums">
-          Turn{" "}
-          <span className="font-bold">
-            {turnCounter.toString().padStart(2, "0")}
-          </span>
-        </span>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon"
-                aria-label="Advance turn"
-                onClick={advanceTurn}
-                disabled={disabled}
-              />
-            }
-          >
-            <ArrowRightIcon weight="bold" />
-          </TooltipTrigger>
-          <TooltipContent>Advance turn</TooltipContent>
-        </Tooltip>
-
-        <Separator orientation="vertical" className="mx-2" />
-
         <CanvasZoomCluster />
 
         <Separator orientation="vertical" className="mx-2" />
@@ -98,6 +72,7 @@ export function TurnLoopBar() {
                 size="icon"
                 aria-label="Start an encounter"
                 onClick={onStartEncounter}
+                variant="destructive"
                 disabled={disabled}
               />
             }
@@ -122,6 +97,22 @@ export function TurnLoopBar() {
             <FlagCheckeredIcon weight="bold" />
           </TooltipTrigger>
           <TooltipContent>Finish delve</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                aria-label="Advance turn"
+                onClick={advanceTurn}
+                disabled={disabled}
+              />
+            }
+          >
+            Advance Turn
+            <ArrowRightIcon weight="bold" />
+          </TooltipTrigger>
+          <TooltipContent>Advance turn</TooltipContent>
         </Tooltip>
       </CanvasBottomBar>
 

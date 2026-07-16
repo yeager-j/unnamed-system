@@ -18,6 +18,7 @@ import { DungeonPartySidebar } from "@/app/campaigns/[campaignShortId]/dungeon/[
 import { useDungeonConsole } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/use-dungeon-console"
 import { DungeonZoneSheet } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/explore/zone-sheet"
 import { DungeonSidebarSlot } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/shell/console-shell"
+import { buildRangeLens } from "@/domain/dungeon/view/range-lens"
 import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { DUNGEON_REMINDER_COPY } from "@/domain/labels"
 import type { CharacterSummary } from "@/lib/db/queries/character-list"
@@ -114,6 +115,18 @@ export function DungeonExploreBody({
       })
     : null
 
+  // The always-on range lens (§D5). Its origin is always the party's zone(s), so the
+  // gold ★ Party badge stays on the party (never re-homed onto a clicked zone — that
+  // fought the gold rationing and demoted the badge). Selection is the outline only;
+  // it does not move the lens. The party's zones — occupancy ∩ roster — also carry the
+  // gold keyline (§D6).
+  const partyZoneIds = new Set(Object.keys(tokensPerZone))
+  const lensMap = buildRangeLens({
+    connections: Object.values(instanceState.geometry.connections),
+    origins: [...partyZoneIds],
+    originLabel: "Party",
+  })
+
   // Edit ⇄ Play is DM-local, ephemeral UI (never persisted), orthogonal to the
   // delve's status (ADR — Console topology). Play draws tokens/fog; Edit swaps in
   // the Map builder over the live Instance geometry.
@@ -200,6 +213,8 @@ export function DungeonExploreBody({
               },
               openDetails,
               onInspect: inspectZone,
+              hopFor: (zoneId) => lensMap[zoneId] ?? null,
+              isParty: (zoneId) => partyZoneIds.has(zoneId),
               turnCounter: dungeonState.turnCounter,
               advanceTurn: () => dispatch({ kind: "advanceTurn" }),
               finishDelve,
@@ -214,6 +229,8 @@ export function DungeonExploreBody({
               <DungeonCanvas
                 instance={instanceState}
                 mode={canvasMode}
+                dungeonName={dungeon.name}
+                turnCounter={dungeonState.turnCounter}
                 persistKey={dungeon.shortId}
                 onZoneClick={(zoneId) =>
                   inspectZone(
@@ -235,6 +252,7 @@ export function DungeonExploreBody({
             <DungeonEditCanvas
               instance={instanceState}
               roster={roster}
+              dungeonName={dungeon.name}
               onGeometryEvent={(event) =>
                 dispatch({ kind: "editGeometry", event })
               }

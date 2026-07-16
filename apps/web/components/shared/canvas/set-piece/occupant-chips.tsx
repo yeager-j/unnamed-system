@@ -202,7 +202,7 @@ export function OccupantToken({
   return (
     <span
       className={cn(
-        "inline-flex max-w-[10rem] flex-col gap-1 border px-1.5 py-1",
+        "inline-flex max-w-[10rem] flex-col gap-1 rounded-lg border px-1.5 py-1",
         tint.chip,
         occupant.acting && ACTING_RING,
         className

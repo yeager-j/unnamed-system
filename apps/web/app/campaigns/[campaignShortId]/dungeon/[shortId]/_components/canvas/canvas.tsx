@@ -2,6 +2,7 @@
 
 import "@xyflow/react/dist/style.css"
 
+import { MapTrifoldIcon } from "@phosphor-icons/react/dist/ssr"
 import {
   Background,
   BackgroundVariant,
@@ -14,9 +15,10 @@ import {
   type Node,
 } from "@xyflow/react"
 import { useTheme } from "next-themes"
-import { useCallback, useEffect, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
 
 import type { MapInstanceState } from "@workspace/game-v2/spatial"
+import { Button } from "@workspace/ui/components/button"
 
 import {
   buildEdges,
@@ -34,10 +36,17 @@ import {
   type DungeonCanvasMode,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/types"
 import {
+  readMinimapVisible,
   readViewport,
+  writeMinimapVisible,
   writeViewport,
 } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/viewport-store"
+import { CanvasCartouche } from "@/components/shared/canvas/canvas-cartouche"
 import { CanvasEmptyNotice } from "@/components/shared/canvas/canvas-empty-notice"
+import {
+  CanvasMinimap,
+  type MinimapZoneClass,
+} from "@/components/shared/canvas/canvas-minimap"
 import {
   CANVAS_DOT_SIZE,
   CANVAS_GRID_SIZE,
@@ -70,6 +79,11 @@ const edgeTypes = { dungeonConnection: DungeonConnectionEdge }
 export function DungeonCanvas(props: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
+  /** The dungeon's name — the cartouche title (§D8). */
+  dungeonName: string
+  /** The delve's turn counter — the cartouche subtitle on the DM console (the turn
+   *  readout moved off the working bar). */
+  turnCounter: number
   bar?: ReactNode
   /** A React Flow overlay rendered inside the flow (the roster inspector Panel). */
   overlay?: ReactNode
@@ -94,6 +108,8 @@ export function DungeonCanvas(props: {
 function DungeonCanvasInner({
   instance,
   mode,
+  dungeonName,
+  turnCounter,
   bar,
   overlay,
   onZoneClick,
@@ -102,6 +118,8 @@ function DungeonCanvasInner({
 }: {
   instance: MapInstanceState
   mode: DungeonCanvasMode
+  dungeonName: string
+  turnCounter: number
   bar?: ReactNode
   overlay?: ReactNode
   onZoneClick?: (zoneId: string) => void
@@ -142,7 +160,32 @@ function DungeonCanvasInner({
     setEdges(buildEdges(instance))
   }, [instance, mode, setNodes, setEdges])
 
-  const isEmpty = Object.keys(instance.geometry.zones).length === 0
+  const [minimapVisible, setMinimapVisible] = useState(() =>
+    persistKey ? readMinimapVisible(persistKey) : true
+  )
+  const toggleMinimap = () =>
+    setMinimapVisible((visible) => {
+      const next = !visible
+      if (persistKey) writeMinimapVisible(persistKey, next)
+      return next
+    })
+
+  const zoneCount = Object.keys(instance.geometry.zones).length
+  const isEmpty = zoneCount === 0
+
+  // Minimap zone classes (§D8): reveal → unmapped (dashed), then party gold on the
+  // party's zones (explore, where occupancy is the party), else lit when occupied.
+  const minimapClasses: Record<string, MinimapZoneClass> = {}
+  for (const node of nodes) {
+    const data = node.data
+    if (!data.revealed) {
+      minimapClasses[node.id] = "unmapped"
+    } else if ("tokens" in data) {
+      minimapClasses[node.id] = data.tokens.length > 0 ? "party" : "plain"
+    } else {
+      minimapClasses[node.id] = data.rows.length > 0 ? "occupied" : "plain"
+    }
+  }
 
   return (
     <div className="relative size-full" data-tier={tier} {...edgeFocusPairing}>
@@ -192,23 +235,35 @@ function DungeonCanvasInner({
             the delve.
           </CanvasEmptyNotice>
         )}
-        <Panel
-          position="top-left"
-          className="flex flex-col gap-1 rounded-none border bg-background/80 px-2 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur"
-        >
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-4 border border-border bg-card" />
-            Revealed to players
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-4 border border-dashed border-muted-foreground" />
-            Hidden (secret)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-4 border border-dotted border-muted-foreground/60 opacity-60" />
-            Not yet revealed
-          </span>
+
+        {!isEmpty && (
+          <CanvasCartouche
+            title={dungeonName}
+            subtitle={`Turn ${turnCounter}`}
+          />
+        )}
+
+        {/* The overview minimap + its toggle (§D8) — the reveal now rides the card
+            border vocabulary, so the old three-state legend is gone. */}
+        <Panel position="bottom-left" className="m-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={minimapVisible ? "Hide minimap" : "Show minimap"}
+            aria-pressed={minimapVisible}
+            title={minimapVisible ? "Hide minimap" : "Show minimap"}
+            className="border bg-popover shadow-sm"
+            onClick={toggleMinimap}
+          >
+            <MapTrifoldIcon />
+          </Button>
         </Panel>
+        {minimapVisible && (
+          <CanvasMinimap
+            classByZoneId={minimapClasses}
+            className="!bottom-16 !left-3 !m-0 overflow-hidden rounded-xl border shadow-lg"
+          />
+        )}
 
         {overlay}
         {bar ?? <TurnLoopBar />}

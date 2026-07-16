@@ -19,7 +19,7 @@ export type ZoneSize = MapZoneSize
 
 /** The fixed world-unit rect each authored `size` maps to. */
 export const ZONE_FOOTPRINTS: Record<ZoneSize, { w: number; h: number }> = {
-  S: { w: 208, h: 144 },
+  S: { w: 208, h: 160 },
   M: { w: 336, h: 192 },
   L: { w: 432, h: 256 },
   XL: { w: 560, h: 320 },
@@ -41,7 +41,7 @@ export const zoneTokenCapacity = (
   clusterCount = 0
 ) => {
   const { h } = footprintOf(size)
-  return Math.max(1, Math.floor((h - 64 - 24 * clusterCount) / 46)) * 2
+  return Math.max(1, Math.floor((h - 72 - 24 * clusterCount) / 46)) * 2
 }
 
 /** A positioned axis-aligned footprint rect for overlap tests. */

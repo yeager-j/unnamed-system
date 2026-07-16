@@ -56,10 +56,11 @@ export function DungeonCombatZoneNode({
     onSelectCombatant,
     onCombatEvent,
     onInspect,
+    hopFor,
     disabled,
   } = useDungeonCombatCanvas()
   const { zone, revealed, rows, enchantment } = data
-  const view = combatZoneView({ zone, revealed, rows })
+  const view = combatZoneView({ zone, revealed, rows, hop: hopFor(zone.id) })
   const partnerHighlighted = useConnectionHighlight(zone.id)
   const isMoveTarget = movableZoneIds.includes(zone.id)
   const showMove = isMoveTarget && actingName !== null
@@ -98,6 +99,9 @@ export function DungeonCombatZoneNode({
           <NodeToolbar
             isVisible
             position={Position.Bottom}
+            // A toolbar click bubbles through RF's portal to `onNodeClick`; stop it
+            // so "Move here" is never also a zone click (§D3, matching explore).
+            onClick={(event) => event.stopPropagation()}
             className="rounded-none border bg-popover p-1 shadow-md"
           >
             <Button

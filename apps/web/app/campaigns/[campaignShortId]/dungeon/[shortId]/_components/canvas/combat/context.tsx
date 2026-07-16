@@ -7,13 +7,15 @@ import type { MapInstanceEvent } from "@workspace/game-v2/spatial"
 
 import type { ConsolePhase } from "@/components/combat/turn-order-strip"
 import type { CombatantView } from "@/domain/combat/view/console-view"
+import type { ZoneSetPieceHop } from "@/domain/map/view/set-piece-view"
 
 /**
- * The combat-phase state + dispatchers the canvas-internal chrome reads — the
- * combat {@link import("./zone-node").DungeonCombatZoneNode} and the turn-loop
- * Panels ({@link import("./turn-bar").CombatTurnBar} +
- * {@link import("./spine-panel").CombatSpinePanel}). The combat peer of
- * {@link import("../explore/context").DungeonCanvasContextValue}: while a fight
+ * The combat-phase state + dispatchers the console chrome reads — the combat
+ * {@link import("./zone-node").DungeonCombatZoneNode}, the bottom
+ * {@link import("./turn-bar").CombatTurnBar}, and the left
+ * {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/combat/sidebar").DungeonCombatSidebar}
+ * (which owns the whose-turn drafting since it moved off the canvas). The combat peer
+ * of {@link import("../explore/context").DungeonCanvasContextValue}: while a fight
  * runs on the delve the run console swaps the play context for this one (only one
  * phase is mounted at a time), so the same `DungeonCanvas` shell renders the
  * battlefield without threading combat dispatchers through React Flow. On engine
@@ -55,6 +57,9 @@ export interface DungeonCombatCanvasContextValue {
   onSelectCombatant: (participantId: ParticipantId) => void
   /** Docks the roster inspector on this Zone — the crowded card's "Open roster ▸". */
   onInspect: (zoneId: string) => void
+  /** The range-lens badge for a Zone (§D5), origin = the acting combatant's zone;
+   *  `null` when unreachable (or while drafting, when there is no acting origin). */
+  hopFor: (zoneId: string) => ZoneSetPieceHop | null
   /** Dispatch a spatial event against the shared Instance — the Bard Zone
    *  Enchantment menu's `applyEnchantment` / `clearEnchantment`. */
   onCombatEvent: (event: MapInstanceEvent) => void
