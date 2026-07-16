@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 
-import { useEntityIdentityToken } from "@/domain/entity/use-entity-write"
+import { useEntityIdentityQueue } from "@/domain/entity/use-entity-write"
 import { finalizeEntityAction } from "@/lib/actions/entity/finalize"
 import type { FinalizeEntityError } from "@/lib/actions/entity/finalize.schema"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
@@ -37,7 +37,7 @@ export function FinalizeButton({
   canFinalize: boolean
   disabledReason?: string
 }) {
-  const identityToken = useEntityIdentityToken()
+  const identityQueue = useEntityIdentityQueue()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const disabled = isPending || !canFinalize
@@ -47,10 +47,12 @@ export function FinalizeButton({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await finalizeEntityAction({
-            entityId: identityToken.entityId,
-            expectedVersion: identityToken.read(),
-          })
+          const result = await identityQueue.enqueueOnce((expectedVersion) =>
+            finalizeEntityAction({
+              entityId: identityQueue.entityId,
+              expectedVersion,
+            })
+          )
           if (result.ok) {
             toast.success("Character finalized.")
             router.push("/")

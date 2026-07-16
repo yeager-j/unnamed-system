@@ -72,9 +72,11 @@ component-write **descriptor** (`entityWriteSchema`, `domain/entity/commit/write
 to `applyEntityWriteAction`, which hands off to `commitEntityWrite` — the shared
 Store that owns auth, assembling the row into a runtime `Entity`, running the pure
 **Writer** (`ENTITY_WRITERS.applyOp`), and the guarded column commit
-(`bumpEntityVersionGuarded`). App-owned columns (name, portrait, pronouns, notes,
-builderStep, status) stay classic per-field actions (`lib/actions/entity/columns.ts`)
-composing the same guard; `finalize` spans both halves. The neutral descriptor +
+(`bumpEntityVersionGuarded`). App-owned entity columns (name, portrait, pronouns,
+notes) stay classic per-field actions (`lib/actions/entity/columns.ts`) composing
+the same guard. PC lifecycle state (`builderStep`, `status`) lives on the
+unversioned `playerCharacter` subtype; `finalize` spans the guarded entity and
+subtype halves. The neutral descriptor +
 Writers are documented in **`domain/entity/commit/CLAUDE.md`**; combat's durable arm
 forwards to the same composition (**`lib/actions/combat/commit/CLAUDE.md`**).
 

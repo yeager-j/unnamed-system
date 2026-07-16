@@ -16,7 +16,7 @@ import {
   type FinalizeEntityError,
   type FinalizeEntityInput,
 } from "./finalize.schema"
-import { revalidateEntity } from "./revalidate"
+import { revalidateCharacterList, revalidateEntity } from "./revalidate"
 import { bumpEntityVersionGuarded } from "./version-guard"
 
 /**
@@ -30,12 +30,12 @@ import { bumpEntityVersionGuarded } from "./version-guard"
  * the two-statement finalize keeps the "sanctioned one-shot" spirit across the
  * substrate/subtype split.
  *
- * Success returns the `shortId`; the client routes to My Characters (`/`) —
- * the v2 sheet route doesn't exist until S2a.
+ * Success returns the `shortId` plus the bumped identity token; the client
+ * queue absorbs the token before routing to My Characters (`/`).
  */
 export async function finalizeEntityAction(
   input: FinalizeEntityInput
-): Promise<Result<{ shortId: string }, FinalizeEntityError>> {
+): Promise<Result<{ shortId: string; version: number }, FinalizeEntityError>> {
   const parsed = FinalizeEntitySchema.safeParse(input)
   if (!parsed.success) return err("invalid-input")
 
@@ -65,6 +65,7 @@ export async function finalizeEntityAction(
     .where(eq(playerCharacter.entityId, row.id))
 
   revalidateEntity({ shortId: row.shortId })
+  revalidateCharacterList()
 
-  return ok({ shortId: row.shortId })
+  return ok({ shortId: row.shortId, version: committed.value.version })
 }
