@@ -47,7 +47,7 @@ export function FinalizeButton({
     startTransition(() =>
       guardWriteTransition(
         async () => {
-          const result = await identityQueue.enqueue((expectedVersion) =>
+          const result = await identityQueue.enqueueOnce((expectedVersion) =>
             finalizeEntityAction({
               entityId: identityQueue.entityId,
               expectedVersion,

@@ -355,7 +355,7 @@ describe("useEntityAutoSave — the shared class spine (UNN-568)", () => {
 
     let finalized!: ReturnType<typeof finalize>
     act(() => {
-      finalized = result.current.identity.enqueue(finalize)
+      finalized = result.current.identity.enqueueOnce(finalize)
     })
     expect(finalize).not.toHaveBeenCalled()
 
@@ -363,6 +363,22 @@ describe("useEntityAutoSave — the shared class spine (UNN-568)", () => {
     await act(async () => finalized)
 
     expect(finalize).toHaveBeenCalledWith(4)
+  })
+
+  it("does not retry a stale identity lifecycle action against unseen state", async () => {
+    const finalize = vi.fn(async () => err("stale"))
+    versionAction.mockResolvedValue(ok({ version: 7 }))
+
+    const { result } = renderHook(() => useEntityIdentityQueue(), { wrapper })
+    let finalized!: ReturnType<typeof finalize>
+    act(() => {
+      finalized = result.current.enqueueOnce(finalize)
+    })
+    await act(async () => finalized)
+
+    expect(finalize).toHaveBeenCalledOnce()
+    expect(finalize).toHaveBeenCalledWith(1)
+    expect(versionAction).not.toHaveBeenCalled()
   })
 
   it("a click write chains behind an in-flight debounced save on the same class and reads its bumped token", async () => {
