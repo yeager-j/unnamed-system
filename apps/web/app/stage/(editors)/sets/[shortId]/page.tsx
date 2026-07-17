@@ -4,7 +4,7 @@ import { cache } from "react"
 
 import { SetEditor } from "@/app/stage/_components/set-editor/set-editor"
 import { auth } from "@/lib/auth"
-import { loadMapsByUserId } from "@/lib/db/queries/load-map"
+import { loadMapOptionsByUserId } from "@/lib/db/queries/load-map"
 import { loadTemplateSetByShortId } from "@/lib/db/queries/load-template-set"
 import type { TemplateSetRow } from "@/lib/db/schema/template-set"
 
@@ -47,12 +47,7 @@ export default async function SetEditorPage({ params }: PageProps) {
   const session = await auth()
   if (session?.user?.id !== set.userId) notFound()
 
-  const maps = await loadMapsByUserId(set.userId)
+  const mapOptions = await loadMapOptionsByUserId(set.userId)
 
-  return (
-    <SetEditor
-      set={set}
-      mapOptions={maps.map((map) => ({ id: map.id, name: map.name }))}
-    />
-  )
+  return <SetEditor set={set} mapOptions={mapOptions} />
 }
