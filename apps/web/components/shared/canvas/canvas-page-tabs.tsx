@@ -139,7 +139,9 @@ export function CanvasPageTabs({
   )
 }
 
-function RenamePageDialog({
+/** The one rename-page prompt — shared by the editor's tab menu and the console's
+ *  Pages sidebar (a controlled dialog around a single name field). */
+export function RenamePageDialog({
   page,
   onClose,
   onRename,

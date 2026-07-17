@@ -1,6 +1,9 @@
 import {
   connectionFogState,
+  crossPageLinksForPage,
+  firstPageId,
   isConnectionLocked,
+  type CrossPageLink,
   type MapInstanceState,
   type MapZone,
 } from "@workspace/game-v2/spatial"
@@ -41,41 +44,68 @@ export function tokensByZone(
   return byZone
 }
 
+/** A cross-page link plus the count of occupants/combatants standing in the far
+ *  Zone — the console chip's badge, so a split party or fight stays loud. */
+export type DungeonPageLink = CrossPageLink & { count: number }
+
+function pageLinksFor(
+  links: CrossPageLink[],
+  zoneId: string,
+  countFor: (farZoneId: string) => number
+): DungeonPageLink[] {
+  return links
+    .filter((link) => link.zoneId === zoneId)
+    .map((link) => ({ ...link, count: countFor(link.farZoneId) }))
+}
+
 /** Re-derive the React Flow node array from the (optimistic) Instance — the
  *  {@link import("@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/canvas").DungeonCanvas} runs this on
  *  every Instance change, keyed off the {@link DungeonCanvasMode}: the exploration
- *  **play** board or the combat battlefield (UNN-536). */
+ *  **play** board or the combat battlefield (UNN-536). One page at a time
+ *  (UNN-586): zones filter to `activePageId` (default: first page in canonical
+ *  order) and cross-page connections surface as chip data on the node. */
 export function buildNodes(
   instance: MapInstanceState,
-  mode: DungeonCanvasMode
+  mode: DungeonCanvasMode,
+  activePageId?: string
 ): CanvasNode[] {
+  const pageId = activePageId ?? firstPageId(instance.geometry)
   return mode.kind === "combat"
-    ? buildCombatNodes(instance, mode.roster)
-    : buildPlayNodes(instance, mode.roster)
+    ? buildCombatNodes(instance, mode.roster, pageId)
+    : buildPlayNodes(instance, mode.roster, pageId)
 }
 
 function buildPlayNodes(
   instance: MapInstanceState,
-  roster: Record<string, DungeonRosterEntry>
+  roster: Record<string, DungeonRosterEntry>,
+  pageId: string
 ): CanvasNode[] {
   const byZone = tokensByZone(instance, roster)
-  return Object.values(instance.geometry.zones).map((zone) => {
-    const { w, h } = footprintOf(zone.size)
-    return {
-      id: zone.id,
-      type: "dungeonZone",
-      position: zone.position,
-      draggable: false,
-      width: w,
-      height: h,
-      style: { width: w, height: h },
-      data: {
-        zone,
-        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-        tokens: byZone[zone.id] ?? [],
-      },
-    }
-  })
+  const links = crossPageLinksForPage(instance.geometry, pageId)
+  return Object.values(instance.geometry.zones)
+    .filter((zone) => zone.pageId === pageId)
+    .map((zone) => {
+      const { w, h } = footprintOf(zone.size)
+      return {
+        id: zone.id,
+        type: "dungeonZone",
+        position: zone.position,
+        draggable: false,
+        width: w,
+        height: h,
+        style: { width: w, height: h },
+        data: {
+          zone,
+          revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+          tokens: byZone[zone.id] ?? [],
+          crossPageLinks: pageLinksFor(
+            links,
+            zone.id,
+            (farZoneId) => byZone[farZoneId]?.length ?? 0
+          ),
+        },
+      }
+    })
 }
 
 /** The combatants standing in each Zone (combat mode), keyed by Zone id — grouped
@@ -101,62 +131,81 @@ export function rowsByZone(
  *  not baked here. */
 function buildCombatNodes(
   instance: MapInstanceState,
-  roster: RosterView
+  roster: RosterView,
+  pageId: string
 ): CanvasNode[] {
   const byZone = rowsByZone(instance, roster)
+  const links = crossPageLinksForPage(instance.geometry, pageId)
 
-  return Object.values(instance.geometry.zones).map((zone: MapZone) => {
-    const rows = byZone[zone.id] ?? []
-    const { w, h } = footprintOf(zone.size)
-    return {
-      id: zone.id,
-      type: "dungeonCombatZone",
-      position: zone.position,
-      draggable: false,
-      width: w,
-      height: h,
-      style: { width: w, height: h },
-      data: {
-        zone,
-        revealed: instance.reveal.revealedZoneIds.includes(zone.id),
-        rows,
-        enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
-      },
-    }
-  })
+  return Object.values(instance.geometry.zones)
+    .filter((zone) => zone.pageId === pageId)
+    .map((zone: MapZone) => {
+      const rows = byZone[zone.id] ?? []
+      const { w, h } = footprintOf(zone.size)
+      return {
+        id: zone.id,
+        type: "dungeonCombatZone",
+        position: zone.position,
+        draggable: false,
+        width: w,
+        height: h,
+        style: { width: w, height: h },
+        data: {
+          zone,
+          revealed: instance.reveal.revealedZoneIds.includes(zone.id),
+          rows,
+          enchantment: zoneEnchantmentBadge(instance.enchantment, zone.id),
+          crossPageLinks: pageLinksFor(
+            links,
+            zone.id,
+            (farZoneId) => byZone[farZoneId]?.length ?? 0
+          ),
+        },
+      }
+    })
 }
 
 /** The Instance's connections as read-only rim-threshold floating edges. Not
  *  selectable (the console selects zones, not connections) but focusable, so the
  *  notches keep keyboard reach + pairing glow. */
 export function buildEdges(
-  instance: MapInstanceState
+  instance: MapInstanceState,
+  activePageId?: string
 ): DungeonConnectionEdgeType[] {
-  return Object.values(instance.geometry.connections).map((connection) => {
-    const fromName = instance.geometry.zones[connection.fromZoneId]?.name ?? ""
-    const toName = instance.geometry.zones[connection.toZoneId]?.name ?? ""
-    const locked = isConnectionLocked(connection, instance.reveal)
-    return {
-      id: connection.id,
-      type: "dungeonConnection",
-      source: connection.fromZoneId,
-      target: connection.toZoneId,
-      selectable: false,
-      focusable: true,
-      ariaLabel: connectionAriaLabel(fromName, toName, {
-        hidden: connection.hidden,
-        locked,
-      }),
-      data: {
-        fog: connectionFogState(connection, instance.reveal),
-        locked,
-        // The authored secret flag — distinct from the fog state, so the DM can
-        // tell a deliberately-hidden passage apart from one players just haven't
-        // discovered yet (which auto-surfaces as a silhouette on reveal).
-        hidden: connection.hidden,
-        fromName,
-        toName,
-      },
-    }
-  })
+  const pageId = activePageId ?? firstPageId(instance.geometry)
+  return Object.values(instance.geometry.connections)
+    .filter(
+      (connection) =>
+        // Intra-page only — a cross-page connection renders as chips (UNN-586).
+        instance.geometry.zones[connection.fromZoneId]?.pageId === pageId &&
+        instance.geometry.zones[connection.toZoneId]?.pageId === pageId
+    )
+    .map((connection) => {
+      const fromName =
+        instance.geometry.zones[connection.fromZoneId]?.name ?? ""
+      const toName = instance.geometry.zones[connection.toZoneId]?.name ?? ""
+      const locked = isConnectionLocked(connection, instance.reveal)
+      return {
+        id: connection.id,
+        type: "dungeonConnection",
+        source: connection.fromZoneId,
+        target: connection.toZoneId,
+        selectable: false,
+        focusable: true,
+        ariaLabel: connectionAriaLabel(fromName, toName, {
+          hidden: connection.hidden,
+          locked,
+        }),
+        data: {
+          fog: connectionFogState(connection, instance.reveal),
+          locked,
+          // The authored secret flag — distinct from the fog state, so the DM can
+          // tell a deliberately-hidden passage apart from one players just haven't
+          // discovered yet (which auto-surfaces as a silhouette on reveal).
+          hidden: connection.hidden,
+          fromName,
+          toName,
+        },
+      }
+    })
 }

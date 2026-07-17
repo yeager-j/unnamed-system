@@ -8,11 +8,13 @@ import type { MapZone } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { DungeonPageLink } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { EngagedCluster } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/watch/engaged-cluster"
 import { ZoneEnchantmentControl } from "@/components/combat/controls/zone-enchantment"
 import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { clustersOf } from "@/components/shared/canvas/set-piece/occupant-chips"
+import { PageLinkChips } from "@/components/shared/canvas/set-piece/page-link-chip"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { EnchantmentBadge } from "@/components/shared/enchantment-badge"
 import type { RailRow } from "@/domain/combat/view/roster-view"
@@ -31,6 +33,9 @@ export type DungeonCombatZoneData = {
   rows: RailRow[]
   /** The Zone's active Bard Enchantment, when the Instance's singleton sits here. */
   enchantment?: ZoneEnchantmentBadge
+  /** "Leads to ⇢" chips for this Zone's cross-page connections (UNN-586), with
+   *  far-zone combatant counts so a split fight stays loud. */
+  crossPageLinks: DungeonPageLink[]
 }
 export type DungeonCombatZoneNode = Node<
   DungeonCombatZoneData,
@@ -58,8 +63,9 @@ export function DungeonCombatZoneNode({
     onInspect,
     hopFor,
     disabled,
+    navigateToPage,
   } = useDungeonCombatCanvas()
-  const { zone, revealed, rows, enchantment } = data
+  const { zone, revealed, rows, enchantment, crossPageLinks } = data
   const view = combatZoneView({ zone, revealed, rows, hop: hopFor(zone.id) })
   const partnerHighlighted = useConnectionHighlight(zone.id)
   const isMoveTarget = movableZoneIds.includes(zone.id)
@@ -82,6 +88,17 @@ export function DungeonCombatZoneNode({
       )}
       onOpenRoster={() => onInspect(zone.id)}
       handles={<FloatingEdgeHandles />}
+      pageLinks={
+        crossPageLinks.length > 0 ? (
+          <PageLinkChips
+            links={crossPageLinks}
+            counts={Object.fromEntries(
+              crossPageLinks.map((link) => [link.farZoneId, link.count])
+            )}
+            onNavigate={navigateToPage}
+          />
+        ) : undefined
+      }
       titleAccessory={
         enchantment ? <EnchantmentBadge enchantment={enchantment} /> : null
       }

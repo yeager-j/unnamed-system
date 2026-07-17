@@ -74,6 +74,10 @@ export interface DungeonCombatCanvasContextValue {
   fallenPcNames: string[]
   /** True while a write is in flight — disables the turn-loop controls. */
   disabled: boolean
+  /** Switches the battlefield to another page, optionally centering a Zone there —
+   *  the cross-page chip's affordance; manual override of the follow-the-turn
+   *  camera (UNN-586). */
+  navigateToPage: (pageId: string, focusZoneId?: string) => void
 }
 
 const DungeonCombatCanvasContext =

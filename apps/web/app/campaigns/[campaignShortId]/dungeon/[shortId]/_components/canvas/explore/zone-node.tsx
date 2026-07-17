@@ -12,10 +12,12 @@ import type { MapZone } from "@workspace/game-v2/spatial"
 import { Button } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
 
+import type { DungeonPageLink } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/build-nodes"
 import { useDungeonCanvas } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/explore/context"
 import { FloatingEdgeHandles } from "@/app/campaigns/[campaignShortId]/dungeon/[shortId]/_components/canvas/floating-edge-handles"
 import { useConnectionHighlight } from "@/components/shared/canvas/hovered-connection-context"
 import { OccupantToken } from "@/components/shared/canvas/set-piece/occupant-chips"
+import { PageLinkChips } from "@/components/shared/canvas/set-piece/page-link-chip"
 import { ZoneSetPiece } from "@/components/shared/canvas/set-piece/zone-set-piece"
 import { exploreZoneView } from "@/domain/dungeon/view/set-piece-view"
 import { type Pool } from "@/domain/pool"
@@ -32,6 +34,9 @@ export type DungeonZoneData = {
   zone: MapZone
   revealed: boolean
   tokens: DungeonZoneToken[]
+  /** "Leads to ⇢" chips for this Zone's cross-page connections (UNN-586), with
+   *  far-zone party counts so a split party stays loud. */
+  crossPageLinks: DungeonPageLink[]
 }
 export type DungeonZoneNode = Node<DungeonZoneData, "dungeonZone">
 
@@ -57,8 +62,9 @@ export function DungeonZoneNode({
     onInspect,
     hopFor,
     isParty,
+    navigateToPage,
   } = useDungeonCanvas()
-  const { zone, revealed, tokens } = data
+  const { zone, revealed, tokens, crossPageLinks } = data
   const view = exploreZoneView({
     zone,
     revealed,
@@ -76,6 +82,17 @@ export function DungeonZoneNode({
       className="cursor-pointer"
       onOpenRoster={() => onInspect(zone.id)}
       handles={<FloatingEdgeHandles />}
+      pageLinks={
+        crossPageLinks.length > 0 ? (
+          <PageLinkChips
+            links={crossPageLinks}
+            counts={Object.fromEntries(
+              crossPageLinks.map((link) => [link.farZoneId, link.count])
+            )}
+            onNavigate={navigateToPage}
+          />
+        ) : undefined
+      }
       toolbar={
         <NodeToolbar
           isVisible={selected}

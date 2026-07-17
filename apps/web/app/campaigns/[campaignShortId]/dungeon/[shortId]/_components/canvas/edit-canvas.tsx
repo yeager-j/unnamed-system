@@ -61,6 +61,8 @@ export function DungeonEditCanvas({
   instance,
   roster,
   dungeonName,
+  activePageId,
+  onActivePageChange,
   onGeometryEvent,
   mode,
   onModeChange,
@@ -70,6 +72,10 @@ export function DungeonEditCanvas({
   roster: Record<string, DungeonRosterEntry>
   /** The dungeon's name — the cartouche title while editing (§D8). */
   dungeonName: string
+  /** The console's shared page choice (UNN-586) — the Pages sidebar tab owns the
+   *  switcher, so the canvas's own tab strip stays off. */
+  activePageId?: string
+  onActivePageChange?: (pageId: string) => void
   onGeometryEvent: (event: MapGeometryEvent) => void
   mode: DungeonConsoleMode
   onModeChange: (mode: DungeonConsoleMode) => void
@@ -90,6 +96,8 @@ export function DungeonEditCanvas({
       geometry={instance.geometry}
       interactivity="edit"
       cartoucheTitle={dungeonName}
+      activePageId={activePageId}
+      onActivePageChange={onActivePageChange}
       onGeometryEvent={onGeometryEvent}
       lockedZoneIds={lockedZoneIds}
       defaultViewport={persistKey ? readViewport(persistKey) : undefined}

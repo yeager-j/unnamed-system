@@ -15,7 +15,9 @@ import { Label } from "@workspace/ui/components/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
@@ -24,10 +26,7 @@ import {
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
 
-interface DelveZone {
-  id: string
-  name: string
-}
+import type { PageZoneGroup } from "@/domain/map/view/page-groups"
 
 /**
  * The Play-phase "Add to delve" affordance (UNN-487): the DM brings a campaign
@@ -44,16 +43,18 @@ interface DelveZone {
  */
 export function AddToDelveDialog({
   absentCharacters,
-  zones,
+  zoneGroups,
   disabled,
   onPlace,
 }: {
   absentCharacters: { id: string; name: string }[]
-  zones: DelveZone[]
+  /** Zones grouped by page (UNN-586) — headings render only for a >1-page map. */
+  zoneGroups: PageZoneGroup[]
   disabled?: boolean
   onPlace: (characterId: string, zoneId: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const showPageLabels = zoneGroups.length > 1
 
   return (
     <SidebarMenuItem>
@@ -109,10 +110,17 @@ export function AddToDelveDialog({
                       <SelectValue placeholder="Choose a zone" />
                     </SelectTrigger>
                     <SelectContent>
-                      {zones.map((zone) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                          {zone.name}
-                        </SelectItem>
+                      {zoneGroups.map((group) => (
+                        <SelectGroup key={group.pageId}>
+                          {showPageLabels && group.zones.length > 0 && (
+                            <SelectLabel>{group.pageName}</SelectLabel>
+                          )}
+                          {group.zones.map((zone) => (
+                            <SelectItem key={zone.id} value={zone.id}>
+                              {zone.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
                       ))}
                     </SelectContent>
                   </Select>
