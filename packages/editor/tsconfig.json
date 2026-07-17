@@ -18,7 +18,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    "baseUrl": ".",
     "paths": {
       "@atomic-editor/editor": ["./src/index.ts"],
       "@atomic-editor/editor/code-languages": ["./src/code-languages.ts"]
