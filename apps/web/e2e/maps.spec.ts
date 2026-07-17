@@ -41,7 +41,7 @@ test.afterAll(async () => {
   await cleanup(tracker)
 })
 
-test("the Stage root opens the Maps library and reserves the Sets slot", async ({
+test("the Stage root opens the Maps library beside the live Sets item", async ({
   page,
 }) => {
   await page.goto("/stage")
@@ -54,7 +54,7 @@ test("the Stage root opens the Maps library and reserves the Sets slot", async (
     "aria-current",
     "page"
   )
-  await expect(libraryNav.getByRole("button", { name: "Sets" })).toBeDisabled()
+  await expect(libraryNav.getByRole("link", { name: "Sets" })).toBeVisible()
   await expect(page.getByRole("link", { name: "My Campaigns" })).toBeVisible()
 })
 
