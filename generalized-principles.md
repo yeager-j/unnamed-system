@@ -11,20 +11,6 @@ Brief project description
 These are portable defaults. Project-specific instructions and observed evidence take precedence.
 Apply a principle only where its assumptions hold; do not add machinery merely to satisfy a slogan.
 
-1. **Keep it simple; don't get clever.**
-2. **Give functions and files clear names and purposes.**
-3. **Avoid inline comments; code that needs comments to be understood should be refactored.**
-4. **Resist premature abstraction.**
-5. **Favor composition over inheritance.**
-6. **Avoid nesting the Happy Path (early returns).**
-7. **Write tests to enable confident refactoring.**
-8. **Promote normative comments to enforcement (Design by Contract).**
-9. **Decide a distinction once (Meyer's Single Choice Principle, Replace Conditionals with Polymorphism).**
-10. **Home state on the object whose lifetime matches it.**
-
-These are portable defaults. Project-specific instructions and observed evidence take precedence.
-Apply a principle only where its assumptions hold; do not add machinery merely to satisfy a slogan.
-
 ### How to read this document
 
 Not every principle has the same force:
@@ -191,6 +177,19 @@ Treat these as triggers to investigate, not automatic verdicts:
 - Enforce a rule with the earliest reliable, proportionate mechanism: type, exhaustive table, static
   gate, test, runtime assertion, monitoring, or prose. These cover different failures; they are not a
   universal ladder.
+
+### Distillation
+
+1. **Keep it simple; don't get clever.**
+2. **Give functions and files clear names and purposes.**
+3. **Comments carry what code can't: rationale, not narration.**
+4. **Resist premature abstraction.**
+5. **Favor composition over inheritance.**
+6. **Keep the happy path linear; return early.**
+7. **Write tests to enable confident refactoring.**
+8. **Promote normative comments to enforcement (Design by Contract).**
+9. **Decide a distinction once (Meyer's Single Choice Principle, Replace Conditionals with Polymorphism).**
+10. **Home state on the object whose lifetime matches it.**
 
 ## Project Guidelines
 
