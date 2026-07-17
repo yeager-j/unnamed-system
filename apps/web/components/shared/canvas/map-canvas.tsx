@@ -473,6 +473,15 @@ function MapCanvasInner({
     })
     const connection = next.connections[connectionId]
     if (!connection) return
+    // A cross-page connection has no edge to patch — its flag state lives in
+    // the endpoint's chip data, so rebuild the nodes instead.
+    if (
+      next.zones[connection.fromZoneId]?.pageId !==
+      next.zones[connection.toZoneId]?.pageId
+    ) {
+      reseedFlow()
+      return
+    }
     setEdges((current) =>
       current.map((edge) =>
         edge.id === connectionId

@@ -186,6 +186,8 @@ describe("geometryToFlow — pages (UNN-586)", () => {
         farZoneName: "Ossuary",
         farPageId: "p2",
         farPageName: "Undercroft",
+        hidden: false,
+        locked: false,
       },
     ])
     const nodeA = nodes.find((node) => node.id === "a")

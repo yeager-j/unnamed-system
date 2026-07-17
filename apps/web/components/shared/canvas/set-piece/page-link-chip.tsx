@@ -16,6 +16,39 @@ export interface PageLinkView {
   farZoneName: string
   farPageId: string
   farPageName: string
+  /** The connection's authored flags — present on DM-side links (the editor's
+   *  chip menu reads them); the watch's links omit them. */
+  hidden?: boolean
+  locked?: boolean
+}
+
+/** The chip's shell classes — shared with the editor's dropdown-trigger variant
+ *  so both render identically. */
+export const pageLinkChipClass =
+  "nodrag inline-flex max-w-full items-center gap-1 rounded-full border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground shadow-sm transition-colors hover:border-ring hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+
+/** The chip's inner content (icon · far zone · far page · count badge). */
+export function PageLinkChipLabel({
+  link,
+  count,
+}: {
+  link: PageLinkView
+  count?: number
+}) {
+  return (
+    <>
+      <ArrowBendUpRightIcon className="size-3 shrink-0" aria-hidden />
+      <span className="truncate">
+        {link.farZoneName}
+        <span className="text-muted-foreground/70"> · {link.farPageName}</span>
+      </span>
+      {count !== undefined && count > 0 ? (
+        <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 font-medium text-foreground tabular-nums">
+          {count}
+        </span>
+      ) : null}
+    </>
+  )
 }
 
 /**
@@ -49,21 +82,9 @@ export function PageLinkChip({
         event.stopPropagation()
         onNavigate(link.farPageId, link.farZoneId)
       }}
-      className={cn(
-        "nodrag inline-flex max-w-full items-center gap-1 rounded-full border bg-background/80 px-2 py-0.5 text-xs text-muted-foreground shadow-sm transition-colors hover:border-ring hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
-        className
-      )}
+      className={cn(pageLinkChipClass, className)}
     >
-      <ArrowBendUpRightIcon className="size-3 shrink-0" aria-hidden />
-      <span className="truncate">
-        {link.farZoneName}
-        <span className="text-muted-foreground/70"> · {link.farPageName}</span>
-      </span>
-      {count !== undefined && count > 0 ? (
-        <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 font-medium text-foreground tabular-nums">
-          {count}
-        </span>
-      ) : null}
+      <PageLinkChipLabel link={link} count={count} />
     </button>
   )
 }

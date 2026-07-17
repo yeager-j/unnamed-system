@@ -536,21 +536,51 @@ export function projectDungeonSnapshot(
 }
 
 /**
- * Resolves the instance's `lastMovedTokenKey` to the follow-the-party page hint
- * (UNN-586, D3) — defensively, because the key is opaque and dual-lifecycle:
- * it must belong to a **roster** character (an enemy participant's move never
- * drives the watch), still hold a token (combat prune can dangle it), and stand
- * in a **revealed** Zone (the hint must not name an unrevealed page). Any miss
- * resolves to `undefined` and the watch falls back to its first revealed page.
+ * Resolves the follow-the-party page hint (UNN-586, D3). The instance's
+ * `lastMovedTokenKey` wins when it resolves — defensively, because the key is
+ * opaque and dual-lifecycle: it must belong to a **roster** character, still
+ * hold a token (combat prune can dangle it), and stand in a **revealed** Zone
+ * (the hint must not name an unrevealed page).
+ *
+ * When it doesn't resolve — an enemy moved last (combat writes every mover's
+ * key), the key dangles, or the party stands unrevealed — fall back to the
+ * page where most roster tokens stand in revealed Zones (ties broken by
+ * canonical page order), so an enemy's move never yanks the watch off the
+ * party's page. Only when no roster member stands revealed is the hint absent.
  */
 function followedPageId(
   mapInstance: MapInstanceState,
   roster: Record<string, DungeonRosterEntry>
 ): string | undefined {
   const key = mapInstance.lastMovedTokenKey
-  if (key === null || roster[key] === undefined) return undefined
-  const token = mapInstance.occupancy[key]
-  if (token === undefined) return undefined
-  if (!isZoneRevealed(mapInstance.reveal, token.zoneId)) return undefined
-  return mapInstance.geometry.zones[token.zoneId]?.pageId
+  if (key !== null && roster[key] !== undefined) {
+    const token = mapInstance.occupancy[key]
+    if (
+      token !== undefined &&
+      isZoneRevealed(mapInstance.reveal, token.zoneId)
+    ) {
+      const pageId = mapInstance.geometry.zones[token.zoneId]?.pageId
+      if (pageId !== undefined) return pageId
+    }
+  }
+
+  const tokensPerPage: Record<string, number> = {}
+  for (const [tokenKey, token] of Object.entries(mapInstance.occupancy)) {
+    if (roster[tokenKey] === undefined) continue
+    if (!isZoneRevealed(mapInstance.reveal, token.zoneId)) continue
+    const pageId = mapInstance.geometry.zones[token.zoneId]?.pageId
+    if (pageId === undefined) continue
+    tokensPerPage[pageId] = (tokensPerPage[pageId] ?? 0) + 1
+  }
+  let best: string | undefined
+  for (const page of orderedPages(mapInstance.geometry)) {
+    const count = tokensPerPage[page.id] ?? 0
+    if (
+      count > 0 &&
+      (best === undefined || count > (tokensPerPage[best] ?? 0))
+    ) {
+      best = page.id
+    }
+  }
+  return best
 }

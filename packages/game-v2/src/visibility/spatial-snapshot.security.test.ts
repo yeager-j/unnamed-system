@@ -229,8 +229,10 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
     expect(snap.pages).toEqual([{ id: "default", name: "Page 1" }])
   })
 
-  it("omits the follow hint when the last mover is an enemy or in an unrevealed zone", () => {
-    // Enemy participant moved last — its token exists but isn't in the roster.
+  it("keeps following the party's page when the last mover is an enemy", () => {
+    // Enemy participant moved last — its token exists but isn't in the roster,
+    // so the hint falls back to the party's revealed page rather than yanking
+    // the watch to a first-page default (and never the enemy's unrevealed page).
     const enemyMoved = projectDungeonSnapshot(
       DUNGEON_META,
       { ...fogInstance, lastMovedTokenKey: "lich" },
@@ -243,10 +245,31 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
       },
       roster
     )
-    expect(enemyMoved.activePageId).toBeUndefined()
-    expect("activePageId" in enemyMoved).toBe(false)
+    expect(enemyMoved.activePageId).toBe("default")
     // The raw token key never crosses either way.
     expect(JSON.stringify(enemyMoved)).not.toContain("lich")
+  })
+
+  it("omits the follow hint entirely when no roster member stands revealed", () => {
+    const hidden = projectDungeonSnapshot(
+      DUNGEON_META,
+      {
+        ...fogInstance,
+        occupancy: { hero: free("z-secret"), lich: free("z-secret") },
+        lastMovedTokenKey: "hero",
+      },
+      {
+        turnCounter: 1,
+        actedCharacterIds: [],
+        reminderSettings: {
+          randomEncounters: { enabled: false, intervalTurns: 6 },
+        },
+      },
+      roster
+    )
+    expect(hidden.activePageId).toBeUndefined()
+    expect("activePageId" in hidden).toBe(false)
+    expect(JSON.stringify(hidden)).not.toContain(SECRET_PAGE_ID)
   })
 
   it("resolves the follow hint only through a roster token in a revealed zone", () => {
@@ -264,7 +287,7 @@ describe("RELEASE GATE — dungeon snapshot strips DM-only content", () => {
     )
     expect(heroMoved.activePageId).toBe("default")
 
-    // A dangling key (token pruned after combat) resolves to absent.
+    // A dangling key with no roster tokens at all resolves to absent.
     const dangling = projectDungeonSnapshot(
       DUNGEON_META,
       { ...fogInstance, occupancy: {}, lastMovedTokenKey: "hero" },

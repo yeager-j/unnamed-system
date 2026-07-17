@@ -183,8 +183,11 @@ test("pages: tabs render, chips replace cross-page edges, chip navigates, new pa
     .filter({ visible: true })
   await expect(chip).toHaveCount(1)
 
-  // The chip navigates to the far page; the reciprocal chip sits on the far zone.
+  // In the editor the chip opens its connection menu (the cross-page link has
+  // no edge, so the chip carries the edit controls too); "Go to" navigates to
+  // the far page, and the reciprocal chip sits on the far zone.
   await chip.click()
+  await page.getByRole("menuitem", { name: "Go to Ossuary" }).click()
   await expect(page.getByLabel("Zone: Ossuary")).toBeVisible()
   await expect(page.getByLabel("Zone: Hall")).toHaveCount(0)
   await expect(

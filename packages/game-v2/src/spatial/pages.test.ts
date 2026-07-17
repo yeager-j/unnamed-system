@@ -87,6 +87,8 @@ describe("crossPageLinksForPage", () => {
         farZoneName: "Ossuary",
         farPageId: "p2",
         farPageName: "Undercroft",
+        hidden: false,
+        locked: false,
       },
     ])
     expect(crossPageLinksForPage(geometry, "p2")).toEqual([
@@ -97,6 +99,8 @@ describe("crossPageLinksForPage", () => {
         farZoneName: "b",
         farPageId: DEFAULT_PAGE_ID,
         farPageName: "Page 1",
+        hidden: false,
+        locked: false,
       },
     ])
   })

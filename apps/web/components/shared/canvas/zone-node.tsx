@@ -14,8 +14,10 @@ import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
 import { Separator } from "@workspace/ui/components/separator"
@@ -30,7 +32,11 @@ import type { ZoneNode as ZoneNodeType } from "./geometry-to-flow"
 import { useConnectionHighlight } from "./hovered-connection-context"
 import { useMapCanvas } from "./map-canvas-context"
 import { OccupantToken } from "./set-piece/occupant-chips"
-import { PageLinkChips } from "./set-piece/page-link-chip"
+import {
+  pageLinkChipClass,
+  PageLinkChipLabel,
+  PageLinkChips,
+} from "./set-piece/page-link-chip"
 import { ZoneSetPiece } from "./set-piece/zone-set-piece"
 
 const SIZE_LADDER: ZoneSize[] = ["S", "M", "L", "XL"]
@@ -69,6 +75,8 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
     setZoneIdentity,
     duplicateZone,
     deleteZone,
+    setConnectionFlag,
+    deleteConnection,
     pages,
     navigateToPage,
     openConnectPicker,
@@ -208,7 +216,72 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
       handles={handles}
       pageLinks={
         crossPageLinks.length > 0 ? (
-          <PageLinkChips links={crossPageLinks} onNavigate={navigateToPage} />
+          editable ? (
+            // A cross-page connection has no drawn edge, so the chip carries
+            // the edge toolbar's controls too (flags + delete) — the menu is
+            // the connection's only edit affordance (UNN-586).
+            <ul className="flex flex-wrap gap-1">
+              {crossPageLinks.map((link) => (
+                <li
+                  key={`${link.connectionId}:${link.zoneId}`}
+                  className="min-w-0"
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      aria-label={`Leads to ${link.farZoneName} on ${link.farPageName}`}
+                      className={pageLinkChipClass}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <PageLinkChipLabel link={link} />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() =>
+                          navigateToPage(link.farPageId, link.farZoneId)
+                        }
+                      >
+                        Go to {link.farZoneName}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuCheckboxItem
+                        checked={link.hidden ?? false}
+                        onCheckedChange={(checked) =>
+                          setConnectionFlag(
+                            link.connectionId,
+                            "hidden",
+                            checked
+                          )
+                        }
+                      >
+                        Hidden from players
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={link.locked ?? false}
+                        onCheckedChange={(checked) =>
+                          setConnectionFlag(
+                            link.connectionId,
+                            "locked",
+                            checked
+                          )
+                        }
+                      >
+                        Locked
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => deleteConnection(link.connectionId)}
+                      >
+                        Delete connection
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <PageLinkChips links={crossPageLinks} onNavigate={navigateToPage} />
+          )
         ) : undefined
       }
       closeupRoster={

@@ -18,7 +18,9 @@ import {
 
 /** A cross-page connection as seen from one on-page endpoint — the "leads to ⇢"
  *  chip's payload (D3): the chip renders on `zoneId` and navigates to
- *  `farPageId`, focusing `farZoneId`. */
+ *  `farPageId`, focusing `farZoneId`. Carries the connection's authored
+ *  `hidden`/`locked` flags: a cross-page connection has no drawn edge, so the
+ *  chip is its only edit affordance in the editor and needs the flag state. */
 export interface CrossPageLink {
   connectionId: string
   zoneId: string
@@ -26,6 +28,8 @@ export interface CrossPageLink {
   farZoneName: string
   farPageId: string
   farPageName: string
+  hidden: boolean
+  locked: boolean
 }
 
 /** A total, environment-independent code-unit order — this sort feeds
@@ -96,6 +100,8 @@ export function crossPageLinksForPage(
         farZoneName: far.name,
         farPageId: far.pageId,
         farPageName: farPage?.name ?? far.pageId,
+        hidden: connection.hidden,
+        locked: connection.locked,
       })
     }
   }
