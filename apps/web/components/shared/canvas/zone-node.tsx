@@ -33,6 +33,7 @@ import { useConnectionHighlight } from "./hovered-connection-context"
 import { useMapCanvas } from "./map-canvas-context"
 import { OccupantToken } from "./set-piece/occupant-chips"
 import {
+  pageLinkAriaLabel,
   pageLinkChipClass,
   PageLinkChipLabel,
   PageLinkChips,
@@ -228,7 +229,7 @@ export function ZoneNode({ data, selected }: NodeProps<ZoneNodeType>) {
                 >
                   <DropdownMenu>
                     <DropdownMenuTrigger
-                      aria-label={`Leads to ${link.farZoneName} on ${link.farPageName}`}
+                      aria-label={pageLinkAriaLabel(link)}
                       className={pageLinkChipClass}
                       onClick={(event) => event.stopPropagation()}
                     >

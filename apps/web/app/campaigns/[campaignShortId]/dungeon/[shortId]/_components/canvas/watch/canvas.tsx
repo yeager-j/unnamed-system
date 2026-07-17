@@ -124,6 +124,9 @@ function watchPageLinks(
         farZoneName: far.name,
         farPageId: far.pageId,
         farPageName: pageNameById.get(far.pageId) ?? far.pageId,
+        // Lock state is already player-visible on drawn edges and exit notches;
+        // the snapshot carries no `hidden` (a hidden connection never reaches it).
+        locked: connection.locked,
       })
     }
   }

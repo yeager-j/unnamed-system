@@ -1,6 +1,10 @@
 "use client"
 
-import { ArrowBendUpRightIcon } from "@phosphor-icons/react/dist/ssr"
+import {
+  ArrowBendUpRightIcon,
+  EyeSlashIcon,
+  LockIcon,
+} from "@phosphor-icons/react/dist/ssr"
 
 import { cn } from "@workspace/ui/lib/utils"
 
@@ -20,6 +24,18 @@ export interface PageLinkView {
    *  chip menu reads them); the watch's links omit them. */
   hidden?: boolean
   locked?: boolean
+}
+
+/** The chip's accessible name — one home for both the plain chip and the
+ *  editor's dropdown-trigger variant, mirroring `connectionAriaLabel`'s flag
+ *  phrasing so hidden/locked state is announced, not color-only. */
+export function pageLinkAriaLabel(link: PageLinkView): string {
+  const flags = [
+    link.hidden ? "hidden from players" : null,
+    link.locked ? "locked" : null,
+  ].filter(Boolean)
+  const base = `Leads to ${link.farZoneName} on ${link.farPageName}`
+  return flags.length > 0 ? `${base} — ${flags.join(", ")}` : base
 }
 
 /** The chip's shell classes — shared with the editor's dropdown-trigger variant
@@ -42,6 +58,15 @@ export function PageLinkChipLabel({
         {link.farZoneName}
         <span className="text-muted-foreground/70"> · {link.farPageName}</span>
       </span>
+      {/* Flag glyphs mirror the threshold notches' vocabulary (EyeSlash =
+          hidden, Lock = locked); the chip's aria-label announces the same
+          state, so the glyphs are never the only channel. */}
+      {link.hidden ? (
+        <EyeSlashIcon className="size-3 shrink-0" aria-hidden />
+      ) : null}
+      {link.locked ? (
+        <LockIcon className="size-3 shrink-0" aria-hidden />
+      ) : null}
       {count !== undefined && count > 0 ? (
         <span className="ml-0.5 rounded-full bg-primary/10 px-1.5 font-medium text-foreground tabular-nums">
           {count}
@@ -77,7 +102,7 @@ export function PageLinkChip({
   return (
     <button
       type="button"
-      aria-label={`Leads to ${link.farZoneName} on ${link.farPageName}`}
+      aria-label={pageLinkAriaLabel(link)}
       onClick={(event) => {
         event.stopPropagation()
         onNavigate(link.farPageId, link.farZoneId)
