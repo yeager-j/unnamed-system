@@ -70,7 +70,7 @@
     "@workspace/typescript-config": "*",
     "eslint": "^9.39.2",
     "fast-check": "^4.9.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.6"
   }
 }
