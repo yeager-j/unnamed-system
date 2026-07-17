@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { cache } from "react"
 
-import { MapEditor } from "@/app/maps/_components/map-editor"
+import { MapEditor } from "@/app/stage/_components/map-editor"
 import { auth } from "@/lib/auth"
 import { loadMapByShortId } from "@/lib/db/queries/load-map"
 import type { MapRow } from "@/lib/db/schema/map"
@@ -29,11 +29,11 @@ export async function generateMetadata({
 }
 
 /**
- * The Map editor at `/maps/{shortId}` (UNN-460), owner-only. A non-owner (signed
- * out, or signed in as someone else) gets `notFound()` — same as the campaign
- * manage page, so a stranger with the URL can't tell the Map exists. Map editing
- * is the template owner's alone (`requireMapOwner` gates the writes; this is the
- * read-side mirror).
+ * The Map editor at `/stage/maps/{shortId}` (UNN-460/UNN-587), owner-only. A
+ * non-owner (signed out, or signed in as someone else) gets `notFound()` — same
+ * as the campaign manage page, so a stranger with the URL can't tell the Map
+ * exists. Map editing is the template owner's alone (`requireMapOwner` gates the
+ * writes; this is the read-side mirror).
  */
 export default async function MapEditorPage({ params }: PageProps) {
   const { shortId } = await params

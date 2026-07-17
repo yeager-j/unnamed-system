@@ -14,8 +14,9 @@ import { Label } from "@workspace/ui/components/label"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
 
-import type { MapSaveStatus } from "@/app/maps/_hooks/use-map-autosave"
+import type { MapSaveStatus } from "@/app/stage/_hooks/use-map-autosave"
 import { CanvasPanel } from "@/components/shared/canvas/canvas-panel"
+import { stageMapsPath } from "@/lib/paths"
 
 import { DeleteMapButton } from "./delete-map-button"
 
@@ -50,7 +51,7 @@ export function MapSettingsPanel({
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <CanvasPanel
-        backHref="/maps"
+        backHref={stageMapsPath()}
         backLabel="Back to My Maps"
         title={name.value || "Untitled map"}
         actions={

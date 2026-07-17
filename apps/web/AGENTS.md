@@ -54,7 +54,7 @@ apps/web/
 │   │   └── builder/[step]/           Character builder + _components/movements/{animus,corpus,ortus,persona}
 │   ├── dev/editor/                   Editor scratch route
 │   ├── join/[token]/                 Participant-link join flow
-│   └── maps/[shortId]/               Map editor + _components + _hooks
+│   └── stage/                         Authoring library: inset Maps list + full-bleed Map editor
 ├── components/                       Cross-feature kit tier (shared by ≥2 features)
 │   ├── combat/                       Shared combat UI: conditions, console, controls, dialogs, drawer, enemies, rail, setup, watch
 │   ├── archetype/                    Archetype rendering kit (sheet + builder + atlas)

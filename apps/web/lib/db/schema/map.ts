@@ -15,7 +15,7 @@ import { users } from "./user"
  * optimistic-concurrency shape as the encounter `session` and the Instance
  * `state`.
  *
- * `shortId` backs the owner-only My Maps editor URL (`/maps/{shortId}`). Writes
+ * `shortId` backs the owner-only My Maps editor URL (`/stage/maps/{shortId}`). Writes
  * gate on the owner (`requireMapOwner`, `map.userId === viewer`); the snapshot
  * isolates the template from any minted Instance, so editing a Map never reaches
  * a live Instance (the `mapInstance.mapId` FK is `set null`, so a Map can be

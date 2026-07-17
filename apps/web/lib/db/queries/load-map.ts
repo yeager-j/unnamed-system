@@ -25,7 +25,7 @@ export async function loadMapRowById(mapId: string): Promise<MapRow | null> {
   return row ? withParsedGeometry(row) : null
 }
 
-/** The `map` row by public `shortId` (the `/maps/{shortId}` editor URL), or
+/** The `map` row by public `shortId` (the `/stage/maps/{shortId}` editor URL), or
  *  `null` when none matches. */
 export async function loadMapByShortId(
   shortId: string

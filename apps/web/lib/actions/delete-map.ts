@@ -6,6 +6,7 @@ import { err, ok, type Result } from "@workspace/game-v2/kernel/result"
 
 import { requireMapOwner } from "@/lib/auth/map-access"
 import { deleteMap } from "@/lib/db/writes/map"
+import { stageMapsPath } from "@/lib/paths"
 
 import {
   DeleteMapSchema,
@@ -17,7 +18,7 @@ import {
  * Deletes a Map (UNN-460, owner-only). `requireMapOwner` gates it; the delete is
  * a plain `DELETE` (the `mapInstance.mapId` FK is `set null`, so any minted
  * Instance survives with `mapId = null` — snapshot isolation). Revalidates the My
- * Maps list; the client redirects to `/maps`.
+ * Maps list; the client redirects to `/stage/maps`.
  */
 export async function deleteMapAction(
   input: DeleteMapInput
@@ -29,6 +30,6 @@ export async function deleteMapAction(
 
   await deleteMap(map.id)
 
-  revalidatePath("/maps")
+  revalidatePath(stageMapsPath())
   return ok(undefined)
 }

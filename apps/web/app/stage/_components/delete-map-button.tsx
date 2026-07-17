@@ -18,6 +18,7 @@ import {
 import { Button } from "@workspace/ui/components/button"
 
 import { deleteMapAction } from "@/lib/actions/delete-map"
+import { stageMapsPath } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
@@ -45,7 +46,7 @@ export function DeleteMapButton({
           if (result.ok) {
             setOpen(false)
             toast.success(`${mapName} deleted.`)
-            router.push("/maps")
+            router.push(stageMapsPath())
             return
           }
           toast.error("Couldn't delete the map. Try again.")

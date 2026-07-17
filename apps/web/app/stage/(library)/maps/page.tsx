@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
 
 import { SignedOutLanding } from "@/app/_components/signed-out-landing"
-import { CreateMapButton } from "@/app/maps/_components/create-map-button"
-import { MapCard } from "@/app/maps/_components/map-card"
+import { CreateMapButton } from "@/app/stage/_components/create-map-button"
+import { MapCard } from "@/app/stage/_components/map-card"
 import { auth } from "@/lib/auth"
 import { loadMapsByUserId } from "@/lib/db/queries/load-map"
 
@@ -20,18 +20,18 @@ export default async function MapsPage() {
 
   if (!session?.user?.id) {
     return (
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6">
         <SignedOutLanding />
-      </main>
+      </div>
     )
   }
 
   const maps = await loadMapsByUserId(session.user.id)
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-lg font-medium">My Maps</h1>
+        <h1 className="font-display text-3xl font-bold">My Maps</h1>
         <CreateMapButton />
       </header>
 
@@ -49,6 +49,6 @@ export default async function MapsPage() {
           ))}
         </ul>
       )}
-    </main>
+    </div>
   )
 }

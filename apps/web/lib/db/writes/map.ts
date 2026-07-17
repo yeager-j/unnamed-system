@@ -25,7 +25,7 @@ type MapWriteError = "map-not-found" | "stale"
  * Creates an empty Map owned by `userId` with a minted, collision-retried
  * `shortId` (the My Maps editor URL). Geometry starts empty; the editor (UNN-461's
  * canvas) autosaves Zones/connections into it. Returns the new `id` + `shortId`
- * so the action can redirect to `/maps/{shortId}` (mirrors `createCampaign`).
+ * so the action can redirect to `/stage/maps/{shortId}` (mirrors `createCampaign`).
  */
 export async function createMap(input: {
   userId: string
