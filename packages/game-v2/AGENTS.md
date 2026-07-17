@@ -128,6 +128,9 @@ packages/game-v2/
     ├── items/                   Item domain logic (+ __fixtures__/__integration__)
     ├── narrative/               Narrative/flavor text hooks
     ├── progression/             Leveling/rank-up
+    ├── generation/              Procedural-dungeon authoring contracts (UNN-588): template-set
+    │                            schemas, d100Ranges projection, lintTemplateSet (pure advisory,
+    │                            vocab injected). Generation runtime (roll/layout/fold) lands P3+.
     ├── resolve/                 Roll/check resolution (+ __fixtures__/__integration__/__laws__)
     ├── resources/               Resource pools (non-vitals)
     ├── skills/                  Skill domain logic

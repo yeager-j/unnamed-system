@@ -49,3 +49,17 @@ export async function loadMapsByUserId(userId: string): Promise<MapRow[]> {
 
   return rows.map(withParsedGeometry)
 }
+
+/** The owner's Maps as `{ id, name }` reference options (the Set editor's
+ *  portal picker + lint `mapIds` vocab). A dedicated projection — the full
+ *  loader selects and re-parses every `geometry` blob, a cost that grows with
+ *  authored canvas size and buys nothing for a picker. */
+export async function loadMapOptionsByUserId(
+  userId: string
+): Promise<Array<{ id: string; name: string }>> {
+  return db
+    .select({ id: maps.id, name: maps.name })
+    .from(maps)
+    .where(eq(maps.userId, userId))
+    .orderBy(desc(maps.createdAt))
+}
