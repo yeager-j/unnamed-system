@@ -16,6 +16,7 @@ import type {
   MapInstanceState,
   RevealState,
 } from "@workspace/game-v2/spatial/map-instance.schema"
+import { orderedPages } from "@workspace/game-v2/spatial/pages"
 import {
   connectionFogState,
   isConnectionLocked,
@@ -349,15 +350,25 @@ export interface DungeonSnapshotToken {
 }
 
 /** A **revealed** Zone. Carries its player-facing `description` + cosmetic identity
- *  (size/motif/mood, absent when unset) + canvas `position` — never the private
- *  `dmNotes`. */
+ *  (size/motif/mood, absent when unset) + canvas `position` + its `pageId`
+ *  (grouping only — a deliberate wire field, blessed by the release gate;
+ *  UNN-586) — never the private `dmNotes`. */
 export interface DungeonSnapshotZone extends SnapshotZoneIdentity {
   id: string
   name: string
   description: string
   position: { x: number; y: number }
+  pageId: string
   tokens: DungeonSnapshotToken[]
   enchantment?: SnapshotEnchantment
+}
+
+/** A page the watch may list — id + name only, and only pages holding at least
+ *  one **revealed** Zone (UNN-586). An unrevealed page is structurally absent:
+ *  neither its id nor its name ever serializes (the release gate pins it). */
+export interface DungeonSnapshotPage {
+  id: string
+  name: string
 }
 
 /**
@@ -405,6 +416,16 @@ export interface DungeonSnapshot {
   zones: DungeonSnapshotZone[]
   connections: SnapshotConnection[]
   exits: SnapshotExit[]
+  /** Pages holding ≥1 revealed Zone, in canonical display order (UNN-586). */
+  pages: DungeonSnapshotPage[]
+  /**
+   * The follow-the-party page hint (D3): the page of the Zone the party's most
+   * recently moved member stands in. Derived server-side from the instance's
+   * `lastMovedTokenKey` and **roster-gated** — an enemy's move, a dangling key,
+   * or an unrevealed Zone all resolve to absent, so the raw token key (a
+   * combat `participantId`, possibly an enemy's) never serializes.
+   */
+  activePageId?: string
   combat?: DungeonSnapshotCombat
 }
 
@@ -476,6 +497,7 @@ export function projectDungeonSnapshot(
         name: zone.name,
         description: zone.description,
         position: zone.position,
+        pageId: zone.pageId,
         ...zoneIdentity(zone),
         tokens: tokensByZone[zone.id] ?? [],
         ...(enchantment ? { enchantment } : {}),
@@ -488,6 +510,15 @@ export function projectDungeonSnapshot(
     exitAnchors
   )
 
+  // Only pages holding a revealed Zone serialize — an unrevealed page's id and
+  // name stay structurally absent (the release gate pins it). Canonical order.
+  const revealedPageIds = new Set(zones.map((zone) => zone.pageId))
+  const pages: DungeonSnapshotPage[] = orderedPages(mapInstance.geometry)
+    .filter((page) => revealedPageIds.has(page.id))
+    .map((page) => ({ id: page.id, name: page.name }))
+
+  const activePageId = followedPageId(mapInstance, roster)
+
   return {
     status: meta.status,
     name: meta.name,
@@ -498,6 +529,28 @@ export function projectDungeonSnapshot(
     zones,
     connections,
     exits,
+    pages,
+    ...(activePageId !== undefined ? { activePageId } : {}),
     ...(meta.combat ? { combat: meta.combat } : {}),
   }
+}
+
+/**
+ * Resolves the instance's `lastMovedTokenKey` to the follow-the-party page hint
+ * (UNN-586, D3) — defensively, because the key is opaque and dual-lifecycle:
+ * it must belong to a **roster** character (an enemy participant's move never
+ * drives the watch), still hold a token (combat prune can dangle it), and stand
+ * in a **revealed** Zone (the hint must not name an unrevealed page). Any miss
+ * resolves to `undefined` and the watch falls back to its first revealed page.
+ */
+function followedPageId(
+  mapInstance: MapInstanceState,
+  roster: Record<string, DungeonRosterEntry>
+): string | undefined {
+  const key = mapInstance.lastMovedTokenKey
+  if (key === null || roster[key] === undefined) return undefined
+  const token = mapInstance.occupancy[key]
+  if (token === undefined) return undefined
+  if (!isZoneRevealed(mapInstance.reveal, token.zoneId)) return undefined
+  return mapInstance.geometry.zones[token.zoneId]?.pageId
 }
