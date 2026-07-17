@@ -18,6 +18,7 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 
 import { signOutAction } from "@/lib/auth/actions"
+import { stageMapsPath } from "@/lib/paths"
 
 interface AccountMenuProps {
   user: {
@@ -71,7 +72,7 @@ export function AccountMenu({ user }: AccountMenuProps) {
         <DropdownMenuItem render={<Link href="/campaigns" />}>
           My Campaigns
         </DropdownMenuItem>
-        <DropdownMenuItem render={<Link href="/maps" />}>
+        <DropdownMenuItem render={<Link href={stageMapsPath()} />}>
           My Maps
         </DropdownMenuItem>
         <DropdownMenuSeparator />

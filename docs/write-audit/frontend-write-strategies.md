@@ -90,7 +90,7 @@ instance queue has **no `refetchVersion`** (`use-dungeon-console.ts:80-85`), so 
 spatial write toasts rather than auto-retrying.
 
 ### 7. Debounced whole-blob canvas autosave (map templates)
-`apps/web/hooks/use-map-autosave.ts`; `components/maps/canvas/map-canvas.tsx:172-177`
+`apps/web/app/stage/_hooks/use-map-autosave.ts`; `apps/web/components/shared/canvas/map-canvas.tsx`
 
 The no-Save-button map editor. Edits reduce local geometry client-side and emit the
 **entire geometry blob**; name + geometry share one `maps.version` token through one

@@ -8,6 +8,7 @@ import {
 
 import { getDb, mapInstances, maps } from "@/lib/db"
 import { deleteMap, saveMapGeometry } from "@/lib/db/writes/map"
+import { stageMapsPath } from "@/lib/paths"
 
 import { STORAGE_STATE } from "./auth.setup"
 import {
@@ -40,8 +41,32 @@ test.afterAll(async () => {
   await cleanup(tracker)
 })
 
+test("the Stage root opens the Maps library and reserves the Sets slot", async ({
+  page,
+}) => {
+  await page.goto("/stage")
+
+  await expect(page).toHaveURL(stageMapsPath())
+  const libraryNav = page.getByRole("navigation", {
+    name: "Authoring library",
+  })
+  await expect(libraryNav.getByRole("link", { name: "Maps" })).toHaveAttribute(
+    "aria-current",
+    "page"
+  )
+  await expect(libraryNav.getByRole("button", { name: "Sets" })).toBeDisabled()
+  await expect(page.getByRole("link", { name: "My Campaigns" })).toBeVisible()
+})
+
+test("legacy Map URLs are a hard cutover", async ({ page }) => {
+  const response = await page.goto("/maps")
+
+  expect(response?.status()).toBe(404)
+  await expect(page).toHaveURL(/\/maps$/)
+})
+
 test("create → autosave rename → list → delete", async ({ page }) => {
-  await page.goto("/maps")
+  await page.goto(stageMapsPath())
 
   await page.getByRole("button", { name: "Create map" }).click()
   await page.getByLabel("Name").fill("Crypt of E2E")
@@ -51,7 +76,10 @@ test("create → autosave rename → list → delete", async ({ page }) => {
     .click()
 
   // Landed on the editor for the new Map.
-  await page.waitForURL(/\/maps\/[^/]+$/)
+  await page.waitForURL(/\/stage\/maps\/[^/]+$/)
+  await expect(
+    page.getByRole("navigation", { name: "Authoring library" })
+  ).toHaveCount(0)
   const shortId = page.url().split("/").pop()!
   createdMapShortIds.push(shortId)
 
@@ -72,7 +100,7 @@ test("create → autosave rename → list → delete", async ({ page }) => {
     .toBe("Sunken Crypt")
 
   // The renamed Map shows in the list…
-  await page.goto("/maps")
+  await page.goto(stageMapsPath())
   await expect(page.getByRole("link", { name: /Sunken Crypt/ })).toBeVisible()
 
   // …and deletes back to an empty list entry.
@@ -80,7 +108,7 @@ test("create → autosave rename → list → delete", async ({ page }) => {
   await page.getByRole("button", { name: "Delete map" }).click()
   await page.getByRole("button", { name: "Delete forever" }).click()
 
-  await page.waitForURL("**/maps")
+  await page.waitForURL("**/stage/maps")
   await expect(page.getByRole("link", { name: /Sunken Crypt/ })).toHaveCount(0)
 })
 

@@ -207,12 +207,12 @@ persist back into exploration when the fight ends.
 ## 4. Map authoring *(new)*
 
 **One-line:** debounced **whole-document** optimistic-concurrency autosave — the
-`/maps/{shortId}` editor reduces edits client-side and POSTs the *entire* `geometry`
+`/stage/maps/{shortId}` editor reduces edits client-side and POSTs the *entire* `geometry`
 blob to a version-guarded action. No event crosses the wire (a map template has a
 single owner, so no trust boundary).
 
 **Path:** canvas edit → `reduceMapGeometry` client-side → emit whole blob
-(`components/maps/canvas/map-canvas.tsx:165-177`) → debounced + serialized through one
+(`apps/web/components/shared/canvas/map-canvas.tsx`) → debounced + serialized through one
 `saveQueueRef`/`versionRef` (`hooks/use-map-autosave.ts`) → `saveMapAction`
 (`apps/web/lib/actions/save-map.ts:25`, `SaveMapSchema` is a discriminated union of
 name/geometry) → `requireMapOwner` (`:32`) → `saveMapGeometry`
@@ -221,7 +221,7 @@ column). **No `revalidatePath`** — the editor renders its optimistic value. Se
 on the next edit; geometry does **not** hard-revert on failure.
 
 `createMapAction` only requires sign-in (you own what you create);
-`deleteMapAction` is the only map write that revalidates (`/maps`) and is a plain
+`deleteMapAction` is the only map write that revalidates (`/stage/maps`) and is a plain
 DELETE with no live-encounter lock (the FK is `set null`).
 
 ---

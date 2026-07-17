@@ -37,6 +37,7 @@ import {
   dungeonConsolePath,
   dungeonWatchPath,
   encounterConsolePath,
+  stageMapPath,
 } from "@/lib/paths"
 
 /**
@@ -263,7 +264,7 @@ export async function createTestMap(
   return {
     id: row.id,
     shortId: row.shortId,
-    url: `/maps/${row.shortId}`,
+    url: stageMapPath(row.shortId),
     name: row.name,
   }
 }

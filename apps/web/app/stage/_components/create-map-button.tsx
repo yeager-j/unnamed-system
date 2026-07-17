@@ -19,6 +19,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { createMapAction } from "@/lib/actions/create-map"
+import { stageMapPath } from "@/lib/paths"
 import { guardWriteTransition } from "@/lib/sync/guard-write-transition"
 
 /**
@@ -47,7 +48,7 @@ export function CreateMapButton() {
             return
           }
           setOpen(false)
-          router.push(`/maps/${result.value.shortId}`)
+          router.push(stageMapPath(result.value.shortId))
         },
         () =>
           toast.error("Couldn't create the map. Check the name and try again.")

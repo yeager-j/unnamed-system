@@ -15,7 +15,7 @@ import {
 
 /**
  * Creates an empty Map owned by the signed-in caller and returns its public
- * `shortId` so the client can redirect to the editor (`/maps/{shortId}`) —
+ * `shortId` so the client can redirect to the editor (`/stage/maps/{shortId}`) —
  * mirroring `createCampaignAction`. The only auth gate is "must be signed in";
  * anyone can author their own Maps.
  */

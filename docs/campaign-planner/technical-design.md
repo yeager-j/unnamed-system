@@ -416,7 +416,7 @@ small table.
   **Hook lineage (corrected by validation):** a generic debounced core
   already exists — `domain/entity/use-debounced-auto-save.ts` — but it is coupled to
   the per-write-class version-token providers; the closer LWW precedent is
-  `app/maps/_hooks/use-map-autosave.ts`, and **UNN-483 already tracks extracting the
+  `app/stage/_hooks/use-map-autosave.ts`, and **UNN-483 already tracks extracting the
   shared core those two duplicate**. The planner consumes that consolidated
   LWW core (landing UNN-483 as part of phase 3 if it hasn't landed) rather
   than minting a third duplicate.
